@@ -197,8 +197,13 @@ fi
 log "merging coverage into ${OUT}"
 suite "lcov report" llvm_cov report --lcov --output-path "${OUT}"
 
-# A full product build must produce records for every eligible source file.
-suite "coverage presence" bash scripts/ci/assert-coverage-presence.sh "${OUT}" --all
+# A full product build must produce records for every eligible source file,
+# except in the crates whose suites this run skipped (OH_COV_TUI=0).
+presence_skip=""
+[ "${OH_COV_TUI:-1}" = "1" ] || presence_skip="crates/openhuman-tui/src/"
+[ -z "${presence_skip}" ] || log "coverage presence: not checking ${presence_skip} (suite skipped)"
+suite "coverage presence" env COVERAGE_PRESENCE_SKIP_PREFIXES="${presence_skip}" \
+  bash scripts/ci/assert-coverage-presence.sh "${OUT}" --all
 
 if [ "${#FAILED_SUITES[@]}" -gt 0 ]; then
   log "${#FAILED_SUITES[@]} suite(s) failed:"

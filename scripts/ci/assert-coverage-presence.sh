@@ -188,6 +188,18 @@ has_fn() {
 # category for which "no lcov rows" is the correct, expected outcome; a rule
 # without them false-fails on 623 of 1,972 files (measured against the
 # lcov-rust-core artifact of run 32108672413).
+# COVERAGE_PRESENCE_SKIP_PREFIXES: space-separated path prefixes of crates whose
+# suite this run deliberately did not run (rust-coverage.sh sets it, e.g. with
+# OH_COV_TUI=0, where CI Lite covers the crate on pushes to main instead). A
+# crate that was not run cannot have produced records; this is not an allowlist.
+skipped_suite() {
+  local f="$1" prefix
+  for prefix in ${COVERAGE_PRESENCE_SKIP_PREFIXES:-}; do
+    case "${f}" in "${prefix}"*) return 0 ;; esac
+  done
+  return 1
+}
+
 eligible() {
   local f="$1" base
   base="$(basename "${f}")"
@@ -206,6 +218,7 @@ eligible() {
   # Per-OS modules behind #[cfg(target_os)]; CI is Linux.
   case "${base}" in macos.rs | windows.rs) return 1 ;; esac
   echo "${f}" | grep -Eq "${UNCOVERED_BY_DESIGN}" && return 1
+  skipped_suite "${f}" && return 1
   allowlisted "${f}" && return 1
   # No instrumentable code: barrel `mod.rs`, pure type/const modules. 319 files
   # have no `fn` at all and can never produce a coverage region.

@@ -2,11 +2,11 @@
 //!
 //! Turns the append-only log's [`DisplayRecord`]s (message lines, compaction
 //! markers, interrupted partials) into the frontend's chat vocabulary
-//! ([`DisplayItem`]), sanitizing injected scaffolding as it goes. Sub-agent
-//! sibling files are discovered and nested one level deep.
+//! ([`DisplayItem`]), sanitizing injected scaffolding as it goes. File
+//! resolution lives in [`super::resolve`]; sub-agent trails are placed by
+//! [`super::subagents`].
 
-use std::collections::VecDeque;
-use std::fs;
+use std::collections::{HashSet, VecDeque};
 use std::path::{Path, PathBuf};
 
 use tinyagents_session::transcript::{self, CompactionMarker, DisplayMessage, DisplayRecord};
@@ -14,14 +14,11 @@ use tinytools_agent::dialect::{parse_replayed_results, ToolResultEntry};
 
 use crate::agent::messages::TOOL_RESULT_FAILURES_METADATA_KEY;
 
+use super::resolve;
+use super::subagents;
 use super::types::{DisplayItem, ProjectedTranscript, ToolCallFailure, ToolCallStatus};
 
 const LOG_PREFIX: &str = "[threads][transcript]";
-
-/// Max sub-agent nesting depth the projection descends. The plan calls for
-/// one level of recursion; we allow a small bound so a delegated worker that
-/// itself delegates still surfaces, without unbounded fan-out.
-const MAX_SUBAGENT_DEPTH: usize = 3;
 
 /// The scaffolding line injected onto every user message (see
 /// `agent::prompts::current_datetime_line`). Stripped at projection so the UI
@@ -44,34 +41,24 @@ pub fn project_thread(workspace_dir: &Path, thread_id: &str) -> Option<Projected
 }
 
 /// Resolve the on-disk file set backing a thread's transcript view: the root
-/// transcript path plus every sub-agent sibling file. `None` when the thread
-/// has no root transcript yet. Exposed so the cache can key on these paths
-/// (and their mtimes/lengths) without re-projecting.
+/// generations in chain order plus every sub-agent sibling file. `None` when
+/// the thread has no root transcript yet. Exposed so the cache can key on
+/// these paths (and their mtimes/lengths) without re-projecting.
 pub fn resolve_files(
     workspace_dir: &Path,
     thread_id: &str,
 ) -> Option<(Vec<PathBuf>, Vec<PathBuf>)> {
-    let root_paths = transcript::find_root_transcripts_for_thread(workspace_dir, thread_id);
-    if root_paths.is_empty() {
-        return None;
-    }
-    let mut sub_paths = Vec::new();
-    for root_path in &root_paths {
-        let Some(root_stem) = root_path.file_stem().and_then(|stem| stem.to_str()) else {
-            continue;
-        };
-        let Some(raw_dir) = root_path.parent() else {
-            continue;
-        };
-        sub_paths.extend(discover_subagent_files(raw_dir, root_stem));
-    }
-    sub_paths.sort();
-    sub_paths.dedup();
-    Some((root_paths, sub_paths))
+    resolve::resolve_files(workspace_dir, thread_id)
 }
 
-/// Project a thread from an already-resolved file set (root + sub-agent
-/// siblings). Missing/unreadable files degrade to empty rather than failing.
+/// Project a thread from an already-resolved file set (root generations +
+/// sub-agent siblings). Missing/unreadable files degrade to empty rather than
+/// failing.
+///
+/// A root whose `_meta.parent_session_id` names the previous root is that
+/// session's next compaction generation: it opens with the retained set
+/// rewritten, so those rows are dropped (see [`resolve::drop_retained_rows`])
+/// and a [`DisplayItem::Compaction`] marks the seam instead.
 pub fn project_from_files(
     thread_id: &str,
     root_paths: &[PathBuf],
@@ -83,49 +70,62 @@ pub fn project_from_files(
         sub_paths.len()
     );
 
-    // Read the root display records once: they feed both the top-level items
-    // and the per-turn timestamp ranges used to anchor sub-agent trails.
-    let mut items = Vec::new();
-    let mut segments = Vec::new();
+    let mut records: Vec<DisplayRecord> = Vec::new();
+    let mut previous: Option<(Option<String>, Vec<DisplayRecord>)> = None;
     for root_path in root_paths {
-        match transcript::read_transcript_display(root_path) {
-            Ok(display) => {
-                items.extend(project_records(&display.records));
-                segments.extend(turn_segments(&display.records));
-            }
+        let display = match transcript::read_transcript_display(root_path) {
+            Ok(display) => display,
             Err(err) => {
                 log::warn!(
                     "{LOG_PREFIX} failed to read root transcript {}: {err}",
                     root_path.display()
                 );
+                continue;
             }
+        };
+        let successor_of_previous = matches!(
+            (&previous, display.meta.parent_session_id.as_deref()),
+            (Some((Some(prev_id), _)), Some(parent)) if prev_id == parent
+        );
+        if successor_of_previous {
+            let predecessor = previous
+                .as_ref()
+                .map(|(_, prev_records)| resolve::generation_rows(prev_records))
+                .unwrap_or_default();
+            let (kept, retained) = resolve::drop_retained_rows(&display.records, predecessor);
+            log::debug!(
+                "{LOG_PREFIX} generation {} retained={} new_records={}",
+                root_path.display(),
+                retained.len(),
+                kept.len()
+            );
+            let first_kept = kept.iter().find_map(|record| match record {
+                DisplayRecord::Message(msg) => Some(msg),
+                DisplayRecord::Compaction(_) => None,
+            });
+            let request_id = first_kept.and_then(|message| message.request_id.clone());
+            records.push(DisplayRecord::Compaction(CompactionMarker {
+                replacement: retained,
+                ts: first_kept
+                    .and_then(|message| message.ts.clone())
+                    .or_else(|| Some(display.meta.created.clone()))
+                    .filter(|ts| !ts.is_empty()),
+                request_id,
+            }));
+            records.extend(kept);
+        } else {
+            records.extend(display.records.iter().cloned());
         }
+        previous = Some((display.meta.session_id.clone(), display.records));
     }
 
-    let mut subagents = Vec::new();
-    for root_path in root_paths {
-        let root_stem = root_path
-            .file_stem()
-            .and_then(|s| s.to_str())
-            .unwrap_or_default();
-        let prefix = format!("{root_stem}__");
-        let siblings: Vec<PathBuf> = sub_paths
-            .iter()
-            .filter(|path| {
-                path.file_stem()
-                    .and_then(|stem| stem.to_str())
-                    .is_some_and(|stem| stem.starts_with(&prefix))
-            })
-            .cloned()
-            .collect();
-        subagents.extend(build_subagent_items(&siblings, root_stem, 0, &segments));
-    }
+    let mut items = project_records(&records);
+    let top_level = items.len();
+    subagents::attach(&mut items, sub_paths, &subagents::turn_segments(&records));
     log::debug!(
-        "{LOG_PREFIX} projected thread={thread_id} top_level_items={} subagents={}",
-        items.len(),
-        subagents.len()
+        "{LOG_PREFIX} projected thread={thread_id} top_level_items={top_level} subagents={}",
+        items.len() - top_level
     );
-    items.extend(subagents);
 
     ProjectedTranscript {
         thread_id: thread_id.to_string(),
@@ -133,362 +133,276 @@ pub fn project_from_files(
     }
 }
 
-/// Discover every sub-agent transcript file beside the resolved root.
-/// Sub-agent stems are `{root_stem}__…`; results are sorted so the
-/// timestamp-prefixed suffixes order by creation time.
-fn discover_subagent_files(raw_dir: &Path, root_stem: &str) -> Vec<PathBuf> {
-    let prefix = format!("{root_stem}__");
-    let entries = match fs::read_dir(raw_dir) {
-        Ok(entries) => entries,
-        Err(error) => {
-            log::debug!(
-                "{LOG_PREFIX} subagent discovery read_dir failed dir={} error={error}",
-                raw_dir.display()
-            );
-            return Vec::new();
-        }
-    };
-    let mut paths: Vec<PathBuf> = entries
-        .flatten()
-        .map(|e| e.path())
-        .filter(|p| p.extension().and_then(|s| s.to_str()) == Some("jsonl"))
-        .filter(|p| {
-            p.file_stem()
-                .and_then(|s| s.to_str())
-                .is_some_and(|stem| stem.starts_with(&prefix))
-        })
-        .collect();
-    paths.sort();
-    paths
-}
-
-/// Build nested [`DisplayItem::Subagent`] items for the direct children of
-/// `parent_stem` among `all_sub_paths`, recursing one level per depth up to
-/// [`MAX_SUBAGENT_DEPTH`]. Attachment is flat (ordered by file timestamp): the
-/// transcript doesn't record a robust delegation-call → file link, so we nest
-/// by stem lineage rather than guessing the parent tool call.
-///
-/// Each item is anchored to a parent turn via [`anchor_request_id`] so the
-/// frontend can render the trail under the turn that spawned it rather than the
-/// most recent turn. `segments` are the root turns' start timestamps.
-fn build_subagent_items(
-    all_sub_paths: &[PathBuf],
-    parent_stem: &str,
-    depth: usize,
-    segments: &[(String, i64)],
-) -> Vec<DisplayItem> {
-    if depth >= MAX_SUBAGENT_DEPTH {
-        return Vec::new();
-    }
-    let child_prefix = format!("{parent_stem}__");
-    let mut out = Vec::new();
-    for path in all_sub_paths {
-        let Some(stem) = path.file_stem().and_then(|s| s.to_str()) else {
-            continue;
-        };
-        let Some(rest) = stem.strip_prefix(&child_prefix) else {
-            continue;
-        };
-        // Direct child only — no further `__` in the remainder.
-        if rest.contains("__") {
-            continue;
-        }
-        let display = match transcript::read_transcript_display(path) {
-            Ok(d) => d,
-            Err(err) => {
-                log::warn!(
-                    "{LOG_PREFIX} failed to read sub-agent transcript {}: {err}",
-                    path.display()
-                );
-                continue;
-            }
-        };
-        let mut items = project_records(&display.records);
-        items.extend(build_subagent_items(
-            all_sub_paths,
-            stem,
-            depth + 1,
-            segments,
-        ));
-        // Prefer the archetype id from meta; fall back to the stem suffix.
-        let id = if display.meta.agent_name.is_empty() {
-            rest.to_string()
-        } else {
-            display.meta.agent_name.clone()
-        };
-        // Anchor to the parent turn active at the sub-agent's spawn time.
-        let request_id = anchor_request_id(child_spawn_unix(rest), segments);
-        log::debug!("{LOG_PREFIX} subagent id={id} stem={rest} anchored request_id={request_id:?}");
-        out.push(DisplayItem::Subagent {
-            id,
-            request_id,
-            items,
-        });
-    }
-    out
-}
-
-/// The root turns' start timestamps as `(request_id, unix_seconds)` in file
-/// order — one entry per turn boundary. Built from the first timestamped line
-/// of each `request_id` run. Turns whose lines carry no `request_id` or no
-/// parseable timestamp contribute nothing (legacy/CLI transcripts yield an
-/// empty list, so sub-agents there stay unanchored).
-fn turn_segments(records: &[DisplayRecord]) -> Vec<(String, i64)> {
-    let mut segments: Vec<(String, i64)> = Vec::new();
-    let mut last_request_id: Option<String> = None;
-    for record in records {
-        let DisplayRecord::Message(msg) = record else {
-            continue;
-        };
-        let (Some(rid), Some(ts)) = (msg.request_id.as_deref(), msg.ts.as_deref()) else {
-            continue;
-        };
-        if last_request_id.as_deref() == Some(rid) {
-            continue;
-        }
-        let Some(unix) = parse_rfc3339_unix(ts) else {
-            continue;
-        };
-        segments.push((rid.to_string(), unix));
-        last_request_id = Some(rid.to_string());
-    }
-    segments
-}
-
-/// Extract a sub-agent's spawn unix timestamp (seconds) from its file-stem
-/// suffix. Stems are `{unix_ts}_{agent_id}`; the leading integer is the agent
-/// build/spawn time (see the transcript module's stem docs). `None` for
-/// non-numeric legacy stems.
-fn child_spawn_unix(stem_suffix: &str) -> Option<i64> {
-    stem_suffix
-        .split('_')
-        .next()
-        .and_then(|s| s.parse::<i64>().ok())
-}
-
-/// Parse an RFC-3339 timestamp into unix seconds.
-fn parse_rfc3339_unix(ts: &str) -> Option<i64> {
-    chrono::DateTime::parse_from_rfc3339(ts)
-        .ok()
-        .map(|dt| dt.timestamp())
-}
-
-/// Anchor a sub-agent to the parent turn that was active at its `child_unix`
-/// spawn time: the last turn segment whose start is `<= child_unix`.
-///
-/// Fallbacks (documented heuristic, since sub-agent files carry no explicit
-/// delegation-call back-link):
-/// - No segments (legacy/CLI root): `None` — the item stays unanchored and the
-///   frontend leaves it under the current turn cursor, as before.
-/// - Unknown spawn time (non-numeric stem): the newest turn (best effort).
-/// - Spawn time precedes every turn start: the first turn.
-fn anchor_request_id(child_unix: Option<i64>, segments: &[(String, i64)]) -> Option<String> {
-    if segments.is_empty() {
-        return None;
-    }
-    let Some(child_unix) = child_unix else {
-        return segments.last().map(|(rid, _)| rid.clone());
-    };
-    let mut chosen = &segments[0];
-    for seg in segments {
-        if seg.1 <= child_unix {
-            chosen = seg;
-        }
-    }
-    Some(chosen.0.clone())
-}
-
 /// Project one file's display records into display items, in file order.
 ///
 /// - System lines are dropped (they carry the tool-policy preamble and other
 ///   scaffolding that must never render as a chat item).
 /// - `reasoning_content` on an assistant line becomes a [`DisplayItem::Reasoning`]
-///   preceding its message.
-/// - Assistant `tool_calls` register pending [`DisplayItem::ToolCall`]s; a later
+///   preceding its message, carrying the same `iteration`.
+/// - An assistant line's tool calls come from its native provider envelope.
+///   Only a line that is *not* an envelope falls back to the calls recorded on
+///   its usage (legacy text-dialect rows) — and never to a call id already
+///   projected, which is how an aggregate list copied onto a final answer
+///   would otherwise duplicate every call of the turn.
+/// - Each call registers a pending [`DisplayItem::ToolCall`]; a later
 ///   `role:"tool"` line pairs to one by id, falling back to FIFO order.
 /// - Interrupted partials and compaction markers pass through as their items.
 /// - A [`DisplayItem::TurnBoundary`] is emitted whenever `request_id` changes.
 pub fn project_records(records: &[DisplayRecord]) -> Vec<DisplayItem> {
-    let mut items: Vec<DisplayItem> = Vec::new();
-    // Pending tool calls awaiting a result line: (call_id, index into `items`).
-    let mut pending: VecDeque<(String, usize)> = VecDeque::new();
-    let mut last_request_id: Option<String> = None;
-
+    let mut projector = Projector::default();
     for record in records {
         match record {
             DisplayRecord::Message(msg) => {
-                maybe_emit_turn_boundary(msg, &mut last_request_id, &mut items);
-                project_message(msg, &mut items, &mut pending);
+                projector.turn_boundary(msg);
+                projector.message(msg);
             }
             DisplayRecord::Compaction(marker) => {
-                project_compaction(marker, &mut items);
+                project_compaction(marker, &mut projector.items);
                 // A compaction supersedes prior context; drop stale pending
                 // pairings so a post-compaction result never binds to them.
-                pending.clear();
+                projector.pending.clear();
             }
         }
     }
-    items
+    projector.items
 }
 
-fn maybe_emit_turn_boundary(
-    msg: &DisplayMessage,
-    last_request_id: &mut Option<String>,
-    items: &mut Vec<DisplayItem>,
-) {
-    let Some(rid) = msg.request_id.as_deref() else {
-        return;
-    };
-    if last_request_id.as_deref() != Some(rid) {
-        items.push(DisplayItem::TurnBoundary {
-            request_id: rid.to_string(),
-        });
-        *last_request_id = Some(rid.to_string());
-    }
+#[derive(Default)]
+struct Projector {
+    items: Vec<DisplayItem>,
+    /// Pending tool calls awaiting a result line: (call_id, index into `items`).
+    pending: VecDeque<(String, usize)>,
+    last_request_id: Option<String>,
+    /// Every tool-call id already projected, so a row repeating calls issued
+    /// earlier (the aggregate usage list) does not render them twice.
+    seen_call_ids: HashSet<String>,
+    /// The model-call ordinal of the last assistant row in the current turn —
+    /// the fallback `iteration` for rows written without one.
+    step: u32,
 }
 
-fn project_message(
-    msg: &DisplayMessage,
-    items: &mut Vec<DisplayItem>,
-    pending: &mut VecDeque<(String, usize)>,
-) {
-    // Interrupted partial: display-only, carries its own thinking.
-    if msg.interrupted {
-        items.push(DisplayItem::InterruptedPartial {
-            text: msg.message.content.clone(),
-            thinking: msg.reasoning_content.clone(),
-        });
-        return;
-    }
-
-    match msg.message.role.as_str() {
-        "system" => {
-            // Scaffolding (tool-policy preamble, etc.) — never a display item.
-            log::debug!("{LOG_PREFIX} sanitize: dropped system line from projection");
-        }
-        "user" => {
-            // A text dialect folds a round's results into one user turn; it is
-            // tool output, never the user's words.
-            if let Some(results) = parse_replayed_results(&msg.message.content) {
-                project_text_tool_results(msg, results, items, pending);
-                return;
-            }
-            let raw = msg.message.content.clone();
-            let sanitized = sanitize_user_content(&raw);
-            if sanitized.is_some() {
-                log::debug!("{LOG_PREFIX} sanitize: stripped injected prefix from user message");
-            }
-            items.push(DisplayItem::UserMessage {
-                content: raw,
-                display_content: sanitized,
-                request_id: msg.request_id.clone(),
+impl Projector {
+    fn turn_boundary(&mut self, msg: &DisplayMessage) {
+        let Some(rid) = msg.request_id.as_deref() else {
+            return;
+        };
+        if self.last_request_id.as_deref() != Some(rid) {
+            self.items.push(DisplayItem::TurnBoundary {
+                request_id: rid.to_string(),
             });
+            self.last_request_id = Some(rid.to_string());
+            self.step = 0;
+            self.seen_call_ids.clear();
         }
-        "assistant" => project_assistant(msg, items, pending),
-        "tool" => project_tool_result(msg, items, pending),
-        other => {
-            log::debug!("{LOG_PREFIX} projecting unknown role {other:?} as assistant message");
-            items.push(DisplayItem::AssistantMessage {
-                content: msg.message.content.clone(),
-                interim: false,
+    }
+
+    fn message(&mut self, msg: &DisplayMessage) {
+        // Interrupted partial: display-only, carries its own thinking.
+        if msg.interrupted {
+            self.items.push(DisplayItem::InterruptedPartial {
+                text: msg.message.content.clone(),
+                thinking: msg.reasoning_content.clone(),
+            });
+            return;
+        }
+
+        match msg.message.role.as_str() {
+            "system" => {
+                // Scaffolding (tool-policy preamble, etc.) — never a display item.
+                log::debug!("{LOG_PREFIX} sanitize: dropped system line from projection");
+            }
+            "user" => {
+                // A text dialect folds a round's results into one user turn;
+                // it is tool output, never the user's words.
+                if let Some(results) = parse_replayed_results(&msg.message.content) {
+                    project_text_tool_results(msg, results, &mut self.items, &mut self.pending);
+                    return;
+                }
+                // A legacy turn without request ids still restarts the step
+                // count at its prompt.
+                self.step = 0;
+                self.seen_call_ids.clear();
+                let raw = msg.message.content.clone();
+                let sanitized = sanitize_user_content(&raw);
+                if sanitized.is_some() {
+                    log::debug!(
+                        "{LOG_PREFIX} sanitize: stripped injected prefix from user message"
+                    );
+                }
+                self.items.push(DisplayItem::UserMessage {
+                    content: raw,
+                    display_content: sanitized,
+                    request_id: msg.request_id.clone(),
+                });
+            }
+            "assistant" => self.assistant(msg),
+            "tool" => self.tool_result(msg),
+            other => {
+                log::debug!("{LOG_PREFIX} projecting unknown role {other:?} as assistant message");
+                self.items.push(DisplayItem::AssistantMessage {
+                    content: msg.message.content.clone(),
+                    interim: false,
+                    request_id: msg.request_id.clone(),
+                    model: msg.turn_usage.as_ref().map(|tu| tu.model.clone()),
+                    iteration: msg.iteration,
+                });
+            }
+        }
+    }
+
+    fn assistant(&mut self, msg: &DisplayMessage) {
+        // Rows the writer stamped keep their own number; earlier writers only
+        // stamped the final row, so unstamped rows count up within the turn.
+        let iteration = msg.iteration.unwrap_or(self.step + 1);
+        self.step = iteration;
+
+        // Reasoning precedes the message it belongs to.
+        if let Some(reasoning) = msg.reasoning_content.as_deref() {
+            if !reasoning.trim().is_empty() {
+                self.items.push(DisplayItem::Reasoning {
+                    text: reasoning.to_string(),
+                    iteration: Some(iteration),
+                });
+            }
+        }
+
+        let native_envelope = parse_native_tool_envelope(&msg.message.content);
+        let tool_calls: Vec<NativeToolCall> = match &native_envelope {
+            Some((_, calls)) => calls.clone(),
+            None => {
+                let recorded: Vec<NativeToolCall> = msg
+                    .turn_usage
+                    .as_ref()
+                    .map(|tu| {
+                        tu.tool_calls
+                            .iter()
+                            .map(|call| {
+                                (call.id.clone(), call.name.clone(), call.arguments.clone())
+                            })
+                            .collect()
+                    })
+                    .unwrap_or_default();
+                let total = recorded.len();
+                let fresh: Vec<NativeToolCall> = recorded
+                    .into_iter()
+                    .filter(|(id, _, _)| id.is_empty() || !self.seen_call_ids.contains(id))
+                    .collect();
+                if fresh.len() < total {
+                    log::debug!(
+                        "{LOG_PREFIX} dropped {} already-projected tool call(s) repeated on an assistant row iteration={iteration}",
+                        total - fresh.len()
+                    );
+                }
+                fresh
+            }
+        };
+        let interim = !tool_calls.is_empty();
+
+        // Native tool-call turns are persisted as their provider envelope so they
+        // can be replayed byte-faithfully. The display projection needs only the
+        // envelope's visible `content`; rendering/sanitizing the whole JSON object
+        // makes the narration disappear (and risks showing raw tool JSON).
+        let visible_content = native_envelope
+            .map(|(content, _)| content)
+            .unwrap_or_else(|| msg.message.content.clone());
+
+        // The assistant's prose (if any) shows before its tool calls.
+        if !visible_content.trim().is_empty() {
+            self.items.push(DisplayItem::AssistantMessage {
+                content: visible_content,
+                interim,
                 request_id: msg.request_id.clone(),
                 model: msg.turn_usage.as_ref().map(|tu| tu.model.clone()),
-                iteration: msg.iteration,
+                iteration: Some(iteration),
             });
         }
-    }
-}
 
-fn project_assistant(
-    msg: &DisplayMessage,
-    items: &mut Vec<DisplayItem>,
-    pending: &mut VecDeque<(String, usize)>,
-) {
-    // Reasoning precedes the message it belongs to.
-    if let Some(reasoning) = msg.reasoning_content.as_deref() {
-        if !reasoning.trim().is_empty() {
-            items.push(DisplayItem::Reasoning {
-                text: reasoning.to_string(),
+        for (call_id, name, arguments) in tool_calls {
+            let args = parse_tool_args(&arguments);
+            // Repair legacy rows which put aggregate calls on the final
+            // answer after their result had already projected as an orphan.
+            if let Some(DisplayItem::ToolCall {
+                name: settled_name,
+                args: settled_args,
+                ..
+            }) = settled_orphan_mut(&mut self.items, &call_id)
+            {
+                log::debug!("{LOG_PREFIX} call {call_id} recorded after its result — merged");
+                *settled_name = name;
+                *settled_args = args;
+                continue;
+            }
+            if !call_id.is_empty() {
+                self.seen_call_ids.insert(call_id.clone());
+            }
+            self.items.push(DisplayItem::ToolCall {
+                call_id: call_id.clone(),
+                name,
+                iteration: Some(iteration),
+                args,
+                result: None,
+                status: ToolCallStatus::Running,
+                failure: None,
             });
+            self.pending.push_back((call_id, self.items.len() - 1));
         }
     }
 
-    let persisted_tool_calls: Vec<(String, String, String)> = msg
-        .turn_usage
-        .as_ref()
-        .map(|tu| {
-            tu.tool_calls
-                .iter()
-                .map(|call| (call.id.clone(), call.name.clone(), call.arguments.clone()))
-                .collect()
-        })
-        .unwrap_or_default();
-    let native_envelope = parse_native_tool_envelope(&msg.message.content);
-    // Some native/tinyagents histories predate top-level `turn_usage` lifting
-    // and carry the invocation only inside the provider replay envelope. Use
-    // that canonical call shape rather than degrading the paired result to an
-    // orphan named "tool".
-    let tool_calls = if persisted_tool_calls.is_empty() {
-        native_envelope
-            .as_ref()
-            .map(|(_, calls)| calls.clone())
-            .unwrap_or_default()
-    } else {
-        persisted_tool_calls
-    };
-    let interim = !tool_calls.is_empty();
+    fn tool_result(&mut self, msg: &DisplayMessage) {
+        let (result, wrapped_id) = unwrap_tool_result(&msg.message.content);
+        // A failed tool line (`ToolResult::is_error`, stamped at persistence)
+        // pairs to an error row with a failure payload instead of a false
+        // success.
+        let (status, failure) = if msg.failure {
+            (
+                ToolCallStatus::Error,
+                Some(ToolCallFailure {
+                    detail: msg.failure_detail.clone(),
+                }),
+            )
+        } else {
+            (ToolCallStatus::Success, None)
+        };
+        let call_id = msg.message.id.clone().or(wrapped_id);
+        // Pair by explicit call id first, else FIFO.
+        let idx = call_id
+            .as_deref()
+            .and_then(|id| take_pending_by_id(&mut self.pending, id))
+            .or_else(|| self.pending.pop_front().map(|(_, idx)| idx));
 
-    // Native tool-call turns are persisted as their provider envelope so they
-    // can be replayed byte-faithfully. The display projection needs only the
-    // envelope's visible `content`; rendering/sanitizing the whole JSON object
-    // makes the narration disappear (and risks showing raw tool JSON).
-    let visible_content = native_envelope
-        .map(|(content, _)| content)
-        .unwrap_or_else(|| msg.message.content.clone());
-
-    // The assistant's prose (if any) shows before its tool calls.
-    if !visible_content.trim().is_empty() {
-        items.push(DisplayItem::AssistantMessage {
-            content: visible_content,
-            interim,
-            request_id: msg.request_id.clone(),
-            model: msg.turn_usage.as_ref().map(|tu| tu.model.clone()),
-            iteration: msg.iteration,
-        });
-    }
-
-    for (call_id, name, arguments) in tool_calls {
-        let args = parse_tool_args(&arguments);
-        // Transcripts written while the codec filed a turn's calls on its final
-        // row record a call *after* its own result, which already projected as
-        // an orphan. Name that settled row rather than adding a second one
-        // that never settles.
-        if let Some(DisplayItem::ToolCall {
-            name: settled_name,
-            args: settled_args,
-            ..
-        }) = settled_orphan_mut(items, &call_id)
-        {
-            log::debug!("{LOG_PREFIX} call {call_id} recorded after its result — merged");
-            *settled_name = name;
-            *settled_args = args;
-            continue;
+        if let Some(idx) = idx {
+            if let Some(DisplayItem::ToolCall {
+                result: slot,
+                status: status_slot,
+                failure: failure_slot,
+                ..
+            }) = self.items.get_mut(idx)
+            {
+                *slot = Some(result);
+                *status_slot = status;
+                *failure_slot = failure;
+                return;
+            }
         }
-        items.push(DisplayItem::ToolCall {
-            call_id: call_id.clone(),
-            name,
-            args,
-            result: None,
-            status: ToolCallStatus::Running,
-            failure: None,
+
+        // Orphan result (no matching assistant tool_call recorded) — surface it
+        // as a best-effort completed tool row so the output is not lost.
+        log::debug!("{LOG_PREFIX} tool result with no pending call — emitting orphan tool row");
+        self.items.push(DisplayItem::ToolCall {
+            call_id: call_id.unwrap_or_default(),
+            name: "tool".to_string(),
+            iteration: None,
+            args: None,
+            result: Some(result),
+            status,
+            failure,
         });
-        pending.push_back((call_id, items.len() - 1));
     }
 }
 
 /// Decode the native provider replay envelope embedded in `ChatMessage.content`.
 /// Returns visible assistant prose plus `(id, name, arguments)` calls.
-fn parse_native_tool_envelope(raw: &str) -> Option<NativeToolEnvelope> {
+pub(super) fn parse_native_tool_envelope(raw: &str) -> Option<NativeToolEnvelope> {
     let value = serde_json::from_str::<serde_json::Value>(raw).ok()?;
     let object = value.as_object()?;
     let calls = object.get("tool_calls")?.as_array()?;
@@ -514,58 +428,36 @@ fn parse_native_tool_envelope(raw: &str) -> Option<NativeToolEnvelope> {
     Some((content, calls))
 }
 
-fn project_tool_result(
-    msg: &DisplayMessage,
-    items: &mut Vec<DisplayItem>,
-    pending: &mut VecDeque<(String, usize)>,
-) {
-    let result = msg.message.content.clone();
-    // A failed tool line (`ToolResult::is_error`, stamped at persistence) pairs
-    // to an error row with a failure payload instead of a false success.
-    let (status, failure) = if msg.failure {
-        (
-            ToolCallStatus::Error,
-            Some(ToolCallFailure {
-                detail: msg.failure_detail.clone(),
-            }),
-        )
-    } else {
-        (ToolCallStatus::Success, None)
+/// Keys a native tool-result replay envelope may carry besides `content`.
+const TOOL_RESULT_ENVELOPE_KEYS: &[&str] = &["content", "tool_call_id", "tool_name", "name"];
+
+/// Unwrap a native tool-result replay envelope
+/// (`{"tool_call_id":…,"content":…}`) to the tool's own output plus the call
+/// id it names. Anything else — including a tool whose genuine output happens
+/// to be JSON with other keys — is returned verbatim.
+fn unwrap_tool_result(raw: &str) -> (String, Option<String>) {
+    let Ok(serde_json::Value::Object(object)) = serde_json::from_str::<serde_json::Value>(raw)
+    else {
+        return (raw.to_string(), None);
     };
-    // Pair by explicit call id first, else FIFO.
-    let idx = msg
-        .message
-        .id
-        .as_deref()
-        .and_then(|id| take_pending_by_id(pending, id))
-        .or_else(|| pending.pop_front().map(|(_, idx)| idx));
-
-    if let Some(idx) = idx {
-        if let Some(DisplayItem::ToolCall {
-            result: slot,
-            status: status_slot,
-            failure: failure_slot,
-            ..
-        }) = items.get_mut(idx)
-        {
-            *slot = Some(result);
-            *status_slot = status;
-            *failure_slot = failure;
-            return;
-        }
+    let (Some(content), Some(call_id)) = (
+        object.get("content").and_then(serde_json::Value::as_str),
+        object
+            .get("tool_call_id")
+            .and_then(serde_json::Value::as_str),
+    ) else {
+        return (raw.to_string(), None);
+    };
+    if !object
+        .keys()
+        .all(|key| TOOL_RESULT_ENVELOPE_KEYS.contains(&key.as_str()))
+    {
+        return (raw.to_string(), None);
     }
-
-    // Orphan result (no matching assistant tool_call recorded) — surface it as
-    // a best-effort completed tool row so the output is not lost.
-    log::debug!("{LOG_PREFIX} tool result with no pending call — emitting orphan tool row");
-    items.push(DisplayItem::ToolCall {
-        call_id: msg.message.id.clone().unwrap_or_default(),
-        name: "tool".to_string(),
-        args: None,
-        result: Some(result),
-        status,
-        failure,
-    });
+    (
+        content.to_string(),
+        Some(call_id.to_string()).filter(|id| !id.is_empty()),
+    )
 }
 
 /// Pair each result of a text-dialect `[Tool results]` row with its pending

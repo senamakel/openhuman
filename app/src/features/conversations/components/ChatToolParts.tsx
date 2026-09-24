@@ -212,7 +212,6 @@ export const ChatToolFallback: ToolCallMessagePartComponent = props => {
   if (props.toolName === COMPOSIO_CONNECT_TOOL) return <ComposioConnectCall {...props} />;
   return <GatedToolCall {...props} />;
 };
-
 const NO_PARTS: readonly never[] = [];
 // `optional`: a group rendered outside a message (tests, previews) has no
 // message scope, and reading `state.message` there throws.

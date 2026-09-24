@@ -152,5 +152,7 @@ describe('formatElapsed', () => {
     expect(formatElapsed(850)).toBe('850ms');
     expect(formatElapsed(1840)).toBe('1.8s');
     expect(formatElapsed(75_000)).toBe('1m 15s');
+    expect(formatElapsed(59_999)).toBe('1m 0s');
+    expect(formatElapsed(-1)).toBe('0ms');
   });
 });

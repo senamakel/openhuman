@@ -20,10 +20,15 @@ import { ToolFailureLines } from './ToolFailureLines';
 
 /** `1234` → "1.2s", `850` → "850ms", `75000` → "1m 15s". */
 export function formatElapsed(ms: number): string {
-  if (ms < 1000) return `${Math.max(0, Math.round(ms))}ms`;
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`;
-  const minutes = Math.floor(ms / 60_000);
-  const seconds = Math.round((ms % 60_000) / 1000);
+  const roundedMs = Math.max(0, Math.round(ms));
+  if (roundedMs < 1000) return `${roundedMs}ms`;
+  // A one-decimal seconds label would round 59.95s up to "60.0s". Switch
+  // to the minutes form before that point, then derive both fields from one
+  // rounded total so the seconds component is always below 60.
+  if (roundedMs < 59_950) return `${(roundedMs / 1000).toFixed(1)}s`;
+  const totalSeconds = Math.round(roundedMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
   return `${minutes}m ${seconds}s`;
 }
 

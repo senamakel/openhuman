@@ -178,12 +178,17 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
             },
             ts: chrono::Utc::now().to_rfc3339(),
             reasoning_content: None,
-            // The writer attaches this record to the turn's *final* assistant
-            // row. A call belongs to the row that issued it — the native
-            // envelope, or `attach_text_dialect_rounds` for a text dialect —
-            // so listing the turn's calls here filed every one of them under
-            // the answer that followed their results, and the projection
-            // reported them as never settled.
+            // Deliberately empty. `TurnUsage` lands on the turn's *final*
+            // assistant row, and the transcript writer falls back to
+            // `tool_calls` here for any assistant row whose own content is not
+            // a native tool-call envelope — i.e. the plain-text final answer.
+            // Filling it with every outcome of the turn wrote each tool call a
+            // second time onto that answer, so a reader projected the answer
+            // as an interim step followed by duplicate, never-settled tool
+            // rows (which also mis-paired later FIFO results). Each call is
+            // already recorded, once, in the envelope of the assistant row
+            // that issued it (or in a provenance-only usage record for text
+            // dialects).
             tool_calls: Vec::new(),
             iteration: sidecar.model_calls.min(u32::MAX as usize) as u32,
         }))
@@ -259,7 +264,7 @@ fn attach_text_dialect_rounds(
         let Some(issuer) = index.checked_sub(1) else {
             continue;
         };
-        if !fresh[issuer] || rows[issuer].role != "assistant" || rows[issuer].turn_usage.is_some() {
+        if !fresh[issuer] || rows[issuer].role != "assistant" {
             continue;
         }
         let calls: Vec<TranscriptToolCall> = results
@@ -287,22 +292,34 @@ fn attach_text_dialect_rounds(
         if calls.is_empty() {
             continue;
         }
-        rows[issuer].turn_usage = Some(TurnUsage {
-            provider: route
-                .map(|route| route.provider.clone())
-                .unwrap_or_default(),
-            model: route.map(|route| route.model.clone()).unwrap_or_default(),
-            usage: MessageUsage {
-                input: 0,
-                output: 0,
-                cached_input: 0,
-                context_window: 0,
-                cost_usd: 0.0,
-            },
-            ts: chrono::Utc::now().to_rfc3339(),
-            reasoning_content: None,
-            tool_calls: calls,
-            iteration,
-        });
+        if let Some(usage) = rows[issuer].turn_usage.as_mut() {
+            // The final assistant row already owns the turn's spend. Keep it
+            // intact and add this text-dialect round's provenance without
+            // duplicating a call an earlier adapter has recorded.
+            usage.tool_calls.extend(calls.into_iter().filter(|call| {
+                !usage
+                    .tool_calls
+                    .iter()
+                    .any(|existing| existing.id == call.id)
+            }));
+        } else {
+            rows[issuer].turn_usage = Some(TurnUsage {
+                provider: route
+                    .map(|route| route.provider.clone())
+                    .unwrap_or_default(),
+                model: route.map(|route| route.model.clone()).unwrap_or_default(),
+                usage: MessageUsage {
+                    input: 0,
+                    output: 0,
+                    cached_input: 0,
+                    context_window: 0,
+                    cost_usd: 0.0,
+                },
+                ts: chrono::Utc::now().to_rfc3339(),
+                reasoning_content: None,
+                tool_calls: calls,
+                iteration,
+            });
+        }
     }
 }

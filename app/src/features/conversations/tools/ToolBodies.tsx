@@ -165,6 +165,15 @@ function splitFetchOutput(text: string): { status?: string; url?: string; body: 
   };
 }
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const { protocol } = new URL(value);
+    return protocol === 'http:' || protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 /** A fetched page through assistant-ui's web preview. */
 export function FetchBody({
   args,
@@ -181,6 +190,7 @@ export function FetchBody({
   if (!text) return null;
   const { status, url, body } = splitFetchOutput(text);
   const source = url ?? (typeof args.url === 'string' ? args.url : undefined);
+  const externalSource = source && isHttpUrl(source) ? source : undefined;
   const origin = [status, source ? displayUrl(source) : undefined].filter(Boolean).join(' · ');
   return (
     <WebPreview
@@ -188,7 +198,7 @@ export function FetchBody({
       className={FULL_WIDTH}
       origin={origin}
       loading={false}
-      onOpenExternal={source && onOpenExternal ? () => onOpenExternal(source) : undefined}
+      onOpenExternal={externalSource && onOpenExternal ? () => onOpenExternal(externalSource) : undefined}
       openExternalLabel={t('conversations.tools.openInBrowser')}>
       <div className="max-h-64 overflow-auto px-3.5 py-2.5 text-xs">
         <BubbleMarkdown content={(body.trim() ? body : text).slice(0, 4000)} />

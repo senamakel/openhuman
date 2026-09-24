@@ -60,7 +60,7 @@ const { mockGetThreads, mockGetThreadMessages, mockUseUsageState } = vi.hoisted(
 // ── Module mocks ───────────────────────────────────────────────────────────
 
 vi.mock('../../services/chatService', () => ({
-  chatCancel: vi.fn().mockResolvedValue(true),
+  chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
   chatClearQueue: vi.fn().mockResolvedValue(0),
   chatSend: vi.fn().mockResolvedValue(undefined),
   subscribeChatEvents: vi.fn(() => () => {}),
@@ -630,8 +630,10 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       });
     });
 
-    // The past turn's core transcript is projected into assistant-ui exactly once.
-    expect(await screen.findByTestId('assistant-ui-tool-call')).toHaveTextContent('Read file');
+    // The past turn's core transcript is projected into one settled activity
+    // group. Open it before checking the contained tool card.
+    fireEvent.click(await screen.findByRole('button', { name: '1 tool call' }));
+    expect(await screen.findByTestId('assistant-ui-tool-call')).toHaveTextContent('Read File');
   });
 
   it('keeps assistant message copy available through assistant-ui', async () => {
@@ -1218,10 +1220,10 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
   });
 
   it('does not persist a stopped reply when the cancel is rejected (#4862)', async () => {
-    // Socket down / RPC rejected → chatCancel resolves false. The original turn
-    // may keep running and append its own final response, so we must NOT leave a
-    // misleading partial bubble behind.
-    vi.mocked(chatCancel).mockResolvedValueOnce(false);
+    // Socket down / RPC rejected → chatCancel resolves not-accepted. The original
+    // turn may keep running and append its own final response, so we must NOT
+    // leave a misleading partial bubble behind.
+    vi.mocked(chatCancel).mockResolvedValueOnce({ accepted: false, turnCancelled: false });
     const { thread } = await renderStreamingConversation({ streamingContent: 'half a thought' });
 
     const stopButton = await screen.findByRole('button', { name: 'Stop generating' });
@@ -1234,6 +1236,32 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     await act(async () => {
       await Promise.resolve();
     });
+    expect(threadApi.appendMessage).not.toHaveBeenCalled();
+  });
+
+  it('settles a phantom running state when the core has no turn to cancel', async () => {
+    // The core accepted the Stop but had nothing in flight for the thread (the
+    // turn's terminal event was lost, or the marker was never a real turn). No
+    // `cancelled` chat_error will ever arrive, so the composer must leave the
+    // generating state on its own instead of offering a Stop that can't work.
+    vi.mocked(chatCancel).mockResolvedValueOnce({ accepted: true, turnCancelled: false });
+    const { thread, store } = await renderStreamingConversation({
+      streamingContent: 'half a thought',
+    });
+
+    const stopButton = await screen.findByRole('button', { name: 'Stop generating' });
+    await act(async () => {
+      fireEvent.click(stopButton);
+    });
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(chatCancel).toHaveBeenCalledWith(thread.id);
+    expect(store.getState().thread.activeThreadIds[thread.id]).toBeUndefined();
+    expect(store.getState().chatRuntime.streamingAssistantByThread[thread.id]).toBeUndefined();
+    expect(screen.queryByRole('button', { name: 'Stop generating' })).toBeNull();
+    // Nothing was cancelled, so no partial is persisted as a stopped reply.
     expect(threadApi.appendMessage).not.toHaveBeenCalled();
   });
 

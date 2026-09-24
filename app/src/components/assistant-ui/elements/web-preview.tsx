@@ -70,13 +70,15 @@ export function WebPreview({
           <span className={cn(mono, 'text-foreground/45 min-w-0 truncate')}>{origin}</span>
         </span>
 
-        <button
-          type="button"
-          aria-label={openExternalLabel}
-          onClick={onOpenExternal}
-          className={cn(ghostButton, 'size-7 shrink-0')}>
-          <ExternalLinkIcon className="size-3.5" />
-        </button>
+        {onOpenExternal ? (
+          <button
+            type="button"
+            aria-label={openExternalLabel}
+            onClick={onOpenExternal}
+            className={cn(ghostButton, 'size-7 shrink-0')}>
+            <ExternalLinkIcon className="size-3.5" />
+          </button>
+        ) : null}
       </div>
 
       <div className="border-foreground/[0.07] relative min-h-[9rem] border-t">

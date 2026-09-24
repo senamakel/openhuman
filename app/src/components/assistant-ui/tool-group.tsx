@@ -84,7 +84,7 @@ function ToolGroupTrigger({
   ...props
 }: React.ComponentProps<typeof CollapsibleTrigger> & {
   count: number;
-  /** Host-supplied header text (a summary of the steps); defaults to a count. */
+  /** Replaces the default "N tool calls" text, e.g. for a mixed reasoning group. */
   label?: string;
   active?: boolean;
 }) {

@@ -175,11 +175,12 @@ fn codec_attaches_only_this_agents_own_sidecar_usage_to_atomic_append() {
         "the child entry survives on the ledger for the live projection"
     );
     assert_eq!(usage.iteration, 2);
-    // The turn-level record lands on the turn's final assistant row; a call
-    // belongs to the row that issued it, never to the answer after its result.
+    // The turn's tool outcomes are NOT copied onto the usage record: it lands
+    // on the final answer row, and every call is already recorded once in the
+    // envelope of the assistant row that issued it.
     assert!(
         usage.tool_calls.is_empty(),
-        "the turn's calls must not ride the final row's usage record"
+        "usage must not duplicate the turn's tool calls onto the answer row"
     );
 }
 

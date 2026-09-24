@@ -168,8 +168,8 @@ jobs:
           # and leave a stale digest that only fails after the download. Both values
           # are the ubuntu-22.04-x86_64 row of `crates/openhuman-core/src/modules/registry.rs`,
           # which is the authoritative pin — copy them from there, never recompute.
-          memory_version="1.16.0"
-          memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
+          memory_version="1.16.1"
+          memory_sha256="c025f4a5743bb975ed7cdc5306a16a6aa4ac2ef3c87fa83820d038321123daee"
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
           memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
@@ -373,8 +373,8 @@ jobs:
           # and leave a stale digest that only fails after the download. Both values
           # are the ubuntu-22.04-x86_64 row of `crates/openhuman-core/src/modules/registry.rs`,
           # which is the authoritative pin — copy them from there, never recompute.
-          memory_version="1.16.0"
-          memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
+          memory_version="1.16.1"
+          memory_sha256="c025f4a5743bb975ed7cdc5306a16a6aa4ac2ef3c87fa83820d038321123daee"
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
           connectors_dir="$module_root/tinyconnectors"
@@ -487,10 +487,10 @@ jobs:
           # fixture outside the checkout owned by the host runner.
           # Version and digest are the ubuntu-22.04-x86_64 registry pin; do
           # not derive a replacement checksum from a local build.
-          memory_version="1.16.0"
-          memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
-          juice_version="0.2.2"
-          juice_sha256="fd8caf7fccb53328870fd26922aa9768d253cd4b3bf758967847d6512df03863"
+          memory_version="1.16.1"
+          memory_sha256="c025f4a5743bb975ed7cdc5306a16a6aa4ac2ef3c87fa83820d038321123daee"
+          juice_version="0.3.3"
+          juice_sha256="aa3cabf8248a7aa84bdf257f5a4f16c2f4f69e680a135ba96d06f89fd78d2725"
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
           juice_dir="$module_root/tinyjuice"

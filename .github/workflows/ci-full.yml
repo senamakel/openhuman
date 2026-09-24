@@ -132,25 +132,25 @@ jobs:
           # and leave a stale digest that only fails after the download. Both values
           # are the ubuntu-22.04-x86_64 row of `crates/openhuman-core/src/modules/registry.rs`,
           # which is the authoritative pin — copy them from there, never recompute.
-          memory_version="1.16.0"
-          memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
+          memory_version="1.16.1"
+          memory_sha256="c025f4a5743bb975ed7cdc5306a16a6aa4ac2ef3c87fa83820d038321123daee"
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
           juice_dir="$module_root/tinyjuice"
           connectors_dir="$module_root/tinyconnectors"
           memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
-          juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
+          juice_archive="$juice_dir/tinyjuice-module-0.3.3-ubuntu-22.04-x86_64.tar.gz"
           rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
           mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
           curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
           curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
-            "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
+            "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.3.3/$(basename "$juice_archive")" \
             --output "$juice_archive"
           echo "${memory_sha256}  $memory_archive" \
             | sha256sum --check
-          echo "fd8caf7fccb53328870fd26922aa9768d253cd4b3bf758967847d6512df03863  $juice_archive" \
+          echo "aa3cabf8248a7aa84bdf257f5a4f16c2f4f69e680a135ba96d06f89fd78d2725  $juice_archive" \
             | sha256sum --check
           tar --no-same-owner -xzf "$memory_archive" -C "$memory_dir"
           tar --no-same-owner -xzf "$juice_archive" -C "$juice_dir"
@@ -326,24 +326,24 @@ jobs:
           # tinybus validates every directory ancestor. GitHub mounts the
           # checkout as the host runner uid while this container runs as root,
           # so keep native fixtures in a root-owned, ephemeral tree.
-          memory_version="1.16.0"
-          memory_sha256="f3ba06867ec89b8374a405f8a8569f5cecf88490609354ae4a6c1faa6e55b425"
+          memory_version="1.16.1"
+          memory_sha256="c025f4a5743bb975ed7cdc5306a16a6aa4ac2ef3c87fa83820d038321123daee"
           module_root="/opt/openhuman-test-modules/${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           memory_dir="$module_root/tinymemory"
           juice_dir="$module_root/tinyjuice"
           connectors_dir="$module_root/tinyconnectors"
           memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
-          juice_archive="$juice_dir/tinyjuice-module-0.2.2-ubuntu-22.04-x86_64.tar.gz"
+          juice_archive="$juice_dir/tinyjuice-module-0.3.3-ubuntu-22.04-x86_64.tar.gz"
           rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
           mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
           curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
           curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
-            "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.2.2/$(basename "$juice_archive")" \
+            "https://github.com/tinyhumansai/tinyjuice/releases/download/v0.3.3/$(basename "$juice_archive")" \
             --output "$juice_archive"
           echo "${memory_sha256}  $memory_archive" | sha256sum --check
-          echo "fd8caf7fccb53328870fd26922aa9768d253cd4b3bf758967847d6512df03863  $juice_archive" \
+          echo "aa3cabf8248a7aa84bdf257f5a4f16c2f4f69e680a135ba96d06f89fd78d2725  $juice_archive" \
             | sha256sum --check
           tar --no-same-owner -xzf "$memory_archive" -C "$memory_dir"
           tar --no-same-owner -xzf "$juice_archive" -C "$juice_dir"

@@ -15,26 +15,14 @@
     {
       "id": "tinyruntime-nodejs",
       "submodule": "vendor/tinyruntime",
-      "expect": "v0.2.4",
-      "reason": "The provider is published independently at v0.2.2 while tinyruntime shared source contract is v0.2.4; registry retains its matching published provider artifact."
+      "expect": "v0.2.6",
+      "reason": "The provider is published independently at v0.2.3 while the shared tinyruntime bus contract is in v0.2.6; the registry pins the matching provider artifact."
     },
     {
       "id": "tinyruntime-python",
       "submodule": "vendor/tinyruntime",
-      "expect": "v0.2.4",
-      "reason": "The provider is published independently at v0.2.2 while tinyruntime shared source contract is v0.2.4; registry retains its matching published provider artifact."
-    },
-    {
-      "id": "tinymcp",
-      "submodule": "vendor/tinymcp",
-      "expect": "v0.3.2-15-g10786a47",
-      "reason": "The host compiles the MCP contract against the current tinymcp main, which includes the v0.3.2 follow-up dependency and vendor-sync commits plus the reconnect-supervisor fix that parks a server whose credential was rejected instead of retrying it forever (tinymcp#20, openhuman#6412). The registry retains the published v0.3.2 artifact. This is compile-only: the tinymcp module is registry-entered but not wired (AGENTS.md, 'step two of the extraction'), so no build downloads or loads that artifact. Delete this entry when tinymcp cuts its next release and the registry pin moves onto it."
-    },
-    {
-      "id": "tinymemory",
-      "submodule": "vendor/tinymemory",
-      "expect": "v1.16.0-26-g46f92206",
-      "reason": "The source contract includes the unreleased LLM and embeddings crate split from tinymemory main, while the registry retains the published v1.16.0 native-memory artifact and its release-published digests. This exact source/artifact split is temporary and must be removed when a release containing this contract is pinned."
+      "expect": "v0.2.6",
+      "reason": "The provider is published independently at v0.2.3 while the shared tinyruntime bus contract is in v0.2.6; the registry pins the matching provider artifact."
     }
   ]
 }

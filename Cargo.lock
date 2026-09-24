@@ -6591,7 +6591,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors-bus"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "serde",
  "serde_json",
@@ -6835,7 +6835,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "async-trait",
  "dirs 7.0.0",
@@ -6855,7 +6855,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice-bus"
-version = "0.3.2"
+version = "0.3.3"
 dependencies = [
  "serde",
  "serde_json",
@@ -6949,7 +6949,7 @@ dependencies = [
 
 [[package]]
 name = "tinyruntime-bus"
-version = "0.2.5"
+version = "0.2.6"
 dependencies = [
  "serde",
  "serde_json",

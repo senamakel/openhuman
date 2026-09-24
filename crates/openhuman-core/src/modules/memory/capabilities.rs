@@ -10,7 +10,7 @@ use tinymemory_api::capabilities::{Capabilities, Capability};
 /// Checked against the registry pin by `the_capability_list_matches_the_pinned_release`,
 /// so bumping the pin without re-reading the list is a red test rather than a
 /// silent over-claim.
-pub(crate) const ARTIFACT_CAPABILITIES_PIN: &str = "1.16.0";
+pub(crate) const ARTIFACT_CAPABILITIES_PIN: &str = "1.16.1";
 
 /// The capability families the **pinned artifact** actually serves.
 ///
@@ -76,6 +76,9 @@ pub(crate) const ARTIFACT_CAPABILITIES: &[Capability] = &[
     // and embedder identification, served by the module's engine and forwarded
     // by `MemoryScoring for ModuleMemoryProvider` below.
     Capability::Scoring,
+    // Re-read at tag `v1.16.1`: the release changes chat handling and a
+    // Clippy allowance, but not the API capability declarations or bus names.
+    // The advertised families are unchanged from v1.16.0.
     // Re-read at tag `v1.15.1` (tinymemory#142), one commit past v1.15.0. The
     // CortexDB adapter now asks `v1/scopes/list` for every scope instead of
     // accepting the engine's undocumented first fifty, which had been

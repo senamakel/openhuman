@@ -468,6 +468,7 @@ async fn tool_output_truncates_over_the_flat_budget() {
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
+        raw_fetches: Default::default(),
     };
     let mut result = tool_result("echo", &"x".repeat(5_000));
     mw.after_tool(
@@ -502,6 +503,7 @@ async fn tool_output_leaves_small_results_untouched() {
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
+        raw_fetches: Default::default(),
     };
     let mut result = tool_result("echo", "tiny");
     mw.after_tool(
@@ -543,6 +545,7 @@ fn tool_char_cap_reads_the_tools_own_declared_cap() {
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
+        raw_fetches: Default::default(),
     };
     // Tool declares its own char cap → surfaced for the per-tool truncation.
     assert_eq!(mw.tool_char_cap("big"), Some(10));
@@ -648,6 +651,36 @@ async fn a_tool_that_caps_itself_is_summarized_when_the_caller_gives_a_focus() {
 }
 
 #[tokio::test]
+async fn a_raw_web_fetch_never_prepares_a_payload_summary() {
+    let stub = StubSummarizer::replying(Ok("must remain unused".into()));
+    let mw = summarizer_mw(stub.clone());
+    let mut call = TaToolCall::new(
+        "raw-fetch",
+        "web_fetch",
+        json!({"url": "https://example.test", "raw": true}),
+    );
+    let mut ctx = ctx();
+    mw.before_tool(&mut ctx, &(), &mut call)
+        .await
+        .expect("raw fetch is recorded before execution");
+
+    let mut result = tool_result("web_fetch", &"<html>markup</html>".repeat(300));
+    let (outcome, requests) = with_module(mw.after_tool(
+        &mut ctx,
+        &(),
+        &invocation("raw-fetch", "web_fetch"),
+        &mut result,
+    ))
+    .await;
+
+    outcome.expect("raw fetch result is processed");
+    assert!(
+        !stub.was_prepared() && requests.is_empty(),
+        "raw fetches must bypass the payload summarizer and TinyJuice"
+    );
+}
+
+#[tokio::test]
 async fn tool_output_honors_a_tools_own_cap() {
     let mut tool_policies = HashMap::new();
     tool_policies.insert(
@@ -675,6 +708,7 @@ async fn tool_output_honors_a_tools_own_cap() {
         artifact_reads: Default::default(),
         focus_by_call: Default::default(),
         summary_focus_tools: Default::default(),
+        raw_fetches: Default::default(),
     };
     let mut result = tool_result("capped", &"y".repeat(500));
     mw.after_tool(

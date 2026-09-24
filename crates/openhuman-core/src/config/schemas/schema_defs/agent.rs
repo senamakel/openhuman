@@ -85,11 +85,17 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
 "update_agent_settings" => Some( ControllerSchema {
             namespace: "config",
             function: "update_agent_settings",
-            description: "Update agent execution settings. Currently the action/tool wall-clock timeout (seconds). Applies to the next tool call without a restart; the OPENHUMAN_TOOL_TIMEOUT_SECS env var still overrides it when set.",
+            description: "Update agent execution settings: the action/tool wall-clock timeout (seconds) and the web-chat target agent. Applies to the next tool call without a restart; the OPENHUMAN_TOOL_TIMEOUT_SECS env var still overrides it when set.",
             inputs: vec![FieldSchema {
                 name: "agent_timeout_secs",
                 ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
                 comment: "Wall-clock timeout for a single tool/action execution, in seconds (1–3600). Extend this when large local models are interrupted before finishing.",
+                required: false,
+            },
+            FieldSchema {
+                name: "chat_agent_id",
+                ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                comment: "Agent definition id the web-chat path routes turns to. Empty string reverts to the orchestrator. A named definition's own max_iterations governs the turn, so this is how a longer-running agent is selected.",
                 required: false,
             }],
             outputs: vec![json_output("snapshot", "Updated config snapshot.")],

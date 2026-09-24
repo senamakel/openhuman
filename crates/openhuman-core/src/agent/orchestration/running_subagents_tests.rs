@@ -588,3 +588,57 @@ async fn cancel_all_clears_everything() {
     // Registry is empty now.
     assert!(cancel_all().is_empty());
 }
+
+#[tokio::test]
+async fn stop_for_thread_aborts_the_threads_running_children() {
+    let _guard = test_guard();
+    let rq = run_queue();
+    // A real detached child that would otherwise run forever — the shape the
+    // Stop button used to leave behind.
+    let child = tokio::spawn(std::future::pending::<()>());
+    let (_tx, rx) = status_channel();
+    register(
+        "task-stop-1".into(),
+        "researcher".into(),
+        "session-stop".into(),
+        None,
+        None,
+        test_workspace(),
+        Some("thread-stop".into()),
+        rq.clone(),
+        child.abort_handle(),
+        rx,
+    );
+    // Another thread's child must survive the stop.
+    let _other =
+        register_test_with_thread("task-stop-other", "session-stop", Some("thread-keep"), rq);
+
+    let stopped = stop_for_thread("thread-stop");
+    assert_eq!(stopped, vec!["task-stop-1".to_string()]);
+
+    let joined = tokio::time::timeout(Duration::from_secs(2), child)
+        .await
+        .expect("aborted child finishes promptly");
+    assert!(
+        joined.expect_err("child was aborted").is_cancelled(),
+        "stop must abort the detached child task"
+    );
+    assert_eq!(
+        steer("task-stop-1", "session-stop", "x".into(), QueueLane::Steer).await,
+        Err(SteerError::Unknown)
+    );
+    assert!(
+        steer(
+            "task-stop-other",
+            "session-stop",
+            "x".into(),
+            QueueLane::Steer
+        )
+        .await
+        .is_ok(),
+        "a different thread's sub-agent is untouched"
+    );
+    assert!(stop_for_thread("thread-stop").is_empty(), "idempotent");
+
+    prune("task-stop-other");
+}

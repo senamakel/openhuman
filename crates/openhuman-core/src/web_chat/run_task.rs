@@ -133,7 +133,7 @@ pub(crate) async fn run_chat_task(
     // can attribute the run (`agent.id` attr / `agent.turn:<id>` trace name).
     let mut bridge_metadata = metadata.clone();
     bridge_metadata.agent_id = Some(current_fp.target_agent_id.clone());
-    spawn_progress_bridge(
+    let bridge = spawn_progress_bridge(
         progress_rx,
         client_id.to_string(),
         thread_id.to_string(),
@@ -259,6 +259,24 @@ pub(crate) async fn run_chat_task(
     }
 
     agent.set_on_progress(None);
+
+    // The caller publishes the terminal `chat_done`/`chat_error` as soon as
+    // this returns. Let the bridge forward everything the turn queued first,
+    // so the terminal event cannot overtake the turn's own last tool results
+    // and narration on the socket. Bounded (see `BRIDGE_DRAIN_TIMEOUT`).
+    if !bridge
+        .wait_drained(super::progress_bridge::BRIDGE_DRAIN_TIMEOUT)
+        .await
+    {
+        log::warn!(
+            "[web-channel] progress bridge did not drain within {:?}; delivering anyway \
+             client={} thread={} request_id={}",
+            super::progress_bridge::BRIDGE_DRAIN_TIMEOUT,
+            client_id,
+            thread_id,
+            request_id
+        );
+    }
 
     // Only the primary (non-fork) turn writes its agent back to the shared
     // cache; a fork is fully isolated and lets its agent drop here.

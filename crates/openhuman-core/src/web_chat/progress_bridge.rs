@@ -24,9 +24,47 @@ use super::types::ChatRequestMetadata;
 const INFERENCE_HEARTBEAT_SECS: u64 = 20;
 
 /// Minimum trimmed length for the parent agent's leading narration to be
-/// surfaced as its own interim chat bubble. Below this a stray "Ok." / "Sure."
-/// is left as transient streaming text rather than persisted as a message.
-const MIN_INTERIM_NARRATION_CHARS: usize = 24;
+/// flushed as a `chat_interim` event when the round's first tool call starts.
+///
+/// Any non-empty narration flushes. This used to be 24 characters, meant to
+/// keep a stray "Ok." from persisting as a bubble — but the frontend no longer
+/// promotes narration to a message, and `chat_interim` is also the signal that
+/// resets its live preview for the next round. A short "Let me check." that
+/// was never flushed stayed in the preview and the next round's text was
+/// appended straight onto it ("Let me check.Here's the answer").
+const MIN_INTERIM_NARRATION_CHARS: usize = 1;
+
+/// How long a finished turn waits for its progress bridge to forward every
+/// event the turn queued before the terminal `chat_done`/`chat_error` is
+/// published. Bounded: a detached sub-agent can hold a sender clone and keep
+/// the channel open past the turn, and a missing `TurnCompleted` (failed
+/// turn) must not stall delivery.
+pub(crate) const BRIDGE_DRAIN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(3);
+
+/// Handle to a spawned progress bridge, used to wait until it has forwarded
+/// the parent turn's events.
+///
+/// The bridge runs on its own task, fed by a bounded channel. The turn's
+/// caller used to publish `chat_done` as soon as the turn returned, while the
+/// bridge could still be holding queued `tool_result`/`chat_interim` events —
+/// so the terminal event overtook them and the UI settled rows that were
+/// about to be settled correctly (or never saw their results at all).
+#[derive(Clone)]
+pub(crate) struct ProgressBridgeHandle {
+    drained: tokio::sync::watch::Receiver<bool>,
+}
+
+impl ProgressBridgeHandle {
+    /// Wait until the bridge has handled the parent's `TurnCompleted` (every
+    /// event queued before it has been forwarded, in order) or its channel
+    /// closed — at most `timeout`. Returns whether it drained in time.
+    pub(crate) async fn wait_drained(&self, timeout: std::time::Duration) -> bool {
+        let mut drained = self.drained.clone();
+        let result = tokio::time::timeout(timeout, drained.wait_for(|done| *done)).await;
+        // A dropped sender means the bridge task ended, which is drained too.
+        matches!(result, Ok(Ok(_)) | Ok(Err(_)))
+    }
+}
 
 /// Flush the parent agent's accumulated leading narration (streamed before a
 /// tool call in the current round) as an interim `chat_interim` event, so it
@@ -246,13 +284,14 @@ pub(crate) fn spawn_progress_bridge(
     turn_state_store: TurnStateStore,
     metadata: ChatRequestMetadata,
     config: crate::config::Config,
-) {
+) -> ProgressBridgeHandle {
     use crate::agent::progress::AgentProgress;
     use std::collections::HashMap;
     use tinyagents_session::run_ledger::{
         AgentRunKind, AgentRunStatus, AgentRunUpsert, RunEventAppend, RunTelemetryUpsert,
     };
 
+    let (drained_tx, drained_rx) = tokio::sync::watch::channel(false);
     tokio::spawn(async move {
         log::debug!(
             "[web_channel][bridge] spawned client_id={} thread_id={} request_id={} speak_reply={:?} source={:?} session_id={:?}",
@@ -1341,6 +1380,13 @@ pub(crate) fn spawn_progress_bridge(
                         metadata.source,
                         metadata.session_id,
                     );
+                    // Every event the parent queued before `TurnCompleted` has
+                    // now been forwarded, in order: release a caller waiting
+                    // to publish the terminal `chat_done`.
+                    let _ = drained_tx.send(true);
+                    log::debug!(
+                        "[web_channel][bridge] drained parent events_seen={events_seen} request_id={request_id}"
+                    );
                 }
                 AgentProgress::TurnCostUpdated {
                     model,
@@ -1424,6 +1470,10 @@ pub(crate) fn spawn_progress_bridge(
         // #3886: seal any spans still open after the stream closed and hand the
         // run's trace to the configured tracing sink. Best-effort and gated;
         // never affects the turn outcome.
+        // The response presenter waits only briefly for this signal before
+        // publishing an error. Trace export is best-effort I/O and must not
+        // hold up terminal delivery after the progress stream closed.
+        let _ = drained_tx.send(true);
         if let Some(mut collector) = span_collector.take() {
             collector.finish(unix_epoch_ms());
             let live_spans = collector.spans().to_vec();
@@ -1463,6 +1513,9 @@ pub(crate) fn spawn_progress_bridge(
             events_seen,
         );
     });
+    ProgressBridgeHandle {
+        drained: drained_rx,
+    }
 }
 
 #[cfg(test)]

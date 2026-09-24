@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 
 import type { SubagentActivity } from '../../../store/chatRuntimeSlice';
-import { ChatToolFallback, ChatToolGroup } from './ChatToolParts';
+import { ChatToolFallback } from './ChatToolParts';
 
 const activity: SubagentActivity = {
   taskId: 'sub-1',
@@ -138,16 +138,6 @@ describe('ChatToolParts', () => {
     expect(card.querySelector('.lucide-circle-x')).not.toBeNull();
     expect(card.querySelector('.lucide-check')).toBeNull();
     expect(container).toBeTruthy();
-  });
-
-  it('opens a group containing in-flight work on mount', () => {
-    render(
-      <ChatToolGroup group={{ type: 'group-tool-call', status: { type: 'running' }, indices: [0] }}>
-        <span>live delegation</span>
-      </ChatToolGroup>
-    );
-
-    expect(screen.getByText('live delegation')).toBeVisible();
   });
 
   it('renders ordinary tools with rich input and output on the assistant-ui surface', async () => {

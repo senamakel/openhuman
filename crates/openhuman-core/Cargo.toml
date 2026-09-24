@@ -999,16 +999,17 @@ runtime-node = []
 # and removing it from one without the other fails that lane.
 contacts = []
 # Media-generation + image domains: the `media_generate_*` agent tools
-# (image/video via GMI through the backend) and the `openhuman::image` tool
+# (image/video via OpenRouter through the backend's
+# `/agent-integrations/openrouter` proxy) and the `openhuman::image` tool
 # contracts scaffold. Default-ON. Slim builds opt out via
 # `--no-default-features --features "<explicit list without media>"`.
 # Composes with the runtime `DomainSet::media` flag (#4796).
-# NOTE: this gate sheds no exclusive dependencies — media generation is
-# backend-proxied (reqwest, shared). It is a surface-only gate (drops the tool
-# code + module from the compile), not a dependency-shedding one. There are no
-# controllers / stores / subscribers tagged `Media` (agent tools only), and
-# `openhuman::image` is currently unwired scaffold (added #2997).
-media = []
+# Enables `tinyagents-harness/media`, which pulls in `tinyinference-image` and
+# `tinyinference-video` (the wire contract, job loop and generic tools); both
+# are light (serde + the already-shared reqwest), so this remains mostly a
+# surface gate. There are no controllers / stores / subscribers tagged `Media`
+# (agent tools only), and `openhuman::image` is currently unwired scaffold.
+media = ["tinyagents-harness/media"]
 # Flows domains: the `flows::` automation surface (saved tinyflows graphs —
 # create/run/schedule + the workflow_builder / flow_discovery agents), the
 # `tinyflows::` adapter seam, and the `rhai_workflows::` language-workflow tool.

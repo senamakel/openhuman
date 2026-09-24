@@ -356,6 +356,10 @@ function testIdSelector(testId: string): string {
   return `[data-testid="${testId}"]`;
 }
 
+function dataSlotSelector(slot: string): string {
+  return `[data-slot="${slot}"]`;
+}
+
 /**
  * Wait for an element by stable `data-testid`.
  *
@@ -379,6 +383,65 @@ export async function waitForTestId(
     timeoutMsg: `data-testid="${testId}" not found within ${timeout}ms`,
   });
   return el;
+}
+
+/**
+ * Wait for an element by its stable assistant-ui data slot.
+ *
+ * Like test IDs, data slots are exposed by the DOM-backed tauri driver only.
+ */
+export async function waitForDataSlot(
+  slot: string,
+  timeout: number = 15_000
+): Promise<ChainablePromiseElement> {
+  if (!isTauriDriver()) {
+    throw new Error(`waitForDataSlot is only supported on tauri-driver: ${slot}`);
+  }
+
+  const selector = dataSlotSelector(slot);
+  const el = await browser.$(selector);
+  await el.waitForExist({
+    timeout,
+    timeoutMsg: `data-slot="${slot}" not found within ${timeout}ms`,
+  });
+  return el;
+}
+
+/**
+ * Dispatch a browser file drag sequence against an element.
+ *
+ * WebDriver cannot hand the desktop webview an operating-system drag source,
+ * but constructing a `DataTransfer` in the renderer gives the application the
+ * same `FileList` and `DataTransferItemList` shape its HTML drag handlers
+ * consume. Keep this here so specs do not reach around the cross-platform
+ * element helper boundary with raw DOM queries.
+ */
+export async function dispatchFileDrop(
+  target: ChainablePromiseElement,
+  file: { name: string; type: string; contents: string }
+): Promise<{ dragOverPrevented: boolean; dropPrevented: boolean; fileCount: number }> {
+  return browser.execute(
+    (element: HTMLElement, droppedFile: { name: string; type: string; contents: string }) => {
+      const dataTransfer = new DataTransfer();
+      dataTransfer.items.add(
+        new File([droppedFile.contents], droppedFile.name, { type: droppedFile.type })
+      );
+
+      const dispatch = (type: 'dragover' | 'drop') => {
+        const event = new DragEvent(type, { bubbles: true, cancelable: true, dataTransfer });
+        element.dispatchEvent(event);
+        return event.defaultPrevented;
+      };
+
+      return {
+        dragOverPrevented: dispatch('dragover'),
+        dropPrevented: dispatch('drop'),
+        fileCount: dataTransfer.files.length,
+      };
+    },
+    target as unknown as HTMLElement,
+    file
+  );
 }
 
 /**

@@ -50,6 +50,7 @@ import {
 import { persistor, store } from './store';
 import { DEV_FORCE_ONBOARDING } from './utils/config';
 import { installExternalLinkGuard } from './utils/externalLinkGuard';
+import { installFileDropGuard } from './utils/fileDropGuard';
 
 startNativeNotificationsService();
 // Connectivity status (#1527): wire navigator.onLine + start core sidecar
@@ -76,6 +77,11 @@ function App() {
   // covers every other anchor the app renders. Installed here, above the
   // router, so it is live for the whole session.
   useEffect(() => installExternalLinkGuard(), []);
+
+  // Same one-way trap for a dropped file: unclaimed, the webview opens it as
+  // the top-level document. Only an open chat thread takes files; everywhere
+  // else the drop is refused.
+  useEffect(() => installFileDropGuard(), []);
 
   // On mobile (iOS or Android) the SocketProvider would try to connect to the
   // local core HTTP socket, which does not exist on device (the core runs on

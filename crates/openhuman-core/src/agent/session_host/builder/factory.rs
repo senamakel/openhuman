@@ -23,6 +23,14 @@ use tinytools_agent::dialect::{
 };
 
 impl OpenHumanSessionHost {
+    /// Returns whether `agent_id` resolves to a runnable definition for this
+    /// configuration. This is deliberately the same resolution path used by
+    /// [`Self::from_config_for_agent`], so configuration writers cannot save
+    /// a web-chat route that the session factory would later reject.
+    pub(crate) fn is_runnable_agent_id(config: &Config, agent_id: &str) -> bool {
+        resolve_target_definition(config, agent_id).is_ok()
+    }
+
     /// Constructs an `OpenHumanSessionHost` instance from a global system configuration.
     ///
     /// Thin wrapper around [`OpenHumanSessionHost::from_config_for_agent`] that always

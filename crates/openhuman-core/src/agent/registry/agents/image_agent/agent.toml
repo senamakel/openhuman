@@ -11,10 +11,16 @@ omit_safety_preamble = false
 omit_profile = true
 omit_memory_md = true
 
-# Multimodal tier so the agent can review the images it generates (and any
-# reference images) via the image_info / inline-image path, then iterate.
+# Pinned to a dedicated OpenRouter passthrough model rather than the
+# deprecated `hint:vision` (regression R4). This exact id is in
+# `MANAGED_MULTIMODAL_MODELS`, so it keeps the multimodal tier needed to
+# review the images it generates (and any reference images) via the
+# image_info / inline-image path, then iterate. Actual image generation goes
+# through `media_generate_image`, which defaults to
+# `bytedance-seed/seedream-5-0-lite` on OpenRouter — a separate model from
+# the one this agent's own turns run on.
 [model]
-hint = "vision"
+exact = "openrouter/qwen/qwen3.7-flash"
 
 [tools]
 # media_generate_image submits the generation and returns a saved local path;

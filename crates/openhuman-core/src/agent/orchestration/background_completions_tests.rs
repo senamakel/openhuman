@@ -367,3 +367,87 @@ fn record_outcome_preserves_the_outcome_through_a_drain() {
     let drained = take_pending(s);
     assert_eq!(drained[0].outcome, BackgroundAgentOutcome::Failed);
 }
+
+#[test]
+fn discard_pending_for_thread_blocks_late_results_until_the_next_turn() {
+    let _guard = test_guard();
+    record_completion(
+        "sess-stop",
+        "sub-stop-a",
+        "researcher",
+        "finished before Stop",
+        Some("thread-stop-live".into()),
+    );
+    record_completion(
+        "sess-stop",
+        "sub-stop-keep",
+        "researcher",
+        "other thread",
+        Some("thread-stop-other".into()),
+    );
+
+    // Stop drops the undelivered result so it can't start a delivery turn...
+    assert_eq!(discard_pending_for_thread("thread-stop-live"), 1);
+    assert_eq!(pending_count("sess-stop"), 1);
+    assert_eq!(take_pending("sess-stop")[0].task_id, "sub-stop-keep");
+
+    // A late completion from the stopped generation loses the cooperative
+    // abort race and is rejected.
+    record_completion(
+        "sess-stop",
+        "sub-stop-later",
+        "researcher",
+        "late stopped result",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 0);
+
+    // Completing Stop keeps the thread gate until a new user turn begins, so a
+    // child that registers after the cancellation sweep is still rejected.
+    finish_stop_for_thread("thread-stop-live", &["sub-stop-later".into()]);
+    record_completion(
+        "sess-stop",
+        "sub-stop-later",
+        "researcher",
+        "late stopped result after the next turn starts",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 0);
+
+    // A child that was spawned before Stop but registers after the registry
+    // sweep gets its own tombstone before the thread can be reopened.
+    assert!(mark_stopped_task_if_thread_stopped(
+        "thread-stop-live",
+        "sub-stop-registered-late"
+    ));
+
+    resume_stopped_thread("thread-stop-live");
+    record_completion(
+        "sess-stop",
+        "sub-stop-registered-late",
+        "researcher",
+        "late registration result",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 0);
+    record_completion(
+        "sess-stop",
+        "sub-stop-new-turn",
+        "researcher",
+        "next turn's result",
+        Some("thread-stop-live".into()),
+    );
+    assert_eq!(pending_count("sess-stop"), 1);
+    let _ = take_pending("sess-stop");
+}
+
+#[test]
+fn resuming_a_thread_removes_its_stop_order_entry() {
+    let mut state = QueueState::default();
+    state.stop("thread-resume");
+
+    state.resume_thread("thread-resume");
+
+    assert!(!state.stopped_threads.contains("thread-resume"));
+    assert!(state.stopped_order.is_empty());
+}

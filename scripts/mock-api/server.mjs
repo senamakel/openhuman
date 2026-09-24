@@ -16,6 +16,7 @@ import { handleCron } from "./routes/cron.mjs";
 import { handleIntegrations } from "./routes/integrations.mjs";
 import { handleInvites } from "./routes/invites.mjs";
 import { handleLlmCompletions, handleModelListing } from "./routes/llm.mjs";
+import { handleMedia } from "./routes/media.mjs";
 import { handleOAuth } from "./routes/oauth.mjs";
 import { handlePayments } from "./routes/payments.mjs";
 import { handleTelegram } from "./routes/telegram.mjs";
@@ -53,6 +54,8 @@ const ROUTE_HANDLERS = [
   // the default "Hello from e2e mock agent" reply.
   handleLlmCompletions,
   handleModelListing,
+  // OpenRouter media proxy; before the generic integrations handler.
+  handleMedia,
   handleIntegrations,
   handleWebhooks,
   handleCron,

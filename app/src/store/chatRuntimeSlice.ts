@@ -1359,11 +1359,16 @@ const chatRuntimeSlice = createSlice({
       const rowId = toolCallId ?? `${threadId}:${round}:${entries.length}:${toolName}`;
       if (existingIdx >= 0) {
         const prev = entries[existingIdx];
+        // A settled row stays settled. A replayed/late `tool_call` for a call
+        // whose result already landed used to flip it back to `running`, and
+        // nothing would ever settle it again.
+        const settled =
+          prev.status === 'success' || prev.status === 'error' || prev.status === 'cancelled';
         entries[existingIdx] = decorateEntry({
           ...prev,
           name: toolName,
           round,
-          status: 'running',
+          status: settled ? prev.status : 'running',
           displayName: displayLabel ?? prev.displayName,
           detail: displayDetail ?? prev.detail,
         });
@@ -1829,6 +1834,26 @@ const chatRuntimeSlice = createSlice({
       if (!entry) return;
       entry.status = 'cancelled';
       if (entry.subagent) entry.subagent.status = 'cancelled';
+    },
+    /**
+     * Settle rows whose terminal turn snapshot could not be fetched.
+     *
+     * `chat_done` means their event driver has stopped. A non-async row still
+     * marked `running` therefore has no remaining source that can truthfully
+     * complete it, while detached sub-agents intentionally outlive the parent
+     * turn and must remain owned by their run ledger.
+     */
+    cancelUnresolvedTurnTimeline: (
+      state,
+      action: PayloadAction<{ threadId: string; rowIds?: string[] }>
+    ) => {
+      const { threadId, rowIds } = action.payload;
+      const entries = state.toolTimelineByThread[threadId];
+      if (!entries) return;
+      const eligible = rowIds && new Set(rowIds);
+      state.toolTimelineByThread[threadId] = entries.map(entry =>
+        !eligible || eligible.has(entry.id) ? settleOrphanedTimelineEntry(entry) : entry
+      );
     },
     /**
      * Append a streamed `subagent_text_delta` / `subagent_thinking_delta`
@@ -2526,6 +2551,7 @@ export const {
   clearProcessingForThread,
   appendProcessingProse,
   markSubagentCancelled,
+  cancelUnresolvedTurnTimeline,
   appendSubagentStreamDelta,
   recordSubagentTranscriptTool,
   resolveSubagentTranscriptTool,

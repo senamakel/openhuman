@@ -1620,7 +1620,7 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(store.getState().chatRuntime.streamingAssistantByThread['t-inv']).toBeUndefined();
     });
 
-    it('terminates running tool-timeline rows on chat_done', () => {
+    it('cancels an unresolved tool row when the completed snapshot cannot be loaded', async () => {
       const listeners = renderProvider();
 
       act(() => {
@@ -1649,9 +1649,60 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
         });
       });
 
-      const timeline = store.getState().chatRuntime.toolTimelineByThread['t-inv'] ?? [];
-      expect(timeline).toHaveLength(1);
-      expect(timeline[0]?.status).toBe('success');
+      // The core drains every queued progress event before `chat_done`, so a
+      // row with no result by now has none. If the completed snapshot cannot
+      // be loaded, it has no remaining event driver and must not pulse as
+      // `running`; this still does not invent a successful tool outcome.
+      await waitFor(() => {
+        const timeline = store.getState().chatRuntime.toolTimelineByThread['t-inv'] ?? [];
+        expect(timeline).toHaveLength(1);
+        expect(timeline[0]?.status).toBe('cancelled');
+      });
+    });
+
+    it('keeps two id-less calls of one tool in a round apart by seq, still deduping a redelivery', () => {
+      const listeners = renderProvider();
+      const call = (seq: number) => ({
+        thread_id: 't-seq',
+        request_id: 'r1',
+        seq,
+        round: 1,
+        tool_name: 'shell',
+        skill_id: 'web_channel',
+        args: {},
+      });
+
+      act(() => {
+        listeners.onToolCall?.(call(3));
+        listeners.onToolCall?.(call(5));
+        // Socket redelivery of the first frame.
+        listeners.onToolCall?.(call(3));
+      });
+
+      expect(store.getState().chatRuntime.toolTimelineByThread['t-seq']).toHaveLength(2);
+    });
+
+    it('drops a redelivered text delta by seq instead of appending it twice', () => {
+      const listeners = renderProvider();
+      const delta = (seq: number, text: string) => ({
+        thread_id: 't-delta',
+        request_id: 'r1',
+        seq,
+        round: 1,
+        delta: text,
+      });
+
+      act(() => {
+        listeners.onTextDelta?.(delta(1, 'Hel'));
+        listeners.onTextDelta?.(delta(2, 'lo'));
+        listeners.onTextDelta?.(delta(1, 'Hel'));
+        listeners.onThinkingDelta?.(delta(2, 'lo'));
+        listeners.onTextDelta?.(delta(3, '!'));
+      });
+
+      expect(store.getState().chatRuntime.streamingAssistantByThread['t-delta']?.content).toBe(
+        'Hello!'
+      );
     });
 
     it('transitions running tool-timeline rows to error on chat_error', () => {

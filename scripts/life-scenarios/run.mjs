@@ -49,6 +49,7 @@ import { startMockSearch, DEFAULT_INDEX_PATH } from "./mock-search.mjs";
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const REPO = path.resolve(HERE, "..", "..");
 const FIXTURES = path.join(HERE, "fixtures");
+const SUPPORTED_AGENT_IDS = new Set(["life_scenarios", "orchestrator"]);
 
 // ---------------------------------------------------------------------------
 // args
@@ -60,9 +61,15 @@ function parseArgs(argv) {
     // `desktop` = channel_web_chat + SSE, exactly what the composer does.
     // `rpc`     = inference_agent_chat, the only path with `cwd`/`agent_id`.
     driver: "desktop",
-    // Empty = the orchestrator, which is what the app uses. A named agent only
-    // takes effect on the `rpc` driver.
-    agentId: "",
+    // The suite's benchmark agent (scripts/life-scenarios/agent-life-scenarios.toml):
+    // 40 iterations and the named tool belt these multi-step scenarios need.
+    // `--agent orchestrator` runs the unmodified shipping agent for comparison,
+    // capped at the 15 iterations its own definition declares.
+    //
+    // This now takes effect on BOTH drivers: the rpc path passes it per call,
+    // the desktop path gets it through `[agent] chat_agent_id` in the generated
+    // config.
+    agentId: "life_scenarios",
     model: process.env.LIFE_SCENARIO_MODEL || "deepseek/deepseek-v4.1-flash",
     inferenceUrl:
       process.env.LIFE_SCENARIO_INFERENCE_URL || "https://openrouter.ai/api/v1",
@@ -96,7 +103,20 @@ function parseArgs(argv) {
     if (a === "--only")
       o.only = next().split(",").map((s) => s.trim()).filter(Boolean);
     else if (a === "--driver") o.driver = next();
-    else if (a === "--agent") o.agentId = next();
+    else if (a === "--agent") {
+      const agentId = next();
+      if (!/^[A-Za-z0-9_-]+$/.test(agentId)) {
+        throw new Error(
+          "--agent must contain only ASCII letters, digits, '_' or '-'",
+        );
+      }
+      if (!SUPPORTED_AGENT_IDS.has(agentId)) {
+        throw new Error(
+          `--agent must be one of: ${[...SUPPORTED_AGENT_IDS].join(", ")}`,
+        );
+      }
+      o.agentId = agentId;
+    }
     else if (a === "--model") o.model = next();
     else if (a === "--inference-url") o.inferenceUrl = next();
     else if (a === "--api-key") o.apiKey = next();
@@ -215,7 +235,7 @@ function mintLocalSessionToken(userId) {
  * to have, and a benchmark that silently inherits those measures the machine
  * rather than the harness.
  */
-async function prepareHome(runDir, { searchBase } = {}) {
+async function prepareHome(runDir, opts, { searchBase } = {}) {
   const home = path.join(runDir, "home");
   const oh = path.join(home, ".openhuman");
   await fsp.mkdir(path.join(oh, "agents"), { recursive: true });
@@ -250,6 +270,15 @@ async function prepareHome(runDir, { searchBase } = {}) {
     'level = "supervised"',
     "workspace_only = false",
     "",
+    // The web-chat path (`channel_web_chat`, the desktop driver below) has no
+    // per-call `agent_id` the way `inference_agent_chat` does, so this is how
+    // it is pointed at the suite's benchmark agent. Without it that path runs
+    // `orchestrator`, whose definition caps the turn at 15 iterations — and a
+    // definition cap OVERWRITES `[agent] max_tool_iterations` rather than being
+    // bounded by it, so no cap setting can substitute for choosing the agent.
+    "[agent]",
+    `chat_agent_id = "${opts.agentId}"`,
+    "",
     "[observability]",
     "analytics_enabled = false",
     "share_usage_data = false",
@@ -269,8 +298,9 @@ async function prepareHome(runDir, { searchBase } = {}) {
   // root one, so the composio block has to exist in both.
   await fsp.writeFile(path.join(oh, "users", "local", "config.toml"), config);
 
-  // Only read by `--driver rpc --agent life_scenarios`; the desktop driver
-  // always runs the orchestrator, as the app does.
+  // Read by both drivers now: the rpc path names it per call, the desktop path
+  // selects it with `[agent] chat_agent_id` above. `--agent orchestrator` opts
+  // back into the unmodified shipping agent.
   await fsp.copyFile(
     path.join(HERE, "agent-life-scenarios.toml"),
     path.join(oh, "agents", "life_scenarios.toml"),
@@ -979,7 +1009,9 @@ async function main() {
     );
   }
 
-  const home = await prepareHome(runDir, { searchBase: search ? search.url : "" });
+  const home = await prepareHome(runDir, opts, {
+    searchBase: search ? search.url : "",
+  });
 
   let composio = null;
   if (opts.mockComposio) {
@@ -1061,6 +1093,32 @@ async function main() {
       { attempts: 10, delayMs: 500, what: "BYOK route" },
     );
   }
+
+  // The web-chat driver has no per-call `agent_id`, so the agent is chosen by
+  // `[agent] chat_agent_id`. Set it through the running core rather than by
+  // pre-writing the file, for exactly the reason the BYOK block above gives:
+  // `prepareHome` writes `users/local/config.toml`, but the active user dir is
+  // minted at boot (`users/local-dragonfly/...`) and its config wins. The
+  // pre-written value is read by nothing, and the turn silently runs the
+  // orchestrator at its own 15-iteration cap — which looks like the benchmark
+  // agent failing when it never ran at all.
+  const chatAgentId = opts.agentId.trim() || null;
+  await withRetries(
+    async () => {
+      await core.rpc("openhuman.config_update_agent_settings", {
+        chat_agent_id: opts.agentId,
+      });
+      const snap = await core.rpc("openhuman.config_get", {});
+      const cfg = snap?.config ?? snap?.snapshot?.config ?? snap?.snapshot ?? snap ?? {};
+      const got = cfg.agent?.chat_agent_id ?? null;
+      if (got !== chatAgentId)
+        throw new Error(
+          `chat_agent_id not in the active config yet (want ${chatAgentId ?? "unset"}, got ${got ?? "unset"})`,
+        );
+    },
+    { attempts: 10, delayMs: 500, what: "chat_agent_id" },
+  );
+
   console.log(
     `route   : ${opts.managed ? "managed backend" : opts.inferenceUrl} model=${opts.model}`,
   );

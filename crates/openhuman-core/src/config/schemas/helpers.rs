@@ -228,6 +228,10 @@ pub(super) struct PrivacyModeUpdate {
 pub(super) struct AgentSettingsUpdate {
     /// Tool/action wall-clock timeout in seconds (1–3600). Validated server-side.
     pub(super) agent_timeout_secs: Option<u64>,
+    /// Agent id the web-chat path routes turns to. Empty string clears the
+    /// override (back to the orchestrator); omitted leaves it unchanged.
+    #[serde(default)]
+    pub(super) chat_agent_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize)]

@@ -21,8 +21,34 @@ pub(super) fn model_registry_signature(config: &Config) -> String {
     serde_json::to_string(&config.model_registry).unwrap_or_default()
 }
 
-pub(super) fn pick_target_agent_id(_config: &Config) -> String {
-    "orchestrator".to_string()
+/// The agent a web-chat turn runs as: `[agent] chat_agent_id` when an operator
+/// set one, `orchestrator` otherwise.
+///
+/// The parameter was threaded in and ignored, so this path was pinned to the
+/// orchestrator and its definition's `max_iterations` — no config could move
+/// it, because a definition cap *overwrites* `agent.max_tool_iterations` rather
+/// than being bounded by it (`session_host::builder::factory`). An unknown or
+/// blank id falls back rather than failing the turn: the registry answers for
+/// `orchestrator` on every install, and a typo in an optional setting should
+/// not take chat down.
+pub(super) fn pick_target_agent_id(config: &Config) -> String {
+    const DEFAULT_CHAT_AGENT_ID: &str = "orchestrator";
+    let selected = config
+        .agent
+        .chat_agent_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|id| !id.is_empty())
+        .unwrap_or(DEFAULT_CHAT_AGENT_ID);
+
+    if OpenHumanSessionHost::is_runnable_agent_id(config, selected) {
+        return selected.to_string();
+    }
+
+    log::warn!(
+        "[web-channel] configured chat_agent_id={selected:?} is not a runnable definition; falling back to {DEFAULT_CHAT_AGENT_ID}"
+    );
+    DEFAULT_CHAT_AGENT_ID.to_string()
 }
 
 pub(crate) fn normalize_model_override(model_override: Option<String>) -> Option<String> {

@@ -10,12 +10,14 @@ omit_identity = true
 omit_memory_context = true
 omit_safety_preamble = true
 
-# Multimodal tier. `ModelSpec::Hint("vision")` resolves to `hint:vision`, which
-# `oh_tier_supports_vision` reports as vision-capable — so this sub-agent's
-# model is always treated as image-enabled (managed or BYOK), and the turn
-# engine never strips the attached image at the vision gate.
+# Pinned to a dedicated OpenRouter passthrough model rather than the
+# deprecated `hint:vision` (`vision-v1` silently falls back to the chat
+# default on managed routes, with no error — regression R4). This exact id
+# is in `MANAGED_MULTIMODAL_MODELS`, so `oh_tier_supports_vision` still
+# reports it as image-enabled and the turn engine never strips the attached
+# image at the vision gate.
 [model]
-hint = "vision"
+exact = "openrouter/qwen/qwen3.7-flash"
 
 [tools]
 # Attached images arrive inline in the sub-agent's context via the multimodal

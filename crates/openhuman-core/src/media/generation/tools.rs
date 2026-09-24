@@ -1,439 +1,150 @@
-//! Agent-facing media-generation tools (image + video) backed by GMI via the
-//! OpenHuman backend's `media_generation` provider.
+//! Media generation agent tools.
 //!
-//! **Endpoints** (see `backend/docs/media-generation.md`):
-//!   - `POST /agent-integrations/media-generation/images`
-//!   - `POST /agent-integrations/media-generation/videos`
-//!   - `GET  /agent-integrations/media-generation/requests/{requestId}`
-//!   - `GET  /agent-integrations/media-generation/models`
-//!
-//! Generation is asynchronous. These tools **block with progress**: they submit
-//! (`wait:false`, so the backend charges + returns a request id immediately),
-//! then poll the request until it reaches a terminal state, download each
-//! resulting artifact into the agent's `generated-media/` root, and return the
-//! local file paths. If the request does not reach a terminal state within the
-//! wait budget, the tool returns an error (never a success with no file). The
-//! backend owns GMI keys, billing, and rate limiting.
+//! `media_generate_image` and `media_generate_video` are TinyAgents'
+//! [`GenerateImageTool`] / [`GenerateVideoTool`] bound to the managed
+//! generators from [`super::provider`], under the names the `media` tool pack
+//! and the image/video agents' allowlists already use. `media_list_models`
+//! lists what the generators can run.
 
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
+use tinyagents_harness::media::{GenerateImageTool, GenerateVideoTool, MediaOutput};
+use tinyagents_harness::tinyinference_image::ImageGenerator;
+use tinyagents_harness::tinyinference_video::{VideoGenerator, WaitPolicy};
+use tinytools::{PermissionLevel, Tool, ToolCategory, ToolResult};
 
+use super::provider::{managed_generators, MediaGenerators};
 use crate::config::Config;
-use crate::integrations::IntegrationClient;
-use tinytools::ToolRunContext;
-use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult};
 
-use super::download::persist_media;
-use super::types::MediaResponse;
+/// Image tool name (pinned by the `media` pack and agent allowlists).
+pub const IMAGE_TOOL_NAME: &str = "media_generate_image";
+/// Video tool name.
+pub const VIDEO_TOOL_NAME: &str = "media_generate_video";
+/// Model-listing tool name.
+pub const LIST_MODELS_TOOL_NAME: &str = "media_list_models";
 
-const IMAGES_PATH: &str = "/agent-integrations/media-generation/images";
-const VIDEOS_PATH: &str = "/agent-integrations/media-generation/videos";
-const MODELS_PATH: &str = "/agent-integrations/media-generation/models";
+/// Poll cadence and budget for a video job.
+const VIDEO_POLL_INTERVAL: Duration = Duration::from_secs(5);
+const VIDEO_WAIT_BUDGET: Duration = Duration::from_secs(600);
 
-/// Poll cadence + caps. Images are fast; video can take minutes.
-const POLL_INTERVAL: Duration = Duration::from_secs(4);
-const IMAGE_MAX_WAIT_SECS: u64 = 300;
-const VIDEO_MAX_WAIT_SECS: u64 = 420;
+const IMAGE_DESCRIPTION: &str = "Generate or edit images from a text prompt via OpenRouter \
+     (default model: Seedream 5.0 Lite). Pass `references` (https URLs or workspace file paths) \
+     to edit, restyle, or keep a subject consistent. Saves each image under the workspace \
+     `generated-media/` folder and returns the file path. Billed per call: after an error that \
+     says the call was billed, do not call again — report it to the user.";
 
-/// Shared submit-then-poll-then-persist flow for both modalities.
-async fn generate_and_persist(
-    client: &IntegrationClient,
-    action_dir: &Path,
-    submit_path: &str,
-    body: Value,
-    max_wait_secs: u64,
-) -> ToolResult {
-    // Submit without server-side blocking; the backend charges on submit and
-    // returns a request id we poll ourselves (so the core owns the progress UX).
-    let submitted: MediaResponse = match client.post::<MediaResponse>(submit_path, &body).await {
-        Ok(resp) => resp,
-        Err(e) => return ToolResult::error(format!("Media generation submit failed: {e}")),
+const VIDEO_DESCRIPTION: &str = "Generate a short video clip via OpenRouter (default model: \
+     Seedance 2.0 Mini, 4–15 s, 480p/720p, optional audio). Optionally start from \
+     `first_frame` or end on `last_frame` (URL or workspace path). Blocks until the clip is \
+     ready (minutes) and saves it under `generated-media/`. Billed per call: if it times out, \
+     call again with `resume_job_id` instead of submitting a new job.";
+
+/// Registers the media tools, or nothing when no backend is reachable.
+pub fn build_media_tools(root_config: &Config, action_dir: &Path) -> Vec<Box<dyn Tool>> {
+    let Some(generators) = managed_generators(root_config) else {
+        return Vec::new();
     };
+    media_tools_from(
+        generators,
+        action_dir,
+        &root_config.workspace_dir,
+        WaitPolicy::new(VIDEO_POLL_INTERVAL, VIDEO_WAIT_BUDGET),
+    )
+}
 
-    let request_id = submitted.request_id.clone();
-    tracing::info!(
-        "[media_generation] submitted request={} status={} cost=${:.4}",
-        request_id,
-        submitted.status,
-        submitted.cost_usd
-    );
+/// Builds the tool set over any generators (the managed ones in production,
+/// mocks in tests), writing under `action_dir`; `video_wait` bounds each
+/// video job.
+pub fn media_tools_from(
+    generators: MediaGenerators,
+    action_dir: &Path,
+    workspace_dir: &Path,
+    video_wait: WaitPolicy,
+) -> Vec<Box<dyn Tool>> {
+    let MediaGenerators { image, video } = generators;
+    let output = MediaOutput::new(action_dir)
+        .with_reference_policy(reference_policy(action_dir, workspace_dir));
+    let tools: Vec<Box<dyn Tool>> = vec![
+        Box::new(
+            GenerateImageTool::new(Arc::clone(&image), output.clone())
+                .with_name(IMAGE_TOOL_NAME)
+                .with_description(IMAGE_DESCRIPTION)
+                .with_permission_level(PermissionLevel::Execute)
+                .with_category(ToolCategory::Workflow),
+        ),
+        Box::new(
+            GenerateVideoTool::new(Arc::clone(&video), output)
+                .with_name(VIDEO_TOOL_NAME)
+                .with_description(VIDEO_DESCRIPTION)
+                .with_permission_level(PermissionLevel::Execute)
+                .with_category(ToolCategory::Workflow)
+                .with_wait_policy(video_wait),
+        ),
+        Box::new(MediaListModelsTool { image, video }),
+    ];
+    tracing::debug!("[media_generation] registered {} media tools", tools.len());
+    tools
+}
 
-    let status_path = format!(
-        "/agent-integrations/media-generation/requests/{}",
-        request_id
-    );
-
-    let mut latest = submitted;
-    let mut last_poll_error: Option<String> = None;
-    let deadline = Instant::now() + Duration::from_secs(max_wait_secs);
-    while !latest.is_terminal() {
-        if Instant::now() >= deadline {
-            tracing::warn!(
-                "[media_generation] wait budget elapsed for request={} (status={}, last_poll_error={:?})",
-                request_id,
-                latest.status,
-                last_poll_error
-            );
-            // The generation never reached a terminal state within the budget, so
-            // no artifact was downloaded. Surface an error rather than a false
-            // success — a caller told "success" would report a file that was never
-            // produced. Keep the message stable and free of upstream error text
-            // (that stays in the log line above): the request was accepted and
-            // billed and may still be running server-side, and there is no
-            // resume-by-id path, so retrying submits and bills a brand-new
-            // generation.
-            return ToolResult::error(format!(
-                "Media generation did not complete within {max_wait_secs}s (request_id: \
-                 {request_id}, last status: {}). The request was accepted and billed and may \
-                 still be running on the server. Calling this tool again starts and bills a \
-                 separate generation (there is no resume-by-id), so do not retry automatically — \
-                 report this to the user and let them decide.",
-                latest.status
+/// Local reference files may be read and uploaded only from the action
+/// directory or the workspace directory, never through `..`, and never from
+/// an always-forbidden location (credential stores, system roots).
+pub(crate) fn reference_policy(
+    action_dir: &Path,
+    workspace_dir: &Path,
+) -> tinyagents_harness::media::ReferencePathPolicy {
+    let roots: Vec<PathBuf> = vec![action_dir.to_path_buf(), workspace_dir.to_path_buf()];
+    Arc::new(move |path: &Path| {
+        if path.components().any(|c| matches!(c, Component::ParentDir)) {
+            return Err(format!(
+                "reference path {} may not contain '..'",
+                path.display()
             ));
         }
-        // Don't sleep past the deadline: cap the poll interval to the time left so
-        // the wait budget is enforced before each poll. The poll request itself is
-        // bounded by the integration client's request timeout.
-        let remaining = deadline.saturating_duration_since(Instant::now());
-        tokio::time::sleep(POLL_INTERVAL.min(remaining)).await;
-        match client.get::<MediaResponse>(&status_path).await {
-            Ok(resp) => {
-                tracing::debug!(
-                    "[media_generation] poll request={} status={}",
-                    request_id,
-                    resp.status
-                );
-                latest = resp;
-            }
-            Err(e) => {
-                tracing::warn!(
-                    "[media_generation] poll error for request={}: {e}",
-                    request_id
-                );
-                // Transient poll failures shouldn't abort a paid generation — keep
-                // polling until the deadline, but remember the last error so a
-                // timeout can explain why it never observed a terminal status.
-                last_poll_error = Some(e.to_string());
-            }
+        if crate::security::SecurityPolicy::is_always_forbidden(path) {
+            return Err(format!(
+                "reference path {} is in a protected location",
+                path.display()
+            ));
         }
-    }
-
-    if latest.is_failed() {
-        return ToolResult::error(format!(
-            "Media generation failed (request_id: {request_id})."
-        ));
-    }
-
-    if latest.media.is_empty() {
-        return ToolResult::error(format!(
-            "Media generation reported success but returned no media (request_id: {request_id})."
-        ));
-    }
-
-    match persist_media(action_dir, &request_id, &latest.media).await {
-        Ok(artifacts) => {
-            let mut lines = vec![format!(
-                "Generated {} artifact(s) (request_id: {}, model: {}):",
-                artifacts.len(),
-                request_id,
-                latest.model
-            )];
-            for art in &artifacts {
-                lines.push(format!("- {} → {}", art.kind, art.path.display()));
-                if let Some(thumb) = &art.thumbnail_url {
-                    lines.push(format!("    thumbnail: {thumb}"));
-                }
-            }
-            lines.push(format!("\nCost: ${:.4}", latest.cost_usd));
-            let payload = json!({
-                "request_id": request_id,
-                "model": latest.model,
-                "cost_usd": latest.cost_usd,
-                "artifacts": artifacts.iter().map(|a| json!({
-                    "type": a.kind,
-                    "path": a.path.display().to_string(),
-                    "source_url": a.source_url,
-                    "thumbnail_url": a.thumbnail_url,
-                })).collect::<Vec<_>>(),
-            });
-            ToolResult::success_with_markdown(payload, lines.join("\n"))
+        if !roots.iter().any(|root| path.starts_with(root)) {
+            return Err(format!(
+                "reference path {} is outside the workspace; use a URL or a file inside the workspace",
+                path.display()
+            ));
         }
-        Err(e) => ToolResult::error(format!(
-            "Generation succeeded but persisting media failed (request_id: {request_id}): {e}"
-        )),
-    }
+        Ok(path.to_path_buf())
+    })
 }
 
-fn action_dir_for_context(
-    default_action_dir: &Path,
-    context: Option<&dyn ToolRunContext>,
-    tool_name: &str,
-) -> PathBuf {
-    if let Some(workspace) = context.and_then(|ctx| ctx.workspace()) {
-        tracing::debug!(
-            tool = tool_name,
-            workspace_root = %workspace.root.display(),
-            policy_id = %workspace.policy_id,
-            "[media_generation] using ToolExecutionContext workspace root"
-        );
-        return workspace.root.clone();
-    }
-
-    default_action_dir.to_path_buf()
-}
-
-// ── MediaGenerateImageTool ──────────────────────────────────────────
-
-pub struct MediaGenerateImageTool {
-    client: Arc<IntegrationClient>,
-    action_dir: PathBuf,
-}
-
-impl MediaGenerateImageTool {
-    pub fn new(client: Arc<IntegrationClient>, action_dir: PathBuf) -> Self {
-        Self { client, action_dir }
-    }
-
-    async fn run(&self, args: Value, action_dir: &Path) -> anyhow::Result<ToolResult> {
-        let prompt = match args.get("prompt").and_then(|v| v.as_str()) {
-            Some(p) if !p.trim().is_empty() => p,
-            _ => return Ok(ToolResult::error("prompt is required")),
-        };
-
-        let mut body = json!({ "prompt": prompt, "wait": false });
-        if let Some(model) = args.get("model").and_then(|v| v.as_str()) {
-            body["model"] = json!(model);
-        }
-        if let Some(size) = args.get("size").and_then(|v| v.as_str()) {
-            body["size"] = json!(size);
-        }
-        if let Some(n) = args.get("n").and_then(|v| v.as_u64()) {
-            body["n"] = json!(n.clamp(1, 8));
-        }
-        if let Some(imgs) = args.get("input_images").and_then(|v| v.as_array()) {
-            let urls: Vec<&str> = imgs.iter().filter_map(|v| v.as_str()).collect();
-            if !urls.is_empty() {
-                body["inputImages"] = json!(urls);
-            }
-        }
-        if let Some(seed) = args.get("seed").and_then(|v| v.as_i64()) {
-            body["seed"] = json!(seed);
-        }
-
-        tracing::info!(
-            prompt_len = prompt.len(),
-            action_dir = %action_dir.display(),
-            "[media_generate_image] persisting generated media"
-        );
-        Ok(generate_and_persist(
-            &self.client,
-            action_dir,
-            IMAGES_PATH,
-            body,
-            IMAGE_MAX_WAIT_SECS,
-        )
-        .await)
-    }
-}
-
-#[async_trait]
-impl Tool for MediaGenerateImageTool {
-    fn name(&self) -> &str {
-        "media_generate_image"
-    }
-
-    fn description(&self) -> &str {
-        "Generate or edit an image from a text prompt using GMI (Seedream / SeedEdit). \
-         Optionally pass reference image URLs to edit/condition (image-to-image). \
-         Blocks until the image is ready and saves it under the workspace \
-         generated-media folder, returning the local file path. Cost is billed by the backend."
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "prompt": { "type": "string", "description": "Detailed visual prompt or edit instruction" },
-                "model": { "type": "string", "description": "Optional GMI model id (default: seedream-4-0-250828). Use media_list_models to discover." },
-                "size": { "type": "string", "description": "Optional output size, e.g. 1024x1024 or 1536x1024" },
-                "n": { "type": "integer", "minimum": 1, "maximum": 8, "description": "Number of images (default 1)" },
-                "input_images": {
-                    "type": "array",
-                    "items": { "type": "string" },
-                    "description": "Optional reference image URLs for edit / image-to-image"
-                },
-                "seed": { "type": "integer", "description": "Optional seed for reproducibility" }
-            },
-            "required": ["prompt"]
-        })
-    }
-
-    fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::Execute
-    }
-
-    fn category(&self) -> ToolCategory {
-        ToolCategory::Workflow
-    }
-
-    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        self.run(args, &self.action_dir).await
-    }
-
-    async fn execute_with_context(
-        &self,
-        args: Value,
-        _options: ToolCallOptions,
-        context: Option<&dyn ToolRunContext>,
-    ) -> anyhow::Result<ToolResult> {
-        let action_dir = action_dir_for_context(&self.action_dir, context, self.name());
-        self.run(args, &action_dir).await
-    }
-}
-
-// ── MediaGenerateVideoTool ──────────────────────────────────────────
-
-pub struct MediaGenerateVideoTool {
-    client: Arc<IntegrationClient>,
-    action_dir: PathBuf,
-}
-
-impl MediaGenerateVideoTool {
-    pub fn new(client: Arc<IntegrationClient>, action_dir: PathBuf) -> Self {
-        Self { client, action_dir }
-    }
-
-    async fn run(&self, args: Value, action_dir: &Path) -> anyhow::Result<ToolResult> {
-        let prompt = match args.get("prompt").and_then(|v| v.as_str()) {
-            Some(p) if !p.trim().is_empty() => p,
-            _ => return Ok(ToolResult::error("prompt is required")),
-        };
-
-        let mut body = json!({ "prompt": prompt, "wait": false });
-        if let Some(model) = args.get("model").and_then(|v| v.as_str()) {
-            body["model"] = json!(model);
-        }
-        if let Some(img) = args.get("input_image").and_then(|v| v.as_str()) {
-            body["inputImage"] = json!(img);
-        }
-        if let Some(d) = args.get("duration_seconds").and_then(|v| v.as_u64()) {
-            body["durationSeconds"] = json!(d.clamp(1, 60));
-        }
-        if let Some(ar) = args.get("aspect_ratio").and_then(|v| v.as_str()) {
-            body["aspectRatio"] = json!(ar);
-        }
-        if let Some(np) = args.get("negative_prompt").and_then(|v| v.as_str()) {
-            body["negativePrompt"] = json!(np);
-        }
-        if let Some(seed) = args.get("seed").and_then(|v| v.as_i64()) {
-            body["seed"] = json!(seed);
-        }
-
-        tracing::info!(
-            prompt_len = prompt.len(),
-            action_dir = %action_dir.display(),
-            "[media_generate_video] persisting generated media"
-        );
-        Ok(generate_and_persist(
-            &self.client,
-            action_dir,
-            VIDEOS_PATH,
-            body,
-            VIDEO_MAX_WAIT_SECS,
-        )
-        .await)
-    }
-}
-
-#[async_trait]
-impl Tool for MediaGenerateVideoTool {
-    fn name(&self) -> &str {
-        "media_generate_video"
-    }
-
-    fn description(&self) -> &str {
-        "Generate a short video from a text prompt using GMI (Seedance / Veo). \
-         Optionally pass a first-frame/reference image URL for image-to-video. \
-         Video can take a few minutes; this blocks until it is ready, saves the \
-         clip under the workspace generated-media folder, and returns the local \
-         file path. Cost is billed by the backend."
-    }
-
-    fn parameters_schema(&self) -> Value {
-        json!({
-            "type": "object",
-            "properties": {
-                "prompt": { "type": "string", "description": "Detailed description of the video to generate" },
-                "model": { "type": "string", "description": "Optional GMI model id (default: seedance-1-0-pro-fast-251015). Use media_list_models to discover." },
-                "input_image": { "type": "string", "description": "Optional first-frame / reference image URL for image-to-video" },
-                "duration_seconds": { "type": "integer", "minimum": 1, "maximum": 60, "description": "Optional clip duration in seconds" },
-                "aspect_ratio": { "type": "string", "description": "Optional aspect ratio, e.g. 16:9, 9:16, 1:1" },
-                "negative_prompt": { "type": "string", "description": "Optional description of what to avoid" },
-                "seed": { "type": "integer", "description": "Optional seed for reproducibility" }
-            },
-            "required": ["prompt"]
-        })
-    }
-
-    fn permission_level(&self) -> PermissionLevel {
-        PermissionLevel::Execute
-    }
-
-    fn category(&self) -> ToolCategory {
-        ToolCategory::Workflow
-    }
-
-    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        self.run(args, &self.action_dir).await
-    }
-
-    async fn execute_with_context(
-        &self,
-        args: Value,
-        _options: ToolCallOptions,
-        context: Option<&dyn ToolRunContext>,
-    ) -> anyhow::Result<ToolResult> {
-        let action_dir = action_dir_for_context(&self.action_dir, context, self.name());
-        self.run(args, &action_dir).await
-    }
-}
-
-// ── MediaListModelsTool ─────────────────────────────────────────────
-
+/// Lists the image and video models the generators can run.
 pub struct MediaListModelsTool {
-    client: Arc<IntegrationClient>,
-}
-
-impl MediaListModelsTool {
-    pub fn new(client: Arc<IntegrationClient>) -> Self {
-        Self { client }
-    }
+    image: Arc<dyn ImageGenerator>,
+    video: Arc<dyn VideoGenerator>,
 }
 
 #[async_trait]
 impl Tool for MediaListModelsTool {
     fn name(&self) -> &str {
-        "media_list_models"
+        LIST_MODELS_TOOL_NAME
     }
 
     fn description(&self) -> &str {
-        "List available image/video generation models — a curated catalog with \
-         pricing, plus (with include_upstream) GMI's full live model list. Use to \
-         pick a `model` id for media_generate_image / media_generate_video."
+        "List the image and video generation models available to media_generate_image and \
+         media_generate_video, with their ids. Use only when the user asks for a specific model \
+         or style the default model cannot do."
     }
 
     fn parameters_schema(&self) -> Value {
         json!({
             "type": "object",
             "properties": {
-                "include_upstream": {
-                    "type": "boolean",
-                    "description": "Also fetch GMI's full live model list (default false)"
-                }
+                "kind": { "type": "string", "enum": ["image", "video", "all"], "description": "Which catalog (default all)." },
+                "search": { "type": "string", "description": "Case-insensitive substring filter on id or name." }
             }
         })
     }
@@ -442,50 +153,65 @@ impl Tool for MediaListModelsTool {
         ToolCategory::Workflow
     }
 
-    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
-        let include_upstream = args
-            .get("include_upstream")
-            .and_then(|v| v.as_bool())
-            .unwrap_or(false);
-        let path = if include_upstream {
-            format!("{MODELS_PATH}?includeUpstream=true")
-        } else {
-            MODELS_PATH.to_string()
-        };
-        match self.client.get::<Value>(&path).await {
-            Ok(resp) => Ok(ToolResult::success_with_markdown(
-                resp.clone(),
-                serde_json::to_string_pretty(&resp).unwrap_or_else(|_| resp.to_string()),
-            )),
-            Err(e) => Ok(ToolResult::error(format!(
-                "Failed to list media models: {e}"
-            ))),
-        }
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::ReadOnly
     }
-}
 
-// ── Builder ─────────────────────────────────────────────────────────
-
-/// Build the media-generation tool surface. Returns empty when no integration
-/// client is configured (no backend URL / not signed in), mirroring the other
-/// backend-proxied tool families.
-pub fn build_media_tools(root_config: &Config, action_dir: &std::path::Path) -> Vec<Box<dyn Tool>> {
-    let Some(client) = crate::integrations::build_client(root_config) else {
-        tracing::debug!("[media_generation] no integration client — media tools skipped");
-        return Vec::new();
-    };
-
-    let action_dir = action_dir.to_path_buf();
-    let tools: Vec<Box<dyn Tool>> = vec![
-        Box::new(MediaGenerateImageTool::new(
-            Arc::clone(&client),
-            action_dir.clone(),
-        )),
-        Box::new(MediaGenerateVideoTool::new(Arc::clone(&client), action_dir)),
-        Box::new(MediaListModelsTool::new(Arc::clone(&client))),
-    ];
-    tracing::debug!("[media_generation] registered {} media tools", tools.len());
-    tools
+    async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        let kind = args.get("kind").and_then(Value::as_str).unwrap_or("all");
+        let search = args
+            .get("search")
+            .and_then(Value::as_str)
+            .map(str::to_ascii_lowercase);
+        let keep = |id: &str, name: Option<&str>| {
+            search.as_deref().is_none_or(|needle| {
+                id.to_ascii_lowercase().contains(needle)
+                    || name.is_some_and(|n| n.to_ascii_lowercase().contains(needle))
+            })
+        };
+        let mut out = serde_json::Map::new();
+        if kind != "video" {
+            match self.image.list_models().await {
+                Ok(models) => {
+                    let list: Vec<Value> = models
+                        .iter()
+                        .filter(|m| keep(&m.id, m.name.as_deref()))
+                        .map(|m| json!({ "id": m.id, "name": m.name }))
+                        .collect();
+                    out.insert(
+                        "image".into(),
+                        json!({ "default": self.image.default_model(), "models": list }),
+                    );
+                }
+                Err(error) => {
+                    return Ok(ToolResult::error(format!(
+                        "Listing image models failed: {error}"
+                    )))
+                }
+            }
+        }
+        if kind != "image" {
+            match self.video.list_models().await {
+                Ok(models) => {
+                    let list: Vec<Value> = models
+                        .iter()
+                        .filter(|m| keep(&m.id, m.name.as_deref()))
+                        .map(|m| json!({ "id": m.id, "name": m.name }))
+                        .collect();
+                    out.insert(
+                        "video".into(),
+                        json!({ "default": self.video.default_model(), "models": list }),
+                    );
+                }
+                Err(error) => {
+                    return Ok(ToolResult::error(format!(
+                        "Listing video models failed: {error}"
+                    )))
+                }
+            }
+        }
+        Ok(ToolResult::json(Value::Object(out)))
+    }
 }
 
 #[cfg(test)]

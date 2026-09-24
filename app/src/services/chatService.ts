@@ -1312,22 +1312,42 @@ export async function chatSend(params: ChatSendParams): Promise<string | undefin
   return typeof requestId === 'string' ? requestId : undefined;
 }
 
+/** Result of a Stop request. */
+export interface ChatCancelOutcome {
+  /** The core received and processed the cancel. */
+  accepted: boolean;
+  /**
+   * A turn was actually torn down, so a `cancelled` chat_error is on its way.
+   * `false` on an accepted cancel means the core had no turn running for the
+   * thread: no terminal event will arrive, and the caller must settle any
+   * running state it still shows itself.
+   */
+  turnCancelled: boolean;
+}
+
 /**
- * Cancel an in-flight chat request via core RPC.
+ * Stop whatever is running on a thread via core RPC: the in-flight turn, its
+ * parallel turns, and its detached background sub-agents.
  */
-export async function chatCancel(threadId: string): Promise<boolean> {
+export async function chatCancel(threadId: string): Promise<ChatCancelOutcome> {
   const socket = socketService.getSocket();
   const clientId = socket?.id;
-  if (!clientId) return false;
+  if (!clientId) {
+    chatLog('chat_cancel: no socket id thread=%s — cancel not sent', threadId);
+    return { accepted: false, turnCancelled: false };
+  }
 
   try {
-    await callCoreRpc({
+    const result = await callCoreRpc<{ result?: { request_id?: unknown } }>({
       method: 'openhuman.channel_web_cancel',
       params: { client_id: clientId, thread_id: threadId },
     });
-    return true;
-  } catch {
-    return false;
+    const turnCancelled = typeof result?.result?.request_id === 'string';
+    chatLog('chat_cancel: thread=%s turnCancelled=%s', threadId, turnCancelled);
+    return { accepted: true, turnCancelled };
+  } catch (error) {
+    chatLog('chat_cancel: rpc failed thread=%s error=%O', threadId, error);
+    return { accepted: false, turnCancelled: false };
   }
 }
 

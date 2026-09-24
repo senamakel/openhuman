@@ -232,6 +232,21 @@ pub struct AgentConfig {
     pub compact_context: bool,
     #[serde(default = "default_agent_max_tool_iterations")]
     pub max_tool_iterations: usize,
+    /// Agent the web-chat path (`channel_web_chat`, what the desktop composer
+    /// calls) routes a turn to. `None` — the default — means `orchestrator`,
+    /// which is what the shipped app runs.
+    ///
+    /// This is the only way to move that path off the orchestrator. A named
+    /// definition's `effective_max_iterations()` *overwrites*
+    /// `max_tool_iterations` at the single resolution point in
+    /// `session_host::builder::factory`, so raising the global cap cannot lift
+    /// an agent that declares its own — the choice has to be which definition
+    /// answers, not which number is larger. The RPC path already takes an
+    /// `agent_id` per call; web chat carries no such field, and adding one to
+    /// that wire contract to satisfy an operator preference would be the wrong
+    /// seam.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub chat_agent_id: Option<String>,
     #[serde(default = "default_agent_max_history_messages")]
     pub max_history_messages: usize,
     #[serde(default)]
@@ -568,6 +583,7 @@ impl Default for AgentConfig {
         Self {
             compact_context: false,
             max_tool_iterations: default_agent_max_tool_iterations(),
+            chat_agent_id: None,
             max_history_messages: default_agent_max_history_messages(),
             parallel_tools: false,
             max_parallel_tools: default_max_parallel_tools(),

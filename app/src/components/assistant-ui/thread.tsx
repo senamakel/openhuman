@@ -1,5 +1,6 @@
 'use client';
 
+import { ActivityGroup as DefaultActivityGroup } from '@/components/assistant-ui/activity-group';
 import {
   ComposerAddAttachment,
   ComposerAttachments,
@@ -14,13 +15,7 @@ import { cn } from '@/components/assistant-ui/lib/utils';
 import { MarkdownText } from '@/components/assistant-ui/markdown-text';
 import { ComposerQuotePreview, SelectionToolbar } from '@/components/assistant-ui/quote';
 import { Reasoning } from '@/components/assistant-ui/reasoning';
-import { OpenHumanReasoningGroup } from '@/components/assistant-ui/reasoning-group';
 import { ToolFallback } from '@/components/assistant-ui/tool-fallback';
-import {
-  ToolGroupContent,
-  ToolGroupRoot,
-  ToolGroupTrigger,
-} from '@/components/assistant-ui/tool-group';
 import { TooltipIconButton } from '@/components/assistant-ui/tooltip-icon-button';
 import { Button } from '@/components/assistant-ui/ui/button';
 import { Skeleton } from '@/components/assistant-ui/ui/skeleton';
@@ -98,8 +93,11 @@ export type ThreadComponents = {
   AssistantMessage?: ComponentType | undefined;
   Welcome?: ComponentType | undefined;
   ToolFallback?: ToolCallMessagePartComponent | undefined;
-  ToolGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
-  ReasoningGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
+  /**
+   * Wraps one run of reasoning and tool calls — everything between the input
+   * and the answer — as a single group. Defaults to `ActivityGroup`.
+   */
+  ActivityGroup?: ComponentType<PropsWithChildren<{ group: ThreadGroupPart }>> | undefined;
   /**
    * Extra controls in the composer's action row, to the right of the model
    * selector. A seam rather than a fixed set because what belongs there is
@@ -174,7 +172,7 @@ export type ThreadComponents = {
    * attachment capability — which is every runtime that keeps attachments on
    * the host side, as this app does.
    */
-  onComposerFiles?: ((files: FileList | File[] | null) => void) | undefined;
+  onComposerFiles?: ((files: FileList | File[] | null) => void | Promise<void>) | undefined;
   /**
    * Whether the host can take files right now (feature enabled, composer
    * unlocked, budget left). Drives the drag affordance only; the host still
@@ -246,6 +244,67 @@ function filesFromDrop(dataTransfer: DataTransfer | null): File[] {
     .filter(item => item.kind === 'file')
     .map(item => item.getAsFile())
     .filter((file): file is File => file !== null);
+}
+
+/**
+ * Host-driven file drop for the whole open thread, not just the composer box:
+ * a file dropped anywhere over the transcript lands as a composer attachment.
+ * Mirrors the legacy composer's handlers (`ChatComposer.tsx`) and feeds the
+ * same host path as the picker and paste, whose validator decides what the
+ * active model can take (images only with vision, documents text-extracted).
+ *
+ * `preventDefault` on a *file* drag happens whether or not ingest is allowed:
+ * without it the webview navigates away to the dropped file and the whole chat
+ * is gone. Outside a thread, `installFileDropGuard` refuses the drop instead.
+ */
+function useThreadFileDrop() {
+  const { onComposerFiles, canAcceptComposerFiles } = useContext(ThreadComponentsContext);
+  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
+  // Attachment validation updates host state asynchronously. Keep drops in
+  // arrival order so a second batch cannot validate against stale attachments
+  // or overwrite the first batch while it is still being processed.
+  const ingestQueueRef = useRef<Promise<void>>(Promise.resolve());
+
+  const isFileDrag = (event: React.DragEvent) =>
+    Array.from(event.dataTransfer?.types ?? []).includes('Files');
+  const onDragOver = (event: React.DragEvent) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    if (!onComposerFiles || !canAcceptComposerFiles) {
+      event.dataTransfer.dropEffect = 'none';
+      return;
+    }
+    event.dataTransfer.dropEffect = 'copy';
+    setIsDraggingFiles(true);
+  };
+  const onDragLeave = (event: React.DragEvent) => {
+    // Ignore leave events that bubble while the cursor is still over a child.
+    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    setIsDraggingFiles(false);
+  };
+  const onDrop = (event: React.DragEvent) => {
+    if (!isFileDrag(event)) return;
+    event.preventDefault();
+    setIsDraggingFiles(false);
+    if (!onComposerFiles || !canAcceptComposerFiles) {
+      debug('[assistant-composer] drop: refused, ingest not accepting');
+      return;
+    }
+    const files = filesFromDrop(event.dataTransfer);
+    if (files.length === 0) {
+      debug('[assistant-composer] drop: file drag carried no readable files');
+      return;
+    }
+    debug('[assistant-composer] drop: queueing %d file(s) for ingest', files.length);
+    ingestQueueRef.current = ingestQueueRef.current
+      .catch(() => undefined)
+      .then(() => onComposerFiles(files))
+      .catch(error => {
+        debug('[assistant-composer] drop: file ingest failed: %o', error);
+      });
+  };
+
+  return { isDraggingFiles, dropHandlers: { onDragOver, onDragLeave, onDrop } };
 }
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -330,10 +389,12 @@ const ThreadRoot: FC<{
 
   const { claimScroll } = useFollowBottom(viewportRef, scrollContentRef);
   useOpenThreadAtBottom(viewportRef, claimScroll);
+  const { isDraggingFiles, dropHandlers } = useThreadFileDrop();
 
   return (
     <ThreadPrimitive.Root
       className="aui-root aui-thread-root bg-background @container flex h-full flex-col"
+      {...dropHandlers}
       style={{
         ['--thread-max-width' as string]: '44rem',
         ['--composer-bg' as string]: 'var(--color-card)',
@@ -391,7 +452,12 @@ const ThreadRoot: FC<{
             )}>
             <ThreadScrollToBottom />
             <ThreadFollowupSuggestions />
-            <Composer model={model} onModelChange={onModelChange} onEscape={onEscape} />
+            <Composer
+              model={model}
+              onModelChange={onModelChange}
+              onEscape={onEscape}
+              isDraggingFiles={isDraggingFiles}
+            />
             <AuiIf condition={s => isNewChatView(s) && s.composer.isEmpty}>
               <ThreadSuggestions />
             </AuiIf>
@@ -769,7 +835,9 @@ const Composer: FC<{
   model: string | null;
   onModelChange?: (value: string | null, contextWindow?: number | null) => void;
   onEscape?: () => void;
-}> = ({ model, onModelChange, onEscape }) => {
+  /** A file drag is over the thread and will land here; see `useThreadFileDrop`. */
+  isDraggingFiles: boolean;
+}> = ({ model, onModelChange, onEscape, isDraggingFiles }) => {
   const aui = useAui();
   const commands = useContext(SlashCommandsContext);
   const slash = unstable_useSlashCommandAdapter({ commands, fallbackIcon: SlashIcon });
@@ -780,7 +848,6 @@ const Composer: FC<{
     onComposerFiles,
     canAcceptComposerFiles,
   } = useContext(ThreadComponentsContext);
-  const [isDraggingFiles, setIsDraggingFiles] = useState(false);
   useEffect(() => {
     const textbox = inputWrapperRef.current?.querySelector<HTMLElement>('[contenteditable="true"]');
     textbox?.setAttribute('aria-label', 'Message input');
@@ -813,46 +880,6 @@ const Composer: FC<{
   // composition that started in between makes this write stale, and dropping it
   // loses nothing, because the DOM is the source of truth and that
   // composition's own commit reads the whole of it.
-  // Host-driven file ingest. Mirrors the legacy composer's handlers
-  // (`ChatComposer.tsx`) so both surfaces accept a drop and a pasted
-  // screenshot through the same host path.
-  //
-  // `preventDefault` on a *file* drag happens whether or not ingest is allowed:
-  // without it the webview navigates away to the dropped file and the whole
-  // chat is gone.
-  const isFileDrag = (event: React.DragEvent) =>
-    Array.from(event.dataTransfer?.types ?? []).includes('Files');
-  const handleDragOver = (event: React.DragEvent) => {
-    if (!onComposerFiles || !isFileDrag(event)) return;
-    event.preventDefault();
-    if (!canAcceptComposerFiles) {
-      event.dataTransfer.dropEffect = 'none';
-      return;
-    }
-    event.dataTransfer.dropEffect = 'copy';
-    setIsDraggingFiles(true);
-  };
-  const handleDragLeave = (event: React.DragEvent) => {
-    // Ignore leave events that bubble while the cursor is still over a child.
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
-    setIsDraggingFiles(false);
-  };
-  const handleDrop = (event: React.DragEvent) => {
-    if (!onComposerFiles || !isFileDrag(event)) return;
-    event.preventDefault();
-    setIsDraggingFiles(false);
-    if (!canAcceptComposerFiles) {
-      debug('[assistant-composer] drop: refused, ingest not accepting');
-      return;
-    }
-    const files = filesFromDrop(event.dataTransfer);
-    if (files.length === 0) {
-      debug('[assistant-composer] drop: file drag carried no readable files');
-      return;
-    }
-    debug('[assistant-composer] drop: ingesting %d file(s)', files.length);
-    onComposerFiles(files);
-  };
   // Capture phase, so the media is pulled out and the default cancelled before
   // Lexical's own paste handling turns it into editor content.
   const handlePasteCapture = (event: React.ClipboardEvent) => {
@@ -891,18 +918,15 @@ const Composer: FC<{
         {ComposerHeader ? <ComposerHeader /> : null}
         {/*
          * Neutered whenever the host owns file ingest: every handler in the
-         * primitive short-circuits on `disabled`, so the drag handlers below
-         * are the only ones left and the `data-dragging` styling runs off this
-         * component's own state. Left enabled otherwise, so a host that does
+         * primitive short-circuits on `disabled`, so the thread-wide handlers in
+         * `useThreadFileDrop` are the only ones left and the `data-dragging`
+         * styling runs off their state. Left enabled otherwise, so a host that does
          * use a runtime attachment adapter keeps the primitive's behaviour.
          */}
         <ComposerPrimitive.AttachmentDropzone asChild disabled={!!onComposerFiles}>
           <div
             data-slot="aui_composer-shell"
             data-dragging={onComposerFiles && isDraggingFiles ? 'true' : undefined}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
             // Keyed to `content-faint` rather than `line`/`line-strong`, which
             // sat too close to the composer's own surface to read as an edge at
             // all; `content-faint` is a real step along the grey ramp in both
@@ -1213,8 +1237,7 @@ const MessageError: FC = () => {
 const AssistantMessage: FC = () => {
   const {
     ToolFallback: ToolFallbackComponent = ToolFallback,
-    ToolGroup,
-    ReasoningGroup,
+    ActivityGroup = DefaultActivityGroup,
     TurnFooter,
     TurnSources,
   } = useContext(ThreadComponentsContext);
@@ -1253,57 +1276,37 @@ const AssistantMessage: FC = () => {
        * nothing else carried anything, so a reasoning block sat apart while a
        * tool group and the prose beneath it touched. `[&>*+*]:mt-3` spaces
        * adjacent blocks evenly and the `mb-0` override neutralises the one
-       * component with an opinion. The chain-of-thought wrapper below gets the
-       * same pair, because reasoning and tool groups are siblings *inside* it
-       * rather than of it, so spacing only the outer level misses them.
+       * component with an opinion.
+       *
+       * Reasoning and tool calls share ONE group per run, in the order they
+       * happened, so a turn reads input → work → answer. Splitting them into
+       * reasoning and tool sub-groups turned an interleaved turn (think, call,
+       * think, call) into a stack of unrelated collapsibles.
        */}
       <div
         data-slot="aui_assistant-message-content"
         className="text-foreground [&>*+*]:mt-3 [&_[data-slot=reasoning-root]]:mb-0 px-2 leading-relaxed wrap-break-word">
         <MessagePrimitive.GroupedParts
           groupBy={groupPartByType({
-            reasoning: ['group-chainOfThought', 'group-reasoning'],
-            'tool-call': ['group-chainOfThought', 'group-tool'],
+            reasoning: ['group-activity'],
+            'tool-call': ['group-activity'],
             'standalone-tool-call': [],
           })}>
           {({ part, children }) => {
             switch (part.type) {
-              case 'group-chainOfThought':
-                return (
-                  <div data-slot="aui_chain-of-thought" className="[&>*+*]:mt-3">
-                    {children}
-                  </div>
-                );
-              case 'group-tool':
-                if (ToolGroup) {
-                  return <ToolGroup group={part}>{children}</ToolGroup>;
-                }
-                return (
-                  <ToolGroupRoot variant="ghost">
-                    <ToolGroupTrigger
-                      count={part.indices.length}
-                      active={part.status.type === 'running'}
-                    />
-                    <ToolGroupContent>{children}</ToolGroupContent>
-                  </ToolGroupRoot>
-                );
-              case 'group-reasoning': {
-                if (ReasoningGroup) {
-                  return <ReasoningGroup group={part}>{children}</ReasoningGroup>;
-                }
-                // The static reasoning panel reads the grouped parts' text and
-                // timing itself; the per-part `children` are only for overrides.
-                return (
-                  <OpenHumanReasoningGroup
-                    indices={part.indices}
-                    running={part.status.type === 'running'}
-                  />
-                );
-              }
+              case 'group-activity':
+                return <ActivityGroup group={part}>{children}</ActivityGroup>;
               case 'text':
                 return <MarkdownText />;
               case 'reasoning':
-                return <Reasoning {...part} />;
+                // A step inside the activity group, not a disclosure of its own.
+                return (
+                  <div
+                    data-slot="aui_activity-reasoning"
+                    className="text-muted-foreground border-border border-s-2 ps-3 text-sm leading-relaxed">
+                    <Reasoning {...part} />
+                  </div>
+                );
               case 'tool-call':
                 return part.toolUI ?? <ToolFallbackComponent {...part} />;
               case 'data':

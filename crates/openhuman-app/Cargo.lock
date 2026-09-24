@@ -7072,7 +7072,9 @@ dependencies = [
  "thiserror 2.0.20",
  "tinyagents-definition",
  "tinyinference-embeddings",
+ "tinyinference-image",
  "tinyinference-llm",
+ "tinyinference-video",
  "tinytools 0.4.1",
  "tinytools-agent 0.4.1",
  "tokio",
@@ -7411,6 +7413,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyinference-image"
+version = "0.3.0"
+dependencies = [
+ "async-trait",
+ "base64 0.23.1",
+ "bytes",
+ "reqwest 0.12.28",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tinyinference-core",
+ "tokio",
+ "tracing",
+]
+
+[[package]]
 name = "tinyinference-llm"
 version = "0.3.0"
 dependencies = [
@@ -7469,6 +7487,19 @@ dependencies = [
  "serde_json",
  "sha2 0.11.0",
  "url",
+]
+
+[[package]]
+name = "tinyinference-video"
+version = "0.3.0"
+dependencies = [
+ "async-trait",
+ "serde",
+ "serde_json",
+ "thiserror 2.0.20",
+ "tinyinference-image",
+ "tokio",
+ "tracing",
 ]
 
 [[package]]

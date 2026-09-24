@@ -884,6 +884,7 @@ const Conversations = ({
   // clear the timer every time the user switched threads, which is exactly the
   // watchdog this PR exists to arm.
   useEffect(() => {
+    isMountedRef.current = true;
     const timers = sendingTimeoutsRef.current;
     return () => {
       isMountedRef.current = false;
@@ -1543,12 +1544,41 @@ const Conversations = ({
       partial.trim().length,
       shouldPersist
     );
-    void chatCancel(threadId).then(cancelled => {
-      debug('[chat] stop generation: chatCancel thread=%s ok=%s', threadId, cancelled);
-      if (!cancelled) {
-        // Cancel not accepted: don't leave a misleading partial, and release the
-        // claim so a later Stop/ESC can persist once cancellation goes through.
+    void chatCancel(threadId).then(outcome => {
+      const accepted = outcome?.accepted === true;
+      const turnCancelled = outcome?.turnCancelled === true;
+      debug(
+        '[chat] stop generation: chatCancel thread=%s accepted=%s turnCancelled=%s',
+        threadId,
+        accepted,
+        turnCancelled
+      );
+      if (!accepted || !turnCancelled) {
+        // Cancel not accepted, or the core had no turn to tear down: don't leave
+        // a misleading partial, and release the claim so a later Stop/ESC can
+        // persist once cancellation goes through.
         if (shouldPersist && requestId) stoppedRequestIdsRef.current.delete(requestId);
+      }
+      if (!accepted) return;
+      if (!turnCancelled) {
+        // The core has nothing running on this thread, so no `cancelled`
+        // chat_error will ever arrive to clear the composer. Without this the
+        // thread stays "generating" with a Stop button that can never work —
+        // e.g. a turn whose terminal event was lost across a reconnect. A send
+        // still waiting on its RPC is skipped: its turn may not be registered
+        // yet, and its own completion path owns the state.
+        if (pendingSendsRef.current.has(threadId)) {
+          debug('[chat] stop generation: nothing in flight but send pending thread=%s', threadId);
+          return;
+        }
+        debug(
+          '[chat] stop generation: nothing in flight — settling local state thread=%s',
+          threadId
+        );
+        clearSilenceTimer(threadId);
+        turnSignatureByThreadRef.current.delete(threadId);
+        dispatch(clearRuntimeForThread({ threadId }));
+        dispatch(clearThreadInferenceActive(threadId));
         return;
       }
       if (shouldPersist) {
@@ -1561,7 +1591,7 @@ const Conversations = ({
         ).then(() => debug('[chat] stop generation: persisted stopped reply thread=%s', threadId));
       }
     });
-  }, [selectedThreadId, streamingAssistantByThread, dispatch]);
+  }, [selectedThreadId, streamingAssistantByThread, dispatch, clearSilenceTimer]);
 
   handleStopGenerationRef.current = handleStopGeneration;
 

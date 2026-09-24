@@ -129,6 +129,37 @@ pub(crate) fn is_truncation_exempt(name: &str) -> bool {
     COMPACTION_EXEMPT_TOOLS.contains(&name) || DISCOVERY_TOOLS.contains(&name)
 }
 
+/// Whether this call is a `web_fetch` that asked for the body **as sent**
+/// (`raw: true`), following `use_skill` into the tool it wraps exactly as
+/// [`artifact_read_target`] does.
+///
+/// Such a result is exempt from the payload summarizer (step 2). `web_fetch`
+/// normally returns HTML as Markdown — `tinyjuice::compressors::html::
+/// html_to_markdown`, which drops scripts and styling — and `raw: true` turns
+/// that off, so the payload is unconverted markup. Paying a full-price,
+/// *uncached* model call to have an LLM paraphrase minified JS and CSS is the
+/// worst trade in the ladder: one observed `raw: true` fetch of a 183 KB page
+/// cost 44,561 prompt tokens, over half that turn's entire summarizer budget,
+/// to re-describe a page the same turn had already read as clean Markdown.
+///
+/// It is also the wrong answer to the question asked. A caller who wants the
+/// body as sent wants the bytes, not a summary of them; steps 3–4 still bound
+/// the result and spill the remainder to an artifact the model pages with
+/// `file_read`, which returns the real markup, losslessly and without a model
+/// call.
+fn is_raw_fetch(tool_name: &str, args: &serde_json::Value) -> bool {
+    const FETCH_TOOL: &str = "web_fetch";
+    let (name, args) = if tool_name == "use_skill" {
+        match (args.get("tool").and_then(|t| t.as_str()), args.get("args")) {
+            (Some(inner), Some(inner_args)) => (inner, inner_args),
+            _ => return false,
+        }
+    } else {
+        (tool_name, args)
+    };
+    name == FETCH_TOOL && args.get("raw").and_then(|r| r.as_bool()).unwrap_or(false)
+}
+
 /// `after_tool`: apply the semantic payload summarizer (when configured) and
 /// then the hard per-tool-result byte cap to each tool result's model-facing
 /// content, before it enters the transcript. The graph analogue of the byte cap
@@ -160,6 +191,11 @@ pub(crate) struct ToolOutputMiddleware {
     /// their calls lose the argument; any other tool with a parameter of the
     /// same name (an MCP server's, say) keeps it.
     pub(crate) summary_focus_tools: HashSet<String>,
+    /// Calls that asked `web_fetch` for the raw body, keyed by call id. Filled
+    /// in `before_tool`, where the arguments are visible, and consumed in
+    /// `after_tool`, where they are not — the same seam `artifact_reads` uses,
+    /// and for the same reason. See [`is_raw_fetch`].
+    pub(crate) raw_fetches: Mutex<std::collections::HashSet<String>>,
 }
 
 impl ToolOutputMiddleware {
@@ -251,6 +287,16 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
                 reads.insert(call.id.clone(), read);
             }
         }
+        if is_raw_fetch(&call.name, &call.arguments) {
+            tracing::debug!(
+                tool = %call.name,
+                call_id = %call.id,
+                "[tinyagents::mw] raw fetch: exempting the result from the payload summarizer"
+            );
+            if let Ok(mut raw) = self.raw_fetches.lock() {
+                raw.insert(call.id.clone());
+            }
+        }
         Ok(())
     }
 
@@ -270,6 +316,13 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         // compacts it, and the byte budget persists it as a *new* artifact with
         // the same bounded preview — a loop that never reaches the data (#6284).
         // Serve it verbatim, one bounded page at a time.
+        // Consumed unconditionally so the entry cannot outlive its call, even on
+        // the artifact-read early return below.
+        let raw_fetch = self
+            .raw_fetches
+            .lock()
+            .ok()
+            .is_some_and(|mut raw| raw.remove(&call_id));
         let artifact_read = self
             .artifact_reads
             .lock()
@@ -311,7 +364,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             tracing::debug!(
                 tool = tool_name,
                 bytes = content.len(),
-                "[tinyagents::mw] compaction-exempt: skipping payload summarizer + tokenjuice"
+                "[tinyagents::mw] compaction-exempt: skipping tokenjuice + payload summarizer"
             );
         }
         if truncation_exempt {
@@ -386,7 +439,29 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
             .and_then(|mut focus| focus.remove(&call_id));
         let wants_tinyjuice =
             self.tokenjuice_compaction_enabled || self.payload_summarizer.is_some();
-        if !compaction_exempt && wants_tinyjuice && (tool_cap.is_none() || focus.is_some()) {
+        //      A `raw: true` `web_fetch` is excluded outright, `summary_focus`
+        //      or not: it asked for the body *as sent*, which switches off the
+        //      HTML→Markdown conversion, so the payload is unconverted markup
+        //      and a summary of it is an uncached model call spent paraphrasing
+        //      minified JS. One observed such fetch cost 44,561 prompt tokens —
+        //      over half that turn's summarizer budget — to re-describe a page
+        //      the same turn had already read as clean Markdown. Step 3 still
+        //      bounds it and spills the rest to an artifact, which hands back
+        //      the real markup losslessly and for no model call. See
+        //      [`is_raw_fetch`].
+        if raw_fetch {
+            tracing::info!(
+                tool = tool_name,
+                bytes = content.len(),
+                "[tinyagents::mw] raw fetch: skipping the tinyjuice summary, \
+                 capping and spilling to an artifact instead"
+            );
+        }
+        if !raw_fetch
+            && !compaction_exempt
+            && wants_tinyjuice
+            && (tool_cap.is_none() || focus.is_some())
+        {
             // Bind a summary call to this turn only when the result is big
             // enough for TinyJuice to want one; building the child context for
             // every small result would be waste.

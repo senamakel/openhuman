@@ -121,8 +121,9 @@ allowlist = [
     # the memory tree only when a message needs it, not before every turn.
     "agent_memory",
     # Image-understanding specialist. Route anything that hinges on the content
-    # of an attached or on-disk user-provided image file here — it rides the
-    # multimodal `hint:vision` tier, so it can actually see the image.
+    # of an attached or on-disk user-provided image file here — it is pinned to
+    # a dedicated multimodal model (`MODEL_MEDIA_UNDERSTANDING`), so it can
+    # actually see the image.
     "vision_agent",
     # Image-generation specialist. Synthesised into a `delegate_create_image`
     # tool. Route make/generate/edit an image requests here — it owns prompt

@@ -112,6 +112,25 @@ impl PackRegistryHandle {
         self.find(tool)
     }
 
+    /// Resolves `tool` in `skill`'s pack, returning the exact registry `Arc`
+    /// it lives in — not a clone of the tool itself — so a caller can re-wrap
+    /// it in the same `CanonicalSharedToolAdapter` seam the harness uses at
+    /// registration for typed-dispatch selection.
+    ///
+    /// `pub(crate)`, not private: `use_skill`'s typed dispatch
+    /// (`agent::tinyagents::use_skill_dispatch::UseSkillDispatch`) needs the
+    /// same resolution [`UseSkillTool::execute_with_context`] performs, so a
+    /// packed archetype delegation reached through `use_skill` can be
+    /// re-dispatched through the live-parent typed-dispatch seam instead of
+    /// falling back to plain `Tool::execute_with_context` (regression R3).
+    pub(crate) fn resolve_registry_for(
+        &self,
+        skill: &str,
+        tool: &str,
+    ) -> Option<Arc<Vec<Box<dyn Tool>>>> {
+        self.resolve(skill, tool).map(|(tools, _idx)| tools)
+    }
+
     /// Locate `tool` in whichever registry holds it.
     fn find(&self, tool: &str) -> Option<(ToolVec, usize)> {
         for tools in self.registries() {

@@ -252,6 +252,11 @@ name = "mcp_stdio_integration"
 path = "../../tests/mcp_stdio_integration.rs"
 
 [[test]]
+name = "media_generation_e2e"
+path = "../../tests/media_generation_e2e.rs"
+required-features = ["media"]
+
+[[test]]
 name = "memory_roundtrip_e2e"
 path = "../../tests/memory_roundtrip_e2e.rs"
 

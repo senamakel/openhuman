@@ -544,3 +544,57 @@ fn classify_genuine_param_400_keeps_model_mismatch_copy_not_glitch() {
     assert!(!c.retryable, "param mismatch is not retryable");
     assert!(!c.message.contains("cleared it"), "got: {}", c.message);
 }
+
+/// The Stop button must reach a thread's detached background sub-agents. They
+/// run on their own tasks and drop the spawning turn's cancellation, so before
+/// this the parent turn stopped but the child kept working — and its result
+/// later started a fresh delivery turn on the thread. A scoped cancel (one named
+/// request) must leave them alone.
+#[tokio::test]
+async fn unscoped_cancel_stops_the_threads_detached_subagents() {
+    let _serial = FORCED_ERROR_TEST_LOCK.lock().await;
+    let _registry = crate::config::TEST_ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    use crate::agent::orchestration::running_subagents;
+
+    let thread_id = "stop-detached-subagent-thread";
+    let workspace = tempfile::tempdir().expect("workspace");
+    let child = tokio::spawn(std::future::pending::<()>());
+    let (_status_tx, status_rx) = running_subagents::status_channel();
+    running_subagents::register(
+        "task-web-stop-1".into(),
+        "researcher".into(),
+        "session-web-stop".into(),
+        None,
+        None,
+        workspace.path().to_path_buf(),
+        Some(thread_id.into()),
+        std::sync::Arc::new(tinyagents_harness::run_queue::RunQueue::new()),
+        child.abort_handle(),
+        status_rx,
+    );
+
+    // A scoped cancel for some other request is not a Stop: the child lives.
+    let scoped = channel_web_cancel("stop-client", thread_id, Some("req-unrelated"))
+        .await
+        .expect("scoped cancel");
+    assert_eq!(scoped.value["cancelled"], serde_json::json!(false));
+    assert_eq!(scoped.value["subagents_cancelled"], serde_json::json!(0));
+    assert!(
+        !child.is_finished(),
+        "scoped cancel must not stop sub-agents"
+    );
+
+    // The Stop button: no turn in flight, but the detached child is stopped.
+    let stop = channel_web_cancel("stop-client", thread_id, None)
+        .await
+        .expect("stop");
+    assert_eq!(stop.value["cancelled"], serde_json::json!(true));
+    assert_eq!(stop.value["request_id"], serde_json::Value::Null);
+    assert_eq!(stop.value["subagents_cancelled"], serde_json::json!(1));
+    let joined = tokio::time::timeout(std::time::Duration::from_secs(2), child)
+        .await
+        .expect("aborted child finishes promptly");
+    assert!(joined.expect_err("child aborted").is_cancelled());
+}

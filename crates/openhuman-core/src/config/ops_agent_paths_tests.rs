@@ -12,6 +12,7 @@ async fn apply_agent_settings_rejects_out_of_range_timeout() {
         &mut cfg,
         AgentSettingsPatch {
             agent_timeout_secs: Some(0),
+            chat_agent_id: None,
         },
     )
     .await
@@ -23,6 +24,7 @@ async fn apply_agent_settings_rejects_out_of_range_timeout() {
         &mut cfg,
         AgentSettingsPatch {
             agent_timeout_secs: Some(99_999),
+            chat_agent_id: None,
         },
     )
     .await
@@ -45,6 +47,80 @@ async fn apply_agent_settings_none_leaves_timeout_unchanged() {
         .expect("apply no-op agent settings");
 
     assert_eq!(cfg.agent.agent_timeout_secs, 250);
+}
+
+#[tokio::test]
+async fn apply_agent_settings_rejects_unknown_chat_agent_id() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+
+    let err = apply_agent_settings(
+        &mut cfg,
+        AgentSettingsPatch {
+            chat_agent_id: Some("typoed_agent".into()),
+            ..AgentSettingsPatch::default()
+        },
+    )
+    .await
+    .expect_err("unknown agents must not be persisted as web-chat routes");
+
+    assert!(err.contains("not a runnable agent definition"), "{err}");
+    assert!(cfg.agent.chat_agent_id.is_none());
+}
+
+#[tokio::test]
+async fn apply_agent_settings_blank_chat_agent_id_clears_and_persists_override() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    cfg.agent.chat_agent_id = Some("researcher".into());
+
+    let outcome = apply_agent_settings(
+        &mut cfg,
+        AgentSettingsPatch {
+            chat_agent_id: Some("   ".into()),
+            ..AgentSettingsPatch::default()
+        },
+    )
+    .await
+    .expect("blank chat agent id clears the override");
+
+    assert_eq!(cfg.agent.chat_agent_id, None);
+    assert_eq!(
+        outcome.value["config"]["agent"]["chat_agent_id"],
+        serde_json::Value::Null
+    );
+
+    let saved = tokio::fs::read_to_string(&cfg.config_path)
+        .await
+        .expect("saved config");
+    assert!(
+        !saved.contains("chat_agent_id"),
+        "cleared override must not remain in the persisted config: {saved}"
+    );
+}
+
+#[tokio::test]
+async fn apply_agent_settings_rejects_a_mixed_patch_without_mutating_config() {
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = tempdir().unwrap();
+    let mut cfg = tmp_config(&tmp);
+    let original_timeout = cfg.agent.agent_timeout_secs;
+
+    let err = apply_agent_settings(
+        &mut cfg,
+        AgentSettingsPatch {
+            agent_timeout_secs: Some(300),
+            chat_agent_id: Some("typoed_agent".into()),
+        },
+    )
+    .await
+    .expect_err("unknown agent must reject the entire patch");
+
+    assert!(err.contains("not a runnable agent definition"), "{err}");
+    assert_eq!(cfg.agent.agent_timeout_secs, original_timeout);
+    assert!(cfg.agent.chat_agent_id.is_none());
 }
 
 // ── apply_agent_paths_settings (action_dir editable, issue #3240) ──────────────

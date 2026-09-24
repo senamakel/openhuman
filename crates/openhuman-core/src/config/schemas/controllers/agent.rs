@@ -76,6 +76,7 @@ pub(super) fn handle_update_agent_settings(params: Map<String, Value>) -> Contro
         };
         let patch = config_rpc::AgentSettingsPatch {
             agent_timeout_secs: update.agent_timeout_secs,
+            chat_agent_id: update.chat_agent_id,
         };
         match config_rpc::load_and_apply_agent_settings(patch).await {
             Ok(outcome) => {

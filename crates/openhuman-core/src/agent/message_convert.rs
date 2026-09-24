@@ -135,16 +135,37 @@ pub(crate) fn reasoning_content_block(reasoning: Option<&str>) -> Option<Content
     })
 }
 
+/// Separator between distinct thinking blocks joined by
+/// [`reasoning_from_content`].
+const REASONING_BLOCK_SEPARATOR: &str = "\n\n";
+
 /// Recover `reasoning_content` from an assistant message's content blocks.
+///
+/// A message can carry several thinking blocks (interleaved thinking emits one
+/// per reasoning span). All of them are kept, in order, joined by a blank
+/// line — keeping only the first silently dropped every later span from the
+/// persisted transcript and the reasoning shown for that step.
 pub(crate) fn reasoning_from_content(content: &[ContentBlock]) -> Option<String> {
-    content.iter().find_map(|block| match block {
-        ContentBlock::Thinking { text, .. } => Some(text.clone()),
-        ContentBlock::ProviderExtension(value) => value
-            .get(REASONING_EXT_KEY)
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_string),
-        _ => None,
-    })
+    let mut parts: Vec<String> = content
+        .iter()
+        .filter_map(|block| match block {
+            ContentBlock::Thinking { text, .. } => Some(text.clone()),
+            ContentBlock::ProviderExtension(value) => value
+                .get(REASONING_EXT_KEY)
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string),
+            _ => None,
+        })
+        .filter(|text| !text.trim().is_empty())
+        .collect();
+    // A legacy row can carry the same reasoning both as a thinking block and
+    // under the provider-extension key; do not render it twice.
+    parts.dedup();
+    match parts.len() {
+        0 => None,
+        1 => parts.into_iter().next(),
+        _ => Some(parts.join(REASONING_BLOCK_SEPARATOR)),
+    }
 }
 
 /// The `extra_metadata` an assistant [`ChatMessage`] should carry so

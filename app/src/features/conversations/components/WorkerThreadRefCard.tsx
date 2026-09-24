@@ -1,7 +1,6 @@
-import { useDispatch } from 'react-redux';
-
 import { useT } from '../../../lib/i18n/I18nContext';
-import { setActiveThread } from '../../../store/threadSlice';
+import { useAppDispatch } from '../../../store/hooks';
+import { loadThreadMessages, setSelectedThread } from '../../../store/threadSlice';
 import type { WorkerThreadRef } from '../utils/workerThreadRef';
 
 /**
@@ -77,7 +76,7 @@ export function WorkerThreadRefCard({
   status?: WorkerThreadStatus;
 }) {
   const { t } = useT();
-  const dispatch = useDispatch();
+  const dispatch = useAppDispatch();
   const meta: string[] = [];
   if (ref.agentId) meta.push(ref.agentId);
   if (typeof ref.iterations === 'number') {
@@ -90,7 +89,14 @@ export function WorkerThreadRefCard({
   return (
     <button
       type="button"
-      onClick={() => dispatch(setActiveThread(ref.threadId))}
+      onClick={() => {
+        // Open (select) the worker thread. This used to dispatch
+        // `setActiveThread`, which marks a thread as having an in-flight turn —
+        // so opening a worker left a phantom "generating" state whose Stop
+        // button had no turn to cancel.
+        dispatch(setSelectedThread(ref.threadId));
+        void dispatch(loadThreadMessages(ref.threadId));
+      }}
       className="mt-1 flex w-full items-center justify-between gap-3 rounded-xl border border-primary-200 dark:border-primary-500/30 bg-primary-50 dark:bg-primary-500/15 px-3 py-2 text-left transition-colors hover:bg-primary-100 dark:hover:bg-primary-500/25">
       <div className="min-w-0">
         <div className="flex items-center gap-2">

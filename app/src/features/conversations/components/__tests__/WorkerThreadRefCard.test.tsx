@@ -1,9 +1,15 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { Provider } from 'react-redux';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { threadApi } from '../../../../services/api/threadApi';
 import { store } from '../../../../store';
+import { clearThreadInferenceActive } from '../../../../store/threadSlice';
 import { WorkerThreadRefCard } from '../WorkerThreadRefCard';
+
+vi.mock('../../../../services/api/threadApi', () => ({
+  threadApi: { getThreadMessages: vi.fn() },
+}));
 
 // Issue #1624: the worker-thread surface card must render a live
 // running/completed/failed badge derived from the parent timeline
@@ -70,19 +76,19 @@ describe('WorkerThreadRefCard — status badge', () => {
 });
 
 describe('WorkerThreadRefCard — navigation', () => {
-  it('dispatches setActiveThread with the worker thread id when clicked', () => {
-    const dispatch = vi.spyOn(store, 'dispatch');
+  beforeEach(() => {
+    vi.mocked(threadApi.getThreadMessages).mockResolvedValue({ messages: [], count: 0 });
+  });
+
+  it('selects the worker thread without marking it as in-flight', () => {
+    store.dispatch(clearThreadInferenceActive(REF.threadId));
     renderInStore(<WorkerThreadRefCard ref={REF} status="running" />);
 
     fireEvent.click(screen.getByRole('button'));
 
-    const calls = dispatch.mock.calls;
-    expect(calls.length).toBeGreaterThan(0);
-    const action = calls[calls.length - 1][0] as { type: string; payload?: unknown };
-    // Mirrors `setActiveThread`'s slice action: payload is the worker
-    // thread id, which the Conversations page uses to swap the active
-    // thread (parent → worker navigation).
-    expect(action.payload).toBe('t-worker-1');
-    dispatch.mockRestore();
+    expect(store.getState().thread.selectedThreadId).toBe('t-worker-1');
+    // Opening a worker must not fabricate an in-flight turn: that phantom state
+    // showed a Stop button with no turn behind it to cancel.
+    expect(store.getState().thread.activeThreadIds['t-worker-1']).toBeUndefined();
   });
 });

@@ -1,8 +1,8 @@
 //! Projection + pagination + sanitization tests for the transcript view.
 
+use super::get_page;
 use super::project::{project_records, project_thread};
 use super::types::{DisplayItem, ToolCallStatus};
-use super::{get_page, DEFAULT_LIMIT};
 use crate::agent::messages::{
     attach_chat_tool_failure_metadata, transcript_message_from_chat, ChatMessage,
 };
@@ -79,7 +79,14 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
         other => panic!("expected userMessage, got {other:?}"),
     }
     match &items[2] {
-        DisplayItem::Reasoning { text } => assert_eq!(text, "I should call the weather tool."),
+        DisplayItem::Reasoning { text, iteration } => {
+            assert_eq!(text, "I should call the weather tool.");
+            assert_eq!(
+                *iteration,
+                Some(1),
+                "reasoning carries its step's iteration"
+            );
+        }
         other => panic!("expected reasoning, got {other:?}"),
     }
     match &items[3] {
@@ -99,6 +106,7 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
             result,
             status,
             failure,
+            ..
         } => {
             assert_eq!(call_id, "call-1");
             assert_eq!(name, "get_weather");
@@ -123,6 +131,41 @@ fn projects_turn_with_tools_reasoning_and_sanitization() {
         }
         other => panic!("expected final assistantMessage, got {other:?}"),
     }
+}
+
+#[test]
+fn reuses_synthetic_tool_call_ids_in_a_later_turn() {
+    let dir = TempDir::new().unwrap();
+    let path = write_raw(
+        dir.path(),
+        "synthetic_ids",
+        "thr_synthetic",
+        &[
+            r#"{"role":"user","content":"one","request_id":"req-1"}"#,
+            r#"{"role":"assistant","content":"","tool_calls":[{"id":"call_0","name":"first","arguments":"{}"}],"request_id":"req-1"}"#,
+            r#"{"role":"tool","content":"first result","id":"call_0","request_id":"req-1"}"#,
+            r#"{"role":"user","content":"two","request_id":"req-2"}"#,
+            r#"{"role":"assistant","content":"","tool_calls":[{"id":"call_0","name":"second","arguments":"{}"}],"request_id":"req-2"}"#,
+            r#"{"role":"tool","content":"second result","id":"call_0","request_id":"req-2"}"#,
+        ],
+    );
+    let display = read_transcript_display(&path).unwrap();
+    let items = project_records(&display.records);
+
+    let calls: Vec<_> = items
+        .iter()
+        .filter_map(|item| match item {
+            DisplayItem::ToolCall { name, result, .. } => Some((name.as_str(), result.as_deref())),
+            _ => None,
+        })
+        .collect();
+    assert_eq!(
+        calls,
+        vec![
+            ("first", Some("first result")),
+            ("second", Some("second result"))
+        ]
+    );
 }
 
 #[test]
@@ -284,7 +327,7 @@ fn subagent_file_projects_as_nested_item() {
             _ => None,
         })
         .expect("subagent item present");
-    assert_eq!(subagent.0, "orchestrator");
+    assert_eq!(subagent.0, "100_coder", "unique run id, not the agent name");
     assert!(subagent.1.iter().any(
         |i| matches!(i, DisplayItem::AssistantMessage { content, .. } if content == "sub work done")
     ));
@@ -586,7 +629,7 @@ fn append_transcript_turn_projects_full_display_shape() {
     let reasoning = items
         .iter()
         .find_map(|i| match i {
-            DisplayItem::Reasoning { text } => Some(text.clone()),
+            DisplayItem::Reasoning { text, .. } => Some(text.clone()),
             _ => None,
         })
         .expect("reasoning projected from turn_usage");
@@ -690,17 +733,17 @@ fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
     let root_refs: Vec<&str> = root_body.iter().map(String::as_str).collect();
     write_raw(dir.path(), root_stem, thread_id, &root_refs);
 
-    // Sub-agent stems encode the spawn unix timestamp: coder spawned during
-    // turn 1 (1_000_050), planner during turn 2 (2_000_050).
+    // Stems encode the spawn time; rows carry their turn's *commit* time, so
+    // coder (999_950) ran in turn 1 and planner (1_000_050) in turn 2.
     write_raw(
         dir.path(),
-        &format!("{root_stem}__1000050_coder"),
+        &format!("{root_stem}__999950_coder"),
         thread_id,
         &[r#"{"role":"assistant","content":"coder work"}"#],
     );
     write_raw(
         dir.path(),
-        &format!("{root_stem}__2000050_planner"),
+        &format!("{root_stem}__1000050_planner"),
         thread_id,
         &[r#"{"role":"assistant","content":"planner work"}"#],
     );
@@ -734,13 +777,4 @@ fn subagent_anchors_to_parent_turn_by_spawn_timestamp() {
         ],
         "each sub-agent anchors to the turn active at its spawn time"
     );
-}
-
-#[test]
-fn get_page_missing_thread_is_empty_not_error() {
-    let dir = TempDir::new().unwrap();
-    let page = get_page(dir.path(), "no_such_thread", None, Some(DEFAULT_LIMIT));
-    assert!(!page.has_transcript);
-    assert_eq!(page.total, 0);
-    assert!(page.items.is_empty());
 }

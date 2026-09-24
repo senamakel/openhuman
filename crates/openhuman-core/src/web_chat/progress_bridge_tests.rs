@@ -2,12 +2,17 @@ use super::interim_narration_text;
 use super::session_profile_user_attribution;
 
 #[test]
-fn interim_narration_skips_empty_and_trivial() {
+fn interim_narration_skips_only_empty_text() {
     assert_eq!(interim_narration_text(""), None);
     assert_eq!(interim_narration_text("   \n  "), None);
-    // Below the min length → left as transient streaming text.
-    assert_eq!(interim_narration_text("Ok."), None);
-    assert_eq!(interim_narration_text("Sure, one sec"), None);
+    // Short narration still flushes: `chat_interim` is what resets the live
+    // preview between rounds, so an unflushed "Ok." used to be glued onto the
+    // next round's text.
+    assert_eq!(interim_narration_text("Ok."), Some("Ok.".to_string()));
+    assert_eq!(
+        interim_narration_text(" Let me check. "),
+        Some("Let me check.".to_string())
+    );
 }
 
 #[test]
@@ -386,4 +391,143 @@ async fn stamps_monotonic_seq_on_emitted_events() {
     );
 
     drop(tx);
+}
+
+// ── Terminal-event ordering: the bridge drains before chat_done ─────────────
+
+fn drain_test_config(tmp: &tempfile::TempDir) -> Config {
+    Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    }
+}
+
+/// `wait_drained` returns only once the bridge has forwarded every event the
+/// parent queued before `TurnCompleted` — the caller publishes `chat_done`
+/// right after it, so a tool result must never still be in flight.
+#[tokio::test]
+async fn wait_drained_returns_after_queued_events_are_forwarded() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let store = TurnStateStore::new(tmp.path().join("turn_states"));
+    let (tx, rx) = tokio::sync::mpsc::channel(16);
+    let mut bus = super::super::event_bus::subscribe_web_channel_events();
+    let handle = spawn_progress_bridge(
+        rx,
+        "client-drain".into(),
+        "thread-drain".into(),
+        "req-drain".into(),
+        store,
+        ChatRequestMetadata::default(),
+        drain_test_config(&tmp),
+    );
+
+    tx.send(AgentProgress::ToolCallCompleted {
+        call_id: "call-last".into(),
+        tool_name: "web_search".into(),
+        success: true,
+        output_chars: 2,
+        output: "ok".into(),
+        arguments: None,
+        elapsed_ms: 1,
+        iteration: 1,
+        failure: None,
+    })
+    .await
+    .unwrap();
+    tx.send(AgentProgress::TurnCompleted { iterations: 1 })
+        .await
+        .unwrap();
+
+    // The sender stays alive (as a detached sub-agent's clone would), so the
+    // drain must come from `TurnCompleted`, not from the channel closing.
+    assert!(handle.wait_drained(Duration::from_secs(5)).await);
+
+    let mut saw_result = false;
+    loop {
+        match bus.try_recv() {
+            Ok(ev) if ev.thread_id == "thread-drain" && ev.event == "tool_result" => {
+                saw_result = true;
+            }
+            Ok(_) | Err(TryRecvError::Lagged(_)) => continue,
+            Err(_) => break,
+        }
+    }
+    assert!(
+        saw_result,
+        "the queued tool_result was published before the drain released"
+    );
+    drop(tx);
+}
+
+/// Without `TurnCompleted` (a failed turn) and with a sender still held, the
+/// wait is bounded and reports that it timed out.
+#[tokio::test]
+async fn wait_drained_is_bounded_when_the_turn_never_completes() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let store = TurnStateStore::new(tmp.path().join("turn_states"));
+    let (tx, rx) = tokio::sync::mpsc::channel::<AgentProgress>(16);
+    let handle = spawn_progress_bridge(
+        rx,
+        "client-drain-timeout".into(),
+        "thread-drain-timeout".into(),
+        "req-drain-timeout".into(),
+        store,
+        ChatRequestMetadata::default(),
+        drain_test_config(&tmp),
+    );
+    assert!(!handle.wait_drained(Duration::from_millis(50)).await);
+    // Closing the channel ends the bridge, which counts as drained.
+    drop(tx);
+    assert!(handle.wait_drained(Duration::from_secs(5)).await);
+}
+
+/// A short narration ("Let me check.") is flushed as `chat_interim` when the
+/// round's first tool call starts, so the frontend resets its live preview
+/// before the next round streams.
+#[tokio::test]
+async fn short_narration_is_flushed_on_the_rounds_first_tool_call() {
+    let tmp = tempfile::TempDir::new().unwrap();
+    let store = TurnStateStore::new(tmp.path().join("turn_states"));
+    let (tx, rx) = tokio::sync::mpsc::channel(16);
+    let mut bus = super::super::event_bus::subscribe_web_channel_events();
+    let _handle = spawn_progress_bridge(
+        rx,
+        "client-short".into(),
+        "thread-short-narration".into(),
+        "req-short".into(),
+        store,
+        ChatRequestMetadata::default(),
+        drain_test_config(&tmp),
+    );
+    tx.send(AgentProgress::TextDelta {
+        delta: "Let me check.".into(),
+        iteration: 1,
+    })
+    .await
+    .unwrap();
+    tx.send(AgentProgress::ToolCallStarted {
+        call_id: "call-1".into(),
+        tool_name: "web_search".into(),
+        arguments: serde_json::json!({}),
+        iteration: 1,
+        display_label: None,
+        display_detail: None,
+    })
+    .await
+    .unwrap();
+
+    let interim = tokio::time::timeout(Duration::from_secs(5), async {
+        loop {
+            let ev = recv_for_thread(&mut bus, "thread-short-narration").await;
+            if ev.event == "chat_interim" {
+                return ev;
+            }
+        }
+    })
+    .await
+    .expect("chat_interim within timeout");
+    assert_eq!(interim.full_response.as_deref(), Some("Let me check."));
+    assert_eq!(interim.round, Some(1));
 }

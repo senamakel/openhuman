@@ -497,7 +497,7 @@ pub(crate) fn start_builder_turn_clean(agent: &mut crate::agent::OpenHumanSessio
 pub(super) fn is_backend_or_infrastructure_failure(error: &str) -> bool {
     let error = error.to_ascii_lowercase();
     [
-        "backend returned",
+        "backend returned 5",
         "internal server error",
         "service unavailable",
         "bad gateway",

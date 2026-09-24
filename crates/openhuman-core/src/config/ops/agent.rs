@@ -46,6 +46,16 @@ pub struct AgentSettingsPatch {
     /// Tool/action wall-clock timeout in seconds. Validated to
     /// `tool_timeout::MIN_TIMEOUT_SECS..=tool_timeout::MAX_TIMEOUT_SECS`.
     pub agent_timeout_secs: Option<u64>,
+    /// Agent the web-chat path routes a turn to (`[agent] chat_agent_id`).
+    /// `Some("")`/whitespace clears the override and reverts to the
+    /// orchestrator; `Some(id)` sets it; `None` leaves it unchanged.
+    ///
+    /// Settable over RPC and not only in the TOML because the file on disk is
+    /// not reliably the file the core reads: once a user dir is active its
+    /// per-user `config.toml` takes precedence, so a value pre-written to the
+    /// root (or to a guessed user dir) is silently ignored. Going through the
+    /// running core writes wherever `Config::save` actually points.
+    pub chat_agent_id: Option<String>,
 }
 
 /// Partial update for the agent's editable filesystem roots.
@@ -217,7 +227,30 @@ pub async fn apply_agent_settings(
                 "agent_timeout_secs must be between {MIN_TIMEOUT_SECS} and {MAX_TIMEOUT_SECS} seconds (got {timeout_secs})"
             ));
         }
+    }
+
+    if let Some(chat_agent_id) = update.chat_agent_id.as_deref() {
+        let trimmed = chat_agent_id.trim();
+        if !trimmed.is_empty()
+            && !crate::agent::OpenHumanSessionHost::is_runnable_agent_id(config, trimmed)
+        {
+            return Err(format!(
+                "chat_agent_id '{trimmed}' is not a runnable agent definition"
+            ));
+        }
+    }
+
+    if let Some(timeout_secs) = update.agent_timeout_secs {
         config.agent.agent_timeout_secs = timeout_secs;
+    }
+
+    if let Some(chat_agent_id) = update.chat_agent_id {
+        let trimmed = chat_agent_id.trim();
+        config.agent.chat_agent_id = (!trimmed.is_empty()).then(|| trimmed.to_string());
+        log::debug!(
+            "[config][agent] chat_agent_id -> {:?}",
+            config.agent.chat_agent_id
+        );
     }
 
     config.save().await.map_err(|e| e.to_string())?;

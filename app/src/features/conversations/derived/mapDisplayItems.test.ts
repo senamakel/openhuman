@@ -354,4 +354,86 @@ describe('mapDisplayItems', () => {
     );
     expect(timelines['req-1'][0].round).toBe(2);
   });
+
+  /**
+   * The core projects a step's reasoning *before* its message. The round used
+   * to be taken only from the following assistantMessage, so each step's
+   * reasoning was filed under the previous step.
+   */
+  it('files reasoning under the step it precedes, from its own iteration', () => {
+    const chronological: DerivedDisplayItem[] = [
+      { kind: 'turnBoundary', requestId: 'req-1' },
+      { kind: 'reasoning', text: 'think one', iteration: 1 },
+      {
+        kind: 'assistantMessage',
+        content: 'Let me check.',
+        interim: true,
+        iteration: 1,
+        requestId: 'req-1',
+      },
+      { kind: 'toolCall', callId: 'c1', name: 'shell', status: 'success', iteration: 1 },
+      { kind: 'reasoning', text: 'think two', iteration: 2 },
+      // Step 2 has no narration: only its tool call says which step it is.
+      { kind: 'toolCall', callId: 'c2', name: 'shell', status: 'success', iteration: 2 },
+      { kind: 'reasoning', text: 'think three', iteration: 3 },
+      { kind: 'assistantMessage', content: 'Done.', iteration: 3, requestId: 'req-1' },
+    ];
+
+    const { transcripts, timelines } = mapDisplayItems(newestFirst(chronological));
+
+    const thinking = transcripts['req-1']
+      .filter(item => item.kind === 'thinking')
+      .map(item => ('text' in item ? [item.text, item.round] : []));
+    expect(thinking).toEqual([
+      ['think one', 1],
+      ['think two', 2],
+      ['think three', 3],
+    ]);
+    expect(timelines['req-1'].map(entry => [entry.id, entry.round])).toEqual([
+      ['c1', 1],
+      ['c2', 2],
+    ]);
+  });
+
+  it('keys sub-agent rows by their unique run id and maps their terminal status', () => {
+    const chronological: DerivedDisplayItem[] = [
+      { kind: 'turnBoundary', requestId: 'req-1' },
+      { kind: 'toolCall', callId: 'c1', name: 'research', status: 'success', iteration: 1 },
+      {
+        kind: 'subagent',
+        id: 'sub-aaa',
+        agentId: 'researcher',
+        taskId: 'sub-aaa',
+        callId: 'c1',
+        status: 'completed',
+        requestId: 'req-1',
+        items: [],
+      },
+      { kind: 'toolCall', callId: 'c2', name: 'research', status: 'error', iteration: 2 },
+      {
+        kind: 'subagent',
+        id: 'sub-bbb',
+        agentId: 'researcher',
+        taskId: 'sub-bbb',
+        callId: 'c2',
+        status: 'failed',
+        requestId: 'req-1',
+        items: [],
+      },
+    ];
+
+    const rows = mapDisplayItems(newestFirst(chronological)).timelines['req-1'];
+
+    // Each run follows its spawning call, and two runs of one agent no longer
+    // share `subagent:researcher` as their id.
+    expect(rows.map(row => row.id)).toEqual(['c1', 'subagent:sub-aaa', 'c2', 'subagent:sub-bbb']);
+    const [, first, , second] = rows;
+    expect(first.name).toBe('subagent:researcher');
+    expect(first.status).toBe('success');
+    expect(first.subagent).toEqual(
+      expect.objectContaining({ taskId: 'sub-aaa', agentId: 'researcher', status: 'completed' })
+    );
+    expect(second.status).toBe('error');
+    expect(second.subagent?.status).toBe('failed');
+  });
 });

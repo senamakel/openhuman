@@ -26,6 +26,20 @@ pub enum ToolCallStatus {
     Error,
 }
 
+/// Terminal state of a projected sub-agent run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum SubagentStatus {
+    /// The run ended with a final answer.
+    Completed,
+    /// The spawning call failed, or reported the run incomplete.
+    Failed,
+    /// The run's last record is an interrupted partial answer.
+    Interrupted,
+    /// No terminal record yet (still running, or never settled).
+    Running,
+}
+
 /// Failure payload attached to an errored [`DisplayItem::ToolCall`]. Minimal by
 /// design: the persisted transcript only records that the call failed plus an
 /// optional short reason. The frontend mapper expands this into its richer
@@ -74,11 +88,21 @@ pub enum DisplayItem {
         iteration: Option<u32>,
     },
     /// The model's reasoning/thinking that preceded an assistant message.
-    Reasoning { text: String },
+    /// `iteration` is the model call it belongs to — the same value as the
+    /// message/tool calls that follow it — so a renderer groups it with the
+    /// step it explains rather than the step before.
+    Reasoning {
+        text: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        iteration: Option<u32>,
+    },
     /// A tool invocation with its paired result, when available.
     ToolCall {
         call_id: String,
         name: String,
+        /// The model call (1-based, within the turn) that issued this call.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        iteration: Option<u32>,
         #[serde(skip_serializing_if = "Option::is_none")]
         args: Option<serde_json::Value>,
         #[serde(skip_serializing_if = "Option::is_none")]
@@ -91,15 +115,30 @@ pub enum DisplayItem {
     },
     /// A delegated sub-agent run, with its own nested projected items.
     ///
-    /// `request_id` anchors the whole sub-agent trail to the parent turn that
-    /// spawned it. Sub-agent transcripts are sibling files with no explicit
-    /// back-link to the delegating tool call, so the projection derives this by
-    /// matching the sub-agent's spawn timestamp (encoded in its file stem)
-    /// against the parent turns' timestamp ranges (see
-    /// `project::anchor_request_id`). Absent for legacy/CLI transcripts whose
-    /// lines carry no `request_id`.
+    /// Placed in the item list directly after the tool call that spawned it
+    /// when that call can be correlated (`call_id`), else at the end of the
+    /// turn it was spawned in. Sub-agent transcripts are sibling files with no
+    /// explicit back-link to the delegating tool call, so the turn is derived
+    /// by matching the sub-agent's spawn timestamp (encoded in its file stem)
+    /// against the parent turns' commit timestamps, and the call within that
+    /// turn by the delegation target (see `subagents::attach`).
+    ///
+    /// `id` is unique per run: the spawn `task_id` when recorded, else the
+    /// file-stem suffix — never the agent name, which repeats across runs.
     Subagent {
         id: String,
+        /// Sub-agent definition id (e.g. `researcher`).
+        #[serde(skip_serializing_if = "Option::is_none")]
+        agent_id: Option<String>,
+        /// Spawn task id (`sub-…`), when the transcript recorded one.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        task_id: Option<String>,
+        /// The parent tool call that spawned this run, when correlated.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        call_id: Option<String>,
+        /// Terminal state of the run, derived from its own transcript and the
+        /// spawning call's result.
+        status: SubagentStatus,
         #[serde(skip_serializing_if = "Option::is_none")]
         request_id: Option<String>,
         items: Vec<DisplayItem>,

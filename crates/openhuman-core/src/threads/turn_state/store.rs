@@ -499,17 +499,19 @@ fn persist_temp_file(tmp: NamedTempFile, path: &Path) -> Result<(), String> {
     use std::os::windows::ffi::OsStrExt;
     use windows_sys::Win32::Storage::FileSystem::{MoveFileExW, MOVEFILE_REPLACE_EXISTING};
 
-    let (file, temp_path) = tmp
-        .keep()
-        .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))?;
-    // `keep` transfers ownership to us, so close the handle before replacing
-    // the destination and explicitly clean it up if the replacement fails.
-    drop(file);
-
     let wide_path = |path: &Path| -> Result<Vec<u16>, String> {
-        let absolute = std::path::absolute(path)
-            .map_err(|e| format!("resolve turn-state path {}: {e}", path.display()))?;
-        let raw: Vec<u16> = absolute.as_os_str().encode_wide().collect();
+        let filename = path
+            .file_name()
+            .ok_or_else(|| format!("resolve turn-state filename {}", path.display()))?;
+        let parent = path
+            .parent()
+            .ok_or_else(|| format!("resolve turn-state parent {}", path.display()))?
+            // Canonicalizing the existing parent gives Windows a verbatim
+            // long-path form before appending the not-yet-existing filename.
+            .canonicalize()
+            .map_err(|e| format!("resolve turn-state parent {}: {e}", path.display()))?;
+        let resolved = parent.join(filename);
+        let raw: Vec<u16> = resolved.as_os_str().encode_wide().collect();
         let mut extended =
             if raw.starts_with(&[b'\\' as u16, b'\\' as u16, b'?' as u16, b'\\' as u16]) {
                 raw
@@ -527,8 +529,16 @@ fn persist_temp_file(tmp: NamedTempFile, path: &Path) -> Result<(), String> {
         extended.push(0);
         Ok(extended)
     };
-    let source = wide_path(&temp_path)?;
+    // Compute both paths while `tmp` still owns its file, so any preparation
+    // error lets NamedTempFile clean the tempfile up automatically.
+    let source = wide_path(tmp.path())?;
     let destination = wide_path(path)?;
+    let (file, temp_path) = tmp
+        .keep()
+        .map_err(|e| format!("persist turn-state file {}: {e}", path.display()))?;
+    // `keep` transfers ownership to us, so close the handle before replacing
+    // the destination and explicitly clean it up if the replacement fails.
+    drop(file);
     // SAFETY: both buffers are NUL-terminated and remain alive for the call.
     // The paths share a directory, so this is an atomic replacement rather
     // than a cross-volume copy-and-delete move.

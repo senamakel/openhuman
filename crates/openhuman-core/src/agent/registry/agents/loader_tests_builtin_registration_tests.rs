@@ -224,12 +224,17 @@ fn every_builtin_is_stamped_builtin_source() {
 }
 
 #[test]
-fn vision_agent_loads_on_vision_hint() {
-    // The vision sub-agent rides the multimodal `vision-v1` tier (via the
-    // `vision` hint) so its model is image-capable, and it must be reachable
-    // from the orchestrator's subagent allowlist.
+fn vision_agent_loads_on_its_pinned_multimodal_model() {
+    // The vision sub-agent used to ride the multimodal `vision-v1` tier (via
+    // the `vision` hint), which is now deprecated — `vision-v1` silently
+    // falls back to the chat default on managed routes (regression R4). It
+    // is pinned to a dedicated OpenRouter passthrough model instead, and
+    // must remain reachable from the orchestrator's subagent allowlist.
     let def = find("vision_agent");
-    assert!(matches!(def.model, ModelSpec::Hint(ref h) if h == "vision"));
+    assert!(matches!(
+        def.model,
+        ModelSpec::Exact(ref m) if m == crate::config::MODEL_MEDIA_UNDERSTANDING
+    ));
 
     let orchestrator = find("orchestrator");
     assert!(

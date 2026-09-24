@@ -12,7 +12,9 @@ mod resolvers;
 pub use config::{Config, CustomEmbeddingsConfig, ModelRegistryEntry};
 pub use model_ids::{
     is_legacy_tier_model, legacy_tier_role, DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL,
-    LEGACY_TIER_MODELS, MEMORY_SYNC_INTERVAL_PRESETS_SECS, MODEL_MANAGED_DEFAULT, WORKLOAD_ROLES,
+    LEGACY_TIER_MODELS, MANAGED_MULTIMODAL_MODELS, MEMORY_SYNC_INTERVAL_PRESETS_SECS,
+    MODEL_IMAGE_GENERATION_AGENT, MODEL_MANAGED_DEFAULT, MODEL_MEDIA_UNDERSTANDING,
+    MODEL_VIDEO_GENERATION_AGENT, WORKLOAD_ROLES,
 };
 pub use output_language::{normalize_output_language, output_language_directive};
 

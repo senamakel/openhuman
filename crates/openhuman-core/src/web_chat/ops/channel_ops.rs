@@ -36,6 +36,24 @@ pub async fn cancel_chat_scoped(
     thread_id: &str,
     request_id: Option<&str>,
 ) -> Result<Option<String>, String> {
+    Ok(cancel_chat_inner(client_id, thread_id, request_id)
+        .await?
+        .request_id)
+}
+
+/// What one cancel tore down.
+struct CancelOutcome {
+    /// The primary or parallel turn that was cancelled, if any.
+    request_id: Option<String>,
+    /// Detached sub-agents stopped along with the turn (unscoped stops only).
+    subagents_cancelled: usize,
+}
+
+async fn cancel_chat_inner(
+    client_id: &str,
+    thread_id: &str,
+    request_id: Option<&str>,
+) -> Result<CancelOutcome, String> {
     let client_id = client_id.trim();
     let thread_id = thread_id.trim();
 
@@ -89,6 +107,38 @@ pub async fn cancel_chat_scoped(
         .clone()
         .or_else(|| cancelled_parallel.first().cloned());
 
+    // An unscoped stop also halts the thread's detached work. Async sub-agents
+    // (`spawn_async_subagent`) run on their own tasks and deliberately drop the
+    // spawning turn's cancellation, so tearing the turn down leaves them
+    // running — and when one finishes, background delivery starts a fresh
+    // system turn on the thread, which reads as "Stop did nothing". Abort them
+    // first, then drop anything already queued for delivery, so no result lands
+    // in the gap. A scoped cancel names one turn and leaves the rest alone.
+    let subagents_cancelled = if request_id.is_none() {
+        // Gate completion recording before aborting: Tokio abort is
+        // cooperative, so a child already finishing can otherwise enqueue in
+        // the gap between abort and the queue sweep.
+        let discarded =
+            crate::agent::orchestration::background_completions::discard_pending_for_thread(
+                thread_id,
+            );
+        let stopped = crate::agent::orchestration::running_subagents::stop_for_thread(thread_id);
+        crate::agent::orchestration::background_completions::finish_stop_for_thread(
+            thread_id, &stopped,
+        );
+        log::info!(
+            "[web-channel] stop thread_id={} turn={:?} parallel={} subagents_cancelled={} completions_discarded={}",
+            thread_id,
+            removed_request_id,
+            cancelled_parallel.len(),
+            stopped.len(),
+            discarded
+        );
+        stopped.len()
+    } else {
+        0
+    };
+
     // Emit a cancelled chat_error for each cancelled turn (primary + parallels)
     // so every interleaved branch's UI is resolved.
     for request_id in removed_request_id.into_iter().chain(cancelled_parallel) {
@@ -103,7 +153,10 @@ pub async fn cancel_chat_scoped(
         });
     }
 
-    Ok(cancelled_any)
+    Ok(CancelOutcome {
+        request_id: cancelled_any,
+        subagents_cancelled,
+    })
 }
 
 pub async fn channel_web_chat(
@@ -210,18 +263,20 @@ pub async fn channel_web_cancel(
     thread_id: &str,
     request_id: Option<&str>,
 ) -> Result<RpcOutcome<Value>, String> {
-    let cancelled_request_id = cancel_chat_scoped(client_id, thread_id, request_id).await?;
+    let outcome = cancel_chat_inner(client_id, thread_id, request_id).await?;
 
-    // A web-channel turn is the only request-scoped operation this endpoint
-    // can cancel.
-    let cancelled = cancelled_request_id.is_some();
+    // `request_id` is set only when a turn was torn down, and only then does a
+    // `cancelled` chat_error follow. A client that sees `request_id: null` knows
+    // no terminal event is coming and must settle its own running state.
+    let cancelled = outcome.request_id.is_some() || outcome.subagents_cancelled > 0;
 
     Ok(RpcOutcome::single_log(
         json!({
             "cancelled": cancelled,
             "client_id": client_id.trim(),
             "thread_id": thread_id.trim(),
-            "request_id": cancelled_request_id,
+            "request_id": outcome.request_id,
+            "subagents_cancelled": outcome.subagents_cancelled,
         }),
         "web channel cancellation processed",
     ))

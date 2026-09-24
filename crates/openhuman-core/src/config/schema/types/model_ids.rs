@@ -64,6 +64,42 @@ pub const WORKLOAD_ROLES: [&str; 8] = [
     "subconscious",
 ];
 
+/// `hint:vision` is deprecated: `vision-v1` silently falls back to the chat
+/// default on managed routes, which means every agent still pinned to it
+/// loses image/video understanding without any error surfacing (regression
+/// R4). Image/video UNDERSTANDING and GENERATION are also separate
+/// capabilities that a single `vision` hint cannot distinguish, so each media
+/// agent is pinned to its own exact OpenRouter passthrough model instead.
+///
+/// Qwen3.7 Flash: cheap, native tool calling, text+image+video input, 1M
+/// context, $0.03 / $0.13 per 1M input/output tokens.
+///
+/// Used by `vision_agent` (image/video understanding: describe, OCR, chart
+/// and UI-element reading).
+pub const MODEL_MEDIA_UNDERSTANDING: &str = "openrouter/qwen/qwen3.7-flash";
+
+/// Same model as [`MODEL_MEDIA_UNDERSTANDING`], pinned separately for
+/// `image_agent` (image GENERATION delegate) so the two roles can be retuned
+/// independently without one edit silently moving the other.
+pub const MODEL_IMAGE_GENERATION_AGENT: &str = "openrouter/qwen/qwen3.7-flash";
+
+/// Same model as [`MODEL_MEDIA_UNDERSTANDING`], pinned separately for
+/// `video_agent` (video GENERATION delegate) so the two roles can be retuned
+/// independently without one edit silently moving the other.
+pub const MODEL_VIDEO_GENERATION_AGENT: &str = "openrouter/qwen/qwen3.7-flash";
+
+/// Every managed model id that carries multimodal (image/video) input
+/// capability, whether or not it is also the workload's `vision` hint
+/// target. `oh_tier_supports_vision` treats membership here the same as the
+/// legacy `vision-v1` / `hint:vision` gate, so a media agent pinned to one of
+/// these `exact` ids keeps the image/video forwarding path that used to key
+/// off the retired hint alone.
+pub const MANAGED_MULTIMODAL_MODELS: [&str; 3] = [
+    MODEL_MEDIA_UNDERSTANDING,
+    MODEL_IMAGE_GENERATION_AGENT,
+    MODEL_VIDEO_GENERATION_AGENT,
+];
+
 /// Effective default global memory-sync cadence (seconds) used when
 /// [`Config::memory_sync_interval_secs`] is `None` — i.e. the user has not
 /// explicitly picked a schedule. 24h, matching the "Sync every 24h" preset

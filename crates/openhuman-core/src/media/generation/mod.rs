@@ -1,15 +1,24 @@
-//! Media generation domain — agent tools for image/video generation backed by
-//! GMI via the OpenHuman backend's `media_generation` provider.
+//! Media generation domain — image and video generation agent tools backed by
+//! OpenRouter through the OpenHuman backend's `/agent-integrations/openrouter`
+//! proxy.
 //!
-//! The backend (`/agent-integrations/media-generation/*`) owns provider keys,
-//! billing, and the standardized contract; these tools submit a request, block
-//! with progress until it completes, download the resulting media into the
-//! agent's `generated-media/` root, and return local file paths.
+//! The work is split by ownership:
+//!
+//! - **TinyInference** (`tinyinference-image` / `tinyinference-video`, reached
+//!   through `tinyagents_harness`) owns the wire contract, reference and
+//!   output-shape standards, the submit → poll → download job loop, and the
+//!   rule that a billed call returns media or an error, never an empty success.
+//! - **TinyAgents** (`tinyagents_harness::media`) owns the tools: argument
+//!   parsing, artifact persistence into the workspace, and result wording.
+//! - **This module** owns the host policy: endpoint, credential, egress,
+//!   privacy and budget gates ([`provider`]), plus tool names, descriptions and
+//!   the local-reference policy ([`tools`]).
 
-pub mod download;
+pub mod provider;
 pub mod tools;
-pub mod types;
 
+pub use provider::{managed_generators, MediaGenerators, OPENROUTER_PROXY_PATH};
 pub use tools::{
-    build_media_tools, MediaGenerateImageTool, MediaGenerateVideoTool, MediaListModelsTool,
+    build_media_tools, media_tools_from, MediaListModelsTool, IMAGE_TOOL_NAME,
+    LIST_MODELS_TOOL_NAME, VIDEO_TOOL_NAME,
 };

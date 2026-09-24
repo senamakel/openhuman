@@ -4,6 +4,7 @@ import type { PersistedTurnState } from '../../types/turnState';
 import reducer, {
   beginInferenceTurn,
   bumpInferenceHeartbeatForThread,
+  cancelUnresolvedTurnTimeline,
   clearAllChatRuntime,
   clearArtifactsForThread,
   clearInferenceStatusForThread,
@@ -1089,6 +1090,63 @@ describe('chatRuntimeSlice', () => {
 });
 
 describe('toolCallReceived (Phase 3 reducer-side merge)', () => {
+  it('does not reopen a settled row when a late tool_call for it arrives', () => {
+    let state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+    state = reducer(
+      state,
+      toolResultReceived({
+        threadId: 't1',
+        round: 1,
+        toolName: 'shell',
+        toolCallId: 'c1',
+        success: true,
+        output: 'ok',
+      })
+    );
+    state = reducer(
+      state,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+
+    const rows = state.toolTimelineByThread['t1'];
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: 'c1', status: 'success', result: 'ok' });
+  });
+
+  it('does not reopen a cancelled row when a late tool_call for it arrives', () => {
+    let state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+    state = reducer(state, cancelUnresolvedTurnTimeline({ threadId: 't1', rowIds: ['c1'] }));
+    state = reducer(
+      state,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'shell', toolCallId: 'c1' })
+    );
+
+    expect(state.toolTimelineByThread['t1'][0]).toMatchObject({ id: 'c1', status: 'cancelled' });
+  });
+
+  it('only cancels the completed turn rows captured before snapshot recovery', () => {
+    let state = reducer(
+      undefined,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'completed', toolCallId: 'old' })
+    );
+    state = reducer(
+      state,
+      toolCallReceived({ threadId: 't1', round: 1, toolName: 'new-turn', toolCallId: 'new' })
+    );
+    state = reducer(state, cancelUnresolvedTurnTimeline({ threadId: 't1', rowIds: ['old'] }));
+
+    expect(state.toolTimelineByThread['t1']).toMatchObject([
+      { id: 'old', status: 'cancelled' },
+      { id: 'new', status: 'running' },
+    ]);
+  });
+
   it('appends a new running row with a generated id and records the processing pointer', () => {
     const state = reducer(
       undefined,

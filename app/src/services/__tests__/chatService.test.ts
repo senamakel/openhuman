@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { chatClearQueue, chatSend, subscribeChatEvents } from '../chatService';
+import { chatCancel, chatClearQueue, chatSend, subscribeChatEvents } from '../chatService';
 import { socketService } from '../socketService';
 
 const mockCallCoreRpc = vi.fn();
@@ -456,5 +456,40 @@ describe('chatService.chatClearQueue', () => {
   it('returns null when the RPC throws so callers can keep the pills', async () => {
     mockCallCoreRpc.mockRejectedValue(new Error('rpc down'));
     expect(await chatClearQueue('thread-9')).toBeNull();
+  });
+});
+
+describe('chatService.chatCancel', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    bindMockSocket(createMockSocket());
+  });
+
+  it('reports a torn-down turn when the core returns its request id', async () => {
+    mockCallCoreRpc.mockResolvedValue({ result: { cancelled: true, request_id: 'req-1' } });
+
+    expect(await chatCancel('thread-9')).toEqual({ accepted: true, turnCancelled: true });
+    expect(mockCallCoreRpc).toHaveBeenCalledWith({
+      method: 'openhuman.channel_web_cancel',
+      params: { client_id: 'socket-1', thread_id: 'thread-9' },
+    });
+  });
+
+  it('reports no turn when the core had nothing in flight', async () => {
+    mockCallCoreRpc.mockResolvedValue({
+      result: { cancelled: true, request_id: null, subagents_cancelled: 2 },
+    });
+    expect(await chatCancel('thread-9')).toEqual({ accepted: true, turnCancelled: false });
+  });
+
+  it('is not accepted when the RPC throws', async () => {
+    mockCallCoreRpc.mockRejectedValue(new Error('rpc down'));
+    expect(await chatCancel('thread-9')).toEqual({ accepted: false, turnCancelled: false });
+  });
+
+  it('is not accepted without a socket id', async () => {
+    vi.mocked(socketService.getSocket).mockReturnValue(null as never);
+    expect(await chatCancel('thread-9')).toEqual({ accepted: false, turnCancelled: false });
+    expect(mockCallCoreRpc).not.toHaveBeenCalled();
   });
 });

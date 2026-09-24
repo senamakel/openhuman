@@ -222,6 +222,11 @@ pub async fn start_chat(
         }
     }
 
+    // A fresh accepted user request is the explicit boundary after Stop. Keep
+    // the gate installed through validation and registry cancellation so a
+    // child registering late cannot deliver into the stopped generation.
+    crate::agent::orchestration::background_completions::resume_stopped_thread(&thread_id);
+
     let map_key = key_for(&thread_id);
 
     let parsed_mode = match queue_mode.as_deref() {

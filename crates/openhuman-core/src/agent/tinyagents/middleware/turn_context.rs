@@ -432,6 +432,7 @@ impl TurnContextMiddleware {
                 artifact_reads: Default::default(),
                 focus_by_call: Default::default(),
                 summary_focus_tools,
+                raw_fetches: Default::default(),
             }));
         }
         // Push the handoff LAST (so its `after_tool` runs FIRST): it observes the

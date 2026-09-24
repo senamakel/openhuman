@@ -363,3 +363,33 @@ fn tool_call_convert() {
     assert_eq!(oh.name, "echo");
     assert_eq!(oh.arguments, r#"{"msg":"hi"}"#);
 }
+
+#[test]
+fn reasoning_from_content_keeps_every_thinking_block_in_order() {
+    let content = vec![
+        ContentBlock::Thinking {
+            text: "first span".into(),
+            signature: None,
+        },
+        ContentBlock::Text("visible".into()),
+        ContentBlock::Thinking {
+            text: "second span".into(),
+            signature: None,
+        },
+        ContentBlock::Thinking {
+            text: "   ".into(),
+            signature: None,
+        },
+    ];
+    assert_eq!(
+        reasoning_from_content(&content).as_deref(),
+        Some("first span\n\nsecond span"),
+        "every non-empty thinking block is kept, in order"
+    );
+    assert_eq!(
+        reasoning_from_content(&content[..1]).as_deref(),
+        Some("first span"),
+        "a single block is returned verbatim"
+    );
+    assert_eq!(reasoning_from_content(&content[1..2]), None);
+}

@@ -135,6 +135,12 @@ pub(super) async fn run_agent_job(
                     // cron-triggered turns. `cron` is the channel so the
                     // event bus can filter from other flows (`cli`, `web`…).
                     agent.set_event_context(format!("cron:{}", job.id), "cron");
+                    // A cron agent has no thread, so its first turn would fall
+                    // back to `ResumeMode::LatestForAgent` and resume the newest
+                    // unthreaded transcript for the agent name — some unrelated
+                    // conversation, with its frozen system prompt and stale tool
+                    // names. Every run starts from a fresh prompt instead.
+                    start_cron_turn_clean(&mut agent);
                     // Scope a `TrustedAutomation { Cron }` origin around the
                     // turn. The approval gate treats this as user-authorized
                     // automation and lets external_effect tools run without
@@ -230,6 +236,24 @@ pub(super) fn run_flow_schedule_job(job: &CronJob) -> (bool, String) {
 /// Placeholder recorded in run history when an agent job succeeds but returns
 /// no text. Never delivered to chat — used only for the run-history record.
 pub(super) const EMPTY_AGENT_OUTPUT: &str = "agent job executed";
+
+/// Keep a scheduled turn from auto-resuming another session's transcript.
+///
+/// Mirrors `flows::ops::builder::start_builder_turn_clean`: an unthreaded
+/// session's first turn otherwise resumes the newest transcript on disk for
+/// the agent name, whatever conversation that was.
+pub(super) fn start_cron_turn_clean(agent: &mut OpenHumanSessionHost) {
+    tracing::debug!("[cron] suppressing transcript autoload for scheduled turn");
+    agent.set_next_turn_overrides(cron_turn_overrides());
+}
+
+/// Overrides applied to each scheduled agent turn before its first dispatch.
+pub(super) fn cron_turn_overrides() -> crate::agent::session_host::TurnOverrides {
+    crate::agent::session_host::TurnOverrides {
+        suppress_transcript_autoload: true,
+        ..Default::default()
+    }
+}
 
 pub(super) struct BuiltCronAgent {
     pub(crate) agent: OpenHumanSessionHost,

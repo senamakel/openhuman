@@ -40,7 +40,7 @@ vi.mock('../../services/chatService', async importOriginal => {
   const actual = await importOriginal<typeof import('../../services/chatService')>();
   return {
     ...actual,
-    chatCancel: vi.fn().mockResolvedValue(true),
+    chatCancel: vi.fn().mockResolvedValue({ accepted: true, turnCancelled: true }),
     chatClearQueue: vi.fn().mockResolvedValue(0),
     chatSend: vi.fn().mockResolvedValue(undefined),
   };

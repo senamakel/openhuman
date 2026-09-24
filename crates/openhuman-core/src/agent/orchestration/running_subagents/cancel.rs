@@ -94,6 +94,55 @@ pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
     count
 }
 
+/// Abort every running detached sub-agent spawned from chat thread
+/// `thread_id` because the user pressed Stop on that thread.
+///
+/// Unlike [`cancel_for_thread`] (thread deletion) the thread survives, so each
+/// child's durable sub-agent session is marked failed ("cancelled by user")
+/// rather than left looking resumable. No "you cancelled" completion is
+/// recorded: delivering one would start a fresh system turn on the thread,
+/// which is exactly what Stop is meant to prevent. Returns the cancelled task
+/// ids.
+pub(crate) fn stop_for_thread(thread_id: &str) -> Vec<String> {
+    let cancelled = registry()
+        .cancel_where(|metadata| metadata.parent_thread_id.as_deref() == Some(thread_id))
+        .expect("detached task registry lock poisoned");
+    let mut task_ids = Vec::with_capacity(cancelled.len());
+    for entry in cancelled {
+        let task_id = entry.task_id.as_str().to_string();
+        record_cancelled(&entry.metadata.workspace_dir, &task_id);
+        if let Some(subagent_session_id) = entry.metadata.subagent_session_id.as_deref() {
+            let store = crate::agent::orchestration::subagent_sessions::SubagentSessionStore::new(
+                entry.metadata.workspace_dir.clone(),
+            );
+            if let Err(err) = crate::agent::orchestration::subagent_sessions::mark_failed(
+                &store,
+                subagent_session_id,
+                &task_id,
+                "cancelled by user".to_string(),
+            ) {
+                log::warn!(
+                    "[running_subagents] stop_for_thread mark_failed failed thread_id={} task_id={} subagent_session_id={} error={}",
+                    thread_id,
+                    task_id,
+                    subagent_session_id,
+                    err
+                );
+            }
+        }
+        task_ids.push(task_id);
+    }
+    log::info!(
+        "[running_subagents] stop_for_thread thread_id={} cancelled={} live_entries={}",
+        thread_id,
+        task_ids.len(),
+        registry()
+            .len()
+            .expect("detached task registry lock poisoned")
+    );
+    task_ids
+}
+
 /// Abort and drop **every** registered sub-agent. Called on a full thread purge
 /// where no parent thread survives. Returns the **distinct parent thread ids**
 /// that had sub-agents, so the purge path can tombstone them in

@@ -15,6 +15,9 @@ fn classifies_backend_failures_without_classifying_graph_timeouts() {
     assert!(is_backend_or_infrastructure_failure(
         "File upload failed: Backend returned 500 Internal Server Error"
     ));
+    assert!(!is_backend_or_infrastructure_failure(
+        "File upload failed: Backend returned 400 Bad Request"
+    ));
     assert!(is_backend_or_infrastructure_failure(
         "connection timed out while calling file storage"
     ));

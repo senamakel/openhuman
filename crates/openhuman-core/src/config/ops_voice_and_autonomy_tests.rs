@@ -613,6 +613,7 @@ async fn apply_agent_settings_updates_timeout_and_persists_snapshot() {
         &mut cfg,
         AgentSettingsPatch {
             agent_timeout_secs: Some(300),
+            chat_agent_id: None,
         },
     )
     .await

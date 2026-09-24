@@ -13,3 +13,14 @@ failure-output = "final"
 success-output = "never"
 status-level = "fail"
 final-status-level = "fail"
+
+# agent_harness_e2e changes process- and filesystem-wide test seams (HOME,
+# keyring storage, and the RPC token bootstrap). Its in-binary mutex provides
+# that serialization for cargo test; retain it when nextest runs each test in
+# a separate process.
+[test-groups]
+agent-harness-e2e = { max-threads = 1 }
+
+[[profile.ci.overrides]]
+filter = 'binary(=agent_harness_e2e)'
+test-group = 'agent-harness-e2e'

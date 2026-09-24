@@ -62,10 +62,15 @@ export interface DerivedAssistantMessage {
   iteration?: number;
 }
 
-/** The model's reasoning/thinking that preceded an assistant message. */
+/**
+ * The model's reasoning/thinking that preceded an assistant message.
+ * `iteration` is the model call it belongs to — the same value as the message
+ * and tool calls that follow it.
+ */
 export interface DerivedReasoning {
   kind: 'reasoning';
   text: string;
+  iteration?: number;
 }
 
 /**
@@ -84,6 +89,8 @@ export interface DerivedToolCall {
   kind: 'toolCall';
   callId: string;
   name: string;
+  /** The model call (1-based, within the turn) that issued this call. */
+  iteration?: number;
   args?: unknown;
   result?: string;
   status: DerivedToolCallStatus;
@@ -91,15 +98,25 @@ export interface DerivedToolCall {
   failure?: DerivedToolFailure;
 }
 
+/** Terminal state of a projected sub-agent run (Rust `SubagentStatus`). */
+export type DerivedSubagentStatus = 'completed' | 'failed' | 'interrupted' | 'running';
+
 /**
- * A delegated sub-agent run, with its own nested projected items. `requestId`
- * anchors the whole trail to the parent turn that spawned it (derived core-side
- * from the sub-agent's spawn timestamp vs. the parent turns' timestamp ranges);
- * absent for legacy/CLI transcripts with no `requestId`.
+ * A delegated sub-agent run, with its own nested projected items. The core
+ * places it directly after the tool call that spawned it (`callId`) when that
+ * call can be correlated, else at the end of its turn. `requestId` anchors the
+ * trail to the parent turn that spawned it; absent for legacy/CLI transcripts
+ * with no `requestId`. `id` is unique per run (the spawn task id when
+ * recorded), never the agent name.
  */
 export interface DerivedSubagent {
   kind: 'subagent';
   id: string;
+  agentId?: string;
+  taskId?: string;
+  callId?: string;
+  /** Absent only on payloads from a core that predates the field. */
+  status?: DerivedSubagentStatus;
   requestId?: string;
   items: DerivedDisplayItem[];
 }

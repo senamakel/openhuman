@@ -1,336 +1,157 @@
-use std::path::PathBuf;
+use std::path::Path;
 use std::sync::Arc;
 
 use serde_json::json;
-
-use super::{MediaGenerateImageTool, MediaGenerateVideoTool, MediaListModelsTool};
-use crate::integrations::IntegrationClient;
+use tinyagents_harness::tinyinference_image::MockImageGenerator;
+use tinyagents_harness::tinyinference_video::{MockVideoGenerator, MockVideoScript};
 use tinytools::{PermissionLevel, Tool, ToolCategory};
 
-fn dummy_client() -> Arc<IntegrationClient> {
-    // No requests are made in these tests; the URL/token are placeholders.
-    Arc::new(IntegrationClient::new(
-        "http://127.0.0.1:0".to_string(),
-        "test-token".to_string(),
-    ))
+use super::{
+    media_tools_from, reference_policy, IMAGE_TOOL_NAME, LIST_MODELS_TOOL_NAME, VIDEO_TOOL_NAME,
+};
+use crate::media::generation::MediaGenerators;
+
+fn tools(action_dir: &Path) -> Vec<Box<dyn Tool>> {
+    media_tools_from(
+        MediaGenerators {
+            image: Arc::new(MockImageGenerator::new()),
+            video: Arc::new(MockVideoGenerator::new(MockVideoScript::delivers())),
+        },
+        action_dir,
+        &action_dir.join("workspace"),
+        tinyagents_harness::tinyinference_video::WaitPolicy::new(
+            std::time::Duration::from_millis(1),
+            std::time::Duration::from_secs(5),
+        ),
+    )
+}
+
+fn by_name<'a>(tools: &'a [Box<dyn Tool>], name: &str) -> &'a dyn Tool {
+    tools
+        .iter()
+        .find(|tool| tool.name() == name)
+        .map(AsRef::as_ref)
+        .unwrap_or_else(|| panic!("missing tool {name}"))
+}
+
+/// The `media` tool pack and the image/video agents' allowlists pin these
+/// names; renaming a tool silently drops it from every agent.
+#[test]
+fn tool_names_match_the_media_pack() {
+    let dir = tempfile::tempdir().unwrap();
+    let tools = tools(dir.path());
+    let names: Vec<&str> = tools.iter().map(|tool| tool.name()).collect();
+    assert_eq!(
+        names,
+        vec![IMAGE_TOOL_NAME, VIDEO_TOOL_NAME, LIST_MODELS_TOOL_NAME]
+    );
+    assert_eq!(
+        names,
+        vec![
+            "media_generate_image",
+            "media_generate_video",
+            "media_list_models"
+        ]
+    );
 }
 
 #[test]
-fn image_tool_schema_and_metadata() {
-    let tool = MediaGenerateImageTool::new(dummy_client(), PathBuf::from("/tmp"));
-    assert_eq!(tool.name(), "media_generate_image");
-    assert_eq!(tool.permission_level(), PermissionLevel::Execute);
-    assert_eq!(tool.category(), ToolCategory::Workflow);
-
-    let schema = tool.parameters_schema();
-    assert_eq!(schema["required"], json!(["prompt"]));
-    let props = schema["properties"].as_object().unwrap();
-    for key in ["prompt", "model", "size", "n", "input_images", "seed"] {
-        assert!(props.contains_key(key), "missing image property {key}");
+fn generation_tools_keep_their_host_metadata() {
+    let dir = tempfile::tempdir().unwrap();
+    let tools = tools(dir.path());
+    for name in [IMAGE_TOOL_NAME, VIDEO_TOOL_NAME] {
+        let tool = by_name(&tools, name);
+        assert_eq!(tool.permission_level(), PermissionLevel::Execute, "{name}");
+        assert_eq!(tool.category(), ToolCategory::Workflow, "{name}");
+        assert!(tool.external_effect(), "{name}");
+        assert!(tool.policy().side_effects.payment, "{name} is billed");
     }
+    let list = by_name(&tools, LIST_MODELS_TOOL_NAME);
+    assert_eq!(list.permission_level(), PermissionLevel::ReadOnly);
 }
 
 #[test]
-fn video_tool_schema_and_metadata() {
-    let tool = MediaGenerateVideoTool::new(dummy_client(), PathBuf::from("/tmp"));
-    assert_eq!(tool.name(), "media_generate_video");
-    assert_eq!(tool.permission_level(), PermissionLevel::Execute);
-    assert_eq!(tool.category(), ToolCategory::Workflow);
-
-    let schema = tool.parameters_schema();
-    assert_eq!(schema["required"], json!(["prompt"]));
-    let props = schema["properties"].as_object().unwrap();
+fn schemas_expose_the_reference_standards() {
+    let dir = tempfile::tempdir().unwrap();
+    let tools = tools(dir.path());
+    let image = by_name(&tools, IMAGE_TOOL_NAME).parameters_schema();
+    assert_eq!(image["required"], json!(["prompt"]));
     for key in [
         "prompt",
         "model",
-        "input_image",
-        "duration_seconds",
+        "n",
         "aspect_ratio",
-        "negative_prompt",
+        "resolution",
+        "size",
         "seed",
+        "references",
     ] {
-        assert!(props.contains_key(key), "missing video property {key}");
+        assert!(
+            image["properties"].get(key).is_some(),
+            "image schema missing {key}"
+        );
+    }
+    let video = by_name(&tools, VIDEO_TOOL_NAME).parameters_schema();
+    for key in [
+        "prompt",
+        "duration",
+        "resolution",
+        "aspect_ratio",
+        "first_frame",
+        "last_frame",
+        "references",
+        "resume_job_id",
+    ] {
+        assert!(
+            video["properties"].get(key).is_some(),
+            "video schema missing {key}"
+        );
     }
 }
 
+#[tokio::test]
+async fn image_tool_saves_under_generated_media_in_the_action_dir() {
+    let dir = tempfile::tempdir().unwrap();
+    let tools = tools(dir.path());
+    let result = by_name(&tools, IMAGE_TOOL_NAME)
+        .execute(json!({ "prompt": "an anime comic about a delivery certificate" }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{result:?}");
+    let saved = std::fs::read_dir(dir.path().join("generated-media"))
+        .unwrap()
+        .count();
+    assert_eq!(saved, 1);
+}
+
+#[tokio::test]
+async fn list_models_reports_both_catalogs_and_defaults() {
+    let dir = tempfile::tempdir().unwrap();
+    let tools = tools(dir.path());
+    let result = by_name(&tools, LIST_MODELS_TOOL_NAME)
+        .execute(json!({}))
+        .await
+        .unwrap();
+    let text = serde_json::to_string(&result).unwrap();
+    assert!(
+        text.contains("mock/image") && text.contains("mock/video"),
+        "{text}"
+    );
+}
+
 #[test]
-fn list_models_tool_metadata() {
-    let tool = MediaListModelsTool::new(dummy_client());
-    assert_eq!(tool.name(), "media_list_models");
-    assert_eq!(tool.category(), ToolCategory::Workflow);
-    assert!(tool.parameters_schema()["properties"]
-        .as_object()
-        .unwrap()
-        .contains_key("include_upstream"));
-}
+fn reference_policy_admits_workspace_files_only() {
+    let action = Path::new("/home/user/OpenHuman/projects");
+    let workspace = Path::new("/home/user/.openhuman/users/u/workspace");
+    let policy = reference_policy(action, workspace);
 
-#[tokio::test]
-async fn image_tool_rejects_empty_prompt_without_network() {
-    let tool = MediaGenerateImageTool::new(dummy_client(), PathBuf::from("/tmp"));
-    let result = tool.execute(json!({ "prompt": "   " })).await.unwrap();
-    assert!(result.is_error);
-}
-
-#[tokio::test]
-async fn video_tool_rejects_missing_prompt_without_network() {
-    let tool = MediaGenerateVideoTool::new(dummy_client(), PathBuf::from("/tmp"));
-    let result = tool.execute(json!({ "model": "x" })).await.unwrap();
-    assert!(result.is_error);
-}
-
-// ── End-to-end flow against a mock backend (wiremock) ───────────────
-
-use wiremock::matchers::{method, path, path_regex};
-use wiremock::{Mock, MockServer, ResponseTemplate};
-
-fn client_for(server: &MockServer) -> std::sync::Arc<IntegrationClient> {
-    std::sync::Arc::new(IntegrationClient::new(server.uri(), "tok".to_string()))
-}
-
-/// Mount a media download endpoint that returns `bytes` for the given path.
-async fn mount_media(server: &MockServer, p: &str, content_type: &str, bytes: &[u8]) {
-    Mock::given(method("GET"))
-        .and(path(p.to_string()))
-        .respond_with(ResponseTemplate::new(200).set_body_raw(bytes.to_vec(), content_type))
-        .mount(server)
-        .await;
-}
-
-#[tokio::test]
-async fn image_tool_submits_downloads_and_persists_local_artifact() {
-    let server = MockServer::start().await;
-    let media_url = format!("{}/media/out.png", server.uri());
-    Mock::given(method("POST"))
-        .and(path("/agent-integrations/media-generation/images"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "requestId": "req-1",
-            "status": "success",
-            "model": "seedream-4-0-250828",
-            "media": [{ "type": "image", "url": media_url }],
-            "costUsd": 0.039
-        } }),
-        ))
-        .mount(&server)
-        .await;
-    mount_media(&server, "/media/out.png", "image/png", b"PNGBYTES").await;
-
-    let tmp = tempfile::tempdir().unwrap();
-    let tool = MediaGenerateImageTool::new(client_for(&server), tmp.path().to_path_buf());
-    let res = tool
-        .execute(json!({ "prompt": "a fox", "size": "1024x1024" }))
-        .await
-        .unwrap();
-
-    assert!(!res.is_error, "expected success, got {res:?}");
-    let dir = tmp.path().join("generated-media");
-    let files: Vec<_> = std::fs::read_dir(&dir)
-        .unwrap()
-        .filter_map(Result::ok)
-        .collect();
-    assert_eq!(files.len(), 1, "exactly one artifact should be persisted");
-    assert_eq!(std::fs::read(files[0].path()).unwrap(), b"PNGBYTES");
-}
-
-#[tokio::test]
-async fn video_tool_persists_clip_with_image_to_video_payload() {
-    let server = MockServer::start().await;
-    let media_url = format!("{}/media/clip.mp4", server.uri());
-    Mock::given(method("POST"))
-        .and(path("/agent-integrations/media-generation/videos"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "requestId": "vid-1",
-            "status": "success",
-            "model": "seedance-1-0-pro-fast-251015",
-            "media": [{ "type": "video", "url": media_url, "thumbnailUrl": "https://x/t.png" }],
-            "costUsd": 0.13
-        } }),
-        ))
-        .mount(&server)
-        .await;
-    mount_media(&server, "/media/clip.mp4", "video/mp4", b"MP4BYTES").await;
-
-    let tmp = tempfile::tempdir().unwrap();
-    let tool = MediaGenerateVideoTool::new(client_for(&server), tmp.path().to_path_buf());
-    let res = tool
-        .execute(
-            json!({ "prompt": "a wave", "input_image": "https://in/f.png", "duration_seconds": 6 }),
-        )
-        .await
-        .unwrap();
-
-    assert!(!res.is_error, "expected success, got {res:?}");
-    let dir = tmp.path().join("generated-media");
-    let files: Vec<_> = std::fs::read_dir(&dir)
-        .unwrap()
-        .filter_map(Result::ok)
-        .collect();
-    assert_eq!(files.len(), 1);
-    assert!(files[0].path().extension().is_some_and(|e| e == "mp4"));
-}
-
-#[tokio::test]
-async fn image_tool_polls_until_terminal_then_persists() {
-    let server = MockServer::start().await;
-    let media_url = format!("{}/media/p.png", server.uri());
-    // Submit returns a non-terminal status; the tool must poll the status endpoint.
-    Mock::given(method("POST"))
-        .and(path("/agent-integrations/media-generation/images"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "requestId": "req-2", "status": "queued", "model": "seedream-4-0-250828", "media": []
-        } }),
-        ))
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path_regex(
-            r"^/agent-integrations/media-generation/requests/.+",
-        ))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "requestId": "req-2",
-            "status": "success",
-            "model": "seedream-4-0-250828",
-            "media": [{ "type": "image", "url": media_url }],
-            "costUsd": 0.039
-        } }),
-        ))
-        .mount(&server)
-        .await;
-    mount_media(&server, "/media/p.png", "image/png", b"POLLED").await;
-
-    let tmp = tempfile::tempdir().unwrap();
-    let tool = MediaGenerateImageTool::new(client_for(&server), tmp.path().to_path_buf());
-    let res = tool.execute(json!({ "prompt": "a fox" })).await.unwrap();
-    assert!(!res.is_error, "expected success after poll, got {res:?}");
-    assert_eq!(
-        std::fs::read_dir(tmp.path().join("generated-media"))
-            .unwrap()
-            .count(),
-        1
-    );
-}
-
-#[tokio::test]
-async fn image_tool_reports_failed_terminal_status() {
-    let server = MockServer::start().await;
-    Mock::given(method("POST"))
-        .and(path("/agent-integrations/media-generation/images"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "requestId": "req-3", "status": "failed", "model": "seedream-4-0-250828", "media": []
-        } }),
-        ))
-        .mount(&server)
-        .await;
-    let tmp = tempfile::tempdir().unwrap();
-    let tool = MediaGenerateImageTool::new(client_for(&server), tmp.path().to_path_buf());
-    let res = tool.execute(json!({ "prompt": "a fox" })).await.unwrap();
-    assert!(res.is_error);
-}
-
-#[tokio::test]
-async fn list_models_tool_returns_backend_catalog() {
-    let server = MockServer::start().await;
-    Mock::given(method("GET"))
-        .and(path("/agent-integrations/media-generation/models"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "curated": [{ "id": "seedream-4-0-250828", "modality": "image" }]
-        } }),
-        ))
-        .mount(&server)
-        .await;
-    let tool = MediaListModelsTool::new(client_for(&server));
-    let res = tool.execute(json!({})).await.unwrap();
-    assert!(!res.is_error, "expected success, got {res:?}");
-}
-
-#[tokio::test]
-async fn deadline_without_terminal_status_errors_without_persisting() {
-    let server = MockServer::start().await;
-    // Submit is accepted but the request never reaches a terminal state. With a
-    // zero-second wait budget the poll deadline is hit immediately, so nothing is
-    // ever downloaded — the tool must surface an error, not a false success.
-    Mock::given(method("POST"))
-        .and(path("/agent-integrations/media-generation/images"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "requestId": "req-timeout",
-            "status": "queued",
-            "model": "seedream-4-0-250828",
-            "media": []
-        } }),
-        ))
-        .mount(&server)
-        .await;
-
-    let tmp = tempfile::tempdir().unwrap();
-    let client = client_for(&server);
-    let res = super::generate_and_persist(
-        &client,
-        tmp.path(),
-        super::IMAGES_PATH,
-        json!({ "prompt": "a fox", "wait": false }),
-        0,
-    )
-    .await;
-
+    assert!(policy(&action.join("art/ref.png")).is_ok());
+    assert!(policy(&workspace.join("attachments/photo.jpg")).is_ok());
+    assert!(policy(&action.join("../secret.png")).is_err());
+    assert!(policy(Path::new("/etc/passwd")).is_err());
+    assert!(policy(Path::new("/home/user/Documents/private.png")).is_err());
     assert!(
-        res.is_error,
-        "deadline with no terminal status must error, got {res:?}"
-    );
-    let dir = tmp.path().join("generated-media");
-    assert!(
-        !dir.exists() || std::fs::read_dir(&dir).unwrap().count() == 0,
-        "no artifact should be persisted on a timeout"
-    );
-}
-
-#[tokio::test]
-async fn deadline_after_poll_errors_still_errors() {
-    let server = MockServer::start().await;
-    // Submit is accepted but stays non-terminal, and every status poll fails.
-    // Transient poll errors must not abort the paid generation, but once the wait
-    // budget elapses the tool must surface an error (never a false success),
-    // remembering the last poll failure. The 1s budget caps the first sleep to the
-    // remaining time (not the full 4s interval), so exactly one failing poll runs
-    // before the deadline fires.
-    Mock::given(method("POST"))
-        .and(path("/agent-integrations/media-generation/images"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(
-            serde_json::json!({ "success": true, "data": {
-            "requestId": "req-pollerr",
-            "status": "queued",
-            "model": "seedream-4-0-250828",
-            "media": []
-        } }),
-        ))
-        .mount(&server)
-        .await;
-    Mock::given(method("GET"))
-        .and(path_regex(
-            r"^/agent-integrations/media-generation/requests/.+",
-        ))
-        .respond_with(ResponseTemplate::new(500))
-        .mount(&server)
-        .await;
-
-    let tmp = tempfile::tempdir().unwrap();
-    let client = client_for(&server);
-    let res = super::generate_and_persist(
-        &client,
-        tmp.path(),
-        super::IMAGES_PATH,
-        json!({ "prompt": "a fox", "wait": false }),
-        1,
-    )
-    .await;
-
-    assert!(
-        res.is_error,
-        "deadline after failing polls must error, got {res:?}"
+        policy(&action.join(".ssh/id_rsa")).is_err(),
+        "credential stores stay forbidden"
     );
 }

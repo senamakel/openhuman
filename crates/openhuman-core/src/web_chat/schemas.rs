@@ -87,10 +87,13 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 required_string("thread_id", "Thread identifier."),
                 optional_string(
                     "request_id",
-                    "Request id to cancel. When set, only that turn is cancelled (a stale cancel for a superseded request is ignored so the newer turn survives). Omit to stop whatever is running on the thread.",
+                    "Request id to cancel. When set, only that turn is cancelled (a stale cancel for a superseded request is ignored so the newer turn survives). Omit to stop whatever is running on the thread, including its detached background sub-agents.",
                 ),
             ],
-            outputs: vec![json_output("ack", "Cancellation payload.")],
+            outputs: vec![json_output(
+                "ack",
+                "{ cancelled, client_id, thread_id, request_id, subagents_cancelled }. `request_id` is null when no turn was running, in which case no `cancelled` chat_error follows.",
+            )],
         },
         "queue_status" => ControllerSchema {
             namespace: "channel",

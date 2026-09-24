@@ -141,6 +141,12 @@ fn oh_tier_vision_map_is_exhaustively_pinned() {
         "hint:reasoning",
         "vision-v1",
         "hint:vision",
+        // The dedicated OpenRouter passthrough models the media agents
+        // (`vision_agent`, `image_agent`, `video_agent`) are pinned to now
+        // that `hint:vision` / `vision-v1` is deprecated (regression R4).
+        crate::config::MODEL_MEDIA_UNDERSTANDING,
+        crate::config::MODEL_IMAGE_GENERATION_AGENT,
+        crate::config::MODEL_VIDEO_GENERATION_AGENT,
     ] {
         assert!(
             oh_tier_supports_vision(tier),
@@ -169,4 +175,26 @@ fn oh_tier_vision_map_is_exhaustively_pinned() {
             "{tier} must not be reported vision-capable"
         );
     }
+}
+
+/// R4 regression: the media agents' new `exact` model pin
+/// (`openrouter/qwen/qwen3.7-flash`, replacing the deprecated `hint:vision`)
+/// must be reported vision-capable through both the tier-map gate and the
+/// combined `model_supports_vision` facade — the two call sites
+/// `dispatch.rs:256` and `runner.rs:1536` actually gate image/video
+/// forwarding on.
+#[test]
+fn media_agent_pinned_model_is_vision_capable() {
+    use crate::config::{Config, MODEL_MEDIA_UNDERSTANDING};
+    use crate::inference::provider::factory::oh_tier_supports_vision;
+
+    assert!(
+        oh_tier_supports_vision(MODEL_MEDIA_UNDERSTANDING),
+        "{MODEL_MEDIA_UNDERSTANDING} must be reported vision-capable"
+    );
+    let config = Config::default();
+    assert!(
+        model_supports_vision(MODEL_MEDIA_UNDERSTANDING, &config),
+        "{MODEL_MEDIA_UNDERSTANDING} must be vision-capable through the combined facade too"
+    );
 }

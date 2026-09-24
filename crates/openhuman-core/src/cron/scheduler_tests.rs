@@ -106,3 +106,5 @@ mod classifier_and_delivery_tests;
 mod frequency_tests;
 #[path = "scheduler_halt_and_persist_tests.rs"]
 mod halt_and_persist_tests;
+#[path = "scheduler_transcript_isolation_tests.rs"]
+mod transcript_isolation_tests;

@@ -528,6 +528,44 @@ fn code_executor_has_curl_for_artifact_downloads() {
     }
 }
 
+/// R4 regression: `hint:vision` is deprecated (`vision-v1` silently falls
+/// back to the chat default on managed routes, with no error), so no
+/// built-in agent may still declare `ModelSpec::Hint("vision")`.
+#[test]
+fn no_builtin_agent_declares_the_deprecated_vision_hint() {
+    for def in load_builtins().expect("built-ins load") {
+        assert!(
+            !matches!(&def.model, ModelSpec::Hint(h) if h == "vision"),
+            "`{}` still declares the deprecated `hint:vision` — pin an exact model instead",
+            def.id
+        );
+    }
+}
+
+/// The three media agents are pinned to their dedicated OpenRouter
+/// passthrough models (regression R4), not left on `Inherit` or a `Hint`.
+#[test]
+fn media_agents_are_pinned_to_their_exact_models() {
+    use crate::config::{
+        MODEL_IMAGE_GENERATION_AGENT, MODEL_MEDIA_UNDERSTANDING, MODEL_VIDEO_GENERATION_AGENT,
+    };
+
+    for (agent_id, expected_model) in [
+        ("vision_agent", MODEL_MEDIA_UNDERSTANDING),
+        ("image_agent", MODEL_IMAGE_GENERATION_AGENT),
+        ("video_agent", MODEL_VIDEO_GENERATION_AGENT),
+    ] {
+        let def = find(agent_id);
+        match &def.model {
+            ModelSpec::Exact(model) => assert_eq!(
+                model, expected_model,
+                "{agent_id} must be pinned to `{expected_model}`, got `{model}`"
+            ),
+            other => panic!("{agent_id} must use ModelSpec::Exact, got {other:?}"),
+        }
+    }
+}
+
 #[test]
 fn orchestrator_does_not_get_curl() {
     // Per design: curl is a `Write` permission tool that writes

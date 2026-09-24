@@ -84,6 +84,9 @@ const run = (cli, args = [], env = {}) =>
  */
 function submodulesPresent() {
   const paths = [
+    "vendor/tinybox",
+    "vendor/tinychannels",
+    "vendor/tinyhosts",
     "vendor/tinydocs",
     "vendor/tinywallet",
     "vendor/tinymemory",

@@ -11,6 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 for module in \
+  vendor/tinybox vendor/tinychannels vendor/tinyhosts \
   vendor/tinydocs vendor/tinywallet vendor/tinymemory vendor/tinyjuice \
   vendor/tinyvoice vendor/tinyruntime vendor/tinymcp vendor/tinyconnectors
 do

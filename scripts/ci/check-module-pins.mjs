@@ -2,7 +2,7 @@
 // Fails when a module's registry pin and its submodule pin describe different
 // releases — the drift behind openhuman#5727.
 //
-// Nine subsystems load as downloaded cdylib modules, and each is pinned TWICE,
+// Loadable subsystems use downloaded cdylib modules, and each is pinned TWICE,
 // independently: once as a git submodule (the source this repo compiles the
 // wire contract against) and once as a `version` + per-platform SHA-256 in
 // `crates/openhuman-core/src/modules/registry.rs` (the artifact actually loaded at runtime).
@@ -74,9 +74,12 @@ const ROOT = resolve(process.argv[2] ?? join(HERE, "..", ".."));
 //
 // `submodule: null` means "this record has no submodule of its own", and needs a
 // reason. It is NOT an exemption from drift — the two runtime providers below
-// ship out of the tinyruntime release, so they are checked against
-// `vendor/tinyruntime` via `sharesWith`.
+// have independent releases but share the tinyruntime source contract, so
+// `sharesWith` checks that contract against the exact accepted drift.
 const PIN_MAP = {
+  tinybox: { submodule: "vendor/tinybox" },
+  tinychannels: { submodule: "vendor/tinychannels" },
+  tinyhosts: { submodule: "vendor/tinyhosts" },
   tinydocs: { submodule: "vendor/tinydocs" },
   tinywallet: { submodule: "vendor/tinywallet" },
   tinymemory: { submodule: "vendor/tinymemory" },
@@ -88,12 +91,12 @@ const PIN_MAP = {
   "tinyruntime-nodejs": {
     submodule: null,
     sharesWith: "vendor/tinyruntime",
-    reason: "published from the tinyruntime release; no repository of its own",
+    reason: "published independently; shares the vendored tinyruntime bus contract",
   },
   "tinyruntime-python": {
     submodule: null,
     sharesWith: "vendor/tinyruntime",
-    reason: "published from the tinyruntime release; no repository of its own",
+    reason: "published independently; shares the vendored tinyruntime bus contract",
   },
 };
 

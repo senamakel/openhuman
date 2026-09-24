@@ -180,7 +180,11 @@ describe('inline turn sources', () => {
     renderChat();
 
     await waitFor(() => expect(screen.getByTestId('turn-sources')).toBeTruthy());
-    expect(document.querySelectorAll('[data-testid="assistant-ui-tool-call"]')).toHaveLength(1);
+    // Current main groups the reasoning and tool call in one activity
+    // disclosure. Its collapsed content is intentionally not mounted, so the
+    // group label — rather than a legacy inline card — proves the one tool is
+    // represented without restoring a second process surface.
+    expect(screen.getByText('Reasoning · 1 tool call')).toBeTruthy();
     expect(document.querySelector('[data-testid="turn-process-footer"]')).toBeNull();
     expect(screen.queryByText(/\d+ steps? ·/)).toBeNull();
   });

@@ -6472,6 +6472,7 @@ dependencies = [
  "regex",
  "reqwest",
  "rusqlite",
+ "rustix",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -6531,6 +6532,7 @@ version = "2.1.2"
 dependencies = [
  "async-trait",
  "chrono",
+ "serde_json",
  "thiserror 2.0.20",
  "tinyagents-harness",
  "tinyagents-session",

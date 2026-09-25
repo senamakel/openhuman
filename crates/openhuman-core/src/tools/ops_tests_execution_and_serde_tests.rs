@@ -56,7 +56,10 @@ fn all_tools_includes_browser_when_enabled() {
         &cfg,
     );
     let names: Vec<&str> = tools.iter().map(|t| t.name()).collect();
+    #[cfg(feature = "modules")]
     assert!(names.contains(&"browser_open"));
+    #[cfg(not(feature = "modules"))]
+    assert!(!names.contains(&"browser_open"));
     assert!(names.contains(&"pushover"));
     assert!(names.contains(&"proxy_config"));
 }

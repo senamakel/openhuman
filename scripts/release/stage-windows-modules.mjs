@@ -50,6 +50,28 @@ function dllsUnder(dir) {
   });
 }
 
+export function extractWindowsZip(archive, dir) {
+  // ZipFile.ExtractToDirectory rejects entries that escape the destination.
+  // It also avoids Git Bash's tar.exe, which may not understand drive paths.
+  execFileSync(
+    "powershell.exe",
+    [
+      "-NoProfile",
+      "-NonInteractive",
+      "-Command",
+      "$ErrorActionPreference = 'Stop'; try { Add-Type -AssemblyName System.IO.Compression.FileSystem; [System.IO.Compression.ZipFile]::ExtractToDirectory($env:OPENHUMAN_MODULE_ARCHIVE, $env:OPENHUMAN_MODULE_DESTINATION) } catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }",
+    ],
+    {
+      env: {
+        ...process.env,
+        OPENHUMAN_MODULE_ARCHIVE: archive,
+        OPENHUMAN_MODULE_DESTINATION: dir,
+      },
+      stdio: "pipe",
+    },
+  );
+}
+
 export function stageWindowsModules(output = OUTPUT) {
   if (process.platform !== "win32") {
     throw new Error("stage-windows-modules must run on a Windows build runner");
@@ -69,7 +91,7 @@ export function stageWindowsModules(output = OUTPUT) {
     if (actual !== asset.sha256.toLowerCase()) {
       throw new Error(`${asset.id}: downloaded archive does not match the compiled registry pin`);
     }
-    execFileSync("tar.exe", ["-xf", archive, "-C", dir], { stdio: "inherit" });
+    extractWindowsZip(archive, dir);
     if (dllsUnder(dir).length !== 1) {
       throw new Error(`${asset.id}: expected exactly one DLL in the release archive`);
     }

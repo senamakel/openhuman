@@ -237,24 +237,21 @@ async fn resolve(config: &Config, record: &'static ModuleRecord) -> Result<(), S
     let allow_download = config.modules.allow_download;
     let module_config = module_config(config, record.id);
     let cache_root = root.clone();
-    let outcome =
-        blocking(move || load_cached(runtime, record, &cache_root, module_config, allow_download))
-            .await;
+    let outcome = blocking(move || {
+        load_cached(
+            runtime,
+            record,
+            &cache_root,
+            module_config,
+            allow_download,
+            BUNDLED_RELEASES.get().map(PathBuf::as_path),
+        )
+    })
+    .await;
     match outcome {
         Ok(()) => {
             prune_stale_versions(&root, record);
             Ok(())
-        }
-        Err(reason) if !allow_download => {
-            log::debug!(
-                "[modules] '{}' release cache miss with downloads disabled: {reason}",
-                record.id
-            );
-            Err(format!(
-                "module '{}' is unavailable: no local artifact is installed and downloads are \
-                 disabled in configuration",
-                record.id
-            ))
         }
         Err(reason) => Err(reason),
     }
@@ -293,6 +290,7 @@ fn load_cached(
     install_root: &Path,
     module_config: serde_json::Value,
     allow_download: bool,
+    bundled_root: Option<&Path>,
 ) -> Result<(), String> {
     let candidates = platform::host_candidates();
     let assets: Vec<_> = candidates
@@ -309,7 +307,7 @@ fn load_cached(
 
     let mut last_error = String::new();
     let mut found_bundled = false;
-    if let Some(bundled_root) = BUNDLED_RELEASES.get() {
+    if let Some(bundled_root) = bundled_root {
         for asset in &assets {
             let Some(cache_dir) = artifact_dir(bundled_root, record, asset.host_key) else {
                 continue;
@@ -388,6 +386,17 @@ fn load_cached(
                 );
             }
         }
+    }
+    if !allow_download {
+        log::debug!(
+            "[modules] '{}' release cache miss with downloads disabled: {last_error}",
+            record.id
+        );
+        return Err(format!(
+            "module '{}' is unavailable: no local artifact is installed and downloads are \
+             disabled in configuration",
+            record.id
+        ));
     }
     Err(format!(
         "module '{}' could not be loaded: {last_error}. This is terminal for the running \

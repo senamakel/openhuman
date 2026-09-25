@@ -1,0 +1,70 @@
+# Fork-only installer build. Pushes to this branch produce test artifacts; the
+# workflow does not tag, publish a release, or contact the production updater.
+name: Fork Windows installer smoke
+
+on:
+  push:
+    branches: [windows-installer-smoke]
+  workflow_dispatch: {}
+
+permissions:
+  actions: read
+  contents: read
+
+concurrency:
+  group: fork-windows-installer-smoke
+  cancel-in-progress: true
+
+jobs:
+  installer:
+    runs-on: windows-latest
+    timeout-minutes: 120
+    env:
+      GH_TOKEN: ${{ github.token }}
+      OPENHUMAN_APP_ENV: production
+      VITE_OPENHUMAN_APP_ENV: production
+      VITE_BACKEND_URL: https://api.tinyhumans.ai/
+      VITE_BUILD_SHA: ${{ github.sha }}
+      OPENHUMAN_BUILD_SHA: ${{ github.sha }}
+      NODE_OPTIONS: --max-old-space-size=8192
+    steps:
+      - name: Record test-build signing status
+        shell: bash
+        run: |
+          echo "::warning::Fork has no Windows signing credentials; these installers are unsigned test artifacts."
+          echo "Windows installer smoke for commit $GITHUB_SHA (unsigned test build)." >> "$GITHUB_STEP_SUMMARY"
+      - name: Checkout PR code and recursive modules
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.10.0
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24.x
+      - name: Install Rust
+        uses: dtolnay/rust-toolchain@1.96.1
+      - name: Install dependencies
+        run: bash scripts/ci-cancel-aware.sh pnpm install --frozen-lockfile
+        shell: bash
+      - name: Stage pinned Windows modules
+        run: node scripts/release/stage-windows-modules.mjs
+      - name: Build MSI and NSIS test installers
+        working-directory: app
+        shell: bash
+        run: bash ../scripts/ci-cancel-aware.sh pnpm tauri build --target x86_64-pc-windows-msvc
+      - name: Upload installers for offline testing
+        uses: actions/upload-artifact@v7
+        with:
+          name: openhuman-windows-installer-smoke-unsigned-${{ github.sha }}
+          path: |
+            crates/openhuman-app/target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            crates/openhuman-app/target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+            target/x86_64-pc-windows-msvc/release/bundle/msi/*.msi
+            target/x86_64-pc-windows-msvc/release/bundle/nsis/*-setup.exe
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7

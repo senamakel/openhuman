@@ -9,9 +9,10 @@
 //! backend 401/403 error surfaced verbatim as an RPC error string.
 //! API keys / JWTs are never written to logs (only redacted status codes + paths).
 
+use reqwest::Method;
 use serde_json::{Map, Value};
 use tinyhumans_sdk::api::payments::{
-    AutoRechargeRequest, CoinbaseInterval, CoinbasePlan, CreateCoinbaseChargeRequest,
+    CoinbaseInterval, CoinbasePlan, CreateCoinbaseChargeRequest,
     CreditTopUpRequest, PaymentGateway, PurchaseStripePlanRequest,
     UpdateAutoRechargeCardRequest,
 };
@@ -94,19 +95,30 @@ pub async fn get_auto_recharge(config: &Config) -> Result<RpcOutcome<Value>, Str
     ))
 }
 
-/// `PATCH /payments/credits/auto-recharge`. The payload is decoded into the
-/// SDK's schema-current [`AutoRechargeRequest`]; fields the backend does not
-/// accept are dropped rather than forwarded.
+/// `PATCH /payments/credits/auto-recharge`.
+///
+/// Forwarded verbatim on the SDK's raw primitive (route policy still applies)
+/// rather than through the typed `update_auto_recharge`: the SDK's
+/// `AutoRechargeRequest` has no `weeklyLimitUsd`, which the settings UI sends,
+/// so decoding into it would silently drop the weekly cap.
 pub async fn update_auto_recharge(
     config: &Config,
     payload: Value,
 ) -> Result<RpcOutcome<Value>, String> {
-    let request: AutoRechargeRequest = serde_json::from_value(payload)
-        .map_err(|e| format!("invalid auto recharge settings: {e}"))?;
     let client = HostedClient::from_config(config)?;
-    let data = client.finish_value(
+    let data = client.finish(
         "PATCH /payments/credits/auto-recharge",
-        client.sdk().payments().update_auto_recharge(&request).await,
+        client
+            .sdk()
+            .raw()
+            .send(
+                Method::PATCH,
+                "/payments/credits/auto-recharge",
+                &[],
+                Some(&payload),
+                true,
+            )
+            .await,
     )?;
     Ok(RpcOutcome::single_log(
         data,

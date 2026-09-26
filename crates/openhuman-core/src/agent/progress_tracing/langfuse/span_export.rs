@@ -259,7 +259,13 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
             "could not resolve Langfuse ingestion URL from backend host (got {url:?})"
         ));
     }
-    let token = require_live_session_token(config)?;
+    // No TinyHumans connection, or no usable credential (signed out, offline
+    // local session): a configured state, so skip quietly rather than failing
+    // every turn's push.
+    let Some(credential) = direct_backend_credential(config, "langfuse span push") else {
+        return Ok(());
+    };
+    let token = credential.into_secret();
     let include_content = config.observability.agent_tracing.capture_content;
     let batch = spans_to_langfuse_batch(spans, include_content, environment);
     let span_count = spans.len();

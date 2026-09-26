@@ -393,6 +393,31 @@ pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, 
     }
 }
 
+/// The credential for a backend call that talks to the backend host directly
+/// rather than through the transport port (Langfuse proxy push, channel reply
+/// relay, …), or `None` when the call should be skipped:
+///
+/// - no backend transport is installed — the core runs without a TinyHumans
+///   connection (`api::transport::is_installed`), or
+/// - no usable credential resolves — signed out, the offline local session,
+///   or a locally-expired token ([`resolve_backend_credential`]).
+///
+/// Both are configured states, not faults, so the skip is logged at `debug`
+/// with `op` naming the caller; nothing reaches Sentry and no request is made.
+pub fn direct_backend_credential(config: &Config, op: &str) -> Option<BackendCredential> {
+    if !crate::api::transport::is_installed() {
+        log::debug!("[backend-direct] {op} skipped: no backend transport installed");
+        return None;
+    }
+    match resolve_backend_credential(config) {
+        Ok(credential) => Some(credential),
+        Err(reason) => {
+            log::debug!("[backend-direct] {op} skipped: no usable backend credential ({reason})");
+            None
+        }
+    }
+}
+
 /// Whether *some* backend credential is present — an API key or a non-empty
 /// app-session token — without classifying expiry. This is the boot-time
 /// "signed in?" question the scheduler gate asks: an expired session still

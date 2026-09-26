@@ -252,7 +252,7 @@ pub(crate) fn journal_push_ready(config: &Config) -> bool {
     let url = ingestion_url(config);
     !skip_push(environment_for_base(&url))
         && url.starts_with("http")
-        && require_live_session_token(config).is_ok()
+        && direct_backend_credential(config, "langfuse journal push").is_some()
 }
 
 pub(crate) async fn push_observations(
@@ -276,7 +276,13 @@ pub(crate) async fn push_observations(
             "could not resolve Langfuse ingestion URL from backend host (got {url:?})"
         ));
     }
-    let token = require_live_session_token(config)?;
+    // No TinyHumans connection, or no usable credential (signed out, offline
+    // local session): a configured state, so skip quietly rather than failing
+    // every turn's push.
+    let Some(credential) = direct_backend_credential(config, "langfuse journal push") else {
+        return Ok(());
+    };
+    let token = credential.into_secret();
     // Stamp the run lineage from the run's own observations so a spawned
     // sub-agent's trace links back to its parent turn (#4657).
     let trace_ctx = trace_ctx_with_run_lineage(trace_ctx, observations);

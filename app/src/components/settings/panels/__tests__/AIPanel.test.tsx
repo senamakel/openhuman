@@ -255,6 +255,8 @@ const baseConnections = [
   { id: 'pending-cal', toolkit: 'googlecalendar', status: 'PENDING' },
 ];
 
+const initialCoreState = getCoreStateSnapshot();
+
 /** Put a signed-in snapshot with `credential` into the core-state store. */
 function signInHostedAccount(credential: 'session' | 'local') {
   const current = getCoreStateSnapshot();
@@ -269,6 +271,7 @@ function signInHostedAccount(credential: 'session' | 'local') {
 
 describe('AIPanel', () => {
   beforeEach(() => {
+    setCoreStateSnapshot(initialCoreState);
     vi.clearAllMocks();
     vi.mocked(isTauri).mockReturnValue(false);
     vi.mocked(loadAISettings).mockResolvedValue(baseSettings);
@@ -2251,7 +2254,6 @@ describe('buildRoutingDiffSummary', () => {
     learning: { kind: 'default' },
     subconscious: { kind: 'default' },
   });
-
 
   it('skips usage and ledger reads in background loops for the offline local profile', async () => {
     signInHostedAccount('local');

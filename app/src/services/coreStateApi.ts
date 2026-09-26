@@ -38,6 +38,12 @@ interface AppStateSnapshotResult {
     userId: string | null;
     user: unknown | null;
     profileId: string | null;
+    /**
+     * Which credential the core holds: `session` (TinyHumans app session),
+     * `api-key` (TinyHumans API key) or `local` (offline local profile, no
+     * hosted account). Absent when signed out or on older cores.
+     */
+    credential?: CoreCredentialKind | null;
   };
   sessionToken: string | null;
   /**

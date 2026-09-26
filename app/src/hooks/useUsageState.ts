@@ -55,7 +55,9 @@ function workloadsRoutedAway(aiSettings: AISettings, workloads: readonly string[
   });
 }
 
-async function fetchUsageData(hostedAccount: boolean): Promise<{
+async function fetchUsageData(
+  hostedAccount: boolean
+): Promise<{
   teamUsage: TeamUsage | null;
   currentPlan: CurrentPlanData | null;
   aiSettings: AISettings | null;

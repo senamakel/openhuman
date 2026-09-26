@@ -32,7 +32,7 @@ flows = ["openhuman-embed/flows"]
 skills = ["openhuman-embed/skills"]
 mcp = ["openhuman-embed/mcp"]
 crash-reporting = ["openhuman-embed/crash-reporting"]
-channels = ["openhuman-embed/channels", "dep:tinychannels-bus"]
+channels = ["openhuman-embed/channels"]
 sandbox-landlock = ["openhuman-embed/sandbox-landlock"]
 sandbox-bubblewrap = ["openhuman-embed/sandbox-bubblewrap"]
 whatsapp-web = ["openhuman-embed/whatsapp-web"]
@@ -61,7 +61,7 @@ tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "
 # The channel controller contract (result types, credential-provider keys)
 # for the managed Telegram/Discord link flows in `hosted::channel_link`. Same
 # vendored path as the core's, so the types unify. Sync and I/O-free.
-tinychannels-bus = { path = "../../vendor/tinychannels/crates/tinychannels-bus", optional = true }
+tinychannels-bus = { path = "../../vendor/tinychannels/crates/tinychannels-bus" }
 anyhow = "1"
 async-trait = "0.1"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }

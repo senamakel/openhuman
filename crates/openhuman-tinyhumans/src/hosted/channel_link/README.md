@@ -12,8 +12,7 @@ TinyHumans account, on the SDK's typed `auth()` client.
 | `channels_discord_link_check` (`linkToken`) | `GET /auth/me`, looks for `discordId`; stores `channel:discord:managed_dm` |
 
 The `channels_*` schemas come from the `tinychannels-bus` contract, converted
-by the core (`channels::controllers::controller_schema`), and exist only with
-the `channels` feature. They share the `channels` / `auth` namespaces with the
+by the core's always-compiled `channels::contract_schema`. They share the `channels` / `auth` namespaces with the
 core, which keeps the rest of the channel controllers (connect, status, bot-token
 Discord discovery, messaging) and the credential controllers. The core's
 `OpenHumanChannelBackend` still implements the four contract methods, but only

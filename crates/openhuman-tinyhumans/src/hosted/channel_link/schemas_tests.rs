@@ -7,7 +7,6 @@ fn catalog_keeps_the_wire_names() {
         .map(|s| format!("{}.{}", s.namespace, s.function))
         .collect();
     assert_eq!(names[0], "auth.create_channel_link_token");
-    #[cfg(feature = "channels")]
     assert_eq!(
         names[1..],
         [

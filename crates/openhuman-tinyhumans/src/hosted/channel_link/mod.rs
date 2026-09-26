@@ -8,15 +8,14 @@
 //! All five need a TinyHumans account (the link binds a bot conversation to
 //! it), which is why they live here rather than in the core. Their RPC names
 //! are unchanged wire contracts and share the `auth` / `channels` namespaces
-//! with core controllers. The two `channels.*` pairs only exist when the
-//! `channels` feature is on, exactly as before the move.
+//! with core controllers. The `channels.*` schemas come from the
+//! `tinychannels-bus` contract through the core's always-compiled
+//! `channels::contract_schema`.
 
-#[cfg(feature = "channels")]
 mod managed;
 mod ops;
 mod schemas;
 
-#[cfg(feature = "channels")]
 pub use managed::*;
 pub use ops::*;
 pub use schemas::{

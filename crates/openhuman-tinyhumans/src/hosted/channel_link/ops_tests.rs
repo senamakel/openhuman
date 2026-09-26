@@ -58,3 +58,28 @@ async fn link_token_round_trip_and_401_classification() {
         .unwrap_err();
     assert!(is_session_expired_message(&err), "{err}");
 }
+
+/// Duplicate-account collision: the channel is already linked to a different
+/// user, so the backend answers 409. That must NOT be classified as session
+/// expiry — the JSON-RPC layer signs the user out on `SESSION_EXPIRED`, so
+/// discovering someone else linked your Telegram would log you out and hide
+/// the real reason (matrix 1.2.3).
+#[tokio::test]
+async fn link_token_409_is_not_session_expiry_and_keeps_its_reason() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/auth/channels/telegram/link-token"))
+        .respond_with(
+            ResponseTemplate::new(409)
+                .set_body_string("Telegram account already linked to another user"),
+        )
+        .mount(&server)
+        .await;
+    let tmp = TempDir::new().unwrap();
+    let config = test_support::signed_in(&tmp, &server.uri());
+    let err = auth_create_channel_link_token(&config, "telegram")
+        .await
+        .unwrap_err();
+    assert!(!is_session_expired_message(&err), "{err}");
+    assert!(err.contains("already linked"), "{err}");
+}

@@ -13,7 +13,6 @@ struct AuthCreateChannelLinkTokenParams {
     channel: String,
 }
 
-#[cfg(feature = "channels")]
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct LinkCheckParams {
@@ -22,8 +21,7 @@ struct LinkCheckParams {
 
 /// The `channels.*` functions served here. Their schemas stay defined by the
 /// `tinychannels-bus` contract; the core converts them
-/// (`channels::controllers::controller_schema`) exactly as for its own.
-#[cfg(feature = "channels")]
+/// (`channels::contract_schema`) exactly as for its own.
 pub const CHANNEL_FUNCTIONS: &[&str] = &[
     "telegram_login_start",
     "telegram_login_check",
@@ -39,13 +37,11 @@ pub fn all_channel_link_controller_schemas() -> Vec<ControllerSchema> {
 }
 
 pub fn all_channel_link_registered_controllers() -> Vec<RegisteredController> {
-    #[allow(unused_mut)]
     let mut controllers = vec![RegisteredController {
         schema: channel_link_schemas("auth_create_channel_link_token"),
         handler: handle_auth_create_channel_link_token,
     }];
-    #[cfg(feature = "channels")]
-    controllers.extend([
+        controllers.extend([
         RegisteredController {
             schema: channel_link_schemas("telegram_login_start"),
             handler: handle_telegram_login_start,
@@ -86,9 +82,8 @@ pub fn channel_link_schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
-        #[cfg(feature = "channels")]
-        f if CHANNEL_FUNCTIONS.contains(&f) => {
-            openhuman_core::channels::controllers::controller_schema(f)
+                f if CHANNEL_FUNCTIONS.contains(&f) => {
+            openhuman_core::channels::contract_schema::contract_controller_schema(f)
         }
         _ => ControllerSchema {
             namespace: "auth",
@@ -119,7 +114,6 @@ fn handle_auth_create_channel_link_token(params: Map<String, Value>) -> Controll
     })
 }
 
-#[cfg(feature = "channels")]
 fn handle_telegram_login_start(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -127,7 +121,6 @@ fn handle_telegram_login_start(_params: Map<String, Value>) -> ControllerFuture 
     })
 }
 
-#[cfg(feature = "channels")]
 fn handle_telegram_login_check(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -138,7 +131,6 @@ fn handle_telegram_login_check(params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-#[cfg(feature = "channels")]
 fn handle_discord_link_start(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;
@@ -146,7 +138,6 @@ fn handle_discord_link_start(_params: Map<String, Value>) -> ControllerFuture {
     })
 }
 
-#[cfg(feature = "channels")]
 fn handle_discord_link_check(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = config_rpc::load_config_with_timeout().await?;

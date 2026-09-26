@@ -90,15 +90,6 @@ pub enum BackendApiError {
         /// Provider-specific message id from the URL.
         message_id: String,
     },
-    /// `GET /announcements/latest` returned 404. The announcements feature is
-    /// a best-effort, cosmetic fetch (`app/src/services/announcementService.ts`:
-    /// "a missing announcement is never worth surfacing an error for") — a 404
-    /// here means "no announcement", not a code bug. Callers should degrade to
-    /// `null` and skip the retry-as-error path. Targets `TAURI-RUST-HW0`
-    /// (`backend_api`/`authed_json`) and `TAURI-RUST-KHX` (`rpc`/`invoke_method`
-    /// re-wrap) — one failure reported at two layers, ~452 events / 19 users.
-    #[error("no announcement available (404 on /announcements/latest)")]
-    AnnouncementNotFound,
     /// No [`BackendTransport`] is installed in this process, so the request
     /// could not be sent at all. This is the steady state of a core built
     /// and run without `openhuman-tinyhumans` — an expected build condition,
@@ -208,16 +199,6 @@ fn parse_message_path(path: &str) -> Option<(&str, &str)> {
         }
     }
     None
-}
-
-/// `true` when `path` is `/announcements/latest`, tolerant of an arbitrary
-/// base-path prefix (e.g. `/api/v1/announcements/latest`) — same
-/// prefix-tolerant reasoning as [`parse_message_path`] (OPENHUMAN-TAURI-R7):
-/// a `BACKEND_URL` override with a path prefix must not cause this route's
-/// 404 to silently fall through to the generic `report_error` path.
-fn is_announcements_latest_path(path: &str) -> bool {
-    let segments: Vec<&str> = path.split('/').filter(|s| !s.is_empty()).collect();
-    matches!(segments.as_slice(), [.., "announcements", "latest"])
 }
 
 /// Max bytes of the `body_shape` key-name list echoed into the `authed_json`
@@ -578,15 +559,6 @@ impl BackendOAuthClient {
         self.finish_authed_json(method, path, response, is_api_key)
     }
 
-    /// Fetch the deployed billing summary (`GET /payments/summary`).
-    pub async fn fetch_billing_summary(
-        &self,
-        credential: impl Into<BackendCredential>,
-    ) -> Result<Value> {
-        self.authed_json(credential, Method::GET, "/payments/summary", None)
-            .await
-    }
-
     fn finish_authed_json(
         &self,
         method: Method,
@@ -796,22 +768,6 @@ impl BackendOAuthClient {
                     );
                 }
 
-                // 404 on `/announcements/latest` means "no announcement" for
-                // this best-effort, cosmetic feature — not a code bug. Surface
-                // a typed `BackendApiError::AnnouncementNotFound` so the caller
-                // (`announcements::ops::get_latest_announcement`) can degrade to
-                // `null` instead of propagating an error, without funneling the
-                // 404 into `report_error`. Targets `TAURI-RUST-HW0` / `TAURI-RUST-KHX`.
-                if method == Method::GET && is_announcements_latest_path(url.path()) {
-                    tracing::info!(
-                        domain = "backend_api",
-                        operation = "authed_json",
-                        "[backend_api] announcement-not-found 404 on {} {} — surfacing typed error",
-                        method.as_str(),
-                        url.path(),
-                    );
-                    return Err(anyhow::Error::new(BackendApiError::AnnouncementNotFound));
-                }
             }
 
             // These are transient infrastructure errors (proxy/CDN/backend

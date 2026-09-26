@@ -391,3 +391,46 @@ fn classify_expired_within_skew_window() {
         SessionTokenCheck::Expired
     );
 }
+
+// ── direct_backend_credential ──────────────────────────────────
+
+#[test]
+fn direct_backend_credential_skips_without_a_usable_credential() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // Signed out: nothing to authenticate a direct backend call with.
+    assert!(direct_backend_credential(&config, "test").is_none());
+
+    // The offline local session has no TinyHumans account (Sentry 36649).
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+    assert!(direct_backend_credential(&config, "test").is_none());
+}
+
+#[test]
+fn direct_backend_credential_returns_a_live_session() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "raw-session-token",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+    // Unit tests resolve the plain test transport, so the transport gate passes.
+    assert!(crate::api::transport::is_installed());
+    assert_eq!(
+        direct_backend_credential(&config, "test"),
+        Some(BackendCredential::Session("raw-session-token".into()))
+    );
+}

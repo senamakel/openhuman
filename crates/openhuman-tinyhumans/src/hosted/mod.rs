@@ -20,6 +20,9 @@ pub mod billing;
 pub mod referral;
 pub mod team;
 
+#[cfg(test)]
+pub(crate) mod test_support;
+
 use openhuman_core::core::all::{ControllerExtension, DomainGroup};
 
 /// Namespace descriptions the core's `namespace_description` serves for the

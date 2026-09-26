@@ -62,13 +62,22 @@ describe('hasHostedAccount', () => {
 
   it('follows the credential kind the core reports', () => {
     expect(
-      hasHostedAccount({ auth: { isAuthenticated: true, credential: 'session' }, sessionToken: 'a.b.c' })
+      hasHostedAccount({
+        auth: { isAuthenticated: true, credential: 'session' },
+        sessionToken: 'a.b.c',
+      })
     ).toBe(true);
     expect(
-      hasHostedAccount({ auth: { isAuthenticated: true, credential: 'api-key' }, sessionToken: null })
+      hasHostedAccount({
+        auth: { isAuthenticated: true, credential: 'api-key' },
+        sessionToken: null,
+      })
     ).toBe(true);
     expect(
-      hasHostedAccount({ auth: { isAuthenticated: true, credential: 'local' }, sessionToken: local })
+      hasHostedAccount({
+        auth: { isAuthenticated: true, credential: 'local' },
+        sessionToken: local,
+      })
     ).toBe(false);
   });
 

@@ -143,6 +143,7 @@ describe('useUsageState', () => {
     mockLoadAISettings.mockReset();
     // Default authenticated; the auth-gating test opts out explicitly.
     mockAuthState.isAuthenticated = true;
+    mockAuthState.credential = 'session';
     // Default: keep the OpenHuman-routed world so every legacy assertion
     // about budget gating stays identical until a test opts into the
     // routed-away scenarios below.
@@ -796,6 +797,5 @@ describe('useUsageState', () => {
     expect(mockGetCurrentPlan).not.toHaveBeenCalled();
     expect(result.current.teamUsage).toBeNull();
     expect(result.current.currentPlan).toBeNull();
-    mockAuthState.credential = 'session';
   });
 });

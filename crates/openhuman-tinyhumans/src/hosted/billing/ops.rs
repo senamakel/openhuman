@@ -2,8 +2,8 @@
 //! `payments()` and `coupons()` clients ([`HostedClient`]).
 //!
 //! # Security
-//! All methods require a valid app-session JWT stored via `auth_store_session`.
-//! The JWT is sent as `Authorization: Bearer …` to the backend.
+//! Every call authenticates with the core's resolved backend credential — a
+//! session JWT as `Authorization: Bearer`, an API key as `x-api-key`.
 //! **No server-side authorization is replicated here**: the backend enforces plan
 //! ownership, tenant isolation, and payment policy on every request.
 //! Callers that lack a valid session or sufficient permissions receive a

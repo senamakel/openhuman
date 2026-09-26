@@ -2,6 +2,7 @@ import type { User } from '../types/api';
 import type { TeamInvite, TeamMember, TeamWithRole } from '../types/team';
 import type { LocalAiStatus } from '../utils/tauriCommands/localAi';
 import type { ServiceStatus } from '../utils/tauriCommands/service';
+import type { CoreCredentialKind } from '../utils/localSession';
 import { callCoreRpc } from './coreRpcClient';
 import { fetchCurrentUser } from './session/sessionOwner';
 

@@ -1380,6 +1380,55 @@ async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
         .await;
 }
 
+/// Sentry 36649: an offline local session ("Continue locally") has no
+/// TinyHumans account, so every hosted RPC — the ones that moved into
+/// `openhuman-tinyhumans` included — must answer the `BACKEND_UNAVAILABLE:`
+/// sentinel the JSON-RPC layer demotes, without a backend request.
+#[tokio::test]
+async fn hosted_rpcs_answer_backend_unavailable_for_a_local_session() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let local_session = rpc(
+        &harness.rpc_base,
+        18_201,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "header.payload.local",
+            "user": { "id": "local-hosted-36649", "name": "Local Hosted Worker" }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&local_session, "auth_store_session local")
+            .get("credential")
+            .and_then(Value::as_str),
+        Some("local")
+    );
+
+    for (id, method, params) in [
+        (18_202, "openhuman.team_get_usage", json!({})),
+        (18_203, "openhuman.announcements_get_latest", json!({})),
+        (18_204, "openhuman.billing_get_current_plan", json!({})),
+        (18_205, "openhuman.webhooks_list_tunnels", json!({})),
+        (18_206, "openhuman.channels_telegram_login_start", json!({})),
+        (18_207, "openhuman.auth_oauth_list_integrations", json!({})),
+        (
+            18_208,
+            "openhuman.auth_create_channel_link_token",
+            json!({ "channel": "telegram" }),
+        ),
+    ] {
+        assert_error_contains(
+            &rpc(&harness.rpc_base, id, method, params).await,
+            method,
+            "BACKEND_UNAVAILABLE:",
+        );
+    }
+
+    harness.join.abort();
+}
+
 #[tokio::test]
 async fn credentials_session_expired_subscriber_clears_remote_session_but_keeps_local_session() {
     let _lock = env_lock();

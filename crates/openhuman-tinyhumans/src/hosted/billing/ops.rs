@@ -24,9 +24,13 @@ use openhuman_core::rpc::RpcOutcome;
 use crate::hosted::client::HostedClient;
 
 /// Parse a wire string into one of the SDK's closed request enums, naming the
-/// field and the offending value on failure.
+/// field and the offending value on failure. The plan enums are
+/// `SCREAMING_SNAKE_CASE` on the wire, so a lower-case plan (`"pro"`) is
+/// accepted as its upper-case form; the lower-case `interval`/`gateway` enums
+/// are matched as given.
 fn parse_enum<T: serde::de::DeserializeOwned>(field: &str, raw: &str) -> Result<T, String> {
     serde_json::from_value(Value::String(raw.to_string()))
+        .or_else(|_| serde_json::from_value(Value::String(raw.to_ascii_uppercase())))
         .map_err(|_| format!("unsupported {field}: {raw}"))
 }
 

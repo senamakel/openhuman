@@ -9,9 +9,11 @@ fn converts_the_contract_schema_with_optional_types() {
     assert!(token.required);
     assert!(matches!(token.ty, TypeSchema::String));
 
-    let status = contract_controller_schema("status");
-    assert!(status
-        .inputs
-        .iter()
-        .any(|f| !f.required && matches!(f.ty, TypeSchema::Option(_))));
+    let threads = contract_controller_schema("list_threads");
+    let active = threads.inputs.iter().find(|f| f.name == "active").unwrap();
+    assert!(!active.required);
+    assert!(matches!(
+        &active.ty,
+        TypeSchema::Option(inner) if matches!(inner.as_ref(), TypeSchema::Bool)
+    ));
 }

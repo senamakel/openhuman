@@ -7,7 +7,9 @@ fn catalog_counts_match() {
     let schemas = all_controller_schemas();
     let handlers = all_registered_controllers();
     assert_eq!(schemas.len(), handlers.len());
-    assert!(schemas.len() >= 13, "auth namespace should expose ≥13 fns");
+    // The account-bound `auth.oauth_*` / `auth.create_channel_link_token`
+    // controllers moved to `openhuman-tinyhumans`; the core keeps the rest.
+    assert!(schemas.len() >= 8, "auth namespace should expose ≥8 core fns");
 }
 
 #[test]

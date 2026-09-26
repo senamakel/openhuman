@@ -11,11 +11,6 @@ use openhuman_core::rpc::RpcOutcome;
 
 use crate::hosted::client::HostedClient;
 
-#[cfg(feature = "channels")]
-mod managed;
-#[cfg(feature = "channels")]
-pub use managed::*;
-
 /// Validate and normalise a link-token channel id (`telegram` | `discord`).
 fn normalize_channel(channel: &str) -> Result<String, String> {
     let channel = channel.trim();
@@ -30,7 +25,7 @@ fn normalize_channel(channel: &str) -> Result<String, String> {
 }
 
 /// `POST /auth/channels/{channel}/link-token` with an existing client.
-async fn link_token_payload(client: &HostedClient, channel: &str) -> Result<Value, String> {
+pub(super) async fn link_token_payload(client: &HostedClient, channel: &str) -> Result<Value, String> {
     client.finish_value(
         "POST /auth/channels/{channel}/link-token",
         client.sdk().auth().create_channel_link_token(channel).await,

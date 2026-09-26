@@ -15,7 +15,7 @@ use openhuman_core::config::Config;
 use openhuman_core::rpc::RpcOutcome;
 use openhuman_core::security::credentials;
 
-use super::link_token_payload;
+use super::ops::link_token_payload;
 use crate::hosted::client::HostedClient;
 
 /// Default managed Telegram bot when `OPENHUMAN_APP_ENV` is staging and no username override is set.

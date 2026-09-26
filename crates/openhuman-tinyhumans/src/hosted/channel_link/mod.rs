@@ -11,9 +11,13 @@
 //! with core controllers. The two `channels.*` pairs only exist when the
 //! `channels` feature is on, exactly as before the move.
 
+#[cfg(feature = "channels")]
+mod managed;
 mod ops;
 mod schemas;
 
+#[cfg(feature = "channels")]
+pub use managed::*;
 pub use ops::*;
 pub use schemas::{
     all_channel_link_controller_schemas, all_channel_link_registered_controllers,

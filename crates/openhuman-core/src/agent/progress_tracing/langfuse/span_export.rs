@@ -6,7 +6,7 @@ use serde_json::{json, Map, Value};
 
 use crate::api::jwt::bearer_authorization_value;
 use crate::config::Config;
-use crate::security::credentials::session_support::require_live_session_token;
+use crate::security::credentials::session_support::direct_backend_credential;
 
 use super::ingestion_batch::{iso_millis, new_event_id};
 use super::{environment_for_base, ingestion_url, skip_push, LOG_TARGET, PUSH_TIMEOUT};

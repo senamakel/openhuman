@@ -9,7 +9,7 @@ use super::langfuse::{environment_for_base, ingestion_url, skip_push};
 use super::types::{SpanKind, SpanStatus, TraceSpan};
 use crate::api::jwt::bearer_authorization_value;
 use crate::config::Config;
-use crate::security::credentials::session_support::require_live_session_token;
+use crate::security::credentials::session_support::direct_backend_credential;
 
 // The backend JSON parser caps requests at 10 MiB. A generation can carry a
 // 200 KiB structured prompt, so use a much smaller transport batch.

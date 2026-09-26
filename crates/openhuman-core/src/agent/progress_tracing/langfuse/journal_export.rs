@@ -11,7 +11,7 @@ use tinyagents_harness::observability::{AgentObservation, LangfuseClient, Langfu
 use tinyagents_session::run_ledger::RunTelemetry;
 
 use crate::config::Config;
-use crate::security::credentials::session_support::require_live_session_token;
+use crate::security::credentials::session_support::direct_backend_credential;
 
 use super::ingestion_batch::{new_event_id, split_ingestion_batch, LANGFUSE_MAX_BATCH_EVENTS};
 use super::TraceContext;

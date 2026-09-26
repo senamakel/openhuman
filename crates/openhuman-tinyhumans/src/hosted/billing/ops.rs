@@ -194,27 +194,23 @@ pub async fn delete_card(
     Ok(RpcOutcome::single_log(data, "saved card deleted"))
 }
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct PurchasePlanBody<'a> {
-    plan: &'a str,
-}
-
+/// `POST /payments/stripe/purchasePlan`. `plan` is one of the SDK's
+/// [`BillingPlan`] values (`BASIC_MONTHLY`, `BASIC_YEARLY`, `PRO_MONTHLY`,
+/// `PRO_YEARLY` — the frontend's `PlanIdentifier`).
 pub async fn purchase_plan(config: &Config, plan: &str) -> Result<RpcOutcome<Value>, String> {
     let plan = plan.trim();
     if plan.is_empty() {
         return Err("plan is required".to_string());
     }
-
-    let body = json!(PurchasePlanBody { plan });
-    let data = get_authed_value(
-        config,
-        Method::POST,
-        "/payments/stripe/purchasePlan",
-        Some(body),
-    )
-    .await?;
-
+    let request = PurchaseStripePlanRequest {
+        plan: parse_enum::<BillingPlan>("plan", plan)?,
+        coupon_code: None,
+    };
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "POST /payments/stripe/purchasePlan",
+        client.sdk().payments().purchase_stripe_plan(&request).await,
+    )?;
     Ok(RpcOutcome::single_log(
         data,
         "plan purchase session created",
@@ -222,19 +218,15 @@ pub async fn purchase_plan(config: &Config, plan: &str) -> Result<RpcOutcome<Val
 }
 
 pub async fn create_portal_session(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let data = get_authed_value(config, Method::POST, "/payments/stripe/portal", None).await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "POST /payments/stripe/portal",
+        client.sdk().payments().create_stripe_portal_session().await,
+    )?;
     Ok(RpcOutcome::single_log(
         data,
         "customer portal session created",
     ))
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct TopUpBody {
-    amount_usd: f64,
-    #[serde(default = "default_gateway")]
-    gateway: String,
 }
 
 fn default_gateway() -> String {
@@ -266,27 +258,16 @@ pub async fn top_up_credits(
     }
 
     let gateway = normalize_gateway(gateway)?;
-    let body = TopUpBody {
+    let request = CreditTopUpRequest {
         amount_usd,
-        gateway,
+        gateway: Some(parse_enum::<PaymentGateway>("gateway", &gateway)?),
     };
-
-    let data = get_authed_value(
-        config,
-        Method::POST,
-        "/payments/credits/top-up",
-        Some(json!(body)),
-    )
-    .await?;
-
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "POST /payments/credits/top-up",
+        client.sdk().payments().create_credit_top_up(&request).await,
+    )?;
     Ok(RpcOutcome::single_log(data, "credit top-up initiated"))
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-struct CoinbaseChargeBody<'a> {
-    plan: &'a str,
-    interval: &'a str,
 }
 
 /// Create a Coinbase Commerce charge (the "payment link" for crypto / annual billing).
@@ -307,19 +288,16 @@ pub async fn create_coinbase_charge(
         .filter(|s| !s.is_empty())
         .unwrap_or("annual");
 
-    let body = json!(CoinbaseChargeBody {
-        plan,
-        interval: interval_str,
-    });
-
-    let data = get_authed_value(
-        config,
-        Method::POST,
-        "/payments/coinbase/charge",
-        Some(body),
-    )
-    .await?;
-
+    let request = CreateCoinbaseChargeRequest {
+        plan: parse_enum::<CoinbasePlan>("plan", plan)?,
+        interval: Some(parse_enum::<CoinbaseInterval>("interval", interval_str)?),
+        metadata: Map::new(),
+    };
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "POST /payments/coinbase/charge",
+        client.sdk().payments().create_coinbase_charge(&request).await,
+    )?;
     Ok(RpcOutcome::single_log(
         data,
         "Coinbase payment link created",
@@ -328,11 +306,6 @@ pub async fn create_coinbase_charge(
 
 // ── Coupon operations ──────────────────────────────────────────────────────
 
-#[derive(Debug, Serialize)]
-struct RedeemCouponBody<'a> {
-    code: &'a str,
-}
-
 /// Redeem a coupon code to add credits to the user's account.
 /// Maps to `POST /coupons/redeem`.
 pub async fn redeem_coupon(config: &Config, code: &str) -> Result<RpcOutcome<Value>, String> {
@@ -340,17 +313,25 @@ pub async fn redeem_coupon(config: &Config, code: &str) -> Result<RpcOutcome<Val
     if code.is_empty() {
         return Err("code is required".to_string());
     }
-
-    let body = json!(RedeemCouponBody { code });
-    let data = get_authed_value(config, Method::POST, "/coupons/redeem", Some(body)).await?;
-
+    let request = CodeRequest {
+        code: code.to_string(),
+    };
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "POST /coupons/redeem",
+        client.sdk().coupons().redeem_coupon(&request).await,
+    )?;
     Ok(RpcOutcome::single_log(data, "coupon redeemed"))
 }
 
 /// List coupons redeemed by the current user.
 /// Maps to `GET /coupons/me`.
 pub async fn get_user_coupons(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let data = get_authed_value(config, Method::GET, "/coupons/me", None).await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "GET /coupons/me",
+        client.sdk().coupons().list_my_coupons().await,
+    )?;
     Ok(RpcOutcome::single_log(data, "user coupons fetched"))
 }
 

@@ -7,7 +7,7 @@ use serde_json::{Map, Value};
 use crate::config::rpc as config_rpc;
 use crate::config::Config;
 use crate::core::all::{ControllerFuture, RegisteredController};
-use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
+use crate::core::ControllerSchema;
 use crate::rpc::RpcOutcome;
 
 use super::backend::OpenHumanChannelBackend;
@@ -69,18 +69,6 @@ struct TestParams {
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
-struct TelegramLoginCheckParams {
-    link_token: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
-struct DiscordLinkCheckParams {
-    link_token: String,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
 struct DiscordListChannelsParams {
     guild_id: String,
 }
@@ -133,9 +121,21 @@ struct ListThreadsParams {
 // Public registry exports
 // ---------------------------------------------------------------------------
 
+/// Contract functions the core does NOT serve: linking the managed TinyHumans
+/// bots needs a TinyHumans account, so `openhuman-tinyhumans`
+/// (`hosted::channel_link`) registers them through the controller extension.
+/// Same wire names; the namespace is shared.
+pub const HOSTED_CHANNEL_FUNCTIONS: &[&str] = &[
+    "telegram_login_start",
+    "telegram_login_check",
+    "discord_link_start",
+    "discord_link_check",
+];
+
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     all_channel_controller_schemas()
         .into_iter()
+        .filter(|s| !HOSTED_CHANNEL_FUNCTIONS.contains(&s.function))
         .map(from_channel_controller_schema)
         .collect()
 }
@@ -173,22 +173,6 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: schemas("test"),
             handler: handle_test,
-        },
-        RegisteredController {
-            schema: schemas("telegram_login_start"),
-            handler: handle_telegram_login_start,
-        },
-        RegisteredController {
-            schema: schemas("telegram_login_check"),
-            handler: handle_telegram_login_check,
-        },
-        RegisteredController {
-            schema: schemas("discord_link_start"),
-            handler: handle_discord_link_start,
-        },
-        RegisteredController {
-            schema: schemas("discord_link_check"),
-            handler: handle_discord_link_check,
         },
         RegisteredController {
             schema: schemas("discord_list_guilds"),
@@ -364,56 +348,6 @@ fn handle_test(params: Map<String, Value>) -> ControllerFuture {
         let manager = openhuman_channel_manager(config);
         let result = manager
             .test(p.channel.trim(), mode, p.credentials)
-            .await
-            .map_err(|e| e.to_string())?;
-        to_json(RpcOutcome::new(result, vec![]))
-    })
-}
-
-fn handle_telegram_login_start(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let manager = openhuman_channel_manager(config);
-        let result = manager
-            .telegram_login_start()
-            .await
-            .map_err(|e| e.to_string())?;
-        to_json(RpcOutcome::new(result, vec![]))
-    })
-}
-
-fn handle_telegram_login_check(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let p = deserialize_params::<TelegramLoginCheckParams>(params)?;
-        let manager = openhuman_channel_manager(config);
-        let result = manager
-            .telegram_login_check(p.link_token.trim())
-            .await
-            .map_err(|e| e.to_string())?;
-        to_json(RpcOutcome::new(result, vec![]))
-    })
-}
-
-fn handle_discord_link_start(_params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let manager = openhuman_channel_manager(config);
-        let result = manager
-            .discord_link_start()
-            .await
-            .map_err(|e| e.to_string())?;
-        to_json(RpcOutcome::new(result, vec![]))
-    })
-}
-
-fn handle_discord_link_check(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let config = config_rpc::load_config_with_timeout().await?;
-        let p = deserialize_params::<DiscordLinkCheckParams>(params)?;
-        let manager = openhuman_channel_manager(config);
-        let result = manager
-            .discord_link_check(p.link_token.trim())
             .await
             .map_err(|e| e.to_string())?;
         to_json(RpcOutcome::new(result, vec![]))

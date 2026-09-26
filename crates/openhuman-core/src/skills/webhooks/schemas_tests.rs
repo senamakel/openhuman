@@ -11,12 +11,6 @@ const EXPECTED_FUNCTIONS: &[&str] = &[
     "unregister_echo",
     "register_agent",
     "trigger_agent",
-    "list_tunnels",
-    "create_tunnel",
-    "get_tunnel",
-    "update_tunnel",
-    "delete_tunnel",
-    "get_bandwidth",
 ];
 
 #[test]
@@ -163,50 +157,6 @@ fn trigger_agent_requires_caller_id_only() {
             "`trigger_agent` must accept optional `{optional}`"
         );
     }
-}
-
-#[test]
-fn list_tunnels_has_no_inputs() {
-    assert!(schemas("list_tunnels").inputs.is_empty());
-}
-
-#[test]
-fn create_tunnel_requires_name_and_allows_optional_description() {
-    let s = schemas("create_tunnel");
-    assert_eq!(required_input_names(&s), vec!["name"]);
-    assert!(s
-        .inputs
-        .iter()
-        .any(|f| f.name == "description" && !f.required));
-}
-
-#[test]
-fn get_and_delete_tunnel_require_id_only() {
-    for fn_name in ["get_tunnel", "delete_tunnel"] {
-        let s = schemas(fn_name);
-        assert_eq!(
-            required_input_names(&s),
-            vec!["id"],
-            "`{fn_name}` must require only `id`"
-        );
-    }
-}
-
-#[test]
-fn update_tunnel_requires_id_and_allows_optional_name_description_is_active() {
-    let s = schemas("update_tunnel");
-    assert_eq!(required_input_names(&s), vec!["id"]);
-    for optional in ["name", "description", "isActive"] {
-        assert!(
-            s.inputs.iter().any(|f| f.name == optional && !f.required),
-            "`update_tunnel` must accept optional `{optional}`"
-        );
-    }
-}
-
-#[test]
-fn get_bandwidth_has_no_inputs() {
-    assert!(schemas("get_bandwidth").inputs.is_empty());
 }
 
 #[test]

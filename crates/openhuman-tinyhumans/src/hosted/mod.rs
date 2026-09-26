@@ -26,7 +26,8 @@ pub(crate) mod test_support;
 use openhuman_core::core::all::{ControllerExtension, DomainGroup};
 
 /// Namespace descriptions the core's `namespace_description` serves for the
-/// hosted RPC surface.
+/// namespaces only the hosted surface uses. Shared namespaces (`auth`,
+/// `channels`, `webhooks`) are described by the core.
 pub const NAMESPACES: &[(&str, &str)] = &[
     (
         "billing",
@@ -52,6 +53,9 @@ pub fn extension() -> ControllerExtension {
     controllers.extend(billing::all_billing_registered_controllers());
     controllers.extend(announcements::all_announcements_registered_controllers());
     controllers.extend(team::all_team_registered_controllers());
+    controllers.extend(webhooks::all_webhooks_registered_controllers());
+    controllers.extend(channel_link::all_channel_link_registered_controllers());
+    controllers.extend(oauth::all_oauth_registered_controllers());
     ControllerExtension {
         group: DomainGroup::Hosted,
         controllers,

@@ -7,7 +7,9 @@ fn backend_401_is_tagged_as_session_expiry() {
             .to_string(),
     );
     assert!(tagged.starts_with("SESSION_EXPIRED: "));
-    assert!(crate::core::observability::is_session_expired_message(&tagged));
+    assert!(crate::core::observability::is_session_expired_message(
+        &tagged
+    ));
 }
 
 #[test]
@@ -37,5 +39,8 @@ async fn offline_local_session_refuses_without_a_request() {
     let err = transcribe_cloud(&config, "AAAA", &CloudTranscribeOptions::default())
         .await
         .unwrap_err();
-    assert!(crate::core::observability::is_backend_unavailable_message(&err), "{err}");
+    assert!(
+        crate::core::observability::is_backend_unavailable_message(&err),
+        "{err}"
+    );
 }

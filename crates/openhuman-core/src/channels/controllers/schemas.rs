@@ -12,9 +12,9 @@ use crate::rpc::RpcOutcome;
 
 use super::backend::OpenHumanChannelBackend;
 use super::definitions::ChannelAuthMode;
+use crate::channels::contract_schema::from_channel_controller_schema;
 use tinychannels::controllers::{
     all_channel_controller_schemas, channel_controller_schema, channel_credential_provider,
-    ChannelControllerField, ChannelControllerFieldType, ChannelControllerSchema,
 };
 use tinychannels::{ChannelManager, ChannelsConfig};
 
@@ -582,47 +582,6 @@ fn raw_or_typed<T: serde::Serialize>(raw: Option<Value>, typed: &T) -> Result<Va
 
 fn to_json<T: serde::Serialize>(outcome: RpcOutcome<T>) -> Result<Value, String> {
     outcome.into_cli_compatible_json()
-}
-
-fn from_channel_controller_schema(schema: ChannelControllerSchema) -> ControllerSchema {
-    ControllerSchema {
-        namespace: schema.namespace,
-        function: schema.function,
-        description: schema.description,
-        inputs: schema
-            .inputs
-            .into_iter()
-            .map(from_channel_controller_field)
-            .collect(),
-        outputs: schema
-            .outputs
-            .into_iter()
-            .map(from_channel_controller_field)
-            .collect(),
-    }
-}
-
-fn from_channel_controller_field(field: ChannelControllerField) -> FieldSchema {
-    FieldSchema {
-        name: field.name,
-        ty: from_channel_controller_field_type(field.ty),
-        comment: field.comment,
-        required: field.required,
-    }
-}
-
-fn from_channel_controller_field_type(ty: ChannelControllerFieldType) -> TypeSchema {
-    match ty {
-        ChannelControllerFieldType::Bool => TypeSchema::Bool,
-        ChannelControllerFieldType::I64 => TypeSchema::I64,
-        ChannelControllerFieldType::U64 => TypeSchema::U64,
-        ChannelControllerFieldType::F64 => TypeSchema::F64,
-        ChannelControllerFieldType::String => TypeSchema::String,
-        ChannelControllerFieldType::Json => TypeSchema::Json,
-        ChannelControllerFieldType::Option(inner) => {
-            TypeSchema::Option(Box::new(from_channel_controller_field_type(*inner)))
-        }
-    }
 }
 
 #[cfg(test)]

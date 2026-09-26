@@ -3,7 +3,6 @@
 //! The managed link flow (`channels.discord_link_*`) needs a TinyHumans
 //! account and lives in `openhuman-tinyhumans` (`hosted::channel_link`).
 
-use serde_json::Value;
 
 use crate::config::Config;
 use crate::rpc::RpcOutcome;

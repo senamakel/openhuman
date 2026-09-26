@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 // ── Router-not-initialized fallback paths ─────────────────────
 // These tests run without a global SocketManager so the router
 // accessor returns an error and the ops fall back gracefully.

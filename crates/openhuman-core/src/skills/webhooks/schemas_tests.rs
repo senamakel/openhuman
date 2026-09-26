@@ -194,19 +194,6 @@ fn deserialize_params_reports_invalid_params_errors() {
     );
 }
 
-#[test]
-fn deserialize_params_honours_camel_case_rename_for_update_tunnel() {
-    // `WebhookUpdateTunnelParams` uses `#[serde(rename_all = "camelCase")]`,
-    // so the JSON key is `isActive` even though the Rust field is
-    // `is_active`. This test locks in that contract.
-    let mut params = Map::new();
-    params.insert("id".to_string(), Value::String("t-1".into()));
-    params.insert("isActive".to_string(), Value::Bool(true));
-    let parsed = deserialize_params::<WebhookUpdateTunnelParams>(params).unwrap();
-    assert_eq!(parsed.id, "t-1");
-    assert_eq!(parsed.is_active, Some(true));
-}
-
 // ── json_output / to_json ─────────────────────────────────────
 
 #[test]

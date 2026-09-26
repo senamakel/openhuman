@@ -207,7 +207,10 @@ async fn backend_client_sends_x_core_version_on_auth_requests() {
     let (base_url, captured) = spawn_header_capture_server().await;
     let client = BackendOAuthClient::new(&base_url).unwrap();
 
-    let profile = client.fetch_profile("test-jwt").await.unwrap();
+    let profile = client
+        .authed_json("test-jwt", Method::GET, "auth/me", None)
+        .await
+        .unwrap();
     assert_eq!(profile["_id"], "user-123");
 
     let headers = captured.take();

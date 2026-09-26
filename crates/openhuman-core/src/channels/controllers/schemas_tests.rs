@@ -1,4 +1,5 @@
 use super::*;
+use crate::core::TypeSchema;
 use serde_json::json;
 
 #[test]

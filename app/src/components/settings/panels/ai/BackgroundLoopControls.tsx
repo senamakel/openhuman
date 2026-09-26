@@ -69,11 +69,10 @@ export const BackgroundLoopControls = ({
     // Usage and the credit ledger live on the TinyHumans account; the offline
     // local profile has none, so don't ask (the core would refuse anyway).
     const hostedAccount = hasHostedAccount(getCoreStateSnapshot().snapshot);
-    const noHostedAccount = Promise.reject(new Error('no hosted account'));
-    noHostedAccount.catch(() => {});
+    const skipped = () => Promise.reject(new Error('no hosted account'));
     const [usageResult, transactionsResult, connectionsResult] = await Promise.allSettled([
-      hostedAccount ? creditsApi.getTeamUsage() : noHostedAccount,
-      hostedAccount ? creditsApi.getTransactions(200, 0) : noHostedAccount,
+      hostedAccount ? creditsApi.getTeamUsage() : skipped(),
+      hostedAccount ? creditsApi.getTransactions(200, 0) : skipped(),
       listComposioConnections(),
     ]);
 

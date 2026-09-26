@@ -9,46 +9,32 @@
 //! backend 401/403 error surfaced verbatim as an RPC error string.
 //! API keys / JWTs are never written to logs (only redacted status codes + paths).
 
-use reqwest::Method;
-use serde::Serialize;
-use serde_json::{json, Value};
+use serde_json::{Map, Value};
+use tinyhumans_sdk::api::payments::{
+    AutoRechargeRequest, CoinbaseInterval, CoinbasePlan, CreateCoinbaseChargeRequest,
+    CreditTopUpRequest, PaymentGateway, PurchaseStripePlanRequest,
+    UpdateAutoRechargeCardRequest,
+};
+use tinyhumans_sdk::api::types::{BillingPlan, CodeRequest};
 
-use openhuman_core::api::config::effective_backend_api_url;
-use openhuman_core::api::BackendOAuthClient;
 use openhuman_core::config::Config;
 use openhuman_core::rpc::RpcOutcome;
 
-/// Canonical authed-session guard. Delegates to `require_live_session_token`,
-/// which rejects an expired token locally (publishing `SessionExpired`) instead
-/// of firing a doomed backend 401 — see #3297 / `session_support`.
-fn require_token(
-    config: &Config,
-) -> Result<openhuman_core::security::credentials::session_support::BackendCredential, String> {
-    openhuman_core::security::credentials::session_support::resolve_backend_credential(config)
-}
+use crate::hosted::client::HostedClient;
 
-async fn get_authed_value(
-    config: &Config,
-    method: Method,
-    path: &str,
-    body: Option<Value>,
-) -> Result<Value, String> {
-    let token = require_token(config)?;
-    let api_url = effective_backend_api_url(&config.api_url);
-    let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
-    // `flatten_authed_error` maps the typed `BackendApiError::Unauthorized`
-    // (expected session-lapse 401) onto the `SESSION_EXPIRED` sentinel so the
-    // JSON-RPC layer classifies it as session expiry and skips Sentry (#3297,
-    // TAURI-RUST-8WZ on `/payments/stripe/currentPlan`); every other error keeps
-    // its full `{e:#}` anyhow chain.
-    client
-        .authed_json(&token, method, path, body)
-        .await
-        .map_err(openhuman_core::api::flatten_authed_error)
+/// Parse a wire string into one of the SDK's closed request enums, naming the
+/// field and the offending value on failure.
+fn parse_enum<T: serde::de::DeserializeOwned>(field: &str, raw: &str) -> Result<T, String> {
+    serde_json::from_value(Value::String(raw.to_string()))
+        .map_err(|_| format!("unsupported {field}: {raw}"))
 }
 
 pub async fn get_current_plan(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let data = get_authed_value(config, Method::GET, "/payments/stripe/currentPlan", None).await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "GET /payments/stripe/currentPlan",
+        client.sdk().payments().get_current_plan().await,
+    )?;
     Ok(RpcOutcome::single_log(
         data,
         "current plan fetched from backend",
@@ -56,18 +42,20 @@ pub async fn get_current_plan(config: &Config) -> Result<RpcOutcome<Value>, Stri
 }
 
 pub async fn get_summary(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let token = require_token(config)?;
-    let api_url = effective_backend_api_url(&config.api_url);
-    let client = BackendOAuthClient::new(&api_url).map_err(|e| e.to_string())?;
-    let data = client
-        .fetch_billing_summary(&token)
-        .await
-        .map_err(openhuman_core::api::flatten_authed_error)?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "GET /payments/summary",
+        client.sdk().payments().get_summary().await,
+    )?;
     Ok(RpcOutcome::single_log(data, "billing summary fetched"))
 }
 
 pub async fn get_balance(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let data = get_authed_value(config, Method::GET, "/payments/credits/balance", None).await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "GET /payments/credits/balance",
+        client.sdk().payments().get_credit_balance().await,
+    )?;
     Ok(RpcOutcome::single_log(data, "credit balance fetched"))
 }
 
@@ -78,31 +66,48 @@ pub async fn get_transactions(
 ) -> Result<RpcOutcome<Value>, String> {
     let limit = limit.unwrap_or(20);
     let offset = offset.unwrap_or(0);
-    let path = format!("/payments/credits/transactions?limit={limit}&offset={offset}");
-    let data = get_authed_value(config, Method::GET, &path, None).await?;
+    let client = HostedClient::from_config(config)?;
+    let query = [
+        ("limit", Some(limit.to_string())),
+        ("offset", Some(offset.to_string())),
+    ];
+    let data = client.finish_value(
+        "GET /payments/credits/transactions",
+        client
+            .sdk()
+            .payments()
+            .list_credit_transactions(&query)
+            .await,
+    )?;
     Ok(RpcOutcome::single_log(data, "credit transactions fetched"))
 }
 
 pub async fn get_auto_recharge(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let data =
-        get_authed_value(config, Method::GET, "/payments/credits/auto-recharge", None).await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "GET /payments/credits/auto-recharge",
+        client.sdk().payments().get_auto_recharge().await,
+    )?;
     Ok(RpcOutcome::single_log(
         data,
         "auto recharge settings fetched",
     ))
 }
 
+/// `PATCH /payments/credits/auto-recharge`. The payload is decoded into the
+/// SDK's schema-current [`AutoRechargeRequest`]; fields the backend does not
+/// accept are dropped rather than forwarded.
 pub async fn update_auto_recharge(
     config: &Config,
     payload: Value,
 ) -> Result<RpcOutcome<Value>, String> {
-    let data = get_authed_value(
-        config,
-        Method::PATCH,
-        "/payments/credits/auto-recharge",
-        Some(payload),
-    )
-    .await?;
+    let request: AutoRechargeRequest = serde_json::from_value(payload)
+        .map_err(|e| format!("invalid auto recharge settings: {e}"))?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "PATCH /payments/credits/auto-recharge",
+        client.sdk().payments().update_auto_recharge(&request).await,
+    )?;
     Ok(RpcOutcome::single_log(
         data,
         "auto recharge settings updated",
@@ -110,24 +115,24 @@ pub async fn update_auto_recharge(
 }
 
 pub async fn get_cards(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let data = get_authed_value(
-        config,
-        Method::GET,
-        "/payments/credits/auto-recharge/cards",
-        None,
-    )
-    .await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "GET /payments/credits/auto-recharge/cards",
+        client.sdk().payments().list_auto_recharge_cards().await,
+    )?;
     Ok(RpcOutcome::single_log(data, "saved cards fetched"))
 }
 
 pub async fn create_setup_intent(config: &Config) -> Result<RpcOutcome<Value>, String> {
-    let data = get_authed_value(
-        config,
-        Method::POST,
-        "/payments/credits/auto-recharge/cards/setup-intent",
-        None,
-    )
-    .await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "POST /payments/credits/auto-recharge/cards/setup-intent",
+        client
+            .sdk()
+            .payments()
+            .create_auto_recharge_card_setup_intent()
+            .await,
+    )?;
     Ok(RpcOutcome::single_log(data, "setup intent created"))
 }
 
@@ -140,11 +145,20 @@ pub async fn update_card(
     if payment_method_id.is_empty() {
         return Err("paymentMethodId is required".to_string());
     }
-    let path = format!(
-        "/payments/credits/auto-recharge/cards/{}",
-        urlencoding::encode(payment_method_id)
-    );
-    let data = get_authed_value(config, Method::PATCH, &path, Some(payload)).await?;
+    let fields = match payload {
+        Value::Object(map) => map,
+        Value::Null => Map::new(),
+        _ => return Err("card update payload must be an object".to_string()),
+    };
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "PATCH /payments/credits/auto-recharge/cards/{paymentMethodId}",
+        client
+            .sdk()
+            .payments()
+            .update_auto_recharge_card(payment_method_id, &UpdateAutoRechargeCardRequest { fields })
+            .await,
+    )?;
     Ok(RpcOutcome::single_log(data, "saved card updated"))
 }
 
@@ -156,11 +170,15 @@ pub async fn delete_card(
     if payment_method_id.is_empty() {
         return Err("paymentMethodId is required".to_string());
     }
-    let path = format!(
-        "/payments/credits/auto-recharge/cards/{}",
-        urlencoding::encode(payment_method_id)
-    );
-    let data = get_authed_value(config, Method::DELETE, &path, None).await?;
+    let client = HostedClient::from_config(config)?;
+    let data = client.finish_value(
+        "DELETE /payments/credits/auto-recharge/cards/{paymentMethodId}",
+        client
+            .sdk()
+            .payments()
+            .delete_auto_recharge_card(payment_method_id)
+            .await,
+    )?;
     Ok(RpcOutcome::single_log(data, "saved card deleted"))
 }
 

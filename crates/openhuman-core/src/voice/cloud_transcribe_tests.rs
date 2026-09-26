@@ -19,9 +19,12 @@ fn other_failures_pass_through_unchanged() {
 #[tokio::test]
 async fn offline_local_session_refuses_without_a_request() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let mut config = Config::default();
-    config.workspace_dir = tmp.path().join("workspace");
-    config.config_path = tmp.path().join("config.toml");
+    let config = Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
     crate::security::credentials::AuthService::from_config(&config)
         .store_provider_token(
             crate::security::credentials::APP_SESSION_PROVIDER,

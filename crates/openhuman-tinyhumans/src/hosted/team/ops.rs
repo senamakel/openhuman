@@ -16,6 +16,7 @@ use serde_json::{json, Value};
 use tinyhumans_sdk::api::types::{CodeRequest, CreateTeamInviteRequest};
 
 use openhuman_core::api::config::effective_backend_api_url;
+use openhuman_core::api::BackendOAuthClient;
 use openhuman_core::config::Config;
 use openhuman_core::integrations::client::budget_gate;
 use openhuman_core::rpc::RpcOutcome;
@@ -86,26 +87,44 @@ pub async fn get_team(config: &Config, team_id: &str) -> Result<RpcOutcome<Value
     Ok(RpcOutcome::single_log(data, "team fetched from backend"))
 }
 
-/// `POST /teams`. **Not a deployed backend route** (teams were folded into
-/// users; the SDK's generated public-route registry has no entry and no typed
-/// method), so this rides the SDK's raw primitive to keep the RPC contract
-/// until the RPC is retired or the route is added to the SDK.
+/// `POST /teams` through the core's `BackendOAuthClient::authed_json`.
+///
+/// Deliberately **not** on the SDK: the SDK has no typed method for this route
+/// and its generated public-route registry has no entry for it (teams were
+/// folded into users on the backend). Until the route is added to the SDK
+/// upstream, or the RPC is retired, it stays on the pre-SDK path unchanged.
 pub async fn create_team(config: &Config, name: &str) -> Result<RpcOutcome<Value>, String> {
     let trimmed = name.trim();
     if trimmed.is_empty() {
         return Err("name is required".to_string());
     }
-    let client = HostedClient::from_config(config)?;
-    let body = json!({ "name": trimmed });
-    let data = client.finish(
-        "POST /teams",
-        client
-            .sdk()
-            .raw()
-            .send(Method::POST, "/teams", &[], Some(&body), true)
-            .await,
-    )?;
+    let data = legacy_authed_value(
+        config,
+        Method::POST,
+        "/teams",
+        Some(json!({ "name": trimmed })),
+    )
+    .await?;
     Ok(RpcOutcome::single_log(data, "team created via backend"))
+}
+
+/// The pre-SDK request path for the two team routes the SDK does not carry
+/// ([`create_team`], [`delete_team`]). Credential first, so a user without a
+/// TinyHumans account still gets the sentinel without a request.
+async fn legacy_authed_value(
+    config: &Config,
+    method: Method,
+    path: &str,
+    body: Option<Value>,
+) -> Result<Value, String> {
+    let credential =
+        openhuman_core::security::credentials::session_support::resolve_backend_credential(config)?;
+    let api_url = effective_backend_api_url(&config.api_url);
+    let client = BackendOAuthClient::new(&api_url).map_err(|e| format!("{e:#}"))?;
+    client
+        .authed_json(credential, method, path, body)
+        .await
+        .map_err(openhuman_core::api::flatten_authed_error)
 }
 
 pub async fn update_team(
@@ -130,20 +149,11 @@ pub async fn update_team(
     Ok(RpcOutcome::single_log(data, "team updated via backend"))
 }
 
-/// `DELETE /teams/{teamId}`. **Not a deployed backend route** — see
-/// [`create_team`].
+/// `DELETE /teams/{teamId}` on the pre-SDK path — see [`create_team`].
 pub async fn delete_team(config: &Config, team_id: &str) -> Result<RpcOutcome<Value>, String> {
     let team_id = normalize_id(team_id, "teamId")?;
-    let client = HostedClient::from_config(config)?;
     let path = format!("/teams/{}", tinyhumans_sdk::enc(&team_id));
-    let data = client.finish(
-        "DELETE /teams/{teamId}",
-        client
-            .sdk()
-            .raw()
-            .send(Method::DELETE, &path, &[], None, true)
-            .await,
-    )?;
+    let data = legacy_authed_value(config, Method::DELETE, &path, None).await?;
     Ok(RpcOutcome::single_log(data, "team deleted via backend"))
 }
 

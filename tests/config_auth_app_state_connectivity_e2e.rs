@@ -2419,25 +2419,23 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
     openhuman_core::security::credentials::start_login_gated_services(&config).await;
     openhuman_core::security::credentials::stop_login_gated_services(&config).await;
 
-    assert!(
-        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "   ")
-            .await
-            .expect_err("blank channel should fail")
-            .contains("channel is required")
-    );
-    assert!(
-        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "matrix")
-            .await
-            .expect_err("unsupported channel should fail")
-            .contains("unsupported channel")
-    );
-    assert!(
-        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "telegram")
-            .await
-            .expect_err("missing session should fail")
-            .contains("session JWT required")
-    );
-    assert!(openhuman_core::security::credentials::oauth_connect(
+    // The account-bound link-token and OAuth ops live in `openhuman-tinyhumans`
+    // (`hosted::{channel_link, oauth}`); validation still runs first, and a
+    // missing credential fails before any request.
+    use openhuman_tinyhumans::hosted::{channel_link, oauth};
+    assert!(channel_link::auth_create_channel_link_token(&config, "   ")
+        .await
+        .expect_err("blank channel should fail")
+        .contains("channel is required"));
+    assert!(channel_link::auth_create_channel_link_token(&config, "matrix")
+        .await
+        .expect_err("unsupported channel should fail")
+        .contains("unsupported channel"));
+    assert!(channel_link::auth_create_channel_link_token(&config, "telegram")
+        .await
+        .expect_err("missing session should fail")
+        .contains("no backend session token"));
+    assert!(oauth::oauth_connect(
         &config,
         "github",
         Some("skill"),
@@ -2446,23 +2444,19 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
     )
     .await
     .expect_err("oauth connect without session should fail")
-    .contains("session JWT required"));
-    assert!(
-        openhuman_core::security::credentials::oauth_list_integrations(&config)
-            .await
-            .expect_err("oauth list without session should fail")
-            .contains("session JWT required")
-    );
-    assert!(
-        openhuman_core::security::credentials::oauth_fetch_integration_tokens(
-            &config,
-            "0123456789abcdef01234567",
-            "0123456789abcdef0123456789abcdef",
-        )
+    .contains("no backend session token"));
+    assert!(oauth::oauth_list_integrations(&config)
         .await
-        .expect_err("oauth token fetch without session should fail")
-        .contains("session JWT required")
-    );
+        .expect_err("oauth list without session should fail")
+        .contains("no backend session token"));
+    assert!(oauth::oauth_fetch_integration_tokens(
+        &config,
+        "0123456789abcdef01234567",
+        "0123456789abcdef0123456789abcdef",
+    )
+    .await
+    .expect_err("oauth token fetch without session should fail")
+    .contains("no backend session token"));
     assert!(
         openhuman_core::security::credentials::oauth_fetch_client_key(
             &config,
@@ -2473,13 +2467,10 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .contains("session JWT required")
     );
     assert!(
-        openhuman_core::security::credentials::oauth_revoke_integration(
-            &config,
-            "0123456789abcdef01234567",
-        )
-        .await
-        .expect_err("oauth revoke without session should fail")
-        .contains("session JWT required")
+        oauth::oauth_revoke_integration(&config, "0123456789abcdef01234567")
+            .await
+            .expect_err("oauth revoke without session should fail")
+            .contains("no backend session token")
     );
 }
 

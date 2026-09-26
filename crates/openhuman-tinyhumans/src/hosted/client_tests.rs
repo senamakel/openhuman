@@ -163,7 +163,7 @@ async fn session_client_sends_bearer_and_product_identity() {
         .await;
 
     let tmp = TempDir::new().unwrap();
-    let config = test_config(&tmp, &format!("{}/api/v1", server.uri()));
+    let config = test_config(&tmp, &server.uri());
     store_session(&config, "jwt.a.b");
     let client = HostedClient::from_config(&config).unwrap();
     assert_eq!(client.kind(), CredentialKind::Session);

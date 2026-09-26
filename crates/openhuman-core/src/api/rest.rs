@@ -330,40 +330,6 @@ pub fn user_id_from_profile_payload(payload: &Value) -> Option<String> {
     })
 }
 
-/// JSON body returned by the backend when an OAuth connection process is initiated.
-#[derive(Debug, Clone, Deserialize)]
-pub struct ConnectResponse {
-    /// The URL to redirect the user to for OAuth authorization.
-    pub oauth_url: String,
-    /// The state parameter used to prevent CSRF and correlate the callback.
-    pub state: String,
-}
-
-/// A summary of an active integration, as returned by the backend.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IntegrationSummary {
-    /// Unique identifier for the integration.
-    pub id: String,
-    /// The name of the integration provider (e.g., "google", "slack").
-    pub provider: String,
-    /// RFC3339 timestamp of when the integration was created.
-    pub created_at: String,
-}
-
-/// Decrypted OAuth token payload for handing off tokens to a local service or skill.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct IntegrationTokensHandoff {
-    /// The OAuth access token.
-    pub access_token: String,
-    /// The optional OAuth refresh token.
-    #[serde(default)]
-    pub refresh_token: Option<String>,
-    /// RFC3339 timestamp of when the access token expires.
-    pub expires_at: String,
-}
-
 /// A client for interacting with the TinyHumans / AlphaHuman backend API.
 ///
 /// Owns the *routes* and the error classification; the HTTP round-trip itself
@@ -447,83 +413,6 @@ impl BackendOAuthClient {
         self.base
             .join(path.trim_start_matches('/'))
             .with_context(|| format!("build URL for {path}"))
-    }
-
-    /// Initiates an OAuth connection flow for the current user and a specific provider.
-    pub async fn connect(
-        &self,
-        provider: &str,
-        bearer_jwt: &str,
-        skill_id: Option<&str>,
-        response_type: Option<&str>,
-        encryption_mode: Option<&str>,
-    ) -> Result<ConnectResponse> {
-        let p = provider.trim().trim_matches('/');
-        anyhow::ensure!(!p.is_empty(), "provider is required");
-        let query = {
-            let mut serializer = url::form_urlencoded::Serializer::new(String::new());
-            if let Some(s) = skill_id.filter(|s| !s.is_empty()) {
-                serializer.append_pair("skillId", s);
-            }
-            if let Some(r) = response_type.filter(|r| !r.is_empty()) {
-                serializer.append_pair("responseType", r);
-            }
-            if let Some(e) = encryption_mode.filter(|e| !e.is_empty()) {
-                serializer.append_pair("encryptionMode", e);
-            }
-            serializer.finish()
-        };
-        let path = if query.is_empty() {
-            format!("auth/{p}/connect")
-        } else {
-            format!("auth/{p}/connect?{query}")
-        };
-        let value = self
-            .authed_json(bearer_jwt, Method::GET, &path, None)
-            .await
-            .context("auth connect request")?;
-        let oauth_url = value
-            .get("oauthUrl")
-            .or_else(|| value.get("oauth_url"))
-            .and_then(Value::as_str)
-            .filter(|url| !url.is_empty())
-            .map(str::to_owned)
-            .context("missing oauthUrl in response")?;
-        let state = value
-            .get("state")
-            .and_then(Value::as_str)
-            .filter(|state| !state.is_empty())
-            .map(str::to_owned)
-            .context("missing state")?;
-        Ok(ConnectResponse { oauth_url, state })
-    }
-
-    /// `GET /auth/me` with the stored session JWT — the backend user profile,
-    /// bearer-only. Used by channel link checks to see whether a channel id has
-    /// been attached to the account; it does not establish or validate a
-    /// session (the host that owns the session does that).
-    pub async fn fetch_profile(&self, bearer_jwt: &str) -> Result<Value> {
-        self.authed_json(bearer_jwt, Method::GET, "auth/me", None)
-            .await
-    }
-
-    /// Creates a short-lived link token for connecting a specific communication channel.
-    pub async fn create_channel_link_token(
-        &self,
-        channel: &str,
-        bearer_jwt: &str,
-    ) -> Result<Value> {
-        let channel = channel.trim().trim_matches('/');
-        anyhow::ensure!(!channel.is_empty(), "channel is required");
-        let encoded_channel = urlencoding::encode(channel);
-
-        self.authed_json(
-            bearer_jwt,
-            Method::POST,
-            &format!("auth/channels/{encoded_channel}/link-token"),
-            None,
-        )
-        .await
     }
 
     /// Generic authenticated JSON request helper for backend API routes.
@@ -842,51 +731,6 @@ impl BackendOAuthClient {
         }
     }
 
-    /// Lists all active integrations for the current user.
-    pub async fn list_integrations(&self, bearer_jwt: &str) -> Result<Vec<IntegrationSummary>> {
-        let value = self
-            .authed_json(bearer_jwt, Method::GET, "auth/integrations", None)
-            .await?;
-        let integrations = value
-            .get("integrations")
-            .cloned()
-            .unwrap_or_else(|| value.clone());
-        serde_json::from_value(integrations).context("parse integrations response")
-    }
-
-    /// Fetches the decrypted OAuth tokens for a specific integration.
-    ///
-    /// This is a one-time handoff process. The encryption key must match the
-    /// one used by the backend to encrypt the tokens.
-    pub async fn fetch_integration_tokens_handoff(
-        &self,
-        integration_id: &str,
-        bearer_jwt: &str,
-        encryption_key: &str,
-    ) -> Result<IntegrationTokensHandoff> {
-        let id = integration_id.trim();
-        anyhow::ensure!(
-            !id.is_empty() && id.len() == 24,
-            "integrationId must be a 24-char hex id"
-        );
-        let body = serde_json::json!({ "key": encryption_key.trim() });
-        let value = self
-            .authed_json(
-                bearer_jwt,
-                Method::POST,
-                &format!("auth/integrations/{id}/tokens"),
-                Some(body),
-            )
-            .await
-            .context("integration tokens handoff")?;
-        let encrypted = value
-            .get("encrypted")
-            .and_then(Value::as_str)
-            .context("integration tokens response missing encrypted payload")?;
-        let plaintext = decrypt_handoff_blob(encrypted, encryption_key.trim())?;
-        serde_json::from_str(&plaintext).context("parse decrypted token JSON")
-    }
-
     /// Fetches the client key share for a specific integration.
     ///
     /// This is a one-time handoff; the key is deleted from the backend's
@@ -1104,19 +948,6 @@ impl BackendOAuthClient {
         self.authed_json(bearer_jwt, Method::GET, &path, None).await
     }
 
-    /// Revokes (deletes) an active integration.
-    pub async fn revoke_integration(&self, integration_id: &str, bearer_jwt: &str) -> Result<()> {
-        let id = integration_id.trim();
-        anyhow::ensure!(!id.is_empty(), "integration id is required");
-        self.authed_json(
-            bearer_jwt,
-            Method::DELETE,
-            &format!("auth/integrations/{id}"),
-            None,
-        )
-        .await?;
-        Ok(())
-    }
 }
 
 /// AES-256-GCM decrypt compatible with backend `encryptMessageFromString` (IV 16 + tag 16 + ciphertext, base64).

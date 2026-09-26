@@ -1,16 +1,4 @@
 use super::*;
-use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
-use axum::{
-    extract::Path,
-    http::HeaderMap,
-    routing::{delete, get, patch, post},
-    Json, Router,
-};
-use serde_json::json;
-use tempfile::TempDir;
-
-// ── require_token ─────────────────────────────────────────────
-
 // ── Router-not-initialized fallback paths ─────────────────────
 // These tests run without a global SocketManager so the router
 // accessor returns an error and the ops fall back gracefully.

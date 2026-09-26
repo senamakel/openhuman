@@ -39,7 +39,6 @@ async fn auth_get_session_token_json_returns_null_when_empty() {
     assert!(out.value["token"].is_null());
 }
 
-// ── auth_create_channel_link_token (validation) ───────────────
 
 // ── store_provider_credentials (validation + store path) ──────
 

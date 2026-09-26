@@ -555,7 +555,6 @@ async fn clear_credential_without_a_kind_removes_everything() {
     );
 }
 
-// ── authed routes keep the SESSION_EXPIRED sentinel ───────────
 
 // ── set_credential (local session) ─────────────────────────────
 

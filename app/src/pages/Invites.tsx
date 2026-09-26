@@ -6,9 +6,11 @@ import { Card, CenteredLoadingState, EmptyState } from '../components/ui';
 import Button from '../components/ui/Button';
 import { useClipboardFeedback } from '../hooks/useClipboardFeedback';
 import { useUser } from '../hooks/useUser';
+import { useCoreState } from '../providers/CoreStateProvider';
 import { useT } from '../lib/i18n/I18nContext';
 import { inviteApi } from '../services/api/inviteApi';
 import type { InviteCode } from '../types/invite';
+import { hasHostedAccount } from '../utils/localSession';
 
 const log = debugFactory('invites');
 
@@ -83,6 +85,10 @@ const CodeRow = ({ invite }: { invite: InviteCode }) => {
 const Invites = () => {
   const { t } = useT();
   const { user, refetch: refetchUser } = useUser();
+  const { snapshot } = useCoreState();
+  // Invite codes belong to a TinyHumans account; the offline local profile
+  // has none, so explain that instead of firing a request the backend rejects.
+  const hostedAccount = hasHostedAccount(snapshot);
   const [codes, setCodes] = useState<InviteCode[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [redeemStatus, setRedeemStatus] = useState<RedeemStatus>('idle');
@@ -96,6 +102,12 @@ const Invites = () => {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const loadInviteCodes = async () => {
+    if (!hostedAccount) {
+      log('loadInviteCodes skipped: no hosted account');
+      setCodes([]);
+      setLoadError(t('rewards.localUnavailable'));
+      return;
+    }
     const requestId = ++loadRequestIdRef.current;
     setIsLoading(true);
     setLoadError(null);

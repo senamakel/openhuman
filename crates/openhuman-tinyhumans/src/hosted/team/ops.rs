@@ -11,8 +11,6 @@
 //! Input validation always runs before the credential is resolved, so a bad
 //! argument reports the argument, never "not signed in".
 
-use std::time::{Duration, Instant};
-
 use reqwest::Method;
 use serde_json::{json, Value};
 use tinyhumans_sdk::api::types::{CodeRequest, CreateTeamInviteRequest};
@@ -50,17 +48,12 @@ fn clamp_u32(value: Option<u64>, field: &str) -> Result<Option<u32>, String> {
 pub async fn get_usage(config: &Config) -> Result<RpcOutcome<Value>, String> {
     let client = HostedClient::from_config(config)?;
     let backend_key = effective_backend_api_url(&config.api_url);
-    budget_gate::usage_with_failure_backoff(
-        &backend_key,
-        Duration::ZERO,
-        Instant::now(),
-        || async {
+    budget_gate::usage_with_failure_backoff(&backend_key, || async {
             client.finish_value(
                 "GET /teams/me/usage",
                 client.sdk().teams().get_my_usage().await,
             )
-        },
-    )
+    })
     .await
 }
 

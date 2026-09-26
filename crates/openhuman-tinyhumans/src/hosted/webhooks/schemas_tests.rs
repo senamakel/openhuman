@@ -15,10 +15,7 @@ fn catalog_is_the_six_hosted_tunnel_functions_under_webhooks() {
     let names: Vec<&str> = schemas.iter().map(|s| s.function).collect();
     assert_eq!(names, FUNCTIONS);
     assert!(schemas.iter().all(|s| s.namespace == "webhooks"));
-    assert_eq!(
-        all_webhooks_registered_controllers().len(),
-        FUNCTIONS.len()
-    );
+    assert_eq!(all_webhooks_registered_controllers().len(), FUNCTIONS.len());
 }
 
 #[test]
@@ -34,7 +31,10 @@ fn input_contracts_are_unchanged() {
     }
     let update = webhooks_schemas("update_tunnel");
     for optional in ["name", "description", "isActive"] {
-        assert!(update.inputs.iter().any(|f| f.name == optional && !f.required));
+        assert!(update
+            .inputs
+            .iter()
+            .any(|f| f.name == optional && !f.required));
     }
 }
 

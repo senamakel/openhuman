@@ -24,7 +24,10 @@ use tinytools::{Tool, ToolResult};
 /// (`hosted::oauth`) and are registered only when that layer is installed, so
 /// the tools reach them by wire name instead of calling them directly. With no
 /// hosted layer the tool reports the `BACKEND_UNAVAILABLE:` sentinel.
-async fn invoke_hosted(method: &str, params: serde_json::Map<String, Value>) -> anyhow::Result<Value> {
+async fn invoke_hosted(
+    method: &str,
+    params: serde_json::Map<String, Value>,
+) -> anyhow::Result<Value> {
     match crate::core::all::try_invoke_registered_rpc(method, params).await {
         Some(Ok(value)) => Ok(strip_log_envelope(value)),
         Some(Err(err)) => Err(anyhow::anyhow!("{err}")),

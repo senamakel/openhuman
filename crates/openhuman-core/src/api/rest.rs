@@ -656,7 +656,6 @@ impl BackendOAuthClient {
                         url.path(),
                     );
                 }
-
             }
 
             // These are transient infrastructure errors (proxy/CDN/backend
@@ -947,7 +946,6 @@ impl BackendOAuthClient {
         }
         self.authed_json(bearer_jwt, Method::GET, &path, None).await
     }
-
 }
 
 /// AES-256-GCM decrypt compatible with backend `encryptMessageFromString` (IV 16 + tag 16 + ciphertext, base64).

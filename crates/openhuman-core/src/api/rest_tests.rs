@@ -1,7 +1,6 @@
 use super::{
-    backend_api_body_shape, flatten_authed_error,
-    is_unmatched_route_404, key_bytes_from_string, parse_message_path, BackendApiError,
-    BackendOAuthClient, BACKEND_API_BODY_SHAPE_MAX_BYTES,
+    backend_api_body_shape, flatten_authed_error, is_unmatched_route_404, key_bytes_from_string,
+    parse_message_path, BackendApiError, BackendOAuthClient, BACKEND_API_BODY_SHAPE_MAX_BYTES,
 };
 use crate::api::headers::sanitize_client_version;
 use crate::api::product::{

@@ -120,8 +120,8 @@ pub async fn oauth_fetch_integration_tokens(
         .ok_or_else(|| "integration tokens response missing encrypted payload".to_string())?;
     let plaintext = decrypt_handoff_blob(encrypted, encryption_key.trim())
         .map_err(|e| format!("integration tokens handoff: {e:#}"))?;
-    let tokens: IntegrationTokensHandoff = serde_json::from_str(&plaintext)
-        .map_err(|e| format!("parse decrypted token JSON: {e}"))?;
+    let tokens: IntegrationTokensHandoff =
+        serde_json::from_str(&plaintext).map_err(|e| format!("parse decrypted token JSON: {e}"))?;
     Ok(RpcOutcome::single_log(
         serde_json::to_value(&tokens).map_err(|e| e.to_string())?,
         "integration tokens retrieved",

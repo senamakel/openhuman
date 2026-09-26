@@ -2427,14 +2427,18 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .await
         .expect_err("blank channel should fail")
         .contains("channel is required"));
-    assert!(channel_link::auth_create_channel_link_token(&config, "matrix")
-        .await
-        .expect_err("unsupported channel should fail")
-        .contains("unsupported channel"));
-    assert!(channel_link::auth_create_channel_link_token(&config, "telegram")
-        .await
-        .expect_err("missing session should fail")
-        .contains("no backend session token"));
+    assert!(
+        channel_link::auth_create_channel_link_token(&config, "matrix")
+            .await
+            .expect_err("unsupported channel should fail")
+            .contains("unsupported channel")
+    );
+    assert!(
+        channel_link::auth_create_channel_link_token(&config, "telegram")
+            .await
+            .expect_err("missing session should fail")
+            .contains("no backend session token")
+    );
     assert!(oauth::oauth_connect(
         &config,
         "github",

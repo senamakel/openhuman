@@ -132,7 +132,9 @@ fn offline_local_session_fails_before_any_request() {
     // Unroutable: a request here would fail loudly, not return the sentinel.
     let config = test_config(&tmp, "http://127.0.0.1:9");
     store_session(&config, "desktop.test.local");
-    let err = HostedClient::from_config(&config).err().expect("local refuses");
+    let err = HostedClient::from_config(&config)
+        .err()
+        .expect("local refuses");
     assert_eq!(
         err,
         openhuman_core::security::credentials::session_support::LOCAL_SESSION_BACKEND_UNAVAILABLE

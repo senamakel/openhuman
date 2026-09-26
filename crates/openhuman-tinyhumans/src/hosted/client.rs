@@ -120,8 +120,8 @@ impl HostedClient {
 /// normalisation `BackendOAuthClient::new` applies, so a completions-style
 /// `api_url` (`https://host/v1/chat/completions`) still reaches `/teams/...`.
 fn backend_origin(api_url: &str) -> Result<String, String> {
-    let mut url = url::Url::parse(api_url.trim())
-        .map_err(|e| format!("Invalid API base URL: {e}"))?;
+    let mut url =
+        url::Url::parse(api_url.trim()).map_err(|e| format!("Invalid API base URL: {e}"))?;
     if !matches!(url.scheme(), "http" | "https") || url.host_str().is_none() {
         return Err("API base URL must be an absolute http(s) URL with host".to_string());
     }

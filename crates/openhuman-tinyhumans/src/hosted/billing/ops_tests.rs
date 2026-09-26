@@ -169,7 +169,8 @@ async fn purchase_plan_rejects_unknown_plan_before_any_request() {
 #[tokio::test]
 async fn billing_calls_send_schema_current_requests() {
     let server = MockServer::start().await;
-    let ok = || ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {"ok": true}}));
+    let ok =
+        || ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {"ok": true}}));
     Mock::given(method("GET"))
         .and(path("/payments/credits/transactions"))
         .and(query_param("limit", "20"))

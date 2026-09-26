@@ -121,7 +121,10 @@ fn hosted_link_functions_are_not_served_by_the_core() {
     // `channels.telegram_login_*` / `channels.discord_link_*` need a TinyHumans
     // account and are registered by `openhuman-tinyhumans`; the core must not
     // register them too (the extension would collide) nor advertise them.
-    let names: Vec<&str> = all_controller_schemas().iter().map(|s| s.function).collect();
+    let names: Vec<&str> = all_controller_schemas()
+        .iter()
+        .map(|s| s.function)
+        .collect();
     let registered: Vec<&str> = all_registered_controllers()
         .iter()
         .map(|c| c.schema.function)

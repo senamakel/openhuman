@@ -41,7 +41,7 @@ pub fn all_channel_link_registered_controllers() -> Vec<RegisteredController> {
         schema: channel_link_schemas("auth_create_channel_link_token"),
         handler: handle_auth_create_channel_link_token,
     }];
-        controllers.extend([
+    controllers.extend([
         RegisteredController {
             schema: channel_link_schemas("telegram_login_start"),
             handler: handle_telegram_login_start,
@@ -82,7 +82,7 @@ pub fn channel_link_schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
-                f if CHANNEL_FUNCTIONS.contains(&f) => {
+        f if CHANNEL_FUNCTIONS.contains(&f) => {
             openhuman_core::channels::contract_schema::contract_controller_schema(f)
         }
         _ => ControllerSchema {

@@ -25,7 +25,10 @@ fn normalize_channel(channel: &str) -> Result<String, String> {
 }
 
 /// `POST /auth/channels/{channel}/link-token` with an existing client.
-pub(super) async fn link_token_payload(client: &HostedClient, channel: &str) -> Result<Value, String> {
+pub(super) async fn link_token_payload(
+    client: &HostedClient,
+    channel: &str,
+) -> Result<Value, String> {
     client.finish_value(
         "POST /auth/channels/{channel}/link-token",
         client.sdk().auth().create_channel_link_token(channel).await,

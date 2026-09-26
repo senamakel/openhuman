@@ -499,7 +499,9 @@ pub fn spawn_socket_auto_connect(
                 // read leaves no token (Sentry 35911). That is a user-state
                 // race, not a fault: warn so it stays a breadcrumb.
                 if e.contains("no session token stored") {
-                    log::warn!("[socket] Auto-connect skipped — session cleared before connect: {e}");
+                    log::warn!(
+                        "[socket] Auto-connect skipped — session cleared before connect: {e}"
+                    );
                 } else {
                     log::error!("[socket] Auto-connect failed: {e}");
                 }

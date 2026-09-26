@@ -32,7 +32,11 @@ fn is_not_found<T>(result: &Result<T, SdkError>) -> bool {
 /// propagates.
 pub async fn get_latest_announcement(config: &Config) -> Result<RpcOutcome<Value>, String> {
     let client = HostedClient::from_config(config)?;
-    let result = client.sdk().announcements().get_latest_announcements().await;
+    let result = client
+        .sdk()
+        .announcements()
+        .get_latest_announcements()
+        .await;
     if is_not_found(&result) {
         log::debug!("[hosted][announcements] 404 on GET /announcements/latest — no announcement");
         return Ok(RpcOutcome::single_log(

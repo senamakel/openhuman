@@ -190,8 +190,12 @@ fn handle_create_tunnel(params: Map<String, Value>) -> ControllerFuture {
         let config = config_rpc::load_config_with_timeout().await?;
         let payload = deserialize_params::<WebhookCreateTunnelParams>(params)?;
         to_json(
-            crate::hosted::webhooks::create_tunnel(&config, payload.name.trim(), payload.description)
-                .await?,
+            crate::hosted::webhooks::create_tunnel(
+                &config,
+                payload.name.trim(),
+                payload.description,
+            )
+            .await?,
         )
     })
 }

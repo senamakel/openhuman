@@ -13,9 +13,8 @@
 use reqwest::Method;
 use serde_json::{Map, Value};
 use tinyhumans_sdk::api::payments::{
-    CoinbaseInterval, CoinbasePlan, CreateCoinbaseChargeRequest,
-    CreditTopUpRequest, PaymentGateway, PurchaseStripePlanRequest,
-    UpdateAutoRechargeCardRequest,
+    CoinbaseInterval, CoinbasePlan, CreateCoinbaseChargeRequest, CreditTopUpRequest,
+    PaymentGateway, PurchaseStripePlanRequest, UpdateAutoRechargeCardRequest,
 };
 use tinyhumans_sdk::api::types::{BillingPlan, CodeRequest};
 
@@ -297,7 +296,11 @@ pub async fn create_coinbase_charge(
     let client = HostedClient::from_config(config)?;
     let data = client.finish_value(
         "POST /payments/coinbase/charge",
-        client.sdk().payments().create_coinbase_charge(&request).await,
+        client
+            .sdk()
+            .payments()
+            .create_coinbase_charge(&request)
+            .await,
     )?;
     Ok(RpcOutcome::single_log(
         data,

@@ -72,8 +72,12 @@ async fn fetch_profile(client: &HostedClient) -> Result<Value, String> {
 
 /// The first non-empty string among `keys` on `profile`.
 fn profile_id<'a>(profile: &'a Value, keys: &[&str]) -> Option<&'a str> {
-    keys.iter()
-        .find_map(|k| profile.get(*k).and_then(Value::as_str).filter(|s| !s.is_empty()))
+    keys.iter().find_map(|k| {
+        profile
+            .get(*k)
+            .and_then(Value::as_str)
+            .filter(|s| !s.is_empty())
+    })
 }
 
 /// Store the `channel:<channel>:managed_dm` credential marker.

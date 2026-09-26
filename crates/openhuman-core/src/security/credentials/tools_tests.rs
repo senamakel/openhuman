@@ -34,10 +34,7 @@ async fn oauth_tools_report_backend_unavailable_without_the_hosted_layer() {
         .execute(json!({}))
         .await
         .expect_err("no hosted layer");
-    assert!(
-        err.to_string().contains("BACKEND_UNAVAILABLE:"),
-        "{err}"
-    );
+    assert!(err.to_string().contains("BACKEND_UNAVAILABLE:"), "{err}");
     let err = OAuthConnectUrlTool::new(cfg())
         .execute(json!({"provider": "github", "skill_id": "s"}))
         .await

@@ -210,28 +210,37 @@ async fn team_calls_encode_ids_and_send_typed_bodies() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/teams/t%2F1/members"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": []})))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": []})),
+        )
         .expect(1)
         .mount(&server)
         .await;
     Mock::given(method("POST"))
         .and(path("/teams/t1/invites"))
         .and(body_json(json!({"maxUses": 3})))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {"code": "c"}})))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(json!({"success": true, "data": {"code": "c"}})),
+        )
         .expect(1)
         .mount(&server)
         .await;
     Mock::given(method("PUT"))
         .and(path("/teams/t1/members/u1/role"))
         .and(body_json(json!({"role": "admin"})))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {}})))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {}})),
+        )
         .expect(1)
         .mount(&server)
         .await;
     Mock::given(method("POST"))
         .and(path("/teams/join"))
         .and(body_json(json!({"code": "JOIN"})))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {}})))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {}})),
+        )
         .expect(1)
         .mount(&server)
         .await;
@@ -244,12 +253,20 @@ async fn team_calls_encode_ids_and_send_typed_bodies() {
 
     let tmp = TempDir::new().unwrap();
     let config = test_support::signed_in(&tmp, &server.uri());
-    assert_eq!(list_members(&config, " t/1 ").await.unwrap().value, json!([]));
     assert_eq!(
-        create_invite(&config, "t1", Some(3), None).await.unwrap().value,
+        list_members(&config, " t/1 ").await.unwrap().value,
+        json!([])
+    );
+    assert_eq!(
+        create_invite(&config, "t1", Some(3), None)
+            .await
+            .unwrap()
+            .value,
         json!({"code": "c"})
     );
-    change_member_role(&config, "t1", "u1", "admin").await.unwrap();
+    change_member_role(&config, "t1", "u1", "admin")
+        .await
+        .unwrap();
     join_team(&config, " JOIN ").await.unwrap();
     let err = list_teams(&config).await.unwrap_err();
     assert!(err.starts_with("SESSION_EXPIRED:"), "{err}");

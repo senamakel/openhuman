@@ -53,7 +53,9 @@ async fn connect_forwards_non_empty_query_and_shapes_the_result() {
         .and(path("/auth/github/connect"))
         .and(query_param("skillId", "s1"))
         .and(query_param("encryptionMode", "encrypted"))
-        .respond_with(ok(json!({"oauthUrl": "https://gh/authorize", "state": "st"})))
+        .respond_with(ok(
+            json!({"oauthUrl": "https://gh/authorize", "state": "st"}),
+        ))
         .expect(1)
         .mount(&server)
         .await;

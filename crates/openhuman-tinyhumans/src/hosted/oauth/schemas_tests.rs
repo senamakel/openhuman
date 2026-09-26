@@ -21,10 +21,20 @@ fn catalog_keeps_the_auth_oauth_wire_names() {
 #[test]
 fn connect_requires_provider_and_tokens_require_id_and_key() {
     let connect = oauth_schemas("auth_oauth_connect");
-    let required: Vec<_> = connect.inputs.iter().filter(|f| f.required).map(|f| f.name).collect();
+    let required: Vec<_> = connect
+        .inputs
+        .iter()
+        .filter(|f| f.required)
+        .map(|f| f.name)
+        .collect();
     assert_eq!(required, vec!["provider"]);
     let tokens = oauth_schemas("auth_oauth_fetch_integration_tokens");
-    let required: Vec<_> = tokens.inputs.iter().filter(|f| f.required).map(|f| f.name).collect();
+    let required: Vec<_> = tokens
+        .inputs
+        .iter()
+        .filter(|f| f.required)
+        .map(|f| f.name)
+        .collect();
     assert_eq!(required, vec!["integrationId", "key"]);
     assert_eq!(oauth_schemas("nope").function, "unknown");
 }

@@ -555,7 +555,6 @@ async fn clear_credential_without_a_kind_removes_everything() {
     );
 }
 
-
 // ── set_credential (local session) ─────────────────────────────
 
 /// A local session token requires a non-empty user payload — the backend

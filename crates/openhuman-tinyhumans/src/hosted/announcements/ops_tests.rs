@@ -23,7 +23,11 @@ fn only_a_404_status_counts_as_not_found() {
 async fn latest_via(server: &MockServer) -> Result<Option<Value>, String> {
     let client =
         HostedClient::with_credential(&server.uri(), BackendCredential::Session("jwt".into()));
-    let result = client.sdk().announcements().get_latest_announcements().await;
+    let result = client
+        .sdk()
+        .announcements()
+        .get_latest_announcements()
+        .await;
     if is_not_found(&result) {
         return Ok(None);
     }
@@ -69,7 +73,9 @@ async fn backend_404_is_no_announcement_and_null_passes_through() {
     let server = MockServer::start().await;
     Mock::given(method("GET"))
         .and(path("/announcements/latest"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": null})))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": null})),
+        )
         .mount(&server)
         .await;
     assert_eq!(latest_via(&server).await.unwrap(), Some(Value::Null));

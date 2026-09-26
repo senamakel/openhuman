@@ -121,7 +121,10 @@ async fn tunnel_crud_round_trips_through_the_sdk() {
 
     let out = list_tunnels(&config).await.unwrap();
     assert_eq!(out.value["tunnels"][0]["id"], json!("t-1"));
-    assert!(out.logs.iter().any(|l| l.contains("webhook tunnels fetched")));
+    assert!(out
+        .logs
+        .iter()
+        .any(|l| l.contains("webhook tunnels fetched")));
 
     let out = create_tunnel(&config, "  my-hook  ", Some("  desc  ".into()))
         .await

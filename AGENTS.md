@@ -478,15 +478,11 @@ openhuman -i tinyhumans-sdk` must stay empty). Every host that boots a core
 (`crates/openhuman-app/src/main.rs` and `lib.rs::run`,
 `crates/openhuman-tui/src/runner.rs`, `crates/openhuman-cli/src/main.rs`)
 calls `openhuman_tinyhumans::install` first; it also registers the hosted RPC
-proxies (`billing`, `team`, `referral`, `announcements`, `webhooks` tunnels,
-managed-bot `channel_link`, `oauth` —
+proxies (`billing`, `team`, `referral`, `announcements` —
 `crates/openhuman-tinyhumans/src/hosted/`) into the core's controller
 registry through `core::all::register_controller_extension`
-(`DomainGroup::Hosted`). They call the SDK's typed clients through
-`hosted::client::HostedClient`, which resolves the core's credential before
-any request and maps SDK errors onto the core's sentinels. New backend-only
-proxy domains belong there, not in the core; a namespace may be shared with
-core controllers (the registry keys by `namespace.function`).
+(`DomainGroup::Hosted`). New backend-only proxy domains belong there, not in
+the core.
 
 Add missing backend routes to the vendored SDK (its unexposed-route registry
 is the route policy the transport enforces) and name them from the core;

@@ -3529,24 +3529,27 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
         "unsupported channel",
     );
 
+    // `auth_oauth_*` (all but `fetch_client_key`) are served by
+    // `openhuman-tinyhumans` now: validation first, then the core's
+    // credential resolution, whose missing-session wording they report.
     for (id, method, params, needle) in [
         (
             20_006,
             "openhuman.auth_oauth_connect",
             json!({ "provider": "github" }),
-            "session JWT required",
+            "no backend session token",
         ),
         (
             20_007,
             "openhuman.auth_oauth_list_integrations",
             json!({}),
-            "session JWT required",
+            "no backend session token",
         ),
         (
             20_008,
             "openhuman.auth_oauth_fetch_integration_tokens",
             json!({ "integrationId": "abc", "key": "secret" }),
-            "session JWT required",
+            "integrationId must be a 24-char hex id",
         ),
         (
             20_009,
@@ -3558,7 +3561,7 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
             20_010,
             "openhuman.auth_oauth_revoke_integration",
             json!({ "integrationId": "abc" }),
-            "session JWT required",
+            "no backend session token",
         ),
     ] {
         let response = rpc(&harness.rpc_base, id, method, params).await;

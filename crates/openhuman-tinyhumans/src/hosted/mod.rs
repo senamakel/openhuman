@@ -15,6 +15,7 @@
 //!   enforced server-side; this is a proxy, not a local implementation)
 
 pub mod announcements;
+pub mod client;
 pub mod billing;
 pub mod referral;
 pub mod team;

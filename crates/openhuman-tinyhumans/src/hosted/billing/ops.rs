@@ -1,4 +1,5 @@
-//! Billing and payment RPC ops — thin adapters that call the hosted API.
+//! Billing and payment RPC ops — thin adapters over the SDK's typed
+//! `payments()` and `coupons()` clients ([`HostedClient`]).
 //!
 //! # Security
 //! All methods require a valid app-session JWT stored via `auth_store_session`.

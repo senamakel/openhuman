@@ -49,7 +49,7 @@ Registered via `all_webhooks_registered_controllers()` (wired in `crates/openhum
 | `webhooks.register_agent` | local router | Register an agent-backed tunnel (routes to triage). |
 | `webhooks.trigger_agent` | triage | Fire triage/agent pipeline directly (source `webhook`/`cron`/`external`); 60s timeouts on triage + apply. |
 
-Backend-proxy methods require a stored session token (`get_session_token`) and call the backend via `BackendOAuthClient`. `list_registrations`, `list_logs` and `clear_logs` return empty results when the router/socket manager isn't initialized; the `register_*`/`unregister_*` ops return an error in that case.
+`list_registrations`, `list_logs` and `clear_logs` return empty results when the router/socket manager isn't initialized; the `register_*`/`unregister_*` ops return an error in that case.
 
 ## Agent tools
 

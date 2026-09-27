@@ -3,7 +3,7 @@
 //! These tests avoid live Composio/backend calls and exercise public helper
 //! surfaces that feed the JSON-RPC and agent-tool paths.
 
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use axum::body::to_bytes;
 use axum::extract::{Request, State};
@@ -14,6 +14,8 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use tempfile::tempdir;
 
+use openhuman_core::agent::prompts::ConnectedIntegration;
+use openhuman_core::config::Config;
 use openhuman_core::core::all::RegisteredController;
 use openhuman_core::integrations::composio::client::{
     create_composio_client, direct_execute, ComposioClientKind,
@@ -52,19 +54,19 @@ use openhuman_core::integrations::composio::{
     all_composio_agent_tools, all_composio_controller_schemas, all_composio_registered_controllers,
     cached_active_integrations, connected_set_hash, connection_identity,
     fetch_connected_integrations, fetch_connected_integrations_status,
-    invalidate_connected_integrations_cache, ComposioActionTool,
-    ComposioClient, FetchConnectedIntegrationsStatus,
+    invalidate_connected_integrations_cache, ComposioActionTool, ComposioClient,
+    FetchConnectedIntegrationsStatus,
 };
-use openhuman_core::config::Config;
-use openhuman_core::agent::prompts::ConnectedIntegration;
 use openhuman_core::security::credentials::{
     AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
+
 use openhuman_core::integrations::IntegrationClient;
 use openhuman_core::security::{AutonomyLevel, SecurityPolicy};
-use tinytools::{PermissionLevel, Tool, ToolCategory, ToolCallOptions};
-use openhuman_core::tools::{
-    ComposioTool};
+use openhuman_core::tools::ComposioTool;
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory};
+
+static ENV_LOCK: &OnceLock<Mutex<()>> = &crate::SHARED_ENV_LOCK;
 
 #[test]
 fn composio_prepare_execute_arguments_normalizes_calendar_and_notion_payloads() {
@@ -844,6 +846,10 @@ async fn composio_backend_factory_uses_stored_session_and_configured_backend() {
 
 #[tokio::test]
 async fn composio_controller_registry_and_scope_handlers_cover_validation_edges() {
+    let _env_lock = ENV_LOCK
+        .get_or_init(|| Mutex::new(()))
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner());
     crate::tinyhumans_boot::boot();
     // The controller loads config through the process workspace resolver. Pin
     // this test to a null memory driver so its fail-closed assertion does not

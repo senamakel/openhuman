@@ -466,25 +466,28 @@ export async function clickTestIdWithPointer(
   const el = await waitForTestId(testId, timeout);
   const location = await el.getLocation();
   const size = await el.getSize();
-  await browser.performActions([
-    {
-      type: 'pointer',
-      id: 'mouse1',
-      parameters: { pointerType: 'mouse' },
-      actions: [
-        {
-          type: 'pointerMove',
-          duration: 10,
-          x: Math.round(location.x + size.width / 2),
-          y: Math.round(location.y + size.height / 2),
-        },
-        { type: 'pointerDown', button: 0 },
-        { type: 'pause', duration: 50 },
-        { type: 'pointerUp', button: 0 },
-      ],
-    },
-  ]);
-  await browser.releaseActions();
+  try {
+    await browser.performActions([
+      {
+        type: 'pointer',
+        id: 'mouse1',
+        parameters: { pointerType: 'mouse' },
+        actions: [
+          {
+            type: 'pointerMove',
+            duration: 10,
+            x: Math.round(location.x + size.width / 2),
+            y: Math.round(location.y + size.height / 2),
+          },
+          { type: 'pointerDown', button: 0 },
+          { type: 'pause', duration: 50 },
+          { type: 'pointerUp', button: 0 },
+        ],
+      },
+    ]);
+  } finally {
+    await browser.releaseActions();
+  }
   return el;
 }
 

@@ -9,6 +9,7 @@
 import { waitForAppReady, waitForAuthBootstrap as waitForAuthenticatedCore } from './app-helpers';
 import { triggerAuthDeepLink } from './deep-link-helpers';
 import {
+  clickButton,
   clickText,
   dumpAccessibilityTree,
   textExists,
@@ -851,13 +852,13 @@ export async function logoutViaSettings(logPrefix = '[E2E]') {
   // renders the buttons.
   await navigateViaHash('/settings/account');
 
-  const logoutButton = await browser.$('[data-testid="settings-nav-logout"]');
-  if (!(await logoutButton.isExisting())) {
+  try {
+    await clickButton('Log out', 10_000);
+  } catch (err) {
     const tree = await dumpAccessibilityTree();
     console.log(`${logPrefix} Logout button not found. Tree:\n`, tree.slice(0, 4000));
-    throw new Error('Could not find logout button in Settings');
+    throw new Error('Could not find logout button in Settings', { cause: err });
   }
-  await logoutButton.click();
   console.log(`${logPrefix} Logout clicked through the account action button`);
 
   await browser.pause(2_000);

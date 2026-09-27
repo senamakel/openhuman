@@ -43,8 +43,8 @@ describe('Settings - Advanced Config', function () {
   it('redirects the retired notifications route to account settings', async function () {
     this.timeout(60_000);
     await navigateViaHash('/settings/notifications');
-    const accountPanel = await browser.$('[data-testid="account-panel"]');
-    await accountPanel.waitForExist({ timeout: 15_000 });
+    await waitForText('Account', 15_000);
+    await waitForText('Preferences', 15_000);
   });
 
   it('persists composio trigger triage settings', async function () {
@@ -198,20 +198,16 @@ describe('Settings - Advanced Config', function () {
   it('redirects retired agent chat debug links to the LLM settings surface', async function () {
     this.timeout(90_000);
     await navigateViaHash('/settings/agent-chat');
-    const providersTab = await browser.$('[data-testid="ai-tab-providers"]');
-    await providersTab.waitForExist({ timeout: 15_000 });
-    expect(await providersTab.isDisplayed()).toBe(true);
+    await waitForText('LLM Providers', 15_000);
   });
 
   it('mounts the remaining advanced settings routes', async function () {
     this.timeout(90_000);
     await navigateViaHash('/settings/local-model-debug');
-    const providersTab = await browser.$('[data-testid="ai-tab-providers"]');
-    await providersTab.waitForExist({ timeout: 15_000 });
+    await waitForText('LLM Providers', 15_000);
 
     await navigateViaHash('/settings/about');
-    const checkUpdates = await browser.$('[data-testid="about-check-updates"]');
-    await checkUpdates.waitForExist({ timeout: 15_000 });
+    await waitForText('Check for updates', 15_000);
 
     await navigateViaHash('/settings/llm');
     await waitForText('AI', 20_000);

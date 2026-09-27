@@ -60,8 +60,7 @@ describe('Settings - Channels & Permissions', () => {
     await navigateViaHash('/home');
     await navigateViaHash('/connections?tab=messaging');
 
-    const webChannel = await browser.$('[data-testid="channel-select-web"]');
-    await webChannel.waitForExist({ timeout: 15_000 });
+    await waitForText('Web', 15_000);
     expect(await textExists('Telegram')).toBe(true);
     expect(await textExists('Web')).toBe(true);
 

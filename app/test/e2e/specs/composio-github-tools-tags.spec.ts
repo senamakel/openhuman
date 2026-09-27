@@ -240,17 +240,20 @@ describe('Composio GitHub tools — tags query param flow', () => {
     expect(listed.ok).toBe(true);
     const listedPayload = listed.result as any;
     const tools = listedPayload?.result?.tools ?? listedPayload?.tools ?? [];
-    expect(tools.map((tool: any) => tool.function?.name)).toContain(
-      'GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER'
-    );
+    const selectedAction = tools.find(
+      (tool: any) =>
+        tool.function?.name === 'GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER'
+    )?.function?.name;
+    expect(selectedAction).toBe('GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER');
 
     const executed = await callOpenhumanRpc('openhuman.composio_execute', {
-      tool: 'GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER',
+      tool: selectedAction,
       arguments: { per_page: 30 },
+      connection_id: 'conn-github',
     });
     expect(executed.ok).toBe(true);
 
-    const log = getRequestLog() as Array<{ method: string; url: string }>;
+    const log = getRequestLog() as Array<{ method: string; url: string; body: string }>;
     const listHit = log.find(
       r => r.method === 'GET' && r.url.includes('/agent-integrations/composio/tools')
     );
@@ -259,6 +262,12 @@ describe('Composio GitHub tools — tags query param flow', () => {
       r => r.method === 'POST' && r.url.includes('/agent-integrations/composio/execute')
     );
     expect(execHit).toBeDefined();
+    const executeBody = JSON.parse(execHit!.body);
+    expect(executeBody).toMatchObject({
+      tool: selectedAction,
+      arguments: { per_page: 30 },
+      connectionId: 'conn-github',
+    });
     console.log(`${LOG_PREFIX} GT.4: composio execute confirmed — ${execHit!.url}`);
 
     console.log(`${LOG_PREFIX} GT.4: PASSED`);

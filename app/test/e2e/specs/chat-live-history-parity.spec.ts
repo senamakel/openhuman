@@ -30,6 +30,7 @@ import {
   waitForSocketConnected,
 } from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
+import { clickTestId } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { clearRequestLog, setMockBehavior, startMockServer, stopMockServer } from '../mock-server';
@@ -244,9 +245,7 @@ describe('Chat live/history parity', () => {
       ).__OPENHUMAN_STORE__;
       store?.dispatch({ type: 'chatRuntime/clearAllChatRuntime' });
     });
-    const historyRow = await browser.$(`[data-testid="thread-row-${threadId}"]`);
-    await historyRow.waitForExist({ timeout: 10_000 });
-    await historyRow.click();
+    await clickTestId(`thread-row-${threadId}`, 10_000);
 
     await browser.waitUntil(
       async () => {

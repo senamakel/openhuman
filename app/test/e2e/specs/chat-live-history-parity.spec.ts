@@ -227,13 +227,20 @@ describe('Chat live/history parity', () => {
         (await turnDrained()),
       { timeout: 15_000, timeoutMsg: 'selected thread never rendered its settled final reply' }
     );
-    settled = await replyBlocks();
+    // Use the final streamed sample as the live baseline. The DOM can briefly
+    // expose an earlier assistant message while the thread view is settling,
+    // even after the turn's in-flight marker clears.
+    settled = [...samples].reverse().find(hasFinalReply) ?? [];
     // The activity projection can consolidate adjacent tool rounds into one
     // group. Pin the meaningful structure, then compare the complete live and
     // reloaded projections below.
     expect(settled.some(block => block.kind === 'tool-group-root')).toBe(true);
-    expect(settled.some(block => block.kind === 'text' && block.text.includes(CANARY_FINAL))).toBe(
-      true
+    const finalBlock = settled.find(
+      block => block.kind === 'text' && block.text.includes(CANARY_FINAL)
+    );
+    expect(finalBlock).toBeDefined();
+    expect(finalBlock?.text).toContain(
+      'Paragraph 24: the setting controls how the agent behaves in this case.'
     );
 
     // Reopen through the visible thread list after dropping runtime state, so

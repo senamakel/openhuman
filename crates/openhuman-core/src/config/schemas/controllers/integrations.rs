@@ -5,38 +5,17 @@ use serde_json::{Map, Value};
 use crate::config::rpc as config_rpc;
 use crate::core::all::ControllerFuture;
 
-use super::super::helpers::{
-    deserialize_params, to_json, ComposioTriggerSettingsUpdate, SearchSettingsUpdate,
-};
+use super::super::helpers::{deserialize_params, to_json, ComposioTriggerSettingsUpdate};
 
 pub(super) fn handle_update_search_settings(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         log::debug!("[config][rpc] update_search_settings enter");
-        let update = match deserialize_params::<SearchSettingsUpdate>(params) {
-            Ok(u) => u,
+        let patch = match deserialize_params::<config_rpc::SearchSettingsPatch>(params) {
+            Ok(patch) => patch,
             Err(err) => {
                 log::warn!("[config][rpc] update_search_settings invalid params: {err}");
                 return Err(err);
             }
-        };
-        let patch = config_rpc::SearchSettingsPatch {
-            enabled: update.enabled,
-            enabled_providers: update.enabled_providers,
-            presentation: update.presentation,
-            presentation_provider: update.presentation_provider,
-            parallel_route: update.parallel_route,
-            gemini_route: update.gemini_route,
-            gemini_api_key: update.gemini_api_key,
-            engine: update.engine,
-            max_results: update.max_results,
-            timeout_secs: update.timeout_secs,
-            parallel_api_key: update.parallel_api_key,
-            brave_api_key: update.brave_api_key,
-            querit_api_key: update.querit_api_key,
-            exa_api_key: update.exa_api_key,
-            tavily_api_key: update.tavily_api_key,
-            allowed_domains: update.allowed_domains,
-            allow_all: update.allow_all,
         };
         match config_rpc::load_and_apply_search_settings(patch).await {
             Ok(outcome) => {

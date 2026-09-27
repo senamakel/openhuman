@@ -239,7 +239,7 @@ async fn tools_list_returns_first_level_core_tools() {
     let mut base_names = names
         .iter()
         .copied()
-        .filter(|name| *name != "searxng_search")
+        .filter(|name| !matches!(*name, "searxng_search" | "web_search" | "web_answer"))
         .collect::<Vec<_>>();
     let mut expected_base_names = vec![
         "core.list_tools",

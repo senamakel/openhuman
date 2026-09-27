@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use openhuman_core::api::transport::BackendTransport;
+use openhuman_core::backend::BackendTransport;
 use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{CoreBuilder, DomainSet, ServiceSet, TokenSource};
 use openhuman_core::core::types::HostKind;

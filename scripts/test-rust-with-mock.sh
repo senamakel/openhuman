@@ -137,6 +137,17 @@ if [ -z "${TINYJUICE_TEST_MODULE:-}" ]; then
   export TINYJUICE_TEST_MODULE="$REPO_ROOT/$juice_module"
 fi
 
+# Search JSON-RPC/agent coverage calls the TinySearch module against the mock
+# backend's managed Exa/Gemini routes. Build the pinned submodule so the suite
+# never depends on a published release.
+if [ -z "${TINYSEARCH_TEST_MODULE:-}" ]; then
+  search_manifest="vendor/tinysearch/crates/tinysearch/Cargo.toml"
+  search_module="vendor/tinysearch/target/release/libtinysearch.$module_ext"
+  echo "Building TinySearch test module from the pinned submodule ..."
+  cargo build --release --manifest-path "$search_manifest"
+  export TINYSEARCH_TEST_MODULE="$REPO_ROOT/$search_module"
+fi
+
 # Wallet JSON-RPC E2E sends a recovery phrase only to an attested module. Build
 # artifacts are deliberately not treated as release-pinned recipients, so use
 # the checksum-pinned release archive and its accompanying `modules.toml`.

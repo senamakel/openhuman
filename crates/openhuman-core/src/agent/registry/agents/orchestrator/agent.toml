@@ -236,10 +236,12 @@ named = [
     "shell",
     "git_operations",
     # Quick web/API lookups. A single fact ("what's the capital of X", "latest
-    # version of Y") is one `web_search_tool` / `web_fetch` / `http_request`
-    # call — spawning the `research` worker for that is overkill. Multi-source
-    # crawls, comparisons, and doc digests still delegate to `research`.
+    # version of Y") is one `web_answer_tool` / `web_search_tool` /
+    # `web_fetch` / `http_request` call — spawning the `research` worker for
+    # that is overkill. Multi-source crawls, comparisons, and doc digests
+    # still delegate to `research`.
     "web_search_tool",
+    "web_answer_tool",
     "web_fetch",
     "http_request",
     # Direct memory surface (#4762). Recall/store are the product's core and must

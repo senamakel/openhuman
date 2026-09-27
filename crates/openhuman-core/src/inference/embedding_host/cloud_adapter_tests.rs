@@ -97,3 +97,75 @@ fn env_workspace_scope_is_the_config_dir_not_the_raw_workspace() {
         "returning the raw workspace dir is the regression this guards against"
     );
 }
+
+/// A stored TinyHumans API key authenticates cloud embeddings on its own (no
+/// session), sent as `Authorization: Bearer <key>` like managed inference.
+#[tokio::test]
+async fn api_key_alone_authenticates_cloud_embeddings() {
+    use axum::{http::HeaderMap, routing::post, Json, Router};
+    use std::sync::{Arc, Mutex};
+
+    let seen: Arc<Mutex<Option<String>>> = Arc::default();
+    let app = Router::new().route(
+        "/openai/v1/embeddings",
+        post({
+            let seen = Arc::clone(&seen);
+            move |headers: HeaderMap| async move {
+                *seen.lock().unwrap() = headers
+                    .get("authorization")
+                    .and_then(|v| v.to_str().ok())
+                    .map(str::to_owned);
+                Json(serde_json::json!({
+                    "object": "list",
+                    "data": [{ "object": "embedding", "index": 0, "embedding": [0.5, 0.25] }],
+                    "model": "m"
+                }))
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let state = tempfile::tempdir().unwrap();
+    crate::security::credentials::api_key::store_api_key_in(state.path(), false, "tiny_test_emb")
+        .unwrap();
+    let provider = OpenHumanCloudEmbeddingModel::new(
+        Some(format!("http://{addr}")),
+        Some(state.path().to_path_buf()),
+        false,
+        "m",
+        2,
+    );
+
+    let vectors = provider
+        .embed(&["hello".to_string()])
+        .await
+        .expect("an API key alone embeds");
+    assert_eq!(vectors.len(), 1);
+    assert_eq!(
+        seen.lock().unwrap().as_deref(),
+        Some("Bearer tiny_test_emb")
+    );
+}
+
+/// The key is never put on a plaintext non-loopback wire.
+#[tokio::test]
+async fn api_key_is_refused_over_plaintext_non_loopback() {
+    let state = tempfile::tempdir().unwrap();
+    crate::security::credentials::api_key::store_api_key_in(state.path(), false, "tiny_test_emb")
+        .unwrap();
+    let provider = OpenHumanCloudEmbeddingModel::new(
+        Some("http://embeddings.example.test".into()),
+        Some(state.path().to_path_buf()),
+        false,
+        "m",
+        2,
+    );
+    let err = provider.embed(&["hello".to_string()]).await.unwrap_err();
+    assert!(
+        err.to_string()
+            .contains("refusing to send the TinyHumans API key"),
+        "{err}"
+    );
+}

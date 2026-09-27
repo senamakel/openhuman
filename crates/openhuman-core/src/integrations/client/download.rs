@@ -2,7 +2,7 @@
 //! download route bypasses the JSON envelope and needs `Content-Type` /
 //! `Content-Disposition` metadata the SDK's binary primitive doesn't expose.
 
-use crate::api::transport::BackendTransportError;
+use crate::backend::transport::BackendTransportError;
 
 use super::construct::IntegrationClient;
 use super::requests::{emit_backend_egress, enforce_backend_egress};
@@ -44,14 +44,13 @@ fn parse_content_disposition_filename(value: &str) -> Option<String> {
 impl IntegrationClient {
     /// Authenticated GET returning the raw response body plus content-type and
     /// any `Content-Disposition` filename. Used for backend download routes
-    /// that `302`-redirect to a presigned S3 URL: reqwest follows redirects by
-    /// default and its redirect policy strips sensitive headers (including
-    /// `Authorization`) on cross-host hops, so the bearer token never leaks to
-    /// S3 while the presigned URL still authorizes the fetch.
+    /// that redirect to a presigned S3 URL. The storage hop uses a separate
+    /// client with no backend credential headers.
     pub async fn get_bytes(
         &self,
         path: &str,
     ) -> anyhow::Result<(bytes::Bytes, Option<String>, Option<String>)> {
+        self.validate_credential_endpoint()?;
         enforce_backend_egress(path)?;
         emit_backend_egress(path);
         self.ensure_budget_available(path).await?;
@@ -64,22 +63,50 @@ impl IntegrationClient {
         if !is_file_download {
             anyhow::bail!("route is intentionally not exposed by the SDK: GET {route}");
         }
-        let url = crate::api::config::api_url(&self.backend_url, path);
+        let url = crate::util::url::join_url(&self.backend_url, path);
         tracing::debug!("[integrations] GET(bytes) {}", url);
 
-        let resp = self
+        let mut resp = self
             .download_client
             .get(&url)
-            .header("Authorization", format!("Bearer {}", self.auth_token))
+            .headers(self.auth_headers()?)
             .send()
             .await
             .map_err(|error| Self::report_transport_error(error, "get_bytes", path, &url))?;
+        // Follow redirects manually so every hop is checked. The authenticated
+        // first request is separate from the credential-free storage client.
+        for _ in 0..10 {
+            if !resp.status().is_redirection() {
+                break;
+            }
+            let location = resp
+                .headers()
+                .get(reqwest::header::LOCATION)
+                .ok_or_else(|| anyhow::anyhow!("download redirect missing Location"))?
+                .to_str()?;
+            let redirect_url = resp.url().join(location)?;
+            anyhow::ensure!(
+                crate::inference::provider::openhuman_backend_model::is_safe_endpoint_for_managed_bearer(redirect_url.as_str()),
+                "download redirect requires HTTPS or a loopback HTTP endpoint"
+            );
+            // Redirect hops never carry backend headers, including x-api-key.
+            resp = self
+                .presigned_client
+                .get(redirect_url)
+                .send()
+                .await
+                .map_err(|error| Self::report_transport_error(error, "get_bytes", path, &url))?;
+        }
+        anyhow::ensure!(
+            !resp.status().is_redirection(),
+            "download exceeded the maximum number of redirects"
+        );
         let status = resp.status();
         if !status.is_success() {
             let body_text = resp.text().await.unwrap_or_default();
             let body =
                 serde_json::from_str(&body_text).unwrap_or(serde_json::Value::String(body_text));
-            return Err(Self::map_transport_error(
+            return Err(self.map_transport_error(
                 BackendTransportError::Status {
                     status: status.as_u16(),
                     body,

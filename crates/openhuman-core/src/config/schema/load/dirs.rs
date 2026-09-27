@@ -39,7 +39,9 @@ pub const ACTION_DIR_ENV_VAR: &str = "OPENHUMAN_ACTION_DIR";
 pub const MEMORY_SYNC_INTERVAL_SECS_ENV_VAR: &str = "OPENHUMAN_MEMORY_SYNC_INTERVAL_SECS";
 
 fn default_root_dir_name() -> &'static str {
-    if crate::api::config::is_staging_app_env(crate::api::config::app_env_from_env().as_deref()) {
+    if crate::config::app_env::is_staging_app_env(
+        crate::config::app_env::app_env_from_env().as_deref(),
+    ) {
         ".openhuman-staging"
     } else {
         ".openhuman"

@@ -47,7 +47,7 @@ impl RuntimeBuilder {
     }
 
     /// The `x-sdk-name` this runtime reports to the backend.
-    pub fn product_identity(mut self, identity: openhuman_embed::ProductIdentity) -> Self {
+    pub fn product_identity(mut self, identity: crate::backend::ProductIdentity) -> Self {
         self.install.product_identity = Some(identity);
         self
     }

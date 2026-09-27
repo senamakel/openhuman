@@ -1265,9 +1265,9 @@ const messages: TranslationMap = {
   'onboarding.custom.search.title': 'Ricerca web',
   'onboarding.custom.search.subtitle': 'Come OpenHuman cerca sul web per tuo conto.',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman usa un backend di ricerca gestito. Nessuna chiave necessaria.',
+    'La ricerca web funziona subito: Exa e Gemini sono inclusi con TinyHumans, senza chiave API.',
   'onboarding.custom.search.configureDesc':
-    'Porta la tua chiave di provider di ricerca (Tavily, Brave, ecc.). Configura in Impostazioni › Strumenti.',
+    'Exa e Gemini sono inclusi. Aggiungi altri fornitori di ricerca con la tua chiave API in Impostazioni › Strumenti.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Come OpenHuman genera gli embedding vettoriali per la ricerca nella memoria semantica.',
@@ -1520,36 +1520,7 @@ const messages: TranslationMap = {
   'settings.search.title': 'Motore di ricerca',
   'settings.search.menuDesc':
     'Imposta come predefinito la ricerca gestita da OpenHuman oppure collega il tuo provider con una chiave API.',
-  'settings.search.description':
-    "Scegli il motore di ricerca utilizzato dall'agente oppure disabilita completamente gli strumenti di ricerca. Gestito utilizza il backend di OpenHuman (nessuna configurazione). Parallelo, Brave, Querit, Exa e Tavily vengono eseguiti direttamente dalla tua macchina usando la tua chiave API.",
-  'settings.search.engineAria': 'Motore di ricerca',
-  'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc':
-    "Rimuovi gli strumenti di ricerca dal contesto dell'agente e dall'elenco degli strumenti disponibili.",
-  'settings.search.engineManagedLabel': 'OpenHuman Gestito',
-  'settings.search.engineManagedDesc':
-    'Predefinito. Instradato tramite il backend di OpenHuman, attualmente basato su Exa: nessuna chiave API necessaria.',
-  'settings.search.localManagedUnavailable':
-    'La ricerca gestita da OpenHuman non è disponibile per gli utenti locali. Aggiungi la tua chiave API Parallel, Brave, Querit, Exa o Tavily per abilitare la ricerca web.',
-  'settings.search.engineParallelLabel': 'parallelo',
-  'settings.search.engineParallelDesc':
-    'Direct Parallel API: ricerca, estrai, chatta, ricerca, arricchisci, strumenti per set di dati.',
-  'settings.search.engineBraveLabel': 'Brave Cerca',
-  'settings.search.engineBraveDesc':
-    'Ricerca Diretta Brave API: strumenti per web, notizie, immagini e video.',
-  'settings.search.engineQueritLabel': 'Querit',
-  'settings.search.engineQueritDesc':
-    'Direct Querit API: ricerca sul web con filtri per sito, intervallo di tempo, paese e lingua.',
-  'settings.search.engineExaLabel': 'Exa',
-  'settings.search.engineExaDesc':
-    'Ricerca neurale basata su Exa. Richiede la tua chiave API Exa. Aggiunge strumenti di ricerca, pagine simili e contenuti delle pagine.',
-  'settings.search.engineTavilyLabel': 'Tavily',
-  'settings.search.engineTavilyDesc':
-    'Ricerca sul web, di notizie e finanziaria con Tavily. Richiede la tua chiave API Tavily. Aggiunge strumenti di ricerca ed estrazione di pagine.',
-  'settings.search.statusConfigured': 'Configurato',
   'settings.search.statusNeedsKey': 'Richiede la chiave API',
-  'settings.search.fallbackToManaged':
-    'Nessuna chiave configurata: la ricerca passerà a Gestito finché non viene salvata una chiave.',
   'settings.search.getApiKey': 'Ottieni chiave API',
   'settings.search.save': 'Salva',
   'settings.search.clear': 'Cancella',
@@ -1558,17 +1529,7 @@ const messages: TranslationMap = {
   'settings.search.statusSaving': 'Salvataggio...',
   'settings.search.statusSaved': 'Salvato.',
   'settings.search.statusError': 'Non riuscito',
-  'settings.search.parallelKeyLabel': 'Parallel API chiave',
-  'settings.search.braveKeyLabel': 'Brave Cerca chiave API',
-  'settings.search.queritKeyLabel': 'Chiave Querit API',
-  'settings.search.exaKeyLabel': 'Chiave API Exa',
   'settings.search.placeholderStored': '•••••••• (memorizzato)',
-  'settings.search.placeholderParallel': 'pk_...',
-  'settings.search.placeholderBrave': 'BSA...',
-  'settings.search.placeholderQuerit': 'Chiave Querit API',
-  'settings.search.placeholderExa': 'Incolla la tua chiave API Exa…',
-  'settings.search.tavilyKeyLabel': 'Chiave API Tavily',
-  'settings.search.placeholderTavily': 'tvly-...',
   'settings.search.allowedSitesLabel': 'Siti web consentiti',
   'settings.search.allowedSitesHint':
     "Inserisci, uno per riga, gli host che l'assistente può aprire e leggere tramite il recupero web e lo strumento browser, ad es. reuters.com. Un host include anche i suoi sottodomini. La ricerca web stessa non è limitata da questo elenco.",
@@ -1582,6 +1543,53 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAll': 'Blocca tutto',
   'settings.search.accessBlockAllHint':
     "Tutti gli accessi web sono bloccati: l'assistente non può aprire o leggere alcun sito web.",
+  'settings.search.description':
+    'La ricerca può usare più fornitori contemporaneamente. Exa e Gemini sono inclusi con TinyHumans e non richiedono configurazione; gli altri fornitori funzionano con la tua chiave API. Ogni ruolo qui sotto usa il primo fornitore disponibile e ripiega sul successivo.',
+  'settings.search.localManagedUnavailable':
+    "I fornitori inclusi con TinyHumans richiedono l'accesso. Attiva un fornitore con la tua chiave API per usare la ricerca web in una sessione locale.",
+  'settings.search.enabledLabel': 'Ricerca web',
+  'settings.search.enabledDesc':
+    "Consente all'agente di cercare sul web, rispondere a domande da fonti web e leggere pagine.",
+  'settings.search.providersTitle': 'Fornitori',
+  'settings.search.providersDesc':
+    'Attiva i fornitori che preferisci. Possono essere attivi più fornitori insieme; i ruoli qui sotto decidono quale provare per primo.',
+  'settings.search.providerToggleAria': 'Usa {provider}',
+  'settings.search.routeAria': 'Connessione di {provider}',
+  'settings.search.routeManaged': 'Incluso con TinyHumans',
+  'settings.search.routeDirect': 'Chiave personale',
+  'settings.search.apiKeyLabel': 'Chiave API di {provider}',
+  'settings.search.placeholderKey': 'Incolla la tua chiave API di {provider}',
+  'settings.search.baseUrlLabel': "URL dell'istanza",
+  'settings.search.baseUrlSave': 'Salva URL',
+  'settings.search.statusReady': 'Pronto',
+  'settings.search.statusSignInRequired': 'Accesso richiesto',
+  'settings.search.statusOff': 'Disattivato',
+  'settings.search.deepResearchAvailable':
+    "La ricerca approfondita è disponibile: l'agente può chiedere a {provider} un report più lungo e accurato.",
+  'settings.search.deepResearchHint':
+    'Aggiungi la tua chiave di {provider} per sbloccare la ricerca approfondita.',
+  'settings.search.rolesTitle': 'Ruoli',
+  'settings.search.rolesDesc':
+    "Ogni ruolo è uno strumento per l'agente. Lo gestisce il primo fornitore disponibile; gli altri sono alternative, in ordine.",
+  'settings.search.roleSearch': 'Ricerca',
+  'settings.search.roleSearchDesc': 'Risultati web ordinati per una query.',
+  'settings.search.roleAnswer': 'Risposta',
+  'settings.search.roleAnswerDesc': 'Una risposta scritta basata su fonti web, con citazioni.',
+  'settings.search.roleContents': 'Contenuti',
+  'settings.search.roleContentsDesc': 'Recupera le pagine indicate e ne estrae il testo.',
+  'settings.search.roleServedBy': 'Gestito da {provider}',
+  'settings.search.roleNoProvider':
+    "Nessun fornitore disponibile: al momento l'agente non ha questo strumento.",
+  'settings.search.roleMoveUp': 'Sposta {provider} su',
+  'settings.search.roleMoveDown': 'Sposta {provider} giù',
+  'settings.search.roleRemove': 'Rimuovi {provider}',
+  'settings.search.roleAdd': 'Aggiungi {provider}',
+  'settings.search.roleReset': 'Ripristina predefiniti',
+  'settings.search.roleUnavailable': 'Non disponibile',
+  'settings.search.advancedTitle': 'Avanzate',
+  'settings.search.exposeProviderTools': 'Mostra gli strumenti propri di ogni fornitore',
+  'settings.search.exposeProviderToolsDesc':
+    "Fornisce all'agente gli strumenti di ogni fornitore attivo al posto di uno strumento per ruolo. Occupa più finestra di contesto.",
   // ─── Settings global search bar ────────────────────────────
   'settings.embeddings.title': 'Incorporamenti',
   'settings.embeddings.description':
@@ -3449,6 +3457,12 @@ const messages: TranslationMap = {
   'conversations.tools.search.found.one': '{count} risultato trovato',
   'conversations.tools.search.found.other': '{count} risultati trovati',
   'conversations.tools.search.via': 'tramite {provider}',
+  'conversations.tools.search.viaAfter': 'tramite {provider}, dopo {fallback}',
+  'conversations.tools.search.sources.one': '{count} fonte',
+  'conversations.tools.search.sources.other': '{count} fonti',
+  'conversations.tools.search.researching': 'Ricerca ancora in corso',
+  'conversations.tools.search.balanceLow':
+    'Il saldo TinyHumans non basta per la ricerca inclusa. Ricarica il saldo o aggiungi una tua chiave per un fornitore di ricerca in Impostazioni.',
   'conversations.tools.readFile.active': 'Lettura del file',
   'conversations.tools.readFile.done': 'File letto',
   'conversations.tools.writeFile.active': 'Scrittura del file',
@@ -7135,7 +7149,6 @@ const messages: TranslationMap = {
   'migration.badgePreview': 'Anteprima',
   'migration.badgeImported': 'Importati',
   'desktop.statusModuleFailed': 'Non disponibile',
-  'settings.search.apiKeysHeading': 'Chiavi API',
   'voice.providers.alwaysOn': 'Sempre attivo',
   'voice.routing.testOk': 'In corso',
   'voice.routing.testFailed': 'Non riuscito',
@@ -7197,9 +7210,7 @@ const messages: TranslationMap = {
   'channels.connectedDesc': 'Pronto a inviare e ricevere messaggi. Scegline uno come predefinito.',
   'channels.availableDesc': 'Chat app che puoi collegare. Aprire uno per impostarlo.',
   'settings.about.resources': 'Risorse',
-  'settings.search.keyStored': 'Conservazione',
-  'settings.search.apiKeysDesc':
-    'Chiavi per i fornitori diretti. Rimangono su questo dispositivo e vengono utilizzati solo quando il motore è selezionato.',
+  'settings.search.keyStored': 'Salvata',
   'settings.embeddings.modelCardTitle': 'Modello e dimensioni',
   'mcp.rows.searchPlaceholder': 'Cerca server...',
   'mcp.tab.section.clients': 'Clienti',

@@ -67,17 +67,21 @@ pub(super) fn static_token_provider(token: String) -> TokenProvider {
     })
 }
 
-/// Build a provider that reads the latest session token from the profile store
-/// on every call.
+/// Build a provider that reads the latest app-session token from the profile
+/// store on every call. The channel relay requires a user session.
 ///
 /// This is the **live-refresh** path used by `handle_connect_with_session`:
 /// when the loop retries after a disconnect it will see any token that was
 /// refreshed or re-stored since the previous attempt.
 pub(crate) fn token_provider_from_config(config: Arc<crate::config::Config>) -> TokenProvider {
     Arc::new(move || {
-        crate::api::jwt::get_session_token(&config)
+        let token = crate::security::credentials::session_support::get_session_token(&config)
             .map_err(|e| format!("failed to read session token: {e}"))?
-            .ok_or_else(|| "no session token stored — user must log in first".to_string())
+            .ok_or_else(|| "no session token stored — user must log in first".to_string())?;
+        if crate::security::credentials::session_support::is_local_session_token(&token) {
+            return Err("offline local session cannot connect to hosted socket".to_string());
+        }
+        Ok(token)
     })
 }
 

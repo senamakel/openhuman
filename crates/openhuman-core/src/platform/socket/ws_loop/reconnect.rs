@@ -9,7 +9,7 @@ use parking_lot::Mutex;
 use tokio::sync::{mpsc, watch};
 use tokio::time::{Duration, Instant};
 
-use crate::api::models::socket::ConnectionStatus;
+use crate::platform::socket::models::ConnectionStatus;
 
 use super::connect::{run_connection, ReconnectContext};
 use crate::platform::socket::manager::{emit_state_change, SharedState};
@@ -101,7 +101,7 @@ pub(crate) async fn ws_loop(
     // BACKEND_URL is configured as `http://` and the edge forces TLS), we
     // follow the Location header and pin the resolved URL here so subsequent
     // reconnects skip the redirect round-trip entirely.
-    let mut ws_url = crate::api::socket::websocket_url(&url);
+    let mut ws_url = crate::platform::socket::url::websocket_url(&url);
     // What the next attempt is recovering from, so the handshake can log how
     // long the socket was down and how many attempts it took (#6256).
     let mut reconnect = ReconnectContext::default();

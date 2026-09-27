@@ -98,10 +98,10 @@ pub struct CoreContext {
     /// TinyHumans backend through, when the host supplied one via
     /// [`CoreBuilder::backend_transport`](crate::core::runtime::CoreBuilder::backend_transport).
     /// `None` means "fall back to the process-global transport" — see
-    /// [`crate::api::transport::resolve_backend_transport`] for the order.
+    /// [`crate::backend::transport::resolve_backend_transport`] for the order.
     /// Inherited unchanged by every context derived through
     /// [`CoreContext::derive_with`].
-    backend_transport: Option<Arc<dyn crate::api::transport::BackendTransport>>,
+    backend_transport: Option<Arc<dyn crate::backend::transport::BackendTransport>>,
 }
 
 /// Per-agent overrides layered onto a booted context by
@@ -238,7 +238,7 @@ impl CoreContext {
         domains: crate::core::runtime::DomainSet,
         tool_groups: crate::tools::toolpacks::ToolGroups,
         preloaded_config: Option<crate::config::Config>,
-        backend_transport: Option<Arc<dyn crate::api::transport::BackendTransport>>,
+        backend_transport: Option<Arc<dyn crate::backend::transport::BackendTransport>>,
     ) -> anyhow::Result<(Arc<CoreContext>, bool, Option<crate::config::Config>)> {
         log::debug!(
             "[core-context] init: host_kind={host_kind:?} domains={domains:?} \
@@ -449,7 +449,9 @@ impl CoreContext {
     }
 
     /// The backend transport bound to this context, if the host supplied one.
-    pub fn backend_transport(&self) -> Option<Arc<dyn crate::api::transport::BackendTransport>> {
+    pub fn backend_transport(
+        &self,
+    ) -> Option<Arc<dyn crate::backend::transport::BackendTransport>> {
         self.backend_transport.clone()
     }
 

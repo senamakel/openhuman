@@ -6,7 +6,7 @@ use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::manager::global_socket_manager;
-use crate::api::models::socket::{ConnectionStatus, SocketState};
+use crate::platform::socket::models::{ConnectionStatus, SocketState};
 
 // ---------------------------------------------------------------------------
 // Schema catalog

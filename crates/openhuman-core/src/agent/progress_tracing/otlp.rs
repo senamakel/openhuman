@@ -7,9 +7,9 @@ use sha2::{Digest, Sha256};
 
 use super::langfuse::{environment_for_base, ingestion_url, skip_push};
 use super::types::{SpanKind, SpanStatus, TraceSpan};
-use crate::api::jwt::bearer_authorization_value;
 use crate::config::Config;
-use crate::security::credentials::session_support::require_live_session_token;
+use crate::security::credentials::jwt::bearer_authorization_value;
+use crate::security::credentials::session_support::direct_backend_credential;
 
 // The backend JSON parser caps requests at 10 MiB. A generation can carry a
 // 200 KiB structured prompt, so use a much smaller transport batch.
@@ -459,9 +459,20 @@ pub(super) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
     if !url.starts_with("http") {
         return Err("Langfuse backend proxy URL is unavailable".to_string());
     }
-    let token = require_live_session_token(config)?;
-    let (product_header, product_value) = crate::api::product::product_identity_header();
-    let client = reqwest::Client::new();
+    // No TinyHumans connection, or no usable credential (signed out, offline
+    // local session): a configured state, so skip quietly rather than failing
+    // every turn's push.
+    let token = match direct_backend_credential(config, "langfuse otlp push") {
+        Some(crate::security::credentials::session_support::BackendCredential::Session(token)) => {
+            token
+        }
+        _ => return Ok(()),
+    };
+    // Backend traffic: the transport's client carries the host's attribution
+    // headers (product identity, versions).
+    let client = crate::backend::resolve_backend_transport()
+        .map_err(|err| format!("Langfuse OTLP push has no backend transport: {err}"))?
+        .http_client(crate::backend::TransportProfile::Api);
     for payload in otlp_requests(spans, environment) {
         let response = client
             .post(&url)
@@ -469,7 +480,6 @@ pub(super) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
                 reqwest::header::AUTHORIZATION,
                 bearer_authorization_value(&token),
             )
-            .header(product_header.clone(), product_value.clone())
             .timeout(std::time::Duration::from_secs(10))
             .json(&payload)
             .send()

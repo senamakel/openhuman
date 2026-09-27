@@ -23,10 +23,72 @@ impl OpenHumanTurnPrelude {
             actions.len(),
             self.agent_definition_id
         );
+        // Search role tools ride in the same list; each rehydration pass
+        // keeps only the names it owns.
+        let mut actions = actions;
+        actions.extend(super::super::recorded_tools::recorded_search_tools(
+            recorded.specs(),
+        ));
         self.mutable
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .recorded_integration_actions = actions;
+    }
+
+    /// Executors for tool declarations the resumed thread was sent that the
+    /// live surface did not supply this turn.
+    ///
+    /// * Integration actions stay executable even when this process has not
+    ///   (re)fetched their integration yet — only for an agent that carries
+    ///   integration actions at all.
+    /// * Search role tools stay declared even when no provider is usable now
+    ///   (signed out, provider turned off); a call answers with an actionable
+    ///   error instead of an unknown-tool failure.
+    pub(super) fn rebuilt_recorded_tools(
+        &self,
+        definition: &crate::agent::harness::definition::AgentDefinition,
+        base: &[Box<dyn tinytools::Tool>],
+        synthesized: &[Box<dyn tinytools::Tool>],
+        integrations: &[crate::agent::prompts::ConnectedIntegration],
+        integrations_are_authoritative: bool,
+    ) -> Vec<Box<dyn tinytools::Tool>> {
+        let recorded = self
+            .mutable
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .recorded_integration_actions
+            .clone();
+        let mut rebuilt = Vec::new();
+        if definition.subagents.iter().any(|entry| {
+            matches!(
+                entry,
+                crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
+                    if wildcard.matches_all()
+            )
+        }) {
+            rebuilt = super::super::recorded_tools::rehydrate_integration_actions(
+                &recorded,
+                synthesized,
+                integrations,
+                integrations_are_authoritative,
+            );
+            if !rebuilt.is_empty() {
+                log::info!(
+                    "[session] rebuilt {} recorded integration action(s) the live integrations did not supply agent={}",
+                    rebuilt.len(),
+                    self.agent_definition_id
+                );
+            }
+        }
+        #[cfg(feature = "modules")]
+        rebuilt.extend(super::super::recorded_tools::rehydrate_search_tools(
+            &recorded,
+            &[base, synthesized],
+            &self.agent_definition_id,
+        ));
+        #[cfg(not(feature = "modules"))]
+        let _ = base;
+        rebuilt
     }
 
     pub(super) async fn refresh_turn_boundary(&self, cold: bool) {

@@ -75,14 +75,15 @@ impl EventHandler<DomainEvent> for SessionExpiredSubscriber {
                     scheduler_gate::set_signed_out(false);
                     return;
                 }
-                let is_local_session = crate::api::jwt::get_session_token(&config)
-                    .ok()
-                    .flatten()
-                    .is_some_and(|token| {
-                        crate::security::credentials::session_support::is_local_session_token(
-                            &token,
-                        )
-                    });
+                let is_local_session =
+                    crate::security::credentials::jwt::get_session_token(&config)
+                        .ok()
+                        .flatten()
+                        .is_some_and(|token| {
+                            crate::security::credentials::session_support::is_local_session_token(
+                                &token,
+                            )
+                        });
                 if is_local_session {
                     tracing::warn!(
                         source = %source,

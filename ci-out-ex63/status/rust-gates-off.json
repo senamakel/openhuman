@@ -1,0 +1,48 @@
+{
+  "name": "rust-gates-off",
+  "heavyWaitS": 0,
+  "targetDir": "/scratch/target/gatesoff",
+  "targetBytes": 2388169436,
+  "checks": [
+    {
+      "name": "gate-contract-tests",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:02:50.159Z",
+      "end": "2026-09-27T18:07:16.581Z",
+      "durationS": 266,
+      "peakRssMiB": 8521
+    },
+    {
+      "name": "gate-contract-tests-features",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:07:16.582Z",
+      "end": "2026-09-27T18:10:06.815Z",
+      "durationS": 170,
+      "peakRssMiB": 8999
+    },
+    {
+      "name": "kernel-floor",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:10:06.815Z",
+      "end": "2026-09-27T18:10:07.677Z",
+      "durationS": 1,
+      "peakRssMiB": 0
+    },
+    {
+      "name": "dep-sim-calibration",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:10:07.677Z",
+      "end": "2026-09-27T18:10:07.911Z",
+      "durationS": 0,
+      "peakRssMiB": 0
+    }
+  ]
+}

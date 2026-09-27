@@ -30,14 +30,15 @@ pub(super) fn check_config_semantics(config: &Config, items: &mut Vec<Diagnostic
     {
         items.push(DiagnosticItem::ok(cat, format!("api_url: {url}")));
     } else {
-        let resolved = crate::api::config::effective_api_url(&config.api_url);
+        let resolved = crate::backend::inference_base_url(&config.api_url)
+            .unwrap_or_else(|_| "no hosted backend".to_string());
         items.push(DiagnosticItem::ok(
             cat,
             format!("api_url: (unset) resolved to {resolved}"),
         ));
     }
 
-    match crate::api::jwt::get_session_token(config) {
+    match crate::security::credentials::jwt::get_session_token(config) {
         Ok(Some(token)) if !token.trim().is_empty() => {
             items.push(DiagnosticItem::ok(cat, "signed in with app session JWT"));
         }

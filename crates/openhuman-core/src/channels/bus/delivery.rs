@@ -27,8 +27,8 @@ pub(super) async fn delete_channel_message(channel: &str, message_id: &str) {
             );
         }
         Err(err) => {
-            if let Some(crate::api::rest::BackendApiError::MessageNotFound { .. }) =
-                err.downcast_ref::<crate::api::rest::BackendApiError>()
+            if let Some(crate::backend::BackendApiError::MessageNotFound { .. }) =
+                err.downcast_ref::<crate::backend::BackendApiError>()
             {
                 tracing::info!(
                     "[channel-inbound] delete channel='{}' msg_id={} — message already gone provider-side (404), nothing to clean up",
@@ -183,11 +183,13 @@ pub(super) async fn finalize_channel_reply(
     }
 }
 
-/// Construct the REST client + session JWT shared by every outbound
-/// channel call on this turn. Returns `None` and logs if either is
+/// Construct the REST client + backend credential (API key or session JWT)
+/// shared by every outbound channel call on this turn. Returns `None` and logs if either is
 /// unavailable so the caller can bail quietly.
-pub(super) async fn build_channel_client() -> Option<(crate::api::rest::BackendOAuthClient, String)>
-{
+pub(super) async fn build_channel_client() -> Option<(
+    crate::backend::BackendClient,
+    crate::security::credentials::session_support::BackendCredential,
+)> {
     let config = match crate::config::rpc::load_config_with_timeout().await {
         Ok(c) => c,
         Err(e) => {
@@ -195,19 +197,25 @@ pub(super) async fn build_channel_client() -> Option<(crate::api::rest::BackendO
             return None;
         }
     };
-    let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-    let jwt = match crate::api::jwt::get_session_token(&config) {
-        Ok(Some(t)) => t,
-        Ok(None) => {
-            tracing::error!("[channel-inbound] no session JWT — cannot send");
+    let jwt = match crate::security::credentials::session_support::get_session_token(&config) {
+        Ok(Some(token))
+            if !crate::security::credentials::session_support::is_local_session_token(&token) =>
+        {
+            crate::security::credentials::session_support::BackendCredential::Session(token)
+        }
+        Ok(_) => {
+            tracing::error!("[channel-inbound] no hosted user session — cannot send");
             return None;
         }
         Err(e) => {
-            tracing::error!("[channel-inbound] failed to get session token: {}", e);
+            tracing::error!(
+                "[channel-inbound] no backend credential — cannot send: {}",
+                e
+            );
             return None;
         }
     };
-    match crate::api::rest::BackendOAuthClient::new(&api_url) {
+    match crate::backend::BackendClient::from_config(&config) {
         Ok(c) => Some((c, jwt)),
         Err(e) => {
             tracing::error!("[channel-inbound] failed to create API client: {}", e);
@@ -226,20 +234,26 @@ pub(super) async fn send_channel_reply(channel: &str, text: &str) {
         }
     };
 
-    let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-    let jwt = match crate::api::jwt::get_session_token(&config) {
-        Ok(Some(t)) => t,
-        Ok(None) => {
-            tracing::error!("[channel-inbound] no session JWT — cannot reply");
+    let jwt = match crate::security::credentials::session_support::get_session_token(&config) {
+        Ok(Some(token))
+            if !crate::security::credentials::session_support::is_local_session_token(&token) =>
+        {
+            crate::security::credentials::session_support::BackendCredential::Session(token)
+        }
+        Ok(_) => {
+            tracing::error!("[channel-inbound] no hosted user session — cannot send");
             return;
         }
         Err(e) => {
-            tracing::error!("[channel-inbound] failed to get session token: {}", e);
+            tracing::error!(
+                "[channel-inbound] no backend credential — cannot reply: {}",
+                e
+            );
             return;
         }
     };
 
-    let client = match crate::api::rest::BackendOAuthClient::new(&api_url) {
+    let client = match crate::backend::BackendClient::from_config(&config) {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("[channel-inbound] failed to create API client: {}", e);

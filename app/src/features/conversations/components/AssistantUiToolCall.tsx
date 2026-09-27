@@ -14,7 +14,14 @@ import type {
 } from '../../../store/chatRuntimeSlice';
 import { openUrl } from '../../../utils/openUrl';
 import { ToolFailureCard } from '../aui/ToolFailureCard';
-import { FetchBody, FileBody, ShellBody, WebSearchBody } from '../tools/ToolBodies';
+import { isSearchBalanceError } from '../tools/parseWebSearchResult';
+import {
+  FetchBody,
+  FileBody,
+  SearchBalanceHint,
+  ShellBody,
+  WebSearchBody,
+} from '../tools/ToolBodies';
 import { hasDisplayValue, parsedValue, ToolDataView } from '../tools/ToolDataView';
 import { ToolIcon } from '../tools/ToolIcon';
 import { describeToolCall, parseToolArgs, toolLabel } from '../tools/toolPresentation';
@@ -155,6 +162,12 @@ export function AssistantUiToolCallCard({
           ? FileBody({ args: parsedArgs, result: output })
           : null;
   const showOutput = !searchBody && hasDisplayValue(parsedValue(output));
+  // Managed search out of balance: say so plainly instead of leaving the user
+  // to decode the raw error.
+  const balanceHint =
+    failed &&
+    presentation.category === 'web' &&
+    (isSearchBalanceError(output) || isSearchBalanceError(failure));
 
   return (
     <ToolCall
@@ -214,6 +227,11 @@ export function AssistantUiToolCallCard({
                 target={detail ?? displayName}
                 failure={failure}
               />
+            </div>
+          ) : null}
+          {balanceHint ? (
+            <div className="ps-5.5 pt-1 pb-2">
+              <SearchBalanceHint t={t} />
             </div>
           ) : null}
           {footer ? <div className="ps-5.5">{footer}</div> : null}

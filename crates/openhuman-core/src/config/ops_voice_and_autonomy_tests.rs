@@ -227,16 +227,15 @@ async fn load_and_resolve_api_url_returns_api_url_in_response() {
 }
 
 #[test]
-fn resolve_api_url_keeps_inference_overrides_away_from_backend_credentials() {
+fn resolve_api_url_comes_from_the_backend_transport() {
+    // The override guard itself lives with the transport
+    // (`openhuman-tinyhumans`); the core only forwards the configured value.
     let mut config = Config::default();
-    let expected_backend = crate::api::config::effective_backend_api_url(&None);
-
-    for inference_url in ["http://localhost:11434/v1", "https://openrouter.ai/api/v1"] {
-        config.api_url = Some(inference_url.to_string());
-        let resolved = resolve_backend_api_url(&config);
-        assert_ne!(resolved, inference_url);
-        assert_eq!(resolved, expected_backend);
-    }
+    config.api_url = Some("http://127.0.0.1:4010".to_string());
+    assert_eq!(
+        resolve_backend_api_url(&config).as_deref(),
+        Some("http://127.0.0.1:4010")
+    );
 }
 
 #[tokio::test]

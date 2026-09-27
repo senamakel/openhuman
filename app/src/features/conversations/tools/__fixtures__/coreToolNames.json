@@ -214,6 +214,8 @@
   "web3_swap_execute",
   "web3_swap_quote",
   "web3_swap_routes",
+  "web_answer_tool",
+  "web_contents_tool",
   "web_fetch",
   "web_search_tool",
   "workspace_init",

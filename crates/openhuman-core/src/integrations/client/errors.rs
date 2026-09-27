@@ -1,10 +1,11 @@
 //! Backend error classification for [`IntegrationClient`]: extracting a
 //! readable detail from an error body, mapping transport errors to `anyhow`, and
-//! handling the session-JWT 401 → session-expiry recovery path.
+//! handling the session-JWT 401 → session-expiry recovery path (and the
+//! API-key 401, which must never trigger it).
 
 use std::error::Error as _;
 
-use crate::api::transport::BackendTransportError;
+use crate::backend::transport::BackendTransportError;
 
 use crate::integrations::types::BackendResponse;
 
@@ -45,11 +46,12 @@ pub(crate) fn extract_error_detail(body: &str, max_bytes: usize) -> String {
 /// Handle a `401 Unauthorized` from the OpenHuman backend's
 /// `/agent-integrations/*` routes.
 ///
-/// **Why this 401 is unambiguously a session-JWT rejection.** Every request
-/// from [`IntegrationClient`] attaches the *app-session JWT* as its
-/// `Authorization: Bearer` — [`super::construct::IntegrationClient::new`] resolves the
-/// token via [`crate::api::jwt::get_session_token`], the same token billing / team /
-/// webhooks / memory all use. The backend's auth middleware
+/// **Why this 401 is unambiguously a session-JWT rejection.** Only reached
+/// when the client authenticates with the *app-session JWT* (an API-key client
+/// takes [`handle_api_key_unauthorized`] instead); that JWT rides
+/// `Authorization: Bearer`, resolved by
+/// `session_support::resolve_backend_credential`, the same resolver billing /
+/// team / webhooks / memory all use. The backend's auth middleware
 /// (`backend-openhuman`) is what answers `401 {"error":"Invalid token"}` when
 /// that JWT is expired / revoked / rotated server-side — see the identical
 /// envelope pinned in `inference/provider/config_rejection.rs` and the socket
@@ -144,6 +146,33 @@ fn handle_session_jwt_unauthorized(method: &str, path: &str, url: &str, detail: 
     message
 }
 
+/// Handle a `401` on a request authenticated with a TinyHumans API key.
+///
+/// There is no session to expire: the key is revoked, mistyped or blocked by
+/// its IP allowlist. So this never publishes `DomainEvent::SessionExpired`
+/// (that would sign a desktop user out of a session the request never used)
+/// and uses the same `API_KEY_REJECTED:` sentinel as
+/// `api::rest::flatten_authed_error`. A key that lacks a scope answers `403`,
+/// which stays on the generic non-2xx path.
+fn handle_api_key_unauthorized(method: &str, path: &str, url: &str, detail: &str) -> String {
+    let message = format!(
+        "API_KEY_REJECTED: backend rejected api key on {method} {path} \
+         (401 for {url}: {detail}) — check the configured TinyHumans API key"
+    );
+    tracing::warn!(
+        path = %path,
+        method = %method,
+        "[integrations] backend rejected api key (401)"
+    );
+    crate::core::observability::report_error_or_expected(
+        message.as_str(),
+        "integrations",
+        "api_key_rejected",
+        &[("path", path), ("status", "401"), ("failure", "api_key")],
+    );
+    message
+}
+
 /// Composio **trigger-catalog reads** (`GET /agent-integrations/composio/triggers…`)
 /// where a 401 is a single recoverable read failure rather than whole-session
 /// death. The connection itself is still active — `list_connections` uses the
@@ -203,6 +232,7 @@ impl IntegrationClient {
     }
 
     pub(super) fn map_transport_error(
+        &self,
         error: BackendTransportError,
         method: &str,
         path: &str,
@@ -236,6 +266,16 @@ impl IntegrationClient {
                     value => value.to_string(),
                 };
                 let detail = extract_error_detail(&body_text, MAX_ERROR_BODY_LEN);
+                if status == reqwest::StatusCode::UNAUTHORIZED.as_u16()
+                    && self.credential.is_api_key()
+                {
+                    return anyhow::anyhow!(handle_api_key_unauthorized(
+                        &method_upper,
+                        path,
+                        url,
+                        &detail
+                    ));
+                }
                 if status == reqwest::StatusCode::UNAUTHORIZED.as_u16() {
                     return anyhow::anyhow!(handle_session_jwt_unauthorized(
                         &method_upper,

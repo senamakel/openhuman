@@ -535,14 +535,26 @@ export const SETTINGS_ROUTE_REGISTRY: SettingsRegistryEntry[] = [
   // INTENTIONALLY HIDDEN / DEEP-LINK ONLY (not surfaced in any menu)
   // =========================================================================
   {
-    // search: web search engine settings (Brave / Google / Tavily provider).
+    // search: web search providers (managed Exa and Gemini, plus bring-your-own-key
+    // providers), the per-role provider order, and the allowed-websites list.
     // Surfaced on the Connections page (Intelligence group); route kept for
     // deep-link compatibility but no longer in the settings sidebar.
     id: 'search',
     titleKey: 'settings.search.title',
     section: 'developer',
     devOnly: true,
-    searchKeywords: ['search', 'engine', 'web', 'brave', 'google', 'tavily', 'provider'],
+    searchKeywords: [
+      'search',
+      'web',
+      'provider',
+      'exa',
+      'gemini',
+      'brave',
+      'tavily',
+      'searxng',
+      'answer',
+      'research',
+    ],
   },
   {
     // permissions: moved to developer options, not a standalone home entry.

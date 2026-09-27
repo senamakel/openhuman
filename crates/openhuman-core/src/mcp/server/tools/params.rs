@@ -1,13 +1,13 @@
 use serde_json::{Map, Value};
 
 use crate::core::all;
-use crate::tools::SEARXNG_MAX_RESULTS;
 
 use super::types::{
     McpToolSpec, ToolCallError, DEFAULT_LIMIT, MAX_LIMIT, MEMORY_NOTE_ARGUMENTS,
-    MEMORY_STORE_ARGUMENTS, QUERY_ARGUMENTS, SEARXNG_SEARCH_ARGUMENTS, SUBAGENT_RUN_ARGUMENTS,
-    TREE_BROWSE_ARGUMENTS, TREE_LIST_SOURCES_ARGUMENTS, TREE_READ_CHUNK_ARGUMENTS,
-    TREE_TAG_ARGUMENTS, TREE_TAG_MAX_TAGS, TREE_TAG_MAX_TAG_LENGTH, TREE_TOP_ENTITIES_ARGUMENTS,
+    MEMORY_STORE_ARGUMENTS, QUERY_ARGUMENTS, SEARCH_MAX_RESULTS, SEARXNG_SEARCH_ARGUMENTS,
+    SUBAGENT_RUN_ARGUMENTS, TREE_BROWSE_ARGUMENTS, TREE_LIST_SOURCES_ARGUMENTS,
+    TREE_READ_CHUNK_ARGUMENTS, TREE_TAG_ARGUMENTS, TREE_TAG_MAX_TAGS, TREE_TAG_MAX_TAG_LENGTH,
+    TREE_TOP_ENTITIES_ARGUMENTS, WEB_ANSWER_ARGUMENTS, WEB_SEARCH_ARGUMENTS,
 };
 
 pub fn build_rpc_params(
@@ -15,6 +15,7 @@ pub fn build_rpc_params(
     arguments: Value,
 ) -> Result<Map<String, Value>, ToolCallError> {
     let args = object_arguments(arguments)?;
+    let name = tool_name;
     match tool_name {
         "core.list_tools" | "core.tool_instructions" | "agent.list_subagents" => {
             reject_unexpected_arguments(&args, &[])?;
@@ -38,21 +39,36 @@ pub fn build_rpc_params(
                 ("k".to_string(), Value::from(limit)),
             ]))
         }
-        "searxng_search" => {
-            reject_unexpected_arguments(&args, SEARXNG_SEARCH_ARGUMENTS)?;
+        "searxng_search" | "web_search" => {
+            let allowed = if name == "web_search" {
+                WEB_SEARCH_ARGUMENTS
+            } else {
+                SEARXNG_SEARCH_ARGUMENTS
+            };
+            reject_unexpected_arguments(&args, allowed)?;
             let query = required_non_empty_string(&args, "query")?;
             let mut params = Map::new();
             params.insert("query".to_string(), Value::String(query));
-            if let Some(categories) = optional_string_array(&args, "categories")? {
-                crate::tools::normalize_categories(categories.clone())
-                    .map_err(|err| ToolCallError::InvalidParams(err.to_string()))?;
-                params.insert("categories".to_string(), Value::from(categories));
-            }
-            if let Some(language) = optional_non_empty_string(&args, "language")? {
-                params.insert("language".to_string(), Value::String(language));
-            }
             if let Some(max_results) = optional_max_results(&args, "max_results")? {
                 params.insert("max_results".to_string(), Value::from(max_results));
+            }
+            if let Some(provider) = optional_non_empty_string(&args, "provider")? {
+                params.insert("provider".to_string(), Value::String(provider));
+            }
+            Ok(params)
+        }
+        "web_answer" => {
+            reject_unexpected_arguments(&args, WEB_ANSWER_ARGUMENTS)?;
+            let query = required_non_empty_string(&args, "query")?;
+            let mut params = Map::new();
+            params.insert("query".to_string(), Value::String(query));
+            if let Some(depth) = optional_non_empty_string(&args, "depth")? {
+                if depth != "quick" && depth != "deep" {
+                    return Err(ToolCallError::InvalidParams(
+                        "argument `depth` must be quick or deep".to_string(),
+                    ));
+                }
+                params.insert("depth".to_string(), Value::String(depth));
             }
             Ok(params)
         }
@@ -433,9 +449,9 @@ pub fn optional_max_results(
             "argument `{key}` must be greater than zero"
         )));
     }
-    if limit > SEARXNG_MAX_RESULTS as u64 {
+    if limit > SEARCH_MAX_RESULTS as u64 {
         return Err(ToolCallError::InvalidParams(format!(
-            "argument `{key}` must not exceed {SEARXNG_MAX_RESULTS} (got {limit})"
+            "argument `{key}` must not exceed {SEARCH_MAX_RESULTS} (got {limit})"
         )));
     }
     Ok(Some(limit))

@@ -41,7 +41,7 @@ scheduler-gate = ["openhuman-embed/scheduler-gate"]
 
 [dependencies]
 openhuman-embed = { path = "../openhuman-embed", default-features = false }
-# Direct access to `api::transport` / `core::all` — the surfaces embed does
+# Direct access to `backend` / `core::all` — the surfaces embed does
 # not (and should not) re-export. Features unify with embed's forwarding.
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
 # The vendored TinyHumans SDK: the only crate in the tree that may depend on
@@ -58,14 +58,22 @@ tinytools-jev = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinyto
 # transport-free and this crate owns the wire, the credential and the deadline.
 # Consumed by pinned revision, as that crate's README asks.
 tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "84b3983c7e1e14f7515658ceafabb6c4e7967c94", optional = true }
+# The channel controller contract (result types, credential-provider keys)
+# for the managed Telegram/Discord link flows in `hosted::channel_link`. Same
+# vendored path as the core's, so the types unify. Sync and I/O-free.
+tinychannels-bus = { path = "../../vendor/tinychannels/crates/tinychannels-bus" }
+# AES-256-GCM decryption of the backend OAuth token handoff (hosted::oauth).
+aes-gcm = "0.10"
 anyhow = "1"
 async-trait = "0.1"
+base64 = "0.22"
 chrono = { version = "0.4", default-features = false, features = ["clock", "std"] }
 log = "0.4"
 reqwest = { version = "0.12", default-features = false, features = ["json", "multipart", "rustls-tls"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 thiserror = "2"
+tracing = "0.1"
 tokio = { version = "1", features = ["macros", "rt", "rt-multi-thread", "sync", "time"] }
 urlencoding = "2.1"
 url = "2"

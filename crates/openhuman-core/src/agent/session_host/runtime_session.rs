@@ -447,37 +447,14 @@ impl OpenHumanTurnPrelude {
         let mut collected = collect_orchestrator_tools(&definition, registry, &integrations);
         #[cfg(feature = "mcp")]
         collected.extend(mcp_tools);
-        // Integration actions the thread already declared stay executable
-        // even when this process has not (re)fetched their integration yet.
-        // Only an agent that carries integration actions at all gets them.
-        if definition.subagents.iter().any(|entry| {
-            matches!(
-                entry,
-                crate::agent::harness::definition::SubagentEntry::Skills(wildcard)
-                    if wildcard.matches_all()
-            )
-        }) {
-            let recorded = self
-                .mutable
-                .lock()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .recorded_integration_actions
-                .clone();
-            let rebuilt = super::recorded_tools::rehydrate_integration_actions(
-                &recorded,
-                &collected,
-                &integrations,
-                integrations_are_authoritative,
-            );
-            if !rebuilt.is_empty() {
-                log::info!(
-                    "[session] rebuilt {} recorded integration action(s) the live integrations did not supply agent={}",
-                    rebuilt.len(),
-                    self.agent_definition_id
-                );
-                collected.extend(rebuilt);
-            }
-        }
+        let rebuilt = self.rebuilt_recorded_tools(
+            &definition,
+            &surface.tools,
+            &collected,
+            &integrations,
+            integrations_are_authoritative,
+        );
+        collected.extend(rebuilt);
         let synthesized =
             super::builder::drop_synthesized_name_collisions(&surface.tools, collected);
         let synthesized_names = synthesized

@@ -37,7 +37,7 @@ impl SessionHost {
     pub fn new(desktop: CoreProcessHandle) -> Self {
         // The shell and the core ship as one release, so one version answers
         // for both `x-core-version` and `x-tauri-version`.
-        let headers = ClientHeaders::new(openhuman_core::api::product_identity().as_str())
+        let headers = ClientHeaders::new(openhuman_tinyhumans::product_identity().as_str())
             .with_core_version(env!("CARGO_PKG_VERSION"))
             .with_tauri_version(env!("CARGO_PKG_VERSION"));
         let link = Arc::new(HttpCoreLink::new(desktop));

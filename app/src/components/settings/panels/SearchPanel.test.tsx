@@ -1,12 +1,14 @@
 /**
- * Tests for SearchPanel — the "Allowed websites" (unified web-access firewall)
- * section.
+ * Tests for SearchPanel: the multi-provider web search settings.
  *
- * Covers the tri-state access mode (Allow all / Custom / Block all):
- *  - deriving the initial mode from the loaded settings,
- *  - "Allow all"  → persists `allow_all: true`,
- *  - "Block all"  → persists `allowed_domains: []` + `allow_all: false`,
- *  - "Custom"     → reveals the host editor and saving persists the list.
+ * Covers the data-driven sections rendered from `config_get_search_settings`:
+ *  - the global on/off switch,
+ *  - provider cards (enable switch, route choice, key editor, SearXNG URL,
+ *    status badges, deep-research note),
+ *  - the per-role provider order (reorder, remove, add, reset, serving hint),
+ *  - the local-session state where managed routes are unavailable,
+ *  - the Advanced presentation toggle,
+ *  - the Allowed websites section (Allow all / Custom / Block all).
  */
 import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
@@ -17,7 +19,11 @@ import SearchPanel from './SearchPanel';
 // ---------------------------------------------------------------------------
 // Hoisted mocks
 // ---------------------------------------------------------------------------
-const hoisted = vi.hoisted(() => ({ getSearchSettings: vi.fn(), updateSearchSettings: vi.fn() }));
+const hoisted = vi.hoisted(() => ({
+  getSearchSettings: vi.fn(),
+  updateSearchSettings: vi.fn(),
+  localSession: false,
+}));
 
 vi.mock('../../../utils/tauriCommands/config', () => ({
   openhumanGetSearchSettings: (...a: unknown[]) => hoisted.getSearchSettings(...a),
@@ -31,20 +37,88 @@ vi.mock('../hooks/useSettingsNavigation', () => ({
   useSettingsNavigation: () => ({ navigateBack: vi.fn(), breadcrumbs: [] }),
 }));
 
-// Authed (non-local) session so the panel behaves normally.
-vi.mock('../../../utils/localSession', () => ({ isLocalSessionToken: () => false }));
+vi.mock('../../../utils/localSession', () => ({ isLocalSessionToken: () => hoisted.localSession }));
+
+// ---------------------------------------------------------------------------
+// Fixtures (shape of the core's config_get_search_settings response)
+// ---------------------------------------------------------------------------
+type Provider = Record<string, unknown> & { id: string };
+
+function provider(id: string, overrides: Record<string, unknown> = {}): Provider {
+  const base: Record<string, Provider> = {
+    exa: {
+      id: 'exa',
+      label: 'Exa',
+      enabled: true,
+      route: 'managed',
+      routes: ['managed', 'direct'],
+      managed_available: true,
+      key_configured: false,
+      takes_key: true,
+      usable: true,
+      status: 'ready',
+      roles: ['search', 'answer', 'contents'],
+      docs_url: 'https://dashboard.exa.ai/api-keys',
+    },
+    gemini: {
+      id: 'gemini',
+      label: 'Gemini',
+      enabled: true,
+      route: 'managed',
+      routes: ['managed', 'direct'],
+      managed_available: true,
+      key_configured: false,
+      takes_key: true,
+      usable: true,
+      status: 'ready',
+      roles: ['answer'],
+      docs_url: 'https://aistudio.google.com/apikey',
+      deep_research_available: false,
+    },
+    brave: {
+      id: 'brave',
+      label: 'Brave',
+      enabled: false,
+      route: 'direct',
+      routes: ['direct'],
+      managed_available: true,
+      key_configured: false,
+      takes_key: true,
+      usable: false,
+      status: 'disabled',
+      roles: ['search'],
+      docs_url: 'https://brave.com/search/api/',
+    },
+    searxng: {
+      id: 'searxng',
+      label: 'SearXNG',
+      enabled: false,
+      route: 'direct',
+      routes: ['direct'],
+      managed_available: true,
+      key_configured: true,
+      takes_key: false,
+      usable: false,
+      status: 'disabled',
+      roles: ['search'],
+      docs_url: 'https://docs.searxng.org/',
+      base_url: 'http://localhost:8080',
+    },
+  };
+  return { ...base[id], ...overrides };
+}
 
 function settings(overrides: Record<string, unknown> = {}) {
   return {
-    engine: 'managed',
-    effective_engine: 'managed',
+    enabled: true,
+    presentation: 'roles',
+    presentation_provider: null,
     max_results: 5,
     timeout_secs: 15,
-    parallel_configured: false,
-    brave_configured: false,
-    querit_configured: false,
-    exa_configured: false,
-    tavily_configured: false,
+    managed_available: true,
+    providers: [provider('exa'), provider('gemini'), provider('brave'), provider('searxng')],
+    roles: { search: ['exa', 'brave', 'searxng'], answer: ['gemini', 'exa'], contents: ['exa'] },
+    effective_roles: { search: ['exa'], answer: ['gemini', 'exa'], contents: ['exa'] },
     allowed_domains: ['reuters.com'],
     allow_all: false,
     ...overrides,
@@ -57,49 +131,392 @@ const CUSTOM = 'settings.search.accessCustom';
 const BLOCK_ALL = 'settings.search.accessBlockAll';
 
 const radio = (name: string) => screen.getByRole('radio', { name });
-const keyEditor = (label: string) => within(screen.getByRole('group', { name: label }));
+const card = (id: string) => screen.getByTestId(`search-provider-${id}`);
+const roleRow = (role: string) => screen.getByTestId(`search-role-${role}`);
 
-describe('SearchPanel — unified web-access modes', () => {
-  beforeEach(() => {
-    hoisted.getSearchSettings.mockReset();
-    hoisted.updateSearchSettings.mockReset();
-    hoisted.getSearchSettings.mockResolvedValue({ result: settings() });
-    hoisted.updateSearchSettings.mockResolvedValue({ result: {} });
+async function renderPanel() {
+  renderWithProviders(<SearchPanel embedded />);
+  await screen.findByTestId('search-provider-exa');
+}
+
+beforeEach(() => {
+  hoisted.localSession = false;
+  hoisted.getSearchSettings.mockReset();
+  hoisted.updateSearchSettings.mockReset();
+  hoisted.getSearchSettings.mockResolvedValue({ result: settings() });
+  hoisted.updateSearchSettings.mockResolvedValue({ result: settings() });
+});
+
+describe('SearchPanel — search on/off', () => {
+  test('the global switch persists enabled: false', async () => {
+    await renderPanel();
+    const toggle = screen.getByTestId('search-enabled-toggle');
+    expect(toggle).toHaveAttribute('aria-checked', 'true');
+
+    fireEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ enabled: false })
+    );
   });
 
+  test('the returned settings replace local state', async () => {
+    hoisted.updateSearchSettings.mockResolvedValue({ result: settings({ enabled: false }) });
+    await renderPanel();
+
+    fireEvent.click(screen.getByTestId('search-enabled-toggle'));
+
+    await waitFor(() =>
+      expect(screen.getByTestId('search-enabled-toggle')).toHaveAttribute('aria-checked', 'false')
+    );
+    expect(screen.getByText('settings.search.statusSaved')).toBeInTheDocument();
+  });
+
+  test('an RPC error shows on the status line and keeps the previous state', async () => {
+    hoisted.updateSearchSettings.mockRejectedValue(new Error('unsupported route'));
+    await renderPanel();
+
+    fireEvent.click(screen.getByTestId('search-enabled-toggle'));
+
+    expect(await screen.findByText(/unsupported route/)).toBeInTheDocument();
+    expect(screen.getByTestId('search-enabled-toggle')).toHaveAttribute('aria-checked', 'true');
+  });
+
+  test('a failed load shows the error', async () => {
+    hoisted.getSearchSettings.mockRejectedValue(new Error('core offline'));
+    renderWithProviders(<SearchPanel embedded />);
+
+    expect(await screen.findByText(/core offline/)).toBeInTheDocument();
+  });
+});
+
+describe('SearchPanel — providers', () => {
+  test('renders one card per provider with a status badge from `status`', async () => {
+    hoisted.getSearchSettings.mockResolvedValue({
+      result: settings({
+        providers: [
+          provider('exa'),
+          provider('gemini', { status: 'sign_in_required', usable: false }),
+          provider('brave', { enabled: true, status: 'needs_key' }),
+          provider('searxng'),
+        ],
+      }),
+    });
+    await renderPanel();
+
+    const badge = (id: string) => screen.getByTestId(`search-provider-${id}-status`);
+    expect(badge('exa')).toHaveTextContent('settings.search.statusReady');
+    expect(badge('gemini')).toHaveTextContent('settings.search.statusSignInRequired');
+    expect(badge('brave')).toHaveTextContent('settings.search.statusNeedsKey');
+    expect(badge('searxng')).toHaveTextContent('settings.search.statusOff');
+  });
+
+  test('toggling a provider persists its enabled flag', async () => {
+    await renderPanel();
+    const toggle = screen.getByTestId('search-provider-brave-toggle');
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+
+    fireEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
+        providers: { brave: { enabled: true } },
+      })
+    );
+  });
+
+  test('the route control only shows for providers with more than one route', async () => {
+    await renderPanel();
+
+    expect(screen.getByTestId('search-provider-exa-route-managed')).toBeInTheDocument();
+    expect(screen.getByTestId('search-provider-exa-route-direct')).toBeInTheDocument();
+    expect(screen.queryByTestId('search-provider-brave-route-direct')).toBeNull();
+  });
+
+  test('switching route persists it', async () => {
+    await renderPanel();
+    expect(screen.getByTestId('search-provider-exa-route-managed')).toHaveAttribute(
+      'aria-checked',
+      'true'
+    );
+
+    fireEvent.click(screen.getByTestId('search-provider-exa-route-direct'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
+        providers: { exa: { route: 'direct' } },
+      })
+    );
+  });
+
+  test('a managed-route provider without deep research shows no key editor', async () => {
+    await renderPanel();
+
+    expect(within(card('exa')).queryByTestId('search-provider-exa-key')).toBeNull();
+  });
+
+  test('Gemini keeps its key editor on the managed route and hints at deep research', async () => {
+    await renderPanel();
+
+    expect(within(card('gemini')).getByTestId('search-provider-gemini-key')).toBeInTheDocument();
+    expect(screen.getByTestId('search-provider-gemini-deep-research')).toHaveTextContent(
+      'settings.search.deepResearchHint'
+    );
+  });
+
+  test('Gemini notes deep research once it is available', async () => {
+    hoisted.getSearchSettings.mockResolvedValue({
+      result: settings({
+        providers: [
+          provider('exa'),
+          provider('gemini', { key_configured: true, deep_research_available: true }),
+        ],
+      }),
+    });
+    await renderPanel();
+
+    expect(screen.getByTestId('search-provider-gemini-deep-research')).toHaveTextContent(
+      'settings.search.deepResearchAvailable'
+    );
+  });
+
+  test('saving a key sends it for that provider and clears the draft', async () => {
+    await renderPanel();
+    const editor = within(screen.getByTestId('search-provider-brave-key'));
+    const input = editor.getByPlaceholderText('settings.search.placeholderKey') as HTMLInputElement;
+    expect(input.type).toBe('password');
+
+    fireEvent.click(editor.getByText('settings.search.show'));
+    expect(input.type).toBe('text');
+    fireEvent.change(input, { target: { value: 'brave-test-key' } });
+    fireEvent.click(editor.getByText('settings.search.save'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
+        providers: { brave: { api_key: 'brave-test-key' } },
+      })
+    );
+    await waitFor(() => expect(input.value).toBe(''));
+  });
+
+  test('a stored key can be cleared', async () => {
+    hoisted.getSearchSettings.mockResolvedValue({
+      result: settings({
+        providers: [provider('exa'), provider('brave', { key_configured: true })],
+      }),
+    });
+    await renderPanel();
+    const editor = within(screen.getByTestId('search-provider-brave-key'));
+    expect(editor.getByPlaceholderText('settings.search.placeholderStored')).toBeInTheDocument();
+
+    fireEvent.click(editor.getByText('settings.search.clear'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
+        providers: { brave: { api_key: '' } },
+      })
+    );
+  });
+
+  test('the key editor links to the provider docs_url', async () => {
+    await renderPanel();
+
+    const link = within(screen.getByTestId('search-provider-brave-key')).getByRole('link');
+    expect(link).toHaveAttribute('href', 'https://brave.com/search/api/');
+  });
+
+  test('SearXNG shows its instance URL field and saves base_url', async () => {
+    await renderPanel();
+    const input = screen.getByTestId('search-provider-searxng-base-url') as HTMLInputElement;
+    expect(input.value).toBe('http://localhost:8080');
+    expect(within(card('searxng')).queryByTestId('search-provider-searxng-key')).toBeNull();
+
+    fireEvent.change(input, { target: { value: 'https://search.example.org ' } });
+    fireEvent.click(within(card('searxng')).getByText('settings.search.baseUrlSave'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
+        providers: { searxng: { base_url: 'https://search.example.org' } },
+      })
+    );
+  });
+});
+
+describe('SearchPanel — local session', () => {
+  test('managed routes are disabled and the local-session hint shows', async () => {
+    hoisted.localSession = true;
+    hoisted.getSearchSettings.mockResolvedValue({
+      result: settings({
+        managed_available: false,
+        providers: [
+          provider('exa', { managed_available: false, status: 'sign_in_required', usable: false }),
+          provider('gemini', { managed_available: false, status: 'sign_in_required' }),
+        ],
+        effective_roles: { search: [], answer: [], contents: [] },
+      }),
+    });
+    await renderPanel();
+
+    expect(screen.getByText('settings.search.localManagedUnavailable')).toBeInTheDocument();
+    expect(screen.getByTestId('search-provider-exa-route-managed')).toBeDisabled();
+    expect(screen.getByTestId('search-provider-exa-route-direct')).not.toBeDisabled();
+    expect(screen.getByTestId('search-provider-exa-status')).toHaveTextContent(
+      'settings.search.statusSignInRequired'
+    );
+  });
+
+  test('a signed-in session shows no local-session hint', async () => {
+    await renderPanel();
+
+    expect(screen.queryByText('settings.search.localManagedUnavailable')).toBeNull();
+  });
+});
+
+describe('SearchPanel — roles', () => {
+  test('each role lists its ordered providers and who serves it', async () => {
+    await renderPanel();
+
+    const answer = within(roleRow('answer'));
+    expect(answer.getByTestId('search-role-answer-provider-gemini')).toHaveAttribute(
+      'data-serving',
+      'true'
+    );
+    expect(answer.getByTestId('search-role-answer-provider-exa')).not.toHaveAttribute(
+      'data-serving'
+    );
+    expect(answer.getByTestId('search-role-answer-serving')).toHaveTextContent(
+      'settings.search.roleServedBy'
+    );
+    // Brave cannot serve the answer role, so it is neither listed nor addable.
+    expect(answer.queryByTestId('search-role-answer-provider-brave')).toBeNull();
+    expect(answer.queryByTestId('search-role-answer-add-brave')).toBeNull();
+  });
+
+  test('a role with no usable provider says so', async () => {
+    hoisted.getSearchSettings.mockResolvedValue({
+      result: settings({ effective_roles: { search: ['exa'], answer: ['gemini'], contents: [] } }),
+    });
+    await renderPanel();
+
+    expect(screen.getByTestId('search-role-contents-serving')).toHaveTextContent(
+      'settings.search.roleNoProvider'
+    );
+  });
+
+  test('moving a provider down saves the new order', async () => {
+    await renderPanel();
+    const row = within(screen.getByTestId('search-role-answer-provider-gemini'));
+
+    fireEvent.click(row.getByLabelText('settings.search.roleMoveDown'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
+        roles: { answer: ['exa', 'gemini'] },
+      })
+    );
+  });
+
+  test('the first provider cannot move up and the last cannot move down', async () => {
+    await renderPanel();
+
+    expect(
+      within(screen.getByTestId('search-role-answer-provider-gemini')).getByLabelText(
+        'settings.search.roleMoveUp'
+      )
+    ).toBeDisabled();
+    expect(
+      within(screen.getByTestId('search-role-answer-provider-exa')).getByLabelText(
+        'settings.search.roleMoveDown'
+      )
+    ).toBeDisabled();
+  });
+
+  test('removing a fallback saves the shorter order; the last one cannot be removed', async () => {
+    await renderPanel();
+
+    expect(
+      within(screen.getByTestId('search-role-contents-provider-exa')).getByLabelText(
+        'settings.search.roleRemove'
+      )
+    ).toBeDisabled();
+
+    fireEvent.click(
+      within(screen.getByTestId('search-role-answer-provider-exa')).getByLabelText(
+        'settings.search.roleRemove'
+      )
+    );
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ roles: { answer: ['gemini'] } })
+    );
+  });
+
+  test('a removed provider can be added back to the end', async () => {
+    hoisted.getSearchSettings.mockResolvedValue({
+      result: settings({
+        roles: { search: ['exa'], answer: ['gemini', 'exa'], contents: ['exa'] },
+      }),
+    });
+    await renderPanel();
+
+    fireEvent.click(screen.getByTestId('search-role-search-add-brave'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
+        roles: { search: ['exa', 'brave'] },
+      })
+    );
+  });
+
+  test('reset sends an empty order to restore the default', async () => {
+    await renderPanel();
+
+    fireEvent.click(screen.getByTestId('search-role-search-reset'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ roles: { search: [] } })
+    );
+  });
+});
+
+describe('SearchPanel — advanced', () => {
+  test('exposing provider tools switches presentation to all_tools and back', async () => {
+    await renderPanel();
+
+    fireEvent.click(screen.getByText('settings.search.advancedTitle'));
+    const toggle = await screen.findByTestId('search-presentation-toggle');
+    expect(toggle).toHaveAttribute('aria-checked', 'false');
+    fireEvent.click(toggle);
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ presentation: 'all_tools' })
+    );
+  });
+
+  test('turning it off restores role presentation', async () => {
+    hoisted.getSearchSettings.mockResolvedValue({
+      result: settings({ presentation: 'all_tools' }),
+    });
+    await renderPanel();
+
+    fireEvent.click(screen.getByText('settings.search.advancedTitle'));
+    fireEvent.click(await screen.findByTestId('search-presentation-toggle'));
+
+    await waitFor(() =>
+      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ presentation: 'roles' })
+    );
+  });
+});
+
+describe('SearchPanel — allowed websites', () => {
   test('explicit host list → starts in Custom mode with the editor populated', async () => {
     renderWithProviders(<SearchPanel embedded />);
-    // The textarea mounts empty, then a one-time sync effect fills it from
-    // settings on the next tick — wait for the value rather than asserting now.
     await waitFor(() => {
       const ta = screen.getByPlaceholderText(PLACEHOLDER) as HTMLTextAreaElement;
       expect(ta.value).toBe('reuters.com');
     });
     expect(radio(CUSTOM)).toHaveAttribute('aria-checked', 'true');
     expect(radio(ALLOW_ALL)).toHaveAttribute('aria-checked', 'false');
-  });
-
-  test('selecting Disabled persists the disabled engine', async () => {
-    renderWithProviders(<SearchPanel embedded />);
-    const disabled = await screen.findByTestId('search-engine-disabled');
-
-    fireEvent.click(disabled);
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ engine: 'disabled' })
-    );
-  });
-
-  test('disabled settings start with Disabled selected and no needs-key badge', async () => {
-    hoisted.getSearchSettings.mockResolvedValue({
-      result: settings({ engine: 'disabled', effective_engine: 'disabled' }),
-    });
-    renderWithProviders(<SearchPanel embedded />);
-
-    const disabled = await screen.findByTestId('search-engine-disabled');
-
-    expect(disabled).toHaveAttribute('aria-checked', 'true');
-    expect(within(disabled).queryByText('settings.search.statusNeedsKey')).toBeNull();
   });
 
   test('selecting "Allow all" persists allow_all: true and hides the editor', async () => {
@@ -148,8 +565,6 @@ describe('SearchPanel — unified web-access modes', () => {
     renderWithProviders(<SearchPanel embedded />);
     const textarea = await screen.findByPlaceholderText(PLACEHOLDER);
 
-    // Users paste full URLs; url_guard matches on host, so a scheme/path entry
-    // would never match. The editor strips both down to the bare host.
     fireEvent.change(textarea, {
       target: { value: 'https://reuters.com/markets\nhttp://apnews.com/\ngithub.com' },
     });
@@ -188,241 +603,13 @@ describe('SearchPanel — unified web-access modes', () => {
     const textarea = (await screen.findByPlaceholderText(PLACEHOLDER)) as HTMLTextAreaElement;
     fireEvent.change(textarea, { target: { value: 'example.com' } });
 
-    // Block all (persists empty list) then back to Custom — the editor text is
-    // local state and must survive the round trip so the user doesn't lose it.
     fireEvent.click(radio(BLOCK_ALL));
     await waitFor(() => expect(screen.queryByPlaceholderText(PLACEHOLDER)).toBeNull());
+    await waitFor(() => expect(hoisted.updateSearchSettings).toHaveBeenCalled());
+    await screen.findByText('settings.search.statusSaved');
     fireEvent.click(radio(CUSTOM));
 
     const reopened = (await screen.findByPlaceholderText(PLACEHOLDER)) as HTMLTextAreaElement;
     expect(reopened.value).toBe('example.com');
-  });
-
-  test('saving Parallel and Brave API keys sends provider-specific patches', async () => {
-    renderWithProviders(<SearchPanel embedded />);
-    await screen.findByPlaceholderText('settings.search.placeholderParallel');
-
-    const parallel = keyEditor('settings.search.parallelKeyLabel');
-    const parallelInput = parallel.getByPlaceholderText(
-      'settings.search.placeholderParallel'
-    ) as HTMLInputElement;
-    fireEvent.change(parallelInput, { target: { value: 'parallel-test-key' } });
-    fireEvent.click(parallel.getByText('settings.search.save'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
-        parallel_api_key: 'parallel-test-key',
-      })
-    );
-    expect(parallelInput.value).toBe('');
-
-    const brave = keyEditor('settings.search.braveKeyLabel');
-    const braveInput = brave.getByPlaceholderText(
-      'settings.search.placeholderBrave'
-    ) as HTMLInputElement;
-    fireEvent.change(braveInput, { target: { value: 'brave-test-key' } });
-    fireEvent.click(brave.getByText('settings.search.save'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ brave_api_key: 'brave-test-key' })
-    );
-    expect(braveInput.value).toBe('');
-  });
-
-  test('Parallel and Brave key editors can reveal and clear stored keys', async () => {
-    hoisted.getSearchSettings.mockResolvedValue({
-      result: settings({ parallel_configured: true, brave_configured: true }),
-    });
-    renderWithProviders(<SearchPanel embedded />);
-    await screen.findAllByPlaceholderText('settings.search.placeholderStored');
-
-    const parallel = keyEditor('settings.search.parallelKeyLabel');
-    const parallelInput = parallel.getByPlaceholderText(
-      'settings.search.placeholderStored'
-    ) as HTMLInputElement;
-    expect(parallelInput.type).toBe('password');
-
-    fireEvent.click(parallel.getByText('settings.search.show'));
-    expect(parallelInput.type).toBe('text');
-    fireEvent.click(parallel.getByText('settings.search.clear'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ parallel_api_key: '' })
-    );
-
-    const brave = keyEditor('settings.search.braveKeyLabel');
-    const braveInput = brave.getByPlaceholderText(
-      'settings.search.placeholderStored'
-    ) as HTMLInputElement;
-    expect(braveInput.type).toBe('password');
-
-    fireEvent.click(brave.getByText('settings.search.show'));
-    expect(braveInput.type).toBe('text');
-    fireEvent.click(brave.getByText('settings.search.clear'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ brave_api_key: '' })
-    );
-  });
-
-  test('Querit key editor can reveal, save, and clear the stored API key', async () => {
-    hoisted.getSearchSettings.mockResolvedValue({ result: settings({ querit_configured: true }) });
-    renderWithProviders(<SearchPanel embedded />);
-    await screen.findByPlaceholderText('settings.search.placeholderStored');
-
-    const querit = keyEditor('settings.search.queritKeyLabel');
-    const input = querit.getByPlaceholderText(
-      'settings.search.placeholderStored'
-    ) as HTMLInputElement;
-    expect(input.type).toBe('password');
-
-    fireEvent.click(querit.getByText('settings.search.show'));
-    expect(input.type).toBe('text');
-
-    fireEvent.change(input, { target: { value: 'querit-test-key' } });
-    fireEvent.click(querit.getByText('settings.search.save'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
-        querit_api_key: 'querit-test-key',
-      })
-    );
-    expect(input.value).toBe('');
-
-    fireEvent.click(querit.getByText('settings.search.clear'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ querit_api_key: '' })
-    );
-  });
-
-  test('Exa is selectable and shows the needs-key badge until a key is stored', async () => {
-    renderWithProviders(<SearchPanel embedded />);
-    const exa = await screen.findByTestId('search-engine-exa');
-
-    expect(within(exa).getByText('settings.search.statusNeedsKey')).toBeTruthy();
-    expect(exa).toHaveAttribute('aria-checked', 'false');
-
-    fireEvent.click(exa);
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ engine: 'exa' })
-    );
-  });
-
-  test('a stored Exa key flips the badge to configured', async () => {
-    hoisted.getSearchSettings.mockResolvedValue({
-      result: settings({ engine: 'exa', effective_engine: 'exa', exa_configured: true }),
-    });
-    renderWithProviders(<SearchPanel embedded />);
-
-    const exa = await screen.findByTestId('search-engine-exa');
-
-    expect(exa).toHaveAttribute('aria-checked', 'true');
-    expect(within(exa).getByText('settings.search.statusConfigured')).toBeTruthy();
-    expect(within(exa).queryByText('settings.search.fallbackToManaged')).toBeNull();
-  });
-
-  test('Exa key editor can reveal, save, and clear the stored API key', async () => {
-    hoisted.getSearchSettings.mockResolvedValue({ result: settings({ exa_configured: true }) });
-    renderWithProviders(<SearchPanel embedded />);
-    await screen.findByPlaceholderText('settings.search.placeholderStored');
-
-    const exa = keyEditor('settings.search.exaKeyLabel');
-    const input = exa.getByPlaceholderText('settings.search.placeholderStored') as HTMLInputElement;
-    expect(input.type).toBe('password');
-
-    fireEvent.click(exa.getByText('settings.search.show'));
-    expect(input.type).toBe('text');
-
-    fireEvent.change(input, { target: { value: 'exa-test-key' } });
-    fireEvent.click(exa.getByText('settings.search.save'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ exa_api_key: 'exa-test-key' })
-    );
-    expect(input.value).toBe('');
-
-    fireEvent.click(exa.getByText('settings.search.clear'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ exa_api_key: '' })
-    );
-  });
-
-  test('the Exa key editor links out to exa.ai for a key', async () => {
-    renderWithProviders(<SearchPanel embedded />);
-    await screen.findByPlaceholderText('settings.search.placeholderExa');
-
-    const link = keyEditor('settings.search.exaKeyLabel').getByRole('link');
-
-    expect(link).toHaveAttribute('href', 'https://exa.ai');
-  });
-
-  test('Tavily is selectable and shows the needs-key badge until a key is stored', async () => {
-    renderWithProviders(<SearchPanel embedded />);
-    const tavily = await screen.findByTestId('search-engine-tavily');
-
-    expect(within(tavily).getByText('settings.search.statusNeedsKey')).toBeTruthy();
-    expect(tavily).toHaveAttribute('aria-checked', 'false');
-
-    fireEvent.click(tavily);
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ engine: 'tavily' })
-    );
-  });
-
-  test('a stored Tavily key flips the badge to configured', async () => {
-    hoisted.getSearchSettings.mockResolvedValue({
-      result: settings({ engine: 'tavily', effective_engine: 'tavily', tavily_configured: true }),
-    });
-    renderWithProviders(<SearchPanel embedded />);
-
-    const tavily = await screen.findByTestId('search-engine-tavily');
-
-    expect(tavily).toHaveAttribute('aria-checked', 'true');
-    expect(within(tavily).getByText('settings.search.statusConfigured')).toBeTruthy();
-    expect(within(tavily).queryByText('settings.search.fallbackToManaged')).toBeNull();
-  });
-
-  test('Tavily key editor can reveal, save, and clear the stored API key', async () => {
-    hoisted.getSearchSettings.mockResolvedValue({ result: settings({ tavily_configured: true }) });
-    renderWithProviders(<SearchPanel embedded />);
-    await screen.findByPlaceholderText('settings.search.placeholderStored');
-
-    const tavily = keyEditor('settings.search.tavilyKeyLabel');
-    const input = tavily.getByPlaceholderText(
-      'settings.search.placeholderStored'
-    ) as HTMLInputElement;
-    expect(input.type).toBe('password');
-
-    fireEvent.click(tavily.getByText('settings.search.show'));
-    expect(input.type).toBe('text');
-
-    fireEvent.change(input, { target: { value: 'tvly-tavily-test-key' } });
-    fireEvent.click(tavily.getByText('settings.search.save'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({
-        tavily_api_key: 'tvly-tavily-test-key',
-      })
-    );
-    expect(input.value).toBe('');
-
-    fireEvent.click(tavily.getByText('settings.search.clear'));
-
-    await waitFor(() =>
-      expect(hoisted.updateSearchSettings).toHaveBeenCalledWith({ tavily_api_key: '' })
-    );
-  });
-
-  test('the Tavily key editor links out to tavily.com for a key', async () => {
-    renderWithProviders(<SearchPanel embedded />);
-    await screen.findByPlaceholderText('settings.search.placeholderTavily');
-
-    const link = keyEditor('settings.search.tavilyKeyLabel').getByRole('link');
-
-    expect(link).toHaveAttribute('href', 'https://tavily.com');
   });
 });

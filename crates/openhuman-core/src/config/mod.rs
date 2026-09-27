@@ -7,6 +7,7 @@
 //! - Defining the RPC surface for configuration management.
 //! - Handling the schema definitions for all agent and system settings.
 
+pub mod app_env;
 pub mod daemon;
 pub mod migration_helpers;
 pub mod migrations;
@@ -46,22 +47,24 @@ pub use schema::{
     DelegateAgentConfig, DiagramViewerConfig, DictationActivationMode, DictationConfig,
     DiscordConfig, DockerRuntimeConfig, EmailConfig, EmbeddingRouteConfig, GitbooksConfig,
     HeartbeatConfig, HttpHeader, HttpRequestConfig, IMessageConfig, IntegrationToggle,
-    IntegrationsConfig, LarkConfig, LearningConfig, LinqConfig, LlmBackend, LocalAiConfig,
-    MatrixConfig, McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig,
-    MemoryConfig, MemoryTreeConfig, ModelRouteConfig, MultimodalConfig, MultimodalFileConfig,
-    ObservabilityConfig, OrchestratorModelConfig, PrivacyConfig, PrivacyMode, ProxyConfig,
-    ProxyScope, ReflectionSource, ReliabilityConfig, ResourceLimitsConfig, RuntimeConfig,
-    RuntimePoolConfig, RuntimePoolLangConfig, SandboxBackend, SandboxConfig, SchedulerConfig,
-    SchedulerGateConfig, SchedulerGateMode, SearchConfig, SearchEngine, SearchEngineCredentials,
-    SearxngConfig, SecretsConfig, SecurityConfig, ShellConfig, SlackConfig, StorageConfig,
-    StorageProviderConfig, StorageProviderSection, StreamMode, SttEngine, TeamModelConfig,
-    TelegramConfig, TokenjuiceConfig, UpdateConfig, UpdateRestartStrategy, VoiceActivationMode,
-    VoiceServerConfig, WebSearchConfig, WebhookConfig, YuanbaoConfig, DEFAULT_CLOUD_LLM_MODEL,
+    IntegrationsConfig, LarkConfig, LearningConfig, LegacySearchInputs, LinqConfig, LlmBackend,
+    LocalAiConfig, MatrixConfig, McpAuthConfig, McpClientConfig, McpClientIdentityConfig,
+    McpServerConfig, MemoryConfig, MemoryTreeConfig, ModelRouteConfig, MultimodalConfig,
+    MultimodalFileConfig, ObservabilityConfig, OrchestratorModelConfig, PrivacyConfig, PrivacyMode,
+    ProxyConfig, ProxyScope, ReflectionSource, ReliabilityConfig, ResourceLimitsConfig,
+    RuntimeConfig, RuntimePoolConfig, RuntimePoolLangConfig, SandboxBackend, SandboxConfig,
+    SchedulerConfig, SchedulerGateConfig, SchedulerGateMode, SearchConfig, SearchEngineCredentials,
+    SearchPresentation, SearchProviderSettings, SearchRoute, SearxngConfig, SecretsConfig,
+    SecurityConfig, ShellConfig, SlackConfig, StorageConfig, StorageProviderConfig,
+    StorageProviderSection, StreamMode, SttEngine, TeamModelConfig, TelegramConfig,
+    TokenjuiceConfig, UpdateConfig, UpdateRestartStrategy, VoiceActivationMode, VoiceServerConfig,
+    WebSearchConfig, WebhookConfig, YuanbaoConfig, DEFAULT_CLOUD_LLM_MODEL,
     DEFAULT_MEMORY_SYNC_INTERVAL_SECS, DEFAULT_MODEL, LEGACY_TIER_MODELS,
-    MANAGED_MULTIMODAL_MODELS, MEMORY_SYNC_INTERVAL_PRESETS_SECS, MODEL_IMAGE_GENERATION_AGENT,
-    MODEL_MANAGED_DEFAULT, MODEL_MEDIA_UNDERSTANDING, MODEL_VIDEO_GENERATION_AGENT,
-    SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA, SEARCH_ENGINE_MANAGED,
-    SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY,
+    MANAGED_MULTIMODAL_MODELS, MANAGED_SEARCH_PROVIDERS, MEMORY_SYNC_INTERVAL_PRESETS_SECS,
+    MODEL_IMAGE_GENERATION_AGENT, MODEL_MANAGED_DEFAULT, MODEL_MEDIA_UNDERSTANDING,
+    MODEL_VIDEO_GENERATION_AGENT, SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA,
+    SEARCH_ENGINE_MANAGED, SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY,
+    SEARCH_PROVIDERS, SEARCH_ROLES, SEARCH_ROLE_ANSWER, SEARCH_ROLE_CONTENTS, SEARCH_ROLE_SEARCH,
 };
 // Kept as a separate re-export (issue #4117) so the large alphabetized group
 // above stays byte-identical and rustfmt-stable.

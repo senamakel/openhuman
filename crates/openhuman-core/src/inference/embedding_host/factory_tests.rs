@@ -346,29 +346,15 @@ async fn factory_managed_provider_authenticates_with_config_scoped_token() {
         )
         .unwrap();
 
-    // `OpenHumanCloudEmbedding::new` bakes the base URL at construction, so
-    // BACKEND_URL only needs to point at the mock while the factory builds —
-    // held under the crate-wide backend-env lock (shared with `api::config`'s
-    // own BACKEND_URL tests) so the process-global env can't race.
-    let provider = {
-        let _env_guard = crate::api::config::backend_env_test_lock();
-        let prev = std::env::var("BACKEND_URL").ok();
-        std::env::set_var("BACKEND_URL", &base);
-        let built = create_embedding_provider_with_config(
-            &config,
-            "managed",
-            "voyage-3-large",
-            3,
-            "",
-            None,
-        )
-        .expect("managed provider builds via config-aware factory");
-        match prev {
-            Some(v) => std::env::set_var("BACKEND_URL", v),
-            None => std::env::remove_var("BACKEND_URL"),
-        }
-        built
+    // The managed base URL comes from the backend transport, which (the
+    // `cfg(test)` plain one here) honours `config.api_url`: point it at the mock.
+    let config = Config {
+        api_url: Some(base.clone()),
+        ..config
     };
+    let provider =
+        create_embedding_provider_with_config(&config, "managed", "voyage-3-large", 3, "", None)
+            .expect("managed provider builds via config-aware factory");
 
     // Embed: the lazy bearer resolver reads the config scope, finds the
     // token, and authenticates to the mock.
@@ -445,17 +431,11 @@ async fn default_provider_with_config_authenticates_with_config_scoped_token() {
         )
         .unwrap();
 
-    let provider = {
-        let _env_guard = crate::api::config::backend_env_test_lock();
-        let prev = std::env::var("BACKEND_URL").ok();
-        std::env::set_var("BACKEND_URL", &base);
-        let built = default_embedding_provider_with_config(&config);
-        match prev {
-            Some(v) => std::env::set_var("BACKEND_URL", v),
-            None => std::env::remove_var("BACKEND_URL"),
-        }
-        built
+    let config = Config {
+        api_url: Some(base.clone()),
+        ..config
     };
+    let provider = default_embedding_provider_with_config(&config);
 
     let vectors = provider
         .embed(&["binding probe"])

@@ -70,7 +70,7 @@ pub fn module_config(config: &Config) -> Result<serde_json::Value, String> {
         // Empty is the default, for hand-edited configs that omit the field.
         "" | COMPOSIO_MODE_BACKEND => {
             let client = crate::integrations::build_client(config).ok_or_else(|| {
-                "composio backend mode is unavailable: no backend session token. Sign in first."
+                "composio backend mode is unavailable: no backend session token. Sign in or set a TinyHumans API key."
                     .to_string()
             })?;
             // The backend renders Composio results (Gmail timestamps) for the
@@ -82,6 +82,9 @@ pub fn module_config(config: &Config) -> Result<serde_json::Value, String> {
             Ok(serde_json::json!({
                 "route": "proxy",
                 "base_url": client.backend_url,
+                // The session JWT or the TinyHumans API key. The proxy route
+                // sends it as `Authorization: Bearer`; the backend recognises
+                // a key there by its `tiny_` prefix, so no scheme flag is needed.
                 "auth_token": client.auth_token,
                 "timezone": timezone,
                 "state_dir": state_dir,

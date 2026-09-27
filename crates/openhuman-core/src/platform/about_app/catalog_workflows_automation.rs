@@ -66,6 +66,21 @@ Capability {
         privacy: DERIVED_TO_BACKEND,
     },
 Capability {
+        id: "workflows.web_search",
+        name: "Web Search, Answers and Page Contents",
+        domain: "workflows",
+        category: CapabilityCategory::Workflows,
+        description:
+            "Search the web, get grounded answers with citations, and read page contents through several providers at once. Signed-in users get Exa and Gemini with Google Search grounding included; Brave, Tavily, Querit, Parallel, Seltz, SearXNG, and your own Exa or Gemini keys can be added. Each capability falls back to the next provider when one is unavailable.",
+        how_to: "Connections > Search to choose providers and their order, then ask the assistant to look something up",
+        status: CapabilityStatus::Beta,
+        privacy: Some(CapabilityPrivacy {
+            leaves_device: true,
+            data_kind: PrivacyDataKind::Derived,
+            destinations: &["OpenHuman backend (managed search)", "Your configured search providers"],
+        }),
+    },
+Capability {
         id: "workflows.tinyfish_web_automation",
         name: "TinyFish Web Automation",
         domain: "workflows",

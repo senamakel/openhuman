@@ -612,7 +612,7 @@ async fn apply_search_settings_accepts_disabled_engine() {
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
 
-    apply_search_settings(
+    let result = apply_search_settings(
         &mut cfg,
         SearchSettingsPatch {
             engine: Some("disabled".to_string()),
@@ -622,11 +622,8 @@ async fn apply_search_settings_accepts_disabled_engine() {
     .await
     .expect("apply disabled search engine");
 
-    assert_eq!(cfg.search.engine, "disabled");
-    assert_eq!(
-        cfg.search.effective_engine(),
-        crate::config::SearchEngine::Disabled
-    );
+    assert!(!cfg.search.is_enabled());
+    assert_eq!(result.value["enabled"], false);
 }
 
 #[tokio::test]
@@ -634,41 +631,40 @@ async fn apply_search_settings_stores_and_clears_tavily_key() {
     let tmp = tempdir().unwrap();
     let mut cfg = tmp_config(&tmp);
 
-    let result = apply_search_settings(
-        &mut cfg,
-        SearchSettingsPatch {
-            engine: Some("tavily".to_string()),
-            tavily_api_key: Some(" tvly-test-key ".to_string()),
-            ..Default::default()
-        },
-    )
-    .await
-    .expect("save Tavily settings");
-    assert_eq!(result.value["tavily_configured"], true);
+    let enable: SearchSettingsPatch = serde_json::from_value(serde_json::json!({
+        "providers": {"tavily": {"enabled": true, "api_key": " tvly-test-key "}},
+        "roles": {"search": ["tavily", "exa"]}
+    }))
+    .unwrap();
+    let result = apply_search_settings(&mut cfg, enable)
+        .await
+        .expect("save Tavily settings");
+    let tavily = result.value["providers"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|p| p["id"] == "tavily")
+        .unwrap()
+        .clone();
+    assert_eq!(tavily["key_configured"], true);
+    assert_eq!(tavily["status"], "ready");
+    assert_eq!(result.value["effective_roles"]["search"][0], "tavily");
     assert!(!result.value.to_string().contains("tvly-test-key"));
-
-    assert_eq!(cfg.search.engine, "tavily");
     assert_eq!(cfg.search.tavily.api_key.as_deref(), Some("tvly-test-key"));
-    assert_eq!(
-        cfg.search.effective_engine(),
-        crate::config::SearchEngine::Tavily
-    );
 
-    apply_search_settings(
-        &mut cfg,
-        SearchSettingsPatch {
-            tavily_api_key: Some("  ".to_string()),
-            ..Default::default()
-        },
-    )
-    .await
-    .expect("clear Tavily key");
-
+    let clear: SearchSettingsPatch = serde_json::from_value(serde_json::json!({
+        "providers": {"tavily": {"api_key": "  "}}
+    }))
+    .unwrap();
+    let result = apply_search_settings(&mut cfg, clear)
+        .await
+        .expect("clear Tavily key");
     assert!(cfg.search.tavily.api_key.is_none());
-    assert_eq!(
-        cfg.search.effective_engine(),
-        crate::config::SearchEngine::Managed
-    );
+    assert!(!result.value["effective_roles"]["search"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|p| p == "tavily"));
 }
 
 #[tokio::test]
@@ -686,5 +682,5 @@ async fn apply_search_settings_rejects_unknown_search_engine() {
     .await
     .expect_err("unknown engine should be rejected");
 
-    assert!(err.contains("disabled/managed/parallel/brave/querit/exa/tavily"));
+    assert!(err.contains("unknown search engine"), "{err}");
 }

@@ -48,7 +48,12 @@ function renderSearchLink({
   );
 }
 
-/** A web search through assistant-ui's web-search element. */
+/**
+ * A web search, answer or research call through assistant-ui's web-search
+ * element. An answer call shows its grounded answer above the element and its
+ * citations as the element's rows; the status line names the provider that
+ * answered and, when the role fell back, the ones it skipped.
+ */
 export function WebSearchBody({
   args,
   result,
@@ -70,34 +75,79 @@ export function WebSearchBody({
       : typeof args.objective === 'string'
         ? args.objective
         : '';
-  const hits = parsed?.results ?? [];
-  const count =
-    hits.length === 0
-      ? t('conversations.tools.search.none', 'No results')
-      : fillPlaceholders(
+  const citations = parsed?.citations ?? [];
+  const answered = Boolean(parsed?.answer) || parsed?.role === 'answer';
+  // An answer lists what it cites; a search lists what it found.
+  const hits = parsed?.results.length ? parsed.results : citations;
+  const count = parsed?.inProgress
+    ? t('conversations.tools.search.researching', 'Research still running')
+    : answered
+      ? fillPlaceholders(
           hits.length === 1
-            ? t('conversations.tools.search.found.one', 'Found {count} result')
-            : t('conversations.tools.search.found.other', 'Found {count} results'),
+            ? t('conversations.tools.search.sources.one', '{count} source')
+            : t('conversations.tools.search.sources.other', '{count} sources'),
           { count: String(hits.length) }
-        );
-  const statusLabel = parsed?.provider
-    ? `${count} · ${fillPlaceholders(t('conversations.tools.search.via', 'via {provider}'), {
-        provider: parsed.provider,
-      })}`
-    : count;
+        )
+      : hits.length === 0
+        ? t('conversations.tools.search.none', 'No results')
+        : fillPlaceholders(
+            hits.length === 1
+              ? t('conversations.tools.search.found.one', 'Found {count} result')
+              : t('conversations.tools.search.found.other', 'Found {count} results'),
+            { count: String(hits.length) }
+          );
+  const fallbackFrom = parsed?.fallbackFrom ?? [];
+  const via = parsed?.provider
+    ? fallbackFrom.length > 0
+      ? fillPlaceholders(
+          t('conversations.tools.search.viaAfter', 'via {provider}, after {fallback}'),
+          { provider: parsed.provider, fallback: fallbackFrom.join(', ') }
+        )
+      : fillPlaceholders(t('conversations.tools.search.via', 'via {provider}'), {
+          provider: parsed.provider,
+        })
+    : undefined;
+  const statusLabel = via ? `${count} · ${via}` : count;
   return (
-    <WebSearch
-      data-testid="web-search-results"
-      className={FULL_WIDTH}
-      query={parsed?.query ?? argQuery}
-      results={hits.map(hit => ({ title: hit.title, domain: hit.domain, url: hit.url }))}
-      visibleResults={hits.length}
-      searching={searching}
-      cycle={0}
-      searchingLabel={t('conversations.tools.search.searching', 'Searching')}
-      statusLabel={statusLabel}
-      renderLink={renderSearchLink}
-    />
+    <div className="flex w-full flex-col gap-2.5" data-testid="web-search-body">
+      {parsed?.answer ? (
+        <div
+          data-testid="web-search-answer"
+          className="text-foreground/85 max-h-80 overflow-y-auto text-[13.5px]">
+          <BubbleMarkdown content={parsed.answer} />
+        </div>
+      ) : null}
+      <WebSearch
+        data-testid="web-search-results"
+        className={FULL_WIDTH}
+        query={parsed?.query ?? argQuery}
+        results={hits.map(hit => ({ title: hit.title, domain: hit.domain, url: hit.url }))}
+        visibleResults={hits.length}
+        searching={searching}
+        cycle={0}
+        searchingLabel={t('conversations.tools.search.searching', 'Searching')}
+        statusLabel={statusLabel}
+        renderLink={renderSearchLink}
+      />
+    </div>
+  );
+}
+
+/**
+ * Hint shown on a failed web tool whose error says the TinyHumans balance ran
+ * out, so the user knows to top up or switch a provider to their own key.
+ */
+export function SearchBalanceHint({ t }: { t: Translate }): ReactNode {
+  return (
+    <p
+      role="note"
+      data-testid="web-search-balance-hint"
+      className="rounded-lg border border-amber-200 bg-amber-50 px-2.5 py-1.5 text-xs text-amber-800 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+      {t(
+        'conversations.tools.search.balanceLow',
+        'Your TinyHumans balance is too low for included search. Top up, or add your own key for a search provider in Settings.'
+      )}
+    </p>
   );
 }
 

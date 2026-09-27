@@ -65,3 +65,50 @@ fn result_serializes_snake_case_for_the_wire() {
     assert_eq!(json.get("agent_id").unwrap(), "a4");
     assert_eq!(json.get("user_token").unwrap(), "tok");
 }
+
+/// A runtime holding only a TinyHumans API key (no session) can mint a
+/// realtime voice-agent URL; the key rides `x-api-key`, never `Authorization`.
+#[tokio::test]
+async fn mint_signed_url_authenticates_with_the_api_key() {
+    use axum::{http::HeaderMap, routing::get, Json, Router};
+    use std::sync::{Arc, Mutex};
+
+    let seen: Arc<Mutex<Option<(Option<String>, Option<String>)>>> = Arc::default();
+    let app = Router::new().route(
+        "/voice-agent/get-signed-url",
+        get({
+            let seen = Arc::clone(&seen);
+            move |headers: HeaderMap| async move {
+                let header = |name: &str| {
+                    headers
+                        .get(name)
+                        .and_then(|v| v.to_str().ok())
+                        .map(str::to_owned)
+                };
+                *seen.lock().unwrap() = Some((header("x-api-key"), header("authorization")));
+                Json(json!({
+                    "success": true,
+                    "data": { "signedUrl": "wss://voice", "agentId": "a1", "userToken": "u" }
+                }))
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = dir.path().join("workspace");
+    config.config_path = dir.path().join("config.toml");
+    config.api_url = Some(format!("http://{addr}"));
+    crate::security::credentials::api_key::store_api_key(&config, "tiny_test_voice").unwrap();
+
+    let out = mint_voice_agent_signed_url(&config)
+        .await
+        .expect("an API key alone mints a voice-agent URL");
+    assert_eq!(out.value.signed_url, "wss://voice");
+    let (api_key, authorization) = seen.lock().unwrap().clone().expect("request reached mock");
+    assert_eq!(api_key.as_deref(), Some("tiny_test_voice"));
+    assert_eq!(authorization, None);
+}

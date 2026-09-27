@@ -39,7 +39,7 @@
  * ## Why it takes over the whole backend base URL
  *
  * `api_url` is the single base every backend caller resolves through
- * (`api::config::effective_backend_api_url`), so pointing it here is what
+ * (`openhuman_tinyhumans::backend::url::effective_backend_api_url`), so pointing it here is what
  * routes the search. That also catches the other backend calls the run makes
  * and cannot authenticate — `/teams/me/usage`, the Composio toolkit list —
  * which previously logged a 401 per turn. They are answered with benign empty

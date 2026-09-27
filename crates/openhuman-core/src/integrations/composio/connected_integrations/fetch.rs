@@ -71,7 +71,10 @@ pub async fn fetch_connected_integrations_status(
     // credential. Asking the hosted integrations endpoint with it yields 401,
     // can race the scheduler gate into signed-out state, and cannot discover a
     // real connection. An authoritative empty set keeps this session local.
+    // A stored API key outranks the local session (`resolve_backend_credential`),
+    // so it still reaches the backend.
     if config.composio.mode.trim() != crate::config::schema::COMPOSIO_MODE_DIRECT
+        && !crate::security::credentials::api_key::has_api_key(config)
         && crate::security::credentials::session_support::get_session_token(config)
             .ok()
             .flatten()

@@ -30,8 +30,9 @@ pub const MODULE_ID: &str = "tinymemory";
 /// function's dependency and change a cache key that ~4000 pre-boot tests hit.
 ///
 /// So the policy is published once during boot instead. This is the same shape
-/// `tinymemory_core::embedding_host` and `api::product` already use, and for the
-/// same stated reason: the construction sites sit too deep to thread through.
+/// `tinymemory_core::embedding_host` and `openhuman_tinyhumans::backend::product`
+/// already use, and for the same stated reason: the construction sites sit
+/// too deep to thread through.
 ///
 /// # Unset means disabled, deliberately
 ///

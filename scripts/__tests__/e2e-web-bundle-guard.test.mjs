@@ -54,10 +54,23 @@ function makeTree(script) {
   // Every stub records that it ran, so a test can prove what was reached.
   const record = (name) => `echo "${name} $*" >> "${log}"`;
 
-  // The mock backend "starts" and exits at once; curl reports every health
-  // probe as ready, so the session moves straight on to its next check.
+  // The mock backend "starts" and exits at once. Its launch is a background
+  // job, so the health probe waits for the stub to record the launch before
+  // reporting ready; otherwise a fast runner can race the child process.
   writeExecutable(path.join(bin, "node"), `#!/usr/bin/env bash\n${record("node")}\n`);
-  writeExecutable(path.join(bin, "curl"), `#!/usr/bin/env bash\n${record("curl")}\n`);
+  writeExecutable(
+    path.join(bin, "curl"),
+    `#!/usr/bin/env bash
+${record("curl")}
+if [[ "$1" == *"/__admin/health" ]]; then
+  for _ in {1..100}; do
+    grep -q 'mock-api-server.mjs' "${log}" && exit 0
+    sleep 0.01
+  done
+  exit 1
+fi
+`,
+  );
 
   // `pnpm run build:web` behaves like Vite's `emptyOutDir: true`: it replaces
   // dist-web wholesale, taking any marker from a previous build with it.

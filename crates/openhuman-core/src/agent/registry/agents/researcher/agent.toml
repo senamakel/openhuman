@@ -20,10 +20,12 @@ hint = "burst"
 
 [tools]
 named = [
-    # Keep the default researcher narrow: search to locate sources, fetch to read
-    # selected pages. Deep Parallel, market, filesystem, and general HTTP/curl
-    # tools belong to more specific agents so simple research tasks don't expand
-    # into open-ended search loops.
+    # Keep the default researcher narrow: search to locate sources, a grounded
+    # answer for a cited summary, contents/fetch to read selected pages.
+    # Market, filesystem, and general HTTP/curl tools belong to more specific
+    # agents so simple research tasks don't expand into open-ended search loops.
     "web_search_tool",
+    "web_answer_tool",
+    "web_contents_tool",
     "web_fetch",
 ]

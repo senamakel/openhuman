@@ -6,6 +6,7 @@ use crate::config::AgentConfig;
 use crate::memory::{Memory, MemoryCategory, MemoryEntry, NamespaceSummary, RecallOpts};
 use async_trait::async_trait;
 use parking_lot::Mutex;
+use std::future::Future;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
@@ -496,27 +497,21 @@ async fn e2e_abort_all_cancels_an_in_flight_child_for_a_concurrent_waiter() {
     .await
     .expect("spawn blocking child");
 
-    let waiter = {
-        let session = session.clone();
-        let id = spawned.orchestration_id.clone();
-        tokio::spawn(async move {
-            session
-                .wait_agents(WaitAgentOptions {
-                    orchestration_ids: vec![id],
-                    timeout_ms: Some(30_000),
-                })
-                .await
-        })
-    };
+    let waiter_session = session.clone();
+    let waiter_id = spawned.orchestration_id.clone();
+    let mut waiter = Box::pin(async move {
+        waiter_session
+            .wait_agents(WaitAgentOptions {
+                orchestration_ids: vec![waiter_id],
+                timeout_ms: Some(30_000),
+            })
+            .await
+    });
 
-    // Readiness handshake instead of a fixed sleep: `cancel_all` removes the
-    // registry entry outright, so calling `abort_all` before the child has
-    // observably reached `Running` risks the waiter's own lookup racing the
-    // removal and surfacing `AgentNotFound` instead of `Cancelled`. Poll with
-    // short, non-terminal `wait_agents` calls (the crate only prunes a
-    // *terminal* entry, so polling a still-running child is side-effect-free)
-    // until `Running` is observed, bounded so a genuine regression fails fast
-    // rather than hanging.
+    // Observe Running before cancellation, then poll the waiter future once
+    // until it suspends inside wait_agents. This ensures its registry snapshot
+    // and watch subscription are established before abort_all removes the
+    // entry; a task-level start signal alone leaves that lookup racy.
     let observed_running = tokio::time::timeout(Duration::from_secs(10), async {
         loop {
             let response = session
@@ -537,12 +532,14 @@ async fn e2e_abort_all_cancels_an_in_flight_child_for_a_concurrent_waiter() {
         observed_running.is_ok(),
         "child never reached Running before the readiness timeout"
     );
+    futures::future::poll_fn(|cx| match waiter.as_mut().poll(cx) {
+        std::task::Poll::Pending => std::task::Poll::Ready(()),
+        std::task::Poll::Ready(_) => panic!("waiter completed before cancellation"),
+    })
+    .await;
     session.abort_all().await;
 
-    let response = waiter
-        .await
-        .expect("waiter task")
-        .expect("wait resolves after abort_all");
+    let response = waiter.await.expect("wait resolves after abort_all");
     assert!(response.completed);
     assert_eq!(response.agents.len(), 1);
     assert_eq!(

@@ -7,6 +7,7 @@
 
 use crate::agent::prompts::ConnectedIntegration;
 use crate::config::Config;
+use sha2::{Digest, Sha256};
 
 use std::collections::{HashMap, HashSet};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -46,11 +47,39 @@ pub(crate) fn composio_cache_test_lock() -> std::sync::MutexGuard<'static, ()> {
         .unwrap_or_else(|e| e.into_inner())
 }
 
-/// Derive a stable cache key from a [`Config`]. We use the stringified
-/// `config_path` because it uniquely identifies a user context (it
-/// resolves to the per-user openhuman dir).
+/// Bind a cached integration list to the effective backend credential and
+/// endpoint as well as the local config. The digest keeps secrets out of the
+/// cache key and logs while preventing an old identity's cache hit during a
+/// credential rotation, even before invalidation completes.
 pub(crate) fn cache_key(config: &Config) -> String {
-    config.config_path.display().to_string()
+    // Match `IntegrationClient::new_inner`: the cache must follow the same
+    // control-plane origin after the transport applies its configured/default
+    // backend resolution and inference-path normalization.
+    let backend_url = crate::backend::base_url(&config.api_url)
+        .map(|url| crate::util::url::normalize_backend_api_base_url(&url))
+        .unwrap_or_default();
+    cache_key_with_backend_url(config, &backend_url)
+}
+
+fn cache_key_with_backend_url(config: &Config, backend_url: &str) -> String {
+    let mut digest = Sha256::new();
+    digest.update(b"openhuman-integrations-cache-v2\0");
+    digest.update(config.config_path.to_string_lossy().as_bytes());
+    digest.update(b"\0");
+    digest.update(backend_url.as_bytes());
+    digest.update(b"\0");
+    match crate::security::credentials::session_support::resolve_backend_credential(config) {
+        Ok(credential) => {
+            digest.update(if credential.is_api_key() {
+                b"api-key\0"
+            } else {
+                b"session\0"
+            });
+            digest.update(credential.secret().as_bytes());
+        }
+        Err(_) => digest.update(b"unavailable"),
+    }
+    hex::encode(digest.finalize())
 }
 
 /// Clear cached connected integrations so the next call to
@@ -128,6 +157,10 @@ fn read_cached_integrations(config: &Config) -> Option<Vec<ConnectedIntegration>
     );
     Some(cached.entries.clone())
 }
+
+#[cfg(test)]
+#[path = "cache_tests.rs"]
+mod tests;
 
 /// Stable hash of the *routing-relevant* slice of a connected-integrations
 /// snapshot.

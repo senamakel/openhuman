@@ -941,17 +941,10 @@ pub fn all_tools_with_runtime(
         } else {
             tracing::debug!("[integrations] google_places disabled — skipping");
         }
-        // NOTE: parallel tools moved to the unified [search] engine
-        // selector above. `integrations.parallel` is parsed but no
-        // longer registers tools directly — set
-        // `search.engine = "parallel"` instead.
-        if root_config.integrations.parallel.is_active() {
-            tracing::debug!(
-                "[integrations] parallel toggle is active but tools are governed by search.engine now"
-            );
-        }
-        // TinyFish is search-owned and registers through the unified search
-        // surface above so `search.engine = "disabled"` suppresses it too.
+        // Web search providers (Exa, Gemini, TinyFish, ...) register through
+        // the TinySearch module above, so `[search] enabled = false`
+        // suppresses them too. `integrations.parallel` is parsed for old
+        // config files and no longer does anything.
         if root_config.integrations.stock_prices.is_active() {
             tools.push(Box::new(crate::tools::StockQuoteTool::new(Arc::clone(
                 &client,
@@ -1277,11 +1270,18 @@ fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     // Integrations: every external connector reached on the user's behalf.
     if name.starts_with("composio")
         || name == "web_search_tool"
+        || name == "web_answer_tool"
+        || name == "web_contents_tool"
+        || name == "search"
         || name.starts_with("tinyfish_")
         || name.starts_with("exa_")
-        || name.starts_with("brave_")
+        || name.starts_with("gemini_")
         || name.starts_with("parallel_")
-        || name.starts_with("querit_") || name.starts_with("tavily_")
+        || name.starts_with("brave_")
+        || name.starts_with("querit_")
+        || name.starts_with("tavily_")
+        || name.starts_with("seltz_")
+        || name.starts_with("searxng_")
         || name.starts_with("google_places_")
         || name.starts_with("stock_")
         || name.starts_with("storage_")

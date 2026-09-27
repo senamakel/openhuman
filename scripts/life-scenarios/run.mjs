@@ -244,7 +244,7 @@ async function prepareHome(runDir, opts, { searchBase } = {}) {
   const config = [
     "schema_version = 13",
     // The backend base every non-inference call resolves through
-    // (`api::config::effective_backend_api_url`). Pointed at the local mock so
+    // (`openhuman_tinyhumans::backend::url::effective_backend_api_url`). Pointed at the local mock so
     // `web_search_tool` has something to talk to: it posts to
     // `/agent-integrations/parallel/search` on this base, and against the
     // hosted backend this run's offline token is rejected 401 every time.

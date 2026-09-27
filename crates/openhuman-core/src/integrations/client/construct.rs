@@ -15,9 +15,9 @@ use crate::integrations::types::IntegrationPricing;
 /// baked into a build silently produced 404 URLs like
 /// `…/openai/v1/chat/completions/agent-integrations/composio/connections`
 /// because every `IntegrationClient` method joins paths onto this field
-/// via [`crate::api::config::api_url`].
+/// via [`crate::util::url::join_url`].
 pub(super) fn sanitize_backend_url(backend_url: &str) -> String {
-    let cleaned = crate::api::config::normalize_backend_api_base_url(backend_url);
+    let cleaned = crate::util::url::normalize_backend_api_base_url(backend_url);
     let trimmed = backend_url.trim().trim_end_matches('/');
     if !cleaned.is_empty() && cleaned != trimmed {
         // Redact userinfo (username/password) before logging — a
@@ -25,8 +25,8 @@ pub(super) fn sanitize_backend_url(backend_url: &str) -> String {
         // segment. The helper preserves host/path for diagnosability
         // while scrubbing secrets.
         tracing::warn!(
-            input = %crate::api::config::redact_url_for_log(trimmed),
-            cleaned = %crate::api::config::redact_url_for_log(&cleaned),
+            input = %crate::util::redact_url_for_log(trimmed),
+            cleaned = %crate::util::redact_url_for_log(&cleaned),
             "[integrations] backend_url carried an inference / non-root path; \
              stripping before use (issue #2075)"
         );
@@ -40,24 +40,43 @@ pub(super) fn sanitize_backend_url(backend_url: &str) -> String {
 
 /// Shared client for all integration tools. Holds backend URL, auth token,
 /// the download `reqwest::Client`, and a lazily-fetched pricing cache. JSON
-/// traffic rides the process [`BackendTransport`](crate::api::transport::BackendTransport).
+/// traffic rides the process [`BackendTransport`](crate::backend::transport::BackendTransport).
 pub struct IntegrationClient {
     pub backend_url: String,
     pub auth_token: String,
-    /// `auth_token` in the shape the transport takes: always a session JWT
-    /// here (see `errors.rs::handle_session_jwt_unauthorized`).
+    /// `auth_token` in the shape the transport takes: a session JWT rides
+    /// `Authorization: Bearer`, a TinyHumans API key rides `x-api-key` (see
+    /// `api::transport::credential_headers`). The 401 handling in `errors.rs`
+    /// branches on which one it is.
     pub(super) credential: crate::security::credentials::session_support::BackendCredential,
     pub(super) budget_config: Option<Arc<crate::config::Config>>,
     // The binary download path never rode the SDK: file storage also consumes
     // Content-Type and Content-Disposition, and the presigned-redirect hop
     // must not carry attribution headers (see `new_inner`).
     pub(super) download_client: reqwest::Client,
+    /// Follows storage redirects without inheriting any backend credential.
+    pub(super) presigned_client: reqwest::Client,
     pub(super) pricing: tokio::sync::OnceCell<IntegrationPricing>,
 }
 
 impl IntegrationClient {
+    /// A client authenticating with a session JWT.
     pub fn new(backend_url: String, auth_token: String) -> Self {
-        Self::new_inner(backend_url, auth_token, None)
+        Self::new_inner(
+            backend_url,
+            crate::security::credentials::session_support::BackendCredential::Session(auth_token),
+            None,
+        )
+    }
+
+    /// A client authenticating with whichever credential
+    /// [`resolve_backend_credential`](crate::security::credentials::session_support::resolve_backend_credential)
+    /// chose: the TinyHumans API key or the session JWT.
+    pub fn new_with_credential(
+        backend_url: String,
+        credential: crate::security::credentials::session_support::BackendCredential,
+    ) -> Self {
+        Self::new_inner(backend_url, credential, None)
     }
 
     pub fn new_with_budget_config(
@@ -65,12 +84,57 @@ impl IntegrationClient {
         auth_token: String,
         config: Arc<crate::config::Config>,
     ) -> Self {
-        Self::new_inner(backend_url, auth_token, Some(config))
+        Self::new_inner(
+            backend_url,
+            crate::security::credentials::session_support::BackendCredential::Session(auth_token),
+            Some(config),
+        )
+    }
+
+    /// Credential-aware variant of [`Self::new_with_budget_config`].
+    pub fn new_with_credential_and_budget_config(
+        backend_url: String,
+        credential: crate::security::credentials::session_support::BackendCredential,
+        config: Arc<crate::config::Config>,
+    ) -> Self {
+        Self::new_inner(backend_url, credential, Some(config))
+    }
+
+    /// Whether this client authenticates with a TinyHumans API key rather
+    /// than a session JWT.
+    pub fn uses_api_key(&self) -> bool {
+        self.credential.is_api_key()
+    }
+
+    /// The auth headers for a request built outside the backend transport
+    /// (binary download, raw DELETE): `Authorization: Bearer` for a session,
+    /// `x-api-key` for an API key.
+    pub(crate) fn auth_headers(&self) -> anyhow::Result<reqwest::header::HeaderMap> {
+        self.validate_credential_endpoint()?;
+        crate::backend::transport::credential_headers(&self.credential)
+            .map_err(|e| anyhow::anyhow!("invalid backend credential header: {e}"))
+    }
+
+    pub(super) fn validate_credential_endpoint(&self) -> anyhow::Result<()> {
+        let endpoint = &self.backend_url;
+        if self.uses_api_key()
+            && !crate::inference::provider::openhuman_backend_model::is_managed_endpoint_for_api_key(
+                endpoint,
+            )
+        {
+            anyhow::bail!("TinyHumans API key requires the managed backend or a loopback endpoint");
+        }
+        if !crate::inference::provider::openhuman_backend_model::is_safe_endpoint_for_managed_bearer(
+            endpoint,
+        ) {
+            anyhow::bail!("backend credential requires HTTPS or a loopback HTTP endpoint");
+        }
+        Ok(())
     }
 
     fn new_inner(
         backend_url: String,
-        auth_token: String,
+        credential: crate::security::credentials::session_support::BackendCredential,
         budget_config: Option<Arc<crate::config::Config>>,
     ) -> Self {
         // Defense-in-depth (issue #2075 / Sentry OPENHUMAN-TAURI-H6, -HN):
@@ -87,39 +151,39 @@ impl IntegrationClient {
 
         // JSON traffic goes through the process backend transport
         // (`TransportProfile::Integrations`: platform TLS, 60 s timeout,
-        // product identity — see `api::headers`). Only the binary download
+        // product identity — see `openhuman_tinyhumans::backend::headers`).
+        // Only the binary download
         // client is built here.
         //
         // `download_client` deliberately does NOT carry the product identity.
-        // Its one caller (`get_bytes`) fetches
-        // `/agent-integrations/file-storage/files/{id}/download`, which answers
-        // a 302 to a presigned S3 URL. reqwest follows redirects by default and
-        // strips only *sensitive* headers (Authorization, Cookie, …) when the
-        // host changes — a custom header like `x-sdk-name` survives the hop, so
-        // tagging this transport would disclose the product identity to the
-        // storage provider. Attaching it per-request would not help: redirected
-        // requests carry the original request headers too.
+        // Its one caller (`get_bytes`) fetches a route that can redirect to
+        // presigned storage. The first client stops at the redirect; the second
+        // follows it without x-api-key or any other backend header.
         //
-        // The lost attribution is deliberate and cheap: the header cannot be
-        // scoped to the first hop without hand-rolling redirect following, and
-        // any session that downloads a file has already made SDK-path calls that
-        // are tagged.
+        // These raw clients do not add product attribution to storage requests.
         let download_client = crate::util::tls::tls_client_builder()
             .http1_only()
+            .redirect(reqwest::redirect::Policy::none())
             .timeout(Duration::from_secs(15 * 60))
             .connect_timeout(Duration::from_secs(15))
             .build()
             .expect("failed to build integration download HTTP client");
+        let presigned_client = crate::util::tls::tls_client_builder()
+            .http1_only()
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(Duration::from_secs(15 * 60))
+            .connect_timeout(Duration::from_secs(15))
+            .build()
+            .expect("failed to build presigned download HTTP client");
 
-        let credential = crate::security::credentials::session_support::BackendCredential::Session(
-            auth_token.clone(),
-        );
+        let auth_token = credential.secret().to_owned();
         Self {
             backend_url,
             auth_token,
             credential,
             budget_config,
             download_client,
+            presigned_client,
             pricing: tokio::sync::OnceCell::new(),
         }
     }

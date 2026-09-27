@@ -1,6 +1,17 @@
 use super::*;
 use serde_json::json;
 
+#[tokio::test]
+async fn connection_rejects_plaintext_remote_socket_before_starting_loop() {
+    let manager = SocketManager::new();
+    let error = manager
+        .connect("http://example.com", "session-token")
+        .await
+        .unwrap_err();
+    assert!(error.contains("requires WSS or a loopback WS endpoint"));
+    assert!(!manager.is_connected());
+}
+
 #[test]
 fn new_manager_is_disconnected_with_no_sid() {
     let mgr = SocketManager::new();

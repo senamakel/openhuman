@@ -15,7 +15,7 @@ use tokio_tungstenite::{
     tungstenite::{http::StatusCode, Error as WsError, Message as WsMessage},
 };
 
-use crate::api::models::socket::ConnectionStatus;
+use crate::platform::socket::models::ConnectionStatus;
 use crate::util::utf8_safe_prefix_at_byte_boundary;
 
 use super::dispatch::handle_eio_message;
@@ -407,6 +407,12 @@ pub(super) async fn connect_with_redirects_within(
 ) -> Result<WsStream, WsError> {
     let original = ws_url.clone();
     for hop in 0..=MAX_REDIRECT_HOPS {
+        if !crate::platform::socket::url::is_safe_socket_endpoint(ws_url) {
+            return Err(WsError::Io(std::io::Error::new(
+                std::io::ErrorKind::PermissionDenied,
+                "socket credential requires WSS or a loopback WS endpoint",
+            )));
+        }
         let attempt =
             match tokio::time::timeout(connect_timeout, connect_async(ws_url.as_str())).await {
                 Ok(attempt) => attempt,

@@ -397,3 +397,35 @@ fn non_summarization_roles_keep_the_role_factory() {
     super::resolve_chat_model("chat", &config)
         .expect("a non-summarization role resolves through the factory (test override)");
 }
+
+/// With only a TinyHumans API key stored (no session), the host lends the key
+/// as the proxied-Composio bearer and reports Composio available — the backend
+/// accepts a key as `Authorization: Bearer`.
+#[tokio::test]
+async fn session_bearer_and_availability_come_from_the_api_key() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = scoped_config(dir.path());
+    crate::security::credentials::api_key::store_api_key(config.as_ref(), "tiny_test_memory")
+        .expect("store api key");
+    let callbacks = ComposioCallbacks(Arc::clone(&config));
+
+    let bearer = call(&callbacks, "SessionBearer", json!([]))
+        .await
+        .expect("SessionBearer never fails");
+    assert_eq!(bearer, json!("tiny_test_memory"));
+
+    let available = call(&callbacks, "IsAvailable", json!([]))
+        .await
+        .expect("IsAvailable never fails");
+    assert_eq!(available, json!(true));
+}
+
+#[tokio::test]
+async fn session_bearer_is_absent_without_any_credential() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let callbacks = ComposioCallbacks(scoped_config(dir.path()));
+    let bearer = call(&callbacks, "SessionBearer", json!([]))
+        .await
+        .expect("SessionBearer never fails");
+    assert_eq!(bearer, json!(null));
+}

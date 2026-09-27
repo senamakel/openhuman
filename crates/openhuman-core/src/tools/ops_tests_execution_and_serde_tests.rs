@@ -342,9 +342,6 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
     cfg.integrations.stock_prices.enabled = true;
     cfg.integrations.twilio.enabled = true;
     cfg.composio.enabled = true;
-    // Parallel tools now register through the unified search-engine selector.
-    cfg.search.engine = crate::config::SEARCH_ENGINE_PARALLEL.into();
-    cfg.search.parallel.api_key = Some("test-parallel-key".into());
     store_test_session_token(&cfg);
 
     let tools = all_tools(
@@ -364,15 +361,6 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
         &[
             "google_places_search",
             "google_places_details",
-            "parallel_search",
-            "parallel_extract",
-            "parallel_chat",
-            "parallel_research",
-            "parallel_enrich",
-            "parallel_dataset",
-            "tinyfish_search",
-            "tinyfish_fetch",
-            "tinyfish_agent_run",
             "stock_quote",
             "stock_exchange_rate",
             "stock_options",
@@ -390,16 +378,18 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
 
 #[test]
 fn all_tools_registers_brave_engine_lsp_and_tool_stats_when_enabled() {
-    // The legacy seltz/searxng tools are no longer registered — the
-    // unified `search.engine` selector replaces them. This test now
-    // verifies that picking `brave` layers in its full tool surface
+    // Search registers one tool per capability role from the TinySearch
+    // catalog; a usable BYOK Brave key yields the `search` role tool
     // alongside lsp + tool_stats.
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
     let mut cfg = test_config(&tmp);
-    cfg.search.engine = crate::config::SEARCH_ENGINE_BRAVE.into();
+    cfg.search.providers.insert(
+        "brave".into(),
+        crate::config::SearchProviderSettings::direct(),
+    );
     cfg.search.brave.api_key = Some("test-brave-key".into());
     cfg.learning.enabled = true;
     cfg.learning.tool_tracking_enabled = true;
@@ -425,10 +415,8 @@ fn all_tools_registers_brave_engine_lsp_and_tool_stats_when_enabled() {
     assert_contains_all(
         &names,
         &[
+            #[cfg(feature = "modules")]
             "web_search_tool",
-            "brave_news_search",
-            "brave_image_search",
-            "brave_video_search",
             "lsp",
             "tool_stats",
         ],
@@ -440,13 +428,16 @@ fn all_tools_registers_brave_engine_lsp_and_tool_stats_when_enabled() {
 }
 
 #[test]
-fn all_tools_registers_querit_engine_when_enabled() {
+fn all_tools_registers_querit_as_the_search_role_when_enabled() {
     let tmp = TempDir::new().unwrap();
     let security = Arc::new(SecurityPolicy::default());
     let browser = BrowserConfig::default();
     let http = crate::config::HttpRequestConfig::default();
     let mut cfg = test_config(&tmp);
-    cfg.search.engine = crate::config::SEARCH_ENGINE_QUERIT.into();
+    cfg.search.providers.insert(
+        "querit".into(),
+        crate::config::SearchProviderSettings::direct(),
+    );
     cfg.search.querit.api_key = Some("test-querit-key".into());
 
     let tools = all_tools(
@@ -460,7 +451,13 @@ fn all_tools_registers_querit_engine_when_enabled() {
         &cfg,
     );
     let names = tool_names(&tools);
-    assert_contains_all(&names, &["web_search_tool", "querit_search"]);
+    #[cfg(feature = "modules")]
+    assert_contains_all(&names, &["web_search_tool"]);
+    // Provider tools stay behind the role tool in the default presentation.
+    assert!(
+        !names.iter().any(|name| name == "querit_search"),
+        "{names:?}"
+    );
 }
 
 #[test]
@@ -471,7 +468,7 @@ fn all_tools_omits_search_surface_when_search_is_disabled() {
     let http = crate::config::HttpRequestConfig::default();
     let mut cfg = test_config(&tmp);
     cfg.api_url = Some("https://backend.example.test".to_string());
-    cfg.search.engine = crate::config::SEARCH_ENGINE_DISABLED.into();
+    cfg.search.enabled = Some(false);
     cfg.search.brave.api_key = Some("test-brave-key".into());
     cfg.search.querit.api_key = Some("test-querit-key".into());
     cfg.integrations.tinyfish.enabled = true;
@@ -491,6 +488,8 @@ fn all_tools_omits_search_surface_when_search_is_disabled() {
 
     for search_tool in [
         "web_search_tool",
+        "web_answer_tool",
+        "web_contents_tool",
         "brave_news_search",
         "brave_image_search",
         "brave_video_search",

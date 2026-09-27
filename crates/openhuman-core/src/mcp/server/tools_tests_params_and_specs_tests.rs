@@ -66,7 +66,7 @@ fn read_only_tools_are_marked_read_only_and_closed_world() {
         "memory.note",
         "tree.tag",
     ];
-    let open_world_read_only = ["searxng_search"];
+    let open_world_read_only = ["searxng_search", "web_search", "web_answer"];
     for spec in tool_specs() {
         if act_tool_names.contains(&spec.name) {
             continue;
@@ -136,7 +136,10 @@ fn run_subagent_annotations_signal_act_semantics() {
 #[test]
 fn list_tools_includes_searxng_when_enabled() {
     let mut config = crate::config::Config::default();
-    config.searxng.enabled = true;
+    config.search.providers.insert(
+        "searxng".into(),
+        crate::config::SearchProviderSettings::direct(),
+    );
     let result = list_tools_result_for_config(&config);
     let names = result["tools"]
         .as_array()
@@ -220,21 +223,17 @@ fn searxng_search_params_accept_optional_fields() {
         "searxng_search",
         json!({
             "query": " rust async ",
-            "categories": ["web", "news"],
-            "language": " en ",
             "max_results": 12
         }),
     )
     .expect("params");
 
     assert_eq!(params["query"], "rust async");
-    assert_eq!(params["categories"], json!(["web", "news"]));
-    assert_eq!(params["language"], "en");
     assert_eq!(params["max_results"], 12);
 }
 
 #[test]
-fn searxng_search_rejects_unknown_category() {
+fn searxng_search_rejects_arguments_it_no_longer_takes() {
     let err = build_rpc_params(
         "searxng_search",
         json!({
@@ -244,7 +243,44 @@ fn searxng_search_rejects_unknown_category() {
     )
     .expect_err("must reject");
 
-    assert!(err.message().contains("unsupported SearXNG category"));
+    assert!(err.message().contains("categories"), "{}", err.message());
+}
+
+#[test]
+fn web_search_params_accept_a_pinned_provider() {
+    let params = build_rpc_params(
+        "web_search",
+        json!({"query": "rust", "provider": " exa ", "max_results": 3}),
+    )
+    .expect("params");
+    assert_eq!(params["provider"], "exa");
+    assert_eq!(params["max_results"], 3);
+}
+
+#[test]
+fn web_answer_params_validate_depth() {
+    let params =
+        build_rpc_params("web_answer", json!({"query": "why", "depth": "deep"})).expect("params");
+    assert_eq!(params["depth"], "deep");
+    let err = build_rpc_params("web_answer", json!({"query": "why", "depth": "long"}))
+        .expect_err("must reject");
+    assert!(err.message().contains("depth"));
+}
+
+#[test]
+fn search_tools_follow_usable_roles() {
+    use super::specs::tool_specs_for_config;
+    let names = |specs: Vec<super::types::McpToolSpec>| {
+        specs.into_iter().map(|s| s.name).collect::<Vec<_>>()
+    };
+    let config = crate::config::Config::default();
+    let signed_out = names(tool_specs_for_config(&config, false));
+    assert!(!signed_out.contains(&"web_search"));
+    assert!(!signed_out.contains(&"web_answer"));
+    let signed_in = names(tool_specs_for_config(&config, true));
+    assert!(signed_in.contains(&"web_search"));
+    assert!(signed_in.contains(&"web_answer"));
+    assert!(!signed_in.contains(&"searxng_search"));
 }
 
 #[test]
@@ -253,7 +289,7 @@ fn searxng_search_rejects_max_results_above_max() {
         "searxng_search",
         json!({
             "query": "rust",
-            "max_results": SEARXNG_MAX_RESULTS + 1
+            "max_results": SEARCH_MAX_RESULTS + 1
         }),
     )
     .expect_err("must reject");

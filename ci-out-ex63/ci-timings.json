@@ -1,0 +1,496 @@
+{
+  "profile": "ex63",
+  "started": "2026-09-27T18:02:50.144Z",
+  "finished": "2026-09-27T18:14:37.232Z",
+  "runner": "ex63-1-fb1c60dc",
+  "areas": {
+    "frontend": true,
+    "i18n": true,
+    "docs": true,
+    "rustCore": true,
+    "rustTauri": true,
+    "scripts": true,
+    "inventory": true,
+    "toolchainImage": true,
+    "installPs1": true
+  },
+  "lanes": [
+    {
+      "name": "static",
+      "heavyWaitS": null,
+      "targetDir": null,
+      "targetBytes": null,
+      "checks": [
+        {
+          "name": "rust-fmt",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:02:50.149Z",
+          "end": "2026-09-27T18:03:01.806Z",
+          "durationS": 12,
+          "peakRssMiB": 387
+        },
+        {
+          "name": "rust-layout",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:01.806Z",
+          "end": "2026-09-27T18:03:02.099Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "agent-runtime-boundary",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:02.099Z",
+          "end": "2026-09-27T18:03:13.649Z",
+          "durationS": 12,
+          "peakRssMiB": 230
+        },
+        {
+          "name": "ignored-tests-ratchet",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:13.649Z",
+          "end": "2026-09-27T18:03:14.248Z",
+          "durationS": 1,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "linux-tls-policy",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:14.249Z",
+          "end": "2026-09-27T18:03:16.147Z",
+          "durationS": 2,
+          "peakRssMiB": 117
+        },
+        {
+          "name": "gated-test-allowlist",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:16.147Z",
+          "end": "2026-09-27T18:03:16.320Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "orch-ip-gate",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:16.320Z",
+          "end": "2026-09-27T18:03:16.340Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "feature-forwarding",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:16.340Z",
+          "end": "2026-09-27T18:03:16.430Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "module-pins",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:16.430Z",
+          "end": "2026-09-27T18:03:21.384Z",
+          "durationS": 5,
+          "peakRssMiB": 29
+        },
+        {
+          "name": "submodule-monotonic",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:21.384Z",
+          "end": "2026-09-27T18:03:21.479Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "toolchain-image-drift",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:21.479Z",
+          "end": "2026-09-27T18:03:21.516Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "test-inventory",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:21.517Z",
+          "end": "2026-09-27T18:03:21.958Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        }
+      ]
+    },
+    {
+      "name": "frontend",
+      "heavyWaitS": null,
+      "targetDir": null,
+      "targetBytes": null,
+      "checks": [
+        {
+          "name": "pnpm-install",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:02:50.152Z",
+          "end": "2026-09-27T18:03:02.074Z",
+          "durationS": 12,
+          "peakRssMiB": 647
+        },
+        {
+          "name": "tsc",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:02.079Z",
+          "end": "2026-09-27T18:03:36.919Z",
+          "durationS": 35,
+          "peakRssMiB": 2082
+        },
+        {
+          "name": "prettier",
+          "status": "failure",
+          "reportOnly": false,
+          "exitCode": 1,
+          "start": "2026-09-27T18:03:36.919Z",
+          "end": "2026-09-27T18:03:54.589Z",
+          "durationS": 18,
+          "peakRssMiB": 610
+        },
+        {
+          "name": "eslint",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:54.589Z",
+          "end": "2026-09-27T18:04:18.079Z",
+          "durationS": 23,
+          "peakRssMiB": 2110
+        },
+        {
+          "name": "i18n",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:04:18.079Z",
+          "end": "2026-09-27T18:04:20.452Z",
+          "durationS": 2,
+          "peakRssMiB": 440
+        },
+        {
+          "name": "docs-generator-tests",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:04:20.452Z",
+          "end": "2026-09-27T18:04:21.003Z",
+          "durationS": 1,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "docs-drift",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:04:21.003Z",
+          "end": "2026-09-27T18:04:21.432Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "scripts-self-tests",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:04:21.432Z",
+          "end": "2026-09-27T18:04:26.954Z",
+          "durationS": 6,
+          "peakRssMiB": 243
+        }
+      ]
+    },
+    {
+      "name": "frontend-tests",
+      "heavyWaitS": null,
+      "targetDir": null,
+      "targetBytes": null,
+      "checks": [
+        {
+          "name": "vitest-coverage",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:03:02.075Z",
+          "end": "2026-09-27T18:07:12.073Z",
+          "durationS": 250,
+          "peakRssMiB": 3936
+        }
+      ]
+    },
+    {
+      "name": "rust-cov",
+      "heavyWaitS": 0,
+      "targetDir": "/scratch/target/cov",
+      "targetBytes": 14812757445,
+      "checks": [
+        {
+          "name": "test-modules",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:02:50.157Z",
+          "end": "2026-09-27T18:02:50.510Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "rust-core-coverage",
+          "status": "failure",
+          "reportOnly": false,
+          "exitCode": 1,
+          "start": "2026-09-27T18:02:50.510Z",
+          "end": "2026-09-27T18:09:42.812Z",
+          "durationS": 412,
+          "peakRssMiB": 24517
+        }
+      ]
+    },
+    {
+      "name": "rust-lint",
+      "heavyWaitS": 0,
+      "targetDir": "/scratch/target/lint",
+      "targetBytes": 1080760803,
+      "checks": [
+        {
+          "name": "clippy-product",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:02:50.158Z",
+          "end": "2026-09-27T18:06:02.606Z",
+          "durationS": 192,
+          "peakRssMiB": 5056
+        },
+        {
+          "name": "embed-clippy",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:06:02.607Z",
+          "end": "2026-09-27T18:08:01.667Z",
+          "durationS": 119,
+          "peakRssMiB": 4589
+        },
+        {
+          "name": "embed-check-no-default",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:08:01.667Z",
+          "end": "2026-09-27T18:09:16.369Z",
+          "durationS": 75,
+          "peakRssMiB": 144
+        },
+        {
+          "name": "tinyhumans-clippy",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:09:16.369Z",
+          "end": "2026-09-27T18:09:19.400Z",
+          "durationS": 3,
+          "peakRssMiB": 0
+        }
+      ]
+    },
+    {
+      "name": "rust-gates-off",
+      "heavyWaitS": 0,
+      "targetDir": "/scratch/target/gatesoff",
+      "targetBytes": 2388169436,
+      "checks": [
+        {
+          "name": "gate-contract-tests",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:02:50.159Z",
+          "end": "2026-09-27T18:07:16.581Z",
+          "durationS": 266,
+          "peakRssMiB": 8521
+        },
+        {
+          "name": "gate-contract-tests-features",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:07:16.582Z",
+          "end": "2026-09-27T18:10:06.815Z",
+          "durationS": 170,
+          "peakRssMiB": 8999
+        },
+        {
+          "name": "kernel-floor",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:10:06.815Z",
+          "end": "2026-09-27T18:10:07.677Z",
+          "durationS": 1,
+          "peakRssMiB": 0
+        },
+        {
+          "name": "dep-sim-calibration",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:10:07.677Z",
+          "end": "2026-09-27T18:10:07.911Z",
+          "durationS": 0,
+          "peakRssMiB": 0
+        }
+      ]
+    },
+    {
+      "name": "tauri",
+      "heavyWaitS": 389,
+      "targetDir": "/scratch/target/tauri",
+      "targetBytes": 8069876566,
+      "checks": [
+        {
+          "name": "clippy-tauri",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:09:19.440Z",
+          "end": "2026-09-27T18:10:52.779Z",
+          "durationS": 93,
+          "peakRssMiB": 735
+        },
+        {
+          "name": "tauri-coverage",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:10:52.780Z",
+          "end": "2026-09-27T18:14:37.203Z",
+          "durationS": 224,
+          "peakRssMiB": 3958
+        }
+      ]
+    },
+    {
+      "name": "pester",
+      "heavyWaitS": null,
+      "targetDir": null,
+      "targetBytes": null,
+      "checks": [
+        {
+          "name": "install-ps1-pester",
+          "status": "success",
+          "reportOnly": false,
+          "exitCode": 0,
+          "start": "2026-09-27T18:02:50.155Z",
+          "end": "2026-09-27T18:02:50.985Z",
+          "durationS": 1,
+          "peakRssMiB": 0
+        }
+      ]
+    }
+  ],
+  "sccache": {
+    "stats": {
+      "compile_requests": 4250,
+      "requests_unsupported_compiler": 0,
+      "requests_not_compile": 48,
+      "requests_not_cacheable": 795,
+      "requests_executed": 3407,
+      "cache_errors": {
+        "counts": {},
+        "adv_counts": {}
+      },
+      "cache_hits": {
+        "counts": {
+          "Rust": 3302,
+          "C/C++": 68
+        },
+        "adv_counts": {
+          "c [gcc]": 68,
+          "rust": 3302
+        }
+      },
+      "cache_misses": {
+        "counts": {
+          "Rust": 11
+        },
+        "adv_counts": {
+          "rust": 11
+        }
+      },
+      "cache_timeouts": 0,
+      "cache_read_errors": 0,
+      "non_cacheable_compilations": 0,
+      "forced_recaches": 0,
+      "cache_write_errors": 0,
+      "cache_writes": 11,
+      "cache_write_duration": {
+        "secs": 0,
+        "nanos": 340681522
+      },
+      "cache_read_hit_duration": {
+        "secs": 179,
+        "nanos": 288348313
+      },
+      "compilations": 11,
+      "compiler_write_duration": {
+        "secs": 533,
+        "nanos": 250100267
+      },
+      "compile_fails": 26,
+      "not_cached": {
+        "missing input": 60,
+        "missing output_dir": 6,
+        "unknown source language": 56,
+        "crate-type": 605,
+        "-": 37,
+        "-o": 14,
+        "multiple input files": 17
+      },
+      "dist_compiles": {},
+      "dist_errors": 0
+    },
+    "cache_location": "webdav, name: , prefix: /",
+    "cache_size": null,
+    "max_cache_size": null,
+    "use_preprocessor_cache_mode": false,
+    "version": "0.10.0"
+  },
+  "heavySlots": 3,
+  "memory": {
+    "totalMiB": 28090,
+    "minAvailableMiB": 263
+  },
+  "cacheBytes": 7234026700
+}

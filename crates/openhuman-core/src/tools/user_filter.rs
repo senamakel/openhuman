@@ -77,7 +77,7 @@ const TOOL_FAMILIES: &[ToolFamily] = &[
     },
     ToolFamily {
         id: "web_search",
-        rust_names: &["web_search_tool"],
+        rust_names: &["web_search_tool", "web_answer_tool", "web_contents_tool"],
         default_enabled: true,
     },
     ToolFamily {

@@ -13,6 +13,10 @@
 # Simulate with: scripts/dep-sim.py --cut <crates>
 #
 # History
+#   307/286/2  2026-09-27  The multi-provider search config directly uses the
+#                      required TinySearch bus contract in always-on settings
+#                      and policy code. This adds one resolved crate/name and
+#                      no native build dependency.
 #   306/285/2  2026-09-26  The required TinyBrowser integration adds
 #                      tinybrowser-bus, tinybrowser-control, and tinyjevclient
 #                      to the flows profile compared with the 303/282 baseline.
@@ -600,4 +604,4 @@
 #                      into the required host runtime. The migration adds five
 #                      resolved packages and four unique crate names; it does
 #                      not add a native build dependency.
-flows:306:285:2
+flows:307:286:2

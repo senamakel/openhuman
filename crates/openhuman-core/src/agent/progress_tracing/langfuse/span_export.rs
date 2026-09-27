@@ -4,9 +4,9 @@
 
 use serde_json::{json, Map, Value};
 
-use crate::api::jwt::bearer_authorization_value;
 use crate::config::Config;
-use crate::security::credentials::session_support::require_live_session_token;
+use crate::security::credentials::jwt::bearer_authorization_value;
+use crate::security::credentials::session_support::direct_backend_credential;
 
 use super::ingestion_batch::{iso_millis, new_event_id};
 use super::{environment_for_base, ingestion_url, skip_push, LOG_TARGET, PUSH_TIMEOUT};
@@ -259,7 +259,15 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
             "could not resolve Langfuse ingestion URL from backend host (got {url:?})"
         ));
     }
-    let token = require_live_session_token(config)?;
+    // No TinyHumans connection, or no usable credential (signed out, offline
+    // local session): a configured state, so skip quietly rather than failing
+    // every turn's push.
+    let token = match direct_backend_credential(config, "langfuse span push") {
+        Some(crate::security::credentials::session_support::BackendCredential::Session(token)) => {
+            token
+        }
+        _ => return Ok(()),
+    };
     let include_content = config.observability.agent_tracing.capture_content;
     let batch = spans_to_langfuse_batch(spans, include_content, environment);
     let span_count = spans.len();
@@ -271,17 +279,17 @@ pub(crate) async fn push_spans(config: &Config, spans: &[TraceSpan]) -> Result<(
 
     // `ingestion_url` resolves to the backend's own Langfuse proxy route on the
     // backend host, authenticated with a TinyHumans session token — backend
-    // traffic, so it carries the product identity. This is a bare
-    // `reqwest::Client`, not `BackendOAuthClient`'s, so nothing is inherited
-    // from that path's default headers; see [`crate::api::product`].
-    let (product_header, product_value) = crate::api::product::product_identity_header();
-    let response = reqwest::Client::new()
+    // traffic, so it rides the transport's client, which carries the host's
+    // attribution headers (product identity, versions).
+    let client = crate::backend::resolve_backend_transport()
+        .map_err(|err| format!("Langfuse push has no backend transport: {err}"))?
+        .http_client(crate::backend::TransportProfile::Api);
+    let response = client
         .post(&url)
         .header(
             reqwest::header::AUTHORIZATION,
             bearer_authorization_value(&token),
         )
-        .header(product_header, product_value)
         .timeout(PUSH_TIMEOUT)
         .json(&batch)
         .send()

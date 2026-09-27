@@ -8,7 +8,10 @@ check_world() {
   local label="$1"
   local manifest="$2"
   local tree
-  tree="$(cargo tree --locked --manifest-path "$manifest" --target "$target" --prefix none)"
+  if ! tree="$(cargo tree --locked --manifest-path "$manifest" --target "$target" --prefix none)"; then
+    printf 'error: could not check %s dependency tree for %s\n' "$label" "$target" >&2
+    exit 2
+  fi
   if matches="$(printf '%s\n' "$tree" | grep -E "$forbidden")"; then
     printf 'error: aws-lc dependencies found in %s for %s:\n%s\n' \
       "$label" "$target" "$matches" >&2
@@ -27,35 +30,55 @@ check_world() {
 
   # Tauri legitimately owns reqwest 0.13 for its dev proxy/updater. Sentry
   # must never own that tree: OpenHuman supplies its reqwest 0.12 transport.
-  mapfile -t reqwest_013_versions < <(
+  #
+  # A `while read` loop rather than `mapfile`, which needs bash 4: the stock
+  # macOS /bin/bash is 3.2, where `mapfile` dies with exit 127 partway
+  # through the run and reads like a policy failure. Guarding the first
+  # element avoids expanding an empty array under bash 3.2's `set -u`.
+  reqwest_013_versions=()
+  while IFS= read -r version; do
+    [[ -n "$version" ]] && reqwest_013_versions+=("$version")
+  done < <(
     printf '%s\n' "$tree" |
       sed -nE 's/^reqwest v(0\.13\.[^ ]+).*/\1/p' |
       sort -u
   )
-  for version in "${reqwest_013_versions[@]}"; do
-    owners="$(
-      cargo tree --locked --manifest-path "$manifest" --target "$target" \
-        --invert "reqwest@$version" 2>/dev/null || true
-    )"
-    if printf '%s\n' "$owners" | grep -Eq '^sentry v'; then
-      printf 'error: Sentry owns reqwest %s in %s\n%s\n' \
-        "$version" "$label" "$owners" >&2
-      exit 1
-    fi
-  done
+  if [[ ${reqwest_013_versions[0]+set} ]]; then
+    for version in "${reqwest_013_versions[@]}"; do
+      if ! owners="$(
+        cargo tree --locked --manifest-path "$manifest" --target "$target" \
+          --prefix none --invert "reqwest@$version"
+      )"; then
+        printf 'error: could not check reqwest %s owners in %s\n' "$version" "$label" >&2
+        exit 2
+      fi
+      if grep -Eq '^sentry v' <<< "$owners"; then
+        printf 'error: Sentry owns reqwest %s in %s\n%s\n' \
+          "$version" "$label" "$owners" >&2
+        exit 1
+      fi
+    done
+  fi
 
   for package in native-tls openssl openssl-sys; do
-    owners="$(
+    # Cargo returns an error for --invert when the package is absent.
+    if ! grep -Eq "^${package} v" <<< "$tree"; then
+      continue
+    fi
+    if ! owners="$(
       cargo tree --locked --manifest-path "$manifest" --target "$target" \
-        --invert "$package" 2>/dev/null || true
-    )"
-    if printf '%s\n' "$owners" | grep -Eq '^sentry v'; then
+        --prefix none --invert "$package"
+    )"; then
+      printf 'error: could not check %s owners in %s\n' "$package" "$label" >&2
+      exit 2
+    fi
+    if grep -Eq '^sentry v' <<< "$owners"; then
       printf 'error: Sentry owns %s in %s\n%s\n' \
         "$package" "$label" "$owners" >&2
       exit 1
     fi
     if [[ "$label" == tauri ]] &&
-      printf '%s\n' "$owners" | grep -Eq '^motosan-ai-oauth v'; then
+      grep -Eq '^motosan-ai-oauth v' <<< "$owners"; then
       printf 'error: motosan-ai-oauth owns %s in %s\n%s\n' \
         "$package" "$label" "$owners" >&2
       exit 1

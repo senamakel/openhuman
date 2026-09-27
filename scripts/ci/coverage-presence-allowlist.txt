@@ -36,3 +36,6 @@ crates/openhuman-core/src/desktop/accessibility/helper/swift_focus.rs
 crates/openhuman-core/src/desktop/accessibility/helper/swift_paste.rs
 crates/openhuman-core/src/desktop/accessibility/helper/swift_ax_actions.rs
 crates/openhuman-core/src/desktop/accessibility/helper/swift_overlay.rs
+# `search/mod.rs` has module declarations and feature-gated re-exports only;
+# executable search behavior is in sibling modules.
+crates/openhuman-core/src/search/mod.rs

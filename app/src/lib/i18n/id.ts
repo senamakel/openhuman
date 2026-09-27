@@ -1252,9 +1252,9 @@ const messages: TranslationMap = {
   'onboarding.custom.search.title': 'Pencarian Web',
   'onboarding.custom.search.subtitle': 'Cara OpenHuman mencari web atas nama Anda.',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman menggunakan backend pencarian terkelola. Tidak perlu key.',
+    'Pencarian web langsung berfungsi: Exa dan Gemini sudah termasuk dalam TinyHumans, tanpa kunci API.',
   'onboarding.custom.search.configureDesc':
-    'Bawa key penyedia pencarian Anda sendiri (Tavily, Brave, dll.). Konfigurasi di Pengaturan › Alat.',
+    'Exa dan Gemini sudah termasuk. Tambahkan penyedia pencarian lain dengan kunci API milik Anda di Pengaturan › Alat.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Cara OpenHuman menghasilkan embedding vektor untuk pencarian memori semantik.',
@@ -1505,36 +1505,7 @@ const messages: TranslationMap = {
   'settings.search.title': 'Mesin pencari',
   'settings.search.menuDesc':
     'Baku bagi OpenHuman- mengatur pencarian atau menghubungkan penyedia anda sendiri dengan kunci API.',
-  'settings.search.description':
-    'Pilih mesin pencari yang digunakan agen, atau nonaktifkan alat pencarian sepenuhnya. OpenHuman Dikelola menggunakan backend OpenHuman (tanpa pengaturan). Parallel, Brave, Querit, Exa, dan Tavily berjalan langsung dari mesin Anda menggunakan kunci API Anda.',
-  'settings.search.engineAria': 'Mesin pencari',
-  'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc':
-    'Hapus alat pencarian dari konteks agen dan daftar alat yang tersedia.',
-  'settings.search.engineManagedLabel': 'OpenHuman Dikelola',
-  'settings.search.engineManagedDesc':
-    'Baku. Diarahkan melalui backend OpenHuman, saat ini didukung oleh Exa: tidak diperlukan kunci API.',
-  'settings.search.localManagedUnavailable':
-    'Pencarian OpenHuman Dikelola tidak tersedia untuk pengguna lokal. Tambahkan API key Parallel, Brave, Querit, Exa, atau Tavily Anda sendiri untuk mengaktifkan pencarian web.',
-  'settings.search.engineParallelLabel': 'Parallel',
-  'settings.search.engineParallelDesc':
-    'Parallel Langsung API: pencarian, ekstrak, percakapan, penelitian, perkaya, alat dataset.',
-  'settings.search.engineBraveLabel': 'Brave Penelusuran',
-  'settings.search.engineBraveDesc':
-    'Brave Langsung Pencarian API: web, berita, gambar, dan alat video.',
-  'settings.search.engineQueritLabel': 'Querit',
-  'settings.search.engineQueritDesc':
-    'Querit Langsung API: pencarian web dengan situs, rentang waktu, negara, dan filter bahasa.',
-  'settings.search.engineExaLabel': 'Exa',
-  'settings.search.engineExaDesc':
-    'Pencarian neural yang didukung Exa. Memerlukan API key Exa Anda sendiri. Menambahkan alat pencarian, halaman serupa, dan konten halaman.',
-  'settings.search.engineTavilyLabel': 'Tavily',
-  'settings.search.engineTavilyDesc':
-    'Pencarian web, berita, dan keuangan yang didukung Tavily. Memerlukan API key Tavily Anda sendiri. Menambahkan alat pencarian dan ekstraksi konten halaman.',
-  'settings.search.statusConfigured': 'Dikonfigurasi',
   'settings.search.statusNeedsKey': 'Memerlukan kunci API',
-  'settings.search.fallbackToManaged':
-    'Tidak ada kunci yang dikonfigurasi - pencarian akan jatuh kembali ke Managed sampai kunci disimpan.',
   'settings.search.getApiKey': 'Dapatkan kunci API',
   'settings.search.save': 'Simpan',
   'settings.search.clear': 'Hapus',
@@ -1543,17 +1514,7 @@ const messages: TranslationMap = {
   'settings.search.statusSaving': 'Menyimpan…',
   'settings.search.statusSaved': 'Tersimpan.',
   'settings.search.statusError': 'Gagal',
-  'settings.search.parallelKeyLabel': 'Parallel API kunci',
-  'settings.search.braveKeyLabel': 'Brave Penelusuran API kunci',
-  'settings.search.queritKeyLabel': 'kunci Querit API',
-  'settings.search.exaKeyLabel': 'Kunci API Exa',
   'settings.search.placeholderStored': '•••••••• (disimpan)',
-  'settings.search.placeholderParallel': 'pk_...',
-  'settings.search.placeholderBrave': 'BSA...',
-  'settings.search.placeholderQuerit': 'kunci Querit API',
-  'settings.search.placeholderExa': 'Tempelkan kunci API Exa Anda…',
-  'settings.search.tavilyKeyLabel': 'Kunci API Tavily',
-  'settings.search.placeholderTavily': 'tvly-...',
   'settings.search.allowedSitesLabel': 'Situs yang diijinkan',
   'settings.search.allowedSitesHint':
     'Host yang boleh dibuka dan dibaca oleh asisten (melalui pengambilan web dan alat browser) satu per baris, mis. reuters.com. Sebuah host juga mencakup subdomain-nya. Penelusuran web itu sendiri tidak dibatasi oleh daftar ini.',
@@ -1567,6 +1528,54 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAll': 'Blokir semua',
   'settings.search.accessBlockAllHint':
     'Semua akses web diblokir - asisten tidak dapat membuka atau membaca website apapun.',
+  'settings.search.description':
+    'Pencarian dapat memakai beberapa penyedia sekaligus. Exa dan Gemini sudah termasuk dalam TinyHumans tanpa pengaturan; penyedia lain bekerja dengan kunci API milik Anda. Setiap peran di bawah memakai penyedia pertama yang tersedia lalu beralih ke penyedia berikutnya.',
+  'settings.search.localManagedUnavailable':
+    'Penyedia yang termasuk dalam TinyHumans memerlukan Anda masuk. Aktifkan penyedia dengan kunci API milik Anda untuk memakai pencarian web di sesi lokal.',
+  'settings.search.enabledLabel': 'Pencarian web',
+  'settings.search.enabledDesc':
+    'Izinkan agen mencari di web, menjawab pertanyaan dari sumber web, dan membaca halaman.',
+  'settings.search.providersTitle': 'Penyedia',
+  'settings.search.providersDesc':
+    'Aktifkan penyedia yang Anda inginkan. Beberapa bisa aktif sekaligus; peran di bawah menentukan mana yang dicoba lebih dulu.',
+  'settings.search.providerToggleAria': 'Gunakan {provider}',
+  'settings.search.routeAria': 'Koneksi {provider}',
+  'settings.search.routeManaged': 'Termasuk dalam TinyHumans',
+  'settings.search.routeDirect': 'Kunci sendiri',
+  'settings.search.apiKeyLabel': 'Kunci API {provider}',
+  'settings.search.placeholderKey': 'Tempel kunci API {provider} Anda',
+  'settings.search.baseUrlLabel': 'URL instans',
+  'settings.search.baseUrlSave': 'Simpan URL',
+  'settings.search.statusReady': 'Siap',
+  'settings.search.statusSignInRequired': 'Perlu masuk',
+  'settings.search.statusOff': 'Nonaktif',
+  'settings.search.deepResearchAvailable':
+    'Riset mendalam tersedia: agen dapat meminta laporan yang lebih panjang dan menyeluruh dari {provider}.',
+  'settings.search.deepResearchHint':
+    'Tambahkan kunci {provider} milik Anda untuk membuka riset mendalam.',
+  'settings.search.rolesTitle': 'Peran',
+  'settings.search.rolesDesc':
+    'Setiap peran adalah satu alat untuk agen. Penyedia pertama yang tersedia melayaninya; sisanya menjadi cadangan, sesuai urutan.',
+  'settings.search.roleSearch': 'Pencarian',
+  'settings.search.roleSearchDesc': 'Hasil web berperingkat untuk sebuah kueri.',
+  'settings.search.roleAnswer': 'Jawaban',
+  'settings.search.roleAnswerDesc':
+    'Jawaban tertulis berdasarkan sumber web, lengkap dengan kutipan.',
+  'settings.search.roleContents': 'Konten',
+  'settings.search.roleContentsDesc': 'Mengambil halaman yang diberikan dan mengekstrak teksnya.',
+  'settings.search.roleServedBy': 'Dilayani oleh {provider}',
+  'settings.search.roleNoProvider':
+    'Tidak ada penyedia yang tersedia: agen belum mendapat alat ini sekarang.',
+  'settings.search.roleMoveUp': 'Naikkan {provider}',
+  'settings.search.roleMoveDown': 'Turunkan {provider}',
+  'settings.search.roleRemove': 'Hapus {provider}',
+  'settings.search.roleAdd': 'Tambahkan {provider}',
+  'settings.search.roleReset': 'Kembalikan ke bawaan',
+  'settings.search.roleUnavailable': 'Tidak tersedia',
+  'settings.search.advancedTitle': 'Lanjutan',
+  'settings.search.exposeProviderTools': 'Tampilkan alat bawaan setiap penyedia',
+  'settings.search.exposeProviderToolsDesc':
+    'Beri agen alat dari setiap penyedia yang aktif, sebagai ganti satu alat per peran. Ini memakai lebih banyak jendela konteks.',
   // ─── Settings global search bar ────────────────────────────
   'settings.embeddings.title': 'Sematan',
   'settings.embeddings.description':
@@ -3411,6 +3420,12 @@ const messages: TranslationMap = {
   'conversations.tools.search.found.one': '{count} hasil ditemukan',
   'conversations.tools.search.found.other': '{count} hasil ditemukan',
   'conversations.tools.search.via': 'melalui {provider}',
+  'conversations.tools.search.viaAfter': 'melalui {provider}, setelah {fallback}',
+  'conversations.tools.search.sources.one': '{count} sumber',
+  'conversations.tools.search.sources.other': '{count} sumber',
+  'conversations.tools.search.researching': 'Riset masih berjalan',
+  'conversations.tools.search.balanceLow':
+    'Saldo TinyHumans Anda tidak cukup untuk pencarian bawaan. Isi ulang saldo, atau tambahkan kunci Anda sendiri untuk penyedia pencarian di Pengaturan.',
   'conversations.tools.readFile.active': 'Membaca file',
   'conversations.tools.readFile.done': 'File dibaca',
   'conversations.tools.writeFile.active': 'Menulis file',
@@ -7051,7 +7066,6 @@ const messages: TranslationMap = {
   'migration.badgePreview': 'Pratinjau',
   'migration.badgeImported': 'Diimpor',
   'desktop.statusModuleFailed': 'Tidak tersedia',
-  'settings.search.apiKeysHeading': 'Kunci API',
   'voice.providers.alwaysOn': 'Selalu aktif',
   'voice.routing.testOk': 'Sedang bekerja',
   'voice.routing.testFailed': 'Gagal',
@@ -7113,8 +7127,6 @@ const messages: TranslationMap = {
     'Aplikasi percakapan yang dapat Anda hubungkan. Buka satu untuk mengaturnya.',
   'settings.about.resources': 'Sumber Daya',
   'settings.search.keyStored': 'Tersimpan',
-  'settings.search.apiKeysDesc':
-    'Kunci untuk penyedia langsung. Mereka tinggal di perangkat ini dan digunakan hanya ketika mesin yang dipilih.',
   'settings.embeddings.modelCardTitle': '& dimensi model',
   'mcp.rows.searchPlaceholder': 'Cari server...',
   'mcp.tab.section.clients': 'Klien',

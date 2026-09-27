@@ -681,10 +681,11 @@ jobs:
           memory_dir="$module_root/tinymemory"
           juice_dir="$module_root/tinyjuice"
           connectors_dir="$module_root/tinyconnectors"
+          search_dir="$module_root/tinysearch"
           memory_archive="$memory_dir/tinymemory-module-${memory_version}-ubuntu-22.04-x86_64.tar.gz"
           juice_archive="$juice_dir/tinyjuice-module-0.3.2-ubuntu-22.04-x86_64.tar.gz"
           rm -rf "$memory_dir" "$juice_dir" "$connectors_dir"
-          mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir"
+          mkdir -p "$memory_dir" "$juice_dir" "$connectors_dir" "$search_dir"
           curl --fail --location --silent --show-error --retry 4 --retry-delay 2 \
             "https://github.com/tinyhumansai/tinymemory/releases/download/v${memory_version}/$(basename "$memory_archive")" \
             --output "$memory_archive"
@@ -702,11 +703,17 @@ jobs:
             --manifest-path vendor/tinyconnectors/crates/tinyconnectors/Cargo.toml
           cp vendor/tinyconnectors/target/release/libtinyconnectors.so \
             "$connectors_dir/libtinyconnectors.so"
+          bash scripts/ci-cancel-aware.sh cargo build --release \
+            --manifest-path vendor/tinysearch/crates/tinysearch/Cargo.toml
+          cp vendor/tinysearch/target/release/libtinysearch.so \
+            "$search_dir/libtinysearch.so"
           echo "TINYMEMORY_TEST_MODULE=$memory_dir/libtinymemory_module.so" \
             >> "$GITHUB_ENV"
           echo "TINYJUICE_TEST_MODULE=$juice_dir/libtinyjuice_module.so" \
             >> "$GITHUB_ENV"
           echo "TINYCONNECTORS_TEST_MODULE=$connectors_dir/libtinyconnectors.so" \
+            >> "$GITHUB_ENV"
+          echo "TINYSEARCH_TEST_MODULE=$search_dir/libtinysearch.so" \
             >> "$GITHUB_ENV"
 
       - name: Run TinyJuice host-module regression
@@ -961,11 +968,19 @@ jobs:
       # no build error and no failing test: that is how #4901 (voice — 56 users,
       # ~93k Sentry events) and #4918 (tokenjuice-treesitter — silent) shipped.
       #
+      # The same drift happens one layer down, in the library chain the core is
+      # re-declared by: openhuman-embed -> openhuman-tinyhumans -> openhuman-cli
+      # (#6364). A gate added to the core and forgotten there is off for every
+      # embedder while the product lanes, which resolve names against
+      # openhuman-cli, stay green.
+      #
       # Deliberately NOT filtered on `changes`: drift can be introduced by
-      # editing either manifest, so a path filter watching one would miss it, and
-      # a skipped job counts as a pass in the gate below. The check is a few
-      # seconds of pure Node with no dependencies.
-      - name: Verify the desktop shell forwards every default-ON core gate
+      # editing any of those manifests, so a path filter watching one would miss
+      # it, and a skipped job counts as a pass in the gate below. The check is a
+      # few seconds of pure Node with no dependencies.
+      #
+      # The job name stays as it is: it is a required status check.
+      - name: Verify the shell and the library chain forward every core gate
         run: node scripts/ci/check-feature-forwarding.mjs
 
   module-pin-gate:

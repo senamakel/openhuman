@@ -2,9 +2,9 @@
 
 use serde_json::json;
 
-use crate::api::jwt::get_session_token;
 use crate::config::Config;
 use crate::rpc::RpcOutcome;
+use crate::security::credentials::jwt::get_session_token;
 use crate::security::credentials::session_support::build_session_state;
 
 pub async fn auth_get_state(

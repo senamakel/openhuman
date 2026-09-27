@@ -34,7 +34,7 @@ pub(crate) fn is_inference_budget_exceeded_error(message: &str) -> bool {
     // (issue #3088). Without this, an Ollama user with zero credits and
     // routing still on Managed sees an opaque "provider error" and has no
     // way to self-diagnose that they must top up or switch routing.
-    crate::api::classify::is_budget_exhausted_message(message)
+    crate::backend::classify::is_budget_exhausted_message(message)
 }
 
 pub(crate) fn inference_budget_exceeded_user_message() -> &'static str {

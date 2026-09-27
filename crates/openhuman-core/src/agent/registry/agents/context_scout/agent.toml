@@ -72,5 +72,6 @@ named = [
     "skill_registry_search",
     # Fresh external facts when the question needs them.
     "web_search_tool",
+    "web_answer_tool",
     "web_fetch",
 ]

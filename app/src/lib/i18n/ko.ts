@@ -1227,9 +1227,9 @@ const messages: TranslationMap = {
   'onboarding.custom.search.title': '웹 검색',
   'onboarding.custom.search.subtitle': 'OpenHuman이 사용자를 대신해 웹을 검색하는 방식입니다.',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman은 관리형 검색 백엔드를 사용합니다. 키가 필요 없습니다.',
+    '웹 검색은 바로 작동합니다. Exa와 Gemini가 TinyHumans에 포함되어 있어 API 키가 필요 없습니다.',
   'onboarding.custom.search.configureDesc':
-    '직접 검색 제공업체 키(Tavily, Brave 등)를 가져오세요. 설정 › 도구에서 구성할 수 있습니다.',
+    'Exa와 Gemini가 포함되어 있습니다. 설정 › 도구에서 본인 API 키로 검색 제공자를 더 추가하세요.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman이 시맨틱 메모리 검색을 위한 벡터 임베딩을 생성하는 방식입니다.',
@@ -1476,35 +1476,7 @@ const messages: TranslationMap = {
   'settings.search.title': '검색 엔진',
   'settings.search.menuDesc':
     'OpenHuman 관리 검색을 기본값으로 사용하거나 API 키로 자체 제공업체를 연결하세요.',
-  'settings.search.description':
-    '에이전트가 사용할 검색 엔진을 선택하거나 검색 도구를 완전히 비활성화합니다. 관리형은 OpenHuman의 백엔드를 사용합니다(설정 불필요). 병렬, Brave, Querit, Exa, Tavily는 API 키를 사용하여 내 컴퓨터에서 직접 실행됩니다.',
-  'settings.search.engineAria': '검색 엔진',
-  'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc':
-    '에이전트 컨텍스트 및 사용 가능한 도구 목록에서 검색 도구를 제거합니다.',
-  'settings.search.engineManagedLabel': 'OpenHuman 관리됨',
-  'settings.search.engineManagedDesc':
-    '기본값입니다. OpenHuman 백엔드를 통해 라우팅되며 현재 Exa로 구동됩니다. API 키가 필요하지 않습니다.',
-  'settings.search.localManagedUnavailable':
-    '로컬 사용자는 OpenHuman 관리 검색을 사용할 수 없습니다. 웹 검색을 활성화하려면 자체 Parallel, Brave, Querit, Exa 또는 Tavily API 키를 추가하세요.',
-  'settings.search.engineParallelLabel': 'Parallel',
-  'settings.search.engineParallelDesc':
-    '직접 Parallel API: 검색, 추출, 채팅, 리서치, 보강, 데이터셋 도구.',
-  'settings.search.engineBraveLabel': 'Brave 검색',
-  'settings.search.engineBraveDesc': '직접 Brave 검색 API: 웹, 뉴스, 이미지 및 비디오 도구.',
-  'settings.search.engineQueritLabel': 'Querit',
-  'settings.search.engineQueritDesc':
-    '직접 Querit API: 사이트, 시간 범위, 국가 및 언어 필터가 있는 웹 검색.',
-  'settings.search.engineExaLabel': 'Exa',
-  'settings.search.engineExaDesc':
-    'Exa 기반 신경망 검색. 본인의 Exa API 키가 필요합니다. 검색, 유사 페이지 찾기, 페이지 콘텐츠 도구를 추가합니다.',
-  'settings.search.engineTavilyLabel': 'Tavily',
-  'settings.search.engineTavilyDesc':
-    'Tavily 기반 웹, 뉴스, 금융 검색. 본인의 Tavily API 키가 필요합니다. 검색 및 페이지 콘텐츠 추출 도구를 추가합니다.',
-  'settings.search.statusConfigured': '구성됨',
   'settings.search.statusNeedsKey': 'API 키 필요',
-  'settings.search.fallbackToManaged':
-    '구성된 키가 없습니다. 키가 저장될 때까지 검색은 관리형으로 대체됩니다.',
   'settings.search.getApiKey': 'API 키 가져오기',
   'settings.search.save': '저장',
   'settings.search.clear': '지우기',
@@ -1513,17 +1485,7 @@ const messages: TranslationMap = {
   'settings.search.statusSaving': '저장…',
   'settings.search.statusSaved': '저장되었습니다.',
   'settings.search.statusError': '실패',
-  'settings.search.parallelKeyLabel': 'Parallel API 키',
-  'settings.search.braveKeyLabel': 'Brave 검색 API 키',
-  'settings.search.queritKeyLabel': 'Querit API 키',
-  'settings.search.exaKeyLabel': 'Exa API 키',
   'settings.search.placeholderStored': '•••••••(저장됨)',
-  'settings.search.placeholderParallel': 'pk_...',
-  'settings.search.placeholderBrave': 'BSA...',
-  'settings.search.placeholderQuerit': 'Querit API 키',
-  'settings.search.placeholderExa': 'Exa API 키를 붙여넣으세요…',
-  'settings.search.tavilyKeyLabel': 'Tavily API 키',
-  'settings.search.placeholderTavily': 'tvly-...',
   'settings.search.allowedSitesLabel': '허용된 웹사이트',
   'settings.search.allowedSitesHint':
     '리서치 중 어시스턴트가 열고 읽을 수 있는 웹사이트입니다(한 줄에 호스트 하나, 예: reuters.com). 호스트에는 하위 도메인도 포함됩니다. 모든 웹 접근을 차단하려면 비워 두세요.',
@@ -1537,6 +1499,53 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAll': '모두 차단',
   'settings.search.accessBlockAllHint':
     '모든 웹 접근이 차단됩니다. 어시스턴트는 어떤 웹사이트도 열거나 읽을 수 없습니다.',
+  'settings.search.description':
+    '검색은 여러 제공자를 동시에 사용할 수 있습니다. Exa와 Gemini는 TinyHumans에 포함되어 있어 설정이 필요 없으며, 다른 제공자는 본인 API 키로 사용합니다. 아래 각 역할은 사용 가능한 첫 번째 제공자를 쓰고, 실패하면 다음 제공자로 넘어갑니다.',
+  'settings.search.localManagedUnavailable':
+    'TinyHumans에 포함된 제공자는 로그인해야 사용할 수 있습니다. 로컬 세션에서 웹 검색을 쓰려면 본인 API 키로 제공자를 켜세요.',
+  'settings.search.enabledLabel': '웹 검색',
+  'settings.search.enabledDesc':
+    '에이전트가 웹을 검색하고, 웹 출처로 질문에 답하고, 페이지를 읽을 수 있게 합니다.',
+  'settings.search.providersTitle': '제공자',
+  'settings.search.providersDesc':
+    '원하는 제공자를 켜세요. 여러 개를 동시에 켤 수 있으며, 아래 역할이 어떤 제공자를 먼저 시도할지 정합니다.',
+  'settings.search.providerToggleAria': '{provider} 사용',
+  'settings.search.routeAria': '{provider} 연결 방식',
+  'settings.search.routeManaged': 'TinyHumans에 포함',
+  'settings.search.routeDirect': '내 키',
+  'settings.search.apiKeyLabel': '{provider} API 키',
+  'settings.search.placeholderKey': '{provider} API 키를 붙여 넣으세요',
+  'settings.search.baseUrlLabel': '인스턴스 URL',
+  'settings.search.baseUrlSave': 'URL 저장',
+  'settings.search.statusReady': '준비됨',
+  'settings.search.statusSignInRequired': '로그인 필요',
+  'settings.search.statusOff': '꺼짐',
+  'settings.search.deepResearchAvailable':
+    '심층 리서치를 사용할 수 있습니다. 에이전트가 {provider}에 더 길고 자세한 보고서를 요청할 수 있습니다.',
+  'settings.search.deepResearchHint':
+    '본인 {provider} 키를 추가하면 심층 리서치를 사용할 수 있습니다.',
+  'settings.search.rolesTitle': '역할',
+  'settings.search.rolesDesc':
+    '각 역할은 에이전트의 도구 하나입니다. 사용 가능한 첫 번째 제공자가 담당하고, 나머지는 순서대로 대체 제공자가 됩니다.',
+  'settings.search.roleSearch': '검색',
+  'settings.search.roleSearchDesc': '쿼리에 대한 순위별 웹 결과입니다.',
+  'settings.search.roleAnswer': '답변',
+  'settings.search.roleAnswerDesc': '웹 출처를 근거로 작성한 답변과 인용입니다.',
+  'settings.search.roleContents': '콘텐츠',
+  'settings.search.roleContentsDesc': '지정한 페이지를 가져와 텍스트를 추출합니다.',
+  'settings.search.roleServedBy': '{provider}에서 처리',
+  'settings.search.roleNoProvider':
+    '사용 가능한 제공자가 없습니다. 지금은 에이전트가 이 도구를 받지 않습니다.',
+  'settings.search.roleMoveUp': '{provider} 위로 이동',
+  'settings.search.roleMoveDown': '{provider} 아래로 이동',
+  'settings.search.roleRemove': '{provider} 제거',
+  'settings.search.roleAdd': '{provider} 추가',
+  'settings.search.roleReset': '기본값으로 재설정',
+  'settings.search.roleUnavailable': '사용 불가',
+  'settings.search.advancedTitle': '고급',
+  'settings.search.exposeProviderTools': '각 제공자의 자체 도구 노출',
+  'settings.search.exposeProviderToolsDesc':
+    '역할마다 도구 하나 대신, 켜진 각 제공자가 제공하는 도구를 에이전트에 줍니다. 컨텍스트 창을 더 많이 사용합니다.',
   // ─── Settings global search bar ────────────────────────────
   'settings.embeddings.title': '임베딩',
   'settings.embeddings.description':
@@ -3358,6 +3367,12 @@ const messages: TranslationMap = {
   'conversations.tools.search.found.one': '결과 {count}개 찾음',
   'conversations.tools.search.found.other': '결과 {count}개 찾음',
   'conversations.tools.search.via': '{provider} 사용',
+  'conversations.tools.search.viaAfter': '{provider} 사용, {fallback} 이후',
+  'conversations.tools.search.sources.one': '출처 {count}개',
+  'conversations.tools.search.sources.other': '출처 {count}개',
+  'conversations.tools.search.researching': '리서치가 아직 진행 중입니다',
+  'conversations.tools.search.balanceLow':
+    'TinyHumans 잔액이 부족해 포함된 검색을 사용할 수 없습니다. 충전하거나 설정에서 검색 제공자용 본인 키를 추가하세요.',
   'conversations.tools.readFile.active': '파일 읽는 중',
   'conversations.tools.readFile.done': '파일 읽음',
   'conversations.tools.writeFile.active': '파일 쓰는 중',
@@ -6935,7 +6950,6 @@ const messages: TranslationMap = {
   'migration.badgePreview': '미리 보기',
   'migration.badgeImported': '가져옴',
   'desktop.statusModuleFailed': '사용할 수 없음',
-  'settings.search.apiKeysHeading': 'API 키',
   'voice.providers.alwaysOn': '항상 켜짐',
   'voice.routing.testOk': '작업 중',
   'voice.routing.testFailed': '실패',
@@ -6997,9 +7011,7 @@ const messages: TranslationMap = {
   'channels.connectedDesc': '메시지 보내기 및 수신 기본으로 하나를 선택합니다.',
   'channels.availableDesc': '채팅 앱을 연결할 수 있습니다. 그것을 설치하기 위하여 1을 엽니다.',
   'settings.about.resources': '지원하다',
-  'settings.search.keyStored': '구매하기',
-  'settings.search.apiKeysDesc':
-    '직접적인 공급자를 위한 열쇠. 이 장치에 머물고 엔진이 선택되었을 때만 사용됩니다.',
+  'settings.search.keyStored': '저장됨',
   'settings.embeddings.modelCardTitle': '모형 & 차원',
   'mcp.rows.searchPlaceholder': '서버 검색...',
   'mcp.tab.section.clients': '고객 지원',

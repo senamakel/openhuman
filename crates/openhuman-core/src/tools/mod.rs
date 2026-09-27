@@ -46,7 +46,8 @@ pub use crate::platform::cost::tools::*;
 pub use crate::platform::doctor::tools::*;
 pub use crate::platform::health::tools::*;
 pub use crate::platform::service::tools::*;
-pub use crate::search::tools::*;
+#[cfg(feature = "modules")]
+pub use crate::search::TinySearchTool;
 pub use crate::security::credentials::tools::*;
 pub use crate::security::tools::*;
 #[cfg(feature = "skills")]

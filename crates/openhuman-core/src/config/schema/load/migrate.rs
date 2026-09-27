@@ -194,3 +194,23 @@ pub(crate) fn migrate_cloud_provider_slugs(config: &mut Config) {
             || looks_like_openhuman_provider_endpoint(&entry.endpoint)
     }
 }
+
+/// Convert the single-engine `[search]` format into providers, routes and
+/// roles. In-memory and idempotent like the other load migrations: the legacy
+/// fields are never serialized, so the next save writes the new format.
+pub(crate) fn migrate_search_settings(config: &mut Config) {
+    if !config.search.needs_migration() {
+        return;
+    }
+    let legacy = super::super::LegacySearchInputs {
+        tinyfish_active: config.integrations.tinyfish.is_active(),
+        seltz_active: config.seltz.enabled
+            && config
+                .seltz
+                .api_key
+                .as_deref()
+                .is_some_and(|key| !key.trim().is_empty()),
+        searxng_active: config.searxng.enabled,
+    };
+    config.search.migrate_legacy(legacy);
+}

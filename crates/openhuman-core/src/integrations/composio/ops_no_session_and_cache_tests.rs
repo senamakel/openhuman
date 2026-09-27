@@ -37,7 +37,7 @@ fn resolve_client_errors_without_session() {
         panic!("expected auth error when no session is stored");
     };
     assert!(err.contains("composio unavailable"));
-    assert!(err.contains("auth_store_session"));
+    assert!(err.contains("TinyHumans API key"));
 }
 
 #[tokio::test]

@@ -5,7 +5,7 @@
 /// user-state error that should be demoted from Sentry to an info log.
 pub fn is_budget_exhausted_http_400(status: reqwest::StatusCode, body: &str) -> bool {
     status == reqwest::StatusCode::BAD_REQUEST
-        && crate::api::classify::is_budget_exhausted_message(body)
+        && crate::backend::classify::is_budget_exhausted_message(body)
 }
 
 pub fn log_budget_exhausted_http_400(

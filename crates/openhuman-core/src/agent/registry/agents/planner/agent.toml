@@ -59,12 +59,10 @@ named = [
     "todo",
     "web_fetch",
     "web_search_tool",
-    # Grounded research + market-data lookups so plans can be anchored in
+    # Grounded answers + market-data lookups so plans can be anchored in
     # real numbers (stock/crypto prices) and current web context, not just
     # whatever the model happens to remember.
-    "parallel_search",
-    "parallel_chat",
-    "parallel_research",
+    "web_answer_tool",
     "stock_quote",
     "stock_exchange_rate",
     "stock_crypto_series",

@@ -30,7 +30,7 @@ pub fn module_config(config: &Config) -> serde_json::Value {
             "jev": {
                 "api_key": api_key,
                 "provider": "tiny_humans_open_router",
-                "sdk_name": crate::api::product_identity().as_str()
+                "sdk_name": crate::backend::product_identity()
             }
         }),
         None => {

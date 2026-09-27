@@ -59,11 +59,10 @@
 //! reporting a failure.
 
 pub use openhuman_core::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
-pub use openhuman_core::api::transport::{
+pub use openhuman_core::backend::{
     install_backend_transport, installed_backend_transport, BackendRequest, BackendTransport,
-    BackendTransportError, TransportProfile,
+    BackendTransportError, BaseUrlPurpose, TransportProfile,
 };
-pub use openhuman_core::api::{product_identity, set_product_identity, ProductIdentity};
 pub use openhuman_core::config::Config as RuntimeConfig;
 pub use openhuman_core::security::TrustedAccess;
 pub use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};

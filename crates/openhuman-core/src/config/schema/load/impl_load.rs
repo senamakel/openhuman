@@ -4,7 +4,9 @@ use super::dirs::{
     resolve_config_dirs_ignoring_env, resolve_runtime_config_dirs_with, ConfigResolutionSource,
 };
 use super::env::{EnvLookup, ProcessEnv, ProcessEnvWithoutWorkspace};
-use super::migrate::{migrate_cloud_provider_slugs, migrate_legacy_inference_url};
+use super::migrate::{
+    migrate_cloud_provider_slugs, migrate_legacy_inference_url, migrate_search_settings,
+};
 use super::secrets::{decrypt_config_secrets, encrypt_config_secrets};
 use anyhow::{Context, Result};
 use std::collections::HashSet;
@@ -408,6 +410,7 @@ impl Config {
             config.recovered_from_corruption = config_was_corrupted;
             migrate_legacy_inference_url(&mut config);
             migrate_cloud_provider_slugs(&mut config);
+            migrate_search_settings(&mut config);
             config.apply_env_overrides_from(env);
 
             if config_was_corrupted {
@@ -610,6 +613,7 @@ impl Config {
         config.recovered_from_corruption = config_was_corrupted;
         migrate_legacy_inference_url(&mut config);
         migrate_cloud_provider_slugs(&mut config);
+        migrate_search_settings(&mut config);
         config.apply_env_overrides_from(&ProcessEnvWithoutWorkspace);
 
         if config_was_corrupted {

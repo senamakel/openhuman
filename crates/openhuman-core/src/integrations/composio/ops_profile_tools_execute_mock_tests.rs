@@ -11,10 +11,10 @@ async fn composio_get_user_profile_via_mock_returns_provider_profile() {
     let _cache_guard = cache_guard();
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     // This test mutates BACKEND_URL below via EnvVarGuard, which races with
-    // api::config / core::cli_tests tests
+    // openhuman_tinyhumans::backend::url / core::cli_tests tests
     // that mutate the same process-global var under the crate-wide lock —
     // TEST_ENV_LOCK alone does not serialize against those. Hold both.
-    let _backend_env_guard = crate::api::config::backend_env_test_lock();
+    let _backend_env_guard = crate::config::app_env::env_test_lock();
 
     let app = Router::new()
         .route(

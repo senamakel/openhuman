@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
 import { extractAgentSources } from '../../../utils/toolTimelineFormatting';
-import { extractSearchProvider, parseWebSearchResult } from './parseWebSearchResult';
+import {
+  extractSearchFallbacks,
+  extractSearchProvider,
+  isSearchBalanceError,
+  parseWebSearchResult,
+} from './parseWebSearchResult';
 
 const TEXT = [
   'Search results for: rust async traits (via Exa)',
@@ -88,6 +93,122 @@ describe('parseWebSearchResult', () => {
     });
   });
 
+  it('reads the answer, citations and fallback from the structured payload', () => {
+    const parsed = parseWebSearchResult('ignored', {
+      kind: 'web_search',
+      query: 'q',
+      provider: 'Gemini',
+      role: 'answer',
+      answer: '  The answer.  ',
+      citations: [
+        { url: 'https://a.dev/1', title: 'One' },
+        { url: 'https://b.dev/2', title: null },
+        { url: 'ftp://nope' },
+      ],
+      fallback_from: ['Exa', 42],
+      results: [],
+    });
+    expect(parsed).toEqual({
+      query: 'q',
+      provider: 'Gemini',
+      role: 'answer',
+      answer: 'The answer.',
+      citations: [
+        { title: 'One', url: 'https://a.dev/1', domain: 'a.dev' },
+        { title: 'b.dev', url: 'https://b.dev/2', domain: 'b.dev' },
+      ],
+      fallbackFrom: ['Exa'],
+      results: [],
+      empty: false,
+    });
+  });
+
+  it('flags an unfinished deep-research payload', () => {
+    const parsed = parseWebSearchResult(undefined, {
+      kind: 'web_search',
+      query: 'q',
+      provider: 'Gemini Deep Research',
+      role: 'answer',
+      in_progress: true,
+      results: [],
+    });
+    expect(parsed?.inProgress).toBe(true);
+    expect(parsed?.empty).toBe(true);
+  });
+
+  it('parses the plain-text answer rendering with its sources', () => {
+    const text = [
+      'Answer for: who won the final (via Gemini, after Exa, Tavily)',
+      '',
+      'Team A won 2-1.',
+      'It was close.',
+      '',
+      'Sources:',
+      '[1] Final report \u2014 https://news.example/final',
+      '[2] https://www.other.example/x',
+    ].join('\n');
+    const parsed = parseWebSearchResult(text);
+    expect(parsed?.query).toBe('who won the final');
+    expect(parsed?.provider).toBe('Gemini');
+    expect(parsed?.fallbackFrom).toEqual(['Exa', 'Tavily']);
+    expect(parsed?.role).toBe('answer');
+    expect(parsed?.answer).toBe('Team A won 2-1.\nIt was close.');
+    expect(parsed?.citations?.map(c => [c.title, c.url])).toEqual([
+      ['Final report', 'https://news.example/final'],
+      ['other.example', 'https://www.other.example/x'],
+    ]);
+    expect(parsed?.results).toEqual([]);
+    expect(parsed?.empty).toBe(false);
+  });
+
+  it('parses the markdown answer rendering with its sources', () => {
+    const md = [
+      '# Answer for: q (via Gemini)',
+      '',
+      'The answer.',
+      '',
+      '### Sources',
+      '- [Doc](https://docs.example/a)',
+    ].join('\n');
+    const parsed = parseWebSearchResult(md);
+    expect(parsed?.query).toBe('q');
+    expect(parsed?.answer).toBe('The answer.');
+    expect(parsed?.citations?.[0]).toMatchObject({ title: 'Doc', url: 'https://docs.example/a' });
+  });
+
+  it('recognises contents and still-running research headings', () => {
+    const contents = parseWebSearchResult(
+      [
+        'Page contents for: https://a.dev (via Exa)',
+        '1. A page',
+        '   https://a.dev/',
+        '   Body',
+      ].join('\n')
+    );
+    expect(contents?.role).toBe('contents');
+    expect(contents?.results[0]?.url).toBe('https://a.dev/');
+    const running = parseWebSearchResult('Research still running for: deep q (via Gemini)');
+    expect(running?.inProgress).toBe(true);
+    expect(running?.query).toBe('deep q');
+  });
+
+  it('splits the fallback list out of the via marker', () => {
+    expect(extractSearchProvider('Answer for: q (via Gemini, after Exa)')).toBe('Gemini');
+    expect(extractSearchFallbacks('Answer for: q (via Gemini, after Exa, Brave)')).toEqual([
+      'Exa',
+      'Brave',
+    ]);
+    expect(extractSearchFallbacks('Search results for: q (via Exa)')).toEqual([]);
+    expect(extractSearchFallbacks(undefined)).toEqual([]);
+  });
+
+  it('detects the managed-search balance error in text or objects', () => {
+    expect(isSearchBalanceError('Your balance is too low to search')).toBe(true);
+    expect(isSearchBalanceError({ causePlain: 'Balance is too low.' })).toBe(true);
+    expect(isSearchBalanceError('timed out')).toBe(false);
+    expect(isSearchBalanceError(undefined)).toBe(false);
+  });
+
   it('returns undefined for output it does not recognise', () => {
     expect(parseWebSearchResult('some other text')).toBeUndefined();
     expect(parseWebSearchResult(undefined)).toBeUndefined();
@@ -120,5 +241,21 @@ describe('extractAgentSources', () => {
       'https://tokio.rs/tokio/tutorial',
     ]);
     expect(sources[0].title).toBe('Async fn in traits are now stable');
+  });
+
+  it("lists an answer call's citations as sources", () => {
+    const sources = extractAgentSources([
+      {
+        id: 'a1',
+        name: 'web_answer_tool',
+        round: 1,
+        seq: 0,
+        status: 'success',
+        argsBuffer: '{"query":"q"}',
+        result:
+          'Answer for: q (via Gemini)\n\nYes.\n\nSources:\n[1] Doc \u2014 https://docs.example/a',
+      },
+    ]);
+    expect(sources.map(s => s.url)).toEqual(['https://docs.example/a']);
   });
 });

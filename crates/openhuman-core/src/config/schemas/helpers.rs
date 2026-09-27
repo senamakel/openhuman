@@ -112,27 +112,6 @@ pub(super) struct AnalyticsSettingsUpdate {
 }
 
 #[derive(Debug, Deserialize)]
-pub(super) struct SearchSettingsUpdate {
-    pub(super) enabled: Option<bool>,
-    pub(super) enabled_providers: Option<Vec<String>>,
-    pub(super) presentation: Option<String>,
-    pub(super) presentation_provider: Option<String>,
-    pub(super) parallel_route: Option<String>,
-    pub(super) gemini_route: Option<String>,
-    pub(super) gemini_api_key: Option<String>,
-    pub(super) engine: Option<String>,
-    pub(super) max_results: Option<usize>,
-    pub(super) timeout_secs: Option<u64>,
-    pub(super) parallel_api_key: Option<String>,
-    pub(super) brave_api_key: Option<String>,
-    pub(super) querit_api_key: Option<String>,
-    pub(super) exa_api_key: Option<String>,
-    pub(super) tavily_api_key: Option<String>,
-    pub(super) allowed_domains: Option<Vec<String>>,
-    pub(super) allow_all: Option<bool>,
-}
-
-#[derive(Debug, Deserialize)]
 pub(super) struct LocalAiSettingsUpdate {
     pub(super) runtime_enabled: Option<bool>,
     /// MVP opt-in marker. Tied to `runtime_enabled` from the unified AI

@@ -208,6 +208,14 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   // ── Web ─────────────────────────────────────────────────────────────────
   web_search: webSearch('searchWeb'),
   web_search_tool: webSearch('searchWeb'),
+  // Role tools: `web_answer_tool` returns a grounded answer with citations
+  // (and runs deep research on `depth: "deep"`); `web_contents_tool` reads
+  // the given URLs.
+  web_answer_tool: webSearch('askTheWeb'),
+  web_contents_tool: readPages,
+  gemini_agentic_search: webSearch('askTheWeb'),
+  gemini_deep_research: webSearch('research', TelescopeIcon),
+  exa_answer: webSearch('askTheWeb'),
   exa_search: webSearch('searchWeb'),
   tavily_search: webSearch('searchWeb'),
   querit_search: webSearch('searchWeb'),
@@ -226,6 +234,8 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   tavily_extract: readPages,
   parallel_extract: readPages,
   tinyfish_fetch: readPages,
+  // Parallel was removed from the core; these stay so old transcripts still
+  // render with a meaningful label.
   parallel_research: spec('research', TelescopeIcon, 'web', { chip: chip.query() }),
   parallel_chat: spec('askTheWeb', GlobeIcon, 'web', { chip: chip.query() }),
   parallel_enrich: spec('enrichData', SparklesIcon, 'web', { chip: chip.query() }),

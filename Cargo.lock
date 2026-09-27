@@ -4063,9 +4063,11 @@ dependencies = [
 name = "openhuman-tinyhumans"
 version = "0.64.4"
 dependencies = [
+ "aes-gcm",
  "anyhow",
  "async-trait",
  "axum",
+ "base64 0.22.1",
  "chrono",
  "log",
  "openhuman",
@@ -4076,11 +4078,13 @@ dependencies = [
  "serde_json",
  "tempfile",
  "thiserror 2.0.20",
+ "tinychannels-bus",
  "tinyhumans-sdk",
  "tinyjevclient 0.2.1 (git+https://github.com/tinyhumansai/tinyjevclient?rev=84b3983c7e1e14f7515658ceafabb6c4e7967c94)",
  "tinytools 0.4.1",
  "tinytools-jev",
  "tokio",
+ "tracing",
  "tracing-subscriber",
  "url",
  "urlencoding",
@@ -6785,7 +6789,7 @@ dependencies = [
 
 [[package]]
 name = "tinysearch-bus"
-version = "0.2.1"
+version = "0.3.0"
 dependencies = [
  "serde",
  "serde_json",

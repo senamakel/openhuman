@@ -2,7 +2,6 @@
 //! Langfuse exporter: where the ingestion proxy lives, which environment the
 //! resolved host belongs to, and whether that environment may push at all.
 
-use crate::api::config::effective_backend_api_url;
 use crate::config::Config;
 
 use super::LOG_TARGET;
@@ -15,14 +14,17 @@ use super::LOG_TARGET;
 const INGESTION_PATH: &str = "/telemetry/langfuse/ingestion";
 
 /// Resolve the Langfuse ingestion URL from the current backend host. Joins the
-/// proxy path onto [`effective_backend_api_url`] — the exact base-server
+/// proxy path onto [`crate::backend::base_url`] — the exact base-server
 /// resolution every other backend call uses — via the canonical
-/// [`crate::api::config::api_url`] helper, which replaces any path the base
+/// [`crate::util::url::join_url`] helper, which replaces any path the base
 /// carried with the given absolute path. So the host always matches wherever the
 /// app's domain calls go (staging, prod, or a custom `api_url` override).
 pub(crate) fn ingestion_url(config: &Config) -> String {
-    let base = effective_backend_api_url(&config.api_url);
-    crate::api::config::api_url(&base, INGESTION_PATH)
+    // Empty without a backend transport; callers treat a non-`http` URL as
+    // "proxy unavailable" and skip the push.
+    crate::backend::base_url(&config.api_url)
+        .map(|base| crate::util::url::join_url(&base, INGESTION_PATH))
+        .unwrap_or_default()
 }
 
 /// The domain the deployed backends live under. A host outside it cannot be
@@ -54,7 +56,7 @@ const DEPLOYMENT_DOMAIN: &str = "tinyhumans.ai";
 ///   classified as external, so a working development setup would have
 ///   silently stopped exporting the moment the gate landed.
 ///
-/// Host classification is delegated to [`crate::api::config::host_is_local`],
+/// Host classification is delegated to [`crate::util::url::host_is_local`],
 /// which already parses the URL and handles IPv4 loopback/unspecified/private,
 /// IPv6 loopback/unspecified, and `localhost` / `*.localhost`. Keeping one
 /// definition matters more than the few lines it saves: two local-host
@@ -69,7 +71,7 @@ pub(crate) fn environment_for_base(base: &str) -> &'static str {
     let Ok(parsed) = url::Url::parse(base) else {
         return "external";
     };
-    if crate::api::config::host_is_local(&parsed) {
+    if crate::util::url::host_is_local(&parsed) {
         return "development";
     }
     if parsed.scheme() != "https" {

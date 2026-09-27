@@ -17,8 +17,8 @@ pub(crate) fn default_openhuman_dir() -> PathBuf {
 }
 
 pub(crate) fn env_scoped_fallback_root_dir() -> PathBuf {
-    let suffix = if crate::api::config::is_staging_app_env(
-        crate::api::config::app_env_from_env().as_deref(),
+    let suffix = if crate::config::app_env::is_staging_app_env(
+        crate::config::app_env::app_env_from_env().as_deref(),
     ) {
         "-staging"
     } else {

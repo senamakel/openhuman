@@ -28,10 +28,9 @@ use tinyagents_graph::{GraphLangfuseExporter, GraphObservation};
 use tinyagents_harness::{LangfuseAuth, LangfuseClient, LangfuseTraceConfig};
 use tinyflows::engine::GraphObservation as FlowObservation;
 
-use crate::api::config::effective_backend_api_url;
 use crate::config::Config;
 use crate::flows::FlowRunTrigger;
-use crate::security::credentials::session_support::require_live_session_token;
+use crate::security::credentials::session_support::direct_backend_credential;
 
 const LOG_TARGET: &str = "flows::langfuse";
 /// Backend proxy route for Langfuse ingestion (relative to the backend
@@ -47,8 +46,11 @@ const PUSH_TIMEOUT: Duration = Duration::from_secs(10);
 /// always matches wherever the app's domain calls go (staging, prod, or a
 /// custom `api_url` override).
 fn ingestion_url(config: &Config) -> String {
-    let base = effective_backend_api_url(&config.api_url);
-    crate::api::config::api_url(&base, INGESTION_PATH)
+    // Empty without a backend transport; callers treat a non-`http` URL as
+    // "proxy unavailable" and skip the push.
+    crate::backend::base_url(&config.api_url)
+        .map(|base| crate::util::url::join_url(&base, INGESTION_PATH))
+        .unwrap_or_default()
 }
 
 /// The OpenHuman core crate version (e.g. `0.58.0`), stamped onto every flow
@@ -179,14 +181,18 @@ pub async fn export_flow_run_trace(
         );
         return;
     }
-    let token = match require_live_session_token(config) {
-        Ok(token) => token,
-        Err(err) => {
-            tracing::warn!(
+    // No TinyHumans connection, or no usable credential (signed out, offline
+    // local session): a configured state — `direct_backend_credential` logs
+    // the reason at debug, and the export is skipped without a request.
+    let token = match direct_backend_credential(config, "flows langfuse export") {
+        Some(crate::security::credentials::session_support::BackendCredential::Session(token)) => {
+            token
+        }
+        _ => {
+            tracing::debug!(
                 target: LOG_TARGET,
                 flow_id = %flow_id,
-                error = %err,
-                "[flows] langfuse export skipped: no live session token"
+                "[flows] langfuse export skipped: hosted backend not available"
             );
             return;
         }

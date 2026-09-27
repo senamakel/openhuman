@@ -1,13 +1,63 @@
 use serde_json::{json, Value};
 
-use crate::tools::SEARXNG_MAX_RESULTS;
-
-use super::types::{McpToolSpec, DEFAULT_LIMIT, MAX_LIMIT};
+use super::types::{McpToolSpec, DEFAULT_LIMIT, MAX_LIMIT, SEARCH_MAX_RESULTS};
 
 pub fn tool_specs() -> Vec<McpToolSpec> {
     let mut specs = base_tool_specs();
-    specs.push(searxng_tool_spec());
+    specs.extend(search_tool_specs());
     specs
+}
+
+/// Every search tool MCP can expose; `list_tools_result_for_config` keeps
+/// only those whose role has a usable provider.
+pub fn search_tool_specs() -> Vec<McpToolSpec> {
+    vec![
+        web_search_tool_spec(),
+        web_answer_tool_spec(),
+        searxng_tool_spec(),
+    ]
+}
+
+pub fn web_search_tool_spec() -> McpToolSpec {
+    McpToolSpec {
+        name: "web_search",
+        title: "Web Search",
+        description: "Search the web through the providers configured in OpenHuman search settings (first usable provider, with fallbacks). Returns ranked results with title, URL and snippet, plus the provider that answered.",
+        rpc_method: Some("openhuman.tools_web_search"),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "minLength": 1, "description": "Search query string."},
+                "max_results": {
+                    "type": "integer", "minimum": 1, "maximum": SEARCH_MAX_RESULTS,
+                    "description": format!("Maximum results to return (capped at {SEARCH_MAX_RESULTS}).")
+                },
+                "provider": {"type": "string", "minLength": 1, "description": "Pin one configured provider, e.g. `exa` or `brave`; disables fallback."}
+            },
+            "required": ["query"],
+            "additionalProperties": false
+        }),
+        annotations: json!({"readOnlyHint": true, "openWorldHint": true}),
+    }
+}
+
+pub fn web_answer_tool_spec() -> McpToolSpec {
+    McpToolSpec {
+        name: "web_answer",
+        title: "Grounded Web Answer",
+        description: "Answer a question from live web sources (Gemini with Google Search grounding by default) and return the answer with its citations. `depth: deep` runs deep research when a Gemini key is configured.",
+        rpc_method: Some("openhuman.tools_web_answer"),
+        input_schema: json!({
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "minLength": 1, "description": "The question to answer."},
+                "depth": {"type": "string", "enum": ["quick", "deep"], "description": "quick (default) or deep."}
+            },
+            "required": ["query"],
+            "additionalProperties": false
+        }),
+        annotations: json!({"readOnlyHint": true, "openWorldHint": true}),
+    }
 }
 
 pub fn base_tool_specs() -> Vec<McpToolSpec> {
@@ -217,7 +267,7 @@ pub fn searxng_tool_spec() -> McpToolSpec {
     McpToolSpec {
         name: "searxng_search",
         title: "SearXNG Search",
-        description: "Search the configured self-hosted SearXNG instance and return normalized title, URL, snippet, and source results. Requires searxng.enabled=true in OpenHuman config.",
+        description: "Search the configured self-hosted SearXNG instance and return title, URL and snippet results. Present when SearXNG is enabled in OpenHuman search settings.",
         rpc_method: Some("openhuman.tools_searxng_search"),
         input_schema: searxng_search_schema(),
         // SearXNG queries an external (self-hosted but network-reachable)
@@ -232,11 +282,32 @@ pub fn searxng_tool_spec() -> McpToolSpec {
 }
 
 pub fn list_tools_result_for_config(config: &crate::config::Config) -> Value {
+    list_tools_result_from_specs(tool_specs_for_config(
+        config,
+        crate::search::providers::backend_credential_available(config),
+    ))
+}
+
+/// Base tools plus the search tools this config can serve.
+pub fn tool_specs_for_config(
+    config: &crate::config::Config,
+    managed_available: bool,
+) -> Vec<McpToolSpec> {
+    use crate::search::providers::{effective_role_providers, resolve_with};
+    use tinysearch_bus::Role;
+
     let mut specs = base_tool_specs();
-    if config.searxng.enabled {
+    let resolved = resolve_with(config, managed_available);
+    if !effective_role_providers(&resolved, config, Role::Search).is_empty() {
+        specs.push(web_search_tool_spec());
+    }
+    if !effective_role_providers(&resolved, config, Role::Answer).is_empty() {
+        specs.push(web_answer_tool_spec());
+    }
+    if resolved.iter().any(|p| p.id == "searxng" && p.usable) {
         specs.push(searxng_tool_spec());
     }
-    list_tools_result_from_specs(specs)
+    specs
 }
 
 pub fn list_tools_result_from_specs(specs: Vec<McpToolSpec>) -> Value {
@@ -456,24 +527,11 @@ fn searxng_search_schema() -> Value {
                 "minLength": 1,
                 "description": "Search query string."
             },
-            "categories": {
-                "type": "array",
-                "items": {
-                    "type": "string",
-                    "enum": ["web", "general", "news", "images"]
-                },
-                "description": "Optional SearXNG categories. `web` maps to SearXNG `general`."
-            },
-            "language": {
-                "type": "string",
-                "minLength": 1,
-                "description": "Optional language code, e.g. `en`, `zh-CN`, or `fr`."
-            },
             "max_results": {
                 "type": "integer",
                 "minimum": 1,
-                "maximum": SEARXNG_MAX_RESULTS,
-                "description": format!("Maximum results to return. Defaults to searxng.max_results; capped at {SEARXNG_MAX_RESULTS}.")
+                "maximum": SEARCH_MAX_RESULTS,
+                "description": format!("Maximum results to return (capped at {SEARCH_MAX_RESULTS}).")
             }
         },
         "required": ["query"],

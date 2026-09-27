@@ -6,10 +6,12 @@
 
 mod event_handlers;
 pub mod manager;
+pub mod models;
 mod ops;
 mod schemas;
 pub(crate) mod token_provider;
 pub mod types;
+pub mod url;
 pub(crate) mod ws_loop;
 
 pub use manager::{global_socket_manager, set_global_socket_manager, SocketManager};

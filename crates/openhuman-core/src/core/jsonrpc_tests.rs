@@ -680,8 +680,8 @@ fn is_session_expired_error_matches_flattened_backend_unauthorized() {
     // 401 is suppressed from Sentry (TAURI-RUST-8WY on `/teams/me/usage`,
     // TAURI-RUST-8WZ on `/payments/stripe/currentPlan`) AND triggers the
     // `SessionExpired` publish. End-to-end: build the typed error → flatten → classify.
-    let flat = crate::api::flatten_authed_error(anyhow::Error::new(
-        crate::api::BackendApiError::Unauthorized {
+    let flat = crate::backend::flatten_authed_error(anyhow::Error::new(
+        crate::backend::BackendApiError::Unauthorized {
             method: "GET".to_string(),
             path: "/teams/me/usage".to_string(),
         },

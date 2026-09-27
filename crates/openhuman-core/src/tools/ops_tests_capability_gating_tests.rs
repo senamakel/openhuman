@@ -93,11 +93,15 @@ fn tool_group_classifies_gate_and_harness_families() {
     assert_eq!(tool_group("web_search_tool"), DomainGroup::Integrations);
     for name in [
         "web_search_tool",
+        "web_answer_tool",
+        "web_contents_tool",
         "tinyfish_search",
         "exa_get_contents",
+        "gemini_agentic_search",
         "brave_news_search",
-        "parallel_search",
         "querit_search",
+        "seltz_search",
+        "searxng_search",
     ] {
         assert_eq!(tool_group(name), DomainGroup::Integrations);
     }

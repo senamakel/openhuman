@@ -283,7 +283,7 @@ fn initialize_result(params: Value) -> Value {
             "name": "openhuman-core",
             "version": env!("CARGO_PKG_VERSION")
         },
-        "instructions": "OpenHuman MCP exposes first-level core integration: inspect the live tool catalog with core.list_tools or core.tool_instructions, inspect subagents with agent.list_subagents, run a standalone subagent with agent.run_subagent, use searxng_search when self-hosted search is enabled, and use memory.search or memory.recall plus tree.read_chunk for local memory reads."
+        "instructions": "OpenHuman MCP exposes first-level core integration: inspect the live tool catalog with core.list_tools or core.tool_instructions, inspect subagents with agent.list_subagents, run a standalone subagent with agent.run_subagent, use web_search or web_answer for live web lookups (and searxng_search when self-hosted search is enabled), and use memory.search or memory.recall plus tree.read_chunk for local memory reads."
     })
 }
 

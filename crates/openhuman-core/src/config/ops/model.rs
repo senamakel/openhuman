@@ -715,13 +715,16 @@ pub async fn get_composio_trigger_settings() -> Result<RpcOutcome<serde_json::Va
     ))
 }
 
-/// Resolve the hosted backend URL, excluding local or third-party inference
-/// overrides that must never receive OpenHuman session credentials.
-pub(crate) fn resolve_backend_api_url(config: &Config) -> String {
-    crate::api::config::effective_backend_api_url(&config.api_url)
+/// Resolve the hosted backend URL through the installed backend transport,
+/// which excludes local or third-party inference overrides that must never
+/// receive OpenHuman session credentials. `None` when no transport is
+/// installed (no hosted backend).
+pub(crate) fn resolve_backend_api_url(config: &Config) -> Option<String> {
+    crate::backend::base_url(&config.api_url).ok()
 }
 
-/// Resolves the effective backend API URL from configuration or defaults.
+/// Resolves the effective backend API URL from configuration or defaults;
+/// `api_url` is `null` when the core has no hosted backend.
 pub async fn load_and_resolve_api_url() -> Result<RpcOutcome<serde_json::Value>, String> {
     let config = load_config_with_timeout().await?;
     let resolved = resolve_backend_api_url(&config);

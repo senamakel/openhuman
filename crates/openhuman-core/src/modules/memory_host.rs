@@ -279,8 +279,8 @@ impl ComposioCallbacks {
         Ok(stored.or(configured))
     }
 
-    /// The app-session bearer proxied ("backend") Composio mode authenticates
-    /// with.
+    /// The bearer proxied ("backend") Composio mode authenticates with: the
+    /// TinyHumans API key when one is stored, else the app-session JWT.
     ///
     /// Answered from a LIVE config read rather than the install-time snapshot,
     /// and that is the whole reason this is a bus member instead of a field on
@@ -289,8 +289,8 @@ impl ComposioCallbacks {
     /// every sync fail with an auth error that reads as the user being signed
     /// out. Asking per call means the module always gets the one valid now.
     ///
-    /// `Ok(None)` means this host has no session to lend — a signed-out user,
-    /// not a broken one. The engine turns that into a named refusal rather than
+    /// `Ok(None)` means this host has no credential to lend — a signed-out user
+    /// with no API key, not a broken one. The engine turns that into a named refusal rather than
     /// treating it as "nothing to sync", which is the distinction that keeps a
     /// signed-out user from looking like a user with no connected sources.
     ///
@@ -301,9 +301,11 @@ impl ComposioCallbacks {
     /// differently.
     async fn session_bearer(&self) -> tinybus::Result<Option<String>> {
         let config = self.live_config_or_installed().await;
-        Ok(crate::api::jwt::get_session_token(config.as_ref())
-            .ok()
-            .flatten())
+        Ok(
+            crate::security::credentials::session_support::backend_bearer_secret(config.as_ref())
+                .ok()
+                .flatten(),
+        )
     }
 
     /// Whether *some* viable Composio client resolves right now.

@@ -676,7 +676,6 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
         "curl",
         "gitbooks_search",
         "gitbooks_get_page",
-        "web_search_tool",
         "image_info",
     ];
     // Managed Node tools exist only when the runtime is compiled in — same

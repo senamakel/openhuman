@@ -10,7 +10,8 @@ use crate::security::{SecurityPolicy, ToolOperation};
 use super::super::write_dispatch;
 use super::params::{build_rpc_params, validate_controller_params};
 use super::specs::{
-    base_tool_specs, list_tools_result_for_config, list_tools_result_from_specs, tool_specs,
+    base_tool_specs, list_tools_result_for_config, list_tools_result_from_specs,
+    tool_specs_for_config,
 };
 use super::types::ToolCallError;
 
@@ -31,7 +32,19 @@ pub async fn call_tool(
     arguments: Value,
     client_info: &str,
 ) -> Result<Value, ToolCallError> {
-    let spec = tool_specs()
+    let specs = match config_rpc::load_config_with_timeout().await {
+        Ok(config) => tool_specs_for_config(
+            &config,
+            crate::search::providers::backend_credential_available(&config),
+        ),
+        Err(err) => {
+            log::warn!(
+                "[mcp_server] tools/call config load failed; omitting config-gated tools: {err}"
+            );
+            base_tool_specs()
+        }
+    };
+    let spec = specs
         .into_iter()
         .find(|tool| tool.name == name)
         .ok_or_else(|| ToolCallError::InvalidParams(format!("unknown MCP tool `{name}`")))?;

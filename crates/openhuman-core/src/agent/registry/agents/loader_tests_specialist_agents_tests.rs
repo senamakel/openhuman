@@ -506,8 +506,13 @@ fn researcher_is_bounded_to_search_and_fetch() {
         ToolScope::Named(tools) => {
             assert_eq!(
                 tools,
-                &vec!["web_search_tool".to_string(), "web_fetch".to_string()],
-                "researcher must stay limited to search+fetch so simple lookups do not fan out into deep research loops"
+                &vec![
+                    "web_search_tool".to_string(),
+                    "web_answer_tool".to_string(),
+                    "web_contents_tool".to_string(),
+                    "web_fetch".to_string()
+                ],
+                "researcher must stay limited to the web read tools so simple lookups do not fan out into deep research loops"
             );
         }
         ToolScope::Wildcard => panic!("researcher must have Named tool scope"),

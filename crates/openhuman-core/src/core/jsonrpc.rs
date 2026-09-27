@@ -344,7 +344,7 @@ fn translate_local_session_error(msg: &str, credential_is_local: bool) -> Option
 /// Anthropic failures, Composio direct-mode errors) to clear the user's session
 /// and log them out. The fix distinguishes between:
 ///
-/// - **OpenHuman backend 401s** (`authed_json` in `crates/openhuman-core/src/api/rest.rs`): formatted
+/// - **OpenHuman backend 401s** (`authed_json` in `crates/openhuman-core/src/backend/client.rs`): formatted
 ///   as `"{METHOD} /path failed (401 Unauthorized): {body}"`, e.g.
 ///   `"GET /teams failed (401 Unauthorized): {"success":false}"`. These always
 ///   start with an HTTP method verb followed by a space and a forward slash.
@@ -1327,9 +1327,10 @@ async fn domain_events_handler(headers: axum::http::HeaderMap) -> Response {
 /// Handler for the root endpoint, returning server information and available endpoints.
 #[cfg(feature = "http-server")]
 async fn root_handler() -> impl IntoResponse {
+    // `null` when no backend transport is installed.
     let api_server = match crate::config::Config::load_or_init().await {
-        Ok(cfg) => crate::api::config::effective_backend_api_url(&cfg.api_url),
-        Err(_) => crate::api::config::effective_backend_api_url(&None),
+        Ok(cfg) => crate::backend::base_url(&cfg.api_url).ok(),
+        Err(_) => crate::backend::base_url(&None).ok(),
     };
 
     (
@@ -1743,7 +1744,7 @@ fn register_domain_subscribers(
             log::info!("[auth] api-key credential present at startup — scheduler gate signed in");
             crate::cron::scheduler_gate::set_signed_out(false);
         } else {
-            match crate::api::jwt::get_session_token(&config) {
+            match crate::security::credentials::jwt::get_session_token(&config) {
                 Ok(Some(_)) => {
                     crate::cron::scheduler_gate::set_signed_out(false);
                 }
@@ -1780,6 +1781,11 @@ fn register_domain_subscribers(
                 "[event_bus] failed to register SessionExpired subscriber — bus not initialized"
             );
         }
+
+        // Managed search routes follow the credential: refresh the search
+        // module when it is stored, replaced or cleared.
+        #[cfg(feature = "modules")]
+        crate::search::bus::register_credential_refresh_subscriber();
 
         // Restart requests go through a subscriber so every trigger path shares
         // the same respawn logic.

@@ -10,15 +10,15 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use super::apify::handle_apify_linkedin_scrape;
 use super::composio::handle_composio_execute;
 use super::web_search::{
-    handle_querit_search, handle_searxng_search, handle_seltz_search, handle_web_search,
+    handle_searxng_search, handle_web_answer, handle_web_contents, handle_web_search,
 };
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         tools_schemas("tools_composio_execute"),
         tools_schemas("tools_web_search"),
-        tools_schemas("tools_seltz_search"),
-        tools_schemas("tools_querit_search"),
+        tools_schemas("tools_web_answer"),
+        tools_schemas("tools_web_contents"),
         tools_schemas("tools_searxng_search"),
         tools_schemas("tools_apify_linkedin_scrape"),
     ]
@@ -35,12 +35,12 @@ pub fn all_registered_controllers() -> Vec<RegisteredController> {
             handler: handle_web_search,
         },
         RegisteredController {
-            schema: tools_schemas("tools_seltz_search"),
-            handler: handle_seltz_search,
+            schema: tools_schemas("tools_web_answer"),
+            handler: handle_web_answer,
         },
         RegisteredController {
-            schema: tools_schemas("tools_querit_search"),
-            handler: handle_querit_search,
+            schema: tools_schemas("tools_web_contents"),
+            handler: handle_web_contents,
         },
         RegisteredController {
             schema: tools_schemas("tools_searxng_search"),
@@ -101,9 +101,9 @@ pub fn tools_schemas(function: &str) -> ControllerSchema {
         "tools_web_search" => ControllerSchema {
             namespace: "tools",
             function: "web_search",
-            description: "Web search via the backend Parallel proxy. Returns structured \
-                          results so callers can inspect titles, URLs, and excerpts \
-                          without parsing the agent-facing pretty text.",
+            description: "Ranked web search through the configured search providers \
+                          (the `search` role: first usable provider, then fallbacks). \
+                          Returns structured results and the provider that answered.",
             inputs: vec![
                 FieldSchema {
                     name: "query",
@@ -112,199 +112,81 @@ pub fn tools_schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
                 FieldSchema {
-                    name: "objective",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Optional objective sent to Parallel (defaults to `query`).",
-                    required: false,
-                },
-                FieldSchema {
                     name: "max_results",
                     ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Max results (1-10, default 5).",
+                    comment: "Max results (1-20, default from search settings).",
                     required: false,
-                },
-                FieldSchema {
-                    name: "timeout_secs",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Request timeout in seconds (default 15).",
-                    required: false,
-                },
-            ],
-            outputs: vec![
-                FieldSchema {
-                    name: "results",
-                    ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
-                    comment: "Each item: {url, title, publish_date?, excerpts[]}.",
-                    required: true,
                 },
                 FieldSchema {
                     name: "provider",
-                    ty: TypeSchema::String,
-                    comment: "Upstream provider the managed backend resolved this \
-                              search to, for attribution. Reported by the backend when \
-                              it names one; falls back to the managed default.",
-                    required: true,
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Pin one provider (exa, brave, tavily, querit, seltz, searxng, tinyfish); disables fallback.",
+                    required: false,
                 },
             ],
+            outputs: search_outputs("Each item: {title, url, snippet?, published?}."),
         },
-        "tools_seltz_search" => ControllerSchema {
+        "tools_web_answer" => ControllerSchema {
             namespace: "tools",
-            function: "seltz_search",
-            description: "Web search via the Seltz API. Returns structured results with \
-                          URLs, content, and optional published dates. Supports domain \
-                          filtering, date ranges, and news scope.",
+            function: "web_answer",
+            description: "Grounded answer with citations (the `answer` role: Gemini with \
+                          Google Search grounding by default). `depth: deep` runs deep \
+                          research when a Gemini key is configured.",
             inputs: vec![
                 FieldSchema {
                     name: "query",
                     ty: TypeSchema::String,
-                    comment: "Search query string.",
+                    comment: "The question to answer.",
                     required: true,
                 },
                 FieldSchema {
-                    name: "max_results",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Max results (1-20, default 10).",
+                    name: "depth",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Enum {
+                        variants: vec!["quick", "deep"],
+                    })),
+                    comment: "quick (default) or deep.",
                     required: false,
                 },
                 FieldSchema {
-                    name: "include_domains",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Restrict results to these domains.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "exclude_domains",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Exclude results from these domains.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "from_date",
+                    name: "provider",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Only results published on or after (YYYY-MM-DD).",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "to_date",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Only results published on or before (YYYY-MM-DD).",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "scope",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Restrict to a scope, e.g. \"news\".",
+                    comment: "Pin one provider (gemini, exa); disables fallback.",
                     required: false,
                 },
             ],
-            outputs: vec![FieldSchema {
-                name: "documents",
-                ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
-                comment: "Each item: {url, content, title?, published_date?}.",
-                required: true,
-            }],
+            outputs: search_outputs("Sources the answer drew on, when the provider lists them."),
         },
-        "tools_querit_search" => ControllerSchema {
+        "tools_web_contents" => ControllerSchema {
             namespace: "tools",
-            function: "querit_search",
-            description: "Web search via the Querit API. Returns current results with URLs, \
-                          snippets, site names, and page age. Supports site filters, \
-                          time ranges, country filters, and language filters.",
+            function: "web_contents",
+            description: "Fetch and extract page contents for known URLs (the `contents` role).",
             inputs: vec![
                 FieldSchema {
-                    name: "query",
-                    ty: TypeSchema::String,
-                    comment: "Search query string.",
+                    name: "urls",
+                    ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+                    comment: "One or more page URLs.",
                     required: true,
                 },
                 FieldSchema {
-                    name: "max_results",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Max results (1-20, default 10).",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "count",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Querit-native alias for max_results.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "filters",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
-                    comment:
-                        "Querit-native filters object with sites, timeRange, geo, and languages.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "include_domains",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Only fetch results from these domains.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "exclude_domains",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Exclude results from these domains.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "time_range",
+                    name: "query",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Querit date filter: d7, w2, m6, y1, or YYYY-MM-DDtoYYYY-MM-DD.",
+                    comment: "Optional focus for extraction.",
                     required: false,
                 },
                 FieldSchema {
-                    name: "from_date",
+                    name: "provider",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Start date for a Querit date-range filter (YYYY-MM-DD).",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "to_date",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "End date for a Querit date-range filter (YYYY-MM-DD).",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "countries",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Country filters, e.g. united states, japan, germany.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "languages",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::String,
-                    )))),
-                    comment: "Language filters, e.g. english, japanese, german.",
+                    comment: "Pin one provider (exa, tavily, tinyfish); disables fallback.",
                     required: false,
                 },
             ],
-            outputs: vec![FieldSchema {
-                name: "results",
-                ty: TypeSchema::String,
-                comment: "Formatted Querit search results.",
-                required: true,
-            }],
+            outputs: search_outputs("Each item: {title, url, snippet?} with the extracted text."),
         },
         "tools_searxng_search" => ControllerSchema {
             namespace: "tools",
             function: "searxng_search",
-            description:
-                "Web search via a user-configured SearXNG instance. Returns normalized \
-                          results with title, URL, snippet, and source. Intended for private, \
-                          self-hosted search without routing queries through the OpenHuman backend.",
+            description: "Web search pinned to the user's self-hosted SearXNG instance. \
+                          Requires SearXNG to be enabled in search settings.",
             inputs: vec![
                 FieldSchema {
                     name: "query",
@@ -313,34 +195,13 @@ pub fn tools_schemas(function: &str) -> ControllerSchema {
                     required: true,
                 },
                 FieldSchema {
-                    name: "categories",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
-                        TypeSchema::Enum {
-                            variants: vec!["web", "general", "news", "images"],
-                        },
-                    )))),
-                    comment: "Optional SearXNG categories. `web` maps to SearXNG `general`.",
-                    required: false,
-                },
-                FieldSchema {
-                    name: "language",
-                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment: "Optional language code, e.g. `en`, `zh-CN`, or `fr`.",
-                    required: false,
-                },
-                FieldSchema {
                     name: "max_results",
                     ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-                    comment: "Max results (1-50, default from searxng.max_results).",
+                    comment: "Max results (1-20).",
                     required: false,
                 },
             ],
-            outputs: vec![FieldSchema {
-                name: "results",
-                ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
-                comment: "Each item: {title, url, snippet, source}.",
-                required: true,
-            }],
+            outputs: search_outputs("Each item: {title, url, snippet?, published?}."),
         },
         "tools_apify_linkedin_scrape" => ControllerSchema {
             namespace: "tools",
@@ -382,4 +243,40 @@ pub fn tools_schemas(function: &str) -> ControllerSchema {
             }],
         },
     }
+}
+
+/// Shared output shape of the search controllers.
+fn search_outputs(results_comment: &'static str) -> Vec<FieldSchema> {
+    vec![
+        FieldSchema {
+            name: "results",
+            ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+            comment: results_comment,
+            required: true,
+        },
+        FieldSchema {
+            name: "provider",
+            ty: TypeSchema::String,
+            comment: "Display name of the provider that answered.",
+            required: true,
+        },
+        FieldSchema {
+            name: "answer",
+            ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+            comment: "Synthesized answer, for answer-capable providers.",
+            required: false,
+        },
+        FieldSchema {
+            name: "citations",
+            ty: TypeSchema::Array(Box::new(TypeSchema::Json)),
+            comment: "Each item: {url, title?}.",
+            required: true,
+        },
+        FieldSchema {
+            name: "fallback_from",
+            ty: TypeSchema::Array(Box::new(TypeSchema::String)),
+            comment: "Providers tried and skipped before the one that answered.",
+            required: true,
+        },
+    ]
 }

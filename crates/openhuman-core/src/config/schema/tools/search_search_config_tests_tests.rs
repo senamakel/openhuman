@@ -1,96 +1,37 @@
 use super::*;
 use crate::config::schema::tools::http::HttpRequestConfig;
 
+fn legacy(toml_body: &str) -> SearchConfig {
+    toml::from_str(toml_body).expect("legacy search section parses")
+}
+
+fn provider(cfg: &SearchConfig, name: &str) -> Option<SearchProviderSettings> {
+    cfg.providers.get(name).copied()
+}
+
 #[test]
-fn defaults_to_managed() {
+fn fresh_defaults_are_managed_exa_and_gemini_with_roles_presentation() {
     let cfg = SearchConfig::default();
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
+    assert!(!cfg.needs_migration());
+    assert!(cfg.is_enabled());
+    assert_eq!(cfg.presentation, SearchPresentation::Roles);
+    assert_eq!(
+        provider(&cfg, "exa"),
+        Some(SearchProviderSettings::managed())
+    );
+    assert_eq!(
+        provider(&cfg, "gemini"),
+        Some(SearchProviderSettings::managed())
+    );
+    assert_eq!(cfg.providers.len(), 2);
+    assert!(cfg.roles.is_empty());
 }
 
 #[test]
-fn disabled_stays_disabled() {
-    let cfg = SearchConfig {
-        engine: SEARCH_ENGINE_DISABLED.into(),
-        ..Default::default()
-    };
-    assert_eq!(cfg.effective_engine(), SearchEngine::Disabled);
-}
-
-#[test]
-fn parallel_requires_key() {
-    let mut cfg = SearchConfig {
-        engine: SEARCH_ENGINE_PARALLEL.into(),
-        ..Default::default()
-    };
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.parallel.api_key = Some("  ".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.parallel.api_key = Some("real".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Parallel);
-}
-
-#[test]
-fn brave_requires_key() {
-    let mut cfg = SearchConfig {
-        engine: SEARCH_ENGINE_BRAVE.into(),
-        ..Default::default()
-    };
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.brave.api_key = Some("real".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Brave);
-}
-
-#[test]
-fn querit_requires_key() {
-    let mut cfg = SearchConfig {
-        engine: SEARCH_ENGINE_QUERIT.into(),
-        ..Default::default()
-    };
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.querit.api_key = Some("real".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Querit);
-}
-
-#[test]
-fn exa_requires_key() {
-    let mut cfg = SearchConfig {
-        engine: SEARCH_ENGINE_EXA.into(),
-        ..Default::default()
-    };
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.exa.api_key = Some("  ".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.exa.api_key = Some("real".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Exa);
-}
-
-#[test]
-fn exa_key_does_not_disturb_the_managed_default() {
-    // BYOK Exa must be opt-in: a stored key alone never flips the engine.
-    let mut cfg = SearchConfig::default();
-    cfg.exa.api_key = Some("real".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-}
-
-#[test]
-fn tavily_requires_key() {
-    let mut cfg = SearchConfig {
-        engine: SEARCH_ENGINE_TAVILY.into(),
-        ..Default::default()
-    };
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.tavily.api_key = Some("  ".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
-    cfg.tavily.api_key = Some("real".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Tavily);
-}
-
-#[test]
-fn tavily_key_does_not_disturb_the_managed_default() {
-    // BYOK Tavily must be opt-in: a stored key alone never flips the engine.
-    let mut cfg = SearchConfig::default();
-    cfg.tavily.api_key = Some("real".into());
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
+fn legacy_omitted_presentation_keeps_all_tools_default() {
+    let mut cfg = legacy("engine = \"managed\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert_eq!(cfg.presentation, SearchPresentation::AllTools);
 }
 
 #[test]
@@ -105,45 +46,242 @@ fn http_request_defaults_to_allow_all() {
 }
 
 #[test]
-fn unknown_engine_falls_back_to_managed() {
-    let cfg = SearchConfig {
-        engine: "duckduckgo".into(),
+fn a_file_without_schema_version_needs_migration() {
+    let cfg = legacy("engine = \"managed\"\n");
+    assert!(cfg.needs_migration());
+    assert!(cfg.providers.is_empty());
+}
+
+#[test]
+fn legacy_managed_becomes_managed_exa_and_gemini() {
+    let mut cfg = legacy("engine = \"managed\"\n");
+    assert!(cfg.migrate_legacy(LegacySearchInputs::default()));
+    assert!(cfg.is_enabled());
+    assert_eq!(
+        provider(&cfg, "exa"),
+        Some(SearchProviderSettings::managed())
+    );
+    assert_eq!(
+        provider(&cfg, "gemini"),
+        Some(SearchProviderSettings::managed())
+    );
+    assert!(cfg.roles.is_empty());
+    assert_eq!(cfg.schema_version, SEARCH_SCHEMA_VERSION);
+    assert!(cfg.engine.is_none());
+}
+
+#[test]
+fn migration_is_idempotent() {
+    let mut cfg = legacy("engine = \"brave\"\n[brave]\napi_key = \"k\"\n");
+    assert!(cfg.migrate_legacy(LegacySearchInputs::default()));
+    let snapshot = format!("{cfg:?}");
+    assert!(!cfg.migrate_legacy(LegacySearchInputs {
+        tinyfish_active: true,
         ..Default::default()
-    };
-    assert_eq!(cfg.effective_engine(), SearchEngine::Managed);
+    }));
+    assert_eq!(format!("{cfg:?}"), snapshot);
 }
 
 #[test]
-fn legacy_disabled_and_key_migration() {
-    let cfg: SearchConfig =
-        toml::from_str("engine = 'disabled'\n[parallel]\napi_key = 'secret'").unwrap();
+fn legacy_disabled_stays_disabled_but_keeps_providers_configured() {
+    let mut cfg = legacy("engine = \"disabled\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
     assert!(!cfg.is_enabled());
-    assert!(cfg.providers(true, false, false, false).is_empty());
-    let cfg: SearchConfig = toml::from_str("[parallel]\napi_key = 'secret'").unwrap();
+    assert!(cfg.providers.contains_key("exa"));
+}
+
+#[test]
+fn legacy_byok_engine_leads_the_search_role() {
+    let mut cfg = legacy("engine = \"tavily\"\n[tavily]\napi_key = \"t\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
     assert_eq!(
-        cfg.providers(true, true, false, false),
-        ["managed", "parallel", "tinyfish"]
-            .into_iter()
-            .map(str::to_string)
-            .collect()
+        provider(&cfg, "tavily"),
+        Some(SearchProviderSettings::direct())
+    );
+    assert_eq!(
+        cfg.roles.get(SEARCH_ROLE_SEARCH),
+        Some(&vec!["tavily".to_string(), "exa".to_string()])
     );
 }
 
 #[test]
-fn explicit_provider_selection_overrides_migration() {
-    let cfg: SearchConfig = toml::from_str(
-        "enabled = true\nenabled_providers = ['gemini']\n[parallel]\napi_key = 'secret'",
-    )
-    .unwrap();
+fn legacy_byok_engine_without_key_does_not_claim_a_role() {
+    let mut cfg = legacy("engine = \"brave\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert!(!cfg.providers.contains_key("brave"));
+    assert!(cfg.roles.is_empty());
+}
+
+#[test]
+fn legacy_exa_engine_with_key_keeps_exa_direct() {
+    let mut cfg = legacy("engine = \"exa\"\n[exa]\napi_key = \"e\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
     assert_eq!(
-        cfg.providers(true, false, false, false),
-        ["gemini".to_string()].into()
+        provider(&cfg, "exa"),
+        Some(SearchProviderSettings::direct())
+    );
+    assert_eq!(cfg.exa.key(), Some("e"));
+}
+
+#[test]
+fn exa_key_under_managed_engine_stays_managed() {
+    let mut cfg = legacy("engine = \"managed\"\n[exa]\napi_key = \"e\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert_eq!(
+        provider(&cfg, "exa"),
+        Some(SearchProviderSettings::managed())
     );
 }
 
 #[test]
-fn separate_legacy_providers_migrate_when_enabled() {
-    let cfg = SearchConfig::default();
-    assert!(cfg.providers(false, false, true, true).contains("seltz"));
-    assert!(cfg.providers(false, false, true, true).contains("searxng"));
+fn a_parallel_key_is_kept_as_a_direct_provider() {
+    let mut cfg = legacy("engine = \"parallel\"\n[parallel]\napi_key = \"p\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert_eq!(
+        provider(&cfg, "parallel"),
+        Some(SearchProviderSettings::direct())
+    );
+    assert_eq!(cfg.parallel.key(), Some("p"));
+    assert_eq!(
+        cfg.roles.get(SEARCH_ROLE_SEARCH),
+        Some(&vec!["parallel".to_string(), "exa".to_string()])
+    );
+    let written = toml::to_string(&cfg).unwrap();
+    assert!(!written.contains("engine"), "{written}");
+    assert!(!written.contains("parallel_route"), "{written}");
+}
+
+#[test]
+fn managed_parallel_without_a_key_is_dropped() {
+    let mut cfg =
+        legacy("enabled_providers = [\"managed\", \"parallel\"]\nparallel_route = \"backend\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert!(!cfg.providers.contains_key("parallel"));
+    assert_eq!(
+        provider(&cfg, "exa"),
+        Some(SearchProviderSettings::managed())
+    );
+}
+
+#[test]
+fn parallel_is_direct_only() {
+    let mut cfg = SearchConfig::default();
+    cfg.providers
+        .insert("parallel".into(), SearchProviderSettings::managed());
+    assert_eq!(cfg.route("parallel"), SearchRoute::Direct);
+}
+
+#[test]
+fn explicit_provider_selection_maps_managed_and_routes() {
+    let mut cfg = legacy(
+        "enabled = true\nenabled_providers = [\"managed\", \"parallel\", \"gemini\", \"tinyfish\", \"querit\"]\n\
+         parallel_route = \"backend\"\ngemini_route = \"direct\"\n[gemini]\napi_key = \"g\"\n",
+    );
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert_eq!(
+        provider(&cfg, "exa"),
+        Some(SearchProviderSettings::managed())
+    );
+    assert_eq!(
+        provider(&cfg, "gemini"),
+        Some(SearchProviderSettings::direct())
+    );
+    assert_eq!(
+        provider(&cfg, "tinyfish"),
+        Some(SearchProviderSettings::managed())
+    );
+    assert_eq!(
+        provider(&cfg, "querit"),
+        Some(SearchProviderSettings::direct())
+    );
+    assert!(!cfg.providers.contains_key("parallel"));
+    assert!(cfg.enabled_providers.is_none());
+}
+
+#[test]
+fn legacy_toggles_outside_search_migrate_when_active() {
+    let mut cfg = legacy("engine = \"managed\"\nenabled_providers = [\"managed\", \"brave\"]\n");
+    cfg.migrate_legacy(LegacySearchInputs {
+        tinyfish_active: true,
+        seltz_active: true,
+        searxng_active: true,
+    });
+    assert_eq!(
+        provider(&cfg, "tinyfish"),
+        Some(SearchProviderSettings::managed())
+    );
+    assert_eq!(
+        provider(&cfg, "seltz"),
+        Some(SearchProviderSettings::direct())
+    );
+    assert_eq!(
+        provider(&cfg, "searxng"),
+        Some(SearchProviderSettings::direct())
+    );
+}
+
+#[test]
+fn selected_legacy_exa_keeps_own_key_when_managed_is_also_selected() {
+    let mut cfg =
+        legacy("enabled_providers = [\"exa\", \"managed\"]\n[exa]\napi_key = \"exa-key\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert_eq!(
+        provider(&cfg, "exa"),
+        Some(SearchProviderSettings::direct())
+    );
+}
+
+#[test]
+fn managed_presentation_provider_is_cleared() {
+    let mut cfg = legacy("presentation = \"router\"\npresentation_provider = \"managed\"\n");
+    cfg.migrate_legacy(LegacySearchInputs::default());
+    assert_eq!(cfg.presentation, SearchPresentation::Router);
+    assert!(cfg.presentation_provider.is_none());
+}
+
+#[test]
+fn route_is_direct_for_providers_that_cannot_be_managed() {
+    let mut cfg = SearchConfig::default();
+    cfg.providers
+        .insert("brave".into(), SearchProviderSettings::managed());
+    assert_eq!(cfg.route("brave"), SearchRoute::Direct);
+    assert_eq!(cfg.route("exa"), SearchRoute::Managed);
+    assert_eq!(cfg.route("unknown"), SearchRoute::Direct);
+}
+
+#[test]
+fn enabled_provider_names_skip_disabled_entries() {
+    let mut cfg = SearchConfig::default();
+    cfg.providers.insert(
+        "tavily".into(),
+        SearchProviderSettings {
+            enabled: false,
+            route: SearchRoute::Direct,
+        },
+    );
+    let names: Vec<_> = cfg.enabled_provider_names().into_iter().collect();
+    assert_eq!(names, vec!["exa".to_string(), "gemini".to_string()]);
+}
+
+#[test]
+fn route_and_presentation_parse_accept_legacy_spellings() {
+    assert_eq!(SearchRoute::parse("backend"), Some(SearchRoute::Managed));
+    assert_eq!(SearchRoute::parse(" Direct "), Some(SearchRoute::Direct));
+    assert_eq!(SearchRoute::parse("other"), None);
+    assert_eq!(
+        SearchPresentation::parse("all_tools"),
+        Some(SearchPresentation::AllTools)
+    );
+    assert_eq!(SearchPresentation::parse("nope"), None);
+}
+
+#[test]
+fn credentials_resolve_per_provider() {
+    let mut cfg = SearchConfig::default();
+    cfg.credentials_mut("gemini").unwrap().api_key = Some(" g ".into());
+    assert_eq!(
+        cfg.credentials("gemini_deep_research").unwrap().key(),
+        Some("g")
+    );
+    assert!(cfg.credentials("seltz").is_none());
 }

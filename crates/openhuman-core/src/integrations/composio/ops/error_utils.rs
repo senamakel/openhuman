@@ -30,13 +30,13 @@ pub(crate) fn should_forward_tags(toolkits: Option<&[String]>) -> bool {
 /// Result alias used by every `composio_*` op in this module.
 pub(super) type OpResult<T> = std::result::Result<T, String>;
 
-/// The answer every backend-mode member gives while there is no app-session
-/// JWT. Shared so the members agree on the wording, and because the wording is
+/// The answer every backend-mode member gives while there is no backend
+/// credential (neither an app-session JWT nor a TinyHumans API key). Shared so the members agree on the wording, and because the wording is
 /// load-bearing: `is_session_expired_message` recognises "no backend session
 /// token", so the JSON-RPC boundary demotes this to an expected user-state
 /// error instead of paging Sentry.
 pub(crate) const COMPOSIO_NO_SESSION: &str =
-    "composio unavailable: no backend session token. Sign in first (auth_store_session).";
+    "composio unavailable: no backend session token. Sign in or set a TinyHumans API key.";
 
 /// Resolve a backend-mode [`ComposioClient`] from the root config, or
 /// return an error string that the caller can surface over RPC.
@@ -79,7 +79,8 @@ pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
 }
 
 /// True when the user is in Composio **backend** mode (the default) but has no
-/// app-session JWT yet — a fresh install before sign-in, or signed out.
+/// backend credential yet — a fresh install before sign-in, or signed out, and
+/// no TinyHumans API key stored.
 ///
 /// Like [`direct_mode_without_key`], this is a valid *setup* state, not an
 /// operation failure. Without a session there is no proxy route to give the
@@ -96,11 +97,11 @@ pub(crate) fn direct_mode_without_key(config: &Config) -> OpResult<bool> {
 /// `flows::validate_connection_refs` rely on `Err` meaning "unknown" (fail
 /// open) rather than "none".
 ///
-/// Session presence MUST mirror the module route's own resolution:
-/// `module_config` calls `integrations::build_client`, whose only token source
-/// is the app-session JWT (`crate::api::jwt::get_session_token`). Read that
-/// same source — not `build_client` itself, which logs a warning per call and
-/// would recreate the noise this guard removes.
+/// Credential presence MUST mirror the module route's own resolution:
+/// `module_config` calls `integrations::build_client`, which takes the stored
+/// API key first and the app-session JWT otherwise. Read those same sources —
+/// not `build_client` itself, which logs per call and would recreate the noise
+/// this guard removes.
 ///
 /// A *failed* token lookup (store unreadable) deliberately returns `false`:
 /// that is a real fault, and it must keep surfacing through the normal error
@@ -110,7 +111,10 @@ pub(crate) fn backend_mode_without_session(config: &Config) -> bool {
     if !(mode.is_empty() || mode == crate::config::schema::COMPOSIO_MODE_BACKEND) {
         return false;
     }
-    match crate::api::jwt::get_session_token(config) {
+    if crate::security::credentials::api_key::has_api_key(config) {
+        return false;
+    }
+    match crate::security::credentials::jwt::get_session_token(config) {
         Ok(token) => token.as_deref().map(str::trim).is_none_or(|token| {
             token.is_empty()
                 || crate::security::credentials::session_support::is_local_session_token(token)

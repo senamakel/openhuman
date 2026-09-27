@@ -6,9 +6,8 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use openhuman_core::api::headers::build_backend_client;
-use openhuman_core::api::transport::{
-    BackendRequest, BackendTransport, BackendTransportError, TransportProfile,
+use openhuman_core::backend::{
+    BackendRequest, BackendTransport, BackendTransportError, BaseUrlPurpose, TransportProfile,
 };
 use openhuman_core::security::credentials::session_support::BackendCredential;
 use serde_json::Value;
@@ -18,10 +17,11 @@ mod error;
 
 pub use error::map_sdk_error;
 
-/// One `reqwest::Client` per [`TransportProfile`], each built from the core's
-/// [`backend_client_builder`](openhuman_core::api::headers::backend_client_builder)
+/// One `reqwest::Client` per [`TransportProfile`], each built from
+/// [`backend_client_builder`](crate::backend::headers::backend_client_builder)
 /// so TLS, timeouts and the attribution headers (`x-core-version`,
-/// `x-tauri-version`, `x-sdk-name`) are exactly what the core specifies.
+/// `x-tauri-version`, `x-sdk-name`) ride every request. Also answers the
+/// core's base-URL and identity questions from [`crate::backend`].
 pub struct SdkBackendTransport {
     api: reqwest::Client,
     integrations: reqwest::Client,
@@ -32,13 +32,15 @@ impl SdkBackendTransport {
     /// constructed (TLS backend unavailable, malformed attribution header).
     pub fn new() -> anyhow::Result<Self> {
         Ok(Self {
-            api: build_backend_client(TransportProfile::Api)?,
-            integrations: build_backend_client(TransportProfile::Integrations)?,
+            api: crate::backend::headers::build_backend_client(TransportProfile::Api)?,
+            integrations: crate::backend::headers::build_backend_client(
+                TransportProfile::Integrations,
+            )?,
         })
     }
 
     /// [`Self::new`] as a shared handle ready for
-    /// [`install_backend_transport`](openhuman_core::api::transport::install_backend_transport).
+    /// [`install_backend_transport`](openhuman_core::backend::install_backend_transport).
     pub fn shared() -> anyhow::Result<Arc<dyn BackendTransport>> {
         Ok(Arc::new(Self::new()?))
     }
@@ -57,7 +59,7 @@ impl SdkBackendTransport {
         // after these, so it cannot be clobbered by `x-sdk-client`.
         let sdk = TinyHumansClient::new(req.base_url)
             .with_http_client(self.client(req.profile).clone())
-            .with_default_headers(openhuman_core::api::product::product_identity_headers());
+            .with_default_headers(crate::backend::product::product_identity_headers());
         match req.credential {
             Some(BackendCredential::Session(secret)) => {
                 sdk.with_token(Some(secret.trim().to_string()))
@@ -113,6 +115,29 @@ impl BackendTransport for SdkBackendTransport {
 
     fn http_client(&self, profile: TransportProfile) -> reqwest::Client {
         self.client(profile).clone()
+    }
+
+    fn base_url(&self, configured: Option<&str>, purpose: BaseUrlPurpose) -> String {
+        let configured = configured.map(str::to_owned);
+        match purpose {
+            BaseUrlPurpose::ControlPlane => {
+                crate::backend::url::effective_backend_api_url(&configured)
+            }
+            BaseUrlPurpose::Inference => crate::backend::url::effective_api_url(&configured),
+        }
+    }
+
+    fn product_identity(&self) -> String {
+        crate::backend::product::product_identity()
+            .as_str()
+            .to_owned()
+    }
+
+    fn attribution_headers(&self) -> reqwest::header::HeaderMap {
+        // Built fresh so a late product-identity or shell-version change is
+        // reflected; a malformed header value degrades to identity only.
+        crate::backend::headers::attribution_headers()
+            .unwrap_or_else(|_| crate::backend::product::product_identity_headers())
     }
 
     fn name(&self) -> &'static str {

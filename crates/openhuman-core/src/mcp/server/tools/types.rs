@@ -3,7 +3,11 @@ use serde_json::Value;
 pub const DEFAULT_LIMIT: u64 = 10;
 pub const MAX_LIMIT: u64 = 50;
 pub const QUERY_ARGUMENTS: &[&str] = &["query", "k"];
-pub const SEARXNG_SEARCH_ARGUMENTS: &[&str] = &["query", "categories", "language", "max_results"];
+pub const SEARXNG_SEARCH_ARGUMENTS: &[&str] = &["query", "max_results"];
+pub const WEB_SEARCH_ARGUMENTS: &[&str] = &["query", "max_results", "provider"];
+pub const WEB_ANSWER_ARGUMENTS: &[&str] = &["query", "depth"];
+/// Upper bound for `max_results` on the search tools.
+pub const SEARCH_MAX_RESULTS: usize = 20;
 pub const TREE_READ_CHUNK_ARGUMENTS: &[&str] = &["chunk_id"];
 pub const SUBAGENT_RUN_ARGUMENTS: &[&str] = &["agent_id", "prompt"];
 pub const TREE_BROWSE_ARGUMENTS: &[&str] = &[

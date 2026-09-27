@@ -52,7 +52,7 @@
 #![allow(dead_code)]
 
 pub mod agent;
-pub mod api;
+pub mod backend;
 pub mod channels;
 pub mod commands;
 pub mod config;

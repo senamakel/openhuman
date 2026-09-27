@@ -43,7 +43,10 @@ impl Middleware<(), OpenHumanRunContext> for ResearchBudgetMiddleware {
         invocation: &ToolInvocationIdentity,
         _result: &mut ToolResult,
     ) -> TaResult<()> {
-        if matches!(invocation.tool_name(), "web_search_tool" | "web_fetch") {
+        if matches!(
+            invocation.tool_name(),
+            "web_search_tool" | "web_answer_tool" | "web_contents_tool" | "web_fetch"
+        ) {
             self.completed_reads.fetch_add(1, Ordering::Relaxed);
         }
         Ok(())

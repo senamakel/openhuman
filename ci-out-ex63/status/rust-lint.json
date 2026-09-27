@@ -1,0 +1,48 @@
+{
+  "name": "rust-lint",
+  "heavyWaitS": 0,
+  "targetDir": "/scratch/target/lint",
+  "targetBytes": 1080760803,
+  "checks": [
+    {
+      "name": "clippy-product",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:02:50.158Z",
+      "end": "2026-09-27T18:06:02.606Z",
+      "durationS": 192,
+      "peakRssMiB": 5056
+    },
+    {
+      "name": "embed-clippy",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:06:02.607Z",
+      "end": "2026-09-27T18:08:01.667Z",
+      "durationS": 119,
+      "peakRssMiB": 4589
+    },
+    {
+      "name": "embed-check-no-default",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:08:01.667Z",
+      "end": "2026-09-27T18:09:16.369Z",
+      "durationS": 75,
+      "peakRssMiB": 144
+    },
+    {
+      "name": "tinyhumans-clippy",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:09:16.369Z",
+      "end": "2026-09-27T18:09:19.400Z",
+      "durationS": 3,
+      "peakRssMiB": 0
+    }
+  ]
+}

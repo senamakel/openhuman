@@ -462,7 +462,7 @@ pub struct CoreBuilder {
     host: Option<String>,
     port: Option<u16>,
     config: Option<crate::config::Config>,
-    backend_transport: Option<std::sync::Arc<dyn crate::api::transport::BackendTransport>>,
+    backend_transport: Option<std::sync::Arc<dyn crate::backend::transport::BackendTransport>>,
 }
 
 impl CoreBuilder {
@@ -483,11 +483,11 @@ impl CoreBuilder {
     }
 
     /// Bind the transport this core's handlers reach the hosted TinyHumans
-    /// backend through (see [`crate::api::transport`]).
+    /// backend through (see [`crate::backend::transport`]).
     ///
     /// Optional: without it the core resolves the process-global transport
     /// installed with
-    /// [`install_backend_transport`](crate::api::transport::install_backend_transport),
+    /// [`install_backend_transport`](crate::backend::transport::install_backend_transport),
     /// and with neither every backend-touching call degrades to a typed
     /// "backend unavailable" error while agents, memory, tools and RPC keep
     /// working. Library hosts that build one runtime per process prefer this
@@ -496,7 +496,7 @@ impl CoreBuilder {
     /// global.
     pub fn backend_transport(
         mut self,
-        transport: std::sync::Arc<dyn crate::api::transport::BackendTransport>,
+        transport: std::sync::Arc<dyn crate::backend::transport::BackendTransport>,
     ) -> Self {
         self.backend_transport = Some(transport);
         self

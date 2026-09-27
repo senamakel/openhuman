@@ -6,6 +6,7 @@ mod core;
 pub mod credential_ref;
 pub mod http_creds;
 pub mod identity;
+pub mod jwt;
 pub mod openai_oauth;
 pub mod ops;
 pub mod profiles;
@@ -15,15 +16,13 @@ pub mod sentry_scope;
 pub mod session_support;
 pub mod tools;
 
-pub use crate::api::rest::{
-    decrypt_handoff_blob, user_id_from_profile_payload, BackendOAuthClient, ConnectResponse,
-    IntegrationSummary, IntegrationTokensHandoff,
-};
+pub use crate::backend::BackendClient;
 pub use core::*;
 pub use credential_ref::{CredentialRef, CredentialRefError, CredentialRefScheme, ResolvedSecret};
 pub use http_creds::{
     HttpCredential, HttpCredentialScheme, HttpCredentialSummary, HttpCredentialsStore,
 };
+pub use jwt::user_id_from_profile_payload;
 pub use ops as rpc;
 pub use ops::*;
 // Direct-mode (BYO Composio API key) credential helpers.

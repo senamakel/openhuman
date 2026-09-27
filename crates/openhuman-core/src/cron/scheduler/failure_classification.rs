@@ -186,7 +186,7 @@ pub(super) fn is_budget_exhausted_failure(
         return false;
     }
     let signal = last_agent_error.unwrap_or(last_output);
-    crate::api::classify::is_budget_exhausted_message(signal)
+    crate::backend::classify::is_budget_exhausted_message(signal)
 }
 
 /// TAURI-RUST-HCK — a cron **agent** job pinned to a provider with no

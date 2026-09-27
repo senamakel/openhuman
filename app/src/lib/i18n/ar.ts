@@ -1202,9 +1202,10 @@ const messages: TranslationMap = {
     'استخدم حساب Composio الخاص بك / مفتاح API. اضبطه من الإعدادات › الاتصالات.',
   'onboarding.custom.search.title': 'البحث على الويب',
   'onboarding.custom.search.subtitle': 'كيف يبحث OpenHuman على الويب نيابةً عنك.',
-  'onboarding.custom.search.defaultDesc': 'يستخدم OpenHuman خادم بحث مُدار. لا حاجة لمفاتيح.',
+  'onboarding.custom.search.defaultDesc':
+    'يعمل البحث على الويب فورًا: Exa وGemini مضمّنان مع TinyHumans، دون الحاجة إلى مفتاح API.',
   'onboarding.custom.search.configureDesc':
-    'استخدم مفتاح مزود البحث الخاص بك (Tavily أو Brave إلخ). اضبطه من الإعدادات › الأدوات.',
+    'Exa وGemini مضمّنان. أضف مزوّدي بحث آخرين بمفتاح API الخاص بك من الإعدادات › الأدوات.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'كيف يُولِّد OpenHuman تضمينات المتجهات للبحث الدلالي في الذاكرة.',
@@ -1451,34 +1452,7 @@ const messages: TranslationMap = {
     'إرسال رسالة وكيل - الاستخدام المكسور من النداء القادم للمزود سينشر المخطط في غضون حوالي 10 ثوان.',
   'settings.search.title': 'محرك البحث',
   'settings.search.menuDesc': 'تخلف عن البحث أو التنصت على مزودك الخاص بمفتاح اكسوكس',
-  'settings.search.description':
-    'اختر محرك البحث الذي يستخدمه الوكيل، أو عطّل أدوات البحث بالكامل. يستخدم الوضع المُدار واجهة خلفية OpenHuman (بدون إعداد). تعمل محركات Parallel وBrave وQuerit وExa وTavily مباشرةً من جهازك باستخدام مفتاح API الخاص بك.',
-  'settings.search.engineAria': 'محرك البحث',
-  'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc': 'أزل أدوات البحث من سياق الوكيل وقائمة الأدوات المتاحة.',
-  'settings.search.engineManagedLabel': 'OpenHuman مُدار',
-  'settings.search.engineManagedDesc':
-    'الإعداد الافتراضي. يتم توجيهه عبر خادم OpenHuman الخلفي، المدعوم حاليًا بواسطة Exa: لا حاجة إلى مفتاح API.',
-  'settings.search.localManagedUnavailable':
-    'بحث OpenHuman المُدار غير متاح للمستخدمين المحليين. أضف مفتاح Parallel أو Brave أو Querit أو Exa أو Tavily الخاص بك لتفعيل البحث على الويب.',
-  'settings.search.engineParallelLabel': 'Parallel',
-  'settings.search.engineParallelDesc':
-    'واجهة برمجية متوازية مباشرة: أدوات البحث والاستخراج والمحادثة والبحث المتعمق والإثراء ومجموعات البيانات.',
-  'settings.search.engineBraveLabel': 'Brave بحث',
-  'settings.search.engineBraveDesc': 'مباشر Brave بحث API: أدوات الويب والأخبار والصور والفيديو.',
-  'settings.search.engineQueritLabel': 'Querit',
-  'settings.search.engineQueritDesc':
-    'واجهة Querit API المباشرة: بحث على الويب مع فلاتر الموقع والنطاق الزمني والبلد واللغة.',
-  'settings.search.engineExaLabel': 'Exa',
-  'settings.search.engineExaDesc':
-    'بحث عصبي مدعوم من Exa. يتطلب مفتاح API الخاص بك من Exa. يضيف أدوات البحث والعثور على صفحات مشابهة واسترجاع محتوى الصفحات.',
-  'settings.search.engineTavilyLabel': 'Tavily',
-  'settings.search.engineTavilyDesc':
-    'بحث الويب والأخبار والمالية مدعوم من Tavily. يتطلب مفتاح API الخاص بك من Tavily. يضيف أدوات البحث واستخراج محتوى الصفحات.',
-  'settings.search.statusConfigured': 'تم تكوينه',
   'settings.search.statusNeedsKey': 'يحتاج إلى مفتاح API',
-  'settings.search.fallbackToManaged':
-    'ولن يتم تشكيل أي مفتاح - سوف يعود البحث إلى إدارة حتى يتم توفير المفتاح.',
   'settings.search.getApiKey': 'احصل على مفتاح API',
   'settings.search.save': 'احفظ',
   'settings.search.clear': 'مسح',
@@ -1487,17 +1461,7 @@ const messages: TranslationMap = {
   'settings.search.statusSaving': 'جاري الحفظ…',
   'settings.search.statusSaved': 'تم الحفظ.',
   'settings.search.statusError': 'فشل',
-  'settings.search.parallelKeyLabel': 'Parallel API مفتاح',
-  'settings.search.braveKeyLabel': 'Brave بحث API مفتاح',
-  'settings.search.queritKeyLabel': 'مفتاح API الخاص بـ Querit',
-  'settings.search.exaKeyLabel': 'مفتاح API الخاص بـ Exa',
   'settings.search.placeholderStored': '•••••••• (مخزن)',
-  'settings.search.placeholderParallel': 'pk_...',
-  'settings.search.placeholderBrave': 'BSA...',
-  'settings.search.placeholderQuerit': 'مفتاح API الخاص بـ Querit',
-  'settings.search.placeholderExa': 'الصق مفتاح API الخاص بـ Exa…',
-  'settings.search.tavilyKeyLabel': 'مفتاح API الخاص بـ Tavily',
-  'settings.search.placeholderTavily': 'tvly-...',
   'settings.search.allowedSitesLabel': 'المواقع الشبكية المسموح بها',
   'settings.search.allowedSitesHint':
     'المضيفون الذين يُسمح للمساعد بفتحهم وقراءتهم (عبر جلب الويب وأداة المتصفح) مضيف واحد في كل سطر، مثل reuters.com. يشمل المضيف نطاقاته الفرعية أيضًا. البحث على الويب نفسه لا يتقيّد بهذه القائمة.',
@@ -1511,6 +1475,51 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAll': 'كل شيء',
   'settings.search.accessBlockAllHint':
     'وكل الوصول إلى شبكة الإنترنت مغلق - لا يمكن للمساعد فتح أو قراءة أي موقع على شبكة الإنترنت.',
+  'settings.search.description':
+    'يمكن للبحث استخدام عدة مزوّدين في وقت واحد. Exa وGemini مضمّنان مع TinyHumans ولا يحتاجان إلى إعداد؛ ويعمل المزوّدون الآخرون بمفتاح API الخاص بك. يستخدم كل دور أدناه أول مزوّد متاح، وينتقل إلى التالي عند الحاجة.',
+  'settings.search.localManagedUnavailable':
+    'تتطلب المزوّدات المضمّنة مع TinyHumans تسجيل الدخول. فعّل مزوّدًا بمفتاح API الخاص بك لاستخدام البحث على الويب في جلسة محلية.',
+  'settings.search.enabledLabel': 'البحث على الويب',
+  'settings.search.enabledDesc':
+    'اسمح للوكيل بالبحث على الويب والإجابة عن الأسئلة من مصادر الويب وقراءة الصفحات.',
+  'settings.search.providersTitle': 'المزوّدون',
+  'settings.search.providersDesc':
+    'فعّل المزوّدين الذين تريدهم. يمكن تفعيل عدة مزوّدين معًا؛ وتحدد الأدوار أدناه أيّها يُجرَّب أولًا.',
+  'settings.search.providerToggleAria': 'استخدام {provider}',
+  'settings.search.routeAria': 'اتصال {provider}',
+  'settings.search.routeManaged': 'مضمّن مع TinyHumans',
+  'settings.search.routeDirect': 'مفتاح خاص',
+  'settings.search.apiKeyLabel': 'مفتاح API لـ {provider}',
+  'settings.search.placeholderKey': 'الصق مفتاح API الخاص بـ {provider}',
+  'settings.search.baseUrlLabel': 'عنوان URL للمثيل',
+  'settings.search.baseUrlSave': 'حفظ العنوان',
+  'settings.search.statusReady': 'جاهز',
+  'settings.search.statusSignInRequired': 'يلزم تسجيل الدخول',
+  'settings.search.statusOff': 'متوقف',
+  'settings.search.deepResearchAvailable':
+    'البحث المعمّق متاح: يمكن للوكيل أن يطلب من {provider} تقريرًا أطول وأشمل.',
+  'settings.search.deepResearchHint': 'أضف مفتاحك الخاص لـ {provider} لتفعيل البحث المعمّق.',
+  'settings.search.rolesTitle': 'الأدوار',
+  'settings.search.rolesDesc':
+    'كل دور هو أداة واحدة للوكيل. يتولاه أول مزوّد متاح، والبقية بدائل بالترتيب.',
+  'settings.search.roleSearch': 'البحث',
+  'settings.search.roleSearchDesc': 'نتائج ويب مرتبة لاستعلام.',
+  'settings.search.roleAnswer': 'الإجابة',
+  'settings.search.roleAnswerDesc': 'إجابة مكتوبة مستندة إلى مصادر الويب، مع الاستشهادات.',
+  'settings.search.roleContents': 'المحتوى',
+  'settings.search.roleContentsDesc': 'يجلب الصفحات المحددة ويستخرج نصها.',
+  'settings.search.roleServedBy': 'يتولاه {provider}',
+  'settings.search.roleNoProvider': 'لا يوجد مزوّد متاح: لن يحصل الوكيل على هذه الأداة حاليًا.',
+  'settings.search.roleMoveUp': 'نقل {provider} لأعلى',
+  'settings.search.roleMoveDown': 'نقل {provider} لأسفل',
+  'settings.search.roleRemove': 'إزالة {provider}',
+  'settings.search.roleAdd': 'إضافة {provider}',
+  'settings.search.roleReset': 'إعادة الضبط الافتراضي',
+  'settings.search.roleUnavailable': 'غير متاح',
+  'settings.search.advancedTitle': 'متقدم',
+  'settings.search.exposeProviderTools': 'إظهار الأدوات الخاصة بكل مزوّد',
+  'settings.search.exposeProviderToolsDesc':
+    'امنح الوكيل أدوات كل مزوّد مفعّل بدلًا من أداة واحدة لكل دور. يستهلك هذا مساحة أكبر من نافذة السياق.',
   // ─── Settings global search bar ────────────────────────────
   'settings.embeddings.title': 'التضمينات',
   'settings.embeddings.description':
@@ -3310,6 +3319,12 @@ const messages: TranslationMap = {
   'conversations.tools.search.found.one': 'تم العثور على {count} نتيجة',
   'conversations.tools.search.found.other': 'تم العثور على {count} نتائج',
   'conversations.tools.search.via': 'عبر {provider}',
+  'conversations.tools.search.viaAfter': 'عبر {provider}، بعد {fallback}',
+  'conversations.tools.search.sources.one': 'مصادر: {count}',
+  'conversations.tools.search.sources.other': 'مصادر: {count}',
+  'conversations.tools.search.researching': 'البحث لا يزال جاريًا',
+  'conversations.tools.search.balanceLow':
+    'رصيدك في TinyHumans منخفض جدًا للبحث المضمّن. اشحن رصيدك، أو أضف مفتاحك الخاص لمزوّد بحث من الإعدادات.',
   'conversations.tools.readFile.active': 'جارٍ قراءة الملف',
   'conversations.tools.readFile.done': 'تمت قراءة الملف',
   'conversations.tools.writeFile.active': 'جارٍ كتابة الملف',
@@ -6863,7 +6878,6 @@ const messages: TranslationMap = {
   'migration.badgeImported': 'مُستورد',
   'desktop.statusModuleFailed': 'غير متاح',
   'desktop.permissionState.denied': 'مرفوض',
-  'settings.search.apiKeysHeading': 'مفاتيح API',
   'voice.providers.alwaysOn': 'دائما على',
   'voice.routing.testOk': 'جارٍ العمل',
   'voice.routing.testFailed': 'فشل',
@@ -6924,9 +6938,7 @@ const messages: TranslationMap = {
   'channels.connectedDesc': 'جاهز لإرسال وتلقي الرسائل اختر واحداً كمقعد',
   'channels.availableDesc': 'تطبيقات الشاسعة يمكنك ربطها افتحي واحدة لضبطها',
   'settings.about.resources': 'الموارد',
-  'settings.search.keyStored': 'المخزن',
-  'settings.search.apiKeysDesc':
-    'مفاتيح مقدمي الخدمات المباشرة. يبقون على هذا الجهاز ويستخدمون فقط عندما يتم اختيار ذلك المحرك',
+  'settings.search.keyStored': 'محفوظ',
   'settings.embeddings.modelCardTitle': 'الأبعاد النموذجية',
   'mcp.rows.searchPlaceholder': 'خوادم البحث...',
   'mcp.tab.section.clients': 'العملاء',

@@ -15,14 +15,17 @@ export interface KeyEditorProps {
   onSave: () => void;
   onClear: () => void;
   configured: boolean;
-  docUrl: string;
+  /** Where to get a key; the link is hidden when the provider has none. */
+  docUrl?: string | null;
+  disabled?: boolean;
+  testId?: string;
   t: (key: string) => string;
 }
 
 /**
- * One BYOK API-key row inside the "API keys" card: the provider's key label,
- * a stored badge and a doc link on the left; a maskable input with a
- * show/hide toggle, Save and (when stored) Clear on the right.
+ * One API-key row inside a provider row: the key label, a "Stored" badge and
+ * the doc link on the left; a maskable input with a show/hide toggle, Save
+ * and (when stored) Clear on the right.
  */
 const KeyEditor = ({
   label,
@@ -35,6 +38,8 @@ const KeyEditor = ({
   onClear,
   configured,
   docUrl,
+  disabled = false,
+  testId,
   t,
 }: KeyEditorProps) => {
   const inputId = useId();
@@ -43,7 +48,8 @@ const KeyEditor = ({
     <div
       role="group"
       aria-labelledby={inputId}
-      className="flex flex-col gap-3 px-4 py-3 md:flex-row md:items-center md:justify-between">
+      data-testid={testId}
+      className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
       <div className="min-w-0 space-y-0.5">
         <div className="flex items-center gap-2">
           <label id={inputId} htmlFor={`${inputId}-input`} className="text-sm text-content">
@@ -51,14 +57,16 @@ const KeyEditor = ({
           </label>
           {configured && <Badge variant="success">{t('settings.search.keyStored')}</Badge>}
         </div>
-        <a
-          href={docUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-1 text-xs text-primary-600 hover:underline dark:text-primary-400">
-          {t('settings.search.getApiKey')}
-          <ExternalLink className="h-3 w-3" aria-hidden />
-        </a>
+        {docUrl && (
+          <a
+            href={docUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-xs text-primary-600 hover:underline dark:text-primary-400">
+            {t('settings.search.getApiKey')}
+            <ExternalLink className="h-3 w-3" aria-hidden />
+          </a>
+        )}
       </div>
       <div className="flex shrink-0 items-center gap-2">
         <InputGroupRoot size="sm" className="w-full md:w-72">
@@ -90,11 +98,17 @@ const KeyEditor = ({
           variant="primary"
           size="sm"
           onClick={onSave}
-          disabled={value.trim().length === 0}>
+          disabled={disabled || value.trim().length === 0}>
           {t('settings.search.save')}
         </Button>
         {configured && (
-          <Button type="button" variant="secondary" tone="danger" size="sm" onClick={onClear}>
+          <Button
+            type="button"
+            variant="secondary"
+            tone="danger"
+            size="sm"
+            onClick={onClear}
+            disabled={disabled}>
             {t('settings.search.clear')}
           </Button>
         )}

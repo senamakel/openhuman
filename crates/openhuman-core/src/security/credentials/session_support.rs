@@ -192,7 +192,7 @@ impl CredentialKind {
 /// The subject of a JWT, read from its payload claims without verification.
 /// Checked in order: `sub`, `userId`, `user_id`, `_id`, `id`.
 pub fn user_id_from_jwt_claims(token: &str) -> Option<String> {
-    let claims = crate::api::jwt::decode_jwt_payload(token)?;
+    let claims = crate::security::credentials::jwt::decode_jwt_payload(token)?;
     let obj = claims.as_object()?;
     ["sub", "userId", "user_id", "_id", "id"]
         .iter()
@@ -353,6 +353,12 @@ impl BackendCredential {
     }
 }
 
+/// Error [`resolve_backend_credential`] returns for the offline local session.
+/// Carries [`BACKEND_UNAVAILABLE_PREFIX`](crate::core::observability::BACKEND_UNAVAILABLE_PREFIX)
+/// so it classifies as an expected backend-unavailable error.
+pub const LOCAL_SESSION_BACKEND_UNAVAILABLE: &str =
+    "BACKEND_UNAVAILABLE: hosted account data is unavailable for the offline local session";
+
 /// Resolve the backend credential for `config`: the API key when one is
 /// stored, else the live app-session token with exactly the classification
 /// [`require_live_session_token`] has always applied.
@@ -366,8 +372,12 @@ pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, 
     }
     let profile = load_app_session_profile(config)?;
     match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
+        // The offline local session has no TinyHumans account behind it, so a
+        // hosted call is unavailable by construction — the typed sentinel lets
+        // `report_error_or_expected` demote it instead of paging Sentry on
+        // every background usage/announcement probe (Sentry 36649).
         SessionTokenCheck::Live(token) if is_local_session_token(&token) => {
-            Err("backend unavailable for offline local session".to_owned())
+            Err(LOCAL_SESSION_BACKEND_UNAVAILABLE.to_owned())
         }
         SessionTokenCheck::Live(token) => Ok(BackendCredential::Session(token)),
         SessionTokenCheck::Absent => {
@@ -381,6 +391,38 @@ pub fn resolve_backend_credential(config: &Config) -> Result<BackendCredential, 
             )
         }
     }
+}
+
+/// Resolve a credential for a direct call to the configured backend.
+/// A missing transport or unusable credential is an expected offline state.
+pub fn direct_backend_credential(config: &Config, op: &str) -> Option<BackendCredential> {
+    if !crate::backend::transport::is_installed() {
+        log::debug!("[backend-direct] {op} skipped: no backend transport installed");
+        return None;
+    }
+    match resolve_backend_credential(config) {
+        Ok(credential) => Some(credential),
+        Err(reason) => {
+            log::debug!("[backend-direct] {op} skipped: no usable backend credential ({reason})");
+            None
+        }
+    }
+}
+
+/// The raw secret a Bearer-only backend caller should send: the stored
+/// TinyHumans API key when there is one, else the stored app-session token
+/// (unclassified, exactly what [`get_session_token`] returns).
+///
+/// For module seams that ask "what bearer can I lend right now?" and treat
+/// `None` as signed out, where [`resolve_backend_credential`]'s error-for-absent
+/// shape does not fit. The backend accepts a key as `Authorization: Bearer`
+/// (it recognises it by prefix), so handing the key over as a bearer is
+/// correct on every route a key may reach.
+pub fn backend_bearer_secret(config: &Config) -> Result<Option<String>, String> {
+    if let Some(key) = super::api_key::get_api_key(config).map_err(|e| e.to_string())? {
+        return Ok(Some(key));
+    }
+    get_session_token(config)
 }
 
 /// Whether *some* backend credential is present — an API key or a non-empty

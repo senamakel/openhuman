@@ -427,7 +427,7 @@ pub fn spawn_socket_auto_connect(
     services: ServiceSet,
     socket_mgr: std::sync::Arc<crate::platform::socket::SocketManager>,
 ) {
-    if services.socketio {
+    if services.socketio && crate::backend::transport::is_installed() {
         tokio::spawn(async move {
             log::info!("[socket] Checking for stored session to auto-connect...");
             let config = match Config::load_or_init().await {
@@ -437,20 +437,29 @@ pub fn spawn_socket_auto_connect(
                     return;
                 }
             };
-            let api_url = crate::api::config::effective_backend_api_url(&config.api_url);
-            let initial_token = match crate::api::jwt::get_session_token(&config) {
-                Ok(Some(t)) => t,
-                Ok(None) => {
-                    log::info!(
+            let Ok(api_url) = crate::backend::base_url(&config.api_url) else {
+                log::debug!("[socket] No backend transport or base URL — skipping auto-connect");
+                return;
+            };
+            let initial_token =
+                match crate::security::credentials::session_support::get_session_token(&config) {
+                    Ok(Some(t)) => t,
+                    Ok(None) => {
+                        log::info!(
                         "[socket] No session token stored — skipping auto-connect (will connect after login)"
                     );
-                    return;
-                }
-                Err(e) => {
-                    log::warn!("[socket] Failed to read session token: {e}");
-                    return;
-                }
-            };
+                        return;
+                    }
+                    Err(e) => {
+                        log::warn!("[socket] Failed to read session token: {e}");
+                        return;
+                    }
+                };
+            if crate::security::credentials::session_support::is_local_session_token(&initial_token)
+            {
+                log::debug!("[socket] Offline local session — skipping auto-connect");
+                return;
+            }
             log::info!(
                 "[socket] Session token found — auto-connecting to {}",
                 api_url
@@ -477,7 +486,16 @@ pub fn spawn_socket_auto_connect(
             let provider =
                 crate::platform::socket::token_provider::token_provider_from_config(config);
             if let Err(e) = socket_mgr.connect_with_provider(&api_url, provider).await {
-                log::error!("[socket] Auto-connect failed: {e}");
+                // Signing out between the token check above and the provider's
+                // read leaves no token (Sentry 35911). That is a user-state
+                // race, not a fault: warn so it stays a breadcrumb.
+                if e.contains("no session token stored") {
+                    log::warn!(
+                        "[socket] Auto-connect skipped — session cleared before connect: {e}"
+                    );
+                } else {
+                    log::error!("[socket] Auto-connect failed: {e}");
+                }
             } else {
                 log::info!("[socket] Auto-connect initiated successfully");
             }

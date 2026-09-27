@@ -168,14 +168,14 @@ pub(super) fn scout_failure_signal(err: &SubagentRunError) -> String {
 /// Two billing shapes reach here, both **user-state, not defects**:
 /// * the managed OpenHuman backend's budget-exhausted 400
 ///   (`{"error":"Insufficient budget","errorCode":"USER_INSUFFICIENT_CREDITS"}`),
-///   matched by [`crate::api::classify::is_budget_exhausted_message`];
+///   matched by [`crate::backend::classify::is_budget_exhausted_message`];
 /// * a BYO provider's insufficient-credits 402, matched by
 ///   [`crate::core::observability::is_insufficient_credits_message`].
 ///
 /// Both delegate to the crate's single-source classifiers so the phrase sets
 /// can't drift from the cron halt / `before_send` nets that share them.
 pub(super) fn is_expected_billing_failure(message: &str) -> bool {
-    crate::api::classify::is_budget_exhausted_message(message)
+    crate::backend::classify::is_budget_exhausted_message(message)
         || crate::core::observability::is_insufficient_credits_message(message)
 }
 

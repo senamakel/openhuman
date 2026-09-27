@@ -1,10 +1,10 @@
 use std::sync::Arc;
 
 use openhuman_embed::{
-    set_product_identity, Access, Agent, AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, ApiKey,
-    Core, CoreBuilder, CoreRuntime, DomainSet, GroupMode, Harness, HostKind, ProductIdentity,
-    Provider, Runtime, RuntimeBuilder, RuntimeConfig, SandboxModeSpec, ServiceSet, ToolGroups,
-    ToolScopeSpec, TrustedAccess, TrustedAutomationSource, Workspace,
+    Access, Agent, AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, ApiKey, Core, CoreBuilder,
+    CoreRuntime, DomainSet, GroupMode, Harness, HostKind, Provider, Runtime, RuntimeBuilder,
+    RuntimeConfig, SandboxModeSpec, ServiceSet, ToolGroups, ToolScopeSpec, TrustedAccess,
+    TrustedAutomationSource, Workspace,
 };
 
 #[test]
@@ -69,6 +69,4 @@ fn exposes_the_host_facing_embedding_contract() {
     let _ = Access::full()
         .trust("/tmp/embed-public-api", TrustedAccess::ReadWrite)
         .origin(automation);
-    let _ = set_product_identity;
-    assert!(ProductIdentity::new("opencompany").is_some());
 }

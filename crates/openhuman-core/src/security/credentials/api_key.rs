@@ -10,7 +10,10 @@
 //!   bearer, and `OpenHumanBackendModel::resolve_bearer` prefers this profile
 //!   over the app session;
 //! * SDK REST clients send it as `x-api-key` — `BackendOAuthClient` and
-//!   `IntegrationClient` pick the header from [`BackendCredential`].
+//!   `IntegrationClient` pick the header from [`BackendCredential`];
+//! * bearer-only callers (cloud STT and embeddings, the connector proxy
+//!   route, the memory host) send it as
+//!   `Authorization: Bearer <key>`, which the backend accepts by prefix.
 //!
 //! The key lives in the same auth-profile store as the app session (the
 //! parent of `config.config_path`), under its own provider id, so a runtime

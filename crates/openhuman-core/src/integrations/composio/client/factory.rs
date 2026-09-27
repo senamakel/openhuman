@@ -23,11 +23,10 @@ use super::connections::ComposioClient;
 /// surface.
 ///
 /// Composio is **always enabled** — there are no configuration flags
-/// gating it. The backend URL and auth token come from the shared
-/// core defaults (`config.api_url` plus the app-session JWT) via
-/// [`crate::integrations::build_client`]. The only reason
-/// this returns `None` is that the user isn't signed in to the backend
-/// (no JWT). Direct-mode availability is orthogonal — see
+/// gating it. The backend URL and credential come from the shared
+/// core defaults (`config.api_url` plus the TinyHumans API key or the
+/// app-session JWT) via [`crate::integrations::build_client`]. The only
+/// reason this returns `None` is that there is no backend credential. Direct-mode availability is orthogonal — see
 /// [`create_composio_client`].
 pub(crate) fn build_composio_client(config: &crate::config::Config) -> Option<ComposioClient> {
     let inner = crate::integrations::build_client(config)?;
@@ -163,7 +162,7 @@ pub fn create_composio_client(
             let client = build_composio_client(config).ok_or_else(|| {
                 anyhow::anyhow!(
                     "composio backend mode unavailable: no backend session token. \
-                     Sign in first (auth_store_session)."
+                     Sign in or set a TinyHumans API key."
                 )
             })?;
             tracing::debug!("[composio-factory] resolved backend variant");

@@ -182,9 +182,17 @@ pub async fn list_configured_models_from_config(
                 );
             }
         }
-        let base = crate::api::config::effective_backend_api_url(&config.api_url);
+        let Ok(base) = crate::backend::base_url(&config.api_url) else {
+            log::info!(
+                "[providers][list_models] managed catalog unavailable — no backend transport; returning an empty list"
+            );
+            return Ok(crate::rpc::RpcOutcome::new(
+                serde_json::json!({ "models": Vec::<ModelInfo>::new() }),
+                vec!["no hosted backend; managed catalog is empty".to_string()],
+            ));
+        };
         models_url = append_query_param(
-            &crate::api::config::api_url(&base, "/openai/v1/models"),
+            &crate::util::url::join_url(&base, "/openai/v1/models"),
             "catalog",
             "openrouter",
         );
@@ -249,10 +257,9 @@ pub async fn list_configured_models_from_config(
                 // Managed traffic is attributed per embedding product
                 // (OpenCompany / desktop); the generic provider client
                 // does not carry it, so attach it explicitly.
-                let (name, value) = crate::api::product::product_identity_header();
                 request
                     .header("Authorization", format!("Bearer {}", token))
-                    .header(name, value)
+                    .headers(crate::backend::attribution_headers())
             } else if !token.is_empty() {
                 log::warn!(
                     "[providers][list_models] refusing to send a bearer token to a non-https, non-loopback URL"

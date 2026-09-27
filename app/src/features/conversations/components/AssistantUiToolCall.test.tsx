@@ -54,6 +54,63 @@ describe('AssistantUiToolCallCard', () => {
     expect(screen.getByTestId('web-search-results')).toHaveTextContent('via Parallel');
   });
 
+  it('renders a web answer with its text, citations and fallback note', () => {
+    render(
+      <AssistantUiToolCallCard
+        toolName="web_answer_tool"
+        args={{ query: 'who won' }}
+        result="Answer for: who won (via Gemini, after Exa)"
+        structured={{
+          kind: 'web_search',
+          query: 'who won',
+          provider: 'Gemini',
+          role: 'answer',
+          answer: 'Team A won the final.',
+          citations: [
+            { url: 'https://news.example/final', title: 'Final report' },
+            { url: 'javascript:alert(1)', title: 'Bad' },
+          ],
+          fallback_from: ['Exa'],
+          results: [],
+        }}
+        status="success"
+      />
+    );
+    expect(screen.getByTestId('web-search-answer')).toHaveTextContent('Team A won the final.');
+    const results = screen.getByTestId('web-search-results');
+    expect(results).toHaveTextContent('1 source · via Gemini, after Exa');
+    const hits = within(results).getAllByTestId('web-search-hit');
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toHaveAttribute('href', 'https://news.example/final');
+    expect(screen.getByRole('button', { name: /Asked the web/ })).toBeInTheDocument();
+  });
+
+  it('shows an insufficient-balance hint when managed search runs out of balance', () => {
+    render(
+      <AssistantUiToolCallCard
+        toolName="web_search_tool"
+        args={{ query: 'q' }}
+        result="web search failed: your TinyHumans balance is too low"
+        status="error"
+      />
+    );
+    expect(screen.getByTestId('web-search-balance-hint')).toHaveTextContent(
+      /balance is too low for included search/
+    );
+  });
+
+  it('shows no balance hint for other failures', () => {
+    render(
+      <AssistantUiToolCallCard
+        toolName="web_search_tool"
+        args={{ query: 'q' }}
+        result="timed out"
+        status="error"
+      />
+    );
+    expect(screen.queryByTestId('web-search-balance-hint')).toBeNull();
+  });
+
   it('swaps the label tense as the call settles', () => {
     const { rerender } = render(
       <AssistantUiToolCallCard toolName="file_read" args={{ path: 'a.ts' }} status="running" />

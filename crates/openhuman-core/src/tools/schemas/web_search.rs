@@ -1,306 +1,210 @@
-//! Handlers for the search-family controller schemas: `tools_web_search`,
-//! `tools_seltz_search`, `tools_querit_search`, and `tools_searxng_search`.
+//! Handlers for the search controllers: `tools_web_search`, `tools_web_answer`,
+//! `tools_web_contents`, and the provider-pinned `tools_searxng_search` that
+//! MCP clients use. All of them call the TinySearch module's role tools, so an
+//! RPC caller gets the same provider choice and fallback as the agent.
 
 use serde_json::{json, Map, Value};
 
 use crate::config::rpc as config_rpc;
 use crate::core::all::ControllerFuture;
-use crate::rpc::RpcOutcome;
-use crate::search::tools::SEARXNG_MAX_RESULTS;
-use tinytools::Tool;
+
+fn required_text(params: &Map<String, Value>, key: &str) -> Result<String, String> {
+    params
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .ok_or_else(|| format!("missing or empty `{key}`"))
+}
+
+fn optional_text(params: &Map<String, Value>, key: &str) -> Option<String> {
+    params
+        .get(key)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+}
+
+/// Run one role tool and shape the response for RPC callers.
+async fn run_role_tool(
+    tool: &'static str,
+    arguments: Value,
+    method: &str,
+) -> Result<Value, String> {
+    let config = config_rpc::load_config_with_timeout().await?;
+    run_role_tool_with(&config, tool, arguments, method).await
+}
+
+#[cfg(feature = "modules")]
+async fn run_role_tool_with(
+    config: &crate::config::Config,
+    tool: &'static str,
+    arguments: Value,
+    method: &str,
+) -> Result<Value, String> {
+    if !config.search.is_enabled() {
+        return Err("web search is disabled in settings".to_string());
+    }
+    ensure_servable(config, tool, &arguments)?;
+    let request = tinysearch_bus::ExecuteToolRequest {
+        name: tool.to_string(),
+        arguments,
+    };
+    let response = crate::modules::search::execute_tool(config, request)
+        .await
+        .map_err(|error| crate::search::tools::user_facing_error(&error))?;
+    let payload = json!({
+        "provider": crate::search::render::provider_label(&response.provider),
+        "provider_id": response.provider,
+        "role": response.role,
+        "results": response.results,
+        "citations": response.citations,
+        "answer": response.answer,
+        "status": response.status,
+        "fallback_from": response.fallback_from,
+    });
+    let log = vec![format!(
+        "tools.{method}: provider={} results={} fallbacks={}",
+        response.provider,
+        response.results.len(),
+        response.fallback_from.len()
+    )];
+    crate::rpc::RpcOutcome::new(payload, log).into_cli_compatible_json()
+}
+
+/// Refuse early, without loading the module, when nothing can serve the call.
+#[cfg(feature = "modules")]
+fn ensure_servable(
+    config: &crate::config::Config,
+    tool: &str,
+    arguments: &Value,
+) -> Result<(), String> {
+    use crate::search::providers::{effective_role_providers, resolve};
+    let role = tinysearch_bus::role_for_tool(tool)
+        .ok_or_else(|| format!("{tool} is not a search role tool"))?;
+    let resolved = resolve(config);
+    let usable = effective_role_providers(&resolved, config, role);
+    let pinned = arguments.get("provider").and_then(Value::as_str);
+    let servable = match pinned {
+        Some(provider) => resolved
+            .iter()
+            .any(|p| p.id == provider && p.usable && p.roles.contains(&role)),
+        None => !usable.is_empty(),
+    };
+    if servable {
+        return Ok(());
+    }
+    tracing::debug!(
+        tool,
+        pinned = pinned.unwrap_or("auto"),
+        "[rpc][tools.search] no usable provider"
+    );
+    Err(format!(
+        "No web search provider is available for {}. Sign in to TinyHumans for the included \
+         providers, or turn on a provider with your own key under Connections → Search.",
+        pinned
+            .map(|p| format!("`{p}`"))
+            .unwrap_or_else(|| "this request".to_string())
+    ))
+}
+
+#[cfg(not(feature = "modules"))]
+async fn run_role_tool_with(
+    _config: &crate::config::Config,
+    _tool: &'static str,
+    _arguments: Value,
+    _method: &str,
+) -> Result<Value, String> {
+    Err("web search needs the modules feature, which this build does not include".to_string())
+}
+
+fn search_arguments(params: &Map<String, Value>, provider: Option<&str>) -> Result<Value, String> {
+    let query = required_text(params, "query")?;
+    let mut arguments = json!({ "query": query });
+    if let Some(max) = params.get("max_results").and_then(Value::as_u64) {
+        arguments["max_results"] = json!(max.clamp(1, 20));
+    }
+    if let Some(provider) = provider
+        .map(str::to_string)
+        .or_else(|| optional_text(params, "provider"))
+    {
+        arguments["provider"] = json!(provider);
+    }
+    let pinned = arguments
+        .get("provider")
+        .and_then(Value::as_str)
+        .unwrap_or("auto")
+        .to_string();
+    tracing::debug!(
+        query_len = query.chars().count(),
+        provider = %pinned,
+        "[rpc][tools.search] request"
+    );
+    Ok(arguments)
+}
 
 pub(super) fn handle_web_search(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let query = params
-            .get("query")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .ok_or_else(|| "missing or empty `query`".to_string())?;
-        let objective = params
-            .get("objective")
-            .and_then(Value::as_str)
-            .map(str::to_string)
-            .unwrap_or_else(|| query.clone());
-        let max_results = params
-            .get("max_results")
-            .and_then(Value::as_u64)
-            .map(|n| n.clamp(1, 10) as usize)
-            .unwrap_or(5);
-        let timeout_secs = params
-            .get("timeout_secs")
-            .and_then(Value::as_u64)
-            .map(|n| n.max(1))
-            .unwrap_or(15);
-
-        let config = config_rpc::load_config_with_timeout().await?;
-        let client = crate::integrations::build_client(&config).ok_or_else(|| {
-            "web search unavailable — no backend session token. Sign in first.".to_string()
-        })?;
-
-        // Body matches `parallelSearchSchema` (backend-2/.../validators/agentIntegration.validator.ts).
-        // `timeout_secs` remains accepted in our RPC schema for compatibility
-        // with existing callers, but the upstream validator currently strips
-        // unknown keys and Parallel governs its own per-mode deadline.
-        let _ = timeout_secs;
-        let body = json!({
-            "objective": objective,
-            "searchQueries": [query],
-            "mode": "fast",
-            "excerpts": {
-                "maxResults": max_results,
-                "maxCharsPerResult": 500
-            }
-        });
-
-        let resp = client
-            .post::<crate::search::tools::SearchResponse>(
-                "/agent-integrations/parallel/search",
-                &body,
-            )
-            .await
-            .map_err(|e| format!("parallel search failed: {e:#}"))?;
-
-        let count = resp.results.len();
-        // Attribute the search to the provider the managed backend resolved to,
-        // so this RPC surface labels a call the same way the agent-facing
-        // `web_search` tool does (#5136).
-        let provider = crate::search::tools::resolve_managed_provider(&resp);
-        let payload = json!({ "results": resp.results, "provider": provider });
-        // Log the query's length, never its text: a search query is
-        // user-authored and can carry PII or credentials. This matches the
-        // sibling seltz/querit handlers below, which already log `query_len`.
-        let log = vec![format!(
-            "tools.web_search: query_len={} results={count} provider={provider}",
-            query.chars().count()
-        )];
-        RpcOutcome::new(payload, log).into_cli_compatible_json()
-    })
-}
-
-pub(super) fn handle_seltz_search(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let query = params
-            .get("query")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .ok_or_else(|| "missing or empty `query`".to_string())?;
-        let max_results = params
-            .get("max_results")
-            .and_then(Value::as_u64)
-            .map(|n| n.clamp(1, 20) as usize)
-            .unwrap_or(10);
-
-        let config = config_rpc::load_config_with_timeout().await?;
-
-        if !config.seltz.enabled {
-            tracing::debug!("[rpc][tools.seltz_search] seltz disabled — rejecting");
-            return Err("Seltz search is not enabled. Set SELTZ_API_KEY to enable.".to_string());
-        }
-
-        let has_include_domains = params.get("include_domains").is_some();
-        let has_exclude_domains = params.get("exclude_domains").is_some();
-        let has_scope = params.get("scope").is_some();
-
-        tracing::debug!(
-            query_len = query.chars().count(),
-            max_results,
-            has_include_domains,
-            has_exclude_domains,
-            has_scope,
-            "[rpc][tools.seltz_search] start"
-        );
-
-        let tool = crate::search::tools::SeltzSearchTool::new(
-            config.seltz.api_key.clone(),
-            config.seltz.api_url.clone(),
-            max_results,
-            config.seltz.timeout_secs,
-        );
-
-        // Build args JSON with all optional fields.
-        let mut args = json!({ "query": query, "max_results": max_results });
-        let args_map = args.as_object_mut().unwrap();
-        if let Some(v) = params.get("include_domains") {
-            args_map.insert("include_domains".to_string(), v.clone());
-        }
-        if let Some(v) = params.get("exclude_domains") {
-            args_map.insert("exclude_domains".to_string(), v.clone());
-        }
-        if let Some(v) = params.get("from_date") {
-            args_map.insert("from_date".to_string(), v.clone());
-        }
-        if let Some(v) = params.get("to_date") {
-            args_map.insert("to_date".to_string(), v.clone());
-        }
-        if let Some(v) = params.get("scope") {
-            args_map.insert("scope".to_string(), v.clone());
-        }
-
-        let result = tool
-            .execute(args)
-            .await
-            .map_err(|e| format!("seltz search failed: {e:#}"))?;
-
-        let payload = json!({ "documents": result.output() });
-        let log = vec![format!(
-            "[rpc][tools.seltz_search] success query_len={} max_results={}",
-            query.chars().count(),
-            max_results
-        )];
-        RpcOutcome::new(payload, log).into_cli_compatible_json()
-    })
-}
-
-pub(super) fn handle_querit_search(params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let query = params
-            .get("query")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .ok_or_else(|| "missing or empty `query`".to_string())?;
-        let max_results = params
-            .get("max_results")
-            .or_else(|| params.get("count"))
-            .and_then(Value::as_u64)
-            .map(|n| n.clamp(1, 20) as usize)
-            .unwrap_or(10);
-
-        let config = config_rpc::load_config_with_timeout().await?;
-        if !config.search.querit.has_key() {
-            tracing::debug!("[rpc][tools.querit_search] querit not configured — rejecting");
-            return Err("Querit search is not enabled. Set QUERIT_API_KEY to enable.".to_string());
-        }
-
-        let has_include_domains = params.get("include_domains").is_some();
-        let has_exclude_domains = params.get("exclude_domains").is_some();
-        let has_time_range = params.get("time_range").is_some();
-        let has_countries = params.get("countries").is_some();
-        let has_languages = params.get("languages").is_some();
-        let has_native_filters = params.get("filters").is_some();
-
-        tracing::debug!(
-            query_len = query.chars().count(),
-            max_results,
-            has_include_domains,
-            has_exclude_domains,
-            has_time_range,
-            has_countries,
-            has_languages,
-            has_native_filters,
-            "[rpc][tools.querit_search] start"
-        );
-
-        let tool = crate::search::tools::QueritSearchTool::new(
-            config.search.querit.api_key.clone(),
-            None,
-            max_results,
-            config.search.timeout_secs,
-        );
-
-        let mut args = json!({ "query": query, "max_results": max_results });
-        let args_map = args.as_object_mut().unwrap();
-        for key in [
-            "count",
-            "filters",
-            "include_domains",
-            "exclude_domains",
-            "time_range",
-            "from_date",
-            "to_date",
-            "countries",
-            "languages",
-        ] {
-            if let Some(v) = params.get(key) {
-                args_map.insert(key.to_string(), v.clone());
-            }
-        }
-
-        let result = tool
-            .execute(args)
-            .await
-            .map_err(|e| format!("querit search failed: {e:#}"))?;
-
-        let payload = json!({ "results": result.output() });
-        let log = vec![format!(
-            "[rpc][tools.querit_search] success query_len={} max_results={}",
-            query.chars().count(),
-            max_results
-        )];
-        RpcOutcome::new(payload, log).into_cli_compatible_json()
+        let arguments = search_arguments(&params, None)?;
+        run_role_tool(tinysearch_bus::tools::WEB_SEARCH, arguments, "web_search").await
     })
 }
 
 pub(super) fn handle_searxng_search(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let query = params
-            .get("query")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string)
-            .ok_or_else(|| "missing or empty `query`".to_string())?;
-        let max_results = params
-            .get("max_results")
-            .and_then(Value::as_u64)
-            .map(|n| n.clamp(1, SEARXNG_MAX_RESULTS as u64) as usize);
-        let categories = optional_string_array(&params, "categories")?;
-        let language = params
-            .get("language")
-            .and_then(Value::as_str)
-            .map(str::trim)
-            .filter(|s| !s.is_empty())
-            .map(str::to_string);
+        let arguments = search_arguments(&params, Some("searxng"))?;
+        run_role_tool(
+            tinysearch_bus::tools::WEB_SEARCH,
+            arguments,
+            "searxng_search",
+        )
+        .await
+    })
+}
 
-        let config = config_rpc::load_config_with_timeout().await?;
-        if !config.searxng.enabled {
-            tracing::debug!("[rpc][tools.searxng_search] searxng disabled — rejecting");
-            return Err(
-                "SearXNG search is not enabled. Set searxng.enabled=true or OPENHUMAN_SEARXNG_ENABLED=true."
-                    .to_string(),
-            );
+pub(super) fn handle_web_answer(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let query = required_text(&params, "query")?;
+        let mut arguments = json!({ "query": query });
+        if let Some(depth) = optional_text(&params, "depth") {
+            if depth != "quick" && depth != "deep" {
+                return Err("`depth` must be quick or deep".to_string());
+            }
+            arguments["depth"] = json!(depth);
         }
-
+        if let Some(provider) = optional_text(&params, "provider") {
+            arguments["provider"] = json!(provider);
+        }
         tracing::debug!(
             query_len = query.chars().count(),
-            max_results = max_results.unwrap_or(config.searxng.max_results),
-            category_count = categories.len(),
-            has_language = language.is_some(),
-            base_url = %config.searxng.base_url,
-            "[rpc][tools.searxng_search] start"
+            "[rpc][tools.web_answer] request"
         );
+        run_role_tool(tinysearch_bus::tools::WEB_ANSWER, arguments, "web_answer").await
+    })
+}
 
-        let tool = crate::search::tools::SearxngSearchTool::new(
-            config.searxng.base_url.clone(),
-            config.searxng.max_results,
-            config.searxng.default_language.clone(),
-            config.searxng.timeout_secs,
-        );
-
-        let response = tool
-            .search(crate::search::tools::SearxngSearchArgs {
-                query,
-                categories,
-                language,
-                max_results,
-            })
-            .await
-            .map_err(|e| format!("searxng search failed: {e:#}"))?;
-
-        let result_count = response.results.len();
-        let payload = json!({
-            "query": response.query,
-            "results": response.results,
-        });
-        let log = vec![format!(
-            "[rpc][tools.searxng_search] success results={result_count}"
-        )];
-        RpcOutcome::new(payload, log).into_cli_compatible_json()
+pub(super) fn handle_web_contents(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let urls = optional_string_array(&params, "urls")?;
+        if urls.is_empty() {
+            return Err("`urls` must list at least one URL".to_string());
+        }
+        let mut arguments = json!({ "urls": urls });
+        if let Some(query) = optional_text(&params, "query") {
+            arguments["query"] = json!(query);
+        }
+        if let Some(provider) = optional_text(&params, "provider") {
+            arguments["provider"] = json!(provider);
+        }
+        tracing::debug!(urls = urls.len(), "[rpc][tools.web_contents] request");
+        run_role_tool(
+            tinysearch_bus::tools::WEB_CONTENTS,
+            arguments,
+            "web_contents",
+        )
+        .await
     })
 }
 

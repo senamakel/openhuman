@@ -1250,9 +1250,9 @@ const messages: TranslationMap = {
   'onboarding.custom.search.title': 'Поиск в интернете',
   'onboarding.custom.search.subtitle': 'Как OpenHuman ищет информацию в интернете.',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman использует управляемый поисковый бэкенд. Ключи не нужны.',
+    'Веб-поиск работает сразу: Exa и Gemini включены в TinyHumans, API-ключ не нужен.',
   'onboarding.custom.search.configureDesc':
-    'Используй свой ключ поискового провайдера (Tavily, Brave и др.). Настрой в Настройки › Инструменты.',
+    'Exa и Gemini уже включены. Добавьте других поисковых провайдеров со своим API-ключом в Настройки › Инструменты.',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'Как OpenHuman создаёт векторные эмбеддинги для семантического поиска в памяти.',
@@ -1502,36 +1502,7 @@ const messages: TranslationMap = {
   'settings.search.title': 'Поисковая система',
   'settings.search.menuDesc':
     'По умолчанию используется поиск, управляемый OpenHuman, или подключите собственного провайдера с помощью ключа API.',
-  'settings.search.description':
-    'Выберите поисковую систему, которую использует агент, или полностью отключите инструменты поиска. Управляемый режим использует серверную часть OpenHuman (настройка не требуется). Parallel, Brave, Querit, Exa и Tavily работают напрямую с вашего устройства, используя ваш API-ключ.',
-  'settings.search.engineAria': 'Поисковая система',
-  'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc':
-    'Удалить инструменты поиска из контекста агента и списка доступных инструментов.',
-  'settings.search.engineManagedLabel': 'OpenHuman Управляемый',
-  'settings.search.engineManagedDesc':
-    'По умолчанию. Маршрутизируется через серверную часть OpenHuman, сейчас на базе Exa: ключ API не требуется.',
-  'settings.search.localManagedUnavailable':
-    'Поиск OpenHuman Управляемый недоступен для локальных пользователей. Добавьте свой ключ API Parallel, Brave, Querit, Exa или Tavily, чтобы включить веб-поиск.',
-  'settings.search.engineParallelLabel': 'Параллельно',
-  'settings.search.engineParallelDesc':
-    'Direct Parallel API: инструменты поиска, извлечения, общения, исследования, обогащения и набора данных.',
-  'settings.search.engineBraveLabel': 'Brave Поиск',
-  'settings.search.engineBraveDesc':
-    'Прямой поиск Brave API: инструменты для Интернета, новостей, изображений и видео.',
-  'settings.search.engineQueritLabel': 'Керит',
-  'settings.search.engineQueritDesc':
-    'Direct Querit API: поиск в Интернете с фильтрами по сайту, временному диапазону, стране и языку.',
-  'settings.search.engineExaLabel': 'Exa',
-  'settings.search.engineExaDesc':
-    'Нейропоиск на базе Exa. Требуется ваш собственный ключ API Exa. Добавляет инструменты поиска, похожих страниц и содержимого страниц.',
-  'settings.search.engineTavilyLabel': 'Tavily',
-  'settings.search.engineTavilyDesc':
-    'Веб-, новостной и финансовый поиск на базе Tavily. Требуется ваш собственный ключ API Tavily. Добавляет инструменты поиска и извлечения страниц.',
-  'settings.search.statusConfigured': 'Настроено',
   'settings.search.statusNeedsKey': 'Требуется ключ API',
-  'settings.search.fallbackToManaged':
-    'Ключ не настроен: поиск будет переведен в режим «Управляемый», пока ключ не будет сохранен.',
   'settings.search.getApiKey': 'Получите ключ API',
   'settings.search.save': 'Сохранить',
   'settings.search.clear': 'Очистить',
@@ -1540,17 +1511,7 @@ const messages: TranslationMap = {
   'settings.search.statusSaving': 'Сохранение…',
   'settings.search.statusSaved': 'Сохранено.',
   'settings.search.statusError': 'Ошибка',
-  'settings.search.parallelKeyLabel': 'Parallel API ключ',
-  'settings.search.braveKeyLabel': 'Brave Поиск API ключ',
-  'settings.search.queritKeyLabel': 'Запросить ключ API',
-  'settings.search.exaKeyLabel': 'Ключ API Exa',
   'settings.search.placeholderStored': '•••••••• (сохранено)',
-  'settings.search.placeholderParallel': 'pk_...',
-  'settings.search.placeholderBrave': 'BSA...',
-  'settings.search.placeholderQuerit': 'Запросить ключ API',
-  'settings.search.placeholderExa': 'Вставьте ваш ключ API Exa…',
-  'settings.search.tavilyKeyLabel': 'Ключ API Tavily',
-  'settings.search.placeholderTavily': 'tvly-...',
   'settings.search.allowedSitesLabel': 'Разрешенные веб-сайты',
   'settings.search.allowedSitesHint':
     'Хосты, которые ассистент может открывать и читать (через веб-запросы и браузерный инструмент) по одному на строку, например reuters.com. Хост также охватывает все его поддомены. Веб-поиск не ограничивается этим списком.',
@@ -1564,6 +1525,53 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAll': 'Блокировать все',
   'settings.search.accessBlockAllHint':
     'Весь веб-доступ заблокирован: помощник не может открыть или прочитать какой-либо веб-сайт.',
+  'settings.search.description':
+    'Поиск может использовать несколько провайдеров одновременно. Exa и Gemini включены в TinyHumans и не требуют настройки; другие провайдеры работают с вашим собственным API-ключом. Каждая роль ниже использует первого доступного провайдера и при сбое переходит к следующему.',
+  'settings.search.localManagedUnavailable':
+    'Для провайдеров, включённых в TinyHumans, нужно войти в аккаунт. Включите провайдера со своим API-ключом, чтобы пользоваться веб-поиском в локальной сессии.',
+  'settings.search.enabledLabel': 'Веб-поиск',
+  'settings.search.enabledDesc':
+    'Разрешить агенту искать в интернете, отвечать на вопросы по веб-источникам и читать страницы.',
+  'settings.search.providersTitle': 'Провайдеры',
+  'settings.search.providersDesc':
+    'Включите нужных провайдеров. Несколько могут работать одновременно; роли ниже определяют, кого пробовать первым.',
+  'settings.search.providerToggleAria': 'Использовать {provider}',
+  'settings.search.routeAria': 'Подключение {provider}',
+  'settings.search.routeManaged': 'Включено в TinyHumans',
+  'settings.search.routeDirect': 'Свой ключ',
+  'settings.search.apiKeyLabel': 'API-ключ {provider}',
+  'settings.search.placeholderKey': 'Вставьте API-ключ {provider}',
+  'settings.search.baseUrlLabel': 'URL экземпляра',
+  'settings.search.baseUrlSave': 'Сохранить URL',
+  'settings.search.statusReady': 'Готов',
+  'settings.search.statusSignInRequired': 'Нужен вход',
+  'settings.search.statusOff': 'Выключен',
+  'settings.search.deepResearchAvailable':
+    'Доступно глубокое исследование: агент может запросить у {provider} более длинный и подробный отчёт.',
+  'settings.search.deepResearchHint':
+    'Добавьте свой ключ {provider}, чтобы открыть глубокое исследование.',
+  'settings.search.rolesTitle': 'Роли',
+  'settings.search.rolesDesc':
+    'Каждая роль означает один инструмент агента. Её обслуживает первый доступный провайдер; остальные служат запасными по порядку.',
+  'settings.search.roleSearch': 'Поиск',
+  'settings.search.roleSearchDesc': 'Ранжированные результаты из интернета по запросу.',
+  'settings.search.roleAnswer': 'Ответ',
+  'settings.search.roleAnswerDesc': 'Готовый ответ на основе веб-источников со ссылками.',
+  'settings.search.roleContents': 'Содержимое',
+  'settings.search.roleContentsDesc': 'Загружает указанные страницы и извлекает их текст.',
+  'settings.search.roleServedBy': 'Обслуживает {provider}',
+  'settings.search.roleNoProvider':
+    'Нет доступного провайдера: сейчас у агента нет этого инструмента.',
+  'settings.search.roleMoveUp': 'Переместить {provider} выше',
+  'settings.search.roleMoveDown': 'Переместить {provider} ниже',
+  'settings.search.roleRemove': 'Убрать {provider}',
+  'settings.search.roleAdd': 'Добавить {provider}',
+  'settings.search.roleReset': 'Сбросить по умолчанию',
+  'settings.search.roleUnavailable': 'Недоступен',
+  'settings.search.advancedTitle': 'Дополнительно',
+  'settings.search.exposeProviderTools': 'Показывать собственные инструменты каждого провайдера',
+  'settings.search.exposeProviderToolsDesc':
+    'Дать агенту инструменты каждого включённого провайдера вместо одного инструмента на роль. Это занимает больше контекстного окна.',
   // ─── Settings global search bar ────────────────────────────
   'settings.embeddings.title': 'Эмбеддинги',
   'settings.embeddings.description':
@@ -3416,6 +3424,12 @@ const messages: TranslationMap = {
   'conversations.tools.search.found.one': 'Найден {count} результат',
   'conversations.tools.search.found.other': 'Найдено результатов: {count}',
   'conversations.tools.search.via': 'через {provider}',
+  'conversations.tools.search.viaAfter': 'через {provider}, после {fallback}',
+  'conversations.tools.search.sources.one': 'Источников: {count}',
+  'conversations.tools.search.sources.other': 'Источников: {count}',
+  'conversations.tools.search.researching': 'Исследование ещё идёт',
+  'conversations.tools.search.balanceLow':
+    'На балансе TinyHumans недостаточно средств для включённого поиска. Пополните баланс или добавьте собственный ключ поискового провайдера в настройках.',
   'conversations.tools.readFile.active': 'Чтение файла',
   'conversations.tools.readFile.done': 'Файл прочитан',
   'conversations.tools.writeFile.active': 'Запись файла',
@@ -7081,7 +7095,6 @@ const messages: TranslationMap = {
   'migration.badgePreview': 'Предпросмотр',
   'migration.badgeImported': 'Импортировано',
   'desktop.statusModuleFailed': 'Недоступно',
-  'settings.search.apiKeysHeading': 'API-ключи',
   'voice.providers.alwaysOn': 'Всегда включен',
   'voice.routing.testOk': 'Выполняется',
   'voice.routing.testFailed': 'Сбой',
@@ -7145,9 +7158,7 @@ const messages: TranslationMap = {
   'channels.availableDesc':
     'Чат приложения, которые вы можете связать. Откройте один, чтобы настроить его.',
   'settings.about.resources': 'ресурсы',
-  'settings.search.keyStored': 'хранить',
-  'settings.search.apiKeysDesc':
-    'Ключи для прямых поставщиков. Они остаются на этом устройстве и используются только при выборе двигателя.',
+  'settings.search.keyStored': 'Сохранён',
   'settings.embeddings.modelCardTitle': 'Модель и размеры',
   'mcp.rows.searchPlaceholder': 'Поисковые серверы...',
   'mcp.tab.section.clients': 'Клиенты',

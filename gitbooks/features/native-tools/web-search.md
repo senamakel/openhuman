@@ -1,134 +1,131 @@
 ---
 description: >-
-  A native search tool the agent can call directly - managed search is powered by
-  Exa and needs no API key.
+  Native web search, grounded answers and page reading for the agent. Exa and
+  Gemini are included with TinyHumans; more providers work with your own key.
 icon: magnifying-glass
 ---
 
 # Web Search
 
-The agent can search the live web on its own. By default this runs on **OpenHuman Managed** search: the query goes through the OpenHuman backend, currently powered by [Exa](https://exa.ai), so you never carry a search API key. You can also bring your own key for Exa, Brave, or Querit, or enable the backend-proxied Parallel engine. If you run your own [SearXNG](https://docs.searxng.org/) instance, you can expose `searxng_search` to RPC and MCP clients as a private, self-hosted search tool.
+The agent can search the live web, get a grounded answer with citations, and read pages on its own. Out of the box this runs on providers **included with TinyHumans**: [Exa](https://exa.ai) for search and page contents, and [Gemini](https://ai.google.dev) with Google Search grounding for answers. You don't need a search API key for either. You can add more providers with your own key, and several providers can be on at the same time.
 
 ## What it's good for
 
-- Research - "what's the latest on X".
-- Citation hunting - "find me three sources for Y".
-- Fact-checking before answering - the agent runs a quick search if it isn't confident.
+- Research: "what's the latest on X".
+- Citation hunting: "find me three sources for Y".
+- Fact-checking before answering: the agent runs a quick search if it isn't confident.
+- Reading a page the agent or you already found.
 
-## Search engines
+## Roles: one tool per job
 
-Pick the engine under **Connections → Search**. Exactly one engine is active at a time, and that engine owns the canonical `web_search_tool` the agent calls.
+The agent sees one tool per **capability role**, whichever providers are on:
 
-| Engine                          | Setup                  | Where your queries go                                                                                                                                                                                                                                                    |
-| ------------------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| **OpenHuman Managed** (default) | Not needed             | The OpenHuman backend, currently powered by [Exa](https://exa.ai).                                                                                                                                                                                                       |
-| **Exa**                         | Your API key           | Straight to `https://api.exa.ai` with your key.                                                                                                                                                                                                                          |
-| **Tavily**                      | Your API key           | Straight to `https://api.tavily.com` with your key (web / news / finance search + page extraction).                                                                                                                                                                      |
-| **Parallel**                    | Local enablement value | Parallel-specific tools go through the OpenHuman backend to Parallel; the canonical `web_search_tool` keeps using the backend-resolved managed provider (currently Exa). The value selects the engine locally and is not sent to Parallel for authentication or billing. |
-| **Brave**                       | Your API key           | Straight to the Brave Search API with your key.                                                                                                                                                                                                                          |
-| **Querit**                      | Your API key           | Straight to the Querit API with your key.                                                                                                                                                                                                                                |
-| **Disabled**                    | Not needed             | Nowhere. All agent-facing search tools are removed; an enabled SearXNG endpoint remains available through RPC/MCP.                                                                                                                                                       |
+| Role         | Agent tool          | What it returns                                                                                                                                                |
+| ------------ | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Search**   | `web_search_tool`   | Ranked results: title, URL, publish date and an excerpt.                                                                                                       |
+| **Answer**   | `web_answer_tool`   | A written answer grounded in web sources, with citations. With `depth: "deep"` it runs Gemini Deep Research instead, which needs your own Gemini key.           |
+| **Contents** | `web_contents_tool` | The extracted text of the URLs it is given.                                                                                                                    |
 
-Selecting a bring-your-own-key engine without saving a key falls back to managed search. That fallback requires a backend-authenticated session; local or offline users must configure a direct provider key. Once a search finishes, the chat timeline names the provider that answered it ("Searched with Exa"), so the managed path is never an unattributed black box.
+Each role has an ordered provider list. The first **usable** provider serves the call; if it fails, the next one is tried, and so on. The result says which provider answered and which were skipped, for example `Answer for: … (via Gemini, after Exa)`, and the chat card shows the same "via Gemini, after Exa" note under the answer and its sources. A role with no usable provider has no tool at all, so the agent never sees a tool that can't run.
 
-### OpenHuman Managed (default)
+The default order is:
 
-Managed search is the out-of-the-box path and needs no setup: it is proxied through the OpenHuman backend on your existing subscription, and Exa is the provider behind it today. Your machine holds no search credentials, and the agent gets the single `web_search_tool` slot.
+| Role     | Default providers, in order                                        |
+| -------- | ------------------------------------------------------------------ |
+| Search   | Exa, Brave, Tavily, Parallel, Querit, Seltz, SearXNG, TinyFish     |
+| Answer   | Gemini, Exa, Parallel                                              |
+| Contents | Exa, Tavily, Parallel, TinyFish                                    |
 
-### Exa (bring your own key)
+Providers that are off are skipped, so with the defaults only Exa and Gemini serve.
 
-Prefer to run search on your own Exa account? Grab a key from [exa.ai](https://exa.ai) and paste it under **Connections → Search → Exa**. Calls then go straight from your machine to `https://api.exa.ai` with your key and never touch the managed backend. When secret encryption is enabled, OpenHuman stores the key as ciphertext in `config.toml`; the OS keyring protects the master encryption key, not the Exa key itself.
+## Providers and routes
 
-Choosing Exa registers Exa's neural-search family for the agent, on top of the usual `web_search_tool`:
+Every provider has a **route**:
 
-- `exa_search` - ranked pages with URLs, titles, publish dates, and optional page text. Supports search modes from instant to deep reasoning, domain include/exclude filters, a published-date range, and result categories.
-- `exa_find_similar` - pages semantically similar to a URL you already have, for expanding from one good source to comparable ones (competitors, related papers, similar articles). This tool uses Exa's deprecated `/findSimilar` endpoint and may change if Exa removes it.
-- `exa_get_contents` - the full crawled contents of one or more URLs, with an optional summary or query-relevant highlights per URL.
+- **Included with TinyHumans** (`managed`): the call goes through the TinyHumans backend and is billed to your TinyHumans balance. It needs a signed-in session. No key is stored on your machine.
+- **Own key** (`direct`): the call goes straight from your machine to the provider with your API key.
 
-You can also select it from `config.toml`:
+| Provider | Routes             | Roles                     | Notes                                                                                                 |
+| -------- | ------------------ | ------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Exa      | Included, own key  | Search, answer, contents  | On by default (included).                                                                             |
+| Gemini   | Included, own key  | Answer                    | On by default (included). A key of your own also unlocks Deep Research, even on the included route. |
+| TinyFish | Included           | Search, contents          | Off by default.                                                                                       |
+| Parallel | Own key            | Search, answer, contents  | Off by default. There is no included Parallel route; bring your own [Parallel](https://parallel.ai) key. Deep answers never use Parallel. |
+| Brave    | Own key            | Search                    | Off by default.                                                                                       |
+| Tavily   | Own key            | Search, contents          | Off by default.                                                                                       |
+| Querit   | Own key            | Search                    | Off by default.                                                                                       |
+| Seltz    | Own key            | Search                    | Off by default.                                                                                       |
+| SearXNG  | Own instance       | Search                    | Off by default. Uses the URL of your own [SearXNG](https://docs.searxng.org/) instance, not a key.    |
+
+A provider is **usable** when it is on, its route is available (you are signed in for the included route, or a key is saved for the own-key route), and search as a whole is on. The settings page shows this as a badge on each provider: **Ready**, **Needs key**, **Sign in required**, or **Off**.
+
+If you use OpenHuman without signing in (a local session), the included route is unavailable. Turn on a provider with your own key to keep web search working.
+
+When your TinyHumans balance runs out, included providers stop answering and the failed tool call in chat says so. Top up, or switch a provider to your own key.
+
+## Settings
+
+Everything is under **Connections → Search**:
+
+- **Web search**: one switch turns every search tool on or off.
+- **Providers**: one card per provider with an on/off switch, the route choice (for providers that support both), the API key field for the own-key route, and the instance URL for SearXNG. Gemini always shows its key field, since the key is what enables Deep Research.
+- **Roles**: the provider order for Search, Answer and Contents, with which provider currently serves each role. Move providers up or down, remove fallbacks, add a provider back, or reset a role to its default order.
+- **Allowed websites**: which sites the assistant may open and read through web fetch and the browser tool. This list does not restrict web search.
+- **Advanced → Expose each provider's own tools**: gives the agent each usable provider's own tools (for example Brave news or image search, or Exa's find-similar) rather than one tool per role. This uses more of the context window.
+
+Keys are stored in `config.toml`. When secret encryption is on, OpenHuman stores them as ciphertext; the OS keyring protects the master encryption key, not the provider keys themselves.
+
+### Configuration file and environment
+
+The same settings live under `[search]` in `config.toml`:
 
 ```toml
 [search]
-engine = "exa"
-
-[search.exa]
-api_key = "your-exa-api-key"
-```
-
-Do not commit a plaintext API key from this example. A key entered directly in `config.toml` remains plaintext until OpenHuman next saves the configuration with secret encryption enabled.
-
-Or via environment:
-
-```bash
-OPENHUMAN_SEARCH_ENGINE=exa
-EXA_API_KEY=your-exa-api-key
-# OPENHUMAN_EXA_API_KEY is accepted as well
-```
-
-`OPENHUMAN_EXA_API_KEY` and `EXA_API_KEY` both override `search.exa.api_key`; treat environment-provided keys as sensitive secrets.
-
-### Tavily (bring your own key)
-
-Prefer to run search on your own [Tavily](https://tavily.com) account? Grab a key from [tavily.com](https://tavily.com) and paste it under **Connections → Search → Tavily**. Calls then go straight from your machine to `https://api.tavily.com` with your key and never touch the managed backend. When secret encryption is enabled, OpenHuman stores the key as ciphertext in `config.toml`; the OS keyring protects the master encryption key, not the Tavily key itself.
-
-Choosing Tavily registers Tavily's search + extract family for the agent, on top of the usual `web_search_tool`:
-
-- `tavily_search` - web, news, and finance results with titles, URLs, and snippets. Supports search-depth levels (`basic`/`advanced`/`fast`/`ultra-fast`), a publish/update `time_range` or explicit `start_date`/`end_date`, domain include/exclude filters, an optional LLM-generated `answer`, bounded cleaned page content, and image links.
-- `tavily_extract` - cleaned content from one or more URLs, in markdown or plain text, for deep-reading sources the agent found. Agent output is bounded to 8,000 characters per URL.
-
-You can also select it from `config.toml`:
-
-```toml
-[search]
-engine = "tavily"
-
-[search.tavily]
-api_key = "tvly-your-tavily-api-key"
-```
-
-Or via environment:
-
-```bash
-OPENHUMAN_SEARCH_ENGINE=tavily
-TAVILY_API_KEY=tvly-your-tavily-api-key
-# OPENHUMAN_TAVILY_API_KEY is accepted as well
-```
-
-`OPENHUMAN_TAVILY_API_KEY` and `TAVILY_API_KEY` both override `search.tavily.api_key`. Do not commit a plaintext API key.
-
-## Self-hosted SearXNG
-
-SearXNG search is opt-in and exposed through the `openhuman.tools_searxng_search` RPC controller and MCP catalog; it is not registered as an agent tool. The controller calls your configured SearXNG `/search?format=json` endpoint and returns normalized `{ title, url, snippet, source }` results.
-
-Enable it in `config.toml`:
-
-```toml
-[searxng]
 enabled = true
-base_url = "http://localhost:8080"
-max_results = 10
-default_language = "en"
-timeout_seconds = 10
+
+[search.providers.exa]
+enabled = true
+route = "managed"
+
+[search.providers.brave]
+enabled = true
+route = "direct"
+
+[search.roles]
+search = ["brave", "exa"]
+
+[search.brave]
+api_key = "your-brave-api-key"
 ```
 
-Or via environment:
+Do not commit a plaintext API key. A key entered directly in `config.toml` stays plaintext until OpenHuman next saves the configuration with secret encryption on.
 
-```bash
-OPENHUMAN_SEARXNG_ENABLED=true
-OPENHUMAN_SEARXNG_BASE_URL=http://localhost:8080
-OPENHUMAN_SEARXNG_MAX_RESULTS=10
-OPENHUMAN_SEARXNG_DEFAULT_LANGUAGE=en
-OPENHUMAN_SEARXNG_TIMEOUT_SECONDS=10
-```
+Environment overrides:
 
-Per call, the tool accepts `query`, optional `categories` (`web`, `news`, `images`), optional `language`, and optional `max_results` up to 50. Empty queries, unsupported categories, non-2xx SearXNG responses, and timeout failures return structured tool errors instead of silently falling back to a cloud search provider.
+| Variable                                                                                                         | Effect                                                                         |
+| ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| `OPENHUMAN_SEARCH_ENABLED`                                                                                       | Turns search on or off.                                                        |
+| `OPENHUMAN_SEARCH_PROVIDERS`                                                                                     | Replaces the provider set, e.g. `exa:managed,gemini,brave`.                    |
+| `OPENHUMAN_SEARCH_ROUTES`                                                                                        | Changes routes, e.g. `exa=direct,gemini=managed`.                              |
+| `OPENHUMAN_SEARCH_ROLES`                                                                                         | Sets role orders, e.g. `search=brave\|exa;answer=gemini`.                      |
+| `OPENHUMAN_EXA_API_KEY`, `OPENHUMAN_GEMINI_API_KEY`, `OPENHUMAN_BRAVE_API_KEY`, `OPENHUMAN_TAVILY_API_KEY`, `OPENHUMAN_QUERIT_API_KEY`, `OPENHUMAN_PARALLEL_API_KEY`, `OPENHUMAN_SELTZ_API_KEY` | Provider keys. The unprefixed names (`EXA_API_KEY`, `GEMINI_API_KEY`, …) work too. |
+
+Treat environment-provided keys as secrets.
+
+## SearXNG over RPC and MCP
+
+Besides serving the Search role, an enabled SearXNG instance is exposed to RPC and MCP clients as `openhuman.tools_searxng_search` (`searxng_search` in the MCP catalog), which pins the call to SearXNG. Its `[searxng]` section in `config.toml` and the `OPENHUMAN_SEARXNG_*` variables (`ENABLED`, `BASE_URL`, `MAX_RESULTS`, `DEFAULT_LANGUAGE`, `TIMEOUT_SECONDS`) configure the instance.
+
+## Parallel is own-key only
+
+Parallel is no longer included with TinyHumans; it works only with your own Parallel key. A saved Parallel key carries over when you upgrade (Parallel stays first for search if it was your chosen engine). A setup that relied on the included Parallel route without a key moves to the included Exa and Gemini providers. `OPENHUMAN_PARALLEL_ROUTE` is ignored.
 
 ## How it differs from generic HTTP
 
-A pure `http_request` tool can fetch a URL but can't _find_ one. Web Search is the discovery layer: it picks the right URLs for the agent, which then hands them off to the [Web Scraper](web-scraper.md) for the actual reading.
+A plain `http_request` tool can fetch a URL but can't _find_ one. Web search is the discovery layer: it finds the right URLs, and the Contents role (or the [Web Scraper](web-scraper.md)) reads them.
 
 ## See also
 
-- [MCP Server](../../developing/mcp-server.md) - how `searxng_search` appears to MCP clients.
-- [Web Scraper](web-scraper.md) - fetch and clean a specific URL.
-- [Smart Token Compression](../token-compression.md) - search snippets are compressed before they hit the model.
+- [MCP Server](../../developing/mcp-server.md): how `searxng_search` appears to MCP clients.
+- [Web Scraper](web-scraper.md): fetch and clean a specific URL.
+- [Smart Token Compression](../token-compression.md): search snippets are compressed before they reach the model.

@@ -30,7 +30,7 @@ static MANAGER: OnceLock<Arc<SessionManager<InProcessLink>>> = OnceLock::new();
 /// same manager regardless of the handle they pass.
 pub fn session_manager(runtime: &Arc<CoreRuntime>) -> Arc<SessionManager<InProcessLink>> {
     Arc::clone(MANAGER.get_or_init(|| {
-        let headers = ClientHeaders::new(openhuman_core::api::product_identity().as_str())
+        let headers = ClientHeaders::new(openhuman_tinyhumans::product_identity().as_str())
             .with_core_version(env!("CARGO_PKG_VERSION"));
         SessionManager::new(Arc::new(InProcessLink(Arc::clone(runtime))), headers)
     }))

@@ -98,14 +98,16 @@ impl MemoryHostConfig for Config {
     }
 
     fn effective_backend_api_url(&self) -> String {
-        // Resolution (env override, staging/prod default, trailing-slash
-        // normalisation) lives in `api::config` and must not be re-derived on
-        // the other side of the seam.
-        crate::api::config::effective_backend_api_url(&self.api_url)
+        // Resolution (defaults, env overrides, normalisation) belongs to the
+        // installed backend transport and must not be re-derived on the other
+        // side of the seam. Empty when no transport is installed.
+        crate::backend::base_url(&self.api_url).unwrap_or_default()
     }
 
+    /// The backend bearer: the TinyHumans API key when one is stored, else
+    /// the app-session JWT.
     fn session_token(&self) -> Result<Option<String>, String> {
-        crate::api::jwt::get_session_token(self)
+        crate::security::credentials::session_support::backend_bearer_secret(self)
     }
 
     fn default_model(&self) -> Option<&str> {

@@ -57,11 +57,6 @@ fn integration_test_config(tmp: &TempDir, backend_url: &str) -> Config {
     cfg.integrations.tinyfish.enabled = true;
     cfg.integrations.stock_prices.enabled = true;
     cfg.integrations.twilio.enabled = true;
-    // Parallel tools (search/extract/chat/research/enrich/dataset) are
-    // registered by the unified search-engine selector, so flip the
-    // engine to `parallel` in test setup.
-    cfg.search.engine = crate::config::SEARCH_ENGINE_PARALLEL.into();
-    cfg.search.parallel.api_key = Some("test-parallel-key".into());
     cfg
 }
 

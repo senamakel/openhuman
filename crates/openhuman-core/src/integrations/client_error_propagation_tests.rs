@@ -254,13 +254,13 @@ async fn verb_methods_never_expose_admin_or_webhook_routes() {
 }
 
 #[tokio::test]
-async fn integration_requests_carry_the_default_product_identity() {
-    let _guard = crate::api::product::product_identity_test_lock();
-    let seen = product_identity_seen_by_backend(None).await;
-    let expected = Some(crate::api::product::DEFAULT_PRODUCT_IDENTITY);
+async fn integration_requests_carry_the_host_attribution() {
+    // The installed transport (here the `cfg(test)` plain one) stamps the
+    // host's product identity; which identity it is belongs to the host.
+    let seen = product_identity_seen_by_backend().await;
     assert_eq!(
         seen.sdk.as_deref(),
-        expected,
+        Some(crate::backend::transport::plain::TEST_PRODUCT_IDENTITY),
         "agent-integration traffic must be attributed like every other backend call"
     );
     assert_eq!(
@@ -269,16 +269,6 @@ async fn integration_requests_carry_the_default_product_identity() {
         "the download transport must stay untagged — it follows a 302 to presigned \
          storage and reqwest keeps non-sensitive headers across the cross-host hop"
     );
-}
-
-#[tokio::test]
-async fn integration_requests_carry_an_overridden_product_identity() {
-    let _guard = crate::api::product::product_identity_test_lock();
-    let seen = product_identity_seen_by_backend(Some("opencompany")).await;
-    assert_eq!(seen.sdk.as_deref(), Some("opencompany"));
-    // An override must not leak to storage either — same redirect reasoning as
-    // the default case above.
-    assert_eq!(seen.download.as_deref(), None);
 }
 
 #[tokio::test]

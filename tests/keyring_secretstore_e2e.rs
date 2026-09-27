@@ -70,8 +70,8 @@ async fn config_secrets_roundtrip_via_keyring_backed_master_key_migration() {
         workspace_dir: workspace_dir.clone(),
         api_key: Some("sk-direct-secret".into()),
         search: openhuman_core::config::schema::SearchConfig {
-            parallel: openhuman_core::config::schema::SearchEngineCredentials {
-                api_key: Some("parallel-secret".into()),
+            brave: openhuman_core::config::schema::SearchEngineCredentials {
+                api_key: Some("brave-secret".into()),
                 ..Default::default()
             },
             ..Default::default()
@@ -110,7 +110,7 @@ async fn config_secrets_roundtrip_via_keyring_backed_master_key_migration() {
         "config should not contain plaintext api_key"
     );
     assert!(
-        !config_toml.contains("parallel-secret"),
+        !config_toml.contains("brave-secret"),
         "config should not contain plaintext search api key"
     );
     assert!(
@@ -129,10 +129,7 @@ async fn config_secrets_roundtrip_via_keyring_backed_master_key_migration() {
 
     let loaded = Config::load_or_init().await.expect("reload config");
     assert_eq!(loaded.api_key.as_deref(), Some("sk-direct-secret"));
-    assert_eq!(
-        loaded.search.parallel.api_key.as_deref(),
-        Some("parallel-secret")
-    );
+    assert_eq!(loaded.search.brave.api_key.as_deref(), Some("brave-secret"));
     assert_eq!(
         loaded
             .channels_config

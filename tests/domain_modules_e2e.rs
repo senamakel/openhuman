@@ -464,8 +464,8 @@ async fn config_agent_tools_and_threads_mutation_paths_round_trip() {
 
     for (idx, (method, params)) in [
         ("openhuman.tools_composio_execute", json!({})),
-        ("openhuman.tools_seltz_search", json!({})),
-        ("openhuman.tools_querit_search", json!({})),
+        ("openhuman.tools_web_answer", json!({})),
+        ("openhuman.tools_web_contents", json!({})),
         ("openhuman.tools_searxng_search", json!({})),
         ("openhuman.tools_apify_linkedin_scrape", json!({})),
     ]

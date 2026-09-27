@@ -101,6 +101,52 @@ async fn push_spans_skips_external_without_a_session_or_a_request() {
 }
 
 #[tokio::test]
+async fn api_key_credentials_are_not_used_for_langfuse_proxy_exports() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.config_path = dir.path().join("config.toml");
+    config.workspace_dir = dir.path().join("workspace");
+    config.secrets.encrypt = false;
+    config.api_url = Some("http://127.0.0.1:9".to_string());
+    crate::security::credentials::api_key::store_api_key(&config, "th_live_test").unwrap();
+
+    let spans = vec![span(
+        "trace:req-1",
+        "span-1",
+        None,
+        "agent.turn",
+        SpanKind::Turn,
+        SpanStatus::Ok,
+        1_000,
+        Some(2_000),
+    )];
+    assert_eq!(push_spans(&config, &spans).await, Ok(()));
+
+    let ctx = TraceContext::new("trace:req-1", Some("user-1".to_string()));
+    let observations = vec![obs(
+        1,
+        AgentEvent::ModelCompleted {
+            call_id: CallId::new("model-1"),
+            started_at_ms: Some(1_000),
+            usage: Some(Usage::new(10, 3)),
+            input: None,
+            output: None,
+        },
+    )];
+    assert!(!crate::agent::progress_tracing::langfuse::journal_export::journal_push_ready(&config));
+    assert_eq!(
+        crate::agent::progress_tracing::langfuse::journal_export::push_observations(
+            &config,
+            &ctx,
+            &observations,
+            None,
+        )
+        .await,
+        Ok(())
+    );
+}
+
+#[tokio::test]
 async fn push_observations_skips_external_too() {
     let mut config = Config::default();
     config.api_url = Some("https://other.example".to_string());

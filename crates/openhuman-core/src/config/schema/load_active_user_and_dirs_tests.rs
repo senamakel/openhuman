@@ -148,18 +148,18 @@ fn default_root_dir_name_uses_staging_suffix_for_staging_env() {
     let _env_guard = crate::config::TEST_ENV_LOCK
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    let prior = std::env::var(crate::api::config::APP_ENV_VAR).ok();
+    let prior = std::env::var(crate::config::app_env::APP_ENV_VAR).ok();
 
-    std::env::set_var(crate::api::config::APP_ENV_VAR, "staging");
-    assert!(crate::api::config::is_staging_app_env(Some("staging")));
+    std::env::set_var(crate::config::app_env::APP_ENV_VAR, "staging");
+    assert!(crate::config::app_env::is_staging_app_env(Some("staging")));
     assert_eq!(default_root_dir_name(), ".openhuman-staging");
 
-    std::env::set_var(crate::api::config::APP_ENV_VAR, "production");
+    std::env::set_var(crate::config::app_env::APP_ENV_VAR, "production");
     assert_eq!(default_root_dir_name(), ".openhuman");
 
     match prior {
-        Some(value) => std::env::set_var(crate::api::config::APP_ENV_VAR, value),
-        None => std::env::remove_var(crate::api::config::APP_ENV_VAR),
+        Some(value) => std::env::set_var(crate::config::app_env::APP_ENV_VAR, value),
+        None => std::env::remove_var(crate::config::app_env::APP_ENV_VAR),
     }
 }
 

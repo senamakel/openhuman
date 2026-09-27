@@ -274,6 +274,10 @@ export function extractAgentSources(entries: ToolTimelineEntry[]): AgentSource[]
       parsed?.results.forEach((hit, index) =>
         add({ id: `${entry.id}#${index}`, title: hit.title, url: hit.url })
       );
+      // An answer call's citations are sources too.
+      parsed?.citations?.forEach((hit, index) =>
+        add({ id: `${entry.id}#c${index}`, title: hit.title, url: hit.url })
+      );
       continue;
     }
     if (entry.status !== 'success' || !URL_SOURCE_TOOLS.has(presentation.baseName)) continue;

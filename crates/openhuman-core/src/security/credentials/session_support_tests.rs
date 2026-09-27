@@ -257,6 +257,38 @@ fn get_session_token_returns_stored_token_when_present() {
 }
 
 #[test]
+fn backend_bearer_secret_prefers_api_key_and_returns_none_when_empty() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    assert_eq!(backend_bearer_secret(&config).unwrap(), None);
+    crate::security::credentials::api_key::store_api_key(&config, "th_test_key")
+        .expect("store API key");
+    assert_eq!(
+        backend_bearer_secret(&config).unwrap().as_deref(),
+        Some("th_test_key")
+    );
+}
+
+#[test]
+fn backend_bearer_secret_falls_back_to_session_token() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "raw-session-token",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("store session token");
+    assert_eq!(
+        backend_bearer_secret(&config).unwrap().as_deref(),
+        Some("raw-session-token")
+    );
+}
+
+#[test]
 fn offline_local_token_is_never_a_backend_bearer() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
@@ -270,7 +302,16 @@ fn offline_local_token_is_never_a_backend_bearer() {
         )
         .unwrap();
     let error = resolve_backend_credential(&config).unwrap_err();
-    assert_eq!(error, "backend unavailable for offline local session");
+    assert_eq!(error, LOCAL_SESSION_BACKEND_UNAVAILABLE);
+    assert!(crate::core::observability::is_backend_unavailable_message(
+        &error
+    ));
+    // Regression (Sentry 36649): the local-session refusal must classify as
+    // expected, not reach Sentry as an `rpc.invoke_method` error.
+    assert!(matches!(
+        crate::core::observability::expected_error_kind(&error),
+        Some(crate::core::observability::ExpectedErrorKind::BackendUnavailable)
+    ));
 }
 
 /// Regression: when both an app-session profile and a stored API key are
@@ -380,5 +421,48 @@ fn classify_expired_within_skew_window() {
     assert_eq!(
         classify_session_token(Some(&p), now),
         SessionTokenCheck::Expired
+    );
+}
+
+// ── direct_backend_credential ──────────────────────────────────
+
+#[test]
+fn direct_backend_credential_skips_without_a_usable_credential() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    // Signed out: nothing to authenticate a direct backend call with.
+    assert!(direct_backend_credential(&config, "test").is_none());
+
+    // The offline local session has no TinyHumans account (Sentry 36649).
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+    assert!(direct_backend_credential(&config, "test").is_none());
+}
+
+#[test]
+fn direct_backend_credential_returns_a_live_session() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "raw-session-token",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .unwrap();
+    // Unit tests resolve the plain test transport, so the transport gate passes.
+    assert!(crate::backend::transport::is_installed());
+    assert_eq!(
+        direct_backend_credential(&config, "test"),
+        Some(BackendCredential::Session("raw-session-token".into()))
     );
 }

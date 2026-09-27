@@ -82,6 +82,9 @@ use tempfile::tempdir;
 use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_core::core::jsonrpc::build_core_http_router;
 
+#[path = "support/tinyhumans_boot.rs"]
+mod tinyhumans_boot;
+
 // ── env serialisation ─────────────────────────────────────────────────────────
 //
 // HOME / OPENHUMAN_WORKSPACE / BACKEND_URL are process-global; parallel tests
@@ -311,6 +314,7 @@ fn assert_no_jsonrpc_error<'a>(v: &'a Value, ctx: &str) -> &'a Value {
 /// `execute_tool_with_post_oauth_retry` is exercised end-to-end.
 #[tokio::test]
 async fn post_oauth_gap_retries_and_returns_real_data() {
+    tinyhumans_boot::boot();
     let _env_lock = composio_e2e_env_lock();
 
     let tmp = tempdir().expect("tempdir");
@@ -450,6 +454,7 @@ async fn post_oauth_gap_retries_and_returns_real_data() {
 ///     retry layer, but never more — the outer auth_retry.rs layer must not fire)
 #[tokio::test]
 async fn revoked_token_surfaces_without_retry() {
+    tinyhumans_boot::boot();
     let _env_lock = composio_e2e_env_lock();
 
     let tmp = tempdir().expect("tempdir");

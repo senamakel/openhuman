@@ -1303,9 +1303,9 @@ const en: TranslationMap = {
   'onboarding.custom.search.title': 'Web Search',
   'onboarding.custom.search.subtitle': 'How OpenHuman searches the web on your behalf.',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman uses a managed search proxy by default. No search API key needed.',
+    'Web search works out of the box: Exa and Gemini are included with TinyHumans, no API key needed.',
   'onboarding.custom.search.configureDesc':
-    'Bring your own search provider key (Tavily, Brave, etc.). Configure in Settings › Tools.',
+    'Exa and Gemini are included. Add more search providers with your own API key in Settings › Tools.',
 
   // Onboarding: Custom > Embeddings
   'onboarding.custom.embeddings.title': 'Embeddings',
@@ -1701,40 +1701,9 @@ const en: TranslationMap = {
   'settings.search.title': 'Search engine',
   'settings.search.menuDesc':
     'Default to OpenHuman-managed search or wire up your own provider with an API key.',
-  'settings.search.description':
-    "Pick the search engine the agent uses, or disable search tools entirely. Managed uses OpenHuman's backend (no setup). Parallel, Brave, Querit, Exa, and Tavily run direct from your machine using your API key.",
-  'settings.search.engineAria': 'Search engine',
-  'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc':
-    'Remove search tools from the agent context and available tool list.',
-  'settings.search.engineManagedLabel': 'OpenHuman Managed',
-  'settings.search.engineManagedDesc':
-    'Default. Routed through the OpenHuman backend, currently powered by Exa: no API key required.',
-  'settings.search.localManagedUnavailable':
-    'OpenHuman Managed search is not available for local users. Add your own Parallel, Brave, Querit, Exa, or Tavily API key to enable web search.',
-  'settings.search.engineParallelLabel': 'Parallel',
-  'settings.search.engineParallelDesc':
-    'Direct Parallel API: search, extract, chat, research, enrich, dataset tools.',
-  'settings.search.engineBraveLabel': 'Brave Search',
-  'settings.search.engineBraveDesc': 'Direct Brave Search API: web, news, image, and video tools.',
-  'settings.search.engineQueritLabel': 'Querit',
-  'settings.search.engineQueritDesc':
-    'Direct Querit API: web search with site, time range, country, and language filters.',
-  'settings.search.engineExaLabel': 'Exa',
-  'settings.search.engineExaDesc':
-    'Neural search powered by Exa. Requires your own Exa API key. Adds search, find similar, and page contents tools.',
-  'settings.search.engineTavilyLabel': 'Tavily',
-  'settings.search.engineTavilyDesc':
-    'Web, news, and finance search powered by Tavily. Requires your own Tavily API key. Adds search and page extract tools.',
-  'settings.search.statusConfigured': 'Configured',
   'settings.search.statusNeedsKey': 'Needs API key',
-  'settings.search.fallbackToManaged':
-    'No key configured: search will fall back to Managed until a key is saved.',
   'settings.search.getApiKey': 'Get API key',
   'settings.search.keyStored': 'Stored',
-  'settings.search.apiKeysHeading': 'API keys',
-  'settings.search.apiKeysDesc':
-    'Keys for the direct providers. They stay on this device and are used only when that engine is selected.',
   'settings.search.save': 'Save',
   'settings.search.clear': 'Clear',
   'settings.search.show': 'Show',
@@ -1742,17 +1711,7 @@ const en: TranslationMap = {
   'settings.search.statusSaving': 'Saving…',
   'settings.search.statusSaved': 'Saved.',
   'settings.search.statusError': 'Failed',
-  'settings.search.parallelKeyLabel': 'Parallel API key',
-  'settings.search.braveKeyLabel': 'Brave Search API key',
-  'settings.search.queritKeyLabel': 'Querit API key',
-  'settings.search.exaKeyLabel': 'Exa API key',
-  'settings.search.tavilyKeyLabel': 'Tavily API key',
   'settings.search.placeholderStored': '•••••••• (stored)',
-  'settings.search.placeholderParallel': 'pk_...',
-  'settings.search.placeholderBrave': 'BSA...',
-  'settings.search.placeholderQuerit': 'Querit API key',
-  'settings.search.placeholderExa': 'Paste your Exa API key…',
-  'settings.search.placeholderTavily': 'tvly-...',
   'settings.search.allowedSitesLabel': 'Allowed websites',
   'settings.search.allowedSitesHint':
     'Enter one host per line, such as reuters.com. The assistant may open and read these hosts through web fetch and the browser tool. Each host also covers its subdomains. This list does not restrict web search.',
@@ -1766,6 +1725,52 @@ const en: TranslationMap = {
   'settings.search.accessBlockAll': 'Block all',
   'settings.search.accessBlockAllHint':
     'All web access is blocked: the assistant cannot open or read any website.',
+  'settings.search.description':
+    'Search can use several providers at once. Exa and Gemini are included with TinyHumans and need no setup; other providers work with your own API key. Each role below uses the first available provider and falls back to the next.',
+  'settings.search.localManagedUnavailable':
+    'Providers included with TinyHumans need you to be signed in. Turn on a provider with your own API key to use web search in a local session.',
+  'settings.search.enabledLabel': 'Web search',
+  'settings.search.enabledDesc':
+    'Let the agent search the web, answer questions from web sources, and read pages.',
+  'settings.search.providersTitle': 'Providers',
+  'settings.search.providersDesc':
+    'Turn on the providers you want. Several can be on at once; the roles below decide which one is tried first.',
+  'settings.search.providerToggleAria': 'Use {provider}',
+  'settings.search.routeAria': '{provider} connection',
+  'settings.search.routeManaged': 'Included with TinyHumans',
+  'settings.search.routeDirect': 'Own key',
+  'settings.search.apiKeyLabel': '{provider} API key',
+  'settings.search.placeholderKey': 'Paste your {provider} API key',
+  'settings.search.baseUrlLabel': 'Instance URL',
+  'settings.search.baseUrlSave': 'Save URL',
+  'settings.search.statusReady': 'Ready',
+  'settings.search.statusSignInRequired': 'Sign in required',
+  'settings.search.statusOff': 'Off',
+  'settings.search.deepResearchAvailable':
+    'Deep research is available: the agent can ask {provider} for a longer, more thorough report.',
+  'settings.search.deepResearchHint': 'Add your own {provider} key to unlock deep research.',
+  'settings.search.rolesTitle': 'Roles',
+  'settings.search.rolesDesc':
+    'Each role is one tool for the agent. The first available provider serves it; the others are fallbacks, tried in order.',
+  'settings.search.roleSearch': 'Search',
+  'settings.search.roleSearchDesc': 'Ranked web results for a query.',
+  'settings.search.roleAnswer': 'Answer',
+  'settings.search.roleAnswerDesc': 'A written answer grounded in web sources, with citations.',
+  'settings.search.roleContents': 'Contents',
+  'settings.search.roleContentsDesc': 'Fetches and extracts the text of given pages.',
+  'settings.search.roleServedBy': 'Served by {provider}',
+  'settings.search.roleNoProvider':
+    'No provider available: the agent does not get this tool right now.',
+  'settings.search.roleMoveUp': 'Move {provider} up',
+  'settings.search.roleMoveDown': 'Move {provider} down',
+  'settings.search.roleRemove': 'Remove {provider}',
+  'settings.search.roleAdd': 'Add {provider}',
+  'settings.search.roleReset': 'Reset to default',
+  'settings.search.roleUnavailable': 'Unavailable',
+  'settings.search.advancedTitle': 'Advanced',
+  'settings.search.exposeProviderTools': "Expose each provider's own tools",
+  'settings.search.exposeProviderToolsDesc':
+    'Give the agent the tools each enabled provider offers instead of one tool per role. This uses more of the context window.',
   // ─── Settings global search bar ────────────────────────────
   // ─── Embeddings settings ───────────────────────────────────
   'settings.embeddings.title': 'Embeddings',
@@ -3833,6 +3838,12 @@ const en: TranslationMap = {
   'conversations.tools.search.found.one': 'Found {count} result',
   'conversations.tools.search.found.other': 'Found {count} results',
   'conversations.tools.search.via': 'via {provider}',
+  'conversations.tools.search.viaAfter': 'via {provider}, after {fallback}',
+  'conversations.tools.search.sources.one': '{count} source',
+  'conversations.tools.search.sources.other': '{count} sources',
+  'conversations.tools.search.researching': 'Research still running',
+  'conversations.tools.search.balanceLow':
+    'Your TinyHumans balance is too low for included search. Top up, or add your own key for a search provider in Settings.',
   'conversations.tools.readFile.active': 'Reading file',
   'conversations.tools.readFile.done': 'Read file',
   'conversations.tools.writeFile.active': 'Writing file',

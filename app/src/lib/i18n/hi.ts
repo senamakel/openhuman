@@ -1235,9 +1235,9 @@ const messages: TranslationMap = {
   'onboarding.custom.search.title': 'वेब सर्च',
   'onboarding.custom.search.subtitle': 'OpenHuman आपकी तरफ से वेब कैसे सर्च करता है।',
   'onboarding.custom.search.defaultDesc':
-    'OpenHuman मैनेज्ड सर्च बैकएंड इस्तेमाल करता है। कोई key नहीं चाहिए।',
+    'वेब सर्च तुरंत काम करता है: Exa और Gemini, TinyHumans में शामिल हैं, कोई API कुंजी नहीं चाहिए।',
   'onboarding.custom.search.configureDesc':
-    'अपनी सर्च प्रोवाइडर key लाएं (Tavily, Brave, आदि)। Settings › Tools में कॉन्फिगर करें।',
+    'Exa और Gemini शामिल हैं। सेटिंग्स › टूल्स में अपनी API कुंजी से और सर्च प्रदाता जोड़ें।',
   'onboarding.custom.embeddings.title': 'Embeddings',
   'onboarding.custom.embeddings.subtitle':
     'OpenHuman सिमेंटिक मेमोरी खोज के लिए वेक्टर एम्बेडिंग कैसे बनाता है।',
@@ -1487,34 +1487,7 @@ const messages: TranslationMap = {
   'settings.search.title': 'खोज इंजन',
   'settings.search.menuDesc':
     'डिफ़ॉल्ट to OpenHuman -एक API कुंजी के साथ अपने स्वयं के प्रदाता को प्रबंधित खोज या तार करना।',
-  'settings.search.description':
-    'एजेंट द्वारा उपयोग किए जाने वाले सर्च इंजन को चुनें, या सर्च टूल्स को पूरी तरह बंद करें। Managed, OpenHuman के बैकएंड का उपयोग करता है (कोई सेटअप नहीं)। Parallel, Brave, Querit, Exa, और Tavily आपकी API key का उपयोग करके सीधे आपकी मशीन से चलते हैं।',
-  'settings.search.engineAria': 'खोज इंजन',
-  'settings.search.engineDisabledLabel': 'Disabled',
-  'settings.search.engineDisabledDesc': 'एजेंट संदर्भ और उपलब्ध टूल सूची से खोज टूल हटाएं।',
-  'settings.search.engineManagedLabel': 'OpenHuman प्रबंधित',
-  'settings.search.engineManagedDesc':
-    'डिफ़ॉल्ट। OpenHuman बैक-एंड के माध्यम से रूट किया जाता है, वर्तमान में Exa द्वारा संचालित: किसी API key की आवश्यकता नहीं।',
-  'settings.search.localManagedUnavailable':
-    'लोकल उपयोगकर्ताओं के लिए OpenHuman Managed search उपलब्ध नहीं है। वेब सर्च चालू करने के लिए अपनी Parallel, Brave, Querit, Exa या Tavily API key जोड़ें।',
-  'settings.search.engineParallelLabel': 'Parallel',
-  'settings.search.engineParallelDesc':
-    'डायरेक्ट Parallel API: खोज, निकालने, चैट, अनुसंधान, समृद्ध, डेटासेट उपकरण।',
-  'settings.search.engineBraveLabel': 'Brave खोजें',
-  'settings.search.engineBraveDesc': 'प्रत्यक्ष Brave खोजें API: वेब, समाचार, छवि और वीडियो उपकरण।',
-  'settings.search.engineQueritLabel': 'क्वेर्ट',
-  'settings.search.engineQueritDesc':
-    'प्रत्यक्ष Querit API: साइट, समय सीमा, देश और भाषा फिल्टर के साथ वेब खोज।',
-  'settings.search.engineExaLabel': 'Exa',
-  'settings.search.engineExaDesc':
-    'Exa द्वारा संचालित न्यूरल सर्च। इसके लिए आपकी अपनी Exa API key आवश्यक है। सर्च, मिलते-जुलते पेज खोजने और पेज सामग्री लाने के टूल जोड़ता है।',
-  'settings.search.engineTavilyLabel': 'Tavily',
-  'settings.search.engineTavilyDesc':
-    'Tavily द्वारा संचालित वेब, समाचार और वित्त खोज। इसके लिए आपकी अपनी Tavily API key आवश्यक है। सर्च और पेज सामग्री निकालने के टूल जोड़ता है।',
-  'settings.search.statusConfigured': 'विन्यस्त',
   'settings.search.statusNeedsKey': 'API कुंजी की आवश्यकता है',
-  'settings.search.fallbackToManaged':
-    'कोई कुंजी विन्यस्त - खोज एक कुंजी सहेजा जाता है जब तक प्रबंधित करने के लिए वापस गिर जाएगा।',
   'settings.search.getApiKey': 'API कुंजी प्राप्त करें',
   'settings.search.save': 'सहेजें',
   'settings.search.clear': 'स्पष्ट',
@@ -1523,17 +1496,7 @@ const messages: TranslationMap = {
   'settings.search.statusSaving': 'सहेजा जा रहा है...',
   'settings.search.statusSaved': 'सहेजा गया.',
   'settings.search.statusError': 'असफल',
-  'settings.search.parallelKeyLabel': 'Parallel API कुंजी',
-  'settings.search.braveKeyLabel': 'Brave API कुंजी खोजें',
-  'settings.search.queritKeyLabel': 'क्वेरिट API कुंजी',
-  'settings.search.exaKeyLabel': 'Exa API कुंजी',
   'settings.search.placeholderStored': '•••••••• (संग्रहीत)',
-  'settings.search.placeholderParallel': 'पीके_...',
-  'settings.search.placeholderBrave': 'BSA...',
-  'settings.search.placeholderQuerit': 'क्वेरिट API कुंजी',
-  'settings.search.placeholderExa': 'अपनी Exa API कुंजी पेस्ट करें…',
-  'settings.search.tavilyKeyLabel': 'Tavily API कुंजी',
-  'settings.search.placeholderTavily': 'tvly-...',
   'settings.search.allowedSitesLabel': 'अनुमत वेबसाइटों',
   'settings.search.allowedSitesHint':
     'उन होस्ट को सूचीबद्ध करें जिन्हें असिस्टेंट खोल और पढ़ सकता है (वेब फ़ेच और ब्राउज़र टूल के माध्यम से), प्रति पंक्ति एक, जैसे reuters.com। एक होस्ट में उसके सभी सबडोमेन भी शामिल होते हैं। वेब सर्च स्वयं इस सूची से प्रतिबंधित नहीं है।',
@@ -1547,6 +1510,51 @@ const messages: TranslationMap = {
   'settings.search.accessBlockAll': 'सभी को ब्लॉक करें',
   'settings.search.accessBlockAllHint':
     'सभी वेब एक्सेस अवरुद्ध है - सहायक किसी भी वेबसाइट को खोल या पढ़ नहीं सकता है।',
+  'settings.search.description':
+    'सर्च एक साथ कई प्रदाताओं का उपयोग कर सकता है। Exa और Gemini, TinyHumans में शामिल हैं और इन्हें सेटअप की ज़रूरत नहीं; बाकी प्रदाता आपकी अपनी API कुंजी से काम करते हैं। नीचे हर भूमिका पहले उपलब्ध प्रदाता का उपयोग करती है और ज़रूरत पड़ने पर अगले पर जाती है।',
+  'settings.search.localManagedUnavailable':
+    'TinyHumans में शामिल प्रदाताओं के लिए साइन इन करना ज़रूरी है। लोकल सत्र में वेब सर्च के लिए अपनी API कुंजी वाला कोई प्रदाता चालू करें।',
+  'settings.search.enabledLabel': 'वेब सर्च',
+  'settings.search.enabledDesc':
+    'एजेंट को वेब खोजने, वेब स्रोतों से सवालों के जवाब देने और पेज पढ़ने दें।',
+  'settings.search.providersTitle': 'प्रदाता',
+  'settings.search.providersDesc':
+    'अपने मनचाहे प्रदाता चालू करें। कई एक साथ चालू रह सकते हैं; नीचे की भूमिकाएँ तय करती हैं कि पहले किसे आज़माया जाए।',
+  'settings.search.providerToggleAria': '{provider} का उपयोग करें',
+  'settings.search.routeAria': '{provider} कनेक्शन',
+  'settings.search.routeManaged': 'TinyHumans में शामिल',
+  'settings.search.routeDirect': 'अपनी कुंजी',
+  'settings.search.apiKeyLabel': '{provider} API कुंजी',
+  'settings.search.placeholderKey': 'अपनी {provider} API कुंजी चिपकाएँ',
+  'settings.search.baseUrlLabel': 'इंस्टेंस URL',
+  'settings.search.baseUrlSave': 'URL सहेजें',
+  'settings.search.statusReady': 'तैयार',
+  'settings.search.statusSignInRequired': 'साइन इन ज़रूरी',
+  'settings.search.statusOff': 'बंद',
+  'settings.search.deepResearchAvailable':
+    'गहन शोध उपलब्ध है: एजेंट {provider} से लंबी और विस्तृत रिपोर्ट माँग सकता है।',
+  'settings.search.deepResearchHint': 'गहन शोध चालू करने के लिए अपनी {provider} कुंजी जोड़ें।',
+  'settings.search.rolesTitle': 'भूमिकाएँ',
+  'settings.search.rolesDesc':
+    'हर भूमिका एजेंट का एक टूल है। पहला उपलब्ध प्रदाता इसे संभालता है; बाकी क्रम से बैकअप हैं।',
+  'settings.search.roleSearch': 'सर्च',
+  'settings.search.roleSearchDesc': 'किसी क्वेरी के लिए क्रमबद्ध वेब परिणाम।',
+  'settings.search.roleAnswer': 'जवाब',
+  'settings.search.roleAnswerDesc': 'वेब स्रोतों पर आधारित लिखित जवाब, उद्धरणों के साथ।',
+  'settings.search.roleContents': 'सामग्री',
+  'settings.search.roleContentsDesc': 'दिए गए पेज लाकर उनका टेक्स्ट निकालता है।',
+  'settings.search.roleServedBy': '{provider} द्वारा',
+  'settings.search.roleNoProvider': 'कोई प्रदाता उपलब्ध नहीं: अभी एजेंट को यह टूल नहीं मिलेगा।',
+  'settings.search.roleMoveUp': '{provider} को ऊपर ले जाएँ',
+  'settings.search.roleMoveDown': '{provider} को नीचे ले जाएँ',
+  'settings.search.roleRemove': '{provider} हटाएँ',
+  'settings.search.roleAdd': '{provider} जोड़ें',
+  'settings.search.roleReset': 'डिफ़ॉल्ट पर रीसेट करें',
+  'settings.search.roleUnavailable': 'उपलब्ध नहीं',
+  'settings.search.advancedTitle': 'उन्नत',
+  'settings.search.exposeProviderTools': 'हर प्रदाता के अपने टूल दिखाएँ',
+  'settings.search.exposeProviderToolsDesc':
+    'हर भूमिका के एक टूल की जगह एजेंट को हर चालू प्रदाता के अपने टूल दें। इससे कॉन्टेक्स्ट विंडो ज़्यादा भरती है।',
   // ─── Settings global search bar ────────────────────────────
   'settings.embeddings.title': 'एम्बेडिंग्स',
   'settings.embeddings.description':
@@ -3393,6 +3401,12 @@ const messages: TranslationMap = {
   'conversations.tools.search.found.one': '{count} परिणाम मिला',
   'conversations.tools.search.found.other': '{count} परिणाम मिले',
   'conversations.tools.search.via': '{provider} के ज़रिए',
+  'conversations.tools.search.viaAfter': '{provider} के ज़रिए, {fallback} के बाद',
+  'conversations.tools.search.sources.one': '{count} स्रोत',
+  'conversations.tools.search.sources.other': '{count} स्रोत',
+  'conversations.tools.search.researching': 'शोध अभी जारी है',
+  'conversations.tools.search.balanceLow':
+    'शामिल सर्च के लिए आपका TinyHumans बैलेंस कम है। बैलेंस भरें, या सेटिंग्स में किसी सर्च प्रदाता के लिए अपनी कुंजी जोड़ें।',
   'conversations.tools.readFile.active': 'फ़ाइल पढ़ रहा है',
   'conversations.tools.readFile.done': 'फ़ाइल पढ़ी',
   'conversations.tools.writeFile.active': 'फ़ाइल लिख रहा है',
@@ -7010,7 +7024,6 @@ const messages: TranslationMap = {
   'migration.badgePreview': 'प्रीव्यू',
   'migration.badgeImported': 'इम्पोर्ट हुए',
   'desktop.statusModuleFailed': 'अनुपलब्ध',
-  'settings.search.apiKeysHeading': 'API कुंजियाँ',
   'voice.providers.alwaysOn': 'हमेशा बने रहें',
   'voice.routing.testOk': 'काम जारी है',
   'voice.routing.testFailed': 'विफल',
@@ -7073,9 +7086,7 @@ const messages: TranslationMap = {
     'संदेश भेजने और प्राप्त करने के लिए तैयार है। एक डिफ़ॉल्ट के रूप में चुनें।',
   'channels.availableDesc': 'आप लिंक कर सकते हैं। इसे स्थापित करने के लिए एक खोलें।',
   'settings.about.resources': 'संसाधन',
-  'settings.search.keyStored': 'स्टोर',
-  'settings.search.apiKeysDesc':
-    'प्रत्यक्ष प्रदाताओं के लिए कुंजी। वे इस उपकरण पर रहते हैं और केवल उसी इंजन को चुना जाता है।',
+  'settings.search.keyStored': 'सहेजा गया',
   'settings.embeddings.modelCardTitle': 'मॉडल और आयाम',
   'mcp.rows.searchPlaceholder': 'सर्वर खोजें...',
   'mcp.tab.section.clients': 'ग्राहक',

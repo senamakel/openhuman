@@ -94,11 +94,11 @@ pub(super) enum EditFailure {
 /// Classify an edit failure by typed error rather than by message text, so the
 /// recovery a call site picks cannot drift with `#[error(...)]` wording.
 pub(super) fn classify_edit_failure(err: &anyhow::Error) -> EditFailure {
-    match err.downcast_ref::<crate::api::rest::BackendApiError>() {
-        Some(crate::api::rest::BackendApiError::ChannelEditUnsupported { .. }) => {
+    match err.downcast_ref::<crate::backend::BackendApiError>() {
+        Some(crate::backend::BackendApiError::ChannelEditUnsupported { .. }) => {
             EditFailure::RouteUnsupported
         }
-        Some(crate::api::rest::BackendApiError::MessageNotFound { .. }) => EditFailure::MessageGone,
+        Some(crate::backend::BackendApiError::MessageNotFound { .. }) => EditFailure::MessageGone,
         _ => EditFailure::Transient,
     }
 }

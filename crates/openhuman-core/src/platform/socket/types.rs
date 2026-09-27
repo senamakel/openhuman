@@ -1,6 +1,6 @@
 //! Socket domain types, constants, and re-exports.
 
-pub use crate::api::models::socket::{ConnectionStatus, SocketState};
+pub use crate::platform::socket::models::{ConnectionStatus, SocketState};
 
 /// Events emitted for observability / frontend bridging.
 #[allow(dead_code)]

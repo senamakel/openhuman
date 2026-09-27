@@ -1,0 +1,18 @@
+{
+  "name": "frontend-tests",
+  "heavyWaitS": null,
+  "targetDir": null,
+  "targetBytes": null,
+  "checks": [
+    {
+      "name": "vitest-coverage",
+      "status": "success",
+      "reportOnly": false,
+      "exitCode": 0,
+      "start": "2026-09-27T18:03:02.075Z",
+      "end": "2026-09-27T18:07:12.073Z",
+      "durationS": 250,
+      "peakRssMiB": 3936
+    }
+  ]
+}

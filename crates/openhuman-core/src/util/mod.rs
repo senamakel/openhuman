@@ -30,6 +30,7 @@ pub mod sanitize;
 pub mod text;
 pub mod tls;
 pub mod types;
+pub mod url;
 
 pub use params::{read_optional, read_required};
 pub use redact::redact_url_for_log;

@@ -126,3 +126,40 @@ fn authoritative_integrations_do_not_restore_revoked_or_gated_actions() {
     let rebuilt = rehydrate_integration_actions(&recorded, &[], &integrations, true);
     assert!(rebuilt.is_empty());
 }
+
+#[test]
+fn recorded_search_tools_keep_only_role_tools() {
+    let recorded = vec![
+        spec("web_search_tool"),
+        spec("GMAIL_SEND_EMAIL"),
+        spec("web_answer_tool"),
+        spec("parallel_search"),
+        spec("web_fetch"),
+    ];
+    let names: Vec<String> = recorded_search_tools(&recorded)
+        .into_iter()
+        .map(|spec| spec.name)
+        .collect();
+    assert_eq!(names, vec!["web_search_tool", "web_answer_tool"]);
+}
+
+#[cfg(feature = "modules")]
+#[test]
+fn missing_search_tools_are_rebuilt_once_with_their_recorded_declaration() {
+    let recorded = vec![
+        spec("web_answer_tool"),
+        spec("web_answer_tool"),
+        spec("web_search_tool"),
+    ];
+    let live: Vec<Box<dyn Tool>> = vec![Box::new(crate::search::TinySearchTool::recorded(
+        tinysearch_bus::ToolSpec {
+            name: "web_search_tool".into(),
+            description: "live".into(),
+            parameters: serde_json::json!({"type": "object"}),
+        },
+    ))];
+    let rebuilt = rehydrate_search_tools(&recorded, &[live.as_slice()], "test-agent");
+    assert_eq!(rebuilt.len(), 1);
+    assert_eq!(rebuilt[0].name(), "web_answer_tool");
+    assert_eq!(rebuilt[0].description(), "web_answer_tool description");
+}

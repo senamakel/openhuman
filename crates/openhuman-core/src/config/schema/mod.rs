@@ -119,12 +119,14 @@ pub use task_sources::TaskSourcesConfig;
 pub use tokenjuice::TokenjuiceConfig;
 pub use tools::{
     BrowserComputerUseConfig, BrowserConfig, ComposioConfig, CurlConfig, GitbooksConfig,
-    HttpHeader, HttpRequestConfig, IntegrationToggle, IntegrationsConfig, McpAuthConfig,
-    McpClientConfig, McpClientIdentityConfig, McpServerConfig, MultimodalConfig,
-    MultimodalFileConfig, SearchConfig, SearchEngine, SearchEngineCredentials, SearxngConfig,
-    SecretsConfig, SeltzConfig, WebSearchConfig, COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT,
+    HttpHeader, HttpRequestConfig, IntegrationToggle, IntegrationsConfig, LegacySearchInputs,
+    McpAuthConfig, McpClientConfig, McpClientIdentityConfig, McpServerConfig, MultimodalConfig,
+    MultimodalFileConfig, SearchConfig, SearchEngineCredentials, SearchPresentation,
+    SearchProviderSettings, SearchRoute, SearxngConfig, SecretsConfig, SeltzConfig,
+    WebSearchConfig, COMPOSIO_MODE_BACKEND, COMPOSIO_MODE_DIRECT, MANAGED_SEARCH_PROVIDERS,
     SEARCH_ENGINE_BRAVE, SEARCH_ENGINE_DISABLED, SEARCH_ENGINE_EXA, SEARCH_ENGINE_MANAGED,
     SEARCH_ENGINE_PARALLEL, SEARCH_ENGINE_QUERIT, SEARCH_ENGINE_TAVILY, SEARCH_PROVIDERS,
+    SEARCH_ROLES, SEARCH_ROLE_ANSWER, SEARCH_ROLE_CONTENTS, SEARCH_ROLE_SEARCH,
 };
 pub use update::{UpdateConfig, UpdateRestartStrategy};
 pub use web_chat_config::WebChatConfig;

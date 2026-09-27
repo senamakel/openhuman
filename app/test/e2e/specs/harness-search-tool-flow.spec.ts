@@ -8,6 +8,7 @@
  * Actual tool names discovered in crates/openhuman-core/src/tools/impl/:
  *   - "memory_recall"       — recall / search personal memories
  *   - "web_search_tool"     — search the web (NOT "web_search")
+ *   - "web_answer_tool"     — grounded answer with citations (search role tools)
  *   - "file_read"           — read a file from the filesystem
  *   - "memory_tree_search_entities" — search the memory tree for entities
  *
@@ -33,6 +34,9 @@
  *   S3.3 — File read: "read the README"
  *           → LLM emits file_read tool call → canned snippet in second turn
  *           → UI shows final reply containing the snippet.
+ *   S3.4 — Web answer: "what is the capital of Australia"
+ *           → LLM emits web_answer_tool tool call (the grounded-answer role
+ *           tool, served by Gemini by default) → canned final reply.
  *
  * Observation strategy:
  *   Tool call LLM requests: second LLM turn body will contain the tool name
@@ -339,5 +343,68 @@ describe('Harness - Search tool-flow', () => {
     }
 
     console.log(`${LOG_PREFIX} S3.3: PASSED`);
+  });
+
+  // ── S3.4 — Web answer ────────────────────────────────────────────────────
+
+  it('S3.4 — web_answer_tool: "what is the capital of Australia" → final reply', async function () {
+    this.timeout(120_000);
+    console.log(`${LOG_PREFIX} S3.4: begin`);
+
+    clearRequestLog();
+    resetMockBehavior();
+
+    const CANARY = 'canary-web-answer-g7h8';
+
+    // Role tool: "web_answer_tool" returns a grounded answer with citations,
+    // served by the first usable provider in the answer role (Gemini by
+    // default). Whether it succeeds against the mock or fails, the forced
+    // second turn always returns the canary.
+    const FORCED = [
+      {
+        content: '',
+        toolCalls: [
+          {
+            id: 'call_web_answer_1',
+            name: 'web_answer_tool',
+            arguments: JSON.stringify({ query: 'capital of Australia' }),
+          },
+        ],
+      },
+      { content: `The capital of Australia is Canberra. ${CANARY}` },
+    ];
+    setMockBehavior('llmForcedResponses', JSON.stringify(FORCED));
+    setMockBehavior('llmStreamChunkDelayMs', '10');
+
+    await navigateChatAndSend('what is the capital of Australia');
+
+    await browser.waitUntil(async () => await textExists(CANARY), {
+      timeout: 60_000,
+      timeoutMsg: `S3.4: web-answer canary "${CANARY}" never appeared`,
+    });
+    expect(await waitForAssistantReplyContaining('Canberra', { logPrefix: LOG_PREFIX })).toBe(true);
+
+    const log = getRequestLog() as Array<{ method: string; url: string; body?: string }>;
+    const llmHits = log.filter(r => r.method === 'POST' && r.url.includes('/chat/completions'));
+    expect(llmHits.length).toBeGreaterThanOrEqual(2);
+    expect(findToolInLlmLog(log, 'web_answer_tool')).toBe(true);
+    const toolResults = log.flatMap(request => {
+      if (!request.body) return [];
+      try {
+        const body = JSON.parse(request.body) as {
+          messages?: Array<{ role?: string; content?: string }>;
+        };
+        return (body.messages ?? [])
+          .filter(message => message.role === 'tool')
+          .map(message => message.content ?? '');
+      } catch {
+        return [];
+      }
+    });
+    expect(
+      toolResults.some(result => result.includes('Canberra') && /https?:\/\//.test(result))
+    ).toBe(true);
+
+    console.log(`${LOG_PREFIX} S3.4: PASSED`);
   });
 });

@@ -17,12 +17,6 @@ use reqwest::StatusCode;
 use serde_json::{json, Value};
 use tempfile::{tempdir, TempDir};
 
-use openhuman_core::api::config::{
-    api_base_from_env, api_url, app_env_from_env, default_api_base_url_for_env, effective_api_url,
-    effective_backend_api_url, effective_inference_url, looks_like_local_ai_endpoint,
-    normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL, DEFAULT_STAGING_API_BASE_URL,
-    OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
-};
 use openhuman_core::config::schema::{
     generate_provider_id, generate_voice_provider_id, is_slug_reserved, is_voice_slug_reserved,
     migrate_legacy_fields, AuditConfig, AuthStyle, CapabilityProviderConfig,
@@ -59,6 +53,12 @@ use openhuman_core::security::credentials::{
     clear_composio_api_key, decrypt_secret, encrypt_secret, get_composio_api_key,
     list_provider_credentials_by_prefix, normalize_provider, rpc_store_composio_api_key,
     store_composio_api_key, AuthService, APP_SESSION_PROVIDER, COMPOSIO_DIRECT_PROVIDER,
+};
+use openhuman_tinyhumans::backend::url::{
+    api_base_from_env, app_env_from_env, default_api_base_url_for_env, effective_api_url,
+    effective_backend_api_url, effective_inference_url, join_url as api_url,
+    looks_like_local_ai_endpoint, normalize_api_base_url, APP_ENV_VAR, DEFAULT_API_BASE_URL,
+    DEFAULT_STAGING_API_BASE_URL, OPENHUMAN_INFERENCE_PATH, VITE_APP_ENV_VAR,
 };
 use tinybus::EventHandler;
 
@@ -951,29 +951,23 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         assert!(local_ai.use_local_for_subconscious());
     }
 
-    let mut search = openhuman_core::config::schema::SearchConfig {
-        engine: " Parallel ".into(),
-        ..Default::default()
+    let mut search = openhuman_core::config::schema::SearchConfig::default();
+    search.brave = openhuman_core::config::schema::SearchEngineCredentials {
+        api_key: Some(" brave-key ".into()),
     };
     assert_eq!(
-        search.effective_engine(),
-        openhuman_core::config::schema::SearchEngine::Managed
-    );
-    search.parallel = openhuman_core::config::schema::SearchEngineCredentials {
-        api_key: Some(" parallel-key ".into()),
-    };
-    assert_eq!(
-        search.parallel.key(),
-        Some("parallel-key"),
+        search.brave.key(),
+        Some("brave-key"),
         "search credential keys should be trimmed at read time"
     );
+    search
+        .apply_legacy_engine(" Brave ")
+        .expect("legacy engine applies");
     assert_eq!(
-        search.effective_engine(),
-        openhuman_core::config::schema::SearchEngine::Parallel
+        search.roles.get("search"),
+        Some(&vec!["brave".to_string(), "exa".to_string()])
     );
-    assert_eq!(search.requested_engine_str(), "Parallel");
-    search.engine = "   ".into();
-    assert_eq!(search.requested_engine_str(), "managed");
+    assert!(search.apply_legacy_engine("bing").is_err());
 
     let integration = openhuman_core::config::schema::IntegrationToggle {
         enabled: true,
@@ -1378,6 +1372,55 @@ async fn credentials_session_expired_subscriber_ignores_unrelated_events() {
             channel: "e2e".to_string(),
         })
         .await;
+}
+
+/// Sentry 36649: an offline local session ("Continue locally") has no
+/// TinyHumans account, so every hosted RPC — the ones that moved into
+/// `openhuman-tinyhumans` included — must answer the `BACKEND_UNAVAILABLE:`
+/// sentinel the JSON-RPC layer demotes, without a backend request.
+#[tokio::test]
+async fn hosted_rpcs_answer_backend_unavailable_for_a_local_session() {
+    let _lock = env_lock();
+    let harness = setup().await;
+
+    let local_session = rpc(
+        &harness.rpc_base,
+        18_201,
+        "openhuman.auth_store_session",
+        json!({
+            "token": "header.payload.local",
+            "user": { "id": "local-hosted-36649", "name": "Local Hosted Worker" }
+        }),
+    )
+    .await;
+    assert_eq!(
+        payload(&local_session, "auth_store_session local")
+            .get("credential")
+            .and_then(Value::as_str),
+        Some("local")
+    );
+
+    for (id, method, params) in [
+        (18_202, "openhuman.team_get_usage", json!({})),
+        (18_203, "openhuman.announcements_get_latest", json!({})),
+        (18_204, "openhuman.billing_get_current_plan", json!({})),
+        (18_205, "openhuman.webhooks_list_tunnels", json!({})),
+        (18_206, "openhuman.channels_telegram_login_start", json!({})),
+        (18_207, "openhuman.auth_oauth_list_integrations", json!({})),
+        (
+            18_208,
+            "openhuman.auth_create_channel_link_token",
+            json!({ "channel": "telegram" }),
+        ),
+    ] {
+        assert_error_contains(
+            &rpc(&harness.rpc_base, id, method, params).await,
+            method,
+            "BACKEND_UNAVAILABLE:",
+        );
+    }
+
+    harness.join.abort();
 }
 
 #[tokio::test]
@@ -1823,7 +1866,14 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
     assert!(config.searxng.enabled);
     assert_eq!(config.searxng.base_url, "https://searx.example");
     assert_eq!(config.searxng.max_results, 31);
-    assert_eq!(config.search.engine, "brave");
+    assert_eq!(
+        config
+            .search
+            .roles
+            .get("search")
+            .and_then(|order| order.first()),
+        Some(&"brave".to_string())
+    );
     assert!(config.search.parallel.has_key());
     assert!(config.search.brave.has_key());
     assert!(config.search.querit.has_key());
@@ -1924,7 +1974,6 @@ async fn config_save_and_load_encrypts_channel_secret_fields() {
     config.workspace_dir = workspace_dir.clone();
     config.secrets.encrypt = true;
     config.api_key = Some("api-secret".into());
-    config.search.parallel.api_key = Some("parallel-secret".into());
     config.search.brave.api_key = Some("brave-secret".into());
     config.search.querit.api_key = Some("querit-secret".into());
     config.search.exa.api_key = Some("exa-secret".into());
@@ -2011,7 +2060,6 @@ async fn config_save_and_load_encrypts_channel_secret_fields() {
     let raw = std::fs::read_to_string(&config_path).expect("read saved encrypted config");
     for secret in [
         "api-secret",
-        "parallel-secret",
         "exa-secret",
         "tavily-secret",
         "telegram-secret",
@@ -2037,10 +2085,6 @@ async fn config_save_and_load_encrypts_channel_secret_fields() {
         .expect("load encrypted config from default path");
     assert_eq!(loaded.config_path, config_path);
     assert_eq!(loaded.api_key.as_deref(), Some("api-secret"));
-    assert_eq!(
-        loaded.search.parallel.api_key.as_deref(),
-        Some("parallel-secret")
-    );
     assert_eq!(loaded.search.exa.api_key.as_deref(), Some("exa-secret"));
     assert_eq!(
         loaded.search.tavily.api_key.as_deref(),
@@ -2419,25 +2463,27 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
     openhuman_core::security::credentials::start_login_gated_services(&config).await;
     openhuman_core::security::credentials::stop_login_gated_services(&config).await;
 
+    // The account-bound link-token and OAuth ops live in `openhuman-tinyhumans`
+    // (`hosted::{channel_link, oauth}`); validation still runs first, and a
+    // missing credential fails before any request.
+    use openhuman_tinyhumans::hosted::{channel_link, oauth};
+    assert!(channel_link::auth_create_channel_link_token(&config, "   ")
+        .await
+        .expect_err("blank channel should fail")
+        .contains("channel is required"));
     assert!(
-        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "   ")
-            .await
-            .expect_err("blank channel should fail")
-            .contains("channel is required")
-    );
-    assert!(
-        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "matrix")
+        channel_link::auth_create_channel_link_token(&config, "matrix")
             .await
             .expect_err("unsupported channel should fail")
             .contains("unsupported channel")
     );
     assert!(
-        openhuman_core::security::credentials::auth_create_channel_link_token(&config, "telegram")
+        channel_link::auth_create_channel_link_token(&config, "telegram")
             .await
             .expect_err("missing session should fail")
-            .contains("session JWT required")
+            .contains("no backend session token")
     );
-    assert!(openhuman_core::security::credentials::oauth_connect(
+    assert!(oauth::oauth_connect(
         &config,
         "github",
         Some("skill"),
@@ -2446,23 +2492,19 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
     )
     .await
     .expect_err("oauth connect without session should fail")
-    .contains("session JWT required"));
-    assert!(
-        openhuman_core::security::credentials::oauth_list_integrations(&config)
-            .await
-            .expect_err("oauth list without session should fail")
-            .contains("session JWT required")
-    );
-    assert!(
-        openhuman_core::security::credentials::oauth_fetch_integration_tokens(
-            &config,
-            "0123456789abcdef01234567",
-            "0123456789abcdef0123456789abcdef",
-        )
+    .contains("no backend session token"));
+    assert!(oauth::oauth_list_integrations(&config)
         .await
-        .expect_err("oauth token fetch without session should fail")
-        .contains("session JWT required")
-    );
+        .expect_err("oauth list without session should fail")
+        .contains("no backend session token"));
+    assert!(oauth::oauth_fetch_integration_tokens(
+        &config,
+        "0123456789abcdef01234567",
+        "0123456789abcdef0123456789abcdef",
+    )
+    .await
+    .expect_err("oauth token fetch without session should fail")
+    .contains("no backend session token"));
     assert!(
         openhuman_core::security::credentials::oauth_fetch_client_key(
             &config,
@@ -2473,13 +2515,10 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
         .contains("session JWT required")
     );
     assert!(
-        openhuman_core::security::credentials::oauth_revoke_integration(
-            &config,
-            "0123456789abcdef01234567",
-        )
-        .await
-        .expect_err("oauth revoke without session should fail")
-        .contains("session JWT required")
+        oauth::oauth_revoke_integration(&config, "0123456789abcdef01234567")
+            .await
+            .expect_err("oauth revoke without session should fail")
+            .contains("no backend session token")
     );
 }
 
@@ -2844,9 +2883,10 @@ async fn config_controller_mutations_round_trip_over_json_rpc() {
                 "engine": "managed",
                 "max_results": 5,
                 "timeout_secs": 12,
-                "parallel_api_key": "parallel-secret",
-                "brave_api_key": "brave-secret",
-                "querit_api_key": "querit-secret",
+                "providers": {
+                    "brave": {"enabled": true, "api_key": "brave-secret"},
+                    "querit": {"enabled": true, "api_key": "querit-secret"}
+                },
                 "allowed_domains": ["example.com"],
                 "allow_all": false
             }),
@@ -3096,7 +3136,7 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         )
         .await,
         "update_search_settings invalid engine",
-        "engine must be one of",
+        "unknown search engine",
     );
     assert_error_contains(
         &rpc(
@@ -3128,18 +3168,18 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
             "engine": " brave ",
             "max_results": 12,
             "timeout_secs": 42,
-            "parallel_api_key": " parallel-rpc-key ",
-            "brave_api_key": " brave-rpc-key ",
-            "querit_api_key": " querit-rpc-key ",
-            "exa_api_key": " exa-rpc-key ",
-            "tavily_api_key": " tavily-rpc-key ",
+            "providers": {
+                "brave": {"api_key": " brave-rpc-key "},
+                "querit": {"enabled": true, "api_key": " querit-rpc-key "},
+                "exa": {"api_key": " exa-rpc-key "},
+                "tavily": {"enabled": true, "api_key": " tavily-rpc-key "}
+            },
             "allowed_domains": [" example.com ", "", "example.com", "docs.example.com"],
             "allow_all": false
         }),
     )
     .await;
     let valid_search_payload = payload(&valid_search, "update_search_settings valid");
-    assert_eq!(valid_search_payload.get("engine"), Some(&json!("brave")));
     assert_eq!(valid_search_payload.get("max_results"), Some(&json!(12)));
     assert_eq!(valid_search_payload.get("timeout_secs"), Some(&json!(42)));
     let search_readback = rpc(
@@ -3150,46 +3190,25 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
     )
     .await;
     let search_payload = payload(&search_readback, "get_search_settings after valid update");
+    let provider = |view: &Value, id: &str| -> Value {
+        view.get("providers")
+            .and_then(Value::as_array)
+            .and_then(|providers| providers.iter().find(|p| p["id"] == id).cloned())
+            .unwrap_or_else(|| panic!("provider {id} listed: {view}"))
+    };
+    for id in ["brave", "querit", "exa", "tavily"] {
+        assert_eq!(
+            provider(search_payload, id)["key_configured"],
+            json!(true),
+            "{id} key should be stored"
+        );
+    }
     assert_eq!(
-        search_payload.get("engine").and_then(Value::as_str),
-        Some("brave")
+        search_payload.pointer("/effective_roles/search/0"),
+        Some(&json!("brave")),
+        "the legacy engine selection leads the search role: {search_payload}"
     );
-    assert_eq!(
-        search_payload
-            .get("effective_engine")
-            .and_then(Value::as_str),
-        Some("brave")
-    );
-    assert_eq!(
-        search_payload
-            .get("parallel_configured")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        search_payload
-            .get("brave_configured")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        search_payload
-            .get("querit_configured")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        search_payload
-            .get("exa_configured")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
-    assert_eq!(
-        search_payload
-            .get("tavily_configured")
-            .and_then(Value::as_bool),
-        Some(true)
-    );
+    assert!(!search_payload.to_string().contains("rpc-key"));
     assert_eq!(
         search_payload.get("allow_all").and_then(Value::as_bool),
         Some(false)
@@ -3202,45 +3221,30 @@ async fn config_runtime_flags_settings_readbacks_and_validation_paths_are_exerci
         &harness.rpc_base,
         11_126,
         "openhuman.config_update_search_settings",
-        json!({ "engine": "tavily" }),
+        json!({ "roles": {"search": ["tavily", "brave"]} }),
     )
     .await;
-    let select_tavily_payload = payload(&select_tavily, "select Tavily search engine");
-    assert_eq!(select_tavily_payload.get("engine"), Some(&json!("tavily")));
-    let tavily_readback = rpc(
-        &harness.rpc_base,
-        11_127,
-        "openhuman.config_get_search_settings",
-        json!({}),
-    )
-    .await;
-    let tavily_payload = payload(&tavily_readback, "get_search_settings for Tavily");
+    let select_tavily_payload = payload(&select_tavily, "put Tavily first for search");
     assert_eq!(
-        tavily_payload.get("engine").and_then(Value::as_str),
-        Some("tavily")
+        select_tavily_payload.pointer("/effective_roles/search/0"),
+        Some(&json!("tavily"))
     );
     assert_eq!(
-        tavily_payload
-            .get("effective_engine")
-            .and_then(Value::as_str),
-        Some("tavily")
-    );
-    assert_eq!(
-        tavily_payload
-            .get("tavily_configured")
-            .and_then(Value::as_bool),
-        Some(true)
+        select_tavily_payload.pointer("/effective_roles/contents/0"),
+        Some(&json!("tavily")),
+        "Tavily also serves contents without a session: {select_tavily_payload}"
     );
     let allow_all_search = rpc(
         &harness.rpc_base,
         11_027,
         "openhuman.config_update_search_settings",
         json!({
-            "parallel_api_key": " ",
-            "brave_api_key": " ",
-            "querit_api_key": " ",
-            "exa_api_key": " ",
-            "tavily_api_key": " ",
+            "providers": {
+                "brave": {"api_key": " "},
+                "querit": {"api_key": " "},
+                "exa": {"api_key": " "},
+                "tavily": {"api_key": " "}
+            },
             "allow_all": true
         }),
     )
@@ -3471,24 +3475,27 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
         "unsupported channel",
     );
 
+    // `auth_oauth_*` (all but `fetch_client_key`) are served by
+    // `openhuman-tinyhumans` now: validation first, then the core's
+    // credential resolution, whose missing-session wording they report.
     for (id, method, params, needle) in [
         (
             20_006,
             "openhuman.auth_oauth_connect",
             json!({ "provider": "github" }),
-            "session JWT required",
+            "no backend session token",
         ),
         (
             20_007,
             "openhuman.auth_oauth_list_integrations",
             json!({}),
-            "session JWT required",
+            "no backend session token",
         ),
         (
             20_008,
             "openhuman.auth_oauth_fetch_integration_tokens",
             json!({ "integrationId": "abc", "key": "secret" }),
-            "session JWT required",
+            "integrationId must be a 24-char hex id",
         ),
         (
             20_009,
@@ -3500,7 +3507,7 @@ async fn auth_credentials_controller_paths_round_trip_and_validate_errors() {
             20_010,
             "openhuman.auth_oauth_revoke_integration",
             json!({ "integrationId": "abc" }),
-            "session JWT required",
+            "no backend session token",
         ),
     ] {
         let response = rpc(&harness.rpc_base, id, method, params).await;

@@ -737,35 +737,82 @@ export async function openhumanGetAnalyticsSettings(): Promise<
   });
 }
 
-export type SearchEngineId =
+/** Capability role a search provider can serve; each role is one agent tool. */
+export type SearchRole = 'search' | 'answer' | 'contents';
+
+/** How a provider is reached: billed through TinyHumans, or with the user's own key. */
+export type SearchRoute = 'managed' | 'direct';
+
+/** Why a provider is or is not serving right now. */
+export type SearchProviderStatus =
+  | 'ready'
   | 'disabled'
-  | 'managed'
-  | 'parallel'
-  | 'brave'
-  | 'querit'
-  | 'exa'
-  | 'tavily';
+  | 'needs_key'
+  | 'sign_in_required'
+  | 'search_off';
+
+/** How the core exposes search to the agent. */
+export type SearchPresentation = 'roles' | 'all_tools' | 'router' | 'one_provider';
+
+/** One search provider as reported by `config_get_search_settings`. */
+export interface SearchProviderInfo {
+  id: string;
+  label: string;
+  enabled: boolean;
+  route: SearchRoute;
+  /** Routes this provider supports. */
+  routes: SearchRoute[];
+  managed_available: boolean;
+  key_configured: boolean;
+  takes_key: boolean;
+  usable: boolean;
+  status: SearchProviderStatus;
+  /** Roles this provider is able to serve. */
+  roles: SearchRole[];
+  docs_url?: string | null;
+  /** Gemini only: a direct key unlocks Deep Research for `depth: "deep"`. */
+  deep_research_available?: boolean;
+  /** SearXNG only: the instance base URL. */
+  base_url?: string | null;
+}
+
+export interface SearchSettings {
+  enabled: boolean;
+  presentation: SearchPresentation;
+  presentation_provider?: string | null;
+  max_results: number;
+  timeout_secs: number;
+  /** False for a local (signed-out) session: managed routes cannot be used. */
+  managed_available: boolean;
+  providers: SearchProviderInfo[];
+  /** Configured (or default) provider order per role. */
+  roles: Record<SearchRole, string[]>;
+  /** Usable providers per role in serving order; `[]` means the role has no tool. */
+  effective_roles: Record<SearchRole, string[]>;
+  /** Current allowed-websites host list (may contain `"*"`). */
+  allowed_domains: string[];
+  /** True when the allowlist contains the `"*"` wildcard. */
+  allow_all: boolean;
+}
+
+/** Per-provider patch. `api_key: ""` clears the stored key. */
+export interface SearchProviderUpdate {
+  enabled?: boolean;
+  route?: SearchRoute;
+  api_key?: string;
+  /** SearXNG only. */
+  base_url?: string;
+}
 
 export interface SearchSettingsUpdate {
-  engine?: SearchEngineId;
+  enabled?: boolean;
+  providers?: Record<string, SearchProviderUpdate>;
+  /** Provider order per role; `[]` restores the default order. */
+  roles?: Partial<Record<SearchRole, string[]>>;
+  presentation?: SearchPresentation;
+  presentation_provider?: string;
   max_results?: number;
   timeout_secs?: number;
-  /** Empty string clears the stored key. */
-  parallel_api_key?: string;
-  /** Empty string clears the stored key. */
-  brave_api_key?: string;
-  /** Empty string clears the stored key. */
-  querit_api_key?: string;
-  /**
-   * Exa API key (BYOK). Empty string clears the stored key. When set and
-   * `engine: 'exa'` is selected, search calls go straight to api.exa.ai.
-   */
-  exa_api_key?: string;
-  /**
-   * Tavily API key (BYOK). Empty string clears the stored key. When set and
-   * `engine: 'tavily'` is selected, search calls go straight to api.tavily.com.
-   */
-  tavily_api_key?: string;
   /**
    * Websites the assistant may open/read (web_fetch / curl). Exact hosts
    * match their subdomains; `"*"` allows all public sites; an empty list
@@ -779,22 +826,6 @@ export interface SearchSettingsUpdate {
    * `"*"` wildcard is dropped). Don't send both with conflicting intent.
    */
   allow_all?: boolean;
-}
-
-export interface SearchSettings {
-  engine: SearchEngineId | string;
-  effective_engine: SearchEngineId;
-  max_results: number;
-  timeout_secs: number;
-  parallel_configured: boolean;
-  brave_configured: boolean;
-  querit_configured: boolean;
-  exa_configured: boolean;
-  tavily_configured: boolean;
-  /** Current allowed-websites host list (may contain `"*"`). */
-  allowed_domains: string[];
-  /** True when the allowlist contains the `"*"` wildcard. */
-  allow_all: boolean;
 }
 
 export interface DiagramViewerSettings {
@@ -827,11 +858,11 @@ export async function openhumanGetSearchSettings(): Promise<CommandResponse<Sear
 
 export async function openhumanUpdateSearchSettings(
   update: SearchSettingsUpdate
-): Promise<CommandResponse<ConfigSnapshot>> {
+): Promise<CommandResponse<SearchSettings>> {
   if (!isTauri()) {
     throw new Error('Not running in Tauri');
   }
-  return await callCoreRpc<CommandResponse<ConfigSnapshot>>({
+  return await callCoreRpc<CommandResponse<SearchSettings>>({
     method: CORE_RPC_METHODS.configUpdateSearchSettings,
     params: update,
   });

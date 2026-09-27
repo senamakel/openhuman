@@ -2,7 +2,7 @@
 //! code relies on, pinned against a mock backend.
 
 use super::*;
-use openhuman_core::api::transport::{clear_backend_transport, resolve_backend_transport};
+use openhuman_core::backend::transport::{clear_backend_transport, resolve_backend_transport};
 use serde_json::json;
 use wiremock::matchers::{header, header_exists, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -234,7 +234,7 @@ async fn backend_client_round_trips_through_the_installed_transport() {
 
     let _guard = global_lock().lock().await;
     let _t = crate::install(crate::InstallOptions::default()).unwrap();
-    let client = openhuman_core::api::BackendOAuthClient::new(&server.uri()).unwrap();
+    let client = openhuman_core::backend::BackendClient::new(&server.uri()).unwrap();
     let value = client
         .authed_json("jwt", reqwest::Method::GET, "/announcements/latest", None)
         .await
@@ -259,6 +259,17 @@ async fn install_registers_hosted_controllers_that_dispatch_through_the_transpor
         ("team", "get_usage"),
         ("referral", "get_stats"),
         ("announcements", "get_latest"),
+        // Account-bound methods that share a namespace with core controllers.
+        ("webhooks", "list_tunnels"),
+        ("webhooks", "get_bandwidth"),
+        ("auth", "create_channel_link_token"),
+        ("auth", "oauth_connect"),
+        ("channels", "telegram_login_start"),
+        ("channels", "discord_link_check"),
+        // ...alongside the core's own controllers in those namespaces.
+        ("webhooks", "list_registrations"),
+        ("auth", "get_state"),
+        ("channels", "list"),
     ] {
         assert!(
             rpc_method_from_parts(ns, f).is_some(),
@@ -268,7 +279,50 @@ async fn install_registers_hosted_controllers_that_dispatch_through_the_transpor
     assert!(schema_for_rpc_method("openhuman.billing_get_balance").is_some());
     assert!(namespace_description("billing").is_some());
     assert!(namespace_description("team").is_some());
+    assert!(namespace_description("webhooks").is_some());
 
     // A second install is a no-op for the registry, not a collision.
     crate::install(crate::InstallOptions::default()).unwrap();
+}
+
+/// The core asks the installed transport where the backend is: control-plane
+/// calls skip an `api_url` that is really an inference endpoint, managed
+/// inference honours it.
+#[test]
+fn base_url_applies_the_inference_endpoint_guard_per_purpose() {
+    let transport = SdkBackendTransport::new().unwrap();
+    let ollama = Some("http://127.0.0.1:11434/v1");
+    let control = transport.base_url(ollama, BaseUrlPurpose::ControlPlane);
+    assert_ne!(control, "http://127.0.0.1:11434/v1");
+    assert!(!control.contains("11434"), "{control}");
+    assert_eq!(
+        transport.base_url(ollama, BaseUrlPurpose::Inference),
+        "http://127.0.0.1:11434/v1"
+    );
+    assert_eq!(
+        transport.base_url(
+            Some("https://api.tinyhumans.ai/openai/v1/chat/completions"),
+            BaseUrlPurpose::ControlPlane
+        ),
+        "https://api.tinyhumans.ai"
+    );
+}
+
+#[test]
+fn product_identity_and_attribution_come_from_this_crate() {
+    let _guard = crate::backend::product::product_identity_test_lock();
+    crate::backend::product::reset_product_identity_for_test();
+    let transport = SdkBackendTransport::new().unwrap();
+    assert_eq!(
+        transport.product_identity(),
+        crate::backend::DEFAULT_PRODUCT_IDENTITY
+    );
+    let headers = transport.attribution_headers();
+    assert_eq!(
+        headers
+            .get(crate::backend::PRODUCT_IDENTITY_HEADER)
+            .and_then(|v| v.to_str().ok()),
+        Some(crate::backend::DEFAULT_PRODUCT_IDENTITY)
+    );
+    assert!(headers.get("x-core-version").is_some());
 }

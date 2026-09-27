@@ -76,10 +76,12 @@ fn full_product_features_enabled() -> bool {
 ///   this test's config does not have — so this build contributes none of
 ///   them, static or dynamic, and the fixture should never carry a
 ///   `COMPOSIO_*`/upper-snake action slug.
-/// * **BYOK search engines** (Exa, Tavily, Querit, Brave, ...) and other
-///   API-key-gated tools that require a live key in config are absent here;
-///   only the managed `web_search_tool` (or whichever tool the enabled
-///   feature set + config resolves to) is registered.
+/// * **Search** registers one tool per capability role (`web_search_tool`,
+///   `web_answer_tool`, `web_contents_tool`). A role tool exists only when a
+///   provider can serve it, so this catalog configures BYOK keys for Brave,
+///   Gemini and Tavily to register all three without a signed-in session.
+///   Provider-specific tools (`exa_search`, `brave_news_search`, ...) appear
+///   only in the advanced `all_tools` presentation and are not listed.
 /// * **Cargo feature gates**: the fixture represents the shipped product
 ///   feature set (`scripts/ci/product-features.txt`). A default contributor
 ///   build may register fewer tools, but every name it registers must be in
@@ -97,6 +99,13 @@ fn full_tool_catalog_names() -> Vec<String> {
     let security = Arc::new(SecurityPolicy::default());
     let mut cfg = test_config(&tmp);
     cfg.browser.enabled = true;
+    for (provider, key) in [("brave", "b"), ("gemini", "g"), ("tavily", "t")] {
+        cfg.search.providers.insert(
+            provider.into(),
+            crate::config::SearchProviderSettings::direct(),
+        );
+        cfg.search.credentials_mut(provider).unwrap().api_key = Some(key.into());
+    }
     let browser = cfg.browser.clone();
     let http = cfg.http_request.clone();
 

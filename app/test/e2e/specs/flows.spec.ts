@@ -27,7 +27,7 @@
  * driver exposes the DOM on all three OSes.
  */
 import { waitForApp } from '../helpers/app-helpers';
-import { clickTestId, waitForTestId } from '../helpers/element-helpers';
+import { clickTestId, clickTestIdWithPointer, waitForTestId } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -128,6 +128,8 @@ describe('Workflows create → run → inspect (real UI flow)', () => {
     this.timeout(60_000);
 
     await clickTestId('flow-canvas-run', 10_000);
+    await waitForTestId('flow-action-confirm-accept', 10_000);
+    await clickTestId('flow-action-confirm-accept', 10_000);
 
     // The run drives the local tinyflows engine. A trigger-only graph settles
     // almost immediately; assert no run-error banner appeared. (The Run button
@@ -148,7 +150,7 @@ describe('Workflows create → run → inspect (real UI flow)', () => {
     // The created flow's row is present; its secondary actions are inside the
     // overflow menu on the current list layout.
     await waitForTestId(`flow-row-${flowId}`, 15_000);
-    await clickTestId(`flow-menu-${flowId}`, 10_000);
+    await clickTestIdWithPointer(`flow-menu-${flowId}`, 10_000);
     await clickTestId(`flow-view-runs-${flowId}`, 10_000);
     await waitForTestId('flow-runs-drawer', 10_000);
 
@@ -163,7 +165,7 @@ describe('Workflows create → run → inspect (real UI flow)', () => {
         if (rows.length > 0) return true;
         // Re-open the drawer to re-fetch the (now-settled) run list.
         await clickTestId('flow-runs-close', 5_000).catch(() => undefined);
-        await clickTestId(`flow-menu-${flowId}`, 5_000).catch(() => undefined);
+        await clickTestIdWithPointer(`flow-menu-${flowId}`, 5_000).catch(() => undefined);
         await clickTestId(`flow-view-runs-${flowId}`, 5_000).catch(() => undefined);
         await waitForTestId('flow-runs-drawer', 5_000).catch(() => undefined);
         return false;

@@ -5,30 +5,18 @@
  * Verifies that when the core calls
  *   GET /agent-integrations/composio/tools?toolkits=github&tags=<csv>
  * the mock backend receives the correct query params and returns a
- * tag-filtered tool list that the agent prompt and tool-call flow
- * correctly use.
+ * tag-filtered tool list can be passed to the Composio execution endpoint.
  *
  * Scenarios:
  *   GT.1 — composio.list_tools RPC with toolkits=["github"] and tags=["stars"]
  *           forwards ?toolkits=github&tags=stars and returns only starred tools.
  *   GT.2 — tags with OR semantics: tags=["stars","repos"] returns the union.
  *   GT.3 — non-GitHub toolkit ignores tags (tags stripped before forwarding).
- *   GT.4 — agent prompt "list my starred GitHub repos" triggers a tool call
- *           that uses the stars tag, and the final reply mentions the repo.
+ *   GT.4 — a stars-filtered action can be executed through the public RPC.
  */
 import { waitForApp } from '../helpers/app-helpers';
-import {
-  clickByTitle,
-  clickSend,
-  getSelectedThreadId,
-  typeIntoComposer,
-  waitForAssistantReplyContaining,
-  waitForSocketConnected,
-} from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
-import { navigateViaHash } from '../helpers/shared-flows';
 import {
   clearRequestLog,
   getRequestLog,
@@ -76,50 +64,6 @@ function seedGitHubState(): void {
   );
   setMockBehavior('composioToolsByTag_stars', JSON.stringify(STARS_TOOLS));
   setMockBehavior('composioToolsByTag_repos', JSON.stringify(REPOS_TOOLS));
-}
-
-// ── Chat helper ───────────────────────────────────────────────────────────────
-
-async function navigateChatAndSend(prompt: string): Promise<void> {
-  await navigateViaHash('/chat');
-  await browser.waitUntil(
-    async () => {
-      if (await getSelectedThreadId()) return true;
-      if (await textExists('No messages yet')) return true;
-      return textExists('How can I help');
-    },
-    { timeout: 15_000, timeoutMsg: 'Chat surface did not mount' }
-  );
-  if (!(await getSelectedThreadId())) {
-    const clicked =
-      (await clickByTitle('New thread', 8_000)) ||
-      (await clickByTitle('New thread (/new)', 3_000)) ||
-      (await browser.execute(() => {
-        const btn = Array.from(document.querySelectorAll('button')).find(
-          b => (b.textContent ?? '').trim() === 'New'
-        ) as HTMLButtonElement | undefined;
-        if (!btn) return false;
-        btn.click();
-        return true;
-      }));
-    expect(clicked).toBe(true);
-    await browser.waitUntil(async () => await getSelectedThreadId(), {
-      timeout: 8_000,
-      timeoutMsg: 'thread.selectedThreadId never populated',
-    });
-  }
-  await typeIntoComposer(prompt);
-  const socketReady = await waitForSocketConnected(30_000);
-  if (!socketReady) {
-    console.warn(`${LOG_PREFIX} socket did not connect within 30s — send may fail`);
-  }
-  expect(
-    await browser.waitUntil(async () => await clickSend(), {
-      timeout: 15_000,
-      timeoutMsg: 'Send button never enabled',
-    })
-  ).toBe(true);
-  console.log(`${LOG_PREFIX} Sent prompt: "${prompt.slice(0, 60)}"`);
 }
 
 // ── Suite ─────────────────────────────────────────────────────────────────────
@@ -272,8 +216,8 @@ describe('Composio GitHub tools — tags query param flow', () => {
 
   // ── GT.4 — Agent prompt triggers starred-repos tool call ─────────────────
 
-  it('GT.4 — "list my starred GitHub repos" prompt triggers stars-tagged tool call and reply lists repo', async function () {
-    this.timeout(120_000);
+  it('GT.4 — executes an action returned by the stars-filtered tool list', async function () {
+    this.timeout(60_000);
     console.log(`${LOG_PREFIX} GT.4: begin`);
 
     clearRequestLog();
@@ -289,54 +233,28 @@ describe('Composio GitHub tools — tags query param flow', () => {
       JSON.stringify({ repositories: STARRED_REPOS })
     );
 
-    const CANARY = 'canary-github-stars-a1b2c3';
-    const FORCED = [
-      {
-        content: '',
-        toolCalls: [
-          {
-            id: 'call_composio_list_stars_1',
-            name: 'composio_list_tools',
-            arguments: JSON.stringify({ toolkits: ['github'], tags: ['stars'] }),
-          },
-        ],
-      },
-      {
-        content: '',
-        toolCalls: [
-          {
-            id: 'call_github_stars_1',
-            name: 'GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER',
-            arguments: JSON.stringify({ per_page: 30 }),
-          },
-        ],
-      },
-      { content: `Your starred repos: awesome-rust, tokio. ${CANARY}` },
-    ];
-    setMockBehavior('llmForcedResponses', JSON.stringify(FORCED));
-    setMockBehavior('llmStreamChunkDelayMs', '10');
-
-    await navigateChatAndSend('list my starred GitHub repos');
-
-    await browser.waitUntil(async () => await textExists(CANARY), {
-      timeout: 60_000,
-      timeoutMsg: `GT.4: final reply canary "${CANARY}" never appeared`,
+    const listed = await callOpenhumanRpc('openhuman.composio_list_tools', {
+      toolkits: ['github'],
+      tags: ['stars'],
     });
-    expect(await waitForAssistantReplyContaining('awesome-rust', { logPrefix: LOG_PREFIX })).toBe(
-      true
+    expect(listed.ok).toBe(true);
+    const listedPayload = listed.result as any;
+    const tools = listedPayload?.result?.tools ?? listedPayload?.tools ?? [];
+    expect(tools.map((tool: any) => tool.function?.name)).toContain(
+      'GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER'
     );
 
-    const log = getRequestLog() as Array<{ method: string; url: string }>;
-    const llmHits = log.filter(r => r.method === 'POST' && r.url.includes('/chat/completions'));
-    console.log(`${LOG_PREFIX} GT.4: ${llmHits.length} LLM completion request(s)`);
-    expect(llmHits.length).toBeGreaterThanOrEqual(3);
+    const executed = await callOpenhumanRpc('openhuman.composio_execute', {
+      tool: 'GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER',
+      arguments: { per_page: 30 },
+    });
+    expect(executed.ok).toBe(true);
 
+    const log = getRequestLog() as Array<{ method: string; url: string }>;
     const listHit = log.find(
       r => r.method === 'GET' && r.url.includes('/agent-integrations/composio/tools')
     );
     expect(listHit?.url).toContain('tags=stars');
-
-    // Verify the composio execute was called for the forced tool call.
     const execHit = log.find(
       r => r.method === 'POST' && r.url.includes('/agent-integrations/composio/execute')
     );

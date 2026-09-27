@@ -845,6 +845,16 @@ async fn composio_backend_factory_uses_stored_session_and_configured_backend() {
 #[tokio::test]
 async fn composio_controller_registry_and_scope_handlers_cover_validation_edges() {
     crate::tinyhumans_boot::boot();
+    // The controller loads config through the process workspace resolver. Pin
+    // this test to a null memory driver so its fail-closed assertion does not
+    // depend on a developer's local config or attempt to load TinyMemory.
+    let workspace = tempdir().expect("isolated workspace");
+    std::fs::write(
+        workspace.path().join("config.toml"),
+        "[subsystems.memory]\ndriver = \"null\"\n",
+    )
+    .expect("write isolated memory config");
+    let _workspace = WorkspaceEnvGuard::set(workspace.path());
     let schemas = all_composio_controller_schemas();
     let registered = all_composio_registered_controllers();
     assert_eq!(schemas.len(), registered.len());
@@ -904,6 +914,25 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
         "set_user_scopes must fail CLOSED when the bound driver cannot store scopes; \
          got: {memory_missing}"
     );
+}
+
+struct WorkspaceEnvGuard(Option<std::ffi::OsString>);
+
+impl WorkspaceEnvGuard {
+    fn set(path: &std::path::Path) -> Self {
+        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+        unsafe { std::env::set_var("OPENHUMAN_WORKSPACE", path) };
+        Self(previous)
+    }
+}
+
+impl Drop for WorkspaceEnvGuard {
+    fn drop(&mut self) {
+        match self.0.take() {
+            Some(previous) => unsafe { std::env::set_var("OPENHUMAN_WORKSPACE", previous) },
+            None => unsafe { std::env::remove_var("OPENHUMAN_WORKSPACE") },
+        }
+    }
 }
 
 #[test]

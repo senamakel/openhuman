@@ -60,7 +60,8 @@ describe('Settings - Channels & Permissions', () => {
     await navigateViaHash('/home');
     await navigateViaHash('/connections?tab=messaging');
 
-    await waitForText('Default Messaging Channel', 15_000);
+    const webChannel = await browser.$('[data-testid="channel-select-web"]');
+    await webChannel.waitForExist({ timeout: 15_000 });
     expect(await textExists('Telegram')).toBe(true);
     expect(await textExists('Web')).toBe(true);
 
@@ -90,7 +91,7 @@ describe('Settings - Channels & Permissions', () => {
     // is "Share Product Analytics and Diagnostics".
     await waitForText('Product Analytics', 15_000);
     expect(await textExists('Share Product Analytics and Diagnostics')).toBe(true);
-    // Capability list section is "What leaves your computer" (not "Permission Metadata")
-    await waitForText('What leaves your computer', 5_000);
+    // The privacy redesign removed the former capability list. The analytics
+    // toggle is the persisted behavior this panel currently owns.
   });
 });

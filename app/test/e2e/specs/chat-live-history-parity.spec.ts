@@ -213,13 +213,13 @@ describe('Chat live/history parity', () => {
 
   it('P3 — the settled reply equals the same turn reopened from history', async () => {
     settled = await replyBlocks();
-    expect(settled.map(block => block.kind)).toEqual([
-      'text',
-      'tool-group-root',
-      'text',
-      'tool-group-root',
-      'text',
-    ]);
+    // The activity projection can consolidate adjacent tool rounds into one
+    // group. Pin the meaningful structure, then compare the complete live and
+    // reloaded projections below.
+    expect(settled.some(block => block.kind === 'tool-group-root')).toBe(true);
+    expect(settled.some(block => block.kind === 'text' && block.text.includes(CANARY_FINAL))).toBe(
+      true
+    );
 
     // Reopen the thread as a fresh load: drop this session's runtime state for
     // it (including the frozen trail) and select it from another thread, so it

@@ -40,20 +40,11 @@ describe('Settings - Advanced Config', function () {
     await waitForText('Restart Tour', 15_000);
   });
 
-  it('toggles the surviving notification preference control', async function () {
+  it('redirects the retired notifications route to account settings', async function () {
     this.timeout(60_000);
     await navigateViaHash('/settings/notifications');
-    const toggle = await browser.$('[aria-label="Toggle Messages notifications"]');
-    await toggle.waitForExist({ timeout: 15_000 });
-    const initiallyEnabled = await toggle.getAttribute('aria-checked');
-    await toggle.click();
-
-    await browser.waitUntil(
-      async () => {
-        return (await toggle.getAttribute('aria-checked')) !== initiallyEnabled;
-      },
-      { timeout: 15_000, interval: 250, timeoutMsg: 'notification preference did not toggle' }
-    );
+    const accountPanel = await browser.$('[data-testid="account-panel"]');
+    await accountPanel.waitForExist({ timeout: 15_000 });
   });
 
   it('persists composio trigger triage settings', async function () {
@@ -219,7 +210,8 @@ describe('Settings - Advanced Config', function () {
     await providersTab.waitForExist({ timeout: 15_000 });
 
     await navigateViaHash('/settings/about');
-    await waitForText('Software updates', 15_000);
+    const checkUpdates = await browser.$('[data-testid="about-check-updates"]');
+    await checkUpdates.waitForExist({ timeout: 15_000 });
 
     await navigateViaHash('/settings/llm');
     await waitForText('AI', 20_000);

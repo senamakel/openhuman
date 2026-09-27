@@ -81,7 +81,7 @@ async function waitForCronToggleLabel(
       // Reacquire on every poll because the toggle RPC replaces the job row
       // in React state and WebDriver element references can become stale.
       const toggle = await waitForTestId(testId, Math.min(timeoutMs, 2_000));
-      return (await toggle.getText()).trim() === expectedLabel;
+      return (await toggle.getAttribute('aria-label'))?.trim() === expectedLabel;
     },
     {
       timeout: timeoutMs,

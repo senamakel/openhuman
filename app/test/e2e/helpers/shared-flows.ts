@@ -851,38 +851,14 @@ export async function logoutViaSettings(logPrefix = '[E2E]') {
   // renders the buttons.
   await navigateViaHash('/settings/account');
 
-  const loggedOut = await browser.execute(() => {
-    const candidates = ['Log out', 'Logout', 'Sign out'];
-    const allElements = document.querySelectorAll('*');
-    for (const label of candidates) {
-      for (const el of allElements) {
-        const text = el.textContent?.trim() || '';
-        if (text !== label) continue;
-        const clickable = el.closest(
-          'button, [role="button"], a, [class*="MenuItem"]'
-        ) as HTMLElement | null;
-        if (clickable) {
-          clickable.click();
-          return label;
-        }
-        (el as HTMLElement).click();
-        return label;
-      }
-    }
-    return null;
-  });
-
-  if (!loggedOut) {
-    const clicked = await clickFirstMatch(['Log out', 'Logout', 'Sign out'], 10_000);
-    if (!clicked) {
-      const tree = await dumpAccessibilityTree();
-      console.log(`${logPrefix} Logout button not found. Tree:\n`, tree.slice(0, 4000));
-      throw new Error('Could not find logout button in Settings');
-    }
-    console.log(`${logPrefix} Logout clicked via text helper: "${clicked}"`);
-  } else {
-    console.log(`${logPrefix} Logout clicked: "${loggedOut}"`);
+  const logoutButton = await browser.$('[data-testid="settings-nav-logout"]');
+  if (!(await logoutButton.isExisting())) {
+    const tree = await dumpAccessibilityTree();
+    console.log(`${logPrefix} Logout button not found. Tree:\n`, tree.slice(0, 4000));
+    throw new Error('Could not find logout button in Settings');
   }
+  await logoutButton.click();
+  console.log(`${logPrefix} Logout clicked through the account action button`);
 
   await browser.pause(2_000);
 

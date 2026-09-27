@@ -35,10 +35,11 @@ describe('Settings - Account Preferences', function () {
     this.timeout(90_000);
     await navigateViaHash('/settings/account');
 
+    const accountPanel = await browser.$('[data-testid="account-panel"]');
+    await accountPanel.waitForExist({ timeout: 15_000 });
     await waitForText('Account', 15_000);
-    await waitForText('Recovery phrase', 15_000);
-    await waitForText('Connections', 15_000);
-    await waitForText('Privacy', 15_000);
+    await waitForText('Preferences', 15_000);
+    await waitForText('Language', 15_000);
   });
 
   it.skip('saves a generated recovery phrase and exposes configured wallet state', async function () {

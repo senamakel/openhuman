@@ -27,11 +27,9 @@ function stepLog(message: string, context?: unknown): void {
 }
 
 async function gotoMemoryWorkspace(): Promise<void> {
-  // The memory-sync schedule control lives on the layman Data Sync page
-  // (Settings → Account → Data Sync), which renders MemorySourcesRegistry and
-  // its schedule control without needing developer mode.
+  // Memory sync is surfaced in the dedicated memory settings panel.
   await browser.execute(() => {
-    window.location.hash = '/settings/memory-sync';
+    window.location.hash = '/settings/memory-data';
   });
   await browser.pause(2_000);
 }

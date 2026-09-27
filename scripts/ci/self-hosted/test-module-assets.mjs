@@ -6,8 +6,7 @@
 // Prints one line per module: `<id>\t<url>\t<archive>\t<sha256>`.
 //
 // Reading the registry instead of copying version + digest into a workflow
-// keeps a single source of truth: ci-lite.yml carries its own copies, and its
-// tinyjuice copy had already drifted (0.2.2 there, 0.2.5 in the registry).
+// provides the authoritative release asset metadata for test fixtures.
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";

@@ -220,17 +220,33 @@ describe('Chat live/history parity', () => {
   });
 
   it('P3 — the settled reply equals the same turn reopened from history', async () => {
+    let previous: Block[] | undefined;
+    let stableSamples = 0;
     await browser.waitUntil(
-      async () =>
-        (await getSelectedThreadId()) === threadId &&
-        hasFinalReply(await replyBlocks()) &&
-        (await turnDrained()),
-      { timeout: 15_000, timeoutMsg: 'selected thread never rendered its settled final reply' }
+      async () => {
+        const blocks = await replyBlocks();
+        const stable =
+          (await getSelectedThreadId()) === threadId &&
+          hasFinalReply(blocks) &&
+          (await turnDrained());
+        if (!stable) {
+          previous = undefined;
+          stableSamples = 0;
+          return false;
+        }
+        if (JSON.stringify(blocks) === JSON.stringify(previous)) stableSamples += 1;
+        else stableSamples = 1;
+        previous = blocks;
+        return stableSamples >= 3;
+      },
+      {
+        timeout: 15_000,
+        timeoutMsg: 'selected thread never rendered a stable, settled final reply',
+      }
     );
-    // Use the final streamed sample as the live baseline. The DOM can briefly
-    // expose an earlier assistant message while the thread view is settling,
-    // even after the turn's in-flight marker clears.
-    settled = [...samples].reverse().find(hasFinalReply) ?? [];
+    // Compare the stable current projection. A streaming sample can become
+    // stale when the final assistant message replaces an earlier narration.
+    settled = (await replyBlocks()).map(block => ({ ...block }));
     // The activity projection can consolidate adjacent tool rounds into one
     // group. Pin the meaningful structure, then compare the complete live and
     // reloaded projections below.
@@ -246,6 +262,13 @@ describe('Chat live/history parity', () => {
     // Reopen through the visible thread list after dropping runtime state, so
     // the conversation is reloaded from persisted messages and the transcript.
     expect(await clickByTitle('New thread', 8_000)).toBe(true);
+    await browser.waitUntil(
+      async () => (await getSelectedThreadId()) !== threadId && (await replyBlocks()).length === 0,
+      {
+        timeout: 10_000,
+        timeoutMsg: 'new thread did not clear the prior conversation before reopening it',
+      }
+    );
     await browser.execute(() => {
       const store = (
         window as unknown as { __OPENHUMAN_STORE__?: { dispatch: (a: unknown) => void } }
@@ -254,16 +277,27 @@ describe('Chat live/history parity', () => {
     });
     await clickTestId(`thread-row-${threadId}`, 10_000);
 
+    previous = undefined;
+    stableSamples = 0;
     await browser.waitUntil(
       async () => {
         const blocks = await replyBlocks();
-        return (
+        const stable =
           (await getSelectedThreadId()) === threadId &&
           blocks.length === settled.length &&
-          hasFinalReply(blocks)
-        );
+          hasFinalReply(blocks) &&
+          (await turnDrained());
+        if (!stable) {
+          previous = undefined;
+          stableSamples = 0;
+          return false;
+        }
+        if (JSON.stringify(blocks) === JSON.stringify(previous)) stableSamples += 1;
+        else stableSamples = 1;
+        previous = blocks;
+        return stableSamples >= 3;
       },
-      { timeout: 15_000, timeoutMsg: 'reopened thread never rendered the full reply' }
+      { timeout: 15_000, timeoutMsg: 'reopened thread never rendered a stable full reply' }
     );
     const reopened = await replyBlocks();
     expect(reopened).toEqual(settled);

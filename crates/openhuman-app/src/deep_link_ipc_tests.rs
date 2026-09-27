@@ -25,6 +25,15 @@ impl Write for FailingWriter {
 }
 
 #[test]
+fn socket_path_reads_the_runtime_environment() {
+    let runtime_dir = std::env::var("XDG_RUNTIME_DIR").ok();
+    assert_eq!(
+        socket_path(),
+        socket_path_with_runtime_dir(runtime_dir.as_deref())
+    );
+}
+
+#[test]
 fn socket_path_uses_xdg_runtime_dir() {
     let path = socket_path_with_runtime_dir(Some("/run/user/1234"));
     assert_eq!(

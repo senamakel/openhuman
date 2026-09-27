@@ -12,7 +12,12 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { clickSelector, textExists, waitForText } from '../helpers/element-helpers';
+import {
+  clickSelector,
+  getAttributeByTestId,
+  textExists,
+  waitForText,
+} from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -90,7 +95,29 @@ describe('Settings - Channels & Permissions', () => {
     // is "Share Product Analytics and Diagnostics".
     await waitForText('Product Analytics', 15_000);
     expect(await textExists('Share Product Analytics and Diagnostics')).toBe(true);
-    // The privacy redesign removed the former capability list. The analytics
-    // toggle is the persisted behavior this panel currently owns.
+
+    const initialState = await getAttributeByTestId('privacy-analytics-toggle', 'aria-checked');
+    expect(['true', 'false']).toContain(initialState);
+    await clickSelector('[data-testid="privacy-analytics-toggle"]');
+    const expectedState = initialState === 'true' ? 'false' : 'true';
+    await browser.waitUntil(
+      async () =>
+        (await getAttributeByTestId('privacy-analytics-toggle', 'aria-checked')) === expectedState,
+      { timeout: 10_000, timeoutMsg: 'analytics preference did not change' }
+    );
+
+    // Leaving and reopening the route remounts PrivacyPanel from the refreshed
+    // core snapshot, proving the preference was persisted by the core.
+    await navigateViaHash('/settings/account');
+    await navigateViaHash('/settings/privacy');
+    await waitForText('Share Product Analytics and Diagnostics', 15_000);
+    await browser.waitUntil(
+      async () =>
+        (await getAttributeByTestId('privacy-analytics-toggle', 'aria-checked')) === expectedState,
+      {
+        timeout: 10_000,
+        timeoutMsg: 'analytics preference was lost after reopening privacy settings',
+      }
+    );
   });
 });

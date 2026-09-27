@@ -385,6 +385,27 @@ export async function waitForTestId(
   return el;
 }
 
+/** Wait until a selector is absent from the DOM. */
+export async function waitForElementAbsence(
+  selector: string,
+  timeout: number = 15_000
+): Promise<void> {
+  await browser.waitUntil(async () => !(await browser.$(selector).isExisting()), {
+    timeout,
+    timeoutMsg: `Element ${selector} remained present after ${timeout}ms`,
+  });
+}
+
+/** Read an attribute from a stable test id. */
+export async function getAttributeByTestId(
+  testId: string,
+  attribute: string,
+  timeout: number = 15_000
+): Promise<string | null> {
+  const element = await waitForTestId(testId, timeout);
+  return element.getAttribute(attribute);
+}
+
 /**
  * Wait for an element by its stable assistant-ui data slot.
  *

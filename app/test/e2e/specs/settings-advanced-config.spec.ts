@@ -43,6 +43,10 @@ describe('Settings - Advanced Config', function () {
   it('redirects the retired notifications route to account settings', async function () {
     this.timeout(60_000);
     await navigateViaHash('/settings/notifications');
+    await browser.waitUntil(
+      async () => (await browser.execute(() => window.location.hash)) === '#/settings/account',
+      { timeout: 15_000, timeoutMsg: 'retired notifications route did not redirect to account' }
+    );
     await waitForText('Account', 15_000);
     await waitForText('Preferences', 15_000);
   });

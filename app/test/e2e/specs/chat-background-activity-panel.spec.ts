@@ -8,6 +8,7 @@
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { chatMounted, clickByTitle, getSelectedThreadId } from '../helpers/chat-harness';
+import { waitForElementAbsence } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { startMockServer, stopMockServer } from '../mock-server';
@@ -42,10 +43,8 @@ describe('Chat background-activity panel', () => {
       timeoutMsg: 'thread.selectedThreadId never populated',
     });
 
-    const toggle = await $('[data-testid="background-processes-toggle"]');
-    expect(await toggle.isExisting()).toBe(false);
-    const panel = await $('[data-testid="background-processes-panel"]');
-    expect(await panel.isExisting()).toBe(false);
+    await waitForElementAbsence('[data-testid="background-processes-toggle"]', 5_000);
+    await waitForElementAbsence('[data-testid="background-processes-panel"]', 5_000);
     console.log(`${LOG_PREFIX} retired background tasks UI remains absent`);
   });
 });

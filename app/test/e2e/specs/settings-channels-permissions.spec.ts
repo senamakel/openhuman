@@ -14,8 +14,9 @@ import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import {
   clickSelector,
-  getAttributeByTestId,
+  getSwitchCheckedByLabel,
   textExists,
+  toggleSwitchByLabel,
   waitForText,
 } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
@@ -96,13 +97,15 @@ describe('Settings - Channels & Permissions', () => {
     await waitForText('Product Analytics', 15_000);
     expect(await textExists('Share Product Analytics and Diagnostics')).toBe(true);
 
-    const initialState = await getAttributeByTestId('privacy-analytics-toggle', 'aria-checked');
-    expect(['true', 'false']).toContain(initialState);
-    await clickSelector('[data-testid="privacy-analytics-toggle"]');
-    const expectedState = initialState === 'true' ? 'false' : 'true';
+    const analyticsLabel = 'Share Product Analytics and Diagnostics';
+    expect(await textExists(analyticsLabel)).toBe(true);
+    const initialState = await getSwitchCheckedByLabel('privacy-analytics-toggle', analyticsLabel);
+    await toggleSwitchByLabel('privacy-analytics-toggle', analyticsLabel);
+    const expectedState = !initialState;
     await browser.waitUntil(
       async () =>
-        (await getAttributeByTestId('privacy-analytics-toggle', 'aria-checked')) === expectedState,
+        (await getSwitchCheckedByLabel('privacy-analytics-toggle', analyticsLabel)) ===
+        expectedState,
       { timeout: 10_000, timeoutMsg: 'analytics preference did not change' }
     );
 
@@ -110,10 +113,11 @@ describe('Settings - Channels & Permissions', () => {
     // core snapshot, proving the preference was persisted by the core.
     await navigateViaHash('/settings/account');
     await navigateViaHash('/settings/privacy');
-    await waitForText('Share Product Analytics and Diagnostics', 15_000);
+    await waitForText(analyticsLabel, 15_000);
     await browser.waitUntil(
       async () =>
-        (await getAttributeByTestId('privacy-analytics-toggle', 'aria-checked')) === expectedState,
+        (await getSwitchCheckedByLabel('privacy-analytics-toggle', analyticsLabel)) ===
+        expectedState,
       {
         timeout: 10_000,
         timeoutMsg: 'analytics preference was lost after reopening privacy settings',

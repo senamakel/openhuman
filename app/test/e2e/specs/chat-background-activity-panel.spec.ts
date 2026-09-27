@@ -43,8 +43,8 @@ describe('Chat background-activity panel', () => {
       timeoutMsg: 'thread.selectedThreadId never populated',
     });
 
-    await waitForElementAbsence('[data-testid="background-processes-toggle"]', 5_000);
-    await waitForElementAbsence('[data-testid="background-processes-panel"]', 5_000);
+    await waitForElementAbsence('//*[@data-testid="background-processes-toggle"]', 5_000);
+    await waitForElementAbsence('//*[@data-testid="background-processes-panel"]', 5_000);
     console.log(`${LOG_PREFIX} retired background tasks UI remains absent`);
   });
 });

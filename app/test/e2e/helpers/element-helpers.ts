@@ -396,6 +396,38 @@ export async function waitForElementAbsence(
   });
 }
 
+/** Read the checked state of a settings switch by its accessible label. */
+export async function getSwitchCheckedByLabel(
+  testId: string,
+  label: string,
+  timeout: number = 15_000
+): Promise<boolean> {
+  const literal = xpathStringLiteral(label);
+  const selector = isTauriDriver()
+    ? `[data-testid="${testId}"]`
+    : `//XCUIElementTypeSwitch[contains(@label, ${literal}) or contains(@title, ${literal})]`;
+  const element = await browser.$(selector);
+  await element.waitForExist({ timeout, timeoutMsg: `Switch "${label}" was not found` });
+  if (isTauriDriver()) return (await element.getAttribute('aria-checked')) === 'true';
+  const value = await element.getAttribute('value');
+  return value === '1' || value === 'true' || (await element.isSelected());
+}
+
+/** Toggle a settings switch through its accessible label. */
+export async function toggleSwitchByLabel(
+  testId: string,
+  label: string,
+  timeout: number = 15_000
+): Promise<void> {
+  const literal = xpathStringLiteral(label);
+  const selector = isTauriDriver()
+    ? `[data-testid="${testId}"]`
+    : `//XCUIElementTypeSwitch[contains(@label, ${literal}) or contains(@title, ${literal})]`;
+  const element = await browser.$(selector);
+  await element.waitForExist({ timeout, timeoutMsg: `Switch "${label}" was not found` });
+  await clickAtElement(element);
+}
+
 /** Read an attribute from a stable test id. */
 export async function getAttributeByTestId(
   testId: string,

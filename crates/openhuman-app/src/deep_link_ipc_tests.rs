@@ -26,8 +26,7 @@ impl Write for FailingWriter {
 
 #[test]
 fn socket_path_uses_xdg_runtime_dir() {
-    std::env::set_var("XDG_RUNTIME_DIR", "/run/user/1234");
-    let path = socket_path();
+    let path = socket_path_with_runtime_dir(Some("/run/user/1234"));
     assert_eq!(
         path,
         PathBuf::from("/run/user/1234/com.openhuman.app-deeplink.sock")
@@ -36,8 +35,7 @@ fn socket_path_uses_xdg_runtime_dir() {
 
 #[test]
 fn socket_path_fallback_has_uid() {
-    std::env::remove_var("XDG_RUNTIME_DIR");
-    let path = socket_path();
+    let path = socket_path_with_runtime_dir(None);
     let name = path.file_name().unwrap().to_string_lossy();
     assert!(
         name.contains("com_openhuman_app_deeplink"),

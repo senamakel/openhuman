@@ -24,7 +24,11 @@ use std::{
 /// Stable socket path. Uses $XDG_RUNTIME_DIR when available (per-user,
 /// per-session tmpfs, cleaned on reboot), falls back to /tmp with UID.
 pub(crate) fn socket_path() -> PathBuf {
-    if let Ok(dir) = std::env::var("XDG_RUNTIME_DIR") {
+    socket_path_with_runtime_dir(std::env::var("XDG_RUNTIME_DIR").ok().as_deref())
+}
+
+fn socket_path_with_runtime_dir(runtime_dir: Option<&str>) -> PathBuf {
+    if let Some(dir) = runtime_dir {
         return PathBuf::from(dir).join("com.openhuman.app-deeplink.sock");
     }
     // Fallback: include UID so multi-user machines don't collide.

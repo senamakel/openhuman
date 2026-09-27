@@ -37,10 +37,8 @@ import { clearRequestLog, setMockBehavior, startMockServer, stopMockServer } fro
 
 const LOG_PREFIX = '[chat-live-history-parity]';
 const USER_ID = 'e2e-chat-live-history-parity';
-const PROMPT = 'Check the config, then search for the setting, then explain it.';
+const PROMPT = 'Check the current time, resolve five minutes from now, then explain it.';
 const CANARY_FINAL = 'canary-parity-7c1e';
-const NARRATION_1 = 'Let me read the config first.';
-const NARRATION_2 = 'Now I will search for the setting.';
 const FINAL_ANSWER = [
   `Here is what I found (${CANARY_FINAL}).`,
   ...Array.from(
@@ -51,22 +49,22 @@ const FINAL_ANSWER = [
 
 const FORCED_RESPONSES = [
   {
-    content: NARRATION_1,
+    content: 'I will check the current time first.',
     toolCalls: [
       {
-        id: 'call_parity_read',
-        name: 'file_read',
-        arguments: JSON.stringify({ path: '/etc/openhuman/config.toml' }),
+        id: 'call_parity_time',
+        name: 'current_time',
+        arguments: JSON.stringify({ timezone: 'UTC' }),
       },
     ],
   },
   {
-    content: NARRATION_2,
+    content: 'Now I will resolve the five-minute interval.',
     toolCalls: [
       {
-        id: 'call_parity_grep',
-        name: 'grep',
-        arguments: JSON.stringify({ pattern: 'setting', path: '/etc/openhuman' }),
+        id: 'call_parity_resolve',
+        name: 'resolve_time',
+        arguments: JSON.stringify({ expr: 'in 5 minutes', timezone: 'UTC' }),
       },
     ],
   },
@@ -221,17 +219,18 @@ describe('Chat live/history parity', () => {
       true
     );
 
-    // Reopen the thread as a fresh load: drop this session's runtime state for
-    // it (including the frozen trail) and select it from another thread, so it
-    // renders from the persisted messages plus the core transcript projection.
+    // Reopen through the visible thread list after dropping runtime state, so
+    // the conversation is reloaded from persisted messages and the transcript.
     expect(await clickByTitle('New thread', 8_000)).toBe(true);
-    await browser.execute(tid => {
+    await browser.execute(() => {
       const store = (
         window as unknown as { __OPENHUMAN_STORE__?: { dispatch: (a: unknown) => void } }
       ).__OPENHUMAN_STORE__;
       store?.dispatch({ type: 'chatRuntime/clearAllChatRuntime' });
-      store?.dispatch({ type: 'thread/setSelectedThread', payload: tid });
-    }, threadId);
+    });
+    const historyRow = await browser.$(`[data-testid="thread-row-${threadId}"]`);
+    await historyRow.waitForExist({ timeout: 10_000 });
+    await historyRow.click();
 
     await browser.waitUntil(
       async () => {

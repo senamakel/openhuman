@@ -30,7 +30,6 @@ import {
   waitForSocketConnected,
 } from '../helpers/chat-harness';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
-import { textExists } from '../helpers/element-helpers';
 import { resetApp } from '../helpers/reset-app';
 import { navigateViaHash } from '../helpers/shared-flows';
 import { clearRequestLog, setMockBehavior, startMockServer, stopMockServer } from '../mock-server';
@@ -116,6 +115,10 @@ async function replyBlocks(): Promise<Block[]> {
   })) as Block[];
 }
 
+function hasFinalReply(blocks: Block[]): boolean {
+  return blocks.some(block => block.kind === 'text' && block.text.includes(CANARY_FINAL));
+}
+
 async function distanceFromBottom(): Promise<number> {
   return (await browser.execute(() => {
     const viewport = document.querySelector('[data-slot="aui_thread-viewport"]');
@@ -183,7 +186,13 @@ describe('Chat live/history parity', () => {
     while (Date.now() < deadline) {
       const blocks = await replyBlocks();
       if (blocks.length > 0) samples.push(blocks);
-      if ((await textExists(CANARY_FINAL)) && (await turnDrained())) break;
+      if (
+        (await getSelectedThreadId()) === threadId &&
+        hasFinalReply(blocks) &&
+        (await turnDrained())
+      ) {
+        break;
+      }
       await browser.pause(100);
     }
     expect(samples.length).toBeGreaterThan(3);
@@ -210,6 +219,13 @@ describe('Chat live/history parity', () => {
   });
 
   it('P3 — the settled reply equals the same turn reopened from history', async () => {
+    await browser.waitUntil(
+      async () =>
+        (await getSelectedThreadId()) === threadId &&
+        hasFinalReply(await replyBlocks()) &&
+        (await turnDrained()),
+      { timeout: 15_000, timeoutMsg: 'selected thread never rendered its settled final reply' }
+    );
     settled = await replyBlocks();
     // The activity projection can consolidate adjacent tool rounds into one
     // group. Pin the meaningful structure, then compare the complete live and
@@ -235,7 +251,11 @@ describe('Chat live/history parity', () => {
     await browser.waitUntil(
       async () => {
         const blocks = await replyBlocks();
-        return blocks.length === settled.length && (await textExists(CANARY_FINAL));
+        return (
+          (await getSelectedThreadId()) === threadId &&
+          blocks.length === settled.length &&
+          hasFinalReply(blocks)
+        );
       },
       { timeout: 15_000, timeoutMsg: 'reopened thread never rendered the full reply' }
     );

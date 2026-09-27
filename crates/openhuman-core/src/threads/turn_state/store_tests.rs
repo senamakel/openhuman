@@ -80,7 +80,7 @@ fn put_roundtrips_snapshot_with_a_path_longer_than_max_path() {
     let store = TurnStateStore::new(workspace);
 
     store.put(&state).expect("persist a snapshot past MAX_PATH");
-    assert_eq!(store.get(&thread_id).expect("get"), Some(state));
+    assert_eq!(store.get(&thread_id).expect("get"), Some(state.clone()));
 
     // A regular progress flush replaces the same snapshot repeatedly.
     state.iteration = 2;

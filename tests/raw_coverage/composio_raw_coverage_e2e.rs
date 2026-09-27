@@ -885,40 +885,24 @@ async fn composio_controller_registry_and_scope_handlers_cover_validation_edges(
     assert!(invalid_write.contains("invalid 'write'"));
     // The storage half must refuse rather than report a write it did not do.
     //
-    // This used to assert "memory client not initialised", the refusal the
-    // in-process engine handle produced. `1bf2037a0` ("Stop booting the second
-    // in-process memory engine", openhuman#5725) removed that handle and moved
-    // the storage half onto the bound driver, so the string stopped existing
-    // anywhere in `src/` — and this assertion went on asserting it, failing every
-    // lane that runs raw_coverage. It survived review because the coverage lane
-    // is changed-modules-scoped and did not run this target.
-    //
-    // Re-anchored on the arm this path actually reaches. `save` refuses on three
-    // grounds and they are deliberately distinguishable: "memory driver
-    // unavailable" (nothing bound), "does not serve Graph" (bound, wrong family),
-    // and "kv_put failed" (bound, right family, the write itself failed). Here
-    // the module provider binds and does serve Graph, so it is the third — the
-    // module cdylib is never loaded in a test binary that runs no boot sequence.
-    //
-    // The tag and the arm are pinned; the reason after the colon is NOT. That
-    // text belongs to the module loader, not to this handler, and pinning
-    // another component's wording here is how the previous assertion became
-    // orphaned in the first place.
+    // This transport-only test does not configure a memory module, so the
+    // workspace binds the null driver. Pin the refusal at the driver's family
+    // boundary instead of claiming to reach the module's `kv_put` path.
     let memory_missing = composio_call(
         set_scopes,
         json!({ "toolkit": "gmail", "read": true, "write": true, "admin": false }),
     )
     .await
-    .expect_err("the backing write must fail with no module host policy published");
+    .expect_err("the backing write must fail when the bound driver has no Graph family");
     assert!(
         memory_missing.starts_with("[composio][scopes] "),
         "the refusal must be tagged as the scopes storage half's, so a failure here \
          points at this handler rather than at whatever it called; got: {memory_missing}"
     );
     assert!(
-        memory_missing.contains("kv_put failed"),
-        "set_user_scopes must fail CLOSED on the backing write rather than reporting \
-         a save it did not perform; got: {memory_missing}"
+        memory_missing.contains("does not serve Graph"),
+        "set_user_scopes must fail CLOSED when the bound driver cannot store scopes; \
+         got: {memory_missing}"
     );
 }
 

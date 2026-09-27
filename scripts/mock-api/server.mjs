@@ -23,6 +23,7 @@ import { handleTelegram } from "./routes/telegram.mjs";
 import { handleUser } from "./routes/user.mjs";
 import { handleVersion } from "./routes/version.mjs";
 import { handleWebhooks } from "./routes/webhooks.mjs";
+import { handleYuanbao } from "./routes/yuanbao.mjs";
 import { handleSocketRequest, handleWebSocketUpgrade } from "./socket.mjs";
 import {
   appendRequest,
@@ -43,6 +44,7 @@ const ROUTE_HANDLERS = [
   // Telegram Bot API paths start with /bot<token>/… — check before the
   // general-purpose handlers so the distinctive prefix routes cleanly.
   handleTelegram,
+  handleYuanbao,
   handleOAuth,
   handleAuth,
   handleUser,

@@ -145,8 +145,10 @@ describe('Workflows create → run → inspect (real UI flow)', () => {
     expect(createdFlowId).toBeTruthy();
     const flowId = createdFlowId as string;
 
-    // The created flow's row is present; open its run-history drawer.
+    // The created flow's row is present; its secondary actions are inside the
+    // overflow menu on the current list layout.
     await waitForTestId(`flow-row-${flowId}`, 15_000);
+    await clickTestId(`flow-menu-${flowId}`, 10_000);
     await clickTestId(`flow-view-runs-${flowId}`, 10_000);
     await waitForTestId('flow-runs-drawer', 10_000);
 
@@ -161,6 +163,7 @@ describe('Workflows create → run → inspect (real UI flow)', () => {
         if (rows.length > 0) return true;
         // Re-open the drawer to re-fetch the (now-settled) run list.
         await clickTestId('flow-runs-close', 5_000).catch(() => undefined);
+        await clickTestId(`flow-menu-${flowId}`, 5_000).catch(() => undefined);
         await clickTestId(`flow-view-runs-${flowId}`, 5_000).catch(() => undefined);
         await waitForTestId('flow-runs-drawer', 5_000).catch(() => undefined);
         return false;

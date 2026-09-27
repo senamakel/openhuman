@@ -295,6 +295,16 @@ describe('Composio GitHub tools — tags query param flow', () => {
         content: '',
         toolCalls: [
           {
+            id: 'call_composio_list_stars_1',
+            name: 'composio_list_tools',
+            arguments: JSON.stringify({ toolkits: ['github'], tags: ['stars'] }),
+          },
+        ],
+      },
+      {
+        content: '',
+        toolCalls: [
+          {
             id: 'call_github_stars_1',
             name: 'GITHUB_LIST_REPOSITORIES_STARRED_BY_THE_AUTHENTICATED_USER',
             arguments: JSON.stringify({ per_page: 30 }),
@@ -319,7 +329,12 @@ describe('Composio GitHub tools — tags query param flow', () => {
     const log = getRequestLog() as Array<{ method: string; url: string }>;
     const llmHits = log.filter(r => r.method === 'POST' && r.url.includes('/chat/completions'));
     console.log(`${LOG_PREFIX} GT.4: ${llmHits.length} LLM completion request(s)`);
-    expect(llmHits.length).toBeGreaterThanOrEqual(2);
+    expect(llmHits.length).toBeGreaterThanOrEqual(3);
+
+    const listHit = log.find(
+      r => r.method === 'GET' && r.url.includes('/agent-integrations/composio/tools')
+    );
+    expect(listHit?.url).toContain('tags=stars');
 
     // Verify the composio execute was called for the forced tool call.
     const execHit = log.find(

@@ -1249,6 +1249,13 @@ fn ensure_test_rpc_auth() {
 async fn json_rpc_discovers_codex_and_claude_sessions_for_memory_ingestion() {
     let _env_lock = json_rpc_e2e_env_lock();
     let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard =
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", json_rpc_e2e_shared_workspace());
+    let _memory_driver_guard = EnvVarGuard::set("OPENHUMAN_MEMORY_DRIVER", "tinymemory");
+    let _backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    memory_module::settle().await;
     let claude_home = tmp.path().join("claude");
     let codex_home = tmp.path().join("codex");
     let claude_root = claude_home.join("projects/repo");

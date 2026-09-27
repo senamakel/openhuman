@@ -29,15 +29,13 @@
  * Mirrors the C.1/C.2/C.3/C.4/C.8/C.9 shape of `telegram-channel-flow.spec.ts`,
  * which is the house pattern for a channel lifecycle.
  *
- * No network: `api_key` connect stores credentials locally. The Yuanbao
- * sign-token preflight and the IMAP login are not reached — this spec never
- * supplies credentials that would pass validation into a live call, and the
- * mock backend is the only server running.
+ * No external network: Yuanbao credential verification is directed to the
+ * local mock backend, and email connect validates and stores its config.
  */
 import { waitForApp } from '../helpers/app-helpers';
 import { callOpenhumanRpc } from '../helpers/core-rpc';
 import { resetApp } from '../helpers/reset-app';
-import { startMockServer, stopMockServer } from '../mock-server';
+import { getMockServerPort, startMockServer, stopMockServer } from '../mock-server';
 
 const LOG_PREFIX = '[CredentialChannels]';
 
@@ -122,15 +120,21 @@ const CREDENTIAL_CHANNELS = [
   {
     channel: 'email',
     label: 'Email (IMAP/SMTP)',
-    requiredFields: ['imap_host', 'username'],
+    requiredFields: ['imap_host', 'smtp_host', 'username', 'password'],
     validCredentials: {
       imap_host: 'imap.e2e.invalid',
       imap_port: '993',
+      smtp_host: 'smtp.e2e.invalid',
+      smtp_port: '465',
       username: 'e2e@example.invalid',
       password: 'e2e-app-password',
     },
     /** Omits `username`, which the definition marks required. */
-    incompleteCredentials: { imap_host: 'imap.e2e.invalid' },
+    incompleteCredentials: {
+      imap_host: 'imap.e2e.invalid',
+      smtp_host: 'smtp.e2e.invalid',
+      password: 'e2e-app-password',
+    },
     missingFieldHint: 'username',
   },
 ] as const;
@@ -206,7 +210,12 @@ describe('Credential channels — Yuanbao and Email (IMAP/SMTP)', () => {
       const out = await callOpenhumanRpc('openhuman.channels_connect', {
         channel,
         authMode: 'api_key',
-        credentials: validCredentials,
+        credentials: {
+          ...validCredentials,
+          ...(channel === 'yuanbao'
+            ? { api_domain: `http://127.0.0.1:${getMockServerPort()}` }
+            : {}),
+        },
       });
       if (!out.ok) {
         throw new Error(`${label} connect should be accepted: ${JSON.stringify(out)}`);
@@ -250,7 +259,12 @@ describe('Credential channels — Yuanbao and Email (IMAP/SMTP)', () => {
       await callOpenhumanRpc('openhuman.channels_connect', {
         channel,
         authMode: 'api_key',
-        credentials: validCredentials,
+        credentials: {
+          ...validCredentials,
+          ...(channel === 'yuanbao'
+            ? { api_domain: `http://127.0.0.1:${getMockServerPort()}` }
+            : {}),
+        },
       });
       if (!isConnected(await statusFor(channel))) {
         throw new Error(

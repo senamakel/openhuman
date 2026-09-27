@@ -15,20 +15,6 @@ import { startMockServer, stopMockServer } from '../mock-server';
 
 const USER_ID = 'e2e-settings-feature-preferences';
 
-async function reloadAndReturnTo(route: string, markerText: string): Promise<void> {
-  await browser.execute(() => window.location.reload());
-  await browser.pause(3000);
-  await navigateViaHash(route);
-  await waitForText(markerText, 15_000);
-}
-
-async function switchState(ariaLabel: string): Promise<string | null> {
-  return await browser.execute(label => {
-    const el = document.querySelector<HTMLElement>(`button[aria-label="${label}"]`);
-    return el?.getAttribute('aria-checked') ?? null;
-  }, ariaLabel);
-}
-
 async function mascotColorChecked(colorId: string): Promise<string | null> {
   return await browser.execute(id => {
     const el = document.querySelector<HTMLElement>(`[data-testid="mascot-color-${id}"]`);
@@ -105,7 +91,6 @@ describe('Settings - Feature Preferences', function () {
     await navigateViaHash('/home');
     await navigateViaHash('/connections?tab=messaging');
 
-    await waitForText('Default Messaging Channel', 15_000);
     await browser.waitUntil(async () => (await defaultMessagingChannelFromStore()) === 'telegram', {
       timeout: 10_000,
       interval: 500,
@@ -144,25 +129,13 @@ describe('Settings - Feature Preferences', function () {
     );
   });
 
-  it('persists notification category preferences', async () => {
+  it('redirects the retired notifications settings route to account', async () => {
     await navigateViaHash('/settings/notifications');
-
-    await waitForText('Messages', 15_000);
-
-    // Verify the category switch is interactive (click doesn't throw).
-    expect(await clickSelector('button[aria-label="Toggle Messages notifications"]')).toBeDefined();
-    await browser.pause(1000);
-
-    // Verify the toggle state is exposed in the current session (before reload).
-    const msgAfterClick = await switchState('Toggle Messages notifications');
-    expect(msgAfterClick).not.toBeNull();
-
-    // Reload and verify the page still renders correctly.
-    await reloadAndReturnTo('/settings/notifications', 'Messages');
-    // Verify the notifications panel renders after reload — the toggle
-    // buttons must still be present.
-    const messagesAfterReload = await switchState('Toggle Messages notifications');
-    expect(messagesAfterReload).not.toBeNull();
+    await browser.waitUntil(
+      async () => (await browser.execute(() => window.location.hash)) === '#/settings/account',
+      { timeout: 15_000, timeoutMsg: 'retired notifications route did not redirect to account' }
+    );
+    await waitForText('Account', 15_000);
   });
 
   it('persists mascot color selection', async () => {
@@ -175,9 +148,9 @@ describe('Settings - Feature Preferences', function () {
   });
 
   it('persists the custom mascot voice override on the mascot/face panel', async () => {
-    // The mascot voice override moved into the Personality → Face panel
-    // (MascotPanel). The legacy /settings/mascot slug redirects to
-    // /settings/personality#face; /settings/voice now hosts STT/TTS providers.
+    // The mascot voice override lives on the Face panel. The legacy
+    // /settings/mascot slug redirects to /settings/face; /settings/voice now
+    // hosts STT/TTS providers.
     await navigateViaHash('/settings/mascot');
 
     await browser

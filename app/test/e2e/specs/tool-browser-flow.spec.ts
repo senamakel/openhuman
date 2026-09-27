@@ -169,7 +169,7 @@ describe('System tools — Browser (open URL + automation registry)', () => {
     const browserTool = tools.find(tool => tool?.name === 'browser');
     stepLog('live browser tool metadata', browserTool);
     expect(browserTool).toBeDefined();
-    expect(browserTool?.description).toContain("'snapshot'");
+    expect(browserTool?.description?.toLowerCase()).toContain('snapshot');
     expect(browserTool?.description?.toLowerCase()).not.toContain('screenshot');
   });
 

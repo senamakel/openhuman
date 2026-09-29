@@ -51,7 +51,9 @@ const WALLET_PROMPT = `Send John $5 on EVM at ${JOHN_ADDRESS} and tell me ${CANA
 function web3Call(id: string, tool: string, args: Record<string, unknown>) {
   return {
     content: '',
-    toolCalls: [{ id, name: 'use_skill', arguments: JSON.stringify({ skill: 'web3', tool, args }) }],
+    toolCalls: [
+      { id, name: 'use_skill', arguments: JSON.stringify({ skill: 'web3', tool, args }) },
+    ],
   };
 }
 

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import http from "node:http";
+import net from "node:net";
 import os from "node:os";
 import path, { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -393,4 +394,31 @@ test("capture proxy passes non-inference routes through without summarising them
     "no summary record for a non-inference route",
   );
   assert.doesNotMatch(proxy.output(), /auth\/me/);
+});
+
+test("capture proxy survives a client resetting a WebSocket upgrade mid-handshake", async () => {
+  const port = await proxy.ready;
+  // Open an upgrade, then abort it with a TCP RST before the handshake
+  // finishes: the long-lived Socket.IO tunnel dropping like this used to be an
+  // unhandled socket `error` that crashed the whole proxy (ECONNRESET).
+  await new Promise((resolveReset, reject) => {
+    const socket = net.connect(port, "127.0.0.1", () => {
+      socket.write(
+        "GET /socket.io/?EIO=4&transport=websocket HTTP/1.1\r\n" +
+          `Host: 127.0.0.1:${port}\r\n` +
+          "Connection: Upgrade\r\nUpgrade: websocket\r\n" +
+          "Sec-WebSocket-Version: 13\r\nSec-WebSocket-Key: dGhlIHNhbXBsZSBub25jZQ==\r\n\r\n",
+      );
+      setTimeout(() => {
+        socket.resetAndDestroy();
+        resolveReset();
+      }, 20);
+    });
+    socket.on("error", reject);
+  });
+  await new Promise((r) => setTimeout(r, 200));
+
+  assert.equal(proxy.child.exitCode, null, `proxy exited:\n${proxy.errors()}`);
+  const reply = await post(port, "/auth/me", { probe: true });
+  assert.equal(reply.status, 200);
 });

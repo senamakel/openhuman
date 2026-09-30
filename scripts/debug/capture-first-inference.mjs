@@ -270,6 +270,11 @@ function writePrivateCapture(file, data) {
 
 const server = http.createServer((req, res) => {
   const chunks = [];
+  // A client that resets mid-request (e.g. the core dropping a pooled
+  // connection) emits `error` on `req`; unhandled, it would crash the proxy.
+  req.on("error", (error) => {
+    process.stderr.write(`[capture] client request error: ${error.message}\n`);
+  });
   req.on("data", (chunk) => chunks.push(chunk));
   req.on("end", () => {
     const body = Buffer.concat(chunks);
@@ -391,6 +396,14 @@ const server = http.createServer((req, res) => {
 // Socket.IO upgrades never enter the HTTP request callback. Relay the
 // handshake and then pipe both raw sockets so desktop backend events work.
 server.on("upgrade", (req, clientSocket, clientHead) => {
+  // Attach before anything else: a reset on the client socket before the
+  // upstream handshake completes (the long-lived Socket.IO tunnel dropping)
+  // would otherwise be an unhandled `error` and take the whole proxy down.
+  clientSocket.on("error", (error) => {
+    process.stderr.write(`[capture] websocket client error: ${error.message}\n`);
+    upstreamReq.destroy();
+    upstreamSocket?.destroy();
+  });
   const transport = upstream.protocol === "https:" ? https : http;
   const upstreamReq = transport.request({
     protocol: upstream.protocol,
@@ -422,11 +435,11 @@ server.on("upgrade", (req, clientSocket, clientHead) => {
     socket.pipe(clientSocket);
     clientSocket.pipe(socket);
     socket.on("error", () => clientSocket.destroy());
-    clientSocket.on("error", () => socket.destroy());
   });
   upstreamReq.on("response", (response) => {
     writeResponseHead(response);
     response.pipe(clientSocket);
+    response.on("error", () => clientSocket.destroy());
     response.on("end", () => clientSocket.end());
   });
   upstreamReq.on("error", (error) => {

@@ -6,7 +6,7 @@ async fn thread_update_title_persists_new_title() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
 
     let thread_id = "t-title";
     create_thread_with_title(&workspace, thread_id, "Original title").await;
@@ -32,7 +32,7 @@ async fn thread_update_title_returns_error_for_missing_thread() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
 
     let err = thread_update_title(crate::memory::UpdateConversationThreadTitleRequest {
         thread_id: "nonexistent-thread".to_string(),

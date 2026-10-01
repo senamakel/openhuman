@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 use crate::config::TEST_ENV_LOCK;
 use tempfile::TempDir;
 
@@ -91,7 +92,7 @@ fn validate_asset_name_rejects_unprefixed_asset() {
 // env var. Tests that don't lock against the disabled-mutations
 // case can race with it: the disabled test sets the env var, the
 // sibling test (running on another thread) clears or shadows it
-// between `WorkspaceEnvGuard::set` and the await inside
+// between `EnvVarGuard::set` and the await inside
 // `update_apply`, and the disabled test then loads a default
 // policy (where `rpc_mutations_enabled = true`), proceeds past the
 // gate, and fails its `contains("rpc_mutations_enabled=false")`
@@ -129,24 +130,11 @@ async fn update_apply_rejects_unsafe_asset_name() {
         .any(|l| l.contains("update_apply rejected")));
 }
 
-struct WorkspaceEnvGuard;
-impl WorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        Self
-    }
-}
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        std::env::remove_var("OPENHUMAN_WORKSPACE");
-    }
-}
-
 #[tokio::test]
 async fn update_apply_rejects_when_rpc_mutations_disabled() {
     let _guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
-    let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     write_update_policy(
         &tmp,
         UpdateConfig {

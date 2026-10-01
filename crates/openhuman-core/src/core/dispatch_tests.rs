@@ -1,37 +1,6 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 use serde_json::json;
-use std::ffi::OsString;
-
-/// Holds the shared config-env lock while an RPC handler reads the active
-/// workspace. The controller path loads and may initialize config, so it
-/// cannot safely share another test's transient workspace.
-struct WorkspaceEnvGuard {
-    _lock: std::sync::MutexGuard<'static, ()>,
-    previous: Option<OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        let lock = crate::config::TEST_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        Self {
-            _lock: lock,
-            previous,
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
-            None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
-        }
-    }
-}
 
 fn test_state() -> AppState {
     AppState {
@@ -98,7 +67,7 @@ async fn dispatch_delegates_to_tier2_for_domain_method() {
     // Tier 2 dispatcher handles `openhuman.security_policy_info`, so
     // it must succeed and return a policy object.
     let workspace = tempfile::tempdir().expect("temporary workspace");
-    let _workspace_env = WorkspaceEnvGuard::set(workspace.path());
+    let _workspace_env = EnvVarGuard::workspace(workspace.path());
     let out = dispatch(test_state(), "openhuman.security_policy_info", json!({}))
         .await
         .expect("security_policy_info should route via tier 2");

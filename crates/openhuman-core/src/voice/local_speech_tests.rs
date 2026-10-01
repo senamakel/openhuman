@@ -18,16 +18,11 @@ async fn synthesize_piper_rejects_empty_text() {
 async fn synthesize_piper_surfaces_binary_lookup_failure() {
     // Make sure a missing PIPER_BIN
     // produces an actionable error, not a panic in the spawn path.
-    let prev_piper = std::env::var_os("PIPER_BIN");
-    std::env::remove_var("PIPER_BIN");
+    let _env = crate::config::test_env::EnvVarGuard::locked_unset("PIPER_BIN");
 
     let config = Config::default();
     let opts = PiperOptions::default();
     let result = synthesize_piper(&config, "hello world", &opts).await;
-
-    if let Some(v) = prev_piper {
-        std::env::set_var("PIPER_BIN", v);
-    }
 
     let err = result.err().expect("missing piper must error");
     assert!(

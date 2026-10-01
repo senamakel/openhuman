@@ -119,7 +119,7 @@ async fn set_credential_installs_a_session_without_touching_the_backend() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let mut config = test_config(&tmp);
     // A backend that would reject everything: it must never be consulted.
     config.api_url = Some(spawn_auth_me_status(StatusCode::UNAUTHORIZED).await);
@@ -169,7 +169,7 @@ async fn set_credential_derives_the_user_id_from_the_jwt_subject() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
     let token = jwt_with_payload(json!({
         "sub": "from-claims",
@@ -196,7 +196,7 @@ async fn set_credential_with_the_same_token_and_user_is_a_cheap_refresh() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
     let token = jwt_with_payload(json!({
         "sub": "user-7",
@@ -241,7 +241,7 @@ async fn set_credential_for_a_different_user_signs_the_previous_one_out_first() 
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
     let exp = (chrono::Utc::now() + chrono::Duration::hours(1)).timestamp();
     store_session(
@@ -324,7 +324,7 @@ async fn clearing_the_session_preserves_a_coexisting_api_key() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
 
     // Install the session first: this activates the user-scoped directory.
@@ -399,7 +399,7 @@ async fn clearing_the_session_preserves_the_active_key_over_a_stale_destination_
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     // `test_config` also binds the memory diagnostics `store_session` below
     // needs; its own config_path is a plain tmp fixture unrelated to the real
     // pre-login layout, so it is not where the RPC dispatcher would actually
@@ -477,7 +477,7 @@ async fn clearing_without_a_kind_removes_a_user_scoped_api_key_at_its_source() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
 
     let exp = chrono::Utc::now() + chrono::Duration::hours(1);
@@ -531,7 +531,7 @@ async fn clear_credential_without_a_kind_removes_everything() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
     set_credential(
         &config,
@@ -567,7 +567,7 @@ async fn store_session_local_token_rejects_missing_user_payload() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
     let local_token = "header.payload.local";
     let err = store_session(&config, local_token, None, None)
@@ -590,7 +590,7 @@ async fn store_session_local_token_succeeds_without_network_and_forces_local_use
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-    let _home = EnvVarGuard::set_to_path("HOME", tmp.path());
+    let _home = EnvVarGuard::set("HOME", tmp.path());
     let config = test_config(&tmp);
     let local_token = "header.payload.local";
     let user = serde_json::json!({

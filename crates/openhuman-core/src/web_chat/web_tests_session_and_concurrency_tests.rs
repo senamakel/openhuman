@@ -300,16 +300,8 @@ async fn wedged_turn_hits_wall_clock_backstop_and_emits_turn_timeout_chat_error(
     // Panic-safe teardown of the process-global env override: if any assertion
     // below unwinds, this guard still clears `OPENHUMAN_WEB_TURN_TIMEOUT_SECS` so
     // a 1s backstop can't leak into unrelated tests sharing this process.
-    struct EnvGuard;
-    impl Drop for EnvGuard {
-        fn drop(&mut self) {
-            std::env::remove_var("OPENHUMAN_WEB_TURN_TIMEOUT_SECS");
-        }
-    }
-    let _env_guard = EnvGuard;
-    // Tight 1s backstop so the parked (30s) turn trips it quickly. Scoped to this
-    // serialized test and cleared by `EnvGuard` on drop (even on unwind).
-    std::env::set_var("OPENHUMAN_WEB_TURN_TIMEOUT_SECS", "1");
+    let _env_guard =
+        crate::config::test_env::EnvVarGuard::locked_set("OPENHUMAN_WEB_TURN_TIMEOUT_SECS", "1");
     let block = make_block();
     set_test_run_chat_task_block(Some(block.clone())).await;
 

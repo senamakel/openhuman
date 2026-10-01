@@ -1,5 +1,3 @@
-use std::ffi::OsString;
-
 use serde_json::json;
 
 use super::*;
@@ -7,35 +5,6 @@ use crate::memory::api::types::NamespaceDocumentInput;
 
 fn ensure_memory_client() {
     crate::memory::ops::shared_memory_test_workspace();
-}
-
-struct WorkspaceEnvGuard {
-    _lock: std::sync::MutexGuard<'static, ()>,
-    previous: Option<OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        let lock = crate::config::TEST_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|e| e.into_inner());
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        Self {
-            _lock: lock,
-            previous,
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        if let Some(previous) = self.previous.as_ref() {
-            std::env::set_var("OPENHUMAN_WORKSPACE", previous);
-        } else {
-            std::env::remove_var("OPENHUMAN_WORKSPACE");
-        }
-    }
 }
 
 /// Seed a document through the guard — the same door

@@ -236,30 +236,3 @@ fn parse_empty_request_rejects_any_field() {
     let err = parse::<EmptyRequest>(obj(json!({"x": 1}))).unwrap_err();
     assert!(err.starts_with("invalid params:"), "prefix: {err}");
 }
-
-struct WorkspaceEnvGuard {
-    previous: Option<std::ffi::OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        unsafe {
-            std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        }
-        Self { previous }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(value) => unsafe {
-                std::env::set_var("OPENHUMAN_WORKSPACE", value);
-            },
-            None => unsafe {
-                std::env::remove_var("OPENHUMAN_WORKSPACE");
-            },
-        }
-    }
-}

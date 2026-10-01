@@ -1,35 +1,6 @@
 use super::*;
 use crate::agent::harness::with_current_sandbox_mode;
-use std::path::Path;
-
-struct WorkspaceEnvGuard {
-    previous: Option<std::ffi::OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(path: &Path) -> Self {
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        Self::set_current(path);
-        Self { previous }
-    }
-
-    fn set_current(path: &Path) {
-        unsafe {
-            std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match self.previous.take() {
-                Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
-                None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
-            }
-        }
-    }
-}
+use crate::config::test_env::EnvVarGuard;
 
 /// Build a minimal `Arc<Config>` with `composio.mode = "backend"`
 /// (the default). The sandbox gate runs *before* any HTTP call or
@@ -203,7 +174,7 @@ fn sandbox_unset_leaves_per_action_execute_to_downstream() {
         let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
         let tmp = tempfile::tempdir().expect("tempdir");
-        let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+        let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
         let mut config = Config::default();
         config.config_path = tmp.path().join("config.toml");
@@ -259,7 +230,7 @@ fn contract_gate_surfaces_full_contract_then_proceeds_on_retry() {
         );
 
         let tmp = tempfile::tempdir().expect("tempdir");
-        let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+        let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
         let mut config = Config::default();
         config.config_path = tmp.path().join("config.toml");
         config.workspace_dir = tmp.path().join("workspace");
@@ -392,7 +363,7 @@ fn mode_toggle_between_calls_is_observed() {
 
         // ── Backend half ────────────────────────────────────────────
         let tmp_backend = tempfile::tempdir().expect("tempdir backend");
-        let _workspace_guard = WorkspaceEnvGuard::set(tmp_backend.path());
+        let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp_backend.path());
         let mut backend_config = Config::default();
         backend_config.config_path = tmp_backend.path().join("config.toml");
         backend_config.workspace_dir = tmp_backend.path().join("workspace");
@@ -422,7 +393,7 @@ fn mode_toggle_between_calls_is_observed() {
 
         // ── Direct half ─────────────────────────────────────────────
         let tmp_direct = tempfile::tempdir().expect("tempdir direct");
-        WorkspaceEnvGuard::set_current(tmp_direct.path());
+        std::env::set_var("OPENHUMAN_WORKSPACE", tmp_direct.path());
         let mut direct_config = Config::default();
         direct_config.config_path = tmp_direct.path().join("config.toml");
         direct_config.workspace_dir = tmp_direct.path().join("workspace");
@@ -492,7 +463,7 @@ fn deferred_instance_returns_live_config_for_redaction() {
         );
 
         let tmp = tempfile::tempdir().expect("tempdir");
-        let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+        let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
         let mut config = Config::default();
         config.config_path = tmp.path().join("config.toml");
         config.workspace_dir = tmp.path().join("workspace");

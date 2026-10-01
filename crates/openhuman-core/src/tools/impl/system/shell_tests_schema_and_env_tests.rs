@@ -420,7 +420,7 @@ async fn shell_missing_command_surfaces_127_with_dependency_hint() {
 #[cfg(not(windows))]
 #[tokio::test(flavor = "current_thread")]
 async fn shell_does_not_leak_api_key() {
-    let _g1 = EnvGuard::set("API_KEY", "sk-test-secret-12345");
+    let _g1 = EnvVarGuard::locked_set("API_KEY", "sk-test-secret-12345");
 
     let tool = ShellTool::new(test_security_with_env_cmd(), test_runtime(), test_audit());
     let result = tool

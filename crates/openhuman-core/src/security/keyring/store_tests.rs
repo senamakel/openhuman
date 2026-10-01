@@ -19,31 +19,9 @@ use std::path::PathBuf;
 
 use super::test_scope::ScopedWorkspace;
 use super::{resolve_workspace_dir, workspace_dir_for_file_backend};
+use crate::config::test_env::EnvVarGuard;
 use crate::config::TEST_ENV_LOCK;
 use crate::security::keyring;
-
-/// Restores an env var to its prior value on drop.
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<String>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: &std::path::Path) -> Self {
-        let previous = std::env::var(key).ok();
-        std::env::set_var(key, value);
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
 
 /// The root-cause pin: in test builds the keyring workspace must not be
 /// steerable by a process-wide env var, because any test can set it while

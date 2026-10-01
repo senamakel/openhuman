@@ -184,7 +184,7 @@ async fn message_append_returns_typed_not_found_for_stale_thread() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-missing";
 
     let err = message_append(AppendConversationMessageRequest {
@@ -216,7 +216,7 @@ async fn generate_title_returns_typed_not_found_for_stale_thread() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-missing";
 
     let err = thread_generate_title(GenerateConversationThreadTitleRequest {
@@ -241,7 +241,7 @@ async fn generate_title_leaves_custom_title_unchanged() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-custom";
     create_thread_with_title(&workspace, thread_id, "Already named").await;
     let dir = crate::config::Config::load_or_init()
@@ -282,7 +282,7 @@ async fn generate_title_returns_existing_title_when_no_user_message_exists() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-no-user";
     create_thread_with_title(&workspace, thread_id, "Chat Jan 1 1:00 AM").await;
 
@@ -305,7 +305,7 @@ async fn generate_title_falls_back_to_first_user_message_when_assistant_missing(
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-fallback";
     create_thread_with_title(&workspace, thread_id, "Chat Jan 1 1:00 AM").await;
     let dir = crate::config::Config::load_or_init()
@@ -346,7 +346,7 @@ async fn thread_delete_removes_persisted_turn_state_snapshot() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     let thread_id = "thread-delete";
     create_thread_with_title(&workspace, thread_id, "Chat Jan 1 1:00 AM").await;
     let dir = crate::config::Config::load_or_init()
@@ -399,7 +399,7 @@ async fn threads_purge_removes_valid_and_corrupted_turn_state_files() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
     create_thread_with_title(&workspace, "thread-a", "Chat Jan 1 1:00 AM").await;
     create_thread_with_title(&workspace, "thread-b", "Chat Jan 1 1:01 AM").await;
     let dir = crate::config::Config::load_or_init()
@@ -459,7 +459,7 @@ async fn turn_state_clear_reports_false_when_snapshot_is_absent() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
 
     let outcome = turn_state_clear(ClearTurnStateRequest {
         thread_id: "missing-thread".into(),
@@ -478,7 +478,7 @@ async fn thread_update_title_rejects_empty_and_whitespace_only_titles() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let workspace = tempfile::tempdir().expect("workspace");
-    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", workspace.path());
+    let _workspace_guard = EnvVarGuard::set("OPENHUMAN_WORKSPACE", workspace.path());
 
     for title in ["", "   "] {
         let err = thread_update_title(crate::memory::UpdateConversationThreadTitleRequest {

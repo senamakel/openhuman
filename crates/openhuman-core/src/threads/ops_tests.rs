@@ -5,36 +5,13 @@
 use super::*;
 // Re-imported here rather than through `ops`: `ops` itself no longer names
 // these, so importing them there would be an unused import in a non-test build.
+use crate::config::test_env::EnvVarGuard;
 use crate::memory::conversations as conversations_store;
 use crate::threads::turn_state::{ClearTurnStateRequest, GetTurnStateRequest};
 use crate::threads::ThreadsError;
 use serde_json::{json, Value};
-use std::ffi::OsString;
-use std::path::Path;
 use tinyagents_harness::title::{build_title_prompt, THREAD_TITLE_SYSTEM_PROMPT};
 use tinyagents_session::turn_state::TurnState;
-
-struct EnvVarGuard {
-    key: &'static str,
-    old: Option<OsString>,
-}
-
-impl EnvVarGuard {
-    fn set_to_path(key: &'static str, value: &Path) -> Self {
-        let old = std::env::var_os(key);
-        std::env::set_var(key, value.as_os_str());
-        Self { key, old }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match &self.old {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
 
 // ── thread_to_summary / message_to_record / record_to_message ─
 

@@ -61,7 +61,7 @@ async fn composio_get_user_profile_via_mock_returns_provider_profile() {
     let _backend_url_guard = EnvVarGuard::set("BACKEND_URL", &base);
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
-    let _workspace_env_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_env_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     config.save().await.unwrap();
 
     let outcome = composio_get_user_profile(&config, "c1").await.unwrap();

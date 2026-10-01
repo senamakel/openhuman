@@ -15,6 +15,7 @@ use tinyagents_harness::store::{AppendStore, JsonlAppendStore};
 
 use super::live::{dual_write_enabled, shadow_reads_enabled};
 use super::projector::journal_message_from_transcript as project;
+use crate::config::test_env::EnvVarGuard;
 use tinyagents_session::transcript::import::convert::journal_messages as journal_messages_with;
 use tinyagents_session::transcript::import::live::{
     shadow_read_compare as shadow_read_compare_with, write_live_turn as write_live_turn_with,
@@ -140,10 +141,11 @@ async fn journal_readback(ws: &Path, stream: &str) -> Vec<JournalMessage> {
 #[test]
 fn config_flag_and_env_kill_switch() {
     const ENV: &str = "OPENHUMAN_SESSION_DUAL_WRITE";
-    let prior = std::env::var(ENV).ok();
+    // Crate-wide env lock, held to the end; restores the prior value on drop
+    // (also on unwind).
+    let _env = EnvVarGuard::locked_unset(ENV);
 
     // Config OFF disables regardless of env.
-    std::env::remove_var(ENV);
     assert!(!dual_write_enabled(false), "config off disables");
 
     // Config ON (the default) enables when the env is unset.
@@ -168,11 +170,6 @@ fn config_flag_and_env_kill_switch() {
         !dual_write_enabled(false),
         "non-falsey env does not force config-off on"
     );
-
-    match prior {
-        Some(v) => std::env::set_var(ENV, v),
-        None => std::env::remove_var(ENV),
-    }
 }
 
 // ── Store-backed shadow read (issue #4249, 04.2 phase 2) ────────────────────
@@ -296,10 +293,11 @@ async fn in_memory_store_reconstruction_diverges_from_legacy_on_sidecar_metadata
 #[test]
 fn shadow_read_flag_and_env_kill_switch() {
     const ENV: &str = "OPENHUMAN_SESSION_SHADOW_READS";
-    let prior = std::env::var(ENV).ok();
+    // Crate-wide env lock, held to the end; restores the prior value on drop
+    // (also on unwind).
+    let _env = EnvVarGuard::locked_unset(ENV);
 
     // Config OFF (the default) disables regardless of env — reader not invoked.
-    std::env::remove_var(ENV);
     assert!(
         !shadow_reads_enabled(false),
         "config off (default) disables the shadow read"
@@ -331,11 +329,6 @@ fn shadow_read_flag_and_env_kill_switch() {
         !shadow_reads_enabled(false),
         "non-falsey env cannot force a default-off flag on"
     );
-
-    match prior {
-        Some(v) => std::env::set_var(ENV, v),
-        None => std::env::remove_var(ENV),
-    }
 }
 
 // ── Legacy on-disk shapes (plan-agents.md Phase 2) ────────────────────────────

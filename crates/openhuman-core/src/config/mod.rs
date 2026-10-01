@@ -83,5 +83,8 @@ pub use schemas::{
 pub(crate) static TEST_ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 #[cfg(test)]
+pub(crate) mod test_env;
+
+#[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;

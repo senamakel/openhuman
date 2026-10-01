@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 
 #[test]
 fn normalize_extension_defaults_to_webm() {
@@ -48,27 +49,6 @@ async fn voice_status_returns_without_error() {
     assert!(!status.tts_voice_id.is_empty());
 }
 
-/// RAII guard that restores an env var on drop, even on panic.
-struct EnvGuard {
-    key: &'static str,
-    prev: Option<std::ffi::OsString>,
-}
-impl EnvGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let prev = std::env::var_os(key);
-        std::env::set_var(key, value);
-        Self { key, prev }
-    }
-}
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        match &self.prev {
-            Some(v) => std::env::set_var(self.key, v),
-            None => std::env::remove_var(self.key),
-        }
-    }
-}
-
 #[tokio::test]
 async fn voice_status_detects_stub_binaries() {
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -82,7 +62,7 @@ async fn voice_status_detects_stub_binaries() {
             .expect("chmod");
     }
 
-    let _guard = EnvGuard::set("PIPER_BIN", &piper_stub.display().to_string());
+    let _guard = EnvVarGuard::locked_set("PIPER_BIN", &piper_stub.display().to_string());
 
     let mut config = Config::default();
     config.workspace_dir = tmp.path().join("workspace");

@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 
 #[test]
 fn cron_completed_produces_agents_notification() {
@@ -431,32 +432,6 @@ async fn an_outage_is_filed_under_its_own_workspace_not_the_bridge_s() {
 // workspace the user has switched away from would raise a banner naming that
 // workspace's server and its error inside the account they are in.
 
-/// RAII guard for `OPENHUMAN_WORKSPACE`, which is the first thing
-/// `config::active_workspace_dir` consults — so it is how a test says which
-/// workspace is the active one. Mirrors the guard in
-/// `config::workspace::ops_tests`; must be held with `TEST_ENV_LOCK`.
-struct ActiveWorkspaceEnvGuard;
-
-impl ActiveWorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        // SAFETY: caller holds `TEST_ENV_LOCK`, so no other thread in this
-        // process is reading or mutating this env var.
-        unsafe {
-            std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        }
-        Self
-    }
-}
-
-impl Drop for ActiveWorkspaceEnvGuard {
-    fn drop(&mut self) {
-        // SAFETY: same contract as `set` — the lock is held for the whole test.
-        unsafe {
-            std::env::remove_var("OPENHUMAN_WORKSPACE");
-        }
-    }
-}
-
 #[tokio::test]
 async fn the_active_workspace_s_outage_is_announced() {
     // Held for the whole test. NOT dropped explicitly: `_guard` is declared
@@ -467,7 +442,7 @@ async fn the_active_workspace_s_outage_is_announced() {
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let active = tempfile::TempDir::new().unwrap();
-    let _guard = ActiveWorkspaceEnvGuard::set(active.path());
+    let _guard = EnvVarGuard::workspace_unlocked(active.path());
 
     // Ask the resolver what it made of the override rather than assuming:
     // `OPENHUMAN_WORKSPACE` names a *config* root, and which subdirectory of
@@ -496,7 +471,7 @@ async fn a_switched_away_workspace_s_outage_is_not_announced() {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
     let active = tempfile::TempDir::new().unwrap();
     let switched_away = tempfile::TempDir::new().unwrap();
-    let _guard = ActiveWorkspaceEnvGuard::set(active.path());
+    let _guard = EnvVarGuard::workspace_unlocked(active.path());
 
     let resolved = crate::config::active_workspace_dir()
         .await

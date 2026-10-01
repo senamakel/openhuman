@@ -1,4 +1,5 @@
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 use crate::config::Config;
 use tempfile::TempDir;
 
@@ -11,13 +12,6 @@ fn config_in(tmp: &TempDir) -> Config {
     }
 }
 
-struct EnvGuard(&'static str);
-impl Drop for EnvGuard {
-    fn drop(&mut self) {
-        unsafe { std::env::remove_var(self.0) };
-    }
-}
-
 #[test]
 fn api_key_env_seeds_only_an_empty_store() {
     let _lock = crate::config::TEST_ENV_LOCK
@@ -25,7 +19,7 @@ fn api_key_env_seeds_only_an_empty_store() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let config = config_in(&tmp);
-    let _guard = EnvGuard(BACKEND_API_KEY_ENV);
+    let _guard = EnvVarGuard::unset(BACKEND_API_KEY_ENV);
 
     unsafe { std::env::set_var(BACKEND_API_KEY_ENV, "  ") };
     seed_api_key_from_env(&config);
@@ -57,7 +51,7 @@ async fn session_env_is_ignored_without_a_subject_and_when_unset() {
         .unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let config = config_in(&tmp);
-    let _guard = EnvGuard(BACKEND_SESSION_TOKEN_ENV);
+    let _guard = EnvVarGuard::unset(BACKEND_SESSION_TOKEN_ENV);
 
     unsafe { std::env::remove_var(BACKEND_SESSION_TOKEN_ENV) };
     seed_session_from_env(&config).await;

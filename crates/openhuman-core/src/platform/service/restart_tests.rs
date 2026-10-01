@@ -105,7 +105,6 @@ fn restart_status_serializes() {
 #[test]
 fn apply_startup_restart_delay_from_env_noop_when_unset() {
     // Ensure the env var is not set, then call — should not block
-    let _prev = std::env::var(RESTART_DELAY_ENV).ok();
-    std::env::remove_var(RESTART_DELAY_ENV);
+    let _env = crate::config::test_env::EnvVarGuard::locked_unset(RESTART_DELAY_ENV);
     apply_startup_restart_delay_from_env(); // should return immediately
 }

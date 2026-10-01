@@ -23,6 +23,7 @@ fn cache_guard() -> std::sync::MutexGuard<'static, ()> {
 
 // ── Mock-backend integration tests for ops ─────────────────────
 
+use crate::config::test_env::EnvVarGuard;
 use axum::{
     extract::{Path, Query, State},
     http::HeaderMap,
@@ -33,61 +34,6 @@ use chrono::{TimeZone, Utc};
 use serde_json::{json, Value};
 use std::collections::HashMap;
 use tinymemory_api::chunks::{chunk_id, Chunk, Metadata, SourceKind, SourceRef};
-
-struct WorkspaceEnvGuard {
-    previous: Option<std::ffi::OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        unsafe {
-            std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        }
-        Self { previous }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(prev) => unsafe {
-                std::env::set_var("OPENHUMAN_WORKSPACE", prev);
-            },
-            None => unsafe {
-                std::env::remove_var("OPENHUMAN_WORKSPACE");
-            },
-        }
-    }
-}
-
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: &str) -> Self {
-        let previous = std::env::var_os(key);
-        unsafe {
-            std::env::set_var(key, value);
-        }
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(prev) => unsafe {
-                std::env::set_var(self.key, prev);
-            },
-            None => unsafe {
-                std::env::remove_var(self.key);
-            },
-        }
-    }
-}
 
 struct DirectAuthFailureGuard {
     key_id: u64,

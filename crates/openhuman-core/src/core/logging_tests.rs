@@ -1,9 +1,5 @@
 use super::*;
-
-/// Serialize tests that mutate `RUST_LOG` / `OPENHUMAN_LOG_FILE_CONSTRAINTS` —
-/// Cargo runs unit tests in parallel threads in the same process, so
-/// concurrent env-var writes would race.
-static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+use crate::config::test_env::EnvVarGuard;
 
 /// Serialize tests that mutate the process-global `FILE_GUARD` static.
 /// Without this, `shutdown_file_guard_takes_installed_guard` can race
@@ -14,16 +10,11 @@ static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 #[cfg(feature = "file-logging")]
 static FILE_GUARD_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
+/// Runs `f` with `RUST_LOG` cleared under the crate-wide env lock (shared with
+/// every other test that touches process env), restoring it afterwards.
 fn with_clean_rust_log<R>(f: impl FnOnce() -> R) -> R {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let prior = std::env::var("RUST_LOG").ok();
-    std::env::remove_var("RUST_LOG");
-    let result = f();
-    match prior {
-        Some(v) => std::env::set_var("RUST_LOG", v),
-        None => std::env::remove_var("RUST_LOG"),
-    }
-    result
+    let _env = EnvVarGuard::locked_unset("RUST_LOG");
+    f()
 }
 
 #[test]
@@ -60,16 +51,10 @@ fn seed_rust_log_global_uses_debug_when_verbose() {
 
 #[test]
 fn seed_rust_log_respects_existing_value() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let prior = std::env::var("RUST_LOG").ok();
-    std::env::set_var("RUST_LOG", "warn");
+    let _env = EnvVarGuard::locked_set("RUST_LOG", "warn");
     seed_rust_log(true, CliLogDefault::Global);
     // Caller's existing setting must not be clobbered.
     assert_eq!(std::env::var("RUST_LOG").unwrap(), "warn");
-    match prior {
-        Some(v) => std::env::set_var("RUST_LOG", v),
-        None => std::env::remove_var("RUST_LOG"),
-    }
 }
 
 #[test]
@@ -81,19 +66,12 @@ fn build_env_filter_returns_a_filter() {
 
 #[test]
 fn parse_log_file_constraints_handles_csv_and_whitespace() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    let prior = std::env::var("OPENHUMAN_LOG_FILE_CONSTRAINTS").ok();
-    std::env::set_var("OPENHUMAN_LOG_FILE_CONSTRAINTS", "rpc, , agent ,memory");
+    let _env = EnvVarGuard::locked_set("OPENHUMAN_LOG_FILE_CONSTRAINTS", "rpc, , agent ,memory");
     let parsed = parse_log_file_constraints();
     assert_eq!(parsed, vec!["rpc", "agent", "memory"]);
 
     std::env::remove_var("OPENHUMAN_LOG_FILE_CONSTRAINTS");
     assert!(parse_log_file_constraints().is_empty());
-
-    match prior {
-        Some(v) => std::env::set_var("OPENHUMAN_LOG_FILE_CONSTRAINTS", v),
-        None => std::env::remove_var("OPENHUMAN_LOG_FILE_CONSTRAINTS"),
-    }
 }
 
 #[test]

@@ -19,6 +19,7 @@ use crate::memory::sources::types::MemorySourceEntry;
 // Needed to call the family accessors on the *concrete* null provider
 // below; the handlers above reach them through `dyn MemoryProvider`, where
 // the trait is in scope by construction.
+use crate::config::test_env::EnvVarGuard;
 use crate::memory::api::provider::MemoryProvider;
 use std::sync::Arc;
 use tinymemory_api::null::{NullMemoryProvider, NULL_DRIVER_ID};
@@ -184,39 +185,6 @@ fn composio_rows_dispatch_to_the_connector_and_everything_else_to_the_driver() {
 // before now, which went with the engine (#6161) although none of this is the
 // engine's (#6172).
 
-/// Pins `OPENHUMAN_WORKSPACE` for the duration, holding the crate's env lock so
-/// concurrent tests cannot observe the change. `add_rpc` writes through
-/// `registry::add_source`, which resolves its config with
-/// `load_config_with_timeout` — process-global, so the workspace has to be
-/// pinned rather than passed.
-struct WorkspaceEnvGuard {
-    _env_lock: std::sync::MutexGuard<'static, ()>,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn pin(workspace: &std::path::Path) -> Self {
-        let env_lock = crate::config::TEST_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", workspace);
-        Self {
-            _env_lock: env_lock,
-            previous,
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
-            None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
-        }
-    }
-}
-
 fn github_add_request() -> AddRequest {
     AddRequest {
         kind: tinymemory_sources::types::SourceKind::GithubRepo,
@@ -248,7 +216,7 @@ async fn add_generates_an_id_and_caps_a_request_that_left_its_limits_unset() {
     let tmp = tempfile::TempDir::new().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace).expect("workspace dir");
-    let _env = WorkspaceEnvGuard::pin(&workspace);
+    let _env = EnvVarGuard::workspace(&workspace);
 
     let added = add_rpc(github_add_request())
         .await

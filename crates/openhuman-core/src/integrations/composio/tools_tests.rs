@@ -1,57 +1,8 @@
 use super::*;
-use std::path::Path;
 use std::sync::Arc;
 
+use crate::config::test_env::EnvVarGuard;
 use tinytools::ToolResult;
-struct WorkspaceEnvGuard {
-    previous: Option<std::ffi::OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(path: &Path) -> Self {
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        unsafe {
-            std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        }
-        Self { previous }
-    }
-}
-
-struct HomeEnvGuard {
-    previous: Option<std::ffi::OsString>,
-}
-
-impl HomeEnvGuard {
-    fn set(path: &Path) -> Self {
-        let previous = std::env::var_os("HOME");
-        unsafe {
-            std::env::set_var("HOME", path);
-        }
-        Self { previous }
-    }
-}
-
-impl Drop for HomeEnvGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match self.previous.take() {
-                Some(value) => std::env::set_var("HOME", value),
-                None => std::env::remove_var("HOME"),
-            }
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        unsafe {
-            match self.previous.take() {
-                Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
-                None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
-            }
-        }
-    }
-}
 
 /// Minimal `Arc<Config>` for the agent-tool constructors. All five
 /// composio agent tools now resolve their client per call through

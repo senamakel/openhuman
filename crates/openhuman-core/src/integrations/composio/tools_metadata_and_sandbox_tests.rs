@@ -399,7 +399,7 @@ async fn sandbox_read_only_passes_through_read_scope_actions_to_downstream_gates
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -435,7 +435,7 @@ async fn sandbox_unset_leaves_all_scopes_to_downstream_gates() {
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -470,7 +470,7 @@ async fn sandbox_sandboxed_mode_does_not_trigger_readonly_gate() {
     let _env_guard = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
 
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _workspace_guard = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");

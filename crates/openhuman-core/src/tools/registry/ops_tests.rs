@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::schema::{CapabilityProviderConfig, CapabilityProviderTrustState, Config};
+use crate::config::test_env::EnvVarGuard;
 use crate::core::{FieldSchema, TypeSchema};
 
 #[test]
@@ -91,7 +92,7 @@ async fn diagnostics_loads_active_capability_provider_config() {
         .lock()
         .unwrap_or_else(|e| e.into_inner());
     let tmp = tempfile::tempdir().expect("tempdir");
-    let _env = EnvRestore::set_path("OPENHUMAN_WORKSPACE", tmp.path());
+    let _env = EnvVarGuard::set("OPENHUMAN_WORKSPACE", tmp.path());
     std::fs::write(
         tmp.path().join("config.toml"),
         r#"
@@ -389,26 +390,4 @@ fn the_write_audit_probe_reads_the_store_the_writer_wrote_to() {
         after.last_error
     );
     assert!(after.enabled, "the log is enabled when it is readable");
-}
-
-struct EnvRestore {
-    key: &'static str,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl EnvRestore {
-    fn set_path(key: &'static str, value: &std::path::Path) -> Self {
-        let previous = std::env::var_os(key);
-        std::env::set_var(key, value);
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvRestore {
-    fn drop(&mut self) {
-        match &self.previous {
-            Some(value) => std::env::set_var(self.key, value),
-            None => std::env::remove_var(self.key),
-        }
-    }
 }

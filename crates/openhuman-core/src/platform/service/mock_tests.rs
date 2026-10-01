@@ -11,18 +11,13 @@
 
 use super::*;
 use crate::config::Config;
-use std::sync::Mutex;
 use tempfile::TempDir;
-
-/// Serialise tests that touch `OPENHUMAN_SERVICE_MOCK` and
-/// `OPENHUMAN_SERVICE_MOCK_STATE_FILE` so they don't race.
-static MOCK_TEST_LOCK: Mutex<()> = Mutex::new(());
 
 // ── is_enabled ────────────────────────────────────────────────────────────────
 
 #[test]
 fn is_enabled_returns_false_when_var_absent() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     // Remove any stale value from a previous test.
     std::env::remove_var("OPENHUMAN_SERVICE_MOCK");
     assert!(!is_enabled());
@@ -30,7 +25,7 @@ fn is_enabled_returns_false_when_var_absent() {
 
 #[test]
 fn is_enabled_returns_true_for_truthy_values() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     for v in ["1", "true", "yes", "on", "TRUE", "YES", "ON"] {
         std::env::set_var("OPENHUMAN_SERVICE_MOCK", v);
         assert!(
@@ -43,7 +38,7 @@ fn is_enabled_returns_true_for_truthy_values() {
 
 #[test]
 fn is_enabled_returns_false_for_falsy_values() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     for v in ["0", "false", "no", "off", "FALSE"] {
         std::env::set_var("OPENHUMAN_SERVICE_MOCK", v);
         assert!(
@@ -87,7 +82,7 @@ impl Drop for StateFileGuard {
 
 #[test]
 fn initial_status_is_not_installed() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -102,7 +97,7 @@ fn initial_status_is_not_installed() {
 
 #[test]
 fn install_transitions_to_stopped() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -117,7 +112,7 @@ fn install_transitions_to_stopped() {
 
 #[test]
 fn start_after_install_transitions_to_running() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -133,7 +128,7 @@ fn start_after_install_transitions_to_running() {
 
 #[test]
 fn stop_transitions_from_running_to_stopped() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -150,7 +145,7 @@ fn stop_transitions_from_running_to_stopped() {
 
 #[test]
 fn uninstall_transitions_to_not_installed() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -167,7 +162,7 @@ fn uninstall_transitions_to_not_installed() {
 
 #[test]
 fn start_without_install_returns_not_installed() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -209,7 +204,7 @@ fn write_state_file_with_start_failure(path: &std::path::Path) {
 
 #[test]
 fn forced_install_failure_returns_error() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let dir = TempDir::new().unwrap();
     let state_path = dir.path().join("fail-state.json");
     write_state_file_with_install_failure(&state_path);
@@ -234,7 +229,7 @@ fn forced_install_failure_returns_error() {
 
 #[test]
 fn forced_start_failure_returns_error() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let dir = TempDir::new().unwrap();
     let state_path = dir.path().join("fail-state.json");
     write_state_file_with_start_failure(&state_path);
@@ -253,7 +248,7 @@ fn forced_start_failure_returns_error() {
 
 #[test]
 fn core_dispatch_routes_install_to_mock_when_env_set() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -277,7 +272,7 @@ fn core_dispatch_routes_install_to_mock_when_env_set() {
 
 #[test]
 fn core_dispatch_routes_status_to_mock_when_env_set() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);
@@ -298,7 +293,7 @@ fn core_dispatch_routes_status_to_mock_when_env_set() {
 
 #[test]
 fn mock_agent_running_returns_none_when_disabled() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     std::env::remove_var("OPENHUMAN_SERVICE_MOCK");
     assert!(
         mock_agent_running().is_none(),
@@ -308,7 +303,7 @@ fn mock_agent_running_returns_none_when_disabled() {
 
 #[test]
 fn mock_agent_running_returns_true_by_default_state() {
-    let _g = MOCK_TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    let _g = crate::config::test_env::lock_env();
     let _sf = StateFileGuard::new();
     let tmp = TempDir::new().unwrap();
     let cfg = test_config(&tmp);

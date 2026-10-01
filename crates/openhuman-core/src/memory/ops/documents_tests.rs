@@ -1,54 +1,15 @@
 use serde_json::json;
 
 use super::*;
-
-/// Pins `OPENHUMAN_WORKSPACE` to the shared memory workspace for a test's
-/// duration, holding [`crate::config::TEST_ENV_LOCK`] so sibling
-/// tests that mutate the env var (e.g. `config::ops`, `update::ops`,
-/// autonomy settings) cannot change it mid-run.
-///
-/// `documents` tests are the only `memory::ops` tests that resolve the
-/// workspace from the env var (`memory_init` → `current_workspace_dir` →
-/// `Config::load_or_init`), so without this pin they race those tests and
-/// `memory_init` intermittently fails — surfaced under `cargo-llvm-cov`
-/// timing. Lock order is `GLOBAL_MEMORY_TEST_LOCK` → `TEST_ENV_LOCK` (the
-/// test takes the memory lock first, then this guard takes the env lock); no
-/// code path takes them in the opposite order, so there is no deadlock.
-struct WorkspaceEnvGuard {
-    _env_lock: std::sync::MutexGuard<'static, ()>,
-    previous: Option<std::ffi::OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn pin(workspace: &std::path::Path) -> Self {
-        let env_lock = crate::config::TEST_ENV_LOCK
-            .lock()
-            .unwrap_or_else(|poisoned| poisoned.into_inner());
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", workspace);
-        Self {
-            _env_lock: env_lock,
-            previous,
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        match self.previous.take() {
-            Some(value) => std::env::set_var("OPENHUMAN_WORKSPACE", value),
-            None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
-        }
-    }
-}
+use crate::config::test_env::EnvVarGuard;
 
 /// Bind the shared memory client and pin `OPENHUMAN_WORKSPACE` to its
-/// workspace for the test (see [`WorkspaceEnvGuard`]). Hold the returned
+/// workspace for the test (see [`EnvVarGuard`]). Hold the returned
 /// guard for the whole test: `let _env = ensure_memory_client();`.
 #[must_use]
-fn ensure_memory_client() -> WorkspaceEnvGuard {
+fn ensure_memory_client() -> EnvVarGuard {
     let workspace = crate::memory::ops::shared_memory_test_workspace();
-    WorkspaceEnvGuard::pin(&workspace)
+    EnvVarGuard::workspace(&workspace)
 }
 
 fn unique_namespace(prefix: &str) -> String {

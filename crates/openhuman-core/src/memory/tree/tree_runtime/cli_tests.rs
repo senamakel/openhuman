@@ -1,4 +1,3 @@
-use std::ffi::OsString;
 use std::path::PathBuf;
 
 use tempfile::TempDir;
@@ -6,65 +5,10 @@ use tempfile::TempDir;
 use crate::config::TEST_ENV_LOCK;
 
 use super::*;
+use crate::config::test_env::EnvVarGuard;
 
 fn lock_env() -> std::sync::MutexGuard<'static, ()> {
     TEST_ENV_LOCK.lock().unwrap_or_else(|err| err.into_inner())
-}
-
-struct WorkspaceEnvGuard {
-    _lock: std::sync::MutexGuard<'static, ()>,
-    previous: Option<OsString>,
-}
-
-impl WorkspaceEnvGuard {
-    fn set(path: &std::path::Path) -> Self {
-        let lock = lock_env();
-        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", path);
-        Self {
-            _lock: lock,
-            previous,
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        if let Some(previous) = self.previous.as_ref() {
-            std::env::set_var("OPENHUMAN_WORKSPACE", previous);
-        } else {
-            std::env::remove_var("OPENHUMAN_WORKSPACE");
-        }
-    }
-}
-
-struct EnvVarGuard {
-    key: &'static str,
-    previous: Option<OsString>,
-}
-
-impl EnvVarGuard {
-    fn set(key: &'static str, value: impl AsRef<std::ffi::OsStr>) -> Self {
-        let previous = std::env::var_os(key);
-        std::env::set_var(key, value);
-        Self { key, previous }
-    }
-
-    fn remove(key: &'static str) -> Self {
-        let previous = std::env::var_os(key);
-        std::env::remove_var(key);
-        Self { key, previous }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        if let Some(previous) = self.previous.as_ref() {
-            std::env::set_var(self.key, previous);
-        } else {
-            std::env::remove_var(self.key);
-        }
-    }
 }
 
 #[test]
@@ -153,7 +97,7 @@ fn help_paths_for_subcommands_return_ok() {
 #[test]
 fn ingest_prefers_file_input_and_surfaces_read_errors() {
     let tmp = TempDir::new().unwrap();
-    let _workspace = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace = EnvVarGuard::workspace(tmp.path());
     let missing = tmp.path().join("missing.txt");
 
     let args = vec![
@@ -175,7 +119,7 @@ fn run_summarize_errors_cleanly_without_provider() {
     // Users must enable local AI (Ollama) or set cloud_summarization_opt_in
     // in config (or via OPENHUMAN_MEMORY_TREE_CLOUD_SUMMARIZATION=true).
     let tmp = TempDir::new().unwrap();
-    let _workspace = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace = EnvVarGuard::workspace(tmp.path());
 
     let err = run_summarize(&["fresh-ns".to_string()])
         .expect_err("should error without any summarization provider");
@@ -189,7 +133,7 @@ fn run_summarize_errors_cleanly_without_provider() {
 #[test]
 fn load_config_uses_isolated_workspace_and_env_overrides() {
     let tmp = TempDir::new().unwrap();
-    let _workspace = WorkspaceEnvGuard::set(tmp.path());
+    let _workspace = EnvVarGuard::workspace(tmp.path());
     let _model = EnvVarGuard::set("OPENHUMAN_MODEL", "custom-model");
     let _language = EnvVarGuard::set("OPENHUMAN_OUTPUT_LANGUAGE", "fr-CA");
 
@@ -208,13 +152,13 @@ fn init_logging_sets_default_rust_log_only_when_needed() {
     let _lock = lock_env();
 
     {
-        let _rust_log = EnvVarGuard::remove("RUST_LOG");
+        let _rust_log = EnvVarGuard::unset("RUST_LOG");
         init_logging(false);
         assert_eq!(std::env::var("RUST_LOG").ok().as_deref(), Some("warn"));
     }
 
     {
-        let _rust_log = EnvVarGuard::remove("RUST_LOG");
+        let _rust_log = EnvVarGuard::unset("RUST_LOG");
         init_logging(true);
         assert!(std::env::var_os("RUST_LOG").is_none());
     }

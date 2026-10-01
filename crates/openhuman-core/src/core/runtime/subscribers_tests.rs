@@ -1,9 +1,7 @@
-use std::ffi::OsString;
-use std::sync::MutexGuard;
-
 use super::{
     group_first_time_when_bus_ready, learning_first_time_when_bus_ready, DomainSubscriberPlan,
 };
+use crate::config::test_env::EnvVarGuard;
 
 // ---- domain-subscriber gating (#4796 DoD item 3) ----------------------------
 // `register_domain_subscribers` registers on the process-global event bus behind
@@ -208,7 +206,7 @@ async fn tool_timeout_seeds_on_channelless_core_boot() {
     // Clear the operator override behind a panic-safe RAII guard: if any assertion
     // below panics, `Drop` still restores the previous value, so sibling tests that
     // share `TEST_ENV_LOCK` never inherit the cleared var.
-    let _env = EnvVarGuard::remove_many(vec!["OPENHUMAN_TOOL_TIMEOUT_SECS"]);
+    let _env = EnvVarGuard::locked_unset_many(&["OPENHUMAN_TOOL_TIMEOUT_SECS"]);
 
     // Distinctive, in-range (1..=3600) value so the assertion can only pass on a
     // real seed, never on the default. Channel-less: `channels_config` stays empty,
@@ -236,40 +234,4 @@ async fn tool_timeout_seeds_on_channelless_core_boot() {
         1234,
         "channel-less core boot must seed the tool-execution timeout from [agent].agent_timeout_secs"
     );
-}
-
-struct EnvVarGuard {
-    old_values: Vec<(&'static str, Option<OsString>)>,
-    _lock: MutexGuard<'static, ()>,
-}
-
-impl EnvVarGuard {
-    /// Remove the named vars (capturing their prior values) for the guard's
-    /// lifetime, restoring each on `Drop`.
-    fn remove_many(keys: Vec<&'static str>) -> Self {
-        let lock = crate::config::TEST_ENV_LOCK
-            .lock()
-            .expect("test env lock poisoned");
-        let mut old_values = Vec::with_capacity(keys.len());
-        for key in keys {
-            let old = std::env::var_os(key);
-            std::env::remove_var(key);
-            old_values.push((key, old));
-        }
-        Self {
-            old_values,
-            _lock: lock,
-        }
-    }
-}
-
-impl Drop for EnvVarGuard {
-    fn drop(&mut self) {
-        for (key, old) in self.old_values.iter().rev() {
-            match old {
-                Some(value) => std::env::set_var(key, value),
-                None => std::env::remove_var(key),
-            }
-        }
-    }
 }

@@ -9,15 +9,13 @@
 //!   so every chain's signer derives a deterministic address.
 //! - Sample addresses corresponding to that mnemonic (one per chain).
 
-use std::path::Path;
-
 use once_cell::sync::Lazy;
 use parking_lot::Mutex;
 use tempfile::TempDir;
 
 use super::ops::{setup, WalletAccount, WalletChain, WalletSetupParams, WalletSetupSource};
 use crate::config::rpc as config_rpc;
-use crate::config::TEST_ENV_LOCK;
+use crate::config::test_env::EnvVarGuard;
 
 pub(crate) static TEST_LOCK: Lazy<Mutex<()>> = Lazy::new(|| Mutex::new(()));
 
@@ -53,38 +51,6 @@ pub(crate) fn sample_account(chain: WalletChain) -> WalletAccount {
             WalletChain::Solana => "m/44'/501'/0'/0'".to_string(),
             WalletChain::Tron => "m/44'/195'/0'/0/0".to_string(),
         },
-    }
-}
-
-/// RAII guard returned to callers so `OPENHUMAN_WORKSPACE` is restored when
-/// the test scope ends — prevents one test's tempdir from leaking into the
-/// next test in the same process. Drop the guard explicitly or let it fall
-/// out of scope at the end of the test.
-pub(crate) struct WorkspaceEnvGuard {
-    prev: Option<std::ffi::OsString>,
-    _env_lock: std::sync::MutexGuard<'static, ()>,
-}
-
-impl WorkspaceEnvGuard {
-    pub(crate) fn set(path: impl AsRef<Path>) -> Self {
-        // OPENHUMAN_WORKSPACE is process-global, so hold the shared config env
-        // lock for the full lifetime of the test workspace override.
-        let env_lock = TEST_ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-        let prev = std::env::var_os("OPENHUMAN_WORKSPACE");
-        std::env::set_var("OPENHUMAN_WORKSPACE", path.as_ref());
-        Self {
-            prev,
-            _env_lock: env_lock,
-        }
-    }
-}
-
-impl Drop for WorkspaceEnvGuard {
-    fn drop(&mut self) {
-        match self.prev.take() {
-            Some(v) => std::env::set_var("OPENHUMAN_WORKSPACE", v),
-            None => std::env::remove_var("OPENHUMAN_WORKSPACE"),
-        }
     }
 }
 
@@ -145,11 +111,11 @@ impl Drop for UnreachableRpcGuard {
     }
 }
 
-pub(crate) fn set_workspace_env_for_test(temp: &TempDir) -> WorkspaceEnvGuard {
-    WorkspaceEnvGuard::set(temp.path())
+pub(crate) fn set_workspace_env_for_test(temp: &TempDir) -> EnvVarGuard {
+    EnvVarGuard::workspace(temp.path())
 }
 
-pub(crate) async fn setup_wallet_in(temp: &TempDir) -> Result<WorkspaceEnvGuard, String> {
+pub(crate) async fn setup_wallet_in(temp: &TempDir) -> Result<EnvVarGuard, String> {
     // Wallet state lookups rely on OPENHUMAN_WORKSPACE for the duration of
     // each test. Return a guard so the tempdir path does not leak into later
     // parallel tests after this test's TempDir has been dropped.

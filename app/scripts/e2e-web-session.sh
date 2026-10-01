@@ -239,6 +239,41 @@ if [ "$BUILT_CORE_PORT" != "$OPENHUMAN_CORE_PORT" ]; then
   exit 1
 fi
 
+# Refuse a bundle older than the sources it was built from (#5919).
+#
+# The session serves the prebuilt `dist-web`, so editing `app/src` and re-running
+# changes nothing in the browser: the spec runs against the PREVIOUS bundle and
+# passes, which makes a revert-proof or a fault injection prove nothing at all.
+# The marker is written after `build:web` returns, so anything newer than it is a
+# source change this bundle does not contain. `-quit` stops at the first hit, so
+# this is a stat walk rather than a hash of the tree, and directories are scanned
+# too: a file added, removed or renamed after the build shows up as a newer
+# directory even when no surviving file is newer.
+#
+# A missing input is an error rather than a skipped check. `find` on a path that
+# does not exist reports nothing, so a renamed input would silently turn this
+# gate off and leave the stale bundle served again.
+STALE_SOURCE=""
+for bundle_input in src public index.html vite.config.ts; do
+  input_path="$APP_DIR/$bundle_input"
+  if [ ! -e "$input_path" ]; then
+    echo "ERROR: bundle input $input_path does not exist, so staleness cannot be checked." >&2
+    echo "       Update the input list in $(basename "$0") to match the current layout." >&2
+    exit 1
+  fi
+  if [ -z "$STALE_SOURCE" ]; then
+    STALE_SOURCE="$(find "$input_path" -newer "$E2E_BUNDLE_MARKER" -print -quit)"
+  fi
+done
+if [ -n "$STALE_SOURCE" ]; then
+  echo "ERROR: $APP_DIR/dist-web is older than the sources it was built from." >&2
+  echo "       Newer than the bundle: $STALE_SOURCE" >&2
+  echo "       The bundle does not carry that change, so the specs would run against" >&2
+  echo "       the previous one and pass." >&2
+  echo "       Rebuild first: pnpm --filter openhuman-app test:e2e:web:build" >&2
+  exit 1
+fi
+
 export OPENHUMAN_CORE_BIN="$E2E_WEB_CORE_TARGET_DIR/debug/openhuman-core"
 if [ ! -x "$OPENHUMAN_CORE_BIN" ]; then
   echo "ERROR: standalone core binary is missing at $OPENHUMAN_CORE_BIN. Run pnpm --filter openhuman-app test:e2e:web:build first." >&2

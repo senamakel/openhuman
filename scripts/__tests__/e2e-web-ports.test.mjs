@@ -23,6 +23,10 @@ import { fileURLToPath } from "node:url";
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const MARKER = "openhuman-e2e-bundle.marker";
 const APP_SCRIPTS = ["e2e-ports.sh", "e2e-web-session.sh", "e2e-web-build.sh"];
+// What the session stats to decide the bundle is not older than its sources
+// (#5919). The fake checkout has to carry them or the gate refuses every tree
+// here for a missing input instead of exercising what the test is about.
+const BUNDLE_INPUTS = ["src/App.tsx", "public/favicon.ico", "index.html", "vite.config.ts"];
 
 function writeExecutable(file, body) {
   fs.mkdirSync(path.dirname(file), { recursive: true });
@@ -46,6 +50,12 @@ function makeTree() {
     path.join(repoRoot, "scripts", "load-dotenv.sh"),
     path.join(root, "scripts", "load-dotenv.sh"),
   );
+
+  for (const rel of BUNDLE_INPUTS) {
+    const file = path.join(root, "app", rel);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "");
+  }
 
   const record = (name) => `echo "${name} $*" >> "${log}"`;
 
@@ -119,6 +129,21 @@ function markBundle(tree, { mockPort, corePort }) {
     path.join(distWeb, ".e2e-build-ports.json"),
     `{"e2e_mock_port":"${mockPort}","openhuman_core_port":"${corePort}"}\n`,
   );
+  backdateBundleInputs(tree);
+}
+
+/**
+ * Age every bundle input so the marker is strictly newer, the way a real build
+ * leaves them: `build:web` reads the sources and the marker is written after it
+ * returns. Directories come last because writing a file inside one bumps its
+ * mtime.
+ */
+function backdateBundleInputs(tree) {
+  const marker = path.join(tree.root, "app", "dist-web", MARKER);
+  const when = fs.statSync(marker).mtimeMs / 1000 - 10;
+  for (const rel of [...BUNDLE_INPUTS, "src", "public"]) {
+    fs.utimesSync(path.join(tree.root, "app", rel), when, when);
+  }
 }
 
 function run(tree, script, env = {}) {
@@ -544,6 +569,96 @@ test("the recorded build ports come from the pre-dotenv selection", async () => 
     assert.equal(recorded.e2e_mock_port, String(base));
     assert.equal(recorded.openhuman_core_port, String(base + 1));
     assert.equal(recorded.vite_backend_url, `http://127.0.0.1:${base}`);
+  } finally {
+    tree.cleanup();
+  }
+});
+
+// ── the bundle has to be newer than the sources it was built from ──────────
+
+test("the session refuses a bundle older than the sources", async () => {
+  // The defect: the session serves the prebuilt `dist-web`, so a spec re-run
+  // after editing `app/src` asserted against the PREVIOUS bundle and passed.
+  // A revert-proof or a fault injection then proves nothing (#5919).
+  const tree = makeTree();
+  try {
+    const base = await freeBase();
+    markBundle(tree, { mockPort: base, corePort: base + 1 });
+    stubCore(tree, base + 1);
+    fs.writeFileSync(path.join(tree.root, "app", "src", "App.tsx"), "// edited\n");
+
+    const res = run(tree, "e2e-web-session.sh", { E2E_PORT_BASE: String(base) });
+
+    assert.equal(res.status, 1, res.output);
+    assert.match(res.output, /is older than the sources it was built from/);
+    assert.match(res.output, /Newer than the bundle: .*app\/src/);
+    assert.ok(
+      !tree.calls().some((call) => call.includes("exec playwright")),
+      `the specs must not run against a stale bundle:\n${tree.calls().join("\n")}`,
+    );
+  } finally {
+    tree.cleanup();
+  }
+});
+
+test("a file added after the build is caught even when the file itself is old", async () => {
+  // Why directories are stat'd and not only files: adding, removing or renaming
+  // one need not leave any surviving file newer than the marker, but it does
+  // bump the directory's own mtime.
+  const tree = makeTree();
+  try {
+    const base = await freeBase();
+    markBundle(tree, { mockPort: base, corePort: base + 1 });
+    stubCore(tree, base + 1);
+    const added = path.join(tree.root, "app", "src", "Added.tsx");
+    fs.writeFileSync(added, "");
+    const old = fs.statSync(path.join(tree.root, "app", "index.html")).mtimeMs / 1000;
+    fs.utimesSync(added, old, old);
+
+    const res = run(tree, "e2e-web-session.sh", { E2E_PORT_BASE: String(base) });
+
+    assert.equal(res.status, 1, res.output);
+    assert.match(res.output, /is older than the sources it was built from/);
+  } finally {
+    tree.cleanup();
+  }
+});
+
+test("the session runs the specs when the bundle is newer than the sources", async () => {
+  // The other half: an untouched checkout must not be refused.
+  const tree = makeTree();
+  try {
+    const base = await freeBase();
+    markBundle(tree, { mockPort: base, corePort: base + 1 });
+    stubCore(tree, base + 1);
+
+    const res = run(tree, "e2e-web-session.sh", { E2E_PORT_BASE: String(base) });
+
+    assert.doesNotMatch(res.output, /older than the sources/);
+    assert.ok(
+      waitForCall(tree, "exec playwright"),
+      `expected the specs to run:\n${tree.calls().join("\n")}`,
+    );
+  } finally {
+    tree.cleanup();
+  }
+});
+
+test("a bundle input that moved fails the check instead of disabling it", async () => {
+  // `find` on a path that does not exist reports nothing, so a renamed input
+  // would silently turn the whole gate off and serve the stale bundle again.
+  const tree = makeTree();
+  try {
+    const base = await freeBase();
+    markBundle(tree, { mockPort: base, corePort: base + 1 });
+    stubCore(tree, base + 1);
+    fs.rmSync(path.join(tree.root, "app", "vite.config.ts"));
+
+    const res = run(tree, "e2e-web-session.sh", { E2E_PORT_BASE: String(base) });
+
+    assert.equal(res.status, 1, res.output);
+    assert.match(res.output, /bundle input .*vite\.config\.ts does not exist/);
+    assert.match(res.output, /Update the input list/);
   } finally {
     tree.cleanup();
   }

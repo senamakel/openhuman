@@ -27,6 +27,24 @@ use wiremock::{Mock, MockServer, ResponseTemplate};
 
 const REPLY: &str = "harness-embed-ok";
 
+/// How long the mock provider holds every reply.
+///
+/// This is the test's clock. 100 turns taken one after another cannot finish in
+/// under `100 * PROVIDER_DELAY`, so any budget below that figure is what makes
+/// serialization observable.
+const PROVIDER_DELAY: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Wall-clock allowance for the 100 overlapping turns below.
+///
+/// Overlapped, they cost one `PROVIDER_DELAY` plus per-agent construction and
+/// session persistence — and it is that overhead, not the delay, that an
+/// instrumented build inflates. A 250 ms delay used to put the serialization
+/// floor at 25 s against a 20 s budget: 20% of headroom, which `cargo llvm-cov`
+/// on a shared hosted runner spent, failing a run that had not serialized at
+/// all (#6758). The floor is now 200 s, so this budget can absorb an
+/// instrumented run and still catch a serialized one by a factor of two.
+const CONCURRENT_BUDGET: std::time::Duration = std::time::Duration::from_secs(90);
+
 #[test]
 fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
     let _ = env_logger::builder().is_test(true).try_init();
@@ -55,7 +73,7 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
                 .and(path("/v1/chat/completions"))
                 .respond_with(
                     ResponseTemplate::new(200)
-                        .set_delay(std::time::Duration::from_millis(250))
+                        .set_delay(PROVIDER_DELAY)
                         .set_body_json(chat_completion(REPLY)),
                 )
                 .mount(&provider_server)
@@ -147,9 +165,10 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
 
             // One core must support many live agents. The delayed provider makes
             // serialization observable: sequential execution would take at least
-            // 25 seconds before agent construction and persistence overhead. All
-            // futures are created together and each receives a distinct session,
-            // matching a host such as OpenCompany running independent agents.
+            // `100 * PROVIDER_DELAY` before agent construction and persistence
+            // overhead, which is well past `CONCURRENT_BUDGET`. All futures are
+            // created together and each receives a distinct session, matching a
+            // host such as OpenCompany running independent agents.
             let started = std::time::Instant::now();
             let mut turns = tokio::task::JoinSet::new();
             for index in 0..100 {
@@ -162,7 +181,7 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
                         .await
                 });
             }
-            let outcomes = tokio::time::timeout(std::time::Duration::from_secs(20), async {
+            let outcomes = tokio::time::timeout(CONCURRENT_BUDGET, async {
                 let mut outcomes = Vec::with_capacity(100);
                 while let Some(outcome) = turns.join_next().await {
                     outcomes.push(outcome.expect("concurrent turn task did not panic"));
@@ -170,12 +189,15 @@ fn a_harness_runs_a_turn_against_the_provider_it_was_given() {
                 outcomes
             })
             .await
-            .expect("100 concurrent turns did not settle within 20 seconds");
+            .unwrap_or_else(|_| {
+                panic!("100 concurrent turns did not settle within {CONCURRENT_BUDGET:?}")
+            });
             let elapsed = started.elapsed();
             eprintln!("100 concurrent library turns completed in {elapsed:?}");
             assert!(
-                elapsed < std::time::Duration::from_secs(20),
-                "100 turns serialized instead of overlapping: {elapsed:?}"
+                elapsed < CONCURRENT_BUDGET,
+                "100 turns serialized instead of overlapping: {elapsed:?} is past \
+                 the {CONCURRENT_BUDGET:?} budget"
             );
             let mut session_ids = std::collections::HashSet::new();
             for outcome in outcomes {

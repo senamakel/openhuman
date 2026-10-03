@@ -896,6 +896,10 @@ fn large_tool_result_is_summarized_only_when_requested() {
             text_completion("I can inspect the stored output."),
         ]);
         let stack = boot_stack("summarizer_payload_threshold_tokens = 1").await;
+        let config = openhuman_core::config::Config::load_or_init()
+            .await
+            .expect("load test config");
+        assert_eq!(config.context.summarizer_max_payload_tokens, 64_000);
         let client_id = "on-demand-summary";
         let (mut events, ready) =
             spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));

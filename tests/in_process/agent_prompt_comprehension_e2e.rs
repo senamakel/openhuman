@@ -884,32 +884,63 @@ fn orchestrator_reaches_cron_through_the_scheduling_pack() {
     });
 }
 
-/// An oversized orchestrator tool result goes to TinyJuice's summary stage,
-/// which calls back for the summarizer's model — and the summarizer must run
-/// with no tools at all. TinyJuice decides whether a result is worth a summary,
-/// so the scripted tool returns a large one (~29 KB); a timestamp-sized result
-/// never reaches the summarizer.
+/// A large tool result reaches the model as a TinyJuice recovery handle. In
+/// on-demand mode the ingest step must not call the summarizer model. The
+/// agent can then request the stored result's overview with `juice_summarize`.
 #[test]
-fn summarizer_advertises_no_tools() {
-    run_case(Case {
-        agent: "summarizer",
-        // The summarizer's prompt is TinyJuice's summary contract, verbatim
-        // (`tinyjuice::summarize::SYSTEM_PROMPT`, vendor/tinyjuice/src/summarize/prompt.md).
-        agent_marker: "You compress a single oversized tool result",
-        entry: Entry::WebChat,
-        user_message: "What is the state of my workspace?",
-        scripted_completions: vec![
+fn large_tool_result_is_summarized_only_when_requested() {
+    run_on_agent_stack("on_demand_summary", || async {
+        let _lock = env_lock_async().await;
+        reset_script(vec![
             call("shell", json!({ "command": "seq 1 6000" })),
-            text_completion("Workspace summary: nothing notable."),
-            text_completion("Your workspace has nothing notable."),
-        ],
-        must_call: &[],
-        must_not_call: &[],
-        must_advertise: &[],
-        must_not_advertise: &[],
-        advertises_nothing: true,
-        max_consecutive_calls_of: None,
-        extra_config: "summarizer_payload_threshold_tokens = 1",
+            text_completion("I can inspect the stored output."),
+        ]);
+        let stack = boot_stack("summarizer_payload_threshold_tokens = 1").await;
+        let client_id = "on-demand-summary";
+        let (mut events, ready) =
+            spawn_sse_collector(format!("{}/events?client_id={client_id}", stack.rpc_base));
+        wait_for_sse_ready(ready).await;
+        let chat = |id, message: &str| {
+            post_json_rpc(
+                &stack.rpc_base,
+                id,
+                "openhuman.channel_web_chat",
+                json!({
+                    "client_id": client_id,
+                    "thread_id": "thread-on-demand-summary",
+                    "message": message,
+                    "model_override": "e2e-mock-model",
+                }),
+            )
+        };
+        let first = chat(10, "What is the state of my workspace?").await;
+        assert_no_jsonrpc_error(&first, "channel_web_chat");
+        wait_for_terminal(&mut events).await;
+
+        let first_requests = captured().clone();
+        let output = tool_result_text(&first_requests, "shell").expect("shell tool result");
+        let handle = output
+            .split_once("⟦tj:")
+            .and_then(|(_, rest)| rest.split_once('⟧'))
+            .map(|(handle, _)| handle.to_string())
+            .expect("large output must be stored behind a recovery handle");
+        assert!(
+            !first_requests.iter().any(|request| system_text(request)
+                .contains("You compress a single oversized tool result")),
+            "ingest called the summary model"
+        );
+
+        scripted().extend([
+            call("juice_summarize", json!({ "handle": handle })),
+            text_completion("The output contains a sequence of numbers."),
+        ]);
+        let second = chat(11, "Summarize the stored output.").await;
+        assert_no_jsonrpc_error(&second, "channel_web_chat");
+        wait_for_terminal(&mut events).await;
+        let requests = captured().clone();
+        let summary = tool_result_text(&requests, "juice_summarize")
+            .expect("on-demand overview tool result");
+        assert!(!summary.is_empty());
     });
 }
 

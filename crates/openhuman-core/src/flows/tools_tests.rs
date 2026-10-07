@@ -468,11 +468,15 @@ async fn run_flow_and_resume_refuse_under_a_tool_ceiling() {
         .await
         .unwrap();
     assert!(run.is_error);
-    assert!(run.output().contains(crate::agent::tool_ceiling::CEILING_REFUSAL));
+    assert!(run
+        .output()
+        .contains(crate::agent::tool_ceiling::CEILING_REFUSAL));
     let resume = crate::flows::builder_tools::ResumeFlowRunTool::new(config)
         .execute(json!({"flow_id": "any", "run_id": "r"}))
         .await
         .unwrap();
     assert!(resume.is_error);
-    assert!(resume.output().contains(crate::agent::tool_ceiling::CEILING_REFUSAL));
+    assert!(resume
+        .output()
+        .contains(crate::agent::tool_ceiling::CEILING_REFUSAL));
 }

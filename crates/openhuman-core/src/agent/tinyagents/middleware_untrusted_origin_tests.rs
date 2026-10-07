@@ -57,7 +57,9 @@ fn middleware(allowed: PermissionLevel) -> ToolPolicyMiddleware {
     ToolPolicyMiddleware::new(
         Arc::new(crate::agent::tool_policy::AllowAllToolPolicy),
         session,
-        vec![Arc::new(vec![Box::new(Posting) as Box<dyn tinytools::Tool>])],
+        vec![Arc::new(
+            vec![Box::new(Posting) as Box<dyn tinytools::Tool>],
+        )],
         "sess".into(),
         "internal".into(),
         "public".into(),

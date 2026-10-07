@@ -5,7 +5,10 @@ fn allows_only_named_tools() {
     let ceiling = ToolCeiling::new(["file_read", "use_skill"]);
     assert!(ceiling.allows("file_read"));
     assert!(!ceiling.allows("shell"));
-    assert_eq!(ceiling.names().collect::<Vec<_>>(), ["file_read", "use_skill"]);
+    assert_eq!(
+        ceiling.names().collect::<Vec<_>>(),
+        ["file_read", "use_skill"]
+    );
 }
 
 #[test]
@@ -35,7 +38,10 @@ fn impose_on_narrows_an_existing_config_ceiling() {
 #[test]
 fn missing_lists_names_outside_the_ceiling() {
     let ceiling = ToolCeiling::new(["file_read"]);
-    assert_eq!(ceiling.missing(["file_read", "shell", "edit"]), ["shell", "edit"]);
+    assert_eq!(
+        ceiling.missing(["file_read", "shell", "edit"]),
+        ["shell", "edit"]
+    );
 }
 
 struct Named(&'static str);
@@ -58,7 +64,8 @@ impl Tool for Named {
 
 #[test]
 fn retain_tools_drops_everything_outside() {
-    let mut tools: Vec<Box<dyn Tool>> = vec![Box::new(Named("file_read")), Box::new(Named("shell"))];
+    let mut tools: Vec<Box<dyn Tool>> =
+        vec![Box::new(Named("file_read")), Box::new(Named("shell"))];
     let dropped = ToolCeiling::new(["file_read"]).retain_tools(&mut tools);
     assert_eq!(dropped, 1);
     assert_eq!(tools.len(), 1);
@@ -70,7 +77,10 @@ fn scheduled_jobs_are_checked_against_the_ceiling() {
     assert!(check_scheduled_job(None, "cron_add", true).is_none());
     let without_shell = ToolCeiling::new(["cron_add"]);
     let refused = check_scheduled_job(Some(&without_shell), "cron_add", true).unwrap();
-    assert!(refused.contains(CEILING_REFUSAL) && refused.contains("shell"), "{refused}");
+    assert!(
+        refused.contains(CEILING_REFUSAL) && refused.contains("shell"),
+        "{refused}"
+    );
     let with_shell = ToolCeiling::new(["cron_add", "shell"]);
     assert!(check_scheduled_job(Some(&with_shell), "cron_add", true).is_none());
     let agent_job = check_scheduled_job(Some(&with_shell), "schedule", false).unwrap();

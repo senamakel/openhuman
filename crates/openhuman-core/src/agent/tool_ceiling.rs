@@ -89,7 +89,10 @@ impl ToolCeiling {
     where
         I: IntoIterator<Item = &'a str>,
     {
-        wanted.into_iter().filter(|name| !self.allows(name)).collect()
+        wanted
+            .into_iter()
+            .filter(|name| !self.allows(name))
+            .collect()
     }
 
     /// Narrow `config`'s ceiling by this one. A run built from the result

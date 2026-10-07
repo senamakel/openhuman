@@ -153,10 +153,17 @@ fn public_is_read_only_untrusted_input_that_never_parks() {
     config.autonomy.enabled = false;
     access.apply(&mut config);
     assert_eq!(config.autonomy.level, AutonomyLevel::ReadOnly);
-    assert!(config.autonomy.enabled, "tiers are inert with the policy off");
+    assert!(
+        config.autonomy.enabled,
+        "tiers are inert with the policy off"
+    );
     assert!(!config.autonomy.allow_tool_install);
     assert_eq!(
-        config.agent.channel_permissions.get("internal").map(String::as_str),
+        config
+            .agent
+            .channel_permissions
+            .get("internal")
+            .map(String::as_str),
         Some("readonly")
     );
 }

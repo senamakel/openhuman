@@ -229,9 +229,10 @@ impl Agent {
                     host,
                     None,
                 ),
-                None => {
-                    OpenHumanSessionHost::from_config_with_definition(&inner.config, &inner.definition)
-                }
+                None => OpenHumanSessionHost::from_config_with_definition(
+                    &inner.config,
+                    &inner.definition,
+                ),
             };
             session.map(|session| session.effective_tool_names(origin.as_ref()))
         };

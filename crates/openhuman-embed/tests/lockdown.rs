@@ -34,7 +34,11 @@ impl wiremock::Respond for Scripted {
         let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap_or_default();
         let messages = body["messages"].as_array().cloned().unwrap_or_default();
         let has_result = messages.iter().any(|m| {
-            m["role"] == "tool" || m["content"].as_str().unwrap_or("").contains("[Tool results]")
+            m["role"] == "tool"
+                || m["content"]
+                    .as_str()
+                    .unwrap_or("")
+                    .contains("[Tool results]")
         });
         let call = messages
             .iter()
@@ -191,7 +195,10 @@ fn lockdown_agent_cannot_reach_shell_or_file_write_directly() {
             .expect("lockdown agent");
 
         agent
-            .run(call("shell", serde_json::json!({"command": "touch breach-shell"})))
+            .run(call(
+                "shell",
+                serde_json::json!({"command": "touch breach-shell"}),
+            ))
             .await
             .expect("shell turn");
         agent
@@ -231,9 +238,13 @@ fn lockdown_ceiling_bounds_spawned_subagents() {
         let (runtime, provider) = boot(offline_config()).await;
         let agent = runtime
             .agent(
-                spec("spawner", &provider, named(&["spawn_subagent", "file_read"]))
-                    .access(Access::full())
-                    .lockdown(),
+                spec(
+                    "spawner",
+                    &provider,
+                    named(&["spawn_subagent", "file_read"]),
+                )
+                .access(Access::full())
+                .lockdown(),
             )
             .expect("lockdown agent");
         // The parent definition starts from the orchestrator, which may spawn

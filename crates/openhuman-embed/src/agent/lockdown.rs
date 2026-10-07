@@ -43,7 +43,8 @@ pub(crate) fn apply(
     config.autonomy.enabled = true;
     let named = |id: &str| {
         belt.iter().any(|name| name == id)
-            || pack(id).is_some_and(|pack| pack.tools.iter().any(|tool| belt.iter().any(|n| n == tool)))
+            || pack(id)
+                .is_some_and(|pack| pack.tools.iter().any(|tool| belt.iter().any(|n| n == tool)))
     };
     let groups = ToolGroups::ids()
         .filter(|id| !named(id))

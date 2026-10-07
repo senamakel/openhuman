@@ -17,9 +17,17 @@ fn refuses_external_effects_on_untrusted_read_only_turns() {
 
 #[test]
 fn admits_reads_trusted_origins_and_wider_sessions() {
-    assert!(!refuses(Some(&external()), PermissionLevel::ReadOnly, false));
+    assert!(!refuses(
+        Some(&external()),
+        PermissionLevel::ReadOnly,
+        false
+    ));
     assert!(!refuses(Some(&external()), PermissionLevel::Write, true));
-    assert!(!refuses(Some(&AgentTurnOrigin::Cli), PermissionLevel::ReadOnly, true));
+    assert!(!refuses(
+        Some(&AgentTurnOrigin::Cli),
+        PermissionLevel::ReadOnly,
+        true
+    ));
     assert!(!refuses(None, PermissionLevel::ReadOnly, true));
 }
 

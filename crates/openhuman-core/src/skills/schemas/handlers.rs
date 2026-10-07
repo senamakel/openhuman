@@ -151,11 +151,11 @@ pub(super) fn handle_skills_recent_runs(params: Map<String, Value>) -> Controlle
 pub(super) fn handle_skills_run(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<WorkflowsRunParams>(params)?;
-        let started = match spawn_workflow_run_background(payload.workflow_id, payload.inputs, None).await
-        {
-            Ok(s) => s,
-            Err(e) => return Err(e),
-        };
+        let started =
+            match spawn_workflow_run_background(payload.workflow_id, payload.inputs, None).await {
+                Ok(s) => s,
+                Err(e) => return Err(e),
+            };
         to_json(Outcome::new(
             serde_json::json!({
                 "run_id": started.run_id,

@@ -202,12 +202,19 @@ const SYSTEM_TOOLS: &[&str] = &[
     "security_policy_info",
     "service_status",
     "daemon_host_prefs_get",
+    #[cfg(feature = "tools-system")]
     "service_start",
+    #[cfg(feature = "tools-system")]
     "service_stop",
+    #[cfg(feature = "tools-system")]
     "service_restart",
+    #[cfg(feature = "tools-system")]
     "service_shutdown",
+    #[cfg(feature = "tools-system")]
     "service_install",
+    #[cfg(feature = "tools-system")]
     "service_uninstall",
+    #[cfg(feature = "tools-system")]
     "daemon_host_prefs_set",
     "config_snapshot",
     "config_get_client_config",
@@ -219,12 +226,19 @@ const SYSTEM_TOOLS: &[&str] = &[
 ];
 
 const SYSTEM_DEFAULT_OFF: &[&str] = &[
+    #[cfg(feature = "tools-system")]
     "service_start",
+    #[cfg(feature = "tools-system")]
     "service_stop",
+    #[cfg(feature = "tools-system")]
     "service_restart",
+    #[cfg(feature = "tools-system")]
     "service_shutdown",
+    #[cfg(feature = "tools-system")]
     "service_install",
+    #[cfg(feature = "tools-system")]
     "service_uninstall",
+    #[cfg(feature = "tools-system")]
     "daemon_host_prefs_set",
 ];
 
@@ -279,6 +293,7 @@ const DESKTOP_TOOLS: &[&str] = &[
     #[cfg(feature = "mcp")]
     "mcp_registry_uninstall",
     "workspace_read_persona",
+    #[cfg(feature = "tools-system")]
     "workspace_update_persona",
     "workspace_reset_persona",
     "workspace_init",
@@ -287,6 +302,7 @@ const DESKTOP_TOOLS: &[&str] = &[
 const DESKTOP_DEFAULT_OFF: &[&str] = &[
     #[cfg(feature = "mcp")]
     "mcp_registry_uninstall",
+    #[cfg(feature = "tools-system")]
     "workspace_update_persona",
     "workspace_reset_persona",
     "workspace_init",

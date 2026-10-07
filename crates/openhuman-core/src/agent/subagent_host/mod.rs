@@ -76,4 +76,7 @@ pub(crate) use ops::{append_subagent_role_contract, resolve_subagent_source};
 // can call it as
 // `crate::agent::subagent_host::user_is_signed_in_to_composio`
 // without reaching into a private sibling module.
+// Its one caller is the Composio tool registry, which the `composio` feature
+// compiles out.
+#[cfg(feature = "composio")]
 pub(crate) use ops::user_is_signed_in_to_composio;

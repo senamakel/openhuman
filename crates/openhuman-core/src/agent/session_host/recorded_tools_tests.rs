@@ -56,6 +56,7 @@ fn unavailable_authorization_does_not_rebuild_recorded_actions() {
     assert!(rebuilt.is_empty());
 }
 
+#[cfg(feature = "composio")]
 #[test]
 fn non_integration_declarations_are_never_rehydrated() {
     let recorded = vec![spec("web_fetch"), spec("GMAIL_SEND_EMAIL")];
@@ -69,6 +70,7 @@ fn non_integration_declarations_are_never_rehydrated() {
     assert_eq!(names, vec!["GMAIL_SEND_EMAIL"]);
 }
 
+#[cfg(feature = "composio")]
 #[test]
 fn a_live_action_is_not_rebuilt_from_the_record() {
     let recorded = vec![spec("GMAIL_SEND_EMAIL"), spec("SLACK_SEND_MESSAGE")];
@@ -83,6 +85,7 @@ fn a_live_action_is_not_rebuilt_from_the_record() {
     assert_eq!(names, vec!["SLACK_SEND_MESSAGE"]);
 }
 
+#[cfg(feature = "composio")]
 #[test]
 fn a_rebuilt_declaration_is_byte_identical_to_the_recorded_one() {
     let recorded = vec![spec("GMAIL_SEND_EMAIL")];
@@ -162,4 +165,15 @@ fn missing_search_tools_are_rebuilt_once_with_their_recorded_declaration() {
     assert_eq!(rebuilt.len(), 1);
     assert_eq!(rebuilt[0].name(), "web_answer_tool");
     assert_eq!(rebuilt[0].description(), "web_answer_tool description");
+}
+
+/// With `composio` compiled out a recorded action stays historical prompt
+/// state: nothing is rebuilt, even under an authoritative snapshot that
+/// still lists the toolkit as connected.
+#[cfg(not(feature = "composio"))]
+#[test]
+fn recorded_actions_are_not_rebuilt_without_the_composio_feature() {
+    let recorded = vec![spec("GMAIL_SEND_EMAIL")];
+    let integrations = vec![integration("gmail", true, Vec::new())];
+    assert!(rehydrate_integration_actions(&recorded, &[], &integrations, true).is_empty());
 }

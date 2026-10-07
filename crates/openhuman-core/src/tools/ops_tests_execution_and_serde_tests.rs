@@ -33,7 +33,11 @@ fn all_tools_includes_browser_when_enabled() {
         "browser_open follows the `modules` gate"
     );
     assert!(names.contains(&"pushover"));
-    assert!(names.contains(&"proxy_config"));
+    assert_eq!(
+        names.contains(&"proxy_config"),
+        cfg!(feature = "tools-system"),
+        "proxy_config follows the `tools-system` gate"
+    );
 }
 
 #[test]
@@ -160,6 +164,7 @@ fn all_tools_registers_node_exec_when_node_enabled() {
     );
 }
 
+#[cfg(feature = "tools-exec")]
 #[test]
 fn all_tools_registers_python_exec_when_python_enabled() {
     // Default RuntimePythonConfig has `enabled = true`, so `python_exec` must
@@ -258,10 +263,15 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
             "stock_crypto_series",
             "stock_commodity",
             "twilio_call",
+            #[cfg(feature = "composio")]
             "composio_list_toolkits",
+            #[cfg(feature = "composio")]
             "composio_list_connections",
+            #[cfg(feature = "composio")]
             "composio_authorize",
+            #[cfg(feature = "composio")]
             "composio_list_tools",
+            #[cfg(feature = "composio")]
             "composio_execute",
         ],
     );

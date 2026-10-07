@@ -132,7 +132,8 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
 
     // `PACKS` is unconditional, but most packs' tools are behind Cargo features
     // that are NOT in `default` — `flows`, `mcp`, `skills`, `web3`, `documents`,
-    // `voice`. Under a partial feature set "missing" means "compiled out", not
+    // `voice` — or that an embedder can compile out (the `tools-*` capability
+    // features and `composio`). Under a partial feature set "missing" means "compiled out", not
     // "stale", and asserting there reports the pack's REAL tools as missing.
     // That is what the `Rust Feature-Gate Smoke (gates off)` lane caught twice.
     //
@@ -151,6 +152,11 @@ fn every_packed_tool_name_resolves_to_a_registered_tool() {
         feature = "web3",
         feature = "documents",
         feature = "voice",
+        feature = "tools-shell",
+        feature = "tools-fs-write",
+        feature = "tools-exec",
+        feature = "tools-system",
+        feature = "composio",
     )) {
         return;
     }
@@ -426,14 +432,19 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
     let names = tool_names(&tools);
 
     let mut expected = vec![
+        #[cfg(feature = "tools-shell")]
         "shell",
         "file_read",
+        #[cfg(feature = "tools-fs-write")]
         "file_write",
         "grep",
         "glob",
         "list",
+        #[cfg(feature = "tools-fs-write")]
         "edit",
+        #[cfg(feature = "tools-fs-write")]
         "apply_patch",
+        #[cfg(feature = "tools-fs-write")]
         "csv_export",
         "spawn_subagent",
         "spawn_async_subagent",
@@ -453,14 +464,18 @@ fn all_tools_default_registry_contains_expected_baseline_surface() {
         "cron_run",
         "cron_runs",
         "schedule",
+        #[cfg(feature = "tools-system")]
         "proxy_config",
         "update_check",
+        #[cfg(feature = "tools-system")]
         "update_apply",
+        #[cfg(feature = "tools-exec")]
         "git_operations",
         "pushover",
         "gmail_unsubscribe",
         "http_request",
         "web_fetch",
+        #[cfg(feature = "tools-fs-write")]
         "curl",
         "gitbooks_search",
         "gitbooks_get_page",
@@ -530,7 +545,11 @@ fn all_tools_excludes_browser_when_disabled() {
     assert!(!names.contains(&"browser_open"));
     assert!(names.contains(&"schedule"));
     assert!(names.contains(&"pushover"));
-    assert!(names.contains(&"proxy_config"));
+    assert_eq!(
+        names.contains(&"proxy_config"),
+        cfg!(feature = "tools-system"),
+        "proxy_config follows the `tools-system` gate"
+    );
 }
 
 /// #5505: the producers write into the folder chosen in Settings, not a

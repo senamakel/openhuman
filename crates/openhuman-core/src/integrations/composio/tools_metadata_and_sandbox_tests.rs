@@ -325,6 +325,7 @@ fn agent_tools_are_all_removed_when_composio_is_disabled_even_if_signed_in() {
     );
 }
 
+#[cfg(feature = "composio")]
 #[test]
 fn agent_tools_register_when_backend_signed_in() {
     let tmp = tempfile::tempdir().unwrap();
@@ -350,6 +351,7 @@ fn agent_tools_register_when_backend_signed_in() {
     );
 }
 
+#[cfg(feature = "composio")]
 #[test]
 fn agent_tools_register_when_direct_mode_with_stored_key_and_no_backend_session() {
     // Regression for the bug we're closing in Option C: a direct-mode

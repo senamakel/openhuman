@@ -15,6 +15,7 @@ fn registry_names_for(cfg: &Config, tmp: &TempDir) -> Vec<String> {
     tool_names(&tools)
 }
 
+#[cfg(feature = "composio")]
 #[test]
 fn composio_tools_register_in_direct_mode_without_an_app_session() {
     let tmp = TempDir::new().unwrap();

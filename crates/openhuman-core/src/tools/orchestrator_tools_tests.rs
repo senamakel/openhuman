@@ -100,6 +100,7 @@ fn integration_with_actions(
 /// 2 archetype tools plus one `Deferred` action tool per connected
 /// action — and no `delegate_to_integrations_agent`. One clear service
 /// action is a `tool_search` and a call, never a sub-agent spawn.
+#[cfg(feature = "composio")]
 #[test]
 fn collects_agentid_entries_and_expands_skills_wildcard_to_deferred_actions() {
     let orch = sample_orchestrator();
@@ -164,6 +165,7 @@ fn collects_agentid_entries_and_expands_skills_wildcard_to_deferred_actions() {
 
 /// The synthesised set scales only with the connected *actions*, never
 /// adds a per-toolkit or collapsed delegation handle.
+#[cfg(feature = "composio")]
 #[test]
 fn skills_wildcard_adds_no_delegation_tool_for_any_integration_count() {
     let orch = sample_orchestrator();
@@ -315,6 +317,7 @@ fn sanitise_slug_lowercases_and_replaces_invalid_chars() {
 /// Unconnected integrations contribute no actions: the orchestrator
 /// must not find (and call) an action on a toolkit the user has not
 /// authorised and hit a "not connected" rejection downstream.
+#[cfg(feature = "composio")]
 #[test]
 fn unconnected_integrations_contribute_no_actions() {
     let orch = sample_orchestrator();
@@ -349,6 +352,7 @@ fn unconnected_integrations_contribute_no_actions() {
 /// Actions are advertised in a stable order — toolkit, then action —
 /// whatever order the backend listed the connections in, because the
 /// synthesised set feeds the tool specs a session freezes.
+#[cfg(feature = "composio")]
 #[test]
 fn deferred_actions_are_sorted_by_toolkit_then_action() {
     let mut orch = def("orchestrator", "t", None);
@@ -377,6 +381,7 @@ fn deferred_actions_are_sorted_by_toolkit_then_action() {
 /// The same action slug arriving from two toolkits keeps the first
 /// arrival (by sorted toolkit) so the catalogue never carries two tools
 /// under one name.
+#[cfg(feature = "composio")]
 #[test]
 fn duplicate_action_names_keep_the_first_arrival() {
     let mut orch = def("orchestrator", "t", None);

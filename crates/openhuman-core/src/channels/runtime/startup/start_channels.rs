@@ -477,6 +477,13 @@ async fn start_channels_inner(mut config: Config) -> Result<()> {
         // Crate-native turn models for the channel turn (Phase 3 P3-B).
         config: Some(std::sync::Arc::new(config.clone())),
     });
+    // Let cron jobs created from a channel chat read that chat's history, send
+    // into it and append their replies to it.
+    crate::cron::channel_bridge::register_channel_bridge(
+        Arc::clone(&runtime_ctx.conversation_histories),
+        Arc::clone(&runtime_ctx.channels_by_name),
+        crate::channels::context::MAX_CHANNEL_HISTORY,
+    );
 
     run_message_dispatch_loop(rx, runtime_ctx, max_in_flight_messages).await;
 

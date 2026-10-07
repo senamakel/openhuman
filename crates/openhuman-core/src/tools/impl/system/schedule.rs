@@ -1,5 +1,7 @@
 use crate::config::Config;
-use crate::cron::{self, DeliveryConfig, Schedule, SessionTarget};
+use crate::cron::job_builder::{create_agent_job, AgentJobInput};
+use crate::cron::origin::{current_job_origin, current_turn_may_skip_approval};
+use crate::cron::{self, Schedule};
 use crate::security::SecurityPolicy;
 use anyhow::Result;
 use async_trait::async_trait;
@@ -27,7 +29,10 @@ impl Tool for ScheduleTool {
     }
 
     fn description(&self) -> &str {
-        "Manage scheduled tasks. Actions: create/add/once/list/get/cancel/remove/pause/resume"
+        "Manage scheduled tasks. Actions: create/add/once/list/get/cancel/remove/pause/resume. \
+         A task with a `prompt` created inside a conversation replies back into that same \
+         conversation automatically on every run; no delivery target is needed. In the \
+         scheduled run your final reply is what gets delivered (`NO_REPLY` skips it)."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
@@ -90,10 +95,17 @@ impl Tool for ScheduleTool {
         // (create/add/once/cancel/remove/pause/resume) persist or remove a
         // scheduled job and must go through the ApprovalGate
         // (GHSA-f46p-6vf9-64mm).
-        !matches!(
-            args.get("action").and_then(|v| v.as_str()),
-            Some("list") | Some("get")
-        )
+        //
+        // Exception: an agent task (`prompt`, no shell `command`) created from a
+        // channel conversation replies only into that conversation and runs as
+        // that channel's turn, so it skips the gate (see `cron::origin`).
+        match args.get("action").and_then(|v| v.as_str()) {
+            Some("list") | Some("get") => false,
+            Some("create") | Some("add") | Some("once") => {
+                !current_turn_may_skip_approval(&schedule_args_as_cron_add(args))
+            }
+            _ => true,
+        }
     }
 
     async fn execute(&self, args: serde_json::Value) -> Result<ToolResult> {
@@ -151,6 +163,27 @@ impl Tool for ScheduleTool {
                     "Unknown action '{other}'. Use create/add/once/list/get/cancel/remove/pause/resume."
                 ))),
         }
+    }
+}
+
+/// The `cron` add-shaped view of a `schedule` create call, for the shared
+/// approval-exemption check: an agent task has a `prompt` and no real shell
+/// `command`; anything else is treated as a shell job.
+fn schedule_args_as_cron_add(args: &serde_json::Value) -> serde_json::Value {
+    let non_empty = |key: &str| {
+        args.get(key)
+            .and_then(|v| v.as_str())
+            .map(str::trim)
+            .filter(|v| !v.is_empty())
+            .map(str::to_string)
+    };
+    match (non_empty("command"), non_empty("prompt")) {
+        // `execute` re-reads a non-shell-looking `command` as the prompt.
+        (Some(cmd), None) if !looks_like_shell_command(&cmd) => {
+            json!({ "job_type": "agent", "prompt": cmd })
+        }
+        (None, Some(prompt)) => json!({ "job_type": "agent", "prompt": prompt }),
+        _ => json!({ "job_type": "shell" }),
     }
 }
 
@@ -350,23 +383,20 @@ impl ScheduleTool {
                 });
 
             let delete_after_run = matches!(schedule, Schedule::At { .. });
-            let delivery = Some(DeliveryConfig {
-                mode: "proactive".to_string(),
-                channel: None,
-                to: None,
-                best_effort: true,
-            });
-
-            let job = cron::add_agent_job(
+            let job = create_agent_job(
                 &self.config,
-                name,
-                schedule,
-                prompt_text,
-                SessionTarget::Isolated,
-                None,
-                delivery,
-                delete_after_run,
-            )?;
+                AgentJobInput {
+                    name,
+                    schedule,
+                    prompt: prompt_text.to_string(),
+                    session_target: None,
+                    model: None,
+                    delivery: None,
+                    delete_after_run,
+                },
+                current_job_origin(),
+            )
+            .map_err(anyhow::Error::msg)?;
 
             let job_name = job.name.as_deref().unwrap_or("(unnamed)");
             tracing::debug!(

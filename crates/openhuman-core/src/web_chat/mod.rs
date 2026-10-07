@@ -35,6 +35,7 @@ mod ops;
 pub mod presentation;
 pub(crate) mod progress_bridge;
 mod reply_persistence;
+pub(crate) use reply_persistence::persist_delivered_reply;
 mod run_task;
 mod schemas;
 mod session;
@@ -106,7 +107,8 @@ pub(crate) use schemas::{
 #[cfg(any(test, debug_assertions))]
 #[allow(unused_imports)]
 pub(crate) use session::{
-    locale_reply_directive, normalize_model_override, provider_role_for_model_override,
+    locale_reply_directive, normalize_model_override, pick_target_agent_id,
+    provider_role_for_model_override,
 };
 #[cfg(any(test, debug_assertions))]
 #[allow(unused_imports)]

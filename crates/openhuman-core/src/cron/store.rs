@@ -8,8 +8,9 @@
 use crate::config::Config;
 use anyhow::Result;
 use chrono::{DateTime, Utc};
+use tinyflows_schedule::DeliveryStatus;
 use tinyflows_schedule::{CronJob, CronJobPatch, CronRun, DeliveryConfig, Schedule, SessionTarget};
-use tinyflows_sqlite::schedule::{self as upstream, CronStoreOptions};
+use tinyflows_sqlite::schedule::{self as upstream, AgentJobSpec, CronStoreOptions};
 
 /// Builds the store options from the host config: `<workspace>/cron/jobs.db`,
 /// `cron.max_run_history`, `scheduler.max_tasks`.
@@ -84,6 +85,11 @@ pub fn add_agent_job_with_definition(
         agent_id,
         enabled,
     )
+}
+
+/// Adds an agent job described by `spec`, including its origin conversation.
+pub fn add_agent_job_from_spec(config: &Config, spec: AgentJobSpec) -> Result<CronJob> {
+    upstream::add_agent_job_from_spec(&opts(config), spec)
 }
 
 /// Registers (idempotently) the cron job that fires a flow's `schedule`
@@ -168,6 +174,30 @@ pub fn record_run(
         status,
         output,
         duration_ms,
+    )
+}
+
+/// [`record_run`] plus the outcome of delivering the run's result.
+#[allow(clippy::too_many_arguments)]
+pub fn record_run_with_delivery(
+    config: &Config,
+    job_id: &str,
+    started_at: DateTime<Utc>,
+    finished_at: DateTime<Utc>,
+    status: &str,
+    output: Option<&str>,
+    duration_ms: i64,
+    delivery_status: Option<DeliveryStatus>,
+) -> Result<()> {
+    upstream::record_run_with_delivery(
+        &opts(config),
+        job_id,
+        started_at,
+        finished_at,
+        status,
+        output,
+        duration_ms,
+        delivery_status,
     )
 }
 

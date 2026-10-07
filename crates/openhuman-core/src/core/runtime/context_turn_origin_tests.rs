@@ -8,6 +8,7 @@ async fn dispatch_scope_uses_explicit_origin_without_mutating_shared_context() {
         sender: Some("sender".into()),
         reply_target: "room".into(),
         message_id: "message".into(),
+        history_key: None,
     };
     CoreContext::scope_with_turn_origin(ctx.clone(), Some(origin), async {
         assert!(matches!(
@@ -28,6 +29,7 @@ async fn missing_child_origin_inherits_bound_external_authority() {
         sender: None,
         reply_target: "room".into(),
         message_id: "message".into(),
+        history_key: None,
     };
     CoreContext::scope_with_turn_origin(ctx, Some(external), async {
         let parent = CoreContext::current().expect("parent context");

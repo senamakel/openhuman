@@ -2173,6 +2173,186 @@ async fn json_rpc_agent_registry_manages_defaults_and_custom_agents() {
 }
 
 #[test]
+fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread() {
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_cron_origin_delivery_lands_in_the_asking_thread",
+        json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner,
+    );
+}
+
+/// A cron job created from a web thread delivers each run's reply into that
+/// thread as exactly one assistant row (id `agent:cron:<job>:<run>`), creates no
+/// other thread, and a second run adds one more row.
+async fn json_rpc_cron_origin_delivery_lands_in_the_asking_thread_inner() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    clear_forced_chat_completions();
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{mock_addr}");
+    write_min_config(&openhuman_home, &mock_origin);
+    write_min_config(&openhuman_home.join("users").join("e2e-user"), &mock_origin);
+
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let store = post_json_rpc(
+        &rpc_base,
+        1,
+        "openhuman.auth_store_session",
+        json!({ "token": "e2e-test-jwt", "user_id": "e2e-user" }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&store, "store_session");
+
+    // The asking thread, with one real web-chat turn so it has an agent transcript.
+    let create = post_json_rpc(&rpc_base, 2, "openhuman.threads_create_new", json!({})).await;
+    let thread_id = assert_no_jsonrpc_error(&create, "threads_create_new")["data"]["id"]
+        .as_str()
+        .expect("thread id")
+        .to_string();
+    let events_url = format!("{rpc_base}/events?client_id=cron-e2e");
+    let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
+    let chat = post_json_rpc(
+        &rpc_base,
+        3,
+        "openhuman.channel_web_chat",
+        json!({
+            "client_id": "cron-e2e",
+            "thread_id": thread_id,
+            "message": "remind me to drink water",
+            "model_override": "e2e-mock-model",
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&chat, "channel_web_chat");
+    sse_task.await.expect("chat turn finishes");
+
+    let list_threads = |id: i64| {
+        let rpc_base = rpc_base.clone();
+        async move {
+            let list = post_json_rpc(&rpc_base, id, "openhuman.threads_list", json!({})).await;
+            assert_no_jsonrpc_error(&list, "threads_list")["data"]["threads"]
+                .as_array()
+                .expect("threads array")
+                .len()
+        }
+    };
+    let threads_before = list_threads(4).await;
+
+    // An agent job bound to that thread.
+    let add = post_json_rpc(
+        &rpc_base,
+        5,
+        "openhuman.cron_add",
+        json!({
+            "name": "water",
+            "schedule": { "kind": "every", "every_ms": 3_600_000 },
+            "job_type": "agent",
+            "prompt": "Remind the user to drink water.",
+            "session_target": "current",
+            "delivery": { "mode": "origin" },
+            "origin": { "kind": "web", "thread_id": thread_id },
+        }),
+    )
+    .await;
+    let add_result = assert_no_jsonrpc_error(&add, "cron_add");
+    let job_id = add_result["result"]["id"]
+        .as_str()
+        .or_else(|| add_result["id"].as_str())
+        .unwrap_or_else(|| panic!("job id missing: {add_result}"))
+        .to_string();
+
+    let mut delivered_ids: Vec<String> = Vec::new();
+    for round in 0..2i64 {
+        push_forced_chat_completion(forced_text_completion(&format!("Drink water! #{round}")));
+        let run = post_json_rpc(
+            &rpc_base,
+            10 + round,
+            "openhuman.cron_run",
+            json!({ "job_id": job_id }),
+        )
+        .await;
+        assert_no_jsonrpc_error(&run, "cron_run");
+
+        // Wait for the delivered run to be recorded.
+        let mut ids = Vec::new();
+        for _ in 0..100 {
+            let runs = post_json_rpc(
+                &rpc_base,
+                20 + round,
+                "openhuman.cron_runs",
+                json!({ "job_id": job_id }),
+            )
+            .await;
+            let body = assert_no_jsonrpc_error(&runs, "cron_runs").to_string();
+            let done = body.contains("\"delivery_status\":\"delivered\"");
+            let msgs = post_json_rpc(
+                &rpc_base,
+                30 + round,
+                "openhuman.threads_messages_list",
+                json!({ "thread_id": thread_id }),
+            )
+            .await;
+            ids = assert_no_jsonrpc_error(&msgs, "threads_messages_list")["data"]["messages"]
+                .as_array()
+                .expect("messages")
+                .iter()
+                .filter_map(|m| m["id"].as_str().map(str::to_string))
+                .filter(|id| id.starts_with(&format!("agent:cron:{job_id}:")))
+                .collect();
+            if done && ids.len() == (round as usize) + 1 {
+                break;
+            }
+            tokio::time::sleep(Duration::from_millis(100)).await;
+        }
+        assert_eq!(
+            ids.len(),
+            (round as usize) + 1,
+            "exactly one cron reply row per run in the origin thread: {ids:?}"
+        );
+        delivered_ids = ids;
+    }
+    assert_eq!(delivered_ids.len(), 2);
+    assert_ne!(
+        delivered_ids[0], delivered_ids[1],
+        "each run has its own row"
+    );
+
+    assert_eq!(
+        list_threads(40).await,
+        threads_before,
+        "delivery must not create another thread"
+    );
+
+    // The next turn sees the reminder: the agent transcript holds it.
+    let transcript = post_json_rpc(
+        &rpc_base,
+        41,
+        "openhuman.threads_transcript_get",
+        json!({ "thread_id": thread_id }),
+    )
+    .await;
+    let transcript_body =
+        assert_no_jsonrpc_error(&transcript, "threads_transcript_get").to_string();
+    assert!(
+        transcript_body.contains("Drink water! #0") && transcript_body.contains("Drink water! #1"),
+        "transcript must contain both delivered replies: {transcript_body}"
+    );
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[test]
 fn json_rpc_protocol_auth_and_agent_hello() {
     run_json_rpc_e2e_on_agent_stack(
         "json_rpc_protocol_auth_and_agent_hello",

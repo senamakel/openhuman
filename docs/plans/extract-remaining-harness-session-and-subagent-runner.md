@@ -1,11 +1,9 @@
 # Extract the remaining session and sub-agent runtime from OpenHuman
 
-**Status:** Phases 0–5 are landed on the migration branch. Phase 6 is in
-progress: the old `harness/subagent_runner` tree is being replaced directly by
-`agent/subagent_host`, whose lifecycle is driven by
-`tinyagents_orchestration::subagent`. The branch must not be described as
-complete until its host persistence, caller migration, deletion audit, and
-validation gates have passed.
+> **Status, verified 2026-10-07: landed.** `agent/harness/{session,subagent_runner,run_queue}/`
+> and `agent/task_dispatcher/` are deleted, and `agent/session_host/` and
+> `agent/subagent_host/` replaced them. Kept as the record of what moved and
+> why. See [`README.md`](README.md) for the whole set and how to re-check it.
 
 ## End state and rules
 

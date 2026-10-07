@@ -198,6 +198,7 @@ async fn canonical_adapter_scopes_tool_execution_to_the_run_origin() {
             sender: None,
             reply_target: "room".into(),
             message_id: "message".into(),
+            history_key: None,
         },
     );
     let run = host.into_tinyagents(RunConfig::new("origin-observer"));

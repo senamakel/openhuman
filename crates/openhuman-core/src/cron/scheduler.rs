@@ -6,6 +6,8 @@
 mod agent_run;
 mod delivery;
 mod failure_classification;
+mod origin_context;
+mod origin_delivery;
 mod retry;
 mod run_record;
 mod shell_job;
@@ -163,10 +165,25 @@ pub(crate) async fn tick_once(
 
 async fn process_due_jobs(config: &Config, security: &Arc<SecurityPolicy>, jobs: Vec<CronJob>) {
     let max_concurrent = config.scheduler.max_concurrent.max(1);
-    let mut in_flight = stream::iter(jobs.into_iter().map(|job| {
+    // A job already running (a long previous tick, or Run Now) is skipped: the
+    // next tick picks it up once the claim is released.
+    let claimed: Vec<_> = jobs
+        .into_iter()
+        .filter_map(|job| match crate::cron::ops::try_acquire_run(&job.id) {
+            Some(guard) => Some((job, guard)),
+            None => {
+                tracing::debug!(job_id = %job.id, "[cron:scheduler] skipping job: a run is already active");
+                None
+            }
+        })
+        .collect();
+    let mut in_flight = stream::iter(claimed.into_iter().map(|(job, guard)| {
         let config = config.clone();
         let security = Arc::clone(security);
-        async move { execute_and_persist_job(&config, security.as_ref(), &job).await }
+        async move {
+            let _guard = guard;
+            execute_and_persist_job(&config, security.as_ref(), &job).await
+        }
     }))
     .buffer_unordered(max_concurrent);
 
@@ -202,11 +219,14 @@ async fn execute_and_persist_job(
         job_type: format!("{:?}", job.job_type),
     });
 
-    let (execution_success, output) = execute_job_with_retry(config, security, job).await;
+    let run_id = uuid::Uuid::new_v4().to_string();
+    let (execution_success, output) =
+        execute_job_with_retry_for_run(config, security, job, &run_id).await;
     let finished_at = Utc::now();
-    let success = persist_job_result(
+    let success = persist_job_result_for_run(
         config,
         job,
+        &run_id,
         execution_success,
         &output,
         started_at,

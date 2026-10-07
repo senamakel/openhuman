@@ -1,17 +1,42 @@
 //! Persisting a finished run: delivery, run history, one-shot termination,
 //! rescheduling, and the high-frequency agent-job warning.
 
-use super::delivery::deliver_if_configured;
+use super::delivery::deliver_run;
 use crate::config::Config;
 use crate::cron::{
-    record_last_run, record_run, remove_job, reschedule_after_run, runs_closer_than, update_job,
-    CronJob, CronJobPatch, JobType, Schedule, TooFrequent, MIN_AGENT_JOB_INTERVAL,
+    record_last_run, record_run_with_delivery, remove_job, reschedule_after_run, runs_closer_than,
+    update_job, CronJob, CronJobPatch, DeliveryStatus, JobType, Schedule, TooFrequent,
+    MIN_AGENT_JOB_INTERVAL,
 };
 use chrono::{DateTime, Utc};
 
+/// [`persist_job_result_for_run`] under a fresh run id.
+#[cfg(test)]
 pub(super) async fn persist_job_result(
     config: &Config,
     job: &CronJob,
+    success: bool,
+    output: &str,
+    started_at: DateTime<Utc>,
+    finished_at: DateTime<Utc>,
+) -> bool {
+    let run_id = uuid::Uuid::new_v4().to_string();
+    persist_job_result_for_run(
+        config,
+        job,
+        &run_id,
+        success,
+        output,
+        started_at,
+        finished_at,
+    )
+    .await
+}
+
+pub(super) async fn persist_job_result_for_run(
+    config: &Config,
+    job: &CronJob,
+    run_id: &str,
     mut success: bool,
     output: &str,
     started_at: DateTime<Utc>,
@@ -19,16 +44,20 @@ pub(super) async fn persist_job_result(
 ) -> bool {
     let duration_ms = (finished_at - started_at).num_milliseconds();
 
-    if let Err(e) = deliver_if_configured(config, job, output, success).await {
-        if job.delivery.best_effort {
-            tracing::warn!("Cron delivery failed (best_effort): {e}");
-        } else {
-            success = false;
-            tracing::warn!("Cron delivery failed: {e}");
+    let delivery_status = match deliver_run(config, job, run_id, output, success).await {
+        Ok(status) => status,
+        Err(e) => {
+            if job.delivery.best_effort {
+                tracing::warn!("Cron delivery failed (best_effort): {e}");
+            } else {
+                success = false;
+                tracing::warn!("Cron delivery failed: {e}");
+            }
+            DeliveryStatus::Failed
         }
-    }
+    };
 
-    let _ = record_run(
+    let _ = record_run_with_delivery(
         config,
         &job.id,
         started_at,
@@ -36,6 +65,7 @@ pub(super) async fn persist_job_result(
         if success { "ok" } else { "error" },
         Some(output),
         duration_ms,
+        Some(delivery_status),
     );
 
     // A fixed-instant (`Schedule::At`) job is inherently one-shot: its `at` is in

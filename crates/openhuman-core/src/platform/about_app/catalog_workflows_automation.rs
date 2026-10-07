@@ -295,7 +295,7 @@ Capability {
         name: "View Cron Jobs",
         domain: "automation",
         category: CapabilityCategory::Automation,
-        description: "Review scheduled jobs available to the runtime.",
+        description: "Review scheduled jobs available to the runtime. A reminder or scheduled task you ask for in a chat (web or a channel such as Telegram) is delivered back into that same conversation.",
         how_to: "Settings > Cron Jobs",
         status: CapabilityStatus::Stable,
         privacy: None,

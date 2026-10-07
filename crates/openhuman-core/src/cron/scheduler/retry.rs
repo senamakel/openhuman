@@ -1,7 +1,7 @@
 //! The per-job retry loop with exponential backoff, its permanent-halt
 //! short-circuits, and the retries-exhausted observability report.
 
-use super::agent_run::{run_agent_job, run_flow_schedule_job};
+use super::agent_run::{run_agent_job_for_run, run_flow_schedule_job};
 use super::failure_classification::{
     is_api_key_unset_failure, is_budget_exhausted_failure, is_insufficient_credits_failure,
     is_local_provider_unreachable_failure, is_session_expired_failure, permanent_halt_message,
@@ -17,19 +17,34 @@ pub(super) fn agent_session_target_tag(target: &SessionTarget) -> &'static str {
     match target {
         SessionTarget::Main => "main",
         SessionTarget::Isolated => "isolated",
+        SessionTarget::Current => "current",
     }
 }
 
-pub async fn execute_job_now(config: &Config, job: &CronJob) -> (bool, String) {
+/// Run `job` now under the caller's `run_id` (also the id its delivery and
+/// run record use).
+pub async fn execute_job_now(config: &Config, job: &CronJob, run_id: &str) -> (bool, String) {
     let security =
         SecurityPolicy::from_config(&config.autonomy, &config.workspace_dir, &config.action_dir);
-    execute_job_with_retry(config, &security, job).await
+    execute_job_with_retry_for_run(config, &security, job, run_id).await
 }
 
+/// [`execute_job_with_retry_for_run`] under a fresh run id.
+#[cfg(test)]
 pub(super) async fn execute_job_with_retry(
     config: &Config,
     security: &SecurityPolicy,
     job: &CronJob,
+) -> (bool, String) {
+    let run_id = uuid::Uuid::new_v4().to_string();
+    execute_job_with_retry_for_run(config, security, job, &run_id).await
+}
+
+pub(super) async fn execute_job_with_retry_for_run(
+    config: &Config,
+    security: &SecurityPolicy,
+    job: &CronJob,
+    run_id: &str,
 ) -> (bool, String) {
     let mut last_output = String::new();
     let mut last_agent_error: Option<String> = None;
@@ -47,7 +62,7 @@ pub(super) async fn execute_job_with_retry(
                 let (success, output) = run_job_command(config, security, job).await;
                 (success, output, None)
             }
-            JobType::Agent => run_agent_job(config, job).await,
+            JobType::Agent => run_agent_job_for_run(config, job, run_id).await,
             JobType::Flow => {
                 let (success, output) = run_flow_schedule_job(job);
                 (success, output, None)

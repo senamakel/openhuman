@@ -173,6 +173,7 @@ pub(crate) async fn start(
         sender: None,
         reply_target: session_id.to_string(),
         message_id: format!("voice-live-{session_id}"),
+        history_key: None,
     };
     let mut context = OpenHumanRunContext::new();
     context.origin = Some(origin.clone());

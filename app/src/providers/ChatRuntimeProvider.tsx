@@ -337,6 +337,23 @@ function deliveredReplyMessageId(event: {
 }
 
 /**
+ * Message id for a proactive message addressed to a real thread.
+ *
+ * Origin-bound cron delivery persists its reply into the conversation that
+ * asked for it and names that row in `persisted_message_id` before emitting
+ * `proactive_message`. Reusing the id collapses our append onto the core's
+ * row. Without the field no row exists (a turn id is not unique per message),
+ * so a generated id is used.
+ */
+function proactiveMessageId(event: {
+  thread_id: string;
+  persisted_message_id?: string;
+}): string | undefined {
+  if (event.thread_id.startsWith('proactive:')) return undefined;
+  return event.persisted_message_id || undefined;
+}
+
+/**
  * Map a `chat_done` event's holistic usage onto the `recordChatTurnUsage`
  * payload. Prefers the structured `usage` object (tokens + cost + context window
  * + per-sub-agent breakdown); falls back to the deprecated flat token fields for
@@ -1317,6 +1334,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 addInferenceResponse({
                   content: event.full_response,
                   threadId: targetThreadId,
+                  messageId: proactiveMessageId(event),
                   // Stamp the producing turn's request id when present (Phase 4
                   // anchoring); proactive events may omit it, in which case the
                   // message falls back to the legacy single-anchor turn.

@@ -1,84 +1,12 @@
 use crate::config::Config;
+use crate::cron::job_builder::{create_agent_job, AgentJobInput};
+use crate::cron::origin::{current_job_origin, current_turn_may_skip_approval};
 use crate::cron::{self, DeliveryConfig, JobType, Schedule, SessionTarget};
 use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde_json::json;
 use std::sync::Arc;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolExposure, ToolResult};
-
-/// Look up the configured `allowed_users` list for a channel by name.
-/// Returns `None` if the channel is unknown or unconfigured. An empty
-/// `Some(&[])` means the channel is configured but accepts any sender.
-fn allowed_users_for_channel<'a>(config: &'a Config, channel: &str) -> Option<&'a [String]> {
-    let ch = channel.trim().to_ascii_lowercase();
-    let cc = &config.channels_config;
-    match ch.as_str() {
-        "telegram" => cc.telegram.as_ref().map(|c| c.allowed_users.as_slice()),
-        "discord" => cc.discord.as_ref().map(|c| c.allowed_users.as_slice()),
-        "slack" => cc.slack.as_ref().map(|c| c.allowed_users.as_slice()),
-        "mattermost" => cc.mattermost.as_ref().map(|c| c.allowed_users.as_slice()),
-        "matrix" => cc.matrix.as_ref().map(|c| c.allowed_users.as_slice()),
-        "irc" => cc.irc.as_ref().map(|c| c.allowed_users.as_slice()),
-        "lark" => cc.lark.as_ref().map(|c| c.allowed_users.as_slice()),
-        "dingtalk" => cc.dingtalk.as_ref().map(|c| c.allowed_users.as_slice()),
-        "qq" => cc.qq.as_ref().map(|c| c.allowed_users.as_slice()),
-        _ => None,
-    }
-}
-
-/// Validate a `DeliveryConfig` at cron-create time.
-///
-/// For `mode: "announce"` we require both `channel` and `to`, and we
-/// reject `to` values that are not in the channel's configured
-/// `allowed_users` list. This blocks an LLM (or RPC caller) from
-/// scheduling a cron whose output gets sent to an arbitrary chat id —
-/// see the "no cross-tenant `to`" acceptance criterion in #928.
-///
-/// `proactive` and `none` modes are not channel-targeted and are not
-/// validated here.
-fn validate_delivery(config: &Config, delivery: &DeliveryConfig) -> Result<(), String> {
-    let mode = delivery.mode.trim().to_ascii_lowercase();
-    if mode != "announce" {
-        return Ok(());
-    }
-
-    let channel = delivery
-        .channel
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "delivery.channel is required for announce mode".to_string())?;
-    let to = delivery
-        .to
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .ok_or_else(|| "delivery.to is required for announce mode".to_string())?;
-
-    // "web" announce is a degenerate case (web has no allowed_users
-    // gate). Other unknown channels (e.g. "email") fall through to the
-    // generic reject.
-    if channel.eq_ignore_ascii_case("web") {
-        return Ok(());
-    }
-
-    match allowed_users_for_channel(config, channel) {
-        Some([]) => Ok(()),
-        Some(list) => {
-            if list.iter().any(|u| u == to) {
-                Ok(())
-            } else {
-                Err(format!(
-                    "delivery target '{to}' on channel '{channel}' is not in allowed_users \
-                     for that channel; refusing to schedule cross-tenant delivery"
-                ))
-            }
-        }
-        None => Err(format!(
-            "delivery channel '{channel}' is not configured; cannot validate target"
-        )),
-    }
-}
 
 pub struct CronAddTool {
     config: Arc<Config>,
@@ -109,12 +37,12 @@ impl Tool for CronAddTool {
         "Create a scheduled cron job (shell or agent) with cron/at/every schedules. \
          Standardizes on device-local timezone unless 'tz' is set. The scheduler polls on an \
          interval (default 15s, minimum 5s) and does not 'catch up' missed runs.\n\
-         Delivery: agent jobs default to `mode: \"proactive\"` which lands in the in-app/web \
-         stream. When the current turn includes a `[Channel context]` block (e.g. Telegram, \
-         Discord, Slack), set `delivery` to `{ \"mode\": \"announce\", \"channel\": <channel>, \
-         \"to\": <reply target from the context block> }` so the reminder is delivered back to \
-         the same chat instead of the desktop. Only use the default proactive mode when the \
-         user explicitly asks for an in-app notification or when no channel context is present.\n\
+         Delivery: an agent job created inside a conversation (web chat or a channel such as \
+         Telegram, Discord, Slack) sends each run's reply back to that same conversation \
+         automatically; do not set `delivery` or copy a reply target for that. Only set \
+         `delivery` to override it (`proactive` for an in-app notification, `none` for silent). \
+         A job created with no conversation defaults to `proactive`. In its scheduled run the \
+         agent's final reply is what gets delivered; `NO_REPLY` skips the delivery.\n\
          Agent jobs must be scheduled at least 5 minutes apart; a tighter cron expression or \
          every_ms is rejected."
     }
@@ -173,13 +101,13 @@ impl Tool for CronAddTool {
                 "job_type": { "type": "string", "enum": ["shell", "agent"] },
                 "command": { "type": "string" },
                 "prompt": { "type": "string" },
-                "session_target": { "type": "string", "enum": ["isolated", "main"] },
+                "session_target": { "type": "string", "enum": ["isolated", "current", "main"], "description": "Defaults to 'current' (a fresh run that sees the recent conversation it was created in and replies there) when created inside a conversation, otherwise 'isolated'." },
                 "model": { "type": "string" },
                 "delivery": {
                     "type": "object",
-                    "description": "Delivery config. Defaults to proactive (notifies user). Modes: proactive, announce (needs channel+to), none (silent).",
+                    "description": "Delivery config. Defaults to 'origin' (reply into the conversation this job was created in) when created inside a conversation, otherwise 'proactive'. Modes: origin, proactive, announce (needs channel+to), none (silent).",
                     "properties": {
-                        "mode": { "type": "string", "enum": ["proactive", "announce", "none"] },
+                        "mode": { "type": "string", "enum": ["origin", "proactive", "announce", "none"] },
                         "channel": { "type": "string", "description": "Required for announce mode" },
                         "to": { "type": "string", "description": "Required for announce mode" },
                         "best_effort": { "type": "boolean", "default": true }
@@ -209,6 +137,14 @@ impl Tool for CronAddTool {
         // before the job is written to disk, even when the turn originated
         // from an inbound channel message (GHSA-f46p-6vf9-64mm).
         true
+    }
+
+    fn external_effect_with_args(&self, args: &serde_json::Value) -> bool {
+        // An agent job that replies only into the channel conversation that
+        // asked for it needs no approval: the asker is the sole recipient and
+        // its runs stay gated as that channel's turns. Everything else keeps
+        // the unconditional gate above.
+        !current_turn_may_skip_approval(args)
     }
 
     async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
@@ -332,12 +268,12 @@ impl Tool for CronAddTool {
 
                 let session_target = match args.get("session_target") {
                     Some(v) => match serde_json::from_value::<SessionTarget>(v.clone()) {
-                        Ok(target) => target,
+                        Ok(target) => Some(target),
                         Err(e) => {
                             return Ok(ToolResult::error(format!("Invalid session_target: {e}")));
                         }
                     },
-                    None => SessionTarget::Isolated,
+                    None => None,
                 };
 
                 let model = args
@@ -352,30 +288,23 @@ impl Tool for CronAddTool {
                             return Ok(ToolResult::error(format!("Invalid delivery config: {e}")));
                         }
                     },
-                    None => Some(DeliveryConfig {
-                        mode: "proactive".to_string(),
-                        channel: None,
-                        to: None,
-                        best_effort: true,
-                    }),
+                    None => None,
                 };
 
-                if let Some(ref cfg) = delivery {
-                    if let Err(msg) = validate_delivery(&self.config, cfg) {
-                        return Ok(ToolResult::error(msg));
-                    }
-                }
-
-                cron::add_agent_job(
+                create_agent_job(
                     &self.config,
-                    name,
-                    schedule,
-                    prompt,
-                    session_target,
-                    model,
-                    delivery,
-                    delete_after_run,
+                    AgentJobInput {
+                        name,
+                        schedule,
+                        prompt: prompt.to_string(),
+                        session_target,
+                        model,
+                        delivery,
+                        delete_after_run,
+                    },
+                    current_job_origin(),
                 )
+                .map_err(anyhow::Error::msg)
             }
             // `job_type` above is derived only from `Some("agent")`/`Some("shell")`/
             // the `prompt`-presence heuristic, so this arm is unreachable in
@@ -398,7 +327,9 @@ impl Tool for CronAddTool {
                     "job_type": job.job_type,
                     "schedule": job.schedule,
                     "next_run": job.next_run,
-                    "enabled": job.enabled
+                    "enabled": job.enabled,
+                    "session_target": job.session_target,
+                    "delivery_mode": job.delivery.mode
                 });
                 let mut tr = ToolResult::success(serde_json::to_string_pretty(&payload)?);
                 if options.prefer_markdown {

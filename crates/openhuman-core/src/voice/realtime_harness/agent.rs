@@ -152,6 +152,7 @@ async fn run_single_with_timeout(
             sender: None,
             reply_target: correlation_id.to_string(),
             message_id: format!("voice-{correlation_id}"),
+            history_key: None,
         },
         crate::security::approval::APPROVAL_CHAT_CONTEXT.scope(approval_ctx, scoped_run),
     );

@@ -117,9 +117,9 @@ Applies to every release, all platforms.
 
 ## Active release line
 
-> If multiple stable release lines are in flight (security backports, LTS), add a sub-section per line and check the same boxes for each. As of writing, `0.52.x` is the only active line — older minor versions are end-of-life. Fold this section to suit when more release lines exist.
+> One stable line is active at a time: the minor named by `[workspace.package] version` in the root `Cargo.toml`. Older minor versions are end-of-life. If more lines ever go in flight at once (security backports, LTS), add a sub-section per line and check the same boxes for each.
 
-### 0.52.x — current
+### Current stable line
 
 - [ ] **OAuth gate respects `VITE_MINIMUM_SUPPORTED_APP_VERSION`** (per [Release Policy](../gitbooks/developing/release-policy.md)) — Set the variable to a value above this build's version, build, attempt OAuth from the older binary. Expected: gate blocks the deep link; opens `VITE_LATEST_APP_DOWNLOAD_URL`.
 - [ ] **Gmail connect succeeds on a fresh install from `releases/latest`** — Per release-policy step 4. Expected: token exchange completes, inbox lists in-app.

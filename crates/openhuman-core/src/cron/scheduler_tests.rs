@@ -47,6 +47,7 @@ fn test_job(command: &str) -> CronJob {
         last_run: None,
         last_status: None,
         last_output: None,
+        origin: None,
     }
 }
 

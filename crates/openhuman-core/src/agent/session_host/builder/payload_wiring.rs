@@ -6,7 +6,7 @@
 /// dump, long file read, web scrape), it should be compressed
 /// by TinyJuice's summary stage before entering the orchestrator's
 /// history. TinyJuice owns the prompt and the thresholds (installed
-/// from [`ContextConfig`]); the host supplies only the model call,
+/// from `ContextConfig`); the host supplies only the model call,
 /// through a `SubagentPayloadSummarizer` built from the `summarizer`
 /// agent definition. Every other agent id gets
 /// `None` and their tool results stay untouched (the summarizer

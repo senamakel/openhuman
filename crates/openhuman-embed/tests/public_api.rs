@@ -69,4 +69,15 @@ fn exposes_the_host_facing_embedding_contract() {
     let _ = Access::full()
         .trust("/tmp/embed-public-api", TrustedAccess::ReadWrite)
         .origin(automation);
+    // The public-agent contract: lockdown, untrusted access, posture report.
+    let _ = AgentSpec::new("public-bot")
+        .definition(
+            AgentDefinitionSpec::new().tools(ToolScopeSpec::Named(vec!["file_read".into()])),
+        )
+        .access(Access::public())
+        .lockdown();
+    async fn posture(agent: &Agent) -> Result<Vec<String>, openhuman_embed::AgentError> {
+        agent.effective_tools(None).await
+    }
+    let _ = posture;
 }

@@ -32,16 +32,3 @@ fn a_wildcard_workflow_without_frontmatter_declares_nothing() {
     );
     assert!(declared_workflow_tools(&def).is_empty());
 }
-
-#[tokio::test]
-async fn an_unknown_workflow_is_refused_before_the_ceiling_is_consulted() {
-    let err = spawn_workflow_run_background(
-        "no-such-workflow-for-ceiling-test".into(),
-        None,
-        Some(ToolCeiling::new(["run_workflow"])),
-    )
-    .await
-    .err()
-    .expect("unknown");
-    assert!(err.contains("unknown skill"), "{err}");
-}

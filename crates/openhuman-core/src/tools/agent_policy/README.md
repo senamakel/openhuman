@@ -12,6 +12,7 @@ Not to be confused with `crate::agent::tool_policy` (the generic `ToolPolicy` pr
 - Derive a coarse `TaskRiskLevel` (Low/Medium/High/Critical) from the allowed permission.
 - Render a bounded `## Tool Policy Boundary` system-prompt section listing the active agent/channel/entrypoint, allowed permission, risk, allowed tools, and a restricted-count summary.
 - Provide a fail-closed default decision (`Deny`) for unknown or unlisted tool names at runtime.
+- `untrusted::refuses`: refuse an external-effect call outright when the turn is untrusted remote input (`AgentTurnOrigin::ExternalChannel`) and the session's ceiling is read-only, instead of parking it on the approval gate. The caller passes the origin in; the tool-policy middleware takes it from the run context and `OpenHumanSessionHost::effective_tool_names` from its argument.
 
 ## Key files
 
@@ -23,6 +24,7 @@ Not to be confused with `crate::agent::tool_policy` (the generic `ToolPolicy` pr
 | `crates/openhuman-core/src/tools/agent_policy/engine_tests.rs` | Engine tests, attached via `#[path]` from `engine.rs`. |
 | `crates/openhuman-core/src/tools/agent_policy/prompt.rs` | `render_tool_policy_boundary` + `TOOL_POLICY_BOUNDARY_HEADING`; private UTF-8-safe `truncate_utf8`. |
 | `crates/openhuman-core/src/tools/agent_policy/prompt_tests.rs` | Prompt-rendering tests, attached via `#[path]` from `prompt.rs`. |
+| `crates/openhuman-core/src/tools/agent_policy/untrusted.rs` | `refuses` / `refusal`: the untrusted-origin, read-only external-effect rule shared by the middleware and the posture report. Tests in `untrusted_tests.rs`. |
 
 ## Public surface
 

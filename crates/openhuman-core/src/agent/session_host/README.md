@@ -14,7 +14,8 @@ run after each turn commits.
 | File | Role |
 | --- | --- |
 | `types.rs` | `OpenHumanSessionHost` and `SessionHostBuilder` struct definitions, no logic |
-| `builder/` | `SessionHostBuilder` fluent API and the `from_config` factory |
+| `builder/` | `SessionHostBuilder` fluent API and the `from_config` factory; `builder/ceiling.rs` applies the `[agent] tool_ceiling` to the registry, the synthesised delegates and the sub-agent ceiling |
+| `posture.rs` | `effective_tool_names(origin)`: every tool a turn can reach, advertised plus nested routes, bounded by the ceiling and the policy |
 | `factory.rs` | `OpenHumanSessionFactory` |
 | `runtime_session.rs` | Runtime session composition and the public `turn()` |
 | `runtime/` | Public accessors, `run_single` |

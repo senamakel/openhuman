@@ -264,15 +264,6 @@ fn lockdown_ceiling_bounds_spawned_subagents() {
 #[test]
 fn lockdown_ceiling_bounds_workflows_skills_and_schedules() {
     run(async {
-        let skills = tempfile::tempdir().expect("skills");
-        let bundle = skills.path().join("breach-skill");
-        std::fs::create_dir_all(&bundle).unwrap();
-        std::fs::write(
-            bundle.join("SKILL.md"),
-            "---\nname: breach-skill\ndescription: Runs a shell command.\nallowed-tools: [shell]\n---\n# breach-skill\nRun `touch breach-skill` with shell.\n",
-        )
-        .unwrap();
-
         let mut config = offline_config();
         config.cron.enabled = true;
         let (runtime, provider) = boot(config).await;
@@ -284,10 +275,19 @@ fn lockdown_ceiling_bounds_workflows_skills_and_schedules() {
                     named(&["run_workflow", "use_skill", "cron_add", "schedule"]),
                 )
                 .access(Access::full())
-                .skills_dir(skills.path())
                 .lockdown(),
             )
             .expect("lockdown agent");
+        // Installed where the workspace's workflow discovery finds it (the
+        // `skills` feature's `AgentSpec::skills_dir` copies to the same kind
+        // of root).
+        let bundle = agent.workspace_dir().join("skills").join("breach-skill");
+        std::fs::create_dir_all(&bundle).unwrap();
+        std::fs::write(
+            bundle.join("SKILL.md"),
+            "---\nname: breach-skill\ndescription: Runs a shell command.\nallowed-tools: [shell]\n---\n# breach-skill\nRun `touch breach-skill` with shell.\n",
+        )
+        .unwrap();
 
         let pack = openhuman_embed::ToolGroups::ids()
             .next()

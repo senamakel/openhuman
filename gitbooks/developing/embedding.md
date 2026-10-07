@@ -206,6 +206,8 @@ desktop's own narrower set. Chain builder methods to override:
 - `.tools(factory)` to hand the agent real in-process tools built fresh per
   turn, rather than routing host callbacks through an MCP server.
 - `.config(f)` as an escape hatch for config fields the spec does not model.
+- `.lockdown()` to make the named tool belt a hard ceiling (see
+  [Running a public agent](#running-a-public-agent)).
 
 Agent ids must match `^[a-z0-9][a-z0-9_-]{0,63}$`; avoid the built-in ids
 (`orchestrator`, `summarizer`, ...), which the runtime-wide delegation
@@ -228,11 +230,107 @@ silently refuse, which reads as a weak model rather than a missing scope.
   willing to have changed. Hard blocks still apply regardless of tier:
   credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`) and the workspace's own
   internal state stay off limits.
+- `Access::public()`: untrusted public input. See
+  [Running a public agent](#running-a-public-agent).
 
 `.trust(path, access)` grants a directory outside the action root, and
 `.allow_tool_install(bool)` opts into OS package installation, off in every
 preset including `full()` because it reaches outside the action directory
 that otherwise bounds the blast radius.
+
+## Running a public agent
+
+An agent that anyone on X or Telegram can put text in front of has to assume
+prompt injection. It must only ever reach the tools its host named, including
+through runs it starts. Four layers do this, from the build down to a single
+tool call.
+
+### 1. Leave whole families out of the build
+
+The [capability features](#capability-features) decide whether `shell`, the
+file-writing tools, the exec tools, the system tools and Composio exist in the
+binary at all. A public bot with no host-acting tools compiles them out:
+
+```toml
+openhuman-embed = { git = "https://github.com/tinyhumansai/openhuman", package = "openhuman-embed", default-features = false, features = ["skills"] }
+```
+
+### 2. `AgentSpec::lockdown()`: deny by default
+
+```rust,no_run
+use openhuman_embed::{Access, AgentDefinitionSpec, AgentSpec, ToolScopeSpec};
+
+let spec = AgentSpec::new("public-bot")
+    .definition(
+        AgentDefinitionSpec::new()
+            .system_prompt("You answer questions about our product.")
+            .tools(ToolScopeSpec::Named(vec!["web_search".into(), "memory_recall".into()])),
+    )
+    .access(Access::public())
+    .lockdown();
+```
+
+Lockdown needs a `ToolScopeSpec::Named` belt, and `Runtime::agent` refuses a
+wildcard one. Then:
+
+- The named belt becomes the session's **tool ceiling** (`[agent]
+  tool_ceiling` in core). Only those tools and the host's own (`.tools(…)`,
+  `attach_tools`) are registered. Every other built-in and every `delegate_*`
+  route the belt does not name do not exist for the agent's sessions.
+- Every nested run inherits the ceiling, and nesting can only narrow it:
+  - A sub-agent started by `spawn_subagent` or a delegate tool is intersected
+    with it.
+  - `run_workflow` refuses a workflow whose `skill.toml` belt or `SKILL.md`
+    `allowed-tools` names a tool outside it, and builds the run with the
+    same ceiling.
+  - `cron_add` and `schedule` refuse a shell job unless `shell` is inside the
+    ceiling. They refuse an agent job outright, because a scheduled run is
+    built later from the stored job and cannot carry the ceiling.
+  - `run_flow` and `resume_flow_run` refuse, because a flow's tool nodes
+    dispatch outside the session.
+  - `use_skill` cannot reach a pack tool that was never registered.
+- MCP servers, the operator's user-scope skills and `install_tool` are off,
+  whatever `.mcp(…)`, `.include_user_skills(true)` or the access tier said.
+- Every tool group whose id or member tools the belt does not name is
+  `GroupMode::Off`.
+- The autonomy policy is enabled for the agent, so its access tier is
+  enforced. With the policy off, which is the default, tiers are inert.
+
+Lockdown is applied after the `.config(f)` escape hatch, so the escape hatch
+cannot undo it. A refusal reaches the model as a tool error that contains
+"tool ceiling".
+
+The ceiling is a core mechanism, not an embed one. Any session built from a
+config with `[agent] tool_ceiling` set gets the same behaviour.
+
+### 3. `Access::public()`: untrusted input
+
+`Access::public()` runs turns as an `AgentTurnOrigin::ExternalChannel`
+(`channel: "public"`). It enables the autonomy policy at `ReadOnly` and caps
+the session's tool permission at read-only. Every tool that writes, executes
+or has an external effect is refused **immediately**, with a tool error the
+model can read. Nothing parks waiting for an approval that no one on a public
+channel could give. Read-only tools, including the host's own, keep working.
+
+The tool-policy middleware reads the origin from the run context. It never
+reads it from ambient task-local state.
+
+### 4. Check the posture: `Agent::effective_tools`
+
+```rust,no_run
+# async fn check(agent: &openhuman_embed::Agent) -> Result<(), openhuman_embed::AgentError> {
+let reachable = agent.effective_tools(None).await?;
+assert!(!reachable.iter().any(|tool| tool == "shell" || tool == "file_write"));
+# Ok(()) }
+```
+
+`effective_tools(origin)` builds the agent's session the way a turn does,
+host tools included. It returns the tools a turn advertises, plus everything
+reachable through a nested run (a sub-agent, a workflow, a `use_skill` pack,
+a deferred `tool_search` hit). That set is bounded by the agent's registry
+and its ceiling. Tools the policy refuses under `origin` are left out. `None`
+means the origin the agent's `Access` states. The nested half is a deliberate
+upper bound, so a posture test built on it fails safe.
 
 ## Provider: BYOK or managed
 

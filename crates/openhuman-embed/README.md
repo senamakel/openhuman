@@ -320,7 +320,13 @@ Other invariants worth knowing before wiring any entry point:
 - A turn runs under the access tier _and_ the turn origin. `Access::full()`
   sets both (`AutonomyLevel::Full` plus a `TrustedAutomation` origin);
   `Access::readonly()` and `Access::supervised()` set no origin and leave the
-  approval gate on.
+  approval gate on. `Access::public()` is for untrusted public input: an
+  `ExternalChannel` origin, the policy enabled at `ReadOnly`, and every
+  acting tool refused immediately rather than parked.
+- `AgentSpec::lockdown()` turns a `ToolScopeSpec::Named` belt into a tool
+  ceiling every nested run (sub-agents, `run_workflow`, schedules, flows)
+  inherits or refuses; `Agent::effective_tools(origin)` reports what a turn
+  can reach. See "Running a public agent" in `gitbooks/developing/embedding.md`.
 - Supply skills through `AgentSpec::skills_dir` / `HarnessBuilder::skills_dir`,
   which copy the bundles. Skill discovery rejects symlinked bundles, so
   linking them in does not work.

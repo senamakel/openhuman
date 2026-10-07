@@ -34,7 +34,7 @@
 
 use crate::agent::harness::definition::{AgentDefinition, AgentDefinitionRegistry, SubagentEntry};
 use crate::agent::prompts::ConnectedIntegration;
-use crate::integrations::composio::ComposioActionTool;
+use crate::integrations::composio::deferred_action_tool;
 
 // SpawnWorkerThreadTool import kept commented while the worker-thread spawn is
 // temporarily disabled (see tinyhumansai/openhuman#1624).
@@ -203,12 +203,13 @@ pub fn collect_deferred_integration_actions(
             if action.name.trim().is_empty() || !seen.insert(action.name.as_str()) {
                 continue;
             }
-            tools.push(Box::new(ComposioActionTool::deferred(
+            // `None` when the `composio` feature is compiled out.
+            tools.extend(deferred_action_tool(
                 &integration.toolkit,
                 action.name.clone(),
                 action.description.clone(),
                 action.parameters.clone(),
-            )));
+            ));
         }
     }
     tools

@@ -22,7 +22,7 @@ use std::collections::HashSet;
 
 use tinytools::{Tool, ToolSpec};
 
-use crate::integrations::composio::action_tool::ComposioActionTool;
+use crate::integrations::composio::deferred_action_tool;
 
 /// Whether `name` is a Composio action slug (`GMAIL_SEND_EMAIL`).
 ///
@@ -94,13 +94,14 @@ pub(super) fn rehydrate_integration_actions(
         })
         .filter(|spec| !live_names.contains(spec.name.as_str()))
         .filter(|spec| seen.insert(spec.name.clone()))
-        .map(|spec| {
-            Box::new(ComposioActionTool::deferred(
+        // `None` when the `composio` feature is compiled out.
+        .filter_map(|spec| {
+            deferred_action_tool(
                 &toolkit_of(&spec.name),
                 spec.name.clone(),
                 spec.description.clone(),
                 Some(spec.parameters.clone()),
-            )) as Box<dyn Tool>
+            )
         })
         .collect()
 }

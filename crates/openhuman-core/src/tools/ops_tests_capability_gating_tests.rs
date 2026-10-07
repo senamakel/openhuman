@@ -332,7 +332,14 @@ async fn full_domain_set_keeps_platform_tools() {
     let tmp = TempDir::new().unwrap();
     let ctx = CoreContext::for_test(DomainSet::full(), None);
     let names = CoreContext::scope(ctx, async { tool_names(&expansion_tools_for(&tmp)) }).await;
-    for name in ["shell", "file_read", "file_write", "todo"] {
+    let mut expected = vec!["file_read", "todo"];
+    if cfg!(feature = "tools-shell") {
+        expected.push("shell");
+    }
+    if cfg!(feature = "tools-fs-write") {
+        expected.push("file_write");
+    }
+    for name in expected {
         assert!(names.iter().any(|n| n == name), "missing `{name}`");
     }
 }

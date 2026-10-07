@@ -22,6 +22,10 @@
 //! prefix**, so it claims any slug no earlier backend did. It must therefore
 //! stay last. A prefixed backend added after it would be unreachable.
 
+// The Composio backend is the `composio` feature's: without it a flow's
+// `tool_call` node can run native `oh:` tools only, and any other slug fails
+// with `unclaimed_slug_error`.
+#[cfg(feature = "composio")]
 mod composio;
 mod native;
 
@@ -32,6 +36,7 @@ use tinyflows::error::{EngineError, Result};
 use crate::config::Config;
 use crate::security::SecurityPolicy;
 
+#[cfg(feature = "composio")]
 pub(crate) use composio::ComposioToolBackend;
 pub(crate) use native::NativeToolBackend;
 
@@ -101,7 +106,11 @@ pub(crate) trait ToolBackend: Send + Sync {
 
 /// Every registered backend, in claim order. **Composio must stay last** — it
 /// declares an empty prefix and so claims whatever is left.
-pub(crate) const BACKENDS: &[&dyn ToolBackend] = &[&NativeToolBackend, &ComposioToolBackend];
+pub(crate) const BACKENDS: &[&dyn ToolBackend] = &[
+    &NativeToolBackend,
+    #[cfg(feature = "composio")]
+    &ComposioToolBackend,
+];
 
 /// The backend that claims `slug`, or `None` when no namespace matches.
 pub(crate) fn backend_for(slug: &str) -> Option<&'static dyn ToolBackend> {

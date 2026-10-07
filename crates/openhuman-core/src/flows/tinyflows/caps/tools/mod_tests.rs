@@ -7,6 +7,7 @@ fn native_prefix_claims_only_oh_slugs() {
 }
 
 #[test]
+#[cfg(feature = "composio")]
 fn composio_is_the_catch_all_and_is_registered_last() {
     // The empty prefix claims everything, so anything registered after it
     // would never be reached. Pinning the position turns that ordering
@@ -27,6 +28,7 @@ fn composio_is_the_catch_all_and_is_registered_last() {
 }
 
 #[test]
+#[cfg(feature = "composio")]
 fn dispatch_routes_each_namespace_to_its_owner() {
     assert_eq!(
         backend_for("oh:web_search").map(|b| b.name()),
@@ -66,4 +68,20 @@ async fn preflight_runs_through_backend_list() {
         .preflight(&config, "oh:web_search", &serde_json::json!({}))
         .await
         .expect("native preflight is a no-op and cannot fail");
+}
+
+/// With `composio` compiled out the native backend is the only one, and an
+/// action slug is refused by name rather than dispatched.
+#[test]
+#[cfg(not(feature = "composio"))]
+fn composio_slugs_are_unclaimed_without_the_feature() {
+    assert_eq!(
+        BACKENDS.iter().map(|b| b.name()).collect::<Vec<_>>(),
+        vec!["native"]
+    );
+    assert!(backend_for("GMAIL_SEND_EMAIL").is_none());
+    assert_eq!(
+        backend_for("oh:web_search").map(|b| b.name()),
+        Some("native")
+    );
 }

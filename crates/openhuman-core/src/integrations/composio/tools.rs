@@ -32,6 +32,13 @@ mod list_toolkits;
 mod list_tools;
 mod live_config;
 mod redact;
+// `composio` gates registration, not the tool types: with it off the stub
+// registry builds nothing, so neither the dispatcher tools nor a per-action
+// `TOOLKIT_ACTION` tool can reach a session.
+#[cfg(feature = "composio")]
+mod registry;
+#[cfg(not(feature = "composio"))]
+#[path = "tools/registry_stub.rs"]
 mod registry;
 mod visibility;
 
@@ -44,7 +51,7 @@ mod tests;
 pub use execute::ComposioExecuteTool;
 pub(crate) use live_config::live_composio_config;
 pub(crate) use redact::redact_composio_outcome;
-pub use registry::all_composio_agent_tools;
+pub use registry::{all_composio_agent_tools, deferred_action_tool};
 
 // Brought into this module's own namespace (private `use`, not `pub use`)
 // so `tools_tests.rs` — declared as a direct child module of `tools` above
@@ -54,10 +61,11 @@ pub use registry::all_composio_agent_tools;
 pub(crate) use visibility::{action_mutates_external_state, resolve_action_scope};
 
 pub use authorize::ComposioAuthorizeTool;
+pub use connect::ComposioConnectTool;
 #[cfg(test)]
 use connect::{
     canonicalize_toolkit_slug, connection_is_active, parse_composio_connect_timeout,
-    ComposioConnectTool, DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS,
+    DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS,
 };
 pub use list_connections::ComposioListConnectionsTool;
 pub use list_toolkits::ComposioListToolkitsTool;

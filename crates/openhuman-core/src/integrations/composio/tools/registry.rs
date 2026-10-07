@@ -1,10 +1,15 @@
 //! [`all_composio_agent_tools`]: build the full set of Composio agent
 //! tools once the user is signed in (backend session or direct-mode key).
+//! [`deferred_action_tool`]: build one per-action `TOOLKIT_ACTION` tool.
+//!
+//! Compiled with the `composio` feature; `registry_stub.rs` takes its place
+//! when it is off.
 
 use std::sync::Arc;
 
 use tinytools::Tool;
 
+use super::super::action_tool::ComposioActionTool;
 use super::authorize::ComposioAuthorizeTool;
 use super::connect::ComposioConnectTool;
 use super::execute::ComposioExecuteTool;
@@ -49,4 +54,24 @@ pub fn all_composio_agent_tools(config: &crate::config::Config) -> Vec<Box<dyn T
     ];
     tracing::debug!(count = tools.len(), "[composio] agent tools registered");
     tools
+}
+
+/// One `ToolExposure::Deferred` per-action tool for a connected integration.
+///
+/// The single construction site for synthesised action tools
+/// (`orchestrator_tools::collect_deferred_integration_actions` and the
+/// session-resume rehydration both call it), so the `composio` gate covers
+/// them without a `#[cfg]` at either caller.
+pub fn deferred_action_tool(
+    toolkit: &str,
+    action: String,
+    description: String,
+    parameters: Option<serde_json::Value>,
+) -> Option<Box<dyn Tool>> {
+    Some(Box::new(ComposioActionTool::deferred(
+        toolkit,
+        action,
+        description,
+        parameters,
+    )))
 }

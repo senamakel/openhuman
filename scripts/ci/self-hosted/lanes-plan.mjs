@@ -383,7 +383,7 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::" +
             // The capability features (`tools-*`, `composio`) are off here too;
             // these carry their absent-side asserts.
-            " tools::orchestrator_tools:: agent::session_host::recorded_tools:: integrations::composio::tools::",
+            " tools::orchestrator_tools:: agent::session_host::recorded_tools::",
         },
         {
           // One core build for both feature-gated suites: `mcp` and

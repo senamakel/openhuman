@@ -227,6 +227,20 @@ impl Tool for CronAddTool {
             ));
         }
 
+        // A job runs later, outside this session: refuse what would escape its
+        // tool ceiling before anything about the job is validated or stored.
+        let shell_job = match args.get("job_type").and_then(serde_json::Value::as_str) {
+            Some(kind) => kind == "shell",
+            None => args.get("prompt").is_none(),
+        };
+        if let Some(refused) = crate::agent::tool_ceiling::check_scheduled_job(
+            crate::agent::tool_ceiling::ToolCeiling::from_config(&self.config.agent).as_ref(),
+            "cron_add",
+            shell_job,
+        ) {
+            return Ok(ToolResult::error(refused));
+        }
+
         let schedule = match args.get("schedule") {
             Some(v) => match serde_json::from_value::<Schedule>(v.clone()) {
                 Ok(schedule) => schedule,

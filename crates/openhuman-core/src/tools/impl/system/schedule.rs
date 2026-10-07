@@ -253,6 +253,15 @@ impl ScheduleTool {
                 "Provide 'command' for shell jobs or 'prompt' for agent jobs.".to_string(),
             ));
         }
+        // A job runs later, outside this session: refuse what would escape
+        // its tool ceiling (`agent::tool_ceiling`).
+        if let Some(refused) = crate::agent::tool_ceiling::check_scheduled_job(
+            crate::agent::tool_ceiling::ToolCeiling::from_config(&self.config.agent).as_ref(),
+            "schedule",
+            prompt.is_none(),
+        ) {
+            return Ok(ToolResult::error(refused));
+        }
 
         let expression = args.get("expression").and_then(|value| value.as_str());
         let delay = args.get("delay").and_then(|value| value.as_str());

@@ -312,6 +312,15 @@ impl Tool for RunFlowTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        // A flow's tool nodes dispatch outside this session, so a session with
+        // a tool ceiling cannot start one (`agent::tool_ceiling`).
+        if crate::agent::tool_ceiling::ToolCeiling::from_config(&self.config.agent).is_some() {
+            return Ok(ToolResult::error(crate::agent::tool_ceiling::refusal(
+                "run_flow",
+                "a flow run",
+                &[],
+            )));
+        }
         let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
             Some(id) if !id.is_empty() => id.to_string(),
             _ => {

@@ -17,14 +17,14 @@ use crate::tools::{InstallToolTool, PythonExecTool};
 pub(crate) fn toolchain_tools(security: &Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
     vec![
         Box::new(DetectToolsTool::new()),
-        Box::new(InstallToolTool::new(Arc::clone(security))),
+        Box::new(InstallToolTool::new(security.clone())),
     ]
 }
 
 /// `git_operations`, rooted at the agent's action dir.
 pub(crate) fn git_tools(security: &Arc<SecurityPolicy>, action_dir: &Path) -> Vec<Box<dyn Tool>> {
     vec![Box::new(GitOperationsTool::new(
-        Arc::clone(security),
+        security.clone(),
         action_dir.to_path_buf(),
     ))]
 }
@@ -51,7 +51,7 @@ pub(crate) fn python_tools(
     };
     tracing::debug!("[tools::ops] registered python_exec");
     vec![Box::new(PythonExecTool::new(
-        Arc::clone(security),
+        security.clone(),
         Arc::clone(runtime),
         Arc::clone(bootstrap),
         root_config.runtime_pool.clone(),

@@ -17,10 +17,10 @@ pub(crate) fn file_write_tools(
 ) -> Vec<Box<dyn Tool>> {
     let tool: Box<dyn Tool> = match approval_workspace_root {
         Some(root) => Box::new(FileWriteTool::with_approval_workspace_root(
-            Arc::clone(security),
+            security.clone(),
             root.to_path_buf(),
         )),
-        None => Box::new(FileWriteTool::new(Arc::clone(security))),
+        None => Box::new(FileWriteTool::new(security.clone())),
     };
     vec![tool]
 }
@@ -28,9 +28,9 @@ pub(crate) fn file_write_tools(
 /// `edit`, `apply_patch` and `csv_export`.
 pub(crate) fn edit_tools(security: &Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
     vec![
-        Box::new(EditFileTool::new(Arc::clone(security))),
-        Box::new(ApplyPatchTool::new(Arc::clone(security))),
-        Box::new(CsvExportTool::new(Arc::clone(security))),
+        Box::new(EditFileTool::new(security.clone())),
+        Box::new(ApplyPatchTool::new(security.clone())),
+        Box::new(CsvExportTool::new(security.clone())),
     ]
 }
 
@@ -43,7 +43,7 @@ pub(crate) fn curl_tools(
     root_config: &Config,
 ) -> Vec<Box<dyn Tool>> {
     vec![Box::new(CurlTool::new(
-        Arc::clone(security),
+        security.clone(),
         http_config.allowed_domains.clone(),
         action_dir.to_path_buf(),
         root_config.curl.dest_subdir.clone(),

@@ -267,7 +267,7 @@ fn handle_run(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<RunParams>(params)?;
         tracing::info!(skill_id = %payload.skill_id, "[skill_runtime][rpc] run");
-        let started = spawn_workflow_run_background(payload.skill_id, payload.inputs).await?;
+        let started = spawn_workflow_run_background(payload.skill_id, payload.inputs, None).await?;
         to_json(Outcome::new(
             serde_json::json!({
                 "run_id": started.run_id,

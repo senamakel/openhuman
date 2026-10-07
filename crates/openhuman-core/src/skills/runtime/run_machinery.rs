@@ -8,6 +8,7 @@
 use serde_json::Value;
 
 use crate::agent::session_host::OpenHumanSessionHost;
+use crate::agent::tool_ceiling::ToolCeiling;
 use crate::agent::subagent_host::with_autonomous_iter_cap;
 use crate::config::Config;
 use crate::skills::{preflight, registry, run_log};
@@ -38,13 +39,35 @@ pub struct WorkflowRunStarted {
 /// background until DONE / DEGENERATE / FAILED. Errors (unknown skill,
 /// missing required inputs) surface as `Err(String)` *before* the spawn so
 /// callers can reject malformed invocations synchronously.
+///
+/// `ceiling` is the starting session's tool ceiling
+/// ([`crate::agent::tool_ceiling`]). With one, a workflow that declares a tool
+/// outside it is refused before anything runs, and the run is built with the
+/// same ceiling so it can reach nothing its starter could not.
 pub async fn spawn_workflow_run_background(
     skill_id_param: String,
     inputs_param: Option<Value>,
+    ceiling: Option<ToolCeiling>,
 ) -> Result<WorkflowRunStarted, String> {
     let workspace = resolve_workspace_dir().await;
     let skill = registry::get_workflow(&workspace, &skill_id_param)
         .ok_or_else(|| format!("workflow_run: unknown skill '{skill_id_param}'"))?;
+    if let Some(ceiling) = ceiling.as_ref() {
+        let declared = declared_workflow_tools(&skill);
+        let missing = ceiling.missing(declared.iter().map(String::as_str));
+        if !missing.is_empty() {
+            tracing::info!(
+                workflow_id = %skill.definition.id,
+                missing = ?missing,
+                "[skills] spawn_workflow_run_background: refused by the tool ceiling"
+            );
+            return Err(crate::agent::tool_ceiling::refusal(
+                "workflow_run",
+                &format!("workflow `{}`", skill.definition.id),
+                &missing,
+            ));
+        }
+    }
     let inputs = inputs_param.unwrap_or(Value::Null);
     let missing = registry::missing_required_inputs(&skill.inputs, &inputs);
     if !missing.is_empty() {
@@ -182,6 +205,11 @@ pub async fn spawn_workflow_run_background(
             if config.http_request.allowed_domains.is_empty() {
                 config.http_request.allowed_domains = vec!["*".to_string()];
             }
+            // The run inherits its starter's ceiling: the orchestrator built
+            // below registers nothing outside it.
+            if let Some(ceiling) = ceiling.as_ref() {
+                ceiling.impose_on(&mut config.agent);
+            }
             let mut agent =
                 match OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator") {
                     Ok(a) => a,
@@ -291,6 +319,25 @@ pub async fn spawn_workflow_run_background(
         workflow_id,
         log_path,
     })
+}
+
+/// Every tool a workflow declares: its `skill.toml` named belt plus its
+/// `SKILL.md` frontmatter `allowed-tools`.
+fn declared_workflow_tools(skill: &registry::WorkflowDefinition) -> Vec<String> {
+    let mut declared = match &skill.definition.tools {
+        crate::agent::harness::definition::ToolScope::Named(names) => names.clone(),
+        crate::agent::harness::definition::ToolScope::Wildcard => Vec::new(),
+    };
+    if let crate::agent::harness::definition::PromptSource::Inline(md) =
+        &skill.definition.system_prompt
+    {
+        if let Some((frontmatter, _, _)) = tinyskills::parse_skill_str(md) {
+            declared.extend(frontmatter.allowed_tools);
+        }
+    }
+    declared.sort();
+    declared.dedup();
+    declared
 }
 
 /// Poll a spawned run's log file until its terminal footer lands or the

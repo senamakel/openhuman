@@ -695,7 +695,7 @@ proptest = "1"
 # costs no new native builds. It matches `scripts/ci/product-features.txt`. This
 # does NOT move the kernel floor: that profile is
 # `--no-default-features --features flows` and never reads this list.
-default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules"]
+default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules", "tools-shell", "tools-fs-write", "tools-exec", "tools-system", "composio"]
 # The core's domain-owned HTTP surfaces (#5048): the `/v1` OpenAI-compatible
 # router (`inference::http`), the WebSocket dictation handler
 # (`voice::streaming`), the `openhuman text-input run` dev server, and the MCP
@@ -1044,6 +1044,47 @@ rss-bench = []
 file-logging = ["dep:tracing-appender", "dep:tracing-log"]
 
 scheduler-gate = ["dep:starship-battery"]
+
+# ── Capability features: dangerous agent-tool families ──────────────────────
+# Five registration gates over tool families that act on the host. All five are
+# Default-ON and product-ON, so neither the contributor build nor the shipped
+# app changes. They exist for embedders that must ship a binary in which these
+# tools cannot be constructed at all — a public-facing persona bot has no use
+# for a shell, and a runtime `DomainSet` switch is a setting where this is an
+# absence.
+#
+# Leaf registration gates with a stub facade (`tools/capabilities/`): when one
+# is off, its tools are absent from `all_tools` / `default_tools` rather than
+# degraded to an error, and no call site needs a `#[cfg]`. The tool TYPES stay
+# compiled — most live in `tinytools-std`, and `shell.rs` carries helpers the
+# node/npm/python exec tools share — but nothing in the build constructs them,
+# so no registry, delegation belt, MCP export or flow `oh:` node can reach one.
+# None of these gates sheds a dependency.
+#
+# `tools-shell`: the `shell` tool.
+tools-shell = []
+# `tools-fs-write`: tools that create or modify files — `file_write`, `edit`,
+# `apply_patch`, `csv_export`, and `curl` (it streams downloads to disk).
+# Read-only navigation (`file_read`, `grep`, `glob`, `list`) stays always-on.
+tools-fs-write = []
+# `tools-exec`: tools that run programs other than the shell — `python_exec`,
+# `run_tests`, `run_linter`, `git_operations`, `install_tool`, `detect_tools`.
+# `node_exec` / `npm_exec` stay under `runtime-node`.
+tools-exec = []
+# `tools-system`: tools that change the host process or its settings — the
+# `service_*` lifecycle mutators (start/stop/restart/shutdown/install/
+# uninstall), `update_apply`, `proxy_config`, `daemon_host_prefs_set`, and
+# `workspace_update_persona`. Their read-only siblings (`service_status`,
+# `update_check`, `daemon_host_prefs_get`, `workspace_read_persona`) stay.
+tools-system = []
+# `composio`: the Composio agent tools (`composio`, `composio_*`), the
+# per-action `TOOLKIT_ACTION` tools synthesised from connected integrations,
+# and the flows `tool_call` backend that executes Composio slugs. The rest of
+# the Composio domain — its RPC controllers, connection cache, catalogs,
+# memory/task sources and prompt section — stays compiled: it is woven through
+# flows, memory, task sources and session setup, and none of it lets the
+# model act on a connected account.
+composio = []
 
 
 [lints.rust]

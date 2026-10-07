@@ -348,6 +348,11 @@ e2e-test-support = ["openhuman-core/e2e-test-support"]
 rss-bench = ["openhuman-core/rss-bench"]
 file-logging = ["openhuman-core/file-logging", "openhuman-tinyhumans/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate", "openhuman-tinyhumans/scheduler-gate"]
+tools-shell = ["openhuman-core/tools-shell", "openhuman-tinyhumans/tools-shell"]
+tools-fs-write = ["openhuman-core/tools-fs-write", "openhuman-tinyhumans/tools-fs-write"]
+tools-exec = ["openhuman-core/tools-exec", "openhuman-tinyhumans/tools-exec"]
+tools-system = ["openhuman-core/tools-system", "openhuman-tinyhumans/tools-system"]
+composio = ["openhuman-core/composio", "openhuman-tinyhumans/composio"]
 # Sentry init in `main.rs` plus the `observability_smoke` test target.
 crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting", "openhuman-tinyhumans/crash-reporting"]
 # CLI argument parsing + logger init for `openhuman-fleet`.

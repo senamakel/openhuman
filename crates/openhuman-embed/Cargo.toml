@@ -27,6 +27,11 @@ channels = ["openhuman-core/channels"]
 whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate"]
+tools-shell = ["openhuman-core/tools-shell"]
+tools-fs-write = ["openhuman-core/tools-fs-write"]
+tools-exec = ["openhuman-core/tools-exec"]
+tools-system = ["openhuman-core/tools-system"]
+composio = ["openhuman-core/composio"]
 
 [dependencies]
 async-trait = "0.1"

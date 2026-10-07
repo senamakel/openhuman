@@ -96,5 +96,21 @@ runtime-node
 # nothing for a host without a hosting credential.
 hosting
 
+# Capability features: the agent tool families that act on the host. The desktop
+# assistant ships all of them; an embedder may compile any of them out.
+# `shell`.
+tools-shell
+# `file_write`, `edit`, `apply_patch`, `csv_export`, `curl`.
+tools-fs-write
+# `python_exec`, `run_tests`, `run_linter`, `git_operations`, `install_tool`,
+# `detect_tools`.
+tools-exec
+# `service_*` lifecycle mutators, `update_apply`, `proxy_config`,
+# `daemon_host_prefs_set`, `workspace_update_persona`.
+tools-system
+# Composio agent tools, per-action integration tools and the flows Composio
+# backend.
+composio
+
 # Memory v2 has no gate: the `memory` domain is always compiled, and with no
 # usable engine (signed out, no CortexDB key) it reports itself off at runtime.

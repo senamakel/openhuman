@@ -229,6 +229,14 @@ openhuman_core = { path = "../openhuman-core", package = "openhuman", default-fe
     # credential-gated in tools/ops.rs, so a host with no hosting credential
     # sees no new tools.
     "hosting",
+    # The capability features: shell, file-writing, program-execution, host
+    # system and Composio agent tools. Registration gates only — dropping one
+    # here removes those tools from the shipped assistant without a build error.
+    "tools-shell",
+    "tools-fs-write",
+    "tools-exec",
+    "tools-system",
+    "composio",
 ] }
 
 [target.'cfg(unix)'.dependencies]

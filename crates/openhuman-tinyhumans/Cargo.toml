@@ -35,6 +35,11 @@ channels = ["openhuman-embed/channels"]
 whatsapp-web = ["openhuman-embed/whatsapp-web"]
 file-logging = ["openhuman-embed/file-logging"]
 scheduler-gate = ["openhuman-embed/scheduler-gate"]
+tools-shell = ["openhuman-embed/tools-shell"]
+tools-fs-write = ["openhuman-embed/tools-fs-write"]
+tools-exec = ["openhuman-embed/tools-exec"]
+tools-system = ["openhuman-embed/tools-system"]
+composio = ["openhuman-embed/composio"]
 
 [dependencies]
 openhuman-embed = { path = "../openhuman-embed", default-features = false }

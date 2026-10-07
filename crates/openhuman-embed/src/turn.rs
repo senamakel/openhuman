@@ -114,7 +114,7 @@ pub(crate) fn sanitize_url_for_display(url: &str) -> String {
 /// embedder configuration. Falls back to `false` when the value does not
 /// parse as an absolute URL, so an unparseable route is refused rather than
 /// silently allowed.
-fn is_safe_endpoint_for_bearer(endpoint: &str) -> bool {
+pub(crate) fn is_safe_endpoint_for_bearer(endpoint: &str) -> bool {
     let Ok(url) = url::Url::parse(endpoint) else {
         return false;
     };

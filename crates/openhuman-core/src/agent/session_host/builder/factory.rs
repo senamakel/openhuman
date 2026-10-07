@@ -2,9 +2,11 @@
 //! `build_session_agent_inner` constructor.
 
 use super::dispatcher::{resolve_dispatcher_kind, DispatcherKind};
+use super::host_tools::derive_turn_workspace_descriptor;
 use super::should_synthesize_delegation_tools;
-use crate::agent::harness::definition::NO_TOOLS_SENTINEL;
-use crate::agent::harness::definition::{AgentDefinitionRegistry, PromptSource, ToolScope};
+use crate::agent::harness::definition::{
+    AgentDefinitionRegistry, PromptSource, ToolScope, NO_TOOLS_SENTINEL,
+};
 use crate::agent::host_runtime;
 use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::session_host::types::OpenHumanSessionHost;
@@ -943,21 +945,4 @@ pub(crate) fn provider_role_for_definition(
         })
         .flatten();
     provider_role_for(master_hint.as_deref().or(default_model))
-}
-
-fn derive_turn_workspace_descriptor() -> Option<tinytools::WorkspaceDescriptor> {
-    let root = crate::agent::turn_workspace::current()?;
-    if !root.is_dir() {
-        tracing::warn!(
-            root = %root.display(),
-            "[turn_workspace] scoped root is not an existing directory — \
-             falling back to the shared action_dir cwd for this turn"
-        );
-        return None;
-    }
-    tracing::debug!(
-        root = %root.display(),
-        "[turn_workspace] turn bound to the embedder's per-turn root as default cwd"
-    );
-    Some(tinytools::WorkspaceDescriptor::new(root).with_policy_id("turn-workspace"))
 }

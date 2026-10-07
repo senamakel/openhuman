@@ -77,8 +77,11 @@ fn dispatch_helpers_cover_channel_context_and_ack_categories() {
     let telegram = channel_message("telegram", "chat-42", "remind me tomorrow");
     let context = runtime_support::build_channel_context_block_for_test(&telegram);
     assert!(context.contains("telegram"));
-    assert!(context.contains("chat-42"));
-    assert!(context.contains("cron_add"));
+    // The job records its origin, so the model is told reminders return to
+    // this chat on their own and is not handed a target to copy.
+    assert!(context.contains("delivered back to this chat automatically"));
+    assert!(!context.contains("chat-42"));
+    assert!(!context.contains("cron_add"));
 
     let no_target = channel_message("slack", "", "hello");
     assert!(runtime_support::build_channel_context_block_for_test(&no_target).is_empty());

@@ -173,6 +173,11 @@ impl RuntimeBuilder {
     /// cron, the login-gated services and the memory queue each write to the workspace on
     /// their own schedule, turning a library call into a background process
     /// the caller did not ask for.
+    ///
+    /// A set that selects anything beyond `harness_init` — `cron: true` to
+    /// let [`Runtime::cron`] jobs fire on their own, say — is started by
+    /// [`build`](Self::build) and stopped when the runtime drops; see
+    /// [`Runtime::start_services`] / [`Runtime::stop_services`].
     pub fn services(mut self, services: ServiceSet) -> Self {
         self.services = Some(services);
         self
@@ -370,7 +375,7 @@ impl RuntimeBuilder {
         let installed_session_store = session_store_cleanup.installed.take();
         let previous_session_store = session_store_cleanup.previous.take();
 
-        Ok(Runtime::new(
+        let runtime = Runtime::new(
             core,
             resolved,
             installed_session_store,
@@ -381,8 +386,22 @@ impl RuntimeBuilder {
             tool_groups,
             self.provider,
             self.access,
-        ))
+        );
+        if requests_background_services(services) {
+            log::debug!("[embed][runtime] starting background services {services:?}");
+            runtime.start_services().await;
+        }
+        Ok(runtime)
     }
+}
+
+/// Whether `services` asks for any background work beyond the one-shot
+/// harness init, which a library runtime has never started on its own.
+pub(crate) fn requests_background_services(services: ServiceSet) -> bool {
+    ServiceSet {
+        harness_init: false,
+        ..services
+    } != ServiceSet::none()
 }
 
 fn map_ws(err: crate::HarnessError) -> RuntimeError {

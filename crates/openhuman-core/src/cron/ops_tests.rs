@@ -545,3 +545,69 @@ async fn cron_run_rejects_duplicate_concurrent_execution() {
         "expected 'already running', got: {err}"
     );
 }
+
+// ── run_job_now / single-flight ─────────────────────────────────
+
+fn single_flight_system_job(config: &Config, name: &str) -> CronJob {
+    let job = crate::cron::system_jobs::ensure_system_job(
+        config,
+        name,
+        Schedule::Every {
+            every_ms: 3_600_000,
+        },
+    )
+    .unwrap();
+    crate::cron::policy::set_policy(
+        config,
+        &job.id,
+        crate::cron::policy::JobPolicy {
+            retries: Some(0),
+            single_flight: true,
+        },
+    )
+    .unwrap();
+    job
+}
+
+#[tokio::test]
+async fn run_job_now_runs_and_records_the_handler_result() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let _handler = crate::cron::system_job_handlers::register(
+        "ops-run-now",
+        std::sync::Arc::new(|_ctx| Box::pin(async { Err("nope".to_string()) })),
+    );
+    let job = single_flight_system_job(&config, "ops-run-now");
+    let (success, output) = run_job_now(&config, &job.id).await.unwrap();
+    assert!(!success);
+    assert!(output.contains("nope"), "{output}");
+    let runs = cron::list_runs(&config, &job.id, 10).unwrap();
+    assert_eq!(runs.len(), 1);
+    assert_eq!(runs[0].status, "error");
+    assert_eq!(
+        cron::get_job(&config, &job.id)
+            .unwrap()
+            .last_status
+            .as_deref(),
+        Some("error")
+    );
+}
+
+#[tokio::test]
+async fn run_job_now_refuses_a_job_that_is_already_running() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let job = single_flight_system_job(&config, "ops-run-now-busy");
+    let _running = try_acquire_run(&job.id).expect("the job is free");
+    let err = run_job_now(&config, &job.id).await.unwrap_err();
+    assert!(err.contains("already running"), "{err}");
+    let err = cron_run(&config, &job.id).await.unwrap_err();
+    assert!(err.contains("already running"), "{err}");
+}
+
+#[tokio::test]
+async fn run_job_now_reports_an_unknown_job() {
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    assert!(run_job_now(&config, "no-such-job").await.is_err());
+}

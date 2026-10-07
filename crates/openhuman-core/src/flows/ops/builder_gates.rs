@@ -421,12 +421,12 @@ pub(crate) async fn validate_agent_refs(config: &Config, graph: &WorkflowGraph) 
         }
 
         match route_for_agent_ref(agent_ref) {
-            AgentRoute::Harness => {
+            AgentRoute::Harness | AgentRoute::HostAgent => {
                 tracing::debug!(
                     target: "flows",
                     node = %node.id,
                     %agent_ref,
-                    "[flows] agent-ref check: resolves to a harness agent definition"
+                    "[flows] agent-ref check: resolves to a harness or host agent definition"
                 );
             }
             AgentRoute::RegistryFallback => {

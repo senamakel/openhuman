@@ -88,13 +88,26 @@ impl Tool for CronRunTool {
             }
         };
 
+        // Claim the job so this run cannot overlap a scheduled tick or a Run Now.
+        let Some(_run_guard) = cron::ops::try_acquire_run(&job.id) else {
+            return Ok(ToolResult::error(format!(
+                "cron job '{}' is already running",
+                job.id
+            )));
+        };
+
         let started_at = Utc::now();
-        let (success, output) = cron::scheduler::execute_job_now(&self.config, &job).await;
+        let run_id = uuid::Uuid::new_v4().to_string();
+        let (success, output) = cron::scheduler::execute_job_now(&self.config, &job, &run_id).await;
         let finished_at = Utc::now();
         let duration_ms = (finished_at - started_at).num_milliseconds();
         let status = if success { "ok" } else { "error" };
 
-        let _ = cron::record_run(
+        // The output is returned to the calling agent below, so nothing is
+        // delivered here: an origin delivery would append to the transcript
+        // of the very session this tool call is running inside, and wait on
+        // that session's own turn lock.
+        let _ = cron::record_run_with_delivery(
             &self.config,
             &job.id,
             started_at,
@@ -102,6 +115,7 @@ impl Tool for CronRunTool {
             status,
             Some(&output),
             duration_ms,
+            Some(cron::DeliveryStatus::NotRequested),
         );
         let _ = cron::record_last_run(&self.config, &job.id, finished_at, success, &output);
 

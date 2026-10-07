@@ -99,9 +99,9 @@ pub fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "session_target",
                     ty: TypeSchema::Option(Box::new(TypeSchema::Enum {
-                        variants: vec!["isolated", "main"],
+                        variants: vec!["isolated", "current", "main"],
                     })),
-                    comment: "Defaults to 'isolated'.",
+                    comment: "Defaults to 'isolated'. 'current' runs fresh but sees the recent conversation in `origin` and replies there.",
                     required: false,
                 },
                 FieldSchema {
@@ -126,6 +126,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     name: "delete_after_run",
                     ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
                     comment: "If true, remove the job after its first execution.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "origin",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
+                    comment: "Conversation the job was created from: { kind: 'web', thread_id, agent_id? } | { kind: 'channel', channel, reply_target, history_key, sender?, thread_id? }. Required for session_target 'current' and delivery mode 'origin'.",
                     required: false,
                 },
             ],
@@ -299,6 +305,7 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
         let session_target = match session_target_str {
             "main" => crate::cron::SessionTarget::Main,
             "isolated" => crate::cron::SessionTarget::Isolated,
+            "current" => crate::cron::SessionTarget::Current,
             other => return Err(format!("invalid 'session_target': {other}")),
         };
         let model = params
@@ -320,6 +327,12 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             .get("delete_after_run")
             .and_then(|v| v.as_bool())
             .unwrap_or(false);
+        let origin: Option<crate::cron::JobOrigin> = match params.get("origin") {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(
+                serde_json::from_value(v.clone()).map_err(|e| format!("invalid 'origin': {e}"))?,
+            ),
+        };
 
         // Determine job type
         let job_type = match params.get("job_type").and_then(|v| v.as_str()) {
@@ -343,20 +356,32 @@ fn handle_add(params: Map<String, Value>) -> ControllerFuture {
             }
             "agent" => {
                 let p = prompt.ok_or("'prompt' is required for agent jobs")?;
-                crate::cron::store::add_agent_job_with_definition(
-                    &config,
-                    name,
-                    schedule,
-                    &p,
-                    session_target,
-                    model,
-                    delivery,
-                    delete_after_run,
-                    agent_id,
-                    // RPC-created jobs default to enabled (current behaviour).
-                    true,
-                )
-                .map_err(|e| e.to_string())?
+                // RPC-created jobs default to enabled and, without an origin,
+                // to no delivery (current behaviour).
+                let delivery = delivery.or_else(|| {
+                    origin
+                        .is_none()
+                        .then(crate::cron::DeliveryConfig::default)
+                        .or_else(|| {
+                            Some(crate::cron::job_builder::default_delivery(origin.as_ref()))
+                        })
+                });
+                let delivery_cfg = delivery.clone().unwrap_or_default();
+                crate::cron::job_builder::check_origin_requirements(
+                    &session_target,
+                    &delivery_cfg,
+                    origin.as_ref(),
+                )?;
+                let mut spec = crate::cron::AgentJobSpec::new(schedule, p);
+                spec.name = name;
+                spec.session_target = session_target;
+                spec.model = model;
+                spec.delivery = delivery;
+                spec.delete_after_run = delete_after_run;
+                spec.agent_id = agent_id;
+                spec.origin = origin;
+                crate::cron::store::add_agent_job_from_spec(&config, spec)
+                    .map_err(|e| e.to_string())?
             }
             other => return Err(format!("invalid 'job_type': {other}")),
         };

@@ -90,6 +90,7 @@ mod auth;
 mod call;
 mod config;
 mod core_agent;
+pub mod cron;
 mod error;
 mod harness;
 pub mod memory;
@@ -104,6 +105,10 @@ pub use agent::{
 pub use auth::{Auth, AuthState, Session};
 pub use config::{Config, RuntimeFlags};
 pub use core_agent::CoreAgent;
+pub use cron::{
+    Cron, CronError, JobRun, JobRunRecord, JobSchedule, JobSpec, JobTarget, ScheduledJob,
+    SystemJobContext,
+};
 pub use error::CoreError;
 pub use harness::{
     Access, Harness, HarnessBuilder, HarnessCore, HarnessError, Provider, Workspace,

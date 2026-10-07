@@ -52,6 +52,12 @@ pub enum AgentTurnOrigin {
         sender: Option<String>,
         reply_target: String,
         message_id: String,
+        /// The channel runtime's conversation-history key for this chat, set only by
+        /// the channel processor (the one place that owns `conversation_histories`).
+        /// `None` for ExternalChannel-labelled turns that are not a channel
+        /// conversation (MCP server callers, triage, voice), so scheduling can tell a
+        /// real chat from those.
+        history_key: Option<String>,
     },
     /// Internal automation the user explicitly authorized (cron job the
     /// user created, internal background job on local data). `source`

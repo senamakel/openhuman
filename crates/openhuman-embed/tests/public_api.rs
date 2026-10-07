@@ -2,9 +2,10 @@ use std::sync::Arc;
 
 use openhuman_embed::{
     Access, Agent, AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, ApiKey, Core, CoreBuilder,
-    CoreRuntime, DomainSet, GroupMode, Harness, HostKind, Provider, Runtime, RuntimeBuilder,
-    RuntimeConfig, SandboxModeSpec, ServiceSet, ToolGroups, ToolScopeSpec, TrustedAccess,
-    TrustedAutomationSource, Workspace,
+    CoreRuntime, Cron, CronError, DomainSet, GroupMode, Harness, HostKind, JobRun, JobRunRecord,
+    JobSchedule, JobSpec, JobTarget, Provider, Runtime, RuntimeBuilder, RuntimeConfig,
+    SandboxModeSpec, ScheduledJob, ServiceSet, SystemJobContext, ToolGroups, ToolScopeSpec,
+    TrustedAccess, TrustedAutomationSource, Workspace,
 };
 
 #[test]
@@ -80,4 +81,63 @@ fn exposes_the_host_facing_embedding_contract() {
         agent.effective_tools(None).await
     }
     let _ = posture;
+}
+
+#[test]
+fn exposes_the_scheduling_contract() {
+    fn cron_of(runtime: &Runtime) -> Cron<'_> {
+        runtime.cron()
+    }
+    fn upserts(cron: &Cron<'_>, spec: JobSpec) -> Result<ScheduledJob, CronError> {
+        cron.upsert(spec)
+    }
+    fn lists(cron: &Cron<'_>) -> Result<Vec<ScheduledJob>, CronError> {
+        cron.list()
+    }
+    fn removes(cron: &Cron<'_>) -> Result<bool, CronError> {
+        cron.remove("job")
+    }
+    fn history(cron: &Cron<'_>) -> Result<Vec<JobRunRecord>, CronError> {
+        cron.runs("job", 10)
+    }
+    async fn runs_now(cron: &Cron<'_>) -> Result<JobRun, CronError> {
+        cron.run_now("job").await
+    }
+    fn handles(runtime: &Runtime) -> Result<(), CronError> {
+        runtime.on_system_job("digest", |ctx: SystemJobContext| async move {
+            let _ = (ctx.job_id, ctx.name);
+            Ok(())
+        })
+    }
+    async fn controls_services(runtime: &Runtime) {
+        runtime.start_services().await;
+        runtime.stop_services();
+    }
+    let _ = (cron_of, upserts, lists, removes, history, handles);
+    let _ = runs_now;
+    let _ = controls_services;
+
+    let spec = JobSpec::agent(
+        "morning",
+        "teeny",
+        "Plan the day.",
+        JobSchedule::Cron {
+            expr: "0 8 * * *".into(),
+            tz: None,
+        },
+    )
+    .retries(0)
+    .single_flight(true)
+    .enabled(true);
+    assert_eq!(spec.retries, Some(0));
+    let system = JobSpec::system("digest", "digest", JobSchedule::Every { ms: 60_000 });
+    assert_eq!(
+        system.target,
+        JobTarget::System {
+            name: "digest".into()
+        }
+    );
+    let _ = JobSchedule::At {
+        at: std::time::SystemTime::now(),
+    };
 }

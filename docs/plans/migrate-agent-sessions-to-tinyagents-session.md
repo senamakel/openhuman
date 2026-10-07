@@ -1,5 +1,8 @@
 # Migrate host-independent sessions to `tinyagents-session`
 
+> **Status, verified 2026-10-07:** landed. See [`README.md`](README.md) for
+> the whole set and how to re-check it.
+
 This plan moves durable, host-neutral agent-session mechanics into
 `vendor/tinyagents/crates/tinyagents-session`. It is intentionally separate
 from agent execution: the session crate is queryable persistence, not a model

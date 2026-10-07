@@ -23,7 +23,11 @@ pub(super) fn spawn_scoped_typing_task(
     )
 }
 
-/// Build the OpenHuman `cron_add` delivery instruction for a channel turn.
+/// Build the `[Channel context]` block for a channel turn.
+///
+/// Reminders and scheduled tasks created from this chat are delivered back to
+/// it automatically (the job records its origin), so the model is told only
+/// that, not a target to copy.
 pub(super) fn build_channel_context_block(msg: &traits::ChannelMessage) -> String {
     let channel = msg.channel.trim();
     if channel.is_empty()
@@ -38,11 +42,8 @@ pub(super) fn build_channel_context_block(msg: &traits::ChannelMessage) -> Strin
     }
     format!(
         "[Channel context]\n\
-         You are responding via the \"{channel}\" channel. Reply target: \"{reply_target}\".\n\
-         For any cron/scheduled reminder you create with `cron_add`, set `delivery` to \
-         `{{ \"mode\": \"announce\", \"channel\": \"{channel}\", \"to\": \"{reply_target}\" }}` \
-         so the reminder is delivered back here instead of the in-app web stream. \
-         Only fall back to the default proactive delivery if the user explicitly asks for \
-         in-app/desktop notification.\n\n"
+         You are responding via the \"{channel}\" channel. Reminders and scheduled tasks you \
+         create here are delivered back to this chat automatically; do not set a delivery \
+         target.\n\n"
     )
 }

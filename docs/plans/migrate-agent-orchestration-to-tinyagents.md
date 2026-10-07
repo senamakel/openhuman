@@ -1,5 +1,9 @@
 # Extract `tinyagents-orchestration`
 
+> **Status, verified 2026-10-07:** landed except O6, which would add
+> `tinyagents-orchestration/src/parallel/`. See [`README.md`](README.md) for
+> the whole set and how to re-check it.
+
 Create the correctly spelled `vendor/tinyagents/crates/tinyagents-orchestration`
 workspace crate for host-neutral *composition* of agent work. It is not a new
 task registry, graph runtime, session database, tool package, or policy layer.

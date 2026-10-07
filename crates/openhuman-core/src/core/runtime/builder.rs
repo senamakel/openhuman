@@ -386,6 +386,7 @@ impl CoreBuilder {
             has_operator_token,
             host: self.host,
             port: self.port,
+            service_tasks: crate::core::runtime::services::ServiceTasks::default(),
         })
     }
 }
@@ -400,6 +401,10 @@ pub struct CoreRuntime {
     has_operator_token: bool,
     host: Option<String>,
     port: Option<u16>,
+    /// The background services [`start_services`](Self::start_services)
+    /// started; aborted by [`stop_services`](Self::stop_services) and when
+    /// the runtime drops.
+    service_tasks: crate::core::runtime::services::ServiceTasks,
 }
 
 impl CoreRuntime {
@@ -496,28 +501,23 @@ impl CoreRuntime {
     /// never leaves pollers, one-shot jobs, MCP processes or socket
     /// reconnect work running without a live runtime. A runtime with no
     /// transport calls it directly.
+    ///
+    /// Idempotent while they run; the long-lived loops stop with
+    /// [`stop_services`](Self::stop_services) or when this runtime drops.
     pub async fn start_services(&self) {
-        use crate::core::runtime::services;
-        super::bootstrap::start_core_runtime_services(self.services, self.config.as_ref()).await;
+        crate::core::runtime::services::start_selected_services(
+            &self.service_tasks,
+            self.services,
+            self.config.as_ref(),
+            &self.ctx,
+        )
+        .await;
+    }
 
-        if self.services.login_gated {
-            services::spawn_login_gated_services(self.ctx.host_kind().is_desktop_shell());
-        }
-        if self.services.update_scheduler {
-            services::spawn_update_scheduler();
-        }
-        if self.services.cron {
-            services::spawn_cron_service();
-        }
-        // Flow-run boot reconciliation is selected by the flows *domain*, not by
-        // a background service — runs can be started without cron in the
-        // ServiceSet, so their orphans must be reconcilable without it too.
-        if self.ctx.domains().flows {
-            services::spawn_flows_boot_reconcile();
-        }
-        if self.services.channels {
-            services::spawn_channels_service();
-        }
+    /// Stop the services [`start_services`](Self::start_services) started
+    /// (they may be restarted). Also runs on drop.
+    pub fn stop_services(&self) {
+        self.service_tasks.stop();
     }
 }
 

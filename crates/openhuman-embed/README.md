@@ -275,6 +275,16 @@ caches (cost log, prompt templates, migration markers). The desktop app, CLI
 and TUI install `openhuman_rpc::session_store`, the classic on-disk layout behind
 the same port. See `tests/session_store.rs`.
 
+### Scheduling
+
+`Runtime::cron()` upserts named jobs (`JobSpec::agent` for a turn of a
+runtime agent with its host tools, `JobSpec::system` for a handler registered
+with `Runtime::on_system_job`), lists, removes, runs them now and reads their
+history. A `ServiceSet` with `cron: true` starts the scheduler on `build()`
+and stops it with the runtime; `start_services` / `stop_services` control it
+explicitly. See [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md#scheduling)
+and `tests/cron_agents.rs`.
+
 ### Still runtime-wide
 
 These are read from the runtime's boot config by every agent today. They
@@ -397,6 +407,9 @@ turn against a `wiremock` provider with nothing bound;
 `tests/runtime_agents.rs` runs three agents with different providers, access
 tiers, skills, MCP servers and working directories on one runtime and shows
 the API key reaching a mocked managed backend as a bearer;
+`tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool
+under the `TrustedAutomation { Cron }` origin, records a system job handler's
+error, and starts and stops the scheduler with the runtime;
 `tests/public_api.rs` pins the host-facing embedding contract at compile
 time. Run them with `cargo test -p openhuman-embed --features inference,mcp,skills`.
 

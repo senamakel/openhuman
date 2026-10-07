@@ -116,6 +116,9 @@ fn max_parallel_harness_agents(raw: Option<&str>) -> usize {
 /// Which execution path an `agent_ref` routes to (see [`OpenHumanAgentRunner`]).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AgentRoute {
+    /// A host-registered agent (`agent::host_agents`) — run the full agent
+    /// tool loop as that agent, with its host tools, in its context.
+    HostAgent,
     /// A harness `AgentDefinition` exists — run the full agent tool loop.
     Harness,
     /// No definition; fall back to the custom-registry persona completion.
@@ -127,6 +130,9 @@ pub(crate) enum AgentRoute {
 /// custom-registry fallback. Pure over the global registry so the selection is
 /// unit-testable with `init_global_builtins`.
 pub(crate) fn route_for_agent_ref(agent_ref: &str) -> AgentRoute {
+    if crate::agent::host_agents::resolve(agent_ref).is_some() {
+        return AgentRoute::HostAgent;
+    }
     let has_definition = crate::agent::harness::definition::AgentDefinitionRegistry::global()
         .map(|reg| reg.get(agent_ref).is_some())
         .unwrap_or(false);
@@ -183,6 +189,20 @@ impl AgentRunner for OpenHumanAgentRunner {
         }
 
         match route_for_agent_ref(agent_ref) {
+            AgentRoute::HostAgent => {
+                // Resolved again rather than carried by the route so the route
+                // stays a plain value; a host that dropped the agent in between
+                // degrades to the registry build below.
+                let host = crate::agent::host_agents::resolve(agent_ref);
+                tracing::info!(
+                    target: "flows",
+                    agent_ref,
+                    "[flows] agent_runner: HOST AGENT path — running the host-registered agent \
+                     with its own tools in its own context"
+                );
+                self.run_via_harness(agent_ref, request, conn, None, host)
+                    .await
+            }
             AgentRoute::Harness => {
                 tracing::info!(
                     target: "flows",
@@ -192,7 +212,8 @@ impl AgentRunner for OpenHumanAgentRunner {
                 // A shipped/TOML harness definition has no `entry.model` — the
                 // definition's own `ModelSpec` (already applied by the session
                 // builder) is the only model pin in play here.
-                self.run_via_harness(agent_ref, request, conn, None).await
+                self.run_via_harness(agent_ref, request, conn, None, None)
+                    .await
             }
             AgentRoute::RegistryFallback => {
                 // `route_for_agent_ref` only consults the harness
@@ -216,7 +237,7 @@ impl AgentRunner for OpenHumanAgentRunner {
                     crate::agent::registry::find_custom_in_config(&self.config, agent_ref);
                 let entry_model = custom_entry.as_ref().and_then(|e| e.model.clone());
                 match route_custom_entry_lookup(custom_entry.as_ref()) {
-                    AgentRoute::Harness => {
+                    AgentRoute::Harness | AgentRoute::HostAgent => {
                         tracing::info!(
                             target: "flows",
                             agent_ref,
@@ -232,7 +253,7 @@ impl AgentRunner for OpenHumanAgentRunner {
                         // comment on this PR: this previously regressed to the
                         // default chat model for a custom flow agent with no
                         // per-node override).
-                        self.run_via_harness(agent_ref, request, conn, entry_model.as_deref())
+                        self.run_via_harness(agent_ref, request, conn, entry_model.as_deref(), None)
                             .await
                     }
                     AgentRoute::RegistryFallback => {
@@ -302,6 +323,7 @@ impl OpenHumanAgentRunner {
         request: Value,
         conn: Option<&str>,
         entry_model: Option<&str>,
+        host: Option<crate::agent::host_agents::HostAgent>,
     ) -> Result<Value> {
         use crate::agent::OpenHumanSessionHost;
 
@@ -334,21 +356,29 @@ impl OpenHumanAgentRunner {
         // with a new `default_model`, so we never mutate the shared config or
         // invent a new Agent setter API. The tier is normalised to the
         // `hint:<role>` form the session builder routes on.
+        // A host-registered agent starts from its own config (its provider
+        // model and route), not the flow runner's.
+        let base: &Config = host
+            .as_ref()
+            .map_or(self.config.as_ref(), |host| &host.config);
         let effective: Cow<'_, Config> = match node_model.as_deref() {
             Some(model) => {
-                let mut config = (*self.config).clone();
+                let mut config = base.clone();
                 config.default_model = Some(harness_model_default_override(model));
                 Cow::Owned(config)
             }
-            None => Cow::Borrowed(self.config.as_ref()),
+            None => Cow::Borrowed(base),
         };
 
-        let mut agent = OpenHumanSessionHost::from_config_for_agent(effective.as_ref(), agent_ref)
-            .map_err(|e| {
-                EngineError::Capability(format!(
-                    "agent node: failed to build harness agent '{agent_ref}': {e:#}"
-                ))
-            })?;
+        let built = match &host {
+            Some(host) => host.session_host(effective.as_ref(), None),
+            None => OpenHumanSessionHost::from_config_for_agent(effective.as_ref(), agent_ref),
+        };
+        let mut agent = built.map_err(|e| {
+            EngineError::Capability(format!(
+                "agent node: failed to build harness agent '{agent_ref}': {e:#}"
+            ))
+        })?;
         agent.set_agent_definition_name(agent_ref.to_string());
 
         let prompt = build_harness_run_prompt(&request);
@@ -423,6 +453,17 @@ impl OpenHumanAgentRunner {
             ))
         } else {
             Box::pin(agent.run_single(&prompt))
+        };
+        // A host agent's turn reads its own context (config, domains, tool
+        // groups, session store); the origin task-local is untouched.
+        let run: std::pin::Pin<
+            Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send>,
+        > = match host
+            .as_ref()
+            .map(|host| std::sync::Arc::clone(&host.context))
+        {
+            Some(context) => Box::pin(crate::core::runtime::CoreContext::scope(context, run)),
+            None => run,
         };
         let final_text =
             match tokio::time::timeout(std::time::Duration::from_secs(timeout_secs), run).await {

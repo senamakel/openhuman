@@ -69,6 +69,7 @@
 
 mod api_key;
 pub(crate) mod builder;
+mod host_agents;
 
 pub use api_key::ApiKey;
 pub use builder::RuntimeBuilder;
@@ -76,13 +77,13 @@ pub use builder::RuntimeBuilder;
 use std::collections::HashMap;
 use std::path::Path;
 use std::sync::atomic::AtomicBool;
-use std::sync::{Arc, Mutex, Weak};
+use std::sync::{Arc, Mutex};
 
 use openhuman_core::config::Config;
 use openhuman_core::core::runtime::{CoreRuntime, DomainSet, ServiceSet};
 use openhuman_core::tools::toolpacks::ToolGroups;
 
-use crate::agent::{Agent, AgentError, AgentInner, AgentSpec};
+use crate::agent::{Agent, AgentError, AgentSpec};
 use crate::harness::workspace::ResolvedWorkspace;
 use crate::harness::{Access, HarnessCore, Provider};
 use crate::{Core, CoreError};
@@ -158,13 +159,27 @@ pub(crate) struct CoreGuard {
     session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
     previous_session_store:
         Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
+    /// The resolver through which the core's cron and workflow drivers find
+    /// this runtime's agents; removed with the runtime.
+    host_agents: Arc<dyn openhuman_core::agent::host_agents::HostAgentResolver>,
+    /// Handlers registered with [`Runtime::on_system_job`], by job name.
+    system_jobs:
+        Mutex<HashMap<String, openhuman_core::cron::system_job_handlers::SystemJobRegistration>>,
 }
 
 impl Drop for CoreGuard {
     fn drop(&mut self) {
+        // Stop handing this runtime's agents and handlers to the core's
+        // drivers before the core goes.
+        openhuman_core::agent::host_agents::clear_if(&self.host_agents);
+        self.system_jobs
+            .get_mut()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
         // Drop the core while the process slot is still claimed. Releasing it
         // first lets another builder initialize process-scoped state while
         // this runtime's keyring, bearer, event bus and subscribers are live.
+        // Dropping it also stops the background services it started.
         drop(self.core.take());
         if let Some(installed) = self.session_store.take() {
             if openhuman_core::agent::session_store::clear_if(&installed) {
@@ -218,7 +233,7 @@ pub struct Runtime {
     tool_groups: ToolGroups,
     provider: Provider,
     access: Access,
-    agents: Mutex<HashMap<String, Weak<AgentInner>>>,
+    agents: Arc<host_agents::AgentMap>,
 }
 
 impl Runtime {
@@ -257,6 +272,61 @@ impl Runtime {
         drop(agents);
         log::debug!("[embed][runtime] agent registered id={id}");
         Ok(Agent::from_inner(inner))
+    }
+
+    /// The runtime's scheduled jobs. See [`crate::cron`].
+    pub fn cron(&self) -> crate::cron::Cron<'_> {
+        crate::cron::Cron::new(&self.base_config)
+    }
+
+    /// Run `handler` whenever system job `name` comes due (see
+    /// [`JobSpec::system`](crate::JobSpec::system)), and record its result as
+    /// the run's: `Err` is a failed run, retried like any other. A later
+    /// registration under the same name replaces this one; handlers live as
+    /// long as the runtime.
+    pub fn on_system_job<F, Fut>(
+        &self,
+        name: impl Into<String>,
+        handler: F,
+    ) -> Result<(), crate::cron::CronError>
+    where
+        F: Fn(crate::cron::SystemJobContext) -> Fut + Send + Sync + 'static,
+        Fut: std::future::Future<Output = Result<(), String>> + Send + 'static,
+    {
+        let name = name.into();
+        if name.trim().is_empty() || name.contains(':') {
+            return Err(crate::cron::CronError::Invalid(format!(
+                "system job name {name:?} must be non-blank and contain no ':'"
+            )));
+        }
+        let registration = openhuman_core::cron::system_job_handlers::register(
+            &name,
+            crate::cron::boxed_handler(handler),
+        );
+        log::debug!("[embed][runtime] system job handler registered name={name}");
+        self.guard
+            .system_jobs
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert(name, registration);
+        Ok(())
+    }
+
+    /// Start the background services this runtime's [`ServiceSet`] selects
+    /// (the cron scheduler, channel listeners, …). [`RuntimeBuilder::build`]
+    /// already does this when the set asks for more than `harness_init`; call
+    /// it after [`stop_services`](Self::stop_services) to restart them.
+    /// Idempotent while they run.
+    pub async fn start_services(&self) {
+        log::debug!("[embed][runtime] start_services");
+        self.core_runtime().start_services().await;
+    }
+
+    /// Stop the background services. They also stop when the last owner of
+    /// the runtime's core (this runtime or one of its agents) drops.
+    pub fn stop_services(&self) {
+        log::debug!("[embed][runtime] stop_services");
+        self.core_runtime().stop_services();
     }
 
     /// Ids of the agents currently alive on this runtime.
@@ -382,6 +452,10 @@ impl Runtime {
         provider: Provider,
         access: Access,
     ) -> Self {
+        let agents: Arc<host_agents::AgentMap> = Arc::new(Mutex::new(HashMap::new()));
+        let resolver: Arc<dyn openhuman_core::agent::host_agents::HostAgentResolver> =
+            Arc::new(host_agents::RuntimeAgents(Arc::clone(&agents)));
+        openhuman_core::agent::host_agents::install(Arc::clone(&resolver));
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             guard: Arc::new(CoreGuard {
@@ -389,6 +463,8 @@ impl Runtime {
                 workspace,
                 session_store,
                 previous_session_store,
+                host_agents: resolver,
+                system_jobs: Mutex::new(HashMap::new()),
             }),
             base_config,
             inherited,
@@ -396,7 +472,7 @@ impl Runtime {
             tool_groups,
             provider,
             access,
-            agents: Mutex::new(HashMap::new()),
+            agents,
         }
     }
 }

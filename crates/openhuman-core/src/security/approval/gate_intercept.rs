@@ -237,6 +237,7 @@ impl ApprovalGate {
                 sender,
                 reply_target,
                 message_id,
+                ..
             } => {
                 tracing::info!(
                     tool = tool_name,

@@ -10,10 +10,16 @@
 pub mod scheduler_gate;
 
 pub mod bus;
+pub mod channel_bridge;
+pub mod job_builder;
 pub mod ops;
+pub mod origin;
+/// Per-job run policy (retry budget, single-flight) kept beside the job store.
+pub mod policy;
 mod schemas;
 pub mod seed;
 mod store;
+pub mod system_job_handlers;
 pub mod system_jobs;
 pub mod tools;
 
@@ -30,16 +36,19 @@ pub use schemas::{
 };
 #[allow(unused_imports)]
 pub use store::{
-    add_agent_job, add_agent_job_with_definition, add_flow_schedule_job, add_job, add_shell_job,
-    clear_all_jobs, dedup_named_jobs, delete_queued_runs, due_jobs, find_flow_schedule_job,
-    get_job, list_jobs, list_runs, record_last_run, record_run, remove_job, reschedule_after_run,
-    update_job,
+    add_agent_job, add_agent_job_from_spec, add_agent_job_with_definition, add_flow_schedule_job,
+    add_job, add_shell_job, clear_all_jobs, dedup_named_jobs, delete_queued_runs, due_jobs,
+    find_flow_schedule_job, get_job, list_jobs, list_runs, record_last_run, record_run,
+    record_run_with_delivery, remove_job, reschedule_after_run, update_job,
 };
 #[allow(unused_imports)]
 pub use tinyflows_schedule::schedule::{
     next_run_for_schedule, normalize_expression, runs_closer_than, schedule_cron_expression,
     validate_agent_schedule, validate_schedule, TooFrequent, MIN_AGENT_JOB_INTERVAL,
 };
+pub use tinyflows_schedule::types::delivery_mode;
 pub use tinyflows_schedule::types::{
-    ActiveHours, CronJob, CronJobPatch, CronRun, DeliveryConfig, JobType, Schedule, SessionTarget,
+    ActiveHours, CronJob, CronJobPatch, CronRun, DeliveryConfig, DeliveryStatus, JobOrigin,
+    JobType, Schedule, SessionTarget,
 };
+pub use tinyflows_sqlite::schedule::AgentJobSpec;

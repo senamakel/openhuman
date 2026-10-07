@@ -442,6 +442,61 @@ that session held, and it is meant to be paired with a session id the turn
 is not sharing with turns that expect their history intact. `.meter(f)`
 reports what a turn spent, including a turn that ran and then failed.
 
+## Scheduling
+
+OpenHuman's own cron can drive scheduled turns of a runtime's agents, with
+their host tools, and run host code on a schedule. `runtime.cron()` is a typed
+facade over the runtime's job store; jobs are named and `upsert` is idempotent
+by that name, so a host can declare its schedule on every start:
+
+```rust,no_run
+# async fn demo(runtime: &openhuman_embed::Runtime) -> Result<(), Box<dyn std::error::Error>> {
+use openhuman_embed::{JobSchedule, JobSpec};
+
+let cron = runtime.cron();
+// One turn of the runtime agent `teeny` every morning.
+cron.upsert(
+    JobSpec::agent("morning", "teeny", "Plan the day.", JobSchedule::Cron {
+        expr: "0 8 * * *".into(),
+        tz: Some("Europe/Berlin".into()),
+    })
+    .retries(0)          // exactly one attempt: the turn has side effects
+    .single_flight(true) // skip (and record) a slot that comes due mid-run
+)?;
+// Host code on a schedule; its result is the run's recorded result.
+runtime.on_system_job("digest", |_ctx| async { Ok(()) })?;
+cron.upsert(JobSpec::system("digest", "digest", JobSchedule::Every { ms: 15 * 60_000 }))?;
+
+let run = cron.run_now("morning").await?;   // same path as a scheduled run
+println!("{} {}", run.success, run.output);
+# Ok(()) }
+```
+
+- **Jobs fire only while the scheduler runs.** Build the runtime with
+  `.services(ServiceSet { cron: true, ..ServiceSet::none() })`; `build()` then
+  starts the selected services and dropping the runtime (and its agents) stops
+  them. `Runtime::start_services` / `stop_services` give explicit control.
+  Without the scheduler, jobs are stored and `run_now` still works.
+- **An agent job runs as the agent.** When `agent_id` names an agent alive on
+  the runtime, the turn uses its definition and system prompt, its
+  `AgentSpec::tools` and attached tools, its provider and its own context
+  (`agent::host_agents` resolves it for the core's cron and workflow drivers).
+  Any other id resolves through the core's agent registries. The turn's origin
+  is `TrustedAutomation { Cron }`, not the agent's own access origin. Agent jobs
+  may not run more often than every five minutes.
+- **A system job runs the host's handler.** `on_system_job(name, handler)`
+  registers an async `Fn(SystemJobContext) -> Result<(), String>`; when the job
+  comes due the scheduler still publishes `CronSystemJobDue` on the bus, then
+  awaits the handler and records `ok` or `error` with its message.
+- **Retries and overlap.** A failed run is retried `retries` times with
+  backoff; unset keeps `reliability.scheduler_retries` (2), and `0` is one
+  attempt. Two runs of one job never overlap: each due job is dispatched on
+  its own task, so a long job no longer holds up the others, `run_now` is
+  refused while a run is active, and a slot that comes due mid-run is skipped.
+  With `single_flight` that skip is recorded as a `skipped` run.
+- `cron.list()`, `cron.remove(name)` and `cron.runs(name, limit)` cover the
+  rest. Shell jobs and workflow schedule triggers are not managed here.
+
 ## Harness: the one-agent shorthand
 
 `Harness` is a `Runtime` plus exactly one agent, built from one set of

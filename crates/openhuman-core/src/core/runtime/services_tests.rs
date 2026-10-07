@@ -82,3 +82,52 @@ fn channels_flag_gates_no_bootstrap_job() {
         "dropping channels must not drop any bootstrap job"
     );
 }
+
+// ── ServiceTasks: background services a runtime can stop ─────────
+
+#[tokio::test]
+async fn stopping_service_tasks_aborts_every_tracked_task() {
+    let tasks = ServiceTasks::default();
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    let handle = tokio::spawn(async move {
+        let _keep = tx;
+        std::future::pending::<()>().await;
+    });
+    tasks.track("pending", handle);
+    assert_eq!(tasks.len(), 1);
+    tasks.stop();
+    assert_eq!(tasks.len(), 0);
+    // The sender drops when the aborted task is torn down.
+    assert!(tokio::time::timeout(std::time::Duration::from_secs(5), rx)
+        .await
+        .expect("the aborted task is torn down")
+        .is_err());
+}
+
+#[tokio::test]
+async fn dropping_service_tasks_aborts_them() {
+    let (tx, rx) = tokio::sync::oneshot::channel::<()>();
+    {
+        let tasks = ServiceTasks::default();
+        tasks.track(
+            "pending",
+            tokio::spawn(async move {
+                let _keep = tx;
+                std::future::pending::<()>().await;
+            }),
+        );
+    }
+    assert!(tokio::time::timeout(std::time::Duration::from_secs(5), rx)
+        .await
+        .expect("the aborted task is torn down")
+        .is_err());
+}
+
+#[test]
+fn service_tasks_start_only_once() {
+    let tasks = ServiceTasks::default();
+    assert!(tasks.begin(), "the first start claims the services");
+    assert!(!tasks.begin(), "a second start is a no-op");
+    tasks.stop();
+    assert!(tasks.begin(), "after a stop the services may start again");
+}

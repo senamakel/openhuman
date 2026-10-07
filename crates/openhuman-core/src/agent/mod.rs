@@ -30,6 +30,9 @@ pub mod goals;
 pub mod harness;
 pub mod harness_init;
 pub mod hooks;
+/// Host-registered agents the core's own drivers (cron, workflow nodes) can
+/// resolve by id, with their definition, host tools and context.
+pub mod host_agents;
 pub mod host_runtime;
 pub mod library;
 pub(crate) mod message_convert;

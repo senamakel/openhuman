@@ -1,9 +1,9 @@
 # CI Fast: the lane flow and the EX63 runners
 
-CI Fast runs every check CI Lite runs as parallel **lanes** in fewer jobs.
-For org members it replaces CI Lite: CI Lite skips every job on a commit that
-CI Fast runs on the EX63. The one check to require is **CI Gate** (see
-[CI Gate](#ci-gate)).
+CI Fast runs every pre-merge check as parallel **lanes** in fewer jobs. It is
+the whole pull-request flow: the `ci-lite.yml` workflow it was originally built
+alongside was deleted on 2026-10-01. The one check to require is **CI Gate**
+(see [CI Gate](#ci-gate)).
 
 | Who opened the PR         | Workflow                              | Where it runs                                                             |
 | ------------------------- | ------------------------------------- | ------------------------------------------------------------------------- |
@@ -13,8 +13,7 @@ CI Fast runs on the EX63. The one check to require is **CI Gate** (see
 Both call `.github/workflows/ci-lanes.yml`, which runs
 `scripts/ci/self-hosted/lanes.mjs`. The plan itself is in
 `scripts/ci/self-hosted/lanes-plan.mjs`, and
-`scripts/__tests__/self-hosted-lanes.test.mjs` pins its shape against
-`ci-lite.yml`.
+`scripts/__tests__/self-hosted-lanes.test.mjs` pins its shape.
 
 The host side (microVM supervisor, guest image, firewall, deploy) lives in
 the private repo `tinyhumansai/gh-hosted-runner`. Its README covers
@@ -92,11 +91,10 @@ with everything else when the EX63 runs the commit.
 
 Who runs what:
 
-- **Org members:** `ci-lite.yml`'s `route` job reads `ci-fast.yml`'s decision
-  for the commit (`scripts/ci/ci-fast-route.sh`, shared with
-  `ci-fast-hosted.yml`). When the EX63 runs it, CI Lite skips. It runs anyway
-  when that decision is only the fallback (no CI Fast run within three
-  minutes) or routing errors.
+- **Org members:** `ci-fast.yml` on `pull_request_target`, routed by
+  `scripts/ci/ci-fast-route.sh` (shared with `ci-fast-hosted.yml`). The route
+  decision falls back to the hosted lanes when no EX63 run starts within three
+  minutes, or when routing errors.
 - **Outsiders:** CI Lite and CI Fast (hosted) both run, and the first to pass
   cancels the other.
 - **Pushes to `main`:** CI Lite runs, and the gate ignores them.

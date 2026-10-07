@@ -65,3 +65,17 @@ async fn a_blank_api_key_is_refused_before_the_slot_is_claimed() {
     assert!(matches!(err, RuntimeError::BlankApiKey), "{err:?}");
     assert!(!RUNTIME_LIVE.load(std::sync::atomic::Ordering::Acquire));
 }
+
+#[test]
+fn only_services_beyond_harness_init_start_background_work() {
+    assert!(!requests_background_services(default_services()));
+    assert!(!requests_background_services(ServiceSet::none()));
+    assert!(requests_background_services(ServiceSet {
+        cron: true,
+        ..default_services()
+    }));
+    assert!(requests_background_services(ServiceSet {
+        channels: true,
+        ..ServiceSet::none()
+    }));
+}

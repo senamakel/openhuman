@@ -96,6 +96,12 @@ pub struct WebChannelEvent {
     /// Total number of segments in a segmented delivery.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub segment_total: Option<u32>,
+    /// Id of the thread row the producer already persisted for this message
+    /// (`proactive_message` only). A client appending the message reuses it so
+    /// its append collapses onto the stored row; absent means no row exists
+    /// and the client generates its own id.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub persisted_message_id: Option<String>,
     /// Fine-grained streaming payload for `text_delta`, `thinking_delta`,
     /// and `tool_args_delta` events. Concatenating `delta`s in order
     /// yields the full text/thinking/arguments string.

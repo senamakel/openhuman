@@ -344,6 +344,7 @@ pub(crate) async fn process_channel_runtime_message(
         sender: Some(msg.sender.clone()),
         reply_target: msg.reply_target.clone(),
         message_id: msg.id.clone(),
+        history_key: Some(history_key.clone()),
     };
 
     let turn_request = AgentTurnRequest {

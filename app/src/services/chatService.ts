@@ -300,6 +300,8 @@ export interface ProactiveMessageEvent {
   thread_id: string;
   request_id?: string;
   full_response: string;
+  /** Id of the thread row the core already stored for this message, if any. */
+  persisted_message_id?: string;
 }
 
 /**

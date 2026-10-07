@@ -293,9 +293,23 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
                         "source": source.to_string(),
                         "message_chars": message.chars().count(),
                     });
-                    let (outcome, request_id) = gate
-                        .intercept_audited("channels.proactive_send", &summary, redacted)
-                        .await;
+                    // This runs on a spawned bus task, where the publisher's
+                    // task-local turn origin is gone and the gate would deny it
+                    // as `Unknown`. The event is host-originated automation
+                    // (a cron job's output, a briefing), so label it as such.
+                    let automation_source = if source.starts_with("cron:") {
+                        crate::agent::turn_origin::TrustedAutomationSource::Cron
+                    } else {
+                        crate::agent::turn_origin::TrustedAutomationSource::Background
+                    };
+                    let (outcome, request_id) = crate::agent::turn_origin::with_origin(
+                        crate::agent::turn_origin::AgentTurnOrigin::TrustedAutomation {
+                            job_id: source.clone(),
+                            source: automation_source,
+                        },
+                        gate.intercept_audited("channels.proactive_send", &summary, redacted),
+                    )
+                    .await;
                     match outcome {
                         crate::security::approval::GateOutcome::Allow => {
                             approval_request_id = request_id;

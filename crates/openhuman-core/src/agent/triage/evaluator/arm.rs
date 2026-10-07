@@ -143,6 +143,7 @@ pub(super) async fn try_arm(
             sender: None,
             reply_target: envelope.display_label.clone(),
             message_id: envelope.external_id.clone(),
+            history_key: None,
         },
     };
 

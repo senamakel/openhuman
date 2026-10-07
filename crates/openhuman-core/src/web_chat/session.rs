@@ -31,7 +31,7 @@ pub(super) fn model_registry_signature(config: &Config) -> String {
 /// blank id falls back rather than failing the turn: the registry answers for
 /// `orchestrator` on every install, and a typo in an optional setting should
 /// not take chat down.
-pub(super) fn pick_target_agent_id(config: &Config) -> String {
+pub(crate) fn pick_target_agent_id(config: &Config) -> String {
     const DEFAULT_CHAT_AGENT_ID: &str = "orchestrator";
     let selected = config
         .agent

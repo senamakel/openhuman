@@ -1,5 +1,6 @@
 use super::*;
 use crate::config::Config;
+use crate::cron::job_builder::validate_delivery;
 use crate::cron::ActiveHours;
 use crate::security::AutonomyLevel;
 use tempfile::TempDir;
@@ -349,7 +350,7 @@ fn validate_delivery_skips_proactive_and_none_modes() {
         to: None,
         best_effort: true,
     };
-    assert!(validate_delivery(&cfg, &proactive).is_ok());
+    assert!(validate_delivery(&cfg, &proactive, None).is_ok());
 
     let none = DeliveryConfig {
         mode: "none".into(),
@@ -357,7 +358,7 @@ fn validate_delivery_skips_proactive_and_none_modes() {
         to: None,
         best_effort: true,
     };
-    assert!(validate_delivery(&cfg, &none).is_ok());
+    assert!(validate_delivery(&cfg, &none, None).is_ok());
 }
 
 #[test]
@@ -372,7 +373,7 @@ fn validate_delivery_announce_web_is_a_no_op() {
         to: Some("any".into()),
         best_effort: true,
     };
-    assert!(validate_delivery(&cfg, &cfg_unused).is_ok());
+    assert!(validate_delivery(&cfg, &cfg_unused, None).is_ok());
 }
 
 // ── GHSA-f46p-6vf9-64mm: approval gate must fire for cron_add ────

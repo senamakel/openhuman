@@ -163,6 +163,7 @@ async fn external_origin_cannot_reuse_an_existing_attachment_marker() {
         sender: None,
         reply_target: "room".into(),
         message_id: "message".into(),
+        history_key: None,
     };
     assert!(
         append_with_test_config(request("external", &staged, "user"), &config, Some(&origin))

@@ -49,7 +49,10 @@ fn session(visible: &[&str], ceiling: &[&str], channel_readonly: bool) -> OpenHu
             .channel_permissions
             .insert("internal".into(), "readonly".into());
     }
+    let model: std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>> =
+        std::sync::Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     OpenHumanSessionHost::builder()
+        .chat_model(model)
         .tools(vec![
             tool("file_read", PermissionLevel::ReadOnly, false),
             tool("host_post", PermissionLevel::ReadOnly, true),

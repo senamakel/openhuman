@@ -274,7 +274,7 @@ Lockdown needs a `ToolScopeSpec::Named` belt, and `Runtime::agent` refuses a
 wildcard one. Then:
 
 - The named belt becomes the session's **tool ceiling** (`[agent]
-  tool_ceiling` in core). Only those tools and the host's own (`.tools(…)`,
+tool_ceiling` in core). Only those tools and the host's own (`.tools(…)`,
   `attach_tools`) are registered. Every other built-in and every `delegate_*`
   route the belt does not name do not exist for the agent's sessions.
 - Every nested run inherits the ceiling, and nesting can only narrow it:

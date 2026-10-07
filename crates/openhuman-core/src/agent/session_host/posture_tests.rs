@@ -53,6 +53,8 @@ fn session(visible: &[&str], ceiling: &[&str], channel_readonly: bool) -> OpenHu
         std::sync::Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     OpenHumanSessionHost::builder()
         .chat_model(model)
+        .tool_dispatcher(Box::new(tinytools_agent::dialect::NativeDialect))
+        .workspace_dir(std::env::temp_dir())
         .tools(vec![
             tool("file_read", PermissionLevel::ReadOnly, false),
             tool("host_post", PermissionLevel::ReadOnly, true),

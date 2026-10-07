@@ -52,13 +52,13 @@ constructed: they are absent from every agent's registry, from the
 `tool_search` catalog, from delegation belts and from a flow's `oh:` tool
 nodes. A host cannot re-enable them through config or RPC.
 
-| Feature | Tools it registers |
-| --- | --- |
-| `tools-shell` | `shell` |
-| `tools-fs-write` | `file_write`, `edit`, `apply_patch`, `csv_export`, `curl` |
-| `tools-exec` | `python_exec`, `run_tests`, `run_linter`, `git_operations`, `install_tool`, `detect_tools` |
-| `tools-system` | `service_start`, `service_stop`, `service_restart`, `service_shutdown`, `service_install`, `service_uninstall`, `update_apply`, `proxy_config`, `daemon_host_prefs_set`, `workspace_update_persona` |
-| `composio` | `composio`, `composio_*`, the per-action `TOOLKIT_ACTION` tools built from connected integrations, and the flows `tool_call` backend for Composio slugs |
+| Feature          | Tools it registers                                                                                                                                                                                  |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tools-shell`    | `shell`                                                                                                                                                                                             |
+| `tools-fs-write` | `file_write`, `edit`, `apply_patch`, `csv_export`, `curl`                                                                                                                                           |
+| `tools-exec`     | `python_exec`, `run_tests`, `run_linter`, `git_operations`, `install_tool`, `detect_tools`                                                                                                          |
+| `tools-system`   | `service_start`, `service_stop`, `service_restart`, `service_shutdown`, `service_install`, `service_uninstall`, `update_apply`, `proxy_config`, `daemon_host_prefs_set`, `workspace_update_persona` |
+| `composio`       | `composio`, `composio_*`, the per-action `TOOLKIT_ACTION` tools built from connected integrations, and the flows `tool_call` backend for Composio slugs                                             |
 
 Each gate covers only the tools listed. These stay in every build:
 
@@ -92,11 +92,11 @@ share. Nothing constructs them, though, so no code path reaches them.
 The same families have `DomainGroup`s, so a runtime can also drop them with a
 `DomainSet` without rebuilding:
 
-| `DomainGroup` / `DomainSet` field | Tools |
-| --- | --- |
-| `Exec` / `exec` | `shell`, `run_tests`, `run_linter`, `git_operations`, `install_tool`, `detect_tools` |
-| `Filesystem` / `filesystem` | `file_write`, `edit`, `apply_patch`, `csv_export`, `curl` |
-| `System` / `system` | every `service_*`, `daemon_host_prefs_*` and `update_*` tool, plus `proxy_config` |
+| `DomainGroup` / `DomainSet` field | Tools                                                                                |
+| --------------------------------- | ------------------------------------------------------------------------------------ |
+| `Exec` / `exec`                   | `shell`, `run_tests`, `run_linter`, `git_operations`, `install_tool`, `detect_tools` |
+| `Filesystem` / `filesystem`       | `file_write`, `edit`, `apply_patch`, `csv_export`, `curl`                            |
+| `System` / `system`               | every `service_*`, `daemon_host_prefs_*` and `update_*` tool, plus `proxy_config`    |
 
 `python_exec` stays in `Runtimes` and `workspace_update_persona` in `Config`,
 the families they already belonged to. The `browser` and `browser_open`

@@ -140,3 +140,32 @@ fn an_explicit_origin_overrides_the_preset() {
         })
     ));
 }
+
+#[test]
+fn public_is_read_only_untrusted_input_that_never_parks() {
+    let access = Access::public();
+    assert!(matches!(
+        access.turn_origin(),
+        Some(AgentTurnOrigin::ExternalChannel { channel, .. }) if channel == "public"
+    ));
+    assert!(!access.approval_gate_enabled());
+    let mut config = openhuman_core::config::Config::default();
+    config.autonomy.enabled = false;
+    access.apply(&mut config);
+    assert_eq!(config.autonomy.level, AutonomyLevel::ReadOnly);
+    assert!(config.autonomy.enabled, "tiers are inert with the policy off");
+    assert!(!config.autonomy.allow_tool_install);
+    assert_eq!(
+        config.agent.channel_permissions.get("internal").map(String::as_str),
+        Some("readonly")
+    );
+}
+
+#[test]
+fn other_presets_leave_channel_permissions_and_the_policy_switch_alone() {
+    let mut config = openhuman_core::config::Config::default();
+    config.autonomy.enabled = false;
+    Access::full().apply(&mut config);
+    assert!(!config.autonomy.enabled);
+    assert!(config.agent.channel_permissions.is_empty());
+}

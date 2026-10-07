@@ -43,6 +43,7 @@ mod hooks;
 mod live_tools;
 mod managed_tools;
 mod policy;
+mod posture;
 mod prefix_snapshot;
 mod recorded_tools;
 mod runtime;

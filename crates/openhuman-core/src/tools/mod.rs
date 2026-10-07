@@ -6,6 +6,7 @@ pub mod registry;
 mod schemas;
 pub mod status;
 pub mod timeout;
+mod tool_group;
 pub mod toolpacks;
 pub(crate) mod user_filter;
 

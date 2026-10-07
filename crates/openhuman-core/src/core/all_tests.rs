@@ -1488,6 +1488,10 @@ fn every_domain_group_is_accounted_for_in_store_init_plan() {
         // lives in tinybus's own `ModuleHost`, so there is nothing for
         // `init_stores` to stand up.
         DomainGroup::Modules,
+        // Agent-tool families only: no controller or store of their own.
+        DomainGroup::Exec,
+        DomainGroup::Filesystem,
+        DomainGroup::System,
         DomainGroup::Platform,
     ];
 
@@ -1542,6 +1546,10 @@ fn every_domain_group_is_accounted_for_in_subscriber_plan() {
         // Modules run on their own in-process broker, so they cannot publish a
         // `DomainEvent` and there is nothing on the core bus to subscribe to.
         DomainGroup::Modules,
+        // Agent-tool families only; nothing of theirs is on the event bus.
+        DomainGroup::Exec,
+        DomainGroup::Filesystem,
+        DomainGroup::System,
     ];
 
     for g in DomainGroup::ALL {

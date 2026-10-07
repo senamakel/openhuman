@@ -211,6 +211,12 @@ pub struct DomainSet {
     pub hosted: bool,
     /// Loadable native modules: the module host, registry and `modules` RPC.
     pub modules: bool,
+    /// Program-execution agent tools (`shell`, `run_tests`, `git_operations`, …).
+    pub exec: bool,
+    /// File-creating and file-modifying agent tools (`file_write`, `edit`, …).
+    pub filesystem: bool,
+    /// Host-process agent tools (`service_*`, `update_*`, `proxy_config`, …).
+    pub system: bool,
     /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
 }
@@ -239,6 +245,9 @@ impl DomainSet {
             desktop: true,
             hosted: true,
             modules: true,
+            exec: true,
+            filesystem: true,
+            system: true,
             platform: true,
         }
     }
@@ -267,6 +276,9 @@ impl DomainSet {
             desktop: false,
             hosted: false,
             modules: false,
+            exec: false,
+            filesystem: false,
+            system: false,
             platform: false,
         }
     }
@@ -291,6 +303,12 @@ impl DomainSet {
     ///
     /// An embedded host supplies its own harness wrappers, networking and
     /// routing, so `web3` / `voice` / `media` / `mcp` stay off.
+    ///
+    /// `exec` / `filesystem` / `system` follow `platform`: those tools were
+    /// `Platform` before they had families of their own, so keeping them on
+    /// reproduces the surface this preset always had. A host that must not
+    /// offer them narrows a custom set, or compiles them out with the
+    /// `tools-*` capability features.
     pub fn embedded() -> Self {
         Self {
             agent: true,
@@ -312,6 +330,9 @@ impl DomainSet {
             desktop: false,
             hosted: false,
             modules: false,
+            exec: true,
+            filesystem: true,
+            system: true,
             platform: true,
         }
     }
@@ -346,6 +367,9 @@ impl DomainSet {
             desktop: false,
             hosted: false,
             modules: false,
+            exec: false,
+            filesystem: false,
+            system: false,
             platform: false,
         }
     }
@@ -372,6 +396,9 @@ impl DomainSet {
             desktop: false,
             hosted: false,
             modules: false,
+            exec: false,
+            filesystem: false,
+            system: false,
             platform: false,
         }
     }
@@ -398,6 +425,9 @@ impl DomainSet {
             DomainGroup::Desktop => self.desktop,
             DomainGroup::Hosted => self.hosted,
             DomainGroup::Modules => self.modules,
+            DomainGroup::Exec => self.exec,
+            DomainGroup::Filesystem => self.filesystem,
+            DomainGroup::System => self.system,
             DomainGroup::Platform => self.platform,
         }
     }
@@ -432,6 +462,9 @@ impl DomainSet {
             desktop: self.desktop && other.desktop,
             hosted: self.hosted && other.hosted,
             modules: self.modules && other.modules,
+            exec: self.exec && other.exec,
+            filesystem: self.filesystem && other.filesystem,
+            system: self.system && other.system,
             platform: self.platform && other.platform,
         }
     }

@@ -131,13 +131,27 @@ pub enum DomainGroup {
     /// Loadable native modules: the module host, its registry, and the `modules`
     /// RPC surface (`modules/`).
     Modules,
+    // Capability families carved out of `Platform` for the agent tools that act
+    // on the host. They own no controllers, stores or subscribers; they exist so
+    // a runtime `DomainSet` can drop them, and each pairs with a compile-time
+    // capability feature that removes the tools from the build entirely.
+    /// Program execution: `shell`, `run_tests`, `run_linter`, `git_operations`,
+    /// `install_tool`, `detect_tools` (features `tools-shell`, `tools-exec`).
+    Exec,
+    /// File-creating and file-modifying tools: `file_write`, `edit`,
+    /// `apply_patch`, `csv_export`, `curl` (feature `tools-fs-write`). The
+    /// read-only navigation tools stay in `Platform`.
+    Filesystem,
+    /// The host process and its settings: `service_*`, `daemon_host_prefs_*`,
+    /// `update_*`, `proxy_config` (feature `tools-system`).
+    System,
     // Everything not in a named family — always on in `full()`, off otherwise.
     Platform,
 }
 
 impl DomainGroup {
     /// Number of variants. Kept in sync by `domain_group_all_lists_every_variant`.
-    pub const COUNT: usize = 20;
+    pub const COUNT: usize = 23;
 
     /// Every variant, for exhaustive iteration in drift guards.
     ///
@@ -168,6 +182,9 @@ impl DomainGroup {
         DomainGroup::Desktop,
         DomainGroup::Hosted,
         DomainGroup::Modules,
+        DomainGroup::Exec,
+        DomainGroup::Filesystem,
+        DomainGroup::System,
         DomainGroup::Platform,
     ];
 
@@ -195,7 +212,10 @@ impl DomainGroup {
             DomainGroup::Desktop => 16,
             DomainGroup::Hosted => 17,
             DomainGroup::Modules => 18,
-            DomainGroup::Platform => 19,
+            DomainGroup::Exec => 19,
+            DomainGroup::Filesystem => 20,
+            DomainGroup::System => 21,
+            DomainGroup::Platform => 22,
         }
     }
 }

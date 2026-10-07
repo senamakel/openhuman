@@ -80,8 +80,10 @@ fn connected_gmail() -> Vec<crate::agent::prompts::ConnectedIntegration> {
             description: "Send an email".into(),
             parameters: None,
         }],
+        gated_tools: Vec::new(),
         connected: true,
-        ..Default::default()
+        connections: Vec::new(),
+        non_active_status: None,
     }]
 }
 

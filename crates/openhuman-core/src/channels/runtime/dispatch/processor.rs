@@ -7,11 +7,15 @@
 //!   approval replies before dispatching a fresh agent turn.
 //! * [`process_channel_message`] — full per-message pipeline: typing, ACK
 //!   reaction, history, agent turn, draft updates, reply.
+//! * [`bus_turn`] — the orchestrator path: an unbound channel's turn over
+//!   the native bus. A channel bound to a host agent runs through
+//!   [`super::host_agent`] instead.
 //! * [`run_message_dispatch_loop`] — feeds messages into
 //!   [`process_channel_runtime_message`] through the bounded-concurrency
 //!   `tinychannels::runtime::run_dispatch_loop`.
 
 mod approval;
+mod bus_turn;
 mod turn;
 
 use crate::channels::context::ChannelRuntimeContext;

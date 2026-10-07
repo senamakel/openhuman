@@ -2,7 +2,7 @@
 //! assembly, dispatching the agentic turn over the native bus, and
 //! delivering the draft/final reply.
 
-use crate::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METHOD};
+use crate::agent::bus::AgentTurnResponse;
 use crate::agent::progress::AgentProgress;
 use crate::channels::context::{
     compact_sender_history, conversation_history_key, is_context_window_overflow_error,
@@ -19,7 +19,6 @@ use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tinyagents_session::transcript::TranscriptMessage;
-use tinybus::NativeRequestError;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -27,8 +26,9 @@ use super::super::helpers::{
     build_channel_context_block, log_worker_join_result, select_acknowledgment_reaction,
     spawn_scoped_typing_task, REPLY_LOG_TRUNCATE_CHARS,
 };
-use super::super::routing::resolve_target_agent;
+use super::super::host_agent::{self, run_host_agent_turn, seed_rows, HostChannelTurn, HostRoute};
 use super::approval::{channel_has_approval_surface, try_route_approval_reply};
+use super::bus_turn::dispatch_bus_turn;
 use super::RuntimeChannelMessage;
 
 pub(crate) async fn process_channel_message(
@@ -82,6 +82,23 @@ pub(crate) async fn process_channel_runtime_message(
     if channel_has_approval_surface(&msg.channel) && try_route_approval_reply(&msg).await {
         return;
     }
+
+    // A channel bound to a host agent nobody answers for is refused before
+    // any typing or provider work; see `host_agent`.
+    let bound_agent = match host_agent::route(ctx.as_ref(), &msg.channel) {
+        HostRoute::Unbound => None,
+        HostRoute::Agent(host) => Some(host),
+        HostRoute::Missing(agent_id) => {
+            host_agent::refuse_missing_agent(
+                ctx.as_ref(),
+                &msg,
+                target_channel.as_ref(),
+                &agent_id,
+            )
+            .await;
+            return;
+        }
+    };
 
     // Fire typing indicator as early as possible — before any async I/O — so the
     // user sees feedback immediately regardless of how fast the LLM responds.
@@ -300,35 +317,6 @@ pub(crate) async fn process_channel_runtime_message(
         _ => None,
     };
 
-    // Dispatch the agentic turn through the native event bus instead of
-    // calling `run_tool_call_loop` directly. The agent domain registers
-    // an `agent.run_turn` handler at startup (see
-    // `crate::agent::bus::register_agent_handlers`); this keeps
-    // the channel layer free of direct harness imports and makes the
-    // agent side mockable in unit tests via a handler override.
-    //
-    // The agent handler owns the history vector — we `mem::take` the
-    // local one to avoid an unnecessary clone; `history` is not read
-    // again below.
-    // Pick the active agent for this turn (always orchestrator) and
-    // synthesise its delegation tool surface. Fresh disk read of
-    // `Config::onboarding_completed` happens inside `resolve_target_agent`.
-    let scoping = resolve_target_agent(&msg.channel).await;
-
-    // A channel's explicitly-registered `tools_registry` tools are always visible
-    // to the model. The resolved agent's visible-tool scope is meant to filter the
-    // ambient/builtin tool surface, not to hide tools the channel deliberately
-    // handed in for this turn. Without this, a channel that provides a tool
-    // outside the resolved agent's `Named` scope (e.g. a test mock, or a custom
-    // channel-specific tool) would be filtered out and surfaced to the model as
-    // "unknown tool". When the scope is `Wildcard` (`None`), no filter applies.
-    let visible_tool_names = scoping.visible_tool_names.map(|mut set| {
-        for tool in ctx.tools_registry.iter() {
-            set.insert(tool.name().to_string());
-        }
-        set
-    });
-
     // Non-web channel turns label themselves as `ExternalChannel` so the
     // approval gate's origin-aware decision tree treats the inbound text
     // as untrusted (remote-attacker-controlled). Cron-driven channel
@@ -347,76 +335,31 @@ pub(crate) async fn process_channel_runtime_message(
         history_key: Some(history_key.clone()),
     };
 
-    let turn_request = AgentTurnRequest {
-        // Crate-native channel turn models (Phase 3 P3-B): when the runtime carries
-        // the full config, build crate `ChatModel`s from `("chat", route.provider,
-        // config)` — `route.provider` is the effective provider string. Tests (no
-        // `config`) stay on an injected model source.
-        turn_model_source: match &ctx.config {
-            Some(cfg) => crate::agent::tinyagents::TurnModelSource::new_crate_native_from_string(
-                "chat",
-                route.provider.clone(),
-                cfg.clone(),
-            ),
-            None => active_turn_model_source
-                .expect("test channel context must inject a turn model source"),
-        },
-        history: std::mem::take(&mut history),
-        tools_registry: Arc::clone(&ctx.tools_registry),
-        provider_name: route.provider.clone(),
-        model: route.model.clone(),
-        temperature: ctx.temperature,
-        silent: true,
-        channel_name: msg.channel.clone(),
-        multimodal: ctx.multimodal.clone(),
-        // Channel-sourced text is untrusted (Slack / Discord / Telegram
-        // / WhatsApp / etc. — anyone who can DM the bot can put bytes
-        // here). Operator-supplied defaults at `config.multimodal_files`
-        // would otherwise let a remote sender smuggle a marker like
-        // `[FILE:/etc/passwd]`, `[FILE:/home/<user>/.ssh/id_rsa]`, or
-        // `[FILE:.env]` into the agent prompt — `read_local_file`
-        // resolves the path with no workspace confinement, so absolute
-        // paths exfiltrate server-local files via a follow-up question.
-        //
-        // Hard-disable file-marker resolution on this path regardless of
-        // operator config; the desktop / web-chat path (where the user
-        // owns the local filesystem) goes through a different turn
-        // builder and keeps the operator default. Mirrors the triage-arm
-        // hardening in `agent::triage::evaluator`.
-        multimodal_files: crate::config::MultimodalFileConfig::for_untrusted_channel_input(),
-        max_tool_iterations: ctx.max_tool_iterations,
-        on_delta: None, // on_progress handles text deltas now
-        target_agent_id: scoping.target_agent_id,
-        visible_tool_names,
-        extra_tools: scoping.extra_tools,
-        on_progress: progress_tx,
-        origin: turn_origin,
-    };
-    tracing::debug!(
-        channel = %msg.channel,
-        provider = %route.provider,
-        model = %route.model,
-        "[channels::dispatch] dispatching {AGENT_RUN_TURN_METHOD} via native bus"
-    );
-    let agent_call = async {
-        BUS.native()
-            .request::<AgentTurnRequest, AgentTurnResponse>(AGENT_RUN_TURN_METHOD, turn_request)
-            .await
-            .map_err(|err| match err {
-                // Unwrap handler-returned errors so the underlying
-                // message (e.g. "Agent exceeded maximum tool iterations")
-                // flows through without being wrapped in bus-transport
-                // layer prose. The error-formatting path downstream
-                // treats this `anyhow::Error` the same way it did before
-                // the bus migration.
-                NativeRequestError::HandlerFailed { message, .. } => {
-                    anyhow::anyhow!(message)
-                }
-                // Bus-level errors (UnregisteredHandler / TypeMismatch /
-                // NotInitialized) surface with their full Display so
-                // startup wiring bugs are immediately obvious in logs.
-                other => anyhow::anyhow!("[agent.run_turn dispatch] {other}"),
-            })
+    // A channel bound to a host agent (`agent.channel_agents`) runs as that
+    // agent; every other channel goes over the bus to the orchestrator.
+    let agent_call: std::pin::Pin<
+        Box<dyn std::future::Future<Output = anyhow::Result<AgentTurnResponse>> + Send + '_>,
+    > = match bound_agent {
+        Some(host) => Box::pin(run_host_agent_turn(
+            *host,
+            HostChannelTurn {
+                channel: msg.channel.clone(),
+                history_key: history_key.clone(),
+                prior_turns: seed_rows(&history),
+                message: enriched_message.clone(),
+                origin: turn_origin,
+                progress: progress_tx,
+            },
+        )),
+        None => Box::pin(dispatch_bus_turn(
+            ctx.as_ref(),
+            &msg,
+            &route,
+            history,
+            active_turn_model_source,
+            progress_tx,
+            turn_origin,
+        )),
     };
     // Sub-issue 2 of #3098: scope the agent turn in an `ApprovalChatContext`
     // for every channel with the `chat_approvals` capability (served by

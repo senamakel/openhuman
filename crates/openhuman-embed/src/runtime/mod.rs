@@ -274,6 +274,12 @@ impl Runtime {
         Ok(Agent::from_inner(inner))
     }
 
+    /// The runtime's messaging channels. See [`crate::channels`].
+    #[cfg(feature = "channels")]
+    pub fn channels(&self) -> crate::channels::Channels<'_> {
+        crate::channels::Channels::new(self)
+    }
+
     /// The runtime's scheduled jobs. See [`crate::cron`].
     pub fn cron(&self) -> crate::cron::Cron<'_> {
         crate::cron::Cron::new(&self.base_config)

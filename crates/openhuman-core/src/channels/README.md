@@ -32,7 +32,7 @@ Flat files: `bus.rs` (`ChannelInboundSubscriber`, handles `DomainEvent::ChannelI
 
 ## Calls into
 
-- `crates/openhuman-core/src/agent/` — the agent turn is dispatched over `BUS.native()` to the `agent.run_turn` handler registered by `agent::bus::register_agent_handlers`, so `runtime/dispatch/` never imports the harness directly.
+- `crates/openhuman-core/src/agent/` — the agent turn is dispatched over `BUS.native()` to the `agent.run_turn` handler registered by `agent::bus::register_agent_handlers`, so `runtime/dispatch/` never imports the harness directly. The exception is a channel bound to a host-registered agent (`config.agent.channel_agents`, resolved through `agent::host_agents`): `runtime/dispatch/host_agent/` builds that agent's session and runs the turn as it, under the channel's `ExternalChannel` origin capped at read-only, and refuses the message when the bound agent is missing. See [runtime/README.md](runtime/README.md#channels-bound-to-a-host-agent).
 - `crates/openhuman-core/src/agent/context/channels_prompt.rs` — channel system prompt rendering, re-exported as `build_system_prompt`.
 - `crates/openhuman-core/src/security/credentials/` — `AuthService` lookups for connect/disconnect and for secret hydration at startup (email password, Yuanbao app secret).
 - `crates/openhuman-core/src/security/approval/` — `ApprovalGate` for the approval-reply intercept and `ApprovalChatContext` scoping of turns on every provider with the `chat_approvals` capability.

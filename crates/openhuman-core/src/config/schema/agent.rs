@@ -237,6 +237,22 @@ pub struct AgentConfig {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tool_ceiling: Option<Vec<String>>,
 
+    /// Channel name → id of the agent that answers that channel.
+    ///
+    /// An inbound message on a channel named here (`telegram = "teeny-chat"`)
+    /// runs as that agent instead of the orchestrator: the agent is looked up
+    /// through the host agent resolver
+    /// ([`crate::agent::host_agents`]), so an embedder's own agent answers
+    /// with its own system prompt and host tools. A channel that is not named
+    /// here is routed exactly as before. Keyed by channel name rather than set
+    /// on each provider's config because those provider structs belong to
+    /// `tinychannels`; routing a channel to an agent is host policy.
+    ///
+    /// A binding the resolver cannot satisfy is refused, never widened to
+    /// the orchestrator; see `channels::runtime::dispatch::host_agent`.
+    #[serde(default)]
+    pub channel_agents: std::collections::HashMap<String, String>,
+
     /// Maximum byte length of a single tool-result body before the
     /// TinyAgents tool-output middleware budget stage truncates it. Applied
     /// inline at tool-execution time (before the result enters history),
@@ -496,6 +512,7 @@ impl Default for AgentConfig {
             tool_dispatcher: default_agent_tool_dispatcher(),
             channel_permissions: std::collections::HashMap::new(),
             tool_ceiling: None,
+            channel_agents: std::collections::HashMap::new(),
             tool_result_budget_bytes: default_tool_result_budget_bytes(),
             agent_timeout_secs: default_agent_timeout_secs(),
             session_dual_write: default_session_dual_write(),

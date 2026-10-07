@@ -88,6 +88,8 @@ pub mod agent_progress {
 mod agent;
 mod auth;
 mod call;
+#[cfg(feature = "channels")]
+pub mod channels;
 mod config;
 mod core_agent;
 pub mod cron;
@@ -103,6 +105,8 @@ pub use agent::{
     ToolScopeSpec,
 };
 pub use auth::{Auth, AuthState, Session};
+#[cfg(feature = "channels")]
+pub use channels::{ChannelError, ChannelListener, Channels, StreamMode, TelegramChannelSpec};
 pub use config::{Config, RuntimeFlags};
 pub use core_agent::CoreAgent;
 pub use cron::{

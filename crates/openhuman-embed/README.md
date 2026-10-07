@@ -285,6 +285,19 @@ and stops it with the runtime; `start_services` / `stop_services` control it
 explicitly. See [`gitbooks/developing/embedding.md`](../../gitbooks/developing/embedding.md#scheduling)
 and `tests/cron_agents.rs`.
 
+### Channels
+
+`Runtime::channels().telegram(TelegramChannelSpec::new(token, agent_id))`
+starts a Telegram listener whose every message is a turn of that runtime
+agent: its prompt, its host tools and the chat's history. The agent must
+exist first (`ChannelError::UnknownAgent` otherwise), and if it is dropped
+later the bot answers that it is unavailable rather than falling back to the
+orchestrator. Turns run as `ExternalChannel` and are capped at read-only:
+tools that write or reach outside are withheld or refused at once. The
+returned `ChannelListener` stops the bot when it is dropped. Behind the
+`channels` feature (on by default). See the gitbook's "Channels" section and
+`tests/channel_agents.rs`.
+
 ### Still runtime-wide
 
 These are read from the runtime's boot config by every agent today. They
@@ -344,7 +357,8 @@ Other invariants worth knowing before wiring any entry point:
 ## Feature flags
 
 Every feature on this crate is a pass-through to the same-named feature on
-`openhuman-core` (package `openhuman`): `default`, `http-server`,
+`openhuman-core` (package `openhuman`); `default` also turns on `channels`,
+which core's default already enables: `default`, `http-server`,
 `inference`, `documents`, `hosting`, `modules`, `voice`, `web3`,
 `runtime-node`, `media`, `flows`, `skills`, `mcp`, `crash-reporting`,
 `channels`, `whatsapp-web`, `file-logging`, `scheduler-gate`, and the
@@ -354,8 +368,10 @@ from the build. The
 [capability features](../../gitbooks/developing/embedding.md#capability-features)
 section lists the tools each one covers.
 
-Two of them also gate items on this crate's own public surface:
+Three of them also gate items on this crate's own public surface:
 
+- `channels`: `Runtime::channels`, `Channels`, `TelegramChannelSpec`,
+  `ChannelListener`, `ChannelError` and `StreamMode`.
 - `mcp`: `HttpHeader`, `McpAuthConfig`, `McpServer`, `AgentSpec::mcp` and
   `HarnessBuilder::mcp`.
 - `skills`: `AgentSpec::skills_dir` and `HarnessBuilder::skills_dir`.
@@ -407,6 +423,10 @@ turn against a `wiremock` provider with nothing bound;
 `tests/runtime_agents.rs` runs three agents with different providers, access
 tiers, skills, MCP servers and working directories on one runtime and shows
 the API key reaching a mocked managed backend as a bearer;
+`tests/channel_agents.rs` drives a runtime agent from a mocked Telegram Bot
+API: the bound agent answers with its prompt and read-only host tool under the
+`ExternalChannel` origin, its write tool is withheld and refused, and the reply
+is posted back to the chat.
 `tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool
 under the `TrustedAutomation { Cron }` origin, records a system job handler's
 error, and starts and stops the scheduler with the runtime;

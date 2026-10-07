@@ -141,3 +141,42 @@ fn exposes_the_scheduling_contract() {
         at: std::time::SystemTime::now(),
     };
 }
+
+#[cfg(feature = "channels")]
+#[test]
+fn exposes_the_channels_contract() {
+    use openhuman_embed::{
+        ChannelError, ChannelListener, Channels, StreamMode, TelegramChannelSpec,
+    };
+
+    fn channels_of(runtime: &Runtime) -> Channels<'_> {
+        runtime.channels()
+    }
+    fn starts_telegram(
+        channels: &Channels<'_>,
+        spec: TelegramChannelSpec,
+    ) -> Result<ChannelListener, ChannelError> {
+        channels.telegram(spec)
+    }
+    fn inspects(listener: &ChannelListener) -> (&str, &str, bool) {
+        (
+            listener.channel(),
+            listener.agent_id(),
+            listener.is_running(),
+        )
+    }
+    fn stops(listener: ChannelListener) {
+        listener.stop();
+    }
+    let _ = (channels_of, starts_telegram, inspects, stops);
+
+    let spec = TelegramChannelSpec::new("123:abc", "teeny-chat")
+        .allowed_users(["alice"])
+        .allow_everyone()
+        .mention_only(true)
+        .stream_mode(StreamMode::default())
+        .chat_id("-100");
+    assert_eq!(spec.agent_id(), "teeny-chat");
+    let _ = ChannelError::UnknownAgent("x".into());
+    let _ = ChannelError::Invalid("x".into());
+}

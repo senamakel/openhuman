@@ -497,6 +497,50 @@ println!("{} {}", run.success, run.output);
 - `cron.list()`, `cron.remove(name)` and `cron.runs(name, limit)` cover the
   rest. Shell jobs and workflow schedule triggers are not managed here.
 
+## Channels
+
+A runtime agent can answer a messaging channel. `runtime.channels()` starts a
+channel listener bound to one agent, so every message on it is a turn of that
+agent rather than of the orchestrator:
+
+```rust,no_run
+# async fn demo(runtime: &openhuman_embed::Runtime) -> Result<(), Box<dyn std::error::Error>> {
+use openhuman_embed::{AgentSpec, TelegramChannelSpec};
+
+let agent = runtime.agent(AgentSpec::new("teeny-chat").system_prompt("You are Teeny."))?;
+let telegram = runtime.channels().telegram(
+    TelegramChannelSpec::new("123456:bot-token", "teeny-chat")
+        .allow_everyone()    // or .allowed_users(["alice", "4242"])
+        .mention_only(true), // in groups, answer only when mentioned
+)?;
+// The bot answers until the listener is stopped or dropped.
+# let _ = (agent, telegram);
+# Ok(()) }
+```
+
+- **The agent answers as itself.** Each message runs with the agent's system
+  prompt, tool scope, `AgentSpec::tools` belt and attachments, provider and
+  context. History is per chat, kept by the channel the same way it is for the
+  orchestrator. Typing indicators, streamed drafts and the reply work as for
+  any channel. Call `telegram()` from inside the tokio runtime; it spawns the
+  listener there.
+- **Bind to an agent that exists.** `telegram()` refuses an id with no live
+  agent on the runtime (`ChannelError::UnknownAgent`). If the agent is dropped
+  while the bot is running, each message gets a short "not available" reply and
+  an error is logged. The message is never handed to the orchestrator.
+- **Turns are untrusted and read-only.** Anyone who can message the bot writes
+  the turn's text, so it runs as `AgentTurnOrigin::ExternalChannel` and is
+  capped at `PermissionLevel::ReadOnly`. A tool that writes, executes or has an
+  external effect is withheld from the turn's tool list or refused at once with
+  a tool error. It never waits on an approval, because the only person who
+  could answer one is the sender. Give a public agent read-only host tools, and
+  do anything with side effects outside the chat turn (a cron job, host code).
+- **Under the hood** this is the core's channel runtime for that one bot,
+  started under the runtime's context with
+  `agent.channel_agents = { telegram = "<agent id>" }`. A core started from a
+  config file can bind a channel the same way: any channel name works as the
+  key, and the agent is resolved through `agent::host_agents`.
+
 ## Harness: the one-agent shorthand
 
 `Harness` is a `Runtime` plus exactly one agent, built from one set of

@@ -260,6 +260,9 @@ fn lockdown_ceiling_bounds_spawned_subagents() {
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         };
+        for request in chat_requests(&provider).await {
+            eprintln!("DEBUG path={} tools={:?}", request.url.path(), tool_names(&request));
+        }
         assert!(
             !child_tools.is_empty(),
             "the sub-agent never ran: {}",

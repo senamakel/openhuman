@@ -80,7 +80,7 @@ pub use schemas::{
     all_controller_schemas as all_composio_controller_schemas,
     all_registered_controllers as all_composio_registered_controllers,
 };
-pub use tools::all_composio_agent_tools;
+pub use tools::{all_composio_agent_tools, deferred_action_tool};
 pub use trigger_history::{
     global as global_composio_trigger_history, init_global as init_composio_trigger_history,
 };

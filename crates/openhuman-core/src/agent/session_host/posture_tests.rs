@@ -74,6 +74,7 @@ fn external() -> AgentTurnOrigin {
         sender: None,
         reply_target: String::new(),
         message_id: String::new(),
+        history_key: None,
     }
 }
 

@@ -233,6 +233,24 @@ fn lockdown_ceiling_bounds_spawned_subagents() {
             .agent(
                 spec("spawner", &provider, named(&["spawn_subagent", "file_read"]))
                     .access(Access::full())
+                    // A sub-agent resolves its model from the agent's config,
+                    // not the turn's route: pin every role to the mock so the
+                    // child never leaves the machine.
+                    .config({
+                        let endpoint = format!("{}/v1", provider.uri());
+                        move |config| {
+                            if let Some(route) =
+                                openhuman_core::config::schema::EphemeralRoute::from_params(
+                                    Some(endpoint),
+                                    Some("fixture".to_string()),
+                                )
+                            {
+                                openhuman_core::config::schema::ephemeral_route::apply(
+                                    config, route,
+                                );
+                            }
+                        }
+                    })
                     .lockdown(),
             )
             .expect("lockdown agent");
@@ -263,9 +281,6 @@ fn lockdown_ceiling_bounds_spawned_subagents() {
             }
             tokio::time::sleep(Duration::from_millis(100)).await;
         };
-        for request in chat_requests(&provider).await {
-            eprintln!("DEBUG path={} tools={:?}", request.url.path(), tool_names(&request));
-        }
         assert!(
             !child_tools.is_empty(),
             "the sub-agent never ran: {}",

@@ -229,6 +229,14 @@ pub struct AgentConfig {
     #[serde(default)]
     pub channel_permissions: std::collections::HashMap<String, String>,
 
+    /// The session tool ceiling: when set, a session built from this config
+    /// registers only these tools (plus its host's own), every sub-agent it
+    /// spawns is intersected with them, and every run it starts
+    /// (`run_workflow`, scheduled jobs, flows) inherits or refuses them. See
+    /// [`crate::agent::tool_ceiling`]. `None` (the default) is no ceiling.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub tool_ceiling: Option<Vec<String>>,
+
     /// Maximum byte length of a single tool-result body before the
     /// TinyAgents tool-output middleware budget stage truncates it. Applied
     /// inline at tool-execution time (before the result enters history),
@@ -487,6 +495,7 @@ impl Default for AgentConfig {
             max_parallel_tools: default_max_parallel_tools(),
             tool_dispatcher: default_agent_tool_dispatcher(),
             channel_permissions: std::collections::HashMap::new(),
+            tool_ceiling: None,
             tool_result_budget_bytes: default_tool_result_budget_bytes(),
             agent_timeout_secs: default_agent_timeout_secs(),
             session_dual_write: default_session_dual_write(),

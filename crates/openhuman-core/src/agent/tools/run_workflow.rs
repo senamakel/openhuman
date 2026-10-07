@@ -207,17 +207,25 @@ fn outcome_to_result(
 
 /// `run_workflow` — orchestrator-callable spawn + inline await of another
 /// workflow.
-pub struct RunWorkflowTool;
-
-impl Default for RunWorkflowTool {
-    fn default() -> Self {
-        Self::new()
-    }
+///
+/// Carries the tool ceiling of the session it was built for (see
+/// [`crate::agent::tool_ceiling`]): a workflow declaring a tool outside it is
+/// refused, and the run it starts inherits it.
+#[derive(Default)]
+pub struct RunWorkflowTool {
+    ceiling: Option<crate::agent::tool_ceiling::ToolCeiling>,
 }
 
 impl RunWorkflowTool {
     pub fn new() -> Self {
-        Self
+        Self { ceiling: None }
+    }
+
+    /// Bind the starting session's ceiling. `None` is no ceiling.
+    #[must_use]
+    pub fn with_ceiling(mut self, ceiling: Option<crate::agent::tool_ceiling::ToolCeiling>) -> Self {
+        self.ceiling = ceiling;
+        self
     }
 }
 
@@ -298,7 +306,7 @@ impl Tool for RunWorkflowTool {
         // Fire-and-forget: only the spawn backstop applies — no await, so no
         // re-entrancy/nesting slot to take.
         if wait_seconds == 0 {
-            return match spawn_workflow_run_background(workflow_id.clone(), inputs).await {
+            return match spawn_workflow_run_background(workflow_id.clone(), inputs, self.ceiling.clone()).await {
                 // Count only spawns that actually start against the backstop —
                 // unknown-workflow / bad-input rejections (the Err arm) must not
                 // burn the budget, or rejected calls accumulate and trip the
@@ -332,7 +340,7 @@ impl Tool for RunWorkflowTool {
             Err(e) => return Ok(ToolResult::error(format!("run_workflow: {e}"))),
         };
 
-        let started = match spawn_workflow_run_background(workflow_id.clone(), inputs).await {
+        let started = match spawn_workflow_run_background(workflow_id.clone(), inputs, self.ceiling.clone()).await {
             Ok(s) => {
                 if let Err(e) = guard::account_spawn() {
                     return Ok(ToolResult::error(format!("run_workflow: {e}")));

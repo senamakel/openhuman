@@ -1528,5 +1528,6 @@ mod removed_tests;
 
 #[path = "all_registry_tests.rs"]
 mod registry_tests;
+
 #[path = "all_domain_plan_tests.rs"]
 mod domain_plan_tests;

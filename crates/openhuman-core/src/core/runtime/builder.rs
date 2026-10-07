@@ -24,8 +24,8 @@
 
 use std::sync::Arc;
 
-use crate::config::Config;
 pub use super::domain_set::DomainSet;
+use crate::config::Config;
 use crate::core::runtime::context::CoreContext;
 use crate::core::types::HostKind;
 

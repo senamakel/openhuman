@@ -79,3 +79,14 @@ fn only_services_beyond_harness_init_start_background_work() {
         ..ServiceSet::none()
     }));
 }
+
+#[test]
+fn deferred_services_are_left_for_the_host_to_start() {
+    let cron = ServiceSet {
+        cron: true,
+        ..default_services()
+    };
+    assert!(starts_services_on_build(cron, false));
+    assert!(!starts_services_on_build(cron, true));
+    assert!(!starts_services_on_build(default_services(), false));
+}

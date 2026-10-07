@@ -42,6 +42,7 @@ pub struct RuntimeBuilder {
     provider: Provider,
     access: Access,
     services: Option<ServiceSet>,
+    defer_services: bool,
     domains: Option<DomainSet>,
     tool_groups: Option<ToolGroups>,
     host_kind: HostKind,
@@ -180,6 +181,20 @@ impl RuntimeBuilder {
     /// [`Runtime::start_services`] / [`Runtime::stop_services`].
     pub fn services(mut self, services: ServiceSet) -> Self {
         self.services = Some(services);
+        self
+    }
+
+    /// Build without starting the background services the [`ServiceSet`]
+    /// selects; the host starts them with [`Runtime::start_services`] once
+    /// it is ready.
+    ///
+    /// For a host that registers [`Runtime::on_system_job`] handlers: jobs
+    /// stored by an earlier process can be due the moment the scheduler
+    /// starts, and a system job with no handler yet is recorded `ok`
+    /// without running. Build deferred, register every handler, upsert the
+    /// jobs, then start.
+    pub fn defer_services(mut self) -> Self {
+        self.defer_services = true;
         self
     }
 
@@ -387,12 +402,18 @@ impl RuntimeBuilder {
             self.provider,
             self.access,
         );
-        if requests_background_services(services) {
+        if starts_services_on_build(services, self.defer_services) {
             log::debug!("[embed][runtime] starting background services {services:?}");
             runtime.start_services().await;
         }
         Ok(runtime)
     }
+}
+
+/// Whether [`RuntimeBuilder::build`] starts `services` itself: only when they
+/// ask for background work and the host did not defer them.
+pub(crate) fn starts_services_on_build(services: ServiceSet, deferred: bool) -> bool {
+    !deferred && requests_background_services(services)
 }
 
 /// Whether `services` asks for any background work beyond the one-shot

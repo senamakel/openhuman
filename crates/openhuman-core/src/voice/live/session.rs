@@ -109,6 +109,7 @@ async fn ensure_thread(
             parent_thread_id: None,
             labels: None,
             personality_id: None,
+            working_dir: None,
         },
     )
     .await

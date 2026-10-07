@@ -95,6 +95,8 @@ Pending requests are stored in SQLite (`{workspace_dir}/approval/approval.db`) a
 
 The gate is **interactive-only**. Background, triage, and cron turns carry no chat context, so there's nobody to answer a prompt. These turns are pre-authorized and pass straight through (no row, no event). Approval is only enforced for live chat turns.
 
+The browser's consequential actions (click, fill, type, key press, select, check, and a task's `needs_approval` step) are the exception. They use the **forced** gate, which ignores auto-approval and denies every turn that is not a routable WebChat chat, cron included. An operator opts specific action kinds back in for cron, background and approval-free workflow turns with `[browser] unattended_actions`. See [TinyComputer browser on Linux and Docker](../developing/tinycomputer-docker.md#4-unattended-actions).
+
 ---
 
 ## Configuration & RPC

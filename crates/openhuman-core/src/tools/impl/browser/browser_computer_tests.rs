@@ -187,7 +187,7 @@ async fn confirm_pending_without_a_held_action_is_refused() {
     )));
     let tool = BrowserTool::new(Arc::new(SecurityPolicy::default()), client, 3);
     let error = tool
-        .run(&json!({"action":"confirm_pending","token":"x"}))
+        .run(&json!({"action":"confirm_pending","token":"x"}), None)
         .await
         .unwrap_err();
     assert!(error.to_string().contains("No pending"), "{error}");
@@ -211,7 +211,7 @@ async fn task_without_allowed_websites_is_refused_before_the_module() {
     if client.task_origins().is_empty() {
         let tool = BrowserTool::new(Arc::new(SecurityPolicy::default()), client, 3);
         let error = tool
-            .run(&json!({"action":"task","goal":"Read the news"}))
+            .run(&json!({"action":"task","goal":"Read the news"}), None)
             .await
             .unwrap_err();
         assert!(error.to_string().contains("allowed origin"), "{error}");
@@ -408,7 +408,10 @@ async fn task_rejects_a_malformed_flow_before_the_module() {
     )));
     let tool = BrowserTool::new(Arc::new(SecurityPolicy::default()), client, 3);
     let error = tool
-        .run(&json!({"action":"task","goal":"Read the news","flow":{"steps":"not a list"}}))
+        .run(
+            &json!({"action":"task","goal":"Read the news","flow":{"steps":"not a list"}}),
+            None,
+        )
         .await
         .unwrap_err();
     assert!(error.to_string().contains("Invalid flow"), "{error}");

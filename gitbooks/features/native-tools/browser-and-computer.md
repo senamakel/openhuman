@@ -14,6 +14,8 @@ When the agent needs to _use_ your machine the way a person would - open a page,
 
 The browser surface runs through CEF (Chromium Embedded Framework) and includes a security layer that scopes what pages can do. See [Chromium Embedded Framework](../../developing/cef.md) for the platform details.
 
+Clicks, typing, key presses and other consequential actions ask for your approval in the chat first. A scheduled job has nobody to ask, so by default it can only open and read pages. An operator can let cron, background and approval-free workflow turns take specific actions with `[browser] unattended_actions`. See [TinyComputer browser on Linux and Docker](../../developing/tinycomputer-docker.md#4-unattended-actions).
+
 ## Computer (mouse + keyboard)
 
 - **Mouse** - move, click, drag.

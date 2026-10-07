@@ -99,3 +99,39 @@ async fn forced_approval_ignores_auto_approval_and_rejects_persistent_grants() {
     decide_parked(&gate, &request_id, ApprovalDecision::Deny);
     assert!(matches!(handle.await.unwrap(), GateOutcome::Deny { .. }));
 }
+
+/// `[browser] unattended_actions` lives in the browser tool, not here: the
+/// forced gate itself still refuses every automation and channel origin, so
+/// only an operator's explicit browser allow-list lets one through.
+#[tokio::test]
+async fn forced_approval_still_denies_automation_and_channel_origins() {
+    let (gate, _dir) = test_gate();
+    for origin in [
+        AgentTurnOrigin::TrustedAutomation {
+            job_id: "cron-1".into(),
+            source: TrustedAutomationSource::Cron,
+        },
+        AgentTurnOrigin::TrustedAutomation {
+            job_id: "flow-1".into(),
+            source: TrustedAutomationSource::Workflow {
+                require_approval: false,
+            },
+        },
+        AgentTurnOrigin::ExternalChannel {
+            channel: "telegram".into(),
+            sender: None,
+            reply_target: "chat".into(),
+            message_id: "m".into(),
+            history_key: None,
+        },
+        AgentTurnOrigin::Unknown,
+    ] {
+        let outcome = turn_origin::with_origin(
+            origin.clone(),
+            gate.intercept_forced("browser", "click", serde_json::json!({})),
+        )
+        .await;
+        assert!(matches!(outcome, GateOutcome::Deny { .. }), "{origin:?}");
+    }
+    assert!(gate.list_pending().unwrap().is_empty());
+}

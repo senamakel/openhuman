@@ -55,7 +55,8 @@ is mounted as a submodule of `load/dirs.rs` via `#[path]`.
 | built-in defaults | `defaults.rs` | `impl Default for Config` and per-field `default_*` fns |
 
 `tools/mod.rs` groups the tool-facing sections: `browser.rs` (`BrowserConfig`,
-`BrowserComputerUseConfig`), `http.rs` (`HttpRequestConfig`, `CurlConfig`),
+`BrowserComputerUseConfig`, and the `unattended_actions` allow-list with its
+known names in `UNATTENDED_BROWSER_ACTIONS`), `http.rs` (`HttpRequestConfig`, `CurlConfig`),
 `integrations.rs` (`IntegrationsConfig`, `ComposioConfig`, `SecretsConfig`),
 `mcp.rs` (`McpServerConfig`, `McpClientConfig`, `GitbooksConfig`),
 `multimodal.rs` (`MultimodalConfig`, `MultimodalFileConfig`), `search.rs`

@@ -250,5 +250,17 @@ impl Config {
         self.apply_update_env(env);
         self.apply_dictation_env(env);
         self.apply_context_env(env);
+
+        // Not an env override: the one load step every config passes through,
+        // so a misspelled unattended browser action is reported, not silent.
+        // Only the count: an entry is operator text and may hold anything.
+        let unknown = self.browser.unknown_unattended_actions().len();
+        if unknown > 0 {
+            tracing::warn!(
+                count = unknown,
+                known = ?crate::config::schema::tools::browser::UNATTENDED_BROWSER_ACTIONS,
+                "[config][browser] unattended_actions entries name no known action and are ignored"
+            );
+        }
     }
 }

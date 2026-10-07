@@ -156,3 +156,48 @@ fn compaction_settings_bundle_the_trigger_and_strategy() {
     cfg.compaction_trigger_tokens = Some(64_000);
     assert_eq!(cfg.compaction_settings().trigger_tokens, Some(64_000));
 }
+
+#[test]
+fn env_overlay_keeps_unattended_browser_actions_and_unknown_names_allow_nothing() {
+    let mut cfg = Config::default();
+    cfg.browser.unattended_actions = vec!["click".into(), "navigate".into()];
+    cfg.apply_env_overlay_with(&HashMapEnv::new());
+    assert_eq!(cfg.browser.unattended_actions, vec!["click", "navigate"]);
+    assert!(cfg.browser.allows_unattended("click"));
+    assert!(!cfg.browser.allows_unattended("navigate"));
+}
+
+#[test]
+fn unknown_unattended_browser_actions_are_counted_not_echoed() {
+    #[derive(Clone, Default)]
+    struct Logs(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+    impl std::io::Write for Logs {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+    let logs = Logs::default();
+    let writer = logs.clone();
+    let subscriber = tracing_subscriber::fmt()
+        .with_writer(move || writer.clone())
+        .with_ansi(false)
+        .finish();
+    let _guard = tracing::subscriber::set_default(subscriber);
+    tracing::callsite::rebuild_interest_cache();
+
+    let mut cfg = Config::default();
+    cfg.browser.unattended_actions = vec!["click".into(), "sk-live-not-an-action".into()];
+    cfg.apply_env_overlay_with(&HashMapEnv::new());
+
+    let text = String::from_utf8(logs.0.lock().unwrap().clone()).unwrap();
+    let line = text
+        .lines()
+        .find(|line| line.contains("unattended_actions"))
+        .unwrap_or_else(|| panic!("no unattended_actions warning in {text:?}"));
+    assert!(line.contains("count=1"), "{line}");
+    assert!(!line.contains("sk-live-not-an-action"), "{line}");
+}

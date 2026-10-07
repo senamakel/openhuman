@@ -80,6 +80,7 @@
 - [MCP Server](developing/mcp-server.md)
 - [Claude Code CLI Provider](developing/providers/claude-code.md)
 - [AgentBox Deployment](developing/agentbox-deployment.md)
+- [TinyComputer browser on Linux and Docker](developing/tinycomputer-docker.md)
 - [Architecture](developing/architecture/README.md)
   - [Deep Architecture Reference](developing/architecture.md)
   - [Agent Harness](developing/architecture/agent-harness.md)

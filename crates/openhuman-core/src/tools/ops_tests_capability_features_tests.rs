@@ -261,3 +261,66 @@ async fn domain_set_exec_off_drops_shell_from_the_registry() {
     assert!(!names.iter().any(|n| n == "shell"), "got: {names:?}");
     assert_contains_all(&names, &["file_read", "todo"]);
 }
+
+/// The gated slices are spliced in where they always sat, so a build with
+/// every capability feature registers the same tool order it did before the
+/// gates existed — the order a provider sees and a prompt cache keys on.
+#[test]
+#[cfg(all(
+    feature = "tools-shell",
+    feature = "tools-fs-write",
+    feature = "tools-exec",
+    feature = "tools-system"
+))]
+fn capability_slices_keep_their_registry_positions() {
+    let names = registry_names();
+    let run_at = |run: &[&str]| -> bool {
+        names
+            .windows(run.len())
+            .any(|window| window.iter().zip(run).all(|(a, b)| a == b))
+    };
+    for run in [
+        &[
+            "shell",
+            "file_read",
+            "file_write",
+            "grep",
+            "glob",
+            "list",
+            "edit",
+            "apply_patch",
+            "csv_export",
+        ][..],
+        &["resolve_time", "detect_tools", "install_tool", "cron"][..],
+        &[
+            "schedule",
+            "proxy_config",
+            "update_check",
+            "update_apply",
+            "git_operations",
+            "read_diff",
+            "run_linter",
+            "run_tests",
+            "pushover",
+        ][..],
+        &[
+            "daemon_host_prefs_get",
+            "service_start",
+            "service_stop",
+            "service_restart",
+            "service_shutdown",
+            "service_install",
+            "service_uninstall",
+            "daemon_host_prefs_set",
+            "config_snapshot",
+        ][..],
+        &[
+            "workspace_read_persona",
+            "workspace_update_persona",
+            "workspace_reset_persona",
+        ][..],
+    ] {
+        assert!(run_at(run), "expected the contiguous run {run:?}; got: {names:?}");
+    }
+    assert_eq!(names.first().map(String::as_str), Some("shell"));
+}

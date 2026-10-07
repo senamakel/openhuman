@@ -822,10 +822,8 @@ impl OpenHumanSessionHost {
         let connected_integrations_initialized = prewarmed_integrations.is_some();
         agent.connected_integrations = prewarmed_integrations.unwrap_or_default();
         agent.connected_integrations_initialized = connected_integrations_initialized;
-        // The same snapshot `base_config` already holds — `Config` is immutable
-        // after construction, so a second deep clone bought nothing but a
-        // second resident copy of a 95-field struct with nested `Vec`s
-        // (openhuman#6218).
+        // `Config` is immutable after construction: share `base_config` rather than
+        // keep a second resident deep copy of the 95-field struct (openhuman#6218).
         agent.runtime_config = Some(Arc::clone(&base_config));
         agent.hosted_base = AgentDefinitionRegistry::global_arc().map(|definitions| {
             Arc::new(crate::agent::tinyagents::host::OpenHumanHostBase {

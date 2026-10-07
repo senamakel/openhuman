@@ -380,7 +380,10 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             "cargo test --manifest-path Cargo.toml -p openhuman --no-default-features --lib --" +
             " core::all:: core::cli:: core::invoke:: core::session_expiry:: core::legacy_aliases:: core::runtime::" +
             " agent::registry::agents::loader:: commands::ops::tests:: memory::people::contacts_gate_tests::" +
-            " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::",
+            " openhuman::config:: openhuman::platform::socket::event_handlers:: tools::schemas:: tools::ops::tests::" +
+            // The capability features (`tools-*`, `composio`) are off here too;
+            // these carry their absent-side asserts.
+            " tools::orchestrator_tools:: agent::session_host::recorded_tools:: integrations::composio::tools::",
         },
         {
           // One core build for both feature-gated suites: `mcp` and

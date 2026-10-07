@@ -13,13 +13,13 @@ use tinyagents_harness::tools::{self as harness_tools, CurrentTimeTool, ResolveT
 use tinytools::Tool;
 #[cfg(test)]
 use tinytools::ToolResult;
-use tinytools_std::detect_tools::DetectToolsTool;
 use tinytools_std::filesystem::{
-    ApplyPatchTool, CsvExportTool, EditFileTool, FileReadTool, FileWriteTool, GitOperationsTool,
-    GlobTool, GrepTool, ImageInfoTool, ListFilesTool, ReadDiffTool, RunLinterTool, RunTestsTool,
+    FileReadTool, GlobTool, GrepTool, ImageInfoTool, ListFilesTool, ReadDiffTool,
     WorkspaceStateTool,
 };
-use tinytools_std::network::{CurlTool, PushoverTool};
+use tinytools_std::network::PushoverTool;
+
+use super::capabilities;
 
 /// Create the default tool registry
 pub fn default_tools(security: Arc<SecurityPolicy>) -> Vec<Box<dyn Tool>> {
@@ -37,11 +37,12 @@ pub fn default_tools_with_runtime(
     runtime: Arc<dyn RuntimeAdapter>,
 ) -> Vec<Box<dyn Tool>> {
     let audit = AuditLogger::disabled();
-    vec![
-        Box::new(ShellTool::new(security.clone(), runtime, audit)),
-        Box::new(FileReadTool::new(security.clone())),
-        Box::new(FileWriteTool::new(security)),
-    ]
+    // `shell` and `file_write` come from their capability facades and are
+    // absent when `tools-shell` / `tools-fs-write` are compiled out.
+    let mut tools = capabilities::shell::shell_tools(&security, &runtime, &audit, None, None);
+    tools.push(Box::new(FileReadTool::new(security.clone())));
+    tools.extend(capabilities::fs_write::file_write_tools(&security, None));
+    tools
 }
 
 /// Create full tool registry including memory tools.
@@ -130,35 +131,32 @@ pub fn all_tools_with_runtime(
         None
     };
 
-    let shell: Box<dyn Tool> = Box::new(ShellTool::with_language_bootstraps(
-        security.clone(),
-        Arc::clone(&runtime),
-        Arc::clone(&audit),
-        node_bootstrap.as_ref().map(Arc::clone),
-        python_bootstrap.as_ref().map(Arc::clone),
+    // The capability-gated families come from `capabilities::*`, which return
+    // nothing when their feature is compiled out. Everything between them is
+    // spliced in at its original position, so the registry order — and the
+    // tool list a provider sees — is the same in every build that has them.
+    let mut tools: Vec<Box<dyn Tool>> = capabilities::shell::shell_tools(
+        security,
+        &runtime,
+        &audit,
+        node_bootstrap.as_ref(),
+        python_bootstrap.as_ref(),
+    );
+    tools.push(Box::new(FileReadTool::new(security.clone())));
+    tools.extend(capabilities::fs_write::file_write_tools(
+        security,
+        approval_workspace_root,
     ));
-
-    let file_write: Box<dyn Tool> = match approval_workspace_root {
-        Some(root) => Box::new(FileWriteTool::with_approval_workspace_root(
-            security.clone(),
-            root.to_path_buf(),
-        )),
-        None => Box::new(FileWriteTool::new(security.clone())),
-    };
-
-    let mut tools: Vec<Box<dyn Tool>> = vec![
-        shell,
-        Box::new(FileReadTool::new(security.clone())),
-        file_write,
-        // Coding-harness baseline tools (issue #1205): file navigation
-        // + atomic editing primitives. Use these instead of falling
-        // through to `shell` for grep/find/sed work.
+    // Coding-harness baseline tools (issue #1205): file navigation
+    // + atomic editing primitives. Use these instead of falling
+    // through to `shell` for grep/find/sed work.
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![
         Box::new(GrepTool::new(security.clone())),
         Box::new(GlobTool::new(security.clone())),
         Box::new(ListFilesTool::new(security.clone())),
-        Box::new(EditFileTool::new(security.clone())),
-        Box::new(ApplyPatchTool::new(security.clone())),
-        Box::new(CsvExportTool::new(security.clone())),
+    ]);
+    tools.extend(capabilities::fs_write::edit_tools(security));
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![
         // Sub-agent dispatch — lets the parent agent delegate focused
         // sub-tasks (research, code execution, API specialists, …) by
         // calling `spawn_subagent { agent_id, prompt, … }`. The runner
@@ -227,8 +225,9 @@ pub fn all_tools_with_runtime(
         // latest messages). `resolve_time` does the conversion and returns the
         // value ready to paste into a tool argument.
         Box::new(ResolveTimeTool::new()),
-        Box::new(DetectToolsTool::new()),
-        Box::new(InstallToolTool::new(security.clone())),
+    ]);
+    tools.extend(capabilities::exec::toolchain_tools(security));
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![
         // The compact, advertised scheduler surface. Keep the six legacy
         // tools registered below as hidden aliases so saved transcripts and
         // skills remain replayable.
@@ -381,20 +380,20 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "web3")]
         Box::new(WalletLookupTxTool::new(crate::web3::seams::engine())),
         Box::new(ScheduleTool::new(security.clone(), root_config.clone())),
-        Box::new(ProxyConfigTool::new(config.clone(), security.clone())),
-        Box::new(UpdateCheckTool::new()),
-        Box::new(UpdateApplyTool::new(security.clone())),
-        Box::new(GitOperationsTool::new(
-            security.clone(),
-            action_dir.to_path_buf(),
-        )),
+    ]);
+    tools.extend(capabilities::system::proxy_tools(&config, security));
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![Box::new(UpdateCheckTool::new())]);
+    tools.extend(capabilities::system::update_apply_tools(security));
+    tools.extend(capabilities::exec::git_tools(security, action_dir));
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![
         // Review loop for skill `coding` (and the workflow-run `critic`):
         // diff, lint and test the working tree in the action sandbox. They
         // were defined but never registered, so the belts naming them held
         // nothing. `Deferred`, so they cost no schema until found.
         Box::new(ReadDiffTool::new(action_dir.to_path_buf())),
-        Box::new(RunLinterTool::new(action_dir.to_path_buf())),
-        Box::new(RunTestsTool::new(action_dir.to_path_buf())),
+    ]);
+    tools.extend(capabilities::exec::review_tools(action_dir));
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![
         Box::new(PushoverTool::new(
             security.clone(),
             action_dir.to_path_buf(),
@@ -504,13 +503,9 @@ pub fn all_tools_with_runtime(
         Box::new(SecurityPolicyInfoTool::new(config.clone())),
         Box::new(ServiceStatusTool::new(config.clone())),
         Box::new(DaemonHostPrefsGetTool::new(config.clone())),
-        Box::new(ServiceStartTool::new(config.clone())),
-        Box::new(ServiceStopTool::new(config.clone())),
-        Box::new(ServiceRestartTool),
-        Box::new(ServiceShutdownTool),
-        Box::new(ServiceInstallTool::new(config.clone())),
-        Box::new(ServiceUninstallTool::new(config.clone())),
-        Box::new(DaemonHostPrefsSetTool::new(config.clone())),
+    ]);
+    tools.extend(capabilities::system::service_lifecycle_tools(&config));
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![
         // Config: read-only surface (default-ON). The config_update_* mutators
         // are deferred (their apply fns take non-Deserialize patch structs);
         // see config/tools.rs.
@@ -557,10 +552,12 @@ pub fn all_tools_with_runtime(
         #[cfg(feature = "mcp")]
         Box::new(McpRegistryUninstallTool::new(config.clone())),
         Box::new(WorkspaceReadPersonaTool::new(config.clone())),
-        Box::new(WorkspaceUpdatePersonaTool::new(config.clone())),
+    ]);
+    tools.extend(capabilities::system::persona_writer_tools(&config));
+    tools.extend::<Vec<Box<dyn Tool>>>(vec![
         Box::new(WorkspaceResetPersonaTool::new(config.clone())),
         Box::new(WorkspaceInitTool),
-    ];
+    ]);
 
     // The single `memory` tool (recall | fetch | learn | forget), registered
     // only while memory is on: with no usable engine (signed out, no CortexDB
@@ -647,17 +644,15 @@ pub fn all_tools_with_runtime(
         Some(http_config.timeout_secs),
     )));
 
-    // curl — always registered. Shares `http_request.allowed_domains`,
-    // adds streaming-to-disk with a hard byte ceiling. Writes land
-    // under `<workspace>/<curl.dest_subdir>`.
-    tools.push(Box::new(CurlTool::new(
-        security.clone(),
-        http_config.allowed_domains.clone(),
-        action_dir.to_path_buf(),
-        root_config.curl.dest_subdir.clone(),
-        root_config.curl.max_download_bytes,
-        root_config.curl.timeout_secs,
-    )));
+    // curl (`tools-fs-write`). Shares `http_request.allowed_domains`, adds
+    // streaming-to-disk with a hard byte ceiling. Writes land under
+    // `<workspace>/<curl.dest_subdir>`.
+    tools.extend(capabilities::fs_write::curl_tools(
+        security,
+        http_config,
+        action_dir,
+        root_config,
+    ));
 
     // gitbooks — answers questions about OpenHuman by calling the
     // GitBook MCP server. Two tools mirroring the upstream MCP tools.
@@ -805,19 +800,14 @@ pub fn all_tools_with_runtime(
         tracing::debug!("[tools::ops] registered node_exec + npm_exec");
     }
 
-    // Managed Python exec tool — gated on `root_config.runtime_python.enabled`.
-    // Shares the same `PythonBootstrap` as ShellTool. Inline code routes through
-    // the shared runtime pool (#5106) when enabled.
-    if let Some(bootstrap) = python_bootstrap.as_ref() {
-        tools.push(Box::new(PythonExecTool::new(
-            security.clone(),
-            Arc::clone(&runtime),
-            Arc::clone(bootstrap),
-            root_config.runtime_pool.clone(),
-            root_config.workspace_dir.clone(),
-        )));
-        tracing::debug!("[tools::ops] registered python_exec");
-    }
+    // Managed Python exec tool (`tools-exec`) — only while
+    // `root_config.runtime_python.enabled`, sharing the shell's `PythonBootstrap`.
+    tools.extend(capabilities::exec::python_tools(
+        security,
+        &runtime,
+        python_bootstrap.as_ref(),
+        root_config,
+    ));
 
     // Image metadata is always available for user-provided images.
     tools.push(Box::new(ImageInfoTool::new(security.clone())));

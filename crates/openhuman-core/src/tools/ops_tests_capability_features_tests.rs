@@ -157,9 +157,8 @@ fn system_family_absent_when_feature_off() {
 #[cfg(feature = "composio")]
 fn composio_family_registered_when_feature_on() {
     assert_contains_all(&composio_direct_mode_names(), COMPOSIO_FAMILY);
-    let actions = crate::tools::orchestrator_tools::collect_deferred_integration_actions(
-        &connected_gmail(),
-    );
+    let actions =
+        crate::tools::orchestrator_tools::collect_deferred_integration_actions(&connected_gmail());
     let names = tool_names(&actions);
     assert_eq!(names, vec!["GMAIL_SEND_EMAIL".to_string()]);
 }
@@ -172,9 +171,8 @@ fn composio_family_absent_when_feature_off() {
         !names.iter().any(|n| n.starts_with("composio")),
         "no composio tool may register with `composio` compiled out; got: {names:?}"
     );
-    let actions = crate::tools::orchestrator_tools::collect_deferred_integration_actions(
-        &connected_gmail(),
-    );
+    let actions =
+        crate::tools::orchestrator_tools::collect_deferred_integration_actions(&connected_gmail());
     assert!(
         actions.is_empty(),
         "per-action integration tools must not be built with `composio` compiled out"
@@ -227,7 +225,11 @@ fn capability_families_classify_out_of_platform() {
 fn domain_set_presets_place_the_capability_families() {
     use crate::core::all::DomainGroup;
     use crate::core::runtime::DomainSet;
-    let families = [DomainGroup::Exec, DomainGroup::Filesystem, DomainGroup::System];
+    let families = [
+        DomainGroup::Exec,
+        DomainGroup::Filesystem,
+        DomainGroup::System,
+    ];
     for g in families {
         assert!(DomainSet::full().allows(g), "full() keeps {g:?}");
         // `embedded()` had these tools through `platform: true`; it keeps them.
@@ -238,7 +240,9 @@ fn domain_set_presets_place_the_capability_families() {
     }
     let mut no_shell = DomainSet::full();
     no_shell.exec = false;
-    assert!(!no_shell.intersect(&DomainSet::full()).allows(DomainGroup::Exec));
+    assert!(!no_shell
+        .intersect(&DomainSet::full())
+        .allows(DomainGroup::Exec));
     assert!(no_shell.allows(DomainGroup::Filesystem));
 }
 

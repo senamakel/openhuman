@@ -339,10 +339,10 @@ const TOOL_LESS: &[crate::core::all::DomainGroup] = {
     &[G::Config, G::Security, G::Channels, G::Hosted]
 };
 
-#[path = "ops_tests_capability_gating_tests.rs"]
-mod capability_gating_tests;
 #[path = "ops_tests_capability_features_tests.rs"]
 mod capability_features_tests;
+#[path = "ops_tests_capability_gating_tests.rs"]
+mod capability_gating_tests;
 #[path = "ops_tests_catalog_fixture_tests.rs"]
 mod catalog_fixture_tests;
 #[path = "ops_tests_composio_registration_tests.rs"]

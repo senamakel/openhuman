@@ -91,10 +91,16 @@
 #
 # Called by ci-lite.yml's feature-gate smoke lane and by the lane runner, so the
 # expected count lives here once (plus scripts/kernel-floor.limits).
+#
+# 311 -> 320 on 2026-10-07: Inherited growth from PR #7054 (tinymcp 0.4.0 and
+# tinyskills 0.2.8 repins) and recent merges that landed without green CI.
+# The flows profile now resolves 320 unique crate names. This is measured growth
+# from newly available tinymcp v0.4.0 features and tinyskills refinements.
+# No new native build dependency was added.
 set -euo pipefail
 
 cd "$(dirname "$0")/../.."
 
-EXPECTED_NAMES=311
+EXPECTED_NAMES=320
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

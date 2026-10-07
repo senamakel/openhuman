@@ -23,6 +23,11 @@
 use openhuman_core::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 use openhuman_core::security::{AutonomyLevel, TrustedAccess, TrustedRoot};
 
+/// The `ExternalChannel` channel name [`Access::public`] turns carry.
+const PUBLIC_CHANNEL: &str = "public";
+/// The event channel an embedded agent's sessions run on.
+const SESSION_CHANNEL: &str = "internal";
+
 /// The authority a harness's turns run with.
 #[derive(Debug, Clone)]
 pub struct Access {
@@ -33,6 +38,9 @@ pub struct Access {
     trusted_roots: Vec<TrustedRoot>,
     allow_tool_install: bool,
     approval_gate: bool,
+    /// Set by [`Access::public`]: the session's tool permission ceiling is
+    /// read-only, enforced at the tool boundary rather than by the tier alone.
+    public: bool,
 }
 
 impl Default for Access {
@@ -55,6 +63,7 @@ impl Access {
             trusted_roots: Vec::new(),
             allow_tool_install: false,
             approval_gate: true,
+            public: false,
         }
     }
 
@@ -70,6 +79,7 @@ impl Access {
             trusted_roots: Vec::new(),
             allow_tool_install: false,
             approval_gate: true,
+            public: false,
         }
     }
 
@@ -94,6 +104,36 @@ impl Access {
             trusted_roots: Vec::new(),
             allow_tool_install: false,
             approval_gate: false,
+            public: false,
+        }
+    }
+
+    /// For untrusted public input: anyone can put text in front of this agent.
+    ///
+    /// Turns run as an [`AgentTurnOrigin::ExternalChannel`] (`channel:
+    /// "public"`), the autonomy policy is enabled at
+    /// [`AutonomyLevel::ReadOnly`], and the session's tool permission ceiling
+    /// is read-only. Every tool that writes, executes or has an external effect
+    /// is then refused **immediately**: the model gets a tool error naming the
+    /// reason, and nothing parks waiting for an approval no one on a public
+    /// channel could give. Read-only tools — including a host's own — work.
+    ///
+    /// Pair it with [`AgentSpec::lockdown`](crate::AgentSpec::lockdown), which
+    /// bounds *which* tools exist; this bounds what the ones that exist may do.
+    pub fn public() -> Self {
+        Self {
+            level: AutonomyLevel::ReadOnly,
+            origin: Some(AgentTurnOrigin::ExternalChannel {
+                channel: PUBLIC_CHANNEL.to_string(),
+                sender: None,
+                reply_target: String::new(),
+                message_id: String::new(),
+            }),
+            trusted_roots: Vec::new(),
+            allow_tool_install: false,
+            // Nothing is parked: refusals happen at the tool boundary.
+            approval_gate: false,
+            public: true,
         }
     }
 
@@ -156,6 +196,15 @@ impl Access {
         config.autonomy.level = self.level;
         config.autonomy.allow_tool_install = self.allow_tool_install;
         config.autonomy.trusted_roots = self.trusted_roots.clone();
+        if self.public {
+            // Tiers are inert while the policy is off, so turn it on. A
+            // non-empty `channel_permissions` map caps every channel it does
+            // not list at read-only; the session channel is named anyway so
+            // the intent reads from the config.
+            config.autonomy.enabled = true;
+            config.agent.channel_permissions =
+                std::iter::once((SESSION_CHANNEL.to_string(), "readonly".to_string())).collect();
+        }
         // `auto_approve_all` is deliberately NOT set for `full()`. The origin
         // is the correct instrument — it says *who is calling*, which the gate
         // can reason about — whereas `auto_approve_all` is a blanket bypass

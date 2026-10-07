@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::cron;
+use crate::cron::{self, JobType};
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::json;

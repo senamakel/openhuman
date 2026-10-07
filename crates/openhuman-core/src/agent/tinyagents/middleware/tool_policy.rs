@@ -230,6 +230,22 @@ impl ToolPolicyMiddleware {
         })
     }
 
+    /// [`crate::tools::agent_policy::untrusted::refuses`] for one call.
+    pub(crate) fn untrusted_origin_block(
+        &self,
+        origin: Option<&crate::agent::turn_origin::AgentTurnOrigin>,
+        call: &TaToolCall,
+    ) -> Option<String> {
+        let tool = self.resolve_tool(&call.name)?;
+        let allowed = self.session.decision_for(&call.name).allowed_permission;
+        crate::tools::agent_policy::untrusted::refuses(
+            origin,
+            allowed,
+            tool.external_effect_with_args(&call.arguments),
+        )
+        .then(|| crate::tools::agent_policy::untrusted::refusal(&call.name))
+    }
+
     /// The channel-permission gate the engine ran before the builder policy: a
     /// session-level deny, then a per-call permission-level ceiling check. Returns
     /// the blocking message when the call must not execute.
@@ -367,6 +383,18 @@ impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 tool = call.name.as_str(),
                 channel = self.channel.as_str(),
                 "[tinyagents::mw] tool blocked by channel permission ceiling"
+            );
+            return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(message)));
+        }
+
+        // Untrusted remote input on a read-only session: an external effect is
+        // refused here rather than parked by the approval gate. The origin is
+        // the run context's, handed to the rule explicitly.
+        if let Some(message) = self.untrusted_origin_block(ctx.data.origin.as_ref(), &call) {
+            tracing::debug!(
+                tool = call.name.as_str(),
+                channel = self.channel.as_str(),
+                "[tinyagents::mw] external effect refused for an untrusted read-only turn"
             );
             return Ok(MiddlewareToolOutcome::Result(TaToolResult::error(message)));
         }

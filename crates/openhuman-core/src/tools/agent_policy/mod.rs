@@ -6,6 +6,7 @@
 mod engine;
 mod prompt;
 mod types;
+pub mod untrusted;
 
 pub use engine::ToolPolicyEngine;
 pub use prompt::render_tool_policy_boundary;

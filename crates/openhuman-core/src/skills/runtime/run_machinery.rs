@@ -49,7 +49,14 @@ pub async fn spawn_workflow_run_background(
     inputs_param: Option<Value>,
     ceiling: Option<ToolCeiling>,
 ) -> Result<WorkflowRunStarted, String> {
-    let workspace = resolve_workspace_dir().await;
+    // An embedded agent's own config, when the caller runs under one: its
+    // workspace is where its workflows live, and the run is built from it.
+    // `None` for the desktop and CLI, which keep resolving the process config.
+    let embedder_config = crate::core::runtime::CoreContext::current_embedder_config();
+    let workspace = match embedder_config.as_ref() {
+        Some(config) => config.workspace_dir.clone(),
+        None => resolve_workspace_dir().await,
+    };
     let skill = registry::get_workflow(&workspace, &skill_id_param)
         .ok_or_else(|| format!("workflow_run: unknown skill '{skill_id_param}'"))?;
     if let Some(ceiling) = ceiling.as_ref() {
@@ -186,7 +193,11 @@ pub async fn spawn_workflow_run_background(
             {
                 tracing::warn!(run_id = %run_id, error = %e, "[skills] workflow_run: header write failed");
             }
-            let mut config = match Config::load_or_init().await {
+            let loaded = match embedder_config {
+                Some(config) => Ok(config),
+                None => Config::load_or_init().await,
+            };
+            let mut config = match loaded {
                 Ok(c) => c,
                 Err(e) => {
                     let _ = run_log::write_footer(

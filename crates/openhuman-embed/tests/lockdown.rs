@@ -229,7 +229,7 @@ fn lockdown_ceiling_bounds_spawned_subagents() {
                 serde_json::json!({
                     "agent_id": "task_manager_agent",
                     "prompt": "List the task sources.",
-                    "mode": "sync"
+                    "blocking": true
                 }),
             ))
             .await

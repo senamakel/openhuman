@@ -1,5 +1,5 @@
 use crate::config::Config;
-use crate::cron;
+use crate::cron::{self, JobType};
 use async_trait::async_trait;
 use chrono::Utc;
 use serde_json::json;
@@ -87,6 +87,17 @@ impl Tool for CronRunTool {
                 return Ok(ToolResult::error(e.to_string()));
             }
         };
+
+        // A job runs immediately outside this session: refuse what would escape its
+        // tool ceiling before anything about the job is executed.
+        let shell_job = job.job_type == JobType::Shell;
+        if let Some(refused) = crate::agent::tool_ceiling::check_scheduled_job(
+            crate::agent::tool_ceiling::ToolCeiling::from_config(&self.config.agent).as_ref(),
+            "cron_run",
+            shell_job,
+        ) {
+            return Ok(ToolResult::error(refused));
+        }
 
         // Claim the job so this run cannot overlap a scheduled tick or a Run Now.
         let Some(_run_guard) = cron::ops::try_acquire_run(&job.id) else {

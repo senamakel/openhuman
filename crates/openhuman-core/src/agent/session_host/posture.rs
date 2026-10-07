@@ -27,6 +27,7 @@ const REACH_TOOLS: &[&str] = &[
     "run_workflow",
     "use_skill",
     "tool_search",
+    "cron",
     "cron_add",
     "schedule",
     "run_flow",

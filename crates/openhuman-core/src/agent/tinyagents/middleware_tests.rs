@@ -413,3 +413,5 @@ mod tool_output_file_read_tests;
 mod tool_output_tests;
 #[path = "middleware_tool_policy_tests.rs"]
 mod tool_policy_tests;
+#[path = "middleware_untrusted_origin_tests.rs"]
+mod untrusted_origin_tests;

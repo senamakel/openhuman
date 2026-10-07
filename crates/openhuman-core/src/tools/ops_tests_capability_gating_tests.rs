@@ -105,8 +105,8 @@ fn tool_group_classifies_gate_and_harness_families() {
     }
 
     // Everything else → Platform (dropped under harness()).
-    assert_eq!(tool_group("shell"), DomainGroup::Platform);
     assert_eq!(tool_group("file_read"), DomainGroup::Platform);
+    assert_eq!(tool_group("grep"), DomainGroup::Platform);
 }
 
 #[test]
@@ -144,6 +144,9 @@ fn no_gate_family_tool_silently_defaults_to_platform() {
         "x402_new_thing",
         "mcp_new_thing",
         "media_new_thing",
+        "service_new_thing",
+        "daemon_host_prefs_new_thing",
+        "update_new_thing",
     ] {
         assert_ne!(
             tool_group(name),

@@ -320,24 +320,29 @@ const REPRESENTATIVE: &[(&str, crate::core::all::DomainGroup)] = {
         ("dashboard_model_health", G::Desktop),
         ("node_exec", G::Runtimes),
         ("juice_retrieve", G::Inference),
-        ("shell", G::Platform),
+        ("shell", G::Exec),
+        ("apply_patch", G::Filesystem),
+        ("service_install", G::System),
+        ("browser", G::Modules),
+        ("file_read", G::Platform),
     ]
 };
 
 /// Families with no agent tools of their own.
 const TOOL_LESS: &[crate::core::all::DomainGroup] = {
     use crate::core::all::DomainGroup as G;
-    // `Modules` is the loader, not a capability: a loaded module's own surface
-    // is reached through whichever domain calls it (documents go through the
-    // document tools), so the family itself owns no agent tool.
+    // `Modules` left this list when the `browser` / `browser_open` tools were
+    // classified under it: they exist only with the module host compiled in.
     // `Channels` joined this list when the three `whatsapp_data_*` tools went —
     // the channel runtime,
     // its controllers and its inbound dispatch are all still there.
-    &[G::Config, G::Security, G::Modules, G::Channels, G::Hosted]
+    &[G::Config, G::Security, G::Channels, G::Hosted]
 };
 
 #[path = "ops_tests_capability_gating_tests.rs"]
 mod capability_gating_tests;
+#[path = "ops_tests_capability_features_tests.rs"]
+mod capability_features_tests;
 #[path = "ops_tests_catalog_fixture_tests.rs"]
 mod catalog_fixture_tests;
 #[path = "ops_tests_composio_registration_tests.rs"]

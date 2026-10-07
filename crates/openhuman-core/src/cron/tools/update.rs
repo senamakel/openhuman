@@ -105,6 +105,33 @@ impl Tool for CronUpdateTool {
             }
         }
 
+        // A job runs later, outside this session: refuse what would escape its
+        // tool ceiling before anything about the job is updated or stored.
+        // Determine if the resulting job would be a shell job.
+        let shell_job = if patch.command.is_some() {
+            // Patch includes a command -> shell job
+            true
+        } else if patch.prompt.is_some() {
+            // Patch includes a prompt -> agent job
+            false
+        } else {
+            // Patch doesn't change the job type; check the current job.
+            match cron::get_job(&self.config, job_id) {
+                Ok(job) => job.job_type == JobType::Shell,
+                Err(e) => {
+                    return Ok(ToolResult::error(e.to_string()));
+                }
+            }
+        };
+
+        if let Some(refused) = crate::agent::tool_ceiling::check_scheduled_job(
+            crate::agent::tool_ceiling::ToolCeiling::from_config(&self.config.agent).as_ref(),
+            "cron_update",
+            shell_job,
+        ) {
+            return Ok(ToolResult::error(refused));
+        }
+
         match cron::update_job(&self.config, job_id, patch) {
             Ok(job) => {
                 let mut tr = ToolResult::success(serde_json::to_string_pretty(&job)?);

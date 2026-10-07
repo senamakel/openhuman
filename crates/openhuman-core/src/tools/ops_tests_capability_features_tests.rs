@@ -320,7 +320,10 @@ fn capability_slices_keep_their_registry_positions() {
             "workspace_reset_persona",
         ][..],
     ] {
-        assert!(run_at(run), "expected the contiguous run {run:?}; got: {names:?}");
+        assert!(
+            run_at(run),
+            "expected the contiguous run {run:?}; got: {names:?}"
+        );
     }
     assert_eq!(names.first().map(String::as_str), Some("shell"));
 }

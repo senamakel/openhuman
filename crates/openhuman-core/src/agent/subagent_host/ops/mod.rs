@@ -39,8 +39,9 @@ pub(crate) use runner::run_subagent_direct;
 // can call it as
 // `crate::agent::subagent_host::user_is_signed_in_to_composio`
 // without reaching into a private sibling module. Its one caller is the
-// Composio tool registry, which the `composio` feature compiles out.
-#[cfg(feature = "composio")]
+// Composio tool registry, which the `composio` feature compiles out (the
+// model-resolution tests reach it through this path as well).
+#[cfg(any(feature = "composio", test))]
 pub(crate) use provider::user_is_signed_in_to_composio;
 
 pub(crate) use prompt::append_subagent_role_contract;

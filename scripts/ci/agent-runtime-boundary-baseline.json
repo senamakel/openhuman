@@ -940,7 +940,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/voice/live/session.rs",
-    "line": 199,
+    "line": 200,
     "text": "Box::pin(with_origin(",
     "occurrence": 1
   },

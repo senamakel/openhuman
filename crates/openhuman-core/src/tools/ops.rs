@@ -206,9 +206,7 @@ pub fn all_tools_with_runtime(
         // `await_run_outcome` — the same spawn path `openhuman.skills_run`
         // JSON-RPC uses, so RPC and tool callers stay in sync.
         #[cfg(feature = "skills")]
-        Box::new(RunWorkflowTool::new().with_ceiling(
-            crate::agent::tool_ceiling::ToolCeiling::from_config(&root_config.agent),
-        )),
+        Box::new(RunWorkflowTool::bound_to(&root_config.agent)),
         #[cfg(feature = "skills")]
         Box::new(AwaitWorkflowTool::new()),
         Box::new(CurrentTimeTool::new()),

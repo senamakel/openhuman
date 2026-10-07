@@ -699,8 +699,7 @@ impl OpenHumanSessionHost {
             agent_id
         );
 
-        // Issue #574 — orchestrator-only payload summarizer; see `ceiling.rs`'s
-        // sibling `payload_wiring.rs` for the full rationale.
+        // Issue #574: orchestrator-only payload summarizer (`payload_wiring.rs`).
         let payload_summarizer = super::payload_wiring::payload_summarizer_for(agent_id, config);
 
         // Crate-native turn models (Phase 3 P3-B): the production main-turn agent
@@ -737,7 +736,8 @@ impl OpenHumanSessionHost {
             &mut visible,
         )?;
         let session_definition = super::host_tools::scope_def(target_def, &merged_host_tools);
-        let subagent_ceiling = super::ceiling::for_children(tool_ceiling.as_ref(), &tools, &delegation_tools);
+        let subagent_ceiling =
+            super::ceiling::for_children(tool_ceiling.as_ref(), &tools, &delegation_tools);
         let host_policy = merged_host_tools.policy;
         let withheld_tool_names = merged_host_tools.withheld;
         let mut builder = OpenHumanSessionHost::builder()

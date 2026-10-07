@@ -221,6 +221,11 @@ impl RunWorkflowTool {
         Self { ceiling: None }
     }
 
+    /// Bound to the ceiling `config` carries, if any.
+    pub fn bound_to(config: &crate::config::AgentConfig) -> Self {
+        Self::new().with_ceiling(crate::agent::tool_ceiling::ToolCeiling::from_config(config))
+    }
+
     /// Bind the starting session's ceiling. `None` is no ceiling.
     #[must_use]
     pub fn with_ceiling(

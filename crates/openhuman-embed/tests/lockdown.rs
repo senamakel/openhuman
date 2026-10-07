@@ -14,12 +14,12 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use common::{chat_completion, chat_requests, offline_config, runtime, stub_backend, tool_names};
+use common::{chat_completion, chat_requests, offline_config, runtime, tool_names};
 use openhuman_embed::{
     Access, AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, HostTurnTools, Provider, Runtime,
     Tool, ToolScopeSpec, Workspace,
 };
-use wiremock::matchers::{method, path};
+use wiremock::matchers::{method, path_regex};
 use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
 static RUNTIME_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
@@ -94,28 +94,40 @@ fn named(names: &[&str]) -> AgentDefinitionSpec {
         ))
 }
 
+/// One server for the agent's routed provider and the managed backend: a
+/// built-in sub-agent pins its own model and so answers through the backend's
+/// inference route rather than the agent's. Chat completions on either route
+/// are scripted; every other backend call gets an empty success.
 async fn provider() -> MockServer {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/v1/chat/completions"))
+        .and(path_regex(r"/chat/completions$"))
         .respond_with(Scripted)
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    Mock::given(wiremock::matchers::any())
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "success": true,
+            "data": { "id": "embed-test", "email": "local@openhuman.local" }
+        })))
+        .with_priority(10)
         .mount(&server)
         .await;
     server
 }
 
 async fn boot(config: openhuman_core::config::Config) -> (Runtime, MockServer) {
-    let backend = stub_backend().await;
+    let server = provider().await;
     let runtime = Runtime::builder()
         .config(config)
         .workspace(Workspace::Ephemeral)
-        .backend_url(backend.uri())
+        .backend_url(server.uri())
+        .api_key("th_lockdown_test")
         .build()
         .await
         .expect("runtime");
-    // Kept alive by the runtime's own requests for the test's duration.
-    std::mem::forget(backend);
-    (runtime, provider().await)
+    (runtime, server)
 }
 
 fn spec(id: &str, provider: &MockServer, definition: AgentDefinitionSpec) -> AgentSpec {

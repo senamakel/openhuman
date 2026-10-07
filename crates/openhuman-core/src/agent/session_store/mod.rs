@@ -67,9 +67,7 @@ pub fn clear() -> bool {
 /// by the caller. This keeps a runtime from removing a replacement installed
 /// by another owner after the runtime itself has been dropped.
 pub fn clear_if(expected: &Arc<dyn SessionStoreProvider>) -> bool {
-    let mut installed = PROVIDER
-        .write()
-        .unwrap_or_else(PoisonError::into_inner);
+    let mut installed = PROVIDER.write().unwrap_or_else(PoisonError::into_inner);
     if installed
         .as_ref()
         .is_some_and(|current| Arc::ptr_eq(current, expected))

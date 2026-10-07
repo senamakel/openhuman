@@ -372,8 +372,9 @@ impl Runtime {
         core: Core,
         workspace: ResolvedWorkspace,
         session_store: Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
-        previous_session_store:
-            Option<Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>>,
+        previous_session_store: Option<
+            Arc<dyn openhuman_core::agent::session_store::SessionStoreProvider>,
+        >,
         base_config: Config,
         inherited: bool,
         domains: DomainSet,

@@ -13,6 +13,7 @@ impl Clone for Config {
     fn clone(&self) -> Self {
         Self {
             workspace_dir: self.workspace_dir.clone(),
+            voice_live: self.voice_live.clone(),
             action_dir: self.action_dir.clone(),
             action_dir_override: self.action_dir_override.clone(),
             files_dir_override: self.files_dir_override.clone(),

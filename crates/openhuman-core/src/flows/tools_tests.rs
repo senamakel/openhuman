@@ -456,3 +456,23 @@ fn propose_workflow_schema_enum_matches_typed_node_contracts() {
         );
     }
 }
+
+#[tokio::test]
+async fn run_flow_and_resume_refuse_under_a_tool_ceiling() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = (*test_config(&tmp)).clone();
+    config.agent.tool_ceiling = Some(vec!["run_flow".into(), "resume_flow_run".into()]);
+    let config = Arc::new(config);
+    let run = RunFlowTool::new(config.clone())
+        .execute(json!({"flow_id": "any"}))
+        .await
+        .unwrap();
+    assert!(run.is_error);
+    assert!(run.output().contains(crate::agent::tool_ceiling::CEILING_REFUSAL));
+    let resume = crate::flows::builder_tools::ResumeFlowRunTool::new(config)
+        .execute(json!({"flow_id": "any", "run_id": "r"}))
+        .await
+        .unwrap();
+    assert!(resume.is_error);
+    assert!(resume.output().contains(crate::agent::tool_ceiling::CEILING_REFUSAL));
+}

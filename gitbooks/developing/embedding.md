@@ -23,11 +23,12 @@ openhuman-embed = { git = "https://github.com/tinyhumansai/openhuman", package =
 ```
 
 Every feature on this crate forwards to the same-named feature on
-`openhuman-core`: `default`, `http-server`, `inference`, `documents`,
-`hosting`, `modules`, `voice`, `web3`, `runtime-node`, `contacts`, `media`,
-`flows`, `skills`, `mcp`, `crash-reporting`, `channels`,
-`sandbox-bubblewrap`,
-`whatsapp-web`, `file-logging`, `scheduler-gate`. Two of them also gate
+`openhuman-core`: `default`, `http-server`, `inference`, `documents`, `hosting`, `modules`,
+`voice`, `web3`, `runtime-node`, `media`, `flows`, `skills`, `mcp`,
+`crash-reporting`, `channels`, `whatsapp-web`, `file-logging`,
+`scheduler-gate`, and the capability features `tools-shell`,
+`tools-fs-write`, `tools-exec`, `tools-system` and `composio` (see
+[Capability features](#capability-features)). Two of them also gate
 items on this crate's own surface: `mcp` gates `HttpHeader`,
 `McpAuthConfig`, `McpServer`, `AgentSpec::mcp` and `HarnessBuilder::mcp`;
 `skills` gates `AgentSpec::skills_dir` and `HarnessBuilder::skills_dir`.
@@ -41,6 +42,76 @@ if let Some(identity) = ProductIdentity::new("opencompany") {
     set_product_identity(identity);
 }
 ```
+
+## Capability features
+
+Five default-ON features decide whether whole families of host-acting agent
+tools exist in the binary. The desktop app ships all five. A product that
+must not offer a family turns its feature off, and the tools are then never
+constructed: they are absent from every agent's registry, from the
+`tool_search` catalog, from delegation belts and from a flow's `oh:` tool
+nodes. A host cannot re-enable them through config or RPC.
+
+| Feature | Tools it registers |
+| --- | --- |
+| `tools-shell` | `shell` |
+| `tools-fs-write` | `file_write`, `edit`, `apply_patch`, `csv_export`, `curl` |
+| `tools-exec` | `python_exec`, `run_tests`, `run_linter`, `git_operations`, `install_tool`, `detect_tools` |
+| `tools-system` | `service_start`, `service_stop`, `service_restart`, `service_shutdown`, `service_install`, `service_uninstall`, `update_apply`, `proxy_config`, `daemon_host_prefs_set`, `workspace_update_persona` |
+| `composio` | `composio`, `composio_*`, the per-action `TOOLKIT_ACTION` tools built from connected integrations, and the flows `tool_call` backend for Composio slugs |
+
+Each gate covers only the tools listed. These stay in every build:
+
+- the read-only neighbours: `file_read`, `grep`, `glob`, `list`,
+  `read_diff`, `service_status`, `update_check`, `daemon_host_prefs_get` and
+  `workspace_read_persona`;
+- `node_exec` and `npm_exec`, which belong to `runtime-node`;
+- `http_request` and `web_fetch`. They do not write to disk, and they follow
+  `http_request.allowed_domains`.
+
+`composio` does not remove the rest of the Composio domain. Its RPC
+controllers, connection cache, catalogs, memory and task sources, and the
+connected-integrations prompt section all stay in the build. None of them
+lets the model act on a connected account, and they are too entangled with
+flows, memory and session setup to split cleanly.
+
+A persona bot that should only talk:
+
+```toml
+[dependencies]
+openhuman-embed = { git = "https://github.com/tinyhumansai/openhuman", package = "openhuman-embed", default-features = false, features = ["skills", "modules"] }
+```
+
+None of these features sheds a dependency. The tool types still compile:
+most live in `tinytools-std`, and `shell.rs` holds helpers the exec tools
+share. Nothing constructs them, though, so no code path reaches them.
+
+### The runtime axis
+
+The same families have `DomainGroup`s, so a runtime can also drop them with a
+`DomainSet` without rebuilding:
+
+| `DomainGroup` / `DomainSet` field | Tools |
+| --- | --- |
+| `Exec` / `exec` | `shell`, `run_tests`, `run_linter`, `git_operations`, `install_tool`, `detect_tools` |
+| `Filesystem` / `filesystem` | `file_write`, `edit`, `apply_patch`, `csv_export`, `curl` |
+| `System` / `system` | every `service_*`, `daemon_host_prefs_*` and `update_*` tool, plus `proxy_config` |
+
+`python_exec` stays in `Runtimes` and `workspace_update_persona` in `Config`,
+the families they already belonged to. The `browser` and `browser_open`
+tools are classified under `Modules`, since they exist only when the module
+host is compiled in.
+
+The presets:
+
+- `full()` and `embedded()` keep all three groups on. These tools used to be
+  `Platform`, which both presets enable, so both keep the tool surface they
+  had.
+- `harness()`, `kernel()` and `none()` turn all three off.
+
+The runtime axis can only narrow what the build compiled in. To drop the
+shell for one agent and keep it for another, set `exec: false` on that
+agent's `AgentSpec::domains`.
 
 ## Two steps: a Runtime, then any number of Agents
 

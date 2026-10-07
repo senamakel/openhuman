@@ -330,10 +330,13 @@ Other invariants worth knowing before wiring any entry point:
 Every feature on this crate is a pass-through to the same-named feature on
 `openhuman-core` (package `openhuman`): `default`, `http-server`,
 `inference`, `documents`, `hosting`, `modules`, `voice`, `web3`,
-`runtime-node`, `contacts`, `media`, `flows`, `skills`, `mcp`,
-`crash-reporting`, `channels`,
-`sandbox-bubblewrap`, `browser-native`, `whatsapp-web`,
-`file-logging`, `scheduler-gate`.
+`runtime-node`, `media`, `flows`, `skills`, `mcp`, `crash-reporting`,
+`channels`, `whatsapp-web`, `file-logging`, `scheduler-gate`, and the
+capability features `tools-shell`, `tools-fs-write`, `tools-exec`,
+`tools-system` and `composio`, which remove host-acting agent-tool families
+from the build. The
+[capability features](../../gitbooks/developing/embedding.md#capability-features)
+section lists the tools each one covers.
 
 Two of them also gate items on this crate's own public surface:
 

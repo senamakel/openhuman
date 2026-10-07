@@ -46,6 +46,7 @@ pub const MAX_BLOCKING_THREADS: usize = 64;
 mod bootstrap;
 pub mod builder;
 pub mod context;
+mod domain_set;
 pub mod services;
 pub(crate) mod subscribers;
 

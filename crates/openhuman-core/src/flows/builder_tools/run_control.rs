@@ -65,6 +65,15 @@ impl Tool for ResumeFlowRunTool {
     }
 
     async fn execute(&self, args: Value) -> anyhow::Result<ToolResult> {
+        // Resuming continues dispatching a flow's tool nodes outside this
+        // session, which a tool ceiling forbids (`agent::tool_ceiling`).
+        if crate::agent::tool_ceiling::ToolCeiling::from_config(&self.config.agent).is_some() {
+            return Ok(ToolResult::error(crate::agent::tool_ceiling::refusal(
+                "resume_flow_run",
+                "a flow run",
+                &[],
+            )));
+        }
         let flow_id = match args.get("flow_id").and_then(Value::as_str).map(str::trim) {
             Some(id) if !id.is_empty() => id.to_string(),
             _ => return Ok(ToolResult::error("Missing 'flow_id' parameter".to_string())),

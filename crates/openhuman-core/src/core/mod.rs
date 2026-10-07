@@ -13,6 +13,7 @@ pub mod bus;
 pub mod bus_testing;
 pub mod cli;
 pub mod dispatch;
+mod domain_group;
 pub mod envelope;
 pub mod event_bind_tokens;
 pub mod events;

@@ -52,6 +52,7 @@ pub struct AgentSpec {
     config_fn: Option<ConfigEdit>,
     host_tools: Option<openhuman_core::agent::HostTools>,
     memory: Option<MemoryBinding>,
+    lockdown: bool,
 }
 
 /// Whose memory an agent reads and writes: the memory agent id its turns are
@@ -125,6 +126,7 @@ impl AgentSpec {
             config_fn: None,
             host_tools: None,
             memory: None,
+            lockdown: false,
         }
     }
 
@@ -336,6 +338,37 @@ impl AgentSpec {
         self
     }
 
+    /// Deny by default: the agent reaches only the tools its host named.
+    ///
+    /// For an agent anyone can put text in front of — a public bot on X or
+    /// Telegram, where prompt injection is assumed. Requires a
+    /// [`ToolScopeSpec::Named`](super::ToolScopeSpec::Named) belt (a wildcard
+    /// belt is refused at [`Runtime::agent`](crate::Runtime::agent)), and then:
+    ///
+    /// - only the named tools and the host's own ([`tools`](Self::tools),
+    ///   attachments) exist for the agent's sessions; every other built-in is
+    ///   never registered;
+    /// - the named belt is a **ceiling** every nested run inherits: a spawned
+    ///   or delegated sub-agent is intersected with it, `run_workflow` refuses
+    ///   a workflow that declares a tool outside it and builds the run with it,
+    ///   `cron_add` / `schedule` refuse jobs that would escape it, and
+    ///   `run_flow` refuses outright. Nesting never widens it;
+    /// - MCP servers, the operator's user-scope skills and `install_tool` are
+    ///   off, whatever [`mcp`](Self::mcp), [`include_user_skills`](Self::include_user_skills)
+    ///   or the access tier said;
+    /// - every tool group whose id or member tools the belt does not name is
+    ///   [`GroupMode::Off`](openhuman_core::tools::toolpacks::GroupMode::Off);
+    /// - the autonomy policy is enabled, so the [`Access`] tier is enforced.
+    ///
+    /// Applied after the [`config`](Self::config) escape hatch, which cannot
+    /// undo it. Check the result with
+    /// [`Agent::effective_tools`](super::Agent::effective_tools).
+    #[must_use]
+    pub fn lockdown(mut self) -> Self {
+        self.lockdown = true;
+        self
+    }
+
     // ── accessors for the build step ─────────────────────────────────────
 
     pub(crate) fn into_parts(self) -> AgentSpecParts {
@@ -359,6 +392,7 @@ impl AgentSpec {
             config_fn: self.config_fn,
             host_tools: self.host_tools,
             memory: self.memory,
+            lockdown: self.lockdown,
         }
     }
 }
@@ -384,6 +418,7 @@ pub(crate) struct AgentSpecParts {
     pub(crate) config_fn: Option<ConfigEdit>,
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
     pub(crate) memory: Option<MemoryBinding>,
+    pub(crate) lockdown: bool,
 }
 
 impl std::fmt::Debug for AgentSpec {
@@ -395,6 +430,7 @@ impl std::fmt::Debug for AgentSpec {
             .field("action_dir", &self.action_dir)
             .field("composio", &self.composio)
             .field("memory", &self.memory)
+            .field("lockdown", &self.lockdown)
             .finish_non_exhaustive()
     }
 }

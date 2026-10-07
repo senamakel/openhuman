@@ -1,11 +1,9 @@
 use super::*;
-use openhuman_core::agent::harness::definition::AgentDefinitionRegistry;
 
 fn definition(tools: ToolScope) -> AgentDefinition {
-    let _ = AgentDefinitionRegistry::init_global_builtins();
-    let mut definition = AgentDefinitionRegistry::global()
-        .and_then(|registry| registry.get("orchestrator").cloned())
-        .expect("built-in orchestrator");
+    let mut definition = crate::AgentDefinitionSpec::new()
+        .into_core("locked")
+        .expect("definition");
     definition.tools = tools;
     definition
 }

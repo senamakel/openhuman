@@ -19,6 +19,7 @@ pub use attachments::ToolAttachmentError;
 pub(crate) mod build;
 mod definition;
 mod layout;
+mod lockdown;
 pub(crate) mod spec;
 
 pub use definition::{AgentDefinitionSpec, SandboxModeSpec, ToolScopeSpec};
@@ -190,6 +191,54 @@ impl Agent {
     /// The config this agent was instantiated with, for inspection.
     pub fn config(&self) -> &Config {
         &self.inner.config
+    }
+
+    /// Every tool a turn of this agent can reach under `origin`, sorted.
+    ///
+    /// The tools a turn advertises to the model, plus everything reachable
+    /// through a nested run — a spawned or delegated sub-agent, a workflow, a
+    /// `use_skill` pack, a deferred `tool_search` hit — bounded by the agent's
+    /// registry and its [`lockdown`](AgentSpec::lockdown) ceiling. Tools the
+    /// agent's policy refuses under `origin` are left out, by the same rules a
+    /// turn applies. `None` means the origin the agent's [`Access`] states.
+    ///
+    /// For posture tests: assert a public agent's set excludes `shell` and
+    /// `file_write` rather than trusting its configuration to say so. The
+    /// session is built exactly as a turn builds it, host tools included.
+    ///
+    /// # Errors
+    ///
+    /// [`AgentError::Invalid`] when the session cannot be built.
+    pub async fn effective_tools(
+        &self,
+        origin: Option<&openhuman_core::agent::turn_origin::AgentTurnOrigin>,
+    ) -> Result<Vec<String>, AgentError> {
+        let inner = Arc::clone(&self.inner);
+        let origin = origin
+            .cloned()
+            .or_else(|| inner.access.turn_origin().cloned());
+        let ctx = inner.ctx.clone();
+        let runtime = inner.runtime.clone();
+        let build = async move {
+            use openhuman_core::agent::OpenHumanSessionHost;
+            let host = inner.composed_host_tools();
+            let session = match host.as_ref() {
+                Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
+                    &inner.config,
+                    &inner.definition,
+                    host,
+                    None,
+                ),
+                None => {
+                    OpenHumanSessionHost::from_config_with_definition(&inner.config, &inner.definition)
+                }
+            };
+            session.map(|session| session.effective_tool_names(origin.as_ref()))
+        };
+        runtime
+            .run_in(ctx, Box::pin(build))
+            .await
+            .map_err(|err| AgentError::Invalid(format!("build the agent's session: {err:#}")))
     }
 }
 

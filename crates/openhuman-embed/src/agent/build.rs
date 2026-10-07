@@ -136,7 +136,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     // through `tool_search` already; a named belt reaches deferred tools only
     // when it lists `tool_search`, so declaring a server implies it.
     #[cfg(feature = "mcp")]
-    if !parts.mcp_servers.is_empty() {
+    if !parts.mcp_servers.is_empty() && !parts.lockdown {
         opt_named_belt_into_discovery(&mut definition.tools);
     }
 
@@ -148,7 +148,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         }
         None => runtime.domains(),
     };
-    let tool_groups = match parts.tool_groups {
+    let mut tool_groups = match parts.tool_groups {
         Some(requested) => {
             check_tool_groups_narrow(&requested, runtime.tool_groups())?;
             requested
@@ -156,12 +156,19 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         None => runtime.tool_groups().clone(),
     };
 
+    // ── lockdown ─────────────────────────────────────────────────────────
+    // Last, after the escape hatch, so nothing above can undo it.
+    let include_user_skills = parts.include_user_skills && !parts.lockdown;
+    if parts.lockdown {
+        tool_groups = super::lockdown::apply(&mut config, &definition, tool_groups)?;
+    }
+
     // ── context ──────────────────────────────────────────────────────────
     let overlay = ContextOverlay {
         config: config.clone(),
         domains,
         tool_groups,
-        user_skill_roots: parts.include_user_skills,
+        user_skill_roots: include_user_skills,
         // A host session store keeps each agent's conversations apart by id.
         session_agent: Some(id.to_string()),
     };
@@ -169,11 +176,11 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 
     log::debug!(
         "[embed][agent] instantiated id={id} action_dir={} routed={} access_origin={} \
-         user_skills={}",
+         user_skills={include_user_skills} lockdown={}",
         config.action_dir.display(),
         provider.is_routed(),
         access.turn_origin().is_some(),
-        parts.include_user_skills
+        parts.lockdown
     );
 
     Ok(AgentInner {

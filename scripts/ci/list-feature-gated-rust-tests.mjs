@@ -5,7 +5,7 @@ import path from "node:path";
 
 const SOURCE_ROOTS = ["crates/openhuman-core/src"];
 const FEATURE_GATE =
-  /#\[cfg\((?:not\()?feature = "(?:voice|media|web3|meet|mcp|skills|flows|channels|contacts)"|#\[cfg\((?:not\()?all\([^\]]*feature = "contacts"/;
+  /#\[cfg\((?:not\()?feature = "(?:voice|media|web3|meet|mcp|skills|flows|channels|contacts|tools-shell|tools-fs-write|tools-exec|tools-system|composio)"|#\[cfg\((?:not\()?all\([^\]]*feature = "contacts"/;
 const TEST_MARKER = /#\[test\]|#\[tokio::test\]|fn .*_test/;
 const PATH_MODULE =
   /#\[path\s*=\s*"([^"]+)"\]\s*(?:#\[[^\]]+\]\s*)*(?:pub(?:\([^)]*\))?\s+)?mod\s+\w+\s*;/g;

@@ -230,18 +230,8 @@ impl OpenHumanSessionHost {
             );
         }
 
-        // The session tool ceiling (`[agent] tool_ceiling`): a tool outside it
-        // is not registered at all, so no prompt, `use_skill` route, deferred
-        // search or delegated child can reach it (`agent::tool_ceiling`).
-        let tool_ceiling = crate::agent::tool_ceiling::ToolCeiling::from_config(&config.agent);
-        if let Some(ceiling) = &tool_ceiling {
-            let dropped = ceiling.retain_tools(&mut tools);
-            log::info!(
-                "[agent::builder] tool ceiling applied agent_id={agent_id} kept={} dropped={dropped}",
-                tools.len()
-            );
-        }
-
+        // The session tool ceiling (`agent::tool_ceiling`): nothing outside it registers.
+        let tool_ceiling = super::ceiling::apply(config, agent_id, &mut tools);
         // Route the main agent's chat through the unified per-workload
         // factory so the user's "Reasoning" routing in the AI settings
         // panel (e.g. `reasoning_provider = "anthropic:claude-..."`)
@@ -576,12 +566,7 @@ impl OpenHumanSessionHost {
             }
         };
 
-        // Synthesised delegation tools obey the ceiling too: a `delegate_*`
-        // route the host did not name does not exist for this session.
-        if let Some(ceiling) = &tool_ceiling {
-            ceiling.retain_tools(&mut delegation_tools);
-        }
-
+        super::ceiling::retain(tool_ceiling.as_ref(), &mut delegation_tools);
         // The final visible-tool whitelist is the union of whatever the
         // definition scope produced (for named scopes) and every tool
         // we just synthesised as a delegation wrapper. When the
@@ -714,54 +699,9 @@ impl OpenHumanSessionHost {
             agent_id
         );
 
-        // ── Orchestrator-only: wire the payload summarizer ──────────
-        //
-        // Issue #574 — when a tool returns a huge payload (Composio
-        // dump, long file read, web scrape), it should be compressed
-        // by TinyJuice's summary stage before entering the orchestrator's
-        // history. TinyJuice owns the prompt and the thresholds (installed
-        // from [`ContextConfig`]); the host supplies only the model call,
-        // through a `SubagentPayloadSummarizer` built from the `summarizer`
-        // agent definition. Every other agent id gets
-        // `None` and their tool results stay untouched (the summarizer
-        // itself MUST be `None` to avoid recursive self-summarization).
-        let payload_summarizer: Option<
-            std::sync::Arc<dyn crate::agent::tinyagents::payload_summarizer::PayloadSummarizer>,
-        > = if super::summarizes_tool_output(agent_id, config) {
-            match crate::agent::harness::definition::AgentDefinitionRegistry::global() {
-                Some(reg) => match reg.get("summarizer") {
-                    Some(summarizer_def) => {
-                        log::info!(
-                            "[agent::builder] wiring payload_summarizer for orchestrator: \
-                             threshold_tokens={} max_tokens={}",
-                            config.context.summarizer_payload_threshold_tokens,
-                            config.context.summarizer_max_payload_tokens
-                        );
-                        Some(std::sync::Arc::new(
-                            crate::agent::tinyagents::payload_summarizer::SubagentPayloadSummarizer::new(
-                                summarizer_def.clone(),
-                            ),
-                        ))
-                    }
-                    None => {
-                        log::warn!(
-                            "[agent::builder] orchestrator requested payload_summarizer but \
-                             `summarizer` definition is not in the registry — proceeding without it"
-                        );
-                        None
-                    }
-                },
-                None => {
-                    log::warn!(
-                        "[agent::builder] orchestrator requested payload_summarizer but \
-                         AgentDefinitionRegistry is not initialised — proceeding without it"
-                    );
-                    None
-                }
-            }
-        } else {
-            None
-        };
+        // Issue #574 — orchestrator-only payload summarizer; see `ceiling.rs`'s
+        // sibling `payload_wiring.rs` for the full rationale.
+        let payload_summarizer = super::payload_wiring::payload_summarizer_for(agent_id, config);
 
         // Crate-native turn models (Phase 3 P3-B): the production main-turn agent
         // builds crate `ChatModel`s from `(provider_role, config)` without retaining
@@ -797,17 +737,7 @@ impl OpenHumanSessionHost {
             &mut visible,
         )?;
         let session_definition = super::host_tools::scope_def(target_def, &merged_host_tools);
-        // Every child of a ceiling session inherits exactly what this session
-        // registered — the ceiling plus the host's own belt — and no more.
-        let subagent_ceiling: Option<std::collections::HashSet<String>> =
-            tool_ceiling.as_ref().map(|_| {
-                tools
-                    .iter()
-                    .chain(delegation_tools.iter())
-                    .map(|tool| tool.name().to_string())
-                    .chain(std::iter::once(NO_TOOLS_SENTINEL.to_string()))
-                    .collect()
-            });
+        let subagent_ceiling = super::ceiling::for_children(tool_ceiling.as_ref(), &tools, &delegation_tools);
         let host_policy = merged_host_tools.policy;
         let withheld_tool_names = merged_host_tools.withheld;
         let mut builder = OpenHumanSessionHost::builder()

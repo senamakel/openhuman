@@ -75,7 +75,8 @@ connected-integrations prompt section all stay in the build. None of them
 lets the model act on a connected account, and they are too entangled with
 flows, memory and session setup to split cleanly.
 
-A persona bot that should only talk:
+A build that lists its features explicitly leaves out every gate it does
+not name. For example, a public persona bot with no host-acting tools at all:
 
 ```toml
 [dependencies]

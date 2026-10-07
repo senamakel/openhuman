@@ -71,6 +71,7 @@ impl RuntimeBuilder {
             provider: Provider::inherit(),
             access: Access::default(),
             services: None,
+            defer_services: false,
             domains: None,
             tool_groups: None,
             host_kind: HostKind::Library,

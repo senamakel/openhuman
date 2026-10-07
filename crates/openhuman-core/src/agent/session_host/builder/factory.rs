@@ -230,6 +230,18 @@ impl OpenHumanSessionHost {
             );
         }
 
+        // The session tool ceiling (`[agent] tool_ceiling`): a tool outside it
+        // is not registered at all, so no prompt, `use_skill` route, deferred
+        // search or delegated child can reach it (`agent::tool_ceiling`).
+        let tool_ceiling = crate::agent::tool_ceiling::ToolCeiling::from_config(&config.agent);
+        if let Some(ceiling) = &tool_ceiling {
+            let dropped = ceiling.retain_tools(&mut tools);
+            log::info!(
+                "[agent::builder] tool ceiling applied agent_id={agent_id} kept={} dropped={dropped}",
+                tools.len()
+            );
+        }
+
         // Route the main agent's chat through the unified per-workload
         // factory so the user's "Reasoning" routing in the AI settings
         // panel (e.g. `reasoning_provider = "anthropic:claude-..."`)
@@ -430,7 +442,7 @@ impl OpenHumanSessionHost {
         // surface and prompt block without paying a turn-1 fetch. On a
         // cold cache we still fall back to the empty slice and let the
         // first turn repair the session state if needed.
-        let (delegation_tools, filter_from_scope): (
+        let (mut delegation_tools, filter_from_scope): (
             Vec<Box<dyn Tool>>,
             Option<std::collections::HashSet<String>>,
         ) = match (
@@ -563,6 +575,12 @@ impl OpenHumanSessionHost {
                 (Vec::new(), None)
             }
         };
+
+        // Synthesised delegation tools obey the ceiling too: a `delegate_*`
+        // route the host did not name does not exist for this session.
+        if let Some(ceiling) = &tool_ceiling {
+            ceiling.retain_tools(&mut delegation_tools);
+        }
 
         // The final visible-tool whitelist is the union of whatever the
         // definition scope produced (for named scopes) and every tool
@@ -779,6 +797,17 @@ impl OpenHumanSessionHost {
             &mut visible,
         )?;
         let session_definition = super::host_tools::scope_def(target_def, &merged_host_tools);
+        // Every child of a ceiling session inherits exactly what this session
+        // registered — the ceiling plus the host's own belt — and no more.
+        let subagent_ceiling: Option<std::collections::HashSet<String>> =
+            tool_ceiling.as_ref().map(|_| {
+                tools
+                    .iter()
+                    .chain(delegation_tools.iter())
+                    .map(|tool| tool.name().to_string())
+                    .chain(std::iter::once(NO_TOOLS_SENTINEL.to_string()))
+                    .collect()
+            });
         let host_policy = merged_host_tools.policy;
         let withheld_tool_names = merged_host_tools.withheld;
         let mut builder = OpenHumanSessionHost::builder()
@@ -811,6 +840,9 @@ impl OpenHumanSessionHost {
             .tokenjuice_compression(effective_tokenjuice_compression);
         if let Some(ps) = payload_summarizer {
             builder = builder.payload_summarizer(ps);
+        }
+        if let Some(names) = subagent_ceiling {
+            builder = builder.subagent_tool_ceiling_names(names);
         }
         // A host gate REPLACES the session's rather than fronting it --
         // `tool_policy` assigns. `HostTurnTools::with_policy` says why, and

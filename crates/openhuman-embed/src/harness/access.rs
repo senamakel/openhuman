@@ -128,6 +128,7 @@ impl Access {
                 sender: None,
                 reply_target: String::new(),
                 message_id: String::new(),
+                history_key: None,
             }),
             trusted_roots: Vec::new(),
             allow_tool_install: false,

@@ -117,8 +117,11 @@ async fn provider() -> MockServer {
     server
 }
 
-async fn boot(config: openhuman_core::config::Config) -> (Runtime, MockServer) {
+async fn boot(mut config: openhuman_core::config::Config) -> (Runtime, MockServer) {
     let server = provider().await;
+    // Nothing may leave the machine: a sub-agent that pins its own model
+    // answers through the managed backend, so point that at the mock too.
+    config.api_url = Some(server.uri());
     let runtime = Runtime::builder()
         .config(config)
         .workspace(Workspace::Ephemeral)

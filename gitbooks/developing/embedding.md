@@ -264,7 +264,7 @@ let spec = AgentSpec::new("public-bot")
     .definition(
         AgentDefinitionSpec::new()
             .system_prompt("You answer questions about our product.")
-            .tools(ToolScopeSpec::Named(vec!["web_search".into(), "memory_recall".into()])),
+            .tools(ToolScopeSpec::Named(vec!["web_fetch".into(), "memory_recall".into()])),
     )
     .access(Access::public())
     .lockdown();

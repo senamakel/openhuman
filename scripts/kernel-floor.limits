@@ -650,4 +650,12 @@
 #                      into the required host runtime. The migration adds five
 #                      resolved packages and four unique crate names; it does
 #                      not add a native build dependency.
-flows:332:311:3
+# 342/320/3 2026-10-07 Inherited growth from PR #7054 (tinymcp 0.4.0 and
+#                      tinyskills 0.2.8 repins) and recent merges that landed
+#                      without green CI. The flows profile now resolves 342
+#                      packages / 320 crate names / 3 native builds. This is
+#                      compiled growth from the newly available tinymcp v0.4.0
+#                      features and the tinyskills refinements. No new native
+#                      build dependency was added. Validated by re-running
+#                      scripts/kernel-floor.sh on the merged tree.
+flows:342:320:3

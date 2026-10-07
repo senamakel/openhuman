@@ -7,7 +7,9 @@ use tinytools::Tool;
 
 /// No Composio agent tools in this build, signed in or not.
 pub fn all_composio_agent_tools(_config: &crate::config::Config) -> Vec<Box<dyn Tool>> {
-    tracing::debug!("[composio] agent tools not registered — the `composio` feature is compiled out");
+    tracing::debug!(
+        "[composio] agent tools not registered — the `composio` feature is compiled out"
+    );
     Vec::new()
 }
 

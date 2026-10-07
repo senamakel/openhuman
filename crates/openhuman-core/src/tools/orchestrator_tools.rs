@@ -9,7 +9,7 @@
 //! `create_image`, `build_workflow`, etc.
 //!
 //! For [`SubagentEntry::Skills`] wildcard expansions we synthesise one
-//! `ToolExposure::Deferred` [`ComposioActionTool`] per action of every
+//! `ToolExposure::Deferred` [`ComposioActionTool`](crate::integrations::composio::ComposioActionTool) per action of every
 //! connected Composio toolkit. Those never reach the wire: a belt that opted
 //! into discovery (`tool_search` in its `[tools] named`) finds them through
 //! the harness's `tool_search` bridge and calls them directly, so "send this
@@ -176,7 +176,7 @@ pub fn collect_orchestrator_tools(
     tools
 }
 
-/// One `ToolExposure::Deferred` [`ComposioActionTool`] per action of every
+/// One `ToolExposure::Deferred` [`ComposioActionTool`](crate::integrations::composio::ComposioActionTool) per action of every
 /// connected integration, sorted by toolkit then action so the synthesised
 /// set — and with it the tool specs a session freezes — is stable across
 /// reconciles whatever order the backend returns.

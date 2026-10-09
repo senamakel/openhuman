@@ -702,11 +702,11 @@ fn users_reach_their_memory_but_not_its_configuration() {
         !text.contains("unknown method"),
         "memory_recall is on the surface: {text}"
     );
-    let (_, body) = call("openhuman.memory_engine_get", json!({}));
-    assert!(body.get("result").is_some(), "{body}");
 
     // Not reachable: anything that changes where memory lives or reads the host.
+    // The engine's settings carry its credential: operator-only.
     for method in [
+        "openhuman.memory_engine_get",
         "openhuman.memory_engine_set",
         "openhuman.memory_policy_set",
         "openhuman.memory_sources_add",

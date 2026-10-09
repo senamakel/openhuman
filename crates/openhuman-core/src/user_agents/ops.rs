@@ -102,8 +102,10 @@ pub(crate) fn set_credential_on(
     expires_at: Option<&str>,
 ) -> Result<Outcome<CredentialResult>, String> {
     let agent_id = UserAgentId::parse(agent_id)?;
-    let state = host.open(&agent_id)?;
-    credentials::store(&state.config, kind, token, expires_at)?;
+    // From the layout, not `open`: installing or revoking a credential must
+    // work even when every agent slot is busy.
+    let config = host.provisioned_config(&agent_id)?;
+    credentials::store(&config, kind, token, expires_at)?;
     log::info!("[user_agents] credential installed for agent={agent_id} kind={kind:?}");
     Ok(Outcome::single_log(
         CredentialResult {
@@ -124,8 +126,8 @@ pub(crate) fn clear_credential_on(
     agent_id: &str,
 ) -> Result<Outcome<CredentialResult>, String> {
     let agent_id = UserAgentId::parse(agent_id)?;
-    let state = host.open(&agent_id)?;
-    let removed = credentials::clear(&state.config)?;
+    let config = host.provisioned_config(&agent_id)?;
+    let removed = credentials::clear(&config)?;
     log::info!("[user_agents] credential cleared for agent={agent_id} removed={removed}");
     let log = if removed {
         format!("credential cleared for {agent_id}")

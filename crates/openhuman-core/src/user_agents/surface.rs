@@ -59,7 +59,6 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.memory_forget",
     "openhuman.memory_items_list",
     "openhuman.memory_explore",
-    "openhuman.memory_engine_get",
 ];
 
 /// Whether `method` (of an operator-plane controller or not) may be

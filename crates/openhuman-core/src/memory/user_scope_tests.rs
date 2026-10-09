@@ -16,13 +16,23 @@ fn user_config(root: &str) -> Config {
 }
 
 #[test]
-fn only_saas_configs_with_a_root_are_confined() {
-    assert_eq!(confinement_in(false, &user_config("user:u-a")), None);
-    assert_eq!(confinement_in(true, &Config::default()), None);
+fn only_saas_configs_are_confined() {
+    assert!(confinement_in(false, &user_config("user:u-a"))
+        .unwrap()
+        .is_none());
     assert_eq!(
-        confinement_in(true, &user_config("user:u-a")),
+        confinement_in(true, &user_config("user:u-a")).unwrap(),
         Some(ns("user:u-a"))
     );
+}
+
+#[test]
+fn a_saas_config_without_a_valid_root_is_refused() {
+    // No root, an unparseable one, or the global root: memory refuses rather
+    // than reaching every user.
+    assert!(confinement_in(true, &Config::default()).is_err());
+    assert!(confinement_in(true, &user_config("")).is_err());
+    assert!(confinement_in(true, &user_config("not a namespace!")).is_err());
 }
 
 #[test]

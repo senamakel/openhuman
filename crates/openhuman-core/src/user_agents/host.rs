@@ -53,6 +53,11 @@ pub struct AgentHost {
     saas: SaasConfig,
     operator: Arc<CoreContext>,
     open: Mutex<HashMap<UserAgentId, Slot>>,
+    /// Agents whose leftovers from a previous process were already swept
+    /// (see [`recover_workspace`]). Kept across evictions: a re-open after an
+    /// eviction must not mark a turn this process is still running as
+    /// interrupted.
+    recovered: Mutex<std::collections::HashSet<UserAgentId>>,
 }
 
 impl std::fmt::Debug for AgentHost {
@@ -81,12 +86,18 @@ impl AgentHost {
             saas,
             operator,
             open: Mutex::new(HashMap::new()),
+            recovered: Mutex::new(std::collections::HashSet::new()),
         }
     }
 
     /// The operator's settings this host runs with.
     pub fn saas(&self) -> &SaasConfig {
         &self.saas
+    }
+
+    /// Where agent `id`'s state lives, provisioned or not.
+    pub fn layout_of(&self, id: &UserAgentId) -> UserAgentLayout {
+        self.layout(id)
     }
 
     fn layout(&self, id: &UserAgentId) -> UserAgentLayout {
@@ -159,6 +170,16 @@ impl AgentHost {
         Ok(true)
     }
 
+    /// The forced config of provisioned agent `id`, without opening it (and
+    /// so without taking an agent slot).
+    pub fn provisioned_config(&self, id: &UserAgentId) -> Result<crate::config::Config, String> {
+        let layout = self.layout(id);
+        if !layout.meta_path.exists() {
+            return Err(format!("agent {id} is not provisioned"));
+        }
+        Ok(layout::agent_config(&layout, id))
+    }
+
     /// Agent `id`, opening it if it is provisioned and not open yet.
     pub fn open(&self, id: &UserAgentId) -> Result<Arc<UserAgentState>, String> {
         let now = Instant::now();
@@ -185,6 +206,14 @@ impl AgentHost {
             ));
         }
 
+        let first_open = self
+            .recovered
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .insert(id.clone());
+        if first_open {
+            recover_workspace(id, &layout.workspace_dir);
+        }
         let config = layout::agent_config(&layout, id);
         let context = self.operator.derive_with(
             ContextOverlay::new(config.clone(), user_domains(), ToolGroups::none())
@@ -237,8 +266,12 @@ impl AgentHost {
             let Ok(id) = UserAgentId::parse(&name) else {
                 continue;
             };
-            if let Some(summary) = self.summary(&id)? {
-                found.push(summary);
+            // One unreadable agent must not hide the rest (or stop the
+            // background loop for everyone): log it and move on.
+            match self.summary(&id) {
+                Ok(Some(summary)) => found.push(summary),
+                Ok(None) => {}
+                Err(error) => log::warn!("[user_agents] skipping agent={id} in listing: {error}"),
             }
         }
         found.sort_by(|a, b| a.agent_id.cmp(&b.agent_id));
@@ -301,6 +334,27 @@ impl AgentHost {
 
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<UserAgentId, Slot>> {
         self.open.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+}
+
+/// Settle what a previous process left in agent `id`'s workspace: turns that
+/// were mid-flight become interrupted and run-ledger rows left running are
+/// closed. The sweep a single-user core runs at boot, run per agent on its
+/// first open in this process. Failures are logged; the agent still opens.
+pub(crate) fn recover_workspace(id: &UserAgentId, workspace_dir: &std::path::Path) {
+    let now = chrono::Utc::now().to_rfc3339();
+    match tinyagents_session::turn_state::store::mark_all_interrupted(
+        workspace_dir.to_path_buf(),
+        &now,
+    ) {
+        Ok(0) => {}
+        Ok(turns) => log::info!("[user_agents] agent={id} recovered {turns} interrupted turn(s)"),
+        Err(error) => log::warn!("[user_agents] agent={id} turn recovery failed: {error}"),
+    }
+    match tinyagents_session::run_ledger::interrupt_orphaned_agent_runs(workspace_dir) {
+        Ok(0) => {}
+        Ok(runs) => log::info!("[user_agents] agent={id} settled {runs} orphaned run(s)"),
+        Err(error) => log::warn!("[user_agents] agent={id} run recovery failed: {error:#}"),
     }
 }
 

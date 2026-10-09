@@ -94,7 +94,7 @@ pub fn narrowed(filter: Option<MetaFilter>, path: &[PathStep]) -> MemoryResult<M
 pub async fn explore(config: &Config, params: ExploreParams) -> MemoryResult<ExplorePage> {
     let bound = engine::resolve(config).engine()?;
     let mut request = ExploreRequest::new(params.facet, params.limit.unwrap_or(DEFAULT_BUCKETS));
-    request.filter = super::ops::confine_filter(config, narrowed(params.filter, &params.path)?);
+    request.filter = super::ops::confine_filter(config, narrowed(params.filter, &params.path)?)?;
     if let Some(scan_limit) = params.scan_limit {
         request.scan_limit = scan_limit;
     }

@@ -14,6 +14,7 @@
 //!
 //! [`CoreContext`]: crate::core::runtime::CoreContext
 
+pub mod background;
 pub mod credentials;
 pub mod gateway;
 pub mod host;

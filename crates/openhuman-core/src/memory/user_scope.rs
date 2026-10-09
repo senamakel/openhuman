@@ -17,31 +17,37 @@
 //! - every write lands inside the root: an item addressed elsewhere is moved
 //!   to the root itself.
 //!
-//! Single-user processes and configs without a root are left alone.
+//! A SaaS config without a valid root makes memory refuse rather than reach
+//! everyone. Single-user processes are left alone.
 
 use tinymemory_api::{MetaFilter, Namespace, Reach, StoreItem};
 
+use super::error::{MemoryError, MemoryResult};
 use crate::config::Config;
 
-/// The root `config`'s memory is confined to, in SaaS mode.
-pub fn confinement(config: &Config) -> Option<Namespace> {
+/// The root `config`'s memory is confined to, in SaaS mode (`None` in single
+/// user mode). A SaaS config without a valid root is refused: neither the
+/// global root (everyone's memory) nor no confinement at all is safe.
+pub fn confinement(config: &Config) -> MemoryResult<Option<Namespace>> {
     confinement_in(crate::core::runtime::is_saas(), config)
 }
 
 /// [`confinement`] as a pure function of the mode.
-pub fn confinement_in(saas: bool, config: &Config) -> Option<Namespace> {
+pub fn confinement_in(saas: bool, config: &Config) -> MemoryResult<Option<Namespace>> {
     if !saas {
-        return None;
+        return Ok(None);
     }
-    let raw = config.memory.root.as_deref()?.trim();
+    let raw = config.memory.root.as_deref().map(str::trim).unwrap_or("");
     match raw.parse::<Namespace>() {
-        Ok(root) => Some(root),
-        Err(error) => {
-            // A user agent's root is forced and valid; failing closed here
-            // would turn memory off, failing open would read everyone. Log it
-            // and confine to a root nothing else uses.
-            tracing::error!(root = raw, %error, "[memory:user_scope] invalid confinement root");
-            Some(Namespace::ROOT)
+        Ok(root) if root != Namespace::ROOT => Ok(Some(root)),
+        Ok(_) | Err(_) => {
+            tracing::error!(
+                root = raw,
+                "[memory:user_scope] no valid confinement root in SaaS mode"
+            );
+            Err(MemoryError::invalid(
+                "memory is unavailable: this agent has no valid memory root",
+            ))
         }
     }
 }

@@ -173,7 +173,7 @@ pub async fn recall(config: &Config, params: RecallParams) -> MemoryResult<Recal
     let bound = bound(config)?;
     let request = RecallRequest {
         question: params.question,
-        filter: confine_filter(config, params.filter.unwrap_or_default()),
+        filter: confine_filter(config, params.filter.unwrap_or_default())?,
         limit: clamp_limit(params.limit),
         instructions: None,
         refers_to: time_hint(config, params.refers_to)?,
@@ -210,7 +210,7 @@ pub async fn fetch(config: &Config, params: FetchParams) -> MemoryResult<FetchVi
     let request = FetchRequest {
         query: params.query,
         mode,
-        filter: confine_filter(config, params.filter.unwrap_or_default()),
+        filter: confine_filter(config, params.filter.unwrap_or_default())?,
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
         beliefs: 0,
@@ -307,7 +307,12 @@ pub async fn learn_with(
     host_meta: Option<MemoryMeta>,
     options: WriteOptions,
 ) -> MemoryResult<LearnView> {
-    let item = learning_item(params, host_meta)?;
+    let mut item = learning_item(params, host_meta)?;
+    // The same confinement as `store_item`: a SaaS user's learning lands in
+    // their own tree whatever namespace it names.
+    if let Some(root) = super::user_scope::confinement(config)? {
+        super::user_scope::clamp_item(&mut item, &root);
+    }
     let bound = bound(config)?;
     let receipt = store_on_with(&bound, item, options).await?;
     Ok(LearnView { id: receipt.id.0 })
@@ -315,7 +320,7 @@ pub async fn learn_with(
 
 /// Scrubs `item` and stores it on the bound engine.
 pub async fn store_item(config: &Config, mut item: StoreItem) -> MemoryResult<StoreReceipt> {
-    if let Some(root) = super::user_scope::confinement(config) {
+    if let Some(root) = super::user_scope::confinement(config)? {
         super::user_scope::clamp_item(&mut item, &root);
     }
     let bound = bound(config)?;
@@ -377,7 +382,7 @@ pub async fn forget(config: &Config, params: ForgetParams) -> MemoryResult<Forge
     }
     let bound = bound(config)?;
     // A SaaS user forgets only what lies in their own tree.
-    let reach = match super::user_scope::confinement(config) {
+    let reach = match super::user_scope::confinement(config)? {
         Some(root) => Some(super::user_scope::clamp_reach(params.reach, &root)),
         None => params.reach,
     };
@@ -460,7 +465,7 @@ pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResul
         filter: confine_filter(
             config,
             super::explore::narrowed(params.filter, &params.path)?,
-        ),
+        )?,
         limit: clamp_limit(params.limit),
         cursor: params.cursor,
     };
@@ -478,11 +483,11 @@ pub async fn items_list(config: &Config, params: ItemsListParams) -> MemoryResul
 
 /// `filter`, confined to the SaaS user's tree when `config` has one
 /// ([`super::user_scope`]).
-pub(crate) fn confine_filter(config: &Config, filter: MetaFilter) -> MetaFilter {
-    match super::user_scope::confinement(config) {
+pub(crate) fn confine_filter(config: &Config, filter: MetaFilter) -> MemoryResult<MetaFilter> {
+    Ok(match super::user_scope::confinement(config)? {
         Some(root) => super::user_scope::clamp_filter(filter, &root),
         None => filter,
-    }
+    })
 }
 
 #[cfg(test)]

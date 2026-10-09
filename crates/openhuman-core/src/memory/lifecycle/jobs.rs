@@ -162,6 +162,12 @@ pub async fn enqueue(config: &Config, root: &Namespace, jobs: Vec<BackgroundJob>
     }
 }
 
+/// Whether `workspace_dir` has queued jobs waiting. A cheap, lock-free read
+/// for a host deciding which workspaces are worth a run.
+pub fn has_pending(workspace_dir: &Path) -> bool {
+    !read(workspace_dir).pending.is_empty()
+}
+
 /// The queue as it stands.
 pub async fn snapshot(config: &Config) -> JobQueue {
     let _guard = LOCK.lock().await;

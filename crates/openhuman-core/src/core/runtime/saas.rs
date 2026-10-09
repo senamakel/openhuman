@@ -223,10 +223,12 @@ pub async fn build(
         builder = builder.port(port);
     }
     let runtime = builder.build().await?;
-    crate::user_agents::host::install(Arc::new(crate::user_agents::AgentHost::new(
+    let host = Arc::new(crate::user_agents::AgentHost::new(
         config,
         runtime.context().clone(),
-    )));
+    ));
+    crate::user_agents::host::install(Arc::clone(&host));
+    crate::user_agents::background::spawn(host);
     Ok(runtime)
 }
 

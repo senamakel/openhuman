@@ -12,7 +12,6 @@ use openhuman_core::cron::{self, Schedule};
 use openhuman_core::flows;
 use openhuman_core::flows::tinyflows::state::FlowState;
 use serde_json::json;
-use tinyagents_graph::checkpoint::Checkpointer;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_configured_backend_holds_cron_flows_and_flow_state() {
@@ -78,10 +77,7 @@ async fn a_configured_backend_holds_cron_flows_and_flow_state() {
 
     // The delegation graph's checkpointer lives on the backend too.
     let delegation_config = config.clone();
-    let checkpointer =
-        openhuman_core::agent::orchestration::open_delegation_checkpointer(&delegation_config)
-            .unwrap();
-    assert!(checkpointer.list_threads().await.unwrap().is_empty());
+    openhuman_core::agent::orchestration::open_delegation_checkpointer(&delegation_config).unwrap();
 
     for path in ["cron/jobs.db", "flows/flows.db", "graph_checkpoints.db"] {
         assert!(

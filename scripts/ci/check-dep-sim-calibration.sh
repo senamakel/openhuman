@@ -107,8 +107,11 @@ cd "$(dirname "$0")/../.."
 # 314 -> 315 on 2026-10-09: secrets on the storage backend add the
 # first-party tinystoragedrivers-secrets crate (its crypto deps were already
 # in the graph).
-# This matches the current `flows:337:315:2` entry in
+# 315 -> 316 on 2026-10-09: cron and flows on the storage ports add the
+# first-party tinyflows-drivers crate (one package, one name; no new
+# external crate).
+# This matches the current `flows:338:316:2` entry in
 # scripts/kernel-floor.limits; its preceding entries are historical.
-EXPECTED_NAMES=315
+EXPECTED_NAMES=316
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

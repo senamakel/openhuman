@@ -12,6 +12,7 @@ use openhuman_core::cron::{self, Schedule};
 use openhuman_core::flows;
 use openhuman_core::flows::tinyflows::state::FlowState;
 use serde_json::json;
+use tinyagents_graph::checkpoint::Checkpointer;
 
 #[tokio::test(flavor = "multi_thread")]
 async fn a_configured_backend_holds_cron_flows_and_flow_state() {
@@ -75,7 +76,14 @@ async fn a_configured_backend_holds_cron_flows_and_flow_state() {
     .await
     .unwrap();
 
-    for path in ["cron/jobs.db", "flows/flows.db"] {
+    // The delegation graph's checkpointer lives on the backend too.
+    let delegation_config = config.clone();
+    let checkpointer =
+        openhuman_core::agent::orchestration::open_delegation_checkpointer(&delegation_config)
+            .unwrap();
+    assert!(checkpointer.list_threads().await.unwrap().is_empty());
+
+    for path in ["cron/jobs.db", "flows/flows.db", "graph_checkpoints.db"] {
         assert!(
             !workspace.path().join(path).exists(),
             "{path} was not written"
@@ -84,9 +92,21 @@ async fn a_configured_backend_holds_cron_flows_and_flow_state() {
 
     // Without a backend the classic databases are back in use.
     assert!(openhuman_core::storage::clear());
+    let fallback = config.clone();
+    tokio::task::spawn_blocking(move || {
+        assert!(matches!(
+            FlowState::open(&fallback, "flow:digest"),
+            FlowState::Sqlite(_)
+        ));
+    })
+    .await
+    .unwrap();
+    // The flow written to the backend is not in the classic catalog.
     assert!(flows::ops::flows_list(&config)
         .await
         .unwrap()
         .value
         .is_empty());
+    openhuman_core::agent::orchestration::open_delegation_checkpointer(&config).unwrap();
+    assert!(workspace.path().join("graph_checkpoints.db").exists());
 }

@@ -84,23 +84,7 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
     //
     // With a storage backend configured (`crate::storage`) the checkpoints
     // live there instead, in the acting agent's scope.
-    let checkpointer: Arc<dyn Checkpointer<DelegationState>> =
-        match crate::storage::current_scoped()
-            .map_err(|e| format!("resolve the storage scope for graph checkpoints: {e}"))?
-        {
-            Some(scoped) => Arc::new(tinyagents_graph::checkpoint::DriverCheckpointer::<
-                DelegationState,
-            >::with_prefix(
-                Arc::clone(scoped.documents()), "delegation_graph"
-            )),
-            None => {
-                let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
-                Arc::new(
-                    SqliteCheckpointer::<DelegationState>::open(&checkpoint_db)
-                        .map_err(|e| format!("open durable graph checkpoint store: {e}"))?,
-                )
-            }
-        };
+    let checkpointer = open_delegation_checkpointer(config)?;
 
     tracing::info!(
         target: LOG_TARGET,
@@ -308,6 +292,31 @@ fn delegation_subagent_options(
         worktree_action_dir,
         workspace_descriptor,
         run_queue: None,
+    }
+}
+
+/// Open the delegation graph's durable checkpointer: the acting agent's scope
+/// on the storage backend when one is installed, else `graph_checkpoints.db`
+/// under the workspace.
+pub fn open_delegation_checkpointer(
+    config: &Config,
+) -> Result<Arc<dyn Checkpointer<DelegationState>>, String> {
+    match crate::storage::current_scoped()
+        .map_err(|e| format!("resolve the storage scope for graph checkpoints: {e}"))?
+    {
+        Some(scoped) => Ok(Arc::new(
+            tinyagents_graph::checkpoint::DriverCheckpointer::<DelegationState>::with_prefix(
+                Arc::clone(scoped.documents()),
+                "delegation_graph",
+            ),
+        )),
+        None => {
+            let checkpoint_db = config.workspace_dir.join("graph_checkpoints.db");
+            Ok(Arc::new(
+                SqliteCheckpointer::<DelegationState>::open(&checkpoint_db)
+                    .map_err(|e| format!("open durable graph checkpoint store: {e}"))?,
+            ))
+        }
     }
 }
 

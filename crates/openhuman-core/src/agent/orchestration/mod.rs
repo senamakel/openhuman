@@ -22,6 +22,7 @@ pub mod command_center;
 pub(crate) mod completion_notice;
 pub(crate) mod completion_target;
 pub(crate) mod delegation;
+pub use delegation::open_delegation_checkpointer;
 pub(crate) mod fleet_tools;
 mod ops;
 pub(crate) mod parent_context;

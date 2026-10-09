@@ -65,10 +65,10 @@ fn without_a_backend_the_flow_state_is_sqlite() {
         workspace_dir: dir.path().to_path_buf(),
         ..Config::default()
     };
-    if crate::storage::installed().is_none() {
-        assert!(matches!(
-            FlowState::open(&config, "flow:a"),
-            FlowState::Sqlite(_)
-        ));
-    }
+    // Nothing in this binary installs a backend, so the slot is empty.
+    assert!(crate::storage::installed().is_none());
+    assert!(matches!(
+        FlowState::open(&config, "flow:a"),
+        FlowState::Sqlite(_)
+    ));
 }

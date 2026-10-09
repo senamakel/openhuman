@@ -1818,6 +1818,31 @@ describe('AIPanel', () => {
     );
   });
 
+  it('sends an uploaded CA certificate with the provider before probing models', async () => {
+    vi.mocked(loadAISettings).mockResolvedValue({ ...baseSettings, cloudProviders: [] });
+    renderWithProviders(<AIPanel />);
+    await openCustomProviderEditor();
+
+    fireEvent.change(screen.getByLabelText(/^Name$/i), { target: { value: 'Team Gateway' } });
+    fireEvent.change(screen.getByLabelText(/OpenAI URL/i), {
+      target: { value: 'https://gateway.example.com/v1' },
+    });
+    const pem = '-----BEGIN CERTIFICATE-----\nfixture\n-----END CERTIFICATE-----';
+    fireEvent.change(screen.getByLabelText(/CA certificate/i), {
+      target: { files: [new File([pem], 'team-ca.pem', { type: 'application/x-pem-file' })] },
+    });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Remove CA certificate' })).toBeInTheDocument()
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Add provider/i }));
+
+    await waitFor(() =>
+      expect(vi.mocked(flushCloudProviders)).toHaveBeenCalledWith(
+        expect.arrayContaining([expect.objectContaining({ ca_cert_pem: pem })])
+      )
+    );
+  });
+
   // ─── local runtime: Ollama endpoint URL dialog ──────────────────────────────
 
   it('toggling Ollama ON shows an Endpoint URL field with localhost default', async () => {

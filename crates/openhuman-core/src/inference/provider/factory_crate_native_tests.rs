@@ -1,6 +1,30 @@
 use super::*;
 
 use crate::inference::provider::factory::cloud_slug::try_create_cloud_slug_chat_model_from_string_with_native_tools;
+
+#[test]
+fn custom_ca_bundle_builds_a_provider_scoped_chat_client() {
+    let _guard = crate::inference::inference_test_guard();
+    let mut config = Config::default();
+    config.cloud_providers.push(openai_entry("p_team", "team"));
+    config.cloud_provider_ca_certs.insert(
+        "team".into(),
+        include_str!("../../util/tls/test-ca.pem").into(),
+    );
+    let (model, model_id) = try_create_cloud_slug_chat_model_from_string_with_native_tools(
+        "chat",
+        "team:private-model",
+        &config,
+        true,
+    )
+    .expect("configured provider")
+    .expect("custom CA client should build");
+    assert_eq!(model_id, "private-model");
+    assert_eq!(
+        model.profile().and_then(|profile| profile.provider.clone()),
+        Some("team".into())
+    );
+}
 #[test]
 fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // Drive the live-policy-backed wrapper: install a LocalOnly policy, then

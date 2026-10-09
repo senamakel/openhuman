@@ -11,7 +11,7 @@ use tinyinference_llm::providers::anthropic::{
     build_anthropic_model, endpoint_is_anthropic_messages, AnthropicConfig,
 };
 use tinyinference_llm::providers::openai::{
-    build_openai_model, endpoint_is_openrouter, OpenAiConfig,
+    build_openai_model, build_openai_model_with_http, endpoint_is_openrouter, OpenAiConfig,
 };
 
 /// Look up a `cloud_providers` entry by slug and build the provider.
@@ -398,7 +398,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     );
 
     let unsupported = config.temperature_unsupported_models.clone();
-    let chat = build_openai_model(OpenAiConfig {
+    let provider_config = OpenAiConfig {
         provider_name: slug.as_str(),
         endpoint: endpoint.as_str(),
         api_key: key.as_str(),
@@ -422,7 +422,16 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         // without them; hosted OpenAI rejects unknown part fields, so the
         // flag is keyed on the relay, not on by default.
         explicit_cache_control: endpoint_is_openrouter(&endpoint),
-    });
+    };
+    let chat = if let Some(pem) = config.cloud_provider_ca_certs.get(&slug) {
+        let http = match crate::util::tls::client_with_ca_bundle(pem, "providers.inference") {
+            Ok(http) => http,
+            Err(error) => return Some(Err(anyhow::anyhow!(error))),
+        };
+        build_openai_model_with_http(provider_config, http)
+    } else {
+        build_openai_model(provider_config)
+    };
     Some(Ok((chat, effective_model)))
 }
 

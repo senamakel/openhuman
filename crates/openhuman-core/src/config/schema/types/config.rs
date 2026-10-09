@@ -357,6 +357,10 @@ pub struct Config {
     #[serde(default)]
     pub cloud_providers: Vec<crate::config::schema::cloud_providers::CloudProviderCreds>,
 
+    /// Optional PEM CA bundles keyed by cloud provider slug.
+    #[serde(default)]
+    pub cloud_provider_ca_certs: HashMap<String, String>,
+
     /// Id of the `cloud_providers` entry that "cloud" and "primary" resolve to.
     /// When `None`, the factory falls back to the OpenHuman entry.
     #[serde(default)]

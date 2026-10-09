@@ -344,14 +344,14 @@ serde_path_to_error = "0.1"
 # providers/gmail/post_process.rs) and prefer the email's
 # `text/plain` MIME part when available.)
 # TLS: rustls only in the base declaration, so Linux/macOS — including the
-# headless embedding target (#5046) — link a single TLS stack + cert set
-# (Mozilla webpki-roots). Windows re-adds `native-tls` via the
+# headless embedding target (#5046) — link a single TLS stack with Mozilla
+# roots plus OS/user-installed roots (including SSL_CERT_FILE). Windows re-adds `native-tls` via the
 # `[target.'cfg(windows)'.dependencies]` block below (Cargo unions features
 # per target), because `crates/openhuman-core/src/tls/mod.rs` deliberately routes the
 # Windows client through the SChannel/OS cert store for corporate MITM +
 # AV root CAs. So the two TLS backends coexist only on Windows, never on
 # the RAM-sensitive platforms.
-reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "rustls-tls-native-roots", "stream", "http2", "multipart", "socks"] }
 # Already in-tree via reqwest/hyper; named directly so `IntegrationClient::get_bytes`
 # can return `bytes::Bytes` without a copy.
 bytes = "1"
@@ -629,8 +629,9 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [target.'cfg(not(windows))'.dependencies]
-# macOS / Linux: keep rustls + Mozilla webpki-roots — the historical
-# default. Avoids pulling OpenSSL as a runtime dep on Linux.
+# macOS / Linux: keep rustls + Mozilla webpki-roots and load native roots too.
+# This accepts corporate CAs from the OS store or SSL_CERT_FILE without
+# pulling OpenSSL in as a runtime dependency on Linux.
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 
 [dev-dependencies]

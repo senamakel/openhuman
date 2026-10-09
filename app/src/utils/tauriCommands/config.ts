@@ -48,6 +48,8 @@ export interface CloudProviderCreds {
   label: string;
   endpoint: string;
   auth_style: AuthStyle;
+  /** Optional PEM CA bundle trusted only for this provider. */
+  ca_cert_pem?: string | null;
 }
 
 /**

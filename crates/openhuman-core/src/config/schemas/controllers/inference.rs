@@ -36,6 +36,7 @@ pub(super) fn handle_update_model_settings(params: Map<String, Value>) -> Contro
             api_key: update.api_key,
             default_model: update.default_model,
             default_temperature: update.default_temperature,
+            cloud_provider_ca_certs: None,
             model_routes: update.model_routes.map(|routes| {
                 routes
                     .into_iter()

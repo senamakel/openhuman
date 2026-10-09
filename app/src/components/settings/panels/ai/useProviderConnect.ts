@@ -133,6 +133,7 @@ export function useProviderConnect({
           slug: p.slug,
           label: p.label,
           endpoint: p.endpoint,
+          ca_cert_pem: p.caCertPem ?? '',
           auth_style: p.authStyle,
         }));
 

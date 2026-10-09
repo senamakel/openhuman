@@ -77,6 +77,7 @@ impl Clone for Config {
             local_ai: self.local_ai.clone(),
             claude_agent_sdk: self.claude_agent_sdk.clone(),
             cloud_providers: self.cloud_providers.clone(),
+            cloud_provider_ca_certs: self.cloud_provider_ca_certs.clone(),
             primary_cloud: self.primary_cloud.clone(),
             ephemeral_route: self.ephemeral_route.clone(),
             chat_provider: self.chat_provider.clone(),

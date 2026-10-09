@@ -84,7 +84,7 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
     //
     // With a storage backend configured (`crate::storage`) the checkpoints
     // live there instead, in the acting agent's scope.
-    let checkpointer = open_delegation_checkpointer(config)?;
+    let checkpointer = open_delegation_checkpointer(&config)?;
 
     tracing::info!(
         target: LOG_TARGET,

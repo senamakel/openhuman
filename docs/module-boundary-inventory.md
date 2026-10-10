@@ -83,6 +83,7 @@ remain unchanged until compatible upstream releases are available.
 | Minimal TinyHosts vocabulary and recorded tool declarations | [tinyhosts#21](https://github.com/tinyhumansai/tinyhosts/pull/21) | 195 tests; dynamic Execute/Providers fixture; pure contract audit; per-file coverage at least 90% |
 | TinyComputer native permissions, confidential focus/paste and opaque Globe listeners | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | Full workspace checks; 88-member dynamic artifact verification; pure contract audit; native bridge 100% line coverage |
 | TinyConnectors argument preparation, task filtering, structured provider errors and leased archives | [tinyconnectors#46](https://github.com/tinyhumansai/tinyconnectors/pull/46) | 423 tests; dynamic artifact calls; user archive lifecycle fixtures; pure contract audit; per-file coverage at least 90% |
+| TinyChannels contract vocabulary separated from provider, relay, pairing and runtime behavior | [tinychannels#56](https://github.com/tinyhumansai/tinychannels/pull/56) | 1,174 default and 1,180 all-feature tests; independent contract audit and relocation review accepted; bus files at least 98.65% coverage; legacy provider/worker coverage gaps disclosed |
 | TinyWallet contract dependency cut and module-side address validation | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 735 tests; four-chain signing fixtures; dynamic artifact E2E; pure contract audit; all 94 source files at least 90% coverage |
 | TinyVoice device enumeration, reserved recording/continuous capture handles, bounded output and acknowledged shutdown | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | 188 tests and one doctest; 26-member compiled artifact verification; pure contract audit; covered files at least 90%, with the existing physical-device exclusion; independent lifecycle review accepted |
 | TinyMCP supervisor observations, module server callbacks, replayable replies and acknowledged cancellation | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,480 all-feature tests; dynamic 40-member artifact verification; pure dependency audit; all 83 source files at least 90% coverage; independent lifecycle review accepted |
@@ -90,3 +91,7 @@ remain unchanged until compatible upstream releases are available.
 The TinyDocs and TinyJuice operations need new published module artifacts.
 TinyHosts keeps existing member arities and wire forms. No local build digest
 has been used as a release pin, and these PRs do not yet remove any host exception.
+
+TinyChannels preserves its serialized vocabulary and moves behavioral APIs to
+implementation crates, using compatibility extension traits where needed. Its
+relay/pairing/delivery bus operations and OpenHuman adapters remain outstanding.

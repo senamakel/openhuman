@@ -106,11 +106,6 @@
   "exceptions": [
     {
       "scope": "hosts",
-      "package": "tinyjuice",
-      "reason": "HTML extraction, REPL execution and schema vocabulary still call the implementation."
-    },
-    {
-      "scope": "hosts",
       "package": "tinymcp",
       "reason": "Protocol servers and supervisor operations still call the implementation."
     },

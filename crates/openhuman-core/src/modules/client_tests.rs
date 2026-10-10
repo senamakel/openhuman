@@ -17,12 +17,10 @@ async fn unknown_modules_are_not_loaded_or_reported_using_untrusted_ids() {
         .call::<serde_json::Value>("private-user-path-and-token", "Anything", ())
         .await;
     assert_eq!(result, Err(ModuleCallError::Unavailable));
-    assert!(
-        !result
-            .unwrap_err()
-            .to_string()
-            .contains("private-user-path-and-token")
-    );
+    assert!(!result
+        .unwrap_err()
+        .to_string()
+        .contains("private-user-path-and-token"));
 }
 
 #[cfg(not(feature = "modules"))]
@@ -126,7 +124,7 @@ impl BusFixture {
 #[cfg(all(feature = "modules", feature = "crash-reporting"))]
 #[test]
 fn independent_invocation_faults_report_separately_around_a_success() {
-    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -191,7 +189,7 @@ fn independent_invocation_faults_report_separately_around_a_success() {
 #[cfg(all(feature = "modules", feature = "crash-reporting"))]
 #[test]
 fn cached_native_module_unavailability_is_reported_once() {
-    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -245,7 +243,7 @@ fn cached_native_module_unavailability_is_reported_once() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn bus_calls_preserve_tuple_arity_and_never_downgrade_confidentiality() {
-    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
     let bus = MemoryBus::new();
     Broker::new().spawn(bus.clone());
     let service = Connection::connect(bus.connect().await.unwrap())
@@ -293,7 +291,7 @@ async fn bus_calls_preserve_tuple_arity_and_never_downgrade_confidentiality() {
 #[cfg(feature = "modules")]
 #[test]
 fn configured_client_timeout_overrides_the_default_for_fixture_calls() {
-    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -332,7 +330,7 @@ fn configured_client_timeout_overrides_the_default_for_fixture_calls() {
 #[cfg(all(feature = "modules", feature = "crash-reporting"))]
 #[test]
 fn malformed_inner_json_from_a_real_bus_reply_is_reported_as_a_sanitized_fault() {
-    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()

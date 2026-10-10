@@ -596,7 +596,8 @@ Rules:
 - Never redeclare a contract type in OpenHuman.
 - Call members through contract constants, not string literals.
 - Contract crates stay synchronous and free of I/O and runtime dependencies.
-- Shared wire behavior belongs in the contract. Runtime, config, and security
+- Shared wire vocabulary belongs in the contract. Component algorithms execute
+  in the compiled module. Runtime, config, and security
   policy stay in the host.
 - Test the handwritten registry metadata against each contract's bus name and
   object path.

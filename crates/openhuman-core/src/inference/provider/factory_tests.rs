@@ -167,6 +167,7 @@ fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
         EphemeralRoute {
             endpoint: endpoint.to_string(),
             api_key: api_key.to_string(),
+            headers: Vec::new(),
         },
     );
     config

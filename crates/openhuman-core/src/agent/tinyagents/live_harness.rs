@@ -121,7 +121,7 @@ pub(crate) fn assemble_live_tool_harness(
         registered_tools,
         route_session,
     )));
-    let embedder_tool_hooks = crate::agent::hooks::embedder_tool_hooks();
+    let embedder_tool_hooks = crate::agent::hooks::turn_tool_hooks();
     if !embedder_tool_hooks.is_empty() {
         harness.push_middleware(Arc::new(middleware::EmbedderToolHooksMiddleware::new(
             embedder_tool_hooks,

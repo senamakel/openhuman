@@ -56,7 +56,6 @@ fn integration_test_config(tmp: &TempDir, backend_url: &str) -> Config {
     cfg.integrations.parallel.enabled = true;
     cfg.integrations.tinyfish.enabled = true;
     cfg.integrations.stock_prices.enabled = true;
-    cfg.integrations.twilio.enabled = true;
     cfg
 }
 

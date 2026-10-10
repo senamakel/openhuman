@@ -239,7 +239,7 @@ pub(crate) async fn run_subagent_direct(
         // This surfaces `SpawnDepthExceeded` before a provider round-trip and
         // across the MCP process hop; the crate's `TinyAgentsError::SubAgentDepth`
         // maps onto this same error shape for over-deep in-process runs.
-        if attempted_depth > MAX_SPAWN_DEPTH {
+        if attempted_depth > crate::agent::tinyagents::budget::depth(&options.run_context) {
             tracing::warn!(
                 agent_id = %definition.id,
                 task_id = %task_id,
@@ -249,7 +249,7 @@ pub(crate) async fn run_subagent_direct(
             );
             return Err(SubagentRunError::SpawnDepthExceeded {
                 attempted_depth,
-                max_depth: MAX_SPAWN_DEPTH,
+                max_depth: crate::agent::tinyagents::budget::depth(&options.run_context),
             });
         }
 

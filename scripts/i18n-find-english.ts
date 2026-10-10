@@ -95,9 +95,6 @@ const INTENTIONAL_ENGLISH = new Set([
   "settings.taskSources.name",
   "skills.create.allowedToolsPlaceholder",
   "skills.create.optional",
-  "skills.meetingBots.wakePhraseHint",
-  "skills.meetingBots.platforms.gmeet",
-  "skills.meetingBots.platforms.teams",
   "conversations.goal.inlineSummary", // "{objective} ({status})" — both segments are variable placeholders, untranslatable data
   "vault.excludesPlaceholder",
   "vault.syncSummaryDuration",

@@ -235,6 +235,7 @@ impl HostAgentResolver for OneHostAgent {
                     }),
                 ])
             })),
+            hooks: Default::default(),
             context: CoreContext::for_test_with_config(DomainSet::full(), self.config.clone()),
         })
     }

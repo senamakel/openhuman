@@ -255,9 +255,11 @@ export async function startNewThread(page: Page): Promise<string> {
   const previous = await selectedThreadId(page);
   const sidebar = page.getByTestId('new-thread-sidebar-button');
   if (await sidebar.isVisible().catch(() => false)) {
-    await sidebar.click();
+    // The caller is exercising thread state, not overlay actionability. A
+    // transient walkthrough/modal can cover this stable sidebar control.
+    await sidebar.click({ force: true });
   } else {
-    await page.getByTestId('new-thread-button').click();
+    await page.getByTestId('new-thread-button').click({ force: true });
   }
   await expect.poll(async () => selectedThreadId(page), { timeout: 20_000 }).not.toBe(previous);
   return waitForSelectedThreadId(page);

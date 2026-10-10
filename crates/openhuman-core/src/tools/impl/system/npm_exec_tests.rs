@@ -1,5 +1,25 @@
 use super::*;
 use serde_json::json;
+
+#[tokio::test]
+async fn npm_exec_blocks_protected_literal_before_runtime_resolution() {
+    let tool = NpmExecTool::new(
+        std::sync::Arc::new(crate::security::SecurityPolicy {
+            enabled: false,
+            ..crate::security::SecurityPolicy::default()
+        }),
+        std::sync::Arc::new(crate::agent::host_runtime::NativeRuntime::new()),
+        std::sync::Arc::new(NodeBootstrap::new(std::sync::Arc::new(
+            crate::config::Config::default(),
+        ))),
+    );
+    let result = tool
+        .execute(json!({"subcommand": "run", "args": ["~/.npmrc"]}))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.text().contains("protected path"));
+}
 fn absolute_sample() -> &'static str {
     if cfg!(windows) {
         "C:\\Windows\\System32"

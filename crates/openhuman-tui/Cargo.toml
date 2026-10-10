@@ -15,6 +15,7 @@ publish = false
 # through a bare workspace `openhuman-core` dependency, which turned on the
 # core's whole `default`.
 [features]
+langfuse = ["openhuman-rpc/langfuse"]
 default = [
     "crash-reporting",
     "media",

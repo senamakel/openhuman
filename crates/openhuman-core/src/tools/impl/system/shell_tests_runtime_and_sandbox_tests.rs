@@ -313,3 +313,38 @@ fn managed_path_restoration_preserves_cmd_syntax_and_unmanaged_commands() {
         unmanaged_command
     );
 }
+
+#[cfg(unix)]
+#[tokio::test]
+async fn managed_python_path_keeps_the_turn_path_without_daemon_inheritance() {
+    use crate::runtime::python::{PythonSource, ResolvedPython};
+    use crate::tools::timeout::CommandEnvironment;
+    let python = Arc::new(PythonBootstrap::new(Arc::new(
+        crate::config::Config::default(),
+    )));
+    python.cache_for_test(ResolvedPython {
+        bin_dir: PathBuf::from("/managed/python/bin"),
+        python_bin: PathBuf::from("/managed/python/bin/python3"),
+        version: "3.12.4".into(),
+        source: PythonSource::Managed,
+    });
+    let tool = ShellTool::with_language_bootstraps(
+        test_security(AutonomyLevel::Full),
+        test_runtime(),
+        test_audit(),
+        None,
+        Some(python),
+    );
+    let environment = CommandEnvironment::new([("PATH".into(), "/turn/bin".into())]);
+    let path = environment
+        .scope(tool.runtime_path_for_command("python3 -V"))
+        .await
+        .unwrap();
+    assert_eq!(path, "/managed/python/bin:/turn/bin");
+    let empty = CommandEnvironment::new(Vec::<(String, String)>::new());
+    let path = empty
+        .scope(tool.runtime_path_for_command("python3 -V"))
+        .await
+        .unwrap();
+    assert_eq!(path, "/managed/python/bin");
+}

@@ -11,6 +11,7 @@ publish = false
 # to embed and then the core (chain: core -> embed -> tinyhumans -> rpc ->
 # hosts). `http-client`, `server` and `session-store` are this crate's own.
 [features]
+langfuse = ["openhuman-tinyhumans/langfuse"]
 default = ["http-client", "server"]
 # Authenticated HTTP client for reaching a core's `/rpc` endpoint.
 http-client = ["dep:reqwest"]

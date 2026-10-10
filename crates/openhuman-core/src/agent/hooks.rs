@@ -4,6 +4,10 @@
 //! what happened (user message, assistant response, tool calls with outcomes).
 //! The agent does not wait for hooks — they run in the background via `tokio::spawn`.
 
+#[path = "hooks_scope.rs"]
+mod scope;
+pub use scope::{turn_post_turn_hooks, turn_tool_hooks, HookScope};
+
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -175,6 +179,9 @@ pub struct ToolHookContext {
     /// Canonical agent definition id, when known.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub agent_id: Option<String>,
+    /// Working root of this tool dispatch, including a per-turn cwd override.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cwd: Option<std::path::PathBuf>,
 }
 
 /// What a pre-tool hook decided about a call.

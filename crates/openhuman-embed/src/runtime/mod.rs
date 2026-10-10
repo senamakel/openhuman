@@ -60,11 +60,11 @@
 //!
 //! # The tokio runtime is yours
 //!
-//! Build it with
-//! [`AGENT_WORKER_STACK_BYTES`](openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
-//! and [`MAX_BLOCKING_THREADS`](openhuman_core::core::runtime::MAX_BLOCKING_THREADS);
-//! an agent turn is a very deep async state machine and the default 2 MiB
-//! worker stack overflows.
+//! Use [`crate::process::tokio_runtime`] or
+//! [`crate::process::tokio_runtime_builder`]. These helpers set the worker
+//! stack size and blocking-thread limit for deep agent turns; Tokio's default
+//! 2 MiB worker stack is too small. Create one [`Runtime`] and share it with
+//! `Arc<Runtime>` across server requests, with independent agent/session scopes.
 
 mod api_key;
 mod build;

@@ -270,6 +270,10 @@ impl TurnDispatchState {
 /// the provider route or cost roll-up subsequently read by its parent.
 #[derive(Clone)]
 pub struct OpenHumanRunContext {
+    /// Explicit shared model-call budget inherited by synchronous children.
+    pub model_budget: Option<super::super::budget::ModelBudget>,
+    /// A host can narrow synchronous delegation depth; children inherit this.
+    pub max_spawn_depth: Option<usize>,
     /// Trust/routing source used by OpenHuman approval and attribution policy.
     pub origin: Option<AgentTurnOrigin>,
     /// UI/event progress receiver for this turn tree.
@@ -384,6 +388,8 @@ impl OpenHumanRunContext {
     /// actually owns; `None` is an explicit absence, not an ambient fallback.
     pub fn new() -> Self {
         Self {
+            model_budget: super::super::budget::current(),
+            max_spawn_depth: super::super::budget::spawn_depth_limit(),
             origin: None,
             progress: None,
             stop_hooks: crate::agent::stop_hooks::current_stop_hooks(),

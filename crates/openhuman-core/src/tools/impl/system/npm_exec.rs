@@ -211,6 +211,11 @@ impl NpmExecTool {
             ));
         }
         let path_policy = super::security_for_tool_context(&self.security, context, "npm_exec");
+        for input in extra_args.iter().chain(cwd_override.iter()) {
+            if let Err(reason) = path_policy.check_protected_path_literals(input) {
+                return Ok(ToolResult::error(reason));
+            }
+        }
         let cwd = match resolve_cwd(&path_policy.action_dir, cwd_override.as_deref()) {
             Ok(p) => p,
             Err(msg) => return Ok(ToolResult::error(msg)),
@@ -285,7 +290,7 @@ impl NpmExecTool {
 
         cmd.env_clear();
 
-        let host_path = std::env::var("PATH").unwrap_or_default();
+        let host_path = crate::tools::timeout::CommandEnvironment::var("PATH").unwrap_or_default();
         let sep = if cfg!(windows) { ";" } else { ":" };
         let prepended_path = if host_path.is_empty() {
             resolved.bin_dir.to_string_lossy().into_owned()
@@ -295,7 +300,7 @@ impl NpmExecTool {
         cmd.env("PATH", &prepended_path);
 
         for var in SAFE_ENV_VARS {
-            if let Ok(val) = std::env::var(var) {
+            if let Ok(val) = crate::tools::timeout::CommandEnvironment::var(var) {
                 cmd.env(var, val);
             }
         }
@@ -304,7 +309,7 @@ impl NpmExecTool {
         // completion (no harness/tool timeout on long installs/builds).
         let result = match explicit_timeout {
             Some(timeout) => crate::tools::timeout::output_or_kill(&mut cmd, timeout).await,
-            None => Ok(cmd.output().await),
+            None => Ok(crate::tools::timeout::output_unbounded(&mut cmd).await),
         };
 
         match result {
@@ -397,7 +402,7 @@ impl NpmExecTool {
         // (e.g. `npm run` spawning user scripts) resolve `node`/`npx`
         // consistently with the unsandboxed path.
         let mut extra_env = std::collections::HashMap::new();
-        let host_path = std::env::var("PATH").unwrap_or_default();
+        let host_path = crate::tools::timeout::CommandEnvironment::var("PATH").unwrap_or_default();
         let sep = if cfg!(windows) { ";" } else { ":" };
         let prepended = if host_path.is_empty() {
             bin_dir.to_string_lossy().into_owned()

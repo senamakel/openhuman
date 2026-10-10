@@ -130,6 +130,7 @@ pub(crate) struct AgentInner {
     /// The agent's own in-process tools, rebuilt per turn. See
     /// [`AgentSpec::tools`](super::AgentSpec::tools) for why it is a factory.
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
+    pub(crate) hooks: openhuman_core::agent::hooks::HookScope,
     pub(crate) lifecycle: lifecycle::Lifecycle,
     /// Built from [`ToolScopeSpec::HostOnly`]: every turn's session is built
     /// from the host tools alone.
@@ -232,7 +233,8 @@ impl Agent {
     /// alone.
     pub fn turn(&self, message: impl Into<String>) -> Turn {
         let mut turn = Turn::new(TurnTarget::Agent(Arc::clone(&self.inner)), message)
-            .with_agent_id(&self.inner.id);
+            .with_agent_id(&self.inner.id)
+            .with_hooks(self.inner.hooks.clone());
         if let Some(route) = self.inner.provider.route() {
             turn = turn.route(route.clone());
         }

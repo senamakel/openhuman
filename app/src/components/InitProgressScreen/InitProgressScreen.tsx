@@ -82,6 +82,7 @@ export default function InitProgressScreen({
     <div className="fixed inset-0 z-9999 flex items-center justify-center bg-stone-950/90 p-4 backdrop-blur-sm">
       <div
         role="dialog"
+        data-testid="harness-init-dialog"
         aria-modal="true"
         aria-labelledby="harness-init-title"
         className="w-full max-w-md rounded-2xl border border-stone-700/60 bg-stone-900 p-6 shadow-2xl">
@@ -101,6 +102,7 @@ export default function InitProgressScreen({
             <p className="text-xs text-content-muted">{t('harnessInit.backgroundHint')}</p>
             <button
               type="button"
+              data-testid="harness-init-background"
               onClick={onContinue}
               className="shrink-0 rounded-lg border border-stone-700 px-3 py-1.5 text-sm text-content-faint hover:bg-stone-800 hover:text-white">
               {t('harnessInit.runInBackground')}
@@ -121,6 +123,7 @@ export default function InitProgressScreen({
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"
+                data-testid="harness-init-continue-anyway"
                 onClick={onContinue}
                 className="rounded-lg px-3 py-1.5 text-sm text-content-faint hover:text-white">
                 {t('harnessInit.continueAnyway')}

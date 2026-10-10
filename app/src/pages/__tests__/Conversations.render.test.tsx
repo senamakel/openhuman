@@ -267,6 +267,7 @@ async function openSidebar() {
 const emptyThreadState = {
   threads: [],
   selectedThreadId: null,
+  selectionIntentVersion: 0,
   activeThreadIds: {},
   welcomeThreadId: null,
   messagesByThreadId: {},
@@ -732,6 +733,43 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       const state = resolvedStore?.getState() as { thread: { selectedThreadId: string | null } };
       expect(state.thread.selectedThreadId).toBe('t-1');
     });
+  });
+
+  it('keeps an explicit sidebar selection made while initial thread loading is pending', async () => {
+    const threads = [
+      makeThread({ id: 't-1', title: 'Initial Thread' }),
+      makeThread({ id: 't-2', title: 'Explicitly Selected Thread' }),
+    ];
+    let resolveThreads: ((value: { threads: Thread[]; count: number }) => void) | undefined;
+    mockGetThreads.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveThreads = resolve;
+        })
+    );
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...emptyThreadState,
+          threads,
+          selectedThreadId: 't-1',
+          messagesByThreadId: { 't-1': [], 't-2': [] },
+        },
+      });
+    });
+    await waitFor(() => expect(mockGetThreads).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId('thread-row-t-2'));
+    expect(store?.getState().thread.selectedThreadId).toBe('t-2');
+
+    await act(async () => {
+      resolveThreads?.({ threads, count: threads.length });
+    });
+
+    expect(store?.getState().thread.selectedThreadId).toBe('t-2');
+    expect(screen.getByTestId('thread-row-t-2')).toHaveClass('bg-surface/70');
   });
 
   // Sidebar "New thread" button was removed in the composer flattening refactor.

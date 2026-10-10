@@ -33,6 +33,7 @@
  */
 import { expect, type Page, test } from '@playwright/test';
 
+import { composerText } from '../helpers/chat-composer';
 import { bootAuthenticatedPage, dismissWalkthroughIfPresent } from '../helpers/core-rpc';
 
 const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
@@ -162,22 +163,20 @@ async function selectedThreadId(page: Page): Promise<string | null> {
 
 async function startNewThread(page: Page): Promise<void> {
   await dismissWalkthroughIfPresent(page);
-  const sidebar = page.getByTestId('new-thread-sidebar-button');
-  if (await sidebar.isVisible().catch(() => false)) {
-    await sidebar.click({ force: true });
-  } else {
-    await page.getByTestId('new-thread-button').click({ force: true });
-  }
+  const previousThread = await selectedThreadId(page);
+  await page.getByTestId('new-thread-button').click({ force: true });
+  await expect.poll(() => selectedThreadId(page), { timeout: 20_000 }).not.toBe(previousThread);
 }
 
 async function sendMessage(page: Page, prompt: string): Promise<void> {
   await dismissWalkthroughIfPresent(page);
   // The live input is a Lexical contenteditable, not a textarea — `fill()` and
   // `toHaveValue()` do not apply to it.
-  await page.getByTestId('chat-message-input').click();
-  await page.keyboard.type(prompt);
+  const input = page.getByTestId('chat-message-input');
+  await input.pressSequentially(prompt);
+  await expect.poll(() => composerText(input), { timeout: 15_000 }).toBe(prompt);
   await expect(page.getByTestId('send-message-button')).toBeVisible();
-  await page.getByTestId('send-message-button').click();
+  await input.press('Enter');
 }
 
 /** Send one turn and wait for the whole reply to land. */
@@ -391,7 +390,12 @@ test.describe('Chat transcript stick-to-bottom', () => {
 
     // Thread B. Leaving A is what puts A's messages in the cache.
     await startNewThread(page);
+    await expect.poll(() => selectedThreadId(page), { timeout: 15_000 }).not.toBe(threadA);
+    const threadB = await selectedThreadId(page);
+    expect(threadB, 'the new conversation must select a distinct thread').not.toBeNull();
+    expect(threadB).not.toBe(threadA);
     await completeTurn(page, 'Second thread please', 'THREAD-B-END');
+    expect(await selectedThreadId(page)).toBe(threadB);
 
     // Scroll UP in B before leaving it. This is what makes the test
     // discriminating rather than merely passing.
@@ -412,6 +416,7 @@ test.describe('Chat transcript stick-to-bottom', () => {
 
     // Back to A — the cached path.
     await page.getByTestId(`thread-row-${threadA}`).click({ force: true });
+    await expect.poll(() => selectedThreadId(page), { timeout: 15_000 }).toBe(threadA);
     await expect(page.getByText('THREAD-A-END', { exact: false }).last()).toBeVisible({
       timeout: 20_000,
     });

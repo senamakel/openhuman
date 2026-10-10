@@ -8,6 +8,9 @@ use tinyruntime_bus::Language;
 use super::{PoolExecOutcome, PoolRunError};
 use crate::config::{Config, RuntimePoolConfig};
 
+/// A cancellable dispatch uses the owned-subprocess fallback: the pool has
+/// no acknowledged per-job abort seam.
+///
 /// Whether inline `python` jobs should route through the pool.
 ///
 /// Python defaults **off**, and the asymmetry with Node is real rather than an
@@ -19,6 +22,14 @@ use crate::config::{Config, RuntimePoolConfig};
 /// warm-worker memory saving.
 #[must_use]
 pub fn enabled(pool: &RuntimePoolConfig) -> bool {
+    if crate::tools::timeout::ProcessCleanup::is_active()
+        || crate::tools::timeout::CommandEnvironment::is_active()
+    {
+        tracing::debug!(
+            "[python_exec] cancellable turn uses an owned subprocess instead of the pool"
+        );
+        return false;
+    }
     pool.enabled && pool.python.is_enabled(false)
 }
 

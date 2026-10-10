@@ -294,18 +294,17 @@ impl Default for IntegrationToggle {
 /// Composio in particular is unconditionally enabled and has no toggle:
 /// as long as the user is signed in, composio tools are available.
 ///
-/// The per-tool `apify`, `twilio`, `google_places`, `parallel`, and `tinyfish`
+/// The per-tool `google_places`, `parallel`, `tinyfish`, and `stock_prices`
 /// flags below are preserved because those integrations incur per-call
 /// costs that the user may legitimately want to turn off; composio
 /// costs are metered server-side, so there is no client-side toggle
 /// for it.
+///
+/// Unknown keys are ignored on load, so configs written by older builds that
+/// still carry the retired `twilio` / `apify` toggles keep deserializing.
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema, Default)]
 #[serde(default)]
 pub struct IntegrationsConfig {
-    /// Twilio phone-call integration.
-    #[serde(default)]
-    pub twilio: IntegrationToggle,
-
     /// Google Places location search integration.
     #[serde(default)]
     pub google_places: IntegrationToggle,

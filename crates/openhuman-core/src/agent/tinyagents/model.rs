@@ -274,7 +274,13 @@ pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<Bille
             .raw
             .as_ref()
             .and_then(|value| value.get("total_cost_usd"))
-            .and_then(serde_json::Value::as_f64);
+            .and_then(serde_json::Value::as_f64)
+            .or_else(|| response.raw.as_ref()?.get("usage")?.get("cost")?.as_f64())
+            .or_else(|| {
+                usage
+                    .charged_amount
+                    .map(|charge| charge.micros as f64 / 1_000_000.0)
+            });
     }
     Some(
         BilledUsage::from_counts(usage.input_tokens, usage.output_tokens)

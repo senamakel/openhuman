@@ -15,6 +15,7 @@ fn route() -> EphemeralRoute {
     EphemeralRoute {
         endpoint: "http://127.0.0.1:41234/openai".to_string(),
         api_key: "mdl-token".to_string(),
+        headers: Vec::new(),
     }
 }
 
@@ -27,6 +28,7 @@ fn from_params_needs_both_halves() {
         Some(EphemeralRoute {
             endpoint: "http://x/openai".into(),
             api_key: "k".into(),
+            headers: Vec::new(),
         })
     );
     // An endpoint with no credential and a credential with no endpoint are both
@@ -55,6 +57,7 @@ fn from_params_treats_blank_as_absent_and_trims() {
         Some(EphemeralRoute {
             endpoint: "http://x/openai".into(),
             api_key: "k".into(),
+            headers: Vec::new(),
         })
     );
 }
@@ -155,6 +158,7 @@ fn apply_twice_leaves_one_entry() {
         EphemeralRoute {
             endpoint: "http://127.0.0.1:9999/openai".into(),
             api_key: "mdl-other".into(),
+            headers: Vec::new(),
         },
     );
     let entries: Vec<_> = config

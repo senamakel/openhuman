@@ -83,8 +83,13 @@ impl Provider {
     /// Both halves are required: the core ignores a route with only one, and
     /// taking them together here means a partial route cannot be expressed.
     pub fn openai_compatible(base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
+        Self::routed(Route::openai_compatible(base_url, api_key))
+    }
+
+    /// Use a route including its gateway attribution headers.
+    pub fn routed(route: Route) -> Self {
         Self {
-            route: Some(Route::openai_compatible(base_url, api_key)),
+            route: Some(route),
             model: None,
             custom: None,
             roles: Default::default(),

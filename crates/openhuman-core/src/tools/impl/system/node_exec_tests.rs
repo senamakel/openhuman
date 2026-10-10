@@ -1,5 +1,27 @@
 use super::*;
 use serde_json::json;
+
+#[tokio::test]
+async fn node_exec_blocks_protected_literal_before_runtime_resolution() {
+    let tool = NodeExecTool::new(
+        std::sync::Arc::new(crate::security::SecurityPolicy {
+            enabled: false,
+            ..crate::security::SecurityPolicy::default()
+        }),
+        std::sync::Arc::new(crate::agent::host_runtime::NativeRuntime::new()),
+        std::sync::Arc::new(NodeBootstrap::new(std::sync::Arc::new(
+            crate::config::Config::default(),
+        ))),
+        crate::config::RuntimePoolConfig::default(),
+        std::path::PathBuf::from("."),
+    );
+    let result = tool
+        .execute(json!({"inline_code": "require('fs').readFileSync('~/.ssh/id_rsa')"}))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.text().contains("protected path"));
+}
 fn absolute_sample() -> &'static str {
     if cfg!(windows) {
         "C:\\Windows\\System32\\drivers\\etc\\hosts"

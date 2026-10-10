@@ -345,6 +345,7 @@ urlencoding = "2.1"
 wiremock = "0.6"
 
 [features]
+langfuse = ["openhuman-rpc/langfuse"]
 # The contributor set: the core's `[features] default` gates (listed, because
 # `openhuman-rpc`'s own default carries only its server and client) plus the
 # Jev ranker. The product lanes pass `--features

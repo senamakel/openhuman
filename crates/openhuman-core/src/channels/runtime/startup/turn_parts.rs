@@ -171,7 +171,7 @@ pub(crate) fn build_channel_turn_parts(
     } else {
         None
     };
-    // Filter out Workflow-category tools (e.g. Composio, Apify) from the
+    // Filter out Workflow-category tools (e.g. Composio) from the
     // main agent prompt — integration actions are reached through tool search.
     let non_skill_specs: Vec<tinytools::ToolSpec> = tools_registry
         .iter()

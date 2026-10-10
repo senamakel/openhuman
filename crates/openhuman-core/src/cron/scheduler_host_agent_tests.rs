@@ -51,6 +51,7 @@ impl HostAgentResolver for Host {
                 builds.fetch_add(1, Ordering::SeqCst);
                 crate::agent::HostTurnTools::advertised(vec![Box::new(Marker)])
             })),
+            hooks: Default::default(),
             context: CoreContext::for_test(
                 DomainSet::full(),
                 Some(self.config.workspace_dir.clone()),

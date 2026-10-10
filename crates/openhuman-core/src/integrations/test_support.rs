@@ -1,11 +1,6 @@
-use axum::{
-    extract::{Path, Query},
-    routing::{get, post},
-    Json, Router,
-};
+use axum::{routing::post, Json, Router};
 use parking_lot::Mutex;
 use serde_json::{json, Value};
-use std::collections::HashMap;
 use std::sync::Arc;
 
 #[derive(Debug, Clone, PartialEq)]

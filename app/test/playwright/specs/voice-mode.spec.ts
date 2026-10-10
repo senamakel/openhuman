@@ -61,7 +61,9 @@ async function restoreGetUserMedia(page: Page): Promise<void> {
 
 async function switchChatIntoMicComposer(page: Page): Promise<void> {
   await dismissWalkthroughIfPresent(page);
-  await page.getByRole('button', { name: 'Voice mode' }).click({ force: true });
+  const voiceModeButton = page.getByRole('button', { name: 'Voice mode' });
+  await expect(voiceModeButton).toBeEnabled();
+  await voiceModeButton.click();
   await expect(page.getByText(/Tap and speak|Waiting for agent/i)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Switch to text' })).toBeVisible();
 }

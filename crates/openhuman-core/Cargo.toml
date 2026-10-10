@@ -693,6 +693,8 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
+# Curated forwarding of the existing TinyAgents telemetry exporter.
+langfuse = ["tinyagents-harness/langfuse"]
 # Storage drivers for `[storage] url` / `OPENHUMAN_STORAGE_URL` (see the
 # `storage` domain). Memory and plain files are always available.
 # `storage-sqlite` is in the contributor set and the product: the small

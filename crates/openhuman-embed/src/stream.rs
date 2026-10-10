@@ -33,30 +33,34 @@ impl TurnStream {
                     .cancellation(token.clone())
                     .send(),
             );
-            loop {
+            let (outcome, pending) = loop {
                 tokio::select! {
                     biased;
+                    outcome = &mut result => break (outcome, None),
                     item = progress_rx.recv() => {
                         if let Some(item) = item {
+                            // A blocked stream consumer must not stop polling
+                            // turn cancellation, deadlines or cleanup.
+                            let retained = item.clone();
                             tokio::select! {
+                                outcome = &mut result => break (outcome, Some(retained)),
                                 sent = tx.send(StreamEvent::Progress(item)) => { if sent.is_err() { token.cancel(); } },
                                 _ = token.cancelled() => {},
                             }
                         } else {
-                            let outcome = result.await;
-                            let _ = tx.send(StreamEvent::Finished(outcome)).await;
-                            break;
+                            break ((&mut result).await, None);
                         }
-                    }
-                    outcome = &mut result => {
-                        while let Ok(item) = progress_rx.try_recv() {
-                            tokio::select! { _ = tx.send(StreamEvent::Progress(item)) => {}, _ = token.cancelled() => {} }
-                        }
-                        let _ = tx.send(StreamEvent::Finished(outcome)).await;
-                        break;
                     }
                 }
+            };
+            drop(result);
+            // The item whose send lost to completion precedes everything still
+            // buffered. Keep progress ordered before the terminal notification.
+            let mut pending = pending;
+            while let Some(item) = pending.take().or_else(|| progress_rx.try_recv().ok()) {
+                tokio::select! { _ = tx.send(StreamEvent::Progress(item)) => {}, _ = token.cancelled() => {} }
             }
+            let _ = tx.send(StreamEvent::Finished(outcome)).await;
         });
         Self {
             inner: ReceiverStream::new(rx),

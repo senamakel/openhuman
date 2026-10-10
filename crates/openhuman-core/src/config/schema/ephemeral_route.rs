@@ -60,6 +60,9 @@ pub struct EphemeralRoute {
     /// and only for [`EPHEMERAL_ROUTE_SLUG`], so it cannot be handed to a
     /// provider the caller did not name.
     pub api_key: String,
+    /// Custom headers scoped to this endpoint, never copied to unrelated providers.
+    #[serde(default)]
+    pub headers: Vec<(String, String)>,
 }
 
 impl EphemeralRoute {
@@ -71,7 +74,17 @@ impl EphemeralRoute {
     pub fn from_params(endpoint: Option<String>, api_key: Option<String>) -> Option<Self> {
         let endpoint = endpoint?.trim().to_string();
         let api_key = api_key?.trim().to_string();
-        (!endpoint.is_empty() && !api_key.is_empty()).then_some(Self { endpoint, api_key })
+        (!endpoint.is_empty() && !api_key.is_empty()).then_some(Self {
+            endpoint,
+            api_key,
+            headers: Vec::new(),
+        })
+    }
+
+    /// Attach the embedding host's per-route headers.
+    pub fn with_headers(mut self, headers: Vec<(String, String)>) -> Self {
+        self.headers = headers;
+        self
     }
 }
 

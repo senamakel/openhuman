@@ -17,6 +17,7 @@ async function openSkillsPage(page: Page, userId: string) {
       localStorage.removeItem('openhuman:walkthrough_pending');
     } catch {}
   });
+  await dismissWalkthroughIfPresent(page);
   // Startup route restoration can replace a hash assigned during sign-in.
   await page.getByRole('button', { name: 'Connections' }).click();
   await expect

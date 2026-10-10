@@ -1952,7 +1952,6 @@ async fn worker_a_controller_schemas_are_fully_exposed() {
         "openhuman.tools_web_answer",
         "openhuman.tools_web_contents",
         "openhuman.tools_searxng_search",
-        "openhuman.tools_apify_linkedin_scrape",
         "openhuman.tool_registry_list",
         "openhuman.tool_registry_get",
         "openhuman.tool_registry_diagnostics",

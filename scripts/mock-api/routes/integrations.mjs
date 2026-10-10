@@ -852,27 +852,5 @@ export function handleIntegrations(ctx) {
     return true;
   }
 
-  // ── Apify ──────────────────────────────────────────────────
-  // Gap fill — minimal stubs for run polling.
-  const apifyMatch = url.match(
-    /^\/agent-integrations\/apify\/runs\/([^/?]+)(\/results)?\/?(\?.*)?$/,
-  );
-  if (apifyMatch && method === "GET") {
-    const [, runId, isResults] = apifyMatch;
-    if (isResults) {
-      json(res, 200, { success: true, data: { items: [] } });
-    } else {
-      json(res, 200, {
-        success: true,
-        data: {
-          id: runId,
-          status: "SUCCEEDED",
-          finishedAt: new Date().toISOString(),
-        },
-      });
-    }
-    return true;
-  }
-
   return false;
 }

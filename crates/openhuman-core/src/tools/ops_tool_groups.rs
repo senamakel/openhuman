@@ -195,7 +195,6 @@ pub(crate) fn tool_group(name: &str) -> crate::core::all::DomainGroup {
         || name.starts_with("stock_")
         || name.starts_with("storage_")
         || name.starts_with("task_source_")
-        || name == "twilio_call"
         // Hosting: `hosting_` is a domain-exclusive prefix, so a NEW hosting
         // tool auto-gates rather than falling through to Platform and staying
         // callable under a custom DomainSet. `hosting_launch_site` uploads a

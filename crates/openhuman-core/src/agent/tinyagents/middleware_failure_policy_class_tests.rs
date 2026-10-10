@@ -9,7 +9,9 @@
 //!   real names must keep their retryable timeouts from the side-effect
 //!   reading alone.
 
+#[cfg(feature = "modules")]
 use super::super::call_effect::{call_effect, tool_sets_lookup, CallEffect};
+#[cfg(feature = "modules")]
 use super::super::failure_policy::recovery_policy_with_effect;
 use super::super::repeated_failure::recovery_policy;
 use super::*;
@@ -194,6 +196,7 @@ fn search_spec(name: &str) -> tinysearch_bus::ToolSpec {
 
 /// The read tools as production registers them, so their own declarations
 /// (permission level, policy, external effect) decide the timeout class.
+#[cfg(feature = "modules")]
 fn production_read_tools() -> Vec<Box<dyn tinytools::Tool>> {
     use crate::security::SecurityPolicy;
     let security = std::sync::Arc::new(SecurityPolicy::default());
@@ -241,6 +244,7 @@ const PRODUCTION_READ_TOOLS: &[&str] = &[
 ];
 
 #[test]
+#[cfg(feature = "modules")]
 fn production_read_tools_time_out_as_transient() {
     let lookup = tool_sets_lookup(vec![std::sync::Arc::new(production_read_tools())]);
     for name in PRODUCTION_READ_TOOLS {

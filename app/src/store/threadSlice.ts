@@ -14,6 +14,8 @@ export const THREAD_NOT_FOUND_MESSAGE = 'This thread is no longer available.';
 interface ThreadState {
   threads: Thread[];
   selectedThreadId: string | null;
+  /** Incremented by every explicit thread selection to invalidate stale async continuations. */
+  selectionIntentVersion: number;
   /**
    * Set of threads that currently have an in-flight inference turn, keyed by
    * thread id. Replaces the legacy single `activeThreadId` so that turns on
@@ -61,6 +63,7 @@ interface ThreadState {
 const initialState: ThreadState = {
   threads: [],
   selectedThreadId: null,
+  selectionIntentVersion: 0,
   activeThreadIds: {},
   welcomeThreadId: null,
   messagesByThreadId: {},
@@ -107,16 +110,19 @@ function appendMessageToCache(
 
 // ── Async thunks (thin RPC wrappers) ──────────────────────────────
 
-export const loadThreads = createAsyncThunk(
-  'thread/loadThreads',
-  async (_, { rejectWithValue }) => {
-    try {
-      return await threadApi.getThreads();
-    } catch (error) {
-      return rejectWithValue(error instanceof Error ? error.message : 'Failed to load threads');
-    }
+export const loadThreads = createAsyncThunk<
+  Awaited<ReturnType<typeof threadApi.getThreads>> & { selectionIntentVersionAtRequest?: number },
+  void
+>('thread/loadThreads', async (_, { getState, rejectWithValue }) => {
+  const selectionIntentVersionAtRequest =
+    (getState() as { thread?: Pick<ThreadState, 'selectionIntentVersion'> }).thread
+      ?.selectionIntentVersion ?? 0;
+  try {
+    return { ...(await threadApi.getThreads()), selectionIntentVersionAtRequest };
+  } catch (error) {
+    return rejectWithValue(error instanceof Error ? error.message : 'Failed to load threads');
   }
-);
+});
 
 /**
  * Normalise whatever `dispatch(createNewThread()).unwrap()` throws into a
@@ -473,11 +479,16 @@ const threadSlice = createSlice({
       state.createThreadError = null;
     },
     setSelectedThread: (state, action: { payload: string }) => {
+      state.selectionIntentVersion = (state.selectionIntentVersion ?? 0) + 1;
       state.selectedThreadId = action.payload;
       state.messages = state.messagesByThreadId[action.payload] ?? [];
       state.messagesError = null;
     },
+    invalidateThreadSelection: state => {
+      state.selectionIntentVersion = (state.selectionIntentVersion ?? 0) + 1;
+    },
     clearSelectedThread: state => {
+      state.selectionIntentVersion = (state.selectionIntentVersion ?? 0) + 1;
       state.selectedThreadId = null;
       state.messages = [];
       state.messagesError = null;
@@ -509,6 +520,7 @@ const threadSlice = createSlice({
       state.threads = state.threads.filter(thread => thread.id !== threadId);
       delete state.messagesByThreadId[threadId];
       if (state.selectedThreadId === threadId) {
+        state.selectionIntentVersion = (state.selectionIntentVersion ?? 0) + 1;
         state.selectedThreadId = null;
         state.messages = [];
         state.messagesError = null;
@@ -519,6 +531,7 @@ const threadSlice = createSlice({
       }
     },
     clearAllThreads: state => {
+      state.selectionIntentVersion = (state.selectionIntentVersion ?? 0) + 1;
       state.threads = [];
       state.messagesByThreadId = {};
       state.selectedThreadId = null;
@@ -602,9 +615,29 @@ const threadSlice = createSlice({
       })
       .addCase(loadThreads.fulfilled, (state, action) => {
         state.isLoadingThreads = false;
-        state.threads = action.payload.threads;
         const liveThreadIds = new Set(action.payload.threads.map(thread => thread.id));
-        if (state.selectedThreadId && !liveThreadIds.has(state.selectedThreadId)) {
+        const currentIntentVersion = state.selectionIntentVersion ?? 0;
+        const selectionWasSuperseded =
+          currentIntentVersion !==
+          (action.payload.selectionIntentVersionAtRequest ?? currentIntentVersion);
+        if (selectionWasSuperseded && !state.selectedThreadId) {
+          return;
+        }
+        const supersedingThread =
+          selectionWasSuperseded &&
+          state.selectedThreadId &&
+          !liveThreadIds.has(state.selectedThreadId)
+            ? state.threads.find(thread => thread.id === state.selectedThreadId)
+            : undefined;
+        if (supersedingThread) liveThreadIds.add(supersedingThread.id);
+        state.threads = supersedingThread
+          ? [supersedingThread, ...action.payload.threads]
+          : action.payload.threads;
+        if (
+          !selectionWasSuperseded &&
+          state.selectedThreadId &&
+          !liveThreadIds.has(state.selectedThreadId)
+        ) {
           state.selectedThreadId = null;
           state.messages = [];
           state.messagesError = null;
@@ -727,6 +760,7 @@ const threadSlice = createSlice({
 export const {
   clearCreateThreadError,
   setSelectedThread,
+  invalidateThreadSelection,
   clearSelectedThread,
   setActiveThread,
   markThreadInferenceActive,

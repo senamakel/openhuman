@@ -58,6 +58,7 @@ pub struct AgentSpec {
     composio: Option<ComposioHostCredential>,
     config_fn: Option<ConfigEdit>,
     host_tools: Option<openhuman_core::agent::HostTools>,
+    hooks: openhuman_core::agent::hooks::HookScope,
     memory: Option<MemoryBinding>,
     subagents: Vec<(String, AgentDefinitionSpec)>,
 }
@@ -139,6 +140,7 @@ impl AgentSpec {
             composio: None,
             config_fn: None,
             host_tools: None,
+            hooks: Default::default(),
             memory: None,
             subagents: Vec::new(),
         }
@@ -324,6 +326,31 @@ impl AgentSpec {
         self
     }
 
+    /// Await the host's permission decision before each tool executes.
+    /// The callback may wait for UI approval, then return `Proceed`, `Deny`,
+    /// or `ProceedWith`. Returning `Ask` denies the call; this callback itself
+    /// owns the approval wait. Static tool/security restrictions still apply.
+    /// Agent and turn callbacks are additive: a denial cannot be overridden.
+    pub fn can_use_tool<F>(self, callback: F) -> Self
+    where
+        F: for<'a> Fn(&'a crate::seams::ToolHookContext) -> crate::PermissionFuture<'a>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.tool_hook(std::sync::Arc::new(crate::permission::PermissionHook(
+            callback,
+        )))
+    }
+
+    /// Observe cumulative usage after each model call or vote to stop before
+    /// the next call. Return `StopDecision::Continue` for observation alone;
+    /// a budget policy can return `StopDecision::Stop`. Scoped to this agent; no runtime-global policy is replaced.
+    pub fn stop_hook(mut self, hook: std::sync::Arc<dyn crate::seams::StopHook>) -> Self {
+        self.hooks.push_stop(hook);
+        self
+    }
+
     /// Arbitrary edits to the agent's config, applied last.
     ///
     /// The escape hatch for the config fields the spec does not model — not
@@ -435,6 +462,7 @@ impl AgentSpec {
             composio: self.composio,
             config_fn: self.config_fn,
             host_tools: self.host_tools,
+            hooks: self.hooks,
             memory: self.memory,
             subagents: self.subagents,
         }
@@ -468,6 +496,7 @@ pub(crate) struct AgentSpecParts {
     pub(crate) composio: Option<ComposioHostCredential>,
     pub(crate) config_fn: Option<ConfigEdit>,
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
+    pub(crate) hooks: openhuman_core::agent::hooks::HookScope,
     pub(crate) memory: Option<MemoryBinding>,
     pub(crate) subagents: Vec<(String, AgentDefinitionSpec)>,
 }

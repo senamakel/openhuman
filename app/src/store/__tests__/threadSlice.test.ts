@@ -168,6 +168,7 @@ describe('threadSlice synchronous reducers', () => {
     store.dispatch(setSelectedThread('t-1'));
     store.dispatch(setActiveThread('t-1'));
 
+    const selectionVersion = store.getState().thread.selectionIntentVersion;
     store.dispatch(clearAllThreads());
     const state = store.getState().thread;
     expect(state.threads).toEqual([]);
@@ -175,6 +176,7 @@ describe('threadSlice synchronous reducers', () => {
     expect(state.selectedThreadId).toBeNull();
     expect(state.activeThreadIds).toEqual({});
     expect(state.messages).toEqual([]);
+    expect(state.selectionIntentVersion).toBeGreaterThan(selectionVersion);
   });
 
   it('clearStaleThread removes stale selection, cache, and active id', async () => {
@@ -192,12 +194,14 @@ describe('threadSlice synchronous reducers', () => {
     store.dispatch(setSelectedThread('t-1'));
     store.dispatch(setActiveThread('t-1'));
 
+    const selectionVersion = store.getState().thread.selectionIntentVersion;
     store.dispatch(clearStaleThread('t-1'));
 
     const state = store.getState().thread;
     expect(state.threads.map(thread => thread.id)).toEqual(['t-2']);
     expect(state.messagesByThreadId['t-1']).toBeUndefined();
     expect(state.selectedThreadId).toBeNull();
+    expect(state.selectionIntentVersion).toBeGreaterThan(selectionVersion);
     expect(state.activeThreadIds).toEqual({});
     expect(state.messages).toEqual([]);
   });
@@ -206,6 +210,44 @@ describe('threadSlice synchronous reducers', () => {
 describe('threadSlice loadThreads thunk', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it('does not restore threads from a load superseded by clearing all threads', async () => {
+    const store = createStore();
+    let resolveThreads!: (value: { threads: Thread[]; count: number }) => void;
+    mockedThreadApi.getThreads.mockImplementationOnce(
+      () => new Promise(resolve => (resolveThreads = resolve))
+    );
+
+    const request = store.dispatch(loadThreads());
+    store.dispatch(clearAllThreads());
+    resolveThreads({ threads: [makeThread({ id: 'stale' })], count: 1 });
+    await request;
+
+    expect(store.getState().thread.threads).toEqual([]);
+    expect(store.getState().thread.selectedThreadId).toBeNull();
+  });
+
+  it('does not restore a cleared stale thread from an older list response', async () => {
+    const store = createStore();
+    mockedThreadApi.getThreads.mockResolvedValueOnce({
+      threads: [makeThread({ id: 't-1' }), makeThread({ id: 't-2' })],
+      count: 2,
+    });
+    await store.dispatch(loadThreads());
+    store.dispatch(setSelectedThread('t-1'));
+
+    let resolveThreads!: (value: { threads: Thread[]; count: number }) => void;
+    mockedThreadApi.getThreads.mockImplementationOnce(
+      () => new Promise(resolve => (resolveThreads = resolve))
+    );
+    const request = store.dispatch(loadThreads());
+    store.dispatch(clearStaleThread('t-1'));
+    resolveThreads({ threads: [makeThread({ id: 't-1' }), makeThread({ id: 't-2' })], count: 2 });
+    await request;
+
+    expect(store.getState().thread.threads.map(thread => thread.id)).toEqual(['t-2']);
+    expect(store.getState().thread.selectedThreadId).toBeNull();
   });
 
   it('sets isLoadingThreads while pending and stores threads on fulfilled', async () => {
@@ -229,6 +271,21 @@ describe('threadSlice loadThreads thunk', () => {
     const result = await store.dispatch(loadThreads());
     expect(result.type).toBe('thread/loadThreads/rejected');
     expect(store.getState().thread.isLoadingThreads).toBe(false);
+  });
+
+  it('preserves a newer selection when an older thread-list response omits it', async () => {
+    const store = createStore();
+    let resolveThreads: ((value: { threads: Thread[]; count: number }) => void) | undefined;
+    mockedThreadApi.getThreads.mockImplementationOnce(
+      () => new Promise(resolve => (resolveThreads = resolve))
+    );
+
+    const request = store.dispatch(loadThreads());
+    store.dispatch(setSelectedThread('worker-created-after-request'));
+    resolveThreads?.({ threads: [makeThread({ id: 'existing-thread' })], count: 1 });
+    await request;
+
+    expect(store.getState().thread.selectedThreadId).toBe('worker-created-after-request');
   });
 });
 

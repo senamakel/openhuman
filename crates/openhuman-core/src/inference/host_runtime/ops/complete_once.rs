@@ -95,6 +95,11 @@ pub async fn complete_once(
         "[inference] complete_once invoking chat model"
     );
 
+    let model: std::sync::Arc<dyn ChatModel<()>> = std::sync::Arc::new(model);
+    let model = match crate::agent::tinyagents::budget::current() {
+        Some(budget) => budget.wrap(model),
+        None => model,
+    };
     model
         .invoke(&(), request)
         .await

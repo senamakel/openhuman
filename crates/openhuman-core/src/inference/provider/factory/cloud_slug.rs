@@ -302,7 +302,15 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     // legacy host's rare 404 → `/v1/responses` fallback for non-codex slugs is
     // not replicated).
     let mut endpoint = entry.endpoint.clone();
-    let mut extra_headers: Vec<(String, String)> = Vec::new();
+    let mut extra_headers: Vec<(String, String)> = config
+        .ephemeral_route
+        .as_ref()
+        .filter(|route| {
+            slug == crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG
+                && route.endpoint == entry.endpoint
+        })
+        .map(|route| route.headers.clone())
+        .unwrap_or_default();
     let mut extra_query_params: Vec<(String, String)> = Vec::new();
     let mut user_agent: Option<String> = None;
     let mut responses_api_primary = false;

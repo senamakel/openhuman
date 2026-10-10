@@ -31,6 +31,37 @@ impl EmbedderToolHooksMiddleware {
     }
 }
 
+fn hook_identity(
+    data: &crate::agent::tinyagents::host::OpenHumanRunContext,
+) -> (Option<String>, Option<String>, Option<std::path::PathBuf>) {
+    let session_id = data
+        .thread_id
+        .clone()
+        .or_else(|| data.parent.as_ref().map(|parent| parent.session_id.clone()));
+    let agent_id = data
+        .parent
+        .as_ref()
+        .map(|parent| parent.agent_definition_id.clone());
+    let cwd = data
+        .workspace
+        .as_ref()
+        .map(|workspace| workspace.root.clone())
+        .or_else(|| {
+            data.parent.as_ref().and_then(|parent| {
+                parent
+                    .workspace_descriptor
+                    .as_ref()
+                    .map(|workspace| workspace.root.clone())
+            })
+        })
+        .or_else(|| {
+            crate::core::runtime::CoreContext::with_current_embedder_config(|config| {
+                config.action_dir.clone()
+            })
+        });
+    (session_id, agent_id, cwd)
+}
+
 #[async_trait]
 impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     for EmbedderToolHooksMiddleware
@@ -41,10 +72,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 
     async fn before_tool(
         &self,
-        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &mut TaToolCall,
     ) -> TaResult<()> {
+        let (session_id, agent_id, cwd) = hook_identity(&ctx.data);
         let mut context = crate::agent::hooks::ToolHookContext {
             event: crate::agent::hooks::ToolHookEvent::PreToolUse,
             call_id: call.id.clone(),
@@ -54,8 +86,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             duration_ms: None,
             output: None,
             error: None,
-            session_id: None,
-            agent_id: None,
+            session_id,
+            agent_id,
+            cwd,
         };
         for hook in &self.hooks {
             match hook.before_tool_decision(&context).await {
@@ -120,10 +153,11 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
     /// arguments through.
     async fn check_nested_tool(
         &self,
-        _ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         call: &TaToolCall,
     ) -> TaResult<()> {
+        let (session_id, agent_id, cwd) = hook_identity(&ctx.data);
         let context = crate::agent::hooks::ToolHookContext {
             event: crate::agent::hooks::ToolHookEvent::PreToolUse,
             call_id: call.id.clone(),
@@ -133,8 +167,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             duration_ms: None,
             output: None,
             error: None,
-            session_id: None,
-            agent_id: None,
+            session_id,
+            agent_id,
+            cwd,
         };
         for hook in &self.hooks {
             let refusal = match hook.before_tool_decision(&context).await {
@@ -165,7 +200,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
 
     async fn after_tool(
         &self,
-        _ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
+        ctx: &mut RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
         _state: &(),
         invocation: &ToolInvocationIdentity,
         result: &mut TaToolResult,
@@ -178,6 +213,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             .expect("embedder tool-hook arguments poisoned")
             .remove(&call_id)
             .unwrap_or(serde_json::Value::Null);
+        let (session_id, agent_id, cwd) = hook_identity(&ctx.data);
         let context = crate::agent::hooks::ToolHookContext {
             event: crate::agent::hooks::ToolHookEvent::PostToolUse,
             call_id,
@@ -191,8 +227,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             error: result
                 .is_error
                 .then(|| crate::agent::tinyagents::middleware::tool_result_text(result)),
-            session_id: None,
-            agent_id: None,
+            session_id,
+            agent_id,
+            cwd,
         };
         for hook in &self.hooks {
             // Text a hook returns is appended to the result the model reads —

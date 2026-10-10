@@ -18,6 +18,11 @@ use std::time::Duration;
 use tinyagents_harness::tool::ToolTimeoutSettings;
 use tinytools::ToolTimeout;
 
+mod command_environment;
+pub use command_environment::CommandEnvironment;
+mod process_cleanup;
+pub use process_cleanup::ProcessCleanup;
+
 /// Default tool-execution timeout in seconds when nothing else is configured.
 pub const DEFAULT_TIMEOUT_SECS: u64 = 120;
 /// Smallest accepted timeout. `0` would disable the timeout entirely, so it is
@@ -226,26 +231,130 @@ pub async fn output_or_kill(
     cmd: &mut tokio::process::Command,
     deadline: Duration,
 ) -> Result<std::io::Result<std::process::Output>, tokio::time::error::Elapsed> {
+    tokio::time::timeout(deadline, output_unbounded(cmd)).await
+}
+
+/// Capture a command with no deadline, killing its process group if the
+/// future is dropped. The child is reaped by an owned waiter even when the
+/// caller cancels; a scoped [`ProcessCleanup`] can await that waiter.
+pub async fn output_unbounded(
+    cmd: &mut tokio::process::Command,
+) -> std::io::Result<std::process::Output> {
+    output_with_input(cmd, None).await
+}
+
+/// Capture a command, optionally supplying stdin, in the current cleanup scope.
+pub async fn output_with_input(
+    cmd: &mut tokio::process::Command,
+    input: Option<Vec<u8>>,
+) -> std::io::Result<std::process::Output> {
     use std::process::Stdio;
-    cmd.stdin(Stdio::null())
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
-        .kill_on_drop(true);
+    cmd.stdin(if input.is_some() {
+        Stdio::piped()
+    } else {
+        Stdio::null()
+    })
+    .stdout(Stdio::piped())
+    .stderr(Stdio::piped())
+    .kill_on_drop(true);
+    CommandEnvironment::apply(cmd);
     own_process_group(cmd.as_std_mut());
-    let child = match cmd.spawn() {
-        Ok(child) => child,
-        Err(error) => return Ok(Err(error)),
-    };
-    let pid = child.id();
-    match tokio::time::timeout(deadline, child.wait_with_output()).await {
-        Ok(output) => Ok(output),
-        Err(elapsed) => {
-            if let Some(pid) = pid {
-                kill_process_group(pid);
+    let mut child = cmd.spawn()?;
+    let stdin = child.stdin.take();
+    let reaped = process_cleanup::Reaped::register();
+    let (cancel, cancellation) = tokio::sync::watch::channel(false);
+    let waiter = crate::core::runtime::spawn_scoped(async move {
+        let _reaped = reaped;
+        let write_input = async move {
+            if let (Some(mut stdin), Some(input)) = (stdin, input) {
+                use tokio::io::AsyncWriteExt;
+                // An early child exit closes stdin. Its exit status/output is
+                // authoritative; a broken pipe must not hide it.
+                let _ = stdin.write_all(&input).await;
             }
-            Err(elapsed)
+        };
+        let (_, output) = tokio::join!(write_input, collect_command_output(child, cancellation));
+        output
+    });
+    let _cancel_on_drop = CancelOnDrop(cancel);
+    waiter.await.map_err(std::io::Error::other)?
+}
+
+// The caller signals only the owned waiter. It never retains a PID after
+// that waiter reaps the child, so late future drops cannot kill a reused PID.
+struct CancelOnDrop(tokio::sync::watch::Sender<bool>);
+
+impl Drop for CancelOnDrop {
+    fn drop(&mut self) {
+        self.0.send_replace(true);
+    }
+}
+
+struct CommandGroup(Option<u32>);
+
+impl CommandGroup {
+    fn kill(&self) {
+        if let Some(pid) = self.0 {
+            kill_process_group(pid);
         }
     }
+}
+
+impl Drop for CommandGroup {
+    fn drop(&mut self) {
+        self.kill();
+    }
+}
+
+async fn collect_command_output(
+    mut child: tokio::process::Child,
+    mut cancellation: tokio::sync::watch::Receiver<bool>,
+) -> std::io::Result<std::process::Output> {
+    use tokio::io::AsyncReadExt;
+
+    let mut group = CommandGroup(child.id());
+    let mut stdout = child.stdout.take().expect("command stdout is piped");
+    let mut stderr = child.stderr.take().expect("command stderr is piped");
+    let mut stdout_bytes = Vec::new();
+    let mut stderr_bytes = Vec::new();
+    {
+        let drain = async {
+            tokio::try_join!(
+                stdout.read_to_end(&mut stdout_bytes),
+                stderr.read_to_end(&mut stderr_bytes),
+            )
+        };
+        tokio::pin!(drain);
+        tokio::select! {
+            biased;
+            _ = async { let _ = cancellation.wait_for(|cancelled| *cancelled).await; } => {
+                // The leader has not been reaped, even if it already exited.
+                // Its PID cannot be reused while signalling this group.
+                group.kill();
+                child.start_kill()?;
+                if let Ok(result) = tokio::time::timeout(Duration::from_secs(2), drain).await {
+                    result?;
+                }
+            }
+            result = &mut drain => { result?; }
+        }
+    }
+    let status = tokio::select! {
+        biased;
+        _ = async { let _ = cancellation.wait_for(|cancelled| *cancelled).await; } => {
+            group.kill();
+            child.start_kill()?;
+            child.wait().await?
+        }
+        result = child.wait() => result?,
+    };
+    // No await between reaping and disarming. Only this waiter owns the PID.
+    group.0 = None;
+    Ok(std::process::Output {
+        status,
+        stdout: stdout_bytes,
+        stderr: stderr_bytes,
+    })
 }
 
 /// Make `cmd` the leader of a new process group when it is spawned, so that

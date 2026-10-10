@@ -73,14 +73,15 @@ fn every_agent_answers_policy_from_its_own_tier() {
             assert_eq!(a.config().autonomy.level, AutonomyLevel::ReadOnly);
             let a_out = a.run("write the marker").await.expect("a's turn returns");
             assert!(!a_file.exists(), "a read-only agent must not write");
-            // A refused tool call is fed back to the model; the final reply
-            // comes from the provider and need not repeat the policy error.
+            // The scripted final reply is advisory; the tool result sent back
+            // to the model proves the policy denied execution.
             let a_requests = chat_requests(&a_provider).await;
+            let a_denial =
+                tool_results(a_requests.get(1).expect("a continued after its tool call"));
             assert!(
-                a_requests
-                    .iter()
-                    .any(|request| tool_results(request).contains("read-only mode")),
-                "a's tool result must report refusal by its own read-only tier"
+                a_denial.contains("[policy-blocked]") && a_denial.contains("read-only mode"),
+                "a's shell call is refused by its own tier: {}",
+                a_denial
             );
             assert_eq!(
                 a_out.reply, "a-done",

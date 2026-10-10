@@ -43,6 +43,8 @@ struct AgentChatParams {
     /// other provider.
     #[serde(default)]
     api_key: Option<String>,
+    #[serde(default)]
+    inference_headers: Vec<(String, String)>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -137,6 +139,12 @@ pub fn schemas(function: &str) -> ControllerSchema {
                     "Bearer for inference_url. Scoped to this call and to that \
                      endpoint alone.",
                 ),
+                FieldSchema {
+                    name: "inference_headers",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(TypeSchema::Json)))),
+                    comment: "Custom header name/value pairs for inference_url only; never persisted.",
+                    required: false,
+                },
             ],
             outputs: vec![json_output(
                 "response",
@@ -232,7 +240,8 @@ fn handle_agent_chat(params: Map<String, Value>) -> ControllerFuture {
             p.temperature,
             p.thread_id,
             p.cwd,
-            crate::config::schema::EphemeralRoute::from_params(p.inference_url, p.api_key),
+            crate::config::schema::EphemeralRoute::from_params(p.inference_url, p.api_key)
+                .map(|route| route.with_headers(p.inference_headers)),
         )
         .await?
         .into_rpc_json()

@@ -195,6 +195,15 @@ impl NodeExecTool {
             ));
         }
         let path_policy = super::security_for_tool_context(&self.security, context, "node_exec");
+        for input in inline_code
+            .iter()
+            .chain(script_path.iter())
+            .chain(extra_args.iter())
+        {
+            if let Err(reason) = path_policy.check_protected_path_literals(input) {
+                return Ok(ToolResult::error(reason));
+            }
+        }
         if self.security.is_rate_limited() {
             return Ok(ToolResult::error(
                 "Rate limit exceeded: too many actions in the last hour",
@@ -294,7 +303,7 @@ impl NodeExecTool {
 
         cmd.env_clear();
 
-        let host_path = std::env::var("PATH").unwrap_or_default();
+        let host_path = crate::tools::timeout::CommandEnvironment::var("PATH").unwrap_or_default();
         let sep = if cfg!(windows) { ";" } else { ":" };
         let prepended_path = if host_path.is_empty() {
             resolved.bin_dir.to_string_lossy().into_owned()
@@ -304,7 +313,7 @@ impl NodeExecTool {
         cmd.env("PATH", &prepended_path);
 
         for var in SAFE_ENV_VARS {
-            if let Ok(val) = std::env::var(var) {
+            if let Ok(val) = crate::tools::timeout::CommandEnvironment::var(var) {
                 cmd.env(var, val);
             }
         }
@@ -313,7 +322,7 @@ impl NodeExecTool {
         // completion (no harness/tool timeout on long scripts).
         let result = match explicit_timeout {
             Some(timeout) => crate::tools::timeout::output_or_kill(&mut cmd, timeout).await,
-            None => Ok(cmd.output().await),
+            None => Ok(crate::tools::timeout::output_unbounded(&mut cmd).await),
         };
 
         match result {
@@ -474,7 +483,7 @@ impl NodeExecTool {
         // process can resolve `node`, `npm`, `npx`, `corepack` consistently
         // with the unsandboxed path.
         let mut extra_env = std::collections::HashMap::new();
-        let host_path = std::env::var("PATH").unwrap_or_default();
+        let host_path = crate::tools::timeout::CommandEnvironment::var("PATH").unwrap_or_default();
         let sep = if cfg!(windows) { ";" } else { ":" };
         let prepended = if host_path.is_empty() {
             bin_dir.to_string_lossy().into_owned()

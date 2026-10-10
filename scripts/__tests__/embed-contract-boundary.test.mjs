@@ -9,8 +9,14 @@ function check(files) {
   const root = mkdtempSync(resolve(tmpdir(), 'embed-contract-boundary-'));
   try {
     mkdirSync(resolve(root, 'scripts/ci'), { recursive: true });
-    mkdirSync(resolve(root, 'vendor/tinyagents/crates'), { recursive: true });
+    mkdirSync(resolve(root, 'scripts/lib'), { recursive: true });
+    const bridge = 'vendor/tinyagents/crates/tinyagents-harness/src/providers/claude_code/bridge.rs';
+    mkdirSync(dirname(resolve(root, bridge)), { recursive: true });
+    writeFileSync(resolve(root, bridge), 'struct ChatMessage { pub(crate) role: String, pub(crate) content: String, }\n');
     copyFileSync(new URL('../ci/check-agent-runtime-boundary.mjs', import.meta.url), resolve(root, 'scripts/ci/check-agent-runtime-boundary.mjs'));
+    for (const helper of ['runtime-boundary-types.mjs', 'agent-sdk-contracts.mjs']) {
+      copyFileSync(new URL(`../lib/${helper}`, import.meta.url), resolve(root, `scripts/lib/${helper}`));
+    }
     writeFileSync(resolve(root, 'scripts/ci/agent-runtime-boundary-baseline.json'), '[]\n');
     for (const [path, source] of Object.entries(files)) {
       mkdirSync(dirname(resolve(root, path)), { recursive: true });

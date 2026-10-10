@@ -168,6 +168,41 @@ fn dropping_a_stream_releases_the_inflight_model_and_the_agent_can_run_again() {
                 }
             }
             drop(stream);
+            // Ordinary send shares the same native child scope. Cancelling
+            // its acknowledgement handle must leave the caller's parent usable.
+            model.first.store(true, Ordering::SeqCst);
+            let shared = openhuman_embed::CancellationToken::new();
+            let mut configured = agent
+                .turn("cancel ordinary send")
+                .cancellation(shared.clone());
+            let handle = configured.cancellation_handle();
+            let running = tokio::spawn(configured.send());
+            tokio::time::timeout(std::time::Duration::from_secs(10), start_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            tokio::time::timeout(std::time::Duration::from_secs(10), handle.cancel())
+                .await
+                .expect("ordinary send acknowledges native cleanup");
+            assert!(running.await.unwrap().is_err());
+            tokio::time::timeout(std::time::Duration::from_secs(10), release_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(
+                !shared.is_cancelled(),
+                "turn-local cancellation must not cancel its parent"
+            );
+            assert_eq!(
+                agent
+                    .turn("reuse caller parent")
+                    .cancellation(shared)
+                    .send()
+                    .await
+                    .unwrap()
+                    .reply,
+                "after cancellation"
+            );
             let (buffered, mut buffered_rx) = tokio::sync::mpsc::unbounded_channel();
             let (released, mut released_rx) = tokio::sync::mpsc::unbounded_channel();
             let flood = runtime
@@ -200,6 +235,54 @@ fn dropping_a_stream_releases_the_inflight_model_and_the_agent_can_run_again() {
                 .await
                 .unwrap()
                 .unwrap();
+            drop(unread);
+            // The acknowledgement handle and deadline also release a model
+            // while the stream receiver remains alive and backpressured.
+            let mut configured = flood.turn("cancel with the acknowledgement handle");
+            let handle = configured.cancellation_handle();
+            let mut unread = configured.stream();
+            tokio::time::timeout(std::time::Duration::from_secs(10), buffered_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            tokio::time::timeout(std::time::Duration::from_secs(10), handle.cancel())
+                .await
+                .expect("acknowledged cancellation under backpressure");
+            tokio::time::timeout(std::time::Duration::from_secs(10), released_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            while let Some(event) = unread.recv().await {
+                if let openhuman_embed::StreamEvent::Finished(result) = event {
+                    assert!(matches!(
+                        result,
+                        Err(openhuman_embed::CoreError::TurnCancelled { .. })
+                    ));
+                    break;
+                }
+            }
+            drop(unread);
+            let mut unread = flood
+                .turn("deadline with an unread stream")
+                .timeout(std::time::Duration::from_secs(2))
+                .stream();
+            tokio::time::timeout(std::time::Duration::from_secs(10), buffered_rx.recv())
+                .await
+                .unwrap()
+                .unwrap();
+            tokio::time::timeout(std::time::Duration::from_secs(10), released_rx.recv())
+                .await
+                .expect("deadline interrupts backpressure")
+                .unwrap();
+            while let Some(event) = unread.recv().await {
+                if let openhuman_embed::StreamEvent::Finished(result) = event {
+                    assert!(matches!(
+                        result,
+                        Err(openhuman_embed::CoreError::DeadlineExceeded { .. })
+                    ));
+                    break;
+                }
+            }
             drop(unread);
             drop(flood);
             drop(agent);

@@ -31,6 +31,7 @@ fn turn_request_field_names_match_the_controller() {
         cwd: Some("/tmp".into()),
         inference_url: Some("https://example.invalid/v1".into()),
         api_key: Some("k".into()),
+        inference_headers: vec![("x-worker".into(), "a".into())],
         agent_id: Some("a".into()),
     };
 
@@ -203,13 +204,14 @@ fn the_controller_declares_nowhere_for_a_seed_to_travel() {
     // `context` or `transcript` could carry history just as well, and a
     // heuristic that guesses at names would pass it silently. Anything new
     // fails here until someone decides whether a seed could ride it.
-    const KNOWN: [&str; 8] = [
+    const KNOWN: [&str; 9] = [
         "message",
         "model_override",
         "temperature",
         "thread_id",
         "cwd",
         "inference_url",
+        "inference_headers",
         "api_key",
         "agent_id",
     ];

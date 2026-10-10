@@ -79,6 +79,7 @@ pub mod subagent_host;
 pub mod tinyagents;
 pub mod todos;
 pub mod tool_policy;
+pub mod tool_snapshot_scope;
 pub mod tools;
 pub mod triage;
 /// Wall-clock deadline of one top-level turn: the outer backstop and the

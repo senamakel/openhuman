@@ -157,7 +157,6 @@ export const TOOL_PHRASES = {
   searchPlaces: { active: 'Searching places', done: 'Searched places' },
   lookUpPlace: { active: 'Looking up place', done: 'Looked up place' },
   checkMarkets: { active: 'Checking markets', done: 'Checked markets' },
-  placeCall: { active: 'Placing call', done: 'Placed call' },
   checkTaskSources: { active: 'Checking task sources', done: 'Checked task sources' },
   updateTaskSources: { active: 'Updating task sources', done: 'Updated task sources' },
   fetchTasks: { active: 'Fetching tasks', done: 'Fetched tasks' },

@@ -28,8 +28,7 @@
 //   (b) CONTROLLER-DOMAIN CHECK — every controller domain registered in
 //       `crates/openhuman-core/src/core/all.rs` (via `crate::<domain>::all_*_controllers`)
 //       is referenced by >=1 file under `tests/`. Catches RPC domains that
-//       ship with zero integration/E2E coverage (recall_calendar,
-//       devices, …).
+//       ship with zero integration/E2E coverage (devices, …).
 //
 // Known-current offenders are seeded into the allowlists below so the check
 // lands green; the intent is to burn those lists down over time. Any NEW
@@ -88,7 +87,6 @@ const DOMAIN_ALLOWLIST = new Set([
   'people',
   'plan_review',
   'provider_surfaces',
-  'recall_calendar',
   'referral',
   'session_import',
   'skill_runtime',

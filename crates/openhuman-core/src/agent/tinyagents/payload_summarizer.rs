@@ -142,8 +142,14 @@ impl PayloadSummarizer for SubagentPayloadSummarizer {
                     )?,
                     max_output_tokens,
                 );
+                let provider_model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
+                    Arc::new(provider_model);
+                let provider_model = match &child_context.data.model_budget {
+                    Some(budget) => budget.wrap(provider_model),
+                    None => provider_model,
+                };
                 harness
-                    .register_model(&model, Arc::new(provider_model))
+                    .register_model(&model, provider_model)
                     .set_default_model(&model);
 
                 // Unary, never streaming. A chat turn's parent is streaming, and

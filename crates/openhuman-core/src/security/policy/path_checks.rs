@@ -475,6 +475,20 @@ impl SecurityPolicy {
         if segments.iter().any(|s| SENSITIVE_COMPONENTS.contains(s)) {
             return true;
         }
+        // Single-file credential stores have no protected parent directory.
+        const SENSITIVE_FILES: &[&str] = &[".netrc", ".git-credentials", ".pgpass", ".npmrc"];
+        if segments.iter().any(|s| SENSITIVE_FILES.contains(s)) {
+            return true;
+        }
+        if segments.windows(2).any(|w| w == [".docker", "config.json"]) {
+            return true;
+        }
+        if segments
+            .windows(2)
+            .any(|w| w == [".cargo", "credentials.toml"])
+        {
+            return true;
+        }
         // Windows DPAPI / credential stores live under `…\Microsoft\{Protect,
         // Credentials,Crypto,Vault}` — match the pair so the generic second
         // name can't false-positive an unrelated project directory.

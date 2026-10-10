@@ -105,6 +105,7 @@ pub mod skill_registry {
 mod agent;
 pub mod artifacts;
 mod auth;
+pub mod budget;
 mod call;
 #[cfg(feature = "channels")]
 pub mod channels;
@@ -115,16 +116,26 @@ mod core_agent;
 pub mod cron;
 pub mod embeddings;
 mod error;
+pub mod fanout;
 mod harness;
 pub mod identity;
 pub mod memory;
 #[cfg(feature = "modules")]
 pub mod modules;
+mod permission;
+pub use permission::PermissionFuture;
+pub mod observe;
+
 pub mod process;
 #[cfg(feature = "channels")]
 pub mod profiles;
+pub mod repository;
+/// Explicit ordered fallback and truncation policies.
+pub mod routing;
 mod runtime;
 mod turn;
+mod turn_cancellation;
+mod turn_meter;
 
 /// Core internals for `openhuman-tinyhumans` and `openhuman-rpc` only; see
 /// the module docs. Not part of the host-facing API.
@@ -187,6 +198,9 @@ pub use runtime::{
 pub mod seams {
     pub use openhuman_core::agent::hooks::{PostTurnHook, ToolHook};
     pub use openhuman_core::agent::hooks::{ToolHookContext, ToolHookDecision, TurnContext};
+    pub use openhuman_core::agent::stop_hooks::{
+        BudgetStopHook, StopDecision, StopHook, TurnState,
+    };
     pub use openhuman_core::core::all::{ControllerExtension, DomainGroup};
     pub use openhuman_core::core::server_launcher::{HostBoot, ServeRequest, ServerLauncher};
     pub use openhuman_core::security::SecurityPolicy;
@@ -224,6 +238,7 @@ pub use complete::{
 };
 pub use session_store::{InMemorySessionStores, SessionStoreProvider};
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
+pub use turn_cancellation::TurnCancellation;
 
 use std::sync::Arc;
 
@@ -295,6 +310,11 @@ impl std::fmt::Debug for Core {
     }
 }
 
+/// Strict structured output failure metadata.
+pub mod structured;
+
+/// Acknowledged cancellation for stateless completion operations.
+pub mod cancellation;
 /// Runtime event subscriptions without content or credentials.
 pub mod events;
 /// Owned streaming turns and cooperative cancellation.

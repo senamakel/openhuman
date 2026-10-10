@@ -23,8 +23,8 @@ impl std::fmt::Display for ModuleCallError {
             Self::TransportFailed => "transport failed",
             Self::ModuleFault => "execution failed",
         };
-        // Later product reporting recognises this as already reported module
-        // unavailability, rather than producing another terminal Sentry event.
+        // Later product reporting recognises this as an already reported
+        // module failure, rather than producing a second terminal event.
         write!(formatter, "MODULE_CALL_REPORTED: module {reason}")
     }
 }
@@ -129,7 +129,13 @@ async fn invoke_proxy<R: DeserializeOwned>(
     };
     result.map_err(|error| {
         let (outcome, reason) = classify(&error);
-        failure::report(record, reason);
+        if reason == failure::Reason::ModuleUnavailable {
+            // TinyBus emits this stable error for a module whose terminal
+            // lifecycle state is cached for the rest of the process.
+            failure::report(record, reason);
+        } else {
+            failure::report_invocation(record, reason);
+        }
         outcome
     })
 }
@@ -138,6 +144,10 @@ async fn invoke_proxy<R: DeserializeOwned>(
 fn classify(error: &tinybus::Error) -> (ModuleCallError, failure::Reason) {
     use tinybus::Error;
     match error {
+        Error::ModuleUnavailable { .. } => (
+            ModuleCallError::Unavailable,
+            failure::Reason::ModuleUnavailable,
+        ),
         Error::IncompatibleVersion { .. }
         | Error::UnknownMethod { .. }
         | Error::UnknownInterface { .. }
@@ -146,6 +156,14 @@ fn classify(error: &tinybus::Error) -> (ModuleCallError, failure::Reason) {
             ModuleCallError::IncompatibleContract,
             failure::Reason::IncompatibleContract,
         ),
+        Error::MethodFailed { name, .. }
+            if name == "ai.tinyhumans.tinybus.Error.ModuleUnavailable" =>
+        {
+            (
+                ModuleCallError::Unavailable,
+                failure::Reason::ModuleUnavailable,
+            )
+        }
         Error::MethodFailed { name, .. }
             if matches!(
                 name.as_str(),

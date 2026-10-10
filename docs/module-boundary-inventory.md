@@ -22,7 +22,7 @@ copying its implementation into a host, or accepting weaker isolation.
 | tinybox | tinybox-core, tinybox-jail, tinybox-docker, tinybox-host, tinybox-ssh | tinybox-bus (missing at pin) | core sandbox and security, desktop gateways | Discovery-only module needs handle-based sandbox/exec/streams/cancel/files/forward/status/close and shell-analysis facts; pre-core gateways use process loader |
 | tinycomputer | tinycomputer-accessibility | tinycomputer-bus | core voice, paste/focus and permission checks | Permission, focus, paste, Globe listener vocabulary/operations; preserve native thread and target rules |
 | tinyvoice | tinyvoice, cpal (also through accessibility probe) | tinyvoice-bus | core voice capture/hotkeys | Devices, recording/capture and hotkey lifecycle, bounded event batches; computer module permission decisions |
-| tinyruntime | tinyruntime-pyserver | tinyruntime-bus | core Python worker, optional TinyJuice ML | Prepare/start/request/status/stop workers; module owns install, handshakes, retries/backoff and idle expiry |
+| tinyruntime | tinyruntime-pyserver | tinyruntime-bus | core Python worker, optional TinyJuice ML | Excluded from this migration: TinyRuntime is being removed separately |
 | tinydocs / tinymemory | pdf-extract, calamine through tinymemory-integrations/documents-office | tinydocs-bus | core memory converter and file sources | Replace OfficeConverter with bus DocumentConverter; XLSX extraction plus existing PDF/DOCX/PPTX metadata/format coverage |
 | tinysearch | none observed | tinysearch-bus | core module search proxy | Preserve existing bus adapter; enforce contract and host dependency graphs |
 
@@ -105,7 +105,12 @@ TinyBox currently refuses supervised execution on unsupported backends and platf
 Docker/namespace and Windows supervision, streaming, file transfer, forwarding and
 gateway operations remain required before migrating its host callers.
 
-TinyRuntime’s generic worker slice does not yet replace persistent Python/model
+TinyRuntime is now excluded from the active migration because it is being removed
+separately. The previously published owning PR remains recorded above; the frozen
+Python-provider work has not been published or integrated. The boundary inventory
+still records existing dependencies until the separate removal reaches OpenHuman.
+
+Previously completed TinyRuntime work does not replace persistent Python/model
 provisioning or the host’s linked worker path. Declarative cache recipes and
 optional provider preparation are independently reviewed in the owning PR. Contract 1.4 preserves the original provider operations,
 negotiates preparation capability and allows explicit per-step deadlines within a

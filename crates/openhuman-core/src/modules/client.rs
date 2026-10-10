@@ -39,12 +39,26 @@ impl std::error::Error for ModuleCallError {}
 #[derive(Clone)]
 pub struct ModuleClient {
     config: Config,
+    #[cfg(all(test, feature = "modules"))]
+    fixture: Option<tinybus::Proxy>,
 }
 
 impl ModuleClient {
     #[must_use]
     pub fn new(config: Config) -> Self {
-        Self { config }
+        Self {
+            config,
+            #[cfg(all(test, feature = "modules"))]
+            fixture: None,
+        }
+    }
+
+    #[cfg(all(test, feature = "modules"))]
+    pub(crate) fn fixture(proxy: tinybus::Proxy) -> Self {
+        Self {
+            config: Config::default(),
+            fixture: Some(proxy),
+        }
     }
 
     /// Execute a contract member, retaining its existing argument tuple arity.
@@ -88,6 +102,10 @@ impl ModuleClient {
             failure::report(record, failure::Reason::Disabled);
             return Err(ModuleCallError::Unavailable);
         }
+        #[cfg(all(test, feature = "modules"))]
+        if let Some(proxy) = self.fixture.as_ref() {
+            return invoke_proxy(record, proxy, member, args, confidential).await;
+        }
         #[cfg(not(feature = "modules"))]
         {
             let _ = (member, args, confidential);
@@ -127,17 +145,23 @@ async fn invoke_proxy<R: DeserializeOwned>(
     } else {
         proxy.call(member, args).await
     };
-    result.map_err(|error| {
-        let (outcome, reason) = classify(&error);
-        if reason == failure::Reason::ModuleUnavailable {
-            // TinyBus emits this stable error for a module whose terminal
-            // lifecycle state is cached for the rest of the process.
-            failure::report(record, reason);
-        } else {
-            failure::report_invocation(record, reason);
-        }
-        outcome
-    })
+    result.map_err(|error| report_proxy_failure(record, &error))
+}
+
+/// Report a bus failure without exposing its payload to telemetry. Product
+/// adapters may separately decode a structured provider refusal for display.
+#[cfg(feature = "modules")]
+pub(super) fn report_proxy_failure(
+    record: &'static super::types::ModuleRecord,
+    error: &tinybus::Error,
+) -> ModuleCallError {
+    let (outcome, reason) = classify(error);
+    if reason == failure::Reason::ModuleUnavailable {
+        failure::report(record, reason);
+    } else {
+        failure::report_invocation(record, reason);
+    }
+    outcome
 }
 
 #[cfg(feature = "modules")]

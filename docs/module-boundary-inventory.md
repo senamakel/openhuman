@@ -222,11 +222,14 @@ and verified against both published checksums and GitHub asset digests. The
 source pin is `b89632a8f7b96580a9f6718d185eb60b14a41a8a`; HTML and query
 adapters now use the module. The isolated `module-tinyjuice-host` checkout owns
 the turn-bound summary callback registry using the existing callback DTO.
-All 54 current TokenJuice tests pass with the released native library configured
-through OpenHuman's pinned loader, including cached-handle queries,
-supplied-content queries and HTML extraction. The library checks pass both
-without the loader and with the repository-pinned Rust compiler. Recorded
-TinyJuice tool restoration is still under regression testing.
+All 66 Juice tests pass with the released native library configured through
+OpenHuman's pinned loader, including cached-handle queries, supplied-content
+queries, HTML extraction and resumed frozen tool declarations. Resume retains
+recorded executors when current REPL flags are off, preserves the recorded
+schemas verbatim, and does not add live declarations to a frozen subset or
+empty snapshot. Disabled module loading still fails the retained executor
+explicitly. The library checks pass both without the loader and with the
+repository-pinned Rust compiler.
 
 The TinyJuice cut removes its host implementation exception. The transitional
 audit now reports zero violations, zero stale exceptions, 30 remaining temporary

@@ -143,7 +143,6 @@ fn control_plane_does_not_exempt_user_data_paths() {
         "/agent-integrations/composio/some-future-write",
         "/agent-integrations/parallel/research",
         "/agent-integrations/tinyfish/fetch",
-        "/agent-integrations/twilio/call",
         "/agent-integrations/file-storage/files",
         "/agent-integrations/google-places/search",
     ] {

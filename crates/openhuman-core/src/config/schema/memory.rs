@@ -20,7 +20,7 @@
 //! history_limit = 6
 //! team_limit = 0                   # other agents' turns; 0 leaves the section out
 //! build_beliefs_every = 10         # turns between belief builds; 0 turns them off
-//! pre_turn_timeout_ms = 1500
+//! pre_turn_timeout_ms = 5000
 //! date_hint = false                # a model call works out which days a turn is about
 //! compaction_timeout_ms = 8000
 //! build_delay_secs = 300           # how far belief builds run behind the writes
@@ -277,7 +277,7 @@ impl Default for MemoryConversationsConfig {
 /// Default `[memory.recall] budget_tokens`.
 pub const DEFAULT_RECALL_BUDGET_TOKENS: u32 = 1200;
 /// Default `[memory.recall] pre_turn_timeout_ms`.
-pub const DEFAULT_PRE_TURN_TIMEOUT_MS: u64 = 1500;
+pub const DEFAULT_PRE_TURN_TIMEOUT_MS: u64 = 5000;
 /// Default `[memory.recall] compaction_timeout_ms`.
 pub const DEFAULT_COMPACTION_TIMEOUT_MS: u64 = 8000;
 /// Default `[memory.recall] build_delay_secs`.

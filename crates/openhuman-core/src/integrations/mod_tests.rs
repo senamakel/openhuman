@@ -33,11 +33,22 @@ fn backend_response_without_data() {
 fn integration_pricing_defaults_on_missing_fields() {
     let json = r#"{"integrations": {}}"#;
     let pricing: IntegrationPricing = serde_json::from_str(json).unwrap();
-    assert!(pricing.integrations.apify.is_none());
-    assert!(pricing.integrations.twilio.is_none());
     assert!(pricing.integrations.google_places.is_none());
     assert!(pricing.integrations.parallel.is_none());
     assert!(pricing.integrations.tinyfish.is_none());
+}
+
+#[test]
+fn integration_pricing_ignores_retired_apify_and_twilio_entries() {
+    // An older backend still reporting the retired integrations must not
+    // break pricing deserialization.
+    let json = r#"{"integrations": {
+        "apify": {"available": true, "pricing": {}},
+        "twilio": {"available": true, "pricing": {}},
+        "parallel": {"available": true, "pricing": {}}
+    }}"#;
+    let pricing: IntegrationPricing = serde_json::from_str(json).unwrap();
+    assert!(pricing.integrations.parallel.unwrap().available);
 }
 
 #[test]

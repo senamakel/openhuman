@@ -14,10 +14,6 @@ pub struct IntegrationPricing {
 #[derive(Debug, Clone, Default, Deserialize)]
 pub struct PricingIntegrations {
     #[serde(default)]
-    pub apify: Option<IntegrationPricingEntry>,
-    #[serde(default)]
-    pub twilio: Option<IntegrationPricingEntry>,
-    #[serde(default)]
     pub google_places: Option<IntegrationPricingEntry>,
     #[serde(default)]
     pub parallel: Option<IntegrationPricingEntry>,

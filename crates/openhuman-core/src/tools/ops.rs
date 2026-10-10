@@ -882,14 +882,6 @@ pub fn all_tools_with_runtime(
         } else {
             tracing::debug!("[integrations] stock_prices disabled — skipping");
         }
-        if root_config.integrations.twilio.is_active() {
-            tools.push(Box::new(crate::tools::TwilioCallTool::new(Arc::clone(
-                &client,
-            ))));
-            tracing::debug!("[integrations] registered twilio tools");
-        } else {
-            tracing::debug!("[integrations] twilio disabled — skipping");
-        }
     } else {
         tracing::debug!(
             "[integrations] build_client returned None — integration tools not registered"

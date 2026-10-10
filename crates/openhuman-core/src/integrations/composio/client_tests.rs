@@ -451,8 +451,6 @@ async fn pricing_for_config_short_circuits_in_direct_mode() {
 
     let pricing = crate::integrations::pricing_for_config(&client, &config).await;
     // The default struct has every per-integration entry as `None`.
-    assert!(pricing.integrations.apify.is_none());
-    assert!(pricing.integrations.twilio.is_none());
     assert!(pricing.integrations.google_places.is_none());
     assert!(pricing.integrations.parallel.is_none());
     assert!(pricing.integrations.tinyfish.is_none());

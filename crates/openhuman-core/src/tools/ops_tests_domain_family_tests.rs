@@ -2,7 +2,7 @@ use super::*;
 use tinytools_std::filesystem::{ApplyPatchTool, CsvExportTool};
 
 #[tokio::test]
-async fn all_tools_executes_stock_and_twilio_family_against_fake_backend() {
+async fn all_tools_executes_stock_family_against_fake_backend() {
     let backend = integration_test_support::spawn_fake_integration_backend().await;
     let tmp = TempDir::new().unwrap();
     let cfg = integration_test_config(&tmp, &backend.base_url);
@@ -57,16 +57,6 @@ async fn all_tools_executes_stock_and_twilio_family_against_fake_backend() {
     assert!(commodity.output().contains("WTI (weekly)"));
     assert!(commodity.output().contains("2026-05-16  80.1000"));
 
-    let twilio = find_tool(&tools, "twilio_call")
-        .execute(serde_json::json!({
-            "to": "+14155551234",
-            "message": "Hello from tests"
-        }))
-        .await
-        .expect("twilio_call execute");
-    assert!(twilio.output().contains("Call SID: CA1234"));
-    assert!(twilio.output().contains("Status: queued"));
-
     let requests = backend.requests();
     let paths: Vec<&str> = requests.iter().map(|req| req.path.as_str()).collect();
     assert_eq!(
@@ -77,11 +67,9 @@ async fn all_tools_executes_stock_and_twilio_family_against_fake_backend() {
             "/agent-integrations/financial-apis/options",
             "/agent-integrations/financial-apis/crypto-series",
             "/agent-integrations/financial-apis/commodity",
-            "/agent-integrations/twilio/call",
         ]
     );
     assert_eq!(requests[2].body["requireGreeks"], serde_json::json!(true));
-    assert_eq!(requests[5].body["to"], serde_json::json!("+14155551234"));
 }
 
 /// Every acting tool gates on `can_act()` and returns its own read-only refusal

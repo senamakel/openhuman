@@ -231,7 +231,6 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
     cfg.integrations.parallel.enabled = true;
     cfg.integrations.tinyfish.enabled = true;
     cfg.integrations.stock_prices.enabled = true;
-    cfg.integrations.twilio.enabled = true;
     cfg.composio.enabled = true;
     store_test_session_token(&cfg);
 
@@ -257,13 +256,18 @@ fn all_tools_registers_integration_families_when_enabled_and_signed_in() {
             "stock_options",
             "stock_crypto_series",
             "stock_commodity",
-            "twilio_call",
             "composio_list_toolkits",
             "composio_list_connections",
             "composio_authorize",
             "composio_list_tools",
             "composio_execute",
         ],
+    );
+    // The backend retired its Twilio route; the agent must not be offered a
+    // tool that can only fail.
+    assert!(
+        !names.iter().any(|n| n == "twilio_call"),
+        "twilio_call must no longer be registered"
     );
 }
 

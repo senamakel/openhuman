@@ -86,8 +86,8 @@ pub async fn pricing_for_config(
 ///   both resolve to an error, so no client is built for them.
 ///
 /// There are no per-feature toggles for the shared client itself —
-/// callers that need a kill switch (e.g. twilio, google_places,
-/// parallel) gate tool registration at their own level.
+/// callers that need a kill switch (e.g. google_places, parallel,
+/// stock_prices) gate tool registration at their own level.
 ///
 /// [`resolve_backend_credential`]: crate::security::credentials::session_support::resolve_backend_credential
 pub fn build_client(config: &crate::config::Config) -> Option<Arc<IntegrationClient>> {

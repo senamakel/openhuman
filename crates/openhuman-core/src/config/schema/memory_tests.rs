@@ -25,6 +25,11 @@ fn defaults_select_tinyhumans_with_logging_and_recall_on() {
 }
 
 #[test]
+fn default_pre_turn_waits_five_seconds_for_memory() {
+    assert_eq!(MemoryConfig::default().recall.pre_turn_timeout_ms, 5_000);
+}
+
+#[test]
 fn turning_the_github_split_off_survives_a_save() {
     // On is the default and is not written; off is, so it reads back off.
     let on = toml::to_string(&MemoryConfig::default()).unwrap();

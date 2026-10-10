@@ -70,7 +70,6 @@ import {
   PackageIcon,
   PackagePlusIcon,
   PackageSearchIcon,
-  PhoneIcon,
   PlugIcon,
   PodcastIcon,
   PowerIcon,
@@ -376,7 +375,6 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   gmail_unsubscribe: spec('unsubscribe', MailXIcon, 'app', { chip: chip.text('sender', 'email') }),
   google_places_search: spec('searchPlaces', MapPinIcon, 'app', { chip: chip.query() }),
   google_places_details: spec('lookUpPlace', MapPinIcon, 'app', { chip: chip.text('place_id') }),
-  twilio_call: spec('placeCall', PhoneIcon, 'app', { chip: chip.text('to') }),
 
   // ── MCP ─────────────────────────────────────────────────────────────────
   mcp_list_servers: spec('checkMcpServers', ServerIcon, 'mcp'),

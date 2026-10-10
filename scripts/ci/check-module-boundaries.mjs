@@ -16,7 +16,7 @@ export const CONTRACT_CLOSURE = new Set([
 
 export function isImplementation(name, policy) {
   return policy.implementationPackages.includes(name) ||
-    policy.implementationPrefixes.some(prefix => name.startsWith(prefix) &&
+    policy.implementationPrefixes.some(prefix => (name === prefix.replace(/-$/, '') || name.startsWith(prefix)) &&
       !policy.contracts.some(contract => contract.name === name));
 }
 

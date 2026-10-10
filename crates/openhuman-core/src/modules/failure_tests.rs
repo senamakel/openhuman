@@ -51,6 +51,7 @@ fn terminal_reports_are_sanitized_and_deduplicated() {
 #[test]
 fn reason_codes_and_stages_are_closed_vocabulary() {
     for reason in [
+        Reason::UnknownModule,
         Reason::Disabled,
         Reason::LoaderDisabled,
         Reason::ResolutionFailed,

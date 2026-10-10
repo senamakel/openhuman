@@ -116,3 +116,13 @@ test('every approved vocabulary descendant must come from the approved registry'
   m.packages.find(pkg => pkg.name === 'syn').source = null;
   assert.deepEqual(auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations[0].path, ['tinyjuice-bus', 'serde', 'syn']);
 });
+
+test('bare owning packages and their implementation descendants are both forbidden', () => {
+  for (const prefix of policy.implementationPrefixes) {
+    const owner = prefix.replace(/-$/, '');
+    assert.equal(isImplementation(owner, strict), true, owner);
+    assert.equal(isImplementation(`${owner}-new-engine`, strict), true, owner);
+    const contract = policy.contracts.find(item => item.name === `${owner}-bus`);
+    if (contract) assert.equal(isImplementation(contract.name, strict), false, contract.name);
+  }
+});

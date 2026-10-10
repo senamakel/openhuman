@@ -8,6 +8,7 @@ use super::types::ModuleRecord;
 /// Closed reason vocabulary: never accept a module error, path or payload here.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub(super) enum Reason {
+    UnknownModule,
     Disabled,
     LoaderDisabled,
     ResolutionFailed,
@@ -19,6 +20,7 @@ pub(super) enum Reason {
 impl Reason {
     fn code(self) -> &'static str {
         match self {
+            Self::UnknownModule => "unknown_module",
             Self::Disabled => "disabled",
             Self::LoaderDisabled => "loader_disabled",
             Self::ResolutionFailed => "resolution_failed",
@@ -30,6 +32,7 @@ impl Reason {
 
     fn stage(self) -> &'static str {
         match self {
+            Self::UnknownModule => "registry",
             Self::Disabled | Self::LoaderDisabled => "availability",
             Self::ResolutionFailed => "resolve",
             Self::IncompatibleContract => "contract",
@@ -44,6 +47,15 @@ impl Reason {
 /// There are finitely many registry records and reasons, so the process cache
 /// is bounded. Concurrent callers cannot duplicate the same terminal report.
 pub(super) fn report(record: &'static ModuleRecord, reason: Reason) {
+    report_metadata(record.id, record.version, reason);
+}
+
+/// Unknown identifiers never become event metadata or deduplication keys.
+pub(super) fn report_unknown_module() {
+    report_metadata("unregistered", "unknown", Reason::UnknownModule);
+}
+
+fn report_metadata(module: &'static str, version: &'static str, reason: Reason) {
     static REPORTED: OnceLock<Mutex<HashSet<(&'static str, Reason)>>> = OnceLock::new();
     let platform = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
     let capture = || {
@@ -52,8 +64,8 @@ pub(super) fn report(record: &'static ModuleRecord, reason: Reason) {
             "modules",
             reason.stage(),
             &[
-                ("module", record.id),
-                ("version", record.version),
+                ("module", module),
+                ("version", version),
                 ("stage", reason.stage()),
                 ("platform", &platform),
                 ("reason_code", reason.code()),
@@ -71,7 +83,7 @@ pub(super) fn report(record: &'static ModuleRecord, reason: Reason) {
             .get_or_init(|| Mutex::new(HashSet::new()))
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert((record.id, reason));
+            .insert((module, reason));
         if !first {
             return;
         }

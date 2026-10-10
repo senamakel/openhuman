@@ -151,3 +151,38 @@ async fn bus_calls_preserve_tuple_arity_and_never_downgrade_confidentiality() {
         Err(ModuleCallError::IncompatibleContract)
     );
 }
+
+#[cfg(feature = "crash-reporting")]
+#[test]
+fn unknown_module_failures_emit_only_safe_registry_metadata() {
+    let events = sentry::test::with_captured_events(|| {
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .build()
+            .unwrap();
+        runtime.block_on(async {
+            let client = ModuleClient::new(Config::default());
+            for _ in 0..2 {
+                let error = client
+                    .call::<serde_json::Value>(
+                        "private-token /home/private-user",
+                        "secret-member",
+                        ("private-content",),
+                    )
+                    .await
+                    .unwrap_err();
+                assert_eq!(error, ModuleCallError::Unavailable);
+                assert!(!error.to_string().contains("private"));
+            }
+        });
+    });
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(
+        events[0].tags.get("module").map(String::as_str),
+        Some("unregistered")
+    );
+    assert_eq!(
+        events[0].tags.get("reason_code").map(String::as_str),
+        Some("unknown_module")
+    );
+    assert!(!format!("{events:?}").contains("private"));
+}

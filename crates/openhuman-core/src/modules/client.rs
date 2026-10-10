@@ -80,7 +80,10 @@ impl ModuleClient {
         args: impl Serialize,
         confidential: bool,
     ) -> Result<R, ModuleCallError> {
-        let record = registry::find(module).ok_or(ModuleCallError::Unavailable)?;
+        let Some(record) = registry::find(module) else {
+            failure::report_unknown_module();
+            return Err(ModuleCallError::Unavailable);
+        };
         if !self.config.modules.enabled {
             failure::report(record, failure::Reason::Disabled);
             return Err(ModuleCallError::Unavailable);

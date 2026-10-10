@@ -80,7 +80,6 @@ pub(super) fn persist_subagent_transcript(
             cost_usd: usage.charged_amount_usd,
             last_call_input: usage.last_call_input_tokens,
             last_call_output: usage.last_call_output_tokens,
-            ..Default::default()
         },
         ts: now.clone(),
         reasoning_content: None,

@@ -85,6 +85,7 @@ remain unchanged until compatible upstream releases are available.
 | TinyConnectors argument preparation, task filtering, structured provider errors and leased archives | [tinyconnectors#46](https://github.com/tinyhumansai/tinyconnectors/pull/46) | 423 tests; dynamic artifact calls; user archive lifecycle fixtures; pure contract audit; per-file coverage at least 90% |
 | TinyWallet contract dependency cut and module-side address validation | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 735 tests; four-chain signing fixtures; dynamic artifact E2E; pure contract audit; all 94 source files at least 90% coverage |
 | TinyVoice device enumeration, opaque recording/cancel handles and bounded prepared WAV output | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | 157 tests; compiled artifact verification; pure contract audit; covered library/module files at least 90%, with the existing physical-device exclusion |
+| TinyMCP serialized supervisor observations and bounded notification drains | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,455 tests; dynamic 33-member artifact verification; pure contract audit; all 80 source files at least 90% coverage |
 
 The TinyDocs and TinyJuice operations need new published module artifacts.
 TinyHosts keeps existing member arities and wire forms. No local build digest

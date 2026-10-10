@@ -145,3 +145,55 @@ TinyConnectors PR 46 is merged; its canonical main CI passed. The minor release
 [run 38084368799](https://github.com/tinyhumansai/tinyconnectors/actions/runs/38084368799)
 is building compatible platform artifacts. Host adoption remains gated on
 published packages and verified digests. No host dependency cut is claimed here.
+
+## Released connector integration (2026-10-11)
+
+The `module-connectors-host` branch consumes TinyConnectors v0.14.0, source
+`8b35ca5`, contract 1.13. All 16 archive bytes were hashed and matched both
+`checksum.toml` and GitHub asset digests before replacing registry pins. The
+host calls the module for preparation, calendar defaults, task-window filtering,
+provider classification and opaque archive operations. It releases archive
+leases on scope changes, sign-out and runtime shutdown; cancellation during
+open retains the handle for cleanup. Frozen recorded tool declarations are
+retained by the existing session adapter.
+
+The normal/build graph audit removes the two connector implementation
+exceptions and reports 32 remaining temporary exceptions and two pending
+contracts. The measured flows profile is 335 packages / 313 names / two native
+builds, compared with the combined foundation baseline of 340 / 318 / two.
+Validation passes: 354 Composio tests against the released native artifact and
+local provider mocks, 176 module/Sentry tests, ten recorded-tool tests, the
+no-loader library check, the contract/host graph audit, crate-chain, feature
+forwarding and Rust layout checks. A new Sentry regression first captured two
+events; the fixed adapter emits one sanitized event and preserves existing
+provider messages. The broad native suite first exposed changed authentication
+text and an uninitialized-history read; both existing regressions now pass.
+This does not claim completion of the full migration.
+
+TinyWallet #56 and TinyHosts #21 merged with green hosted checks and approval.
+Their release workflows exposed two packaging failures: Wallet still selected
+an implementation crate with an unpublished sibling dependency, and Hosts
+shared native build-script caches across Ubuntu images. Owner follow-ups
+[Wallet #60](https://github.com/tinyhumansai/tinywallet/pull/60) and
+[Hosts #25](https://github.com/tinyhumansai/tinyhosts/pull/25) correct the release
+workflows with regressions; both follow-ups have merged. Hosts v0.3.0 completed
+in run 38087761940, and all 16 archive bytes match the checksum file and GitHub
+asset digests. Its host adapter is isolated in `module-tinyhosts-host`.
+
+Wallet v0.9.0 committed source `69938a6` but its original run could not push the
+tag. The exact release commit was tagged successfully through the owner remote.
+Recovery run 38088958171 skipped the bundle job after the skipped versioning
+ancestor; [Wallet #61](https://github.com/tinyhumansai/tinywallet/pull/61) adds the
+missing recovery condition and a regression. Run 38089224879 uses the release-tag
+workflow to build the existing tag and completed successfully. All eleven
+supported-platform archives and the checksum file match their GitHub asset
+digests and checksum entries. The older tagged workflow does not produce the
+five additional distro bundles; the next complete wallet-operations release
+must use the current distro-inclusive workflow before host adoption. Wallet #61
+merged with 35 passing hosted checks and approval.
+
+The current base also contains unrelated source/artifact pin drift for computer,
+search, docs, runtime/providers, MCP and Box. The module-pin gate reports this;
+it is not treated as a passing check or hidden by new exceptions. The stale
+Wallet and Channels pin exemptions were removed because those base pins now
+agree. TinyRuntime changes remain excluded from this migration.

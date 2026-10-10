@@ -395,3 +395,10 @@ minimal build small.
 - [Loadable modules](../../../../gitbooks/developing/loadable-modules.md)
 - [tinybus submodule](../../../../vendor/tinybus/README.md)
 - [Architecture overview](../../../../gitbooks/developing/architecture.md)
+
+The connector host consumes verified release v0.14.0 (contract 1.13). The
+argument/default/filter/classification and trigger-archive adapters call bus
+members; no normal or build edge reaches `tinyconnectors` or its sync library.
+Provider messages remain product output, while terminal bus reports contain
+only the module/version/stage/platform/reason vocabulary. Credential-bearing
+configuration and direct reads use attested confidential calls.

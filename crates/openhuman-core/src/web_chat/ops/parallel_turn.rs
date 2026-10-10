@@ -208,6 +208,7 @@ pub(crate) async fn spawn_parallel_turn(
         map_key,
         ParallelEntry {
             thread_id: key_for(thread_id),
+            client_id: client_id.to_string(),
             handle,
             cancel_token,
         },
@@ -217,7 +218,7 @@ pub(crate) async fn spawn_parallel_turn(
 /// Cooperatively cancel every parallel turn on a thread. Returns the cancelled
 /// request ids. Used by the thread-level cancel paths so a cancel/stop also
 /// tears down any concurrent forked turns, not just the primary turn.
-pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<String> {
+pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<(String, String)> {
     let mut cancelled = Vec::new();
     let scoped_thread = key_for(thread_id);
     let mut parallel = parallel_in_flight().lock_owned().await;
@@ -238,7 +239,7 @@ pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<Str
                     }
                 }
             });
-            cancelled.push(unscope(&request_id));
+            cancelled.push((unscope(&request_id), entry.client_id));
         }
     }
     cancelled
@@ -251,7 +252,7 @@ pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<Str
 pub(crate) async fn cancel_parallel_turn_by_request_id(
     thread_id: &str,
     request_id: &str,
-) -> Vec<String> {
+) -> Vec<(String, String)> {
     let map_key = key_for(request_id);
     let scoped_thread = key_for(thread_id);
     let mut parallel = parallel_in_flight().lock_owned().await;
@@ -264,6 +265,7 @@ pub(crate) async fn cancel_parallel_turn_by_request_id(
     }
     if let Some(entry) = parallel.remove(&map_key) {
         entry.cancel_token.cancel();
+        let client_id = entry.client_id.clone();
         let mut handle = entry.handle;
         tokio::spawn(async move {
             tokio::select! {
@@ -273,7 +275,7 @@ pub(crate) async fn cancel_parallel_turn_by_request_id(
                 }
             }
         });
-        return vec![request_id.to_string()];
+        return vec![(request_id.to_string(), client_id)];
     }
     Vec::new()
 }

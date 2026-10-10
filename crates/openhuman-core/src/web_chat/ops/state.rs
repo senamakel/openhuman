@@ -191,6 +191,7 @@ pub(crate) async fn track_parallel_turn_for_test(
         key_for(request_id),
         ParallelEntry {
             thread_id: key_for(thread_id),
+            client_id: "test-client".to_string(),
             handle,
             cancel_token: cancel,
         },

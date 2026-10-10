@@ -691,6 +691,7 @@ async fn start_chat_inner(
             map_key,
             InFlightEntry {
                 request_id: request_id.clone(),
+                client_id: client_id.clone(),
                 handle,
                 run_queue: turn_run_queue,
                 cancel_token,

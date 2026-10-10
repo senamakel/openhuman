@@ -69,3 +69,19 @@ required. No capability migration has landed in this change. The minimal/default
 platform compilation, runtime bus fixtures and shed measurements remain
 separate acceptance checks. Dependency counts alone do not demonstrate a
 build-time or binary-size improvement.
+
+## Upstream migration work
+
+Owner changes are independently reviewable; host dependencies and artifact pins
+remain unchanged until compatible upstream releases are available.
+
+| Change | Canonical PR | Local verification |
+| --- | --- | --- |
+| Async HTML extraction seam and deadlines in TinyTools | [tinytools#60](https://github.com/tinyhumansai/tinytools/pull/60) | 1,152 unit tests and 6 doctests; clippy/build |
+| TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 737 tests; dynamic artifact E2E; module input/limit guards |
+| Complete TinyDocs Markdown conversion for memory ingestion | [tinydocs#31](https://github.com/tinyhumansai/tinydocs/pull/31) | 183 tests; dynamic artifact E2E; per-file coverage at least 90% |
+| Minimal TinyHosts vocabulary and recorded tool declarations | [tinyhosts#21](https://github.com/tinyhumansai/tinyhosts/pull/21) | 195 tests; dynamic Execute/Providers fixture; pure contract audit; per-file coverage at least 90% |
+
+The TinyDocs and TinyJuice operations need new published module artifacts.
+TinyHosts keeps existing member arities and wire forms. No local build digest
+has been used as a release pin, and these PRs do not yet remove any host exception.

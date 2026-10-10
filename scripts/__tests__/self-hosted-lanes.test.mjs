@@ -641,3 +641,18 @@ test("the rust-core path filter arms the lane for every crate the tui depends on
     assert.ok(block.includes(`'crates/openhuman-${crate}/**'`), crate);
   }
 });
+
+test("module boundaries run for Rust and scripts changes in both profiles", () => {
+  for (const profile of ["hosted", "ex63"]) {
+    for (const area of ["rustCore", "rustTauri", "scripts"]) {
+      const plan = buildPlan({
+        profile,
+        areas: { ...NONE, [area]: true },
+        env: profile === "ex63" ? EX63_ENV : {},
+      });
+      const check = plan.lanes.flatMap(lane => lane.checks).find(check => check.name === "module-boundaries");
+      assert.equal(check.when, true, `${profile}:${area}`);
+      assert.equal(check.run, "bash scripts/ci-cancel-aware.sh node scripts/ci/check-module-boundaries.mjs");
+    }
+  }
+});

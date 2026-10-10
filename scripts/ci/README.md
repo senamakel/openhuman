@@ -24,6 +24,17 @@ changed-line diff-cover check (>= 80%) in `ci-lite.yml`.
 
 ## Running locally
 
+The module boundary audit (`pnpm rust:module-boundaries`) resolves the root and
+excluded desktop host with all features, traversing normal and build edges on
+all platforms. It also resolves each bus contract independently with default
+and all features, outside the owning module workspace, to avoid feature
+unification with implementation crates. It runs in the Rust scripts lane.
+Temporary exceptions in [`module-boundaries.json`](module-boundaries.json) must
+have reasons; unused exceptions fail the audit. A passing transitional audit is
+not a completed migration. `pnpm rust:module-boundaries:complete` additionally
+rejects all exceptions and pending contracts. Cargo failure is an audit failure.
+Generated probes and lockfiles stay in the checkout's `target/module-boundaries/`.
+
 Only `check-openhuman-rust-layout.mjs` and `check-crate-chain.mjs` are wired to a pnpm script
 (`pnpm rust:layout`); the rest are invoked directly, e.g.
 `node scripts/ci/check-feature-forwarding.mjs` or

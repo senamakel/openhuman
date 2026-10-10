@@ -81,12 +81,10 @@ remain unchanged until compatible upstream releases are available.
 | TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 737 tests; dynamic artifact E2E; module input/limit guards |
 | Complete TinyDocs Markdown conversion for memory ingestion | [tinydocs#31](https://github.com/tinyhumansai/tinydocs/pull/31) | 183 tests; dynamic artifact E2E; per-file coverage at least 90% |
 | Minimal TinyHosts vocabulary and recorded tool declarations | [tinyhosts#21](https://github.com/tinyhumansai/tinyhosts/pull/21) | 195 tests; dynamic Execute/Providers fixture; pure contract audit; per-file coverage at least 90% |
-
 | TinyComputer native permissions, confidential focus/paste and opaque Globe listeners | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | Full workspace checks; 88-member dynamic artifact verification; pure contract audit; native bridge 100% line coverage |
-
 | TinyConnectors argument preparation, task filtering, structured provider errors and leased archives | [tinyconnectors#46](https://github.com/tinyhumansai/tinyconnectors/pull/46) | 423 tests; dynamic artifact calls; user archive lifecycle fixtures; pure contract audit; per-file coverage at least 90% |
-
 | TinyWallet contract dependency cut and module-side address validation | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 735 tests; four-chain signing fixtures; dynamic artifact E2E; pure contract audit; all 94 source files at least 90% coverage |
+| TinyVoice device enumeration, opaque recording/cancel handles and bounded prepared WAV output | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | 157 tests; compiled artifact verification; pure contract audit; covered library/module files at least 90%, with the existing physical-device exclusion |
 
 The TinyDocs and TinyJuice operations need new published module artifacts.
 TinyHosts keeps existing member arities and wire forms. No local build digest

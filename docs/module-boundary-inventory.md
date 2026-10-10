@@ -211,9 +211,20 @@ Rust jobs passed, with approval and zero unresolved threads. Minor release run
 38091415272 succeeded. The eleven v0.7.0 platform archives have been downloaded
 and verified against both published checksums and GitHub asset digests. The
 source pin is `b89632a8f7b96580a9f6718d185eb60b14a41a8a`; HTML and query
-adapters now use the module, with host-loader interoperability checks pending. The isolated `module-tinyjuice-host` checkout now owns the turn-bound
-summary callback registry instead of re-exporting its implementation from
-TinyJuice; its 57 TokenJuice domain tests pass using the existing callback DTO.
+adapters now use the module. The isolated `module-tinyjuice-host` checkout owns
+the turn-bound summary callback registry using the existing callback DTO.
+All 54 current TokenJuice tests pass with the released native library configured
+through OpenHuman's pinned loader, including cached-handle queries,
+supplied-content queries and HTML extraction. The library checks pass both
+without the loader and with the repository-pinned Rust compiler. Recorded
+TinyJuice tool restoration is still under regression testing.
+
+The TinyJuice cut removes its host implementation exception. The transitional
+audit now reports zero violations, zero stale exceptions, 30 remaining temporary
+exceptions and two pending contracts. Its 22 checker tests pass. The measured
+flows profile contains 328 packages, 306 names and two native builds, seven
+fewer packages and names than the connector integration profile. This does not
+establish a build-time or binary-size improvement.
 
 The TinyRuntime scope exclusion removes its temporary exception from this
 branch's acceptance count (31 remaining exceptions before the next module

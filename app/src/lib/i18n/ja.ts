@@ -6,7 +6,6 @@ const messages: TranslationMap = {
   // Navigation
   'nav.home': 'ホーム',
   'nav.chat': 'チャット',
-  'nav.human': 'ヒューマン',
 
   // Assistant surface: face mode toggle (Phase 6)
   'nav.connections': '接続',
@@ -19,7 +18,6 @@ const messages: TranslationMap = {
   'nav.workflowRuns': 'ワークフロー実行',
   'nav.workflowDiscoveries': 'ワークフローを発見',
 
-  'nav.wallet': 'ウォレット',
   // Agent World: Settings section UI
   'nav.avatarMenu.account': 'アカウント',
   'nav.avatarMenu.invites': '友達を招待',
@@ -115,7 +113,6 @@ const messages: TranslationMap = {
   'common.clear': 'クリア',
   'common.reset': 'リセット',
   'common.refresh': '更新',
-  'common.download': 'ダウンロード',
   'common.remove': '削除',
   'common.showMore': 'もっと見る',
   'common.showLess': '閉じる',
@@ -201,15 +198,8 @@ const messages: TranslationMap = {
   'settings.layout.shapeHeading': '境界線と角',
   'settings.layout.corners': '角の丸み',
   'settings.layout.cornersDesc': 'カード、ボタン、フィールドの角の丸み具合',
-  'settings.layout.corners.none': 'なし',
-  'settings.layout.corners.subtle': '控えめ',
-  'settings.layout.corners.default': 'デフォルト',
-  'settings.layout.corners.round': '丸みあり',
   'settings.layout.contrast': '境界線のコントラスト',
   'settings.layout.contrastDesc': '背景に対する境界線と区切り線の視認性',
-  'settings.layout.contrast.subtle': '控えめ',
-  'settings.layout.contrast.default': 'デフォルト',
-  'settings.layout.contrast.strong': '強い',
   'settings.layout.areasHeading': '境界線の表示対象',
   'settings.layout.areasDesc': 'フラットにしたい領域の境界線をオフにします。',
   'settings.layout.area.cards': 'カードとパネル',
@@ -290,7 +280,6 @@ const messages: TranslationMap = {
   'settings.features.tools': 'ツール',
 
   // Settings: AI & Models
-  'settings.ai.localSetup': 'ローカル AI 設定',
 
   // Clear App Data modal
   'clearData.title': 'アプリデータを削除',
@@ -308,38 +297,19 @@ const messages: TranslationMap = {
   // Welcome page
   'welcome.logoAlt': 'OpenHuman',
   'welcome.title': 'OpenHuman へようこそ',
-  'welcome.subtitle':
-    'あなたのパーソナル AI スーパーインテリジェンス。プライベート、シンプル、そして極めて強力。',
-  'welcome.selectRuntime': 'ランタイムを選択',
   'welcome.clearingAppData': 'アプリデータを消去中...',
   'welcome.clearAppDataAndRestart': 'アプリデータを消去して再起動',
   'welcome.clearAppDataWarning':
     'このデバイス上のローカルに保存されたシークレットとアカウントが削除されます。クラウドアカウントは影響を受けず、すぐに再度サインインできます。',
   'welcome.resetErrorFallback':
     'アプリデータを消去できませんでした。OpenHuman を終了して再起動し、もう一度お試しください。',
-  'welcome.signingIn': 'サインイン中...',
   'welcome.termsIntro': '続行することで、以下に同意したことになります:',
   'welcome.termsOfUse': '利用規約',
   'welcome.termsJoiner': 'および',
   'welcome.privacyPolicy': 'プライバシーポリシー',
   'welcome.termsOutro': '。',
-  'welcome.connect': 'テスト',
 
   // Home page
-  'home.askAssistant': 'アシスタントに何でも聞いてください...',
-  'home.statusOk': 'アシスタントの準備ができました。下に入力して開始してください。',
-  'home.statusBackendOnly':
-    'バックエンドに再接続しています…エージェントはまもなく利用可能になります。',
-  'home.statusHostedDegraded':
-    'クラウドに再接続しています…チャットは継続し、統合とチャンネルは接続回復後に再開されます。',
-  'home.statusHostedStopped':
-    'クラウド接続が停止しました。統合とチャンネルを再開するには再度サインインしてください。チャットは継続します。',
-  'home.statusCoreUnreachable':
-    'OpenHumanコアが応答していません。バックグラウンドプロセスがクラッシュしたか、起動に失敗した可能性があります。',
-  'home.statusInternetOffline':
-    'デバイスがオフラインです。ネットワークを確認するか、アプリを再起動して再接続してください。',
-  'home.restartCore': 'コアを再起動',
-  'home.restartingCore': 'コアを再起動中…',
   'home.themeToggle.toLight': 'ライトモードに切り替え',
   'home.themeToggle.toDark': 'ダークモードに切り替え',
   'home.usageExhaustedTitle': '使用量を使い切りました',
@@ -394,30 +364,9 @@ const messages: TranslationMap = {
   'chat.reasoning.thought': '思考',
   'chat.reasoning.elapsedSeconds': '{n}秒',
   'chat.reasoning.elapsedMinutes': '{m}分{s}秒',
-  'chat.copyResponse': '回答をコピー',
 
   // Share cards (#5006): one-tap "look what my agent did" post to X / LinkedIn.
-  'share.button': '共有',
-  'share.modalTitle': 'この瞬間を共有',
-  'share.modalSubtitle': 'エージェントの行動をXまたはLinkedInに投稿',
-  'share.drafting': 'カードを生成中...',
-  'share.cardAlt': '共有カードのプレビュー',
-  'share.imageError': '画像を生成できませんでした。もう一度お試しください。',
-  'share.captionLabel': 'キャプション',
-  'share.captionPlaceholder': 'キャプションを入力...',
-  'share.privacyNote':
-    '共有されるのは見出し、キャプション、エージェント名、およびブランド情報だけです。チャット、メモリー、ファイルはプライベートのままです。',
-  'share.defaultHeadline': '私のOpenHumanエージェントがやったことを見て',
-  'share.defaultAgentName': '私のエージェント',
-  'share.defaultCaption': '私のOpenHumanエージェントがやったことを見て。',
-  'share.captionWithHeadline': '{headline}。私のOpenHumanエージェントで作成。',
-  'share.linkedInHint': 'キャプションをコピーしました。LinkedInの投稿に貼り付けてください。',
-  'share.shareX': 'Xで共有',
-  'share.shareLinkedIn': 'LinkedInで共有',
   'share.copyImage': '画像をコピー',
-  'share.copiedImage': '画像をコピーしました',
-  'share.copyCaption': 'キャプションをコピー',
-  'share.copiedCaption': 'キャプションをコピーしました',
 
   // Skills / Connections
   'scope.legacy': 'レガシー',
@@ -533,13 +482,6 @@ const messages: TranslationMap = {
   'connections.tabs.skills': 'スキル',
   'connections.groups.integrations': '統合',
   'desktop.approvalSummary': '{app}内の「{target}」に対する{operation}',
-  'desktop.action.click': 'クリック',
-  'desktop.action.type_text': 'テキストを入力',
-  'desktop.action.check': 'チェック',
-  'desktop.action.uncheck': 'チェック解除',
-  'desktop.action.expand': '展開',
-  'desktop.action.collapse': '折りたたむ',
-  'desktop.action.scroll': 'スクロール',
   'computer.title': 'コンピュータ制御',
   'computer.description':
     'エージェントがこのコンピュータ上のアプリやウェブサイトで作業できるようにします。',
@@ -574,11 +516,6 @@ const messages: TranslationMap = {
     'モジュールのバージョンが互換性ありません。アプリを更新してください',
   'computer.status.ownKey': '独自のAPIキー',
   'computer.status.noCredential': '認証情報がありません',
-  'computer.status.state.available': '未読み込み',
-  'computer.status.state.loading': '読み込み中',
-  'computer.status.state.ready': '準備完了',
-  'computer.status.state.failed': '失敗',
-  'computer.status.state.unsupported': 'このデバイスではサポートされていません',
   'connections.browser.chromeHint':
     'ブラウザは TinyComputer モジュール内で実行されます。テストでは Chrome を一時的に起動し、すぐに閉じます。',
   'computer.models.openJevKey': 'OpenJev API キー',
@@ -596,8 +533,6 @@ const messages: TranslationMap = {
   'desktop.unsupported': 'このランタイムではデスクトップ制御は利用できません。',
   'desktop.localOnly': 'この設定はこのコンピュータにのみ適用されます。',
   'desktop.permissions': 'システム権限',
-  'desktop.permission.accessibility': 'アクセシビリティ',
-  'desktop.permission.screen_recording': '画面収録',
   'desktop.openSettings': '設定を開く',
   'desktop.enableLabel': 'エージェントにアプリを操作させる',
   'desktop.statusSetupNeeded': 'セットアップが必要',
@@ -644,47 +579,12 @@ const messages: TranslationMap = {
   'connections.groups.apiKeys': 'APIキー',
   // Intelligence / Memory
   'memory.search': 'メモリーを検索...',
-  'memory.noResults': 'メモリーが見つかりません',
-  'memory.empty': 'メモリーはまだありません。やり取りに応じて自動的に作成されます。',
-  'memory.tab.memory': 'メモリー',
-  'memory.tab.agents': 'ライブラリ',
-
-  'memory.tab.council': 'カウンシル',
 
   // Activity surface: Phase 3 renamed tabs
   'activity.tabs.automations': '自動化',
   'activity.tabs.automationsDescription':
     '再利用・実行可能な手順：目標と達成ステップを定義します。作成、URLからのインストール、またはワークフローを開いて実行できます。',
   'activity.tabs.alerts': 'アラート',
-
-  'intelligence.agents.title': 'エージェントライブラリ',
-  'intelligence.agents.subtitle':
-    '実行可能なスペシャリストを確認し、指定したエージェントにタスクを送信します。',
-  'intelligence.agents.refresh': '更新',
-  'intelligence.agents.loading': 'エージェントを読み込み中...',
-  'intelligence.agents.failedToLoad': 'エージェントを読み込めませんでした',
-  'intelligence.agents.empty': '実行可能なエージェントがありません。',
-  'intelligence.agents.readOnly': '読み取り専用',
-  'intelligence.agents.writeCapable': '書き込み可能',
-  'intelligence.agents.allTools': 'すべてのツール',
-  'intelligence.agents.toolCountOne': '{count} 個のツール',
-  'intelligence.agents.toolCountOther': '{count} 個のツール',
-  'intelligence.agents.subagentCountOne': '{count} 個のサブエージェント',
-  'intelligence.agents.subagentCountOther': '{count} 個のサブエージェント',
-  'intelligence.agents.startChat': 'チャットを開始',
-  'intelligence.agents.startChatPrompt':
-    'このエージェントとチャットを開始します。専門分野を紹介し、必要な情報を尋ね、タスクを待ってください。',
-  'intelligence.agents.copyId': 'IDをコピー',
-  'intelligence.agents.copied': 'コピーしました',
-  'intelligence.agents.taskPlaceholder': 'このエージェントへのタスク',
-  'intelligence.agents.runTask': 'タスクを実行',
-  'intelligence.agents.running': '実行中...',
-  'intelligence.agents.model.inherit': '継承',
-  'intelligence.agents.tier.chat': 'チャット',
-  'intelligence.agents.tier.reasoning': '推論',
-  'intelligence.agents.tier.worker': 'ワーカー',
-  'memory.analyzeNow': '今すぐ分析',
-  'namespaceOverview.entitiesShort': '{count} 件のエンティティ',
 
   // Notifications / Alerts
   'alerts.title': 'アラート',
@@ -749,32 +649,6 @@ const messages: TranslationMap = {
     'オンボーディングを完了できませんでした。もう一度お試しください。',
 
   // Onboarding: API keys step (only when Custom is picked)
-  'onboarding.apiKeys.title': 'APIキーを追加しましょう',
-  'onboarding.apiKeys.subtitle':
-    '今すぐ貼り付けるか、後で「接続」›「APIキー」で追加できます。キーはこのデバイスに暗号化されて保存されます。',
-  'onboarding.apiKeys.openaiLabel': 'OpenAI APIキー',
-  'onboarding.apiKeys.openaiPlaceholder': 'sk-...',
-  'onboarding.apiKeys.openaiOauthHint':
-    'ChatGPT Plus/Pro（サブスクリプション）またはOpenAI APIキーのいずれかを使用します。両方は不要です。',
-  'onboarding.apiKeys.openaiOauthOpening': 'サインインを開いています…',
-  'onboarding.apiKeys.openaiOauthConnect': 'ChatGPTでサインイン',
-  'onboarding.apiKeys.openaiOauthConnected': 'ChatGPTに接続しました',
-  'onboarding.apiKeys.openaiOauthCallbackHint':
-    'サインイン後、ブラウザからの完全なリダイレクトURL（{url}で始まる）を貼り付けてください。',
-  'onboarding.apiKeys.oauthStartFailed':
-    'ChatGPTサインインを開始できませんでした。再試行するか、APIキーを使用してください。',
-  'onboarding.apiKeys.oauthPasteRedirect':
-    'サインイン後、ブラウザからのリダイレクトURLを貼り付けてください。',
-  'onboarding.apiKeys.oauthCompleteFailed':
-    'ChatGPTサインインが完了しませんでした。リダイレクトURLを確認して再試行してください。',
-  'onboarding.apiKeys.finishSignIn': 'ChatGPTサインインを完了',
-  'onboarding.apiKeys.orApiKey': 'またはAPIキー',
-  'onboarding.apiKeys.anthropicLabel': 'Anthropic APIキー',
-  'onboarding.apiKeys.anthropicPlaceholder': 'sk-ant-...',
-  'onboarding.apiKeys.saveError': 'キーを保存できませんでした。内容を確認して再試行してください。',
-  'onboarding.apiKeys.skipForNow': '後で設定する',
-  'onboarding.apiKeys.continue': '保存して続行',
-  'onboarding.apiKeys.saving': '保存中…',
 
   // Onboarding: Custom wizard (Inference / Voice / OAuth / Search / Embeddings / Vault / Memory)
   'onboarding.custom.stepperInference': '推論',
@@ -785,81 +659,29 @@ const messages: TranslationMap = {
   'onboarding.custom.stepperVault': '保管庫',
   'onboarding.custom.stepperMemory': 'メモリー',
   'onboarding.custom.stepCounter': 'ステップ {n} / {total}',
-  'onboarding.custom.defaultTitle': 'デフォルト',
-  'onboarding.custom.defaultSubtitle': 'OpenHumanに管理を任せます。',
-  'onboarding.custom.configureTitle': '設定',
-  'onboarding.custom.configureSubtitle': '自分で選択します。',
   'onboarding.custom.progressAriaLabel': 'オンボーディングの進捗',
   'onboarding.custom.continue': '続行',
   'onboarding.custom.back': '戻る',
   'onboarding.custom.finish': 'セットアップを完了',
-  'onboarding.custom.configureLater':
-    'この設定はオンボーディング後に完了できます。完了後、対応する設定ページに移動します。',
-  'onboarding.custom.openSettings': '設定で開く',
 
   // Onboarding: Custom > Inference (text)
-  'onboarding.custom.inference.title': '推論（テキスト）',
-  'onboarding.custom.inference.subtitle':
-    '質問への回答やエージェントの実行に使用する言語モデルを選択してください。',
-  'onboarding.custom.inference.defaultDesc':
-    'OpenHumanはデフォルトで管理されたバックエンドを通じてワークロードをルーティングします。キーや設定は不要です。',
-  'onboarding.custom.inference.configureDesc':
-    'OpenAIまたはAnthropicのキーを使用します。すべてのテキストベースのワークロードに適用されます。',
 
   // Onboarding: Custom > Voice
-  'onboarding.custom.voice.title': '音声',
-  'onboarding.custom.voice.subtitle': '音声モード用の音声認識と音声合成。',
-  'onboarding.custom.voice.defaultDesc':
-    'OpenHumanには、音声/テキストをホスト型サービスに送信する可能性のある管理されたSTT/TTSプロバイダーが含まれています。',
-  'onboarding.custom.voice.configureDesc':
-    '独自のElevenLabs / OpenAI Whisperなどを使用します。設定 › 音声で構成してください。',
 
   // Onboarding: Custom > OAuth (Composio)
-  'onboarding.custom.oauth.title': '接続（OAuth）',
-  'onboarding.custom.oauth.subtitle': 'OAuthが必要なGmail、Slack、Notionなどの接続サービス。',
-  'onboarding.custom.oauth.defaultDesc':
-    'OpenHumanは、管理されたComposioワークスペースを通じてOAuthとツール呼び出しを仲介します。',
-  'onboarding.custom.oauth.configureDesc':
-    '独自のComposioアカウント/APIキーを使用します。設定 › 接続で構成してください。',
 
   // Onboarding: Custom > Search
-  'onboarding.custom.search.title': 'Web検索',
-  'onboarding.custom.search.subtitle': 'OpenHumanがユーザーに代わってWebを検索する方法。',
-  'onboarding.custom.search.defaultDesc':
-    'Web検索はすぐに使用できます。ExaとGeminiはTinyHumansに含まれており、APIキーは不要です。',
-  'onboarding.custom.search.configureDesc':
-    'ExaとGeminiが含まれています。設定 › ツールで独自のAPIキーを追加して、さらに検索プロバイダーを追加できます。',
 
   // Onboarding: Custom > Embeddings
-  'onboarding.custom.embeddings.title': '埋め込み',
-  'onboarding.custom.embeddings.subtitle':
-    'OpenHumanがセマンティックメモリー検索用のベクトル埋め込みを生成する方法。',
-  'onboarding.custom.embeddings.defaultDesc':
-    'OpenHuman はマネージド埋め込みサービスを使用します。API キーは不要です。',
-  'onboarding.custom.embeddings.configureDesc':
-    'お好みの埋め込みプロバイダー (OpenAI、Voyage、Ollama など) を利用できます。',
 
   // Onboarding: Custom > Vault
   'onboarding.custom.vault.title': 'メモリーと Vault の設定',
   'onboarding.custom.vault.subtitle':
     'メモリーノートの書き込み先、ソースデータの読み取り方法、および Vault パイプラインの健全性を確認します。',
-  'onboarding.custom.vault.defaultDesc':
-    'OpenHuman が管理するメモリーのデフォルト設定を使用します。Vault のパスと同期の健全性は後から確認できます。',
-  'onboarding.custom.vault.configureDesc':
-    'Vault の所有権を確認し、ヘルスチェックを実行して、メモリー制御を今すぐ調整します。',
-  'onboarding.custom.vault.localDisabledReason':
-    'マネージド設定には OpenHuman へのサインインが必要であり、ローカルモードでは利用できません。',
   'onboarding.custom.vault.exitError':
     'オンボーディングを完了できませんでした。もう一度お試しください。',
 
   // Onboarding: Custom > Memory
-  'onboarding.custom.memory.title': 'メモリー',
-  'onboarding.custom.memory.subtitle':
-    'OpenHuman がコンテキスト、設定、過去の会話をどのように記憶するかについて。',
-  'onboarding.custom.memory.defaultDesc':
-    'OpenHuman がメモリーの保存と取得を自動的に管理します。設定は不要です。',
-  'onboarding.custom.memory.configureDesc':
-    'メモリーの確認、エクスポート、消去を自分で行います。設定 › メモリーで構成してください。',
 
   // Accounts
   'accounts.disconnect': '接続解除',
@@ -867,17 +689,11 @@ const messages: TranslationMap = {
   'accounts.disconnectClearMemoryHint': 'この接続から保存されたメモリーを完全に削除します。',
 
   // Channels
-  'channels.title': 'チャンネル',
-  'channels.configure': 'チャンネルの設定',
   'channels.setup': 'セットアップ',
-  'channels.noChannels': '設定済みのチャンネルはありません',
   'channels.localManagedUnavailable': 'マネージドチャンネルはローカルユーザーでは利用できません。',
-  'channels.addChannel': 'チャンネルを追加',
   'channels.status.connected': '接続済み',
   'channels.status.disconnected': '未接続',
   'channels.status.error': 'エラー',
-  'channels.status.configuring': '設定中',
-  'channels.defaultMessaging': 'デフォルトのメッセージングチャンネル',
   'channels.setAsDefault': 'デフォルトに設定',
   'channels.defaultBadge': 'デフォルト',
   'channels.connectedDesc':
@@ -900,39 +716,12 @@ const messages: TranslationMap = {
     'ツールインベントリ、ポリシー状態、MCP 許可リスト、および最近のブロック',
   'devOptions.toolPolicyDiagnostics.loading': '読み込み中…',
   'devOptions.toolPolicyDiagnostics.unavailable': '診断情報は利用できません',
-  'devOptions.toolPolicyDiagnostics.inventory.title': 'ツール一覧',
-  'devOptions.toolPolicyDiagnostics.inventory.totalTools': 'ツール合計数',
-  'devOptions.toolPolicyDiagnostics.inventory.enabledTools': '有効なツール',
-  'devOptions.toolPolicyDiagnostics.inventory.mcpStdioTools': 'MCP stdio ツール',
-  'devOptions.toolPolicyDiagnostics.inventory.jsonRpcTools': 'JSON-RPC ツール',
-  'devOptions.toolPolicyDiagnostics.posture.title': 'ポリシー設定',
-  'devOptions.toolPolicyDiagnostics.posture.autonomy': '自律性レベル',
-  'devOptions.toolPolicyDiagnostics.posture.workspaceOnly': 'ワークスペースのみ',
-  'devOptions.toolPolicyDiagnostics.posture.maxActionsPerHour': '1時間あたりの最大アクション数',
-  'devOptions.toolPolicyDiagnostics.posture.approvalMediumRisk': '中リスクのアクションに承認を要求',
-  'devOptions.toolPolicyDiagnostics.posture.blockHighRisk': '高リスクのコマンドをブロック',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.title': 'MCP 許可リスト',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.summary':
-    '有効: {enabled} · サーバー {totalCount} 件中 {enabledCount} 件',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.unnamed': '名前未設定のサーバー',
-  'devOptions.toolPolicyDiagnostics.mcpAllowlists.allowDeny':
-    '許可: {allowCount} · 拒否: {denyCount}',
-  'devOptions.toolPolicyDiagnostics.mcpWriteAudit.title': 'MCP 書き込み監査',
-  'devOptions.toolPolicyDiagnostics.mcpWriteAudit.summary':
-    '有効: {enabled} · 最近の行: {recentRows}',
-  'devOptions.toolPolicyDiagnostics.redactedSurfaces.title': '機密性の高い領域',
-  'devOptions.toolPolicyDiagnostics.redactedSurfaces.summary':
-    '書き込み可能な領域 {writeCount} 件 · ポリシー対象領域 {policyCount} 件',
-  'devOptions.toolPolicyDiagnostics.recentBlocked.title': '最近ブロックされた呼び出し',
-  'devOptions.toolPolicyDiagnostics.recentBlocked.empty':
-    '最近ブロックされたツール呼び出しはありません',
 
   // Voice / Dictation
   'voice.pushToTalk': 'プッシュトゥトーク',
 
   // Misc
   'misc.somethingWentWrong': '問題が発生しました',
-  'misc.downloading': 'ダウンロード中...',
   'misc.beta':
     'OpenHuman は初期ベータ版です。フィードバックの共有やバグ報告を歓迎します。すべての報告がより迅速なリリースにつながります。',
   'misc.betaFeedback': 'フィードバックを送信',
@@ -1025,8 +814,6 @@ const messages: TranslationMap = {
   'settings.gateway.nameLabel': '名前',
   'settings.gateway.namePlaceholder': 'ビルドサーバー',
   'settings.gateway.whereLegend': 'どこで実行しますか？',
-  'settings.gateway.where.here': 'このコンピュータ上',
-  'settings.gateway.where.ssh': 'SSH経由で別のマシン上',
   'settings.gateway.destinationLabel': 'SSH接続先',
   'settings.gateway.destinationPlaceholder': 'builder@example.com',
   'settings.gateway.destinationHelp':
@@ -1039,18 +826,6 @@ const messages: TranslationMap = {
   'settings.gateway.containedLabel': 'コンテナ内で実行',
   'settings.gateway.imageLabel': 'コンテナイメージ',
   'settings.gateway.binaryLabel': 'openhuman-core へのパス',
-  'settings.gateway.kind.desktop': 'このアプリ内',
-  'settings.gateway.kind.remote': '指定URLのコア',
-  'settings.gateway.kind.docker': 'このコンピューターのコンテナ内',
-  'settings.gateway.kind.ssh': '別のマシン上',
-  'settings.gateway.kind.ssh+docker': '別のマシンのコンテナ内',
-  'settings.gateway.kind.local-process': 'このコンピュータ上',
-  'settings.gateway.idRequired': 'この場所に名前を付けてください。',
-  'settings.gateway.idReserved': 'その名前は、このアプリ自体のコア用に予約されています。',
-  'settings.gateway.destinationRequired': '接続するマシンを入力してください。',
-  'settings.gateway.imageRequired': '実行するコンテナイメージを入力してください。',
-  'settings.gateway.binaryRequired': 'そのマシン上の openhuman-core へのパスを入力してください。',
-  'settings.gateway.portInvalid': 'SSHポートは数値である必要があります。',
   'settings.usage.title': '使用量',
   'settings.usage.menuDesc': 'コスト、トークン節約、使用記録、バックグラウンドアクティビティ',
   'settings.costDashboard.monthToDate': '今月',
@@ -1254,10 +1029,6 @@ const messages: TranslationMap = {
   'pages.settings.ai.embeddingsDesc': 'メモリー検索用のベクトルエンコーディングモデル',
 
   'mcp.toolList.noTools': '利用可能なツールがありません。',
-  'devices.comingSoonDescription':
-    'デバイスペアリングは近日公開予定です。このページは、iPhoneのペアリングや接続済みデバイスの管理の拠点となります。',
-  'devices.title': 'デバイス',
-  'devices.revokeAria': '{label} を取り消す',
   'mcp.catalog.searchAria': 'MCPサーバーカタログを検索',
   'mcp.catalog.searchPlaceholder': 'MCPサーバーを検索...',
   'mcp.catalog.loadFailed': 'カタログの読み込みに失敗しました',
@@ -1295,8 +1066,6 @@ const messages: TranslationMap = {
   'app.update.dismissNotification': '更新通知を閉じる',
   'bootCheck.rpcAuthSuffix': 'すべての RPC で',
   'mobile.nav.ariaLabel': 'モバイルナビゲーション',
-  'progress.stepsAria': '進捗ステップ',
-  'progress.stepAria': 'ステップ {current} / {total}',
   'art.rotatingTetrahedronAria': '回転する逆四面体宇宙船',
   'mcp.installed.empty': 'インストール済みの MCP サーバーはありません。',
   'mcp.tab.loading': 'MCP サーバーを読み込み中...',
@@ -1412,20 +1181,6 @@ const messages: TranslationMap = {
   'mcp.json.revert': '元に戻す',
   'mcp.json.exampleTitle': '例',
   'mcp.json.saveFailed': 'mcp.json を保存できませんでした。',
-  'mcp.json.parseError.empty':
-    'ドキュメントが空です。サーバーなしの場合は { "mcpServers": {} } です。',
-  'mcp.json.parseError.invalidJson': '無効な JSON です: {detail}',
-  'mcp.json.parseError.rootNotObject': 'mcp.json は `mcpServers` キーを持つオブジェクトです。',
-  'mcp.json.parseError.missingRoot':
-    '`mcpServers` キーがありません。すべてのサーバーはこの下に配置します。',
-  'mcp.json.parseError.rootNotMap': '`mcpServers` はサーバー名とその設定をマッピングします。',
-  'mcp.json.parseError.emptyName': 'サーバーには名前が必要です。キーが空の項目があります。',
-  'mcp.json.parseError.entryNotObject':
-    '`{name}` はオブジェクトです。例: { "command": "npx", "args": ["-y", "…"] } または { "url": "https://…" }',
-  'mcp.json.parseError.needsUrlOrCommand':
-    '`{name}` には `url`（ホスト型）または `command`（ローカル実行）が必要です。',
-  'mcp.json.parseError.bothUrlAndCommand':
-    '`{name}` に `url` と `command` の両方が指定されています。サーバーはどちらか一方で接続します。',
   'mcp.detail.connect': '接続',
   'mcp.detail.connecting': '接続中...',
   'mcp.detail.authenticate': 'サインイン',
@@ -1478,7 +1233,6 @@ const messages: TranslationMap = {
   'mcp.status.disabled': '無効',
   'mcp.status.unauthorized': 'サインインが必要',
   'mcp.detail.tools': 'ツール',
-  'onboarding.skipForNow': '今はスキップ',
   'autonomy.maxActionsLabel': '1時間あたりの最大アクション数',
   'autonomy.maxActionsHelp':
     'エージェントがローリング1時間以内に実行できるツールアクションの最大数です。新しい値は次のチャットから適用されます。Cronジョブとチャネルリスナーは、OpenHumanを再起動するまで現在の制限を維持します。',
@@ -1495,14 +1249,8 @@ const messages: TranslationMap = {
   'settings.ai.localRuntime': 'ローカルモデルランタイム',
 
   // Settings: Billing
-  'settings.billing.movedToWeb': '請求管理はWebへ移行しました',
-  'settings.billing.openDashboard': '請求ダッシュボードを開く',
-  'settings.billing.backToSettings': '設定に戻る',
-  'settings.billing.openingBrowser': 'ブラウザを開いています...',
 
   // Settings: Tools
-  'settings.tools.chooseCapabilities':
-    'OpenHumanがユーザーに代わって使用できる機能を選択してください。',
   'settings.tools.saveChanges': '変更を保存',
   'settings.tools.preferencesSaved': '設定を保存しました',
   'settings.tools.saveFailed': '設定の保存に失敗しました。もう一度お試しください。',
@@ -1512,13 +1260,7 @@ const messages: TranslationMap = {
   // Channels
   'channels.status.connecting': '接続中',
   'channels.status.notConfigured': '未設定',
-  'channels.noActiveRoute': 'アクティブなルートがありません',
-  'channels.activeRoute': 'アクティブなルート',
-  'channels.loadingDefinitions': 'チャネル定義を読み込んでいます...',
-  'channels.channelConnections': 'チャネル接続',
-  'channels.configureAuthModes': '各メッセージングチャネルの認証モードを設定します。',
   'channels.configNotAvailable': '設定対象:',
-  'channels.channel': 'チャネル',
 
   // Dev Options
   'devOptions.coreModeNotSet': 'コアモード: 未設定',
@@ -1581,7 +1323,6 @@ const messages: TranslationMap = {
   'mnemonic.importWallet': 'ウォレットをインポート',
 
   // Team
-  'team.leave': '退出',
   'team.deleting': '削除中...',
 
   // Voice
@@ -1764,7 +1505,6 @@ const messages: TranslationMap = {
   'chat.newThreadShortcut': '新規スレッド (/new)',
   'chat.new': '新規',
   'chat.failedToLoadMessages': 'メッセージの読み込みに失敗しました',
-  'chat.thinkingIteration': '思考中... ({n})',
   'chat.thinkingDots': '思考中...',
   'chat.status.thinkingElapsed': '思考中 · {elapsed}',
   'chat.status.waitingApproval': '承認を待っています',
@@ -1808,48 +1548,11 @@ const messages: TranslationMap = {
   'chat.attachment.remove': '{name}を削除',
   'chat.attachment.tooMany': '1メッセージにつき画像は最大{max}枚までです',
   'chat.attachment.tooManyFiles': '1メッセージにつきファイルは最大{max}個までです',
-  'chat.attachment.videoNotSupported':
-    'このモデルは動画を読み取れません。OpenHuman Reasoningティアを使用して動画を添付してください。',
   'chat.attachment.dropToAttach': 'ファイルをドロップして添付',
   'chat.attachment.tooLarge': '画像がサイズ制限{max}を超えています',
-  'chat.attachment.unsupportedType':
-    'サポートされていないファイル形式です。画像（PNG、JPEG、WebP、GIF、BMP）またはPDF、TXT、Markdownファイルを使用してください。',
-  'chat.attachment.imageNotSupported':
-    'このモデルは画像を読み取れません。OpenHuman Reasoningティアを使用して画像を添付してください。',
   'chat.attachment.readFailed': 'ファイルを読み取れませんでした',
 
   // Memory (additional)
-  'memory.searchAria': 'メモリーを検索',
-  'memory.searchPlaceholder': 'メモリーエントリを検索...',
-  'memory.sourceFilter.all': 'すべてのソース',
-  'memory.sourceFilter.email': 'メール',
-  'memory.sourceFilter.calendar': 'カレンダー',
-  'memory.sourceFilter.telegram': 'Telegram',
-  'memory.sourceFilter.aiInsight': 'AIインサイト',
-  'memory.sourceFilter.system': 'システム',
-  'memory.sourceFilter.trading': '取引',
-  'memory.sourceFilter.security': 'セキュリティ',
-  'memory.ingestionActivity': '取り込みアクティビティ',
-  'memory.events': 'イベント',
-  'memory.event': 'イベント',
-  'memory.overTheLast': '過去',
-  'memory.months': 'か月',
-  'memory.peak': 'ピーク',
-  'memory.perDay': '/日',
-  'memory.less': '少ない',
-  'memory.more': '多い',
-  'memory.on': 'オン',
-  'memory.loading': 'メモリーを読み込み中',
-  'memory.fetching': 'メモリーエントリを取得しています...',
-  'memory.analyzing': 'メモリーを分析中',
-  'memory.analyzingHint': 'メモリーを処理してインサイトを抽出しています...',
-  'memory.noMatches': '一致する項目が見つかりません',
-  'memory.noMatchesHint': '検索条件やフィルターを変更してみてください。',
-  'memory.allCaughtUp': 'すべて処理済み',
-  'memory.allCaughtUpHint': '処理すべき新しいメモリーエントリはありません。',
-  'memory.noAnalysis': '分析結果はまだありません',
-  'memory.noAnalysisHint': '分析を実行して、メモリー内のパターンを発見してください。',
-  'memory.emptyHint': '対話を開始して、最初のメモリーを作成しましょう。',
 
   // Mic
   'mic.unavailable': 'マイクが利用できません',
@@ -1873,31 +1576,10 @@ const messages: TranslationMap = {
   'token.popCacheHit': 'キャッシュヒット',
 
   // Navigator
-  'navigator.recent': '最近',
-  'navigator.today': '今日',
-  'navigator.thisWeek': '今週',
-  'navigator.sources': 'ソース',
-  'navigator.email': 'メール',
-  'navigator.slack': 'Slack',
-  'navigator.chat': 'チャット',
-  'navigator.documents': 'ドキュメント',
-  'navigator.people': '人物',
-  'navigator.topics': 'トピック',
 
   // Dreams
 
   // Insights
-  'insights.knownFacts': '既知の事実',
-  'insights.preferences': '設定',
-  'insights.relationships': '関係性',
-  'insights.skills': 'スキル',
-  'insights.opinions': '意見',
-  'insights.other': 'その他',
-  'insights.title': 'インサイト',
-  'insights.empty': 'インサイトはまだありません。メモリーが増えるにつれて生成されます。',
-  'insights.description': 'メモリーグラフ内の {count} 件の関係性に基づいています。',
-  'insights.items': '件',
-  'insights.more': '件',
 
   // Calls
 
@@ -1911,22 +1593,8 @@ const messages: TranslationMap = {
   // Backend
 
   // Actionable
-  'actionable.complete': '完了',
-  'actionable.dismiss': '却下',
-  'actionable.snooze': 'スヌーズ',
-  'actionable.new': '新規',
 
   // Stats
-  'stats.storage': 'ストレージ',
-  'stats.files': 'ファイル',
-  'stats.documents': 'ドキュメント',
-  'stats.today': '今日',
-  'stats.namespaces': '名前空間',
-  'stats.relations': '関係',
-  'stats.firstMemory': '最初のメモリー',
-  'stats.latest': '最新',
-  'stats.sessions': 'セッション',
-  'stats.tokens': 'トークン',
 
   // Boot Check Gate
   'bootCheck.invalidUrl': 'ランタイム URL を入力してください。',
@@ -2034,7 +1702,6 @@ const messages: TranslationMap = {
   'about.update.status.default': '更新を確認',
 
   // Welcome: connection error messages
-  'welcome.continueLocallyExperimental': 'ローカルで続行 (実験的)',
   'auth.profileSwitch.title': '別のプロフィールでサインインしますか？',
   'auth.profileSwitch.body':
     'クラウドにサインインすると、OpenHuman は別のアカウントプロフィールに切り替わります。ローカルの会話、メモリ、プロバイダー設定はこのデバイスの users/{profileId} に残ります。戻るにはサインアウトし、ようこそ画面でローカルセッションを選択してください。',
@@ -2049,7 +1716,6 @@ const messages: TranslationMap = {
   // Chat: Agent chat panel description
 
   // Channels: active route interpolated value
-  'channels.activeRouteValue': '{channel} 経由 ({authMode})',
 
   // Privacy: data kind labels for What Leaves My Computer
 
@@ -2068,9 +1734,6 @@ const messages: TranslationMap = {
     'エージェント統合は近日提供予定: 接続は可能ですが、エージェントはまだこのツールキットを使用できません。',
 
   // Memory: day-of-week labels for heatmap
-  'memory.day.mon': '月',
-  'memory.day.wed': '水',
-  'memory.day.fri': '金',
 
   // Memory: ingestion status labels
 
@@ -2088,12 +1751,6 @@ const messages: TranslationMap = {
   // Local Model: usage labels
 
   // === i18n migration: extracted strings (auto-merged) ===
-  'app.connectionIndicator.connected': '接続済み',
-  'app.connectionIndicator.connecting': '接続中',
-  'app.connectionIndicator.coreOffline': 'コアがオフライン',
-  'app.connectionIndicator.disconnected': '切断済み',
-  'app.connectionIndicator.offline': 'オフライン',
-  'app.connectionIndicator.reconnecting': '再接続中…',
   'app.errorFallback.componentStack': 'コンポーネントスタック',
   'app.errorFallback.contactSupport': 'サポートに連絡',
   'app.errorFallback.copyEventId': 'コピー',
@@ -2217,7 +1874,6 @@ const messages: TranslationMap = {
   'channels.telegram.reconnect': '再接続',
   'channels.telegram.savedRestartRequired':
     'チャンネルを保存しました。有効にするにはアプリを再起動してください。',
-  'channels.web.alwaysAvailable': '常に利用可能',
   'chat.approval.approve': '承認',
   'chat.approval.alwaysAllow': '常に許可',
   'chat.approval.alwaysAllowHint': 'このツールの確認を停止します。常に許可リストに追加します',
@@ -2276,44 +1932,15 @@ const messages: TranslationMap = {
   'chat.flowProposal.stepKind.subWorkflow': 'サブワークフロー',
 
   // Auth mode labels
-  'channels.authMode.managed_dm': 'OpenHuman でログイン',
-  'channels.authMode.oauth': 'OAuth サインイン',
-  'channels.authMode.bot_token': '独自の Bot トークンを使用',
-  'channels.authMode.api_key': '独自の API キーを使用',
 
   // Field validation
   'channels.fieldRequired': '{field} は必須です',
 
   // MCP (virtual channel)
-  'channels.mcp.title': 'MCP サーバー',
-  'channels.mcp.description':
-    'AI に新しいツールを追加する Model Context Protocol サーバーを参照・管理します。',
 
   // Discord
-  'channels.discord.displayName': 'Discord',
-  'channels.discord.description': 'Discord を介してメッセージを送受信します。',
-  'channels.discord.authMode.bot_token.description':
-    '独自の Discord Bot トークンを提供してください。',
-  'channels.discord.authMode.oauth.description':
-    'OAuth を介して OpenHuman Bot を Discord サーバーにインストールします。',
-  'channels.discord.authMode.managed_dm.description':
-    'OpenHumanボットに個人のDiscordアカウントをリンクします。',
-  'channels.discord.fields.bot_token.label': 'ボットトークン',
-  'channels.discord.fields.bot_token.placeholder': 'Discordボットのトークン',
-  'channels.discord.fields.guild_id.label': 'サーバー（ギルド）ID',
-  'channels.discord.fields.guild_id.placeholder': '任意：特定のサーバーに限定',
 
   // Telegram
-  'channels.telegram.displayName': 'Telegram',
-  'channels.telegram.description': 'Telegram経由でメッセージを送受信します。',
-  'channels.telegram.authMode.managed_dm.description':
-    'OpenHumanのTelegramボットに直接メッセージを送信します。',
-  'channels.telegram.authMode.bot_token.description':
-    '@BotFatherから取得した独自のTelegramボットトークンを提供します。',
-  'channels.telegram.fields.bot_token.label': 'ボットトークン',
-  'channels.telegram.fields.bot_token.placeholder': '123456:ABC-DEF1234ghIkl-zyx57W2v1u123ew11',
-  'channels.telegram.fields.allowed_users.label': '許可されたユーザー',
-  'channels.telegram.fields.allowed_users.placeholder': 'カンマ区切りのTelegramユーザー名',
   'channels.telegram.remoteControlTitle': 'リモートコントロール（Telegram）',
   'channels.telegram.remoteControlBody':
     '許可されたTelegramチャットから /status、/sessions、/new、または /help を送信します。モデルルーティングには引き続き /model と /models を使用します。',
@@ -2328,10 +1955,6 @@ const messages: TranslationMap = {
     'Slackをお探しですか？Slackは、ここでのメッセージングチャネルではなく、接続 → OAuthの下でアプリとして接続されます。',
 
   // Web
-  'channels.web.displayName': 'Web',
-  'channels.web.description': '組み込みのWeb UIを介してチャットします。',
-  'channels.web.authMode.managed_dm.description':
-    '埋め込みWebチャットを使用します。設定は不要です。',
   'channels.yuanbao.connect': '接続',
   'channels.yuanbao.connecting': '接続中…',
   'channels.yuanbao.fieldRequired': '{field}は必須です',
@@ -2479,11 +2102,8 @@ const messages: TranslationMap = {
   'conversations.composer.context.errorDetail':
     'コアがこのスレッドのプロンプトを計測できませんでした。',
   'conversations.composer.context.section.preamble': 'システムプロンプト',
-  'conversations.composer.context.section.tools': 'ツール',
   'conversations.composer.context.section.toolSchemas': 'ツールスキーマ',
   'conversations.composer.context.section.yourInput': 'ユーザー入力',
-  'conversations.composer.context.section.history': '会話履歴',
-  'conversations.composer.context.turnCost': 'このターン',
   'conversations.composer.context.subagentCost': '{agent}',
   'conversations.composer.command.clear': '会話をクリア',
   'conversations.composer.command.new': '新しい会話を開始',
@@ -2516,9 +2136,6 @@ const messages: TranslationMap = {
   'conversations.planReview.feedbackPlaceholder': '変更内容を記述…',
   'conversations.planReview.sendFeedback': 'フィードバックを送信',
   'conversations.planReview.revise': '修正',
-  'conversations.runMode.plan': 'プラン',
-  'conversations.runMode.build': 'ビルド',
-  'conversations.runMode.toggleLabel': 'プランモードとビルドモードを切り替える',
   'conversations.goal.inlineSummary': '{objective} ({status})',
   // Thread-level goal chip (Codex-style per-thread completion contract).
   'conversations.subagent.input': '入力',
@@ -2547,342 +2164,6 @@ const messages: TranslationMap = {
   'conversations.tools.search.researching': 'リサーチがまだ実行中です',
   'conversations.tools.search.balanceLow':
     'TinyHumans の残高が不足しているため、同梱の検索機能を利用できません。チャージするか、設定で検索プロバイダーの API キーを追加してください。',
-  'conversations.tools.readFile.active': 'ファイルを読み込み中',
-  'conversations.tools.readFile.done': 'ファイルを読み込みました',
-  'conversations.tools.writeFile.active': 'ファイルを書き込み中',
-  'conversations.tools.writeFile.done': 'ファイルを書き込みました',
-  'conversations.tools.editFile.active': 'ファイルを編集中',
-  'conversations.tools.editFile.done': 'ファイルを編集しました',
-  'conversations.tools.applyEdits.active': '編集を適用中',
-  'conversations.tools.applyEdits.done': '編集を適用しました',
-  'conversations.tools.searchCode.active': 'コードを検索中',
-  'conversations.tools.searchCode.done': 'コードを検索しました',
-  'conversations.tools.findFiles.active': 'ファイルを検索中',
-  'conversations.tools.findFiles.done': 'ファイルを検索しました',
-  'conversations.tools.listFolder.active': 'フォルダを一覧表示中',
-  'conversations.tools.listFolder.done': 'フォルダを一覧表示しました',
-  'conversations.tools.exportCsv.active': 'CSV をエクスポート中',
-  'conversations.tools.exportCsv.done': 'CSV をエクスポートしました',
-  'conversations.tools.updateMemoryNotes.active': 'メモリーノートを更新中',
-  'conversations.tools.updateMemoryNotes.done': 'メモリーノートを更新しました',
-  'conversations.tools.runGit.active': 'git を実行中',
-  'conversations.tools.runGit.done': 'git を実行しました',
-  'conversations.tools.readChanges.active': '変更内容を読み込み中',
-  'conversations.tools.readChanges.done': '変更内容を読み込みました',
-  'conversations.tools.runLinter.active': 'リンターを実行中',
-  'conversations.tools.runLinter.done': 'リンターを実行しました',
-  'conversations.tools.runTests.active': 'テストを実行中',
-  'conversations.tools.runTests.done': 'テストを実行しました',
-  'conversations.tools.analyzeCode.active': 'コードを解析中',
-  'conversations.tools.analyzeCode.done': 'コードを解析しました',
-  'conversations.tools.runCommand.active': 'コマンドを実行中',
-  'conversations.tools.runCommand.done': 'コマンドを実行しました',
-  'conversations.tools.runCode.active': 'コードを実行中',
-  'conversations.tools.runCode.done': 'コードを実行しました',
-  'conversations.tools.runPackageManager.active': 'npm を実行中',
-  'conversations.tools.runPackageManager.done': 'npm を実行しました',
-  'conversations.tools.checkInstalledTools.active': 'インストール済みツールを確認中',
-  'conversations.tools.checkInstalledTools.done': 'インストール済みツールを確認しました',
-  'conversations.tools.installTool.active': 'ツールをインストール中',
-  'conversations.tools.installTool.done': 'ツールをインストールしました',
-  'conversations.tools.checkTime.active': '時刻を確認中',
-  'conversations.tools.checkTime.done': '時刻を確認しました',
-  'conversations.tools.resolveDate.active': '日付を計算中',
-  'conversations.tools.resolveDate.done': '日付を計算しました',
-  'conversations.tools.retrieveOutput.active': '完全な出力を取得中',
-  'conversations.tools.retrieveOutput.done': '完全な出力を取得しました',
-  'conversations.tools.reviewWorkspace.active': 'ワークスペースを確認中',
-  'conversations.tools.reviewWorkspace.done': 'ワークスペースを確認しました',
-  'conversations.tools.configureProxy.active': 'プロキシを設定中',
-  'conversations.tools.configureProxy.done': 'プロキシを設定しました',
-  'conversations.tools.checkUpdates.active': '更新を確認中',
-  'conversations.tools.checkUpdates.done': '更新を確認しました',
-  'conversations.tools.installUpdate.active': '更新をインストール中',
-  'conversations.tools.installUpdate.done': '更新をインストールしました',
-  'conversations.tools.sendNotification.active': '通知を送信中',
-  'conversations.tools.sendNotification.done': '通知を送信しました',
-  'conversations.tools.reviewToolUsage.active': 'ツールの使用状況を確認中',
-  'conversations.tools.reviewToolUsage.done': 'ツールの使用状況を確認しました',
-  'conversations.tools.typeKeys.active': '入力中',
-  'conversations.tools.typeKeys.done': '入力しました',
-  'conversations.tools.click.active': 'クリック中',
-  'conversations.tools.click.done': 'クリックしました',
-  'conversations.tools.searchWeb.active': 'Webを検索中',
-  'conversations.tools.searchWeb.done': 'Webを検索しました',
-  'conversations.tools.searchNews.active': 'ニュースを検索中',
-  'conversations.tools.searchNews.done': 'ニュースを検索しました',
-  'conversations.tools.searchImages.active': '画像を検索中',
-  'conversations.tools.searchImages.done': '画像を検索しました',
-  'conversations.tools.searchVideos.active': '動画を検索中',
-  'conversations.tools.searchVideos.done': '動画を検索しました',
-  'conversations.tools.findSimilarPages.active': '類似ページを検索中',
-  'conversations.tools.findSimilarPages.done': '類似ページを検索しました',
-  'conversations.tools.readPages.active': 'ページを読み込み中',
-  'conversations.tools.readPages.done': 'ページを読み込みました',
-  'conversations.tools.readWebpage.active': 'Webページを読み込み中',
-  'conversations.tools.readWebpage.done': 'Webページを読み込みました',
-  'conversations.tools.research.active': '調査中',
-  'conversations.tools.research.done': '調査しました',
-  'conversations.tools.enrichData.active': 'データを強化中',
-  'conversations.tools.enrichData.done': 'データ強化完了',
-  'conversations.tools.buildDataset.active': 'データセット構築中',
-  'conversations.tools.buildDataset.done': 'データセット構築完了',
-  'conversations.tools.askTheWeb.active': 'Web検索中',
-  'conversations.tools.askTheWeb.done': 'Web検索完了',
-  'conversations.tools.browseForYou.active': '閲覧中',
-  'conversations.tools.browseForYou.done': '閲覧完了',
-  'conversations.tools.callApi.active': 'API呼び出し中',
-  'conversations.tools.callApi.done': 'API呼び出し完了',
-  'conversations.tools.downloadFile.active': 'ファイルダウンロード中',
-  'conversations.tools.downloadFile.done': 'ファイルダウンロード完了',
-  'conversations.tools.makePaidRequest.active': '有料リクエスト送信中',
-  'conversations.tools.makePaidRequest.done': '有料リクエスト送信完了',
-  'conversations.tools.searchDocs.active': 'ドキュメント検索中',
-  'conversations.tools.searchDocs.done': 'ドキュメント検索完了',
-  'conversations.tools.readDocs.active': 'ドキュメント読み取り中',
-  'conversations.tools.readDocs.done': 'ドキュメント読み取り完了',
-  'conversations.tools.useBrowser.active': 'ブラウザ使用中',
-  'conversations.tools.useBrowser.done': 'ブラウザ使用完了',
-  'conversations.tools.openPage.active': 'ページを開いています',
-  'conversations.tools.openPage.done': 'ページを開きました',
-  'conversations.tools.navigate.active': '移動中',
-  'conversations.tools.navigate.done': '移動完了',
-  'conversations.tools.takeScreenshot.active': 'スクリーンショット撮影中',
-  'conversations.tools.takeScreenshot.done': 'スクリーンショット撮影完了',
-  'conversations.tools.scrollPage.active': 'スクロール中',
-  'conversations.tools.scrollPage.done': 'スクロール完了',
-  'conversations.tools.readPage.active': 'ページ読み取り中',
-  'conversations.tools.readPage.done': 'ページ読み取り完了',
-  'conversations.tools.analyzeImage.active': '画像解析中',
-  'conversations.tools.analyzeImage.done': '画像解析完了',
-  'conversations.tools.generateImage.active': '画像生成中',
-  'conversations.tools.generateImage.done': '画像生成完了',
-  'conversations.tools.generateVideo.active': '動画生成中',
-  'conversations.tools.generateVideo.done': '動画生成完了',
-  'conversations.tools.checkMediaModels.active': 'メディアモデル確認中',
-  'conversations.tools.checkMediaModels.done': 'メディアモデル確認完了',
-  'conversations.tools.createDocument.active': 'ドキュメント作成中',
-  'conversations.tools.createDocument.done': 'ドキュメント作成完了',
-  'conversations.tools.createPresentation.active': 'プレゼンテーション作成中',
-  'conversations.tools.createPresentation.done': 'プレゼンテーションを作成しました',
-  'conversations.tools.generatePodcast.active': 'ポッドキャストを生成中',
-  'conversations.tools.generatePodcast.done': 'ポッドキャストを生成しました',
-  'conversations.tools.emailPodcast.active': 'ポッドキャストを送信中',
-  'conversations.tools.emailPodcast.done': 'ポッドキャストを送信しました',
-  'conversations.tools.createAndEmailPodcast.active': 'ポッドキャストを作成して送信中',
-  'conversations.tools.createAndEmailPodcast.done': 'ポッドキャストを作成して送信しました',
-  'conversations.tools.recallMemories.active': 'メモリーを呼び出し中',
-  'conversations.tools.recallMemories.done': 'メモリーを呼び出しました',
-  'conversations.tools.saveToMemory.active': 'メモリーに保存中',
-  'conversations.tools.saveToMemory.done': 'メモリーに保存しました',
-  'conversations.tools.forgetMemory.active': 'メモリーを削除中',
-  'conversations.tools.forgetMemory.done': 'メモリーを削除しました',
-  'conversations.tools.searchMemory.active': 'メモリーを検索中',
-  'conversations.tools.searchMemory.done': 'メモリーを検索しました',
-  'conversations.tools.inspectMemory.active': 'メモリーを確認中',
-  'conversations.tools.inspectMemory.done': 'メモリーを確認しました',
-  'conversations.tools.exploreMemory.active': 'メモリーを探索中',
-  'conversations.tools.exploreMemory.done': 'メモリーを探索しました',
-  'conversations.tools.saveDocumentToMemory.active': 'ドキュメントをメモリーに保存中',
-  'conversations.tools.saveDocumentToMemory.done': 'ドキュメントをメモリーに保存しました',
-  'conversations.tools.updateGoals.active': '目標を更新中',
-  'conversations.tools.updateGoals.done': '目標を更新しました',
-  'conversations.tools.reviewGoals.active': '目標を確認中',
-  'conversations.tools.reviewGoals.done': '目標を確認しました',
-  'conversations.tools.savePreference.active': '設定を保存中',
-  'conversations.tools.savePreference.done': '設定を保存しました',
-  'conversations.tools.reviewLearnings.active': '学習内容をレビュー中',
-  'conversations.tools.reviewLearnings.done': '学習内容をレビューしました',
-  'conversations.tools.updateLearnings.active': '学習内容を更新中',
-  'conversations.tools.updateLearnings.done': '学習内容を更新しました',
-  'conversations.tools.delegateTask.active': 'タスクを委任中',
-  'conversations.tools.delegateTask.done': 'タスクを委任しました',
-  'conversations.tools.runAgentsInParallel.active': 'エージェントを並列実行中',
-  'conversations.tools.runAgentsInParallel.done': 'エージェントを並列実行しました',
-  'conversations.tools.messageAgent.active': 'エージェントにメッセージ送信中',
-  'conversations.tools.messageAgent.done': 'エージェントにメッセージを送信しました',
-  'conversations.tools.waitForAgent.active': 'エージェントを待機中',
-  'conversations.tools.waitForAgent.done': 'エージェントの待機が完了しました',
-  'conversations.tools.wait.active': '待機中',
-  'conversations.tools.wait.done': '待機完了',
-  'conversations.tools.closeAgent.active': 'エージェントを終了中',
-  'conversations.tools.closeAgent.done': 'エージェントを終了しました',
-  'conversations.tools.checkAgents.active': 'エージェントを確認中',
-  'conversations.tools.checkAgents.done': 'エージェントを確認しました',
-  'conversations.tools.askQuestion.active': '質問しています',
-  'conversations.tools.askQuestion.done': '質問しました',
-  'conversations.tools.prepareContext.active': 'コンテキストを準備中',
-  'conversations.tools.prepareContext.done': 'コンテキストを準備しました',
-  'conversations.tools.extractDetails.active': '詳細を抽出中',
-  'conversations.tools.extractDetails.done': '詳細を抽出しました',
-  'conversations.tools.planNextSteps.active': '次のステップを計画中',
-  'conversations.tools.planNextSteps.done': '次のステップを計画しました',
-  'conversations.tools.reviewWork.active': '作業をレビュー中',
-  'conversations.tools.reviewWork.done': '作業をレビューしました',
-  'conversations.tools.useTools.active': 'ツールを使用中',
-  'conversations.tools.useTools.done': 'ツールを使用しました',
-  'conversations.tools.checkConnectedApp.active': '接続済みアプリを確認中',
-  'conversations.tools.checkConnectedApp.done': '接続済みアプリを確認しました',
-  'conversations.tools.updateTodos.active': 'ToDoリストを更新中',
-  'conversations.tools.updateTodos.done': 'ToDoリストを更新しました',
-  'conversations.tools.requestPlanReview.active': 'プランレビューを依頼中',
-  'conversations.tools.requestPlanReview.done': 'プランレビューを依頼しました',
-  'conversations.tools.finishPlan.active': 'プランを完了中',
-  'conversations.tools.finishPlan.done': 'プランを完了しました',
-  'conversations.tools.setGoal.active': '目標を設定中',
-  'conversations.tools.setGoal.done': '目標を設定しました',
-  'conversations.tools.checkGoal.active': '目標を確認中',
-  'conversations.tools.checkGoal.done': '目標を確認しました',
-  'conversations.tools.completeGoal.active': '目標を達成中',
-  'conversations.tools.completeGoal.done': '目標を達成しました',
-  'conversations.tools.scheduleTask.active': 'タスクをスケジュール中',
-  'conversations.tools.scheduleTask.done': 'タスクをスケジュールしました',
-  'conversations.tools.checkSchedules.active': 'スケジュールを確認中',
-  'conversations.tools.checkSchedules.done': 'スケジュールを確認しました',
-  'conversations.tools.updateSchedule.active': 'スケジュール済みタスクを更新中',
-  'conversations.tools.updateSchedule.done': 'スケジュール済みタスクを更新しました',
-  'conversations.tools.removeSchedule.active': 'スケジュール済みタスクを削除中',
-  'conversations.tools.removeSchedule.done': 'スケジュール済みタスクを削除しました',
-  'conversations.tools.runScheduledTask.active': 'スケジュール済みタスクを実行中',
-  'conversations.tools.runScheduledTask.done': 'スケジュールされたタスクを実行しました',
-  'conversations.tools.checkRunHistory.active': '実行履歴を確認中',
-  'conversations.tools.checkRunHistory.done': '実行履歴を確認しました',
-  'conversations.tools.useApp.active': '{app} を使用中',
-  'conversations.tools.useApp.done': '{app} を使用しました',
-  'conversations.tools.checkAvailableApps.active': '利用可能なアプリを確認中',
-  'conversations.tools.checkAvailableApps.done': '利用可能なアプリを確認しました',
-  'conversations.tools.checkConnections.active': '接続を確認中',
-  'conversations.tools.checkConnections.done': '接続を確認しました',
-  'conversations.tools.connectApp.active': 'アプリを接続中',
-  'conversations.tools.connectApp.done': 'アプリを接続しました',
-  'conversations.tools.authorizeApp.active': 'アプリを認証中',
-  'conversations.tools.authorizeApp.done': 'アプリを認証しました',
-  'conversations.tools.findAppActions.active': 'アプリのアクションを検索中',
-  'conversations.tools.findAppActions.done': 'アプリのアクションを検索しました',
-  'conversations.tools.runAppAction.active': 'アプリのアクションを実行中',
-  'conversations.tools.runAppAction.done': 'アプリのアクションを実行しました',
-  'conversations.tools.inspectDesktop.active': 'デスクトップを確認中',
-  'conversations.tools.inspectDesktop.done': 'デスクトップを確認しました',
-  'conversations.tools.controlDesktop.active': 'デスクトップを操作中',
-  'conversations.tools.controlDesktop.done': 'デスクトップを操作しました',
-  'conversations.tools.findTools.active': 'ツールを検索中',
-  'conversations.tools.findTools.done': 'ツールを検索しました',
-  'conversations.tools.useTool.active': '{tool} を使用中',
-  'conversations.tools.useTool.done': '{tool} を使用しました',
-  'conversations.tools.unsubscribe.active': '登録解除中',
-  'conversations.tools.unsubscribe.done': '登録解除しました',
-  'conversations.tools.searchPlaces.active': '場所を検索中',
-  'conversations.tools.searchPlaces.done': '場所を検索しました',
-  'conversations.tools.lookUpPlace.active': '場所を検索中',
-  'conversations.tools.lookUpPlace.done': '場所を検索しました',
-  'conversations.tools.checkMarkets.active': '市場を確認中',
-  'conversations.tools.checkMarkets.done': '市場を確認しました',
-  'conversations.tools.placeCall.active': '通話を発信中',
-  'conversations.tools.placeCall.done': '通話を発信しました',
-  'conversations.tools.checkTaskSources.active': 'タスクソースを確認中',
-  'conversations.tools.checkTaskSources.done': 'タスクソースを確認しました',
-  'conversations.tools.updateTaskSources.active': 'タスクソースを更新中',
-  'conversations.tools.updateTaskSources.done': 'タスクソースを更新しました',
-  'conversations.tools.fetchTasks.active': 'タスクを取得中',
-  'conversations.tools.fetchTasks.done': 'タスクを取得しました',
-  'conversations.tools.checkMcpServers.active': 'MCPサーバーを確認中',
-  'conversations.tools.checkMcpServers.done': 'MCPサーバーを確認しました',
-  'conversations.tools.checkMcpTools.active': 'MCPツールを確認中',
-  'conversations.tools.checkMcpTools.done': 'MCPツールを確認しました',
-  'conversations.tools.callMcpTool.active': '{tool}を呼び出し中',
-  'conversations.tools.callMcpTool.done': '{tool}を呼び出しました',
-  'conversations.tools.searchMcpServers.active': 'MCPサーバーを検索中',
-  'conversations.tools.searchMcpServers.done': 'MCPサーバーを検索しました',
-  'conversations.tools.connectMcpServer.active': 'MCPサーバーに接続中',
-  'conversations.tools.connectMcpServer.done': 'MCPサーバーに接続しました',
-  'conversations.tools.disconnectMcpServer.active': 'MCPサーバーから切断中',
-  'conversations.tools.disconnectMcpServer.done': 'MCPサーバーから切断しました',
-  'conversations.tools.removeMcpServer.active': 'MCPサーバーを削除中',
-  'conversations.tools.removeMcpServer.done': 'MCPサーバーを削除しました',
-  'conversations.tools.uploadFile.active': 'ファイルをアップロード中',
-  'conversations.tools.uploadFile.done': 'ファイルをアップロードしました',
-  'conversations.tools.listStoredFiles.active': '保存済みファイルを一覧表示中',
-  'conversations.tools.listStoredFiles.done': '保存済みファイルを一覧表示しました',
-  'conversations.tools.createShareLink.active': '共有リンクを作成中',
-  'conversations.tools.createShareLink.done': '共有リンクを作成しました',
-  'conversations.tools.deleteFile.active': 'ファイルを削除中',
-  'conversations.tools.deleteFile.done': 'ファイルを削除しました',
-  'conversations.tools.updateFileAccess.active': 'ファイルのアクセス権を更新中',
-  'conversations.tools.updateFileAccess.done': 'ファイルのアクセス権を更新しました',
-  'conversations.tools.deploySite.active': 'サイトをデプロイ中',
-  'conversations.tools.deploySite.done': 'サイトをデプロイしました',
-  'conversations.tools.checkHosting.active': 'ホスティングを確認中',
-  'conversations.tools.checkHosting.done': 'ホスティングを確認しました',
-  'conversations.tools.updateHosting.active': 'ホスティングを更新中',
-  'conversations.tools.updateHosting.done': 'ホスティングを更新しました',
-  'conversations.tools.rollBackDeployment.active': 'デプロイをロールバック中',
-  'conversations.tools.rollBackDeployment.done': 'デプロイをロールバックしました',
-  'conversations.tools.checkWallet.active': 'ウォレットを確認中',
-  'conversations.tools.checkWallet.done': 'ウォレットを確認しました',
-  'conversations.tools.prepareTransfer.active': '送金を準備中',
-  'conversations.tools.prepareTransfer.done': '送金を準備しました',
-  'conversations.tools.checkTransaction.active': 'トランザクションを確認中',
-  'conversations.tools.checkTransaction.done': 'トランザクションを確認しました',
-  'conversations.tools.getSwapQuote.active': 'スワップ見積もりを取得中',
-  'conversations.tools.getSwapQuote.done': 'スワップ見積もりを取得しました',
-  'conversations.tools.swapTokens.active': 'トークンをスワップ中',
-  'conversations.tools.swapTokens.done': 'トークンをスワップしました',
-  'conversations.tools.getBridgeQuote.active': 'ブリッジ見積もりを取得中',
-  'conversations.tools.getBridgeQuote.done': 'ブリッジ見積もりを取得しました',
-  'conversations.tools.bridgeTokens.active': 'トークンをブリッジ中',
-  'conversations.tools.bridgeTokens.done': 'トークンをブリッジしました',
-  'conversations.tools.callDapp.active': 'アプリコントラクトを呼び出し中',
-  'conversations.tools.callDapp.done': 'アプリコントラクトを呼び出しました',
-  'conversations.tools.useSkill.active': 'スキルを使用中',
-  'conversations.tools.useSkill.done': 'スキルを使用しました',
-  'conversations.tools.searchSkills.active': 'スキルを検索中',
-  'conversations.tools.searchSkills.done': 'スキルを検索しました',
-  'conversations.tools.checkSkills.active': 'スキルを確認中',
-  'conversations.tools.checkSkills.done': 'スキルを確認しました',
-  'conversations.tools.installSkill.active': 'スキルをインストール中',
-  'conversations.tools.installSkill.done': 'スキルをインストールしました',
-  'conversations.tools.removeSkill.active': 'スキルを削除中',
-  'conversations.tools.removeSkill.done': 'スキルを削除しました',
-  'conversations.tools.createSkill.active': 'スキルを作成中',
-  'conversations.tools.createSkill.done': 'スキルを作成しました',
-  'conversations.tools.runWorkflow.active': 'ワークフローを実行中',
-  'conversations.tools.runWorkflow.done': 'ワークフローを実行しました',
-  'conversations.tools.waitForWorkflow.active': 'ワークフローの完了を待機中',
-  'conversations.tools.waitForWorkflow.done': 'ワークフローの完了を待機しました',
-  'conversations.tools.designWorkflow.active': 'ワークフローを設計中',
-  'conversations.tools.designWorkflow.done': 'ワークフローを設計しました',
-  'conversations.tools.saveWorkflow.active': 'ワークフローを保存中',
-  'conversations.tools.saveWorkflow.done': 'ワークフローを保存しました',
-  'conversations.tools.validateWorkflow.active': 'ワークフローを検証中',
-  'conversations.tools.validateWorkflow.done': 'ワークフローを検証しました',
-  'conversations.tools.testWorkflow.active': 'ワークフローをテスト中',
-  'conversations.tools.testWorkflow.done': 'ワークフローをテストしました',
-  'conversations.tools.checkWorkflows.active': 'ワークフローを確認中',
-  'conversations.tools.checkWorkflows.done': 'ワークフローを確認しました',
-  'conversations.tools.cancelWorkflow.active': 'ワークフローの実行をキャンセル中',
-  'conversations.tools.cancelWorkflow.done': 'ワークフローの実行をキャンセルしました',
-  'conversations.tools.suggestWorkflows.active': 'ワークフローを提案中',
-  'conversations.tools.suggestWorkflows.done': 'ワークフローを提案しました',
-  'conversations.tools.checkSettings.active': '設定を確認中',
-  'conversations.tools.checkSettings.done': '設定を確認しました',
-  'conversations.tools.checkSecurity.active': 'セキュリティを確認中',
-  'conversations.tools.checkSecurity.done': 'セキュリティを確認しました',
-  'conversations.tools.runDiagnostics.active': '診断を実行中',
-  'conversations.tools.runDiagnostics.done': '診断を実行しました',
-  'conversations.tools.checkUsageCosts.active': '使用コストを確認中',
-  'conversations.tools.checkUsageCosts.done': '使用コストを確認しました',
-  'conversations.tools.manageService.active': 'バックグラウンドサービスを管理中',
-  'conversations.tools.manageService.done': 'バックグラウンドサービスを管理しました',
-  'conversations.tools.readPersona.active': 'ペルソナを読み込み中',
-  'conversations.tools.readPersona.done': 'ペルソナを読み込みました',
-  'conversations.tools.updatePersona.active': 'ペルソナを更新中',
-  'conversations.tools.updatePersona.done': 'ペルソナを更新しました',
-  'conversations.tools.setUpWorkspace.active': 'ワークスペースをセットアップ中',
-  'conversations.tools.setUpWorkspace.done': 'ワークスペースをセットアップしました',
-  'conversations.tools.checkArtifacts.active': 'アーティファクトを確認中',
-  'conversations.tools.checkArtifacts.done': 'アーティファクトを確認しました',
-  'conversations.tools.deleteArtifact.active': 'アーティファクトを削除中',
-  'conversations.tools.deleteArtifact.done': 'アーティファクトを削除しました',
   'conversations.tools.document.title': 'ドキュメント',
   'conversations.tools.presentation.title': 'プレゼンテーション',
   'conversations.subagent.close': '閉じる',
@@ -2904,50 +2185,6 @@ const messages: TranslationMap = {
   // Tool-failure explanation surfaced under a failed step in "View processing" (#4254).
   'conversations.toolFailure.whyLabel': '理由',
   'conversations.toolFailure.nextLabel': '次の対処法',
-  'conversations.toolFailure.missingPermission.cause':
-    'OpenHuman にこの操作を行う権限がありません。',
-  'conversations.toolFailure.missingPermission.next':
-    '必要な権限を付与してから、もう一度お試しください。',
-  'conversations.toolFailure.missingApp.cause':
-    'この操作に必要なアプリまたはプログラムが利用できません。',
-  'conversations.toolFailure.missingApp.next':
-    'アプリをインストールまたは開いてから、もう一度お試しください。',
-  'conversations.toolFailure.serviceUnavailable.cause':
-    'OpenHuman が必要なサービスが一時的に利用できません。',
-  'conversations.toolFailure.serviceUnavailable.next':
-    'OpenHumanはまもなく再試行します。操作は不要です。',
-  'conversations.toolFailure.badCredentials.cause':
-    '保存されたサインイン情報が存在しないか、有効ではありません。',
-  'conversations.toolFailure.badCredentials.next':
-    '再度サインインするか、認証情報を更新してから再試行してください。',
-  'conversations.toolFailure.blockedByPolicy.cause':
-    'このアクションは安全設定によりブロックされています。',
-  'conversations.toolFailure.blockedByPolicy.next':
-    '実行する場合は、設定 → エージェントアクセスで許可してください。',
-  'conversations.toolFailure.modelConnection.cause': 'OpenHumanはAIモデルに接続できませんでした。',
-  'conversations.toolFailure.modelConnection.next':
-    '接続またはモデル設定を確認してください。OpenHumanは再試行します。',
-  'conversations.toolFailure.timeout.cause':
-    'アクションの実行に時間がかかりすぎたため、停止しました。',
-  'conversations.toolFailure.timeout.next':
-    'OpenHumanは再試行します。手動で再試行することも可能です。',
-  'conversations.toolFailure.denied.cause': 'このアクションを拒否しました。',
-  'conversations.toolFailure.denied.next':
-    '対応は不要です。実行されませんでした。変更した場合は再度依頼してください。',
-  'conversations.toolFailure.approvalExpired.cause':
-    '承認リクエストは応答前に期限切れになりました。',
-  'conversations.toolFailure.approvalExpired.next':
-    '実行するには再度依頼してください。OpenHumanは自動的に再試行しません。',
-  'conversations.toolFailure.unknown.cause': 'このアクションで問題が発生しました。',
-  'conversations.toolFailure.unknown.next':
-    '再試行してください。失敗が続く場合は、設定から診断を実行してください。',
-  'conversations.toolFailure.notFound.cause':
-    'このアクションが要求した項目は存在しないか、ここで利用できません。',
-  'conversations.toolFailure.notFound.next':
-    '操作は不要です。アシスタントが正しい名前を検索して再試行できます。',
-  'conversations.toolFailure.unsupported.cause': 'OpenHumanはまだこれを自動的に実行できません。',
-  'conversations.toolFailure.unsupported.next':
-    '手動で実行するか、別のオプションを依頼してください。',
   'conversations.backgroundTasks.title': 'バックグラウンドタスク',
   'conversations.backgroundTasks.statusRunning': '実行中',
   'conversations.backgroundTasks.close': '閉じる',
@@ -2961,17 +2198,10 @@ const messages: TranslationMap = {
   'conversations.backgroundTasks.cancelJob': 'キャンセル',
   // Scheduled (cron) jobs.
   'conversations.backgroundTasks.cronEmpty': 'スケジュールされたジョブはありません。',
-  'conversations.backgroundTasks.cronSchedCron': 'Cron {expr}',
   // Memory syncing / ingestion.
   'conversations.backgroundTasks.memUpToDate': 'すべてのメモリーは最新です',
   'conversations.subagent.awaitingTitle': '回答待ち',
   'conversations.subagent.incompleteTitle': '完了する前に停止しました',
-  'conversations.taskCard.state.working': '作業中',
-  'conversations.taskCard.state.waiting': '待機中',
-  'conversations.taskCard.state.done': '完了',
-  'conversations.taskCard.state.failed': '失敗',
-  'conversations.taskCard.state.cancelled': 'キャンセル済み',
-  'conversations.taskCard.state.incomplete': '完了前に停止しました',
   'conversations.subagent.answerPlaceholder': '回答を入力',
   'conversations.subagent.answerSend': '回答を送信',
   'conversations.subagent.answerSent': '回答を送信しました',
@@ -3015,32 +2245,6 @@ const messages: TranslationMap = {
     '再試行に失敗しました。最新のアプリビルドをダウンロードして再試行してください。',
   'daemon.serviceBlockingGate.retrying': '再試行中...',
   'daemon.serviceBlockingGate.title': 'OpenHuman コアが利用できません',
-  'home.banners.discordSubtitle':
-    'サポートの取得、フィードバックの共有、コミュニティとの交流ができます。',
-  'home.banners.discordTitle': 'Discord に参加',
-  'home.banners.earlyBirdDismiss': '早期割引バナーを閉じる',
-  'home.banners.earlyBirdFirstSub': '初回サブスクリプション。',
-  'home.banners.earlyBirdOn': '早期割引適用中',
-  'home.banners.earlyBirdTitle': '最初の 1,000 名は 60% オフ。',
-  'home.banners.earlyBirdUseCode': 'コードを使用',
-  'home.banners.getSubscription': 'サブスクリプションを取得',
-  'home.banners.promoCreditsBody': 'プロモーションクレジットが {amount} あります。',
-  'home.banners.promoCreditsUsage': '任意の AI ワークロードに使用できます。',
-  'intelligence.memoryChunk.detail.chunk': 'チャンク',
-  'intelligence.memoryChunk.detail.copyChunkId': 'チャンク ID をコピー',
-  'intelligence.memoryChunk.detail.embeddingInfo': 'bge-m3 1024次元',
-  'intelligence.memoryChunk.detail.noEmbedding': '埋め込みなし',
-  'intelligence.memoryChunk.letterhead.from': '送信元',
-  'intelligence.memoryChunk.letterhead.to': '送信先',
-  'intelligence.memoryChunk.mentioned.chunkOne': '1 チャンク',
-  'intelligence.memoryChunk.mentioned.chunkOther': '{count} チャンク',
-  'intelligence.memoryChunk.mentioned.heading': '言 及 さ れ た',
-  'intelligence.memoryChunk.scoreBars.ariaScore': '{name} スコア {pct}%',
-  'intelligence.memoryChunk.scoreBars.atThreshold': 'しきい値 {threshold}',
-  'intelligence.memoryChunk.scoreBars.dropped': '除外済み',
-  'intelligence.memoryChunk.scoreBars.heading': '保 持 理 由',
-  'intelligence.memoryChunk.scoreBars.kept': '保持済み',
-  'intelligence.diagram.skillInstallCommand': 'npx skills add yizhiyanhua-ai/fireworks-tech-graph',
   // Worktree manager (#3376): isolated worker git worktrees
   'worktree.label': 'ワークツリー',
   'worktree.dirty': '未コミットの変更',
@@ -3059,52 +2263,7 @@ const messages: TranslationMap = {
   'worktree.action.removeAnyway': '破棄して削除',
   'worktree.action.preserve': '保持',
   // Orchestration tab (#3375): multi-agent workflow runs.
-  'orchestration.tier.readOnly': '読み取り専用',
-  'orchestration.tier.standard': '標準',
-  'orchestration.tier.editCapable': '編集可能',
-  'orchestration.approval.title': 'このワークフローの実行を承認',
-  'orchestration.approval.body':
-    'これは高コストまたは高並行性の実行であり、開始前に明示的な承認が必要です：',
-  'orchestration.approval.reason.tier':
-    'エージェントは読み取り専用の調査を超える操作を実行できます。',
-  'orchestration.approval.reason.concurrency': '多数のエージェントを同時に実行します。',
-  'orchestration.approval.reason.children': '合計で多数のエージェントを生成できます。',
-  'orchestration.approval.tier': '安全ティア',
-  'orchestration.approval.concurrency': '並行実行数',
-  'orchestration.approval.maxChildren': '最大エージェント数',
-  'orchestration.approval.approve': '承認して開始',
-  'orchestration.approval.starting': '開始中…',
-  'orchestration.approval.cancel': 'キャンセル',
-  'orchestration.runStatus.pending': '保留中',
-  'orchestration.runStatus.running': '実行中',
-  'orchestration.runStatus.completed': '完了',
-  'orchestration.runStatus.failed': '失敗',
-  'orchestration.runStatus.cancelled': 'キャンセル済み',
-  'orchestration.runStatus.interrupted': '中断',
-  'orchestration.phaseStatus.pending': '保留中',
-  'orchestration.phaseStatus.running': '実行中',
-  'orchestration.phaseStatus.completed': '完了',
-  'orchestration.phaseStatus.failed': '失敗',
   'orchestration.detail.stop': '停止',
-  'orchestration.detail.resume': '再開',
-  'orchestration.detail.agents': 'エージェント',
-  'orchestration.detail.childRefs': '子エージェント',
-  'orchestration.detail.synthesis': '最終統合',
-  'intelligence.teams.header.lead': 'リーダー',
-  'intelligence.teams.header.taskCount': '{count} 件のタスク',
-  'intelligence.teams.header.memberCount': '{count} 人のメンバー',
-  'intelligence.teams.member.active': 'アクティブ',
-  'intelligence.teams.member.pending': '保留中',
-  'intelligence.teams.member.idle': 'アイドル',
-  'intelligence.teams.member.stopped': '停止済み',
-  'intelligence.teams.activity.title': 'チームアクティビティ',
-  'intelligence.teams.activity.empty': 'メッセージはまだありません',
-  'intelligence.teams.activity.toTeam': 'チーム',
-  'intelligence.teams.member.start': '開始',
-  'intelligence.teams.composer.placeholder': 'チームメンバーにメッセージを送信…',
-  'intelligence.teams.composer.send': '送信',
-  'intelligence.teams.composer.recipient': '宛先',
-  'intelligence.teams.composer.toTeam': 'チーム全体',
   'notifications.card.dismiss': '通知を閉じる',
   'notifications.card.importanceTitle': '重要度: {pct}%',
   'notifications.center.empty': '通知はまだありません',
@@ -3217,7 +2376,6 @@ const messages: TranslationMap = {
   'flows.page.loading': 'ワークフローを読み込み中…',
   'flows.page.loadError': 'ワークフローを読み込めませんでした。もう一度お試しください。',
   'flows.page.newWorkflow': '新規ワークフロー',
-  'flows.list.lastRun': '最終実行',
   'flows.list.neverRun': '未実行',
   'flows.list.justNow': 'たった今',
   'flows.discoveries.title': 'ワークフローの提案',
@@ -3234,13 +2392,6 @@ const messages: TranslationMap = {
   'flows.allRuns.columnStarted': '開始日時',
   'flows.allRuns.columnDuration': '実行時間',
   'flows.allRuns.searchPlaceholder': 'ワークフローまたはエラーを検索…',
-  'flows.allRuns.status.running': '実行中',
-  'flows.allRuns.status.completed': '完了',
-  'flows.allRuns.status.completed_with_warnings': '警告付きで完了',
-  'flows.allRuns.status.pending_approval': '承認待ち',
-  'flows.allRuns.status.failed': '失敗',
-  'flows.allRuns.status.cancelled': 'キャンセル済み',
-  'flows.allRuns.status.interrupted': '中断',
   'flows.list.minutesAgo': '{count}分前',
   'flows.list.hoursAgo': '{count}時間前',
   'flows.list.daysAgo': '{count}日前',
@@ -3248,8 +2399,6 @@ const messages: TranslationMap = {
   'flows.list.running': '実行中…',
   'flows.list.viewRuns': '実行履歴を表示',
   'flows.list.toggleEnabled': 'ワークフローを有効化',
-  'flows.list.enabled': '有効',
-  'flows.list.paused': '一時停止',
   'flows.list.runStarted': 'ワークフローを開始しました',
   'flows.list.view': 'ワークフローを表示',
   'flows.list.export': 'エクスポート',
@@ -3302,9 +2451,6 @@ const messages: TranslationMap = {
   'flows.suggest.opening': '開いています…',
   'flows.suggest.dismiss': '却下',
   'flows.suggest.uses': '使用回数',
-  'flows.suggest.trigger.schedule': 'スケジュール',
-  'flows.suggest.trigger.app_event': 'イベント時',
-  'flows.suggest.trigger.manual': '手動実行',
   'flows.copilot.open': 'Copilot',
   'flows.copilot.placeholder': '変更内容をリクエスト…',
   'flows.copilot.error': 'ワークフロービルダーに接続できませんでした。もう一度お試しください。',
@@ -3352,20 +2498,6 @@ const messages: TranslationMap = {
   'flows.canvas.openPanel': 'サイドパネルを開く',
   'flows.canvas.closePanel': 'サイドパネルを閉じる',
   'flows.nodeKind.trigger': 'トリガー',
-  'flows.nodeKind.agent': 'エージェント',
-  'flows.nodeKind.tool_call': 'ツール呼び出し',
-  'flows.nodeKind.http_request': 'HTTP リクエスト',
-  'flows.nodeKind.code': 'コード',
-  'flows.nodeKind.condition': '条件',
-  'flows.nodeKind.switch': 'スイッチ',
-  'flows.nodeKind.merge': 'マージ',
-  'flows.nodeKind.split_out': '分割',
-  'flows.nodeKind.transform': '変換',
-  'flows.nodeKind.output_parser': '出力パーサー',
-  'flows.nodeKind.sub_workflow': 'サブワークフロー',
-  'flows.nodeKind.memory': 'メモリー',
-  'flows.nodeKind.dedup': '重複排除',
-  'flows.nodeKind.loop': 'ループ',
 
   // ── describeNode (F-M3): the dynamic per-node card summary text shown on
   // every canvas node (`FlowNodeComponent`) and in the config drawer header.
@@ -3418,9 +2550,6 @@ const messages: TranslationMap = {
   'flows.palette.panelHint':
     'ステップをクリックしてキャンバスに追加するか、ドラッグして配置します。',
   'flows.palette.addNode': '{kind}ノードを追加',
-  'flows.palette.group.triggers': 'トリガー',
-  'flows.palette.group.actions': 'アクション',
-  'flows.palette.group.logic': 'ロジック',
   'flows.palette.appAction': 'アプリアクション',
   'flows.palette.ohTool': 'ツール',
   'flows.editor.save': '保存',
@@ -3438,13 +2567,6 @@ const messages: TranslationMap = {
   'flows.editor.validate': '検証',
   'flows.editor.validating': '検証中…',
   'flows.editor.unsaved': '未保存の変更',
-  'flows.editor.confirm.runTitle': 'ワークフローを実行しますか？',
-  'flows.editor.confirm.runBody': 'ワークフローを今すぐ実行します。',
-  'flows.editor.confirm.saveTitle': '変更を保存しますか？',
-  'flows.editor.confirm.saveBody': 'ワークフローへの変更を保存します。',
-  'flows.editor.confirm.discardTitle': '変更を破棄しますか？',
-  'flows.editor.confirm.discardBody':
-    '保存されていない編集内容がすべて元に戻り、この操作は取り消せません。',
   'flows.editor.confirm.confirm': '確定',
   'flows.editor.confirm.cancel': 'キャンセル',
   'flows.editor.saveBlocked': '保存する前に以下のエラーを修正してください。',
@@ -3483,20 +2605,11 @@ const messages: TranslationMap = {
   'flows.nodeConfig.credentialEmpty': '利用可能な接続済み認証情報がありません。',
   'flows.nodeConfig.credentialNone': 'なし',
   'flows.nodeConfig.trigger.kindLabel': 'トリガーの種類',
-  'flows.nodeConfig.trigger.kind_manual': '手動',
-  'flows.nodeConfig.trigger.kind_schedule': 'スケジュール',
-  'flows.nodeConfig.trigger.kind_webhook': 'Webhook',
-  'flows.nodeConfig.trigger.kind_app_event': 'アプリイベント',
   'flows.nodeConfig.trigger.scheduleLabel': 'スケジュール',
   'flows.nodeConfig.trigger.scheduleCronLabel': 'Cron式',
   'flows.nodeConfig.trigger.scheduleFreqLabel': '頻度',
-  'flows.nodeConfig.trigger.scheduleFreq_minutes': 'N分ごと',
-  'flows.nodeConfig.trigger.scheduleFreq_hours': 'N時間ごと',
-  'flows.nodeConfig.trigger.scheduleFreq_daily': '毎日指定時刻',
   'flows.nodeConfig.trigger.scheduleEvery': 'ごと',
   'flows.nodeConfig.trigger.scheduleInterval': '間隔',
-  'flows.nodeConfig.trigger.scheduleUnit_minutes': '分',
-  'flows.nodeConfig.trigger.scheduleUnit_hours': '時間',
   'flows.nodeConfig.trigger.scheduleAt': '時刻',
   'flows.nodeConfig.trigger.scheduleTime': '時刻',
   'flows.nodeConfig.trigger.scheduleDays': '曜日（任意：空欄で毎日）',
@@ -3588,12 +2701,6 @@ const messages: TranslationMap = {
   'flows.nodeConfig.code.sourceLabel': 'ソース',
   // `memory` node (issue #5226): recall/search/flavour/people read; remember/forget write.
   'flows.nodeConfig.memory.operationLabel': '操作',
-  'flows.nodeConfig.memory.operation_recall': '想起',
-  'flows.nodeConfig.memory.operation_search': '検索',
-  'flows.nodeConfig.memory.operation_flavour': 'フレーバー',
-  'flows.nodeConfig.memory.operation_people': '人物',
-  'flows.nodeConfig.memory.operation_remember': '記憶',
-  'flows.nodeConfig.memory.operation_forget': '忘却',
   'flows.nodeConfig.memory.scopeLabel': 'スコープ',
   'flows.nodeConfig.memory.scopeHint': 'このメモリーを検索する場所。',
   'flows.nodeConfig.memory.scopeWriteHint':
@@ -3605,13 +2712,6 @@ const messages: TranslationMap = {
   'flows.nodeConfig.memory.queryOptionalHint': '任意: 人物検索の範囲を絞り込みます。',
   'flows.nodeConfig.memory.flavourLabel': 'フレーバー',
   'flows.nodeConfig.memory.flavourHint': '読み取るペルソナ側面。例: コミュニケーション',
-  'flows.nodeConfig.memory.flavour_communication': 'コミュニケーション',
-  'flows.nodeConfig.memory.flavour_coding_style': 'コーディングスタイル',
-  'flows.nodeConfig.memory.flavour_stack': 'スタック',
-  'flows.nodeConfig.memory.flavour_workflow': 'ワークフロー',
-  'flows.nodeConfig.memory.flavour_environment': '環境',
-  'flows.nodeConfig.memory.flavour_directives': '指示',
-  'flows.nodeConfig.memory.flavour_anti_preferences': '非好み',
   'flows.nodeConfig.memory.keyLabel': 'キー',
   'flows.nodeConfig.memory.valueLabel': '値',
   'flows.nodeConfig.memory.limitLabel': '上限',
@@ -3668,48 +2768,10 @@ const messages: TranslationMap = {
   'flows.templates.use': 'テンプレートを使用',
   'flows.templates.back': '戻る',
   'flows.templates.empty': '利用可能なテンプレートがありません。',
-  'flows.templates.category.scheduled': 'スケジュール',
-  'flows.templates.category.triggered': 'トリガー',
-  'flows.templates.category.onDemand': 'オンデマンド',
-  'flows.templates.daily-digest.name': 'チャンネルへのデイリーダイジェスト',
-  'flows.templates.daily-digest.description':
-    'スケジュールに従い、エージェントが短い要約を作成してチャンネルに投稿します。',
-  'flows.templates.scheduled-scrape.name': 'メモリーへのスケジュールスクレイプ',
-  'flows.templates.scheduled-scrape.description':
-    'スケジュールに従ってソースを取得し、結果を整形してメモリーに保存します。',
-  'flows.templates.webhook-triage.name': 'Webhookトリアージと通知',
-  'flows.templates.webhook-triage.description':
-    '受信したWebhookをエージェントがトリアージし、通知を送信します。',
-  'flows.templates.app-event-route.name': 'アプリイベントから条件付きアクションへ',
-  'flows.templates.app-event-route.description':
-    '接続済みアプリのイベントでチェックを実行し、条件に一致した場合にアクションを実行します。',
-  'flows.templates.http-fetch-parse.name': 'APIの取得と解析',
-  'flows.templates.http-fetch-parse.description':
-    'HTTPエンドポイントをオンデマンドで呼び出し、レスポンスを扱いやすい形式に解析します。',
-  'flows.templates.ask-agent.name': 'エージェントに依頼',
-  'flows.templates.ask-agent.description':
-    'エージェントにタスクを引き渡すシンプルな手動トリガーです。',
-  'flows.templates.opus-sonnet-brief.name': 'リサーチブリーフ（Opusが計画、Sonnetが下書き）',
-  'flows.templates.opus-sonnet-brief.description':
-    '推論用エージェントがブリーフを計画し、チャット用エージェントが下書きを作成、その後結果を整形します。',
 
   'oauth.button.connecting': '接続中...',
   'oauth.button.loopbackTimeout':
     'サインインがタイムアウトしました：ブラウザでのOAuthリダイレクトが完了しませんでした。もう一度お試しください。',
-  'onboarding.contextGathering.buildingDesc': '接続済みアカウントからコンテキストを取得しています…',
-  'onboarding.contextGathering.buildingProfile': 'プロフィールを作成しています...',
-  'onboarding.contextGathering.continueToChat': 'チャットへ進む',
-  'onboarding.contextGathering.coreAlive':
-    'コアに到達可能：初回起動には1分ほどかかる場合があります。',
-  'onboarding.contextGathering.coreAliveProbing': 'コア接続を確認しています…',
-  'onboarding.contextGathering.coreUnreachable':
-    'コアが応答していません。続行して後で再試行できます。',
-  'onboarding.contextGathering.errorDesc':
-    'チャットは準備完了です。完全なプロフィールはバックグラウンドで構築を続けるため、今すぐ続行し、随時調整できます。',
-  'onboarding.contextGathering.stillWorkingDesc':
-    '初回起動では、ローカルモデルとツールのウォームアップに30〜60秒かかる場合があります。いつでもチャットへ進めます：プロフィール構築はバックグラウンドで継続されます。',
-  'onboarding.contextGathering.stillWorkingTitle': 'プロフィールの構築を継続しています…',
-  'onboarding.contextGathering.title': 'コンテキスト収集',
   'openhuman.team_list_teams': 'チーム一覧',
   'overlay.ariaAttention': '注意メッセージ',
   'overlay.ariaOrb': 'OpenHumanオーバーレイ',
@@ -3735,8 +2797,6 @@ const messages: TranslationMap = {
   'pages.settings.features.toolsDesc':
     'アシスタントが使用できる組み込みツール（シェル、ファイル、Web、ビジョン、メモリー、スケジュール）を選択します。',
   'privacy.whatLeaves.link.label': '私のコンピュータから何が送信されますか？',
-  'rewards.community.discordDetails': 'Discord',
-  'rewards.community.rewardTokens': '+{tokens} トークン',
   'settings.ai.addCloudProvider': 'クラウドプロバイダーを追加',
   'settings.ai.addProvider': 'プロバイダーを追加',
   'settings.ai.apiKeyFieldLabel': 'APIキー',
@@ -3906,7 +2966,6 @@ const messages: TranslationMap = {
   'settings.ai.topHours': '上位時間帯',
   'settings.ai.noHourlySpend': '時間別の消費データはまだありません。',
   'settings.ai.openhumanDefault': 'OpenHuman (デフォルト)',
-  'settings.ai.localModelResolved': 'Ollama · {model}',
   'settings.ai.loadingModels': 'モデルを読み込み中...',
   'settings.ai.enterModelIdManually': 'またはモデルIDを手動で入力:',
   'settings.ai.selectModel': 'モデルを選択...',
@@ -4008,18 +3067,6 @@ const messages: TranslationMap = {
   'settings.ai.managedSourceLabel': 'OpenRouter',
   'settings.ai.managedSourceDetail': 'TinyHumansが管理',
   'settings.ai.routing.managedAlwaysOn': '常時有効',
-  'settings.ai.routing.managedDesc':
-    'OpenHumanはすべての推論をクラウドで実行し、タスクに最適なモデルを選択、コストを最適化し、最も安全なルーティングデフォルトを維持します。',
-  'settings.ai.routing.managedMsg':
-    'OpenHuman がすべてのワークロードの推論を処理し、コスト、品質、セキュリティに基づいて最適なルートを自動的に選択します。',
-  'settings.ai.routing.useYourOwn': '独自モデルを使用',
-  'settings.ai.routing.useYourOwnDesc':
-    '1つのプロバイダーとモデルを選択し、すべてのワークロードをそこにルーティングします。シンプルですが、軽量および重量級の推論が同じルートを共有するため、非効率になる場合があります。',
-  'settings.ai.routing.advanced': '高度',
-  'settings.ai.routing.advancedDesc':
-    'タスクごとに異なるモデルを選択します。コスト最適化と制御の観点から最も優れたオプションです。',
-  'settings.ai.routing.customDesc':
-    '細粒度のルーティングにより、最高のコスト最適化と最大の制御が可能になります。以下の行を使用して、どのワークロードを「マネージド」のままにするか、共有デフォルトを使用するか、特定のモデルに固定するかを決定してください。',
   'settings.ai.routing.defaultModel': 'デフォルトモデル',
   'settings.ai.routing.defaultModelDesc':
     'マネージドチャットターンが実行されるモデルです。以下のワークロードで「マネージド」のまま使用されます。',
@@ -4061,44 +3108,6 @@ const messages: TranslationMap = {
   'settings.ai.routing.workload.memory.description': '会話とドキュメントの要約',
   'settings.ai.routing.workload.memory.hint':
     '推奨：安価な要約モデル。一貫性がありコンパクトである必要がありますが、プレミアムなフロンティアレベルの推論は不要です。',
-  'settings.ai.routing.addCustomProvider': 'カスタムプロバイダーを追加',
-  'settings.billing.autoRecharge.addAmount': 'この金額を追加',
-  'settings.billing.autoRecharge.addCard': 'カードを追加',
-  'settings.billing.autoRecharge.amountHint': 'デフォルトの支払い方法に請求されます。',
-  'settings.billing.autoRecharge.defaultCard': 'デフォルトカード',
-  'settings.billing.autoRecharge.lastRechargeFailed': '前回のチャージが失敗しました',
-  'settings.billing.autoRecharge.expires': '有効期限: {date}',
-  'settings.billing.autoRecharge.noCards': 'カードがありません',
-  'settings.billing.autoRecharge.paymentMethods': '支払い方法',
-  'settings.billing.autoRecharge.rechargeInProgress': 'チャージ処理中',
-  'settings.billing.autoRecharge.spentThisWeek': '今週の使用量: ${limit}中 ${spent}',
-  'settings.billing.autoRecharge.rechargeWhen': '残高が以下を下回ったときにチャージ',
-  'settings.billing.autoRecharge.saveSettings': '設定を保存',
-  'settings.billing.autoRecharge.saving': '保存中…',
-  'settings.billing.autoRecharge.setDefault': 'デフォルトに設定',
-  'settings.billing.autoRecharge.subtitle':
-    '残高が少なくなったときに自動的にクレジットをチャージします。',
-  'settings.billing.autoRecharge.title': '自動チャージを有効にする',
-  'settings.billing.autoRecharge.toggleAriaLabel': '自動チャージの切り替え',
-  'settings.billing.autoRecharge.weeklyLimit': '週間の支出上限',
-  'settings.billing.inferenceBudget.dailySpendPoint': '{date}: {amount}',
-  'settings.billing.subscription.annual': '年間',
-  'settings.billing.subscription.billedAnnually': '年間請求',
-  'settings.billing.subscription.chooseSubtitle':
-    'より多くの使用量と機能を解放するためにアップグレードしてください。',
-  'settings.billing.subscription.chooseTitle': 'プランを選択',
-  'settings.billing.subscription.cryptoDesc': '決済ゲートウェイ経由で暗号通貨で支払います。',
-  'settings.billing.subscription.cryptoQuestion': '暗号通貨で支払いますか？',
-  'settings.billing.subscription.current': '現在',
-  'settings.billing.subscription.currentPlan': '現在のプラン',
-  'settings.billing.subscription.monthly': '月額',
-  'settings.billing.subscription.paymentConfirmed': '支払い確認済み',
-  'settings.billing.subscription.perMonth': '月額',
-  'settings.billing.subscription.popular': '人気',
-  'settings.billing.subscription.save': '{pct}',
-  'settings.billing.subscription.upgrade': 'アップグレード',
-  'settings.billing.subscription.waiting': '待機中',
-  'settings.billing.subscription.waitingPayment': '支払い待ち',
   'settings.composio.apiKeyDesc': 'Composio APIキーがこのデバイスに保存されています。',
   'settings.composio.apiKeyExamplePlaceholder': 'ck_live_xxxxxxxxxxxxxxxx',
   'settings.composio.apiKeyLabel': 'Composio APIキー',
@@ -4459,21 +3468,6 @@ const messages: TranslationMap = {
   'settings.sandbox.enableDesc': 'エージェントツールを分離されたサンドボックス環境内で実行します。',
   'settings.sandbox.backendLabel': 'バックエンド',
   'settings.sandbox.backendDesc': 'サンドボックス実行に使用する分離バックエンドを選択します。',
-  'settings.sandbox.backend.landlock': 'Landlock (Linux)',
-  'settings.sandbox.backend.firejail': 'Firejail (Linux)',
-  'settings.sandbox.backend.bubblewrap': 'Bubblewrap (Linux)',
-  'settings.sandbox.backendName.auto': '自動',
-  'settings.sandbox.backendName.docker': 'Docker',
-  'settings.sandbox.backendName.landlock': 'Landlock',
-  'settings.sandbox.backendName.firejail': 'Firejail',
-  'settings.sandbox.backendName.bubblewrap': 'Bubblewrap',
-  'settings.sandbox.backendName.none': 'なし',
-  'settings.sandbox.backendHint.auto': '最適なバックエンドを使用',
-  'settings.sandbox.backendHint.docker': 'コンテナ内でツールを実行',
-  'settings.sandbox.backendHint.landlock': 'カーネルファイルアクセスルール',
-  'settings.sandbox.backendHint.firejail': '名前空間プロセスジェイル',
-  'settings.sandbox.backendHint.bubblewrap': '軽量ユーザー名前空間',
-  'settings.sandbox.backendHint.none': 'ツールを直接実行（分離なし）',
   'settings.sandbox.linuxTag': 'Linux',
   'settings.sandbox.dockerImageDesc': 'ツールが実行されるコンテナイメージ',
   'settings.sandbox.limitBlankHint': '無制限の場合は空白のままにします',
@@ -4518,9 +3512,6 @@ const messages: TranslationMap = {
   'settings.theme.variantAuto': '自動',
   'settings.theme.variantAria': 'テーマバリアント',
   'settings.theme.backdropHeading': '背景',
-  'settings.theme.backdrop.mesh': 'メッシュ',
-  'settings.theme.backdrop.solid': '単色',
-  'settings.theme.backdrop.image': '画像',
   'settings.theme.backdropImageUrl': '背景画像 URL',
   'settings.theme.backdropHint':
     'メッシュはアニメーション付きグラデーションを表示します。単色はフラットな背景を使用します。画像では独自の背景を設定できます。',
@@ -4537,11 +3528,6 @@ const messages: TranslationMap = {
   'settings.theme.showShades': 'すべてのアクセントシェードを表示',
   'settings.theme.hideShades': 'すべてのアクセントシェードを非表示',
   'settings.theme.fontsHeading': 'フォント',
-  'settings.theme.fontRole.title': 'タイトル',
-  'settings.theme.fontRole.heading': '見出し',
-  'settings.theme.fontRole.body': '本文',
-  'settings.theme.fontRole.mono': '等幅フォント',
-  'settings.theme.fontRole.serif': 'セリフフォント',
   'settings.theme.fontCurrent': '現在',
   'settings.theme.actions': 'テーマの管理',
   'settings.theme.reset': 'オーバーライドをリセット',
@@ -4571,8 +3557,6 @@ const messages: TranslationMap = {
   'settings.appearance.fontSizeCustomAria': 'ピクセル単位のフォントサイズ',
   'settings.appearance.fontSizeCustomSliderAria': 'ピクセル単位のフォントサイズスライダー',
   'settings.appearance.fontSizeUnit': 'px',
-  'settings.appearance.chatHeading': 'チャット',
-  'settings.appearance.showChatMascot': 'メッセージボックスにTinyを表示',
   'settings.mascot.active': 'アクティブ',
   'settings.mascot.characterDesc': 'OpenHumanキャラクターを選択してください。',
   'settings.mascot.characterDraft': '下書き',
@@ -4697,15 +3681,6 @@ const messages: TranslationMap = {
   'skills.channelIcon.telegram': 'Telegram',
   'skills.channelIcon.web': 'Web',
   'skills.channelIcon.yuanbao': 'Yuanbao',
-  'skills.create.allowedTools': '許可されたツール',
-  'skills.create.allowedToolsHelp': 'SKILL.md のフロントマターに以下のようにレンダリングされます',
-  'skills.create.allowedToolsPlaceholder': 'node_exec, fetch',
-  'skills.create.author': '作成者',
-  'skills.create.authorPlaceholder': 'あなたの名前',
-  'skills.create.commaSeparated': '（カンマ区切り）',
-  'skills.create.createBtn': 'スキルを作成',
-  'skills.create.createError': 'スキルを作成できませんでした',
-  'skills.create.creating': '作成中…',
   'skills.create.description': '説明',
   'skills.create.descriptionPlaceholder': 'このワークフローは何を行いますか？',
   'skills.create.optional': '（任意）',
@@ -4730,19 +3705,9 @@ const messages: TranslationMap = {
   'skills.create.inputs.type.string': 'テキスト',
   'skills.create.inputs.type.integer': '数値',
   'skills.create.inputs.type.boolean': 'はい / いいえ',
-  'skills.create.license': 'ライセンス',
-  'skills.create.licensePlaceholder': 'MIT',
   'skills.create.name': '名前',
   'skills.create.namePlaceholder': '例: 取引ジャーナル',
-  'skills.create.scope': 'スコープ',
-  'skills.create.scopeProjectHint': '/.openhuman/skills/',
-  'skills.create.scopeUserHint':
-    '~/.openhuman/skills/<slug>/SKILL.md に書き込まれます: すべてのワークスペースで利用可能です。',
   'skills.create.slugLabel': 'スラッグ',
-  'skills.create.subtitle': 'SKILL.md',
-  'skills.create.tags': 'タグ',
-  'skills.create.tagsPlaceholder': '取引, 調査',
-  'skills.create.title': '新規スキル',
   'skills.detail.author': '作成者',
   'skills.detail.license': 'ライセンス',
   'skills.detail.description': '説明',
@@ -4836,9 +3801,6 @@ const messages: TranslationMap = {
   'skills.install.urlInvalidSuffix': 'リンクである必要があります。',
   'skills.install.urlLabel': 'スキルURL',
   'skills.install.urlPlaceholder': 'https://raw.githubusercontent.com/owner/repo/main/SKILL.md',
-  'skills.meetingBots.platforms.gmeet': 'Google Meet',
-  'skills.meetingBots.platforms.teams': 'Microsoft Teams',
-  'skills.meetingBots.wakePhraseHint': 'Hey OpenHuman',
   'skills.search.placeholder': 'スキルを検索…',
   'skills.setup.voice.activation': 'アクティベーション',
   'skills.setup.voice.activeDescPrefix': 'Fn',
@@ -4861,12 +3823,8 @@ const messages: TranslationMap = {
   'skills.setup.voice.sttReturnHint':
     '音声設定で音声認識エンジンを構成し、ここに戻って音声を開始してください。',
   'skills.setup.voice.title': '音声インテリジェンス',
-  'skills.uninstall.couldNotUninstall': 'アンインストールできませんでした',
   'skills.uninstall.description':
     'これにより、スキルディレクトリとそのすべてのバンドルリソースが完全に削除されます。エージェントは次のターンからこれを認識しなくなります。',
-  'skills.uninstall.title': 'アンインストール',
-  'skills.uninstall.uninstallBtn': 'アンインストール',
-  'skills.uninstall.uninstalling': 'アンインストール中…',
   'upsell.global.limitMessage':
     '続行するにはプランをアップグレードするか、クレジットをチャージしてください',
   'upsell.global.limitTitle': '使用制限に達しました',
@@ -4904,20 +3862,6 @@ const messages: TranslationMap = {
   'walkthrough.tooltip.next': '次へ →',
   'walkthrough.tooltip.skip': 'ツアーをスキップ',
   'walkthrough.tooltip.stepCounter': '{total}中{n}',
-  'webhooks.tunnels.active': 'アクティブ',
-  'webhooks.tunnels.createFailed': 'トンネルの作成に失敗しました',
-  'webhooks.tunnels.creating': '作成中...',
-  'webhooks.tunnels.deleteFailed': 'トンネルの削除に失敗しました',
-  'webhooks.tunnels.descriptionPlaceholder': '説明 (任意)',
-  'webhooks.tunnels.echo': 'エコー',
-  'webhooks.tunnels.empty': 'トンネルが設定されていません',
-  'webhooks.tunnels.enableEcho': 'エコーを有効化',
-  'webhooks.tunnels.inactive': '非アクティブ',
-  'webhooks.tunnels.namePlaceholder': 'トンネル名 (例: telegram-bot)',
-  'webhooks.tunnels.newTunnel': '新しいトンネル',
-  'webhooks.tunnels.removeEcho': 'エコーを削除',
-  'webhooks.tunnels.title': 'Webhookトンネル',
-  'webhooks.tunnels.toggleFailed': 'エコーの切り替えに失敗しました',
   'composio.integrationSlugsHelp': 'カンマ区切りの統合スラッグ、例:',
   'composio.integrationSlugsExample': 'gmail, slack',
   'composio.integrationSlugsCaseInsensitive': '大文字と小文字は区別されません。',
@@ -4926,10 +3870,7 @@ const messages: TranslationMap = {
   'chat.backToThread': '{title}に戻る',
   'chat.parentThread': '親スレッド',
   'settings.composio.loading': '読み込み中…',
-  'skills.uninstall.confirmTitle': '{name}をアンインストールしますか？',
-  'intelligence.memoryChunk.detail.copiedHint': 'コピーしました',
   // Developer options menu items (#2225)
-  'memory.sourceFilterAria': 'ソースで絞り込み',
   // Settings > Account > Wallet Balances
   'pages.settings.account.walletBalances': 'ウォレット残高',
   'pages.settings.account.walletBalancesDesc': 'ローカルウォレットのマルチチェーン残高を表示',
@@ -4989,7 +3930,6 @@ const messages: TranslationMap = {
   'walletSend.done': '完了',
   'walletSend.genericError': '送金を完了できませんでした。もう一度お試しください。',
   // Task sources (#task-sources)
-  'settings.taskSources.name': '名前（任意）',
   // Task sources provider labels (#task-sources)
 
   // Scheduled-workflow card controls (ScheduledCronCard on the workflow
@@ -5012,7 +3952,6 @@ const messages: TranslationMap = {
     'ワークフローを作成して、タスクのライフサイクルフェーズに対するルールやスクリプトを定義します。',
   'workflows.create.title': '新しいワークフロー',
   'workflows.create.subtitle': 'エージェント用のライフサイクルに紐付いたルールセットを定義します。',
-  'workflows.create.optional': '（任意）',
   'workflows.create.createBtn': 'ワークフローを作成',
   'workflows.create.creating': '作成中…',
   'workflows.create.createError': 'ワークフローを作成できませんでした',
@@ -5086,12 +4025,6 @@ const messages: TranslationMap = {
   'keyring.consent.error': '設定を保存できませんでした。もう一度お試しください。',
   'keyring.consent.retryFailed': 'キーチェーンはまだ利用できません。',
   'keyring.settings.storageMode': 'シークレットストレージモード',
-  'keyring.settings.mode.osKeychain': 'OS キーチェーン',
-  'keyring.settings.mode.encryptedFile': 'ローカル暗号化',
-  'keyring.settings.mode.localEncryptedFile': '暗号化ファイル',
-  'keyring.settings.mode.localPlaintextFile': '非暗号化ファイル',
-  'keyring.settings.mode.consentPending': '未設定',
-  'keyring.settings.mode.declined': '拒否済み',
   'keyring.settings.availability': 'キーチェーンの利用可否',
   'keyring.settings.available': 'OS キーチェーンが利用可能です',
   'keyring.settings.unavailable': 'OS キーチェーンが利用できません',
@@ -5112,13 +4045,6 @@ const messages: TranslationMap = {
   'composer.attachFile': 'ファイルを添付',
   'composer.modelSelector': 'モデル',
   'composer.reasoning.label': '思考レベル',
-  'composer.reasoning.default': '思考: 自動',
-  'composer.reasoning.none': '思考: オフ',
-  'composer.reasoning.low': '思考: 低',
-  'composer.reasoning.medium': '思考: 中',
-  'composer.reasoning.high': '思考: 高',
-  'composer.reasoning.xhigh': '思考: 最大',
-  'composer.reasoning.minimal': '思考: 最小',
   'composer.reasoning.forModel': '{model}の思考レベル',
   'composer.workspace.label': '作業フォルダー',
   'composer.workspace.default': 'デフォルトフォルダー',
@@ -5148,20 +4074,12 @@ const messages: TranslationMap = {
   'chat.message.interruptedDetail': 'この返信は完了する前に中断されました。',
   'composer.settings.model': 'モデル',
   'composer.settings.temperature': '温度',
-  'composer.settings.chooseModel': '別のモデルを選択…',
   'composer.settings.loadingModels': 'モデルを読み込み中…',
   'composer.voiceMode': '音声モード',
   'composer.humanMode': 'ヒューマンモード',
   // Sync budget dialog
 
   // Sync confirm dialog
-  'syncConfirm.title': '同期の確認',
-  'syncConfirm.message':
-    'この同期では約{items}件のアイテムを処理します（約{tokens}トークン、推定費用 ${cost}）。',
-  'syncConfirm.budgetNote': '予算上限: ${max}',
-  'syncConfirm.proceed': '続行',
-  'syncConfirm.cancel': 'キャンセル',
-  'syncConfirm.estimating': '費用を推定中...',
 
   // Monthly cost badge
 
@@ -5204,10 +4122,6 @@ const messages: TranslationMap = {
   'userErrors.replyDeliveryFailed.title': '返信を表示できませんでした',
   'userErrors.replyDeliveryFailed.body':
     'エージェントはこのターンを完了しましたが、返信を保存または読み取ることができませんでした。もう一度質問して繰り返してもらってください。',
-  'userErrors.scope.chat': 'チャット',
-  'userErrors.scope.cron': 'スケジュールジョブ',
-  'userErrors.scope.workspace': 'ワークスペース',
-  'userErrors.scope.memory': 'メモリー',
 
   // Memory embedding budget banners (#5324)
   'notifications.configRecovered.title': '設定ファイルが復元されました',
@@ -5267,58 +4181,6 @@ const messages: TranslationMap = {
   'webCallback.description': 'OpenHumanがコールバックを処理しており、自動的に続行されます。',
 
   // Chat failure copy: localized render of chat_error.message, keyed by chat_error.copy_key
-  'chat_error.codex_session_expired':
-    'Codex セッションの有効期限が切れました。設定 → 接続 で再接続してください。',
-  'chat_error.session_expired':
-    'OpenHumanのセッションの有効期限が切れました。続行するには再度サインインしてください。',
-  'chat_error.action_budget':
-    'OpenHumanの1時間あたりのアクション上限に達しました。これはローカルの安全制限であり、AIプロバイダーの制限ではありません。制限は徐々に緩和されます。このスレッドでのチャットは継続できますが、ツールを多用する処理は予算が回復するまで一時停止します。',
-  'chat_error.max_iterations':
-    'エージェントが1回のターンで実行可能なツールステップの最大数に達しましたが、処理を完了できませんでした。これは通常、ツールの実行が失敗し続けていることを意味します（多くの場合、Web取得のレート制限が原因です）。根本的な制限が解消されたら、このスレッドで同じ質問を再試行してください。',
-  'chat_error.turn_timeout':
-    'このターンは時間予算を超過して完了しなかったため、ハングアップを防ぐために停止されました。これは通常、ツール呼び出しまたは委任されたサブエージェントが停止したことを意味します。このスレッドで質問を再試行してください。',
-  'chat_error.empty_response':
-    'モデルが空の応答を返しました。再試行してください。問題が解決しない場合は、別のモデルを試すか、[接続] → [APIキー] → [LLM]で設定を確認してください。',
-  'chat_error.chat_template_rejected':
-    'このモデルのチャットテンプレートがリクエストを拒否しました。モデル、温度設定、APIキーが原因ではありません。ネイティブなツール呼び出しに対応していないローカルモデルは、独自のチャットテンプレートを通じて駆動されますが、一部のテンプレートはツールステップのメッセージ形式を拒否することがあります。履歴をリセットするために新しいチャットを開始するか、[接続] → [APIキー] → [LLM]でネイティブなツールサポートを持つモデルを選択してください。',
-  'chat_error.rate_limited':
-    'AIプロバイダーがリクエストをレート制限しています。これは一時的な上流側の制限であり、スレッドレベルのブロックではありません。このスレッドで再試行できます。',
-  'chat_error.rate_limited_billing':
-    'AIプロバイダーが課金またはプランの問題（クレジット不足、プラン上限、モデルの利用不可など）によりリクエストを拒否しています。再試行しても解決しません。[設定]を開いてチャージするか、プランをアップグレードするか、別のモデルを選択してください。',
-  'chat_error.managed_rate_limited':
-    'AIプロバイダーがリクエストをレート制限しています。このスレッドで再試行できます。',
-  'chat_error.timeout': 'リクエストがタイムアウトしました。接続を確認して再試行してください。',
-  'chat_error.auth_error':
-    'AIプロバイダーとの認証に問題があります。設定でAPIキーを確認してください。',
-  'chat_error.budget_exhausted':
-    'クレジットが不足しているため、マネージド（クラウド）モデルを実行できません。クレジットをチャージするか、プランを選択して続行してください。または、Ollamaなどのローカルモデルを有効にしている場合は、[接続] → [APIキー] → [LLM]でルーティングを「自分のモデルを使用」に切り替えてください。',
-  'chat_error.managed_budget_exhausted':
-    'クレジットが不足しています。チャージするか、[設定]で「自分のモデルを使用」に切り替えてください。',
-  'chat_error.provider_unavailable':
-    'AIプロバイダーが一時的に利用できません。しばらくしてから再試行してください。',
-  'chat_error.managed_unavailable':
-    'AIサービスが一時的に利用できません。通知済みです。しばらくしてから再試行してください。',
-  'chat_error.payload_too_large':
-    'メッセージまたは添付ファイルがこのモデルにとって大きすぎます。短縮するか、添付ファイルを削除するか、新しいスレッドを開始してください。',
-  'chat_error.context_overflow': '会話が長すぎます。新しいチャットを開始してください。',
-  'chat_error.model_config_rejected':
-    'AIプロバイダーがリクエストのモデルまたは温度設定を拒否しました。[設定] → [LLM]でモデルとルーティングを確認してください。',
-  'chat_error.model_unavailable':
-    '選択したモデルがプロバイダーで利用できません。モデル設定を確認してください。',
-  'chat_error.capability_unsupported':
-    'このモデルは画像を処理できません。添付ファイルを削除するか、[接続] → [APIキー] → [LLM]でビジョン対応のモデルに切り替えてください。',
-  'chat_error.malformed_history':
-    'この会話で一時的な不具合が発生しました。解消済みです。メッセージを再送信してください。',
-  'chat_error.request_rejected':
-    'AIプロバイダーがリクエストを拒否しました。これは通常、モデルまたはパラメータの非互換性が原因です。[接続] → [APIキー] → [LLM]で別のモデルを試してください。',
-  'chat_error.managed_request_rejected':
-    'リクエストが拒否されました。これは通常、モデルまたはパラメータの不一致が原因です。[接続] → [APIキー] → [LLM]で別のモデルを試してください。',
-  'chat_error.managed_malformed_request':
-    'このメッセージで問題が発生しました。言い回しを変更するか、問題が解決しない場合は新しいスレッドを開始してください。',
-  'chat_error.network':
-    '応答中にAIサービスへの接続が切断されました。これは通常、スリープ/ウェイクアップまたはネットワーク変更が原因です。再試行してください。',
-  'chat_error.inference': '問題が発生しました。再試行してください。',
-  'chat_error.managed_internal': '問題が発生しました。通知済みです。再試行してください。',
   'chat_error.retryHint.immediately': 'すぐに再試行できます。',
   'chat_error.retryHint.oneSecond': '1秒後に再試行してください。',
   'chat_error.retryHint.seconds': '{n}秒後に再試行してください。',
@@ -5795,7 +4657,6 @@ const messages: TranslationMap = {
   'welcome.th.featureMemory': 'メモリー',
   'welcome.th.featureEmbeddings': '埋め込み',
   'welcome.th.featureBilling': '請求',
-  'welcome.th.cta': 'TinyHumansで続ける',
   'welcome.th.providers': 'Google、GitHub、Xでサインイン',
   'welcome.self.title': '自分で設定する',
   'welcome.self.promise': 'お持ちのAPIキーと接続先を使います。',
@@ -5809,9 +4670,7 @@ const messages: TranslationMap = {
   'welcome.serverCta': 'サーバーに接続',
   'welcome.handoff.title': 'ブラウザーでサインインを完了してください',
   'welcome.handoff.body': 'tinyhumans.aiを開きました。サインインが終わったら戻ってください。',
-  'welcome.handoff.reopen': 'ページをもう一度開く',
   'welcome.handoff.failedTitle': 'サインイン後にアプリへ戻れませんでした',
-  'welcome.handoff.failedBody': 'ブラウザーがOpenHumanへの移動をブロックした可能性があります。',
   'welcome.handoff.retry': '再試行',
   'welcome.handoff.fallbackSelf': '代わりに自分で設定する',
   'memory.error.insufficientCredits':
@@ -5824,11 +4683,7 @@ const messages: TranslationMap = {
   'onboarding.custom.search.ready': 'Web検索の準備ができました。',
   'onboarding.custom.search.notReady':
     'OpenHumanでWeb検索を使うには、下のプロバイダーを追加してください。',
-  'onboarding.custom.localDefaultDisabledReason':
-    'マネージド設定にはOpenHumanアカウントが必要です。ローカルセッションでは、各サービスを自分で設定します。',
   'onboarding.custom.unsavedChanges': '変更を保存してから続けてください。',
-  'chat_error.local_session_managed_unavailable':
-    '現在のローカルオフラインプロファイルにはOpenHumanアカウントがないため、マネージド（クラウド）モデルを実行できません。マネージドモデルを使うにはサインインしてください。お持ちのモデルを使う場合は、接続 → APIキー → LLMで「独自のモデルを使う」に切り替え、プロバイダーを追加してください。',
   'memoryPage.engine.badgeDegraded': '一部機能が低下',
   'memoryPage.engine.badgeDown': '接続できません',
   'memoryPage.engine.connecting': '接続中…',

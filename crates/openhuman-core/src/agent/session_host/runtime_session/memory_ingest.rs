@@ -1,8 +1,8 @@
 //! The session host's memory hooks: the pre-turn pack and the post-turn log.
 //!
 //! Before the model runs, [`OpenHumanTurnPrelude::memory_pre_turn`] logs the
-//! user turn and recalls the pack the turn is given
-//! (`memory::lifecycle::hooks::pre_turn`); `MemoryPackMiddleware` then adds the
+//! user turn and refreshes memory in the background, taking a completed cached
+//! pack immediately (`memory::lifecycle::prefetch::pre_turn`); `MemoryPackMiddleware` then adds the
 //! pack to the turn's requests without persisting it. After the durable
 //! commit, [`OpenHumanTurnPrelude::memory_post_turn`] logs the reply with its
 //! tool calls. Both run under the session's own config, so a host binding set
@@ -71,9 +71,9 @@ impl OpenHumanTurnPrelude {
             .ok()
     }
 
-    /// Logs a user-authored turn and recalls its pack. Remembers the turn so
-    /// the reply is logged under the same identity and index, and returns
-    /// the turn's memory for the run context.
+    /// Takes completed memory and queues a user-authored turn's log and recall.
+    /// Remembers the turn so the reply is logged under the same identity and
+    /// index, and returns its memory for the run context without engine I/O.
     /// `origin` is the turn's origin as the run context carries it (the
     /// session host never reads the task-local one); a channel turn is
     /// logged as observed from its sender
@@ -97,9 +97,6 @@ impl OpenHumanTurnPrelude {
         if self.omit_memory_context {
             identity.recall = false;
         }
-        if config.memory.conversations.enabled {
-            crate::memory::channels::record(&config.workspace_dir, &self.event_channel, &thread_id);
-        }
         let user_index = hooks::user_turn_index(committed_turns);
         let (in_prompt_from, compacted) = in_prompt_window(history, committed_turns, current);
         self.mutable
@@ -109,9 +106,9 @@ impl OpenHumanTurnPrelude {
             identity: identity.clone(),
             user_index,
         });
-        let pack = hooks::pre_turn(
-            &config,
-            &identity,
+        let pack = crate::memory::lifecycle::prefetch::pre_turn(
+            config.clone(),
+            identity.clone(),
             PreTurnInput {
                 thread_id: thread_id.clone(),
                 turn_index: user_index,
@@ -123,8 +120,8 @@ impl OpenHumanTurnPrelude {
                     .as_ref()
                     .and_then(crate::memory::lifecycle::sender::channel_actor),
             },
-        )
-        .await;
+            Some(self.event_channel.clone()),
+        );
         Some(Arc::new(MemoryTurn {
             config,
             identity,

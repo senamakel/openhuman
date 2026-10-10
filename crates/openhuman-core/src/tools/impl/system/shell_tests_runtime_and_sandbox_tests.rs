@@ -122,11 +122,51 @@ fn shell_runtime_failure_logging_accepts_enabled_and_disabled_runtime_states() {
 }
 
 #[cfg(unix)]
-fn shell_with_cached_python() -> (ShellTool, tempfile::TempDir) {
+#[derive(Default)]
+struct TrackingNativeRuntime {
+    native: NativeRuntime,
+    builds: std::sync::atomic::AtomicUsize,
+}
+
+#[cfg(unix)]
+impl RuntimeAdapter for TrackingNativeRuntime {
+    fn name(&self) -> &str {
+        self.native.name()
+    }
+    fn has_shell_access(&self) -> bool {
+        self.native.has_shell_access()
+    }
+    fn has_filesystem_access(&self) -> bool {
+        self.native.has_filesystem_access()
+    }
+    fn storage_path(&self) -> std::path::PathBuf {
+        self.native.storage_path()
+    }
+    fn supports_long_running(&self) -> bool {
+        self.native.supports_long_running()
+    }
+    fn build_shell_command(
+        &self,
+        command: &str,
+        workspace: &std::path::Path,
+    ) -> anyhow::Result<tokio::process::Command> {
+        self.builds
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        self.native.build_shell_command(command, workspace)
+    }
+}
+
+#[cfg(unix)]
+fn shell_with_cached_python_using(
+    runtime: Arc<dyn RuntimeAdapter>,
+) -> (ShellTool, tempfile::TempDir) {
     use crate::runtime::python::{PythonSource, ResolvedPython};
     use std::os::unix::fs::PermissionsExt;
 
-    let bin_dir = tempfile::tempdir().unwrap();
+    let bin_dir = tempfile::Builder::new()
+        .prefix("managed-python's $(false) ")
+        .tempdir()
+        .unwrap();
     let python_bin = bin_dir.path().join("python3");
     std::fs::write(&python_bin, "#!/bin/sh\necho managed-python-path\n").unwrap();
     std::fs::set_permissions(&python_bin, std::fs::Permissions::from_mode(0o755)).unwrap();
@@ -143,7 +183,7 @@ fn shell_with_cached_python() -> (ShellTool, tempfile::TempDir) {
     (
         ShellTool::with_language_bootstraps(
             test_security(AutonomyLevel::Full),
-            test_runtime(),
+            runtime,
             test_audit(),
             None,
             Some(python),
@@ -158,7 +198,9 @@ async fn shell_uses_cached_python_path_in_native_mode() {
     use crate::agent::harness::definition::SandboxMode;
     use crate::agent::harness::with_current_sandbox_mode;
 
-    let (tool, _bin_dir) = shell_with_cached_python();
+    let _env = EnvVarGuard::locked_set_async(crate::sandbox::ops::SANDBOX_OFF_ENV, "off").await;
+    let runtime = Arc::new(TrackingNativeRuntime::default());
+    let (tool, _bin_dir) = shell_with_cached_python_using(runtime.clone());
     let result = with_current_sandbox_mode(SandboxMode::None, async {
         tool.execute(json!({"command": "python3 -c 'print(1)'"}))
             .await
@@ -171,6 +213,11 @@ async fn shell_uses_cached_python_path_in_native_mode() {
         result.output()
     );
     assert!(result.output().contains("managed-python-path"));
+    assert_eq!(
+        runtime.builds.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "native execution must use the instrumented runtime adapter"
+    );
 }
 
 #[tokio::test]
@@ -194,7 +241,9 @@ async fn shell_sandboxed_mode_routes_through_sandbox_backend() {
     use crate::agent::harness::definition::SandboxMode;
     use crate::agent::harness::with_current_sandbox_mode;
 
-    let (tool, _bin_dir) = shell_with_cached_python();
+    let _env = EnvVarGuard::locked_set_async(crate::sandbox::ops::SANDBOX_OFF_ENV, "on").await;
+    let runtime = Arc::new(TrackingNativeRuntime::default());
+    let (tool, _bin_dir) = shell_with_cached_python_using(runtime.clone());
     let result = with_current_sandbox_mode(SandboxMode::Sandboxed, async {
         tool.execute(json!({"command": "python3 -c 'print(1)'"}))
             .await
@@ -211,20 +260,17 @@ async fn shell_sandboxed_mode_routes_through_sandbox_backend() {
         "expected managed Python PATH in result, got: {:?}",
         result.output()
     );
+    assert_eq!(
+        runtime.builds.load(std::sync::atomic::Ordering::SeqCst),
+        0,
+        "sandboxed execution must bypass the tool's native runtime adapter"
+    );
 }
 
-/// Regression guard for #3235 (cwd_jail wiring for shell-family tools).
-///
-/// PR #3261 wired `ShellTool` to route through `sandbox::execute_in_sandbox`
-/// (which uses `cwd_jail` for the local-OS-jail backend) when the
-/// active agent's `SandboxMode::Sandboxed` is set. This PR extends the
-/// same wiring to `NodeExecTool` and `NpmExecTool`. The behavioural
-/// `shell_sandboxed_mode_routes_through_sandbox_backend` test above
-/// proves the contract end-to-end for `shell` (no managed-Node
-/// dependency); `node_exec` and `npm_exec` cannot run end-to-end in
-/// unit tests without a resolved `NodeBootstrap`, so this source-grep
-/// guard catches refactors that drop the sandbox check from either
-/// tool's `execute()` body.
+/// Shell-family callers must use the shared routing decision, which covers
+/// both an agent's sandbox mode and an explicit operator backend. The test
+/// above executes a command and proves it bypasses the native runtime adapter;
+/// this guard covers Node/npm call sites without downloading their runtimes.
 #[test]
 fn shell_family_tools_route_to_sandbox_when_sandboxed_mode_active() {
     const SHELL_SRC: &str = include_str!("shell.rs");
@@ -237,14 +283,8 @@ fn shell_family_tools_route_to_sandbox_when_sandboxed_mode_active() {
         ("npm_exec.rs", NPM_EXEC_SRC),
     ] {
         assert!(
-            src.contains("current_sandbox_mode()"),
-            "{name} must check `current_sandbox_mode()` to detect SandboxMode::Sandboxed \
-             sessions and route through the sandbox backend (see #3235)"
-        );
-        assert!(
-            src.contains("SandboxMode::Sandboxed"),
-            "{name} must compare against `SandboxMode::Sandboxed` to opt in to the \
-             sandbox routing path (see #3235)"
+            src.contains("command_requires_sandbox().await"),
+            "{name} must use the shared command sandbox routing policy, including agent mode and operator backend"
         );
         // Use the call-site pattern `.run_sandboxed(` so the assertion
         // doesn't trivially pass on the helper definition itself
@@ -257,4 +297,19 @@ fn shell_family_tools_route_to_sandbox_when_sandboxed_mode_active() {
              helper call must appear in the source — *not* just the helper definition."
         );
     }
+}
+
+#[test]
+fn managed_path_restoration_preserves_cmd_syntax_and_unmanaged_commands() {
+    use crate::agent::platform_shell::ShellFlavor;
+    let windows_command = "echo %USERPROFILE%";
+    assert_eq!(
+        command_with_runtime_path(windows_command, Some("C:\\managed\\bin"), ShellFlavor::Cmd),
+        windows_command
+    );
+    let unmanaged_command = "echo \"$PATH\"";
+    assert_eq!(
+        command_with_runtime_path(unmanaged_command, None, ShellFlavor::Posix),
+        unmanaged_command
+    );
 }

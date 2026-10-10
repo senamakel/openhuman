@@ -173,7 +173,7 @@ version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "40c48f72fd53cd289104fc64099abca73db4166ad86ea0b4341abe65af83dadc"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -184,7 +184,7 @@ checksum = "291e6a250ff86cd4a820112fb8898808a366d8f9f58ce16d1f538353ad55747d"
 dependencies = [
  "anstyle",
  "once_cell_polyfill",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -287,19 +287,19 @@ dependencies = [
 
 [[package]]
 name = "async-imap"
-version = "0.11.3"
+version = "0.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9a6728e0f7931b36d725ac234fcb02539e9f7888dbeaaa8a18d9ea5792181570"
+checksum = "f97b87216c9f0ccc63c516263169085fa34bba25633f6d96c6a9b9ca1fd5f70a"
 dependencies = [
  "async-channel 2.5.0",
  "async-compression",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
  "chrono",
- "futures",
+ "futures-util",
  "imap-proto",
  "log",
- "nom 7.1.3",
+ "nom 8.0.0",
  "pin-project",
  "pin-utils",
  "self_cell",
@@ -788,7 +788,7 @@ dependencies = [
  "cap-primitives",
  "cap-std",
  "io-lifetimes 3.0.1",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -805,7 +805,7 @@ dependencies = [
  "maybe-owned",
  "rustix",
  "rustix-linux-procfs",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
  "winx",
 ]
 
@@ -1849,7 +1849,7 @@ dependencies = [
  "libc",
  "option-ext",
  "redox_users",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2099,7 +2099,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "39cab71617ae0d63f51a36d69f866391735b51691dbda63cf6f96d042b63efeb"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -2930,7 +2930,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.58.0",
+ "windows-core 0.62.2",
 ]
 
 [[package]]
@@ -3054,11 +3054,11 @@ dependencies = [
 
 [[package]]
 name = "imap-proto"
-version = "0.16.7"
+version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "25f6af35c6a517aea5c72314abe90134980d2ae6a763809b50c208b3e429d71f"
+checksum = "5ccf963d57074747b455398a1763d174da80bcaba6f51e3671a82252b531a68b"
 dependencies = [
- "nom 7.1.3",
+ "nom 8.0.0",
 ]
 
 [[package]]
@@ -4012,7 +4012,7 @@ version = "0.50.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7957b9740744892f114936ab4a57b3f487491bbeafaf8083688b16841a4240e5"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -4508,7 +4508,8 @@ dependencies = [
  "proptest",
  "rand 0.10.2",
  "regex",
- "reqwest",
+ "reqwest 0.12.28",
+ "reqwest 0.13.5",
  "rusqlite",
  "rustls",
  "schemars",
@@ -4592,6 +4593,7 @@ dependencies = [
  "urlencoding",
  "uuid",
  "walkdir",
+ "webpki-roots 1.0.9",
  "windows-sys 0.61.2",
  "wiremock",
  "x25519-dalek 2.0.1",
@@ -4623,7 +4625,7 @@ dependencies = [
  "openhuman-rpc",
  "openhuman-tinyhumans",
  "parking_lot",
- "reqwest",
+ "reqwest 0.12.28",
  "rusqlite",
  "sentry",
  "serde",
@@ -4670,7 +4672,7 @@ dependencies = [
  "env_logger",
  "log",
  "openhuman",
- "reqwest",
+ "reqwest 0.12.28",
  "sentry",
  "serde",
  "serde_json",
@@ -4704,7 +4706,7 @@ dependencies = [
  "openhuman-tinyhumans",
  "proptest",
  "rand 0.10.2",
- "reqwest",
+ "reqwest 0.12.28",
  "sentry",
  "serde",
  "serde_json",
@@ -4736,7 +4738,7 @@ dependencies = [
  "chrono",
  "log",
  "openhuman-embed",
- "reqwest",
+ "reqwest 0.12.28",
  "sentry",
  "serde",
  "serde_json",
@@ -5390,7 +5392,7 @@ dependencies = [
  "once_cell",
  "socket2",
  "tracing",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5766,6 +5768,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "reqwest"
+version = "0.13.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16a1cfa75cc186dd73d5818e510e042e40927bccc9c236b061cea97e1eb08029"
+dependencies = [
+ "base64 0.23.1",
+ "bytes",
+ "futures-core",
+ "h2",
+ "http",
+ "http-body",
+ "http-body-util",
+ "hyper",
+ "hyper-rustls",
+ "hyper-tls",
+ "hyper-util",
+ "js-sys",
+ "log",
+ "native-tls",
+ "percent-encoding",
+ "pin-project-lite",
+ "rustls",
+ "rustls-pki-types",
+ "rustls-platform-verifier",
+ "sync_wrapper",
+ "tokio",
+ "tokio-native-tls",
+ "tokio-rustls",
+ "tower",
+ "tower-http",
+ "tower-service",
+ "url",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
 name = "resolv-conf"
 version = "0.7.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5879,7 +5919,7 @@ dependencies = [
  "errno",
  "libc",
  "linux-raw-sys",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -5947,7 +5987,7 @@ dependencies = [
  "security-framework 3.7.0",
  "security-framework-sys",
  "webpki-root-certs",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6527,7 +6567,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3d1e2c7f27f8d4cb10542a02c49005dbd6e93095799d6f3be745fae9f8fedd4"
 dependencies = [
  "libc",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6838,7 +6878,7 @@ dependencies = [
  "getrandom 0.4.3",
  "once_cell",
  "rustix",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -6851,7 +6891,7 @@ dependencies = [
  "parking_lot",
  "rustix",
  "signal-hook",
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -7049,7 +7089,7 @@ dependencies = [
  "flate2",
  "futures",
  "regex",
- "reqwest",
+ "reqwest 0.12.28",
  "rusqlite",
  "rustix",
  "serde",
@@ -7245,7 +7285,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "anyhow",
  "async-imap",
@@ -7263,7 +7303,7 @@ dependencies = [
  "parking_lot",
  "prost",
  "rand 0.10.2",
- "reqwest",
+ "reqwest 0.12.28",
  "rusqlite",
  "rustls",
  "rustls-pki-types",
@@ -7291,7 +7331,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-bus"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7312,7 +7352,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-runtime"
-version = "0.1.12"
+version = "0.1.13"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7491,7 +7531,7 @@ dependencies = [
  "base64 0.23.1",
  "hex",
  "percent-encoding",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha1 0.11.0",
@@ -7507,7 +7547,7 @@ dependencies = [
  "base64 0.22.1",
  "futures",
  "percent-encoding",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7531,7 +7571,7 @@ version = "0.3.1"
 dependencies = [
  "async-trait",
  "httpdate",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7545,7 +7585,7 @@ dependencies = [
  "async-trait",
  "once_cell",
  "regex",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7562,7 +7602,7 @@ dependencies = [
  "async-trait",
  "base64 0.23.1",
  "bytes",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7579,7 +7619,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "futures",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7598,7 +7638,7 @@ dependencies = [
  "log",
  "once_cell",
  "parking_lot",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7616,7 +7656,7 @@ version = "0.3.1"
 dependencies = [
  "base64 0.23.1",
  "rand 0.10.2",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -7641,7 +7681,7 @@ name = "tinyinference-voice"
 version = "0.3.1"
 dependencies = [
  "base64 0.23.1",
- "reqwest",
+ "reqwest 0.12.28",
  "schemars",
  "serde",
  "serde_json",
@@ -7657,7 +7697,7 @@ version = "0.2.1"
 source = "git+https://github.com/tinyhumansai/tinyjevclient?rev=84b3983c7e1e14f7515658ceafabb6c4e7967c94#84b3983c7e1e14f7515658ceafabb6c4e7967c94"
 dependencies = [
  "httpdate",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7706,7 +7746,7 @@ dependencies = [
  "base64 0.22.1",
  "bytes",
  "futures-util",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7727,7 +7767,7 @@ dependencies = [
  "dirs 7.0.0",
  "futures-util",
  "parking_lot",
- "reqwest",
+ "reqwest 0.12.28",
  "rusqlite",
  "serde",
  "serde_json",
@@ -7758,7 +7798,7 @@ version = "0.1.0"
 dependencies = [
  "async-trait",
  "futures",
- "reqwest",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -7769,7 +7809,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "async-trait",
  "chrono",
@@ -7782,7 +7822,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "async-trait",
  "calamine",
@@ -7792,7 +7832,7 @@ dependencies = [
  "pdf-extract",
  "quick-xml 0.41.0",
  "regex",
- "reqwest",
+ "reqwest 0.12.28",
  "rusqlite",
  "schemars",
  "serde",
@@ -7809,7 +7849,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.27.1"
+version = "1.27.2"
 dependencies = [
  "chrono",
  "futures",
@@ -7986,7 +8026,7 @@ dependencies = [
  "log",
  "parking_lot",
  "regex",
- "reqwest",
+ "reqwest 0.12.28",
  "rustix",
  "serde_json",
  "sha2 0.11.0",
@@ -8025,7 +8065,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet"
-version = "0.7.4"
+version = "0.8.0"
 dependencies = [
  "coins-bip32",
  "coins-bip39",
@@ -8043,7 +8083,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-bus"
-version = "0.7.4"
+version = "0.8.0"
 dependencies = [
  "serde",
  "tinywallet-crypto",
@@ -8052,7 +8092,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-crypto"
-version = "0.7.4"
+version = "0.8.0"
 dependencies = [
  "async-trait",
  "bech32 0.12.0",
@@ -8067,13 +8107,13 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-web3"
-version = "0.7.4"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bs58",
- "curve25519-dalek 4.1.3",
+ "curve25519-dalek 5.0.0",
  "hex",
  "log",
  "parking_lot",
@@ -8088,17 +8128,17 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-x402"
-version = "0.7.4"
+version = "0.8.0"
 dependencies = [
  "anyhow",
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bs58",
  "chrono",
- "curve25519-dalek 4.1.3",
+ "curve25519-dalek 5.0.0",
  "hex",
  "log",
- "reqwest",
+ "reqwest 0.13.5",
  "serde",
  "serde_json",
  "sha2 0.11.0",
@@ -9276,7 +9316,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.60.2",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

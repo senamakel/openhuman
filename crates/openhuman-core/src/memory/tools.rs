@@ -103,13 +103,17 @@ pub const MEMORY_TOOL_NAME: &str = "memory";
 /// The `memory` tool.
 pub struct MemoryTool {
     config: Arc<Config>,
+    budget: super::tool_budget::ToolBudget,
 }
 
 impl MemoryTool {
     /// A tool bound to `config`'s engine.
     #[must_use]
     pub fn new(config: Arc<Config>) -> Self {
-        Self { config }
+        Self {
+            config,
+            budget: super::tool_budget::ToolBudget::default(),
+        }
     }
 }
 
@@ -308,10 +312,12 @@ impl Tool for MemoryTool {
         "Long-term memory across conversations, documents and learnings. \
          `recall` answers a question from memory with citations; `fetch` returns raw \
          matching items (filter by metadata such as workspace, repo, file_path, kinds); \
-         `learn` stores a durable fact, preference, procedure or correction about the \
+         `learn` queues a durable fact, preference, procedure or correction about the \
          user or their work, shared with every agent working alongside you; `forget` \
-         removes items by id. Relevant memory is already added to each turn as \
-         <memory-context>; use `recall` or `fetch` to look further, and set `refers_to` when \
+         queues removal of items by id. Write acknowledgements mean locally queued, \
+         not yet saved or removed remotely; do not repeat them to force indexing. \
+         Cached memory may be added as <memory-context>; use `recall` or `fetch` \
+         for current information, and set `refers_to` when \
          the question is about a particular time. Recall before asking \
          the user something they may already have told you; learn things worth \
          remembering next time."
@@ -351,7 +357,39 @@ impl Tool for MemoryTool {
         context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
         let facts = CallFacts::gather(&self.config, context);
-        Ok(run_action(&self.config, &args, &facts).await)
+        let run_id = context
+            .and_then(ToolRunContext::host_extension)
+            .and_then(|any| any.downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>())
+            .map(|ctx| ctx.run_id.as_str().to_string());
+        Ok(self
+            .budget
+            .run(run_id, async {
+                if matches!(
+                    args.get("action").and_then(Value::as_str),
+                    Some("learn" | "forget")
+                ) {
+                    let config = self.config.clone();
+                    let write_args = args.clone();
+                    let queued = crate::core::runtime::spawn_blocking_scoped(move || {
+                        super::tool_writes::enqueue(&config, &write_args, &facts)
+                    })
+                    .await;
+                    match queued.unwrap_or_else(|_| {
+                        Err(MemoryError::Unavailable(
+                            "memory write queue unavailable".into(),
+                        ))
+                    }) {
+                        Ok(value) => {
+                            super::tool_writes::schedule(self.config.clone());
+                            ToolResult::success(value.to_string())
+                        }
+                        Err(error) => ToolResult::error(render_error(error)),
+                    }
+                } else {
+                    run_action(&self.config, &args, &facts).await
+                }
+            })
+            .await)
     }
 }
 
@@ -366,3 +404,7 @@ mod agent_tests;
 #[cfg(test)]
 #[path = "tools_schema_tests.rs"]
 mod schema_tests;
+
+#[cfg(test)]
+#[path = "tools_budget_tests.rs"]
+mod budget_tests;

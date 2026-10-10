@@ -54,7 +54,7 @@ pub(crate) fn typed_dispatch_for(
         "close_subagent" => Arc::new(CloseSubagentDispatch::new(adapter)),
         "list_subagents" => Arc::new(ListSubagentsDispatch::new(adapter)),
         "delegate_graph" => Arc::new(DelegateGraphDispatch::new(adapter)),
-        "delegate" => Arc::new(DelegateToolDispatch::new(adapter)),
+        "delegate" | "memory" => Arc::new(DelegateToolDispatch::new(adapter)),
         "todo" => Arc::new(TodoToolDispatch::new(adapter)),
         _ => {
             return DelegationDispatch::for_tool(adapter).map(|dispatch| {

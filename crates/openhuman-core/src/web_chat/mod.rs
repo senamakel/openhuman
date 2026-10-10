@@ -98,6 +98,7 @@ pub(crate) use ops::sentry_suppression_reason;
 pub(crate) use ops::{event_session_id_for, key_for};
 #[cfg(test)]
 pub(crate) use ops::{key_in, unscope_in};
+#[cfg(feature = "flows")]
 pub(crate) use progress_bridge::spawn_progress_bridge;
 
 // Schema field helpers + session/error helpers re-exported for the `web_tests`

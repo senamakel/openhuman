@@ -792,13 +792,6 @@
   },
   {
     "rule": "bare-spawn",
-    "path": "crates/openhuman-core/src/memory/lifecycle/hooks.rs",
-    "line": 241,
-    "text": "let task = tokio::spawn(async move {",
-    "occurrence": 1
-  },
-  {
-    "rule": "bare-spawn",
     "path": "crates/openhuman-core/src/modules/ops.rs",
     "line": 274,
     "text": "let found_on_search_path = tokio::task::spawn_blocking(move || {",
@@ -849,8 +842,8 @@
   {
     "rule": "home-dir",
     "path": "crates/openhuman-core/src/sandbox/ops.rs",
-    "line": 116,
-    "text": "resolve_local_jail_grants(dirs::home_dir().as_deref(), &runtime_config.local_jail)",
+    "line": 639,
+    "text": "dirs::home_dir()",
     "occurrence": 1
   },
   {

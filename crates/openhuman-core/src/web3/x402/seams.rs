@@ -256,8 +256,8 @@ fn signature_bytes(signature: tinywallet_bus::wire::Signature) -> Result<Vec<u8>
 }
 
 impl ProxyPolicy for RuntimeProxyPolicy {
-    fn apply(&self, builder: reqwest::ClientBuilder, service: &str) -> reqwest::ClientBuilder {
-        crate::config::apply_runtime_proxy_to_builder(builder, service)
+    fn apply(&self, builder: reqwest13::ClientBuilder, service: &str) -> reqwest13::ClientBuilder {
+        super::proxy_compat::apply(builder, service, &crate::config::runtime_proxy_config())
     }
 
     fn allows_direct_connection(&self, service: &str) -> bool {
@@ -284,9 +284,9 @@ fn direct_connection_allowed(
         "https_proxy",
         "all_proxy",
     ];
-    !(config.enabled && config.scope == crate::config::ProxyScope::Environment)
-        && !config.should_apply_to_service(service)
-        && !PROXY_ENV_KEYS.iter().any(|key| env_has_value(key))
+    !(config.enabled && config.scope == crate::config::ProxyScope::Environment
+        || config.should_apply_to_service(service)
+        || PROXY_ENV_KEYS.iter().any(|key| env_has_value(key)))
 }
 
 /// The crypto rail's payment builder, over OpenHuman's wallet and transport.

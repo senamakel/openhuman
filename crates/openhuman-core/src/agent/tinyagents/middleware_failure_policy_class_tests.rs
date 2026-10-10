@@ -183,6 +183,7 @@ async fn a_user_denial_still_stops_on_the_first_refusal() {
 
 // ── the timeout floor, by production tool name ──────────────────────────────
 
+#[cfg(feature = "modules")]
 fn search_spec(name: &str) -> tinysearch_bus::ToolSpec {
     tinysearch_bus::ToolSpec {
         name: name.to_string(),
@@ -196,7 +197,7 @@ fn search_spec(name: &str) -> tinysearch_bus::ToolSpec {
 fn production_read_tools() -> Vec<Box<dyn tinytools::Tool>> {
     use crate::security::SecurityPolicy;
     let security = std::sync::Arc::new(SecurityPolicy::default());
-    let mut tools: Vec<Box<dyn tinytools::Tool>> = vec![
+    let tools: Vec<Box<dyn tinytools::Tool>> = vec![
         Box::new(crate::tools::implementations::network::web_fetch_tool(
             security.clone(),
             vec!["example.com".into()],
@@ -207,16 +208,21 @@ fn production_read_tools() -> Vec<Box<dyn tinytools::Tool>> {
             security.clone(),
         )),
         Box::new(tinytools_std::filesystem::ListFilesTool::new(security)),
-        Box::new(crate::desktop::control::tools::DesktopTool::new(
+    ];
+    #[cfg(feature = "modules")]
+    let tools = {
+        let mut tools = tools;
+        tools.push(Box::new(crate::desktop::control::tools::DesktopTool::new(
             std::sync::Arc::new(crate::config::Config::default()),
             crate::desktop::control::tools::DesktopToolKind::Windows,
-        )),
-    ];
-    for name in ["web_search_tool", "web_answer_tool", "web_contents_tool"] {
-        tools.push(Box::new(crate::search::tools::TinySearchTool::recorded(
-            search_spec(name),
         )));
-    }
+        for name in ["web_search_tool", "web_answer_tool", "web_contents_tool"] {
+            tools.push(Box::new(crate::search::tools::TinySearchTool::recorded(
+                search_spec(name),
+            )));
+        }
+        tools
+    };
     tools
 }
 
@@ -224,9 +230,13 @@ const PRODUCTION_READ_TOOLS: &[&str] = &[
     "web_fetch",
     "file_read",
     "list_files",
+    #[cfg(feature = "modules")]
     "desktop_list_windows",
+    #[cfg(feature = "modules")]
     "web_search_tool",
+    #[cfg(feature = "modules")]
     "web_answer_tool",
+    #[cfg(feature = "modules")]
     "web_contents_tool",
 ];
 

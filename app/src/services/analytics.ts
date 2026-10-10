@@ -154,7 +154,10 @@ export function initSentry(): void {
     // Privacy: disable EVERYTHING that could leak sensitive state.
     replaysSessionSampleRate: 0,
     replaysOnErrorSampleRate: 0,
-    tracesSampleRate: 0,
+    // Collect sampled performance transactions and CPU profiles from
+    // browser/WebView sessions.
+    tracesSampleRate: 0.1,
+    profileSessionSampleRate: 0.1,
     defaultIntegrations: false,
     integrations: [
       // #3963: `defaultIntegrations: false` (above) drops the integration that
@@ -178,6 +181,8 @@ export function initSentry(): void {
       // narrows what survives from the request envelope (headers only, UA
       // only) to keep this aligned with the privacy contract.
       Sentry.httpContextIntegration(),
+      Sentry.browserTracingIntegration(),
+      Sentry.browserProfilingIntegration(),
     ],
     sendDefaultPii: false,
 

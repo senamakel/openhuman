@@ -7,17 +7,19 @@
 //!
 //! | Hook | When | Call |
 //! | --- | --- | --- |
-//! | [`hooks::pre_turn`] | before the model runs, once per turn | logs the user turn and recalls the pack the turn is given |
+//! | [`prefetch`] | before the model runs, once per turn | takes completed cached memory and queues user logging and refresh |
 //! | [`hooks::post_turn`] | after the turn is committed | logs the reply and queues the belief builds it hands back |
-//! | [`hooks::compaction`] | when the transcript is compacted | recalls what the compacted turns carried |
+//! | [`prefetch`] | when the transcript is compacted | enriches from completed memory and queues recall of the folded span |
 //! | [`jobs`] | the `memory_background` cron job | runs queued belief builds and deferred ingests |
 //!
-//! Every hook is bounded by a timeout and never fails a turn: an engine
-//! outage degrades memory, it does not block the agent.
+//! Automatic hooks never await engine I/O. The explicit/manual hook primitives
+//! remain timeout-bounded; an engine outage degrades memory without blocking
+//! the live agent.
 
 pub mod date_hint;
 pub mod hooks;
 pub mod jobs;
+pub(crate) mod prefetch;
 pub mod sender;
 pub mod views;
 

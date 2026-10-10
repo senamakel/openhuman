@@ -192,6 +192,40 @@ pub async fn pre_turn(
     identity: &ResolvedIdentity,
     input: PreTurnInput,
 ) -> Option<TurnPack> {
+    let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
+    let started = std::time::Instant::now();
+    let agent_id = identity.agent_id.clone();
+    let config = config.clone();
+    let identity = identity.clone();
+    let thread = input.thread_id.clone();
+    let task = crate::core::runtime::spawn_scoped(async move {
+        pre_turn_work(&config, &identity, input).await
+    });
+    let pack = match tokio::time::timeout(timeout, task).await {
+        Ok(Ok(pack)) => pack,
+        Ok(Err(error)) => {
+            tracing::warn!(thread_id = %thread, %error, "[memory:hooks] pre_turn task failed");
+            None
+        }
+        Err(_) => {
+            tracing::warn!(thread_id = %thread, timeout_ms = timeout.as_millis() as u64, "[memory:hooks] pre_turn timed out; the turn runs without a pack");
+            None
+        }
+    };
+    if let Some(pack) = &pack {
+        crate::memory::tools::record_pack_citations(&thread, pack.citations.clone());
+    }
+    tracing::debug!(thread_id = %thread, %agent_id, injected = pack.is_some(), tokens = pack.as_ref().map_or(0, |pack| pack.tokens), refs = pack.as_ref().map_or(0, |pack| pack.refs.len()), elapsed_ms = started.elapsed().as_millis() as u64, "[memory:hooks] pre_turn");
+    pack
+}
+
+/// The direct lifecycle operation for bounded background workers. Unlike the
+/// manual timeout wrapper, its future owns all I/O and can be cancelled.
+pub(crate) async fn pre_turn_work(
+    config: &Config,
+    identity: &ResolvedIdentity,
+    input: PreTurnInput,
+) -> Option<TurnPack> {
     let logging = config.memory.conversations.enabled;
     if !logging && !identity.recall {
         return None;
@@ -218,9 +252,6 @@ pub async fn pre_turn(
         memory.with_policy(quiet)
     };
     let recall = identity.recall;
-    let thread_id = input.thread_id.clone();
-    let agent_id = identity.agent_id.clone();
-    let started = std::time::Instant::now();
     let timeout = Duration::from_millis(config.memory.recall.pre_turn_timeout_ms.max(1));
     // Runs beside the turn log and the reads (tinymemory joins all three) and
     // answers by the turn's own deadline less a margin, counted from now, so
@@ -238,7 +269,7 @@ pub async fn pre_turn(
                 .flatten()
         }
     });
-    let task = tokio::spawn(async move {
+    let pack = async move {
         // The first turn after a compaction gets one pack that leads with the
         // thread's earlier turns, under the turn's own budget and dedupe.
         let resumed = recall && input.resumed_after_compaction;
@@ -302,34 +333,8 @@ pub async fn pre_turn(
             );
             TurnPack::refused(&error, engine_id)
         })
-    });
-    let pack = match tokio::time::timeout(timeout, task).await {
-        Ok(Ok(pack)) => pack,
-        Ok(Err(error)) => {
-            tracing::warn!(%error, "[memory:hooks] pre_turn task failed");
-            None
-        }
-        Err(_) => {
-            tracing::warn!(
-                thread_id = %thread_id,
-                timeout_ms = timeout.as_millis() as u64,
-                "[memory:hooks] pre_turn timed out; the turn runs without a pack"
-            );
-            None
-        }
-    };
-    if let Some(pack) = &pack {
-        crate::memory::tools::record_pack_citations(&thread_id, pack.citations.clone());
     }
-    tracing::debug!(
-        thread_id = %thread_id,
-        agent_id = %agent_id,
-        injected = pack.is_some(),
-        tokens = pack.as_ref().map_or(0, |pack| pack.tokens),
-        refs = pack.as_ref().map_or(0, |pack| pack.refs.len()),
-        elapsed_ms = started.elapsed().as_millis() as u64,
-        "[memory:hooks] pre_turn"
-    );
+    .await;
     pack
 }
 
@@ -471,6 +476,28 @@ pub async fn compaction(
     thread_id: &str,
     dropped: Vec<Turn>,
 ) -> Option<TurnPack> {
+    let timeout = Duration::from_millis(config.memory.recall.compaction_timeout_ms.max(1));
+    match tokio::time::timeout(
+        timeout,
+        compaction_work(config, identity, thread_id, dropped),
+    )
+    .await
+    {
+        Ok(pack) => pack,
+        Err(_) => {
+            tracing::warn!(thread_id, "[memory:hooks] compaction recall timed out");
+            None
+        }
+    }
+}
+
+/// Direct compaction recall, owned and cancelled by the background worker.
+pub(crate) async fn compaction_work(
+    config: &Config,
+    identity: &ResolvedIdentity,
+    thread_id: &str,
+    dropped: Vec<Turn>,
+) -> Option<TurnPack> {
     if !identity.recall || dropped.is_empty() || thread_id.trim().is_empty() {
         return None;
     }
@@ -482,15 +509,10 @@ pub async fn compaction(
         dropped,
         focus: None,
     };
-    let timeout = Duration::from_millis(config.memory.recall.compaction_timeout_ms.max(1));
-    let pack = match tokio::time::timeout(timeout, memory.recall_for_compaction(request)).await {
-        Ok(Ok(pack)) => TurnPack::from_packs([pack]),
-        Ok(Err(error)) => {
+    let pack = match memory.recall_for_compaction(request).await {
+        Ok(pack) => TurnPack::from_packs([pack]),
+        Err(error) => {
             tracing::warn!(%error, "[memory:hooks] compaction recall failed");
-            None
-        }
-        Err(_) => {
-            tracing::warn!(thread_id, "[memory:hooks] compaction recall timed out");
             None
         }
     };

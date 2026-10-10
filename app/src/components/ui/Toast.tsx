@@ -25,7 +25,41 @@ export interface ToastData {
   icon?: ReactNode;
 }
 
-export const toast = ToastPrimitive.createToastManager<ToastData>();
+const toastManager = ToastPrimitive.createToastManager<ToastData>();
+
+/** A privacy-conscious record of recent toast events for diagnostics. */
+export interface ToastLogEntry {
+  id: string;
+  type?: string;
+  title: string;
+  description?: string;
+  timestamp: number;
+}
+
+const TOAST_LOG_LIMIT = 100;
+const toastLog: ToastLogEntry[] = [];
+
+/** Returns a copy of the most recent toast events, newest first. */
+export function getToastLog(): ToastLogEntry[] {
+  return toastLog.map(entry => ({ ...entry }));
+}
+
+/** Clears the in-memory diagnostic history. */
+export function clearToastLog(): void {
+  toastLog.length = 0;
+}
+
+/** The global toast manager also records every emitted toast for diagnostics. */
+export const toast = Object.assign({}, toastManager, {
+  add(options: Parameters<typeof toastManager.add>[0]) {
+    const id = toastManager.add(options);
+    const title = typeof options.title === 'string' ? options.title : '';
+    const description = typeof options.description === 'string' ? options.description : undefined;
+    toastLog.unshift({ id, type: options.type, title, description, timestamp: Date.now() });
+    if (toastLog.length > TOAST_LOG_LIMIT) toastLog.length = TOAST_LOG_LIMIT;
+    return id;
+  },
+});
 
 type ToastType = 'success' | 'info' | 'warning' | 'error' | 'loading';
 

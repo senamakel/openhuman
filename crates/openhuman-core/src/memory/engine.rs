@@ -575,6 +575,7 @@ pub fn invalidate() {
         .write()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .clear();
+    super::lifecycle::prefetch::invalidate_all();
 }
 
 /// The stored CortexDB API key, if any.

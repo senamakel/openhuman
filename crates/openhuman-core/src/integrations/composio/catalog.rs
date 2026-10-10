@@ -40,9 +40,11 @@ mod in_flight_tests;
 mod tests;
 
 pub(crate) use contract::fetch_live_toolkit_catalog;
-pub use contract::ToolContract;
 #[cfg(test)]
-pub(crate) use contract::{seed_live_catalog_cache, seed_live_catalog_cache_expired};
+pub(crate) use contract::seed_live_catalog_cache;
+#[cfg(all(test, feature = "flows"))]
+pub(crate) use contract::seed_live_catalog_cache_expired;
+pub use contract::ToolContract;
 pub(crate) use lookups::composio_required_args;
 #[cfg(test)]
 pub(crate) use probe::ProbedOutputSample;

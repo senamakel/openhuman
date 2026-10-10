@@ -3,9 +3,13 @@
 import { readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isClaudeCodeBridgeMessage } from "../lib/runtime-boundary-types.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const baselinePath = resolve(repoRoot, "scripts/ci/agent-runtime-boundary-baseline.json");
+const baselinePath = resolve(
+  repoRoot,
+  "scripts/ci/agent-runtime-boundary-baseline.json",
+);
 const openhumanCratesRoot = resolve(repoRoot, "crates");
 const tinyagentsRoot = resolve(repoRoot, "vendor/tinyagents/crates");
 const writeBaseline = process.argv.includes("--write-baseline");
@@ -14,56 +18,115 @@ const noBaseline = process.argv.includes("--no-baseline");
 // Product types need not start with `OpenHuman`, so this is an explicit,
 // reviewed inventory rather than a naming convention.
 const openhumanDomainTypes = new Set([
-  "AgentDefinitionDisplay", "AgentDefinitionModel",
-  "AgentProgress", "ApprovalDecision", "ChatMessage", "ConversationMessage",
-  "ConversationMessagePatch", "ConversationMessageRecord", "DomainEvent",
-  "IntegrationAccount", "OpenHumanConfig", "OpenHumanRunContext", "ToolExecutionResult",
-  "ToolResultMessage", "TurnOrigin", "UserProfileHook", "WorkspacePolicy",
+  "AgentDefinitionDisplay",
+  "AgentDefinitionModel",
+  "AgentProgress",
+  "ApprovalDecision",
+  "ChatMessage",
+  "ConversationMessage",
+  "ConversationMessagePatch",
+  "ConversationMessageRecord",
+  "DomainEvent",
+  "IntegrationAccount",
+  "OpenHumanConfig",
+  "OpenHumanRunContext",
+  "ToolExecutionResult",
+  "ToolResultMessage",
+  "TurnOrigin",
+  "UserProfileHook",
+  "WorkspacePolicy",
 ]);
 
 // Names moved out of compatibility layers. Values identify their sole owner;
 // declarations in any other TinyAgents crate are facades even if private.
 const movedSymbolOwners = new Map([
-  ["Tool", "tinytools"], ["ToolResult", "tinytools"], ["ToolPolicy", "tinytools"],
-  ["ToolSchema", "tinytools"], ["ToolCall", "tinytools"],
-  ["ToolCallOptions", "tinytools"], ["ToolRunContext", "tinytools"],
-  ["WorkspaceDescriptor", "tinytools"], ["ToolContent", "tinytools"],
+  ["Tool", "tinytools"],
+  ["ToolResult", "tinytools"],
+  ["ToolPolicy", "tinytools"],
+  ["ToolSchema", "tinytools"],
+  ["ToolCall", "tinytools"],
+  ["ToolCallOptions", "tinytools"],
+  ["ToolRunContext", "tinytools"],
+  ["WorkspaceDescriptor", "tinytools"],
+  ["ToolContent", "tinytools"],
   ["ToolRegistry", "tinytools"],
-  ["ChatModel", "tinyinference-llm"], ["ModelRequest", "tinyinference-llm"],
-  ["ModelResponse", "tinyinference-llm"], ["Message", "tinyinference-llm"],
-  ["MessageDelta", "tinyinference-llm"], ["Usage", "tinyinference-llm"],
+  ["ChatModel", "tinyinference-llm"],
+  ["ModelRequest", "tinyinference-llm"],
+  ["ModelResponse", "tinyinference-llm"],
+  ["Message", "tinyinference-llm"],
+  ["MessageDelta", "tinyinference-llm"],
+  ["Usage", "tinyinference-llm"],
   ["UsageTotals", "tinyinference-llm"],
-  ["AgentHarness", "tinyagents-harness"], ["AgentTurnRequest", "tinyagents-harness"],
-  ["HostCapabilities", "tinyagents-harness"], ["RunConfig", "tinyagents-harness"],
-  ["RunContext", "tinyagents-harness"], ["CancellationToken", "tinyagents-harness"],
-  ["RetryPolicy", "tinyagents-harness"], ["FallbackPolicy", "tinyagents-harness"],
+  ["AgentHarness", "tinyagents-harness"],
+  ["AgentTurnRequest", "tinyagents-harness"],
+  ["HostCapabilities", "tinyagents-harness"],
+  ["RunConfig", "tinyagents-harness"],
+  ["RunContext", "tinyagents-harness"],
+  ["CancellationToken", "tinyagents-harness"],
+  ["RetryPolicy", "tinyagents-harness"],
+  ["FallbackPolicy", "tinyagents-harness"],
 ]);
 
 const bridgeSymbols = [
-  "SharedToolAdapter", "ToolAdapter", "spec_to_schema", "execute_openhuman_tool",
-  "assemble_turn_harness", "run_turn_via_tinyagents_shared",
+  "SharedToolAdapter",
+  "ToolAdapter",
+  "spec_to_schema",
+  "execute_openhuman_tool",
+  "assemble_turn_harness",
+  "run_turn_via_tinyagents_shared",
 ];
 const deletedTaskLocalModules = [
-  "fork_context", "sandbox_context", "spawn_depth_context", "task_recency_context",
-  "turn_attachments_context", "turn_dispatch_guard", "turn_subagent_usage",
-  "resolved_route", "run_cancellation_context", "thread_context",
+  "fork_context",
+  "sandbox_context",
+  "spawn_depth_context",
+  "task_recency_context",
+  "turn_attachments_context",
+  "turn_dispatch_guard",
+  "turn_subagent_usage",
+  "resolved_route",
+  "run_cancellation_context",
+  "thread_context",
 ];
 const taskLocalAccessors = [
-  "current_parent", "with_parent_context",
-  "current_sandbox_mode", "with_current_sandbox_mode",
-  "current_spawn_depth", "with_spawn_depth", "current_task_recency_window",
-  "with_task_recency_window", "current_turn_image_placeholders",
-  "with_current_turn_image_placeholders", "with_dispatch_guard", "record_subagent_usage",
-  "with_turn_collector", "current_progress_sink", "with_progress_sink",
-  "with_resolved_provider_route_scope", "record_resolved_provider_route", "current_route_slot",
-  "with_route_slot", "current_resolved_provider_route", "current_run_cancellation",
-  "with_run_cancellation", "current_thread_id", "with_thread_id", "current_is_user_authored",
-  "with_origin", "with_inherited_origin", "current_request_id",
+  "current_parent",
+  "with_parent_context",
+  "current_sandbox_mode",
+  "with_current_sandbox_mode",
+  "current_spawn_depth",
+  "with_spawn_depth",
+  "current_task_recency_window",
+  "with_task_recency_window",
+  "current_turn_image_placeholders",
+  "with_current_turn_image_placeholders",
+  "with_dispatch_guard",
+  "record_subagent_usage",
+  "with_turn_collector",
+  "current_progress_sink",
+  "with_progress_sink",
+  "with_resolved_provider_route_scope",
+  "record_resolved_provider_route",
+  "current_route_slot",
+  "with_route_slot",
+  "current_resolved_provider_route",
+  "current_run_cancellation",
+  "with_run_cancellation",
+  "current_thread_id",
+  "with_thread_id",
+  "current_is_user_authored",
+  "with_origin",
+  "with_inherited_origin",
+  "current_request_id",
 ];
 const taskLocalStatics = [
-  "PARENT_CONTEXT", "CURRENT_AGENT_SANDBOX_MODE",
-  "TASK_RECENCY_WINDOW", "CURRENT_TURN_IMAGE_PLACEHOLDERS", "AGENT_PROGRESS_SINK",
-  "RESOLVED_PROVIDER_ROUTE", "CURRENT_RUN_CANCELLATION", "THREAD_ID", "AGENT_TURN_ORIGIN",
+  "PARENT_CONTEXT",
+  "CURRENT_AGENT_SANDBOX_MODE",
+  "TASK_RECENCY_WINDOW",
+  "CURRENT_TURN_IMAGE_PLACEHOLDERS",
+  "AGENT_PROGRESS_SINK",
+  "RESOLVED_PROVIDER_ROUTE",
+  "CURRENT_RUN_CANCELLATION",
+  "THREAD_ID",
+  "AGENT_TURN_ORIGIN",
   "AGENT_TURN_WORKSPACE",
 ];
 
@@ -108,12 +171,17 @@ function rustCode(source) {
     }
     if (state === "block") {
       if (char === "/" && next === "*") {
-        blockDepth += 1; result += "  "; index += 2;
+        blockDepth += 1;
+        result += "  ";
+        index += 2;
       } else if (char === "*" && next === "/") {
-        blockDepth -= 1; result += "  "; index += 2;
+        blockDepth -= 1;
+        result += "  ";
+        index += 2;
         if (blockDepth === 0) state = "code";
       } else {
-        result += blank(char); index += 1;
+        result += blank(char);
+        index += 1;
       }
       continue;
     }
@@ -121,39 +189,64 @@ function rustCode(source) {
       result += blank(char);
       if (char === "\\") {
         if (next !== undefined) {
-          result += blank(next); index += 2;
+          result += blank(next);
+          index += 2;
         } else index += 1;
       } else {
-        if ((state === "quoted" && char === '"') || (state === "char" && char === "'")) state = "code";
+        if (
+          (state === "quoted" && char === '"') ||
+          (state === "char" && char === "'")
+        )
+          state = "code";
         index += 1;
       }
       continue;
     }
     if (state === "raw") {
-      if (char === '"' && source.slice(index + 1, index + 1 + rawHashes.length) === rawHashes) {
-        result += " ".repeat(rawHashes.length + 1); index += rawHashes.length + 1; state = "code";
+      if (
+        char === '"' &&
+        source.slice(index + 1, index + 1 + rawHashes.length) === rawHashes
+      ) {
+        result += " ".repeat(rawHashes.length + 1);
+        index += rawHashes.length + 1;
+        state = "code";
       } else {
-        result += blank(char); index += 1;
+        result += blank(char);
+        index += 1;
       }
       continue;
     }
     if (char === "/" && next === "/") {
-      result += "  "; index += 2; state = "line";
+      result += "  ";
+      index += 2;
+      state = "line";
     } else if (char === "/" && next === "*") {
-      result += "  "; index += 2; blockDepth = 1; state = "block";
+      result += "  ";
+      index += 2;
+      blockDepth = 1;
+      state = "block";
     } else if (char === '"') {
-      result += " "; index += 1; state = "quoted";
+      result += " ";
+      index += 1;
+      state = "quoted";
     } else if (char === "'" && isRustCharLiteral(source, index)) {
-      result += " "; index += 1; state = "char";
+      result += " ";
+      index += 1;
+      state = "char";
     } else if (char === "r") {
       const raw = source.slice(index).match(/^r(#{0,255})"/);
       if (raw) {
-        result += " ".repeat(raw[0].length); index += raw[0].length; rawHashes = raw[1]; state = "raw";
+        result += " ".repeat(raw[0].length);
+        index += raw[0].length;
+        rawHashes = raw[1];
+        state = "raw";
       } else {
-        result += char; index += 1;
+        result += char;
+        index += 1;
       }
     } else {
-      result += char; index += 1;
+      result += char;
+      index += 1;
     }
   }
   return result;
@@ -167,10 +260,15 @@ function isRustCharLiteral(source, start) {
     const escape = source[escapeStart];
     if (escape === undefined) return false;
     if ("\\'\"nrt0".includes(escape)) return source[escapeStart + 1] === "'";
-    if (escape === "x") return /^[0-9a-fA-F]{2}'/.test(source.slice(escapeStart + 1));
+    if (escape === "x")
+      return /^[0-9a-fA-F]{2}'/.test(source.slice(escapeStart + 1));
     if (escape === "u") {
       const close = source.indexOf("}", escapeStart + 1);
-      return close >= 0 && /^\{[0-9a-fA-F_]+\}$/.test(source.slice(escapeStart + 1, close + 1)) && source[close + 1] === "'";
+      return (
+        close >= 0 &&
+        /^\{[0-9a-fA-F_]+\}$/.test(source.slice(escapeStart + 1, close + 1)) &&
+        source[close + 1] === "'"
+      );
     }
     return false;
   }
@@ -181,7 +279,11 @@ function isRustCharLiteral(source, start) {
 function codeLines(source) {
   const code = rustCode(source).split(/\r?\n/);
   const raw = source.split(/\r?\n/);
-  return code.map((text, index) => ({ line: index + 1, text, raw: raw[index] ?? "" }));
+  return code.map((text, index) => ({
+    line: index + 1,
+    text,
+    raw: raw[index] ?? "",
+  }));
 }
 
 function compactRustPath(text) {
@@ -189,7 +291,9 @@ function compactRustPath(text) {
 }
 
 function isUpstreamPath(text) {
-  return /\b(?:tinyagents(?:_[a-z0-9_]+)?|tinytools(?:_[a-z0-9_]+)?|tinyinference(?:_[a-z0-9_]+)?)\s*::/i.test(text);
+  return /\b(?:tinyagents(?:_[a-z0-9_]+)?|tinytools(?:_[a-z0-9_]+)?|tinyinference(?:_[a-z0-9_]+)?)\s*::/i.test(
+    text,
+  );
 }
 
 function isDependencyTable(header) {
@@ -197,7 +301,9 @@ function isDependencyTable(header) {
 }
 
 function nestedDependencyName(header) {
-  const match = header.match(/(?:^|\.)(?:dev-|build-)?dependencies\s*\.\s*([A-Za-z0-9_-]+)\s*$/i);
+  const match = header.match(
+    /(?:^|\.)(?:dev-|build-)?dependencies\s*\.\s*([A-Za-z0-9_-]+)\s*$/i,
+  );
   return match?.[1];
 }
 
@@ -224,15 +330,18 @@ function cargoOpenhumanDependencyLines(source) {
     if (tableMatch) {
       table = tableMatch[1].replace(/\s+/g, "");
       nestedDependency = nestedDependencyName(table) ?? "";
-      if (/^openhuman(?:[-_][A-Za-z0-9_-]+)?$/i.test(nestedDependency)) findings.push({ line: offset + 1, text: raw });
+      if (/^openhuman(?:[-_][A-Za-z0-9_-]+)?$/i.test(nestedDependency))
+        findings.push({ line: offset + 1, text: raw });
       continue;
     }
     if (!isDependencyTable(table) && !nestedDependency) continue;
     const keyMatch = line.match(/^\s*([A-Za-z0-9_-]+)\s*=/);
     const key = keyMatch?.[1] ?? "";
     const namesOpenhuman = /^openhuman(?:[-_][A-Za-z0-9_-]+)?$/i.test(key);
-    const aliasesOpenhuman = /\bpackage\s*=\s*["']openhuman(?:[-_][A-Za-z0-9_-]+)?["']/i.test(line);
-    if (namesOpenhuman || aliasesOpenhuman) findings.push({ line: offset + 1, text: raw });
+    const aliasesOpenhuman =
+      /\bpackage\s*=\s*["']openhuman(?:[-_][A-Za-z0-9_-]+)?["']/i.test(line);
+    if (namesOpenhuman || aliasesOpenhuman)
+      findings.push({ line: offset + 1, text: raw });
   }
   return findings;
 }
@@ -244,64 +353,184 @@ function tinyagentsCrateName(path) {
 function isBehaviorFreeForwarder(source) {
   let remaining = rustCode(source);
   remaining = remaining.replace(/^\s*#\s*\[[^\n]*]\s*$/gm, "");
-  remaining = remaining.replace(/(?:pub(?:\s*\([^)]*\))?\s+)?use\s+[\s\S]*?;/g, "");
+  remaining = remaining.replace(
+    /(?:pub(?:\s*\([^)]*\))?\s+)?use\s+[\s\S]*?;/g,
+    "",
+  );
   return !/[A-Za-z0-9_]/.test(remaining);
 }
 
 function assertSelfTests() {
   const fixture = [
-    "[dependencies.openhuman]", "version = \"1\"",
-    "[target.'cfg(unix)'.dev-dependencies]", "host = { package = \"openhuman-core\", version = \"1\" }",
-    "[workspace.dependencies]", "openhuman_tools = \"1\"",
-    "[build-dependencies]", "helper = { package = \"openhuman\" }",
-    "[dev-dependencies.host]", "package = 'openhuman'",
+    "[dependencies.openhuman]",
+    'version = "1"',
+    "[target.'cfg(unix)'.dev-dependencies]",
+    'host = { package = "openhuman-core", version = "1" }',
+    "[workspace.dependencies]",
+    'openhuman_tools = "1"',
+    "[build-dependencies]",
+    'helper = { package = "openhuman" }',
+    "[dev-dependencies.host]",
+    "package = 'openhuman'",
   ].join("\n");
-  if (cargoOpenhumanDependencyLines(fixture).length !== 5) throw new Error("agent-runtime boundary self-test: Cargo dependency form escaped detection");
-  if (!["ChatMessage", "ConversationMessage", "ToolResultMessage"].every((name) => openhumanDomainTypes.has(name))) throw new Error("agent-runtime boundary self-test: durable transcript inventory regressed");
-  const masked = rustCode('/* openhuman :: AgentProgress */ let x = openhuman :: AgentProgress; // tinytools::Tool');
-  if (!compactRustPath(masked).includes("openhuman::AgentProgress") || masked.includes("tinytools::Tool")) throw new Error("agent-runtime boundary self-test: Rust masking/path normalization regressed");
-  const lifetimeMasked = rustCode("fn borrow<'a>(message: &'a ChatMessage) { 'retry: loop { let _ = openhuman :: ChatMessage; break 'retry; } }");
-  if (!compactRustPath(lifetimeMasked).includes("openhuman::ChatMessage") || !lifetimeMasked.includes("&'a ChatMessage")) throw new Error("agent-runtime boundary self-test: Rust lifetimes or labels hid code");
-  const literalMasked = rustCode("let marker = 'x'; let text = \"openhuman :: ChatMessage\"; // openhuman :: ChatMessage");
-  if (literalMasked.includes("openhuman") || literalMasked.includes("marker = 'x'")) throw new Error("agent-runtime boundary self-test: Rust literals or comments leaked into scan");
-  if (!isBehaviorFreeForwarder("pub(crate) use tinytools::Tool;\n")) throw new Error("agent-runtime boundary self-test: private forwarding module escaped detection");
-  const beforeMove = stable([{ rule: "fixture", path: "fixture.rs", line: 7, text: "use openhuman::ChatMessage;" }]);
-  const afterMove = stable([{ rule: "fixture", path: "fixture.rs", line: 8, text: "use openhuman::ChatMessage;" }]);
-  if (JSON.stringify(beforeMove) === JSON.stringify(afterMove)) throw new Error("agent-runtime boundary self-test: physical moves escaped the exact baseline");
+  if (cargoOpenhumanDependencyLines(fixture).length !== 5)
+    throw new Error(
+      "agent-runtime boundary self-test: Cargo dependency form escaped detection",
+    );
+  if (
+    !["ChatMessage", "ConversationMessage", "ToolResultMessage"].every((name) =>
+      openhumanDomainTypes.has(name),
+    )
+  )
+    throw new Error(
+      "agent-runtime boundary self-test: durable transcript inventory regressed",
+    );
+  const masked = rustCode(
+    "/* openhuman :: AgentProgress */ let x = openhuman :: AgentProgress; // tinytools::Tool",
+  );
+  if (
+    !compactRustPath(masked).includes("openhuman::AgentProgress") ||
+    masked.includes("tinytools::Tool")
+  )
+    throw new Error(
+      "agent-runtime boundary self-test: Rust masking/path normalization regressed",
+    );
+  const lifetimeMasked = rustCode(
+    "fn borrow<'a>(message: &'a ChatMessage) { 'retry: loop { let _ = openhuman :: ChatMessage; break 'retry; } }",
+  );
+  if (
+    !compactRustPath(lifetimeMasked).includes("openhuman::ChatMessage") ||
+    !lifetimeMasked.includes("&'a ChatMessage")
+  )
+    throw new Error(
+      "agent-runtime boundary self-test: Rust lifetimes or labels hid code",
+    );
+  const literalMasked = rustCode(
+    "let marker = 'x'; let text = \"openhuman :: ChatMessage\"; // openhuman :: ChatMessage",
+  );
+  if (
+    literalMasked.includes("openhuman") ||
+    literalMasked.includes("marker = 'x'")
+  )
+    throw new Error(
+      "agent-runtime boundary self-test: Rust literals or comments leaked into scan",
+    );
+  if (!isBehaviorFreeForwarder("pub(crate) use tinytools::Tool;\n"))
+    throw new Error(
+      "agent-runtime boundary self-test: private forwarding module escaped detection",
+    );
+  const beforeMove = stable([
+    {
+      rule: "fixture",
+      path: "fixture.rs",
+      line: 7,
+      text: "use openhuman::ChatMessage;",
+    },
+  ]);
+  const afterMove = stable([
+    {
+      rule: "fixture",
+      path: "fixture.rs",
+      line: 8,
+      text: "use openhuman::ChatMessage;",
+    },
+  ]);
+  if (JSON.stringify(beforeMove) === JSON.stringify(afterMove))
+    throw new Error(
+      "agent-runtime boundary self-test: physical moves escaped the exact baseline",
+    );
 }
 
 assertSelfTests();
 
 const findings = [];
+const claudeCodeBridge = rustCode(
+  await readFile(
+    resolve(
+      tinyagentsRoot,
+      "tinyagents-harness/src/providers/claude_code/bridge.rs",
+    ),
+    "utf8",
+  ),
+);
 function add(rule, path, line, text) {
-  findings.push({ rule, path: relative(repoRoot, path), line, text: text.trim() });
+  findings.push({
+    rule,
+    path: relative(repoRoot, path),
+    line,
+    text: text.trim(),
+  });
 }
 
 // Scan every OpenHuman crate: facades are not restricted to agent/.
-for (const path of await filesUnder(openhumanCratesRoot, (path) => path.endsWith(".rs") && /\/src\//.test(path))) {
+for (const path of await filesUnder(
+  openhumanCratesRoot,
+  (path) => path.endsWith(".rs") && /\/src\//.test(path),
+)) {
   const rel = relative(repoRoot, path);
   for (const { line, text, raw } of codeLines(await readFile(path, "utf8"))) {
     if (!text.trim()) continue;
     const compact = compactRustPath(text);
-    if (/\btinyagents_harness::tool_calling\b/.test(compact)) add("openhuman-tool-calling-facade", path, line, raw);
-    if (/\bcrate::agent::(?:dispatcher|pformat|harness::(?:parse|instructions|tool_filter))\b/.test(compact)) add("openhuman-agent-facade", path, line, raw);
-    for (const symbol of bridgeSymbols) if (new RegExp(`\\b${escapeRegex(symbol)}\\b`).test(text)) add("openhuman-runtime-bridge", path, line, raw);
+    if (/\btinyagents_harness::tool_calling\b/.test(compact))
+      add("openhuman-tool-calling-facade", path, line, raw);
+    if (
+      /\bcrate::agent::(?:dispatcher|pformat|harness::(?:parse|instructions|tool_filter))\b/.test(
+        compact,
+      )
+    )
+      add("openhuman-agent-facade", path, line, raw);
+    for (const symbol of bridgeSymbols)
+      if (new RegExp(`\\b${escapeRegex(symbol)}\\b`).test(text))
+        add("openhuman-runtime-bridge", path, line, raw);
     if (!isTestPath(rel)) {
-      const isListedTaskLocalFile = /\/(?:fork_context|sandbox_context|spawn_depth_context|task_recency_context|turn_attachments_context|turn_dispatch_guard|turn_subagent_usage|progress_sink|resolved_route|run_cancellation_context|thread_context|turn_origin|turn_workspace)\.rs$/.test(path);
-      const namesTaskLocalAccessor = taskLocalAccessors.some((name) => new RegExp(`\\b${escapeRegex(name)}\\s*\\(`).test(text) || (/\b(?:pub(?:\([^)]*\))?\s+)?use\b/.test(text) && new RegExp(`\\b${escapeRegex(name)}\\b`).test(text)));
-      const namesTaskLocalStatic = taskLocalStatics.some((name) => new RegExp(`\\b${escapeRegex(name)}\\b`).test(text));
-      const usesGenericAccessor = /\b(?:turn_origin|turn_workspace|turn_dispatch_guard)::(?:current|capture|propagate|spawn|spawn_unlabelled|check|record_subagent_elapsed|with_workspace)\b/.test(compact) || (/\/turn_workspace\.rs$/.test(path) && /\bwith_workspace\s*\(/.test(text));
-      const declaresDeletedModule = deletedTaskLocalModules.some((name) => new RegExp(`\\bmod\\s+${escapeRegex(name)}\\s*;`).test(text));
-      if ((isListedTaskLocalFile && /\btokio\s*::\s*task_local!/.test(text)) || namesTaskLocalAccessor || namesTaskLocalStatic || usesGenericAccessor || declaresDeletedModule) add("openhuman-task-local", path, line, raw);
+      const isListedTaskLocalFile =
+        /\/(?:fork_context|sandbox_context|spawn_depth_context|task_recency_context|turn_attachments_context|turn_dispatch_guard|turn_subagent_usage|progress_sink|resolved_route|run_cancellation_context|thread_context|turn_origin|turn_workspace)\.rs$/.test(
+          path,
+        );
+      const namesTaskLocalAccessor = taskLocalAccessors.some(
+        (name) =>
+          new RegExp(`\\b${escapeRegex(name)}\\s*\\(`).test(text) ||
+          (/\b(?:pub(?:\([^)]*\))?\s+)?use\b/.test(text) &&
+            new RegExp(`\\b${escapeRegex(name)}\\b`).test(text)),
+      );
+      const namesTaskLocalStatic = taskLocalStatics.some((name) =>
+        new RegExp(`\\b${escapeRegex(name)}\\b`).test(text),
+      );
+      const usesGenericAccessor =
+        /\b(?:turn_origin|turn_workspace|turn_dispatch_guard)::(?:current|capture|propagate|spawn|spawn_unlabelled|check|record_subagent_elapsed|with_workspace)\b/.test(
+          compact,
+        ) ||
+        (/\/turn_workspace\.rs$/.test(path) &&
+          /\bwith_workspace\s*\(/.test(text));
+      const declaresDeletedModule = deletedTaskLocalModules.some((name) =>
+        new RegExp(`\\bmod\\s+${escapeRegex(name)}\\s*;`).test(text),
+      );
+      if (
+        (isListedTaskLocalFile && /\btokio\s*::\s*task_local!/.test(text)) ||
+        namesTaskLocalAccessor ||
+        namesTaskLocalStatic ||
+        usesGenericAccessor ||
+        declaresDeletedModule
+      )
+        add("openhuman-task-local", path, line, raw);
     }
-    if (/\bpub(?:\s*\([^)]*\))?\s+use\s+(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(text)) add("openhuman-upstream-reexport", path, line, raw);
+    if (
+      /\bpub(?:\s*\([^)]*\))?\s+use\s+(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(
+        text,
+      )
+    )
+      add("openhuman-upstream-reexport", path, line, raw);
   }
 }
 
-for (const path of await filesUnder(tinyagentsRoot, (path) => path.endsWith(".rs") || path.endsWith("Cargo.toml"))) {
+for (const path of await filesUnder(
+  tinyagentsRoot,
+  (path) => path.endsWith(".rs") || path.endsWith("Cargo.toml"),
+)) {
   const source = await readFile(path, "utf8");
   if (path.endsWith("Cargo.toml")) {
-    for (const item of cargoOpenhumanDependencyLines(source)) add("tinyagents-openhuman-dependency", path, item.line, item.text);
+    for (const item of cargoOpenhumanDependencyLines(source))
+      add("tinyagents-openhuman-dependency", path, item.line, item.text);
     continue;
   }
   const crateName = tinyagentsCrateName(path);
@@ -310,28 +539,73 @@ for (const path of await filesUnder(tinyagentsRoot, (path) => path.endsWith(".rs
   for (const { line, text, raw } of lines) {
     if (!text.trim()) continue;
     const compact = compactRustPath(text);
-    if (/\b(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+tool_calling\s*;/.test(text)) add("tinyagents-tool-calling-facade", path, line, raw);
-    if (/\bpub(?:\s*\([^)]*\))?\s+use\s+(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(text)) add("tinyagents-upstream-reexport", path, line, raw);
-    if (/\b(?:pub(?:\s*\([^)]*\))?\s+)?use\s+tinytools_agent(?:\s*::|\s*;)/.test(text)) add("tinyagents-tool-calling-facade", path, line, raw);
-    if (isUpstreamPath(text) && firstForwardingLine === undefined) firstForwardingLine = { line, raw };
-    const declaration = text.match(/\b(?:pub(?:\s*\([^)]*\))?\s+)?(?:type|struct|enum|trait|fn)\s+([A-Za-z_][A-Za-z0-9_]*)\b/);
+    if (/\b(?:pub(?:\s*\([^)]*\))?\s+)?mod\s+tool_calling\s*;/.test(text))
+      add("tinyagents-tool-calling-facade", path, line, raw);
+    if (
+      /\bpub(?:\s*\([^)]*\))?\s+use\s+(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(
+        text,
+      )
+    )
+      add("tinyagents-upstream-reexport", path, line, raw);
+    if (
+      /\b(?:pub(?:\s*\([^)]*\))?\s+)?use\s+tinytools_agent(?:\s*::|\s*;)/.test(
+        text,
+      )
+    )
+      add("tinyagents-tool-calling-facade", path, line, raw);
+    if (isUpstreamPath(text) && firstForwardingLine === undefined)
+      firstForwardingLine = { line, raw };
+    const declaration = text.match(
+      /\b(?:pub(?:\s*\([^)]*\))?\s+)?(?:type|struct|enum|trait|fn)\s+([A-Za-z_][A-Za-z0-9_]*)\b/,
+    );
     if (declaration) {
       const owner = movedSymbolOwners.get(declaration[1]);
-      if (owner && !crateName.startsWith(owner)) add("tinyagents-moved-symbol-alias", path, line, raw);
+      if (owner && !crateName.startsWith(owner))
+        add("tinyagents-moved-symbol-alias", path, line, raw);
     }
-    if (/\b(?:pub(?:\s*\([^)]*\))?\s+)?type\s+[A-Za-z_][A-Za-z0-9_]*[^=]*=\s*(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(text) || /\b(?:pub(?:\s*\([^)]*\))?\s+)?struct\s+[A-Za-z_][A-Za-z0-9_]*\s*\(\s*(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(text)) add("tinyagents-moved-symbol-alias", path, line, raw);
-    if (/\bopenhuman(?:\s*::|_[A-Za-z0-9_]*\s*::)/i.test(compact)) add("tinyagents-openhuman-domain-name", path, line, raw);
+    if (
+      /\b(?:pub(?:\s*\([^)]*\))?\s+)?type\s+[A-Za-z_][A-Za-z0-9_]*[^=]*=\s*(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(
+        text,
+      ) ||
+      /\b(?:pub(?:\s*\([^)]*\))?\s+)?struct\s+[A-Za-z_][A-Za-z0-9_]*\s*\(\s*(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(
+        text,
+      )
+    )
+      add("tinyagents-moved-symbol-alias", path, line, raw);
+    if (/\bopenhuman(?:\s*::|_[A-Za-z0-9_]*\s*::)/i.test(compact))
+      add("tinyagents-openhuman-domain-name", path, line, raw);
     for (const name of openhumanDomainTypes) {
+      if (
+        isClaudeCodeBridgeMessage(
+          relative(repoRoot, path),
+          name,
+          claudeCodeBridge,
+          text,
+        )
+      )
+        continue;
       if (new RegExp(`\\b${escapeRegex(name)}\\b`).test(text)) {
         add("tinyagents-openhuman-domain-name", path, line, raw);
         break;
       }
     }
   }
-  if (firstForwardingLine && isBehaviorFreeForwarder(source)) add("tinyagents-forwarding-module", path, firstForwardingLine.line, firstForwardingLine.raw);
+  if (firstForwardingLine && isBehaviorFreeForwarder(source))
+    add(
+      "tinyagents-forwarding-module",
+      path,
+      firstForwardingLine.line,
+      firstForwardingLine.raw,
+    );
 }
 
-findings.sort((a, b) => a.rule.localeCompare(b.rule) || a.path.localeCompare(b.path) || a.line - b.line || a.text.localeCompare(b.text));
+findings.sort(
+  (a, b) =>
+    a.rule.localeCompare(b.rule) ||
+    a.path.localeCompare(b.path) ||
+    a.line - b.line ||
+    a.text.localeCompare(b.text),
+);
 
 function stable(records) {
   const occurrences = new Map();
@@ -354,8 +628,13 @@ function stable(records) {
 }
 
 if (writeBaseline) {
-  await writeFile(baselinePath, `${JSON.stringify(stable(findings), null, 2)}\n`);
-  console.log(`Wrote ${findings.length} exact agent-runtime boundary violations to ${relative(repoRoot, baselinePath)}.`);
+  await writeFile(
+    baselinePath,
+    `${JSON.stringify(stable(findings), null, 2)}\n`,
+  );
+  console.log(
+    `Wrote ${findings.length} exact agent-runtime boundary violations to ${relative(repoRoot, baselinePath)}.`,
+  );
   process.exit(0);
 }
 
@@ -364,7 +643,9 @@ if (!noBaseline) {
   try {
     expected = JSON.parse(await readFile(baselinePath, "utf8"));
   } catch (error) {
-    console.error(`Unable to read ${relative(repoRoot, baselinePath)}: ${error.message}`);
+    console.error(
+      `Unable to read ${relative(repoRoot, baselinePath)}: ${error.message}`,
+    );
     process.exit(1);
   }
 }
@@ -378,18 +659,26 @@ const identity = ({ rule, path, text, occurrence }) =>
 const actualStable = stable(findings);
 const expectedKeys = new Set(expected.map(identity));
 const actualKeys = new Set(actualStable.map(identity));
-const added = findings.filter((_, index) => !expectedKeys.has(identity(actualStable[index])));
+const added = findings.filter(
+  (_, index) => !expectedKeys.has(identity(actualStable[index])),
+);
 const stale = expected.filter((record) => !actualKeys.has(identity(record)));
 if (added.length || stale.length) {
   console.error("Agent-runtime ownership boundary changed.");
   if (added.length) {
     console.error(`\nUnbaselined violations (${added.length}):`);
-    for (const item of added) console.error(`  ${item.rule}: ${item.path}:${item.line}: ${item.text}`);
+    for (const item of added)
+      console.error(`  ${item.rule}: ${item.path}:${item.line}: ${item.text}`);
   }
   if (stale.length) {
     console.error(`\nStale baseline entries (${stale.length}); remove them:`);
-    for (const item of stale) console.error(`  ${item.rule}: ${item.path}: ${item.text} [${item.occurrence}]`);
+    for (const item of stale)
+      console.error(
+        `  ${item.rule}: ${item.path}: ${item.text} [${item.occurrence}]`,
+      );
   }
   process.exit(1);
 }
-console.log(`Agent-runtime boundary holds (${findings.length} temporary exact violations baselined).`);
+console.log(
+  `Agent-runtime boundary holds (${findings.length} temporary exact violations baselined).`,
+);

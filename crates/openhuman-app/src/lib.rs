@@ -3532,5 +3532,8 @@ fn macos_os_version() -> Option<String> {
 }
 
 #[cfg(test)]
+mod test_env;
+
+#[cfg(test)]
 #[path = "lib_tests.rs"]
 mod tests;

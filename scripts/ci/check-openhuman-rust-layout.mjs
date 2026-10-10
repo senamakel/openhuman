@@ -39,16 +39,16 @@ const LEGACY_LIMIT_ENTRIES = [
   // under the general 750 limit, so it needs no exception at all.
   // The session-todo integration added transcript metadata construction to
   // this already-exempt composition seam. Keep its allowance exact.
-  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1406],
+  ["crates/openhuman-core/src/agent/session_host/runtime_session.rs", 1349],
   // Session-host factory still assembles the product's deliberately coupled
   // provider, security, memory, tool and prompt policy.  Generic session
   // state moved to tinyagents-runtime; this remaining composition is split in
   // a follow-up without reintroducing an old harness/session exception.
-  ["crates/openhuman-core/src/agent/session_host/builder/factory.rs", 977],
-  ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1306],
-  ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1145],
-  ["crates/openhuman-core/src/tools/ops.rs", 1206],
-  ["crates/openhuman-core/src/web_chat/progress_bridge.rs", 1304],
+  ["crates/openhuman-core/src/agent/session_host/builder/factory.rs", 973],
+  ["crates/openhuman-core/src/agent/subagent_host/lifecycle.rs", 1247],
+  ["crates/openhuman-core/src/agent/subagent_host/ops/runner.rs", 1132],
+  ["crates/openhuman-core/src/tools/ops.rs", 978],
+  ["crates/openhuman-core/src/web_chat/progress_bridge.rs", 1264],
   // These established external test modules grew with upstream coverage. Pin
   // their current sizes while follow-up work separates their test concerns.
   // `core/` was pruned from the line limit by name until these pins; its
@@ -168,7 +168,9 @@ for (const [directory, table] of [
   const declared = declaredTargets(table);
   for (const name of files) {
     if (!declared.has(name))
-      failures.push(`${directory}/${name}.rs: missing [[${table}]] entry in ${CLI_MANIFEST}`);
+      failures.push(
+        `${directory}/${name}.rs: missing [[${table}]] entry in ${CLI_MANIFEST}`,
+      );
   }
   for (const name of declared) {
     if (!files.has(name))

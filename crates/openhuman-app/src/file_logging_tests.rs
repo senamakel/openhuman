@@ -1,13 +1,10 @@
 use super::*;
 
-/// Lock around env-var mutation. Cargo runs unit tests in parallel
-/// threads in the same process, so concurrent `set_var` / `remove_var`
-/// can race; the lock keeps the env stable for each test's duration.
-static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+use crate::test_env::env_lock;
 
 #[test]
 fn resolve_data_dir_honors_workspace_override() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = env_lock();
     let prior = std::env::var("OPENHUMAN_WORKSPACE").ok();
     std::env::set_var("OPENHUMAN_WORKSPACE", "/tmp/openhuman-test-override");
     let dir = resolve_data_dir();
@@ -20,7 +17,7 @@ fn resolve_data_dir_honors_workspace_override() {
 
 #[test]
 fn resolve_data_dir_ignores_empty_workspace() {
-    let _guard = ENV_LOCK.lock().unwrap();
+    let _guard = env_lock();
     let prior = std::env::var("OPENHUMAN_WORKSPACE").ok();
     std::env::set_var("OPENHUMAN_WORKSPACE", "");
     // Empty string must NOT short-circuit — fall through to the

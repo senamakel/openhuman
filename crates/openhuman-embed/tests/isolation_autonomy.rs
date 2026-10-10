@@ -8,8 +8,8 @@
 mod common;
 
 use common::{
-    eventually, offline_config, route, runtime, scripted_provider, stub_backend,
-    tool_call_completion,
+    chat_requests, eventually, offline_config, route, runtime, scripted_provider, stub_backend,
+    tool_call_completion, tool_results,
 };
 use openhuman_core::security::AutonomyLevel;
 use openhuman_embed::{
@@ -73,10 +73,18 @@ fn every_agent_answers_policy_from_its_own_tier() {
             assert_eq!(a.config().autonomy.level, AutonomyLevel::ReadOnly);
             let a_out = a.run("write the marker").await.expect("a's turn returns");
             assert!(!a_file.exists(), "a read-only agent must not write");
+            // A refused tool call is fed back to the model; the final reply
+            // comes from the provider and need not repeat the policy error.
+            let a_requests = chat_requests(&a_provider).await;
             assert!(
-                a_out.reply.contains("read-only mode"),
-                "a's shell call is refused by its own tier: {}",
-                a_out.reply
+                a_requests
+                    .iter()
+                    .any(|request| tool_results(request).contains("read-only mode")),
+                "a's tool result must report refusal by its own read-only tier"
+            );
+            assert_eq!(
+                a_out.reply, "a-done",
+                "the model continues after the refused write"
             );
 
             // ── B: supervised, shell on its own allowlist; runs without parking ──

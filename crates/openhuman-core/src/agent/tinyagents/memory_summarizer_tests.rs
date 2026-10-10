@@ -74,10 +74,19 @@ fn only_user_and_assistant_text_become_turns() {
 }
 
 #[tokio::test]
-async fn the_checkpoint_carries_what_memory_recalls() {
+async fn the_checkpoint_uses_completed_memory_without_waiting_for_refresh() {
     let tmp = tempfile::tempdir().unwrap();
     let turn = bound_turn(&tmp).await;
-    let summarizer = MemoryRecallSummarizer::wrap(Box::new(ConcatSummarizer), Some(turn));
+    let summarizer = MemoryRecallSummarizer::wrap(Box::new(ConcatSummarizer), Some(turn.clone()));
+    let cold = summarizer.summarize(&dropped()).await.unwrap();
+    assert!(!cold.summary.text().contains(RECALLED_HEADING));
+    crate::memory::lifecycle::prefetch::settle_for_test(
+        &turn.config,
+        &turn.identity,
+        &turn.thread_id,
+        true,
+    )
+    .await;
     let record = summarizer.summarize(&dropped()).await.unwrap();
     let text = record.summary.text();
     assert!(text.contains(RECALLED_HEADING), "{text}");
@@ -129,10 +138,109 @@ fn an_earlier_recall_section_is_dropped_before_the_new_one() {
 async fn a_second_compaction_keeps_one_recall_section() {
     let tmp = tempfile::tempdir().unwrap();
     let turn = bound_turn(&tmp).await;
-    let summarizer = MemoryRecallSummarizer::wrap(Box::new(ConcatSummarizer), Some(turn));
+    let summarizer = MemoryRecallSummarizer::wrap(Box::new(ConcatSummarizer), Some(turn.clone()));
+    summarizer.summarize(&dropped()).await.unwrap();
+    crate::memory::lifecycle::prefetch::settle_for_test(
+        &turn.config,
+        &turn.identity,
+        &turn.thread_id,
+        true,
+    )
+    .await;
     let first = summarizer.summarize(&dropped()).await.unwrap();
     let mut again = dropped();
     again.insert(0, first.summary.clone());
     let second = summarizer.summarize(&again).await.unwrap();
     assert_eq!(second.summary.text().matches(RECALLED_HEADING).count(), 1);
+}
+
+struct HeldRecall {
+    inner: tinymemory_api::conformance::ReferenceEngine,
+}
+#[async_trait::async_trait]
+impl tinymemory_api::MemoryEngine for HeldRecall {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        self.inner.health().await
+    }
+
+    async fn recall(
+        &self,
+        _req: tinymemory_api::RecallRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::RecallAnswer> {
+        std::future::pending().await
+    }
+
+    async fn fetch(
+        &self,
+        _req: tinymemory_api::FetchRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::FetchPage> {
+        std::future::pending().await
+    }
+
+    async fn store(
+        &self,
+        _item: tinymemory_api::StoreItem,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        std::future::pending().await
+    }
+
+    async fn forget(
+        &self,
+        _target: tinymemory_api::ForgetTarget,
+    ) -> tinymemory_api::Result<tinymemory_api::ForgetReport> {
+        std::future::pending().await
+    }
+
+    async fn list(
+        &self,
+        _req: tinymemory_api::ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ListPage> {
+        std::future::pending().await
+    }
+
+    async fn export(
+        &self,
+        _req: tinymemory_api::ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ExportPage> {
+        std::future::pending().await
+    }
+
+    async fn consolidate(
+        &self,
+        _req: tinymemory_api::ConsolidateRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ConsolidateReceipt> {
+        std::future::pending().await
+    }
+}
+
+#[tokio::test]
+async fn a_held_memory_engine_does_not_delay_transcript_compaction() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::engine::install_test_engine(
+        &config.workspace_dir,
+        Arc::new(HeldRecall {
+            inner: tinymemory_api::conformance::ReferenceEngine::new(),
+        }),
+    );
+    let identity = MemoryIdentity::agent("orchestrator").resolve(&config);
+    let turn = Arc::new(MemoryTurn {
+        config: Arc::new(config),
+        identity,
+        thread_id: "held".into(),
+        pack: None,
+    });
+    let summarizer = MemoryRecallSummarizer::wrap(Box::new(ConcatSummarizer), Some(turn));
+    let record = tokio::time::timeout(
+        std::time::Duration::from_millis(100),
+        summarizer.summarize(&dropped()),
+    )
+    .await
+    .expect("memory must not hold the inner summarizer")
+    .unwrap();
+    assert!(record.summary.text().contains("March 3rd"));
 }

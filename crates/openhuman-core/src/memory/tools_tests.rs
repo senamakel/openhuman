@@ -292,7 +292,7 @@ async fn execute_gathers_facts_from_the_run_context() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     let engine = bind_reference(&config);
-    let tool = MemoryTool::new(Arc::new(config));
+    let tool = MemoryTool::new(Arc::new(config.clone()));
     let ctx = Ctx {
         root: tmp.path().join("isolated"),
         thread: "thread-ctx",
@@ -306,6 +306,7 @@ async fn execute_gathers_facts_from_the_run_context() {
         .await
         .unwrap();
     assert!(!result.is_error, "{}", text(&result));
+    super::super::tool_writes::drain(&config).await;
     let items = stored(&engine, MetaFilter::default()).await;
     assert_eq!(items.len(), 1);
     assert_eq!(items[0].meta.thread_id.as_deref(), Some("thread-ctx"));
@@ -320,6 +321,7 @@ async fn execute_gathers_facts_from_the_run_context() {
         .await
         .unwrap();
     assert!(!plain.is_error);
+    super::super::tool_writes::drain(&config).await;
 }
 
 #[test]
@@ -649,4 +651,20 @@ async fn refers_to_reaches_the_engine_in_the_users_time_zone() {
             ),
         ]
     );
+}
+
+#[tokio::test]
+async fn learning_is_durably_queued_even_when_the_backend_refuses_writes() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::out_of_credits().bind(&config);
+    let tool = MemoryTool::new(Arc::new(config.clone()));
+    let result = tool
+        .execute(json!({"action":"learn","text":"Prefers tea"}))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.text());
+    let value: Value = serde_json::from_str(&result.text()).unwrap();
+    assert_eq!(value["status"], "queued; not yet saved to memory");
+    assert_eq!(super::super::tool_writes::drain(&config).await, 0);
 }

@@ -95,29 +95,9 @@ pub(super) fn tier_gate_decision(
     Ok(())
 }
 
-/// Truncate `output` in place to the definition's `max_result_chars` cap (when
-/// set), appending a `[...truncated]` marker. Char-count based (not byte-length)
-/// to avoid panicking on a multi-byte UTF-8 sequence at the boundary.
-fn apply_max_result_chars(output: &mut String, cap: Option<usize>, agent_id: &str) {
-    let Some(cap) = cap else { return };
-    let original_chars = output.chars().count();
-    if original_chars <= cap {
-        return;
-    }
-    tracing::debug!(
-        agent_id = %agent_id,
-        original_chars,
-        cap,
-        "[subagent_host] truncating oversized result to max_result_chars cap"
-    );
-    let byte_offset = output
-        .char_indices()
-        .nth(cap)
-        .map(|(i, _)| i)
-        .unwrap_or(output.len());
-    output.truncate(byte_offset);
-    output.push_str("\n[...truncated]");
-}
+#[path = "runner_result_cap.rs"]
+mod result_cap;
+use result_cap::apply_max_result_chars;
 
 /// Run a sub-agent based on its definition and a task prompt.
 ///

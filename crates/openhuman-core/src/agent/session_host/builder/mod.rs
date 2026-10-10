@@ -6,6 +6,7 @@
 //! registry from a loaded [`Config`]. Per-turn behaviour lives in
 //! [`super::turn`]; accessors and run-helpers live in [`super::runtime`].
 
+#[cfg(feature = "flows")]
 pub(crate) use factory::provider_role_for_definition;
 
 mod builder_build;

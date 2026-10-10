@@ -226,6 +226,7 @@ fn client_options_wire_the_chain_and_the_transport() {
         release_tag("1.0.0", None),
         "test".into(),
     ));
+    assert_eq!(options.traces_sample_rate, 0.1);
     assert!(options.dsn.is_none(), "an unparsable DSN sends nothing");
     assert_eq!(options.release.as_deref(), Some("openhuman@1.0.0"));
     assert_eq!(options.environment.as_deref(), Some("test"));

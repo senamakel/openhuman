@@ -71,6 +71,7 @@ impl EventHandler<DomainEvent> for PendingDeletionsSubscriber {
 /// Runs the deletions queued while memory was off, after a credential of
 /// `kind` was stored.
 pub(crate) async fn drain_pending_deletions(config: &crate::config::Config, kind: &str) -> usize {
+    super::tool_writes::schedule_all(Arc::new(config.clone()));
     let settled = super::deletion::drain(config).await;
     tracing::debug!(kind = %kind, settled, "[memory:bus] pending deletions drained after sign-in");
     settled
@@ -139,6 +140,7 @@ pub async fn run_system_job(config: &crate::config::Config, job: &str) {
             );
         }
         BACKGROUND_JOB => {
+            super::tool_writes::schedule_all(Arc::new(config.clone()));
             super::import::resume_interrupted(config).await;
             super::layout_migration::tick(
                 config,

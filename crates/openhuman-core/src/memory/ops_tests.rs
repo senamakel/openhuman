@@ -465,6 +465,30 @@ async fn erase_all_reports_memory_off_without_an_engine() {
     assert_eq!(error.code(), MEMORY_OFF);
 }
 
+#[tokio::test]
+async fn erasing_memory_cancels_queued_learning_so_restart_cannot_restore_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    let facts = crate::memory::tools::CallFacts::of(
+        &config,
+        &crate::memory::scope::MemoryIdentity::agent("orchestrator"),
+    );
+    let queued = crate::memory::tool_writes::enqueue(
+        &config,
+        &serde_json::json!({"action":"learn","text":"Prefers tea"}),
+        &facts,
+    )
+    .unwrap();
+    assert!(queued["status"].as_str().unwrap().starts_with("queued"));
+    erase_all(&config, EraseAllParams { confirm: true })
+        .await
+        .unwrap();
+    let restarted = config.clone();
+    crate::memory::tool_writes::drain(&restarted).await;
+    assert!(stored(&engine, MetaFilter::default()).await.is_empty());
+}
+
 /// With a reach, forget by id goes to the engine's `forget_within` (through
 /// the scrubbing wrapper every bound engine sits in), so the engine never
 /// sweeps the tree for the ids; without one it stays a plain forget by id.

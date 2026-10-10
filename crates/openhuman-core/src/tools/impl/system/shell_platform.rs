@@ -106,3 +106,19 @@ pub(super) fn command_param_description(flavor: ShellFlavor) -> &'static str {
         ShellFlavor::Posix => "The shell command to execute",
     }
 }
+
+/// Restores a managed PATH after POSIX login profiles have run. Ordinary
+/// commands and cmd.exe retain their existing startup/environment behavior.
+pub(super) fn command_with_runtime_path<'a>(
+    command: &'a str,
+    path: Option<&str>,
+    flavor: ShellFlavor,
+) -> std::borrow::Cow<'a, str> {
+    match (path, flavor) {
+        (Some(path), ShellFlavor::Posix) => std::borrow::Cow::Owned(format!(
+            "export PATH='{}'\n{command}",
+            path.replace('\'', "'\\''")
+        )),
+        _ => std::borrow::Cow::Borrowed(command),
+    }
+}

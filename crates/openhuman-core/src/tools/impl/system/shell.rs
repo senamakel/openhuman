@@ -1,5 +1,6 @@
 use super::shell_platform::{
-    command_param_description, python_utf8_env, shell_child_env, shell_description,
+    command_param_description, command_with_runtime_path, python_utf8_env, shell_child_env,
+    shell_description,
 };
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
@@ -381,11 +382,19 @@ impl ShellTool {
                 .await;
         }
 
-        // Execute with timeout to prevent hanging commands.
         // Clear the environment to prevent leaking API keys and other secrets
         // (CWE-200), then re-add only safe, functional variables.
         let action_dir = self.effective_action_dir_for_context(context);
-        let mut cmd = match self.runtime.build_shell_command(command, &action_dir) {
+        let runtime_path = self.runtime_path_for_command(command).await;
+        let execution_command = command_with_runtime_path(
+            command,
+            runtime_path.as_deref(),
+            self.runtime.shell_flavor(),
+        );
+        let mut cmd = match self
+            .runtime
+            .build_shell_command(&execution_command, &action_dir)
+        {
             Ok(cmd) => cmd,
             Err(e) => {
                 return (
@@ -426,7 +435,7 @@ impl ShellTool {
             );
         }
 
-        if let Some(path) = self.runtime_path_for_command(command).await {
+        if let Some(path) = runtime_path {
             tracing::debug!(path = %path, "[shell] applying managed runtime PATH");
             cmd.env("PATH", path);
         }
@@ -550,7 +559,22 @@ impl ShellTool {
             "[shell] starting sandboxed command"
         );
 
-        match sandbox::execute_in_sandbox(&policy, command, action_dir, extra_env, effective).await
+        let runtime_path = extra_env
+            .get(std::ffi::OsStr::new("PATH"))
+            .and_then(|path| path.to_str());
+        let execution_command = command_with_runtime_path(
+            command,
+            runtime_path,
+            crate::agent::platform_shell::ShellFlavor::current(),
+        );
+        match sandbox::execute_in_sandbox(
+            &policy,
+            &execution_command,
+            action_dir,
+            extra_env,
+            effective,
+        )
+        .await
         {
             Ok(result) => {
                 let tool_result = if result.timed_out {

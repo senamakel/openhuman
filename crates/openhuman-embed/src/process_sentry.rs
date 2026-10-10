@@ -144,6 +144,10 @@ pub fn client_options(config: SentryConfig) -> ClientOptions {
         send_default_pii: false,
         before_send: Some(Arc::new(move |event| before_send(event, user_id))),
         sample_rate: 1.0,
+        // Sample performance transactions emitted by the shared Sentry
+        // tracing layer. This applies to the embedded desktop core and the
+        // CLI/TUI hosts that use the same options.
+        traces_sample_rate: 0.1,
         transport: Some(Arc::new(openhuman_core::core::sentry_transport::factory)),
         ..ClientOptions::default()
     }

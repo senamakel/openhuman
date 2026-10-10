@@ -48,3 +48,34 @@ fn threaded_turn_keeps_goal_tools_as_exposure_candidates() {
         );
     }
 }
+
+#[tokio::test]
+async fn registered_memory_dispatch_enforces_one_budget_across_distinct_calls() {
+    use crate::memory::test_fixtures::{bind_reference, config_in};
+    use tinyagents_harness::{context::RunConfig, CallId};
+    use tinytools::ToolCallOptions;
+    let workspace = tempfile::tempdir().unwrap();
+    let config = config_in(&workspace);
+    let _engine = bind_reference(&config);
+    let tools: Arc<Vec<Box<dyn tinytools::Tool>>> = Arc::new(vec![Box::new(
+        crate::memory::tools::MemoryTool::new(Arc::new(config.clone())),
+    )]);
+    let adapter = CanonicalSharedToolAdapter::for_name(vec![tools], "memory").unwrap();
+    let dispatch = typed_dispatch_for("memory", Arc::new(adapter))
+        .expect("memory registration must preserve the harness run context");
+    let parent = OpenHumanRunContext::new().into_tinyagents(RunConfig::new("memory-dispatch"));
+    for index in 0..9 {
+        let result = dispatch
+            .execute(
+                &(),
+                CallId::new(format!("call-{index}")),
+                serde_json::json!({"action":"learn","text":format!("fact {index}")}),
+                ToolCallOptions::default(),
+                &parent,
+            )
+            .await
+            .unwrap();
+        assert_eq!(result.is_error, index == 8, "call {index}");
+    }
+    crate::memory::tool_writes::drain(&config).await;
+}

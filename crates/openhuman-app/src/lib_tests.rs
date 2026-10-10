@@ -1,4 +1,5 @@
 use super::*;
+use crate::test_env::env_lock;
 
 #[test]
 fn main_window_centering_only_follows_failed_restore_and_maximize() {
@@ -7,12 +8,6 @@ fn main_window_centering_only_follows_failed_restore_and_maximize() {
     assert!(!should_center_main_window(false, false, true));
     assert!(should_center_main_window(false, false, false));
 }
-
-// Tests that read/write process-global env vars must serialize through this
-// mutex. Rust's test runner executes tests in parallel by default; without
-// coordination, concurrent set_var / remove_var calls race and produce
-// spurious failures.
-static ENV_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 // NOTE: `is_daemon_mode_detects_daemon_flag` removed (plan.md §2.1) — it
 // discarded the result with `let _` and asserted nothing.
@@ -52,7 +47,7 @@ fn restore_command_preserves_minimized_and_maximized_frames() {
 /// the embedded port — is unchanged and still lives in that function.
 #[test]
 fn core_rpc_url_returns_expected_format() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let original = std::env::var("OPENHUMAN_CORE_RPC_URL").ok();
 
     std::env::set_var("OPENHUMAN_CORE_RPC_URL", "http://localhost:9999/rpc");
@@ -72,7 +67,7 @@ fn core_rpc_url_returns_expected_format() {
 /// Test overlay_parent_rpc_url handles empty env var
 #[test]
 fn overlay_parent_rpc_url_handles_empty() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let original = std::env::var("OPENHUMAN_CORE_RPC_URL").ok();
 
     std::env::set_var("OPENHUMAN_CORE_RPC_URL", "");
@@ -656,7 +651,7 @@ fn sentry_release_tag_is_nonempty() {
 
 #[test]
 fn sentry_environment_reads_openhuman_app_env() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let key = "OPENHUMAN_APP_ENV";
     let original = std::env::var(key).ok();
     std::env::set_var(key, "staging");
@@ -670,7 +665,7 @@ fn sentry_environment_reads_openhuman_app_env() {
 
 #[test]
 fn sentry_environment_trims_whitespace_from_openhuman_app_env() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let key = "OPENHUMAN_APP_ENV";
     let original = std::env::var(key).ok();
     std::env::set_var(key, "  dev  ");
@@ -684,7 +679,7 @@ fn sentry_environment_trims_whitespace_from_openhuman_app_env() {
 
 #[test]
 fn sentry_environment_skips_empty_openhuman_app_env() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let key = "OPENHUMAN_APP_ENV";
     let original = std::env::var(key).ok();
     std::env::set_var(key, "");
@@ -699,7 +694,7 @@ fn sentry_environment_skips_empty_openhuman_app_env() {
 
 #[test]
 fn sentry_environment_skips_whitespace_only_openhuman_app_env() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let key = "OPENHUMAN_APP_ENV";
     let original = std::env::var(key).ok();
     std::env::set_var(key, "   ");
@@ -716,7 +711,7 @@ fn sentry_environment_skips_whitespace_only_openhuman_app_env() {
 /// asserts the hard default when no compile-time override is present.
 #[test]
 fn sentry_environment_defaults_to_production_when_unset() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     if option_env!("VITE_OPENHUMAN_APP_ENV").is_some() {
         // A compile-time override is baked in; skip — the fallback path is
         // exercised by sentry_environment_skips_empty_openhuman_app_env.
@@ -872,7 +867,7 @@ fn localhost_dev_fetch_noise_anchors_to_message_start() {
 #[cfg(target_os = "linux")]
 #[test]
 fn path_has_executable_finds_file_on_path() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let original = std::env::var_os("PATH");
 
     let dir = tempfile::tempdir().expect("tempdir");
@@ -896,7 +891,7 @@ fn path_has_executable_finds_file_on_path() {
 #[cfg(target_os = "linux")]
 #[test]
 fn path_has_executable_returns_false_when_missing() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let original = std::env::var_os("PATH");
 
     let dir = tempfile::tempdir().expect("tempdir");
@@ -919,7 +914,7 @@ fn path_has_executable_returns_false_when_missing() {
 #[cfg(target_os = "linux")]
 #[test]
 fn path_has_executable_returns_false_when_path_unset() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let original = std::env::var_os("PATH");
 
     std::env::remove_var("PATH");
@@ -946,7 +941,7 @@ fn path_has_executable_returns_false_when_path_unset() {
 #[cfg(target_os = "linux")]
 #[test]
 fn path_has_executable_returns_false_for_partial_xdg_utils_install() {
-    let _g = ENV_LOCK.lock().unwrap();
+    let _g = env_lock();
     let original = std::env::var_os("PATH");
 
     let dir = tempfile::tempdir().expect("tempdir");

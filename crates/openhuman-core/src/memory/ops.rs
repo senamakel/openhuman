@@ -401,6 +401,7 @@ pub async fn forget(config: &Config, params: ForgetParams) -> MemoryResult<Forge
         None => bound.engine.forget(ForgetTarget::Ids(ids)).await?,
     };
     tracing::debug!(engine = %bound.id, forgotten = report.forgotten, "[memory:ops] forget");
+    super::lifecycle::prefetch::invalidate(config);
     Ok(ForgetView {
         forgotten: report.forgotten,
     })
@@ -423,6 +424,10 @@ pub async fn erase_all(config: &Config, params: EraseAllParams) -> MemoryResult<
         ));
     }
     let bound = bound(config)?;
+    // Earlier durable tool writes must finish or be discarded before the
+    // remote wipe; hold the owner barrier until the erase has completed.
+    let _writes = super::tool_writes::fence_and_clear(config).await?;
+    super::lifecycle::prefetch::invalidate(config);
     let mut request = EraseRequest::new(tinymemory_api::Reach::subtree(
         tinymemory_api::Namespace::ROOT,
     ));
@@ -437,6 +442,7 @@ pub async fn erase_all(config: &Config, params: EraseAllParams) -> MemoryResult<
         erased_scopes = report.erased_scopes,
         "[memory:ops] erase_all: done"
     );
+    super::lifecycle::prefetch::invalidate(config);
     Ok(EraseAllView {
         erased_scopes: report.erased_scopes,
     })

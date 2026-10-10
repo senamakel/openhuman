@@ -2,11 +2,10 @@
 //! folds away rides into the checkpoint that replaces them.
 //!
 //! [`MemoryRecallSummarizer`] wraps the turn's summarizer. While the inner
-//! summarizer folds the dropped messages, it asks memory for the same span
-//! (`memory::lifecycle::hooks::compaction` → TinyMemory's
-//! `recall_for_compaction`: an answered summary of the thread plus the
-//! standard sections), concurrently and under its own timeout. A non-empty
-//! pack is appended to the summary under "Recalled from memory". The
+//! summarizer folds the dropped messages, it queues memory's refresh of that
+//! span and takes only completed cached context. A non-empty cached pack is
+//! appended under "Recalled from memory"; engine I/O never delays the inner
+//! summarizer. The
 //! checkpoint is a fresh user-role message after a compaction, which already
 //! resets the provider's cache from that point, so it costs no warm prefix.
 //!
@@ -21,7 +20,7 @@ use tinyagents_harness::summarization::{Summarizer, SummaryRecord, SummaryReques
 use tinyinference_llm::message::{ContentBlock, Message};
 use tinymemory_api::{Role, Turn};
 
-use crate::memory::lifecycle::hooks::{self, MemoryTurn};
+use crate::memory::lifecycle::hooks::MemoryTurn;
 
 /// Heading of the recalled section in a checkpoint.
 pub(crate) const RECALLED_HEADING: &str = "## Recalled from memory";
@@ -50,14 +49,13 @@ impl MemoryRecallSummarizer {
         messages: &[Message],
         summary: impl std::future::Future<Output = Result<SummaryRecord>>,
     ) -> Result<SummaryRecord> {
-        let recall = hooks::compaction(
-            &self.turn.config,
-            &self.turn.identity,
-            &self.turn.thread_id,
+        let pack = crate::memory::lifecycle::prefetch::compaction(
+            self.turn.config.clone(),
+            self.turn.identity.clone(),
+            self.turn.thread_id.clone(),
             dropped_turns(messages),
         );
-        let (record, pack) = futures::join!(summary, recall);
-        let mut record = record?;
+        let mut record = summary.await?;
         // A later compaction folds the previous checkpoint, recall included;
         // keep one recall section, the current one.
         strip_recalled(&mut record.summary);

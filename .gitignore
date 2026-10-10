@@ -156,6 +156,3 @@ diff-coverage.md
 ci-out/
 ci-out-ex63/
 
-# Cargo build output inside the in-tree motosan-ai-oauth crate
-vendor/motosan-ai-oauth/target/
-

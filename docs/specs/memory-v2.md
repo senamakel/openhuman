@@ -92,10 +92,10 @@ credential.
 
 | Hook | Where | What |
 | --- | --- | --- |
-| pre-turn | session host `before_turn` (`agent/session_host/runtime_session/memory_ingest.rs`), concurrently with request enrichment | `AgentMemory::pre_turn`: logs the user turn (accepted, not indexed) and recalls the turn's pack, under `[memory.recall] pre_turn_timeout_ms` |
+| pre-turn | session host `before_turn` (`agent/session_host/runtime_session/memory_ingest.rs`) | `lifecycle::prefetch::pre_turn` takes a completed cached pack immediately, or none on a cold cache, and queues scoped `AgentMemory::pre_turn` logging and recall |
 | inject | `MemoryPackMiddleware` (`agent/tinyagents/middleware/memory_pack.rs`) | adds the pack, wrapped in `<memory-context>`, to every model request of the turn with `push_ephemeral_instruction` |
-| post-turn | session host, after the durable commit | `AgentMemory::post_turn`: logs the reply with its tool calls (name, id, and a one-line result per call), queues the belief build it hands back |
-| compaction | `MemoryRecallSummarizer` (`agent/tinyagents/memory_summarizer.rs`) wrapping the turn's summarizer | `AgentMemory::recall_for_compaction` over the dropped turns, concurrently with the summary; appended to the checkpoint under "Recalled from memory" |
+| post-turn | scoped background work after the durable commit | `AgentMemory::post_turn`: logs the reply with its tool calls (name, id, and a one-line result per call), queues the belief build it hands back |
+| compaction | `MemoryRecallSummarizer` (`agent/tinyagents/memory_summarizer.rs`) wrapping the turn's summarizer | Takes completed cached context for "Recalled from memory" and queues `AgentMemory::recall_for_compaction`; engine I/O never delays the inner summarizer |
 | session start | pre-turn, on the first turn of a session resumed after a compaction | `AgentMemory::start_session`: the thread's own earlier turns lead the pack |
 
 - **Turn indices** follow the committed transcript: the user message after
@@ -105,11 +105,16 @@ credential.
   the thread's persisted history and the provider's cached prefix are exactly
   as they were. The window of the thread still verbatim in the prompt (from
   the turn after the last compaction checkpoint) is left out of the pack.
-- **No hook fails a turn.** Each is bounded and logs instead of raising; a
-  timed-out pre-turn still finishes logging in the background.
+- **Automatic hooks never await remote memory on a live turn.** Scoped
+  workers handle user logging, date hints and context refresh with bounded
+  queues and deadlines. Cached packs expire after 60 seconds and identify
+  themselves as results of an earlier lookup. A cold cache supplies none.
+  The explicit/manual hooks retain configured pre-turn/compaction deadlines.
+- **No hook fails a turn.** An unavailable engine or a saturated background
+  queue degrades best-effort memory without holding up the model or summary.
 - **A refused recall is not an empty one.** When nothing was recalled because
   the engine refused the account (`INSUFFICIENT_CREDITS`, `UNAUTHORIZED`,
-  `UNAVAILABLE`), the turn is given a short notice saying memory is
+  `UNAVAILABLE`), the completed pack is a short notice saying memory is
   unavailable and why, so the model does not tell the user nothing is stored.
   TinyMemory's holistic recall reports a section's failure as a skip reason,
   so the hook reads the refusal back from there too.
@@ -217,13 +222,25 @@ CortexDB refuses for it is written again without it (tinymemory's fallback). Off
 One tool, `action` = `recall` | `fetch` | `learn` | `forget`:
 - `recall { question, filter? }` → `{answer, citations[]}`.
 - `fetch { query, mode?, filter?, limit? }` → `{hits[]}`; `mode` limited to the engine's `fetch_modes`.
-- `learn { text, kind?, confidence? }` → `{id}`. The host fills `meta`: the
+- `learn { text, kind?, confidence? }` → `{id, status: "queued; not yet saved to memory"}`. The host fills `meta`: the
   layout's learnings node, `workspace`, `thread_id`, `agent_id` (the memory
   agent id), `tool_call`, `source.kind = "agent"`.
-- `forget { ids }` → `{forgotten}`.
+- `forget { ids }` → `{queued, status: "queued; not yet removed from memory"}`.
 
 Every read and `forget` is confined to the identity's layout (its root's
 subtree); a `reach` in the model's filter is overwritten.
+
+Agent writes are admitted to a private durable outbox after validation,
+confinement and scrubbing; the acknowledgement confirms local acceptance, not
+remote completion. Background delivery resolves credentials at drain time,
+retries under the matching owner, and does not block the model. Explicit RPC
+and UI operations retain their direct, confirmed engine behavior.
+
+The agent tool bounds each call to 15 seconds and reserves from 30 seconds of
+aggregate time and eight attempts per retained run record. The tracker keeps
+128 records; idle eviction can reset a same-run record under churn, but cannot
+evict outstanding reservations. A timeout tells the model to continue without
+retrying memory in that run; a timed-out write admission may already be durable.
 
 ## RPC (`openhuman.memory_*`)
 

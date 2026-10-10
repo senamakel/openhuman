@@ -171,7 +171,7 @@ pub fn resolve_sandbox_policy(
     // The jail denies whatever it is not told about, so a local policy carries
     // the toolchain/git grants everyday commands need (see `sandbox::grants`).
     let grants = if backend == SandboxBackendKind::Local {
-        resolve_local_jail_grants(dirs::home_dir().as_deref(), &runtime_config.local_jail)
+        host_local_jail_grants(runtime_config)
     } else {
         JailGrants::default()
     };
@@ -377,8 +377,7 @@ pub(crate) fn apply_requested_backend(
                 anyhow::bail!("Landlock sandbox was explicitly requested but is unavailable");
             }
             if policy.backend != SandboxBackendKind::Local {
-                let grants =
-                    resolve_local_jail_grants(dirs::home_dir().as_deref(), &runtime.local_jail);
+                let grants = host_local_jail_grants(runtime);
                 policy.read_only_mounts = grants.read_only;
                 policy.read_write_mounts = grants.read_write;
             }
@@ -634,6 +633,27 @@ async fn execute_local_jail(
 pub fn is_elevated_op(tool_name: &str) -> bool {
     ELEVATED_TOOLS.contains(&tool_name)
 }
+
+fn host_local_jail_grants(runtime: &RuntimeConfig) -> JailGrants {
+    local_jail_grants_with_home(runtime, crate::core::runtime::is_saas(), || {
+        dirs::home_dir()
+    })
+}
+
+// Shared by initial selection and an explicit backend switch. SaaS callers
+// have no operator-home grants, even if the helper is reached directly.
+fn local_jail_grants_with_home(
+    runtime: &RuntimeConfig,
+    saas: bool,
+    home: impl FnOnce() -> Option<PathBuf>,
+) -> JailGrants {
+    let home = if saas { None } else { home() };
+    resolve_local_jail_grants(home.as_deref(), &runtime.local_jail)
+}
+
+#[cfg(test)]
+#[path = "ops_host_grants_tests.rs"]
+mod host_grants_tests;
 
 /// Build an `ElevatedOp` for audit logging when a tool bypasses the sandbox.
 pub fn build_elevated_op(tool_name: &str, command: &str, reason: &str) -> ElevatedOp {

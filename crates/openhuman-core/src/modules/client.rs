@@ -1,6 +1,7 @@
 //! Shared module access for hosts, including before a core runtime is started.
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
+use std::time::Duration;
 
 use crate::config::Config;
 
@@ -39,6 +40,7 @@ impl std::error::Error for ModuleCallError {}
 #[derive(Clone)]
 pub struct ModuleClient {
     config: Config,
+    timeout: Option<Duration>,
     #[cfg(all(test, feature = "modules"))]
     fixture: Option<tinybus::Proxy>,
 }
@@ -48,6 +50,7 @@ impl ModuleClient {
     pub fn new(config: Config) -> Self {
         Self {
             config,
+            timeout: None,
             #[cfg(all(test, feature = "modules"))]
             fixture: None,
         }
@@ -57,14 +60,27 @@ impl ModuleClient {
     pub(crate) fn fixture(proxy: tinybus::Proxy) -> Self {
         Self {
             config: Config::default(),
+            timeout: None,
             fixture: Some(proxy),
         }
+    }
+
+    /// Override the TinyBus deadline for every call made through this client.
+    ///
+    /// Use this for module operations whose contract has a longer bounded
+    /// duration than TinyBus's default. It applies equally to confidential
+    /// calls and test fixtures.
+    #[must_use]
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = Some(timeout);
+        self
     }
 
     /// Execute a contract member, retaining its existing argument tuple arity.
     ///
     /// No implementation fallback is provided. The caller owns approvals,
-    /// cancellation, deadlines and lifecycle cleanup members.
+    /// cancellation, and lifecycle cleanup; use [`Self::with_timeout`] for a
+    /// longer module-specific deadline.
     pub async fn call<R: DeserializeOwned>(
         &self,
         module: &str,
@@ -87,6 +103,45 @@ impl ModuleClient {
         self.invoke(module, member, args, true).await
     }
 
+    /// Call a member that returns a JSON-encoded string and deserialize that
+    /// inner document. Malformed module output is reported using only the
+    /// registered module identity and the closed `module_fault` reason.
+    pub async fn call_json<R: DeserializeOwned>(
+        &self,
+        module: &str,
+        member: &str,
+        args: impl Serialize,
+    ) -> Result<R, ModuleCallError> {
+        let response: String = self.call(module, member, args).await?;
+        decode_module_json(module, &response)
+    }
+
+    /// Confidential counterpart to [`Self::call_json`]. A decode failure is
+    /// terminal; the call is never retried through ordinary delivery.
+    pub async fn call_confidential_json<R: DeserializeOwned>(
+        &self,
+        module: &str,
+        member: &str,
+        args: impl Serialize,
+    ) -> Result<R, ModuleCallError> {
+        let response: String = self.call_confidential(module, member, args).await?;
+        decode_module_json(module, &response)
+    }
+
+    /// Report a structurally invalid reply from a known module invocation.
+    pub(crate) fn report_malformed_reply(module: &str) {
+        if let Some(record) = registry::find(module) {
+            failure::report_invocation(record, failure::Reason::ModuleFault);
+        }
+    }
+
+    /// Report a known module that does not provide the requested capability.
+    pub(crate) fn report_unavailable(module: &str) {
+        if let Some(record) = registry::find(module) {
+            failure::report(record, failure::Reason::ModuleUnavailable);
+        }
+    }
+
     async fn invoke<R: DeserializeOwned>(
         &self,
         module: &str,
@@ -104,7 +159,11 @@ impl ModuleClient {
         }
         #[cfg(all(test, feature = "modules"))]
         if let Some(proxy) = self.fixture.as_ref() {
-            return invoke_proxy(record, proxy, member, args, confidential).await;
+            let proxy = self.timeout.map_or_else(
+                || proxy.clone(),
+                |timeout| proxy.clone().with_timeout(timeout),
+            );
+            return invoke_proxy(record, &proxy, member, args, confidential).await;
         }
         #[cfg(not(feature = "modules"))]
         {
@@ -127,9 +186,22 @@ impl ModuleClient {
                     failure::report(record, failure::Reason::IncompatibleContract);
                     ModuleCallError::IncompatibleContract
                 })?;
+            let proxy = self
+                .timeout
+                .map_or(proxy.clone(), |timeout| proxy.with_timeout(timeout));
             invoke_proxy(record, &proxy, member, args, confidential).await
         }
     }
+}
+
+fn decode_module_json<R: DeserializeOwned>(
+    module: &str,
+    response: &str,
+) -> Result<R, ModuleCallError> {
+    serde_json::from_str(response).map_err(|_| {
+        ModuleClient::report_malformed_reply(module);
+        ModuleCallError::ModuleFault
+    })
 }
 
 #[cfg(feature = "modules")]

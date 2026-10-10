@@ -84,6 +84,8 @@ remain unchanged until compatible upstream releases are available.
 
 | TinyComputer native permissions, confidential focus/paste and opaque Globe listeners | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | Full workspace checks; 88-member dynamic artifact verification; pure contract audit; native bridge 100% line coverage |
 
+| TinyConnectors argument preparation, task filtering, structured provider errors and leased archives | [tinyconnectors#46](https://github.com/tinyhumansai/tinyconnectors/pull/46) | 423 tests; dynamic artifact calls; user archive lifecycle fixtures; pure contract audit; per-file coverage at least 90% |
+
 The TinyDocs and TinyJuice operations need new published module artifacts.
 TinyHosts keeps existing member arities and wire forms. No local build digest
 has been used as a release pin, and these PRs do not yet remove any host exception.

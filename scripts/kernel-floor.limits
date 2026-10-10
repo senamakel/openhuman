@@ -668,4 +668,9 @@
 # 338/316/2 2026-10-09 cron and flows on the storage ports add the first-party
 #                      tinyflows-drivers crate (one package, one name; no new
 #                      external crate, native builds unchanged).
-flows:338:316:2
+# 339/317/2 2026-10-10 storage-file is always on (the default sqlite layout
+#                      keeps the small stores' rows in document tables and
+#                      the file driver backs `file:` URLs), which adds the
+#                      first-party tinystoragedrivers-file crate (one package,
+#                      one name; no external crate, native builds unchanged).
+flows:339:317:2

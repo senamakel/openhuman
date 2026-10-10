@@ -15,6 +15,8 @@ use std::sync::Arc;
 /// context it derives from.
 #[derive(Debug, Clone)]
 pub struct ContextOverlay {
+    /// Host adapters local to this agent; absent inherits the parent.
+    pub host_overrides: Option<Arc<crate::agent::host_overrides::HostOverrides>>,
     /// The config every handler dispatched under the derived context reads
     /// through `config::ops::load_config_with_timeout()`. Keep `config_path`
     /// equal to the parent's: credentials, auth profiles and the keyring file
@@ -54,6 +56,7 @@ impl ContextOverlay {
         tool_groups: crate::tools::toolpacks::ToolGroups,
     ) -> Self {
         Self {
+            host_overrides: None,
             config,
             domains,
             tool_groups,
@@ -64,6 +67,15 @@ impl ContextOverlay {
             approvals_disabled: false,
             definitions: None,
         }
+    }
+
+    /// Bind agent-local hooks, native inference and session storage.
+    pub fn host_overrides(
+        mut self,
+        overrides: Arc<crate::agent::host_overrides::HostOverrides>,
+    ) -> Self {
+        self.host_overrides = Some(overrides);
+        self
     }
 
     /// Hide the operator's `~/.openhuman/skills` / `~/.agents/skills` from

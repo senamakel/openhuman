@@ -110,7 +110,7 @@ export const ParallelAgentsCard: ToolCallMessagePartComponent = ({ toolCallId, s
     <div className="flex flex-col gap-2" data-testid="assistant-ui-parallel-agents-call">
       <div
         data-testid="parallel-agents-header"
-        className="flex max-w-xs items-baseline justify-between gap-2 text-[12.5px]">
+        className="flex items-baseline justify-between gap-2 text-[12.5px]">
         <span className="text-content-secondary font-medium">
           {t('chat.subagents.ofTotal')
             .replace('{complete}', String(completedCount))

@@ -78,10 +78,38 @@ impl RuntimeBuilder {
 
     /// Refuse combinations the chosen [`ConfigSource`] cannot honour.
     pub(super) fn validate(&self) -> Result<(), RuntimeError> {
+        self.validate_modules()?;
+        if self.agent_defaults.skills.root.is_some() && !cfg!(feature = "skills") {
+            return Err(RuntimeError::Invalid(
+                "copying runtime skill bundles requires Cargo feature `openhuman-embed/skills`"
+                    .into(),
+            ));
+        }
+
+        validate_storage_feature(self.seams.storage.as_ref())?;
+        if self.seams.storage.is_none() {
+            if let Some(config) = &self.config {
+                if let Some(url) = openhuman_core::storage::configured_url(config) {
+                    validate_storage_feature(Some(&super::StorageSource::Url(url)))?;
+                }
+            }
+        }
+        self.agent_defaults
+            .model
+            .validate()
+            .map_err(RuntimeError::Invalid)?;
         if self.api_key.as_ref().is_some_and(ApiKey::is_blank) {
             return Err(RuntimeError::BlankApiKey);
         }
-        if matches!(self.workspace, Workspace::Stateless) && self.session_store.is_none() {
+        if matches!(self.workspace, Workspace::Stateless)
+            && self.session_store.is_none()
+            && self.seams.storage.is_none()
+            && self
+                .config
+                .as_ref()
+                .and_then(openhuman_core::storage::configured_url)
+                .is_none()
+        {
             return Err(RuntimeError::NoSessionStore);
         }
         if self.config_source == ConfigSource::Discovered {
@@ -98,6 +126,7 @@ impl RuntimeBuilder {
                 ("workspace_dir", self.workspace_dir.is_some()),
                 ("action_dir", self.action_dir.is_some()),
                 ("api_key", self.api_key.is_some()),
+                ("typed configuration", self.config_knobs.is_set()),
             ];
             if let Some((knob, _)) = edits.iter().find(|(_, set)| *set) {
                 return Err(RuntimeError::Invalid(format!(
@@ -130,11 +159,35 @@ impl RuntimeBuilder {
         // build cannot undo (the stored API key, the host memory engine), so
         // a refused controller extension leaves neither behind. Restorable
         // seams are undone by this guard if the boot below fails.
+        let mut storage_info = super::StorageInfo::describe(
+            self.seams.storage.as_ref(),
+            config.as_ref().unwrap_or(&Config::default()),
+        );
         let mut host_seams = std::mem::take(&mut self.seams);
+        if host_seams.storage.is_none() {
+            if let Some(config) = &config {
+                if let Some(url) = openhuman_core::storage::configured_url(config) {
+                    host_seams.storage = Some(super::StorageSource::Url(url));
+                }
+            }
+        }
+        validate_storage_feature(host_seams.storage.as_ref())?;
         host_seams
             .open_storage()
             .await
             .map_err(RuntimeError::Invalid)?;
+        let storage_backend = match &host_seams.storage {
+            Some(super::StorageSource::Backend(backend)) => Some(backend.clone()),
+            _ => None,
+        };
+        if self.session_store.is_none() {
+            if let Some(backend) = &storage_backend {
+                let stores = tinyagents_session::DriverSessionStores::new(backend.clone())
+                    .map_err(|e| RuntimeError::Build(e.into()))?
+                    .recover_on_open(!openhuman_core::storage::driver_is_shared(backend.driver()));
+                self.session_store = Some(Arc::new(stores));
+            }
+        }
         let mut seams = host_seams.install().map_err(RuntimeError::Invalid)?;
 
         // Before `CoreBuilder::build()`: the scheduler gate reads the credential
@@ -213,6 +266,16 @@ impl RuntimeBuilder {
             RuntimeError::Build(error)
         })?;
         let core = Core::from_runtime(Arc::new(runtime));
+        let storage_backend = storage_backend.or_else(openhuman_core::storage::installed);
+        if !storage_info.configured {
+            if let Some(backend) = &storage_backend {
+                storage_info = super::StorageInfo {
+                    source: "backend".into(),
+                    driver: Some(backend.driver().into()),
+                    configured: true,
+                };
+            }
+        }
 
         // Discovered: agents start from the config the core just loaded.
         let (mut base_config, config_unavailable) = match config.take() {
@@ -221,6 +284,13 @@ impl RuntimeBuilder {
         };
         if discovered {
             // Agent defaults only — the core's own config is not edited.
+            self.config_knobs.apply(&mut base_config);
+            if let Some(value) = self.agent_defaults.model.temperature {
+                base_config.default_temperature = value;
+            }
+            if let Some(value) = self.agent_defaults.model.max_iterations {
+                base_config.agent.max_tool_iterations_override = Some(value);
+            }
             self.access.apply(&mut base_config);
             apply_provider(&mut base_config, &self.provider);
         }
@@ -247,6 +317,7 @@ impl RuntimeBuilder {
         let previous_session_store = session_store_cleanup.previous.take();
         log::debug!("[embed][runtime] built host_kind={host_kind:?}");
 
+        let defaults = self.resolved_defaults(&base_config, domains, tool_groups.clone());
         let runtime = Runtime::new(
             core,
             resolved,
@@ -258,15 +329,68 @@ impl RuntimeBuilder {
             inherit,
             domains,
             tool_groups,
-            self.provider,
-            self.access,
             self.max_agents,
+            defaults,
+            host_kind,
+            self.selection,
+            storage_info,
+            storage_backend,
         );
         if requests_background_services(services) {
             log::debug!("[embed][runtime] starting background services {services:?}");
             runtime.start_services().await;
         }
         Ok(runtime)
+    }
+
+    pub(super) fn resolved_defaults(
+        &self,
+        config: &Config,
+        domains: crate::DomainSet,
+        tool_groups: crate::ToolGroups,
+    ) -> super::AgentDefaults {
+        let mut defaults = self.agent_defaults.clone();
+        defaults.provider = self.provider.clone();
+        if defaults.provider.model_id().is_none() {
+            if let Some(model) = &config.default_model {
+                defaults.provider = defaults.provider.model(model);
+            }
+        }
+
+        defaults.access = self.access.clone();
+        defaults.domains = domains;
+        defaults.tool_groups = tool_groups;
+        let definition_model = defaults.definition.explicit_model_defaults();
+        defaults.model.temperature = defaults
+            .model
+            .temperature
+            .or(definition_model.temperature)
+            .or(Some(config.default_temperature));
+        defaults.model.max_iterations = defaults
+            .model
+            .max_iterations
+            .or(definition_model.max_iterations)
+            .or(config.agent.max_tool_iterations_override);
+        if let Ok(definition) = defaults.definition.clone().into_core("runtime-defaults") {
+            defaults.model.max_iterations = defaults
+                .model
+                .max_iterations
+                .or(Some(definition.max_iterations));
+            if defaults.sandbox == crate::SandboxModeSpec::None {
+                defaults.sandbox = match definition.sandbox_mode {
+                    openhuman_core::agent::harness::definition::SandboxMode::None => {
+                        crate::SandboxModeSpec::None
+                    }
+                    openhuman_core::agent::harness::definition::SandboxMode::ReadOnly => {
+                        crate::SandboxModeSpec::ReadOnly
+                    }
+                    openhuman_core::agent::harness::definition::SandboxMode::Sandboxed => {
+                        crate::SandboxModeSpec::Sandboxed
+                    }
+                };
+            }
+        }
+        defaults
     }
 
     /// The config a [`ConfigSource::Resolved`] runtime hands the core.
@@ -304,6 +428,13 @@ impl RuntimeBuilder {
         if let Some(url) = self.backend_url.clone() {
             config.api_url = Some(url);
         }
+        self.config_knobs.apply(&mut config);
+        if let Some(temperature) = self.agent_defaults.model.temperature {
+            config.default_temperature = temperature;
+        }
+        if let Some(iterations) = self.agent_defaults.model.max_iterations {
+            config.agent.max_tool_iterations_override = Some(iterations);
+        }
         self.access.apply(&mut config);
         apply_provider(&mut config, &self.provider);
         Ok(config)
@@ -339,12 +470,13 @@ async fn discovered_base_config() -> (Config, Option<String>) {
 /// provider is applied to the agents' base config after boot, so it is judged
 /// by the model it carries itself.
 pub(crate) fn routed_provider_effective(provider: &Provider, config: Option<&Config>) -> bool {
-    provider.has_usable_route()
-        && match config {
-            Some(config) => config.default_model.as_deref(),
-            None => provider.model_id(),
-        }
-        .is_some_and(|model| !model.trim().is_empty())
+    provider.custom_model().is_some()
+        || (provider.has_usable_route()
+            && match config {
+                Some(config) => config.default_model.as_deref(),
+                None => provider.model_id(),
+            }
+            .is_some_and(|model| !model.trim().is_empty()))
 }
 
 fn store_api_key(config: &Config, key: &ApiKey) -> Result<(), RuntimeError> {
@@ -401,4 +533,27 @@ pub(crate) fn apply_provider(config: &mut Config, provider: &Provider) {
     if let Some(model) = provider.model_id() {
         config.default_model = Some(model.to_string());
     }
+}
+
+/// Fail before opening a URL whose driver is absent; credential text never enters the error.
+fn validate_storage_feature(source: Option<&super::StorageSource>) -> Result<(), RuntimeError> {
+    let Some(super::StorageSource::Url(url)) = source else {
+        return Ok(());
+    };
+    let driver = openhuman_core::storage::StorageUrl::parse(url)
+        .map_err(|_| RuntimeError::Invalid("invalid storage URL".into()))?
+        .driver()
+        .to_string();
+    let feature = match driver.as_str() {
+        "sqlite" => Some("storage-sqlite"),
+        "mongodb" => Some("storage-mongodb"),
+        "file" => Some("storage-file"),
+        _ => None,
+    };
+    if let Some(feature) = feature {
+        if !openhuman_core::core::runtime::compiled_features()[feature] {
+            return Err(RuntimeError::MissingStorageFeature { driver, feature });
+        }
+    }
+    Ok(())
 }

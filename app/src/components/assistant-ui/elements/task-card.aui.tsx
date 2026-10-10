@@ -90,7 +90,7 @@ const NestedMessage: FC<{ roleLabels: TaskTranscriptRoleLabels }> = ({ roleLabel
       data-slot="aui_task-transcript-message"
       data-role={role}
       className="flex flex-col gap-1 text-xs leading-relaxed">
-      <span className={cn(mono, 'text-foreground/35')}>{roleLabels[role]}</span>
+      <span className={cn(mono, 'text-muted-foreground')}>{roleLabels[role]}</span>
       <MessagePrimitive.Parts
         components={{ Text: MarkdownText, tools: { Fallback: NestedToolCall } }}
       />

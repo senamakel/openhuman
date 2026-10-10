@@ -48,6 +48,7 @@ impl crate::agent::host_agents::HostAgentResolver for FlowsHost {
             definition,
             config: crate::config::Config::default(),
             host_tools: None,
+            hooks: Default::default(),
             context: crate::core::runtime::CoreContext::for_test(
                 crate::core::runtime::DomainSet::full(),
                 None,

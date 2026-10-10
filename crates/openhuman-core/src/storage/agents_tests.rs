@@ -103,8 +103,9 @@ fn an_agent_is_recorded_once_per_backend() {
     })
     .unwrap();
     record_in(Arc::clone(&first), "agents-test-once");
-    assert!(recorded(first).is_empty());
+    assert!(recorded(Arc::clone(&first)).is_empty());
     // Another backend is a separate record.
+    // `first` stays alive so `second` cannot reuse its address (the cache key).
     let second = memory_backend();
     record_in(Arc::clone(&second), "agents-test-once");
     assert_eq!(recorded(second), vec!["agents-test-once".to_string()]);

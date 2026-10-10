@@ -393,7 +393,7 @@ impl OpenHumanSessionHost {
             None => SystemPromptBuilder::with_defaults(),
         };
         let post_turn_hooks: Vec<Arc<dyn crate::agent::hooks::PostTurnHook>> =
-            crate::agent::hooks::embedder_post_turn_hooks();
+            crate::agent::hooks::turn_post_turn_hooks();
 
         // Best-effort prewarm from the shared Composio cache. This avoids
         // building the session with a knowingly stale `&[]` integration view

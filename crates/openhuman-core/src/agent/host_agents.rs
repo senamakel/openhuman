@@ -47,6 +47,8 @@ pub struct HostAgent {
     pub host_tools: Option<HostTools>,
     /// The context every read during the agent's turn must see.
     pub context: Arc<CoreContext>,
+    /// Agent-owned callbacks inherited by core-scheduled turns.
+    pub hooks: crate::agent::hooks::HookScope,
 }
 
 impl HostAgent {
@@ -67,20 +69,25 @@ impl HostAgent {
             host_tools = self.host_tools.is_some(),
             "[host_agents] building session for host agent"
         );
-        CoreContext::sync_scope(Arc::clone(&self.context), || match &self.host_tools {
-            Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
-                config,
-                &self.definition,
-                host,
-                session_id,
-            ),
-            None => OpenHumanSessionHost::from_config_with_definition(config, &self.definition),
+        self.hooks.clone().sync_scope(|| {
+            CoreContext::sync_scope(Arc::clone(&self.context), || match &self.host_tools {
+                Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
+                    config,
+                    &self.definition,
+                    host,
+                    session_id,
+                ),
+                None => OpenHumanSessionHost::from_config_with_definition(config, &self.definition),
+            })
         })
     }
 
     /// Run `fut` with this agent's context as the ambient [`CoreContext`].
     pub async fn scope<F: std::future::Future>(&self, fut: F) -> F::Output {
-        CoreContext::scope(Arc::clone(&self.context), fut).await
+        self.hooks
+            .clone()
+            .scope(CoreContext::scope(Arc::clone(&self.context), fut))
+            .await
     }
 }
 

@@ -33,6 +33,7 @@ pub mod hooks;
 /// Host-registered agents the core's own drivers (cron, workflow nodes) can
 /// resolve by id, with their definition, host tools and context.
 pub mod host_agents;
+pub mod host_overrides;
 pub mod host_runtime;
 pub mod library;
 pub(crate) mod message_convert;
@@ -78,6 +79,7 @@ pub mod subagent_host;
 pub mod tinyagents;
 pub mod todos;
 pub mod tool_policy;
+pub mod tool_snapshot_scope;
 pub mod tools;
 pub mod triage;
 /// Wall-clock deadline of one top-level turn: the outer backstop and the

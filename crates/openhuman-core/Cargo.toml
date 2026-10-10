@@ -158,7 +158,7 @@ tinyagents-registry = { path = "../../vendor/tinyagents/crates/tinyagents-regist
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["storage-drivers"] }
 # The storage ports and the URL-to-backend facade (`storage` domain). No driver
 # by default: the `storage-*` features below add them.
-tinystoragedrivers = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers", default-features = false, features = ["blocking", "secrets", "keyring"] }
+tinystoragedrivers = { path = "../../vendor/tinyagents/vendor/tinystoragedrivers/crates/tinystoragedrivers", default-features = false, features = ["blocking", "secrets", "keyring", "file"] }
 tinyagents-runtime = { path = "../../vendor/tinyagents/crates/tinyagents-runtime" }
 tinyagents-orchestration = { path = "../../vendor/tinyagents/crates/tinyagents-orchestration" }
 tinyagents-tasks = { path = "../../vendor/tinyagents/crates/tinyagents-tasks" }
@@ -345,14 +345,14 @@ serde_path_to_error = "0.1"
 # providers/gmail/post_process.rs) and prefer the email's
 # `text/plain` MIME part when available.)
 # TLS: rustls only in the base declaration, so Linux/macOS — including the
-# headless embedding target (#5046) — link a single TLS stack + cert set
-# (Mozilla webpki-roots). Windows re-adds `native-tls` via the
+# headless embedding target (#5046) — link a single TLS stack with Mozilla
+# roots plus OS/user-installed roots (including SSL_CERT_FILE). Windows re-adds `native-tls` via the
 # `[target.'cfg(windows)'.dependencies]` block below (Cargo unions features
 # per target), because `crates/openhuman-core/src/tls/mod.rs` deliberately routes the
 # Windows client through the SChannel/OS cert store for corporate MITM +
 # AV root CAs. So the two TLS backends coexist only on Windows, never on
 # the RAM-sensitive platforms.
-reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "rustls-tls-native-roots", "stream", "http2", "multipart", "socks"] }
 # Wallet 0.8 exposes reqwest 0.13 builders; keep its host seam optional and
 # select the same TLS trust policy without changing the shared 0.12 client.
 reqwest13 = { package = "reqwest", version = "0.13", default-features = false, features = ["rustls-no-provider", "http2", "socks"], optional = true }
@@ -635,8 +635,9 @@ windows-sys = { version = "0.61", features = [
 ] }
 
 [target.'cfg(not(windows))'.dependencies]
-# macOS / Linux: keep rustls + Mozilla webpki-roots — the historical
-# default. Avoids pulling OpenSSL as a runtime dep on Linux.
+# macOS / Linux: keep rustls + Mozilla webpki-roots and load native roots too.
+# This accepts corporate CAs from the OS store or SSL_CERT_FILE without
+# pulling OpenSSL in as a runtime dependency on Linux.
 tokio-tungstenite = { version = "0.29", default-features = false, features = ["connect", "handshake", "rustls-tls-webpki-roots"] }
 
 [dev-dependencies]
@@ -692,12 +693,21 @@ tokio = { version = "1", features = ["test-util"] }
 proptest = "1"
 
 [features]
+# Curated forwarding of the existing TinyAgents telemetry exporter.
+langfuse = ["tinyagents-harness/langfuse"]
 # Storage drivers for `[storage] url` / `OPENHUMAN_STORAGE_URL` (see the
-# `storage` domain). Memory is always available. Off in the product until a
-# desktop domain moves onto the ports; a cloud build turns on `storage-mongodb`.
+# `storage` domain). Memory and plain files are always available.
+# `storage-sqlite` is in the contributor set and the product: the small
+# desktop stores (approvals, devices, notifications, task sources) keep their
+# rows in it by default. `storage-mongodb` is in neither; a cloud build turns
+# it on. `storage-keyring` does not exist: the only tinystoragedrivers
+# `keyring` gate is `KeyringSecrets`, which the core does not use (its OS
+# keychain access is the `keyring` crate in `security/keyring`).
 storage-sqlite = ["tinystoragedrivers/sqlite"]
 storage-mongodb = ["tinystoragedrivers/mongodb"]
-storage-file = ["tinystoragedrivers/file"]
+# Always on (the dependency enables `file`); kept so existing feature lists
+# and the forwarding chain keep resolving.
+storage-file = []
 # THE CONTRIBUTOR SET — not the product set.
 #
 # This list is what a bare `cargo check`, `cargo test` and rust-analyzer
@@ -730,7 +740,7 @@ storage-file = ["tinystoragedrivers/file"]
 # costs no new native builds. It matches `scripts/ci/product-features.txt`. This
 # does NOT move the kernel floor: that profile is
 # `--no-default-features --features flows` and never reads this list.
-default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules", "tinymemes"]
+default = ["media", "skills", "flows", "mcp", "channels", "http-server", "scheduler-gate", "file-logging", "modules", "tinymemes", "storage-sqlite"]
 # The core's domain-owned HTTP surfaces (#5048): the `/v1` OpenAI-compatible
 # router (`inference::http`), the WebSocket dictation handler
 # (`voice::streaming`), the `openhuman text-input run` dev server, and the MCP

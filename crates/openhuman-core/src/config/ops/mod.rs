@@ -46,11 +46,12 @@ pub(crate) use std::path::PathBuf;
 
 pub use model::{
     apply_composio_trigger_settings, apply_local_ai_settings, apply_memory_settings,
-    apply_model_settings, apply_runtime_settings, get_composio_trigger_settings,
-    load_and_apply_composio_trigger_settings, load_and_apply_local_ai_settings,
-    load_and_apply_memory_settings, load_and_apply_model_settings, load_and_apply_runtime_settings,
-    load_and_resolve_api_url, ComposioTriggerSettingsPatch, LocalAiSettingsPatch,
-    MemorySettingsPatch, ModelSettingsPatch, RuntimeSettingsPatch,
+    apply_model_settings, apply_runtime_settings, collect_provider_ca_certs,
+    get_composio_trigger_settings, load_and_apply_composio_trigger_settings,
+    load_and_apply_local_ai_settings, load_and_apply_memory_settings,
+    load_and_apply_model_settings, load_and_apply_runtime_settings, load_and_resolve_api_url,
+    ComposioTriggerSettingsPatch, LocalAiSettingsPatch, MemorySettingsPatch, ModelSettingsPatch,
+    RuntimeSettingsPatch,
 };
 
 pub use privacy::{

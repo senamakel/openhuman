@@ -55,27 +55,7 @@ and agents can only narrow them, so include `mcp` / `skills` in both the
 Cargo features **and** the runtime's `DomainSet` (the builder's default does)
 if any agent will declare servers or skills.
 
-```rust,no_run
-use openhuman_tinyhumans::{
-    embed::{Access, AgentSpec, Workspace},
-    RuntimeBuilder,
-};
-
-# async fn demo() -> Result<(), Box<dyn std::error::Error>> {
-let runtime = RuntimeBuilder::new()
-    .workspace(Workspace::dir("/var/lib/opencompany/openhuman"))
-    .api_key(std::env::var("TINYHUMANS_API_KEY")?)
-    .build()
-    .await?;
-let worker = runtime.agent(
-    AgentSpec::new("worker-1")
-        .access(Access::full())
-        .action_dir("/srv/jobs/1"),
-)?;
-println!("{}", worker.run("Start the job.").await?.reply);
-# Ok(())
-# }
-```
+See the runnable [two_agents example](../crates/openhuman-embed/examples/two_agents.rs), region `two_agents`. It uses the public facade and asserts its behavior against an offline stub.
 
 ### Choosing the backend layer
 

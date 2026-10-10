@@ -9,6 +9,7 @@
  */
 import { combineReducers, configureStore } from '@reduxjs/toolkit';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { Provider } from 'react-redux';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -266,6 +267,7 @@ async function openSidebar() {
 const emptyThreadState = {
   threads: [],
   selectedThreadId: null,
+  selectionIntentVersion: 0,
   activeThreadIds: {},
   welcomeThreadId: null,
   messagesByThreadId: {},
@@ -482,9 +484,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
 
     const betaRow = await screen.findByRole('button', { name: /Thread Beta/ });
-    await act(async () => {
-      fireEvent.keyDown(betaRow, { key: 'Enter' });
-    });
+    betaRow.focus();
+    await userEvent.keyboard('{Enter}');
     await waitFor(() => {
       expect(screen.getByTestId('route-path')).toHaveTextContent('/chat/t-2');
     });
@@ -734,6 +735,43 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
   });
 
+  it('keeps an explicit sidebar selection made while initial thread loading is pending', async () => {
+    const threads = [
+      makeThread({ id: 't-1', title: 'Initial Thread' }),
+      makeThread({ id: 't-2', title: 'Explicitly Selected Thread' }),
+    ];
+    let resolveThreads: ((value: { threads: Thread[]; count: number }) => void) | undefined;
+    mockGetThreads.mockImplementation(
+      () =>
+        new Promise(resolve => {
+          resolveThreads = resolve;
+        })
+    );
+
+    let store: ReturnType<typeof buildStore> | undefined;
+    await act(async () => {
+      store = await renderConversations({
+        thread: {
+          ...emptyThreadState,
+          threads,
+          selectedThreadId: 't-1',
+          messagesByThreadId: { 't-1': [], 't-2': [] },
+        },
+      });
+    });
+    await waitFor(() => expect(mockGetThreads).toHaveBeenCalled());
+
+    fireEvent.click(screen.getByTestId('thread-row-t-2'));
+    expect(store?.getState().thread.selectedThreadId).toBe('t-2');
+
+    await act(async () => {
+      resolveThreads?.({ threads, count: threads.length });
+    });
+
+    expect(store?.getState().thread.selectedThreadId).toBe('t-2');
+    expect(screen.getByTestId('thread-row-t-2')).toHaveClass('bg-surface/70');
+  });
+
   // Sidebar "New thread" button was removed in the composer flattening refactor.
   // The "+ New" header button (tested below) is the remaining create-thread entry point.
 
@@ -777,11 +815,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
       expect(screen.getAllByText('Deletable Thread').length).toBeGreaterThan(0);
     });
 
-    // The delete button has title="Delete thread"
-    const deleteBtn = screen.getByTitle('Delete thread');
-    await act(async () => {
-      fireEvent.click(deleteBtn);
-    });
+    await userEvent.click(screen.getByRole('button', { name: 'More options' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
 
     // The modal should now be open — "Are you sure you want to delete" text
     // This verifies lines 981, 982, 985 inside the delete onClick callback executed
@@ -797,10 +832,8 @@ describe('Conversations — smoke render (#1123 welcome-lock removal)', () => {
     });
     await openSidebar();
 
-    const deleteBtn = await screen.findByTitle('Delete thread');
-    await act(async () => {
-      fireEvent.click(deleteBtn);
-    });
+    await userEvent.click(await screen.findByRole('button', { name: 'More options' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Delete' }));
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
     });

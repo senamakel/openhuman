@@ -6,7 +6,7 @@
  *
  *   1. Scroll: the assistant-ui thread viewport
  *      (`[data-slot="aui_thread-viewport"]`, `components/assistant-ui/thread.tsx`)
- *      follows the bottom while the reader is at it (`useFollowBottom`).
+ *      follows the bottom through the native assistant-ui viewport.
  *      After several messages, the container's `scrollTop` must sit
  *      within a small margin of `scrollHeight - clientHeight`.
  *      When the user manually scrolls UP, the auto-stick releases

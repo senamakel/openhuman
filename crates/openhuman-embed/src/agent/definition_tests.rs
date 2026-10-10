@@ -91,3 +91,79 @@ fn tool_rules_reach_the_core_definition() {
         .tool_rules
         .is_none());
 }
+
+#[test]
+fn template_overrides_are_independent_and_keep_restrictions() {
+    let template = AgentDefinitionSpec::new()
+        .system_prompt("shared")
+        .temperature(0.3)
+        .max_iterations(7)
+        .tools(ToolScopeSpec::Named(vec![
+            "read_file".into(),
+            "shell".into(),
+        ]));
+    let first = AgentDefinitionSpec::new()
+        .system_prompt("first")
+        .tools(ToolScopeSpec::Named(vec!["read_file".into()]))
+        .inherit(template.clone())
+        .unwrap()
+        .into_core("first")
+        .unwrap();
+    let second = AgentDefinitionSpec::new()
+        .temperature(0.8)
+        .inherit(template.clone())
+        .unwrap()
+        .into_core("second")
+        .unwrap();
+    assert!(matches!(first.system_prompt,PromptSource::Inline(ref p) if p=="first"));
+    assert!(matches!(second.system_prompt,PromptSource::Inline(ref p) if p=="shared"));
+    assert_eq!(first.temperature, 0.3);
+    assert_eq!(second.temperature, 0.8);
+    assert_eq!(second.max_iterations, 7);
+    assert!(AgentDefinitionSpec::new()
+        .tools(ToolScopeSpec::Wildcard)
+        .inherit(template)
+        .is_err());
+}
+#[test]
+fn base_can_be_named_or_custom_and_unknown_names_are_typed() {
+    let original = AgentDefinitionRegistry::builtins_only()
+        .get("planner")
+        .unwrap()
+        .clone();
+    let named = AgentDefinitionSpec::from_base("planner")
+        .into_core("my-planner")
+        .unwrap();
+    assert_eq!(named.agent_tier, original.agent_tier);
+    let custom = AgentDefinitionSpec::from_base(original.clone())
+        .into_core("my-custom")
+        .unwrap();
+    assert_eq!(
+        format!("{:?}", custom.tools),
+        format!("{:?}", original.tools)
+    );
+    assert_eq!(custom.max_iterations, original.max_iterations);
+    assert!(matches!(
+        AgentDefinitionSpec::from_base("does-not-exist").into_core("bad"),
+        Err(AgentError::UnknownDefinition(_))
+    ));
+}
+
+#[test]
+fn a_custom_base_does_not_allow_a_wider_tool_scope() {
+    let mut base = AgentDefinitionSpec::new()
+        .tools(ToolScopeSpec::Named(vec!["read_file".into()]))
+        .into_core("custom-base")
+        .unwrap();
+    base.sandbox_mode = SandboxMode::ReadOnly;
+    let def = AgentDefinitionSpec::from_base(base.clone())
+        .into_core("keeps-base")
+        .unwrap();
+    assert_eq!(def.sandbox_mode, SandboxMode::ReadOnly);
+    assert!(matches!(
+        AgentDefinitionSpec::from_base(base)
+            .tools(ToolScopeSpec::Wildcard)
+            .into_core("widens"),
+        Err(AgentError::WidensRuntime(_))
+    ));
+}

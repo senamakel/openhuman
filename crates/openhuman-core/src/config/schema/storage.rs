@@ -1,9 +1,10 @@
 //! Storage backend configuration (`[storage]`).
 //!
 //! Where the core keeps durable state that has moved onto the
-//! `tinystoragedrivers` ports. Empty (the default) keeps the classic on-disk
-//! layout under the workspace, which is what the desktop app uses. A URL
-//! points the process at one backend instead:
+//! `tinystoragedrivers` ports. Empty (the default) keeps the on-disk layout
+//! under the workspace, which is what the desktop app uses: the small stores
+//! keep document tables in their own SQLite files. `classic` opts out to the
+//! pure legacy tables. A URL points the process at one backend instead:
 //!
 //! ```toml
 //! [storage]
@@ -24,7 +25,7 @@ use serde::{Deserialize, Serialize};
 pub struct StorageConfig {
     /// The storage URL: `memory`, `sqlite:<path>`, `mongodb://…/<db>`,
     /// `mongodb+srv://…/<db>` or `file:<dir>`. Empty or absent keeps the
-    /// classic on-disk layout.
+    /// default on-disk layout; `classic` keeps the pure legacy tables.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub url: Option<String>,
 }

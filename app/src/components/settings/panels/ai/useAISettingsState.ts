@@ -39,6 +39,7 @@ function toPanelProvider(p: CloudProviderView): CloudProvider {
     slug: p.slug,
     label: p.label,
     endpoint: p.endpoint,
+    caCertPem: p.ca_cert_pem ?? '',
     authStyle: p.auth_style,
     maskedKey: maskKeyLabel(p.has_api_key),
   };
@@ -73,6 +74,7 @@ function toApiSettings(panel: AISettings): ApiAISettings {
       slug: p.slug,
       label: p.label,
       endpoint: p.endpoint,
+      ca_cert_pem: p.caCertPem ?? '',
       auth_style: p.authStyle,
       has_api_key: p.maskedKey.startsWith('••••'),
     })),
@@ -139,6 +141,7 @@ export function useAISettings() {
       slug: p.slug,
       label: p.label,
       endpoint: p.endpoint,
+      ca_cert_pem: p.caCertPem ?? '',
       auth_style: p.authStyle,
     }));
     flushCloudProviders(wire).catch(err =>

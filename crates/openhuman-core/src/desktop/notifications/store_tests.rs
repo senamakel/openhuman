@@ -16,6 +16,8 @@ use tempfile::TempDir;
 fn test_config(dir: &TempDir) -> Config {
     let mut config = Config::default();
     config.workspace_dir = dir.path().to_path_buf();
+    // These tests exercise the legacy SQLite tables themselves.
+    config.storage.url = Some("classic".into());
     config
 }
 

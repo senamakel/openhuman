@@ -86,6 +86,7 @@ vi.mock('../coreRpcClient', () => ({
   // handshake `auth.token` payload; the test value is irrelevant — the
   // mock just needs to resolve so the connect flow proceeds.
   getCoreRpcToken: vi.fn(async () => 'mock-core-bearer'),
+  resolveCoreSocketEndpoint: vi.fn(async (baseUrl: string) => ({ baseUrl, path: '/socket.io/' })),
 }));
 
 describe('socketService — resolveCoreSocketBaseUrl uses getCoreRpcUrl', () => {

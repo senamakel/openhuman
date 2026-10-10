@@ -25,6 +25,8 @@ pub struct ModelSettingsPatch {
     /// `auth-profiles.json` via [`crate::security::credentials::AuthService`]).
     /// Pass `Some(vec![])` to clear all third-party cloud providers.
     pub cloud_providers: Option<Vec<crate::config::schema::cloud_providers::CloudProviderCreds>>,
+    /// PEM CA bundle changes keyed by provider slug; empty values remove one.
+    pub cloud_provider_ca_certs: Option<std::collections::HashMap<String, String>>,
     /// When `Some`, REPLACES the entire `config.model_registry` array. Carries
     /// each model's user-set `vision` flag (Settings → Advanced LLM → custom
     /// model → "Supports vision"). Pass `Some(vec![])` to clear; `None` keeps it.
@@ -39,6 +41,22 @@ pub struct ModelSettingsPatch {
     pub vision_provider: Option<String>,
     pub memory_provider: Option<String>,
     pub embeddings_provider: Option<String>,
+}
+
+/// Collect and validate provider CA bundles from either settings RPC surface.
+/// Slugs are normalized here so the map keys match normalized provider entries.
+pub fn collect_provider_ca_certs<'a>(
+    providers: impl IntoIterator<Item = (&'a str, Option<&'a str>)>,
+) -> Result<std::collections::HashMap<String, String>, String> {
+    let mut certs = std::collections::HashMap::new();
+    for (slug, pem) in providers {
+        let Some(pem) = pem else { continue };
+        if !pem.is_empty() {
+            crate::util::tls::parse_ca_bundle(pem)?;
+        }
+        certs.insert(slug.trim().to_string(), pem.to_string());
+    }
+    Ok(certs)
 }
 
 #[derive(Debug, Clone, Default)]
@@ -337,6 +355,27 @@ pub async fn apply_model_settings(
             "[config] apply_model_settings: reinjected {} reserved cloud provider(s)",
             config.cloud_providers.len() - before_reinject
         );
+        // Filter only after restoring built-ins so their configured CA roots
+        // survive a full custom-provider-list replacement.
+        config.cloud_provider_ca_certs.retain(|slug, _| {
+            config
+                .cloud_providers
+                .iter()
+                .any(|entry| entry.slug.trim() == slug)
+        });
+    }
+    if let Some(certs) = update.cloud_provider_ca_certs {
+        for (slug, pem) in certs {
+            if pem.is_empty() {
+                config.cloud_provider_ca_certs.remove(&slug);
+            } else if config
+                .cloud_providers
+                .iter()
+                .any(|entry| entry.slug.trim() == slug)
+            {
+                config.cloud_provider_ca_certs.insert(slug, pem);
+            }
+        }
     }
     if let Some(primary) = update.primary_cloud {
         let trimmed = primary.trim();

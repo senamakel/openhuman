@@ -1,10 +1,10 @@
 //! Encrypted-file keyring backend.
 //!
-//! Stores secrets in one ChaCha20-Poly1305-encrypted file. [`init_master_key`]
-//! loads and caches the app-scoped key once, using [`MASTER_KEY_ENV`] or
-//! [`MASTER_KEY_FILE_ENV`] for headless deployments, otherwise the OS keychain.
-//! The backend itself never accesses the OS keychain, avoiding repeated macOS
-//! permission prompts.
+//! Stores all secrets in a single ChaCha20-Poly1305-encrypted file on disk,
+//! keyed by an app-scoped master key loaded once by [`init_master_key`].
+//! Headless deployments supply [`MASTER_KEY_ENV`] or [`MASTER_KEY_FILE_ENV`];
+//! otherwise initialization uses the OS keychain and caches the result.
+//! The backend avoids repeated OS-keychain prompts in dev-signed macOS builds.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -17,6 +17,10 @@ use crate::security::keyring::file_store;
 use crate::security::keyring::store::BackendKind;
 use tinystoragedrivers::secrets::EncryptedFileSecrets;
 use zeroize::Zeroizing;
+
+#[path = "encrypted_file_backend/key_source.rs"]
+mod key_source;
+use key_source::{env_value, master_key_from_env};
 
 const KEYCHAIN_SERVICE: &str = "openhuman";
 const KEYCHAIN_MASTER_KEY_USERNAME: &str = "app:master_key";
@@ -233,68 +237,6 @@ fn try_load_master_key() -> Result<([u8; KEY_LEN], String), MasterKeyError> {
     load_or_mint_master_key(&entry)
         .map(|key| (key, "OS keychain".to_string()))
         .map_err(MasterKeyError::Keychain)
-}
-
-/// Interprets one `std::env::var` result for a master-key variable.
-///
-/// Only `NotPresent` means unset. A value that is not valid Unicode is a
-/// misconfiguration and must not be treated as unset: that would fall
-/// through to the OS keychain, where [`load_or_mint_master_key`] could mint
-/// a different key and orphan every secret in `secrets.enc`. The rejected
-/// value is never formatted into the error (`VarError`'s `Display` would
-/// include it).
-fn env_value(
-    name: &str,
-    raw: Result<String, std::env::VarError>,
-) -> Result<Option<String>, String> {
-    match raw {
-        Ok(value) => Ok(Some(value)),
-        Err(std::env::VarError::NotPresent) => Ok(None),
-        Err(std::env::VarError::NotUnicode(_)) => {
-            Err(format!("{name} is set but is not valid Unicode"))
-        }
-    }
-}
-
-/// Resolves an operator-supplied master key from the two environment
-/// sources, given their raw values.
-///
-/// `Ok(None)` when neither is set (an empty or whitespace-only value counts
-/// as unset, matching how Compose passes an undefined `${VAR}`), so the
-/// caller falls through to the OS keychain. `Err` when a source is set but
-/// unusable: both set at once, an unreadable file, or a value that is not
-/// exactly `2 * KEY_LEN` hex characters. Error messages and the returned
-/// source label name the variable and the problem but never include its
-/// value — not even the file path, which may be a mistakenly pasted key.
-///
-/// `read_file` is injected so the decision logic is testable without touching
-/// the filesystem; production passes [`read_master_key_file`].
-fn master_key_from_env(
-    inline: Option<&str>,
-    file: Option<&str>,
-    read_file: impl FnOnce(&Path) -> Result<String, String>,
-) -> Result<Option<([u8; KEY_LEN], String)>, String> {
-    let inline = inline.map(str::trim).filter(|value| !value.is_empty());
-    let file = file.map(str::trim).filter(|value| !value.is_empty());
-    match (inline, file) {
-        (None, None) => Ok(None),
-        (Some(_), Some(_)) => Err(format!(
-            "{MASTER_KEY_ENV} and {MASTER_KEY_FILE_ENV} are both set; set exactly one"
-        )),
-        (Some(hex), None) => parse_master_key_hex(hex)
-            .map(|key| Some((key, MASTER_KEY_ENV.to_string())))
-            .map_err(|e| format!("{MASTER_KEY_ENV}: {e}")),
-        (None, Some(path)) => {
-            // Named by the variable, never by its value: an operator who puts
-            // the key itself in the `_FILE` variable would otherwise have it
-            // copied into the error and the startup log.
-            let contents =
-                read_file(Path::new(path)).map_err(|e| format!("{MASTER_KEY_FILE_ENV}: {e}"))?;
-            parse_master_key_hex(contents.trim())
-                .map(|key| Some((key, MASTER_KEY_FILE_ENV.to_string())))
-                .map_err(|e| format!("{MASTER_KEY_FILE_ENV}: {e}"))
-        }
-    }
 }
 
 /// Reads the file named by [`MASTER_KEY_FILE_ENV`].

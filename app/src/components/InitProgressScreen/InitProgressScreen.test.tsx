@@ -65,6 +65,8 @@ describe('InitProgressScreen', () => {
       <InitProgressScreen snapshot={snapshot()} onRetry={vi.fn()} onContinue={onContinue} />
     );
 
+    expect(screen.getByTestId('harness-init-background')).toBeInTheDocument();
+    expect(screen.queryByTestId('harness-init-continue-anyway')).not.toBeInTheDocument();
     fireEvent.click(screen.getByText('Run in background'));
     expect(onContinue).toHaveBeenCalledTimes(1);
   });
@@ -92,6 +94,8 @@ describe('InitProgressScreen', () => {
     );
 
     expect(screen.getByText('pip install timed out')).toBeInTheDocument();
+    expect(screen.getByTestId('harness-init-continue-anyway')).toBeInTheDocument();
+    expect(screen.queryByTestId('harness-init-background')).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByText('Retry'));
     expect(onRetry).toHaveBeenCalledTimes(1);

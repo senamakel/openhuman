@@ -405,6 +405,12 @@ Additional rules:
 
 ## Tool, harness, and runtime boundaries
 
+Embed public API documentation: [Embedding](gitbooks/developing/embed/README.md),
+[concepts](gitbooks/developing/embed/concepts/README.md), and the source-generated
+[builder setters](gitbooks/developing/embed/builder-setters.md). Snippets come from
+compiled examples; run `pnpm docs:generate` and `pnpm docs:check` after changing them.
+
+
 `tinyagents` owns tool-call dialects, parsing, catalog rendering, transcript
 replay, session identity, and the agent loop. `tinytools` owns the shared
 `Tool` trait and tool types. OpenHuman owns execution policy, approvals,
@@ -487,7 +493,9 @@ seed history by hand, or pick a transcript by recency.
   count. The host never shrinks a thread's tools because a cache went cold:
   `session_host/recorded_tools.rs` rebuilds recorded Composio actions as
   deferred executors, and the prelude fetches integrations on the first turn
-  of every session instance, not only on a brand-new thread.
+  of every session instance, not only on a brand-new thread. Explicit embed
+  `Turn::tools` overrides and host-only belts are authoritative instead: they
+  do not restore revoked tools from an earlier transcript.
 - **Pre-identity conversations are adopted once**, on first resume, from the
   timestamped stems they were written to (`adopt_legacy_session_transcripts`).
   No legacy file is modified.

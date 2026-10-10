@@ -102,7 +102,7 @@ impl HarnessBuilder {
     /// Make the skill bundles in `dir` available to the agent.
     ///
     /// The bundles are **copied** into the workspace's skills root — see the
-    /// [`skills`](super::skills) module docs for why linking cannot work. Not
+    /// internal skill-copy module docs for why linking cannot work. Not
     /// permitted with [`Workspace::Inherit`], which would leave them in the
     /// operator's own install.
     #[cfg(feature = "skills")]
@@ -171,7 +171,7 @@ impl HarnessBuilder {
     /// Defaults to every group withheld, matching the desktop app. Reach for
     /// [`ToolGroups::advertised`] when the host does its own routing and wants
     /// native function calling instead of the `use_skill` envelope, and for
-    /// [`ToolGroups::none`] plus [`with`](ToolGroups::with) when the embedding
+    /// [`crate::ToolGroups::none`] plus [`with`](crate::ToolGroups::with) when the embedding
     /// product should not carry a family at all.
     ///
     /// ```no_run
@@ -182,7 +182,7 @@ impl HarnessBuilder {
     /// ```
     ///
     /// [`ToolGroups::advertised`]: openhuman_core::tools::toolpacks::ToolGroups::advertised
-    /// [`ToolGroups::none`]: openhuman_core::tools::toolpacks::ToolGroups::none
+    /// [`crate::ToolGroups::none`]: openhuman_core::tools::toolpacks::ToolGroups::none
     /// [`ToolGroups::with`]: openhuman_core::tools::toolpacks::ToolGroups::with
     pub fn tool_groups(
         mut self,

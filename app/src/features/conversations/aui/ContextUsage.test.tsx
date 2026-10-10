@@ -102,13 +102,13 @@ describe('ContextUsage', () => {
     expect(screen.getByTestId('composer-context-usage')).toHaveTextContent('0%');
   });
 
-  it('does not fetch the breakdown until the popover opens', async () => {
+  it('opens the breakdown on hover without a second tooltip', async () => {
     mockCall.mockResolvedValue(BREAKDOWN);
     renderUsage();
 
     expect(mockCall).not.toHaveBeenCalled();
 
-    await userEvent.click(screen.getByTestId('composer-context-usage'));
+    await userEvent.hover(screen.getByTestId('composer-context-usage'));
 
     expect(mockCall).toHaveBeenCalledTimes(1);
     expect(mockCall).toHaveBeenCalledWith({
@@ -127,13 +127,31 @@ describe('ContextUsage', () => {
     expect(popover).not.toHaveTextContent('## Identity');
     expect(popover).toHaveTextContent('Cache hit');
     expect(popover).toHaveTextContent('33%');
-    expect(popover).toHaveTextContent('Estimated cost this session (USD)');
-    expect(popover).toHaveTextContent('$0.4200');
+    expect(popover).toHaveTextContent('Cost');
+    expect(popover).not.toHaveTextContent('Estimated cost this session');
+    expect(document.querySelector('[data-slot="context-display-popover"]')).toBeNull();
+    expect(popover).toHaveTextContent('0.4200$');
     expect(popover).toHaveTextContent('Headroom');
     expect(popover).toHaveTextContent('Context window');
     expect(popover).not.toHaveTextContent('conversations.composer');
     // The core's window wins; the buckets use the latest turn's actual usage.
-    expect(popover).toHaveTextContent('50,000 / 100,000');
+    expect(popover).toHaveTextContent('50k / 100k');
+  });
+
+  it('uses compact counts for the context window', async () => {
+    mockCall.mockResolvedValue({ ...BREAKDOWN, context_window: 1_048_576 });
+    renderUsage(
+      {},
+      {
+        lastTurnInputTokens: 8_511,
+        lastTurnOutputTokens: 0,
+        lastTurnContextTokens: 8_511,
+        contextWindow: 1_048_576,
+      }
+    );
+    await userEvent.hover(screen.getByTestId('composer-context-usage'));
+    const breakdown = await screen.findByTestId('composer-token-breakdown');
+    await waitFor(() => expect(breakdown).toHaveTextContent('8.5k / 1.0mn'));
   });
 
   it('includes sub-agent token and cost totals inside the same breakdown card', async () => {
@@ -150,10 +168,10 @@ describe('ContextUsage', () => {
       }
     );
 
-    await userEvent.click(screen.getByTestId('composer-context-usage'));
+    await userEvent.hover(screen.getByTestId('composer-context-usage'));
     const breakdown = await screen.findByTestId('composer-token-breakdown');
     await waitFor(() => expect(breakdown).toHaveTextContent('researcher'));
-    expect(breakdown).toHaveTextContent('3,000 · $0.0500');
+    expect(breakdown).toHaveTextContent('3,000 · 0.0500$');
     expect(breakdown.querySelectorAll('[data-slot="context-breakdown"]')).toHaveLength(1);
   });
 
@@ -161,7 +179,7 @@ describe('ContextUsage', () => {
     mockCall.mockRejectedValueOnce(new Error('Method not found'));
     renderUsage();
 
-    await userEvent.click(screen.getByTestId('composer-context-usage'));
+    await userEvent.hover(screen.getByTestId('composer-context-usage'));
 
     const popover = await screen.findByTestId('composer-token-breakdown');
     await waitFor(() => expect(popover).toHaveTextContent('Context breakdown unavailable'));
@@ -186,9 +204,11 @@ describe('ContextUsage', () => {
     renderUsage();
     const trigger = screen.getByTestId('composer-context-usage');
 
-    await userEvent.click(trigger);
-    await userEvent.click(trigger);
-    await userEvent.click(trigger);
+    await userEvent.hover(trigger);
+    await screen.findByTestId('composer-token-breakdown');
+    await userEvent.unhover(trigger);
+    await waitFor(() => expect(screen.queryByTestId('composer-token-breakdown')).toBeNull());
+    await userEvent.hover(trigger);
     const popover = await screen.findByTestId('composer-token-breakdown');
     await waitFor(() => expect(popover).toHaveTextContent('Tool schemas'));
 
@@ -260,9 +280,9 @@ describe('contextBreakdownSegments', () => {
 
 describe('formatCost', () => {
   it('shows a charge as is, marks an estimate, and shows no price when unknown', () => {
-    expect(formatCost(0.2986, 'charged')).toBe('$0.2986');
-    expect(formatCost(4.25, 'charged')).toBe('$4.25');
-    expect(formatCost(0.05, 'estimated')).toBe('≈ $0.0500');
+    expect(formatCost(0.2986, 'charged')).toBe('0.2986$');
+    expect(formatCost(4.25, 'charged')).toBe('4.25$');
+    expect(formatCost(0.05, 'estimated')).toBe('≈ 0.0500$');
     expect(formatCost(4.25, 'unknown')).toBe('—');
   });
 });

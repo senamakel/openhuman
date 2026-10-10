@@ -1,5 +1,27 @@
 use super::*;
 
+#[tokio::test]
+async fn python_exec_blocks_protected_literal_before_runtime_resolution() {
+    let tool = PythonExecTool::new(
+        std::sync::Arc::new(crate::security::SecurityPolicy {
+            enabled: false,
+            ..crate::security::SecurityPolicy::default()
+        }),
+        std::sync::Arc::new(crate::agent::host_runtime::NativeRuntime::new()),
+        std::sync::Arc::new(PythonBootstrap::new(std::sync::Arc::new(
+            crate::config::Config::default(),
+        ))),
+        crate::config::RuntimePoolConfig::default(),
+        std::path::PathBuf::from("."),
+    );
+    let result = tool
+        .execute(json!({"inline_code": "open('~/.aws/credentials').read()"}))
+        .await
+        .unwrap();
+    assert!(result.is_error);
+    assert!(result.text().contains("protected path"));
+}
+
 #[test]
 fn python_timeout_policy_unbounded_by_default() {
     assert_eq!(python_timeout_policy(&json!({})), ToolTimeout::Unbounded);

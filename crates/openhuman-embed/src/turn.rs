@@ -38,8 +38,6 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
-
 use super::call::call;
 use super::error::CoreError;
 use openhuman_core::agent::progress::AgentProgress;
@@ -47,191 +45,12 @@ use openhuman_core::agent::turn_origin::AgentTurnOrigin;
 use openhuman_core::core::runtime::CoreRuntime;
 use openhuman_core::inference::INFERENCE_AGENT_CHAT as AGENT_CHAT;
 
-/// The routed chat entry point.
-///
-/// Deliberately not `openhuman.agent_chat`, which is the same op with the
-/// per-call route parameters removed — it describes a turn on the account's own
-/// configured inference. An embedder that cannot say where a turn runs is
-/// strictly less capable, so the facade uses the wider surface and lets
-/// [`Route`] be `None` when the account's own route is what is wanted.
-///
-/// `INFERENCE_AGENT_CHAT` is owned by the inference domain; referencing it
-/// keeps this facade's dispatch string in lockstep with the registered
-/// controller rather than duplicating the wire name.
-///
-/// Where one turn's inference should go.
-///
-/// Both halves are required together: an endpoint with no credential and a
-/// credential with no endpoint are each half a statement, and the core ignores
-/// the pair unless both arrive non-blank. Constructing this type is what makes
-/// that requirement visible at compile time rather than at runtime.
-#[derive(Clone, PartialEq, Eq)]
-pub struct Route {
-    /// OpenAI-compatible base URL; `/chat/completions` is appended to it.
-    pub base_url: String,
-    /// The bearer presented to `base_url`.
-    pub api_key: String,
-}
-
-impl std::fmt::Debug for Route {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        // The bearer is a credential, and the base URL can itself carry
-        // userinfo (`https://user:pass@host`) or query credentials; a derived
-        // Debug would spill both into `Provider`'s Debug and from there into
-        // host logs and error paths.
-        f.debug_struct("Route")
-            .field("base_url", &sanitize_url_for_display(&self.base_url))
-            .field("api_key", &"<redacted>")
-            .finish()
-    }
-}
-
-/// A URL safe to surface in logs/diagnostics: userinfo and query/fragment are
-/// stripped, so `https://user:pass@host/v1?key=secret` renders as
-/// `https://host/v1`. A value that does not parse as an absolute URL (a bare
-/// host, a protocol-relative `//user:pass@host`, a malformed string) carries
-/// components this function cannot prove are non-credential, so it is rendered
-/// as the fixed `<redacted>` marker rather than echoed verbatim.
-pub(crate) fn sanitize_url_for_display(url: &str) -> String {
-    let Ok(parsed) = url::Url::parse(url) else {
-        return "<redacted>".to_string();
-    };
-    let mut out = parsed;
-    let _ = out.set_username("");
-    let _ = out.set_password(None);
-    out.set_query(None);
-    out.set_fragment(None);
-    out.to_string()
-}
-
-/// True when `endpoint` is safe to carry a bearer credential.
-///
-/// A bearer must never cross a cleartext channel to a remote party, so an
-/// `https:` endpoint is always accepted. `http:` is accepted only for a
-/// loopback host (`127.0.0.1`, `::1`, `localhost`), where the traffic never
-/// leaves the machine and the "credential in the clear" concern does not
-/// apply — local, self-hosted OpenAI-compatible servers are a supported
-/// embedder configuration. Falls back to `false` when the value does not
-/// parse as an absolute URL, so an unparseable route is refused rather than
-/// silently allowed.
-pub(crate) fn is_safe_endpoint_for_bearer(endpoint: &str) -> bool {
-    let Ok(url) = url::Url::parse(endpoint) else {
-        return false;
-    };
-    if url.scheme() == "https" {
-        return true;
-    }
-    if url.scheme() != "http" {
-        return false;
-    }
-    let Some(host) = url.host_str() else {
-        return false;
-    };
-    matches!(
-        host,
-        "127.0.0.1" | "localhost" | "::1" | "[::1]" | "[0:0:0:0:0:0:0:1]" | "0:0:0:0:0:0:0:1"
-    ) || host.starts_with("127.")
-}
-
-impl Route {
-    /// An OpenAI-compatible endpoint and the bearer that authenticates it.
-    pub fn openai_compatible(base_url: impl Into<String>, api_key: impl Into<String>) -> Self {
-        Self {
-            base_url: base_url.into(),
-            api_key: api_key.into(),
-        }
-    }
-}
-
-/// Wire params for [`AGENT_CHAT`].
-///
-/// Field names are the wire contract — see the module docs. `snake_case`, no
-/// rename attribute, matching the controller's own struct.
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
-pub struct TurnRequest {
-    /// The user message driving this turn.
-    pub message: String,
-    /// Model id for this turn only. Blank or absent keeps the configured
-    /// default. Note it is **advisory**: a model no configured provider serves
-    /// is not an error, the core falls back.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub model_override: Option<String>,
-    /// Sampling temperature for this turn only.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f64>,
-    /// Conversation this turn belongs to. The core does **not** mint one, so
-    /// [`Turn::send`] does; see [`TurnOutcome::session_id`].
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub thread_id: Option<String>,
-    /// Per-turn working directory for the agent's filesystem and shell tools.
-    /// Absent keeps the configured `action_dir`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub cwd: Option<String>,
-    /// Endpoint half of the per-call route. Paired with `api_key`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub inference_url: Option<String>,
-    /// Bearer half of the per-call route. Paired with `inference_url`.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub api_key: Option<String>,
-    /// The agent definition the turn runs as. Set by
-    /// [`Agent::turn`](crate::Agent::turn); absent runs the orchestrator.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub agent_id: Option<String>,
-}
-
-impl TurnRequest {
-    /// A turn carrying nothing but its message.
-    pub fn new(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-            model_override: None,
-            temperature: None,
-            thread_id: None,
-            cwd: None,
-            inference_url: None,
-            api_key: None,
-            agent_id: None,
-        }
-    }
-}
-
-/// What one turn produced.
-///
-/// Not `Eq`: [`usage`](Self::usage) carries a cost in dollars, and a float has
-/// no total equality. Compare the fields that matter to you.
-#[derive(Debug, Clone, PartialEq)]
-pub struct TurnOutcome {
-    /// The assistant's final text.
-    pub reply: String,
-    /// The conversation this turn ran in — the caller's `session_id` when one
-    /// was supplied, otherwise the one minted for it. Pass it to the next
-    /// [`Turn::session`] to continue the conversation.
-    pub session_id: String,
-    /// What the turn spent: tokens, cost, context window, and any synchronous
-    /// children it ran.
-    ///
-    /// Present only when the turn returned. A turn that **failed** also spent
-    /// what it spent, and there is no outcome to carry it on -- use
-    /// [`Turn::meter`] for that, which fires either way.
-    ///
-    /// `None` when the turn ran against a caller-built runtime's orchestrator
-    /// rather than a runtime-owned [`Agent`](crate::Agent): that path answers
-    /// over `AGENT_CHAT`, whose reply is a string, so there is nothing to
-    /// report from. `None` also when the session reported nothing at all.
-    pub usage: Option<openhuman_core::agent::tinyagents::host::LastTurnUsage>,
-    /// [`reply`](Self::reply) parsed as JSON, when the turn asked for a JSON
-    /// [`response_format`](Turn::response_format) and the reply parses.
-    /// `None` otherwise -- including a reply the model did not shape, which
-    /// the host should treat as a failed structured answer.
-    pub structured: Option<serde_json::Value>,
-    /// Why the turn's final model call stopped (`stop`, `length`, ...), as
-    /// the provider reported it. `None` on a caller-built runtime's
-    /// orchestrator, which answers over RPC.
-    pub finish_reason: Option<String>,
-    /// The model the provider says answered the final call. `None` when the
-    /// provider did not say, or on a caller-built runtime's orchestrator.
-    pub answered_model: Option<String>,
-}
+#[path = "turn_types.rs"]
+mod types;
+pub(crate) use types::{is_safe_endpoint_for_bearer, sanitize_url_for_display};
+pub use types::{Route, TurnOutcome, TurnRequest};
+#[path = "turn_control.rs"]
+mod control;
 
 /// Where a [`Turn`] is dispatched.
 pub(crate) enum TurnTarget {
@@ -248,6 +67,7 @@ pub(crate) enum TurnTarget {
 /// Owned rather than borrowed: it holds an `Arc` to whatever it dispatches
 /// on, so a host can build it in one place and send it from another.
 pub struct Turn {
+    budget: Option<crate::budget::ModelBudget>,
     target: TurnTarget,
     request: TurnRequest,
     session_id: Option<String>,
@@ -256,14 +76,28 @@ pub struct Turn {
     seed: Option<Vec<(String, String)>>,
     meter: Option<Box<dyn FnOnce(Option<LastTurnUsage>) + Send>>,
     response_format: Option<crate::complete::ResponseFormat>,
+    structured_retries: u8,
     max_tokens: Option<u32>,
+    top_p: Option<f64>,
+    token_cancellation: Option<crate::CancellationToken>,
+    provider_options: serde_json::Value,
+    require_tool_call: bool,
     untrusted_input: bool,
+    cancellation: Option<crate::TurnCancellation>,
+    timeout: Option<std::time::Duration>,
+    control_deadline: Option<tokio::time::Instant>,
+    observer: Option<Arc<dyn crate::observe::TurnObserver>>,
+    trace_content: crate::observe::TraceContent,
+    hooks: openhuman_core::agent::hooks::HookScope,
+    tools: Option<openhuman_core::agent::HostTools>,
+    tool_env: Option<openhuman_core::tools::timeout::CommandEnvironment>,
 }
 
 impl Turn {
     pub(crate) fn new(target: TurnTarget, message: impl Into<String>) -> Self {
         Self {
             target,
+            budget: None,
             request: TurnRequest::new(message),
             session_id: None,
             origin: None,
@@ -271,13 +105,95 @@ impl Turn {
             seed: None,
             meter: None,
             response_format: None,
+            structured_retries: 0,
             max_tokens: None,
+            top_p: None,
+            token_cancellation: None,
+            provider_options: serde_json::Value::Null,
+            require_tool_call: false,
             untrusted_input: false,
+            cancellation: None,
+            timeout: None,
+            control_deadline: None,
+            observer: None,
+            trace_content: crate::observe::TraceContent::MetadataOnly,
+            hooks: Default::default(),
+            tools: None,
+            tool_env: None,
         }
     }
 
     pub(crate) fn with_agent_id(mut self, id: &str) -> Self {
         self.request.agent_id = Some(id.to_string());
+        self
+    }
+
+    pub(crate) fn with_hooks(mut self, hooks: openhuman_core::agent::hooks::HookScope) -> Self {
+        self.hooks = hooks;
+        self
+    }
+
+    /// Add a tool callback for this turn only, after runtime and agent hooks.
+    /// Does not change the agent or any other concurrent turn.
+    pub fn tool_hook(mut self, hook: Arc<dyn crate::seams::ToolHook>) -> Self {
+        self.hooks.push_tool(hook);
+        self
+    }
+
+    /// Replace this turn's host tools, including attached sources. An empty
+    /// belt revokes them. Builtin tools remain governed by the agent definition;
+    /// the agent's original host tools return on its next turn.
+    pub fn tools(
+        mut self,
+        factory: impl for<'a> Fn(
+                openhuman_core::agent::TurnContext<'a>,
+            ) -> openhuman_core::agent::HostTurnTools
+            + Send
+            + Sync
+            + 'static,
+    ) -> Self {
+        self.tools = Some(Arc::new(factory));
+        self
+    }
+
+    /// Replace the environment of owned builtin tool subprocesses for this
+    /// turn. Variables absent from this map are not inherited from the daemon.
+    /// Interpreter pools are bypassed so a pooled process cannot carry another
+    /// turn's environment. Independently spawned host tasks must carry the scope.
+    pub fn tool_env(mut self, env: impl IntoIterator<Item = (String, String)>) -> Self {
+        self.tool_env = Some(openhuman_core::tools::timeout::CommandEnvironment::new(env));
+        self
+    }
+
+    /// Await the host's permission decision before each tool executes.
+    /// The callback may wait for UI approval, then return `Proceed`, `Deny`,
+    /// or `ProceedWith`. Returning `Ask` denies the call; this callback itself
+    /// owns the approval wait. Static tool/security restrictions still apply.
+    /// Agent and turn callbacks are additive: a denial cannot be overridden.
+    pub fn can_use_tool<F>(self, callback: F) -> Self
+    where
+        F: for<'a> Fn(&'a crate::seams::ToolHookContext) -> crate::PermissionFuture<'a>
+            + Send
+            + Sync
+            + 'static,
+    {
+        self.tool_hook(std::sync::Arc::new(crate::permission::PermissionHook(
+            callback,
+        )))
+    }
+
+    /// Observe cumulative usage after each model call or vote to stop before
+    /// the next call. Return `StopDecision::Continue` for observation alone;
+    /// a budget policy can return `StopDecision::Stop`. Scoped to this turn; no runtime-global policy is replaced.
+    pub fn stop_hook(mut self, hook: std::sync::Arc<dyn crate::seams::StopHook>) -> Self {
+        self.hooks.push_stop(hook);
+        self
+    }
+
+    /// Add a completed-turn callback for this turn only. The callback runs
+    /// asynchronously with an owned snapshot after the turn completes.
+    pub fn post_turn_hook(mut self, hook: Arc<dyn crate::seams::PostTurnHook>) -> Self {
+        self.hooks.push_post_turn(hook);
         self
     }
 
@@ -375,13 +291,32 @@ impl Turn {
     ///
     /// Applied to each call of the tool loop, so a provider that honours
     /// structured outputs keeps calling tools and shapes its final answer.
-    /// With a JSON format the parsed answer comes back in
-    /// [`TurnOutcome::structured`]. Only a runtime-owned
-    /// [`Agent`](crate::Agent) can honour it; a caller-built runtime's
-    /// orchestrator refuses the turn.
+    /// Allow up to three extra attempts to repair invalid structured output.
     #[must_use]
+    pub fn structured_retries(mut self, attempts: u8) -> Self {
+        self.structured_retries = attempts;
+        self
+    }
+
+    /// Set the requested structured output shape.
     pub fn response_format(mut self, format: crate::complete::ResponseFormat) -> Self {
         self.response_format = Some(format);
+        self
+    }
+
+    /// Pass gateway routing/reasoning options to every model call in this turn.
+    #[must_use]
+    pub fn provider_options(mut self, options: serde_json::Value) -> Self {
+        self.provider_options = options;
+        self
+    }
+
+    /// Require a successful tool execution before accepting the final answer.
+    /// The first calls advertise required tools and omit the final schema;
+    /// gateways that ignore the tool hint are refused deterministically.
+    #[must_use]
+    pub fn require_tool_call(mut self, required: bool) -> Self {
+        self.require_tool_call = required;
         self
     }
 
@@ -416,6 +351,12 @@ impl Turn {
         self
     }
 
+    /// Enforce the ledger across this tool loop, retries and synchronous children.
+    pub fn budget(mut self, budget: crate::budget::ModelBudget) -> Self {
+        self.budget = Some(budget);
+        self
+    }
+
     /// Set the sampling temperature for this turn.
     pub fn temperature(mut self, temperature: f64) -> Self {
         self.request.temperature = Some(temperature);
@@ -432,6 +373,7 @@ impl Turn {
     pub fn route(mut self, route: Route) -> Self {
         self.request.inference_url = Some(route.base_url);
         self.request.api_key = Some(route.api_key);
+        self.request.inference_headers = route.headers;
         self
     }
 
@@ -444,6 +386,27 @@ impl Turn {
     pub fn origin(mut self, origin: AgentTurnOrigin) -> Self {
         self.origin = Some(origin);
         self
+    }
+
+    /// Nucleus sampling for this turn; must be finite and between zero and one.
+    pub fn top_p(mut self, probability: f64) -> Self {
+        self.top_p = Some(probability);
+        self
+    }
+
+    /// Bind caller cancellation to the turn and its recursive tool/agent tree.
+    pub fn cancellation(mut self, token: crate::CancellationToken) -> Self {
+        self.token_cancellation = Some(token);
+        self
+    }
+
+    pub(crate) fn stream_cancellation(&self) -> crate::CancellationToken {
+        self.token_cancellation.clone().unwrap_or_default()
+    }
+
+    /// Start this configured turn as an owned stream, cancelled when dropped.
+    pub fn stream(self) -> crate::TurnStream {
+        crate::TurnStream::start(self)
     }
 
     /// Stream live turn progress — tool calls, deltas, turn boundaries.
@@ -459,195 +422,6 @@ impl Turn {
     pub fn request(&self) -> &TurnRequest {
         &self.request
     }
-
-    /// Run the turn.
-    ///
-    /// Establishes the origin and progress scopes described in the module docs,
-    /// then dispatches through [`call`](super::call::call) so the
-    /// `{result, logs}` envelope, [`DomainSet`](openhuman_core::core::runtime::DomainSet)
-    /// gating and error classification are handled the same way as every other
-    /// facade method.
-    ///
-    /// # Errors
-    ///
-    /// [`CoreError::Unavailable`] when the `inference` domain family is off —
-    /// that is a build/composition fact, not a failure, and a host should hide
-    /// the surface rather than report an error.
-    pub async fn send(mut self) -> Result<TurnOutcome, CoreError> {
-        // The core neither mints nor returns a session id, so continuing a
-        // conversation would otherwise be impossible without the caller
-        // inventing an id scheme — which every embedder has then done
-        // differently. Mint one here and hand it back.
-        let session_id = self
-            .session_id
-            .take()
-            .filter(|id| !id.trim().is_empty())
-            .unwrap_or_else(|| format!("embed-{}", uuid::Uuid::new_v4()));
-        self.request.thread_id = Some(session_id.clone());
-
-        log::debug!(
-            "[embed][agent] turn session={session_id} model={:?} routed={} cwd_set={}",
-            self.request.model_override,
-            self.request.inference_url.is_some(),
-            self.request.cwd.is_some(),
-        );
-
-        validate_route(&self.request)?;
-        self.validate_turn_options()?;
-
-        // Never transmit the bearer over a non-TLS channel. The route accepts
-        // an arbitrary base URL, so guard here — before any request is built —
-        // rather than trusting every embedder to only name https endpoints. A
-        // `Route` is refused when it pairs a credential with a non-HTTPS
-        // endpoint; a route without a credential is allowed through (some
-        // embedders run a local, unauthenticated OpenAI-compatible server over
-        // plain http, and there is nothing sensitive on the wire for them).
-        if self
-            .request
-            .api_key
-            .as_deref()
-            .is_some_and(|k| !k.is_empty())
-        {
-            if let Some(endpoint) = self.request.inference_url.as_deref() {
-                if !is_safe_endpoint_for_bearer(endpoint) {
-                    return Err(crate::error::CoreError::InsecureRoute {
-                        method: AGENT_CHAT,
-                        endpoint: sanitize_url_for_display(endpoint),
-                    });
-                }
-            }
-        }
-
-        // Filled by the turn itself, before any error is raised, so a failed
-        // turn is still metered. Read back below whether the dispatch returned
-        // a reply or an error.
-        let usage: UsageSink = std::sync::Mutex::new(None);
-        let meter = self.meter.take();
-        let wants_json = self
-            .response_format
-            .as_ref()
-            .is_some_and(crate::complete::ResponseFormat::wants_json);
-        let options = AgentTurnOptions {
-            shape: openhuman_core::agent::tinyagents::response_shape::ResponseShapeScope::new(
-                openhuman_core::agent::tinyagents::response_shape::ResponseShape {
-                    response_format: self
-                        .response_format
-                        .take()
-                        .map(crate::complete::ResponseFormat::into_wire),
-                    max_output_tokens: self.max_tokens,
-                },
-            ),
-            untrusted_input: self.untrusted_input,
-        };
-        let dispatch = dispatch(self.target, self.request, self.seed.take(), &usage, options);
-
-        let reply = match (self.origin, self.progress) {
-            (Some(origin), Some(sink)) => {
-                openhuman_core::agent::progress_sink::with_progress_sink(
-                    sink,
-                    openhuman_core::agent::turn_origin::with_origin(origin, dispatch),
-                )
-                .await
-            }
-            (Some(origin), None) => {
-                openhuman_core::agent::turn_origin::with_origin(origin, dispatch).await
-            }
-            (None, Some(sink)) => {
-                openhuman_core::agent::progress_sink::with_progress_sink(sink, dispatch).await
-            }
-            (None, None) => dispatch.await,
-        }
-        .inspect_err(|err| {
-            // Log a redacted failure event so dispatch errors are visible in
-            // host logs without spilling the request, credentials, working
-            // directory, or the error's full payload (CoreError::Domain can
-            // carry arbitrary `data`). Only the session id and the coarse
-            // variant classification are logged; the error itself propagates
-            // to the caller untouched.
-            let tag = match err {
-                crate::error::CoreError::Domain { .. } => "domain",
-                crate::error::CoreError::Unavailable { .. } => "unavailable",
-                crate::error::CoreError::Rpc { .. } => "rpc",
-                crate::error::CoreError::Encode { .. } => "encode",
-                crate::error::CoreError::Decode { .. } => "decode",
-                crate::error::CoreError::InsecureRoute { .. } => "insecure_route",
-                crate::error::CoreError::InvalidRoute { .. } => "invalid_route",
-                crate::error::CoreError::AgentRemoved { .. } => "agent_removed",
-            };
-            log::debug!("[embed][agent] turn_failed session={session_id} kind={tag}");
-        });
-
-        // Before the `?`. A turn that errored still spent what it spent, and
-        // this is the only place both the sink and a failing result are in
-        // hand -- `TurnOutcome` below is never built on that path.
-        if let Some(meter) = meter {
-            meter(
-                usage
-                    .lock()
-                    .unwrap_or_else(std::sync::PoisonError::into_inner)
-                    .clone(),
-            );
-        }
-        let (reply, report) = reply?;
-        let structured = if wants_json {
-            serde_json::from_str(reply.trim()).ok()
-        } else {
-            None
-        };
-
-        log::debug!(
-            "[embed][agent] turn_completed session={session_id} reply_len={} structured={} \
-             finish_reason={:?}",
-            reply.len(),
-            structured.is_some(),
-            report.as_ref().and_then(|r| r.finish_reason.as_deref())
-        );
-
-        let report = report.unwrap_or_default();
-        Ok(TurnOutcome {
-            reply,
-            session_id,
-            usage: usage
-                .into_inner()
-                .unwrap_or_else(std::sync::PoisonError::into_inner),
-            structured,
-            finish_reason: report.finish_reason,
-            answered_model: report.answered_model,
-        })
-    }
-
-    /// Refuse the per-turn options the target cannot honour, before anything
-    /// is dispatched.
-    fn validate_turn_options(&self) -> Result<(), CoreError> {
-        let refuse = |message: &str, kind: &str| {
-            Err(CoreError::Domain {
-                method: AGENT_CHAT,
-                message: message.to_owned(),
-                kind: Some(kind.to_owned()),
-                data: None,
-                expected_user_state: true,
-            })
-        };
-        let host_only = match &self.target {
-            TurnTarget::Agent(agent) => agent.host_only,
-            TurnTarget::Runtime(_) => {
-                if self.response_format.is_some() || self.max_tokens.is_some() {
-                    return refuse(
-                        "response_format and max_tokens need a runtime-owned Agent",
-                        "turn_shape_unsupported",
-                    );
-                }
-                false
-            }
-        };
-        if self.untrusted_input && !host_only {
-            return refuse(
-                "untrusted_input is only allowed on a HostOnly agent",
-                "untrusted_input_requires_host_only",
-            );
-        }
-        Ok(())
-    }
 }
 
 /// Run `request` on `target`.
@@ -660,7 +434,7 @@ impl Turn {
 /// DomainSet gate itself before touching the core.
 use openhuman_core::agent::tinyagents::host::LastTurnUsage;
 
-type UsageSink = std::sync::Mutex<Option<LastTurnUsage>>;
+use crate::turn_meter::UsageSink;
 
 use openhuman_core::agent::tinyagents::response_shape::{FinalResponse, ResponseShapeScope};
 
@@ -676,6 +450,7 @@ mod futures_box {
 /// What only an agent target can honour, already validated by
 /// [`Turn::validate_turn_options`].
 struct AgentTurnOptions {
+    tools: Option<openhuman_core::agent::HostTools>,
     shape: std::sync::Arc<ResponseShapeScope>,
     untrusted_input: bool,
 }
@@ -734,8 +509,9 @@ async fn dispatch(
                     let route = openhuman_core::config::schema::EphemeralRoute::from_params(
                         request.inference_url,
                         request.api_key,
-                    );
-                    let host = inner.composed_host_tools();
+                    )
+                    .map(|route| route.with_headers(request.inference_headers));
+                    let host = options.tools.or_else(|| inner.composed_host_tools());
                     let target = AgentChatTarget::Definition {
                         definition: &inner.definition,
                         host: host.as_ref(),
@@ -756,16 +532,47 @@ async fn dispatch(
                         route,
                     )
                     .await;
-                    // The session does not count reasoning tokens; the shape's
-                    // report does. Folded in before the meter or the outcome reads
-                    // the sink, on success and failure alike.
+                    // The shape preserves provider charges and root-call totals
+                    // absent from normalized session usage. Overlay before both
+                    // meter and outcome reads, retaining child/session metadata.
                     let report = options.shape.report();
-                    if let Some(spent) = usage
-                        .lock()
-                        .unwrap_or_else(std::sync::PoisonError::into_inner)
-                        .as_mut()
                     {
-                        spent.reasoning_tokens = report.reasoning_tokens;
+                        let mut captured = usage
+                            .lock()
+                            .unwrap_or_else(std::sync::PoisonError::into_inner);
+                        if let Some(spent) = &report.usage {
+                            types::overlay_response_usage(&mut captured, spent);
+                        }
+                        if let Some(spent) = captured.as_mut() {
+                            spent.reasoning_tokens = report.reasoning_tokens;
+                        }
+                    }
+                    if outcome.is_err() && report.structured_failed {
+                        use crate::structured::{
+                            StructuredFailureReason as Reason, StructuredOutputFailure,
+                        };
+                        let reason = match report.validation_error.as_deref() {
+                            Some("RequiredToolCallMissing") => Reason::RequiredToolCallMissing,
+                            Some("Truncated") => Reason::Truncated,
+                            Some("SchemaMismatch") => Reason::SchemaMismatch,
+                            _ => Reason::InvalidJson,
+                        };
+                        return Err(CoreError::StructuredOutput {
+                            method: AGENT_CHAT,
+                            failure: StructuredOutputFailure {
+                                attempts: report.structured_attempts,
+                                reason,
+                                finish_reason: report.finish_reason,
+                                answered_model: report.answered_model,
+                                usage: report.usage.map(|spent| crate::complete::CompletionUsage {
+                                    input_tokens: spent.input_tokens,
+                                    output_tokens: spent.output_tokens,
+                                    cached_tokens: spent.cached_tokens,
+                                    reasoning_tokens: spent.reasoning_tokens,
+                                    cost_usd: spent.cost_usd,
+                                }),
+                            },
+                        });
                     }
                     outcome
                         .map(|outcome| (outcome.value, Some(report)))
@@ -810,3 +617,52 @@ pub fn absolute(dir: impl AsRef<Path>) -> std::io::Result<PathBuf> {
 #[cfg(test)]
 #[path = "turn_tests.rs"]
 mod tests;
+
+fn event_thread_id(origin: Option<&AgentTurnOrigin>, session_id: &str) -> String {
+    match origin {
+        Some(AgentTurnOrigin::WebChat { thread_id, .. }) => thread_id.clone(),
+        _ => session_id.to_owned(),
+    }
+}
+
+struct ObservedTurn {
+    hub: Arc<crate::events::EventHub>,
+    agent_id: Option<String>,
+    thread_id: String,
+    turn_id: String,
+    success: bool,
+}
+impl Drop for ObservedTurn {
+    fn drop(&mut self) {
+        self.hub.end_turn(
+            self.agent_id.clone(),
+            &self.thread_id,
+            &self.turn_id,
+            self.success,
+        );
+    }
+}
+fn observe_progress(
+    hub: &crate::events::EventHub,
+    agent_id: &Option<String>,
+    turn_id: &str,
+    item: &AgentProgress,
+) {
+    let kind = match item {
+        AgentProgress::ToolCallStarted { tool_name, .. } => {
+            Some(crate::RuntimeEventKind::ToolStarted {
+                tool_name: tool_name.clone(),
+            })
+        }
+        AgentProgress::ToolCallCompleted {
+            tool_name, success, ..
+        } => Some(crate::RuntimeEventKind::ToolEnded {
+            tool_name: tool_name.clone(),
+            success: *success,
+        }),
+        _ => None,
+    };
+    if let Some(kind) = kind {
+        hub.emit(agent_id.clone(), Some(turn_id.to_owned()), kind);
+    }
+}

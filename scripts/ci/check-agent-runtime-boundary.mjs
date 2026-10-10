@@ -4,6 +4,7 @@ import { readFile, readdir, writeFile } from "node:fs/promises";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { isClaudeCodeBridgeMessage } from "../lib/runtime-boundary-types.mjs";
+import { sanctionedSdkReexportLines } from "../lib/agent-sdk-contracts.mjs";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 const baselinePath = resolve(
@@ -14,6 +15,51 @@ const openhumanCratesRoot = resolve(repoRoot, "crates");
 const tinyagentsRoot = resolve(repoRoot, "vendor/tinyagents/crates");
 const writeBaseline = process.argv.includes("--write-baseline");
 const noBaseline = process.argv.includes("--no-baseline");
+
+// Embed's injection API exposes the original provider/policy contracts (#7306)
+// so callers need only the facade dependency. These are exact declarations,
+// not alternative implementations or compatibility layers. Keep the allowance
+// bounded by both file and the complete statement, including grouped members.
+const embedContractExports = new Map(
+  [
+    [
+      "crates/openhuman-core/src/agent/host_overrides.rs",
+      ["pub use tinyagents_harness::cancel::CancellationToken;"],
+    ],
+    [
+      "crates/openhuman-embed/src/config.rs",
+      [
+        "pub use tinytools::{DefaultEffect, Patterns, RuleEffect, Surface, ToolMatcher, ToolRule, ToolRules};",
+      ],
+    ],
+    [
+      "crates/openhuman-embed/src/lib.rs",
+      [
+        "pub use tinyinference_llm::message::MessageDelta;",
+        "pub use tinyinference_llm::model::{ChatModel, DeferredHandle, DeferredStatus, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem, ModelStreamMetadata};",
+        "pub use tinyinference_llm::{Error, Result};",
+      ],
+    ],
+  ].map(([path, statements]) => [
+    path,
+    new Set(statements.map(normalizeExport)),
+  ]),
+);
+
+function normalizeExport(statement) {
+  return statement.replace(/\s+/g, "").replace(/,}/g, "}");
+}
+
+function isEmbedContractExport(path, lines, index) {
+  const allowed = embedContractExports.get(path);
+  if (!allowed) return false;
+  const remaining = lines
+    .slice(index)
+    .map(({ text }) => text)
+    .join("\n");
+  const end = remaining.indexOf(";");
+  return end >= 0 && allowed.has(normalizeExport(remaining.slice(0, end + 1)));
+}
 
 // Product types need not start with `OpenHuman`, so this is an explicit,
 // reviewed inventory rather than a naming convention.
@@ -361,6 +407,23 @@ function isBehaviorFreeForwarder(source) {
 }
 
 function assertSelfTests() {
+  const sdkPath = "crates/openhuman-core/src/agent/tinyagents/budget.rs";
+  const sdkStatement =
+    "pub use tinyinference_llm::model::budget::{Budget, BudgetExceeded, BudgetSnapshot, CallBudget, Spend, SpendLimits};";
+  if (
+    sanctionedSdkReexportLines(sdkPath, sdkStatement).size !== 1 ||
+    sanctionedSdkReexportLines(
+      sdkPath,
+      sdkStatement.replace("SpendLimits", "SpendLimits, BudgetedModel"),
+    ).size !== 0 ||
+    sanctionedSdkReexportLines(
+      sdkPath,
+      "pub use tinyagents_harness::runtime::AgentHarness;",
+    ).size !== 0
+  )
+    throw new Error(
+      "agent-runtime boundary self-test: host SDK inventory leaked runtime contracts",
+    );
   const fixture = [
     "[dependencies.openhuman]",
     'version = "1"',
@@ -468,7 +531,10 @@ for (const path of await filesUnder(
   (path) => path.endsWith(".rs") && /\/src\//.test(path),
 )) {
   const rel = relative(repoRoot, path);
-  for (const { line, text, raw } of codeLines(await readFile(path, "utf8"))) {
+  const source = await readFile(path, "utf8");
+  const sdkContractLines = sanctionedSdkReexportLines(rel, rustCode(source));
+  const lines = codeLines(source);
+  for (const [index, { line, text, raw }] of lines.entries()) {
     if (!text.trim()) continue;
     const compact = compactRustPath(text);
     if (/\btinyagents_harness::tool_calling\b/.test(compact))
@@ -517,7 +583,9 @@ for (const path of await filesUnder(
     if (
       /\bpub(?:\s*\([^)]*\))?\s+use\s+(?:tinyagents(?:_[a-z_]+)?|tinytools(?:_[a-z_]+)?|tinyinference(?:_[a-z_]+)?)\s*::/i.test(
         text,
-      )
+      ) &&
+      !sdkContractLines.has(line) &&
+      !isEmbedContractExport(rel, lines, index)
     )
       add("openhuman-upstream-reexport", path, line, raw);
   }

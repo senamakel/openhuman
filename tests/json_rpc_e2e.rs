@@ -4851,13 +4851,41 @@ async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header
                 "slug": "proxy",
                 "label": "Proxy",
                 "endpoint": mock_origin,
-                "auth_style": "none"
+            "auth_style": "none",
+            "ca_cert_pem": include_str!("../crates/openhuman-core/src/util/tls/test-ca.pem")
+            }, {
+                "id": "p_openhuman_builtin",
+                "slug": "openhuman",
+                "label": "OpenHuman",
+                "endpoint": "https://api.openhuman.ai/v1",
+                "auth_style": "openhuman_jwt",
+                "ca_cert_pem": include_str!("../crates/openhuman-core/src/util/tls/test-ca.pem")
             }],
             "chat_provider": "proxy:gpt-oss"
         }),
     )
     .await;
     assert_no_jsonrpc_error(&update, "update_model_settings");
+    let update_without_builtin = post_json_rpc(
+        &rpc_base,
+        6103,
+        "openhuman.update_model_settings",
+        json!({
+            "cloud_providers": [{
+                "id": "p_proxy_1",
+                "slug": "proxy",
+                "label": "Proxy",
+                "endpoint": mock_origin,
+                "auth_style": "none"
+            }],
+            "chat_provider": "proxy:gpt-oss"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(
+        &update_without_builtin,
+        "update_model_settings without reserved entry",
+    );
     let cfg = post_json_rpc(&rpc_base, 61_021, "openhuman.config_get", json!({})).await;
     let cfg_outer = assert_no_jsonrpc_error(&cfg, "config_get auth-none");
     let cfg_payload = cfg_outer.get("result").unwrap_or(cfg_outer);
@@ -4886,6 +4914,26 @@ async fn json_rpc_web_chat_custom_chat_provider_with_auth_none_omits_auth_header
     let loaded_config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load_config after auth-none update");
+    assert_eq!(
+        loaded_config
+            .cloud_provider_ca_certs
+            .get("proxy")
+            .map(String::as_str),
+        Some(include_str!(
+            "../crates/openhuman-core/src/util/tls/test-ca.pem"
+        )),
+        "config settings RPC must persist ca_cert_pem by provider slug"
+    );
+    assert_eq!(
+        loaded_config
+            .cloud_provider_ca_certs
+            .get("openhuman")
+            .map(String::as_str),
+        Some(include_str!(
+            "../crates/openhuman-core/src/util/tls/test-ca.pem"
+        )),
+        "reinjecting a reserved provider must retain its CA bundle"
+    );
     let (model, model_id) = openhuman_core::inference::provider::create_chat_model_with_model_id(
         "chat",
         &loaded_config,

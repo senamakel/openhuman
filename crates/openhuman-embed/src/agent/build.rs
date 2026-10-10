@@ -19,7 +19,51 @@ use crate::harness::Access;
 use crate::runtime::Runtime;
 
 pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInner, AgentError> {
-    let parts = spec.into_parts();
+    let mut parts = spec.into_parts();
+    let defaults = runtime.defaults();
+    let mut runtime_definition = defaults.definition.clone();
+    if defaults.sandbox != crate::SandboxModeSpec::None {
+        runtime_definition = runtime_definition.sandbox(defaults.sandbox);
+    }
+    if let Some(v) = defaults.model.temperature {
+        runtime_definition = runtime_definition.temperature(v);
+    }
+    if let Some(v) = defaults.model.max_iterations {
+        runtime_definition = runtime_definition.max_iterations(v);
+    }
+    let mut inherited = if let Some(name) = parts.template.take() {
+        defaults
+            .templates
+            .get(&name)
+            .cloned()
+            .ok_or(AgentError::UnknownTemplate(name))?
+            .inherit(runtime_definition)?
+    } else {
+        runtime_definition
+    };
+    let mut model_defaults = defaults.model.overlay(&parts.model_defaults);
+    model_defaults.validate().map_err(AgentError::Invalid)?;
+    if let Some(v) = parts.model_defaults.temperature {
+        inherited = inherited.temperature(v);
+    }
+    if let Some(v) = parts.model_defaults.max_iterations {
+        inherited = inherited.max_iterations(v);
+    }
+    parts.definition = parts.definition.inherit(inherited)?;
+    let include_user_skills = parts
+        .include_user_skills
+        .unwrap_or(defaults.skills.include_user_skills);
+    #[cfg(feature = "skills")]
+    {
+        parts.skills_dir = parts.skills_dir.or(defaults.skills.root.clone());
+    }
+    #[cfg(feature = "mcp")]
+    {
+        let mut servers = defaults.mcp_baseline.clone();
+        servers.extend(parts.mcp_servers);
+        parts.mcp_servers = servers;
+    }
+
     let id = parts.id;
     validate_agent_id(&id).map_err(|reason| AgentError::InvalidId {
         id: id.clone(),
@@ -73,9 +117,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         )
     });
 
-    let mut access = parts
-        .access
-        .unwrap_or_else(|| runtime.default_access().clone());
+    let mut access = parts.access.unwrap_or_else(|| defaults.access.clone());
     for (path, grant) in parts.trusted {
         access = access.trust(path, grant);
     }
@@ -87,10 +129,21 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     }
     access.apply(&mut config);
 
-    let provider = parts
-        .provider
-        .unwrap_or_else(|| runtime.default_provider().clone());
+    let provider = if parts.inherit_provider_route {
+        match parts.provider.as_ref().and_then(crate::Provider::model_id) {
+            Some(model) => defaults.provider.clone().model(model),
+            None => defaults.provider.clone(),
+        }
+    } else {
+        parts.provider.unwrap_or_else(|| defaults.provider.clone())
+    };
     crate::runtime::builder::apply_provider(&mut config, &provider);
+    if let Some(v) = parts.model_defaults.temperature {
+        config.default_temperature = v;
+    }
+    if let Some(v) = parts.model_defaults.max_iterations {
+        config.agent.max_tool_iterations_override = Some(v);
+    }
 
     #[cfg(feature = "mcp")]
     if !parts.mcp_servers.is_empty() {
@@ -168,6 +221,12 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 
     // ── definition ───────────────────────────────────────────────────────
     let mut definition = parts.definition.into_core(&id)?;
+    model_defaults.temperature = Some(definition.temperature);
+    model_defaults.max_iterations = Some(definition.max_iterations);
+    if config.agent.max_tool_iterations_override.is_some() {
+        config.agent.max_tool_iterations_override = Some(definition.max_iterations);
+    }
+
     // Every declared server's tools are registered as their own
     // `mcp_<server>_<tool>`, deferred by default. A wildcard belt reaches them
     // through `tool_search` already; a named belt reaches deferred tools only
@@ -202,12 +261,30 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
             Some(route.base_url.clone()),
             Some(route.api_key.clone()),
         )
+        .map(|scoped| scoped.with_headers(route.headers.clone()))
+    });
+    let mut overrides = openhuman_core::agent::host_overrides::HostOverrides::default();
+    overrides.parent = runtime.core_runtime().context().host_overrides();
+    overrides.model = provider.custom_model();
+    overrides.role_models = provider.role_models().clone();
+    overrides.session_store = parts.session_store;
+    let overrides = std::sync::Arc::new(overrides);
+    for hook in parts.post_turn_hooks {
+        overrides.post_turn_hook(hook.name(), Some(hook.clone()));
+    }
+    for hook in parts.tool_hooks {
+        overrides.tool_hook(hook.name(), Some(hook.clone()));
+    }
+    let lifecycle = super::lifecycle::Lifecycle::new();
+    let approval_subscription = parts.approval_handler.map(|handler| {
+        super::approval_handler::ApprovalSubscription::new(&id, handler, lifecycle.removed())
     });
     let overlay = ContextOverlay {
+        host_overrides: Some(overrides.clone()),
         config: context_config,
         domains,
         tool_groups,
-        user_skill_roots: parts.include_user_skills,
+        user_skill_roots: include_user_skills,
         // A host session store keeps each agent's conversations apart by id.
         session_agent: Some(id.to_string()),
         profile: None,
@@ -231,12 +308,15 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         config.action_dir.display(),
         provider.is_routed(),
         access.turn_origin().is_some(),
-        parts.include_user_skills,
+        include_user_skills,
         config.autonomy.level,
         access.approval_gate_enabled()
     );
 
     Ok(AgentInner {
+        registry: runtime.agent_registry(),
+        overrides,
+        _approval_subscription: approval_subscription,
         id,
         runtime_id: runtime.runtime_id().to_owned(),
         attachments: Default::default(),
@@ -246,10 +326,12 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         config,
         definition,
         provider,
+        model_defaults,
         access,
         layout,
         host_tools: parts.host_tools,
-        lifecycle: super::lifecycle::Lifecycle::new(),
+        hooks: parts.hooks,
+        lifecycle,
         host_only,
     })
 }

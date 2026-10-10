@@ -34,6 +34,7 @@ impl HostAgentResolver for OneAgent {
             definition: definition(&self.id),
             config: self.config.clone(),
             host_tools: None,
+            hooks: Default::default(),
             context: CoreContext::for_test(DomainSet::full(), None),
         })
     }
@@ -89,6 +90,7 @@ fn a_host_agent_debug_names_the_agent_and_hides_the_rest() {
         definition: definition("host-agents-debug"),
         config: Config::default(),
         host_tools: None,
+        hooks: Default::default(),
         context: CoreContext::for_test(DomainSet::full(), None),
     };
     let rendered = format!("{host:?}");
@@ -104,6 +106,7 @@ async fn scope_runs_the_future_under_the_agents_context() {
         definition: definition("host-agents-scope"),
         config: Config::default(),
         host_tools: None,
+        hooks: Default::default(),
         context: Arc::clone(&context),
     };
     let seen = host

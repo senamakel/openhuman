@@ -39,6 +39,53 @@ impl PostTurnHook for NamedPostTurn {
 
 struct NamedToolHook(&'static str);
 
+#[test]
+fn live_replacement_and_removal_update_builder_hooks_and_restore_predecessors() {
+    let name = "seams-live-builder-hook";
+    let original: Arc<dyn PostTurnHook> = Arc::new(NamedPostTurn(name));
+    replace_embedder_post_turn_hook(name, Some(original.clone()));
+    let mut seams = HostSeams {
+        post_turn_hooks: vec![Arc::new(NamedPostTurn(name))],
+        ..Default::default()
+    }
+    .install()
+    .unwrap();
+    seams.post_turn_hook(
+        name,
+        Some(Arc::new(NamedPostTurn("different-diagnostic-name"))),
+    );
+    assert_eq!(post_turn_marker(name), Some(1));
+    assert_eq!(post_turn_marker("different-diagnostic-name"), None);
+    seams.post_turn_hook(name, None);
+    assert!(Arc::ptr_eq(
+        &embedder_post_turn_hooks()
+            .into_iter()
+            .find(|hook| hook.name() == name)
+            .unwrap(),
+        &original
+    ));
+    seams.tool_hook(
+        "seams-live-tool",
+        Some(Arc::new(NamedToolHook("different-tool-name"))),
+    );
+    assert!(embedder_tool_hooks()
+        .iter()
+        .any(|hook| hook.name() == "seams-live-tool"));
+    seams.tool_hook("seams-live-tool", None);
+    assert!(!embedder_tool_hooks()
+        .iter()
+        .any(|hook| hook.name() == "seams-live-tool"));
+    drop(seams);
+    assert!(Arc::ptr_eq(
+        &embedder_post_turn_hooks()
+            .into_iter()
+            .find(|hook| hook.name() == name)
+            .unwrap(),
+        &original
+    ));
+    replace_embedder_post_turn_hook(name, None);
+}
+
 #[async_trait::async_trait]
 impl ToolHook for NamedToolHook {
     fn name(&self) -> &str {

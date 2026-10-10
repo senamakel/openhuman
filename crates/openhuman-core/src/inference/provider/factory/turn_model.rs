@@ -77,6 +77,11 @@ pub(super) fn create_turn_chat_model_with_native_tools_and_route_inner(
     model: &str,
     native_tool_calling: bool,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String, String)> {
+    if let Some(chat) = crate::core::runtime::CoreContext::current_host_overrides()
+        .and_then(|local| local.model_for(role))
+    {
+        return Ok((chat, "host".into(), model.to_owned()));
+    }
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(chat) = test_provider_override::current() {
         let provider = chat
@@ -215,6 +220,11 @@ pub(crate) fn create_turn_chat_model_from_string_with_native_tools_and_route(
     temperature: f64,
     native_tool_calling: bool,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String, String)> {
+    if let Some(chat) = crate::core::runtime::CoreContext::current_host_overrides()
+        .and_then(|local| local.model_for(role))
+    {
+        return Ok((chat, "host".into(), model.to_owned()));
+    }
     #[cfg(any(test, feature = "e2e-test-support", feature = "rss-bench"))]
     if let Some(chat) = test_provider_override::current() {
         let provider = chat

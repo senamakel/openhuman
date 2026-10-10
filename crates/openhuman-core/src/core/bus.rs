@@ -36,8 +36,10 @@
 //! keep working, and an early-startup publish does not panic.
 
 use tinybus::events::EventBusConfig;
+// Curated adapter types for hosts subscribing without a second bus dependency.
 use tinybus::global::OnceBus;
 use tinybus::version::{InterfaceVersion, PeerManifest, Version};
+pub use tinybus::{EventHandler, SubscriptionHandle};
 
 use crate::core::events::DomainEvent;
 

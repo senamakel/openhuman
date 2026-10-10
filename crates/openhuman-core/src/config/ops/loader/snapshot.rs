@@ -56,6 +56,7 @@ pub fn client_config_json(config: &Config) -> serde_json::Value {
                 "label": c.label,
                 "endpoint": c.endpoint,
                 "auth_style": c.auth_style.as_str(),
+                "ca_cert_pem": config.cloud_provider_ca_certs.get(&c.slug),
             })
         })
         .collect();

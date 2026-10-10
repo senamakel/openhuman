@@ -37,6 +37,9 @@ impl AgentInner {
     /// a remote host): the driver then fails to find the agent rather than
     /// sending the credential in the clear.
     pub(crate) fn host_agent(self: &Arc<Self>) -> Option<HostAgent> {
+        if *self.lifecycle.removed().borrow() {
+            return None;
+        }
         let mut config = self.config.clone();
         if let Some(model) = self.provider.model_id() {
             config.default_model = Some(model.to_string());
@@ -52,7 +55,9 @@ impl AgentInner {
             if let Some(route) = openhuman_core::config::schema::EphemeralRoute::from_params(
                 Some(route.base_url.clone()),
                 Some(route.api_key.clone()),
-            ) {
+            )
+            .map(|scoped| scoped.with_headers(route.headers.clone()))
+            {
                 openhuman_core::config::schema::ephemeral_route::apply(&mut config, route);
             }
         }
@@ -61,6 +66,7 @@ impl AgentInner {
             config,
             host_tools: self.composed_host_tools(),
             context: Arc::clone(&self.ctx),
+            hooks: self.hooks.clone(),
         })
     }
 }

@@ -41,7 +41,7 @@
  */
 import { expect, type Locator, type Page, test } from '@playwright/test';
 
-import { clearChatComposer } from '../helpers/chat-composer';
+import { clearChatComposer, composerText } from '../helpers/chat-composer';
 import { bootAuthenticatedPage, dismissWalkthroughIfPresent } from '../helpers/core-rpc';
 
 const MOCK_ADMIN_BASE = `http://127.0.0.1:${process.env.E2E_MOCK_PORT || '18473'}`;
@@ -93,8 +93,9 @@ const idleAction = (page: Page): Locator => page.getByTestId('composer-human-mod
 
 /** Type into the Lexical surface — `fill()` does not apply to contenteditable. */
 async function typeIntoComposer(page: Page, text: string): Promise<void> {
-  await composer(page).click();
-  await page.keyboard.type(text);
+  const input = composer(page);
+  await input.pressSequentially(text);
+  await expect.poll(() => composerText(input), { timeout: 15_000 }).toBe(text);
 }
 
 async function clearComposer(page: Page): Promise<void> {

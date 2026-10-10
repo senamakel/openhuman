@@ -84,6 +84,11 @@ pub fn runtime_with_keyring(workspace: &std::path::Path) -> tokio::runtime::Runt
     });
     openhuman_core::security::keyring::init_workspace(workspace);
     openhuman_core::security::keyring::init_master_key().expect("headless test master key");
+    runtime_without_master_key()
+}
+
+/// A tuned async runtime for profile hosts which initialize keys after choosing their root.
+pub fn runtime_without_master_key() -> tokio::runtime::Runtime {
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_stack_size(AGENT_WORKER_STACK_BYTES)

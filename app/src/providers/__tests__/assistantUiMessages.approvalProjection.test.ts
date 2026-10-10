@@ -146,7 +146,9 @@ describe('a parked approval in the runtime projection', () => {
       liveTimeline: [tool({ id: 'call-parent', name: 'spawn_async_subagent', status: 'success' })],
     });
 
-    const tail = messages.find(message => message.id === STREAMING_TAIL_ID);
+    const tail = messages.find(
+      message => message.id === `${STREAMING_TAIL_ID}:approval:${detached.requestId}`
+    );
     expect(tail).toBeDefined();
     expect(tail?.status).toEqual({ type: 'requires-action', reason: 'interrupt' });
     const tailParts = toolParts(tail!);

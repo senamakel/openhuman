@@ -1572,7 +1572,7 @@ const messages: TranslationMap = {
   'mic.tapToSendCountdown': 'タップして送信 ({seconds}秒)',
 
   // Token
-  'token.costTitle': 'このセッションの推定コスト (USD)',
+  'token.costTitle': '費用',
   'token.popCacheHit': 'キャッシュヒット',
 
   // Navigator
@@ -3024,6 +3024,10 @@ const messages: TranslationMap = {
   'settings.ai.providerNamePlaceholder': 'マイプロバイダー',
   'settings.ai.slugLabel': 'スラッグ:',
   'settings.ai.openAiUrlLabel': 'OpenAI URL',
+  'settings.ai.caCertificateLabel': 'CA 証明書（任意）',
+  'settings.ai.caCertificateTooLarge': 'CA 証明書は 256 KB 以下にしてください',
+  'settings.ai.caCertificateReadError': 'CA 証明書を読み取れませんでした',
+  'settings.ai.clearCaCertificate': 'CA 証明書を削除',
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': '既存のキーを保持するには空白のままにしてください',
   'settings.ai.signInWithOpenRouter': 'OpenRouterでサインイン',

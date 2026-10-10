@@ -13,7 +13,11 @@
  */
 import createDebug from 'debug';
 
-import { getCoreHttpBaseUrl, getCoreRpcToken } from '../../../../services/coreRpcClient';
+import {
+  getCoreHttpBaseUrl,
+  getCoreRpcToken,
+  resolveCoreSocketEndpoint,
+} from '../../../../services/coreRpcClient';
 
 const log = createDebug('app:human:live-voice');
 
@@ -83,7 +87,15 @@ export function buildLiveVoiceUrl(httpBaseUrl: string, token: string | null): st
 /** Resolve the live-voice URL for the running core. Do not log the result. */
 export async function resolveLiveVoiceUrl(): Promise<string> {
   const [base, token] = await Promise.all([getCoreHttpBaseUrl(), getCoreRpcToken()]);
-  return buildLiveVoiceUrl(base, token);
+  const endpoint = await resolveCoreSocketEndpoint(base);
+  if (!endpoint.liveVoicePath) return buildLiveVoiceUrl(base, token);
+  const url = new URL(endpoint.baseUrl);
+  url.protocol = 'ws:';
+  url.pathname = endpoint.liveVoicePath;
+  url.search = '';
+  url.hash = '';
+  if (token) url.searchParams.set('token', token);
+  return url.toString();
 }
 
 export interface LiveVoiceSocketHandlers {

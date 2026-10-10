@@ -594,6 +594,25 @@ export function rpcUrlNeedsShellRelay(rpcUrl: string): boolean {
   return !isPotentiallyTrustworthyHost(parsed.hostname);
 }
 
+export interface CoreSocketEndpoint {
+  baseUrl: string;
+  path: string;
+  liveVoicePath?: string;
+  transports?: Array<'websocket' | 'polling'>;
+}
+
+/** Resolve a Socket.IO endpoint, relaying private-LAN plain HTTP through Rust. */
+export async function resolveCoreSocketEndpoint(baseUrl: string): Promise<CoreSocketEndpoint> {
+  const rpcUrl = new URL(baseUrl);
+  rpcUrl.pathname = '/rpc';
+  rpcUrl.search = '';
+  rpcUrl.hash = '';
+  if (!isTauri() || !rpcUrlNeedsShellRelay(rpcUrl.toString())) {
+    return { baseUrl, path: '/socket.io/' };
+  }
+  return invoke<CoreSocketEndpoint>('relay_remote_socket', { url: rpcUrl.toString() });
+}
+
 /**
  * Perform a JSON-RPC POST via the Rust host (`relay_http_rpc` Tauri command),
  * returning a synthesized `Response` so callers reuse their existing

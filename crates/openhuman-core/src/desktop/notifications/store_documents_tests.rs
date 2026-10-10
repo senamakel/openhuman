@@ -345,3 +345,15 @@ fn dedup_ids_do_not_collide_across_fields() {
         dedup_id("a", None, "bc", "d")
     );
 }
+
+#[cfg(unix)]
+#[test]
+fn workspace_keys_preserve_non_utf8_path_differences() {
+    use std::os::unix::ffi::OsStrExt;
+
+    let first = std::path::Path::new(std::ffi::OsStr::from_bytes(b"/tmp/workspace-\x80"));
+    let second = std::path::Path::new(std::ffi::OsStr::from_bytes(b"/tmp/workspace-\x81"));
+
+    assert_eq!(first.to_string_lossy(), second.to_string_lossy());
+    assert_ne!(workspace_key(first), workspace_key(second));
+}

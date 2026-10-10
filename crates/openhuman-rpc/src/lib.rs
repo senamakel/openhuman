@@ -55,7 +55,8 @@ pub mod embed {
     pub use openhuman_tinyhumans::embed::modules;
     pub use openhuman_tinyhumans::embed::{
         artifacts, chat_surface, config, process, schema_for_rpc_method, CoreRuntime,
-        PickListenPortError, ServiceSet, HTTP_SERVER_COMPILED_IN, VOICE_COMPILED_IN,
+        PickListenPortError, RuntimeBuilder, RuntimeInfo, ServiceSet, HTTP_SERVER_COMPILED_IN,
+        VOICE_COMPILED_IN,
     };
 }
 

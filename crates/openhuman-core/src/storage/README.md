@@ -5,9 +5,21 @@ The process's storage backend on the
 ports, vendored through `vendor/tinyagents/vendor/tinystoragedrivers`.
 
 One URL picks it: `OPENHUMAN_STORAGE_URL`, else `[storage] url` in
-`config.toml` (`config::StorageConfig`). With neither set, the desktop
-default, nothing is opened and every domain keeps the classic on-disk layout
-under the workspace.
+`config.toml` (`config::StorageConfig`), else the default,
+`sqlite:<workspace_dir>` (`storage::config`).
+
+The default installs no process-wide backend. The large relational stores
+(`sessions.db`, `flows.db`, `jobs.db`, `graph_checkpoints.db`) keep serving
+their own SQLite files as they always have, so nothing is migrated or
+duplicated. The small stores (approvals, devices, notifications, task
+sources) keep their rows as document tables inside their existing `.db` file
+(`approval/approval.db`, `devices/devices.db`, `notifications/notifications.db`,
+`task_sources/sources.db`): the first call in a process opens it with the
+SQLite driver and `storage::local` imports the rows of the old tables, then
+renames them to `_legacy_<name>` and keeps them for one release. The legacy
+code paths stay for reading old data during that import, for builds without
+`storage-sqlite`, for SaaS, and for the opt-out: `OPENHUMAN_STORAGE_URL=classic`
+(or `[storage] url = "classic"`) keeps the pure legacy tables untouched.
 
 | URL | Driver | Cargo feature |
 | --- | --- | --- |
@@ -16,9 +28,10 @@ under the workspace.
 | `mongodb://…/<db>`, `mongodb+srv://…/<db>` | MongoDB, one database shared by every scope | `storage-mongodb` |
 | `file:<dir>` | JSON and JSONL files | `storage-file` |
 
-A URL for a driver the build lacks fails at `open`, naming the feature. None
-of the features are in the shipped desktop product yet; a cloud build turns
-on `storage-mongodb`.
+A URL for a driver the build lacks fails at `open`, naming the feature.
+`storage-sqlite` is a default feature and in the shipped product; `file` is
+always compiled in; `storage-mongodb` is in neither, a cloud build turns it
+on.
 
 ## Entry points
 

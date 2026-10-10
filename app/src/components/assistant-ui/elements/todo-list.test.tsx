@@ -38,6 +38,16 @@ describe('todoProgress', () => {
 describe('TodoProgressCard', () => {
   const labels = { title: 'Todos', completedLabel: 'Completed', countLabel: '1 of 3' };
 
+  it('uses a compact floating surface across the composer width', () => {
+    const { container } = render(
+      <TodoProgressCard items={items} open onOpenChange={vi.fn()} {...labels} />
+    );
+    const card = container.querySelector('[data-slot="todo-progress-card"]');
+    expect(card).toHaveClass('max-w-none', 'bg-background');
+    expect(card).not.toHaveClass('bg-transparent', 'backdrop-blur-md');
+    expect(screen.getAllByTestId('todo-item')[0]).toHaveClass('text-xs', 'py-0');
+  });
+
   it('collapsed shows the current step and pos/total, not the list', () => {
     render(<TodoProgressCard items={items} open={false} onOpenChange={vi.fn()} {...labels} />);
     const toggle = screen.getByRole('button', { name: 'Todos' });

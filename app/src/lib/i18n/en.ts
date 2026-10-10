@@ -1577,7 +1577,7 @@ const en: TranslationMap = {
   'mic.tapToSendCountdown': 'Tap to send ({seconds}s)',
 
   // Token
-  'token.costTitle': 'Estimated cost this session (USD)',
+  'token.costTitle': 'Cost',
   'token.popCacheHit': 'Cache hit',
 
   // Navigator
@@ -3003,6 +3003,10 @@ const en: TranslationMap = {
   'settings.ai.providerNamePlaceholder': 'My Provider',
   'settings.ai.slugLabel': 'Slug:',
   'settings.ai.openAiUrlLabel': 'OpenAI URL',
+  'settings.ai.caCertificateLabel': 'CA certificate (optional)',
+  'settings.ai.caCertificateTooLarge': 'CA certificate must be 256 KB or smaller',
+  'settings.ai.caCertificateReadError': 'Could not read CA certificate',
+  'settings.ai.clearCaCertificate': 'Remove CA certificate',
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': 'Leave blank to keep existing key',
   'settings.ai.signInWithOpenRouter': 'Sign in with OpenRouter',

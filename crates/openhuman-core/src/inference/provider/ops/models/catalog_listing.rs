@@ -141,10 +141,17 @@ pub async fn list_configured_models_from_config(
         routing.account_id.is_some()
     );
 
-    let client =
-        crate::config::build_runtime_proxy_client_with_timeouts("providers.list_models", 30, 10);
-
     use crate::config::schema::cloud_providers::AuthStyle;
+    let service_key = "providers.list_models";
+    let client = if let Some(pem) = config
+        .cloud_provider_ca_certs
+        .get(entry.slug.trim())
+        .filter(|pem| !pem.is_empty())
+    {
+        crate::util::tls::client_with_ca_bundle_with_timeouts(pem, service_key, 30, 10)?
+    } else {
+        crate::config::build_runtime_proxy_client_with_timeouts(service_key, 30, 10)
+    };
 
     // Managed backend (`openhuman`) needs a different URL *and* a different
     // credential than every BYOK provider above, so neither `entry.endpoint`

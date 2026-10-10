@@ -32,6 +32,26 @@ async fn list_models_valid_json_still_succeeds() {
     assert_eq!(outcome.value["models"][0]["id"], "some-model");
 }
 
+#[tokio::test]
+async fn list_models_uses_provider_ca_bundle_client() {
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let endpoint = spawn_static_models_server(
+        StatusCode::OK,
+        r#"{"data":[{"id":"private-model","owned_by":"team"}]}"#,
+    )
+    .await;
+    let mut config = configure_generic_workspace(&tmp, endpoint).await;
+    config.cloud_provider_ca_certs.insert(
+        "generic-test".into(),
+        include_str!("../../util/tls/test-ca.pem").into(),
+    );
+
+    let outcome = list_configured_models_from_config("generic-test", &config)
+        .await
+        .expect("custom CA client should list models");
+    assert_eq!(outcome.value["models"][0]["id"], "private-model");
+}
+
 // ── synthesize_local_runtime_entry (TAURI-RUST-28Z fallback) ────────────
 
 #[test]

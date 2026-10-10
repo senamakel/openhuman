@@ -5,13 +5,25 @@ import { connectCoreSocket, createCoreSocket } from '../coreSocket';
 const hoisted = vi.hoisted(() => ({
   ioMock: vi.fn(() => ({ on: vi.fn(), id: 'mock-sid' })),
   getCoreRpcTokenMock: vi.fn(async (): Promise<string | null> => 'mock-core-bearer'),
+  resolveCoreSocketEndpointMock: vi.fn(
+    async (
+      baseUrl: string
+    ): Promise<{ baseUrl: string; path: string; transports?: Array<'websocket' | 'polling'> }> => ({
+      baseUrl,
+      path: '/socket.io/',
+    })
+  ),
 }));
 
 vi.mock('socket.io-client', () => ({ io: hoisted.ioMock }));
-vi.mock('../coreRpcClient', () => ({ getCoreRpcToken: hoisted.getCoreRpcTokenMock }));
+vi.mock('../coreRpcClient', () => ({
+  getCoreRpcToken: hoisted.getCoreRpcTokenMock,
+  resolveCoreSocketEndpoint: hoisted.resolveCoreSocketEndpointMock,
+}));
 
 const ioMock = hoisted.ioMock;
 const getCoreRpcTokenMock = hoisted.getCoreRpcTokenMock;
+const resolveCoreSocketEndpointMock = hoisted.resolveCoreSocketEndpointMock;
 
 describe('createCoreSocket', () => {
   beforeEach(() => {
@@ -67,6 +79,11 @@ describe('connectCoreSocket', () => {
     ioMock.mockClear();
     getCoreRpcTokenMock.mockReset();
     getCoreRpcTokenMock.mockResolvedValue('mock-core-bearer');
+    resolveCoreSocketEndpointMock.mockReset();
+    resolveCoreSocketEndpointMock.mockImplementation(async baseUrl => ({
+      baseUrl,
+      path: '/socket.io/',
+    }));
   });
 
   it('resolves baseUrl + core token then opens the socket', async () => {
@@ -126,5 +143,24 @@ describe('connectCoreSocket', () => {
     await connectCoreSocket({ getBaseUrl });
     const call = ioMock.mock.calls[0] as unknown as [string, { auth: { token: string } }];
     expect(call[1].auth.token).toBe('');
+  });
+
+  it('uses the private-LAN shell relay and forces WebSocket transport', async () => {
+    resolveCoreSocketEndpointMock.mockResolvedValueOnce({
+      baseUrl: 'http://127.0.0.1:40000',
+      path: '/secret/socket.io/',
+      transports: ['websocket'],
+    });
+    await connectCoreSocket({
+      getBaseUrl: async () => 'http://192.168.1.74:7788',
+      overrides: { transports: ['polling'] },
+    });
+    const call = ioMock.mock.calls[0] as unknown as [
+      string,
+      { path: string; transports: string[] },
+    ];
+    expect(call[0]).toBe('http://127.0.0.1:40000');
+    expect(call[1].path).toBe('/secret/socket.io/');
+    expect(call[1].transports).toEqual(['websocket']);
   });
 });

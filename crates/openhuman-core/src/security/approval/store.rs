@@ -34,6 +34,7 @@ use anyhow::{Context, Result};
 use chrono::{DateTime, Utc};
 use rusqlite::{params, types::Type, Connection};
 
+use super::store_documents::Docs;
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
@@ -202,7 +203,7 @@ fn migrate_session_id_scrub(conn: &Connection) -> Result<()> {
     Ok(())
 }
 
-fn db_path(config: &Config) -> std::path::PathBuf {
+pub(super) fn db_path(config: &Config) -> std::path::PathBuf {
     config.workspace_dir.join("approval").join("approval.db")
 }
 
@@ -245,7 +246,7 @@ fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>)
 /// internal correlation only and is never re-exposed on
 /// [`PendingApproval`] (see that type's doc-comment).
 pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &str) -> Result<()> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.insert_pending(pending, session_id);
     }
     with_connection(config, |conn| {
@@ -291,7 +292,7 @@ pub fn insert_pending(config: &Config, pending: &PendingApproval, session_id: &s
 /// (`decided_at` + `decision`) without leaving expired rows pending
 /// forever.
 pub fn expire_stale(config: &Config) -> Result<usize> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         let expired = docs.expire_stale(Utc::now())?;
         publish_expired(&expired);
         return Ok(expired.len());
@@ -305,7 +306,7 @@ pub fn expire_stale(config: &Config) -> Result<usize> {
 /// which launch queued them. Orphan rows from prior sessions remain
 /// visible until they are explicitly decided or expire.
 pub fn list_pending(config: &Config) -> Result<Vec<PendingApproval>> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         publish_expired(&docs.expire_stale(Utc::now())?);
         return docs.list_pending();
     }
@@ -338,7 +339,7 @@ pub fn list_pending(config: &Config) -> Result<Vec<PendingApproval>> {
 /// where the TTL elapses concurrently with a committed approval
 /// (CodeRabbit review on PR #2367).
 pub fn get_decision(config: &Config, request_id: &str) -> Result<Option<ApprovalDecision>> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.get_decision(request_id);
     }
     with_connection(config, |conn| {
@@ -366,14 +367,14 @@ pub fn get_decision(config: &Config, request_id: &str) -> Result<Option<Approval
 /// from outside this call's task scope (a `Drop`), where the acting agent is
 /// no longer installed. A scope that cannot be resolved is kept as an error,
 /// so the later decision fails instead of switching to the SQLite store.
-pub(super) fn capture_docs() -> Result<Option<super::store_documents::Docs>, String> {
-    super::store_documents::current().map_err(|error| error.to_string())
+pub(super) fn capture_docs(config: &Config) -> Result<Option<Docs>, String> {
+    super::store_documents::current(config).map_err(|error| error.to_string())
 }
 
 /// [`decide`] against a store captured by [`capture_docs`].
 pub(super) fn decide_captured(
     config: &Config,
-    captured: &Result<Option<super::store_documents::Docs>, String>,
+    captured: &Result<Option<Docs>, String>,
     request_id: &str,
     decision: ApprovalDecision,
 ) -> Result<Option<PendingApproval>> {
@@ -397,7 +398,7 @@ pub fn decide(
     request_id: &str,
     decision: ApprovalDecision,
 ) -> Result<Option<PendingApproval>> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         publish_expired(&docs.expire_stale(Utc::now())?);
         return docs.decide(request_id, decision);
     }
@@ -457,7 +458,7 @@ pub fn record_execution(
     outcome: ExecutionOutcome,
     error: Option<&str>,
 ) -> Result<bool> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.record_execution(request_id, outcome, error);
     }
     with_connection(config, |conn| {
@@ -505,7 +506,7 @@ pub fn record_execution(
 /// List recently decided approval rows for durable audit views.
 pub fn list_recent_decisions(config: &Config, limit: usize) -> Result<Vec<ApprovalAuditEntry>> {
     let limit = limit.clamp(1, 500);
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.list_recent_decisions(limit);
     }
     with_connection(config, |conn| {
@@ -533,7 +534,7 @@ pub fn list_recent_decisions(config: &Config, limit: usize) -> Result<Vec<Approv
 /// Drop all rows owned by `session_id` — called when the gate detects
 /// a session changeover so stale parked rows do not accumulate.
 pub fn purge_session(config: &Config, session_id: &str) -> Result<usize> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.purge_session(session_id);
     }
     with_connection(config, |conn| {
@@ -740,6 +741,8 @@ fn parse_rfc3339(input: &str) -> DateTime<Utc> {
 
 #[path = "store_agent.rs"]
 mod agent_rows;
+#[path = "store_import.rs"]
+pub(super) mod import;
 pub use agent_rows::{exists, list_pending_for_agent, pending_agent};
 
 #[cfg(test)]

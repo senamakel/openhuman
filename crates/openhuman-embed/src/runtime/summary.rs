@@ -19,28 +19,45 @@ use crate::harness::Workspace;
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub struct BuilderSummary {
+    /// Requested host identity before workspace resolution.
     pub host_kind: HostKind,
+    /// Workspace ownership and layout selection.
     pub workspace: Workspace,
+    /// Optional runtime state directory override.
     pub workspace_dir: Option<PathBuf>,
+    /// Optional acting-tool root override.
     pub action_dir: Option<PathBuf>,
+    /// Whether the host supplies or the core discovers configuration.
     pub config_source: ConfigSource,
+    /// Explicit domain-family selection, if supplied.
     pub domains: Option<DomainSet>,
+    /// Explicit service selection, if supplied.
     pub services: Option<ServiceSet>,
     /// `true` for [`TokenSource::Fixed`].
     pub fixed_token: bool,
+    /// Optional transport bind host.
     pub listen_host: Option<String>,
+    /// Optional transport bind port.
     pub listen_port: Option<u16>,
+    /// Whether a backend API key was supplied, without exposing it.
     pub has_api_key: bool,
+    /// Whether a backend transport was supplied.
     pub has_backend_transport: bool,
+    /// Whether a host memory engine was supplied.
     pub has_memory_engine: bool,
+    /// Whether a host session store was supplied.
     pub has_session_store: bool,
     /// The group of each controller extension, in registration order.
     pub controller_extensions: Vec<DomainGroup>,
     /// The [`kind`](tinytools::ToolRanker::kind) of the tool ranker.
     pub tool_ranker: Option<String>,
+    /// Names of configured post-turn hooks.
     pub post_turn_hooks: Vec<String>,
+    /// Names of configured tool hooks.
     pub tool_hooks: Vec<String>,
+    /// Whether a server launcher was supplied.
     pub has_server_launcher: bool,
+    /// Whether a live policy override was supplied.
     pub has_live_policy: bool,
 }
 

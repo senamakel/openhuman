@@ -51,6 +51,7 @@ vi.mock('../coreRpcClient', () => ({
   // handshake `auth.token` payload; tests only care that the resolve
   // chain proceeds, not what the bearer value is.
   getCoreRpcToken: vi.fn(async () => 'mock-core-bearer'),
+  resolveCoreSocketEndpoint: vi.fn(async (baseUrl: string) => ({ baseUrl, path: '/socket.io/' })),
 }));
 
 // Capture the metadata-only ingest the `user_error` handler routes through.

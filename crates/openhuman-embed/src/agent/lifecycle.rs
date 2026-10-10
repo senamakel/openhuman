@@ -11,6 +11,7 @@ use crate::CoreError;
 /// Turn admission and in-flight accounting for one agent.
 pub(crate) struct Lifecycle {
     removed: watch::Sender<bool>,
+    removal_claimed: AtomicBool,
     in_flight: AtomicUsize,
     idle: Notify,
     torn_down: AtomicBool,
@@ -20,15 +21,28 @@ impl Lifecycle {
     pub(crate) fn new() -> Self {
         Self {
             removed: watch::Sender::new(false),
+            removal_claimed: AtomicBool::new(false),
             in_flight: AtomicUsize::new(0),
             idle: Notify::new(),
             torn_down: AtomicBool::new(false),
         }
     }
 
-    /// Stops admitting turns and ends the ones in flight.
-    pub(crate) fn mark_removed(&self) {
+    /// Stops admitting turns and ends the ones in flight; returns whether this
+    /// caller claimed removal before another caller.
+    pub(crate) fn mark_removed(&self) -> bool {
+        if self.removal_claimed.swap(true, Ordering::SeqCst) {
+            return false;
+        }
+        // A cancelled turn can retain the watch read while its future drops.
+        // Only the first claimant writes; repeated teardown never waits on it.
         self.removed.send_replace(true);
+        true
+    }
+
+    /// Bind handles to this agent instance, even after its public id is reused.
+    pub(crate) fn removed(&self) -> watch::Receiver<bool> {
+        self.removed.subscribe()
     }
 
     /// Runs `turn` unless the agent was removed, ending it early with

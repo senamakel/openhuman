@@ -60,28 +60,37 @@
 //!
 //! # The tokio runtime is yours
 //!
-//! Build it with
-//! [`AGENT_WORKER_STACK_BYTES`](openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
-//! and [`MAX_BLOCKING_THREADS`](openhuman_core::core::runtime::MAX_BLOCKING_THREADS);
-//! an agent turn is a very deep async state machine and the default 2 MiB
-//! worker stack overflows.
+//! Use [`crate::process::tokio_runtime`] or
+//! [`crate::process::tokio_runtime_builder`]. These helpers set the worker
+//! stack size and blocking-thread limit for deep agent turns; Tokio's default
+//! 2 MiB worker stack is too small. Create one [`Runtime`] and share it with
+//! `Arc<Runtime>` across server requests, with independent agent/session scopes.
 
 mod api_key;
 mod build;
 pub(crate) mod builder;
+mod defaults;
 mod host_agents;
+pub(crate) use host_agents::AgentMap;
+mod info;
 mod lifecycle;
+mod live_hooks;
 mod presets;
 mod run;
 mod seams;
+mod selection;
 mod summary;
 
 pub use api_key::ApiKey;
 pub use builder::{ConfigSource, RuntimeBuilder};
+pub use defaults::{AgentDefaults, LearningSettings, ModelDefaults, RuntimeDefaults, SkillsPolicy};
+pub use info::{ConfigurationInfo, DefaultsInfo, RuntimeInfo, StorageInfo};
 pub use lifecycle::RemoveAgent;
 pub use run::run_from_args;
 #[doc(hidden)]
 pub use seams::StorageSource;
+use selection::ModuleSelection;
+pub use selection::{RuntimeModule, WeightClass};
 pub use summary::BuilderSummary;
 
 use std::collections::HashMap;
@@ -95,7 +104,7 @@ use openhuman_core::tools::toolpacks::ToolGroups;
 
 use crate::agent::{Agent, AgentError, AgentSpec};
 use crate::harness::workspace::ResolvedWorkspace;
-use crate::harness::{Access, HarnessCore, Provider};
+use crate::harness::HarnessCore;
 use crate::{Core, CoreError};
 
 /// Guards the process-scoped core state described in the module docs.
@@ -138,6 +147,24 @@ pub enum RuntimeError {
     #[error("the TinyHumans API key is blank")]
     BlankApiKey,
 
+    /// A requested module was excluded from this core artifact.
+    #[error("module {module:?} requires Cargo feature `{feature}`")]
+    MissingFeature {
+        /// Requested module family.
+        module: RuntimeModule,
+        /// Cargo feature required by this selection.
+        feature: &'static str,
+    },
+
+    /// The requested storage driver was excluded from this core artifact.
+    #[error("storage driver {driver} requires Cargo feature `{feature}`")]
+    MissingStorageFeature {
+        /// Requested storage driver.
+        driver: String,
+        /// Cargo feature required by this selection.
+        feature: &'static str,
+    },
+
     /// [`Workspace::Stateless`](crate::Workspace::Stateless) was asked for
     /// without a [`RuntimeBuilder::session_store`] to keep conversations in.
     #[error(
@@ -148,7 +175,7 @@ pub enum RuntimeError {
 
 /// The process-scoped state a [`Runtime`] and every [`Agent`](crate::Agent)
 /// built on it share ownership of: the core itself and, for
-/// [`Workspace::Ephemeral`], the workspace it lives in.
+/// [`crate::Workspace::Ephemeral`], the workspace it lives in.
 ///
 /// Held as `Arc<CoreGuard>` by both `Runtime` and `AgentInner` so its `Drop`
 /// — releasing [`RUNTIME_LIVE`] and removing an ephemeral workspace — runs
@@ -160,6 +187,7 @@ pub enum RuntimeError {
 /// call reinitialized the same process-global keyring, event bus and
 /// subscribers underneath it.
 pub(crate) struct CoreGuard {
+    pub(crate) events: Arc<crate::events::EventHub>,
     core: Option<Core>,
     /// Held for its `Drop`: an ephemeral workspace lives exactly as long as
     /// the last owner of this guard.
@@ -177,7 +205,7 @@ pub(crate) struct CoreGuard {
         Mutex<HashMap<String, openhuman_core::cron::system_job_handlers::SystemJobRegistration>>,
     /// Process-global seams this runtime installed; dropping restores the
     /// restorable ones (see [`seams`]).
-    seams: Option<seams::InstalledSeams>,
+    seams: Mutex<Option<seams::InstalledSeams>>,
 }
 
 impl Drop for CoreGuard {
@@ -199,7 +227,12 @@ impl Drop for CoreGuard {
                 openhuman_core::agent::session_store::restore(self.previous_session_store.take());
             }
         }
-        drop(self.seams.take());
+        drop(
+            self.seams
+                .get_mut()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .take(),
+        );
         // For an ephemeral workspace, take ownership of the temp path and
         // remove it with a short retry. The core's memory/session writers keep
         // running a moment after a turn returns and can recreate workspace
@@ -234,7 +267,7 @@ impl Drop for CoreGuard {
 /// Build once with [`Runtime::builder`]; share as `Arc<Runtime>` when several
 /// parts of the host create agents. Dropping the last of this `Runtime` and
 /// every [`Agent`](crate::Agent) built on it tears the core down and, for
-/// [`Workspace::Ephemeral`], removes the workspace — see [`CoreGuard`].
+/// [`crate::Workspace::Ephemeral`], removes the workspace — see `CoreGuard`.
 pub struct Runtime {
     id: String,
     guard: Arc<CoreGuard>,
@@ -248,13 +281,55 @@ pub struct Runtime {
     inherited: bool,
     domains: DomainSet,
     tool_groups: ToolGroups,
-    provider: Provider,
-    access: Access,
     agents: Arc<host_agents::AgentMap>,
     max_agents: usize,
+    defaults: Mutex<AgentDefaults>,
+    effective_host_kind: openhuman_core::core::types::HostKind,
+    selection: Option<ModuleSelection>,
+    storage_info: StorageInfo,
+    storage_backend: Option<Arc<dyn openhuman_core::storage::StorageBackend>>,
 }
 
 impl Runtime {
+    /// Subscribe to content-free runtime metadata; slow consumers receive a lag error.
+    pub fn events(&self) -> crate::RuntimeEvents {
+        self.guard.events.subscribe()
+    }
+
+    /// Backend installed for this runtime; absent for the classic workspace layout.
+    pub fn storage(&self) -> Option<Arc<dyn openhuman_core::storage::StorageBackend>> {
+        self.storage_backend.clone()
+    }
+
+    /// Snapshot of defaults used by newly created agents. Existing agents retain theirs.
+    pub fn defaults(&self) -> RuntimeDefaults {
+        self.defaults
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clone()
+    }
+
+    /// Register a reusable definition template. Agents resolve it once, at creation.
+    pub fn define_template(
+        &self,
+        id: impl Into<String>,
+        spec: crate::AgentDefinitionSpec,
+    ) -> Result<(), AgentError> {
+        let id = id.into();
+        if id.trim().is_empty() {
+            return Err(AgentError::Invalid("template id must not be blank".into()));
+        }
+        spec.clone()
+            .inherit(self.defaults().definition)?
+            .into_core("template-validation")?;
+        self.defaults
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .templates
+            .insert(id, spec);
+        Ok(())
+    }
+
     /// Opaque identity of this instantiated runtime.
     pub fn runtime_id(&self) -> &str {
         &self.id
@@ -288,7 +363,6 @@ impl Runtime {
         // id as free and both instantiate, with the second `insert`
         // silently overwriting the first agent's registry entry.
         let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        agents.retain(|_, weak| weak.strong_count() > 0);
         if agents.contains_key(&id) {
             return Err(AgentError::DuplicateId(id));
         }
@@ -304,6 +378,9 @@ impl Runtime {
         let inner = Arc::new(crate::agent::build::instantiate(self, spec)?);
         agents.insert(id.clone(), Arc::downgrade(&inner));
         drop(agents);
+        self.guard
+            .events
+            .emit(Some(id.clone()), None, crate::RuntimeEventKind::AgentAdded);
         log::debug!("[embed][runtime] agent registered id={id}");
         Ok(Agent::from_inner(inner))
     }
@@ -360,6 +437,11 @@ impl Runtime {
     pub async fn start_services(&self) {
         log::debug!("[embed][runtime] start_services");
         self.core_runtime().start_services().await;
+        self.guard.events.emit(
+            None,
+            None,
+            crate::RuntimeEventKind::ServicesChanged { running: true },
+        );
     }
 
     /// Stop the background services. They also stop when the last owner of
@@ -367,12 +449,16 @@ impl Runtime {
     pub fn stop_services(&self) {
         log::debug!("[embed][runtime] stop_services");
         self.core_runtime().stop_services();
+        self.guard.events.emit(
+            None,
+            None,
+            crate::RuntimeEventKind::ServicesChanged { running: false },
+        );
     }
 
-    /// Ids of the agents currently alive on this runtime.
+    /// Ids reserved by live agents or their teardown in progress.
     pub fn agent_ids(&self) -> Vec<String> {
-        let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-        agents.retain(|_, weak| weak.strong_count() > 0);
+        let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
         let mut ids: Vec<String> = agents.keys().cloned().collect();
         ids.sort();
         ids
@@ -474,9 +560,14 @@ impl Runtime {
 
     /// The shared teardown guard, cloned into every [`AgentInner`] so the
     /// core and an ephemeral workspace outlive whichever of `Runtime` or its
-    /// agents is dropped last. See [`CoreGuard`].
+    /// agents is dropped last. See `CoreGuard`.
     pub(crate) fn guard(&self) -> Arc<CoreGuard> {
         Arc::clone(&self.guard)
+    }
+
+    /// Keeps agent ids reserved through the last owner's teardown.
+    pub(crate) fn agent_registry(&self) -> Arc<AgentMap> {
+        Arc::clone(&self.agents)
     }
 
     pub(crate) fn base_config(&self) -> &Config {
@@ -485,14 +576,6 @@ impl Runtime {
 
     pub(crate) fn inherited_workspace(&self) -> bool {
         self.inherited
-    }
-
-    pub(crate) fn default_provider(&self) -> &Provider {
-        &self.provider
-    }
-
-    pub(crate) fn default_access(&self) -> &Access {
-        &self.access
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -509,9 +592,12 @@ impl Runtime {
         inherited: bool,
         domains: DomainSet,
         tool_groups: ToolGroups,
-        provider: Provider,
-        access: Access,
         max_agents: usize,
+        defaults: AgentDefaults,
+        effective_host_kind: openhuman_core::core::types::HostKind,
+        selection: Option<ModuleSelection>,
+        storage_info: StorageInfo,
+        storage_backend: Option<Arc<dyn openhuman_core::storage::StorageBackend>>,
     ) -> Self {
         let agents: Arc<host_agents::AgentMap> = Arc::new(Mutex::new(HashMap::new()));
         let resolver: Arc<dyn openhuman_core::agent::host_agents::HostAgentResolver> =
@@ -520,23 +606,27 @@ impl Runtime {
         Self {
             id: uuid::Uuid::new_v4().to_string(),
             guard: Arc::new(CoreGuard {
+                events: crate::events::EventHub::new(256),
                 core: Some(core),
                 workspace,
                 session_store,
                 previous_session_store,
                 host_agents: resolver,
                 system_jobs: Mutex::new(HashMap::new()),
-                seams,
+                seams: Mutex::new(seams),
             }),
             base_config,
             config_unavailable,
             inherited,
             domains,
             tool_groups,
-            provider,
-            access,
             agents,
             max_agents,
+            defaults: Mutex::new(defaults),
+            effective_host_kind,
+            selection,
+            storage_info,
+            storage_backend,
         }
     }
 }

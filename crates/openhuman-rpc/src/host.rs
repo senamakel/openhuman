@@ -54,6 +54,20 @@ pub fn cli_builder() -> RuntimeBuilder {
         .controller_extension(crate::http_host::extension())
 }
 
+/// Parse the side-effect-free embedding capability command.
+#[cfg(any(feature = "server", test))]
+fn embed_info(args: &[String]) -> anyhow::Result<Option<crate::embed::RuntimeInfo>> {
+    if args.first().map(String::as_str) != Some("embed") {
+        return Ok(None);
+    }
+    if !matches!(args.get(1).map(String::as_str), Some("info"))
+        || args.iter().skip(2).any(|arg| arg != "--json")
+    {
+        anyhow::bail!("usage: openhuman-core embed info [--json]");
+    }
+    Ok(Some(crate::embed::RuntimeBuilder::standard().describe()))
+}
+
 /// Run the core's command-line dispatcher on `args` (without the binary
 /// name) as the `openhuman-core` binary does: connected to the TinyHumans
 /// backend, with this crate's server behind `run` / `serve`.
@@ -64,6 +78,12 @@ pub fn cli_builder() -> RuntimeBuilder {
 /// the dispatched command failed.
 #[cfg(feature = "server")]
 pub fn cli(args: &[String]) -> anyhow::Result<()> {
+    // Introspection belongs above the core: never introduce a core -> embed dependency.
+    if let Some(info) = embed_info(args)? {
+        println!("{}", serde_json::to_string_pretty(&info)?);
+        return Ok(());
+    }
+
     log::debug!(
         "[rpc:host] cli command={} argc={}",
         args.first().map(String::as_str).unwrap_or("<none>"),

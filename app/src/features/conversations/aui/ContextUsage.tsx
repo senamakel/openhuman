@@ -51,7 +51,7 @@ const DEFAULT_CONTEXT_WINDOW = 200_000;
 
 const EMPTY_USAGE = emptySessionTokenUsage();
 
-const formatUsd = (usd: number): string => (usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(4)}`);
+const formatUsd = (usd: number): string => (usd >= 1 ? `${usd.toFixed(2)}$` : `${usd.toFixed(4)}$`);
 
 /**
  * A cost as the core reported it: the provider's charge as is, a list-price
@@ -202,7 +202,7 @@ export function ContextUsage({
         : 0;
     const stats = [
       { label: t('token.popCacheHit'), value: `${cacheHit}%` },
-      { label: t('token.costTitle'), value: formatCost(usage.costUsd, usage.costSource) },
+      { label: `${t('token.costTitle')}:`, value: formatCost(usage.costUsd, usage.costSource) },
       ...Object.values(usage.subAgents).map(sub => ({
         label: t('conversations.composer.context.subagentCost').replace('{agent}', sub.agentId),
         value: `${(sub.inputTokens + sub.outputTokens).toLocaleString('en-US')} · ${formatCost(
@@ -253,8 +253,12 @@ export function ContextUsage({
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger
+        openOnHover
+        delay={0}
+        closeDelay={120}
         render={
           <ContextDisplayRing
+            showTooltip={false}
             data-testid="composer-context-usage"
             aria-label={t('conversations.composer.context.usage')}
             modelContextWindow={contextWindow}

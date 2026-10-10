@@ -11,7 +11,8 @@ use tinyagents_harness::middleware::{
     RepeatProgressMiddleware, RunModeHandle, ToolPolicyMiddleware as TaToolPolicyMiddleware,
 };
 use tinyagents_harness::runtime::AgentHarness;
-use tinyagents_registry::CapabilityRegistry;
+use tinyagents_harness::steering::SteeringHandle;
+use tinyagents_registry::{CapabilityRegistry, RegistryDiagnostic, RegistrySnapshot};
 use tinyinference_llm::model::CapabilitySet;
 use tokio::sync::mpsc::Sender;
 
@@ -37,10 +38,8 @@ use crate::agent::tinyagents::verify_before_finish;
 use tinyagents_harness::store::InMemoryStore as ToolResultArtifactIndexStore;
 
 use super::ToolPolicyEnforcement;
-
-#[path = "harness_assembly_state.rs"]
-mod state;
-pub(super) use state::AssembledTurnHarness;
+mod assembled;
+pub(super) use assembled::AssembledTurnHarness;
 
 /// Assemble the turn harness for [`run_turn_via_tinyagents_shared`](super::run_turn_via_tinyagents_shared):
 /// register the provider model, every shared tool, and the full middleware
@@ -256,10 +255,6 @@ pub(super) fn assemble_turn_harness(
         .as_ref()
         .map(|_| Arc::new(ToolResultArtifactIndexStore::new()));
 
-    // The explicit run carrier supplies the stop hooks; no middleware needs to
-    // recover policy from a task-local while the harness is driving.
-    let stop_hooks_installed = stop_hooks;
-
     // A steering handle is always created now: besides run-queue steering, the
     // early-exit / cap / stop-hook pauses, the repeated-tool-failure breaker
     // (below) also pauses through it, and it wants to fire on every path
@@ -315,8 +310,7 @@ pub(super) fn assemble_turn_harness(
         harness.push_middleware(mw.clone());
     }
 
-    // Repeated-failure breaker: surface a root cause instead of burning the budget
-    // on failing calls; side effects come from the tools' own declarations.
+    // Repeated failures stop the run using each tool's declared side effects.
     let repeated_failure = handle.as_ref().map(|handle| {
         let (t, halt) = (REPEATED_TOOL_FAILURE_THRESHOLD, halt_summary.clone());
         let mw = middleware::RepeatedToolFailureMiddleware::new(handle.clone(), t, halt);
@@ -326,19 +320,14 @@ pub(super) fn assemble_turn_harness(
         harness.push_middleware(mw.clone());
     }
 
-    // Policy-driven stop hooks (budget cap, thread-goal budget, ad-hoc iteration
-    // ceiling): fire after each model call and pause the run on the first stop
-    // vote. Replaces the legacy tool-call-loop firing point.
-    if let Some(handle) = &handle {
-        if !stop_hooks_installed.is_empty() {
-            harness.push_middleware(Arc::new(stop_hooks::StopHookMiddleware::new(
-                handle.clone(),
-                model,
-                max_iterations,
-                stop_hooks_installed,
-            )));
-        }
-    }
+    stop_hooks::install(
+        &mut harness,
+        handle.as_ref(),
+        model,
+        max_iterations,
+        stop_hooks,
+        halt_summary.clone(),
+    );
     let early_exit_set: HashSet<&str> = early_exit_tools.iter().copied().collect();
     // One hook per run, shared by every early-exit adapter (records the first
     // early-exit and pauses). Requires the steering handle.
@@ -649,7 +638,7 @@ pub(super) fn assemble_turn_harness(
     // observation-only (never mutates the result), so running first in the
     // reverse-order `after_tool` chain is safe — it cannot perturb the
     // summarization/cap or tool-outcome capture layers.
-    let embedder_tool_hooks = crate::agent::hooks::embedder_tool_hooks();
+    let embedder_tool_hooks = crate::agent::hooks::turn_tool_hooks();
     if !embedder_tool_hooks.is_empty() {
         harness.push_middleware(Arc::new(middleware::EmbedderToolHooksMiddleware::new(
             embedder_tool_hooks,

@@ -26,7 +26,7 @@ export function InterruptedTurnNotice() {
       data-testid="interrupted-turn"
       data-slot="interrupted-run"
       role="status"
-      className="flex w-full max-w-sm flex-col gap-2 px-2">
+      className="flex w-full flex-col gap-2 px-2">
       {partial.length > 0 && (
         <p className="text-foreground/80 text-[13.5px] leading-relaxed whitespace-pre-wrap">
           {partial}

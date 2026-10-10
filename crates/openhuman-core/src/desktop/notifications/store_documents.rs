@@ -39,13 +39,19 @@ use super::types::{
     CoreNotificationEvent, IntegrationNotification, NotificationSettings, NotificationStats,
     NotificationStatus,
 };
+use crate::config::Config;
 use crate::storage::documents::{compare_and_swap, text, Repo, CAS_ATTEMPTS};
+use crate::storage::local::{self, ImportPlan};
 use crate::storage::{DocumentStore, DocumentStoreExt, StorageError};
 
-const NOTIFICATIONS: &str = "integration_notifications";
+pub(super) const NOTIFICATIONS: &str = "integration_notifications";
 const DEDUP: &str = "notification_dedup";
-const SETTINGS: &str = "notification_settings";
-const CORE: &str = "core_notifications";
+pub(super) const SETTINGS: &str = "notification_settings";
+pub(super) const CORE: &str = "core_notifications";
+
+/// The `workspace` key of core notifications in the per-workspace default
+/// file (see [`current`]).
+pub(super) const LOCAL_WORKSPACE: &str = "local";
 const DOMAIN: &str = "notifications::store";
 
 /// How long identical content counts as a duplicate.
@@ -65,9 +71,33 @@ fn collections() -> Vec<CollectionSpec> {
     ]
 }
 
-/// The document store for this call, when the host configured one.
-pub(super) fn current() -> Result<Option<Docs>> {
-    Ok(Repo::current(DOMAIN, collections)?.map(Docs))
+fn workspace_key(path: &std::path::Path) -> String {
+    format!("path:{}", hex::encode(path.as_os_str().as_encoded_bytes()))
+}
+
+/// The document store for this call: the host's configured backend or, by
+/// default, the document tables in `notifications.db` (the legacy tables
+/// imported on first open). `None` keeps the legacy tables.
+pub(super) fn current(config: &Config) -> Result<Option<Docs>> {
+    // An installed backend may be shared by several workspaces, so it keeps
+    // core notifications apart by workspace path. The default file lives in
+    // the workspace and moves with it, so it uses a fixed key: a renamed or
+    // restored workspace still finds its notifications.
+    let workspace = if crate::storage::installed().is_some() {
+        workspace_key(&config.workspace_dir)
+    } else {
+        LOCAL_WORKSPACE.to_string()
+    };
+    let plan = ImportPlan {
+        domain: DOMAIN,
+        tables: super::store::import::TABLES,
+        read: &|| super::store::import::read(config),
+    };
+    let db_path = super::store::db_path(config);
+    Ok(
+        local::repo(config, &db_path, DOMAIN, collections, &plan)?
+            .map(|repo| Docs(repo, workspace)),
+    )
 }
 
 fn status_of(raw: Option<&str>) -> NotificationStatus {
@@ -83,7 +113,7 @@ fn parse_time(raw: Option<&str>) -> Option<DateTime<Utc>> {
     raw.and_then(|value| value.parse().ok())
 }
 
-fn to_doc(n: &IntegrationNotification) -> Value {
+pub(super) fn to_doc(n: &IntegrationNotification) -> Value {
     let mut doc = Map::new();
     doc.insert("provider".into(), json!(n.provider));
     doc.insert("title".into(), json!(n.title));
@@ -223,18 +253,23 @@ async fn release_content(
 /// The core-notification document id: the workspace is part of the key, since
 /// each workspace's events are persisted separately in the SQL store (one
 /// database per workspace) and event ids repeat across them.
-fn core_id(workspace: &str, event_id: &str) -> String {
+pub(super) fn core_id(workspace: &str, event_id: &str) -> String {
     format!("{}:{workspace}/{event_id}", workspace.len())
 }
 
 /// The notification store over one scoped document handle.
 #[derive(Clone)]
-pub(super) struct Docs(Repo);
+pub(super) struct Docs(Repo, String);
 
 impl Docs {
     #[cfg(test)]
     pub(super) fn over(scoped: &crate::storage::ScopedStorage) -> Self {
-        Self(Repo::over(scoped, DOMAIN, collections))
+        Self(Repo::over(scoped, DOMAIN, collections), String::new())
+    }
+
+    /// The `workspace` key this handle files core notifications under.
+    pub(super) fn workspace(&self) -> &str {
+        &self.1
     }
 
     /// Inserts `n`, failing if its id exists. With `skip_recent`, returns

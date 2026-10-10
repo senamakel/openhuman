@@ -204,10 +204,27 @@ impl std::fmt::Debug for AgentChatTarget<'_> {
     }
 }
 
+// Definitions are reusable snapshots. A turn override belongs only to the
+// definition passed to this call's factory, which otherwise wins over Config.
+fn definition_for_turn(
+    definition: &crate::agent::harness::definition::AgentDefinition,
+    temperature: Option<f64>,
+) -> std::borrow::Cow<'_, crate::agent::harness::definition::AgentDefinition> {
+    match temperature {
+        Some(temperature) => {
+            let mut scoped = definition.clone();
+            scoped.temperature = temperature;
+            std::borrow::Cow::Owned(scoped)
+        }
+        None => std::borrow::Cow::Borrowed(definition),
+    }
+}
+
 fn build_turn_agent(
     config: &Config,
     target: &AgentChatTarget<'_>,
     session_id: Option<&str>,
+    temperature: Option<f64>,
 ) -> Result<OpenHumanSessionHost, String> {
     match target {
         AgentChatTarget::Orchestrator => OpenHumanSessionHost::from_config(config),
@@ -220,15 +237,24 @@ fn build_turn_agent(
             host,
             host_only: true,
             ..
-        } => OpenHumanSessionHost::from_config_host_only(config, definition, *host, session_id),
+        } => {
+            let definition = definition_for_turn(definition, temperature);
+            OpenHumanSessionHost::from_config_host_only(config, &definition, *host, session_id)
+        }
         AgentChatTarget::Definition {
             definition, host, ..
-        } => match host {
-            Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
-                config, definition, host, session_id,
-            ),
-            None => OpenHumanSessionHost::from_config_with_definition(config, definition),
-        },
+        } => {
+            let definition = definition_for_turn(definition, temperature);
+            match host {
+                Some(host) => OpenHumanSessionHost::from_config_with_host_tools(
+                    config,
+                    &definition,
+                    host,
+                    session_id,
+                ),
+                None => OpenHumanSessionHost::from_config_with_definition(config, &definition),
+            }
+        }
     }
     .map_err(|e| e.to_string())
 }
@@ -367,14 +393,14 @@ pub async fn agent_chat_reply_for(
                 "[inference] agent_chat rooting turn tools at cwd={}",
                 root.display()
             );
-            let mut agent = build_turn_agent(&scoped, &target, turn_session_id)?;
+            let mut agent = build_turn_agent(&scoped, &target, turn_session_id, temperature)?;
             // Also thread it as the turn's workspace descriptor so acting tools
             // that read `ToolExecutionContext::workspace` (shell) resolve their
             // default cwd here, and so spawned sub-agents inherit the same root.
             agent.set_workspace_descriptor(Some(tinytools::WorkspaceDescriptor::new(root.clone())));
             agent
         }
-        None => build_turn_agent(config, &target, turn_session_id)?,
+        None => build_turn_agent(config, &target, turn_session_id, temperature)?,
     };
     // Thread-correct resume. `OpenHumanSessionHost::turn` would otherwise auto-load the
     // newest transcript for the agent *name*, which is another thread's

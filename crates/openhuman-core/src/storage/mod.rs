@@ -2,9 +2,12 @@
 //!
 //! One URL picks where durable state that has moved onto the storage ports
 //! lives: `OPENHUMAN_STORAGE_URL`, else `[storage] url` in `config.toml`
-//! ([`crate::config::StorageConfig`]). With neither set — the desktop default —
-//! nothing here is opened and every domain keeps the classic on-disk layout
-//! under the workspace.
+//! ([`crate::config::StorageConfig`]), else the default
+//! ([`config::StorageMode`]). The default installs no backend: the large
+//! stores keep their SQLite files, and the small ones (approvals, devices,
+//! notifications, task sources) keep document tables inside their own `.db`
+//! files, importing their old tables on first open ([`local`]). The value
+//! `classic` opts out to the pure legacy layout.
 //!
 //! When a URL is set, the host opens it once at startup ([`open`]) and
 //! installs it ([`install`]); domains reach it through [`installed`] and bind
@@ -19,20 +22,22 @@
 //! misconfigured deployment stops at boot instead of at its first write.
 
 pub mod agents;
+pub mod config;
 pub mod documents;
 pub mod fence;
 pub mod fenced_backend;
 pub mod lease;
 mod lease_documents;
 mod lease_local;
+pub mod local;
 pub mod secrets;
 
 use std::future::Future;
 use std::sync::{Arc, LazyLock, OnceLock, RwLock};
 
 pub use tinystoragedrivers::{
-    Blocking, DocumentStore, DocumentStoreExt, MemoryStorage, Scope, ScopedStorage, StorageBackend,
-    StorageConfig as StorageUrl, StorageError,
+    Blocking, CollectionSpec, DocumentStore, DocumentStoreExt, MemoryStorage, Precondition, Scope,
+    ScopedStorage, StorageBackend, StorageConfig as StorageUrl, StorageError,
 };
 
 use crate::config::schema::storage::redact_url;
@@ -73,9 +78,10 @@ impl Slot {
 
 static BACKEND: LazyLock<Slot> = LazyLock::new(Slot::default);
 
-/// The storage URL in effect: [`STORAGE_URL_VAR`], else `config`'s
-/// `[storage] url`. Blank values count as unset. `None` keeps the classic
-/// on-disk layout.
+/// The storage URL a host opens at startup: [`STORAGE_URL_VAR`], else
+/// `config`'s `[storage] url`. Blank values count as unset. `None` — nothing
+/// configured, or the [`config::CLASSIC`] opt-out — opens nothing; see
+/// [`config::mode`] for the default's small-store behavior.
 pub fn configured_url(config: &Config) -> Option<String> {
     url_from(std::env::var(STORAGE_URL_VAR).ok(), config)
 }
@@ -83,10 +89,10 @@ pub fn configured_url(config: &Config) -> Option<String> {
 /// [`configured_url`] with the environment read made explicit, so the rule
 /// is testable without mutating process-wide state.
 pub fn url_from(env: Option<String>, config: &Config) -> Option<String> {
-    env.into_iter()
-        .chain(config.storage.url.clone())
-        .map(|url| url.trim().to_string())
-        .find(|url| !url.is_empty())
+    match config::mode_from(env, config) {
+        config::StorageMode::Url(url) => Some(url),
+        config::StorageMode::Default | config::StorageMode::Classic => None,
+    }
 }
 
 /// Parses and opens the backend `url` names, its writes fenced by the

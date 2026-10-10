@@ -206,6 +206,13 @@ name = "cli_storage_url_e2e"
 path = "../../tests/cli_storage_url_e2e.rs"
 
 [[test]]
+# Boots `openhuman-core serve` on a workspace with legacy approval rows.
+name = "storage_default_import_e2e"
+path = "../../tests/storage_default_import_e2e.rs"
+# Without the SQLite driver the stores keep the legacy tables.
+required-features = ["storage-sqlite"]
+
+[[test]]
 name = "saas_mode_e2e"
 path = "../../tests/saas_mode_e2e.rs"
 
@@ -270,13 +277,7 @@ path = "../../tests/observability_wallet_expected_e2e.rs"
 name = "skills_mcp_registry_live"
 path = "../../tests/skills_mcp_registry_live.rs"
 
-[[example]]
-name = "embed_headless"
-path = "../../examples/embed_headless.rs"
 
-[[example]]
-name = "embed_kernel"
-path = "../../examples/embed_kernel.rs"
 
 [dependencies]
 # The only openhuman crate the binary depends on. Every gate below forwards to
@@ -348,6 +349,7 @@ urlencoding = "2.1"
 wiremock = "0.6"
 
 [features]
+langfuse = ["openhuman-rpc/langfuse"]
 # The contributor set: the core's `[features] default` gates (listed, because
 # `openhuman-rpc`'s own default carries only its server and client) plus the
 # Jev ranker. The product lanes pass `--features
@@ -364,6 +366,7 @@ default = [
     "modules",
     "jev",
     "tinymemes",
+    "storage-sqlite",
 ]
 # Every gate forwards to `openhuman-rpc` alone (chain: rpc -> tinyhumans ->
 # embed -> core); `scripts/ci/check-feature-forwarding.mjs` checks the link.

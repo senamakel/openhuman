@@ -162,3 +162,14 @@ fn cli_storage_is_opened_for_one_shot_commands_only() {
     assert!(uses(&["cron", "add", "--name", "help"]));
     assert!(uses(&["--model", "help", "cron", "list"]));
 }
+
+#[test]
+fn embed_info_is_versioned_and_rejects_unknown_flags() {
+    let info = embed_info(&["embed".into(), "info".into(), "--json".into()])
+        .unwrap()
+        .unwrap();
+    assert_eq!(info.schema_version, 1);
+    assert!(info.compiled_features.contains_key("voice"));
+    assert!(embed_info(&["embed".into(), "info".into(), "--secret".into()]).is_err());
+    assert!(embed_info(&["serve".into()]).unwrap().is_none());
+}

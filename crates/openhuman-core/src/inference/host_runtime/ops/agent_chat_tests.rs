@@ -68,3 +68,17 @@ fn the_outcome_keeps_its_historical_shape() {
     assert_eq!(outcome.value, "hi");
     assert_eq!(outcome.logs, vec!["agent chat completed".to_string()]);
 }
+
+#[test]
+fn explicit_turn_temperature_overrides_the_definition_without_mutating_it() {
+    let mut definition = crate::agent::harness::builtin_definitions::test_main_def();
+    definition.temperature = 0.6;
+    let effective = definition_for_turn(&definition, Some(0.9));
+    assert_eq!(effective.temperature, 0.9);
+    assert_eq!(definition.temperature, 0.6);
+    assert!(matches!(
+        definition_for_turn(&definition, None),
+        std::borrow::Cow::Borrowed(_)
+    ));
+    assert_eq!(definition_for_turn(&definition, None).temperature, 0.6);
+}

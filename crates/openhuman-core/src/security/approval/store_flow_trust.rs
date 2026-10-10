@@ -32,7 +32,7 @@ pub fn record_flow_preauthorization(
     tool_name: &str,
     session_id: &str,
 ) -> Result<()> {
-    if let Some(docs) = super::super::store_documents::current()? {
+    if let Some(docs) = super::super::store_documents::current(config)? {
         return docs.insert_decided(
             tool_name,
             PREAUTHORIZATION_SUMMARY,
@@ -80,7 +80,7 @@ pub fn record_flow_preauthorization(
 /// flow-origin park. `INSERT OR IGNORE` makes re-granting an already-trusted
 /// pair a harmless no-op rather than a primary-key error.
 pub fn insert_flow_trust(config: &Config, flow_id: &str, tool_name: &str) -> Result<()> {
-    if let Some(docs) = super::super::store_documents::current()? {
+    if let Some(docs) = super::super::store_documents::current(config)? {
         return docs.insert_flow_trust(flow_id, tool_name);
     }
     with_connection(config, |conn| {
@@ -99,7 +99,7 @@ pub fn insert_flow_trust(config: &Config, flow_id: &str, tool_name: &str) -> Res
 /// save-time pre-authorization manifest (`flows_approval_manifest`) to diff
 /// "what the graph needs" against "what is already granted".
 pub fn list_flow_trust(config: &Config, flow_id: &str) -> Result<Vec<String>> {
-    if let Some(docs) = super::super::store_documents::current()? {
+    if let Some(docs) = super::super::store_documents::current(config)? {
         return docs.list_flow_trust(flow_id);
     }
     with_connection(config, |conn| {
@@ -127,7 +127,7 @@ pub fn delete_flow_trust(
     flow_id: &str,
     tool_names: Option<&[String]>,
 ) -> Result<usize> {
-    if let Some(docs) = super::super::store_documents::current()? {
+    if let Some(docs) = super::super::store_documents::current(config)? {
         return docs.delete_flow_trust(flow_id, tool_names);
     }
     with_connection(config, |conn| {
@@ -160,7 +160,7 @@ pub fn delete_flow_trust(
 /// this flow" trust. Consulted by [`super::gate::ApprovalGate::intercept_audited`]
 /// before parking a `Workflow`-origin tool call.
 pub fn is_flow_tool_trusted(config: &Config, flow_id: &str, tool_name: &str) -> Result<bool> {
-    if let Some(docs) = super::super::store_documents::current()? {
+    if let Some(docs) = super::super::store_documents::current(config)? {
         return docs.is_flow_tool_trusted(flow_id, tool_name);
     }
     with_connection(config, |conn| {

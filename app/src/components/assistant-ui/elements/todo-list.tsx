@@ -46,13 +46,10 @@ export function TodoList({
   const done = items.filter(item => item.status === 'done').length;
 
   return (
-    <div
-      data-slot="todo-list"
-      className={cn('flex w-full max-w-sm flex-col gap-3', className)}
-      {...props}>
-      <div className="flex items-baseline justify-between">
+    <div data-slot="todo-list" className={cn('flex w-full flex-col gap-3', className)} {...props}>
+      <div className="flex items-start justify-between gap-3">
         <span className="text-[13.5px] font-medium">{title}</span>
-        <span className={cn(mono, 'text-foreground/35 tabular-nums')}>
+        <span className={cn(mono, 'text-muted-foreground tabular-nums')}>
           {revision === undefined
             ? `${done}/${items.length}`
             : `${done}/${items.length} · rev ${revision}`}
@@ -64,19 +61,33 @@ export function TodoList({
 }
 
 /** The step rows, shared by every todo surface. */
-export function TodoItems({ items }: { items: readonly TodoItem[] }) {
+export function TodoItems({
+  items,
+  compact = false,
+}: {
+  items: readonly TodoItem[];
+  compact?: boolean;
+}) {
   return (
-    <ul className="flex flex-col gap-1">
+    <ul className={cn('flex flex-col', compact ? 'gap-0.5' : 'gap-1')}>
       {items.map(item => (
         <li
           key={item.id}
           data-testid="todo-item"
           data-status={item.status}
-          className="fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex items-start gap-2.5 py-0.5 text-[13.5px] duration-300">
-          <span aria-hidden className="flex size-4 h-5 shrink-0 items-center justify-center">
+          className={cn(
+            'fade-in slide-in-from-bottom-1 animate-in fill-mode-both flex items-start duration-300',
+            compact ? 'gap-2 py-0 text-xs' : 'gap-2.5 py-0.5 text-[13.5px]'
+          )}>
+          <span
+            aria-hidden
+            className={cn(
+              'flex size-4 shrink-0 items-center justify-center',
+              compact ? 'h-4' : 'h-5'
+            )}>
             {item.status === 'done' ? (
               <span className="border-foreground/20 bg-foreground/[0.06] flex size-3.5 items-center justify-center rounded-[5px] border">
-                <CheckIcon className="text-foreground/45 size-2.5" />
+                <CheckIcon className="text-muted-foreground size-2.5" />
               </span>
             ) : item.status === 'failed' ? (
               <span className="flex size-3.5 items-center justify-center rounded-[5px] border border-red-600/25 bg-red-600/[0.08] dark:border-red-400/25 dark:bg-red-400/[0.08]">
@@ -89,18 +100,22 @@ export function TodoItems({ items }: { items: readonly TodoItem[] }) {
             )}
           </span>
           <span className="sr-only">{item.status}</span>
-          <div className="min-w-0 flex-1 leading-5 break-words">
+          <div className={cn('min-w-0 flex-1 break-words', compact ? 'leading-4' : 'leading-5')}>
             <span
               className={cn(
-                item.status === 'done' && 'text-foreground/35 line-through decoration-[1.5px]',
+                item.status === 'done' &&
+                  cn(
+                    compact ? 'text-muted-foreground' : 'text-muted-foreground',
+                    'line-through decoration-[1.5px]'
+                  ),
                 item.status === 'active' && 'text-foreground/90',
-                item.status === 'pending' && 'text-foreground/50',
+                item.status === 'pending' && 'text-muted-foreground',
                 item.status === 'failed' && 'text-red-600 dark:text-red-400'
               )}>
               {item.text}
             </span>
             {item.status === 'failed' && item.reason ? (
-              <p className="text-foreground/45 text-xs leading-4 break-words">{item.reason}</p>
+              <p className="text-muted-foreground text-xs leading-4 break-words">{item.reason}</p>
             ) : null}
           </div>
         </li>
@@ -155,7 +170,7 @@ function ProgressMarker({ progress }: { progress: TodoProgress }) {
       />
     );
   }
-  return <ListChecksIcon aria-hidden className="text-foreground/40 size-3.5 shrink-0" />;
+  return <ListChecksIcon aria-hidden className="text-muted-foreground size-3.5 shrink-0" />;
 }
 
 /**
@@ -191,7 +206,7 @@ export function TodoProgressCard({
       data-todo-completed={progress.done}
       data-todo-total={progress.total}
       className={cn(
-        'border-border/60 bg-background/60 flex w-full max-w-md flex-col overflow-hidden rounded-xl border',
+        'bg-background flex w-full max-w-none flex-col overflow-hidden rounded-lg',
         className
       )}
       {...props}>
@@ -201,14 +216,14 @@ export function TodoProgressCard({
         aria-label={title}
         data-analytics-id="chat-todo-progress-toggle"
         onClick={() => onOpenChange(!open)}
-        className="hover:bg-foreground/[0.03] flex items-center gap-2 px-3 py-1.5 text-start transition-colors">
+        className="hover:bg-foreground/[0.03] flex items-center gap-2 px-2 py-1 text-start transition-colors">
         <ProgressMarker progress={progress} />
-        <span className="text-foreground/80 min-w-0 flex-1 truncate text-[13px]">
+        <span className="text-foreground/80 min-w-0 flex-1 truncate text-xs">
           {open ? title : (progress.current?.text ?? title)}
         </span>
         <span
           data-testid="todo-progress-count"
-          className={cn(mono, 'text-foreground/40 shrink-0 tabular-nums')}>
+          className={cn(mono, 'text-muted-foreground shrink-0 tabular-nums')}>
           {progress.allDone
             ? completedLabel
             : open
@@ -218,7 +233,7 @@ export function TodoProgressCard({
         <ChevronRightIcon
           aria-hidden
           className={cn(
-            'text-foreground/30 size-3 shrink-0 transition-transform duration-200 motion-reduce:transition-none',
+            'text-muted-foreground size-3 shrink-0 transition-transform duration-200 motion-reduce:transition-none',
             open && 'rotate-90'
           )}
         />
@@ -229,8 +244,8 @@ export function TodoProgressCard({
       <div
         data-slot="todo-progress-steps"
         hidden={!open}
-        className="border-border/60 max-h-[min(300px,48dvh)] overflow-y-auto border-t px-3 py-2">
-        <TodoItems items={items} />
+        className="max-h-[min(160px,24dvh)] overflow-y-auto px-2 pt-0.5 pb-1">
+        <TodoItems items={items} compact />
       </div>
     </div>
   );
@@ -257,13 +272,13 @@ export function TodoReceipt({
 }) {
   const progress = todoProgress(items);
   return (
-    <div data-slot="todo-receipt" className="flex w-full max-w-md flex-col">
+    <div data-slot="todo-receipt" className="flex w-full flex-col">
       <button
         type="button"
         aria-expanded={open}
         data-analytics-id="chat-todo-receipt-toggle"
         onClick={() => onOpenChange(!open)}
-        className="text-foreground/50 hover:text-foreground/80 flex min-w-0 items-center gap-1.5 py-0.5 text-start text-[12.5px] transition-colors">
+        className="text-muted-foreground hover:text-foreground/80 flex min-w-0 items-center gap-1.5 py-0.5 text-start text-[12.5px] transition-colors">
         <ListChecksIcon aria-hidden className="size-3.5 shrink-0" />
         <span className="min-w-0 truncate">
           {label}

@@ -131,7 +131,7 @@ const REAPER_BOOT_CHILD_ENV: &str = "OPENHUMAN_TEST_REAPER_BOOT_CHILD";
 
 /// The child half of `a_build_only_runtime_is_swept_before_it_can_be_invoked`:
 /// build a runtime with no transport and no services — the shape
-/// `examples/embed_headless.rs` documents — against the `OPENHUMAN_WORKSPACE`
+/// `crates/openhuman-embed/examples/lean_headless.rs` documents — against the `OPENHUMAN_WORKSPACE`
 /// the parent exported, and check the build resolved that workspace. The
 /// parent reads the sweep's effect out of the store afterwards.
 async fn boot_child() {

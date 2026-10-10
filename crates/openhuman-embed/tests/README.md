@@ -36,7 +36,23 @@ recorded on the wrong server.
 | [`composio_agents.rs`](composio_agents.rs) | Two agents with their own `ComposioHostCredential` reach Composio with their own key only. |
 | [`memory_facade.rs`](memory_facade.rs) | `Runtime::memory` over TinyMemory's in-memory reference engine keeps two tenant roots apart. |
 | [`saas_profiles.rs`](saas_profiles.rs) | A `ProfileRuntime` (SaaS mode, in-process): two users on thread `t1` see only their own messages and ride their own credential, a held `ProfileHandle` keeps its profile from release, a relayed Telegram message lands on the user's `channel:` thread with its `channel_outbound` reply on that user's events only, and the process refuses any other core afterwards. Inference is `common::echo_inference` behind `common::PointedTransport`. |
+| [`repository_tools.rs`](repository_tools.rs), [`repository_host_only.rs`](repository_host_only.rs) | Host-backed repository queries validate before dispatch, require redaction, fence and bound output, and remain isolated from shell/write/network under HostOnly, read-only, untrusted-input turns. See [repository contract](../src/repository/README.md). |
+| [`completion_routing.rs`](completion_routing.rs) | Ordered endpoint fallback, bounded 2x/4x truncation retries, final unpinned gateway routing, images and accounting across all attempts. |
+| [`tool_required_routing.rs`](tool_required_routing.rs) | Native host tool metadata for GPT, Kimi and MiniMax model IDs; premature JSON refusal; required successful execution before final schema; gateway options survive. |
+| [`completion_cancellation.rs`](completion_cancellation.rs) | Cancellation acknowledged after the provider future stops, pre-cancelled calls make no request, and deadlines are typed. |
+| [`structured_validation.rs`](structured_validation.rs) | Full schema constraints, invalid/external schema refusal before dispatch, typed failures and bounded repair usage. |
+| [`turn_observers.rs`](turn_observers.rs) | Terminal error privacy, explicit input capture, and exactly one terminal callback on dispatch failure. |
+| [`observed_turns.rs`](observed_turns.rs) | Actual model and host-tool observations survive the core runtime task hop; payloads require consent; actual model, finish reason and reasoning usage. |
 | [`public_api.rs`](public_api.rs) | Compile-time check that the host-facing types and signatures stay exported. |
+| [`turn_cancellation.rs`](turn_cancellation.rs) | Cancellation before send, during inference and during a builtin shell command; repeated requests and agent reuse. |
+| [`process_cancellation.rs`](process_cancellation.rs) | On Linux, dropping a command future kills its shell descendants. |
+| `inline_permissions.rs` | An inline UI decision precedes execution; concurrent agents and one-turn denials stay isolated. |
+| `usage_hooks.rs` | Per-agent stop policy and per-turn cumulative usage observation, with provider charges and no extra calls after a stop. |
+| [`turn_tools.rs`](turn_tools.rs) | One-turn belt replacement/revocation, resumed-session schemas and independent concurrent workers. |
+| [`tool_environment.rs`](tool_environment.rs) | Overlapping child environments exclude inherited variables and stay within their own scopes. |
+| [`scoped_hooks.rs`](scoped_hooks.rs) | Same-named runtime, agent and turn callbacks remain additive and isolated during concurrent turns, resumed sessions and reuse of a removed agent id. |
+| [`route_headers.rs`](route_headers.rs) | Attribution headers and bearer follow only the per-turn route, without reaching other agents, later turns or backend calls. |
+| [`tool_hook_context.rs`](tool_hook_context.rs) | Hook agent/session identities and cwd agree with builtin shell execution on an overridden and a default working root. |
 
 ## Running
 

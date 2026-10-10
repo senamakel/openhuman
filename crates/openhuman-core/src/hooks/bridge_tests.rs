@@ -11,6 +11,7 @@ fn context(tool: &str, arguments: Value) -> ToolHookContext {
         output: None,
         error: None,
         session_id: Some("sess-1".into()),
+        cwd: None,
         agent_id: None,
     }
 }

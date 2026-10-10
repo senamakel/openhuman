@@ -49,6 +49,8 @@ mod bootstrap;
 pub mod builder;
 pub mod context;
 pub mod domain_set;
+mod features;
+pub use features::compiled_features;
 pub mod mode;
 pub mod saas;
 pub mod services;

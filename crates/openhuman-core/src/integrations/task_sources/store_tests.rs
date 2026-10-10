@@ -4,12 +4,14 @@ use serde_json::json;
 use tempfile::TempDir;
 
 fn test_config(tmp: &TempDir) -> Config {
-    let config = Config {
+    let mut config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     };
+    // These tests exercise the legacy SQLite tables themselves.
+    config.storage.url = Some("classic".into());
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     config
 }

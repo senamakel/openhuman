@@ -81,6 +81,7 @@ const STORAGE_E2E_TARGETS = [
   "storage_scope_e2e",
   "storage_agent_scopes_e2e",
   "storage_delegation_e2e",
+  "storage_default_import_e2e",
   "cli_storage_url_e2e",
 ];
 const STORAGE_LIB_FILTERS = [
@@ -420,6 +421,22 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
           name: "embed-check-no-default",
           when: core,
           run: "cargo check -p openhuman-embed --no-default-features",
+        },
+        {
+          name: "embed-doctests",
+          when: core,
+          run: "bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed --doc",
+        },
+        {
+          name: "embed-rustdoc",
+          when: core,
+          env: { RUSTDOCFLAGS: "-D warnings" },
+          run: "bash scripts/ci-cancel-aware.sh cargo doc -p openhuman-embed --no-deps",
+        },
+        {
+          name: "embed-offline-examples",
+          when: core,
+          run: "node scripts/run-embed-examples.mjs",
         },
         {
           name: "tinyhumans-clippy",

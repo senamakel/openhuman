@@ -9,6 +9,10 @@ mod integrations;
 mod voice;
 mod workspace;
 
+#[cfg(test)]
+#[path = "schema_defs_tests.rs"]
+mod tests;
+
 pub fn schemas(function: &str) -> ControllerSchema {
     inference::lookup(function)
         .or_else(|| agent::lookup(function))

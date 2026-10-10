@@ -249,6 +249,62 @@ pub(crate) struct InstalledSeams {
 }
 
 impl InstalledSeams {
+    pub(crate) fn post_turn_hook(&mut self, name: &str, hook: Option<Arc<dyn PostTurnHook>>) {
+        while let Some(index) = self
+            .post_turn_hooks
+            .iter()
+            .rposition(|installed| installed.name == name)
+        {
+            let installed = self.post_turn_hooks.remove(index);
+            let current = embedder_post_turn_hooks()
+                .into_iter()
+                .find(|hook| hook.name() == name);
+            if current.is_some_and(|current| Arc::ptr_eq(&current, &installed.ours)) {
+                replace_embedder_post_turn_hook(name, installed.previous);
+            }
+        }
+        if let Some(hook) = hook {
+            let hook: Arc<dyn PostTurnHook> =
+                Arc::new(super::live_hooks::NamedPostTurnHook(name.to_owned(), hook));
+            let previous = embedder_post_turn_hooks()
+                .into_iter()
+                .find(|hook| hook.name() == name);
+            replace_embedder_post_turn_hook(name, Some(hook.clone()));
+            self.post_turn_hooks.push(InstalledHook {
+                name: name.to_owned(),
+                ours: hook,
+                previous,
+            });
+        }
+    }
+    pub(crate) fn tool_hook(&mut self, name: &str, hook: Option<Arc<dyn ToolHook>>) {
+        while let Some(index) = self
+            .tool_hooks
+            .iter()
+            .rposition(|installed| installed.name == name)
+        {
+            let installed = self.tool_hooks.remove(index);
+            let current = embedder_tool_hooks()
+                .into_iter()
+                .find(|hook| hook.name() == name);
+            if current.is_some_and(|current| Arc::ptr_eq(&current, &installed.ours)) {
+                replace_embedder_tool_hook(name, installed.previous);
+            }
+        }
+        if let Some(hook) = hook {
+            let hook: Arc<dyn ToolHook> =
+                Arc::new(super::live_hooks::NamedToolHook(name.to_owned(), hook));
+            let previous = embedder_tool_hooks()
+                .into_iter()
+                .find(|hook| hook.name() == name);
+            replace_embedder_tool_hook(name, Some(hook.clone()));
+            self.tool_hooks.push(InstalledHook {
+                name: name.to_owned(),
+                ours: hook,
+                previous,
+            });
+        }
+    }
     /// Install the live policy, if one was given, against the booted config's
     /// directories. Call after the core's bootstrap has installed its own.
     pub(crate) fn install_live_policy(

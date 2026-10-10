@@ -10,7 +10,7 @@ use crate::core::all::DomainGroup;
 /// the common hosts:
 /// [`DomainSet::full`] (every family — today's behavior, the default),
 /// [`DomainSet::harness`] (agent + memory + threads + config + security only —
-/// the embeddable agent core used by `examples/embed_headless.rs`), and
+/// the embeddable agent core used by `crates/openhuman-embed/examples/lean_headless.rs`), and
 /// [`DomainSet::none`] (all domain families disabled; transport built-ins and
 /// always-on core infrastructure still run).
 ///
@@ -102,7 +102,7 @@ impl DomainSet {
 
     /// The embeddable agent core: agent + memory + threads + config + security.
     /// Every gate family AND `platform` are off. Used by
-    /// `examples/embed_headless.rs`.
+    /// `crates/openhuman-embed/examples/lean_headless.rs`.
     pub fn harness() -> Self {
         Self {
             agent: true,
@@ -183,7 +183,7 @@ impl DomainSet {
     /// are OFF on purpose: they are the two largest subsystems and the ones an
     /// alternative driver would replace, so a host that wants them says so.
     ///
-    /// See `examples/embed_kernel.rs`.
+    /// See `crates/openhuman-embed/examples/capability_report.rs`.
     pub fn kernel() -> Self {
         Self {
             agent: false,

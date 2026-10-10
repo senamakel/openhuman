@@ -9,8 +9,7 @@ use super::{Config, PendingApproval};
 /// Whether the approval store has been created for `config`'s workspace.
 /// A configured document store always exists.
 pub fn exists(config: &Config) -> bool {
-    matches!(super::super::store_documents::current(), Ok(Some(_)))
-        || super::db_path(config).is_file()
+    crate::storage::installed().is_some() || super::db_path(config).is_file()
 }
 
 /// [`list_pending`](super::list_pending) narrowed to the rows of `agent` (see
@@ -28,7 +27,7 @@ pub fn list_pending_for_agent(
 /// The agent that parked the still-undecided `request_id`: `Ok(None)` when no
 /// such row exists, `Ok(Some(None))` for a row the process parked itself.
 pub fn pending_agent(config: &Config, request_id: &str) -> Result<Option<Option<String>>> {
-    if let Some(docs) = super::super::store_documents::current()? {
+    if let Some(docs) = super::super::store_documents::current(config)? {
         return docs.pending_agent(request_id);
     }
     super::with_connection(config, |conn| {

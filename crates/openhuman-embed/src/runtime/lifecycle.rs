@@ -2,6 +2,7 @@
 
 use std::future::{Future, IntoFuture};
 use std::pin::Pin;
+use std::sync::Arc;
 use std::time::Duration;
 
 use super::Runtime;
@@ -9,6 +10,51 @@ use crate::agent::AgentError;
 
 /// How long [`Runtime::remove_agent`] waits for in-flight turns to unwind.
 const REMOVE_IDLE_WAIT: Duration = Duration::from_secs(10);
+
+// Reserve the public id until all old-instance cleanup finishes, including
+// when a caller cancels the removal future after it has started.
+struct RemovalSlot<'a> {
+    runtime: &'a Runtime,
+    inner: Arc<crate::agent::AgentInner>,
+    purge: bool,
+}
+
+impl RemovalSlot<'_> {
+    fn purge_home(&mut self) -> Result<(), AgentError> {
+        if !std::mem::take(&mut self.purge) {
+            return Ok(());
+        }
+        let home = &self.inner.layout.home;
+        if home.exists() {
+            std::fs::remove_dir_all(home).map_err(|source| AgentError::Workspace {
+                what: "delete the removed agent's home",
+                source,
+            })?;
+        }
+        Ok(())
+    }
+}
+
+impl Drop for RemovalSlot<'_> {
+    fn drop(&mut self) {
+        self.inner.teardown("agent_removed");
+        if let Err(error) = self.purge_home() {
+            log::warn!("[embed][runtime] cancelled removal purge failed: {error}");
+        }
+        let mut agents = self
+            .runtime
+            .agents
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        if agents
+            .get(&self.inner.id)
+            .and_then(std::sync::Weak::upgrade)
+            .is_some_and(|current| Arc::ptr_eq(&current, &self.inner))
+        {
+            agents.remove(&self.inner.id);
+        }
+    }
+}
 
 /// A pending [`Runtime::remove_agent`]. Await it, optionally after
 /// [`purge`](Self::purge).
@@ -40,12 +86,14 @@ impl<'a> IntoFuture for RemoveAgent<'a> {
 impl Runtime {
     /// Remove agent `id` from this runtime.
     ///
-    /// In order: its parked approvals are denied with resolution
-    /// `agent_removed`; new turns on any handle to it are refused with
-    /// [`CoreError::AgentRemoved`](crate::CoreError::AgentRemoved); turns in
+    /// New turns on any handle to it are refused with
+    /// [`CoreError::AgentRemoved`](crate::CoreError::AgentRemoved); its parked
+    /// approvals are denied with resolution `agent_removed`; turns in
     /// flight end with the same error, waited on for up to ten seconds; its
     /// state slots and MCP host are dropped and its context deregistered, so
-    /// its cron jobs stay dormant. The id is free for reuse once this returns.
+    /// its cron jobs stay dormant. The id is free for reuse once cleanup ends.
+    /// Cancelling an already-started removal still tears down the old instance
+    /// and performs a requested purge before releasing its id.
     ///
     /// Cancellation is cooperative: a tool already executing when the agent
     /// is removed, or a sub-agent it detached, may finish after this returns.
@@ -59,16 +107,23 @@ impl Runtime {
 
     async fn remove(&self, id: &str, purge: bool) -> Result<(), AgentError> {
         let inner = {
-            let mut agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
-            agents.retain(|_, weak| weak.strong_count() > 0);
+            let agents = self.agents.lock().unwrap_or_else(|e| e.into_inner());
             agents
-                .remove(id)
+                .get(id)
                 .and_then(|weak| weak.upgrade())
                 .ok_or_else(|| AgentError::UnknownId(id.to_string()))?
         };
+        if !inner.lifecycle.mark_removed() {
+            return Err(AgentError::UnknownId(id.to_string()));
+        }
+        let mut removal = RemovalSlot {
+            runtime: self,
+            inner,
+            purge,
+        };
+        let inner = &removal.inner;
         log::debug!("[embed][runtime] removing agent id={id} purge={purge}");
         inner.deny_approvals("agent_removed");
-        inner.lifecycle.mark_removed();
         if !inner.lifecycle.wait_idle(REMOVE_IDLE_WAIT).await {
             log::warn!(
                 "[embed][runtime] agent id={id} still had turns unwinding after {}s",
@@ -76,15 +131,7 @@ impl Runtime {
             );
         }
         inner.teardown("agent_removed");
-        if purge {
-            let home = inner.layout.home.clone();
-            if home.exists() {
-                std::fs::remove_dir_all(&home).map_err(|source| AgentError::Workspace {
-                    what: "delete the removed agent's home",
-                    source,
-                })?;
-            }
-        }
+        removal.purge_home()?;
         log::debug!("[embed][runtime] agent removed id={id}");
         Ok(())
     }

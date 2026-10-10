@@ -274,10 +274,11 @@ fn migrate_columns_is_idempotent_on_v1_databases() {
         )
         .unwrap();
     }
-    let config = Config {
+    let mut config = Config {
         workspace_dir: workspace,
         ..Config::default()
     };
+    config.storage.url = Some("classic".into());
     // First open triggers the migration; existing row survives.
     let rows = list_pending(&config).unwrap();
     assert_eq!(rows.len(), 1);
@@ -322,10 +323,11 @@ fn migrate_session_id_scrub_overwrites_legacy_values_and_bumps_user_version() {
             .unwrap();
         assert_eq!(v, 0);
     }
-    let config = Config {
+    let mut config = Config {
         workspace_dir: workspace,
         ..Config::default()
     };
+    config.storage.url = Some("classic".into());
     // First open runs the scrub.
     let _ = list_pending(&config).unwrap();
     {

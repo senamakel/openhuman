@@ -11,6 +11,7 @@ import {
 vi.mock('../../../../services/coreRpcClient', () => ({
   getCoreHttpBaseUrl: vi.fn(async () => 'http://127.0.0.1:7788'),
   getCoreRpcToken: vi.fn(async () => 'tok en'),
+  resolveCoreSocketEndpoint: vi.fn(async (baseUrl: string) => ({ baseUrl, path: '/socket.io/' })),
 }));
 
 const START = {
@@ -36,6 +37,19 @@ describe('buildLiveVoiceUrl', () => {
   it('resolves against the running core', async () => {
     await expect(resolveLiveVoiceUrl()).resolves.toBe(
       'ws://127.0.0.1:7788/ws/live-voice?token=tok+en'
+    );
+  });
+
+  it('uses the shell relay for private-LAN HTTP cores', async () => {
+    const client = await import('../../../../services/coreRpcClient');
+    vi.mocked(client.resolveCoreSocketEndpoint).mockResolvedValueOnce({
+      baseUrl: 'http://127.0.0.1:40000',
+      path: '/secret/socket.io/',
+      liveVoicePath: '/secret/ws/live-voice',
+      transports: ['websocket'],
+    });
+    await expect(resolveLiveVoiceUrl()).resolves.toBe(
+      'ws://127.0.0.1:40000/secret/ws/live-voice?token=tok+en'
     );
   });
 });

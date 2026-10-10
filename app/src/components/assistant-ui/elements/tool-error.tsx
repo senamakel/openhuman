@@ -58,13 +58,13 @@ export function ToolError({
   return (
     <div
       data-slot="tool-error"
-      className={cn(paper, 'flex w-full max-w-sm flex-col gap-3 rounded-2xl p-3.5', className)}
+      className={cn(paper, 'flex w-full flex-col gap-3 rounded-2xl p-3.5', className)}
       {...props}>
       <div className="flex items-center gap-2.5">
         <AlertCircleIcon className="size-3.5 shrink-0 text-red-500" />
-        <span className={cn(mono, 'text-foreground/55 shrink-0')}>{name}</span>
+        <span className={cn(mono, 'text-muted-foreground shrink-0')}>{name}</span>
         <span className="text-foreground/80 min-w-0 flex-1 truncate text-[13px]">{target}</span>
-        <span className={cn(mono, 'text-foreground/30 shrink-0 tabular-nums')}>
+        <span className={cn(mono, 'text-muted-foreground shrink-0 tabular-nums')}>
           {attempt}/{maxAttempts}
         </span>
       </div>
@@ -72,7 +72,7 @@ export function ToolError({
       <div
         className={cn(
           field,
-          'rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed text-red-700 dark:text-red-300'
+          'rounded-xl px-3 py-2 font-mono text-[11px] leading-relaxed break-words text-red-700 dark:text-red-300'
         )}>
         {message}
       </div>
@@ -82,14 +82,14 @@ export function ToolError({
           type="button"
           onClick={onSkip}
           disabled={!onSkip}
-          className="text-foreground/45 hover:bg-foreground/[0.06] hover:text-foreground/90 h-7 rounded-full px-2.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30">
+          className="text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground/90 h-7 rounded-full px-2.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30">
           {skipLabel}
         </button>
         <button
           type="button"
           onClick={onRetry}
           disabled={retrying || !onRetry}
-          className="text-foreground/70 hover:bg-foreground/[0.06] hover:text-foreground/95 flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] disabled:pointer-events-none disabled:opacity-30">
+          className="text-muted-foreground hover:bg-foreground/[0.06] hover:text-foreground/95 flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-medium transition-[background-color,color,scale] duration-150 active:scale-[0.96] disabled:pointer-events-none">
           {retrying ? (
             <Loader2Icon className="size-3 animate-spin motion-reduce:animate-none" />
           ) : (

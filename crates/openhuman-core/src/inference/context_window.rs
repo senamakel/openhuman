@@ -160,22 +160,29 @@ fn ollama_limits_request(model: &str, config: &Config) -> Option<DiscoveryReques
 }
 
 /// The fetcher discovery uses. Unit tests never reach the network.
-fn default_fetcher() -> Box<dyn ModelListingFetcher> {
+fn default_fetcher(_config: &Config, _provider: &str) -> Box<dyn ModelListingFetcher> {
     #[cfg(test)]
     {
         Box::new(OfflineFetcher)
     }
     #[cfg(not(test))]
     {
-        Box::new(
-            tinyinference_llm::model::discover::ReqwestListingFetcher::new(
-                crate::config::build_runtime_proxy_client_with_timeouts(
-                    "inference.model_limits",
-                    5,
-                    3,
-                ),
-            ),
-        )
+        let provider_slug = _provider
+            .split_once(':')
+            .map_or(_provider, |(slug, _)| slug)
+            .trim();
+        let service_key = "inference.model_limits";
+        let client = _config
+            .cloud_provider_ca_certs
+            .get(provider_slug)
+            .filter(|pem| !pem.is_empty())
+            .and_then(|pem| {
+                crate::util::tls::client_with_ca_bundle_with_timeouts(pem, service_key, 5, 3).ok()
+            })
+            .unwrap_or_else(|| {
+                crate::config::build_runtime_proxy_client_with_timeouts(service_key, 5, 3)
+            });
+        Box::new(tinyinference_llm::model::discover::ReqwestListingFetcher::new(client))
     }
 }
 
@@ -204,7 +211,7 @@ pub(crate) async fn resolve_context_window(
     model: &str,
     config: &Config,
 ) -> Option<u64> {
-    let fetcher = default_fetcher();
+    let fetcher = default_fetcher(config, provider);
     resolve_context_window_with(
         fetcher.as_ref(),
         model_limits_cache(),

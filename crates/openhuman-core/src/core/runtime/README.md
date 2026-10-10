@@ -61,9 +61,9 @@ registry filters on.
 | Preset | Shape |
 | --- | --- |
 | `DomainSet::full()` | Every family on: today's default, byte-identical to registration with no runtime narrowing. |
-| `DomainSet::harness()` | `agent` + `memory` + `threads` + `config` + `security` only; every gate family and `platform` off. The embeddable agent core (`examples/embed_headless.rs`). |
+| `DomainSet::harness()` | `agent` + `memory` + `threads` + `config` + `security` only; every gate family and `platform` off. The embeddable agent core; see the [lean headless example](../../../../openhuman-embed/examples/lean_headless.rs). |
 | `DomainSet::embedded()` | The harness families plus `flows` (boot reconciliation keys off `ctx.domains().flows`), `skills`, `channels` (`channel.web_chat` is tagged `Channels` and is how an embedded host drives chat turns), `inference`, `integrations`, `automation`, `runtimes`, and `platform`. `mcp`/`web3`/`voice`/`media`/`desktop`/`hosted`/`modules` stay off: an embedded host supplies its own routing and presentation. |
-| `DomainSet::kernel()` | The floor: `threads` + `config` + `security` only. Distinct from `none()`: this is "opt a subsystem back in from nothing," so `agent` and `memory` (the two largest, most replaceable subsystems) are deliberately off. See `examples/embed_kernel.rs`. |
+| `DomainSet::kernel()` | The floor: `threads` + `config` + `security` only. Distinct from `none()`: this is "opt a subsystem back in from nothing," so `agent` and `memory` (the two largest, most replaceable subsystems) are deliberately off. See the [capability report example](../../../../openhuman-embed/examples/capability_report.rs) for inspecting runtime composition. |
 | `DomainSet::none()` | Every family off. |
 
 ## `TokenSource`: how the RPC bearer is seeded

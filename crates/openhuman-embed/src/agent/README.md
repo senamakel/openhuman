@@ -144,16 +144,7 @@ Use `runtime_id()` to check that supplied agents belong to one runtime and
 conflicting id. Runtime ids are opaque and valid only for that runtime's
 lifetime; they are not persistence keys.
 
-```rust,no_run
-use std::sync::Arc;
-use openhuman_embed::{Agent, HostTools, HostTurnTools, Tool};
-# fn connect(agent: &Agent, make_tools: impl Fn() -> Vec<Box<dyn Tool>> + Send + Sync + 'static) -> Result<(), openhuman_embed::ToolAttachmentError> {
-let source: HostTools = Arc::new(move |_| HostTurnTools::advertised(make_tools()));
-agent.attach_tools("tinyhivemind", source.clone())?;
-agent.clone().attach_tools("tinyhivemind", source)?;   // idempotent
-# Ok(())
-# }
-```
+See the runnable [host_tools example](../../examples/host_tools.rs), region `host_tools`. It uses the public facade and asserts its behavior against an offline stub.
 
 ## Boundaries
 

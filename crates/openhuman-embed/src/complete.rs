@@ -173,6 +173,9 @@ impl ResponseFormat {
 /// One stateless model call.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct CompletionRequest {
+    /// Extra structured repair attempts, bounded to three; defaults to zero.
+    #[serde(default)]
+    pub structured_retries: u8,
     /// Model id on the route's endpoint. Required and sent verbatim.
     pub model: String,
     /// Conversation, in order.
@@ -200,11 +203,18 @@ impl CompletionRequest {
         Self {
             model: model.into(),
             messages,
+            structured_retries: 0,
             response_format: None,
             max_tokens: None,
             temperature: None,
             provider_options: Value::Null,
         }
+    }
+
+    /// Allow at most three extra attempts to repair invalid structured output.
+    pub fn structured_retries(mut self, attempts: u8) -> Self {
+        self.structured_retries = attempts;
+        self
     }
 
     /// Set the output shape.
@@ -261,8 +271,9 @@ pub struct CompletionUsage {
     pub cached_tokens: u64,
     /// Reasoning tokens, when the provider reports them.
     pub reasoning_tokens: u64,
-    /// What the provider says it charged, in USD, when it says. Never a local
-    /// price estimate: a host that wants one owns that table.
+    /// Selected provider charge in USD: buyer microcharge, raw gateway cost,
+    /// then normalized charge. Missing or invalid selected amounts stay unknown.
+    /// Never a local price estimate: a host that wants one owns that table.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub cost_usd: Option<f64>,
 }
@@ -272,11 +283,10 @@ pub struct CompletionUsage {
 pub struct CompletionResponse {
     /// The visible reply text (reasoning content excluded).
     pub text: String,
-    /// `text` parsed as JSON, when a JSON [`ResponseFormat`] was requested and
-    /// the reply parses. A [`ResponseFormat::JsonObject`] reply must parse to
-    /// an object, otherwise this is `None`. `None` with a JSON format means the
-    /// model returned something that is not the requested JSON — check
-    /// [`finish_reason`](Self::finish_reason) for `"length"` first.
+    /// Locally validated JSON when a JSON [`ResponseFormat`] was requested.
+    /// JSON objects and complete schemas are enforced before success; invalid
+    /// or truncated replies return [`CoreError::StructuredOutput`]. Text-mode
+    /// completions leave this field unset.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub structured: Option<Value>,
     /// Provider finish reason (`stop`, `length`, …).
@@ -312,25 +322,39 @@ impl CompletionResponse {
             .and_then(|raw| raw.get("model"))
             .and_then(Value::as_str)
             .map(str::to_string);
-        let raw_cost = raw
+        // A relay may report its own upstream `cost: 0` while the buyer pays
+        // `buyer_cost_micro`. That actual bill precedes normalized estimates.
+        let cost_usd = raw
             .as_ref()
-            .and_then(|raw| raw.pointer("/usage/cost"))
-            .and_then(Value::as_f64);
+            .and_then(|raw| raw.pointer("/usage/buyer_cost_micro"))
+            .and_then(Value::as_f64)
+            .map(|micro| micro / 1_000_000.0)
+            .or_else(|| {
+                raw.as_ref()
+                    .and_then(|raw| raw.pointer("/usage/cost"))
+                    .and_then(Value::as_f64)
+            })
+            .or_else(|| {
+                response
+                    .usage
+                    .as_ref()
+                    .and_then(|usage| usage.charged_amount)
+                    .map(|amount| amount.micros as f64 / 1_000_000.0)
+            })
+            // Invalid authoritative charges stay unknown, rather than being
+            // replaced by a lower-priority estimate or crediting the budget.
+            .filter(|cost| cost.is_finite() && *cost >= 0.0);
         let usage = match response.usage {
             Some(usage) => Some(CompletionUsage {
                 input_tokens: usage.input_tokens,
                 output_tokens: usage.output_tokens,
                 cached_tokens: usage.cache_read_tokens,
                 reasoning_tokens: usage.reasoning_tokens,
-                cost_usd: usage
-                    .charged_amount
-                    .map(|amount| amount.micros as f64 / 1_000_000.0)
-                    .or(raw_cost),
+                cost_usd,
             }),
-            // Some gateways report `usage.cost` in the raw body without the
-            // typed usage block. Keep the provider's cost rather than dropping
-            // it; the token counts are unknown and stay zero.
-            None => raw_cost.map(|cost| CompletionUsage {
+            // Raw gateway charges can survive without a typed usage block;
+            // retain them while unknown token counts stay zero.
+            None => cost_usd.map(|cost| CompletionUsage {
                 cost_usd: Some(cost),
                 ..CompletionUsage::default()
             }),
@@ -348,7 +372,7 @@ impl CompletionResponse {
 
 /// Parse a JSON reply, tolerating one surrounding Markdown code fence — a
 /// common habit of models without native structured output.
-fn parse_json_reply(text: &str) -> Option<Value> {
+pub(crate) fn parse_json_reply(text: &str) -> Option<Value> {
     let trimmed = text.trim();
     if let Ok(value) = serde_json::from_str(trimmed) {
         return Some(value);
@@ -396,6 +420,8 @@ pub struct Completer {
     headers: Vec<(String, String)>,
     timeout: Option<Duration>,
     observer: Option<Arc<dyn CompletionObserver>>,
+    cancellation: crate::cancellation::Cancellation,
+    budget: Option<crate::budget::ModelBudget>,
 }
 
 impl std::fmt::Debug for Completer {
@@ -413,10 +439,12 @@ impl Completer {
     /// A completer for `route`, with no timeout and no observer.
     pub fn new(route: Route) -> Self {
         Self {
+            headers: route.headers.clone(),
             route,
-            headers: Vec::new(),
             timeout: None,
             observer: None,
+            cancellation: Default::default(),
+            budget: None,
         }
     }
 
@@ -427,9 +455,21 @@ impl Completer {
         self
     }
 
-    /// Fail a call that has not settled within `timeout`.
+    /// Bound the entire logical call, including structured repair attempts.
     pub fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
+        self
+    }
+
+    /// Attach an acknowledged cancellation scope shared with other calls.
+    pub fn cancellation(mut self, cancellation: crate::cancellation::Cancellation) -> Self {
+        self.cancellation = cancellation;
+        self
+    }
+
+    /// Enforce a shared run or per-turn budget before every provider call.
+    pub fn budget(mut self, budget: crate::budget::ModelBudget) -> Self {
+        self.budget = Some(budget);
         self
     }
 
@@ -452,7 +492,22 @@ impl Completer {
         request: CompletionRequest,
     ) -> Result<CompletionResponse, CoreError> {
         let started = Instant::now();
-        let result = self.dispatch(request.clone()).await;
+        let _guard = self.cancellation.enter();
+        let operation = async {
+            match self.timeout {
+                Some(limit) => {
+                    tokio::time::timeout(limit, self.validated_dispatch(request.clone()))
+                        .await
+                        .unwrap_or(Err(CoreError::DeadlineExceeded { method: COMPLETE }))
+                }
+                None => self.validated_dispatch(request.clone()).await,
+            }
+        };
+        let result = tokio::select! {
+            biased;
+            _ = self.cancellation.cancelled() => Err(CoreError::Cancelled { method: COMPLETE }),
+            result = operation => result,
+        };
         if let Some(observer) = &self.observer {
             observer.on_complete(&CompletionTrace {
                 request: &request,
@@ -461,6 +516,57 @@ impl Completer {
             });
         }
         result
+    }
+
+    async fn validated_dispatch(
+        &self,
+        mut request: CompletionRequest,
+    ) -> Result<CompletionResponse, CoreError> {
+        use crate::structured::{
+            accumulate, StructuredFailureReason, StructuredOutputFailure, Validator,
+        };
+        let initial_failure = |reason| CoreError::StructuredOutput {
+            method: COMPLETE,
+            failure: StructuredOutputFailure {
+                attempts: 0,
+                reason,
+                finish_reason: None,
+                answered_model: None,
+                usage: None,
+            },
+        };
+        if request.structured_retries > 3 {
+            return Err(initial_failure(StructuredFailureReason::RetryLimit));
+        }
+        let validator =
+            Validator::new(request.response_format.as_ref()).map_err(initial_failure)?;
+        let mut usage = None;
+        let mut unknown_cost = false;
+        for attempt in 0..=request.structured_retries {
+            let mut response = self.dispatch(request.clone()).await?;
+            unknown_cost |= response
+                .usage
+                .as_ref()
+                .is_none_or(|usage| usage.cost_usd.is_none());
+            accumulate(&mut usage, response.usage.as_ref());
+            if unknown_cost {
+                if let Some(usage) = &mut usage {
+                    usage.cost_usd = None;
+                }
+            }
+            match validator.validate(&response.text, response.finish_reason.as_deref()) {
+                Ok(value) => { response.structured = value; response.usage = usage; return Ok(response); }
+                Err(reason) if attempt == request.structured_retries => return Err(CoreError::StructuredOutput {
+                    method: COMPLETE, failure: StructuredOutputFailure { attempts: u16::from(attempt)+1,
+                        reason, finish_reason: response.finish_reason, answered_model: response.answered_model, usage,
+                    },
+                }),
+                Err(reason) => request.messages.push(ChatMessage::user(format!(
+                    "The answer failed structured validation ({reason:?}). Return a complete answer matching the requested schema."
+                ))),
+            }
+        }
+        unreachable!("bounded attempt loop always returns")
     }
 
     async fn dispatch(&self, request: CompletionRequest) -> Result<CompletionResponse, CoreError> {
@@ -475,26 +581,30 @@ impl Completer {
             &endpoint,
             request.into_wire(),
         );
-        let started = std::time::Instant::now();
-        let response = match self.timeout {
-            Some(limit) => match tokio::time::timeout(limit, call).await {
-                Ok(outcome) => outcome,
-                Err(_) => {
-                    // Metadata only: method, model and elapsed time, never content.
-                    log::warn!(
-                        "[embed] complete timed out method={COMPLETE} model={model} limit_ms={} elapsed_ms={}",
-                        limit.as_millis(),
-                        started.elapsed().as_millis()
-                    );
-                    return Err(CoreError::Rpc {
-                        method: COMPLETE,
-                        message: format!("timed out after {}ms", limit.as_millis()),
-                    });
+        let budget = self
+            .budget
+            .as_ref()
+            .map(|budget| crate::budget::ModelBudget {
+                ledger: budget.ledger.child(crate::budget::SpendLimits::default()),
+                call: budget.call,
+            });
+        let call = async {
+            match &budget {
+                Some(budget) => {
+                    openhuman_core::agent::tinyagents::budget::with_budget(budget.clone(), call)
+                        .await
                 }
-            },
-            None => call.await,
-        }
-        .map_err(|message| {
+                None => call.await,
+            }
+        };
+        let started = std::time::Instant::now();
+        let response = call.await.map_err(|message| {
+            if let Some(source) = budget.as_ref().and_then(|budget| budget.ledger.refusal()) {
+                return CoreError::BudgetExceeded {
+                    method: COMPLETE,
+                    source,
+                };
+            }
             log::warn!(
                 "[embed] complete failed method={COMPLETE} model={model} elapsed_ms={}",
                 started.elapsed().as_millis()
@@ -539,3 +649,7 @@ impl Completer {
 #[cfg(test)]
 #[path = "complete_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/unit/completion_cost.rs"]
+mod cost_tests;

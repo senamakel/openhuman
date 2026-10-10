@@ -76,7 +76,15 @@ process.on("SIGTERM", () => void shutdown(143));
 
 function startChild(name, command, args, env, cwd = repo) {
   const out = fs.openSync(path.join(logDir, `${name}.log`), "a");
-  const child = spawn(command, args, {
+  // Debug CLI futures can exceed macOS's 8 MiB main-thread stack. Give the
+  // isolated test core the same headroom as the desktop runtime's workers.
+  // Keep paths/arguments as positional parameters, never interpolated shell code.
+  const largeStack = name === "core" && process.platform === "darwin";
+  const launchCommand = largeStack ? "/bin/sh" : command;
+  const launchArgs = largeStack
+    ? ["-c", 'ulimit -s 65520 || exit 1; exec "$@"', "debug-web-core", command, ...args]
+    : args;
+  const child = spawn(launchCommand, launchArgs, {
     cwd,
     env: { ...process.env, ...env },
     stdio: ["ignore", out, out],

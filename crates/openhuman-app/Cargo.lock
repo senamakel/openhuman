@@ -2803,6 +2803,7 @@ dependencies = [
  "hyper",
  "hyper-util",
  "rustls",
+ "rustls-native-certs",
  "tokio",
  "tokio-rustls",
  "tower-service",
@@ -4587,6 +4588,7 @@ dependencies = [
  "anyhow",
  "async-trait",
  "chrono",
+ "futures-core",
  "log",
  "openhuman",
  "sentry",
@@ -4602,6 +4604,7 @@ dependencies = [
  "tinymemory-tools",
  "tinytools",
  "tokio",
+ "tokio-stream",
  "url",
  "uuid",
 ]
@@ -5554,6 +5557,7 @@ dependencies = [
  "pin-project-lite",
  "quinn",
  "rustls",
+ "rustls-native-certs",
  "rustls-pki-types",
  "serde",
  "serde_json",
@@ -8170,7 +8174,9 @@ name = "tinystoragedrivers"
 version = "0.5.0"
 dependencies = [
  "tinystoragedrivers-core",
+ "tinystoragedrivers-file",
  "tinystoragedrivers-secrets",
+ "tinystoragedrivers-sqlite",
 ]
 
 [[package]]
@@ -8181,6 +8187,18 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.20",
+ "tokio",
+]
+
+[[package]]
+name = "tinystoragedrivers-file"
+version = "0.5.0"
+dependencies = [
+ "async-trait",
+ "libc",
+ "serde",
+ "serde_json",
+ "tinystoragedrivers-core",
  "tokio",
 ]
 

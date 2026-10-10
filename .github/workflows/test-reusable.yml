@@ -244,6 +244,9 @@ jobs:
           # The core binary and developer bins live in the CLI crate.
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --bins --features "${CLI_FEATURES}"
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman --doc --features "${FEATURES}"
+          bash scripts/ci-cancel-aware.sh cargo test -p openhuman-embed --doc --features "${FEATURES}"
+          RUSTDOCFLAGS="-D warnings" bash scripts/ci-cancel-aware.sh cargo doc -p openhuman-embed --no-deps --features "${FEATURES}"
+          node scripts/run-embed-examples.mjs
 
           while IFS= read -r target; do
             [ -n "${target}" ] || continue

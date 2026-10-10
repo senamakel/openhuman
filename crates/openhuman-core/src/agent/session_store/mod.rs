@@ -91,12 +91,19 @@ pub fn restore(provider: Option<Arc<dyn SessionStoreProvider>>) {
 /// one, if any.
 #[must_use]
 pub fn installed() -> Option<Arc<dyn SessionStoreProvider>> {
-    SCOPED.try_with(Arc::clone).ok().or_else(|| {
-        PROVIDER
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
-    })
+    SCOPED
+        .try_with(Arc::clone)
+        .ok()
+        .or_else(|| {
+            crate::core::runtime::CoreContext::current_host_overrides()
+                .and_then(|local| local.session_store.clone())
+        })
+        .or_else(|| {
+            PROVIDER
+                .read()
+                .unwrap_or_else(PoisonError::into_inner)
+                .clone()
+        })
 }
 
 /// Whether a host session store is in effect.

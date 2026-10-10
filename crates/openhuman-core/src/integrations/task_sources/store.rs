@@ -90,7 +90,7 @@ pub fn add_source(
     let filter_json = serde_json::to_string(&filter).context("serialize task source filter")?;
     let target_json = serde_json::to_string(&target).context("serialize task source target")?;
 
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.add_source(&TaskSource {
             id,
             provider,
@@ -136,7 +136,7 @@ pub fn add_source(
 }
 
 pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.get_source(id);
     }
     with_connection(config, |conn| {
@@ -151,7 +151,7 @@ pub fn get_source(config: &Config, id: &str) -> Result<TaskSource> {
 }
 
 pub fn list_sources(config: &Config) -> Result<Vec<TaskSource>> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.list_sources();
     }
     with_connection(config, |conn| {
@@ -214,7 +214,7 @@ pub(super) fn apply_patch(source: &mut TaskSource, patch: TaskSourcePatch) -> Re
 /// a SQL `UPDATE … RETURNING` pattern. The document store applies the patch
 /// under compare-and-swap, so it has no such window.
 pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Result<TaskSource> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.update_source(id, patch);
     }
     let mut source = get_source(config, id)?;
@@ -250,7 +250,7 @@ pub fn update_source(config: &Config, id: &str, patch: TaskSourcePatch) -> Resul
 }
 
 pub fn remove_source(config: &Config, id: &str) -> Result<()> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.remove_source(id);
     }
     let changed = with_connection(config, |conn| {
@@ -271,7 +271,7 @@ pub fn record_fetch(
     reason: FetchReason,
     status: &str,
 ) -> Result<()> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.record_fetch(id, finished_at, reason, status);
     }
     let line = format!("{}: {status}", reason.as_str());
@@ -294,7 +294,7 @@ pub fn is_ingested(
     external_id: &str,
     hash: &str,
 ) -> Result<bool> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.is_ingested(source_id, external_id, hash);
     }
     with_connection(config, |conn| {
@@ -318,7 +318,7 @@ pub fn is_ingested(
 /// todo board, the ledger row itself is the record. The column stays so
 /// older databases open unchanged.
 pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) -> Result<()> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.mark_ingested(source_id, task);
     }
     let hash = content_hash(task);
@@ -345,7 +345,7 @@ pub fn mark_ingested(config: &Config, source_id: &str, task: &NormalizedTask) ->
 /// content hash. The pipeline uses it to tell an edited upstream task from a
 /// brand-new one in its logs.
 pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.was_ingested(source_id, external_id);
     }
     with_connection(config, |conn| {
@@ -359,7 +359,7 @@ pub fn was_ingested(config: &Config, source_id: &str, external_id: &str) -> Resu
 /// Return ingested task ids for one source. Used by reconciliation to prune
 /// ledger rows that no longer match the upstream source/filter.
 pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<IngestedTaskRef>> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.list_ingested_refs(source_id);
     }
     with_connection(config, |conn| {
@@ -383,7 +383,7 @@ pub fn list_ingested_refs(config: &Config, source_id: &str) -> Result<Vec<Ingest
 
 /// Delete one ingested ledger row after its board card has been reconciled.
 pub fn remove_ingested(config: &Config, source_id: &str, external_id: &str) -> Result<bool> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.remove_ingested(source_id, external_id);
     }
     let changed = with_connection(config, |conn| {
@@ -402,7 +402,7 @@ pub fn list_ingested(
     source_id: &str,
     limit: usize,
 ) -> Result<Vec<NormalizedTask>> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.list_ingested(source_id, limit);
     }
     // Floor of 1: a caller passing `limit = 0` still gets at least one row
@@ -430,7 +430,7 @@ pub fn list_ingested(
 /// Delete every task source (+ cascade ingested rows). Used by the E2E
 /// `test_reset` RPC.
 pub fn clear_all(config: &Config) -> Result<usize> {
-    if let Some(docs) = super::store_documents::current()? {
+    if let Some(docs) = super::store_documents::current(config)? {
         return docs.clear_all();
     }
     with_connection(config, |conn| {
@@ -444,6 +444,8 @@ pub fn clear_all(config: &Config) -> Result<usize> {
 
 mod store_rows;
 use store_rows::{map_source_row, SELECT_SOURCE_COLUMNS};
+#[path = "store_import.rs"]
+pub(super) mod import;
 
 /// Tracks which task_sources database files have already had their schema DDL
 /// (the `CREATE TABLE`/`CREATE INDEX` batch plus the `add_column_if_missing`
@@ -640,8 +642,15 @@ fn init_schema(conn: &mut Connection) -> Result<()> {
     Ok(())
 }
 
-fn with_connection<T>(config: &Config, f: impl FnOnce(&Connection) -> Result<T>) -> Result<T> {
-    let db_path = config.workspace_dir.join("task_sources").join("sources.db");
+pub(super) fn db_path(config: &Config) -> PathBuf {
+    config.workspace_dir.join("task_sources").join("sources.db")
+}
+
+pub(super) fn with_connection<T>(
+    config: &Config,
+    f: impl FnOnce(&Connection) -> Result<T>,
+) -> Result<T> {
+    let db_path = db_path(config);
     if let Some(parent) = db_path.parent() {
         std::fs::create_dir_all(parent).with_context(|| {
             format!(

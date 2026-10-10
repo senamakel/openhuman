@@ -121,6 +121,10 @@ fn proxy_config_has_any_proxy_url_ignores_whitespace_urls() {
 
 #[test]
 fn is_supported_proxy_service_selector_accepts_known_keys_case_insensitive() {
+    assert!(is_supported_proxy_service_selector("providers.list_models"));
+    assert!(is_supported_proxy_service_selector(
+        "inference.model_limits"
+    ));
     for key in SUPPORTED_PROXY_SERVICE_KEYS {
         assert!(is_supported_proxy_service_selector(key));
         assert!(is_supported_proxy_service_selector(

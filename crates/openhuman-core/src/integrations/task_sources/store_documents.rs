@@ -26,12 +26,14 @@ use super::store::{apply_patch, content_hash, IngestedTaskRef};
 use super::types::{
     FetchReason, FilterSpec, ProviderSlug, SourceTarget, TaskSource, TaskSourcePatch,
 };
+use crate::config::Config;
 use crate::integrations::composio::providers::NormalizedTask;
 use crate::storage::documents::{compare_and_swap, text, Repo};
+use crate::storage::local::{self, ImportPlan};
 use crate::storage::{DocumentStoreExt, StorageError};
 
-const SOURCES: &str = "task_sources";
-const INGESTED: &str = "ingested_tasks";
+pub(super) const SOURCES: &str = "task_sources";
+pub(super) const INGESTED: &str = "ingested_tasks";
 const DOMAIN: &str = "task_sources::store";
 
 fn collections() -> Vec<CollectionSpec> {
@@ -42,18 +44,26 @@ fn collections() -> Vec<CollectionSpec> {
     ]
 }
 
-/// The document store for this call, when the host configured one.
-pub(super) fn current() -> Result<Option<Docs>> {
-    Ok(Repo::current(DOMAIN, collections)?.map(Docs))
+/// The document store for this call: the host's configured backend or, by
+/// default, the document tables in `sources.db` (the legacy tables imported
+/// on first open). `None` keeps the legacy tables.
+pub(super) fn current(config: &Config) -> Result<Option<Docs>> {
+    let plan = ImportPlan {
+        domain: DOMAIN,
+        tables: super::store::import::TABLES,
+        read: &|| super::store::import::read(config),
+    };
+    let db_path = super::store::db_path(config);
+    Ok(local::repo(config, &db_path, DOMAIN, collections, &plan)?.map(Docs))
 }
 
 /// The ledger id for one `(source, external task)`; the length prefix keeps
 /// `("a/b", "c")` and `("a", "b/c")` apart.
-fn ingested_id(source_id: &str, external_id: &str) -> String {
+pub(super) fn ingested_id(source_id: &str, external_id: &str) -> String {
     format!("{}:{source_id}/{external_id}", source_id.len())
 }
 
-fn to_doc(source: &TaskSource) -> Result<Value> {
+pub(super) fn to_doc(source: &TaskSource) -> Result<Value> {
     let mut doc = Map::new();
     doc.insert("provider".into(), json!(source.provider.as_str()));
     doc.insert("enabled".into(), json!(source.enabled));

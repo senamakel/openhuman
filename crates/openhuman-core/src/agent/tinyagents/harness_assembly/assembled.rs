@@ -1,12 +1,8 @@
-//! Shared harness state and handles consumed after a turn.
-
 use super::*;
-use tinyagents_harness::steering::SteeringHandle;
-use tinyagents_registry::{RegistryDiagnostic, RegistrySnapshot};
 
-/// Everything [`assemble_turn_harness`] wires up for one turn: the configured
-/// harness plus the shared slots/handles the run loop reads after the drive
-/// future returns.
+/// Everything [`assemble_turn_harness`](super::assemble_turn_harness) wires up
+/// for one turn: the configured harness plus the shared slots and handles the
+/// run loop reads after the drive future returns.
 pub(in crate::agent::tinyagents) struct AssembledTurnHarness {
     /// The fully assembled harness: model, tools, and middleware registered in
     /// the intended order.

@@ -30,7 +30,26 @@ use tinyinference_llm::model::ModelResponse;
 
 use crate::agent::cost::TurnCost;
 use crate::agent::stop_hooks::{StopDecision, StopHook, TurnState};
-use crate::inference::provider::BilledUsage;
+
+/// Install after-call usage policies on the assembled turn harness.
+pub(super) fn install(
+    harness: &mut tinyagents_harness::runtime::AgentHarness<(), super::host::OpenHumanRunContext>,
+    handle: Option<&SteeringHandle>,
+    model: &str,
+    max_iterations: usize,
+    hooks: Vec<Arc<dyn StopHook>>,
+    halt_summary: super::HaltSummarySlot,
+) {
+    if let Some(handle) = handle.filter(|_| !hooks.is_empty()) {
+        harness.push_middleware(Arc::new(StopHookMiddleware::new(
+            handle.clone(),
+            model,
+            max_iterations,
+            hooks,
+            halt_summary,
+        )));
+    }
+}
 
 /// Fires openhuman [`StopHook`]s after each model call and pauses the run when
 /// any hook votes to stop.
@@ -49,6 +68,7 @@ pub(super) struct StopHookMiddleware {
     hooks: Vec<Arc<dyn StopHook>>,
     /// Latches once a hook has voted to stop, so we send `Pause` exactly once.
     stopped: AtomicBool,
+    halt_summary: super::HaltSummarySlot,
 }
 
 impl StopHookMiddleware {
@@ -58,6 +78,7 @@ impl StopHookMiddleware {
         model: impl Into<String>,
         max_iterations: usize,
         hooks: Vec<Arc<dyn StopHook>>,
+        halt_summary: super::HaltSummarySlot,
     ) -> Self {
         Self {
             handle,
@@ -67,6 +88,7 @@ impl StopHookMiddleware {
             cost: Mutex::new(TurnCost::new()),
             hooks,
             stopped: AtomicBool::new(false),
+            halt_summary,
         }
     }
 }
@@ -98,14 +120,8 @@ where
         let iteration = self.iteration.fetch_add(1, Ordering::SeqCst) + 1;
         let cost_snapshot = {
             let mut cost = self.cost.lock().expect("stop-hook cost mutex poisoned");
-            if let Some(usage) = &response.usage {
-                cost.add_call(
-                    &self.model,
-                    &BilledUsage::from_counts(usage.input_tokens, usage.output_tokens)
-                        .with_cached_input_tokens(usage.cache_read_tokens)
-                        .with_cache_creation_tokens(usage.cache_creation_tokens)
-                        .with_reasoning_tokens(usage.reasoning_tokens),
-                );
+            if let Some(usage) = super::model::usage_info_from_response(response) {
+                cost.add_call(&self.model, &usage);
             }
             cost.clone()
         };
@@ -117,26 +133,35 @@ where
             model: &self.model,
         };
 
+        // Every observer sees the completed call, including observers installed
+        // after a budget policy. Preserve the first stop reason for the result.
+        let mut stop = None;
         for hook in &self.hooks {
             if let StopDecision::Stop { reason } = hook.check(&turn_state).await {
-                // Latch first so a concurrent (streaming) after_model can't
-                // double-pause.
-                if self.stopped.swap(true, Ordering::SeqCst) {
-                    return Ok(());
+                if stop.is_none() {
+                    stop = Some((hook.name().to_owned(), reason));
                 }
-                tracing::warn!(
-                    target: "stop_hooks",
-                    hook = hook.name(),
-                    iteration,
-                    model = %self.model,
-                    "[stop_hooks] hook voted to stop the turn — pausing run: {reason}"
-                );
-                // Graceful stop: the loop drains steering at the top of the next
-                // iteration and `Pause` short-circuits it before the next model
-                // call. The partial transcript is returned to the caller.
-                self.handle.send(SteeringCommand::Pause);
+            }
+        }
+        if let Some((hook, reason)) = stop {
+            if self.stopped.swap(true, Ordering::SeqCst) {
                 return Ok(());
             }
+            tracing::warn!(
+                target: "stop_hooks",
+                hook,
+                iteration,
+                model = %self.model,
+                "[stop_hooks] hook voted to stop the turn — pausing run: {reason}"
+            );
+            *self
+                .halt_summary
+                .lock()
+                .expect("stop-hook halt mutex poisoned") = Some(format!(
+                "Stopping after {} model call(s): {reason}",
+                iteration
+            ));
+            self.handle.send(SteeringCommand::Pause);
         }
 
         Ok(())

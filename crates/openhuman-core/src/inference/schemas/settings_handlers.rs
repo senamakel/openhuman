@@ -31,6 +31,8 @@ pub(super) struct InferenceCloudProviderUpdate {
     endpoint: String,
     #[serde(default)]
     auth_style: Option<String>,
+    #[serde(default)]
+    ca_cert_pem: Option<String>,
     #[serde(rename = "type", default)]
     legacy_type: Option<String>,
     #[serde(default)]
@@ -112,12 +114,24 @@ pub(super) fn handle_inference_update_model_settings(
 ) -> ControllerFuture {
     Box::pin(async move {
         let update = deserialize_params::<InferenceUpdateModelSettingsParams>(params)?;
+        let ca_certs = update
+            .cloud_providers
+            .as_ref()
+            .map(|providers| {
+                crate::config::ops::collect_provider_ca_certs(
+                    providers
+                        .iter()
+                        .map(|provider| (provider.slug.as_str(), provider.ca_cert_pem.as_deref())),
+                )
+            })
+            .transpose()?;
         let patch = config_rpc::ModelSettingsPatch {
             api_url: update.api_url,
             inference_url: update.inference_url,
             api_key: update.api_key,
             default_model: update.default_model,
             default_temperature: update.default_temperature,
+            cloud_provider_ca_certs: ca_certs,
             model_routes: update.model_routes.map(|routes| {
                 routes
                     .into_iter()

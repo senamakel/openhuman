@@ -9,6 +9,7 @@ readme = "README.md"
 publish = false
 
 [features]
+langfuse = ["openhuman-core/langfuse"]
 # `channels` is in core's default set already; enabling it here too compiles
 # the `Runtime::channels` facade in a default build.
 default = ["openhuman-core/default", "channels"]
@@ -42,12 +43,15 @@ scheduler-gate = ["openhuman-core/scheduler-gate"]
 e2e-test-support = ["openhuman-core/e2e-test-support"]
 
 [dependencies]
+futures-core = "0.3"
+tokio-stream = { version = "0.1", features = ["sync"] }
 async-trait = "0.1"
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
 anyhow = "1"
 # `JobSchedule::At` converts to and from the core's `chrono` instants.
 chrono = "0.4"
 log = "0.4"
+jsonschema = { version = "0.58", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 # `process::sentry` (crash-reporting): the client options and before_send
@@ -98,3 +102,23 @@ wiremock = "0.6"
 sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 tokio = { version = "1", features = ["full", "test-util"] }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt"] }
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[[example]]
+name = "mcp"
+required-features = ["mcp"]
+
+[[example]]
+name = "skills"
+required-features = ["skills"]
+
+[[example]]
+name = "telegram"
+required-features = ["channels"]
+
+[[example]]
+name = "storage"
+required-features = ["storage-sqlite"]

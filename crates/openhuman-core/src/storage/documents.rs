@@ -17,7 +17,8 @@ use serde_json::Value;
 use tinystoragedrivers::{CollectionSpec, ErrorKind, Versioned};
 
 use super::{
-    block_on, current_scope, installed, DocumentStore, ScopedStorage, StorageBackend, StorageError,
+    block_on, current_scope, installed, DocumentStore, Scope, ScopedStorage, StorageBackend,
+    StorageError,
 };
 
 /// Compare-and-swap attempts before a contended update gives up.
@@ -104,15 +105,30 @@ impl Repo {
         };
         let scope =
             current_scope().with_context(|| format!("[{domain}] resolve the storage scope"))?;
+        Self::on(&backend, &scope, domain, collections).map(Some)
+    }
+
+    /// The repo over `backend` under `scope`, declaring its collections once
+    /// per process.
+    ///
+    /// # Errors
+    ///
+    /// When the backend refuses the scope.
+    pub fn on(
+        backend: &Arc<dyn StorageBackend>,
+        scope: &Scope,
+        domain: &'static str,
+        collections: fn() -> Vec<CollectionSpec>,
+    ) -> Result<Self> {
         let scoped = backend
-            .for_scope(&scope)
+            .for_scope(scope)
             .with_context(|| format!("[{domain}] open the storage scope"))?;
         let mut repo = Self::over(&scoped, domain, collections);
         repo.origin = Some(Origin {
-            backend,
+            backend: Arc::clone(backend),
             scope: scope.as_str().to_string(),
         });
-        Ok(Some(repo))
+        Ok(repo)
     }
 
     /// The repo over an already scoped handle (tests, explicit scopes).

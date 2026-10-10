@@ -16,7 +16,6 @@ use tinyagents_harness::store::StoreRegistry;
 use tinyagents_registry::DiagnosticSeverity;
 
 use crate::agent::harness::tool_result_artifacts::TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE;
-use crate::agent::harness::MAX_SPAWN_DEPTH;
 use crate::agent::tinyagents::harness_assembly::{assemble_turn_harness, AssembledTurnHarness};
 use crate::agent::tinyagents::host::steering::shared_steering_registry;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
@@ -222,9 +221,8 @@ pub(super) async fn run_turn_via_tinyagents_body(
     // otherwise the harness model-call cap would be zero and abort the run before
     // the first provider call.
     let max_iterations = effective_max_iterations(max_iterations);
-    // Hosted resolution must expose this turn's already-selected primary and
-    // fallback models.  Build the resolver before assembly consumes the model
-    // bundle; it is installed only on the invocation-local host bundle.
+    // Wrap concrete routes before the invocation-local hosted resolver captures them.
+    let turn_models = turn_models.with_budget(run_context.model_budget.as_ref());
     let hosted_model_resolver = hosted_root.as_ref().map(|_| {
         Arc::new(
             crate::agent::tinyagents::turn_models::TurnModelResolver::from_turn_models(
@@ -299,6 +297,7 @@ pub(super) async fn run_turn_via_tinyagents_body(
         run_context.tool_rules.clone(),
     );
     super::response_shape::install(&mut harness, hosted_root.is_some());
+    super::budget::install_depth(&mut harness, &run_context);
     super::deadline_wind_down::install(&mut harness, &handle, &run_context, &subagent_scope);
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).
     // The projected `CapabilityRegistry` produced these diagnostics during
@@ -357,7 +356,7 @@ pub(super) async fn run_turn_via_tinyagents_body(
         })
         .with_max_model_calls(max_iterations)
         .with_max_tool_calls(crate::agent::stop_hooks::tool_call_limit(max_iterations))
-        .with_max_depth(MAX_SPAWN_DEPTH)
+        .with_max_depth(super::budget::depth(&run_context))
         .with_tag("openhuman")
         .with_tag(if subagent_scope.is_some() {
             "scope:subagent"
@@ -463,8 +462,9 @@ pub(super) async fn run_turn_via_tinyagents_body(
                 Some(journal_run_id.as_str().to_string());
         }
     }
-    let events = Some(EventSink::with_stream_id(journal_run_id.as_str()));
-
+    let sink = EventSink::with_stream_id(journal_run_id.as_str());
+    super::turn_observer::install(&mut harness, &sink, hosted_root.is_some());
+    let events = Some(sink);
     // Attach the event bridge for EVERY turn — including an unobserved
     // (`on_progress = None`) background/cron turn (#4467, item 3). The bridge's
     // `record_usage` feeds the global cost tracker on each `UsageRecorded` event
@@ -473,8 +473,7 @@ pub(super) async fn run_turn_via_tinyagents_body(
     // `record_unobserved_turn_usage` fallback below only runs on the success path
     // and never sees a failed run's usage. With `on_progress = None` the bridge
     // still records cost but its progress `send`s are inert no-ops, so there is
-    // no spurious streaming. `events` is created unconditionally above, so the
-    // bridge is always present.
+    // no spurious streaming; every turn has an event sink.
     let bridge = events.as_ref().map(|events| {
         let bridge = OpenhumanEventBridge::with_scope(
             on_progress,

@@ -76,6 +76,7 @@ mod core_rpc;
 mod deep_link_ipc;
 #[cfg(target_os = "windows")]
 mod deep_link_ipc_windows;
+mod remote_ws_relay;
 // Cross-platform module: the registry-reading function is windows-only, but
 // the parsing helpers compile (and test) everywhere so `cargo test` on the
 // developer host covers them.
@@ -3294,6 +3295,7 @@ pub fn run() {
             // runtime on a LAN IP that the secure `tauri://localhost` webview
             // cannot fetch directly (cleartext mixed content). See #3865.
             core_rpc::relay_http_rpc,
+            remote_ws_relay::relay_remote_socket,
             overlay_parent_rpc_url,
             process_diagnostics_list_owned,
             // Artifact export — cross-platform. Previously macOS/Linux-gated,

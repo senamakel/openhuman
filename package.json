@@ -9,7 +9,7 @@
     "build": "pnpm --filter openhuman-app build",
     "docs:generate": "node scripts/generate-architecture-docs.mjs",
     "docs:check": "node scripts/generate-architecture-docs.mjs --check",
-    "docs:test": "node --test scripts/__tests__/generate-architecture-docs.test.mjs",
+    "docs:test": "node --test scripts/__tests__/generate-architecture-docs.test.mjs scripts/__tests__/generate-embed-docs.test.mjs",
     "test:scripts": "node --test scripts/__tests__/*.test.mjs scripts/mock-api/*.test.mjs scripts/mock-api/routes/__tests__/*.test.mjs",
     "test:inventory": "node scripts/generate-test-inventory.mjs",
     "compile": "pnpm --filter openhuman-app compile",

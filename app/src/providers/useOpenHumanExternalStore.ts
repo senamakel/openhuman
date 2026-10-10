@@ -79,6 +79,8 @@ export type OpenHumanThreadExtras = {
   activeSubagentEntry?: ToolTimelineEntry | undefined;
 };
 
+const convertRuntimeMessage = (message: ThreadMessageLike) => message;
+
 const EMPTY_EXTRAS: OpenHumanThreadExtras = { inferenceStatus: null };
 
 /**
@@ -159,9 +161,11 @@ export function useCoreTranscriptProjection(
     }
     let cancelled = false;
     const skipRequestIds = liveRequestId ? new Set([liveRequestId]) : undefined;
-    const project = (items: DerivedDisplayItem[]) => {
+    const project = (items: DerivedDisplayItem[], partial = false) => {
       const mapped = mapDisplayItems(items, { skipRequestIds });
       setProjection(previous => {
+        if (partial && previous.threadId === threadId && Object.keys(previous.timelines).length > 0)
+          return previous;
         if (previous.threadId !== threadId) {
           return { threadId, timelines: mapped.timelines, transcripts: mapped.transcripts };
         }
@@ -189,7 +193,7 @@ export function useCoreTranscriptProjection(
         // page that begins mid-turn hides that turn's leading tool calls until
         // its boundary is in view — both only resolve with the full list.
         let items = first.items;
-        project(items);
+        project(items, first.hasMore);
         let cursor = first.hasMore ? first.nextCursor : undefined;
         let pages = 1;
         while (cursor && pages < DERIVED_TRANSCRIPT_MAX_PAGES) {
@@ -208,9 +212,8 @@ export function useCoreTranscriptProjection(
       } catch {
         // A missing/older core has no settled process trail; message text and
         // the live socket projection remain usable. Navigation must not fail.
-        if (!cancelled) {
-          setProjection({ threadId, timelines: EMPTY_TURN_MAP, transcripts: EMPTY_TURN_MAP });
-        }
+        // A transient refresh failure must not erase the last complete trail.
+        // The return below already masks projections belonging to another thread.
       }
     })();
     return () => {
@@ -545,7 +548,12 @@ export function useOpenHumanExternalStore(
       submit: ({ message, type }: { message: AuiThreadMessage; type: 'positive' | 'negative' }) => {
         // The live tail is not a persisted row; there is nothing to attach a
         // rating to until the turn settles.
-        if (!threadId || message.id === STREAMING_TAIL_ID) return;
+        if (
+          !threadId ||
+          message.id === STREAMING_TAIL_ID ||
+          (message.metadata?.custom as { streaming?: boolean })?.streaming
+        )
+          return;
         const custom = message.metadata?.custom as
           | { extraMetadata?: Record<string, unknown> }
           | undefined;
@@ -848,7 +856,7 @@ export function useOpenHumanExternalStore(
       // reply, otherwise empty — see `useWelcomeSuggestions`.
       suggestions,
       // Already `ThreadMessageLike`; the runtime's converter is the identity.
-      convertMessage: (m: (typeof runtimeMessages)[number]) => m,
+      convertMessage: convertRuntimeMessage,
       onNew,
       onCancel,
       queue,
@@ -868,9 +876,15 @@ export function useOpenHumanExternalStore(
       // support speech." That is the #5897 defect shape, and Reload already
       // sits in the same trap today.
       // No `dictation` key here — see the Web Speech note above this object.
-      adapters: { feedback: feedbackAdapter, speech: openHumanSpeechAdapter },
+      adapters: {
+        feedback: feedbackAdapter,
+        speech: openHumanSpeechAdapter,
+        // Native viewport and composer resets need the real conversation identity.
+        threadList: { threadId: threadId ?? undefined },
+      },
     }),
     [
+      threadId,
       runtimeMessages,
       isRunning,
       isLoading,

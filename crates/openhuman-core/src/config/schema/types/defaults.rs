@@ -91,6 +91,7 @@ impl Default for Config {
             local_ai: LocalAiConfig::default(),
             claude_agent_sdk: ClaudeAgentSdkConfig::default(),
             cloud_providers: Vec::new(),
+            cloud_provider_ca_certs: HashMap::new(),
             primary_cloud: None,
             chat_provider: None,
             reasoning_provider: None,

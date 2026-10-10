@@ -12,6 +12,7 @@ publish = false
 # This crate adds no gates of its own: it is the layer that *connects* an
 # embed runtime to the TinyHumans backend, not a feature surface.
 [features]
+langfuse = ["openhuman-embed/langfuse"]
 # `jev` is this crate's one gate of its own: the Jev-backed `tool_search`
 # ranker (`tinytools-jev` over the TinyHumans System One proxy). On by
 # default and forwarded by every shipped host; without it the core ranks

@@ -28,6 +28,9 @@ allow = [
     # without tripping mixed-content/CORS (#3865). Without this allow entry the
     # invoke is rejected with "Command not allowed by ACL".
     "relay_http_rpc",
+    # `relay_remote_socket` opens a secret loopback-only TCP relay for private
+    # LAN WebSocket endpoints when the secure webview blocks ws:// mixed content.
+    "relay_remote_socket",
     # `start_core_process` is invoked by BootCheckGate after the user picks
     # Local mode, before redux-persist hydrates the rest of the app (#1316).
     # Without this allow entry the invoke is rejected with "Command not

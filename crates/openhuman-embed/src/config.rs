@@ -6,7 +6,7 @@
 //! 1. A borrowed newtype over `&Arc<CoreRuntime>` — zero-cost, no state.
 //! 2. Facade-owned serde types, so hosts never name a domain's internal type
 //!    and never touch `serde_json::Value`.
-//! 3. Two-line methods delegating to [`call`](super::call::call).
+//! 3. Two-line methods delegating to `call`.
 //!
 //! Config is deliberately first because it is registered under
 //! `DomainGroup::Platform`, which every preset enables — so a failure here is
@@ -53,7 +53,7 @@ impl Config<'_> {
     ///
     /// Note this method always travels wrapped in the `{"result", "logs"}`
     /// envelope, because its handler emits a log unconditionally. That is
-    /// handled in [`call`](super::call::call) and is invisible here — which is
+    /// handled in `call` and is invisible here — which is
     /// the entire point of routing every method through one helper.
     pub async fn runtime_flags(&self) -> Result<RuntimeFlags, CoreError> {
         call(
@@ -65,6 +65,15 @@ impl Config<'_> {
     }
 }
 
+/// Shared declarative tool-rule vocabulary used by the typed runtime builder.
+pub use tinytools::{
+    DefaultEffect, Patterns, RuleEffect, Surface, ToolMatcher, ToolRule, ToolRules,
+};
+
+/// Typed runtime builder policy groups from the core configuration contract.
+pub use openhuman_core::config::schema::{
+    AutonomyConfig, CronConfig, PrivacyConfig, PrivacyMode, SecretsConfig,
+};
 /// The core's config type, as [`crate::RuntimeConfig`].
 pub use openhuman_core::config::Config as RuntimeConfig;
 

@@ -14,7 +14,9 @@
 //! loader, DomainSet gate, tool-group filter and skill discovery all read
 //! the ambient context.
 
+mod approval_handler;
 mod approvals;
+pub use approval_handler::{ApprovalHandler, ApprovalSubscription};
 mod attachments;
 pub(crate) mod lifecycle;
 pub use approvals::{ApprovalDecision, Approvals, ApprovalsError, PendingApproval};
@@ -24,7 +26,7 @@ mod definition;
 mod layout;
 pub(crate) mod spec;
 
-pub use definition::{AgentDefinitionSpec, SandboxModeSpec, ToolScopeSpec};
+pub use definition::{AgentDefinitionSpec, DefinitionBase, SandboxModeSpec, ToolScopeSpec};
 pub use layout::AgentLayout;
 pub use spec::{AgentSpec, MemoryBinding};
 
@@ -94,29 +96,41 @@ pub enum AgentError {
     /// No live agent with this id is registered on the runtime.
     #[error("no agent {0:?} is registered on this runtime")]
     UnknownId(String),
+    /// A named template was not registered on this runtime.
+    #[error("unknown agent template {0:?}")]
+    UnknownTemplate(String),
+    /// A named built-in definition does not exist.
+    #[error("unknown built-in agent definition {0:?}")]
+    UnknownDefinition(String),
 }
 
 /// The assembled state behind an [`Agent`], shared by every clone of it and
 /// by every [`Turn`] it issues.
 pub(crate) struct AgentInner {
     pub(crate) id: String,
+    /// A dead weak entry remains reserved until this instance finishes teardown.
+    registry: Arc<crate::runtime::AgentMap>,
+    pub(crate) overrides: Arc<openhuman_core::agent::host_overrides::HostOverrides>,
+    _approval_subscription: Option<ApprovalSubscription>,
     pub(crate) runtime_id: String,
     pub(crate) attachments: attachments::Attachments,
     /// Keeps the runtime's core and (for an ephemeral workspace) its
     /// directory alive for as long as this agent is, even after the host
     /// drops its `Runtime` handle. See
     /// [`CoreGuard`](crate::runtime::CoreGuard).
-    _runtime_guard: Arc<crate::runtime::CoreGuard>,
+    pub(crate) _runtime_guard: Arc<crate::runtime::CoreGuard>,
     pub(crate) runtime: Arc<CoreRuntime>,
     pub(crate) ctx: Arc<CoreContext>,
     pub(crate) config: Config,
     pub(crate) definition: AgentDefinition,
     pub(crate) provider: Provider,
+    pub(crate) model_defaults: crate::ModelDefaults,
     pub(crate) access: Access,
     pub(crate) layout: AgentLayout,
     /// The agent's own in-process tools, rebuilt per turn. See
     /// [`AgentSpec::tools`](super::AgentSpec::tools) for why it is a factory.
     pub(crate) host_tools: Option<openhuman_core::agent::HostTools>,
+    pub(crate) hooks: openhuman_core::agent::hooks::HookScope,
     pub(crate) lifecycle: lifecycle::Lifecycle,
     /// Built from [`ToolScopeSpec::HostOnly`]: every turn's session is built
     /// from the host tools alone.
@@ -131,6 +145,12 @@ impl AgentInner {
         if !self.lifecycle.begin_teardown() {
             return;
         }
+        self.lifecycle.mark_removed();
+        self._runtime_guard.events.emit(
+            Some(self.id.clone()),
+            None,
+            crate::RuntimeEventKind::AgentRemoved,
+        );
         self.deny_approvals(resolution);
         self.ctx.agent_state().clear();
         if openhuman_core::mcp::host::take_agent_host(&self.config.workspace_dir, &self.id)
@@ -166,6 +186,13 @@ impl AgentInner {
 impl Drop for AgentInner {
     fn drop(&mut self) {
         self.teardown("agent_dropped");
+        let mut agents = self.registry.lock().unwrap_or_else(|e| e.into_inner());
+        if agents
+            .get(&self.id)
+            .is_some_and(|current| std::ptr::eq(current.as_ptr(), self))
+        {
+            agents.remove(&self.id);
+        }
     }
 }
 
@@ -206,7 +233,8 @@ impl Agent {
     /// alone.
     pub fn turn(&self, message: impl Into<String>) -> Turn {
         let mut turn = Turn::new(TurnTarget::Agent(Arc::clone(&self.inner)), message)
-            .with_agent_id(&self.inner.id);
+            .with_agent_id(&self.inner.id)
+            .with_hooks(self.inner.hooks.clone());
         if let Some(route) = self.inner.provider.route() {
             turn = turn.route(route.clone());
         }
@@ -216,13 +244,40 @@ impl Agent {
         if let Some(origin) = self.inner.access.turn_origin() {
             turn = turn.origin(origin.clone());
         }
+        if let Some(value) = self.inner.model_defaults.max_tokens {
+            turn = turn.max_tokens(value);
+        }
+        if let Some(value) = self.inner.model_defaults.top_p {
+            turn = turn.top_p(value);
+        }
         turn
+    }
+
+    /// Start a streaming turn; dropping the stream requests cooperative cancellation.
+    pub fn stream(&self, message: impl Into<String>) -> crate::TurnStream {
+        self.turn(message).stream()
+    }
+
+    /// Subscribe a host callback to this agent’s pending approvals.
+    /// Removing the agent cancels its callbacks, even if its id is reused.
+    pub fn handle_approvals(&self, handler: Arc<dyn ApprovalHandler>) -> ApprovalSubscription {
+        ApprovalSubscription::new(self.id(), handler, self.inner.lifecycle.removed())
+    }
+
+    /// Add, replace, or remove an agent-local post-turn hook by name.
+    pub fn post_turn_hook(&self, name: &str, hook: Option<Arc<dyn crate::seams::PostTurnHook>>) {
+        self.inner.overrides.post_turn_hook(name, hook);
+    }
+
+    /// Add, replace, or remove an agent-local tool hook by name.
+    pub fn tool_hook(&self, name: &str, hook: Option<Arc<dyn crate::seams::ToolHook>>) {
+        self.inner.overrides.tool_hook(name, hook);
     }
 
     /// This agent's pending approvals: the requests its turns parked, and
     /// only those.
     pub fn approvals(&self) -> Approvals {
-        Approvals::new(&self.inner.id)
+        Approvals::new(&self.inner.id, self.inner.lifecycle.removed())
     }
 
     /// The agent's read/write root for acting tools.

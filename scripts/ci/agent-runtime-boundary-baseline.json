@@ -1037,29 +1037,29 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 546,
+    "path": "crates/openhuman-embed/src/turn_control.rs",
+    "line": 212,
     "text": "openhuman_core::agent::progress_sink::with_progress_sink(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 548,
+    "path": "crates/openhuman-embed/src/turn_control.rs",
+    "line": 214,
     "text": "openhuman_core::agent::turn_origin::with_origin(origin, dispatch),",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 553,
+    "path": "crates/openhuman-embed/src/turn_control.rs",
+    "line": 219,
     "text": "openhuman_core::agent::turn_origin::with_origin(origin, dispatch).await",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 556,
+    "path": "crates/openhuman-embed/src/turn_control.rs",
+    "line": 222,
     "text": "openhuman_core::agent::progress_sink::with_progress_sink(sink, dispatch).await",
     "occurrence": 1
   },

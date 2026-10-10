@@ -73,7 +73,7 @@ export function openHumanToolEntries(): Record<string, OpenHumanToolEntry> {
      * and the awaiting-user reply box all live there now (`AssistantUiSubagentCall`
      * / `SubagentDrawer` are deleted).
      */
-    task: { type: 'backend', display: 'inline', render: SubagentTaskCard },
+    task: { type: 'backend', display: 'standalone', render: SubagentTaskCard },
 
     /**
      * `spawn_parallel_agents`: two or more independent sub-agent workers fanned

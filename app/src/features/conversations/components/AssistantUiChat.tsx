@@ -16,6 +16,7 @@ import { ChatConversationMap } from '../aui/ChatConversationMap';
 import { ComposerTriggers } from '../aui/ComposerTriggers';
 import { ContextUsage } from '../aui/ContextUsage';
 import { InterruptedTurnNotice } from '../aui/InterruptedTurnNotice';
+import { ActiveTurnTaskCards, TurnTaskCards, TurnTaskProvider } from '../aui/TurnTaskCards';
 import { ChatSources } from './aui/ChatSources';
 import { ChatToolFallback } from './ChatToolParts';
 
@@ -99,8 +100,8 @@ export function ComposerTextBridge({
 /**
  * The assistant-ui `Thread`, projected from OpenHuman's Redux transcript.
  *
- * The runtime is a read-only projection; Redux and the core remain authoritative
- * for messages, streaming and persistence. Composer sends are forwarded through
+ * The library runtime manages UI interaction; Redux and the core remain
+ * authoritative for messages, streaming and persistence. Composer sends go through
  * the chat-surface registration owned by `Conversations`, so this uses the same
  * send/cancel path as the legacy composer.
  */
@@ -311,6 +312,8 @@ export function AssistantUiChat({
   const components: ThreadComponents = useMemo(
     () => ({
       ToolFallback: ChatToolFallback,
+      MessageTasks: TurnTaskCards,
+      ActiveTasks: ActiveTurnTaskCards,
       // `/` commands (builtins + core `commands_list` + registry actions) and
       // `@` mentions (memory recall, thread files); see `aui/ComposerTriggers`.
       ComposerTriggers,
@@ -370,17 +373,19 @@ export function AssistantUiChat({
   return (
     <AssistantUiRuntimeProvider>
       <ComposerTextBridge value={inputValue} onChange={onInputValueChange} />
-      <ChatConversationMap>
-        <Thread
-          components={components}
-          model={model}
-          onModelChange={onModelChange}
-          loadError={loadError}
-          onEscape={onEscape}
-          onRecallLastPrompt={onRecallLastPrompt}
-          composerPlaceholder={composerPlaceholder}
-        />
-      </ChatConversationMap>
+      <TurnTaskProvider>
+        <ChatConversationMap>
+          <Thread
+            components={components}
+            model={model}
+            onModelChange={onModelChange}
+            loadError={loadError}
+            onEscape={onEscape}
+            onRecallLastPrompt={onRecallLastPrompt}
+            composerPlaceholder={composerPlaceholder}
+          />
+        </ChatConversationMap>
+      </TurnTaskProvider>
     </AssistantUiRuntimeProvider>
   );
 }

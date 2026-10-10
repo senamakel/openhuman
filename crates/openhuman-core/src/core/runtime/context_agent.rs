@@ -3,8 +3,9 @@
 
 use super::*;
 
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(super) struct AgentParts {
+    host_overrides: Option<Arc<crate::agent::host_overrides::HostOverrides>>,
     /// `None` for booted contexts, which read the process live policy.
     policy: Option<Arc<crate::security::SecurityPolicy>>,
     approvals_disabled: bool,
@@ -14,11 +15,29 @@ pub(super) struct AgentParts {
     state: Arc<super::super::agent_scope::AgentScopedState>,
 }
 
+impl Default for AgentParts {
+    fn default() -> Self {
+        Self {
+            host_overrides: Some(Arc::new(
+                crate::agent::host_overrides::HostOverrides::default(),
+            )),
+            policy: None,
+            approvals_disabled: false,
+            definitions: None,
+            state: Default::default(),
+        }
+    }
+}
+
 impl AgentParts {
     /// The parts of a context derived from one owning `self` with `overlay`.
     /// An overlay that names an agent gets state slots of its own.
     pub(super) fn derive(&self, overlay: &mut ContextOverlay) -> Self {
         Self {
+            host_overrides: overlay
+                .host_overrides
+                .take()
+                .or_else(|| self.host_overrides.clone()),
             policy: overlay.agent_policy.take().or_else(|| self.policy.clone()),
             approvals_disabled: overlay.approvals_disabled || self.approvals_disabled,
             definitions: overlay
@@ -35,6 +54,16 @@ impl AgentParts {
 }
 
 impl CoreContext {
+    /// Agent-local host adapters inherited by this derived context.
+    pub fn host_overrides(&self) -> Option<Arc<crate::agent::host_overrides::HostOverrides>> {
+        self.agent.host_overrides.clone()
+    }
+
+    /// Host adapters of the ambient agent, without changing process globals.
+    pub fn current_host_overrides() -> Option<Arc<crate::agent::host_overrides::HostOverrides>> {
+        Self::current().and_then(|ctx| ctx.host_overrides())
+    }
+
     /// The security policy of the agent this context was derived for.
     pub fn agent_policy(&self) -> Option<Arc<crate::security::SecurityPolicy>> {
         self.agent.policy.clone()

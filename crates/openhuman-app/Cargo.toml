@@ -92,6 +92,7 @@ openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features 
     "runtime-node",
     "hosting",
     "tinymemes",
+    "storage-sqlite",
 ] }
 # Tauri core and plugins. Use upstream Tauri's native WebView runtime (Wry),
 # rather than the removed Chromium/CEF fork.

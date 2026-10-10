@@ -8,7 +8,7 @@
 //!   MCP servers, skills, working directory, access tier, provider and
 //!   prompt. [`Harness`] is the one-agent shorthand over the same two types.
 //! * **[`Core`]** — the typed facade over a [`CoreRuntime`] the host built
-//!   itself with [`CoreBuilder`](openhuman_core::core::runtime::CoreBuilder).
+//!   itself with [`CoreBuilder`].
 //!   [`CoreRuntime::invoke`] gives it JSON; this facade gives it real Rust
 //!   types, so a host never writes `serde_json::json!` or matches on an
 //!   error string.
@@ -54,10 +54,17 @@
 //! `core.workflows()` simply does not exist in a build without that feature —
 //! a compile error at the call site rather than a runtime surprise. For domains
 //! present at compile time but switched off at runtime via
-//! [`DomainSet`](openhuman_core::core::runtime::DomainSet), calls return
+//! [`DomainSet`], calls return
 //! [`CoreError::Unavailable`] so a host can hide the surface instead of
 //! reporting a failure.
 
+// The owned streaming task proves Send for the core’s deeply nested turn future.
+#![recursion_limit = "256"]
+#![warn(missing_docs)]
+#![cfg_attr(docsrs, feature(doc_cfg))]
+
+/// Complete definition accepted by [`AgentDefinitionSpec::from_base`].
+pub use openhuman_core::agent::harness::definition::AgentDefinition;
 pub use openhuman_core::agent::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 pub use openhuman_core::backend::{
     install_backend_transport, installed_backend_transport, BackendRequest, BackendTransport,
@@ -72,7 +79,7 @@ pub use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
 // would build tools of a different, incompatible type.
 pub use openhuman_core::agent::tinyagents::host::LastTurnUsage;
 pub use openhuman_core::agent::{HostTools, HostTurnTools, TurnContext};
-pub use openhuman_core::tools::{Tool, ToolExposure};
+pub use openhuman_core::tools::{PermissionLevel, Tool, ToolExposure, ToolResult};
 pub use openhuman_core::{
     CoreBuilder, CoreRuntime, DaemonConfig, DomainSet, HostKind, ServiceSet, TokenSource,
 };
@@ -98,6 +105,7 @@ pub mod skill_registry {
 mod agent;
 pub mod artifacts;
 mod auth;
+pub mod budget;
 mod call;
 #[cfg(feature = "channels")]
 pub mod channels;
@@ -108,16 +116,26 @@ mod core_agent;
 pub mod cron;
 pub mod embeddings;
 mod error;
+pub mod fanout;
 mod harness;
 pub mod identity;
 pub mod memory;
 #[cfg(feature = "modules")]
 pub mod modules;
+mod permission;
+pub use permission::PermissionFuture;
+pub mod observe;
+
 pub mod process;
 #[cfg(feature = "channels")]
 pub mod profiles;
+pub mod repository;
+/// Explicit ordered fallback and truncation policies.
+pub mod routing;
 mod runtime;
 mod turn;
+mod turn_cancellation;
+mod turn_meter;
 
 /// Core internals for `openhuman-tinyhumans` and `openhuman-rpc` only; see
 /// the module docs. Not part of the host-facing API.
@@ -138,7 +156,7 @@ pub use openhuman_core::voice::VOICE_COMPILED_IN;
 pub use agent::ToolAttachmentError;
 pub use agent::{
     Agent, AgentDefinitionSpec, AgentError, AgentLayout, AgentSpec, ApprovalDecision, Approvals,
-    ApprovalsError, MemoryBinding, PendingApproval, SandboxModeSpec, ToolScopeSpec,
+    ApprovalsError, DefinitionBase, MemoryBinding, PendingApproval, SandboxModeSpec, ToolScopeSpec,
 };
 pub use auth::{Auth, AuthState, Session};
 #[cfg(feature = "channels")]
@@ -166,7 +184,9 @@ pub use runtime::builder::DEFAULT_MAX_AGENTS;
 #[doc(hidden)]
 pub use runtime::BuilderSummary;
 pub use runtime::{
-    run_from_args, ApiKey, ConfigSource, RemoveAgent, Runtime, RuntimeBuilder, RuntimeError,
+    run_from_args, AgentDefaults, ApiKey, ConfigSource, ConfigurationInfo, DefaultsInfo,
+    LearningSettings, ModelDefaults, RemoveAgent, Runtime, RuntimeBuilder, RuntimeDefaults,
+    RuntimeError, RuntimeInfo, RuntimeModule, SkillsPolicy, StorageInfo, WeightClass,
 };
 
 /// The types the [`RuntimeBuilder`] seam options take: controller
@@ -178,10 +198,13 @@ pub use runtime::{
 pub mod seams {
     pub use openhuman_core::agent::hooks::{PostTurnHook, ToolHook};
     pub use openhuman_core::agent::hooks::{ToolHookContext, ToolHookDecision, TurnContext};
+    pub use openhuman_core::agent::stop_hooks::{
+        BudgetStopHook, StopDecision, StopHook, TurnState,
+    };
     pub use openhuman_core::core::all::{ControllerExtension, DomainGroup};
     pub use openhuman_core::core::server_launcher::{HostBoot, ServeRequest, ServerLauncher};
     pub use openhuman_core::security::SecurityPolicy;
-    pub use openhuman_core::storage::StorageBackend;
+    pub use openhuman_core::storage::{CollectionSpec, Precondition, Scope, StorageBackend};
 
     pub use crate::runtime::StorageSource;
 }
@@ -215,6 +238,7 @@ pub use complete::{
 };
 pub use session_store::{InMemorySessionStores, SessionStoreProvider};
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
+pub use turn_cancellation::TurnCancellation;
 
 use std::sync::Arc;
 
@@ -246,7 +270,7 @@ impl Core {
     /// Typed access to the session store.
     ///
     /// Use this when the embedded workload calls authenticated TinyHumans
-    /// backend services. A [`HostKind::Library`](openhuman_core::core::types::HostKind::Library)
+    /// backend services. A [`HostKind::Library`]
     /// runtime does not need an app session for caller-supplied inference.
     pub fn auth(&self) -> Auth<'_> {
         Auth(&self.rt)
@@ -285,3 +309,27 @@ impl std::fmt::Debug for Core {
         f.debug_struct("Core").finish_non_exhaustive()
     }
 }
+
+/// Strict structured output failure metadata.
+pub mod structured;
+
+/// Acknowledged cancellation for stateless completion operations.
+pub mod cancellation;
+/// Runtime event subscriptions without content or credentials.
+pub mod events;
+/// Owned streaming turns and cooperative cancellation.
+pub mod stream;
+pub use agent::{ApprovalHandler, ApprovalSubscription};
+pub use events::{EventStreamError, RuntimeEvent, RuntimeEventKind, RuntimeEvents};
+pub use stream::{CancellationToken, StreamEvent, TurnStream};
+/// Native custom-provider contract and request/response types.
+pub mod providers {
+    pub use tinyinference_llm::message::MessageDelta;
+    pub use tinyinference_llm::model::{
+        ChatModel, DeferredHandle, DeferredStatus, ModelProfile, ModelRequest, ModelResponse,
+        ModelStream, ModelStreamItem, ModelStreamMetadata,
+    };
+    pub use tinyinference_llm::{Error, Result};
+}
+
+pub use agent_progress::AgentProgress;

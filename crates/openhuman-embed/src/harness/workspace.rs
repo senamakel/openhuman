@@ -70,7 +70,7 @@ impl Workspace {
     ///
     /// `true` only for [`Workspace::Inherit`]. Guards the writes the harness
     /// would otherwise make on the caller's behalf — see
-    /// [`skills`](super::skills).
+    /// the internal skill-copy module.
     pub fn is_operator_owned(&self) -> bool {
         matches!(self, Self::Inherit)
     }

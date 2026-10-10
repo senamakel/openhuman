@@ -27,9 +27,9 @@ use anyhow::{anyhow, Context, Result};
 use chrono::{DateTime, Utc};
 use serde_json::{json, Value};
 
-use crate::storage::{
-    block_on, current_scoped, DocumentStore, DocumentStoreExt, ScopedStorage, StorageError,
-};
+use crate::config::Config;
+use crate::storage::local::{self, ImportPlan};
+use crate::storage::{block_on, DocumentStore, DocumentStoreExt, ScopedStorage, StorageError};
 use tinystoragedrivers::{
     CollectionSpec, ErrorKind, Filter, IndexSpec, Precondition, Query, Sort, Versioned,
 };
@@ -38,8 +38,8 @@ use super::types::{
     ApprovalAuditEntry, ApprovalDecision, ApprovalSourceContext, ExecutionOutcome, PendingApproval,
 };
 
-const APPROVALS: &str = "approvals";
-const FLOW_TRUST: &str = "approval_flow_trust";
+pub(super) const APPROVALS: &str = "approvals";
+pub(super) const FLOW_TRUST: &str = "approval_flow_trust";
 
 /// Compare-and-swap attempts before a contended update gives up.
 const CAS_ATTEMPTS: usize = 32;
@@ -50,16 +50,36 @@ pub(super) struct Docs {
     docs: Arc<dyn DocumentStore>,
 }
 
-/// The document store to use for this call, when the host configured one.
+/// The document store to use for this call: the host's configured backend
+/// or, by default, the document tables in `approval.db` (the legacy tables
+/// imported on first open). `None` keeps the legacy tables.
 ///
 /// # Errors
 ///
 /// When the storage scope cannot be resolved — in SaaS mode with no acting
 /// agent — so the call fails rather than reading a shared bucket.
-pub(super) fn current() -> Result<Option<Docs>> {
-    Ok(current_scoped()
-        .context("[approval::store] resolve the storage scope")?
-        .map(|scoped| Docs::new(&scoped)))
+pub(super) fn current(config: &Config) -> Result<Option<Docs>> {
+    let plan = ImportPlan {
+        domain: "approval::store",
+        tables: super::store::import::TABLES,
+        read: &|| super::store::import::read(config),
+    };
+    let Some(opened) = local::open(config, &super::store::db_path(config), collections, &plan)?
+    else {
+        return Ok(None);
+    };
+    Ok(Some(Docs::new(&opened.scoped()?)))
+}
+
+/// The collections the approval store keeps.
+pub(super) fn collections() -> Vec<CollectionSpec> {
+    vec![
+        CollectionSpec::new(APPROVALS)
+            .index(IndexSpec::new("by_pending", ["pending", "created_at"]))
+            .index(IndexSpec::new("by_decided", ["pending", "decided_at"]))
+            .index(IndexSpec::new("by_session", ["session_id", "pending"])),
+        CollectionSpec::new(FLOW_TRUST).index(IndexSpec::new("by_flow", ["flow_id", "tool_name"])),
+    ]
 }
 
 fn storage(error: StorageError) -> anyhow::Error {
@@ -67,13 +87,13 @@ fn storage(error: StorageError) -> anyhow::Error {
 }
 
 /// Fixed-width (nanosecond, `Z`) so the strings sort in time order.
-fn rfc3339(at: DateTime<Utc>) -> String {
+pub(super) fn rfc3339(at: DateTime<Utc>) -> String {
     at.to_rfc3339_opts(chrono::SecondsFormat::Nanos, true)
 }
 
 /// The comparable expiry key: nanoseconds since the epoch, falling back to
 /// milliseconds for instants beyond the i64-nanosecond range (year 2262).
-fn expiry_key(at: DateTime<Utc>) -> i64 {
+pub(super) fn expiry_key(at: DateTime<Utc>) -> i64 {
     at.timestamp_nanos_opt()
         .unwrap_or_else(|| at.timestamp_millis().saturating_mul(1_000_000))
 }
@@ -445,22 +465,15 @@ impl Docs {
 
 /// The id of a `(flow_id, tool_name)` grant: length-prefixed, so no two
 /// pairs collide.
-fn trust_id(flow_id: &str, tool_name: &str) -> String {
+pub(super) fn trust_id(flow_id: &str, tool_name: &str) -> String {
     format!("{}:{flow_id}/{tool_name}", flow_id.len())
 }
 
 async fn declare(docs: &Arc<dyn DocumentStore>) -> Result<(), StorageError> {
-    docs.ensure_collection(
-        &CollectionSpec::new(APPROVALS)
-            .index(IndexSpec::new("by_pending", ["pending", "created_at"]))
-            .index(IndexSpec::new("by_decided", ["pending", "decided_at"]))
-            .index(IndexSpec::new("by_session", ["session_id", "pending"])),
-    )
-    .await?;
-    docs.ensure_collection(
-        &CollectionSpec::new(FLOW_TRUST).index(IndexSpec::new("by_flow", ["flow_id", "tool_name"])),
-    )
-    .await
+    for spec in collections() {
+        docs.ensure_collection(&spec).await?;
+    }
+    Ok(())
 }
 
 /// Applies `change` to the request `id` under compare-and-swap and returns

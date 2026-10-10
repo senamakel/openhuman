@@ -11,7 +11,7 @@ use tinyinference_llm::providers::anthropic::{
     build_anthropic_model, endpoint_is_anthropic_messages, AnthropicConfig,
 };
 use tinyinference_llm::providers::openai::{
-    build_openai_model, endpoint_is_openrouter, OpenAiConfig,
+    build_openai_model, build_openai_model_with_http, endpoint_is_openrouter, OpenAiConfig,
 };
 
 /// Look up a `cloud_providers` entry by slug and build the provider.
@@ -302,7 +302,15 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     // legacy host's rare 404 → `/v1/responses` fallback for non-codex slugs is
     // not replicated).
     let mut endpoint = entry.endpoint.clone();
-    let mut extra_headers: Vec<(String, String)> = Vec::new();
+    let mut extra_headers: Vec<(String, String)> = config
+        .ephemeral_route
+        .as_ref()
+        .filter(|route| {
+            slug == crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG
+                && route.endpoint == entry.endpoint
+        })
+        .map(|route| route.headers.clone())
+        .unwrap_or_default();
     let mut extra_query_params: Vec<(String, String)> = Vec::new();
     let mut user_agent: Option<String> = None;
     let mut responses_api_primary = false;
@@ -326,17 +334,41 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
                         true,
                     ),
                 );
-                let chat = build_anthropic_model(AnthropicConfig {
-                    endpoint: endpoint.as_str(),
-                    api_key: key.as_str(),
-                    model: effective_model.as_str(),
-                    temperature_override,
-                    temperature_unsupported_models: config
-                        .temperature_unsupported_models
-                        .as_slice(),
-                    extra_headers: &[],
-                });
-                return Some(Ok((chat, effective_model)));
+                let model = if let Some(pem) = config
+                    .cloud_provider_ca_certs
+                    .get(&slug)
+                    .filter(|pem| !pem.is_empty())
+                {
+                    let http =
+                        match crate::util::tls::client_with_ca_bundle(pem, "provider.anthropic") {
+                            Ok(http) => http,
+                            Err(error) => return Some(Err(anyhow::anyhow!(error))),
+                        };
+                    Arc::new(
+                        tinyinference_llm::providers::anthropic::AnthropicModel::with_base_url(
+                            key.as_str(),
+                            endpoint.as_str(),
+                        )
+                        .with_model(effective_model.as_str())
+                        .with_temperature_override(temperature_override)
+                        .with_temperature_unsupported_models(
+                            config.temperature_unsupported_models.iter().cloned(),
+                        )
+                        .with_client(http),
+                    )
+                } else {
+                    build_anthropic_model(AnthropicConfig {
+                        endpoint: endpoint.as_str(),
+                        api_key: key.as_str(),
+                        model: effective_model.as_str(),
+                        temperature_override,
+                        temperature_unsupported_models: config
+                            .temperature_unsupported_models
+                            .as_slice(),
+                        extra_headers: &[],
+                    })
+                };
+                return Some(Ok((model, effective_model)));
             }
             log::debug!(
                 "[providers][chat-factory] slug={slug} auth_style=anthropic native_tools=false → OpenAI-compatible text-mode path (no prompt caching)"
@@ -398,7 +430,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     );
 
     let unsupported = config.temperature_unsupported_models.clone();
-    let chat = build_openai_model(OpenAiConfig {
+    let provider_config = OpenAiConfig {
         provider_name: slug.as_str(),
         endpoint: endpoint.as_str(),
         api_key: key.as_str(),
@@ -422,7 +454,20 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         // without them; hosted OpenAI rejects unknown part fields, so the
         // flag is keyed on the relay, not on by default.
         explicit_cache_control: endpoint_is_openrouter(&endpoint),
-    });
+    };
+    let chat = if let Some(pem) = config
+        .cloud_provider_ca_certs
+        .get(&slug)
+        .filter(|pem| !pem.is_empty())
+    {
+        let http = match crate::util::tls::client_with_ca_bundle(pem, "provider.compatible") {
+            Ok(http) => http,
+            Err(error) => return Some(Err(anyhow::anyhow!(error))),
+        };
+        build_openai_model_with_http(provider_config, http)
+    } else {
+        build_openai_model(provider_config)
+    };
     Some(Ok((chat, effective_model)))
 }
 

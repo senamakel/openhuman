@@ -15,20 +15,30 @@ use chrono::Utc;
 use serde_json::{json, Value};
 use tinystoragedrivers::{CollectionSpec, Filter, IndexSpec, Precondition, Query, Sort, Versioned};
 
+use crate::config::Config;
 use crate::security::devices::types::PairedDevice;
 use crate::storage::documents::{compare_and_swap, text, Repo};
+use crate::storage::local::{self, ImportPlan};
 use crate::storage::DocumentStoreExt;
 
-const DEVICES: &str = "paired_devices";
+pub(super) const DEVICES: &str = "paired_devices";
 const DOMAIN: &str = "devices::store";
 
 fn collections() -> Vec<CollectionSpec> {
     vec![CollectionSpec::new(DEVICES).index(IndexSpec::new("by_active", ["revoked", "created_at"]))]
 }
 
-/// The document store for this call, when the host configured one.
-pub(super) fn current() -> Result<Option<Docs>> {
-    Ok(Repo::current(DOMAIN, collections)?.map(Docs))
+/// The document store for this call: the host's configured backend or, by
+/// default, the document tables in `devices.db` (the legacy table imported on
+/// first open). `None` keeps the legacy table.
+pub(super) fn current(config: &Config) -> Result<Option<Docs>> {
+    let plan = ImportPlan {
+        domain: DOMAIN,
+        tables: super::store::import::TABLES,
+        read: &|| super::store::import::read(config),
+    };
+    let db_path = super::store::db_path(config);
+    Ok(local::repo(config, &db_path, DOMAIN, collections, &plan)?.map(Docs))
 }
 
 fn to_device(stored: &Versioned<Value>) -> PairedDevice {

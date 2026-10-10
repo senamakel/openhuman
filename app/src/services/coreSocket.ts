@@ -12,7 +12,7 @@
  */
 import { io, type ManagerOptions, type Socket, type SocketOptions } from 'socket.io-client';
 
-import { getCoreRpcToken } from './coreRpcClient';
+import { getCoreRpcToken, resolveCoreSocketEndpoint } from './coreRpcClient';
 
 interface CoreSocketOptions {
   /**
@@ -77,9 +77,15 @@ export async function connectCoreSocket(opts: ConnectCoreSocketOptions): Promise
   if (isDisposed()) return null;
   const coreToken = await getCoreRpcToken();
   if (isDisposed()) return null;
-  return createCoreSocket(baseUrl, {
+  const endpoint = await resolveCoreSocketEndpoint(baseUrl);
+  if (isDisposed()) return null;
+  return createCoreSocket(endpoint.baseUrl, {
     coreToken,
     authExtras: opts.authExtras,
-    overrides: opts.overrides,
+    overrides: {
+      ...opts.overrides,
+      path: endpoint.transports ? endpoint.path : (opts.overrides?.path ?? endpoint.path),
+      ...(endpoint.transports ? { transports: endpoint.transports } : {}),
+    },
   });
 }

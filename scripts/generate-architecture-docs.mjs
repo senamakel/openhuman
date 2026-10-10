@@ -24,6 +24,7 @@
  */
 
 import { readFileSync, writeFileSync } from 'node:fs';
+import { generateEmbedDocs } from './generate-embed-docs.mjs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -142,6 +143,7 @@ export function computeFrontendDoc() {
 
 function main() {
   const check = process.argv.includes('--check');
+  generateEmbedDocs({ check });
   const { updated, current } = computeFrontendDoc();
 
   if (check) {

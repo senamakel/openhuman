@@ -30,12 +30,24 @@ pub(super) fn handle_get_client_config(_params: Map<String, Value>) -> Controlle
 pub(super) fn handle_update_model_settings(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let update = deserialize_params::<ModelSettingsUpdate>(params)?;
+        let cloud_provider_ca_certs = update
+            .cloud_providers
+            .as_ref()
+            .map(|providers| {
+                config_rpc::collect_provider_ca_certs(
+                    providers
+                        .iter()
+                        .map(|provider| (provider.slug.as_str(), provider.ca_cert_pem.as_deref())),
+                )
+            })
+            .transpose()?;
         let patch = config_rpc::ModelSettingsPatch {
             api_url: update.api_url,
             inference_url: update.inference_url,
             api_key: update.api_key,
             default_model: update.default_model,
             default_temperature: update.default_temperature,
+            cloud_provider_ca_certs,
             model_routes: update.model_routes.map(|routes| {
                 routes
                     .into_iter()

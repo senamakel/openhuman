@@ -9,6 +9,39 @@ use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 use super::{TurnModelResolver, TurnModels};
 use crate::agent::tinyagents::TurnModelSource;
 
+#[tokio::test]
+async fn role_pins_apply_when_the_primary_uses_config_routing() {
+    use crate::agent::host_overrides::HostOverrides;
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+    let config = crate::config::Config::default();
+    let mut overrides = HostOverrides::default();
+    overrides
+        .role_models
+        .insert("coding".into(), Arc::new(NamedModel("pinned coding")));
+    overrides.role_models.insert(
+        "summarization".into(),
+        Arc::new(NamedModel("pinned summary")),
+    );
+    let root = CoreContext::for_test(DomainSet::full(), None);
+    let context = root.derive_with(
+        ContextOverlay::new(config.clone(), DomainSet::full(), Default::default())
+            .host_overrides(Arc::new(overrides)),
+    );
+    CoreContext::scope(context, async {
+        let models = TurnModelSource::new_crate_native("chat", Arc::new(config))
+            .build("hint:chat", 0.0, None, None)
+            .expect("config-routed models");
+        let coding = models
+            .routes
+            .iter()
+            .find(|(tier, _)| tier == "hint:coding")
+            .expect("pinned role route");
+        assert_eq!(name_of(&coding.1).await, "pinned coding");
+        assert_eq!(name_of(&models.summarizer).await, "pinned summary");
+    })
+    .await;
+}
+
 /// A stub that answers with its own name so a test can tell which model the
 /// resolver handed back.
 struct NamedModel(&'static str);

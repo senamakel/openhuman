@@ -46,7 +46,7 @@
 //! is alive the profile counts as **in use**: idle eviction skips it and
 //! [`ProfileRuntime::release`] refuses it, exactly as for a gateway request
 //! still in flight. Every call on it runs under the profile's own
-//! [`CoreContext`], so the per-user isolation (workspace, session store,
+//! `CoreContext`, so the per-user isolation (workspace, session store,
 //! security policy, `/events` stamping, the `USER_METHODS` surface) is the
 //! one the gateway gets. Drop the handles to let the profile go idle.
 
@@ -100,7 +100,9 @@ pub enum ProfileError {
     /// channel would show; `error_type` its stable classification.
     #[error("turn failed: {message}")]
     Turn {
+        /// User-facing explanation of the failed turn.
         message: String,
+        /// Optional stable error classification returned by the host.
         error_type: Option<String>,
     },
     /// The turn was cancelled before it answered.

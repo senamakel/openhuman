@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { threadApi } from '../../services/api/threadApi';
@@ -119,5 +119,49 @@ describe('useCoreTranscriptProjection identity', () => {
     await waitFor(() => expect(result.current.timelines['r-2']).toHaveLength(2));
     expect(result.current.timelines['r-1']).toBe(first.timelines['r-1']);
     expect(result.current.timelines['r-2']).not.toBe(first.timelines['r-2']);
+  });
+});
+
+describe('history refresh stability', () => {
+  it('keeps loaded trails visible when a next-turn refetch fails', async () => {
+    vi.mocked(threadApi.getDerivedTranscript)
+      .mockReset()
+      .mockResolvedValueOnce(page({ items: turn('old', 'old-call') }))
+      .mockRejectedValueOnce(new Error('temporary RPC failure'));
+    const { result, rerender } = renderHook(
+      ({ revision }) => useCoreTranscriptProjection(THREAD, revision, undefined),
+      { initialProps: { revision: 'before' } }
+    );
+    await waitFor(() => expect(result.current.timelines.old).toHaveLength(1));
+    const previous = result.current;
+    await act(async () => rerender({ revision: 'try-now' }));
+    expect(result.current).toBe(previous);
+  });
+
+  it('does not erase older cards while paging a next-turn refresh', async () => {
+    let resolveOlder!: (value: DerivedTranscriptPage) => void;
+    const older = new Promise<DerivedTranscriptPage>(resolve => {
+      resolveOlder = resolve;
+    });
+    vi.mocked(threadApi.getDerivedTranscript)
+      .mockReset()
+      .mockResolvedValueOnce(
+        page({ items: [...turn('new', 'new-call'), ...turn('old', 'old-call')] })
+      )
+      .mockResolvedValueOnce(
+        page({ items: turn('new', 'new-call'), hasMore: true, nextCursor: 'older' })
+      )
+      .mockReturnValueOnce(older);
+    const { result, rerender } = renderHook(
+      ({ revision }) => useCoreTranscriptProjection(THREAD, revision, undefined),
+      { initialProps: { revision: 'before' } }
+    );
+    await waitFor(() => expect(result.current.timelines.old).toHaveLength(1));
+    const old = result.current.timelines.old;
+    await act(async () => rerender({ revision: 'try-now' }));
+    await waitFor(() => expect(threadApi.getDerivedTranscript).toHaveBeenCalledTimes(3));
+    expect(result.current.timelines.old).toBe(old);
+    await act(async () => resolveOlder(page({ items: turn('old', 'old-call') })));
+    expect(result.current.timelines.old).toBe(old);
   });
 });

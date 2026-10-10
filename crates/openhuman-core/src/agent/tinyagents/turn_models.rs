@@ -215,6 +215,11 @@ fn build_turn_models_crate(
     // The primary honours an explicit provider-string override when the producer's
     // effective provider differs from `provider_for_role(role)` (triage #1257).
     let build_primary = |m: &str| -> anyhow::Result<TurnChatModel> {
+        if let Some(chat) = crate::core::runtime::CoreContext::current_host_overrides()
+            .and_then(|local| local.model_for(role))
+        {
+            return Ok(chat);
+        }
         let managed = primary_override
             .map(|provider| {
                 let provider = provider.trim();
@@ -281,6 +286,24 @@ fn build_turn_models_crate(
                     continue;
                 }
                 let tier_role = factory::role_for_model_tier(tier);
+                if let Some(custom) = crate::core::runtime::CoreContext::current_host_overrides()
+                    .and_then(|local| {
+                        local
+                            .role_models
+                            .get(tier)
+                            .or_else(|| local.role_models.get(tier_role))
+                            .cloned()
+                    })
+                {
+                    routes.push((
+                        tier.to_string(),
+                        crate::agent::attachments::provider::wrap_injected(
+                            custom,
+                            Arc::new(config.clone()),
+                        ),
+                    ));
+                    continue;
+                }
                 let route = if factory::resolves_to_managed_backend(tier_role, config) {
                     factory::make_openhuman_backend_model_for_thread(
                         tier_role, config, tier, true, thread_id,
@@ -322,7 +345,15 @@ fn build_turn_models_crate(
             }
 
             // The summarizer is a distinct adapter instance (own empty error slot).
-            let summarizer = build_primary(model)?;
+            let summarizer = match crate::core::runtime::CoreContext::current_host_overrides()
+                .and_then(|local| local.role_models.get("summarization").cloned())
+            {
+                Some(custom) => crate::agent::attachments::provider::wrap_injected(
+                    custom,
+                    Arc::new(config.clone()),
+                ),
+                None => build_primary(model)?,
+            };
 
             anyhow::Ok((primary, routes, summarizer))
         })?;
@@ -466,6 +497,13 @@ impl TurnModelSource {
         let Some(source) = self.crate_native.as_ref() else {
             return crate::inference::model_context::context_window_for_model(model);
         };
+        if let Some(custom) = crate::core::runtime::CoreContext::current_host_overrides()
+            .and_then(|local| local.model_for(&source.role))
+        {
+            return custom
+                .profile()
+                .and_then(|profile| profile.max_input_tokens);
+        }
         let provider_string = source.primary_override.clone().unwrap_or_else(|| {
             crate::inference::provider::provider_for_role(&source.role, &source.config)
         });
@@ -487,6 +525,38 @@ impl TurnModelSource {
         context_window: Option<u64>,
         thread_id: Option<&str>,
     ) -> anyhow::Result<TurnModels> {
+        if let Some(source) = &self.crate_native {
+            if let Some(local) = crate::core::runtime::CoreContext::current_host_overrides() {
+                if let Some(custom) = local.model_for(&source.role) {
+                    let mut models = Self::from_model(custom)
+                        .with_attachment_config(source.config.clone())
+                        .build(model, temperature, context_window, thread_id)?;
+                    for &tier in routes::WORKLOAD_ROUTE_TIERS {
+                        let role = crate::inference::provider::factory::role_for_model_tier(tier);
+                        if let Some(custom) = local
+                            .role_models
+                            .get(tier)
+                            .or_else(|| local.role_models.get(role))
+                        {
+                            models.routes.push((
+                                tier.to_owned(),
+                                crate::agent::attachments::provider::wrap_injected(
+                                    custom.clone(),
+                                    source.config.clone(),
+                                ),
+                            ));
+                        }
+                    }
+                    if let Some(custom) = local.role_models.get("summarization") {
+                        models.summarizer = crate::agent::attachments::provider::wrap_injected(
+                            custom.clone(),
+                            source.config.clone(),
+                        );
+                    }
+                    return Ok(models);
+                }
+            }
+        }
         if let Some(direct) = &self.direct_model {
             let mut profile = direct.profile().cloned().unwrap_or_default();
             if let Some(window) = context_window.filter(|window| *window > 0) {
@@ -594,6 +664,18 @@ impl TurnModelSource {
             });
         }
         if let Some(cn) = &self.crate_native {
+            if let Some(custom) = crate::core::runtime::CoreContext::current_host_overrides()
+                .and_then(|local| {
+                    local
+                        .model_for("summarization")
+                        .or_else(|| local.model_for(&cn.role))
+                })
+            {
+                return Ok(crate::agent::attachments::provider::wrap_injected(
+                    custom,
+                    cn.config.clone(),
+                ));
+            }
             let managed = cn
                 .primary_override
                 .as_deref()

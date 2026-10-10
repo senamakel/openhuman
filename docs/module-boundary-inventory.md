@@ -88,7 +88,7 @@ remain unchanged until compatible upstream releases are available.
 | TinyWallet pure contracts, address validation and stateless EVM construction with exact approval facts | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 745 all-feature and 601 default tests; four-chain signing and native/ERC-20/contract construction through the compiled artifact; pure contract audit; all 95 source files at least 90% coverage; independent construction review accepted |
 | TinyVoice device enumeration, reserved recording/continuous capture handles, bounded output and acknowledged shutdown | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | 188 tests and one doctest; 26-member compiled artifact verification; pure contract audit; covered files at least 90%, with the existing physical-device exclusion; independent lifecycle review accepted |
 | TinyRuntime pure JSONL worker vocabulary and module-owned reserve/prepare/start/request/status/stop/shutdown | [tinyruntime#29](https://github.com/tinyhumansai/tinyruntime/pull/29) | 322 all-feature and 321 default tests; 11-member compiled artifact with seven worker operations; all 42 measured production files at least 90% coverage; independent cleanup review accepted |
-| TinyMCP pure shared vocabulary, supervisor observations, server callbacks and bounded text/argument/tool rendering operations | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,470 all-feature and 1,358 default tests; dynamic 44-member artifact verification; pure contract audit; all 93 source files at least 90% coverage; independent lifecycle and vocabulary reviews accepted |
+| TinyMCP pure shared vocabulary, supervisor observations, server callbacks and bounded text/argument/tool rendering operations | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,471 all-feature and 1,359 default tests; dynamic 44-member artifact verification; pure contract audit; all 93 source files at least 90% coverage; independent lifecycle, vocabulary and library-feature reviews accepted; external regressions cover module-disabled and host feature combinations |
 
 The TinyDocs and TinyJuice operations need new published module artifacts.
 TinyHosts preserves existing member arities and adds authorized preparation inside
@@ -98,6 +98,8 @@ has been used as a release pin, and these PRs do not yet remove any host excepti
 TinyChannels preserves its serialized vocabulary and moves behavioral APIs to
 implementation crates, using compatibility extension traits where needed. Its
 relay/pairing/delivery bus operations and OpenHuman adapters remain outstanding.
+Published v0.1.13 contains the earlier implementation-bearing contract, so that
+release does not unblock this contract cut.
 
 TinyBox currently refuses supervised execution on unsupported backends and platforms.
 Docker/namespace and Windows supervision, streaming, file transfer, forwarding and

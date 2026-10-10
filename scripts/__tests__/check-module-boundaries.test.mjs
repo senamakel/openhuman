@@ -5,6 +5,7 @@ import { auditGraph, graph, isImplementation, validatePolicy, CONTRACT_REGISTRY 
 
 const policy = JSON.parse(readFileSync(new URL('../ci/module-boundaries.json', import.meta.url), 'utf8'));
 const strict = { ...policy, exceptions: [] };
+const fixtureException = { ...strict, exceptions: [{ scope: 'hosts', package: 'tinyjuice', reason: 'Explicit test fixture for exception semantics' }] };
 function metadata(edges, names = {}) {
   const ids = [...new Set(Object.entries(edges).flatMap(([id, deps]) => [id, ...deps.map(d => d[0])]))];
   return {
@@ -58,11 +59,11 @@ test('contracts reject an indirect implementation in an approved dependency', ()
 });
 test('host exceptions do not exempt contract dependencies', () => {
   const m = metadata({ 'tinyjuice-bus': [['tinyjuice']] });
-  assert.equal(auditGraph(m, ['tinyjuice-bus'], policy, 'tinyjuice-bus').violations.length, 1);
+  assert.equal(auditGraph(m, ['tinyjuice-bus'], fixtureException, 'tinyjuice-bus').violations.length, 1);
 });
 test('exceptions retain findings and do not hide new host descendants', () => {
   const m = metadata({ host: [['tinyjuice']], tinyjuice: [['tinyjuice-new-engine']] });
-  const result = auditGraph(m, ['host'], policy);
+  const result = auditGraph(m, ['host'], fixtureException);
   assert.equal(result.exceptions.length, 1);
   assert.equal(result.violations[0].package, 'tinyjuice-new-engine');
 });
@@ -136,4 +137,10 @@ test('the separately removed runtime is outside this migration but cannot enter 
   assert.ok(!policy.exceptions.some(item => item.package.startsWith('tinyruntime')));
   const contract = metadata({ 'tinyjuice-bus': [['tinyruntime-bus']] });
   assert.equal(auditGraph(contract, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations[0].package, 'tinyruntime-bus');
+});
+
+test('the migrated TinyJuice implementation has no host exception', () => {
+  assert.equal(policy.exceptions.some(item => item.scope === 'hosts' && item.package === 'tinyjuice'), false);
+  const m = metadata({ host: [['tinyjuice']] });
+  assert.equal(auditGraph(m, ['host'], policy).violations[0].package, 'tinyjuice');
 });

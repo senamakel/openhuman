@@ -34,12 +34,17 @@ pub(crate) trait QuerySource: Send + Sync {
     async fn query(&self, request: QueryRequest) -> Result<QueryResponse, String>;
 }
 
-struct ModuleSource;
+struct ModuleSource {
+    config: Option<Arc<crate::config::Config>>,
+}
 
 #[async_trait]
 impl QuerySource for ModuleSource {
     async fn query(&self, request: QueryRequest) -> Result<QueryResponse, String> {
-        super::query(request).await
+        match &self.config {
+            Some(config) => super::query_for_config(config, request).await,
+            None => super::query(request).await,
+        }
     }
 }
 
@@ -59,7 +64,10 @@ struct ModuleReplTool {
 /// The three REPL tools, reading through the TinyJuice module. Without a
 /// workspace they cannot resolve an `artifact_path`; see [`repl_tools_for`].
 pub fn repl_tools() -> Vec<Box<dyn Tool>> {
-    repl_tools_with(Arc::new(ModuleSource), ReplLimits::default())
+    repl_tools_with(
+        Arc::new(ModuleSource { config: None }),
+        ReplLimits::default(),
+    )
 }
 
 /// The REPL tools, or none while large results are not stored behind a handle
@@ -75,12 +83,48 @@ pub fn repl_tools_for(config: &crate::config::Config) -> Vec<Box<dyn Tool>> {
         REPL_TOOL_NAMES.join(", ")
     );
     repl_tools_with_artifacts(
-        Arc::new(ModuleSource),
+        Arc::new(ModuleSource {
+            config: Some(Arc::new(config.clone())),
+        }),
         ReplLimits::default(),
         Some(crate::security::policy::tool_result_artifacts_dir(
             &config.workspace_dir,
         )),
     )
+}
+
+/// Rebuild only the REPL tools a resumed transcript already declared. Their
+/// schemas stay frozen while execution uses the current workspace and module
+/// policy. This deliberately does not consult `repl_handle_active`: that flag
+/// controls creating new handles, not reading handles a thread already has.
+pub(crate) fn repl_tools_for_recorded(
+    config: Option<&crate::config::Config>,
+    workspace_dir: &Path,
+    recorded: &[tinytools::ToolSpec],
+) -> Vec<Box<dyn Tool>> {
+    let declarations = tinyjuice_bus::tools::repl_tool_declarations();
+    recorded
+        .iter()
+        .filter(|spec| is_repl_tool(&spec.name))
+        .filter_map(|spec| {
+            let declaration = declarations.iter().find(|item| item.name == spec.name)?;
+            let limits = ReplLimits::default();
+            Some(Box::new(ModuleReplTool {
+                name: spec.name.clone(),
+                op: declaration.op.clone(),
+                description: spec.description.clone(),
+                schema: spec.parameters.clone(),
+                cap: Some(limits.max_output_chars.saturating_mul(2)),
+                source: Arc::new(ModuleSource {
+                    config: config.cloned().map(Arc::new),
+                }),
+                limits,
+                artifacts_dir: Some(crate::security::policy::tool_result_artifacts_dir(
+                    workspace_dir,
+                )),
+            }) as Box<dyn Tool>)
+        })
+        .collect()
 }
 
 pub(crate) fn repl_tools_with(

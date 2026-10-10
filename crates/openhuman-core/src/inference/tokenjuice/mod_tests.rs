@@ -136,6 +136,16 @@ async fn an_off_profile_still_discloses_a_registered_summary() {
 #[tokio::test]
 async fn a_module_disabled_in_configuration_discloses_a_wanted_summary() {
     let _lock = crate::config::TEST_ENV_LOCK.lock().await;
+    let mut config = crate::config::Config::default();
+    config.modules.enabled = false;
+    let fixture_aware_call = client(&config)
+        .call::<()>("tinyjuice", methods::INSTALL, (install_request(&config),))
+        .await;
+    assert!(
+        fixture_aware_call.is_err(),
+        "a test module artifact must not override modules.enabled=false"
+    );
+
     let previous = std::env::var_os("TINYJUICE_TEST_MODULE");
     // SAFETY: serialized by TEST_ENV_LOCK; restored below for every exit path.
     unsafe { std::env::remove_var("TINYJUICE_TEST_MODULE") };
@@ -151,8 +161,6 @@ async fn a_module_disabled_in_configuration_discloses_a_wanted_summary() {
     }
     let _restore = RestoreEnv(previous);
 
-    let mut config = crate::config::Config::default();
-    config.modules.enabled = false;
     let config = std::sync::Arc::new(config);
 
     let output = compact_tool_output(ToolOutputCompaction {

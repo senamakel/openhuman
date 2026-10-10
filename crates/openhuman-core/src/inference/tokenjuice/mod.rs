@@ -156,7 +156,6 @@ fn client(config: &crate::config::Config) -> crate::modules::client::ModuleClien
     let mut config = config.clone();
     #[cfg(test)]
     if let Some(path) = std::env::var_os("TINYJUICE_TEST_MODULE") {
-        config.modules.enabled = true;
         config
             .modules
             .overrides
@@ -421,8 +420,15 @@ pub async fn query(
     let config = crate::config::Config::load_or_init()
         .await
         .map_err(|e| e.to_string())?;
-    install_from_config(&config).await?;
-    client(&config)
+    query_for_config(&config, request).await
+}
+
+pub(crate) async fn query_for_config(
+    config: &crate::config::Config,
+    request: tinyjuice_bus::wire::QueryRequest,
+) -> Result<tinyjuice_bus::wire::QueryResponse, String> {
+    install_from_config(config).await?;
+    client(config)
         .call("tinyjuice", methods::QUERY, (request,))
         .await
         .map_err(|e| e.to_string())

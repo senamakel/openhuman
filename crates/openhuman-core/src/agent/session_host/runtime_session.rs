@@ -168,6 +168,12 @@ struct OpenHumanTurnPreludeMutable {
     /// the tinyagents session on resume. Rebuilt into deferred executors whenever
     /// the live integrations list does not supply them (see `recorded_tools`).
     recorded_integration_actions: Vec<tinytools::ToolSpec>,
+    /// TinyJuice REPL declarations restored by a resumed thread. These are
+    /// rebuilt independently of the current setting that creates new handles.
+    recorded_repl_tools: Vec<tinytools::ToolSpec>,
+    /// Distinguishes a new session from a resumed session whose recorded tool
+    /// snapshot simply had no TinyJuice declarations.
+    recorded_tool_snapshot_adopted: bool,
     workflows: Vec<crate::skills::Workflow>,
     composio_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
     skill_events: Option<tinybus::events::EventReceiver<crate::core::events::DomainEvent>>,
@@ -369,10 +375,15 @@ impl OpenHumanTurnPrelude {
         let Some(definition) = self.session_definition(&registry) else {
             return Ok(());
         };
-        if definition.subagents.is_empty() {
+        let has_recorded_tool_snapshot = self
+            .mutable
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .recorded_tool_snapshot_adopted;
+        if definition.subagents.is_empty() && !has_recorded_tool_snapshot {
             return Ok(());
         }
-        let (integrations, integrations_are_authoritative) = {
+        let (integrations, integrations_are_authoritative, recorded_tool_snapshot_adopted) = {
             let mutable = self
                 .mutable
                 .lock()
@@ -380,6 +391,7 @@ impl OpenHumanTurnPrelude {
             (
                 mutable.connected_integrations.clone(),
                 mutable.connected_integrations_authoritative,
+                mutable.recorded_tool_snapshot_adopted,
             )
         };
         #[cfg(feature = "mcp")]
@@ -420,15 +432,56 @@ impl OpenHumanTurnPrelude {
             &synthesized_names,
             auto_include_new_synthesized_tools,
         );
+        if recorded_tool_snapshot_adopted {
+            surface.visible_tool_names.extend(
+                self.mutable
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .recorded_repl_tools
+                    .iter()
+                    .map(|spec| spec.name.clone()),
+            );
+        }
         // Preserve permanently attached tools when re-deriving the surface.
         permanent::refresh_visibility(&mut surface, &synthesized);
 
-        let specs = surface
+        let mut specs = surface
             .durable_tool_specs
             .iter()
             .cloned()
             .chain(synthesized.iter().map(|tool| Arc::new(tool.spec())))
             .collect::<Vec<_>>();
+        {
+            let recorded = self
+                .mutable
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .recorded_repl_tools
+                .clone();
+            let recorded_names = recorded
+                .iter()
+                .map(|spec| spec.name.as_str())
+                .collect::<std::collections::HashSet<_>>();
+            if recorded_tool_snapshot_adopted {
+                specs.retain(|spec| {
+                    !crate::inference::tokenjuice::is_repl_tool(&spec.name)
+                        || recorded_names.contains(spec.name.as_str())
+                });
+                surface.visible_tool_names.retain(|name| {
+                    !crate::inference::tokenjuice::is_repl_tool(name)
+                        || recorded_names.contains(name.as_str())
+                });
+            }
+            let recorded = recorded
+                .iter()
+                .map(|spec| (spec.name.as_str(), spec))
+                .collect::<std::collections::HashMap<_, _>>();
+            for spec in &mut specs {
+                if let Some(frozen) = recorded.get(spec.name.as_str()) {
+                    *spec = Arc::new((*frozen).clone());
+                }
+            }
+        }
         let synthesized_tools = Arc::new(synthesized);
         crate::tools::toolpacks::bind_synthesized_pack_registry(&surface.tools, &synthesized_tools);
         let all_tools = surface
@@ -994,6 +1047,8 @@ impl OpenHumanSessionHost {
                     connected_integrations_authoritative: false,
                     integration_announcements_seeded: false,
                     recorded_integration_actions: Vec::new(),
+                    recorded_repl_tools: Vec::new(),
+                    recorded_tool_snapshot_adopted: false,
                     workflows: self.workflows.clone(),
                     composio_events: None,
                     skill_events: None,

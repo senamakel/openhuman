@@ -197,3 +197,14 @@ search, docs, runtime/providers, MCP and Box. The module-pin gate reports this;
 it is not treated as a passing check or hidden by new exceptions. The stale
 Wallet and Channels pin exemptions were removed because those base pins now
 agree. TinyRuntime changes remain excluded from this migration.
+
+TinyJuice [#59](https://github.com/tinyhumansai/tinyjuice/pull/59) merged as
+`c3288ed1e5f30e52d22f634f8f00ac66322e67d9` after incorporating the latest
+canonical base. Fresh locked all-feature tests passed (739 tests and doctests),
+and a separately run compiled-artifact TinyBus test passed. Both final hosted
+Rust jobs passed, with approval and zero unresolved threads. Minor release run
+38091415272 is building the eleven shipped-platform artifacts; the new HTML
+and query host callers remain pending compatible released artifacts and digest
+pins. The isolated `module-tinyjuice-host` checkout now owns the turn-bound
+summary callback registry instead of re-exporting its implementation from
+TinyJuice; its 57 TokenJuice domain tests pass using the existing callback DTO.

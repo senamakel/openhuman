@@ -27,6 +27,7 @@ fn all(g: &JailGrants) -> Vec<PathBuf> {
 /// A grant reaches a credential store if it IS one, is inside one, or contains
 /// one (Landlock grants are recursive, so a parent grant exposes the child).
 fn reaches_credentials(grants: &[PathBuf], home: &Path) -> Option<PathBuf> {
+    let home = canon(home);
     for cred in [".ssh", ".gnupg", ".aws"] {
         let cred = home.join(cred);
         for g in grants {
@@ -36,6 +37,31 @@ fn reaches_credentials(grants: &[PathBuf], home: &Path) -> Option<PathBuf> {
         }
     }
     None
+}
+
+#[test]
+fn credential_assertion_recognizes_canonical_directory_file_and_ancestor_grants() {
+    let home = fake_home();
+    for cred in [".ssh", ".gnupg", ".aws"] {
+        let credential_dir = home.path().join(cred);
+        let credential_file = credential_dir.join("leaky");
+        fs::write(&credential_file, "").unwrap();
+        for grant in [
+            canon(&credential_dir),
+            canon(&credential_file),
+            canon(home.path()),
+        ] {
+            // Native Windows canonicalization adds a verbatim prefix to the
+            // grant. The parent component also exercises normalization on Unix.
+            for home_path in [home.path().to_path_buf(), home.path().join(".cargo/..")] {
+                assert_eq!(
+                    reaches_credentials(std::slice::from_ref(&grant), &home_path),
+                    Some(grant.clone()),
+                    "credential grant {grant:?} must be detected for home {home_path:?}"
+                );
+            }
+        }
+    }
 }
 
 #[test]

@@ -198,6 +198,14 @@ five additional distro bundles; the next complete wallet-operations release
 must use the current distro-inclusive workflow before host adoption. Wallet #61
 merged with 35 passing hosted checks and approval.
 
+Wallet #62 adds module-owned Web3 quotes/execution and x402 budgets/payments.
+Its ordinary hosted coverage gate still needs additional service lifecycle
+fixtures. The host's native wallet also calls `WalletEngine` for balances,
+network and asset catalogues, transfer preparation/execution, and transaction
+status, receipt and lookup operations. Those need a further owning-module
+contract and implementation change before the wallet implementation dependency
+cut; releasing #62 alone will not complete that migration.
+
 The current base also contains unrelated source/artifact pin drift for computer,
 search, docs, runtime/providers, MCP and Box. The module-pin gate reports this;
 it is not treated as a passing check or hidden by new exceptions. The stale

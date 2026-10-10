@@ -285,6 +285,18 @@ pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<Bille
     )
 }
 
+/// Normalize provider input usage to whole prompt occupancy. Most routes
+/// include cache reads/writes in `input_tokens`; the Claude Code route reports
+/// only uncached input and exposes cached tokens separately.
+pub(crate) fn context_input_tokens(input: u64, cache_read: u64, cache_creation: u64) -> u64 {
+    let cached = cache_read.saturating_add(cache_creation);
+    if input < cached {
+        input.saturating_add(cached)
+    } else {
+        input
+    }
+}
+
 /// Shared slot that preserves the most recent original provider error.
 ///
 /// tinyagents carries errors as `TinyAgentsError::Model(String)`, which would

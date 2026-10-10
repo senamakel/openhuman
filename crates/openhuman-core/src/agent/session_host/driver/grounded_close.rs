@@ -42,7 +42,11 @@ impl RepairUsage {
         self.model_calls += 1;
         if let Some(usage) = usage {
             if measures_context {
-                self.last_call_input_tokens = usage.input_tokens;
+                self.last_call_input_tokens = crate::agent::tinyagents::model::context_input_tokens(
+                    usage.input_tokens,
+                    usage.cached_input_tokens(),
+                    usage.usage.cache_creation_tokens,
+                );
                 self.last_call_output_tokens = usage.output_tokens;
             }
             self.input_tokens += usage.input_tokens;

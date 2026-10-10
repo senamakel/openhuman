@@ -50,6 +50,12 @@ fn usage_round_trips_charged_usd_and_all_token_breakdowns() {
 }
 
 #[test]
+fn context_input_tokens_widens_uncached_provider_usage_without_double_counting() {
+    assert_eq!(context_input_tokens(12, 40_000, 2_000), 42_012);
+    assert_eq!(context_input_tokens(42_012, 40_000, 2_000), 42_012);
+}
+
+#[test]
 fn no_billing_metadata_leaves_raw_clean() {
     let chat = ChatResponse {
         text: Some("hi".to_string()),

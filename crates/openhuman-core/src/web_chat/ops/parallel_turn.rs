@@ -216,7 +216,7 @@ pub(crate) async fn spawn_parallel_turn(
 }
 
 /// Cooperatively cancel every parallel turn on a thread. Returns the cancelled
-/// request ids. Used by the thread-level cancel paths so a cancel/stop also
+/// `(request_id, client_id)` pairs. Used by the thread-level cancel paths so a cancel/stop also
 /// tears down any concurrent forked turns, not just the primary turn.
 pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<(String, String)> {
     let mut cancelled = Vec::new();
@@ -247,7 +247,7 @@ pub(crate) async fn cancel_parallel_turns_for_thread(thread_id: &str) -> Vec<(St
 
 /// Cancel a single parallel (forked) turn identified by `request_id`, but only
 /// when it belongs to `thread_id`. Returns the cancelled id (as a one-element
-/// vec, mirroring [`cancel_parallel_turns_for_thread`]) or empty when no such
+/// vec of `(request_id, client_id)`, mirroring [`cancel_parallel_turns_for_thread`]) or empty when no such
 /// parallel turn exists. Request-scoped cancel path (#4760).
 pub(crate) async fn cancel_parallel_turn_by_request_id(
     thread_id: &str,

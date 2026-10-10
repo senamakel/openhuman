@@ -41,6 +41,10 @@ pub async fn cancel_chat_scoped(
         .request_id)
 }
 
+/// The `client_id` a lease-loss teardown cancels under. No client asked for
+/// it, so each turn's cancelled events go to the client that started it.
+const FENCE_CLIENT_ID: &str = "profile-fence";
+
 /// Stop every turn running in the calling context — what a profile whose
 /// lease was lost does before it closes. Each thread is torn down as an
 /// unscoped stop would (primary, parallel turns and detached sub-agents).
@@ -49,7 +53,7 @@ pub async fn cancel_all_turns() -> usize {
     let threads = super::state::live_thread_ids().await;
     let mut stopped = 0;
     for thread_id in &threads {
-        match cancel_chat_inner("profile-fence", thread_id, None).await {
+        match cancel_chat_inner(FENCE_CLIENT_ID, thread_id, None).await {
             Ok(outcome) if outcome.request_id.is_some() => stopped += 1,
             Ok(_) => {}
             Err(error) => {
@@ -89,6 +93,7 @@ async fn cancel_chat_inner(
 
     let map_key = key_for(thread_id);
     let mut removed_request_id: Option<String> = None;
+    let mut removed_client_id: Option<String> = None;
 
     {
         let mut in_flight = in_flight().lock_owned().await;
@@ -101,6 +106,7 @@ async fn cancel_chat_inner(
             .unwrap_or(false);
         if should_cancel_primary {
             if let Some(existing) = in_flight.remove(&map_key) {
+                removed_client_id = Some(existing.client_id.clone());
                 removed_request_id = Some(cancel_in_flight_gracefully(existing));
             }
         } else if let Some(rid) = request_id {
@@ -126,9 +132,11 @@ async fn cancel_chat_inner(
     // Surface that id so `channel_web_cancel` reports `cancelled: true` with the
     // right request_id instead of misreporting a no-op just because the primary
     // turn wasn't the one cancelled.
-    let cancelled_any = removed_request_id
-        .clone()
-        .or_else(|| cancelled_parallel.first().cloned());
+    let cancelled_any = removed_request_id.clone().or_else(|| {
+        cancelled_parallel
+            .first()
+            .map(|(request_id, _)| request_id.clone())
+    });
 
     // An unscoped stop also halts the thread's detached work. Async sub-agents
     // (`spawn_async_subagent`) run on their own tasks and deliberately drop the
@@ -180,10 +188,21 @@ async fn cancel_chat_inner(
     // `error_type` string to parse); `chat_error{error_type:"cancelled"}` is
     // kept alongside it for one release so an older frontend build still
     // resolves the turn.
-    for request_id in removed_request_id.into_iter().chain(cancelled_parallel) {
+    // A fence cancel names no real client, so each turn's events go to the
+    // client that started it; a user's cancel keeps the caller's id.
+    let fenced = client_id == FENCE_CLIENT_ID;
+    let cancelled_turns = removed_request_id
+        .into_iter()
+        .map(|request_id| (request_id, removed_client_id.take()))
+        .chain(cancelled_parallel.into_iter().map(|(r, c)| (r, Some(c))));
+    for (request_id, started_by) in cancelled_turns {
+        let client_id = match (fenced, started_by) {
+            (true, Some(started_by)) => started_by,
+            _ => client_id.to_string(),
+        };
         publish_web_channel_event(WebChannelEvent {
             event: "chat_error".to_string(),
-            client_id: client_id.to_string(),
+            client_id: client_id.clone(),
             thread_id: thread_id.to_string(),
             request_id: request_id.clone(),
             message: Some("Cancelled".to_string()),
@@ -192,7 +211,7 @@ async fn cancel_chat_inner(
         });
         publish_web_channel_event(WebChannelEvent {
             event: "chat_cancelled".to_string(),
-            client_id: client_id.to_string(),
+            client_id,
             thread_id: thread_id.to_string(),
             request_id,
             cancel_reason: Some("user_stop".to_string()),

@@ -162,6 +162,10 @@ path = "../../tests/memory_cortexdb_live.rs"
 # scripts/test-memory-cortexdb-live.sh, which boots the server in Docker.
 
 [[test]]
+name = "security_characterization_e2e"
+path = "../../tests/security_characterization_e2e.rs"
+
+[[test]]
 name = "json_rpc_e2e"
 path = "../../tests/json_rpc_e2e.rs"
 # `voice::reply_speech::{test_seam, TEST_SEAM_ENV}` — the reply-speech seam

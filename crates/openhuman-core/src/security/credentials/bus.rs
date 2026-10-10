@@ -69,7 +69,7 @@ impl SessionExpiredSubscriber {
         };
 
         // SaaS: the credential belongs to one user and the gateway owns its
-        // refresh (`user_agents.set_credential`). Nothing process-wide is torn
+        // refresh (`profiles.set_credential`). Nothing process-wide is torn
         // down; the failing call already reports the 401 to that user.
         if saas {
             tracing::warn!(

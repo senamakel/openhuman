@@ -519,6 +519,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.dailySummaryFlow':
     'Cria um fluxo que me envie um resumo diário por e-mail.',
   'chat.typeMessage': 'Envie uma mensagem...',
+  'chat.regenerate.unavailable':
+    'Esta resposta não pode ser regenerada. Tente regenerar a resposta mais recente.',
+  'chat.regenerate.failed': 'Não foi possível regenerar a resposta. Tente novamente.',
   'chat.send': 'Enviar mensagem',
   'chat.stopGeneration': 'Parar geração',
   'chat.followupHint':
@@ -1252,7 +1255,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Abrir a página de {name}',
   'mcp.installed.emptyAddInJson': 'Adicionar um em mcp.json',
   'mcp.registry.intro':
-    'Um diretório de servidores MCP. Abrir um servidor leva à sua própria página, onde estão as instruções de instalação; adicione-o na aba mcp.json.',
+    'Um diretório de servidores MCP. Servidores hospedados que não precisam de configuração são adicionados com um clique; para os demais, abra a página do servidor para ver as instruções de instalação e declare-o na aba mcp.json.',
+  'mcp.registry.action.add': 'Adicionar',
+  'mcp.registry.action.added': 'Adicionado',
+  'mcp.registry.action.adding': 'Adicionando…',
+  'mcp.registry.aria.add': 'Adicionar {name}',
+  'mcp.registry.needsSetup':
+    'Este servidor precisa de configuração antes de ser adicionado. Abra a página dele para ver as instruções de instalação.',
+  'mcp.registry.addFailed': 'Não foi possível adicionar este servidor.',
+  'mcp.registry.connectFailed': 'Adicionado, mas o servidor não se conectou.',
   'mcp.json.loadFailedTitle': 'Não foi possível ler mcp.json',
   'mcp.json.loadFailedBody':
     'O núcleo não respondeu, então o documento não é mostrado. Um editor vazio convidaria a salvar e apagar seus servidores.',
@@ -1731,6 +1742,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': 'Conectado. Tudo pronto.',
   'bootCheck.authFailed': 'Esse token não funcionou. Verifique-o e tente novamente.',
   'bootCheck.unreachablePrefix': 'Não foi possível alcançar:',
+  'bootCheck.socketDisabled':
+    'Conectado, mas o tempo real está desativado neste núcleo. Ele foi iniciado com --jsonrpc-only; reinicie-o sem essa opção para o chat e as atualizações ao vivo funcionarem.',
   'bootCheck.checkingCore': 'Iniciando o OpenHuman…',
   'bootCheck.cannotReach': 'Não foi possível conectar',
   'bootCheck.cannotReachDesc': 'Não conseguimos nos conectar. Quer tentar em outro lugar?',
@@ -1799,6 +1812,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Falha na verificação de atualização',
   'about.update.status.default': 'Verificar atualizações',
   'welcome.continueLocallyExperimental': 'Continuar Localmente (Experimental)',
+  'auth.profileSwitch.title': 'Iniciar sessão com um perfil separado?',
+  'auth.profileSwitch.body':
+    'O início de sessão na nuvem mudará o OpenHuman para um perfil de conta separado. As suas conversas, memória e definições locais de fornecedores continuarão neste dispositivo, em users/{profileId}. Para voltar, termine a sessão e escolha a sessão local no ecrã de boas-vindas.',
+  'auth.profileSwitch.continue': 'Continuar sessão',
   'welcome.localSessionStarting': 'Iniciando sessão local...',
   'welcome.coreConfigUnreadable':
     'O runtime não conseguiu ler o seu ficheiro de configuração. O config.toml pode pertencer a outra conta de utilizador ou estar inacessível ao processo por outro motivo. Reinicie o runtime e, se isso não resolver, corrija a propriedade da pasta de trabalho ou recrie o seu volume.',
@@ -3409,10 +3426,6 @@ const messages: TranslationMap = {
   'settings.ai.providerNamePlaceholder': 'Meu provedor',
   'settings.ai.slugLabel': 'Lesma:',
   'settings.ai.openAiUrlLabel': 'URL da OpenAI',
-  'settings.ai.caCertificateLabel': 'Certificado CA (opcional)',
-  'settings.ai.caCertificateTooLarge': 'O certificado CA deve ter no máximo 256 KB',
-  'settings.ai.caCertificateReadError': 'Não foi possível ler o certificado CA',
-  'settings.ai.clearCaCertificate': 'Remover certificado CA',
   'settings.ai.openAiUrlPlaceholder': 'https://api.openai.com/v1',
   'settings.ai.keepExistingKeyPlaceholder': 'Deixe em branco para manter a chave existente',
   'settings.ai.signInWithOpenRouter': 'Faça login com OpenRouter',
@@ -5214,7 +5227,7 @@ const messages: TranslationMap = {
   'memoryPage.engine.badgeDown': 'Inacessível',
   'memoryPage.engine.connecting': 'Conectando…',
   'memoryPage.engine.save': 'Salvar',
-  'memoryPage.engine.builtin.title': 'CortexDB da TinyHumans',
+  'memoryPage.engine.builtin.title': 'CortexDB integrado ao TinyHumans',
   'memoryPage.engine.builtin.signInHint':
     'Entre na sua conta TinyHumans para usar o CortexDB integrado.',
   'memoryPage.engine.apiKeyOption.title': 'CortexDB com sua própria chave',

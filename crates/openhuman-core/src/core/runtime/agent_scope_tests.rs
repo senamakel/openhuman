@@ -181,3 +181,22 @@ fn current_slot_without_a_context_uses_the_unscoped_state() {
     let second = current_slot::<Counter>();
     assert!(Arc::ptr_eq(&first, &second));
 }
+
+#[test]
+fn an_unscoped_saas_task_never_meets_shared_slots() {
+    let first = slot_in::<Counter>(true, None);
+    *first.0.lock().unwrap() = 5;
+    let second = slot_in::<Counter>(true, None);
+    assert_eq!(*second.0.lock().unwrap(), 0, "a throwaway slot each time");
+    assert!(!Arc::ptr_eq(&first, &second));
+    // Single-user processes keep the one shared unscoped slot.
+    assert!(Arc::ptr_eq(
+        &slot_in::<Counter>(false, None),
+        &slot_in::<Counter>(false, None)
+    ));
+    let ctx = root("/tmp/x");
+    assert!(Arc::ptr_eq(
+        &slot_in::<Counter>(true, Some(&ctx)),
+        &ctx.agent_state().slot::<Counter>()
+    ));
+}

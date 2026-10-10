@@ -31,7 +31,7 @@
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/harness_assembly_tests.rs",
     "line": 74,
-    "text": "let assembled = assemble_turn_harness(",
+    "text": "assemble_turn_harness(",
     "occurrence": 1
   },
   {
@@ -44,7 +44,7 @@
   {
     "rule": "openhuman-runtime-bridge",
     "path": "crates/openhuman-core/src/agent/tinyagents/mod.rs",
-    "line": 93,
+    "line": 95,
     "text": "pub(crate) use turn_runner::{run_root_turn_via_hosted_agent, run_turn_via_tinyagents_shared};",
     "occurrence": 1
   },
@@ -79,14 +79,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/bus.rs",
-    "line": 295,
+    "line": 297,
     "text": "let outcome = turn_origin::with_origin(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/bus.rs",
-    "line": 301,
+    "line": 303,
     "text": "with_current_sandbox_mode(sandbox_mode, async {",
     "occurrence": 1
   },
@@ -282,21 +282,21 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
-    "line": 416,
+    "line": 415,
     "text": "let handle = tokio::spawn(crate::agent::turn_origin::propagate(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
-    "line": 417,
+    "line": 416,
     "text": "crate::agent::turn_workspace::propagate(async move {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/orchestration/ops.rs",
-    "line": 419,
+    "line": 418,
     "text": "let result = with_parent_context(parent, async move {",
     "occurrence": 1
   },
@@ -429,14 +429,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session.rs",
-    "line": 661,
+    "line": 665,
     "text": "workspace_descriptor: crate::agent::harness::current_parent()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/session_host/runtime_session/tool_rules.rs",
-    "line": 66,
+    "line": 65,
     "text": "crate::agent::turn_origin::current_is_user_authored().then(|| request.input.text());",
     "occurrence": 1
   },
@@ -478,14 +478,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/subagent_host/ops/runner.rs",
-    "line": 364,
+    "line": 360,
     "text": "let run_result = Box::pin(with_spawn_depth(attempted_depth, async {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/subagent_host/ops/runner.rs",
-    "line": 366,
+    "line": 362,
     "text": "with_current_sandbox_mode(definition.sandbox_mode, async {",
     "occurrence": 1
   },
@@ -541,14 +541,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/turn_origin.rs",
-    "line": 314,
+    "line": 316,
     "text": "Some(origin) => with_origin(origin, fut).await,",
     "occurrence": 2
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/agent/turn_origin.rs",
-    "line": 377,
+    "line": 384,
     "text": "pub fn current_request_id() -> Option<String> {",
     "occurrence": 1
   },
@@ -611,14 +611,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/cron/scheduler/agent_run.rs",
-    "line": 163,
+    "line": 177,
     "text": "let turn = crate::agent::turn_origin::with_origin(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/cron/scheduler/agent_run.rs",
-    "line": 177,
+    "line": 202,
     "text": "crate::agent::harness::with_task_recency_window(",
     "occurrence": 1
   },
@@ -695,14 +695,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/flows/tinyflows/caps/agent.rs",
-    "line": 407,
+    "line": 437,
     "text": "let escalated_origin = escalated_origin_for_nested_harness(turn_origin::current());",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/flows/tinyflows/caps/agent.rs",
-    "line": 420,
+    "line": 450,
     "text": "Box::pin(turn_origin::with_origin(",
     "occurrence": 1
   },
@@ -737,14 +737,14 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
-    "line": 388,
+    "line": 434,
     "text": "if let Some(tx) = crate::agent::progress_sink::current_progress_sink() {",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/inference/host_runtime/ops/agent_chat.rs",
-    "line": 411,
+    "line": 457,
     "text": "let run = crate::agent::turn_origin::with_origin(",
     "occurrence": 1
   },
@@ -870,22 +870,29 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/memory/tools.rs",
-    "line": 136,
+    "line": 141,
     "text": ".or_else(crate::agent::turn_workspace::current)",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/memory/tools.rs",
-    "line": 141,
+    "line": 146,
     "text": "crate::agent::harness::fork_context::current_parent()",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/security/approval/gate_intercept.rs",
-    "line": 53,
+    "line": 58,
     "text": "let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/security/approval/gate_intercept.rs",
+    "line": 275,
+    "text": "&& (detached || crate::agent::harness::spawn_depth_context::current_spawn_depth() > 0);",
     "occurrence": 1
   },
   {
@@ -947,7 +954,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/tools/impl/system/shell.rs",
-    "line": 369,
+    "line": 371,
     "text": "crate::agent::harness::current_sandbox_mode(),",
     "occurrence": 1
   },
@@ -996,7 +1003,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/web_chat/ops/turn_guards.rs",
-    "line": 93,
+    "line": 111,
     "text": "crate::agent::turn_origin::with_origin(",
     "occurrence": 1
   },
@@ -1010,28 +1017,28 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 472,
+    "line": 546,
     "text": "openhuman_core::agent::progress_sink::with_progress_sink(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 474,
+    "line": 548,
     "text": "openhuman_core::agent::turn_origin::with_origin(origin, dispatch),",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 479,
+    "line": 553,
     "text": "openhuman_core::agent::turn_origin::with_origin(origin, dispatch).await",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-embed/src/turn.rs",
-    "line": 482,
+    "line": 556,
     "text": "openhuman_core::agent::progress_sink::with_progress_sink(sink, dispatch).await",
     "occurrence": 1
   },
@@ -1066,7 +1073,7 @@
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-core/src/agent/session_store/mod.rs",
-    "line": 19,
+    "line": 20,
     "text": "pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};",
     "occurrence": 1
   },
@@ -1143,35 +1150,35 @@
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 123,
+    "line": 187,
     "text": "pub use tinyagents_session::port::{",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 127,
+    "line": 191,
     "text": "pub use tinyagents_session::testkit::conformance::{",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 131,
+    "line": 195,
     "text": "pub use tinyagents_session::transcript::{",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 136,
+    "line": 200,
     "text": "pub use tinyagents_session::turn_state::{TurnLifecycle, TurnState};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-upstream-reexport",
     "path": "crates/openhuman-embed/src/lib.rs",
-    "line": 138,
+    "line": 202,
     "text": "pub use tinyagents_session::{Result as StoreResult, TinyAgentsError as StoreError};",
     "occurrence": 1
   },
@@ -1450,8 +1457,15 @@
   },
   {
     "rule": "tinyagents-tool-calling-facade",
+    "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/tool_call_wrapper.rs",
+    "line": 25,
+    "text": "use tinytools_agent::repair::args::ARGUMENT_KEYS;",
+    "occurrence": 1
+  },
+  {
+    "rule": "tinyagents-tool-calling-facade",
     "path": "vendor/tinyagents/crates/tinyagents-harness/src/agent_loop/tools.rs",
-    "line": 2500,
+    "line": 2570,
     "text": "use tinytools_agent::repair::args;",
     "occurrence": 1
   },

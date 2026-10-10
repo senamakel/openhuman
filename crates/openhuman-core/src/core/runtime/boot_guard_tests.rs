@@ -376,3 +376,43 @@ fn an_uppercase_host_network_or_an_infinite_cpu_limit_is_refused() {
     let found = violations(&i);
     assert_eq!(found.len(), 2, "{found:?}");
 }
+
+#[test]
+fn a_single_node_needs_no_shared_backend() {
+    let mut f = fixture();
+    f.config.storage_url = Some("memory:".into());
+    assert_eq!(check(&inputs(&f, &[])), Ok(()));
+}
+
+#[test]
+fn a_clustered_node_needs_a_backend_with_cross_process_cas() {
+    let mut f = fixture();
+    f.config.advertise_url = Some("http://10.0.0.1:7788".into());
+    let found = violations(&inputs(&f, &[]));
+    assert!(
+        matches!(found.as_slice(), [Violation::Cluster(why)] if why.contains("no storage_url")),
+        "{found:?}"
+    );
+
+    f.config.storage_url = Some("memory:".into());
+    let found = violations(&inputs(&f, &[]));
+    assert!(
+        matches!(found.as_slice(), [Violation::Cluster(why)] if why.contains("`memory`")),
+        "{found:?}"
+    );
+
+    // The environment wins over the operator file.
+    let env = env(&[("OPENHUMAN_STORAGE_URL", "sqlite:/var/lib/oh/shared.db")]);
+    assert_eq!(check(&inputs(&f, &env)), Ok(()));
+    f.config.storage_url = Some("mongodb://user:secret@db.internal/oh".into());
+    assert_eq!(check(&inputs(&f, &[])), Ok(()));
+}
+
+#[test]
+fn a_cluster_violation_never_echoes_the_url() {
+    let mut f = fixture();
+    f.config.advertise_url = Some("http://10.0.0.1:7788".into());
+    f.config.storage_url = Some("file:///srv/user:secret@x".into());
+    let message = check(&inputs(&f, &[])).unwrap_err().to_string();
+    assert!(!message.contains("secret"), "{message}");
+}

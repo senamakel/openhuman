@@ -172,3 +172,28 @@ fn quarantine_reports_none_when_there_is_nothing_to_move() {
     let dir = tempfile::TempDir::new().unwrap();
     assert!(quarantine_corrupt(&dir.path().join("absent.json"), "json").is_none());
 }
+
+#[test]
+fn two_quarantines_in_one_second_keep_both_files() {
+    let dir = tempfile::TempDir::new().unwrap();
+    let path = dir.path().join("secrets.enc");
+    let mut moved = Vec::new();
+    for body in [
+        b"first".as_slice(),
+        b"second".as_slice(),
+        b"third".as_slice(),
+    ] {
+        std::fs::write(&path, body).unwrap();
+        moved.push(quarantine_corrupt(&path, "enc").expect("moved aside"));
+    }
+    let mut names: Vec<_> = moved.iter().collect();
+    names.sort();
+    names.dedup();
+    assert_eq!(names.len(), 3, "no quarantine reused a name: {moved:?}");
+    let mut bodies: Vec<_> = moved.iter().map(|p| std::fs::read(p).unwrap()).collect();
+    bodies.sort();
+    assert_eq!(
+        bodies,
+        [b"first".to_vec(), b"second".to_vec(), b"third".to_vec()]
+    );
+}

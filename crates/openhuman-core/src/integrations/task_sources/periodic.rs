@@ -44,14 +44,13 @@ fn last_poll_map() -> &'static LastPollMap {
 }
 
 /// The poll-tracking key for `source_id` in the current storage scope: the
-/// same source id in two agents' scopes is two different sources.
+/// same source id in two tenants' scopes (agents, or SaaS profiles) is two
+/// different sources.
 fn poll_key(source_id: &str) -> String {
-    let agent = crate::core::runtime::CoreContext::current()
-        .and_then(|context| context.session_agent().map(str::to_string));
-    match agent {
-        Some(agent) => format!("{agent}\u{0}{source_id}"),
-        None => source_id.to_string(),
-    }
+    crate::core::runtime::tenant_key(
+        &crate::core::runtime::tenant::current_tenant_or_isolated("task_sources"),
+        source_id,
+    )
 }
 
 /// Record a successful (or attempted) poll for a source id.

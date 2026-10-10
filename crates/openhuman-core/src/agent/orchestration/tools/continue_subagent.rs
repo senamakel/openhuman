@@ -9,6 +9,7 @@
 //! appended to the conversation history.
 
 use crate::agent::harness::definition::AgentDefinitionRegistry;
+use crate::agent::orchestration::tools::dispatch::{incomplete_stop, stopped_subagent_result};
 use crate::agent::progress::AgentProgress;
 use crate::agent::subagent_host::{
     continue_subagent, continue_subagent_with_parent, load_subagent_checkpoint, SubagentRunOptions,
@@ -553,6 +554,7 @@ impl ContinueSubagentTool {
                                         worktree_path: None,
                                         changed_files: Vec::new(),
                                         dirty_status: None,
+                                        stop: None,
                                     })
                                     .await;
                             }
@@ -597,11 +599,12 @@ impl ContinueSubagentTool {
                                         worktree_path: None,
                                         changed_files: Vec::new(),
                                         dirty_status: None,
+                                        stop: incomplete_stop(reason),
                                     })
                                     .await;
                             }
                         }
-                        Ok(ToolResult::success(format!(
+                        let envelope = format!(
                             "[SUBAGENT_INCOMPLETE]\n\
                              task_id: {}\n\
                              agent_id: {}\n\
@@ -612,7 +615,14 @@ impl ContinueSubagentTool {
                              report this as done; relay the partial result and the blocker to the \
                              user, or take a different approach.",
                             outcome.task_id, outcome.agent_id, outcome.output,
-                        )))
+                        );
+                        Ok(stopped_subagent_result(
+                            "continue_subagent",
+                            &outcome.agent_id,
+                            &outcome.task_id,
+                            reason,
+                            envelope,
+                        ))
                     }
                     SubagentRunStatus::Cancelled => {
                         tracing::info!(

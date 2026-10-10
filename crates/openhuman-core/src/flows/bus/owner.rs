@@ -11,20 +11,38 @@ use std::collections::HashMap;
 use std::sync::{LazyLock, Mutex};
 
 use crate::config::Config;
+use crate::storage::agents::{find_owner, within_agent, LookupFailed};
 
 /// Flows whose owner this process has resolved (`None` = `local`).
 static OWNERS: LazyLock<Mutex<HashMap<String, Option<String>>>> = LazyLock::new(Default::default);
 
 /// The agent `flow_id` belongs to: `None` for `local`, or when no scope has
 /// the flow (the handler then reports the flow as unknown, as before).
-pub(super) async fn flow_owner(config: &Config, flow_id: &str) -> Option<String> {
+///
+/// # Errors
+///
+/// When no scope reported the flow and a scope's lookup failed: the event
+/// is then not handled, rather than handled in the wrong scope.
+pub(super) async fn flow_owner(
+    config: &Config,
+    flow_id: &str,
+) -> Result<Option<String>, LookupFailed> {
     // No backend: every record is `local`.
-    crate::storage::installed()?;
+    if crate::storage::installed().is_none() {
+        return Ok(None);
+    }
     resolve(config, flow_id).await
 }
 
+/// Whether the current scope has `flow_id`.
+async fn has_flow(config: &Config, flow_id: &str) -> Result<bool, String> {
+    crate::flows::store::get_flow(config, flow_id)
+        .map(|flow| flow.is_some())
+        .map_err(|error| error.to_string())
+}
+
 /// [`flow_owner`]'s cache and lookup, across whatever scopes exist.
-async fn resolve(config: &Config, flow_id: &str) -> Option<String> {
+async fn resolve(config: &Config, flow_id: &str) -> Result<Option<String>, LookupFailed> {
     let cached = OWNERS
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
@@ -33,20 +51,20 @@ async fn resolve(config: &Config, flow_id: &str) -> Option<String> {
     if let Some(owner) = cached {
         // Still there? A removed flow's id may be reused, or the flow moved:
         // re-check the cached scope and resolve again when it lost the flow.
-        let still_there = crate::storage::agents::within_agent(owner.as_deref(), async {
-            matches!(crate::flows::store::get_flow(config, flow_id), Ok(Some(_)))
-        })
-        .await;
-        if still_there {
-            return owner;
+        match within_agent(owner.as_deref(), has_flow(config, flow_id)).await {
+            Some(Ok(true)) => return Ok(owner),
+            Some(Err(error)) => {
+                return Err(LookupFailed {
+                    agent: owner,
+                    error,
+                })
+            }
+            Some(Ok(false)) | None => forget(flow_id),
         }
-        forget(flow_id);
     }
-    let found = crate::storage::agents::find_owner("flow owner", || async {
-        matches!(crate::flows::store::get_flow(config, flow_id), Ok(Some(_)))
-    })
-    .await;
-    let owner = found?;
+    let Some(owner) = find_owner("flow owner", || has_flow(config, flow_id)).await? else {
+        return Ok(None);
+    };
     tracing::debug!(
         target: "flows",
         %flow_id,
@@ -57,7 +75,40 @@ async fn resolve(config: &Config, flow_id: &str) -> Option<String> {
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner)
         .insert(flow_id.to_string(), owner.clone());
-    owner
+    Ok(owner)
+}
+
+/// Runs `fut` as `flow_id`'s owner; logs and skips it when the owner is
+/// unknown (a failed lookup) or no context can act for it.
+pub(super) async fn as_owner<F: std::future::Future<Output = ()>>(
+    config: &Config,
+    flow_id: &str,
+    fut: F,
+) {
+    match flow_owner(config, flow_id).await {
+        Ok(owner) => {
+            within_agent(owner.as_deref(), fut).await;
+        }
+        Err(failed) => tracing::warn!(
+            target: "flows",
+            %flow_id,
+            "[flows] flow owner unknown ({failed}); event not handled"
+        ),
+    }
+}
+
+/// The configuration to handle a flow event under: the acting agent's own
+/// when the handler runs as one ([`as_owner`]) — its provider, access
+/// policy, memory and action directory — else `registered`, the one the
+/// subscriber was registered with.
+pub(super) fn config_for_scope(registered: &std::sync::Arc<Config>) -> std::sync::Arc<Config> {
+    // A SaaS profile acts as its own tenant even with no agent inside it.
+    let acting = crate::core::runtime::current_tenant()
+        .is_ok_and(|tenant| tenant.agent.is_some() || tenant.profile.is_some());
+    match acting.then(crate::core::runtime::CoreContext::current_embedder_config) {
+        Some(Some(config)) => std::sync::Arc::new(config),
+        _ => std::sync::Arc::clone(registered),
+    }
 }
 
 /// Forgets a cached owner (a removed flow's id may be reused).

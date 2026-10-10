@@ -146,10 +146,10 @@ describe('sealHandshake / openHandshake', () => {
     expect(Array.from(recovered)).toEqual(Array.from(payload));
   });
 
-  it('frame starts with version byte 0x01', () => {
+  it('frame starts with version byte 0x03', () => {
     const core = generateKeypair();
     const frame = sealHandshake(core.publicKey, new Uint8Array(16));
-    expect(frame[0]).toBe(0x01);
+    expect(frame[0]).toBe(0x03);
   });
 
   it('rejects tampered handshake frame', () => {

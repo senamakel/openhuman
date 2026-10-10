@@ -5,10 +5,12 @@ mod credentials;
 mod prompt;
 mod relay;
 mod start_channels;
+mod turn_parts;
 
 pub(crate) use credentials::{hydrate_channel_credentials, RuntimeProxyClients};
 pub use start_channels::start_channels;
 pub(crate) use start_channels::start_channels_with_session;
+pub(crate) use turn_parts::{build_channel_turn_parts, runtime_context, PromptToolDescs};
 
 // Re-exported at module scope (rather than left as private `pub(super)`
 // items reached only through their owning submodule) so the `#[path]` test

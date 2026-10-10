@@ -64,7 +64,13 @@ fn full_turn_builds_correlated_span_tree() {
             },
             1_030,
         ),
-        (AgentProgress::TurnCompleted { iterations: 1 }, 1_040),
+        (
+            AgentProgress::TurnCompleted {
+                iterations: 1,
+                stop: None,
+            },
+            1_040,
+        ),
     ]);
     c.finish(2_000);
     let spans = c.spans();
@@ -237,6 +243,7 @@ fn subagent_lifecycle_nests_under_the_turn() {
                 worktree_path: Some("/private/should/not/leak".to_string()),
                 changed_files: vec!["secret_file.rs".to_string()],
                 dirty_status: Some(true),
+                stop: None,
             },
             40,
         ),
@@ -327,6 +334,7 @@ fn unknown_subagent_task_ids_are_ignored() {
             worktree_path: None,
             changed_files: vec![],
             dirty_status: None,
+            stop: None,
         },
         10,
     );

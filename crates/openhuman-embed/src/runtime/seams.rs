@@ -13,6 +13,7 @@
 //! | [`post_turn_hook`](RuntimeBuilder::post_turn_hook) / [`tool_hook`](RuntimeBuilder::tool_hook) | before boot, replacing a same-named hook | newest first, while ours still holds the name: ours removed, a replaced same-named hook restored |
 //! | [`server_launcher`](RuntimeBuilder::server_launcher) | before boot | kept: first install wins for the process |
 //! | [`live_policy`](RuntimeBuilder::live_policy) | after boot | kept: the next boot (or a config reload) installs its own |
+//! | [`storage`](RuntimeBuilder::storage) | before boot | the previous backend is restored (or cleared), if ours still holds the slot |
 //!
 //! The live policy goes in *after* boot because the core's bootstrap installs
 //! one derived from the config; installing earlier would be overwritten. A
@@ -31,9 +32,49 @@ use openhuman_core::agent::tinyagents::discovery::{
 use openhuman_core::core::all::{register_controller_extension, ControllerExtension};
 use openhuman_core::core::server_launcher::{install_server_launcher, ServerLauncher};
 use openhuman_core::security::SecurityPolicy;
+use openhuman_core::storage::StorageBackend;
 use tinytools::ToolRanker;
 
 use super::RuntimeBuilder;
+
+/// Where a runtime's storage backend (the `tinystoragedrivers` ports the
+/// core's `storage` domain reads) comes from.
+#[derive(Clone)]
+pub enum StorageSource {
+    /// A storage URL (`sqlite://…`, `memory`, `mongodb://…`), opened when the
+    /// runtime is built. A URL that cannot be opened fails the build.
+    Url(String),
+    /// A backend the host already opened.
+    Backend(Arc<dyn StorageBackend>),
+}
+
+impl std::fmt::Debug for StorageSource {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        // A URL can carry credentials: never print it.
+        match self {
+            Self::Url(_) => f.write_str("StorageSource::Url(<redacted>)"),
+            Self::Backend(backend) => write!(f, "StorageSource::Backend({})", backend.driver()),
+        }
+    }
+}
+
+impl From<&str> for StorageSource {
+    fn from(url: &str) -> Self {
+        Self::Url(url.to_string())
+    }
+}
+
+impl From<String> for StorageSource {
+    fn from(url: String) -> Self {
+        Self::Url(url)
+    }
+}
+
+impl From<Arc<dyn StorageBackend>> for StorageSource {
+    fn from(backend: Arc<dyn StorageBackend>) -> Self {
+        Self::Backend(backend)
+    }
+}
 
 /// The seam options a builder collected, not yet installed.
 #[derive(Default)]
@@ -44,9 +85,41 @@ pub(crate) struct HostSeams {
     pub(crate) tool_hooks: Vec<Arc<dyn ToolHook>>,
     pub(crate) server_launcher: Option<ServerLauncher>,
     pub(crate) live_policy: Option<Arc<SecurityPolicy>>,
+    pub(crate) storage: Option<StorageSource>,
 }
 
 impl HostSeams {
+    /// Open a [`StorageSource::Url`] into a backend, so [`install`](Self::install)
+    /// can stay synchronous. A no-op for any other source.
+    ///
+    /// # Errors
+    ///
+    /// The URL could not be parsed or opened.
+    pub(crate) async fn open_storage(&mut self) -> Result<(), String> {
+        if let Some(StorageSource::Url(url)) = &self.storage {
+            let backend = openhuman_core::storage::open(url)
+                .await
+                .map_err(|error| format!("opening the storage backend: {error}"))?;
+            self.storage = Some(StorageSource::Backend(backend));
+        }
+        Ok(())
+    }
+
+    /// [`open_storage`](Self::open_storage) from synchronous code, on the
+    /// core's dedicated storage runtime thread so the backend outlives the call.
+    pub(crate) fn open_storage_blocking(&mut self) -> Result<(), String> {
+        let Some(StorageSource::Url(url)) = self.storage.take() else {
+            return Ok(());
+        };
+        let backend =
+            openhuman_core::storage::block_on(
+                async move { openhuman_core::storage::open(&url).await },
+            )
+            .map_err(|error| format!("opening the storage backend: {error}"))?;
+        self.storage = Some(StorageSource::Backend(backend));
+        Ok(())
+    }
+
     /// Install every pre-boot seam and return the guard that undoes the
     /// restorable ones.
     ///
@@ -122,7 +195,24 @@ impl HostSeams {
             })
             .collect();
 
+        let storage = match self.storage {
+            Some(StorageSource::Backend(backend)) => {
+                let previous = openhuman_core::storage::install(Arc::clone(&backend));
+                log::debug!(
+                    "[embed][seams] storage backend installed driver={} replaced={}",
+                    backend.driver(),
+                    previous.is_some()
+                );
+                Some((backend, previous))
+            }
+            Some(StorageSource::Url(_)) => {
+                return Err("storage url was not opened before install".to_string());
+            }
+            None => None,
+        };
+
         Ok(InstalledSeams {
+            storage,
             ranker,
             post_turn_hooks,
             tool_hooks,
@@ -135,6 +225,9 @@ impl HostSeams {
 /// A ranker we installed, and what held the slot before it.
 type InstalledRanker = (Arc<dyn ToolRanker>, Option<Arc<dyn ToolRanker>>);
 
+/// A storage backend we installed, and what held the slot before it.
+type InstalledStorage = (Arc<dyn StorageBackend>, Option<Arc<dyn StorageBackend>>);
+
 /// A hook we installed under `name`, and what held that name before it.
 struct InstalledHook<H: ?Sized> {
     name: String,
@@ -145,6 +238,7 @@ struct InstalledHook<H: ?Sized> {
 /// Seams a runtime installed. Dropping it restores the restorable ones; see
 /// the module docs.
 pub(crate) struct InstalledSeams {
+    storage: Option<InstalledStorage>,
     ranker: Option<InstalledRanker>,
     /// Our hooks, in install order, each with the same-named hook it replaced.
     post_turn_hooks: Vec<InstalledHook<dyn PostTurnHook>>,
@@ -189,6 +283,23 @@ impl Drop for InstalledSeams {
     fn drop(&mut self) {
         if !self.restore {
             return;
+        }
+        if let Some((ours, previous)) = self.storage.take() {
+            let still_ours =
+                openhuman_core::storage::installed().is_some_and(|now| Arc::ptr_eq(&now, &ours));
+            if still_ours {
+                match previous {
+                    Some(previous) => {
+                        openhuman_core::storage::install(previous);
+                    }
+                    None => {
+                        openhuman_core::storage::clear();
+                    }
+                }
+                log::debug!("[embed][seams] storage backend restored");
+            } else {
+                log::debug!("[embed][seams] storage backend replaced since build; left alone");
+            }
         }
         if let Some((ours, previous)) = self.ranker.take() {
             let still_ours = installed_tool_ranker().is_some_and(|now| Arc::ptr_eq(&now, &ours));
@@ -276,6 +387,19 @@ impl RuntimeBuilder {
     /// with. The first launcher installed in a process wins and stays.
     pub fn server_launcher(mut self, launcher: ServerLauncher) -> Self {
         self.seams.server_launcher = Some(launcher);
+        self
+    }
+
+    /// The storage backend the core's `storage` domain reads (approvals,
+    /// secrets, documents, per-agent scopes): a URL opened at build time, or a
+    /// backend the host opened. Installed before boot and, when the runtime
+    /// drops, the previous backend is restored (or cleared) if ours still holds
+    /// the slot.
+    ///
+    /// This is only the backend. Conversations move onto it with
+    /// [`session_store`](Self::session_store).
+    pub fn storage(mut self, source: impl Into<StorageSource>) -> Self {
+        self.seams.storage = Some(source.into());
         self
     }
 

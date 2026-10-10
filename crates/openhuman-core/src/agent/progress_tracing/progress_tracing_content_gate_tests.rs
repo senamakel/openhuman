@@ -17,6 +17,7 @@ fn subagent_content_is_withheld_when_capture_off() {
                 worktree_path: None,
                 changed_files: vec![],
                 dirty_status: None,
+                stop: None,
             },
             105,
         ),

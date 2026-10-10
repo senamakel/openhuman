@@ -1,18 +1,18 @@
 //! Booting a core in [`Mode::Saas`](super::mode::Mode::Saas).
 //!
-//! A SaaS core serves many users from one process, each as their own agent,
+//! A SaaS core serves many users from one process, each as their own profile,
 //! behind a trusted gateway that authenticates them. This module holds the
 //! **operator** side of that: [`SaasConfig`] (read from the operator's file,
 //! never from any user's `config.toml`), the SaaS presets for the three
 //! narrowing axes, and [`build`], which refuses to boot unless
 //! [`boot_guard`](super::boot_guard) finds nothing unsafe.
 //!
-//! [`DomainSet::saas`] enables the operator plane (`user_agents.*`) and the
+//! [`DomainSet::saas`] enables the operator plane (`profiles.*`) and the
 //! user families whose per-user isolation has landed (threads, channels for
 //! web chat, memory). The operator scope reaches only its own plane, and a
-//! user only the reviewed `user_agents::surface::USER_METHODS`. [`build`]
+//! user only the reviewed `profiles::surface::USER_METHODS`. [`build`]
 //! seeds the built-in agent definitions and installs the process's
-//! [`AgentHost`](crate::user_agents::AgentHost).
+//! [`ProfileHost`](crate::profiles::ProfileHost).
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -37,7 +37,7 @@ pub struct SaasConfig {
     #[serde(default)]
     pub service_token_file: Option<PathBuf>,
     /// Host tool groups the operator opts users into
-    /// (`user_agents::tools::SaasToolGroup`: `host_files`, `host_shell`).
+    /// (`profiles::tools::SaasToolGroup`: `host_files`, `host_shell`).
     /// Empty by default: users get no tool that reaches the host.
     #[serde(default)]
     pub tool_allowlist: Vec<String>,
@@ -45,13 +45,19 @@ pub struct SaasConfig {
     #[serde(default)]
     pub sandbox: SaasSandboxConfig,
     /// Extra RPC methods the operator exposes. Refused by the boot guard: the
-    /// per-user RPC surface is the reviewed `user_agents::surface` list.
+    /// per-user RPC surface is the reviewed `profiles::surface` list.
     #[serde(default)]
     pub rpc_allowlist_extra: Vec<String>,
-    /// Most user agents kept open at once.
-    #[serde(default = "default_max_agents_open")]
-    pub max_agents_open: usize,
-    /// Seconds an idle user agent stays open.
+    /// Most profiles kept open at once.
+    #[serde(default = "default_max_profiles_open", alias = "max_agents_open")]
+    pub max_profiles_open: usize,
+    /// How a gateway user id becomes a profile id: `"raw"` (the default) keeps
+    /// an id that already fits `^[a-z0-9][a-z0-9_-]{0,63}$` and is not
+    /// reserved, hashing anything else; `"hashed"` hashes every id
+    /// (`profiles::ProfileIdMode`). Changing it may re-map users onto different profiles.
+    #[serde(default)]
+    pub profile_ids: crate::profiles::ProfileIdMode,
+    /// Seconds an idle profile stays open.
     #[serde(default = "default_idle_evict_secs")]
     pub idle_evict_secs: u64,
     /// Let every user ride the operator's backend API key.
@@ -61,9 +67,36 @@ pub struct SaasConfig {
     #[serde(default)]
     pub custom_definitions: bool,
     /// Require `X-OpenHuman-User-Sig` on every request made for a user
-    /// (see `user_agents::gateway`).
+    /// (see `profiles::gateway`).
     #[serde(default = "default_true")]
     pub require_user_signature: bool,
+    /// The storage backend every node of a deployment shares (`sqlite:…`,
+    /// `mongodb://…`): the profile registry, the profile leases and the
+    /// session store. `OPENHUMAN_STORAGE_URL` wins over it. Unset keeps the
+    /// on-disk layout, `profile.toml` files and file-lock leases.
+    #[serde(default)]
+    pub storage_url: Option<String>,
+    /// This node's id in the profile leases. Defaults to `OPENHUMAN_NODE_ID`,
+    /// else a random id per process ([`Self::resolve_node_id`]). Must be
+    /// unique among live nodes; a stable one lets a restarted node take its
+    /// own profiles back at once instead of waiting out their leases.
+    #[serde(default)]
+    pub node_id: Option<String>,
+    /// Where the gateway reaches this node, named to callers that hit another
+    /// node while this one holds their profile. Setting it marks the node as
+    /// one of a cluster, which needs a backend whose compare-and-swap holds
+    /// across processes (the boot guard checks).
+    #[serde(default)]
+    pub advertise_url: Option<String>,
+    /// Seconds a profile lease lasts without renewal. The holder renews every
+    /// third of it; a node that stops renewing loses its profiles to others
+    /// after this long.
+    #[serde(default = "default_lease_ttl_secs")]
+    pub lease_ttl_secs: u64,
+    /// The operator's own state directory. Defaults to `<root>/operator`;
+    /// nodes sharing one root each set their own.
+    #[serde(default)]
+    pub operator_dir: Option<PathBuf>,
 }
 
 /// `[sandbox]`: the one-shot container a user's shell command runs in. The
@@ -116,13 +149,20 @@ fn default_true() -> bool {
     true
 }
 
-fn default_max_agents_open() -> usize {
+fn default_max_profiles_open() -> usize {
     256
 }
 
 fn default_idle_evict_secs() -> u64 {
     30 * 60
 }
+
+fn default_lease_ttl_secs() -> u64 {
+    30
+}
+
+/// The environment variable that names this node (see [`SaasConfig::node_id`]).
+pub const NODE_ID_VAR: &str = "OPENHUMAN_NODE_ID";
 
 impl SaasConfig {
     /// A config rooted at `root` with every default.
@@ -133,11 +173,17 @@ impl SaasConfig {
             tool_allowlist: Vec::new(),
             sandbox: SaasSandboxConfig::default(),
             rpc_allowlist_extra: Vec::new(),
-            max_agents_open: default_max_agents_open(),
+            max_profiles_open: default_max_profiles_open(),
+            profile_ids: crate::profiles::ProfileIdMode::default(),
             idle_evict_secs: default_idle_evict_secs(),
             shared_backend_api_key: false,
             custom_definitions: false,
             require_user_signature: true,
+            storage_url: None,
+            node_id: None,
+            advertise_url: None,
+            lease_ttl_secs: default_lease_ttl_secs(),
+            operator_dir: None,
         }
     }
 
@@ -162,9 +208,56 @@ impl SaasConfig {
             .unwrap_or_else(|| self.root.join("service.token"))
     }
 
-    /// The operator's own state directory: `<root>/operator`.
+    /// The operator's own state directory: [`Self::operator_dir`] when set,
+    /// else `<root>/operator`.
     pub fn operator_dir(&self) -> PathBuf {
-        self.root.join("operator")
+        self.operator_dir
+            .clone()
+            .unwrap_or_else(|| self.root.join("operator"))
+    }
+
+    /// The storage URL in effect: `env` (`OPENHUMAN_STORAGE_URL`) when set,
+    /// else [`Self::storage_url`]. Blank values count as unset.
+    pub fn storage_url_with(&self, env: Option<&str>) -> Option<String> {
+        env.into_iter()
+            .chain(self.storage_url.as_deref())
+            .map(str::trim)
+            .find(|url| !url.is_empty())
+            .map(str::to_owned)
+    }
+
+    /// [`Self::storage_url_with`] the process environment.
+    pub fn resolved_storage_url(&self) -> Option<String> {
+        let env = std::env::var(crate::storage::STORAGE_URL_VAR).ok();
+        self.storage_url_with(env.as_deref())
+    }
+
+    /// Fill in [`Self::node_id`]: the configured one, else `env`
+    /// (`OPENHUMAN_NODE_ID`), else a fresh random id. Called once at boot so
+    /// every lease this process takes names the same node.
+    pub fn resolve_node_id(&mut self, env: Option<&str>) -> &str {
+        let id = self
+            .node_id
+            .as_deref()
+            .into_iter()
+            .chain(env)
+            .map(str::trim)
+            .find(|id| !id.is_empty())
+            .map(str::to_owned)
+            .unwrap_or_else(|| format!("node-{}", uuid::Uuid::new_v4().simple()));
+        self.node_id.insert(id).as_str()
+    }
+
+    /// Whether this node is one of a cluster (it advertises an endpoint).
+    pub fn is_clustered(&self) -> bool {
+        self.advertise_url
+            .as_deref()
+            .is_some_and(|url| !url.trim().is_empty())
+    }
+
+    /// How long a profile lease lasts without renewal (at least one second).
+    pub fn lease_ttl(&self) -> std::time::Duration {
+        std::time::Duration::from_secs(self.lease_ttl_secs.max(1))
     }
 
     /// The config the operator plane boots with. It roots every path under
@@ -191,8 +284,8 @@ impl ServiceSet {
 
 impl DomainSet {
     /// The domain families a SaaS core registers: the operator plane and the
-    /// user families whose per-user isolation has landed. User agents derive
-    /// their contexts from these; `user_agents::surface` keeps the operator
+    /// user families whose per-user isolation has landed. Profiles derive
+    /// their contexts from these; `profiles::surface` keeps the operator
     /// scope on its own plane and each user on the user allowlist.
     pub fn saas() -> Self {
         Self {
@@ -208,7 +301,7 @@ impl DomainSet {
 /// Boot a SaaS core: check the deployment, lock the process to SaaS, and
 /// build the operator plane.
 pub async fn build(
-    config: SaasConfig,
+    mut config: SaasConfig,
     host: Option<String>,
     port: Option<u16>,
 ) -> anyhow::Result<CoreRuntime> {
@@ -241,6 +334,8 @@ pub async fn build(
     let ServiceToken::Valid(bearer) = token else {
         unreachable!("boot guard accepts only a valid service token");
     };
+    let node_env = std::env::var(NODE_ID_VAR).ok();
+    let node_id = config.resolve_node_id(node_env.as_deref()).to_owned();
 
     mode::lock_mode(Mode::Saas).map_err(|e| anyhow::anyhow!("[saas] {e}"))?;
 
@@ -261,9 +356,13 @@ pub async fn build(
         );
     }
     log::info!(
-        "[saas] booting operator plane root={} max_agents_open={} idle_evict_secs={}",
+        "[saas] booting operator plane root={} node={node_id} clustered={} lease_ttl_secs={} \
+         max_profiles_open={} profile_ids={:?} idle_evict_secs={}",
         config.root.display(),
-        config.max_agents_open,
+        config.is_clustered(),
+        config.lease_ttl_secs,
+        config.max_profiles_open,
+        config.profile_ids,
         config.idle_evict_secs
     );
 
@@ -289,12 +388,32 @@ pub async fn build(
     // Whoever initialised first won; refuse to serve users from a registry
     // that holds anything but the built-ins.
     verify_builtin_definitions(crate::agent::harness::AgentDefinitionRegistry::global())?;
-    let host = Arc::new(crate::user_agents::AgentHost::new(
-        config,
-        runtime.context().clone(),
-    ));
-    crate::user_agents::host::install(Arc::clone(&host));
-    crate::user_agents::background::spawn(host);
+    // A relayed platform message (`channel_relay_inbound`) runs through the
+    // channel dispatch pipeline, which asks the native bus for an
+    // `agent.run_turn`. The `Agent` family stays off in SaaS (no agent RPCs
+    // on any surface), so its subscriber plan never registers that handler;
+    // register it alone. The request carries the caller's own turn parts, and
+    // the handler runs in the caller's (profile's) scope.
+    crate::agent::bus::register_agent_handlers();
+    log::debug!("[saas] registered the native agent.run_turn handler for relayed channel turns");
+    // With a storage backend installed (the host opened the configured URL
+    // before boot), the profile registry and leases live in it and every node
+    // sharing it contends for the same profiles; without one they are files
+    // under the root.
+    let backend = crate::storage::installed();
+    if config.resolved_storage_url().is_some() && backend.is_none() {
+        anyhow::bail!(
+            "[saas] a storage URL is configured but no backend is installed; \
+             the host must open it before boot"
+        );
+    }
+    let host = Arc::new(
+        crate::profiles::ProfileHost::with_backend(config, runtime.context().clone(), backend)
+            .map_err(|e| anyhow::anyhow!("[saas] {e}"))?,
+    );
+    crate::profiles::host::install(Arc::clone(&host));
+    crate::profiles::lease::heartbeat(Arc::clone(&host), runtime.context().clone());
+    crate::profiles::background::spawn(host);
     Ok(runtime)
 }
 

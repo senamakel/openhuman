@@ -472,25 +472,40 @@ fn translate(event: &DomainEvent) -> Option<CoreNotificationEvent> {
 /// The agent whose storage scope a notification raised by `event` belongs
 /// in: the owner of the cron job a `CronJobCompleted` names, when a storage
 /// backend is installed and an agent's scope holds the job; `None` (`local`)
-/// otherwise.
-async fn event_owner(config: &crate::config::Config, event: &DomainEvent) -> Option<String> {
+/// otherwise — including a job found in `local` or found nowhere.
+///
+/// # Errors
+///
+/// When no scope reported the job and a scope's lookup failed.
+async fn event_owner(
+    config: &crate::config::Config,
+    event: &DomainEvent,
+) -> Result<Option<String>, crate::storage::agents::LookupFailed> {
     let DomainEvent::CronJobCompleted { job_id, .. } = event else {
-        return None;
+        return Ok(None);
     };
     // Noted by the scheduler as the job completed — the only record of a
     // one-shot job, which is deleted before the event is published.
     if let Some(agent) = crate::cron::completion_owner::take(job_id) {
-        return Some(agent);
+        return Ok(Some(agent));
     }
-    // No backend: every record is `local`.
-    crate::storage::installed()?;
-    // Found in `local` (`Some(None)`) and found nowhere (`None`) both mean
-    // the notification is stored in `local`.
-    crate::storage::agents::find_owner("notification owner", || async {
-        crate::cron::get_job(config, job_id).is_ok()
+    if crate::storage::installed().is_none() {
+        return Ok(None);
+    }
+    let owner = crate::storage::agents::find_owner("notification owner", || async {
+        match crate::cron::get_job(config, job_id) {
+            Ok(_) => Ok(true),
+            // tinyflows reports a missing job as `Cron job '<id>' not found`
+            // (an untyped `anyhow` error in the vendored crate); match that
+            // whole shape for this job rather than any message mentioning it.
+            Err(error) if error.to_string() == format!("Cron job '{job_id}' not found") => {
+                Ok(false)
+            }
+            Err(error) => Err(error.to_string()),
+        }
     })
-    .await
-    .flatten()
+    .await?;
+    Ok(owner.flatten())
 }
 
 #[async_trait]
@@ -518,12 +533,23 @@ impl EventHandler<DomainEvent> for NotificationBridgeSubscriber {
                 // Stored with the record that raised it: a cron job's
                 // completion goes to the agent the job belongs to
                 // (`crate::storage`), `local` otherwise.
-                let owner = event_owner(&config, event).await;
-                let stored = crate::storage::agents::within_agent(owner.as_deref(), async {
-                    super::store::insert_core_notification(&config, &notification)
-                })
-                .await;
-                match stored {
+                let stored = match event_owner(&config, event).await {
+                    Ok(owner) => {
+                        crate::storage::agents::within_agent(owner.as_deref(), async {
+                            super::store::insert_core_notification(&config, &notification)
+                        })
+                        .await
+                    }
+                    Err(failed) => {
+                        // Unknown owner: not stored rather than stored in the
+                        // wrong scope. The live broadcast below still goes out.
+                        log::warn!(
+                            "{LOG_PREFIX} notification owner unknown ({failed}); not persisted"
+                        );
+                        None
+                    }
+                };
+                match stored.unwrap_or(Ok(false)) {
                     Ok(true) => log::debug!(
                         "{LOG_PREFIX} persisted core notification id={}",
                         notification.id

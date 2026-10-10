@@ -30,6 +30,9 @@ import {
   type RoutingMap,
 } from './aiPanelTypes';
 
+/** Providers with no `/models` endpoint, never re-probed at save time. */
+const SAVE_PROBE_EXEMPT_SLUGS = new Set(['openhuman', 'claude-code']);
+
 function toPanelProvider(p: CloudProviderView): CloudProvider {
   return {
     id: p.id,
@@ -172,10 +175,12 @@ export function useAISettings() {
       // unreachable between add-time and save-time, etc.) before they reach
       // the saved config and start routing chat traffic to a dead host.
       //
-      // OpenHuman is exempt (session JWT, no /models endpoint to hit).
+      // Exempt: OpenHuman (session JWT) and CLI-login providers such as
+      // `claude-code` (`cli://` endpoint) — neither has a /models endpoint to
+      // hit, matching the add-time `isCliLogin` skip in `useProviderConnect`.
       const savedById = new Map(saved.cloudProviders.map(p => [p.id, p]));
       const toProbe = draft.cloudProviders.filter(p => {
-        if (p.slug === 'openhuman') return false;
+        if (SAVE_PROBE_EXEMPT_SLUGS.has(p.slug)) return false;
         const prior = savedById.get(p.id);
         return !prior || prior.endpoint !== p.endpoint;
       });

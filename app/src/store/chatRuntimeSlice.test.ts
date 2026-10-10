@@ -6,8 +6,10 @@ import chatRuntimeReducer, {
   appendProcessingProse,
   beginInferenceTurn,
   clearAllChatRuntime,
+  clearPendingApprovalIfRequest,
   clearQueueStatusForThread,
   clearRuntimeForThread,
+  clearTurnApprovalForThread,
   hydrateRuntimeFromRunLedger,
   hydrateRuntimeFromSnapshot,
   hydrateThreadUsage,
@@ -20,6 +22,7 @@ import chatRuntimeReducer, {
   setStreamingAssistantForThread,
   setToolTimelineForThread,
   setWorkflowProposalForThread,
+  turnSettled,
 } from './chatRuntimeSlice';
 
 function makeRun(id: string, status: AgentRunStatus): AgentRun {
@@ -991,5 +994,49 @@ describe('hydrateRuntimeFromSnapshot — sub-agent transcript fallback (fix 4)',
     // Falls back to tool-only items so an old snapshot still shows the sequence.
     expect(transcript).toHaveLength(1);
     expect(transcript[0].kind).toBe('tool');
+  });
+});
+
+// Regression: an async sub-agent's approval (`detached`) was routed to the
+// parent thread while the parent turn ran, then wiped by that turn's
+// `chat_done` — "a parked gate cannot outlive its turn" — though its gate was
+// still parked. Every async `image_agent` approval then expired unseen at
+// 600s. A detached card survives turn-end clears and goes on its decision.
+describe('detached approvals', () => {
+  const detached = {
+    requestId: 'req-sub',
+    toolName: 'media_generate_image',
+    message: 'Run media_generate_image',
+    detached: true,
+  };
+
+  it('survives the parent turn ending', () => {
+    const store = makeStore();
+    store.dispatch(setPendingApprovalForThread({ threadId: 't1', approval: detached }));
+    store.dispatch(clearTurnApprovalForThread({ threadId: 't1' }));
+    store.dispatch(turnSettled({ threadId: 't1' }));
+    store.dispatch(clearRuntimeForThread({ threadId: 't1' }));
+    expect(store.getState().chatRuntime.pendingApprovalByThread['t1']?.requestId).toBe('req-sub');
+  });
+
+  it('still clears an in-turn approval at the turn end', () => {
+    const store = makeStore();
+    store.dispatch(
+      setPendingApprovalForThread({
+        threadId: 't1',
+        approval: { requestId: 'req-main', toolName: 'shell', message: 'Run ls' },
+      })
+    );
+    store.dispatch(clearTurnApprovalForThread({ threadId: 't1' }));
+    expect(store.getState().chatRuntime.pendingApprovalByThread['t1']).toBeUndefined();
+  });
+
+  it('clears on its own decision but not on another request', () => {
+    const store = makeStore();
+    store.dispatch(setPendingApprovalForThread({ threadId: 't1', approval: detached }));
+    store.dispatch(clearPendingApprovalIfRequest({ threadId: 't1', requestId: 'req-other' }));
+    expect(store.getState().chatRuntime.pendingApprovalByThread['t1']).toBeDefined();
+    store.dispatch(clearPendingApprovalIfRequest({ threadId: 't1', requestId: 'req-sub' }));
+    expect(store.getState().chatRuntime.pendingApprovalByThread['t1']).toBeUndefined();
   });
 });

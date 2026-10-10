@@ -80,11 +80,18 @@ async fn background_work_visits_every_agent_scope() {
     let job_id = within_agent(Some("agent-e2e"), async {
         cron::list_jobs(&config).unwrap()[0].id.clone()
     })
+    .await
+    .expect("the live agent has a context");
+    let owner = find_owner("e2e", || async {
+        Ok(cron::get_job(&config, &job_id).is_ok())
+    })
     .await;
-    let owner = find_owner("e2e", || async { cron::get_job(&config, &job_id).is_ok() }).await;
-    assert_eq!(owner, Some(Some("agent-e2e".to_string())));
-    let missing = find_owner("e2e", || async { cron::get_job(&config, "nope").is_ok() }).await;
-    assert_eq!(missing, None);
+    assert_eq!(owner, Ok(Some(Some("agent-e2e".to_string()))));
+    let missing = find_owner("e2e", || async {
+        Ok(cron::get_job(&config, "nope").is_ok())
+    })
+    .await;
+    assert_eq!(missing, Ok(None));
 
     // … and, once the agent is gone, through the id the backend recorded.
     assert!(AgentContextRegistry::deregister("agent-e2e", &agent));

@@ -49,24 +49,31 @@ impl EventHandler<DomainEvent> for TaskSourcesConnectionSubscriber {
             return;
         };
 
-        let config = match config_rpc::load_config_with_timeout().await {
-            Ok(config) => config,
-            Err(e) => {
-                tracing::debug!(error = %e, "[task_sources:bus] load_config failed, skipping");
-                return;
-            }
-        };
-        if !config.task_sources.enabled {
-            return;
-        }
-
         // Every scope may hold sources for this toolkit (`crate::storage`):
-        // fire each scope's under its own agent.
+        // handle each scope as its own agent, with that agent's config.
         crate::storage::agents::for_each_live_scope("task_sources connection", || {
-            fire_for_connection(&config, provider, toolkit, connection_id)
+            fire_in_scope(provider, toolkit, connection_id)
         })
         .await;
     }
+}
+
+/// [`fire_for_connection`] for the current scope, with the configuration
+/// loaded inside it — so an agent whose own config disables task sources is
+/// skipped even when the process config enables them, and the other way
+/// round.
+async fn fire_in_scope(provider: ProviderSlug, toolkit: &str, connection_id: &str) {
+    let config = match config_rpc::load_config_with_timeout().await {
+        Ok(config) => config,
+        Err(e) => {
+            tracing::debug!(error = %e, "[task_sources:bus] load_config failed, skipping scope");
+            return;
+        }
+    };
+    if !config.task_sources.enabled {
+        return;
+    }
+    fire_for_connection(&config, provider, toolkit, connection_id).await;
 }
 
 /// Starts a one-shot fetch for every enabled source of `provider` in the

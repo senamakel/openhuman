@@ -221,7 +221,11 @@ pub fn format_event(ev: &AgentProgress) -> Option<String> {
             "  ⮑ subagent {agent_id} awaiting user: {}",
             truncate(question, 200)
         ),
-        AgentProgress::TurnCompleted { iterations } => {
+        AgentProgress::TurnCompleted {
+            iterations,
+            stop: Some(stop),
+        } => format!("turn {} ({iterations} iterations)", stop.status_message()),
+        AgentProgress::TurnCompleted { iterations, .. } => {
             format!("turn completed ({iterations} iterations)")
         }
         // Noisy / non-step events — skipped (the final text is in the footer).
@@ -243,12 +247,22 @@ pub fn format_event(ev: &AgentProgress) -> Option<String> {
 }
 
 /// Drain the progress channel to the log until the agent drops its sender.
-pub async fn drain_to_log(mut rx: Receiver<AgentProgress>, path: PathBuf) {
+/// Returns how the run's turn was stopped early, if its `TurnCompleted` said
+/// so, so the caller can write a `STOPPED` footer instead of `DONE`.
+pub async fn drain_to_log(
+    mut rx: Receiver<AgentProgress>,
+    path: PathBuf,
+) -> Option<crate::agent::turn_stop::TurnStop> {
+    let mut stop = None;
     while let Some(ev) = rx.recv().await {
         if let Some(line) = format_event(&ev) {
             let _ = append(&path, &line).await;
         }
+        if let AgentProgress::TurnCompleted { stop: Some(s), .. } = &ev {
+            stop = Some(s.clone());
+        }
     }
+    stop
 }
 
 /// Detect the degenerate "model emitted the same paragraph many times in one
@@ -292,7 +306,7 @@ pub struct ScannedRun {
     pub workflow_id: String,
     /// Header `started:` timestamp (RFC3339); empty if header was malformed.
     pub started: String,
-    /// `"DONE"` / `"DEGENERATE"` / `"FAILED"` / `"RUNNING"` (running ⇔ no footer yet).
+    /// `"DONE"` / `"STOPPED"` / `"DEGENERATE"` / `"FAILED"` / `"RUNNING"` (running ⇔ no footer yet).
     pub status: String,
     /// Footer `duration: <ms> ms`, parsed; `None` while running.
     pub duration_ms: Option<u64>,
@@ -434,7 +448,7 @@ pub fn find_run_log_path(workspace: &Path, run_id: &str) -> Option<PathBuf> {
 }
 
 /// Terminal outcome of a finished run, parsed from the `--- result ---`
-/// footer: the status word (`DONE` / `DEGENERATE` / `FAILED`) and the
+/// footer: the status word (`DONE` / `STOPPED` / `DEGENERATE` / `FAILED`) and the
 /// final output body that follows it. Used by `run_workflow` /
 /// `await_workflow` to hand the spawned run's result straight back to the
 /// orchestrator instead of making it scrape the log itself.

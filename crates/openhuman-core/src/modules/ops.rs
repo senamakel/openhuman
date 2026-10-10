@@ -204,7 +204,11 @@ async fn start_resolution(
                 Resolution::Ready
             }
             Err(reason) => {
-                log::warn!("[modules] '{id}' did not load: {reason}");
+                // Every resolution failure is terminal for the process (the
+                // outcome is cached), whichever path produced it; marking here
+                // makes later re-reports classify as `ModuleUnavailable`.
+                let reason = mark_terminal(reason);
+                report_resolution_failure(id, &reason);
                 Resolution::Failed(reason)
             }
         };
@@ -219,6 +223,20 @@ async fn start_resolution(
             work.await;
         }
     }
+}
+
+/// Report a module that did not load — once per process.
+///
+/// A resolution runs once and its failure is cached for every later caller
+/// (see the module docs), so this is the single Sentry event a broken install
+/// produces. Those callers re-raise the cached reason, and those re-reports
+/// classify as `ExpectedErrorKind::ModuleUnavailable` and are demoted; this
+/// one goes through [`report_error`] directly so the classifier cannot swallow
+/// it too.
+///
+/// [`report_error`]: crate::core::observability::report_error
+pub(super) fn report_resolution_failure(id: &str, reason: &str) {
+    crate::core::observability::report_error(reason, "modules", "resolve", &[("module", id)]);
 }
 
 /// Do the actual work of getting `record` serving.
@@ -307,21 +325,29 @@ async fn resolve(config: &Config, record: &'static ModuleRecord) -> Result<(), S
 ///
 /// A panic in the loader is reported rather than propagated: it would otherwise
 /// take down whichever task happened to be awaiting the load.
+///
+/// Every loader error is terminal for the process and says so once: tinybus'
+/// release-cache path and [`load_local`] already carry the marker, the rest
+/// get it appended here.
 async fn blocking<F>(work: F) -> Result<(), String>
 where
     F: FnOnce() -> Result<(), String> + Send + 'static,
 {
     host::runtime()
         .await
-        .map_err(|error| format!("the module bus could not start: {error}"))?
+        .map_err(|error| mark_terminal(format!("the module bus could not start: {error}")))?
         .blocking(work)
         .await
-        .map_err(|error| {
-            format!(
-                "{error}. {}; restart the app to try again",
-                crate::tools::status::MODULE_FAULT_MARKER
-            )
-        })
+        .map_err(mark_terminal)
+}
+
+/// Append the terminal-fault sentence to `error` unless it already has it.
+pub(super) fn mark_terminal(error: String) -> String {
+    let marker = crate::tools::status::MODULE_FAULT_MARKER;
+    if error.contains(marker) {
+        return error;
+    }
+    format!("{error}. {marker}; restart the app to try again")
 }
 
 /// Load the pinned release for this host through the release cache.

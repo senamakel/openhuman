@@ -260,3 +260,146 @@ fn recoverable_flag_matches_category() {
     assert!(!classify("permission denied (os error 13)", false).recoverable);
     assert!(!classify("blocked by policy", false).recoverable);
 }
+
+// Production misfires (Langfuse, Oct 2026): the classifier keyword-scanned the
+// whole result, including the JSON schema the harness echoes back on a
+// validation error and a command's own stderr. Structural shapes a producer
+// owns are classified before any keyword scan, and their payload is never
+// read for provider / timeout / credential words.
+#[test]
+fn structural_results_classify_before_any_keyword_scan() {
+    // The harness's schema-validation answer (`agent_loop/tools.rs`). The
+    // echoed shell schema describes a `timeout` argument; that must not read
+    // as "the action took too long".
+    let invalid_shell_args = "invalid arguments for tool `shell`: validation error: tool `shell` \
+         arguments failed schema validation: missing required property `command`; expected \
+         schema: {\"type\":\"object\",\"properties\":{\"command\":{\"type\":\"string\"},\
+         \"timeout\":{\"type\":\"integer\",\"description\":\"Timeout in seconds; the command \
+         is killed after the deadline (timed out)\"}},\"required\":[\"command\"]}";
+    // A command that ran and exited non-zero, rendered by
+    // `tinytools::render_command_failure`. Its stderr mentions ollama; that is
+    // the program's output, not OpenHuman failing to reach a model.
+    let ollama_stderr = "Command failed (exit code 1)\n[stdout]\nchecking models\n[stderr]\n\
+         Error: could not connect to ollama at 127.0.0.1:11434 (connection refused)";
+
+    let cases: &[(&str, &str, bool, ToolFailureClass)] = &[
+        (
+            "empty-args shell validation error with `timeout` in the echoed schema",
+            invalid_shell_args,
+            false,
+            ToolFailureClass::InvalidArguments,
+        ),
+        (
+            "validation error even when the executor's text sniff set timed_out",
+            invalid_shell_args,
+            true,
+            ToolFailureClass::InvalidArguments,
+        ),
+        (
+            "validation error carrying credential/policy words in the schema",
+            "invalid arguments for tool `gmail_send`: missing `to`; expected schema: \
+             {\"description\":\"401 unauthorized forbidden; blocked by policy; permission denied\"}",
+            false,
+            ToolFailureClass::InvalidArguments,
+        ),
+        (
+            "non-zero exit whose stderr mentions ollama",
+            ollama_stderr,
+            false,
+            ToolFailureClass::CommandFailed,
+        ),
+        (
+            "non-zero exit whose stderr says timed out (text sniff set timed_out)",
+            "Command failed (exit code 1)\n[stderr]\npytest: test_fetch timed out after 5s",
+            true,
+            ToolFailureClass::CommandFailed,
+        ),
+        (
+            "non-zero exit whose output carries a 401 / unauthorized",
+            "Command failed (exit code 22)\n[stderr]\ncurl: (22) The requested URL returned \
+             error: 401 Unauthorized",
+            false,
+            ToolFailureClass::CommandFailed,
+        ),
+        (
+            "signal-terminated command",
+            "Command failed (terminated by a signal — no exit code)\n(no output was captured on \
+             stdout or stderr)",
+            false,
+            ToolFailureClass::CommandFailed,
+        ),
+        (
+            "SIGPIPE exit whose hint is pure data",
+            "Command failed (exit code 141 — SIGPIPE: a reader closed the pipe before the writer \
+             finished)\n[stdout]\nUpdate objects.md (#401)",
+            false,
+            ToolFailureClass::CommandFailed,
+        ),
+        (
+            "exit 127 keeps its missing-program meaning from the exit line",
+            "Command failed (exit code 127 — command not found: a required executable or \
+             dependency is missing or not on PATH)\n[stderr]\nbash: ollama: command not found",
+            false,
+            ToolFailureClass::MissingApp,
+        ),
+        (
+            "exit 126 keeps its permission meaning from the exit line",
+            "Command failed (exit code 126 — permission denied or not executable)\n[stderr]\n\
+             bash: ./run.sh: Permission denied",
+            false,
+            ToolFailureClass::MissingPermission,
+        ),
+        (
+            "exit report wrapped by the agent tool adapter",
+            "Error executing shell: Command failed (exit code 2)\n[stderr]\nprovider error: \
+             service unavailable",
+            false,
+            ToolFailureClass::CommandFailed,
+        ),
+        (
+            "unknown-tool answer echoing arguments that contain keywords",
+            "unknown tool `fetch_url` (arguments: {\"url\":\"https://x.test\",\"timeout\":30,\
+             \"note\":\"ollama 401\"}): no tool with that name is available to you, and calling \
+             it again will fail the same way.",
+            false,
+            ToolFailureClass::NotFound,
+        ),
+    ];
+    for (name, text, timed_out, expected) in cases {
+        assert_eq!(
+            classify(text, *timed_out).class,
+            *expected,
+            "case `{name}` misclassified: {text:?}"
+        );
+    }
+}
+
+// The structural prefixes count only at the start, like the producer markers:
+// prose that merely mentions them keeps its ordinary classification.
+#[test]
+fn structural_prefixes_only_count_where_the_producer_puts_them() {
+    assert_eq!(
+        class_of("request timed out; Command failed (exit code 1) was logged earlier"),
+        ToolFailureClass::Timeout
+    );
+    assert_eq!(
+        class_of("ollama: provider error, see invalid arguments for tool `x` in the log"),
+        ToolFailureClass::ModelConnection
+    );
+}
+
+#[test]
+fn structural_classes_carry_their_own_copy() {
+    let invalid = classify(
+        "invalid arguments for tool `shell`: missing `command`",
+        false,
+    );
+    assert_eq!(invalid.class, ToolFailureClass::InvalidArguments);
+    assert!(!invalid.recoverable);
+    assert!(!invalid.cause_plain.contains("took too long"));
+
+    let exit = classify("Command failed (exit code 1)\n[stderr]\nboom", false);
+    assert_eq!(exit.class, ToolFailureClass::CommandFailed);
+    assert!(!exit.recoverable);
+    assert!(!exit.cause_plain.contains("AI model"));
+}

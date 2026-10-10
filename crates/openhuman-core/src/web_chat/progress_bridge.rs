@@ -1084,7 +1084,7 @@ pub(crate) fn spawn_progress_bridge(
                         },
                     );
                 }
-                AgentProgress::TurnCompleted { iterations } => {
+                AgentProgress::TurnCompleted { iterations, .. } => {
                     parent_completed = true;
                     timing.done(iterations, MIN_INTERIM_NARRATION_CHARS, &request_id);
                     if let Ok(mut guard) = timing_snapshot_for_task.lock() {

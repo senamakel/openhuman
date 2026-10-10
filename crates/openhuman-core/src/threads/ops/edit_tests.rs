@@ -217,3 +217,15 @@ fn truncate_transcript_for_regenerate_returns_none_when_no_turn_exists() {
     let result = truncate_transcript_for_regenerate(dir.path(), thread_id, None).expect("truncate");
     assert_eq!(result, None, "no user/assistant turn to regenerate");
 }
+
+/// Sentry TAURI-REACT-AK: regenerating on a thread that never wrote a session
+/// transcript surfaced "thread <id> has no session transcript" instead of the
+/// friendly "has no turn to regenerate" the caller maps `Ok(None)` to.
+#[test]
+fn truncate_transcript_for_regenerate_returns_none_when_thread_has_no_transcript() {
+    let dir = TempDir::new().expect("tempdir");
+
+    let result = truncate_transcript_for_regenerate(dir.path(), "thread-without-transcript", None)
+        .expect("a thread with no transcript has no turn to regenerate, not an error");
+    assert_eq!(result, None);
+}

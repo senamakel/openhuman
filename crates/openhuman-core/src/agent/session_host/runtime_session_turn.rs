@@ -20,6 +20,9 @@ impl OpenHumanSessionHost {
         context.progress = self.on_progress.clone();
         context.thread_id = self.thread_id.clone();
         context.workspace = self.workspace_descriptor.clone();
+        // The web backstop's deadline, when this turn runs under one: the
+        // harness winds down before it instead of being dropped by it.
+        context.turn_deadline = crate::agent::turn_deadline::current();
         let cancellation = context.cancellation.clone();
         let root_config = context.root_run_config("openhuman-session");
         let options = TurnOptions {

@@ -161,12 +161,40 @@ pub fn find_curated<'a>(catalog: &'a [CuratedTool], slug: &str) -> Option<&'a Cu
     catalog.iter().find(|t| t.slug.eq_ignore_ascii_case(slug))
 }
 
+/// Toolkits whose identifier itself contains an underscore, so the first
+/// segment of their action slugs is not the toolkit: `(action prefix, toolkit)`.
+/// Their real action slugs carry the prefix as written.
+const MULTI_SEGMENT_TOOLKIT_PREFIXES: &[(&str, &str)] = &[
+    ("MICROSOFT_TEAMS_", "microsoft_teams"),
+    ("ONE_DRIVE_", "one_drive"),
+    ("ZOHO_MAIL_", "zoho_mail"),
+    ("GOOGLE_MAPS_", "google_maps"),
+];
+
+/// Spellings models use for toolkits whose real slugs have no separator
+/// (`GOOGLE_DRIVE_FIND_FILE` for `GOOGLEDRIVE_FIND_FILE`):
+/// `(alias prefix, toolkit, canonical action prefix)`. Without them the first
+/// segment, `google`, names a toolkit that does not exist.
+const ALIASED_TOOLKIT_PREFIXES: &[(&str, &str, &str)] = &[
+    ("GOOGLE_DRIVE_", "googledrive", "GOOGLEDRIVE_"),
+    ("GOOGLE_CALENDAR_", "googlecalendar", "GOOGLECALENDAR_"),
+    ("GOOGLE_SHEETS_", "googlesheets", "GOOGLESHEETS_"),
+    ("GOOGLE_DOCS_", "googledocs", "GOOGLEDOCS_"),
+    ("GOOGLE_MEET_", "googlemeet", "GOOGLEMEET_"),
+    ("GOOGLE_TASKS_", "googletasks", "GOOGLETASKS_"),
+    ("GOOGLE_SLIDES_", "googleslides", "GOOGLESLIDES_"),
+    ("GOOGLE_PHOTOS_", "googlephotos", "GOOGLEPHOTOS_"),
+    ("MICROSOFT_OUTLOOK_", "outlook", "OUTLOOK_"),
+];
+
 /// Extract the toolkit slug from a Composio action slug.
 ///
 /// Most action slugs follow `<TOOLKIT>_<VERB>_…` — `GMAIL_SEND_EMAIL` yields
 /// `gmail`. A few toolkit identifiers contain underscores themselves, so those
 /// need known-prefix handling or a connected-toolkit check silently drops every
 /// action for them (`ZOHO_MAIL_*` would resolve to the non-existent `zoho`).
+/// Separated spellings of separator-less toolkits (`GOOGLE_DRIVE_*`) resolve to
+/// the real toolkit too (`googledrive`); see [`canonical_action_slug`].
 ///
 /// Returns `None` only for an empty or whitespace-only slug.
 pub fn toolkit_from_slug(slug: &str) -> Option<String> {
@@ -174,14 +202,14 @@ pub fn toolkit_from_slug(slug: &str) -> Option<String> {
     if trimmed.is_empty() {
         return None;
     }
-    const MULTI_SEGMENT_TOOLKIT_PREFIXES: &[(&str, &str)] = &[
-        ("MICROSOFT_TEAMS_", "microsoft_teams"),
-        ("ONE_DRIVE_", "one_drive"),
-        ("ZOHO_MAIL_", "zoho_mail"),
-    ];
     let upper = trimmed.to_ascii_uppercase();
     for (prefix, toolkit) in MULTI_SEGMENT_TOOLKIT_PREFIXES {
         if upper.starts_with(prefix) {
+            return Some((*toolkit).to_string());
+        }
+    }
+    for (alias, toolkit, _) in ALIASED_TOOLKIT_PREFIXES {
+        if upper.starts_with(alias) {
             return Some((*toolkit).to_string());
         }
     }
@@ -191,6 +219,27 @@ pub fn toolkit_from_slug(slug: &str) -> Option<String> {
     } else {
         Some(prefix.to_ascii_lowercase())
     }
+}
+
+/// The real action slug for an aliased spelling — `GOOGLE_DRIVE_FIND_FILE`
+/// becomes `GOOGLEDRIVE_FIND_FILE` — or `None` when `slug` uses no alias.
+pub fn canonical_action_slug(slug: &str) -> Option<String> {
+    let upper = slug.trim().to_ascii_uppercase();
+    ALIASED_TOOLKIT_PREFIXES
+        .iter()
+        .find_map(|(alias, _, canonical)| {
+            upper
+                .strip_prefix(alias)
+                .map(|rest| format!("{canonical}{rest}"))
+        })
+}
+
+/// Whether catalog slug `candidate` is the action `requested` names, ignoring
+/// case and accepting an aliased spelling ([`canonical_action_slug`]).
+pub fn action_slug_matches(candidate: &str, requested: &str) -> bool {
+    let requested = requested.trim();
+    candidate.eq_ignore_ascii_case(requested)
+        || canonical_action_slug(requested).is_some_and(|c| candidate.eq_ignore_ascii_case(&c))
 }
 
 /// Every toolkit slug that has a curated, agent-ready catalog.

@@ -18,6 +18,11 @@ pub struct WebChannelEvent {
     /// owner's stream in SaaS mode and is not part of the wire payload.
     #[serde(skip)]
     pub agent: Option<String>,
+    /// The tenant (SaaS profile) whose work produced this event, stamped at
+    /// publish time. Never serialized: the `/events` stream of a SaaS user
+    /// carries only events of that user's profile.
+    #[serde(skip)]
+    pub profile: Option<String>,
     /// The event name (e.g., `chat_message`, `tool_call`).
     pub event: String,
     /// Unique identifier for the Socket.IO client.
@@ -228,6 +233,12 @@ pub struct WebChannelEvent {
     /// requeue), when applicable.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub superseded_by: Option<String>,
+    /// `Some(true)` on an `approval_request` whose park can outlive the chat
+    /// turn it is shown on (an async-delegated sub-agent). The client keeps
+    /// such a card across that turn's `chat_done` and clears it on
+    /// `approval_decided` instead. Absent for an ordinary in-turn park.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub detached: Option<bool>,
 }
 
 impl WebChannelEvent {
@@ -236,6 +247,27 @@ impl WebChannelEvent {
     /// agent scope) is dropped rather than guessed at.
     pub fn belongs_to(&self, agent: &str) -> bool {
         self.agent.as_deref() == Some(agent)
+    }
+
+    /// Whether a SaaS profile's stream may carry this event: only one stamped
+    /// with that profile. An unstamped event is dropped rather than guessed at.
+    pub fn belongs_to_profile(&self, profile: &str) -> bool {
+        self.profile.as_deref() == Some(profile)
+    }
+
+    /// Stamp the tenant whose work produced this event where the publisher
+    /// left it unset. A SaaS task with no scope (`None`) stamps nothing, so
+    /// the event reaches no user's stream.
+    pub fn stamp_tenant(&mut self, tenant: Option<crate::core::runtime::Tenant>) {
+        let Some(tenant) = tenant else {
+            return;
+        };
+        if self.agent.is_none() {
+            self.agent = tenant.agent;
+        }
+        if self.profile.is_none() {
+            self.profile = tenant.profile;
+        }
     }
 }
 

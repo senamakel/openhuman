@@ -4,8 +4,8 @@
 //! Wire format (frame v2): `version(1=0x02) || nonce(24) || ciphertext+tag`.
 //! Frames produced with the previous `version=0x01` shape (single shared key,
 //! same key in both directions, no KDF) are no longer accepted; peers MUST
-//! re-pair after upgrade. The iOS client is marked in-progress / non-shipping
-//! in CLAUDE.md, so the forced re-pair is acceptable.
+//! upgrade before reconnecting. An upgraded client may reuse a valid pairing
+//! profile and device key.
 //!
 //! Session key derivation (`derive_session_keys`):
 //! ```text
@@ -18,6 +18,14 @@
 //! direction (seal) and one for the peer's (open). Static DH continues to
 //! authenticate the peer via the paired QR-code provenance; the ephemeral
 //! DH provides forward secrecy.
+//!
+//! Bootstrap messages use separate wire markers and HKDF domains:
+//! `0x03 || client_handshake_eph_pub || nonce || ciphertext` authenticates
+//! its 33-byte header and derives its key from the ephemeral-to-core DH,
+//! salted by `client_handshake_eph_pub || core_static_pub`.
+//! `0x04 || nonce || ciphertext` authenticates `0x04 || client_session_eph_pub`
+//! and derives its key from static DH, salted by `client_session_eph_pub`.
+//! Pre-upgrade raw-DH and plaintext handshakes are rejected.
 //!
 //! Replay protection still uses a sliding window over the last
 //! `WINDOW_SIZE` raw nonces, applied per opener.
@@ -38,6 +46,12 @@ pub const FRAME_VERSION: u8 = 0x02;
 /// Previous frame version. Surfaced so callers can build a stable error
 /// message when an older peer sends a v1 frame post-upgrade.
 pub const LEGACY_FRAME_VERSION_V1: u8 = 0x01;
+/// Bootstrap messages use distinct wire markers so a legacy handshake cannot
+/// silently bypass the new key schedule.
+pub const HANDSHAKE_VERSION: u8 = 0x03;
+pub const HANDSHAKE_ACK_VERSION: u8 = 0x04;
+pub const HKDF_INFO_HANDSHAKE: &[u8] = b"openhuman-tunnel/v3/handshake";
+pub const HKDF_INFO_HANDSHAKE_ACK: &[u8] = b"openhuman-tunnel/v3/handshake-ack";
 const NONCE_LEN: usize = 24; // XChaCha20-Poly1305 nonce = 192 bits
 const WINDOW_SIZE: usize = 128; // replay protection window
 
@@ -47,6 +61,17 @@ const WINDOW_SIZE: usize = 128; // replay protection window
 /// counter.
 pub const HKDF_INFO_C2S: &[u8] = b"openhuman-tunnel/v1/c2s";
 pub const HKDF_INFO_S2C: &[u8] = b"openhuman-tunnel/v1/s2c";
+
+/// Extract and expand bootstrap DH material before using it with an AEAD.
+/// The public salt binds the key to the exchange's ephemeral public key;
+/// the info tag separates the two bootstrap directions and session traffic.
+pub fn derive_bootstrap_key(dh: &[u8; 32], salt: &[u8], info: &[u8]) -> [u8; 32] {
+    let mut key = [0u8; 32];
+    Hkdf::<Sha256>::new(Some(salt), dh)
+        .expand(info, &mut key)
+        .expect("32-byte HKDF output fits SHA-256 limit");
+    key
+}
 
 // ---------------------------------------------------------------------------
 // Key material
@@ -76,9 +101,10 @@ impl DeviceKeypair {
         }
     }
 
-    /// Perform X25519 DH with the peer's public key and derive a symmetric key.
+    /// Perform X25519 DH with the peer's public key.
     ///
-    /// Returns the 32-byte shared secret (suitable for XChaCha20-Poly1305 key init).
+    /// Returns raw DH material for an HKDF key schedule; it must never be
+    /// passed directly to an AEAD constructor.
     pub fn derive_shared_secret(&self, peer_pubkey_b64: &str) -> Result<[u8; 32], String> {
         let peer_bytes = base64url_decode(peer_pubkey_b64)
             .map_err(|e| format!("[devices/crypto] bad peer pubkey: {e}"))?;
@@ -91,6 +117,9 @@ impl DeviceKeypair {
         let peer_arr: [u8; 32] = peer_bytes.try_into().unwrap();
         let peer_public = PublicKey::from(peer_arr);
         let dh = self.private.diffie_hellman(&peer_public);
+        if dh.as_bytes().iter().all(|&byte| byte == 0) {
+            return Err("[devices/crypto] non-contributory peer public key".into());
+        }
         log::debug!("[devices/crypto] DH completed, shared secret derived");
         Ok(*dh.as_bytes())
     }
@@ -189,14 +218,16 @@ pub struct TunnelCipher {
 }
 
 impl TunnelCipher {
-    /// LEGACY: construct from a single 32-byte symmetric key. Both seal
-    /// and open use the same key — preserved for the layer-2 sealed
-    /// handshake path in `devices/bus.rs` that lives outside the
-    /// post-pairing session. New session callers MUST go through
-    /// [`Self::for_role`] which holds directional subkeys.
+    /// Compatibility constructor for older unit fixtures. Production
+    /// sessions use [`Self::for_role`] with directional subkeys.
+    #[cfg(test)]
     pub fn new(key: &[u8; 32]) -> Self {
-        log::debug!("[devices/crypto] TunnelCipher created (legacy single-key mode)");
-        let cipher = XChaCha20Poly1305::new(key.into());
+        let derived = derive_bootstrap_key(
+            key,
+            b"openhuman-tunnel/compat",
+            b"openhuman-tunnel/compat/symmetric",
+        );
+        let cipher = XChaCha20Poly1305::new((&derived).into());
         Self {
             seal_cipher: cipher.clone(),
             open_cipher: cipher,
@@ -256,7 +287,7 @@ impl TunnelCipher {
     ///
     /// Frames with `version = 0x01` (the pre-upgrade single-key shape) are
     /// rejected with an explicit `UnsupportedFrameVersion` message so peers
-    /// see a clear "re-pair required" signal instead of a generic AEAD
+    /// see a clear "client upgrade required" signal instead of a generic AEAD
     /// failure.
     pub fn open(&mut self, frame: &[u8]) -> Result<Vec<u8>, String> {
         if frame.is_empty() {
@@ -265,7 +296,7 @@ impl TunnelCipher {
         if frame[0] == LEGACY_FRAME_VERSION_V1 {
             return Err(
                 "[devices/crypto] UnsupportedFrameVersion: legacy v1 frame rejected — \
-                 peer must re-pair to upgrade to v2 directional subkeys"
+                 peer must upgrade to v2 directional subkeys before reconnecting"
                     .into(),
             );
         }

@@ -19,9 +19,9 @@ openhuman-core -> openhuman-embed -> openhuman-tinyhumans -> openhuman-rpc -> ap
 
 Its only openhuman dependency is `openhuman-tinyhumans`. Core internals the
 server needs come through embed's doc-hidden `__host` list (aliased
-crate-privately as `core_host` in `src/lib.rs`); nothing here re-exports the
-core. Hosts get `openhuman_rpc::tinyhumans` and `openhuman_rpc::embed` (the
-same crate as `tinyhumans::embed`) as their curated facade, and this crate is
+as a private binding, `core_host`, in `src/lib.rs`); nothing here re-exports the
+core. Hosts get `openhuman_rpc::tinyhumans` and `openhuman_rpc::embed` (curated
+`pub use` lists, not the crates) as their facade, and this crate is
 the only OpenHuman crate they depend on (`scripts/ci/check-crate-chain.mjs`).
 
 ## How it works
@@ -90,9 +90,8 @@ for the hosts that still call them:
  host::tui()            tinyhumans tui preset, connected + session store
                         -> embed Runtime (no server)
 
- legacy: install_cli_server() + run_core_from_args, and
-         run_server_embedded_with_ready(...) (embed desktop/cli preset,
-         not connected; the host installs the transport itself)
+ bare:   run_server / run_server_headless / run_server_saas (embed cli
+         preset, not connected; the caller installs the transport itself)
 
  servers end in: session_store::install(); RuntimeBuilder::build(); serve(..)
 ```
@@ -101,7 +100,7 @@ for the hosts that still call them:
 
 | Path | What it does |
 | --- | --- |
-| [`src/lib.rs`](src/lib.rs) | Module wiring and re-exports (`tinyhumans`, the client helpers, `unwrap_rpc`). |
+| [`src/lib.rs`](src/lib.rs) | Module wiring and curated re-exports (`tinyhumans` and `embed` item lists, the client helpers, `unwrap_rpc`). |
 | [`src/host.rs`](src/host.rs) | `server` / `session-store` features: the shared host boot — `cli`, `desktop` / `serve_desktop`, `tui`, and the `*_builder` each starts from. |
 | [`src/envelope.rs`](src/envelope.rs) | `RpcRequest`, `RpcSuccess`, `RpcFailure`, `RpcError`, `JSONRPC_VERSION`, `SERVER_ERROR_CODE`, and the client half: `request_body`, `decode_response`. |
 | [`src/origin.rs`](src/origin.rs) | `is_origin_allowed_with_extra` and `ALLOWED_ORIGINS_ENV`: the browser-origin allowlist. Pure; the caller reads the environment. |
@@ -124,13 +123,10 @@ for the hosts that still call them:
   value through its `result` / `data` envelopes. The TUI decodes with it.
 - `post_json_rpc(url, token, body)` (`client.rs`): POSTs a body with an
   optional bearer and returns status and body verbatim.
-- `server::install_cli_server()` (`server/cli.rs`): call once before
-  `run_core_from_args` so the core CLI's `run` and `serve` start this server.
 - `server::serve(&CoreRuntime, ready_tx, shutdown)` (`server/serve.rs`):
   bind and serve an already-built runtime.
-- `server::run_server`, `run_server_headless`, `run_server_embedded`,
-  `run_server_embedded_with_ready` (`server/shims.rs`): build a runtime from
-  the embed `desktop` / `cli` preset and serve it. They do not connect the
+- `server::run_server`, `run_server_headless`, `run_server_saas`
+  (`server/shims.rs`): build a runtime and serve it: `run_server` and `run_server_headless` from the embed `cli` preset, `run_server_saas` from the SaaS config through `core::runtime::saas::build`. They do not connect the
   TinyHumans backend; `host::desktop` does.
 - `server::build_core_http_router(socketio_enabled)` (`server/http/mod.rs`):
   the router on its own; root `tests/*.rs` suites use it to make real HTTP

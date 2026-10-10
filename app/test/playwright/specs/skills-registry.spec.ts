@@ -16,9 +16,9 @@ async function openSkillsPage(page: Page, userId: string) {
       localStorage.setItem('openhuman:walkthrough_completed', 'true');
       localStorage.removeItem('openhuman:walkthrough_pending');
     } catch {}
-    // /skills redirects to /connections (Phase 2 rename)
-    window.location.hash = '/connections';
   });
+  // Startup route restoration can replace a hash assigned during sign-in.
+  await page.getByRole('button', { name: 'Connections' }).click();
   await expect
     .poll(async () => page.evaluate(() => window.location.hash), { timeout: 10_000 })
     .toContain('/connections');

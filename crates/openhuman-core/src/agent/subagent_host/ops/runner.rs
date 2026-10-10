@@ -1090,7 +1090,7 @@ async fn run_typed_mode(
         // result + blocker instead of treating the summary as a finished answer
         // or re-spinning the identical delegation (#4096).
         crate::agent::subagent_host::types::SubagentRunStatus::Incomplete {
-            reason: "reached its tool-call limit before finishing".into(),
+            reason: crate::agent::turn_stop::SUBAGENT_ITERATION_CAP_REASON.into(),
         }
     } else {
         // A clean final response. (An `ask_user_clarification` early-exit is

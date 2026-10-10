@@ -1,7 +1,7 @@
 //! Confining a SaaS user's memory to the user's own tree.
 //!
-//! Every SaaS user agent runs with `[memory] root = user:<agent>`
-//! (`user_agents::layout::agent_config`). The lifecycle hooks already read and
+//! Every SaaS profile runs with `[memory] root = user:<profile>`, on the
+//! legacy layout (`profiles::layout::profile_config`). The lifecycle hooks already read and
 //! write below that root, but the memory operations — the `memory.*` RPCs and
 //! the agent's memory tools — pass the caller's filter or namespace straight
 //! to the engine. Users normally have engines of their own (each is bound to

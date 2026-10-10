@@ -371,6 +371,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.dailySummaryFlow':
     '毎日の要約をメールで送るワークフローを作成してください。',
   'chat.typeMessage': 'メッセージを送信...',
+  'chat.regenerate.unavailable':
+    'この返信は再生成できません。代わりに最新の返信を再生成してください。',
+  'chat.regenerate.failed': '返信を再生成できませんでした。もう一度お試しください。',
   'chat.send': 'メッセージを送信',
   'chat.stopGeneration': '生成を停止',
   'chat.followupHint':
@@ -1385,7 +1388,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} のページを開く',
   'mcp.installed.emptyAddInJson': 'mcp.json に追加してください',
   'mcp.registry.intro':
-    'MCP サーバーのディレクトリです。サーバーを開くと、インストール手順が記載された個別のページに移動します。mcp.json タブで追加してください。',
+    'MCP サーバーのディレクトリです。セットアップ不要のホスト型サーバーはワンクリックで追加できます。それ以外のサーバーは、ページを開いてインストール手順を確認し、mcp.json タブで宣言してください。',
+  'mcp.registry.action.add': '追加',
+  'mcp.registry.action.added': '追加済み',
+  'mcp.registry.action.adding': '追加中…',
+  'mcp.registry.aria.add': '{name} を追加',
+  'mcp.registry.needsSetup':
+    'このサーバーは追加する前にセットアップが必要です。ページを開いてインストール手順を確認してください。',
+  'mcp.registry.addFailed': 'このサーバーを追加できませんでした。',
+  'mcp.registry.connectFailed': '追加しましたが、サーバーに接続できませんでした。',
   'mcp.json.loadFailedTitle': 'mcp.json を読み込めませんでした',
   'mcp.json.loadFailedBody':
     'コアからの応答がないため、ドキュメントを表示できません。空のエディタを表示すると、保存時にサーバー設定が消去される恐れがあります。',
@@ -1948,6 +1959,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': '接続しました。準備完了です。',
   'bootCheck.authFailed': 'トークンが認証されませんでした。確認してから、もう一度お試しください。',
   'bootCheck.unreachablePrefix': '接続できませんでした:',
+  'bootCheck.socketDisabled':
+    '接続できましたが、このコアではリアルタイム機能がオフです。--jsonrpc-only で起動されています。チャットとライブ更新を使うには、このフラグなしで再起動してください。',
   'bootCheck.checkingCore': 'ランタイムを起動しています…',
   'bootCheck.cannotReach': 'ランタイムに接続できません',
   'bootCheck.cannotReachDesc': 'ランタイムに接続できませんでした。別のランタイムを試しますか？',
@@ -2022,6 +2035,10 @@ const messages: TranslationMap = {
 
   // Welcome: connection error messages
   'welcome.continueLocallyExperimental': 'ローカルで続行 (実験的)',
+  'auth.profileSwitch.title': '別のプロフィールでサインインしますか？',
+  'auth.profileSwitch.body':
+    'クラウドにサインインすると、OpenHuman は別のアカウントプロフィールに切り替わります。ローカルの会話、メモリ、プロバイダー設定はこのデバイスの users/{profileId} に残ります。戻るにはサインアウトし、ようこそ画面でローカルセッションを選択してください。',
+  'auth.profileSwitch.continue': 'サインインを続ける',
   'welcome.localSessionStarting': 'ローカルセッションを開始中...',
   'welcome.coreConfigUnreadable':
     'ランタイムが設定ファイルを読み取れませんでした。config.toml が別のユーザーアカウントに属しているか、ランタイムプロセスからアクセスできない可能性があります。ランタイムを再起動してください。それでも解決しない場合は、ワークスペースの所有権を修復するか、ボリュームを再作成してください。',

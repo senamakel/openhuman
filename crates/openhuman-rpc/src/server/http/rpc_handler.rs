@@ -94,6 +94,15 @@ pub async fn rpc_handler(State(state): State<AppState>, Json(req): Json<RpcReque
                     );
                     display_message = USAGE_BACKOFF_CLIENT_MESSAGE.to_string();
                 }
+                FailureDisposition::ModuleUnavailable => {
+                    tracing::warn!(
+                        method = %method,
+                        elapsed_ms = ms as u64,
+                        error = %display_message,
+                        "[rpc] cached module-load failure (reported once at resolution) — \
+                         not reporting to Sentry"
+                    );
+                }
                 FailureDisposition::TransientDownstream => {
                     let redacted =
                         tinyinference_core::sanitize::sanitize_api_error(&display_message);

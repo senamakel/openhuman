@@ -180,6 +180,8 @@ impl OpenHumanToolOutcomeClassifier {
             | ToolFailureClass::ApprovalExpired
             | ToolFailureClass::NotFound
             | ToolFailureClass::Unsupported
+            | ToolFailureClass::InvalidArguments
+            | ToolFailureClass::CommandFailed
             | ToolFailureClass::Unknown => OutcomeClass::PermanentFailure,
         }
     }

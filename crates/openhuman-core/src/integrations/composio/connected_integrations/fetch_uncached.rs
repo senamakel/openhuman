@@ -246,28 +246,24 @@ async fn fetch_connected_integrations_uncached_inner(
                 "[composio-direct] fetch_connected_integrations: using direct tenant's active set as allowlist (no central allowlist in direct mode)"
             );
 
-            // Best-effort: pull tool schemas via the backend client
-            // (definitional source). Failure is non-fatal — we fall
-            // back to empty tools and let lazy resolution handle it.
-            let tools = match super::backend_tools::fetch_backend_tool_schemas(config, &allowlist)
-                .await
+            // Tool schemas are tenant-agnostic, but direct mode must keep
+            // every Composio request on the user's direct route. Failure is
+            // non-fatal — lazy resolution can still discover actions later.
+            let tools = match super::super::client::direct_list_tools(
+                config, direct, &allowlist, None,
+            )
+            .await
             {
-                Some(Ok(resp)) => {
+                Ok(resp) => {
                     tracing::debug!(
                         count = resp.tools.len(),
-                        "[composio-direct] fetch_connected_integrations: pulled tool schemas from backend (tenant-agnostic definitional source)"
+                        "[composio-direct] fetch_connected_integrations: pulled tool schemas from direct route"
                     );
                     resp.tools
                 }
-                Some(Err(e)) => {
+                Err(e) => {
                     tracing::info!(
-                        "[composio-direct] fetch_connected_integrations: backend list_tools failed (will use lazy fallback at delegation time): {e:#}"
-                    );
-                    Vec::new()
-                }
-                None => {
-                    tracing::info!(
-                        "[composio-direct] fetch_connected_integrations: no backend session for schema fetch; lazy fallback at delegation time"
+                        "[composio-direct] fetch_connected_integrations: direct list_tools failed (will use lazy fallback at delegation time): {e:#}"
                     );
                     Vec::new()
                 }

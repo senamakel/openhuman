@@ -58,8 +58,8 @@ pub(crate) use visibility::{action_mutates_external_state, resolve_action_scope}
 pub use authorize::ComposioAuthorizeTool;
 #[cfg(test)]
 use connect::{
-    connection_is_active, parse_composio_connect_timeout, ComposioConnectTool,
-    DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS,
+    composio_connect_tool_timeout, connection_is_active, parse_composio_connect_timeout,
+    ComposioConnectTool, DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS,
 };
 pub use list_connections::ComposioListConnectionsTool;
 pub use list_toolkits::ComposioListToolkitsTool;

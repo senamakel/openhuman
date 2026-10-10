@@ -3032,3 +3032,71 @@ describe('ChatRuntimeProvider — skill tool-chain latency (#4273 AC3)', () => {
     );
   });
 });
+
+// Regression: an async sub-agent's approval card (`detached`) was routed to the
+// parent thread and then wiped by the parent turn's `chat_done`, though its
+// gate was still parked — every async `image_agent` approval expired unseen.
+describe('ChatRuntimeProvider — detached sub-agent approvals', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetRuntimeState();
+    vi.mocked(threadApi.appendMessage).mockImplementation(async (_tid, msg) => msg);
+    vi.mocked(threadApi.getThreads).mockResolvedValue({ threads: [], count: 0 });
+    vi.mocked(threadApi.getTurnState).mockResolvedValue(null);
+    vi.mocked(threadApi.listRuns).mockResolvedValue([]);
+  });
+
+  const done = (threadId: string) => ({
+    thread_id: threadId,
+    request_id: 'parent-turn',
+    full_response: 'I asked the image agent to make it.',
+    rounds_used: 1,
+    total_input_tokens: 0,
+    total_output_tokens: 0,
+    segment_total: 0,
+  });
+
+  it('keeps a detached card across the parent turn end and clears it on its decision', () => {
+    const listeners = renderProvider();
+    act(() => {
+      listeners.onApprovalRequest?.({
+        thread_id: 't-sub',
+        request_id: 'appr-sub',
+        tool_name: 'media_generate_image',
+        message: 'Run `media_generate_image` — a red fox',
+        detached: true,
+      });
+    });
+    act(() => {
+      listeners.onDone?.(done('t-sub'));
+    });
+    expect(store.getState().chatRuntime.pendingApprovalByThread['t-sub']?.requestId).toBe(
+      'appr-sub'
+    );
+
+    act(() => {
+      listeners.onApprovalDecided?.({
+        thread_id: 't-sub',
+        request_id: 'appr-sub',
+        message: 'approve_once',
+      });
+    });
+    expect(store.getState().chatRuntime.pendingApprovalByThread['t-sub']).toBeUndefined();
+  });
+
+  it('still clears an in-turn card when its turn ends', () => {
+    const listeners = renderProvider();
+    act(() => {
+      listeners.onApprovalRequest?.({
+        thread_id: 't-main',
+        request_id: 'appr-main',
+        tool_name: 'shell',
+        message: 'Run `shell` — ls',
+      });
+    });
+    act(() => {
+      listeners.onDone?.(done('t-main'));
+    });
+    expect(store.getState().chatRuntime.pendingApprovalByThread['t-main']).toBeUndefined();
+  });
+});

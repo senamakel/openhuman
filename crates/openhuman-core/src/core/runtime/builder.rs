@@ -15,10 +15,9 @@
 //!    [`CoreRuntime::start_services`], and serves until shutdown. A runtime
 //!    with no transport calls `start_services` itself.
 //!
-//! The server entry points in `openhuman-rpc` (`run_server`,
-//! `run_server_embedded`, `run_server_embedded_with_ready`) are thin shims over
-//! this builder, so the desktop shell, the standalone CLI, and any new embedder
-//! share one path.
+//! The host boot in `openhuman-rpc` (`host::{cli, desktop}`) and its
+//! `run_server*` entry points build on this builder, so the desktop shell, the
+//! standalone CLI, and any new embedder share one path.
 //! See the pluggable-core work (`core::runtime`) for how this fits with
 //! [`context`](crate::core::runtime::context) and `services`.
 
@@ -205,8 +204,7 @@ impl CoreBuilder {
     /// "backend unavailable" error while agents, memory, tools and RPC keep
     /// working. Library hosts that build one runtime per process prefer this
     /// builder form; the desktop shell and CLI, which boot the core through
-    /// `run_server_embedded_with_ready` / `run_core_from_args`, install the
-    /// global.
+    /// `openhuman_rpc::host`, install the global.
     pub fn backend_transport(
         mut self,
         transport: std::sync::Arc<dyn crate::backend::transport::BackendTransport>,

@@ -74,15 +74,18 @@ impl ApprovalGate {
     }
 
     /// Resolve the actual park duration from the gate's own `effective_ttl`
-    /// plus the `copilot_stream` clamp ([`COPILOT_APPROVAL_TTL`]) when that
-    /// origin is active. A clamp only ever *shortens* the park — it can never
+    /// plus the `copilot_stream` clamp ([`COPILOT_APPROVAL_TTL`]) and the
+    /// sub-agent clamp ([`SUBAGENT_APPROVAL_TTL`]) when those apply. A clamp only ever *shortens* the park — it can never
     /// extend `effective_ttl` past what the gate itself allows (e.g. a debug
     /// env override). Split out (rather than inlined at the call site) so it is
     /// unit testable without needing to actually park a future.
-    fn resolve_park_ttl(effective_ttl: Duration, copilot_stream: bool) -> Duration {
+    fn resolve_park_ttl(effective_ttl: Duration, copilot_stream: bool, subagent: bool) -> Duration {
         let mut ttl = effective_ttl;
         if copilot_stream {
             ttl = ttl.min(COPILOT_APPROVAL_TTL);
+        }
+        if subagent {
+            ttl = ttl.min(SUBAGENT_APPROVAL_TTL);
         }
         ttl
     }

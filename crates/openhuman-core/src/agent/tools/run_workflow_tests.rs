@@ -185,3 +185,32 @@ async fn each_agent_owns_its_workflow_await_guard() {
     assert!(alpha_again.is_err(), "alpha still holds its own key");
     drop(held);
 }
+
+/// A run the harness stopped early (footer `STOPPED`) did not finish: the
+/// tool result must be a failure so the calling agent's failure policy and
+/// trace see it, while a `DONE` run stays a success.
+#[test]
+fn a_stopped_run_is_a_failed_tool_result() {
+    let path = std::path::Path::new("/tmp/run.log");
+    let stopped = outcome_to_result(
+        "run-1",
+        "wf",
+        path,
+        Some(crate::skills::run_log::RunOutcome {
+            status: "STOPPED".to_string(),
+            output: "I stopped this turn early because …".to_string(),
+        }),
+    );
+    assert!(stopped.is_error, "{}", stopped.output());
+    assert!(stopped.output().contains("STOPPED"));
+    let done = outcome_to_result(
+        "run-1",
+        "wf",
+        path,
+        Some(crate::skills::run_log::RunOutcome {
+            status: "DONE".to_string(),
+            output: "ok".to_string(),
+        }),
+    );
+    assert!(!done.is_error);
+}

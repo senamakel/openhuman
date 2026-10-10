@@ -21,7 +21,7 @@
 //! Without a backend [`for_each_agent`] visits nothing: the SQLite stores
 //! these loops read do not split by agent. In SaaS mode the process has no
 //! `local` scope and per-user background work is driven by
-//! `user_agents::background`, so agent ids are not recorded and
+//! `profiles::background`, so agent ids are not recorded and
 //! [`for_each_scope`] skips `local`.
 
 use std::collections::{BTreeMap, HashSet};
@@ -129,14 +129,16 @@ fn recorded(backend: Arc<dyn StorageBackend>) -> Vec<String> {
 /// Every agent background work should visit, each with the context to visit
 /// it under: the live ones (`AgentContextRegistry`), then — with a storage
 /// backend installed, outside SaaS mode — every agent recorded by this or an
-/// earlier process, under the current context acting for it.
+/// earlier process, under the process default context acting for it (never
+/// whichever agent happens to be ambient, whose policy and configuration
+/// are not the recorded agent's).
 pub fn contexts() -> Vec<(String, Arc<CoreContext>)> {
     let backend = if crate::core::runtime::mode::is_saas() {
         None
     } else {
         installed()
     };
-    contexts_in(backend, CoreContext::current().as_ref())
+    contexts_in(backend, CoreContext::default_context().as_ref())
 }
 
 /// [`contexts`] with the backend whose recorded agents are visited, and the
@@ -159,48 +161,116 @@ fn contexts_in(
 }
 
 /// The context to act for `agent` under: its live context when one exists,
-/// else — outside SaaS mode — the current context acting for it
-/// (`CoreContext::for_agent`).
+/// else — outside SaaS mode — the process default context acting for it
+/// (`CoreContext::for_agent`). SaaS acts only through a user's own live
+/// context.
 pub fn context_for(agent: &str) -> Option<Arc<CoreContext>> {
     AgentContextRegistry::get(agent).or_else(|| {
-        // SaaS acts only through a user's own live context: a copy of the
-        // operator's would carry the wrong configuration.
         if crate::core::runtime::mode::is_saas() {
             return None;
         }
-        CoreContext::current().map(|current| current.for_agent(agent))
+        CoreContext::default_context().map(|default| default.for_agent(agent))
     })
 }
 
-/// Runs `fut` acting for `agent` when there is one — background work that
-/// learned whose record it is handling (a device's pairing agent, an event's
-/// publisher) re-enters that agent's scope — and as-is otherwise.
-pub async fn within_agent<F: Future>(agent: Option<&str>, fut: F) -> F::Output {
-    match agent.and_then(context_for) {
-        Some(context) => CoreContext::scope(context, fut).await,
-        None => fut.await,
+/// Runs `fut` in the `local` scope: under the process default context when
+/// the caller is acting for an agent, as-is otherwise.
+async fn in_local<F: Future>(fut: F) -> F::Output {
+    let acting = CoreContext::current().is_some_and(|context| context.session_agent().is_some());
+    match CoreContext::default_context() {
+        Some(default) if acting => CoreContext::scope(default, fut).await,
+        _ => fut.await,
+    }
+}
+
+/// Runs `fut` acting for `agent` — background work that learned whose record
+/// it is handling (a device's pairing agent, a flow's owner) re-enters that
+/// agent's scope — or in the `local` scope for `None`.
+///
+/// Returns `None`, without running `fut`, when `agent` is named but no
+/// context can act for it (SaaS with the agent gone, or no booted core):
+/// running it anywhere else would act outside the agent's scope.
+pub async fn within_agent<F: Future>(agent: Option<&str>, fut: F) -> Option<F::Output> {
+    let Some(agent) = agent else {
+        return Some(in_local(fut).await);
+    };
+    match context_for(agent) {
+        Some(context) => Some(CoreContext::scope(context, fut).await),
+        None => {
+            tracing::warn!(%agent, "[storage::agents] no context can act for the agent; skipped");
+            None
+        }
+    }
+}
+
+/// A scope's lookup failed, and no scope reported the record: its owner is
+/// unknown, so the work is not done rather than done in the wrong scope.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct LookupFailed {
+    /// The scope whose lookup failed (`None` = `local`).
+    pub agent: Option<String>,
+    /// Why.
+    pub error: String,
+}
+
+impl std::fmt::Display for LookupFailed {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "lookup failed in scope {}: {}",
+            self.agent.as_deref().unwrap_or("local"),
+            self.error
+        )
     }
 }
 
 /// The scope a record lives in, for background work that holds only its id
 /// (an event naming a flow, a job, a device): the first scope — `local`
-/// first, then each known agent ([`for_each_scope`]) — where `probe` finds
-/// it. `Some(None)` is `local`, `Some(Some(agent))` an agent, `None` nowhere.
-pub async fn find_owner<F, Fut>(label: &str, probe: F) -> Option<Option<String>>
+/// first, then each known agent ([`for_each_scope`]) — where `probe` reports
+/// it. `Ok(Some(None))` is `local`, `Ok(Some(Some(agent)))` an agent,
+/// `Ok(None)` nowhere.
+///
+/// # Errors
+///
+/// [`LookupFailed`] when no scope reported the record and at least one
+/// scope's probe failed.
+pub async fn find_owner<F, Fut>(
+    label: &str,
+    probe: F,
+) -> Result<Option<Option<String>>, LookupFailed>
 where
     F: Fn() -> Fut,
-    Fut: Future<Output = bool>,
+    Fut: Future<Output = Result<bool, String>>,
 {
-    for_each_scope(label, probe)
-        .await
-        .into_iter()
-        .find_map(|(agent, found)| found.then_some(agent))
+    decide(for_each_scope(label, probe).await)
 }
 
-/// Runs `step` for every storage scope background work must cover: once
-/// under the current context (the `local` scope, outside SaaS mode), then
-/// once per known agent ([`for_each_agent`]). Each result is returned with
-/// the agent it ran for (`None` for `local`).
+/// [`find_owner`]'s verdict over each scope's probe result.
+///
+/// # Errors
+///
+/// As [`find_owner`].
+pub fn decide(
+    lookups: Vec<(Option<String>, Result<bool, String>)>,
+) -> Result<Option<Option<String>>, LookupFailed> {
+    let mut failure = None;
+    for (agent, lookup) in lookups {
+        match lookup {
+            Ok(true) => return Ok(Some(agent)),
+            Ok(false) => {}
+            Err(error) => {
+                failure.get_or_insert(LookupFailed { agent, error });
+            }
+        }
+    }
+    failure.map_or(Ok(None), Err)
+}
+
+/// Runs `step` for every storage scope background work must cover: once in
+/// the `local` scope (outside SaaS mode; under the default context even when
+/// the caller is acting for an agent), then once per known agent
+/// ([`for_each_agent`]). Each result is returned with the agent it ran for
+/// (`None` for `local`).
 ///
 /// `label` names the caller in logs.
 pub async fn for_each_scope<T, F, Fut>(label: &str, step: F) -> Vec<(Option<String>, T)>
@@ -210,7 +280,7 @@ where
 {
     let mut results = Vec::new();
     if !crate::core::runtime::mode::is_saas() {
-        results.push((None, step().await));
+        results.push((None, in_local(async { step().await }).await));
     }
     for (agent, value) in for_each_agent(label, step).await {
         results.push((Some(agent), value));
@@ -221,9 +291,6 @@ where
 /// Runs `step` once under each known agent's context, one after another —
 /// only when a storage backend is installed, since without one the stores do
 /// not split by agent and the `local` pass already covers everything.
-///
-/// For a loop that handles the `local` scope itself (the cron scheduler keeps
-/// its process-wide health tracking there) and needs the agents on top.
 pub async fn for_each_agent<T, F, Fut>(label: &str, step: F) -> Vec<(String, T)>
 where
     F: Fn() -> Fut,
@@ -246,7 +313,7 @@ where
 {
     let mut results = Vec::new();
     if !crate::core::runtime::mode::is_saas() {
-        results.push((None, step().await));
+        results.push((None, in_local(async { step().await }).await));
     }
     if installed().is_none() {
         return results;

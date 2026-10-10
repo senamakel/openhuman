@@ -39,3 +39,23 @@ fn miss_message_does_not_instruct_a_blind_re_run() {
         "must point at the summary: {msg}"
     );
 }
+
+#[tokio::test]
+async fn retrieve_messages_name_only_the_tool_the_model_can_call() {
+    // `tokenjuice_retrieve` / `tinyjuice_retrieve` are dispatch aliases for old
+    // transcripts, not tools a model is offered. A message naming them sends the
+    // model after a tool it cannot see ("unknown tool").
+    let missing = TokenjuiceRetrieveTool::new()
+        .execute(json!({}))
+        .await
+        .unwrap()
+        .output();
+    for msg in [missing, miss_message("deadbeefcafe")] {
+        assert!(
+            msg.contains(crate::inference::tokenjuice::RETRIEVE_TOOL_NAME),
+            "{msg}"
+        );
+        assert!(!msg.contains("tokenjuice_retrieve"), "{msg}");
+        assert!(!msg.contains("tinyjuice_retrieve"), "{msg}");
+    }
+}

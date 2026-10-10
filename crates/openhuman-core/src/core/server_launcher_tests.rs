@@ -20,6 +20,7 @@ async fn first_installed_launcher_wins() {
         headless_api: false,
         mode: crate::core::runtime::Mode::SingleUser,
         saas_config: None,
+        host_boot: None,
     };
     launcher(request).await.expect("the first launcher runs");
 }
@@ -61,4 +62,24 @@ fn an_unknown_mode_is_refused_with_its_source() {
     assert!(err.to_string().contains("--mode"), "{err}");
     let err = resolve_mode(None, Some("multi"), None).unwrap_err();
     assert!(err.to_string().contains("OPENHUMAN_MODE"), "{err}");
+}
+
+#[test]
+fn host_boot_hands_a_value_over_once() {
+    let boot = HostBoot::new(String::from("builder"));
+    let copy = boot.clone();
+    assert_eq!(boot, copy, "clones share one slot");
+    assert_eq!(boot.take::<String>().as_deref(), Some("builder"));
+    assert!(copy.take::<String>().is_none(), "taken once");
+}
+
+#[test]
+fn host_boot_keeps_the_value_when_the_type_does_not_match() {
+    let boot = HostBoot::new(7u32);
+    assert!(boot.take::<String>().is_none());
+    assert_eq!(
+        boot.take::<u32>(),
+        Some(7),
+        "a wrong guess does not consume it"
+    );
 }

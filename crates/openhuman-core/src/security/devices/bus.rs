@@ -12,7 +12,9 @@ use std::sync::{Arc, OnceLock};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::security::devices::crypto::{
-    base64url_decode, base64url_encode, derive_session_keys, TunnelCipher, TunnelRole,
+    base64url_decode, base64url_encode, derive_bootstrap_key, derive_session_keys, TunnelCipher,
+    TunnelRole, HANDSHAKE_ACK_VERSION, HANDSHAKE_VERSION, HKDF_INFO_HANDSHAKE,
+    HKDF_INFO_HANDSHAKE_ACK,
 };
 use crate::security::devices::rpc::{
     ACTIVE_CIPHERS, PEER_STATUS, PENDING_KEYPAIRS, PENDING_SESSIONS,
@@ -94,11 +96,18 @@ impl EventHandler<DomainEvent> for DeviceTunnelSubscriber {
                     .cloned();
                 match super::owner::owner_of(channel_id, pending.as_ref()).await {
                     Ok(owner) => {
-                        crate::storage::agents::within_agent(
+                        let handled = crate::storage::agents::within_agent(
                             owner.as_deref(),
                             handle_tunnel_frame(channel_id, payload_b64),
                         )
                         .await;
+                        // Fail closed: no context can act for the owner.
+                        if handled.is_none() {
+                            log::warn!(
+                                "[devices/bus] dropping tunnel frame channel_id={channel_id}: \
+                                 its owner has no context to act under"
+                            );
+                        }
                     }
                     // Fail closed: an unknown owner must not become `local`.
                     Err(failed) => log::warn!(
@@ -207,9 +216,9 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
 
     // Wire format for the handshake frame:
     //
-    //   0x01 || eph_pub(32) || nonce(24) || ciphertext+tag
+    //   0x03 || eph_pub(32) || nonce(24) || ciphertext+tag
     //
-    // Version byte 0x01 = "sealed-handshake". The device generates an ephemeral
+    // Version byte 0x03 = "sealed-handshake". The device generates an ephemeral
     // X25519 keypair, performs DH with corePubkey, then seals its static pubkey
     // (32 bytes) with XChaCha20-Poly1305. The core decrypts using the same
     // ephemeral DH to recover the device's static public key, then performs a
@@ -217,10 +226,16 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
     //
     // Version byte 0x02 = "encrypted-frame" (used post-handshake, handled later).
     //
-    // Fallback: if the frame begins with a printable ASCII character other than
-    // 0x01/0x02, treat the entire payload as a base64url(device_pubkey) string
-    // for backward compat with any pre-Layer-2 devices.
-    let handshake_payload = if frame_bytes.first() == Some(&0x01) {
+    // Old raw-DH handshakes and plaintext pubkeys are rejected. The peer must
+    // upgrade its tunnel implementation before connecting again.
+    if frame_bytes.first() != Some(&HANDSHAKE_VERSION) {
+        log::warn!(
+            "[devices/bus] unsupported handshake version channel_id={}",
+            channel_id
+        );
+        return;
+    }
+    let handshake_payload = {
         // Sealed handshake: eph_pub(32) || nonce(24) || ciphertext+tag
         if frame_bytes.len() < 1 + 32 + 24 + 16 {
             log::warn!(
@@ -264,6 +279,15 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
                 return;
             }
         };
+        // Bind both public keys and the wire marker to the bootstrap key.
+        let mut salt = [0u8; 64];
+        salt[..32].copy_from_slice(&eph_pub_bytes);
+        let core_pub = match base64url_decode(&core_keypair.pubkey_b64) {
+            Ok(pubkey) if pubkey.len() == 32 => pubkey,
+            _ => return,
+        };
+        salt[32..].copy_from_slice(&core_pub);
+        let handshake_key = derive_bootstrap_key(&dh_key, &salt, HKDF_INFO_HANDSHAKE);
         // Decrypt: nonce(24) || ciphertext+tag at offset 33.
         let inner_frame = &frame_bytes[33..];
         let res = {
@@ -271,16 +295,22 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
             // stripped the eph_pub prefix. Reconstruct a plain open call by using
             // XChaCha20 directly on nonce||ct (inner_frame).
             use chacha20poly1305::{
-                aead::{Aead, KeyInit},
+                aead::{Aead, KeyInit, Payload},
                 XChaCha20Poly1305, XNonce,
             };
             if inner_frame.len() < 24 {
                 Err("[devices/bus] inner_frame too short for nonce".to_string())
             } else {
                 let nonce = XNonce::from_slice(&inner_frame[..24]);
-                let aead = XChaCha20Poly1305::new((&dh_key).into());
-                aead.decrypt(nonce, &inner_frame[24..])
-                    .map_err(|_| "[devices/bus] AEAD decrypt failed on handshake frame".to_string())
+                let aead = XChaCha20Poly1305::new((&handshake_key).into());
+                aead.decrypt(
+                    nonce,
+                    Payload {
+                        msg: &inner_frame[24..],
+                        aad: &frame_bytes[..33],
+                    },
+                )
+                .map_err(|_| "[devices/bus] AEAD decrypt failed on handshake frame".to_string())
             }
         };
         match res {
@@ -297,22 +327,6 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
             Err(e) => {
                 log::warn!(
                     "[devices/bus] sealed-handshake decrypt failed channel_id={}: {e}",
-                    channel_id
-                );
-                return;
-            }
-        }
-    } else {
-        // Fallback: plaintext base64url-encoded device pubkey (pre-Layer-2 compat).
-        log::debug!(
-            "[devices/bus] fallback plaintext handshake channel_id={}",
-            channel_id
-        );
-        match String::from_utf8(frame_bytes) {
-            Ok(s) => parse_handshake_payload(&s),
-            Err(_) => {
-                log::warn!(
-                    "[devices/bus] tunnel:frame payload not valid UTF-8 for channel_id={}",
                     channel_id
                 );
                 return;
@@ -339,15 +353,19 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
         }
     };
 
-    if let Some(client_eph_pubkey) = handshake_payload.client_ephemeral_pubkey {
-        if let Err(e) = install_v2_cipher_and_ack(channel_id, &static_dh, &client_eph_pubkey).await
-        {
-            log::error!(
-                "[devices/bus] v2 handshake ack failed channel_id={}: {e}",
-                channel_id
-            );
-            return;
-        }
+    let Some(client_eph_pubkey) = handshake_payload.client_ephemeral_pubkey else {
+        log::warn!(
+            "[devices/bus] handshake missing client ephemeral key channel_id={}",
+            channel_id
+        );
+        return;
+    };
+    if let Err(e) = install_v2_cipher_and_ack(channel_id, &static_dh, &client_eph_pubkey).await {
+        log::error!(
+            "[devices/bus] v2 handshake ack failed channel_id={}: {e}",
+            channel_id
+        );
+        return;
     }
 
     // Persist the paired device. The pending session holds both the label
@@ -386,8 +404,9 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
             Ok(device) => {
                 super::owner::remember(
                     channel_id,
-                    crate::core::runtime::CoreContext::current()
-                        .and_then(|context| context.session_agent().map(str::to_string)),
+                    crate::core::runtime::current_tenant()
+                        .ok()
+                        .and_then(|tenant| tenant.agent),
                 );
                 log::info!(
                     "[devices/bus] device persisted channel_id={} label={}",
@@ -405,6 +424,7 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
                     "[devices/bus] failed to persist device channel_id={}: {e}",
                     channel_id
                 );
+                abandon_unpersisted_pairing(channel_id);
             }
         }
     } else {
@@ -412,7 +432,18 @@ async fn handle_tunnel_frame(channel_id: &str, payload_b64: &str) {
             "[devices/bus] could not load config to persist device channel_id={}",
             channel_id
         );
+        abandon_unpersisted_pairing(channel_id);
     }
+}
+
+/// Drops the pairing session and session cipher of a handshake whose device
+/// could not be persisted: with no row in the store, later frames would
+/// otherwise keep being accepted for a device nothing records
+/// (`super::owner` treats a missing row as the handshake persistence window).
+pub(super) fn abandon_unpersisted_pairing(channel_id: &str) {
+    PENDING_SESSIONS.lock().unwrap().remove(channel_id);
+    ACTIVE_CIPHERS.lock().unwrap().remove(channel_id);
+    log::warn!("[devices/bus] pairing abandoned channel_id={channel_id}: device not persisted");
 }
 
 fn parse_handshake_payload(raw: &str) -> HandshakePayload {
@@ -472,10 +503,28 @@ async fn install_v2_cipher_and_ack(
     });
     let ack_bytes = serde_json::to_vec(&ack)
         .map_err(|e| format!("[devices/bus] handshake ack serialize failed: {e}"))?;
-    let bootstrap_cipher = TunnelCipher::new(static_dh);
-    let ack_frame = bootstrap_cipher
-        .seal(&ack_bytes)
+    use chacha20poly1305::{
+        aead::{Aead, AeadCore, KeyInit, OsRng, Payload},
+        XChaCha20Poly1305,
+    };
+    let ack_key = derive_bootstrap_key(static_dh, &client_eph_arr, HKDF_INFO_HANDSHAKE_ACK);
+    let ack_nonce = XChaCha20Poly1305::generate_nonce(&mut OsRng);
+    let mut ack_aad = [0u8; 33];
+    ack_aad[0] = HANDSHAKE_ACK_VERSION;
+    ack_aad[1..].copy_from_slice(&client_eph_arr);
+    let ack_ciphertext = XChaCha20Poly1305::new((&ack_key).into())
+        .encrypt(
+            &ack_nonce,
+            Payload {
+                msg: &ack_bytes,
+                aad: &ack_aad,
+            },
+        )
         .map_err(|e| format!("[devices/bus] handshake ack seal failed: {e}"))?;
+    let mut ack_frame = Vec::with_capacity(1 + 24 + ack_ciphertext.len());
+    ack_frame.push(HANDSHAKE_ACK_VERSION);
+    ack_frame.extend_from_slice(&ack_nonce);
+    ack_frame.extend_from_slice(&ack_ciphertext);
     let ack_b64 = base64url_encode(&ack_frame);
     emit_frame(channel_id, &ack_b64).await?;
     log::info!(

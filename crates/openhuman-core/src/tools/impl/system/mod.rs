@@ -13,6 +13,7 @@ mod python_exec;
 mod retrieve_tool_output;
 mod schedule;
 mod shell;
+mod shell_platform;
 mod shell_saas;
 mod update_apply;
 mod update_check;

@@ -315,6 +315,37 @@ fn parse_composio_connect_timeout_defaults_when_absent_or_garbage() {
 }
 
 #[test]
+fn composio_connect_outlives_its_approval_park() {
+    // The per-tool deadline must not race the in-execute approval park: the
+    // tool's budget is the park bound plus slack, and unbounded when the
+    // operator opted out of the bound.
+    let bound = std::time::Duration::from_secs(DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS);
+    match composio_connect_tool_timeout(Some(bound)) {
+        tinytools::ToolTimeout::Millis(ms) => {
+            assert!(
+                ms > bound.as_millis() as u64,
+                "budget {ms}ms must exceed the park bound"
+            );
+        }
+        other => panic!("expected an explicit budget, got {other:?}"),
+    }
+    assert_eq!(
+        composio_connect_tool_timeout(None),
+        tinytools::ToolTimeout::Unbounded
+    );
+}
+
+#[test]
+fn composio_connect_timeout_saturates_instead_of_overflowing() {
+    // `u64::MAX` seconds plus the slack must not panic in `Duration` addition.
+    let bound = std::time::Duration::from_secs(u64::MAX);
+    assert_eq!(
+        composio_connect_tool_timeout(Some(bound)),
+        tinytools::ToolTimeout::Millis(u64::MAX)
+    );
+}
+
+#[test]
 fn parse_composio_connect_timeout_honors_override_and_zero_opt_out() {
     // Explicit value → that many seconds.
     assert_eq!(

@@ -674,6 +674,41 @@ export async function testCoreRpcConnection(
   return fetch(rpcUrl, { method: 'POST', headers, body, signal: init?.signal });
 }
 
+/** Outcome of [`probeCoreRealtime`]. */
+export type CoreRealtimeProbe = 'ok' | 'disabled' | 'unknown';
+
+/**
+ * Checks whether the core's realtime (Socket.IO) endpoint is on, without
+ * opening a socket: a Socket.IO-disabled core (`--jsonrpc-only`) answers
+ * `/socket.io/` with HTTP 503 and `{ error: "socketio_disabled" }` (#5656).
+ *
+ * Only that exact response yields `'disabled'`. Any network error, relay-only
+ * runtime or unexpected status is `'unknown'`, so a flaky probe never blocks or
+ * misreports an otherwise working RPC connection.
+ */
+export async function probeCoreRealtime(
+  url: string,
+  init?: { signal?: AbortSignal }
+): Promise<CoreRealtimeProbe> {
+  try {
+    const target = new URL(normalizeRpcUrl(url));
+    target.pathname = '/socket.io/';
+    target.search = 'EIO=4&transport=polling';
+    target.hash = '';
+    // The mixed-content shell relay is POST-only; skip rather than guess.
+    if (isTauri() && rpcUrlNeedsShellRelay(target.toString())) return 'unknown';
+    const response = await fetch(target.toString(), { method: 'GET', signal: init?.signal });
+    if (response.status === 503) {
+      const body = (await response.json().catch(() => null)) as { error?: unknown } | null;
+      return body?.error === 'socketio_disabled' ? 'disabled' : 'unknown';
+    }
+    return response.status === 200 ? 'ok' : 'unknown';
+  } catch (err) {
+    coreRpcLog('[rpc] realtime probe inconclusive: %o', err);
+    return 'unknown';
+  }
+}
+
 export async function getCoreHttpBaseUrl(): Promise<string> {
   const rpcUrl = await getCoreRpcUrl();
   const url = new URL(rpcUrl);

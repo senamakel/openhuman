@@ -55,6 +55,23 @@ fn opens_with_marker(text: &str, marker: &str) -> bool {
 fn classify_class(error_text: &str, timed_out: bool) -> ToolFailureClass {
     let text = error_text.to_lowercase();
 
+    // -1. Structural result shapes a producer owns, ahead of every marker and
+    //     keyword scan. Each carries a payload that is data, not a verdict:
+    //     the harness's schema-validation answer echoes the whole parameter
+    //     schema (a shell schema describing `timeout` read as "took too
+    //     long"), a command's exit report carries the program's own stdout and
+    //     stderr (stderr mentioning `ollama` read as "couldn't reach the AI
+    //     model"), and an unknown-tool answer echoes the attempted arguments.
+    //     The `timed_out` flag is not consulted here: the only live caller
+    //     derives it by sniffing the same text.
+    if let Some(class) = structural_class(&text) {
+        tracing::debug!(
+            ?class,
+            "[tool_status::classify] matched structural result shape"
+        );
+        return class;
+    }
+
     // 0. Structured policy markers win over *every* heuristic, including the
     //    `timed out` sniff below (#4459). Both markers are emitted upstream by
     //    the security/approval gate and survive the `Error: …` wrapping, so a
@@ -231,6 +248,54 @@ fn classify_class(error_text: &str, timed_out: bool) -> ToolFailureClass {
     ToolFailureClass::Unknown
 }
 
+/// Prefix of the harness's answer to a schema-invalid call
+/// (`tinyagents` `agent_loop/tools.rs`: "invalid arguments for tool `X`:
+/// {detail}; expected schema: {…}").
+const INVALID_ARGUMENTS_PREFIX: &str = "invalid arguments for tool `";
+
+/// Prefix of the harness's answer to a call naming a tool the agent does not
+/// have (`tinyagents` `agent_loop/unknown_tool.rs`: "unknown tool `X`
+/// (arguments: {…}): …").
+const UNKNOWN_TOOL_PREFIX: &str = "unknown tool `";
+
+/// Prefix of `tinytools::render_command_failure`, the one renderer every
+/// shell-family tool uses for a command that ran and did not exit 0
+/// ("Command failed (exit code N…)" / "Command failed (terminated by a
+/// signal…)"), lowercased.
+const COMMAND_FAILED_PREFIX: &str = "command failed (";
+
+/// Classify `text` (already lowercased) from a result shape its producer owns,
+/// or `None` when it opens with none of them. Only the opening of the text is
+/// read, never the echoed schema, arguments or program output behind it.
+fn structural_class(text: &str) -> Option<ToolFailureClass> {
+    if opens_with_marker(text, INVALID_ARGUMENTS_PREFIX) {
+        return Some(ToolFailureClass::InvalidArguments);
+    }
+    if opens_with_marker(text, UNKNOWN_TOOL_PREFIX) {
+        return Some(ToolFailureClass::NotFound);
+    }
+    if opens_with_marker(text, COMMAND_FAILED_PREFIX) {
+        // The exit line is the renderer's own; 127 and 126 are the shell's
+        // codes for a missing program and a non-executable one, which the
+        // user can act on. Every other code is the program's verdict.
+        let exit_line = text.trim_start().lines().next().unwrap_or_default();
+        let code = exit_line
+            .split_once("exit code ")
+            .map(|(_, rest)| {
+                rest.chars()
+                    .take_while(char::is_ascii_digit)
+                    .collect::<String>()
+            })
+            .unwrap_or_default();
+        return Some(match code.as_str() {
+            "127" => ToolFailureClass::MissingApp,
+            "126" => ToolFailureClass::MissingPermission,
+            _ => ToolFailureClass::CommandFailed,
+        });
+    }
+    None
+}
+
 /// Attach the category + plain-language copy for a known class. Use this at the
 /// call sites that already know the class for certain (e.g. the policy gate,
 /// which knows a refusal is [`ToolFailureClass::BlockedByPolicy`]) rather than
@@ -283,6 +348,14 @@ pub fn describe(class: ToolFailureClass) -> ClassifiedFailure {
         ToolFailureClass::Unsupported => (
             "OpenHuman can't do this automatically yet.",
             "Do it manually, or ask for a different option.",
+        ),
+        ToolFailureClass::InvalidArguments => (
+            "The assistant called this action with details it doesn't accept.",
+            "No action needed. The assistant can fix the request and try again.",
+        ),
+        ToolFailureClass::CommandFailed => (
+            "The command ran but reported an error.",
+            "No action needed. The assistant can read the output and adjust.",
         ),
         ToolFailureClass::Unknown => (
             "Something went wrong with this action.",

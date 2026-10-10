@@ -29,6 +29,30 @@
 
 use std::path::Path;
 
+/// Which shell family [`build_tokio_command`] / [`build_std_command`] spawn.
+///
+/// A value rather than a bare `cfg!(windows)` so what is *told* to the model
+/// about the shell (the `shell` tool's description) can be built and tested for
+/// either platform on any host.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ShellFlavor {
+    /// `cmd.exe /C <command>` (Windows).
+    Cmd,
+    /// `bash -lc` / `sh -lc` (everything else).
+    Posix,
+}
+
+impl ShellFlavor {
+    /// The flavor this host spawns.
+    pub fn current() -> Self {
+        if cfg!(windows) {
+            Self::Cmd
+        } else {
+            Self::Posix
+        }
+    }
+}
+
 /// Environment variables a Windows child process needs before it can run at
 /// all, beyond the functional allow-list each launcher already forwards.
 ///
@@ -201,10 +225,9 @@ pub fn build_std_command(command: &str) -> std::process::Command {
 /// platform matrix (adding pwsh, changing pipefail semantics) belong here plus
 /// [`configure_shell_args`], so both `Command` flavours stay in lockstep.
 fn shell_program() -> &'static str {
-    if cfg!(windows) {
-        "cmd"
-    } else {
-        bash_path().unwrap_or("sh")
+    match ShellFlavor::current() {
+        ShellFlavor::Cmd => "cmd",
+        ShellFlavor::Posix => bash_path().unwrap_or("sh"),
     }
 }
 

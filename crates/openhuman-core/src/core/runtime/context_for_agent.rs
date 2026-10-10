@@ -35,6 +35,7 @@ impl CoreContext {
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
             session_agent: Some(agent.to_string()),
+            profile: self.profile.clone(),
             agent: parts,
         })
     }

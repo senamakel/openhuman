@@ -60,16 +60,18 @@ impl FlowRunDigestSubscriber {
     }
 
     async fn handle_finished(&self, flow_id: &str, run_id: &str, status: &str) {
+        // As the flow's owner: its own configuration (`super::owner`).
+        let config = super::owner::config_for_scope(&self.config);
         if status != "completed" && status != "completed_with_warnings" {
             tracing::trace!(target: "flows", %flow_id, %run_id, %status, "[flows] digest: ignoring non-success terminal status");
             return;
         }
-        if !crate::memory::memory_is_on(&self.config) {
+        if !crate::memory::memory_is_on(&config) {
             tracing::debug!(target: "flows", %flow_id, %run_id, "[flows] digest: memory is off — skipping");
             return;
         }
 
-        let flow_name = match store::get_flow(&self.config, flow_id) {
+        let flow_name = match store::get_flow(&config, flow_id) {
             Ok(Some(flow)) => flow.name,
             Ok(None) => {
                 tracing::debug!(target: "flows", %flow_id, %run_id, "[flows] digest: flow no longer exists — skipping");
@@ -81,7 +83,7 @@ impl FlowRunDigestSubscriber {
             }
         };
 
-        let run = match store::get_flow_run(&self.config, run_id) {
+        let run = match store::get_flow_run(&config, run_id) {
             Ok(Some(run)) => run,
             Ok(None) => {
                 tracing::warn!(target: "flows", %flow_id, %run_id, "[flows] digest: run row not found — skipping");
@@ -99,8 +101,7 @@ impl FlowRunDigestSubscriber {
         // A machine-written run summary: searchable, but no facts or
         // beliefs about the user are derived from it.
         meta.derive = Some(false);
-        match crate::memory::ops::store_item(&self.config, StoreItem::document(digest, meta)).await
-        {
+        match crate::memory::ops::store_item(&config, StoreItem::document(digest, meta)).await {
             Ok(receipt) => {
                 tracing::debug!(target: "flows", %flow_id, %run_id, replayed = receipt.replayed, "[flows] digest: run digest stored");
             }
@@ -114,7 +115,7 @@ impl FlowRunDigestSubscriber {
             }
         }
 
-        match enforce_retention_cap(&self.config, flow_id, DIGEST_RETENTION_CAP).await {
+        match enforce_retention_cap(&config, flow_id, DIGEST_RETENTION_CAP).await {
             Ok(0) => {}
             Ok(forgotten) => {
                 tracing::debug!(target: "flows", %flow_id, forgotten, "[flows] digest: retention sweep forgot stale digests");
@@ -190,9 +191,9 @@ impl EventHandler<DomainEvent> for FlowRunDigestSubscriber {
         } = event
         {
             // Settle the run as the agent its flow belongs to (`super::owner`).
-            let owner = super::owner::flow_owner(&self.config, flow_id).await;
-            crate::storage::agents::within_agent(
-                owner.as_deref(),
+            super::owner::as_owner(
+                &self.config,
+                flow_id,
                 self.handle_finished(flow_id, run_id, status),
             )
             .await;

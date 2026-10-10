@@ -107,6 +107,9 @@ pub struct CoreContext {
     /// ([`crate::agent::session_store`]) hands out to work under this
     /// context. `None` for booted contexts, which use the shared default.
     session_agent: Option<String>,
+    /// The tenant (SaaS profile) this context serves. `None` for booted
+    /// contexts and every single-user agent. See [`crate::core::runtime::tenant`].
+    profile: Option<String>,
     /// What the agent this context was derived for owns.
     agent: agent_parts::AgentParts,
 }
@@ -265,6 +268,7 @@ impl CoreContext {
             backend_transport,
             turn_origin: None,
             session_agent: None,
+            profile: None,
             agent: Default::default(),
         });
         let _ = DEFAULT_CONTEXT.set(ctx.clone());
@@ -382,6 +386,7 @@ impl CoreContext {
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
             session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
+            profile: overlay.profile.or_else(|| self.profile.clone()),
             agent,
         })
     }
@@ -505,14 +510,12 @@ impl CoreContext {
     /// spawned task. Calling this before `tokio::spawn` is essential: reading
     /// `current()` inside the child would already have fallen back to the
     /// process default.
+    ///
+    /// In SaaS only the caller's own task scope is carried (never the
+    /// operator's default context), together with its memory identity — the
+    /// same rule as [`spawn_scoped`](crate::core::runtime::spawn_scoped).
     pub fn propagate<F: Future>(fut: F) -> impl Future<Output = F::Output> {
-        let ctx = Self::current();
-        async move {
-            match ctx {
-                Some(ctx) => Self::scope(ctx, fut).await,
-                None => fut.await,
-            }
-        }
+        super::spawn::carry(fut)
     }
 
     /// Test-only constructor: build a context with an explicit
@@ -537,6 +540,7 @@ impl CoreContext {
             backend_transport: None,
             turn_origin: None,
             session_agent: None,
+            profile: None,
             agent: Default::default(),
         })
     }
@@ -568,6 +572,7 @@ impl CoreContext {
             backend_transport: None,
             turn_origin: None,
             session_agent: None,
+            profile: None,
             agent: Default::default(),
         })
     }

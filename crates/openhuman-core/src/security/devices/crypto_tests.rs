@@ -180,7 +180,7 @@ fn directional_roundtrip_client_to_server_succeeds() {
 }
 
 /// A legacy `version=0x01` frame MUST be rejected post-upgrade with a
-/// distinctive error message — peers see "re-pair required" instead
+/// distinctive error message — peers see "client upgrade required" instead
 /// of a generic AEAD failure.
 #[test]
 fn frame_v1_rejected_after_upgrade() {
@@ -199,8 +199,8 @@ fn frame_v1_rejected_after_upgrade() {
         .open(&v1_frame)
         .expect_err("v1 frame must be rejected");
     assert!(
-        err.contains("UnsupportedFrameVersion") && err.contains("re-pair"),
-        "expected explicit UnsupportedFrameVersion + re-pair hint, got: {err}"
+        err.contains("UnsupportedFrameVersion") && err.contains("upgrade"),
+        "expected explicit UnsupportedFrameVersion + upgrade hint, got: {err}"
     );
 }
 

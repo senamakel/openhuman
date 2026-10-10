@@ -333,6 +333,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.dailySummaryFlow':
     'Bana her gün özet e-postası gönderen bir akış oluştur.',
   'chat.typeMessage': 'Bir mesaj gönderin...',
+  'chat.regenerate.unavailable':
+    'Bu yanıt yeniden oluşturulamıyor. Bunun yerine en son yanıtı yeniden oluşturmayı deneyin.',
+  'chat.regenerate.failed': 'Yanıt yeniden oluşturulamadı. Lütfen tekrar deneyin.',
   'chat.send': 'Mesajı gönder',
   'chat.stopGeneration': 'Oluşturmayı durdur',
   'chat.followupHint':
@@ -1283,7 +1286,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} sayfasını aç',
   'mcp.installed.emptyAddInJson': 'mcp.json içinde bir tane ekleyin',
   'mcp.registry.intro':
-    'MCP sunucularından oluşan bir dizin. Bir sunucuyu açmak sizi kurulum talimatlarının bulunduğu kendi sayfasına götürür; sunucuyu mcp.json sekmesinden ekleyin.',
+    'MCP sunucularından oluşan bir dizin. Kurulum gerektirmeyen barındırılan sunucular tek tıkla eklenir; diğerleri için kurulum talimatlarını görmek üzere sunucunun sayfasını açın ve onu mcp.json sekmesinde tanımlayın.',
+  'mcp.registry.action.add': 'Ekle',
+  'mcp.registry.action.added': 'Eklendi',
+  'mcp.registry.action.adding': 'Ekleniyor…',
+  'mcp.registry.aria.add': '{name} ekle',
+  'mcp.registry.needsSetup':
+    'Bu sunucunun eklenmeden önce kurulması gerekiyor. Kurulum talimatları için sayfasını açın.',
+  'mcp.registry.addFailed': 'Bu sunucu eklenemedi.',
+  'mcp.registry.connectFailed': 'Eklendi ancak sunucu bağlanmadı.',
   'mcp.json.loadFailedTitle': 'mcp.json okunamadı',
   'mcp.json.loadFailedBody':
     'Çekirdek yanıt vermediği için belge gösterilmiyor. Boş bir düzenleyici, sunucularınızı silen bir kaydetmeye yol açabilirdi.',
@@ -1761,6 +1772,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': 'Bağlandı. Her şey hazır.',
   'bootCheck.authFailed': 'Bu token çalışmadı. Kontrol edip yeniden deneyin.',
   'bootCheck.unreachablePrefix': 'Ulaşılamadı:',
+  'bootCheck.socketDisabled':
+    'Bağlandı, ancak bu çekirdekte gerçek zamanlı özellik kapalı. --jsonrpc-only ile başlatılmış; sohbet ve canlı güncellemelerin çalışması için bu bayrak olmadan yeniden başlat.',
   'bootCheck.checkingCore': 'OpenHuman başlatılıyor…',
   'bootCheck.cannotReach': 'Ulaşılamıyor',
   'bootCheck.cannotReachDesc': 'Bağlantı kurulamadı. Başka bir yerde denemek ister misiniz?',
@@ -1829,6 +1842,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Güncelleme denetimi başarısız oldu',
   'about.update.status.default': 'Güncellemeleri denetle',
   'welcome.continueLocallyExperimental': 'Yerel olarak devam et (Deneysel)',
+  'auth.profileSwitch.title': 'Ayrı bir profille oturum açılsın mı?',
+  'auth.profileSwitch.body':
+    'Bulut oturumu açıldığında OpenHuman ayrı bir hesap profiline geçer. Yerel konuşmalarınız, belleğiniz ve sağlayıcı ayarlarınız bu cihazda users/{profileId} konumunda kalır. Geri dönmek için oturumu kapatın ve Hoş Geldiniz ekranında yerel oturumu seçin.',
+  'auth.profileSwitch.continue': 'Oturum açmaya devam et',
   'welcome.localSessionStarting': 'Yerel oturum başlatılıyor...',
   'welcome.coreConfigUnreadable':
     'Çalışma zamanı yapılandırma dosyasını okuyamadı. config.toml farklı bir kullanıcı hesabına ait olabilir veya başka bir nedenle çalışma zamanı işlemi tarafından erişilemiyor olabilir. Çalışma zamanını yeniden başlatın; sorun devam ederse çalışma alanının sahipliğini düzeltin veya birimini yeniden oluşturun.',

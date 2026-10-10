@@ -35,7 +35,7 @@ fn the_gateway_surfaces_stay_open() {
 
 mod decision {
     use super::*;
-    use crate::core_host::user_agents::gateway::sign;
+    use crate::core_host::profiles::gateway::sign;
     use axum::body::Body;
     use axum::routing::get;
     use axum::Router;
@@ -44,7 +44,7 @@ mod decision {
     const SECRET: &str = "service-token";
     const NOW: u64 = 1_700_000_000;
 
-    /// Stands in for `resolve_scope`, which reads the process's agent host: a
+    /// Stands in for `resolve_scope`, which reads the process's profile host: a
     /// user needs a valid signature, and only `alice` is provisioned.
     fn resolve(
         user: Option<&str>,
@@ -52,20 +52,28 @@ mod decision {
         secret: &str,
         now: u64,
     ) -> Result<GatewayScope, GatewayRefusal> {
-        let refuse = |status, message: &str| GatewayRefusal {
-            status,
-            message: message.to_string(),
-        };
+        let refuse = |status, message: &str| GatewayRefusal::new(status, message);
         let Some(user) = user else {
             return Ok(GatewayScope::Operator);
         };
         let sig = sig.ok_or_else(|| refuse(401, "missing signature"))?;
-        crate::core_host::user_agents::gateway::verify(secret, user, sig, now)
+        crate::core_host::profiles::gateway::verify(secret, user, sig, now)
             .map_err(|e| refuse(401, &e))?;
         if user == "alice" {
-            // The real resolver returns the user's agent state, which needs a
+            // The real resolver returns the user's profile, which needs a
             // booted host; the operator scope stands in for "accepted".
             Ok(GatewayScope::Operator)
+        } else if user == "carol" {
+            // Hosted by another node.
+            Err(GatewayRefusal {
+                status: 409,
+                message: crate::core_host::profiles::gateway::PROFILE_HELD.to_string(),
+                held_by: Some(crate::core_host::profiles::gateway::HeldBy {
+                    owner: "node-a".to_string(),
+                    endpoint: Some("http://10.0.0.1:7788".to_string()),
+                    retry_after_ms: 1_500,
+                }),
+            })
         } else {
             Err(refuse(403, "not provisioned"))
         }
@@ -78,9 +86,15 @@ mod decision {
             .route("/v1/models", get(|| async { "ok" }))
             .layer(axum::middleware::from_fn(
                 move |req: Request, next: Next| async move {
-                    match decide(&req, secret, NOW, resolve) {
-                        Ok(_) => next.run(req).await,
-                        Err(response) => response,
+                    match decide(&req, secret) {
+                        Ok(Admitted::Operator) => next.run(req).await,
+                        Ok(Admitted::User { user, signature }) => {
+                            match resolve(Some(&user), signature.as_deref(), SECRET, NOW) {
+                                Ok(_) => next.run(req).await,
+                                Err(refusal) => refusal_response(refusal),
+                            }
+                        }
+                        Err(refused) => refused.into_response(),
                     }
                 },
             ))
@@ -245,6 +259,46 @@ mod decision {
     #[tokio::test]
     async fn a_repeated_signature_header_does_not_leak_to_an_unauthenticated_caller() {
         let headers = [user("alice"), sig("alice", NOW), sig("alice", NOW)];
+        assert_eq!(
+            status(app(Some(SECRET)), "/rpc", &headers).await,
+            StatusCode::UNAUTHORIZED
+        );
+    }
+
+    #[tokio::test]
+    async fn a_profile_hosted_elsewhere_is_409_naming_the_owner() {
+        let headers = [bearer_header(), user("carol"), sig("carol", NOW)];
+        let mut req = Request::builder().uri("/rpc");
+        for (name, value) in &headers {
+            req = req.header(*name, value);
+        }
+        let response = app(Some(SECRET))
+            .oneshot(req.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::CONFLICT);
+        assert_eq!(
+            response.headers()[PROFILE_OWNER_HEADER].to_str().unwrap(),
+            "node-a"
+        );
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(
+            body,
+            serde_json::json!({
+                "error": "profile_held",
+                "owner": "node-a",
+                "endpoint": "http://10.0.0.1:7788",
+                "retry_after_ms": 1500,
+            })
+        );
+    }
+
+    #[tokio::test]
+    async fn a_held_profile_is_not_revealed_to_an_unauthenticated_caller() {
+        let headers = [user("carol"), sig("carol", NOW)];
         assert_eq!(
             status(app(Some(SECRET)), "/rpc", &headers).await,
             StatusCode::UNAUTHORIZED

@@ -463,6 +463,8 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.connectIntegration': '连接一个新的集成。',
   'chat.welcomeSuggestion.dailySummaryFlow': '创建一个每天给我发送摘要邮件的流程。',
   'chat.typeMessage': '发送消息...',
+  'chat.regenerate.unavailable': '无法重新生成此回复。请改为重新生成最新的回复。',
+  'chat.regenerate.failed': '无法重新生成回复，请重试。',
   'chat.send': '发送',
   'chat.stopGeneration': '停止生成',
   'chat.followupHint': '将后续消息加入队列：将在本次回复后发送 · ⌘/Ctrl+Enter 开启并行分支',
@@ -1137,7 +1139,14 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '打开 {name} 的页面',
   'mcp.installed.emptyAddInJson': '在 mcp.json 中添加',
   'mcp.registry.intro':
-    'MCP 服务器目录。打开某个服务器会跳转到其自身页面，安装说明就在那里；然后在 mcp.json 标签页中添加它。',
+    'MCP 服务器目录。无需设置的托管服务器可一键添加；其他服务器请打开其页面查看安装说明，然后在 mcp.json 标签页中声明。',
+  'mcp.registry.action.add': '添加',
+  'mcp.registry.action.added': '已添加',
+  'mcp.registry.action.adding': '正在添加…',
+  'mcp.registry.aria.add': '添加 {name}',
+  'mcp.registry.needsSetup': '此服务器需要先进行设置才能添加。请打开其页面查看安装说明。',
+  'mcp.registry.addFailed': '无法添加此服务器。',
+  'mcp.registry.connectFailed': '已添加，但服务器未能连接。',
   'mcp.json.loadFailedTitle': '无法读取 mcp.json',
   'mcp.json.loadFailedBody': '核心未响应，因此不显示该文档。空编辑器会诱使保存并清空你的服务器。',
   'mcp.json.intro':
@@ -1581,6 +1590,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': '已连接 ✓',
   'bootCheck.authFailed': '认证失败：请检查令牌（收到 401/403）。',
   'bootCheck.unreachablePrefix': '无法连接：',
+  'bootCheck.socketDisabled':
+    '已连接，但此核心已关闭实时功能。它是用 --jsonrpc-only 启动的；请去掉该参数重新启动，聊天和实时更新才能使用。',
   'bootCheck.checkingCore': '正在启动 OpenHuman…',
   'bootCheck.cannotReach': '无法连接',
   'bootCheck.cannotReachDesc': '我们无法连接。要换个地方试试吗？',
@@ -1644,6 +1655,10 @@ const messages: TranslationMap = {
   'about.update.status.error': '更新检查失败',
   'about.update.status.default': '检查更新',
   'welcome.continueLocallyExperimental': '本地继续（实验性）',
+  'auth.profileSwitch.title': '使用单独的个人资料登录？',
+  'auth.profileSwitch.body':
+    '云端登录会将 OpenHuman 切换到单独的账户资料。您的本地对话、记忆和提供商设置仍保存在此设备的 users/{profileId} 中。要返回这些数据，请先退出登录，然后在欢迎界面选择本地会话。',
+  'auth.profileSwitch.continue': '继续登录',
   'welcome.localSessionStarting': '正在启动本地会话...',
   'welcome.coreConfigUnreadable':
     '运行时无法读取自己的配置文件。config.toml 可能归属于其他用户账户，或因其他原因无法被运行时进程访问。请重启运行时；若仍未解决，请修复工作目录的归属权或重新创建其数据卷。',

@@ -202,7 +202,7 @@ impl DedupCommitSubscriber {
     /// a schema + call-site change bigger than this PR's scope; reported as a
     /// follow-up rather than attempted here.
     fn dedup_node_ids(&self, flow_id: &str) -> Vec<String> {
-        match store::get_flow(&self.config, flow_id) {
+        match store::get_flow(&super::owner::config_for_scope(&self.config), flow_id) {
             Ok(Some(flow)) => flow
                 .graph
                 .nodes
@@ -222,6 +222,8 @@ impl DedupCommitSubscriber {
     }
 
     async fn handle_finished(&self, flow_id: &str, run_id: &str, status: &str) {
+        // As the flow's owner: its own configuration (`super::owner`).
+        let config = super::owner::config_for_scope(&self.config);
         let node_ids = self.dedup_node_ids(flow_id);
         if node_ids.is_empty() {
             tracing::trace!(target: "flows", %flow_id, %run_id, %status, "[dedup-commit] no dedup nodes in this flow — nothing to settle");
@@ -246,7 +248,7 @@ impl DedupCommitSubscriber {
         tracing::trace!(target: "flows", %flow_id, %run_id, "[dedup-commit] acquired per-flow commit lock");
         self.maybe_test_delay().await;
 
-        let state = FlowState::open(&self.config, format!("flow:{flow_id}"));
+        let state = FlowState::open(&config, format!("flow:{flow_id}"));
         for node_id in node_ids {
             self.settle_node(&state, &node_id, success, flow_id, run_id);
         }
@@ -326,9 +328,9 @@ impl EventHandler<DomainEvent> for DedupCommitSubscriber {
         } = event
         {
             // Settle the run as the agent its flow belongs to (`super::owner`).
-            let owner = super::owner::flow_owner(&self.config, flow_id).await;
-            crate::storage::agents::within_agent(
-                owner.as_deref(),
+            super::owner::as_owner(
+                &self.config,
+                flow_id,
                 self.handle_finished(flow_id, run_id, status),
             )
             .await;

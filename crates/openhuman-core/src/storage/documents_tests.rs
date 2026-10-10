@@ -127,3 +127,42 @@ fn scopes_do_not_see_each_other() {
         .unwrap();
     assert!(seen.is_none());
 }
+
+fn backend() -> Arc<dyn StorageBackend> {
+    Arc::new(MemoryStorage::new())
+}
+
+#[test]
+fn a_collection_is_declared_once_per_backend_scope_and_name() {
+    let backend = backend();
+    assert!(!is_declared(&backend, "local", THINGS));
+    mark_declared(&backend, "local", THINGS);
+    assert!(is_declared(&backend, "local", THINGS));
+    assert!(!is_declared(&backend, "agent-b", THINGS), "another scope");
+    assert!(
+        !is_declared(&backend, "local", "other"),
+        "another collection"
+    );
+    assert!(
+        !is_declared(&self::backend(), "local", THINGS),
+        "another backend"
+    );
+}
+
+#[test]
+fn a_repo_with_an_origin_declares_a_collection_only_on_its_first_run() {
+    let backend = backend();
+    let scoped = backend.for_scope(&Scope::new("cached").unwrap()).unwrap();
+    let mut repo = Repo::over(&scoped, "test", specs);
+    repo.origin = Some(Origin {
+        backend: Arc::clone(&backend),
+        scope: "cached".to_string(),
+    });
+    assert!(!is_declared(&backend, "cached", THINGS));
+    repo.run(|docs| async move { docs.get(THINGS, "a").await })
+        .unwrap();
+    assert!(is_declared(&backend, "cached", THINGS));
+    // Second run still works with the declaration skipped.
+    repo.run(|docs| async move { docs.get(THINGS, "a").await })
+        .unwrap();
+}

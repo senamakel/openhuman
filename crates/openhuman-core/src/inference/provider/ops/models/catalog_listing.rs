@@ -33,6 +33,23 @@ pub(super) fn resolve_local_runtime_key(
     looked_up
 }
 
+/// Whether a provider entry can be probed at `{endpoint}/models`.
+///
+/// Claude Code is a local CLI provider, and a `cli://…` endpoint is a
+/// placeholder rather than an API base. Any other scheme (`ftp://…`) is a
+/// misconfiguration and is left to the request path to surface as an error.
+/// An endpoint that does not parse as `scheme://host` at all is left to the
+/// request path so a genuine misconfiguration still surfaces as an error.
+fn endpoint_hosts_models_listing(slug: &str, endpoint: &str) -> bool {
+    if slug == "claude-code" {
+        return false;
+    }
+    match reqwest::Url::parse(endpoint.trim()) {
+        Ok(url) if url.has_host() => url.scheme() != "cli",
+        _ => true,
+    }
+}
+
 pub fn append_query_param(url: &str, key: &str, value: &str) -> String {
     if let Ok(mut parsed) = reqwest::Url::parse(url) {
         parsed.query_pairs_mut().append_pair(key, value);
@@ -75,6 +92,25 @@ pub async fn list_configured_models_from_config(
         .or_else(|| synthesize_local_runtime_entry(&provider_id, config))
         .or_else(|| synthesize_managed_entry(&provider_id))
         .ok_or_else(|| format!("no cloud provider with id or slug '{}' found", provider_id))?;
+
+    // Sentry TAURI-RUST-114C/114D: the app stores Claude Code with the cosmetic
+    // endpoint `cli://claude-code`. It runs as a local CLI and has no `/models`
+    // listing, and reqwest cannot build a request for a non-http(s) URL, so the
+    // probe failed with "builder error" on every picker open. Such a provider
+    // has no remote catalog: answer with an empty one.
+    if !endpoint_hosts_models_listing(&entry.slug, &entry.endpoint) {
+        log::debug!(
+            "[providers][list_models] slug={} has no http(s) /models listing; returning an empty list",
+            entry.slug
+        );
+        return Ok(crate::core::Outcome::new(
+            serde_json::json!({ "models": Vec::<ModelInfo>::new() }),
+            vec![format!(
+                "provider '{}' has no remote model catalog",
+                entry.slug
+            )],
+        ));
+    }
 
     let looked_up = crate::inference::provider::factory::lookup_key_for_slug(&entry.slug, config)
         .unwrap_or_default();

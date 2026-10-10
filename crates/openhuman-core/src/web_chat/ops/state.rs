@@ -35,58 +35,60 @@ pub(crate) fn parallel_in_flight() -> Arc<ParallelInFlight> {
 
 /// The map key for `thread_id` in the calling scope.
 ///
-/// Thread ids are chosen by callers and are only unique per agent, so a turn
-/// running for an embedded agent ([`CoreContext::session_agent`]) is keyed
-/// `<agent>::<thread>`. Two agents that pick the same thread id then get two
-/// cache entries and two in-flight slots instead of sharing one live session.
-/// Outside an agent scope the key stays the bare thread id.
+/// Thread ids are chosen by callers and are only unique per tenant, so the
+/// key is [`tenant_key`](crate::core::runtime::tenant_key) of the calling
+/// tenant: a SaaS profile and/or an embedded agent
+/// ([`CoreContext::session_agent`]) prefix the thread id, so two users (or
+/// two agents) that pick the same thread id get two cache entries and two
+/// in-flight slots instead of sharing one live session. On the desktop,
+/// outside an agent scope, the key stays the bare thread id.
 ///
 /// [`CoreContext::session_agent`]: crate::core::runtime::CoreContext::session_agent
 pub(crate) fn key_for(thread_id: &str) -> String {
-    let agent = crate::core::runtime::CoreContext::current()
-        .and_then(|context| context.session_agent().map(str::to_owned));
-    scoped_key(agent.as_deref(), thread_id)
+    key_in(&current_tenant(), thread_id)
 }
 
-/// `key` with the calling scope's agent prefix removed: the id the caller
-/// chose, for handing back to it.
+/// `key` with the calling scope's tenant prefix removed: the id the caller
+/// chose, for handing back to it. A key of another tenant is returned as is.
 pub(crate) fn unscope(key: &str) -> String {
-    let agent = crate::core::runtime::CoreContext::current()
-        .and_then(|context| context.session_agent().map(str::to_owned));
-    match agent {
-        Some(agent) => key
-            .strip_prefix(&scoped_key(Some(&agent), ""))
-            .unwrap_or(key)
-            .to_string(),
-        None => key.to_string(),
+    unscope_in(&current_tenant(), key)
+}
+
+fn current_tenant() -> crate::core::runtime::Tenant {
+    crate::core::runtime::tenant::current_tenant_or_isolated("web_chat")
+}
+
+/// [`key_for`] under an explicit tenant.
+pub(crate) fn key_in(tenant: &crate::core::runtime::Tenant, thread_id: &str) -> String {
+    crate::core::runtime::tenant_key(tenant, thread_id)
+}
+
+/// [`unscope`] under an explicit tenant.
+pub(crate) fn unscope_in(tenant: &crate::core::runtime::Tenant, key: &str) -> String {
+    match crate::core::runtime::tenant::split_key(key) {
+        Some((owner, id)) if &owner == tenant => id.to_string(),
+        _ => key.to_string(),
     }
 }
 
-/// Injective encoding of `(session_agent, thread_id)`. Both parts are caller
-/// controlled, so a plain `agent::thread` join would let `("a", "b::c")` and
-/// `("a::b", "c")` (or an unscoped `"a::b"`) share one slot. A scoped key is
-/// `\x1f<agent byte length>:<agent><thread>`; an unscoped key is the bare
-/// thread id, except that an id starting with `\x1f` gets a second `\x1f`
-/// prepended so it can never look like a scoped key.
+/// Injective encoding of `(session_agent, thread_id)` with no profile: the
+/// desktop's [`tenant_key`](crate::core::runtime::tenant_key). Both parts are
+/// caller controlled, so a plain `agent::thread` join would let
+/// `("a", "b::c")` and `("a::b", "c")` (or an unscoped `"a::b"`) share one
+/// slot.
 pub(crate) fn scoped_key(session_agent: Option<&str>, thread_id: &str) -> String {
-    match session_agent {
-        Some(agent) => format!("\u{1f}{}:{agent}{thread_id}", agent.len()),
-        None if thread_id.starts_with('\u{1f}') => format!("\u{1f}{thread_id}"),
-        None => thread_id.to_string(),
-    }
+    key_in(
+        &crate::core::runtime::Tenant {
+            profile: None,
+            agent: session_agent.map(str::to_owned),
+        },
+        thread_id,
+    )
 }
 
-/// The thread id a [`scoped_key`] was built from, ignoring its agent scope.
+/// The thread id a [`key_for`] key was built from, ignoring its tenant.
 fn thread_id_of_key(key: &str) -> Option<&str> {
-    let Some(rest) = key.strip_prefix('\u{1f}') else {
-        return Some(key);
-    };
-    if rest.starts_with('\u{1f}') {
-        return Some(rest);
-    }
-    let (len, tail) = rest.split_once(':')?;
-    let len: usize = len.parse().ok()?;
-    tail.get(len..)
+    crate::core::runtime::tenant::id_of_key(key)
 }
 
 pub(crate) fn event_session_id_for(client_id: &str, thread_id: &str) -> String {
@@ -123,12 +125,11 @@ pub(crate) fn cancel_in_flight_gracefully(entry: InFlightEntry) -> String {
 }
 
 pub async fn invalidate_thread_sessions(thread_id: &str) {
-    // Under an embedded agent only that agent's entry goes. Outside an agent
-    // scope every entry for the thread in the current table goes.
-    let active_agent = crate::core::runtime::CoreContext::current()
-        .and_then(|context| context.session_agent().map(str::to_owned));
+    // Under an embedded agent or a profile only that tenant's entry goes.
+    // Outside both every entry for the thread in the current table goes.
+    let tenant = current_tenant();
     let mut sessions = thread_sessions().lock_owned().await;
-    let keys_to_remove: Vec<String> = match active_agent {
+    let keys_to_remove: Vec<String> = match tenant.agent.as_ref().or(tenant.profile.as_ref()) {
         Some(_) => {
             let key = key_for(thread_id);
             sessions
@@ -153,6 +154,48 @@ pub async fn invalidate_thread_sessions(thread_id: &str) {
             thread_id
         );
     }
+}
+
+/// The thread ids (as the caller chose them) with a primary or parallel turn
+/// in the calling context's tables.
+pub(crate) async fn live_thread_ids() -> Vec<String> {
+    let mut threads: Vec<String> = in_flight()
+        .lock_owned()
+        .await
+        .keys()
+        .map(|key| unscope(key))
+        .collect();
+    threads.extend(
+        parallel_in_flight()
+            .lock_owned()
+            .await
+            .values()
+            .map(|entry| unscope(&entry.thread_id)),
+    );
+    threads.sort();
+    threads.dedup();
+    threads
+}
+
+/// Test seam: track `cancel` as a parallel turn on `thread_id` in the
+/// calling context's tables, so callers can watch a teardown reach it.
+#[cfg(test)]
+pub(crate) async fn track_parallel_turn_for_test(
+    thread_id: &str,
+    request_id: &str,
+    cancel: tokio_util::sync::CancellationToken,
+) {
+    let watched = cancel.clone();
+    let handle = crate::core::runtime::spawn_scoped(async move { watched.cancelled().await });
+    parallel_in_flight().lock_owned().await.insert(
+        key_for(request_id),
+        ParallelEntry {
+            thread_id: key_for(thread_id),
+            client_id: "test-client".to_string(),
+            handle,
+            cancel_token: cancel,
+        },
+    );
 }
 
 pub async fn in_flight_entries_for_test() -> Vec<(String, String)> {

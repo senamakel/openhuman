@@ -24,6 +24,9 @@ async function localSettings(page: BrowserPage, user: string) {
     userId: 'local',
     user: { _id: 'local', id: 'local', name: 'Local User', email: 'local@openhuman.local' },
   });
+  // Installing a local credential intentionally returns onboarding to its
+  // incomplete state. This test starts from an established local session.
+  await callCoreRpc('openhuman.config_set_onboarding_completed', { value: true });
   await page.reload();
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
@@ -88,37 +91,33 @@ test.describe('Japanese UI locale', () => {
   }) => {
     const fixtures: Record<string, unknown> = {
       'openhuman.memory_engine_get': {
-        result: { engine: 'tinycortex', has_key: true, status: 'ready', fetch_modes: [] },
-        logs: [],
+        engine: 'tinycortex',
+        has_key: true,
+        status: 'ready',
+        fetch_modes: [],
       },
-      'openhuman.memory_engines_list': { result: { engines: [] }, logs: [] },
+      'openhuman.memory_engines_list': { engines: [] },
       'openhuman.memory_explore': {
-        result: {
-          facet: 'kind',
-          buckets: [{ value: 'document', count: 7 }],
-          total: 7,
-          missing: 0,
-          more_buckets: 0,
-          truncated: false,
-        },
-        logs: [],
+        facet: 'kind',
+        buckets: [{ value: 'document', count: 7 }],
+        total: 7,
+        missing: 0,
+        more_buckets: 0,
+        truncated: false,
       },
-      'openhuman.memory_items_list': { result: { items: [] }, logs: [] },
+      'openhuman.memory_items_list': { items: [] },
       'openhuman.tokenjuice_savings_stats': {
-        result: {
-          attributionModel: 'Qwen3.8-Flash-Next',
-          total: {
-            events: 3,
-            originalTokens: 1000,
-            compactedTokens: 500,
-            tokensSaved: 500,
-            costSavedUsd: 0,
-          },
-          byModel: {},
-          byCompressor: {},
-          cache: { entries: 0, bytes: 0 },
+        attributionModel: 'Qwen3.8-Flash-Next',
+        total: {
+          events: 3,
+          originalTokens: 1000,
+          compactedTokens: 500,
+          tokensSaved: 500,
+          costSavedUsd: 0,
         },
-        logs: [],
+        byModel: {},
+        byCompressor: {},
+        cache: { entries: 0, bytes: 0 },
       },
     };
     // Only data-dependent read results are fixtures; authentication, locale

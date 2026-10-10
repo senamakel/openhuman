@@ -9,7 +9,7 @@ use super::types::{
 };
 use crate::agent::harness::definition::SandboxMode;
 use crate::agent::platform_shell;
-use crate::config::RuntimeConfig;
+use crate::config::{RuntimeConfig, SandboxBackend, SandboxConfig};
 use crate::sandbox::cwd_jail::{self, Jail, NoopBackend};
 use std::collections::HashMap;
 use std::ffi::OsString;
@@ -50,6 +50,64 @@ pub fn sandbox_off_value(value: Option<&str>) -> bool {
         value.map(|v| v.trim().to_ascii_lowercase()).as_deref(),
         Some("off" | "none" | "0" | "false" | "disabled")
     )
+}
+
+/// Whether a command tool must use the sandbox execution path. An explicit
+/// backend in the active config is an operator requirement even when the
+/// agent definition uses the usual `SandboxMode::None` default.
+pub async fn command_requires_sandbox() -> Result<bool, String> {
+    if crate::core::runtime::is_saas() {
+        // Every SaaS command must enter the per-user container path, including
+        // language tools whose agent definition does not request a sandbox.
+        return Ok(true);
+    }
+    if sandbox_disabled_by_host() {
+        return Ok(false);
+    }
+    if matches!(
+        crate::agent::harness::current_sandbox_mode(),
+        Some(SandboxMode::Sandboxed)
+    ) {
+        return Ok(true);
+    }
+    let config = crate::config::ops::load_config_with_timeout().await?;
+    if config.sandbox.enabled == Some(false) {
+        return Ok(false);
+    }
+    Ok(matches!(
+        config.sandbox.backend,
+        SandboxBackend::Landlock
+            | SandboxBackend::Firejail
+            | SandboxBackend::Bubblewrap
+            | SandboxBackend::Docker
+    ))
+}
+
+/// Resolve the policy for a command tool before building its command line.
+/// SaaS always uses the user's container; other hosts apply the operator's
+/// backend selection while retaining an agent-level sandbox requirement.
+pub(crate) async fn resolve_command_policy(
+    action_dir: &Path,
+    state_dir: &Path,
+) -> Result<SandboxPolicy, String> {
+    if crate::core::runtime::is_saas() {
+        return crate::profiles::tools::sandbox_policy(action_dir, state_dir);
+    }
+    let config = crate::config::ops::load_config_with_timeout()
+        .await
+        .map_err(|error| format!("Cannot read sandbox configuration: {error}"))?;
+    let mut policy = resolve_sandbox_policy(
+        SandboxMode::Sandboxed,
+        action_dir,
+        state_dir,
+        &config.runtime,
+        false,
+    );
+    if config.sandbox.enabled != Some(false) && !sandbox_disabled_by_host() {
+        apply_requested_backend(&mut policy, &config.sandbox, &config.runtime)
+            .map_err(|error| error.to_string())?;
+    }
+    Ok(policy)
 }
 
 fn sandbox_disabled_by_host() -> bool {
@@ -226,6 +284,26 @@ pub async fn execute_in_sandbox(
     extra_env: HashMap<OsString, OsString>,
     timeout: Duration,
 ) -> anyhow::Result<SandboxExecResult> {
+    // The saved backend is an operator's explicit isolation requirement. It
+    // must be checked at the spawn boundary, including callers that resolved
+    // their policy from an older or default RuntimeConfig.
+    let mut effective_policy = policy.clone();
+    if !crate::core::runtime::is_saas() && sandbox_disabled_by_host() {
+        effective_policy.backend = SandboxBackendKind::None;
+    }
+    let explicitly_requested = if crate::core::runtime::is_saas() || sandbox_disabled_by_host() {
+        false
+    } else {
+        let config = crate::config::ops::load_config_with_timeout()
+            .await
+            .map_err(|e| anyhow::anyhow!("Cannot read sandbox configuration: {e}"))?;
+        if config.sandbox.enabled == Some(false) {
+            false
+        } else {
+            apply_requested_backend(&mut effective_policy, &config.sandbox, &config.runtime)?
+        }
+    };
+    let policy = &effective_policy;
     // Validate the working directory up front so a missing/bad action_dir
     // surfaces an actionable, path-naming error here rather than an opaque OS
     // error 267 (ERROR_DIRECTORY) at spawn time — parity with the unsandboxed
@@ -243,7 +321,15 @@ pub async fn execute_in_sandbox(
         }
         SandboxBackendKind::Local => {
             crate::config::ensure_usable_cwd(working_dir)?;
-            execute_local_jail(policy, command, working_dir, &extra_env, timeout).await
+            execute_local_jail(
+                policy,
+                command,
+                working_dir,
+                &extra_env,
+                timeout,
+                explicitly_requested,
+            )
+            .await
         }
         SandboxBackendKind::Docker => {
             crate::config::ensure_usable_cwd(&policy.workspace_root)?;
@@ -254,6 +340,57 @@ pub async fn execute_in_sandbox(
                 timeout,
             };
             docker::docker_exec(policy, &request).await
+        }
+    }
+}
+
+/// Apply an operator-selected backend. Auto retains the caller's existing
+/// policy. None opts out only when no agent-level sandbox is required.
+pub(crate) fn apply_requested_backend(
+    policy: &mut SandboxPolicy,
+    sandbox: &SandboxConfig,
+    runtime: &RuntimeConfig,
+) -> anyhow::Result<bool> {
+    match &sandbox.backend {
+        SandboxBackend::Auto => Ok(false),
+        SandboxBackend::None => Ok(false),
+        SandboxBackend::Docker => {
+            if policy.backend == SandboxBackendKind::Local {
+                policy.read_only_mounts.clear();
+                policy.read_write_mounts.clear();
+            }
+            policy.backend = SandboxBackendKind::Docker;
+            let dc = &runtime.docker;
+            policy.docker_overrides = Some(super::types::DockerOverrides {
+                image: Some(dc.image.clone()),
+                network: Some(dc.network.clone()),
+                memory_limit_mb: dc.memory_limit_mb,
+                cpu_limit: dc.cpu_limit,
+                read_only_rootfs: Some(dc.read_only_rootfs),
+                extra_caps_drop: vec![],
+            });
+            Ok(true)
+        }
+        SandboxBackend::Landlock => {
+            let backend = cwd_jail::default_backend();
+            if backend.name() != "landlock" || !backend.is_available() {
+                anyhow::bail!("Landlock sandbox was explicitly requested but is unavailable");
+            }
+            if policy.backend != SandboxBackendKind::Local {
+                let grants =
+                    resolve_local_jail_grants(dirs::home_dir().as_deref(), &runtime.local_jail);
+                policy.read_only_mounts = grants.read_only;
+                policy.read_write_mounts = grants.read_write;
+            }
+            policy.backend = SandboxBackendKind::Local;
+            policy.docker_overrides = None;
+            Ok(true)
+        }
+        SandboxBackend::Firejail => {
+            anyhow::bail!("Firejail sandbox was explicitly requested but this build has no Firejail execution backend")
+        }
+        SandboxBackend::Bubblewrap => {
+            anyhow::bail!("Bubblewrap sandbox was explicitly requested but this build has no Bubblewrap execution backend")
         }
     }
 }
@@ -376,6 +513,7 @@ async fn execute_local_jail(
     working_dir: &Path,
     extra_env: &HashMap<OsString, OsString>,
     timeout: Duration,
+    explicitly_requested: bool,
 ) -> anyhow::Result<SandboxExecResult> {
     let mut jail = Jail::new(&policy.workspace_root, "sandbox.agent");
     if !policy.allow_network {
@@ -432,8 +570,11 @@ async fn execute_local_jail(
     }
 
     let os_backend = cwd_jail::default_backend();
+    if explicitly_requested && (os_backend.name() != "landlock" || !os_backend.is_available()) {
+        anyhow::bail!("Landlock sandbox was explicitly requested but is unavailable");
+    }
     let spawn_result = if os_backend.is_available() {
-        cwd_jail::spawn(&jail, cmd)
+        cwd_jail::spawn_with(os_backend.as_ref(), &jail, cmd)
     } else {
         tracing::debug!("[sandbox:local] OS backend unavailable, using noop");
         cwd_jail::spawn_with(&NoopBackend, &jail, cmd)

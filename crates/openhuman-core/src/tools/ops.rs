@@ -632,7 +632,10 @@ pub fn all_tools_with_runtime(
     // or SPL payment signing, and ledger recording. Gated with the `web3`
     // feature (the x402 domain is compiled out when web3 is disabled).
     #[cfg(feature = "web3")]
-    tools.push(Box::new(crate::web3::x402::request_tool()));
+    tools.push(Box::new(crate::web3::x402::request_tool(
+        security.clone(),
+        http_config.allowed_domains.clone(),
+    )));
 
     // Coding-harness baseline `web_fetch` (issue #1205) — single-purpose
     // GET-and-read primitive that reuses the same allowed-domains gate
@@ -921,15 +924,13 @@ pub fn all_tools_with_runtime(
     //    ambient CoreContext; no context, or `DomainSet::full()`, keeps every
     //    tool. Under `harness()` only the memory + threads families survive
     //    (see `tool_group` and its Platform-default caveat). In SaaS,
-    //    `user_agents::tools::admits` also applies the operator's host groups.
+    //    `profiles::tools::admits` also applies the operator's host groups.
     let before = tools.len();
     let domains = crate::core::runtime::context::CoreContext::current().map(|c| c.domains());
     let mut tools: Vec<Box<dyn Tool>> = if let Some(set) = domains {
         tools
             .into_iter()
-            .filter(|t| {
-                crate::user_agents::tools::admits(t.name(), set.allows(tool_group(t.name())))
-            })
+            .filter(|t| crate::profiles::tools::admits(t.name(), set.allows(tool_group(t.name()))))
             .collect()
     } else {
         // No ambient context (unit tests / pre-boot) ⇒ no domain filtering.

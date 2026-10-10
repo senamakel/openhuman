@@ -455,7 +455,11 @@ struct CostStorage {
 impl CostStorage {
     /// Create or open cost storage.
     fn new(path: &Path) -> Result<Self> {
-        if let Some(parent) = path.parent() {
+        // With a storage backend the ledger lives in documents under the
+        // acting agent's scope, which is only known per call: no directory to
+        // make, and no aggregate to prime here.
+        let documents = crate::storage::installed().is_some();
+        if let Some(parent) = path.parent().filter(|_| !documents) {
             fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create directory {}", parent.display()))?;
         }
@@ -472,11 +476,13 @@ impl CostStorage {
             cached_month: now.month(),
         };
 
-        storage.rebuild_aggregates(
-            storage.cached_day,
-            storage.cached_year,
-            storage.cached_month,
-        )?;
+        if !documents {
+            storage.rebuild_aggregates(
+                storage.cached_day,
+                storage.cached_year,
+                storage.cached_month,
+            )?;
+        }
 
         Ok(storage)
     }
@@ -485,6 +491,15 @@ impl CostStorage {
     where
         F: FnMut(CostRecord),
     {
+        if let Some(docs) = super::tracker_documents::current()? {
+            for record in docs.all()? {
+                if !is_legacy_host_duplicate(&record) {
+                    on_record(record);
+                }
+            }
+            return Ok(());
+        }
+
         if !self.path.exists() {
             return Ok(());
         }
@@ -576,6 +591,13 @@ impl CostStorage {
 
     /// Add a new record.
     fn add_record(&mut self, record: CostRecord) -> Result<()> {
+        // The period aggregates are one cache for the whole process, so they
+        // are not kept for a document ledger, whose scope changes per call;
+        // `get_aggregated_costs` recomputes them from the scope's records.
+        if let Some(docs) = super::tracker_documents::current()? {
+            return docs.add(&record);
+        }
+
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)
                 .with_context(|| format!("Failed to create directory {}", parent.display()))?;
@@ -617,6 +639,11 @@ impl CostStorage {
     /// [`Self::get_aggregated_managed_costs`] for anything that gates a
     /// request.
     fn get_aggregated_costs(&mut self) -> Result<(f64, f64)> {
+        if super::tracker_documents::current()?.is_some() {
+            let now = Utc::now();
+            self.rebuild_aggregates(now.date_naive(), now.year(), now.month())?;
+            return Ok((self.daily_cost_usd, self.monthly_cost_usd));
+        }
         self.ensure_period_cache_current()?;
         Ok((self.daily_cost_usd, self.monthly_cost_usd))
     }

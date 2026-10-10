@@ -15,6 +15,7 @@
 //!   the local-reference policy ([`tools`]).
 
 mod artifact_tool;
+mod progress;
 pub mod provider;
 pub mod tools;
 

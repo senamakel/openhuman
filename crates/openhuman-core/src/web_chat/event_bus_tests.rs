@@ -589,7 +589,8 @@ async fn published_events_carry_the_publishing_agent() {
             DomainSet::full(),
             Default::default(),
         )
-        .session_agent("u-alice"),
+        .session_agent("u-alice")
+        .profile("p-alice"),
     );
     CoreContext::scope(ctx, async {
         publish_web_channel_event(WebChannelEvent {
@@ -615,13 +616,38 @@ async fn published_events_carry_the_publishing_agent() {
     let scoped = seen.iter().find(|e| e.thread_id == marker).unwrap();
     assert!(scoped.belongs_to("u-alice"));
     assert!(!scoped.belongs_to("u-bob"));
+    assert!(scoped.belongs_to_profile("p-alice"));
+    assert!(!scoped.belongs_to_profile("p-bob"));
     let unscoped = seen.iter().find(|e| e.thread_id != marker).unwrap();
     assert!(
-        !unscoped.belongs_to("u-alice"),
+        !unscoped.belongs_to("u-alice") && !unscoped.belongs_to_profile("p-alice"),
         "unstamped events belong to no user"
     );
     assert!(
         !serde_json::to_string(scoped).unwrap().contains("u-alice"),
         "the stamp is not serialized"
     );
+}
+
+/// An async sub-agent's card is marked `detached` on the wire so the client
+/// keeps it across the parent turn's `chat_done`; an in-turn card carries no
+/// flag at all.
+#[test]
+fn approval_request_event_marks_only_detached_parks() {
+    let build = |detached| {
+        serde_json::to_value(approval_request_event(
+            "req-1",
+            "media_generate_image",
+            "a red fox",
+            &serde_json::json!({}),
+            "thread-1",
+            "client-1",
+            None,
+            None,
+            detached,
+        ))
+        .unwrap()
+    };
+    assert_eq!(build(true)["detached"], serde_json::json!(true));
+    assert!(build(false).get("detached").is_none());
 }

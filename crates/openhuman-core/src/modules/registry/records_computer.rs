@@ -8,45 +8,45 @@ pub(crate) const TINYCOMPUTER: ModuleRecord = ModuleRecord {
     description: "Permission-aware desktop and browser observation and control",
     bus_name: names::INTERFACE,
     object_path: names::OBJECT_PATH,
-    version: "0.10.0",
-    release_url: "https://github.com/tinyhumansai/tinycomputer/releases/tag/v0.10.0",
-    // Verbatim from the published tinycomputer v0.10.0 checksum.toml. Linux remains outside
+    version: "0.10.1",
+    release_url: "https://github.com/tinyhumansai/tinycomputer/releases/tag/v0.10.1",
+    // Verbatim from the published tinycomputer v0.10.1 checksum.toml. Linux remains outside
     // the initial product surface; this registry admits macOS and Windows.
     assets: &[
         PlatformAsset {
             host_key: "macos-26-arm64",
-            archive: "tinycomputer-0.10.0-macos-26-arm64.tar.gz",
-            sha256: "3f774d47841c9da0d4603072baa70089dba675f54a6fff9213874737e034ae9b",
+            archive: "tinycomputer-0.10.1-macos-26-arm64.tar.gz",
+            sha256: "39d1ca3db737c26b4d39d9a22c16da7845735c6349dd012c59533499498af874",
         },
         PlatformAsset {
             host_key: "macos-26-x86_64",
-            archive: "tinycomputer-0.10.0-macos-26-x86_64.tar.gz",
-            sha256: "2e749aac2ad87037350c9611b3e8159c75b0d4825ce9d2624b8d9bbf1eddef4d",
+            archive: "tinycomputer-0.10.1-macos-26-x86_64.tar.gz",
+            sha256: "b135b0885cc8d8eaff250d6fb781f7f9e1c8bdbf86dacf2dc44a291c18a1d9ae",
         },
         PlatformAsset {
             host_key: "macos-15-arm64",
-            archive: "tinycomputer-0.10.0-macos-15-arm64.tar.gz",
-            sha256: "01cbf581eba91a8c3de836b76e308afe41d0adc4b72b6960df15b9f8d02f70df",
+            archive: "tinycomputer-0.10.1-macos-15-arm64.tar.gz",
+            sha256: "14d55317c96dc0a89bc66b1248da68096d81f0a39b5a7ab8a286db8bbba55368",
         },
         PlatformAsset {
             host_key: "macos-15-x86_64",
-            archive: "tinycomputer-0.10.0-macos-15-x86_64.tar.gz",
-            sha256: "38e3ca6d8dfd42a093ae6dadd1527701c50a9f034ee5123df0011f982d87277f",
+            archive: "tinycomputer-0.10.1-macos-15-x86_64.tar.gz",
+            sha256: "c8694118a5e8ac11f3785acda9023044c443bf5ae820695fce17b8c72af00fd0",
         },
         PlatformAsset {
             host_key: "windows-2025-x86_64",
-            archive: "tinycomputer-0.10.0-windows-2025-x86_64.zip",
-            sha256: "e20c78b71801f0936dccf2fb0bc483b2541dc2de3fa9c46719e3b4d5fe3d2637",
+            archive: "tinycomputer-0.10.1-windows-2025-x86_64.zip",
+            sha256: "91315b4cefc5a4d034e43d8d5fa287fbac3cb80a74ada4da842c1569b203516f",
         },
         PlatformAsset {
             host_key: "windows-2022-x86_64",
-            archive: "tinycomputer-0.10.0-windows-2022-x86_64.zip",
-            sha256: "5c30932180cd7b9f78bb1f5dce1c0e6b1598755047fb3f4b57994167c4b787eb",
+            archive: "tinycomputer-0.10.1-windows-2022-x86_64.zip",
+            sha256: "5907acb6d46e8ea33ef5024bf8f5586d17259db92560990a9e320aae9a5e3bbf",
         },
         PlatformAsset {
             host_key: "windows-11-arm64",
-            archive: "tinycomputer-0.10.0-windows-11-arm64.zip",
-            sha256: "61b4aa61fe659ad2b1b3692512cdbc9cee81cbbb28510bbced3998dd81c8f42b",
+            archive: "tinycomputer-0.10.1-windows-11-arm64.zip",
+            sha256: "71a7052fcb5cd70bf2ce8a41996978177882a2a41a2601f746bce519fa1fc642",
         },
     ],
     load: LoadPolicy::Lazy,

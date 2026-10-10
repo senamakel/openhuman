@@ -62,6 +62,26 @@ pub(super) fn composio_connect_timeout() -> Option<std::time::Duration> {
     )
 }
 
+/// Slack on top of the approval park bound for the connection check that
+/// follows an approval.
+const COMPOSIO_CONNECT_TIMEOUT_SLACK: std::time::Duration = std::time::Duration::from_secs(60);
+
+/// The tool's own deadline for a given park bound (see
+/// `ComposioConnectTool::timeout_policy`).
+pub(super) fn composio_connect_tool_timeout(
+    park_bound: Option<std::time::Duration>,
+) -> tinytools::ToolTimeout {
+    match park_bound {
+        Some(bound) => tinytools::ToolTimeout::Millis(
+            bound
+                .checked_add(COMPOSIO_CONNECT_TIMEOUT_SLACK)
+                .and_then(|total| u64::try_from(total.as_millis()).ok())
+                .unwrap_or(u64::MAX),
+        ),
+        None => tinytools::ToolTimeout::Unbounded,
+    }
+}
+
 /// Pure core of [`composio_connect_timeout`], kept env-free so it is
 /// deterministically unit-testable. An absent/unparseable value falls back to
 /// [`DEFAULT_COMPOSIO_CONNECT_TIMEOUT_SECS`]; `0` yields `None` (opt out of the
@@ -165,6 +185,16 @@ impl Tool for ComposioConnectTool {
     }
     fn category(&self) -> ToolCategory {
         ToolCategory::Workflow
+    }
+    /// The call parks on the approval gate *inside* `execute` while the user
+    /// completes OAuth, bounded by [`composio_connect_timeout`]. The inherited
+    /// per-tool deadline (120s by default) would race that bound and cut the
+    /// park before its fast-path result renders, so the budget is the park
+    /// bound plus slack for the post-approval connection check — or
+    /// unbounded when the operator opted out of the bound (the gate's own TTL
+    /// still ends the park).
+    fn timeout_policy(&self, _args: &Value) -> tinytools::ToolTimeout {
+        composio_connect_tool_timeout(composio_connect_timeout())
     }
     // NOTE: `external_effect` deliberately stays `false`. Gating happens
     // *inside* `execute` via a manual `ApprovalGate` intercept so we can

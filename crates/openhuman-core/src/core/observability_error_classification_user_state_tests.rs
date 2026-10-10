@@ -657,3 +657,49 @@ fn classifies_list_models_404_as_provider_user_state() {
         );
     }
 }
+
+/// TAURI-RUST-117K / -118J / -117Y / -113J / -113T (and -113D / -113N / -113Q /
+/// -113X): a native module that failed to load is cached as a terminal failure
+/// and handed back instantly to every later caller. Each of those callers
+/// re-reported it, so a few hundred broken installs produced ~1M events. The
+/// load failure is reported once, at resolution time; the per-call re-reports
+/// must classify as expected so they are demoted.
+#[test]
+fn classifies_cached_module_load_failures_as_module_unavailable() {
+    for raw in [
+        // Verbatim Sentry payloads.
+        "module 'tinyconnectors' could not be loaded from the installer bundle: module \
+         `windows-2022-x86_64` refused: module directory is writable by another user. Restart \
+         the app after repairing the installation. This is terminal for the running process; \
+         restart the app to try again.",
+        "store_stats: backend failed: memory is unavailable: the memory module failed to load. \
+         Restart the app to retry; the reason is in the log.",
+        // The release-cache and local-artifact shapes, wrapped by a caller.
+        "composio list_connections: module 'tinyconnectors' could not be loaded: digest \
+         mismatch. This is terminal for the running process; restart the app to try again",
+        "module 'tinydocs' could not be loaded from its local artifact: bad ABI. This is \
+         terminal for the running process; restart the app to try again",
+    ] {
+        assert_eq!(
+            expected_error_kind(raw),
+            Some(ExpectedErrorKind::ModuleUnavailable),
+            "a cached module-load failure must be demoted on re-report: {raw}"
+        );
+    }
+}
+
+#[test]
+fn unrelated_could_not_be_loaded_errors_still_reach_sentry() {
+    // The anchor is a *module* load failure; other "could not be loaded"
+    // wording is unrelated and must keep paging.
+    for raw in [
+        "update.check blocked: io error; failing closed because update policy could not be loaded",
+        "the font could not be loaded",
+    ] {
+        assert_ne!(
+            expected_error_kind(raw),
+            Some(ExpectedErrorKind::ModuleUnavailable),
+            "{raw}"
+        );
+    }
+}

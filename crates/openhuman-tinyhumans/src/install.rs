@@ -3,8 +3,8 @@
 //!
 //! Hosts that build the core through [`crate::RuntimeBuilder`] do not need
 //! this; it is for hosts that boot the core themselves
-//! (`run_server_embedded_with_ready`, `run_core_from_args`, `CoreBuilder`)
-//! and for test fixtures. Idempotent: calling it again re-installs an
+//! (`run_core_from_args`, `CoreBuilder`) and for test fixtures. The shared host
+//! boot (`openhuman_rpc::host`) connects the backend on its own. Idempotent: calling it again re-installs an
 //! equivalent transport and is harmless.
 
 use std::sync::{Arc, Mutex, OnceLock};

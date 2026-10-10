@@ -1,5 +1,15 @@
 import assert from "node:assert/strict";
-import { existsSync, mkdtempSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  existsSync,
+  lstatSync,
+  mkdtempSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -17,6 +27,7 @@ import {
   hostKeyForTarget,
   extractWindowsZip,
   keepsArchive,
+  normalizeStagedPermissions,
   replaceArchiveWithMarker,
   stageModules,
 } from "../release/stage-modules.mjs";
@@ -207,3 +218,79 @@ for (const hostKey of ["macos-15-arm64", "ubuntu-22.04-x86_64"]) {
     }
   });
 }
+
+/** Every path under `root` (not following symlinks) with its mode bits. */
+function modesUnder(root) {
+  return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
+    const path = join(root, entry.name);
+    const mode = lstatSync(path).mode & 0o7777;
+    return entry.isDirectory()
+      ? [{ path, mode, dir: true }, ...modesUnder(path)]
+      : [{ path, mode, dir: false }];
+  });
+}
+
+// tinybus refuses a module whose directory, or any ancestor of it, another
+// account can write ("module directory is writable by another user"). The
+// staged tree ships inside the AppImage/deb as-is, so it must not carry the
+// build host's umask or the release tarball's mode bits.
+test("staged modules carry no group or other write bits, whatever the umask and archive modes", {
+  skip: process.platform === "win32",
+}, async () => {
+  const hostKey = "ubuntu-22.04-x86_64";
+  const root = mkdtempSync(join(tmpdir(), "openhuman-stage-modes-"));
+  const source = join(root, "src");
+  mkdirSync(join(source, "lib"), { recursive: true });
+  const library = "lib/libdemo.so";
+  writeFileSync(join(source, library), "library bytes");
+  writeFileSync(join(source, "README"), "notes");
+  chmodSync(join(source, "lib"), 0o777);
+  chmodSync(join(source, library), 0o777);
+  chmodSync(join(source, "README"), 0o666);
+  const archiveName = `demo-1.0.0-${hostKey}.tar.gz`;
+  const built = join(root, archiveName);
+  execFileSync("tar", ["-czf", built, "-C", source, "lib", "README"]);
+  const bytes = readFileSync(built);
+  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const output = join(root, "out");
+
+  // Ubuntu's user-private-group default.
+  const previousUmask = process.umask(0o002);
+  try {
+    await withServer((req, res) => res.end(bytes), async (url) => {
+      await stageModules({
+        hostKey,
+        output,
+        assets: [{ id: "demo", version: "1.0.0", hostKey, archive: archiveName, url, sha256 }],
+      });
+    });
+  } finally {
+    process.umask(previousUmask);
+  }
+
+  const entries = [
+    { path: output, mode: lstatSync(output).mode & 0o7777, dir: true },
+    ...modesUnder(output),
+  ];
+  assert.ok(entries.some((e) => e.path.endsWith("libdemo.so")), "the library was staged");
+  for (const { path, mode, dir } of entries) {
+    assert.equal(mode, dir ? 0o755 : 0o644, `${path} is ${mode.toString(8)}`);
+  }
+});
+
+test("normalising staged permissions never follows a symlink out of the tree", {
+  skip: process.platform === "win32",
+}, () => {
+  const root = mkdtempSync(join(tmpdir(), "openhuman-stage-symlink-"));
+  const outside = join(root, "outside");
+  writeFileSync(outside, "not staged");
+  chmodSync(outside, 0o600);
+  const staged = join(root, "staged");
+  mkdirSync(staged);
+  symlinkSync(outside, join(staged, "link"));
+
+  normalizeStagedPermissions(staged);
+
+  assert.equal(lstatSync(outside).mode & 0o7777, 0o600);
+  assert.equal(lstatSync(staged).mode & 0o7777, 0o755);
+});

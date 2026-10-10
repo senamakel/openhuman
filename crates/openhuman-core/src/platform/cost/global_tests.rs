@@ -248,3 +248,28 @@ fn token_usage_row_shape_is_stable_and_old_rows_load() {
     assert_eq!(parsed.input_tokens, 10);
     assert_eq!(parsed.cost_usd, 0.25);
 }
+
+#[test]
+fn a_tenant_tracker_belongs_to_its_profile_alone() {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+    let tmp = tempfile::tempdir().unwrap();
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().to_path_buf(),
+        ..crate::config::Config::default()
+    };
+    let root = CoreContext::for_test(DomainSet::full(), None);
+    let derive = |id: &str| {
+        root.derive_with(
+            ContextOverlay::new(config.clone(), DomainSet::kernel(), Default::default())
+                .profile(id),
+        )
+    };
+    let (alice, bob) = (derive("u-alice"), derive("u-bob"));
+    assert!(tracker_in(Some(&alice)).is_none());
+    seed_tenant_tracker(&alice, &config);
+    let tracker = tracker_in(Some(&alice)).expect("seeded at open");
+    assert_eq!(tracker.workspace_dir(), tmp.path());
+    assert!(tracker_in(Some(&bob)).is_none(), "never another profile's");
+    assert!(tracker_in(Some(&root)).is_none(), "nor the operator's");
+    assert!(tracker_in(None).is_none(), "an unscoped task has none");
+}

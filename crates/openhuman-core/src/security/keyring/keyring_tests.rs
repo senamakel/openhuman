@@ -34,7 +34,7 @@ fn os_keychain_available() -> bool {
     if std::env::var("OPENHUMAN_TEST_OS_KEYCHAIN").as_deref() != Ok("1") {
         return false;
     }
-    let b = backend::OsBackend;
+    let b = backend::OsBackend::new();
     let probe_key = "__openhuman_probe_test__";
     let probe_val = "__probe_ok__";
     if b.set(probe_key, probe_val).is_err() {
@@ -392,7 +392,7 @@ fn os_round_trip_get_set_delete() {
         eprintln!("skip: OS keychain not available");
         return;
     }
-    let b = backend::OsBackend;
+    let b = backend::OsBackend::new();
     let nk = "__openhuman_test__rtgsd:round_trip_key_001";
     let _ = b.delete(nk);
 
@@ -409,7 +409,7 @@ fn os_delete_nonexistent_is_ok() {
         eprintln!("skip: OS keychain not available");
         return;
     }
-    backend::OsBackend
+    backend::OsBackend::new()
         .delete("__openhuman_test__del_ne:__nonexistent__")
         .expect("idempotent delete");
 }
@@ -420,7 +420,7 @@ fn os_user_id_isolation() {
         eprintln!("skip: OS keychain not available");
         return;
     }
-    let b = backend::OsBackend;
+    let b = backend::OsBackend::new();
     let nk_a = "__openhuman_test__user_a_iso:__shared_key_iso__";
     let nk_b = "__openhuman_test__user_b_iso:__shared_key_iso__";
     let _ = b.delete(nk_a);
@@ -478,7 +478,7 @@ fn is_available_returns_true_on_repeated_calls_os_backend() {
         return;
     }
     // Use the OsBackend directly to simulate the cross-launch residue.
-    let b = backend::OsBackend;
+    let b = backend::OsBackend::new();
     let probe_key = "__probe__:__openhuman_keyring_probe__";
     // Pre-seed to mimic a leftover from a previous app launch.
     let _ = b.set(probe_key, "__probe_value__");
@@ -504,7 +504,7 @@ fn migrate_from_file_happy_path_os() {
         eprintln!("skip: OS keychain not available");
         return;
     }
-    let b = backend::OsBackend;
+    let b = backend::OsBackend::new();
     let user_id = "__openhuman_test__mig_hp";
     let key = "__migrate_key_hp__";
     let nk = format!("{user_id}:{key}");

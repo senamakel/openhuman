@@ -516,6 +516,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.dailySummaryFlow':
     'Создай поток, который будет присылать мне ежедневную сводку на почту.',
   'chat.typeMessage': 'Отправьте сообщение...',
+  'chat.regenerate.unavailable':
+    'Этот ответ нельзя сгенерировать заново. Попробуйте заново сгенерировать последний ответ.',
+  'chat.regenerate.failed': 'Не удалось заново сгенерировать ответ. Попробуйте ещё раз.',
   'chat.send': 'Отправить сообщение',
   'chat.stopGeneration': 'Остановить генерацию',
   'chat.followupHint':
@@ -1238,7 +1241,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Открыть страницу {name}',
   'mcp.installed.emptyAddInJson': 'Добавить в mcp.json',
   'mcp.registry.intro':
-    'Каталог MCP-серверов. Открытие сервера ведёт на его собственную страницу с инструкцией по установке; добавьте его на вкладке mcp.json.',
+    'Каталог MCP-серверов. Размещённые серверы, которым не нужна настройка, добавляются одним нажатием; для остальных откройте их страницу с инструкцией по установке и объявите сервер на вкладке mcp.json.',
+  'mcp.registry.action.add': 'Добавить',
+  'mcp.registry.action.added': 'Добавлено',
+  'mcp.registry.action.adding': 'Добавление…',
+  'mcp.registry.aria.add': 'Добавить {name}',
+  'mcp.registry.needsSetup':
+    'Этот сервер нужно настроить перед добавлением. Откройте его страницу с инструкцией по установке.',
+  'mcp.registry.addFailed': 'Не удалось добавить этот сервер.',
+  'mcp.registry.connectFailed': 'Добавлено, но сервер не подключился.',
   'mcp.json.loadFailedTitle': 'Не удалось прочитать mcp.json',
   'mcp.json.loadFailedBody':
     'Ядро не ответило, поэтому документ не показан. Пустой редактор подтолкнул бы к сохранению, стирающему ваши серверы.',
@@ -1714,6 +1725,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': 'Подключено. Всё готово.',
   'bootCheck.authFailed': 'Токен не подошёл. Проверь его и попробуй снова.',
   'bootCheck.unreachablePrefix': 'Не удалось достучаться:',
+  'bootCheck.socketDisabled':
+    'Подключено, но реальное время на этом ядре отключено. Оно запущено с --jsonrpc-only; перезапусти его без этого флага, чтобы работали чат и живые обновления.',
   'bootCheck.checkingCore': 'Запускаем OpenHuman…',
   'bootCheck.cannotReach': 'Не удаётся подключиться',
   'bootCheck.cannotReachDesc': 'Нам не удалось подключиться. Попробовать другой вариант?',
@@ -1781,6 +1794,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Ошибка проверки обновлений',
   'about.update.status.default': 'Проверить обновления',
   'welcome.continueLocallyExperimental': 'Продолжить локально (Экспериментально)',
+  'auth.profileSwitch.title': 'Войти с отдельным профилем?',
+  'auth.profileSwitch.body':
+    'При входе в облако OpenHuman переключится на отдельный профиль аккаунта. Ваши локальные переписки, память и настройки провайдеров останутся на этом устройстве в users/{profileId}. Чтобы вернуться к ним, выйдите из аккаунта и выберите локальную сессию на экране приветствия.',
+  'auth.profileSwitch.continue': 'Продолжить вход',
   'welcome.localSessionStarting': 'Запуск локального сеанса...',
   'welcome.coreConfigUnreadable':
     'Среде выполнения не удалось прочитать свой файл конфигурации. Возможно, config.toml принадлежит другой учётной записи или недоступен процессу по иной причине. Перезапустите среду выполнения, а если это не поможет, исправьте владельца рабочего каталога или создайте его том заново.',

@@ -20,9 +20,12 @@ pub fn init_crash_reporting() -> sentry::sdk::ClientInitGuard {
     let _ = process::load_dotenv_for_cli();
 
     let config = sentry::SentryConfig::new(
-        sentry_dsn(),
+        sentry::core_dsn(
+            option_env!("OPENHUMAN_CORE_SENTRY_DSN"),
+            option_env!("OPENHUMAN_SENTRY_DSN"),
+        ),
         build_release_tag(),
-        resolve_environment(std::env::var("OPENHUMAN_APP_ENV").ok()),
+        sentry::resolve_environment(std::env::var("OPENHUMAN_APP_ENV").ok()),
     );
     sentry::sdk::init(sentry::client_options(config))
 }
@@ -30,39 +33,12 @@ pub fn init_crash_reporting() -> sentry::sdk::ClientInitGuard {
 #[cfg(not(feature = "crash-reporting"))]
 pub fn init_crash_reporting() {}
 
-/// `OPENHUMAN_CORE_SENTRY_DSN`, then the legacy `OPENHUMAN_SENTRY_DSN`, at
-/// runtime and then baked in at compile time.
-#[cfg(feature = "crash-reporting")]
-fn sentry_dsn() -> Option<String> {
-    sentry::first_non_blank([
-        std::env::var("OPENHUMAN_CORE_SENTRY_DSN").ok(),
-        std::env::var("OPENHUMAN_SENTRY_DSN").ok(),
-        option_env!("OPENHUMAN_CORE_SENTRY_DSN").map(str::to_owned),
-        option_env!("OPENHUMAN_SENTRY_DSN").map(str::to_owned),
-    ])
-}
-
 #[cfg(feature = "crash-reporting")]
 fn build_release_tag() -> String {
     sentry::release_tag(
         env!("CARGO_PKG_VERSION"),
         option_env!("OPENHUMAN_BUILD_SHA"),
     )
-}
-
-#[cfg(feature = "crash-reporting")]
-fn resolve_environment(app_env: Option<String>) -> String {
-    if let Some(value) = app_env {
-        let value = value.trim().to_ascii_lowercase();
-        if !value.is_empty() {
-            return value;
-        }
-    }
-    if cfg!(debug_assertions) {
-        "development".to_string()
-    } else {
-        "production".to_string()
-    }
 }
 
 #[cfg(all(test, feature = "crash-reporting"))]

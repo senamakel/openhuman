@@ -6,6 +6,11 @@
 //! tokens as **input** to the LLM the result is being compressed for. Cost uses
 //! the per-model input price from [`crate::agent::cost`].
 //!
+//! Deliberately local, not on the storage port: the aggregate is one
+//! process-global counter (not per user) that is cheap to lose, so a per-agent
+//! scoped document would not mean what the number means. Allowlisted in
+//! `scripts/ci/check-storage-bypass.mjs`.
+//!
 //! Aggregates are kept process-global and snapshotted to
 //! `workspace_dir/state/tokenjuice_savings.json` so the dashboard survives
 //! restarts. The configured default model and snapshot path are installed via

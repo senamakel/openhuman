@@ -1261,6 +1261,7 @@ fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
         &client_id,
         row.tool_call_id.as_deref(),
         expires_at.as_deref(),
+        gate.request_is_detached(&row.request_id),
     );
     // Replay is a fresh emit to a newly-joined socket, not a resend of the
     // original event, so stamp `ts` with "now" (same clock as

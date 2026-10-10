@@ -84,6 +84,8 @@ rust-core:
   - 'crates/openhuman-core/**'
   - 'crates/openhuman-embed/**'
   - 'crates/openhuman-tinyhumans/**'
+  - 'crates/openhuman-rpc/**'
+  - 'crates/openhuman-cli/**'
   - 'crates/openhuman-tui/**'
   - 'Cargo.lock'
   - 'build.rs'

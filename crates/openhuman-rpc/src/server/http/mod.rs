@@ -89,8 +89,16 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
         .layer(middleware::from_fn(http_request_log_middleware))
         .layer(middleware::from_fn(
             crate::server::auth::rpc_auth_middleware,
-        ))
-        .layer(middleware::from_fn(cors::cors_middleware));
+        ));
+    // Socket.IO is off (`--jsonrpc-only`): answer its path before the bearer
+    // middleware can mistake the handshake for an unauthenticated request.
+    // Sits inside CORS so browser clients can read the body.
+    let router = if socketio_enabled {
+        router
+    } else {
+        router.layer(middleware::from_fn(socketio_disabled_middleware))
+    };
+    let router = router.layer(middleware::from_fn(cors::cors_middleware));
 
     if socketio_enabled {
         let (socket_layer, io) = crate::server::socketio::attach_socketio();
@@ -99,6 +107,37 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
     }
 
     router
+}
+
+/// Stable machine-readable `error` code of the "Socket.IO is off" response.
+/// Clients (the app's connection test) match on it.
+pub const SOCKETIO_DISABLED_ERROR: &str = "socketio_disabled";
+
+/// Replies `503` with a JSON body naming the cause to any `/socket.io` request.
+///
+/// Only installed when Socket.IO is disabled. Without it the request falls
+/// through to the bearer middleware, which logs and returns a misleading 401
+/// (the Socket.IO handshake carries its token in the `auth` payload, never in
+/// an `Authorization` header) (#5656).
+async fn socketio_disabled_middleware(req: Request, next: Next) -> Response {
+    let path = req.uri().path();
+    if path == "/socket.io" || path.starts_with("/socket.io/") {
+        log::info!(
+            "[http] {} {} -> 503 socketio_disabled (core started with --jsonrpc-only; realtime is off)",
+            req.method(),
+            path
+        );
+        return (
+            StatusCode::SERVICE_UNAVAILABLE,
+            Json(json!({
+                "ok": false,
+                "error": SOCKETIO_DISABLED_ERROR,
+                "message": "Socket.IO (realtime) is disabled on this core. It was started with --jsonrpc-only; restart it without that flag to enable realtime chat and events."
+            })),
+        )
+            .into_response();
+    }
+    next.run(req).await
 }
 
 /// Middleware for logging incoming HTTP requests.
@@ -174,3 +213,7 @@ async fn not_found_handler() -> impl IntoResponse {
 #[cfg(test)]
 #[path = "inference_route_tests.rs"]
 mod inference_route_tests;
+
+#[cfg(test)]
+#[path = "socketio_disabled_tests.rs"]
+mod socketio_disabled_tests;

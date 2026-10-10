@@ -13,6 +13,18 @@ use tinysearch_bus::{names, ExecuteToolRequest, ExecuteToolResponse, ListToolsRe
 use super::{module_config, MODULE_ID};
 use crate::config::Config;
 
+/// Bus deadline for one `ExecuteTool` call.
+///
+/// The bus default ([`tinybus::connection::DEFAULT_TIMEOUT`], 30 s) is sized
+/// for control calls. `web_answer_tool` waits on a provider to search *and*
+/// synthesize an answer, and `web_search_tool` can fall back across providers
+/// one after another; both routinely exceeded 30 s in production and came back
+/// as a bus timeout although the module was still working. 90 s stays under
+/// the harness's own default tool deadline
+/// ([`crate::tools::timeout::DEFAULT_TIMEOUT_SECS`], 120 s), so the module's
+/// answer, not the harness kill, decides the result.
+pub(super) const EXECUTE_TOOL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(90);
+
 fn last_config() -> &'static tokio::sync::Mutex<Option<u64>> {
     static LAST: OnceLock<tokio::sync::Mutex<Option<u64>>> = OnceLock::new();
     LAST.get_or_init(|| tokio::sync::Mutex::new(None))
@@ -148,20 +160,33 @@ pub async fn execute_tool(
     let current = current_config(config).await?;
     let tool = request.name.clone();
     with_module_lock(|| async {
-        proxy(&current)
-            .await?
-            // Keys travel only in the private module configuration; a call
-            // carries the model's arguments, which are not secrets. An
-            // ordinary call also works with a developer override, which is
-            // never attested.
-            .call(names::methods::EXECUTE_TOOL, (request,))
-            .await
-            .map_err(|error| {
-                tracing::debug!(tool = %tool, "[modules][search] ExecuteTool failed");
-                format!("search ExecuteTool failed: {error}")
-            })
+        let proxy = proxy(&current).await?;
+        // Keys travel only in the private module configuration; a call
+        // carries the model's arguments, which are not secrets. An ordinary
+        // call also works with a developer override, which is never attested.
+        call_execute_tool(proxy, request).await.map_err(|error| {
+            tracing::debug!(tool = %tool, "[modules][search] ExecuteTool failed");
+            format!("search ExecuteTool failed: {error}")
+        })
     })
     .await
+}
+
+/// `ExecuteTool` through `proxy`, under [`EXECUTE_TOOL_TIMEOUT`] rather than
+/// the bus default.
+pub(super) async fn call_execute_tool<R: serde::de::DeserializeOwned>(
+    proxy: tinybus::Proxy,
+    request: ExecuteToolRequest,
+) -> tinybus::Result<R> {
+    tracing::debug!(
+        tool = %request.name,
+        timeout_secs = EXECUTE_TOOL_TIMEOUT.as_secs(),
+        "[modules][search] ExecuteTool"
+    );
+    proxy
+        .with_timeout(EXECUTE_TOOL_TIMEOUT)
+        .call(names::methods::EXECUTE_TOOL, (request,))
+        .await
 }
 
 #[cfg(test)]

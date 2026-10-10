@@ -175,3 +175,77 @@ fn other_statuses_and_providers_still_surface_the_error() {
         );
     }
 }
+
+fn workspace_with_provider(
+    tmp: &tempfile::TempDir,
+    slug: &str,
+    endpoint: &str,
+    auth_style: crate::config::schema::cloud_providers::AuthStyle,
+) -> Config {
+    use crate::config::schema::cloud_providers::CloudProviderCreds;
+    let mut config = Config {
+        config_path: tmp.path().join("config.toml"),
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        ..Config::default()
+    };
+    config.secrets.encrypt = false;
+    config.cloud_providers.push(CloudProviderCreds {
+        id: format!("p_{slug}"),
+        slug: slug.to_string(),
+        label: slug.to_string(),
+        endpoint: endpoint.to_string(),
+        auth_style,
+        legacy_type: None,
+        default_model: None,
+    });
+    config
+}
+
+/// Sentry TAURI-RUST-114C/114D: the app stores Claude Code as a cloud provider
+/// with the cosmetic endpoint `cli://claude-code`. Probing `{endpoint}/models`
+/// failed in reqwest's builder ("builder error for url (cli://claude-code/models)")
+/// and reached Sentry for every picker open. Claude Code runs as a local CLI
+/// and has no `/models` listing, so the catalog is empty — not an error.
+#[tokio::test]
+async fn claude_code_cli_provider_lists_no_models_without_a_request() {
+    use crate::config::schema::cloud_providers::AuthStyle;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let config = workspace_with_provider(&tmp, "claude-code", "cli://claude-code", AuthStyle::None);
+
+    let outcome = super::list_configured_models_from_config("claude-code", &config)
+        .await
+        .expect("claude-code must list an empty catalog, not fail");
+    assert_eq!(outcome.value["models"], serde_json::json!([]));
+}
+
+/// A `cli://` placeholder endpoint cannot host a `/models` listing;
+/// it degrades to an empty catalog instead of a reqwest builder error.
+#[tokio::test]
+async fn non_http_endpoint_lists_no_models_without_a_request() {
+    use crate::config::schema::cloud_providers::AuthStyle;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let config = workspace_with_provider(&tmp, "custom-cli", "cli://custom", AuthStyle::None);
+
+    let outcome = super::list_configured_models_from_config("custom-cli", &config)
+        .await
+        .expect("non-http endpoint must list an empty catalog, not fail");
+    assert_eq!(outcome.value["models"], serde_json::json!([]));
+}
+
+/// Only the `cli://` placeholder is exempt: any other non-http scheme is a
+/// misconfigured provider and must surface as an error, not an empty catalog.
+#[tokio::test]
+async fn unsupported_scheme_endpoint_still_surfaces_an_error() {
+    use crate::config::schema::cloud_providers::AuthStyle;
+    let tmp = tempfile::tempdir().expect("tempdir");
+    let config = workspace_with_provider(
+        &tmp,
+        "custom-ftp",
+        "ftp://provider.example",
+        AuthStyle::None,
+    );
+
+    let result = super::list_configured_models_from_config("custom-ftp", &config).await;
+    assert!(result.is_err(), "ftp:// must not read as an empty catalog");
+}

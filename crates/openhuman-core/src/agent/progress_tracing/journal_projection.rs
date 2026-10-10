@@ -60,6 +60,10 @@ use tinyagents_harness::observability::AgentObservation;
 
 use super::SpanCollector;
 use crate::agent::progress::AgentProgress;
+use replay::{json_content_text, turn_outcome_for_failure, user_message_text, Replay};
+
+#[path = "journal_replay.rs"]
+mod replay;
 use crate::tools::status::classify;
 use tinyagents_harness::observability::trace_export::{TraceContext, TraceSpan};
 
@@ -98,6 +102,17 @@ struct ReplayState {
     /// un-journalled `usage_carry` side-channel, so this is an estimate — see
     /// the module header.
     cost_usd: f64,
+    /// Model of the most recent `ModelStarted` in any scope: the name for a
+    /// `ModelCompleted` whose own `ModelStarted` is missing from the journal.
+    last_model_any: String,
+    /// Collector steps produced by the current observation that must run
+    /// before its returned progress (see [`Replay`]). Drained per observation.
+    pre: Vec<Replay>,
+    /// `call_id → requested tool name` for calls the crate answered as an
+    /// unknown tool. The crate's own `ToolStarted`/`ToolCompleted` pair for the
+    /// same call id follows; this lets it carry the "unavailable" label and the
+    /// `NotFound` class. Mirrors the live bridge's `unknown_calls`.
+    unknown_calls: std::collections::HashMap<String, String>,
 }
 
 #[derive(Clone)]
@@ -116,6 +131,20 @@ impl ReplayState {
 
     fn active_subagent_mut(&mut self) -> Option<&mut ReplaySubagent> {
         self.subagents.last_mut()
+    }
+
+    /// The "unavailable" label/detail for a call recorded as an unknown tool.
+    fn unknown_tool_display(&self, call_id: &str) -> (Option<String>, Option<String>) {
+        match self.unknown_calls.get(call_id) {
+            Some(requested) => (
+                Some(format!(
+                    "{} (unavailable)",
+                    tinytools::humanize_tool_name(requested)
+                )),
+                Some("tool not available".to_string()),
+            ),
+            None => (None, None),
+        }
     }
 }
 
@@ -153,6 +182,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             state
                 .models
                 .insert(call_id.as_str().to_string(), model.clone());
+            state.last_model_any = model.clone();
             match state.active_subagent() {
                 Some(scope) => vec![AgentProgress::SubagentIterationStarted {
                     agent_id: scope.agent_id.clone(),
@@ -252,28 +282,31 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
 
         AgentEvent::ToolStarted {
             call_id, tool_name, ..
-        } => match state.active_subagent() {
-            Some(scope) => vec![AgentProgress::SubagentToolCallStarted {
-                agent_id: scope.agent_id.clone(),
-                task_id: scope.task_id.clone(),
-                call_id: call_id.as_str().to_string(),
-                tool_name: tool_name.clone(),
-                arguments: serde_json::Value::Null,
-                iteration: scope.iteration,
-                display_label: None,
-                display_detail: None,
-            }],
-            None => vec![AgentProgress::ToolCallStarted {
-                call_id: call_id.as_str().to_string(),
-                tool_name: tool_name.clone(),
-                // The journal does not carry the model's raw argument JSON in
-                // payload-free mode; the tool span still renders from name + id.
-                arguments: serde_json::Value::Null,
-                iteration: state.iteration,
-                display_label: None,
-                display_detail: None,
-            }],
-        },
+        } => {
+            let (display_label, display_detail) = state.unknown_tool_display(call_id.as_str());
+            match state.active_subagent() {
+                Some(scope) => vec![AgentProgress::SubagentToolCallStarted {
+                    agent_id: scope.agent_id.clone(),
+                    task_id: scope.task_id.clone(),
+                    call_id: call_id.as_str().to_string(),
+                    tool_name: tool_name.clone(),
+                    arguments: serde_json::Value::Null,
+                    iteration: scope.iteration,
+                    display_label,
+                    display_detail,
+                }],
+                None => vec![AgentProgress::ToolCallStarted {
+                    call_id: call_id.as_str().to_string(),
+                    tool_name: tool_name.clone(),
+                    // The journal does not carry the model's raw argument JSON in
+                    // payload-free mode; the tool span still renders from name + id.
+                    arguments: serde_json::Value::Null,
+                    iteration: state.iteration,
+                    display_label,
+                    display_detail,
+                }],
+            }
+        }
 
         AgentEvent::ToolCompleted {
             call_id,
@@ -290,7 +323,18 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             // uses reproduces the identical `ClassifiedFailure` from the
             // journalled error string. `output` is present only when the run
             // captured payloads (full-content journals).
-            let failure = error.as_ref().map(|text| classify(text, false));
+            let (display_label, display_detail) = state.unknown_tool_display(call_id.as_str());
+            let was_unknown = state.unknown_calls.remove(call_id.as_str()).is_some();
+            // An unknown tool is `NotFound` from the typed event (#6277),
+            // whatever the text classifier made of the echoed names.
+            let failure = if was_unknown {
+                Some(crate::tools::status::describe(
+                    crate::tools::status::ToolFailureClass::NotFound,
+                ))
+            } else {
+                error.as_ref().map(|text| classify(text, false))
+            };
+            let success = error.is_none() && !was_unknown;
             let output_text = match output {
                 Some(serde_json::Value::String(text)) => text.clone(),
                 Some(value) => value.to_string(),
@@ -302,7 +346,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                     task_id: scope.task_id.clone(),
                     call_id: call_id.as_str().to_string(),
                     tool_name: tool_name.clone(),
-                    success: error.is_none(),
+                    success,
                     output_chars: output_bytes.unwrap_or(0) as usize,
                     output: output_text,
                     arguments: input.clone(),
@@ -312,22 +356,22 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                     // The journal has no live tool registry to recompute a
                     // real label/detail from, and no `ToolResult.metadata` to
                     // replay structured payloads from.
-                    display_label: None,
-                    display_detail: None,
+                    display_label,
+                    display_detail,
                     structured: None,
                 }],
                 None => vec![AgentProgress::ToolCallCompleted {
                     call_id: call_id.as_str().to_string(),
                     tool_name: tool_name.clone(),
-                    success: error.is_none(),
+                    success,
                     output_chars: output_bytes.unwrap_or(0) as usize,
                     output: output_text,
                     arguments: input.clone(),
                     elapsed_ms: duration_ms.unwrap_or(0),
                     iteration: state.iteration,
                     failure,
-                    display_label: None,
-                    display_detail: None,
+                    display_label,
+                    display_detail,
                     structured: None,
                 }],
             }
@@ -336,94 +380,82 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
         AgentEvent::UnknownToolCall {
             call_id,
             requested_name,
-            arguments,
-            recovery: _,
+            recovery,
+            ..
         } => {
-            // #4118: the crate recovers an unavailable tool call without ever
-            // emitting `ToolStarted`/`ToolCompleted` for it, so the live bridge
-            // synthesises the pair itself. Without this arm the projection was
-            // short a whole tool span — a span *count* divergence, not just a
-            // missing attribute — on every turn the model named a tool it did
-            // not have. Mirrors `observability/event_projection.rs`'s `UnknownToolCall`
-            // arm exactly, including the `NotFound` (permanent) class (#6277).
-            let failure = Some(crate::tools::status::describe(
-                crate::tools::status::ToolFailureClass::NotFound,
-            ));
-            let label = format!(
-                "{} (unavailable)",
-                tinytools::humanize_tool_name(requested_name)
-            );
-            let detail = Some("tool not available".to_string());
-            match state.active_subagent() {
-                Some(scope) => vec![
-                    AgentProgress::SubagentToolCallStarted {
-                        agent_id: scope.agent_id.clone(),
-                        task_id: scope.task_id.clone(),
-                        call_id: call_id.as_str().to_string(),
-                        tool_name: requested_name.clone(),
-                        arguments: arguments.clone(),
-                        iteration: scope.iteration,
-                        display_label: Some(label.clone()),
-                        display_detail: detail.clone(),
-                    },
-                    AgentProgress::SubagentToolCallCompleted {
-                        agent_id: scope.agent_id.clone(),
-                        task_id: scope.task_id.clone(),
-                        call_id: call_id.as_str().to_string(),
-                        tool_name: requested_name.clone(),
-                        success: false,
-                        output_chars: 0,
-                        output: String::new(),
-                        arguments: Some(arguments.clone()),
-                        elapsed_ms: 0,
-                        iteration: scope.iteration,
-                        failure,
-                        display_label: Some(label.clone()),
-                        display_detail: detail.clone(),
-                        structured: None,
-                    },
-                ],
-                None => vec![
-                    AgentProgress::ToolCallStarted {
-                        call_id: call_id.as_str().to_string(),
-                        tool_name: requested_name.clone(),
-                        arguments: arguments.clone(),
-                        iteration: state.iteration,
-                        display_label: Some(label.clone()),
-                        display_detail: detail.clone(),
-                    },
-                    AgentProgress::ToolCallCompleted {
-                        call_id: call_id.as_str().to_string(),
-                        tool_name: requested_name.clone(),
-                        success: false,
-                        output_chars: 0,
-                        output: String::new(),
-                        arguments: Some(arguments.clone()),
-                        elapsed_ms: 0,
-                        iteration: state.iteration,
-                        failure,
-                        display_label: Some(label),
-                        display_detail: detail,
-                        structured: None,
-                    },
-                ],
+            // #4118 synthesised a failed Started/Completed pair here because
+            // the crate emitted none for an unknown tool. Since TOOL-11 the
+            // crate answers it through `recover_tool_call`, which journals an
+            // ordinary `ToolStarted`/`ToolCompleted` pair under the same call
+            // id, so a synthesised pair doubled the tool span. Record the call
+            // so that pair carries the "unavailable" label and the `NotFound`
+            // class instead. Mirrors `observability/event_projection.rs`. A
+            // `rewrite:` recovery runs its target under its own name.
+            if !recovery.starts_with("rewrite:") {
+                state
+                    .unknown_calls
+                    .insert(call_id.as_str().to_string(), requested_name.clone());
             }
+            Vec::new()
         }
 
         AgentEvent::ModelCompleted {
             call_id,
+            started_at_ms,
             usage,
             input,
             output,
-            ..
         } => {
-            let model = state
-                .models
-                .get(call_id.as_str())
-                .cloned()
-                .unwrap_or_default();
             let usage = usage.unwrap_or_default();
+            let start = started_at_ms.unwrap_or(obs.ts_ms).min(obs.ts_ms);
+            let model = match state.models.remove(call_id.as_str()) {
+                Some(model) => model,
+                None => {
+                    // The harness emits one `ModelStarted` per `ModelCompleted`,
+                    // so a completion with no start means the journal lost the
+                    // start. Without one the call joined the previous iteration,
+                    // shared its start instant and carried no model name (seen
+                    // in production as several `llm.` generations starting in
+                    // the same millisecond). Open the iteration it belongs to at
+                    // the call's own start instead.
+                    log::debug!(
+                        "[agent-tracing][journal] ModelCompleted without ModelStarted \
+                         call_id={} run_id={}; synthesizing its iteration",
+                        call_id.as_str(),
+                        obs.run_id.as_str()
+                    );
+                    let iteration = match state.active_subagent_mut() {
+                        Some(scope) => {
+                            scope.iteration += 1;
+                            scope.iteration
+                        }
+                        None => {
+                            state.iteration += 1;
+                            state.iteration
+                        }
+                    };
+                    let started = match state.active_subagent() {
+                        Some(scope) => AgentProgress::SubagentIterationStarted {
+                            agent_id: scope.agent_id.clone(),
+                            task_id: scope.task_id.clone(),
+                            iteration,
+                            max_iterations: state.max_iterations,
+                            extended_policy: false,
+                        },
+                        None => AgentProgress::IterationStarted {
+                            iteration,
+                            max_iterations: state.max_iterations,
+                        },
+                    };
+                    state.pre.push(Replay::At(started, start));
+                    state.last_model_any.clone()
+                }
+            };
             let scope = state.active_subagent().cloned();
+            state.pre.push(Replay::CallStart(
+                scope.as_ref().map(|s| s.task_id.clone()),
+                start,
+            ));
             let iteration = scope
                 .as_ref()
                 .map(|s| s.iteration)
@@ -451,7 +483,11 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                 cost_usd: 0.0,
             }];
             if scope.is_none() {
-                let turn_input = input.as_ref().map(json_content_text);
+                // The request's last user message is the user's own words on
+                // the turn's first call; the collector keeps only the first
+                // turn input, so later calls (whose last user message is tool
+                // results or a harness nudge) do not replace it.
+                let turn_input = input.as_ref().map(user_message_text);
                 let turn_output = output.as_ref().map(json_content_text);
                 if turn_input.is_some() || turn_output.is_some() {
                     progress.push(AgentProgress::TurnContent {
@@ -490,10 +526,18 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             // journalled (§2a of the C4 parity plan), so the projection prices
             // the call with the same estimator the live path uses as its floor.
             // The token counts are exact; `cost_usd` is an estimate.
-            state.cost_usd += crate::agent::cost::estimate_call_cost_usd(
+            // An unpriced model adds nothing rather than a placeholder rate.
+            state.cost_usd += crate::agent::cost::estimate_known_call_cost_usd(
                 &state.model,
-                &crate::inference::provider::BilledUsage::from_counts(usage.input_tokens, usage.output_tokens).with_cached_input_tokens(usage.cache_read_tokens).with_cache_creation_tokens(usage.cache_creation_tokens).with_reasoning_tokens(usage.reasoning_tokens),
-            );
+                &crate::inference::provider::BilledUsage::from_counts(
+                    usage.input_tokens,
+                    usage.output_tokens,
+                )
+                .with_cached_input_tokens(usage.cache_read_tokens)
+                .with_cache_creation_tokens(usage.cache_creation_tokens)
+                .with_reasoning_tokens(usage.reasoning_tokens),
+            )
+            .unwrap_or(0.0);
             state.input_tokens += usage.input_tokens;
             state.output_tokens += usage.output_tokens;
             state.cached_input_tokens += usage.cache_read_tokens;
@@ -551,6 +595,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                 worktree_path: None,
                 changed_files: Vec::new(),
                 dirty_status: None,
+                stop: None,
             }]
         }
 
@@ -560,12 +605,18 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             } else {
                 vec![AgentProgress::TurnCompleted {
                     iterations: state.iteration,
+                    stop: None,
                 }]
             }
         }
 
-        AgentEvent::RunFailed { error, .. } => {
+        AgentEvent::RunFailed { error, outcome, .. } => {
             let Some(scope) = state.subagents.pop() else {
+                // The top-level run failed: the turn span reports it instead of
+                // closing as an unremarkable, status-less span.
+                state
+                    .pre
+                    .push(Replay::Outcome(turn_outcome_for_failure(error, outcome.as_ref())));
                 return Vec::new();
             };
             vec![AgentProgress::SubagentFailed {
@@ -639,18 +690,6 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
     }
 }
 
-fn json_content_text(value: &serde_json::Value) -> String {
-    match value {
-        serde_json::Value::String(text) => text.clone(),
-        serde_json::Value::Object(map) => map
-            .get("content")
-            .and_then(serde_json::Value::as_str)
-            .map(str::to_string)
-            .unwrap_or_else(|| value.to_string()),
-        _ => value.to_string(),
-    }
-}
-
 /// Projects a run's journalled `observations` into trace spans by replaying
 /// them into [`AgentProgress`] and folding through a fresh [`SpanCollector`],
 /// stamped with each observation's journal timestamp (`ts_ms`).
@@ -668,7 +707,17 @@ pub(crate) fn spans_from_observations(
     let mut last_ts = 0;
     for obs in observations {
         last_ts = obs.ts_ms;
-        for progress in observation_to_progress(obs, &mut state) {
+        let progress = observation_to_progress(obs, &mut state);
+        for step in std::mem::take(&mut state.pre) {
+            match step {
+                Replay::At(event, at) => collector.record(&event, at),
+                Replay::CallStart(task_id, at) => {
+                    collector.set_next_call_start(task_id.as_deref(), at)
+                }
+                Replay::Outcome(outcome) => collector.apply_turn_outcome(outcome, obs.ts_ms),
+            }
+        }
+        for progress in progress {
             collector.record(&progress, obs.ts_ms);
         }
     }

@@ -28,7 +28,7 @@ Owns the `channels.*` RPC namespace: provider metadata, connect/disconnect lifec
 
 ## Wiring
 
-[`crates/openhuman-core/src/core/all.rs`](../../core/all.rs) pushes `crate::channels::controllers::all_channels_registered_controllers()` under `DomainGroup::Channels` behind `#[cfg(feature = "channels")]`. The in-app web chat (`web_chat`, RPC namespace `channel`) is pushed under the same `DomainGroup::Channels` just above it and is not gated.
+[`crates/openhuman-core/src/core/all.rs`](../../core/all.rs) pushes `crate::channels::controllers::all_channels_registered_controllers()` under `DomainGroup::Channels` behind `#[cfg(feature = "channels")]`. That list also carries the hosted-channel relay's `channel.relay_inbound` ([`providers/relay/`](../providers/relay/README.md)). The in-app web chat (`web_chat`, RPC namespace `channel`) is pushed under the same `DomainGroup::Channels` just above it and is not gated.
 
 ## Tests
 

@@ -297,11 +297,12 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
                     // task-local turn origin is gone and the gate would deny it
                     // as `Unknown`. The event is host-originated automation
                     // (a cron job's output, a briefing), so label it as such.
-                    let automation_source = if source.starts_with("cron:") {
-                        crate::agent::turn_origin::TrustedAutomationSource::Cron
-                    } else {
-                        crate::agent::turn_origin::TrustedAutomationSource::Background
-                    };
+                    // This bus task delivers a result to a destination the
+                    // operator configured. It is distinct from the cron
+                    // agent turn that produced the result, whose tool calls
+                    // must remain subject to the cron effect restriction.
+                    let automation_source =
+                        crate::agent::turn_origin::TrustedAutomationSource::Background;
                     let (outcome, request_id) = crate::agent::turn_origin::with_origin(
                         crate::agent::turn_origin::AgentTurnOrigin::TrustedAutomation {
                             job_id: source.clone(),

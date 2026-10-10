@@ -72,6 +72,15 @@ pub enum ToolFailureClass {
     /// catalog skill with no direct download cannot be installed automatically
     /// (#6277).
     Unsupported,
+    /// The model called a real tool with arguments that do not match its
+    /// schema. Nothing ran; the model gets the expected schema back and can
+    /// correct the call. Classified from the harness's own validation answer,
+    /// never from the schema text it echoes.
+    InvalidArguments,
+    /// A command ran and exited non-zero (or was killed by a signal). The
+    /// tool worked; the program it ran reported failure, and its stdout/stderr
+    /// is data for the model, not a verdict about OpenHuman.
+    CommandFailed,
     /// Could not be classified into any of the above.
     Unknown,
 }
@@ -91,6 +100,13 @@ pub const UNSUPPORTED_MARKER: &str = "[unsupported]";
 /// the same way for the rest of the process. Shared so the recovery policy
 /// matches the producer's wording instead of a copy of it.
 pub const MODULE_FAULT_MARKER: &str = "This is terminal for the running process";
+
+/// Marker prefixing a delegated task (a TinyComputer browser task) that ended
+/// without finishing: it failed, or was cancelled under the caller. The task
+/// reports what it did and what to change, so the recovery policy gives the
+/// model one changed attempt rather than reading the task's own prose (a
+/// page's `403`, a planner's `timed out`) as the tool call's verdict.
+pub const TASK_FAILED_MARKER: &str = "[task-failed]";
 
 /// The three top-level states the UI separates, per the #4254 acceptance
 /// criterion "clear separation between recoverable failure, blocked-by-policy,
@@ -160,9 +176,10 @@ impl ToolFailureClass {
             ToolFailureClass::MissingPermission
             | ToolFailureClass::MissingApp
             | ToolFailureClass::BadCredentials => FailureCategory::NeedsUserConfirmation,
-            ToolFailureClass::NotFound | ToolFailureClass::Unsupported => {
-                FailureCategory::Permanent
-            }
+            ToolFailureClass::NotFound
+            | ToolFailureClass::Unsupported
+            | ToolFailureClass::InvalidArguments
+            | ToolFailureClass::CommandFailed => FailureCategory::Permanent,
         }
     }
 }

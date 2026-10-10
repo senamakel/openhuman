@@ -65,11 +65,13 @@ async function bootSkillsPage(page: Page, userId: string) {
       localStorage.setItem('openhuman:walkthrough_completed', 'true');
       localStorage.removeItem('openhuman:walkthrough_pending');
     } catch {}
-    // Phase 2: /skills → /connections
-    window.location.hash = '/connections';
   });
   await waitForAppReady(page);
   await dismissWalkthroughIfPresent(page);
+  // Navigate through the shell after sign-in: startup route restoration can
+  // otherwise replace a hash assigned during the authenticated boot.
+  await page.getByRole('button', { name: 'Connections' }).click();
+  await expect(page).toHaveURL(/#\/connections/);
   // Tab is "Apps"; the grid renders in the composio-integrations-card container.
   await page.getByTestId('two-pane-nav-composio').click();
   // Wait for the Apps tab grid container to be visible.

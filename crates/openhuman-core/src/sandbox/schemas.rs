@@ -192,13 +192,17 @@ fn handle_status(params: Map<String, Value>) -> ControllerFuture {
             }
         };
 
-        let policy = super::ops::resolve_sandbox_policy(
+        let mut policy = super::ops::resolve_sandbox_policy(
             mode,
             &config.workspace_dir,
             &config.workspace_dir,
             &config.runtime,
             is_remote,
         );
+        if !crate::core::runtime::is_saas() {
+            super::ops::apply_requested_backend(&mut policy, &config.sandbox, &config.runtime)
+                .map_err(|e| e.to_string())?;
+        }
         let handle = super::ops::create_sandbox_backend(&policy).await;
         to_json(Outcome::new(handle, vec![]))
     })
@@ -241,13 +245,17 @@ fn handle_resolve_policy(params: Map<String, Value>) -> ControllerFuture {
         // embedder-supplied config carries whatever `CoreBuilder::action_dir(..)`
         // set directly. Re-deriving it here from `action_dir_override` alone
         // would silently ignore an embedder's programmatic `action_dir` (#6081).
-        let policy = super::ops::resolve_sandbox_policy(
+        let mut policy = super::ops::resolve_sandbox_policy(
             mode,
             &config.action_dir,
             &config.workspace_dir,
             &config.runtime,
             is_remote,
         );
+        if !crate::core::runtime::is_saas() {
+            super::ops::apply_requested_backend(&mut policy, &config.sandbox, &config.runtime)
+                .map_err(|e| e.to_string())?;
+        }
         to_json(Outcome::new(policy, vec![]))
     })
 }

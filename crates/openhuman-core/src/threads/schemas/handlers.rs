@@ -26,9 +26,9 @@ pub(super) fn handle_upsert(params: Map<String, Value>) -> ControllerFuture {
         let p = parse::<UpsertConversationThreadRequest>(params)?;
         // A SaaS user picks thread ids for their own threads only; reserved
         // prefixes and path-like ids are refused (no-op outside SaaS).
-        crate::user_agents::surface::check_thread_id(&p.id)?;
+        crate::profiles::surface::check_thread_id(&p.id)?;
         if let Some(parent) = p.parent_thread_id.as_deref() {
-            crate::user_agents::surface::check_thread_id(parent)?;
+            crate::profiles::surface::check_thread_id(parent)?;
         }
         to_json(ops::thread_upsert(p).await?)
     })
@@ -39,7 +39,7 @@ pub(super) fn handle_create_new(params: Map<String, Value>) -> ControllerFuture 
         let p = parse::<CreateConversationThreadRequest>(params)?;
         // A SaaS user acts only in their own sandbox; a caller-chosen working
         // folder would point the thread at the host.
-        crate::user_agents::surface::check_working_dir(p.action_dir.as_deref())?;
+        crate::profiles::surface::check_working_dir(p.action_dir.as_deref())?;
         to_json(ops::thread_create_new(p).await?)
     })
 }

@@ -25,7 +25,7 @@ impl AgentParts {
                 .definitions
                 .take()
                 .or_else(|| self.definitions.clone()),
-            state: if overlay.session_agent.is_some() {
+            state: if overlay.session_agent.is_some() || overlay.profile.is_some() {
                 Default::default()
             } else {
                 Arc::clone(&self.state)
@@ -60,6 +60,24 @@ impl CoreContext {
         &self,
     ) -> Option<Arc<crate::agent::harness::definition::AgentDefinitionRegistry>> {
         self.agent.definitions.clone()
+    }
+
+    /// The tenant (SaaS profile) this context serves, if any.
+    pub fn profile(&self) -> Option<&str> {
+        self.profile.as_deref()
+    }
+
+    /// Whether work beyond the caller's own handle still runs on this
+    /// context's tenant: another `Arc` of this context (a request scope, a
+    /// spawned task that captured it), or a turn context derived from it that
+    /// shares its state slots ([`scope_with_turn_origin`](Self::scope_with_turn_origin),
+    /// a `derive_with` naming neither agent nor profile). The caller is
+    /// assumed to hold exactly one `Arc` of `self`.
+    ///
+    /// A host must not close or evict a tenant while this is `true`: its
+    /// in-flight tables (turns, queues, caches) live in those slots.
+    pub fn tenant_in_use(self: &Arc<Self>) -> bool {
+        Arc::strong_count(self) > 1 || Arc::strong_count(&self.agent.state) > 1
     }
 
     /// The state slots this context owns.

@@ -114,6 +114,8 @@ pub mod memory;
 #[cfg(feature = "modules")]
 pub mod modules;
 pub mod process;
+#[cfg(feature = "channels")]
+pub mod profiles;
 mod runtime;
 mod turn;
 
@@ -153,6 +155,12 @@ pub use harness::{
 };
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
+#[cfg(feature = "channels")]
+pub use profiles::{
+    ChatReply, OpenError, ProfileError, ProfileEvents, ProfileHandle, ProfileId, ProfileIdMode,
+    ProfileRuntime, ProfileRuntimeBuilder, ProfileSummary, Provisioned, RelayAccepted,
+    RelayMessage, SaasConfig,
+};
 pub use runtime::builder::DEFAULT_MAX_AGENTS;
 /// Read-only view of a [`RuntimeBuilder`], for the layered crates' tests.
 #[doc(hidden)]
@@ -171,8 +179,11 @@ pub mod seams {
     pub use openhuman_core::agent::hooks::{PostTurnHook, ToolHook};
     pub use openhuman_core::agent::hooks::{ToolHookContext, ToolHookDecision, TurnContext};
     pub use openhuman_core::core::all::{ControllerExtension, DomainGroup};
-    pub use openhuman_core::core::server_launcher::{ServeRequest, ServerLauncher};
+    pub use openhuman_core::core::server_launcher::{HostBoot, ServeRequest, ServerLauncher};
     pub use openhuman_core::security::SecurityPolicy;
+    pub use openhuman_core::storage::StorageBackend;
+
+    pub use crate::runtime::StorageSource;
 }
 
 /// The session store port: what a host implements to keep every agent's

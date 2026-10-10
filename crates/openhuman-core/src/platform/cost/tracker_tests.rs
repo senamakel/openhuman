@@ -565,3 +565,53 @@ fn empty_ledger_sums_are_not_negative_zero() {
     assert!(dashboard.monthly_pace_usd.is_sign_positive());
     assert!(!serde_json::to_string(&dashboard).unwrap().contains("-0.0"));
 }
+
+#[test]
+fn the_ledger_dispatches_to_documents_when_a_backend_is_pinned() {
+    use crate::storage::{MemoryStorage, Scope, StorageBackend};
+    let storage = MemoryStorage::new();
+    let docs_for = |scope: &str| {
+        super::super::tracker_documents::CostDocs::over(
+            &storage.for_scope(&Scope::new(scope).unwrap()).unwrap(),
+        )
+    };
+    let tmp = TempDir::new().unwrap();
+    let tracker = CostTracker::new(enabled_config(), tmp.path()).unwrap();
+
+    super::super::tracker_documents::with_override(docs_for("alice"), || {
+        tracker
+            .record_usage(TokenUsage::new(MANAGED_MODEL, 1000, 500, 1.0, 2.0))
+            .unwrap();
+        tracker
+            .record_usage(TokenUsage::new(BYOK_MODEL, 100, 50, 1.0, 2.0))
+            .unwrap();
+        let summary = tracker.get_summary().unwrap();
+        assert!(summary.daily_cost_usd > 0.0);
+        assert_eq!(summary.request_count, 2);
+        let now = Utc::now();
+        assert!(tracker.get_daily_cost(now.date_naive()).unwrap() > 0.0);
+        assert!(tracker.get_monthly_cost(now.year(), now.month()).unwrap() > 0.0);
+        assert!(
+            tracker
+                .get_managed_monthly_cost(now.year(), now.month())
+                .unwrap()
+                > 0.0
+        );
+        assert_eq!(tracker.get_recent_records(1, 10).unwrap().len(), 2);
+    });
+
+    // Another agent's scope starts empty: the period totals are not a shared cache.
+    super::super::tracker_documents::with_override(docs_for("bob"), || {
+        let summary = tracker.get_summary().unwrap();
+        assert_eq!(summary.daily_cost_usd, 0.0);
+        assert!(tracker.get_recent_records(1, 10).unwrap().is_empty());
+    });
+
+    // Nothing reached the JSONL file.
+    assert!(
+        !tmp.path().join("state/costs.jsonl").exists()
+            || std::fs::read_to_string(tmp.path().join("state/costs.jsonl"))
+                .unwrap()
+                .is_empty()
+    );
+}

@@ -88,7 +88,7 @@ async fn drive_with(
     let linked = wrap_up_mw
         .clone()
         .filter(|_| matches!(wrap_up, WrapUp::Linked));
-    install(&mut harness, subagent, agent, &linked);
+    install(&mut harness, subagent, agent, &linked, None);
     let run = harness
         .invoke_default(&(), vec![Message::user("do the task")])
         .await
@@ -205,7 +205,7 @@ async fn requirements_check_allows_a_fix_for_different_tasks() {
             limits: RunLimits::default().with_max_model_calls(50),
             ..RunPolicy::default()
         });
-        install(&mut harness, false, Some("orchestrator"), &None);
+        install(&mut harness, false, Some("orchestrator"), &None, None);
 
         let run = harness
             .invoke_default(&(), vec![Message::user(task)])

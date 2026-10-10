@@ -300,74 +300,22 @@ impl EventListener for OpenhumanEventBridge {
                     arguments = %arguments,
                     "[tinyagents] recovered unknown tool call without executing a tool"
                 );
-                // #4118: surface the *attempted* unavailable tool on the timeline
-                // as a failed call so the UI shows what the agent tried (and
-                // recovered from) rather than silently dropping it — the crate
-                // recovers the call without ever emitting Started/Completed for it,
-                // so nothing else in this bridge projects it. Two rows (start +
-                // failed-complete) keyed by the same call_id, mirroring a real
-                // tool call. Classified `NotFound` (permanent) from the typed
-                // event itself (#6277): the identical call can never succeed, so
-                // "try again / run diagnostics" copy would be wrong. The model
-                // still got the corrective (close matches + `tool_search`).
-                let iteration = self.iteration();
-                let failure = Some(crate::tools::status::describe(
-                    crate::tools::status::ToolFailureClass::NotFound,
-                ));
-                let label = format!("{} (unavailable)", humanize_tool_name(requested_name));
-                match &self.scope {
-                    None => {
-                        self.send(AgentProgress::ToolCallStarted {
-                            call_id: call_id.as_str().to_string(),
-                            tool_name: requested_name.clone(),
-                            arguments: arguments.clone(),
-                            iteration,
-                            display_label: Some(label.clone()),
-                            display_detail: Some("tool not available".to_string()),
-                        });
-                        self.send(AgentProgress::ToolCallCompleted {
-                            call_id: call_id.as_str().to_string(),
-                            tool_name: requested_name.clone(),
-                            success: false,
-                            output_chars: 0,
-                            output: String::new(),
-                            arguments: Some(arguments.clone()),
-                            elapsed_ms: 0,
-                            iteration,
-                            failure,
-                            display_label: Some(label),
-                            display_detail: Some("tool not available".to_string()),
-                            structured: None,
-                        });
-                    }
-                    Some(s) => {
-                        self.send(AgentProgress::SubagentToolCallStarted {
-                            agent_id: s.agent_id.clone(),
-                            task_id: s.task_id.clone(),
-                            call_id: call_id.as_str().to_string(),
-                            tool_name: requested_name.clone(),
-                            arguments: arguments.clone(),
-                            iteration,
-                            display_label: Some(label.clone()),
-                            display_detail: Some("tool not available".to_string()),
-                        });
-                        self.send(AgentProgress::SubagentToolCallCompleted {
-                            agent_id: s.agent_id.clone(),
-                            task_id: s.task_id.clone(),
-                            call_id: call_id.as_str().to_string(),
-                            tool_name: requested_name.clone(),
-                            success: false,
-                            output_chars: 0,
-                            output: String::new(),
-                            arguments: Some(arguments.clone()),
-                            elapsed_ms: 0,
-                            iteration,
-                            failure,
-                            display_label: Some(label),
-                            display_detail: Some("tool not available".to_string()),
-                            structured: None,
-                        });
-                    }
+                // #4118 surfaced the attempted unavailable tool on the timeline
+                // by synthesising a Started/Completed pair here. Since TOOL-11
+                // the crate answers the call through `recover_tool_call`, which
+                // emits an ordinary `ToolStarted`/`ToolCompleted` pair under the
+                // same call id carrying the corrective error text — so a pair
+                // projected here as well doubled every unknown-tool error in
+                // Langfuse (one span with null output, one with the text).
+                // Remember the call instead; the crate's pair carries the
+                // "unavailable" label and the `NotFound` class (#6277). A
+                // `rewrite:` recovery runs the rewrite target under its own
+                // name, so it is not an unavailable call.
+                if !recovery.starts_with("rewrite:") {
+                    self.unknown_calls
+                        .lock()
+                        .unwrap_or_else(|p| p.into_inner())
+                        .insert(call_id.as_str().to_string(), requested_name.clone());
                 }
             }
             AgentEvent::ToolsAdvertised {
@@ -493,13 +441,12 @@ impl EventListener for OpenhumanEventBridge {
                 input,
                 ..
             } => {
-                // Unknown/invisible tool calls no longer produce a sentinel-named
-                // Started event: the migration replaced `UNKNOWN_TOOL_SENTINEL` +
-                // `UnknownToolRewriteMiddleware` with the crate
-                // `UnknownToolPolicy::ReturnToolError` path (01.2), which recovers
-                // the call and emits `AgentEvent::UnknownToolCall` (handled above)
-                // instead of a rewritten ToolStarted. So this arm fires only for
-                // real, model-visible tools and needs no sentinel guard.
+                // Unknown tool calls reach this arm too: the crate's
+                // `UnknownToolPolicy::ReturnToolError` path emits
+                // `AgentEvent::UnknownToolCall` (handled above) and then answers
+                // the call through `recover_tool_call`, which emits this
+                // `ToolStarted` under the same call id and the requested name.
+                // The call id recorded above gives it the "unavailable" label.
                 let iteration = self.iteration();
                 // Stamp the start instant so the completion event carries a real
                 // elapsed_ms (the crate's ToolCompleted has no timing payload).
@@ -518,7 +465,10 @@ impl EventListener for OpenhumanEventBridge {
                 // forwarded on the wire as
                 // `tool_display_label`/`tool_display_detail` there too.
                 let arguments = input.clone().unwrap_or(serde_json::Value::Null);
-                let (display_label, display_detail) = self.resolve_display(tool_name, &arguments);
+                let (display_label, display_detail) = match self.unknown_tool_display(call_id) {
+                    Some(display) => display,
+                    None => self.resolve_display(tool_name, &arguments),
+                };
                 match &self.scope {
                     None => self.send(AgentProgress::ToolCallStarted {
                         call_id: call_id.as_str().to_string(),
@@ -545,24 +495,36 @@ impl EventListener for OpenhumanEventBridge {
                 tool_name,
                 input,
                 output,
-                // `started_at_ms`/`duration_ms`/`output_bytes`/`error` now ride
-                // the crate event (tinyagents 1.7 / tinyagents#18). The bridge
+                error,
+                // `started_at_ms`/`duration_ms`/`output_bytes` now ride the
+                // crate event (tinyagents 1.7 / tinyagents#18). The bridge
                 // still reads its richer side channels below to preserve current
-                // success/duration/size behavior; adopting crate fields directly
-                // is C4 slice S1.
+                // duration/size behavior; adopting crate fields directly is C4
+                // slice S1.
                 ..
             } => {
                 let iteration = self.iteration();
-                // The crate event carries no success/error, so read what the
-                // outcome-capture middleware classified for this call. Absent →
-                // the event was projected before the middleware ran; assume
-                // success (never worse than the previous hardcoded `true`).
+                // Read what the outcome-capture middleware classified for this
+                // call. Absent → the middleware did not see it (e.g. a call the
+                // harness answered without running a tool); fall back to the
+                // crate event's own `error`.
                 let outcome = self
                     .failure_map
                     .lock()
                     .ok()
                     .and_then(|mut m| m.remove(call_id.as_str()));
-                let success = outcome.as_ref().map(|(ok, ..)| *ok).unwrap_or(true);
+                let unknown_display = self.unknown_tool_display(call_id);
+                let was_unknown = self
+                    .unknown_calls
+                    .lock()
+                    .unwrap_or_else(|p| p.into_inner())
+                    .remove(call_id.as_str())
+                    .is_some();
+                let success = !was_unknown
+                    && outcome
+                        .as_ref()
+                        .map(|(ok, ..)| *ok)
+                        .unwrap_or(error.is_none());
                 // Real execution duration + output size the capture middleware
                 // recorded off the `ToolResult` (#4467, item 4). Fall back to
                 // the bridge's own ToolStarted stamp for duration, and to the
@@ -587,6 +549,12 @@ impl EventListener for OpenhumanEventBridge {
                     Some(v) => v.to_string(),
                     None => String::new(),
                 };
+                // An unknown-tool answer's output is the corrective text; when
+                // payload capture is off it still rides `error`.
+                let output_text = match (&unknown_display, output_text.is_empty(), error) {
+                    (Some(_), true, Some(text)) => text.clone(),
+                    _ => output_text,
+                };
                 let output_chars = outcome
                     .as_ref()
                     .map(|(_, _, _, c, _)| *c)
@@ -598,7 +566,20 @@ impl EventListener for OpenhumanEventBridge {
                 // Carry the classified failure onto whichever completion event
                 // this projects — main-agent OR sub-agent (#4459). Previously
                 // the sub-agent branch dropped it on the floor.
-                let failure = outcome.and_then(|(_, f, ..)| f);
+                // An unknown tool is `NotFound` from the typed event itself
+                // (#6277), whatever the text sniff made of the echoed names.
+                let failure = if was_unknown {
+                    Some(crate::tools::status::describe(
+                        crate::tools::status::ToolFailureClass::NotFound,
+                    ))
+                } else {
+                    match outcome {
+                        Some((_, f, ..)) => f,
+                        None => error
+                            .as_deref()
+                            .map(|text| crate::tools::status::classify(text, false)),
+                    }
+                };
                 // Recompute the label/detail with the REAL call arguments
                 // (unlike `ToolCallStarted`, this event's `input` is the
                 // actual arguments the harness captured), so a tool whose
@@ -606,8 +587,10 @@ impl EventListener for OpenhumanEventBridge {
                 // email — surfaces it here even when the started event
                 // couldn't.
                 let args_for_display = input.clone().unwrap_or(serde_json::Value::Null);
-                let (display_label, display_detail) =
-                    self.resolve_display(tool_name, &args_for_display);
+                let (display_label, display_detail) = match unknown_display {
+                    Some(display) => display,
+                    None => self.resolve_display(tool_name, &args_for_display),
+                };
                 tracing::debug!(
                     call_id = call_id.as_str(),
                     tool_name = tool_name.as_str(),
@@ -716,6 +699,23 @@ impl EventListener for OpenhumanEventBridge {
                 );
             }
         }
+    }
+}
+
+impl OpenhumanEventBridge {
+    /// The "unavailable" label/detail pair for a call the crate answered as an
+    /// unknown tool, or `None` for an ordinary call.
+    fn unknown_tool_display(
+        &self,
+        call_id: &tinyagents_harness::ids::CallId,
+    ) -> Option<(Option<String>, Option<String>)> {
+        let calls = self.unknown_calls.lock().unwrap_or_else(|p| p.into_inner());
+        calls.get(call_id.as_str()).map(|requested| {
+            (
+                Some(format!("{} (unavailable)", humanize_tool_name(requested))),
+                Some("tool not available".to_string()),
+            )
+        })
     }
 }
 

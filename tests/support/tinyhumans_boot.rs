@@ -1,7 +1,8 @@
 //! Give an in-process core its TinyHumans backend transport.
 //!
 //! The core carries no backend client. Suites that spawn the
-//! `openhuman-core` binary get the transport from `main.rs`; suites that boot
+//! `openhuman-core` binary get the transport from `main.rs`
+//! (`openhuman_rpc::host::cli`); suites that boot
 //! the core in-process (`build_core_http_router`, direct `ops` calls against
 //! the mock backend) must call [`boot`] first or every backend-touching call
 //! answers `BACKEND_UNAVAILABLE:`. Idempotent and cheap: call it from any

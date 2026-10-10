@@ -149,6 +149,22 @@ impl PiiCategory {
         }
     }
 
+    /// Whether this category is a concrete identifying value (an address, a
+    /// number) rather than topical context. These are what
+    /// [`crate::security::pii::redact_identifiers`] replaces.
+    pub fn is_structured_identifier(self) -> bool {
+        matches!(
+            self,
+            PiiCategory::Email
+                | PiiCategory::PhoneNumber
+                | PiiCategory::NationalId
+                | PiiCategory::CreditCard
+                | PiiCategory::BankAccount
+                | PiiCategory::IpAddress
+                | PiiCategory::PostalAddress
+        )
+    }
+
     /// A "strong identifier" is a high-confidence, directly-identifying value
     /// whose mere presence should force [`RiskLevel::High`], independent of the
     /// numeric score. Guards recall against future weight edits.

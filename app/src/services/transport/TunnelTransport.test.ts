@@ -14,6 +14,7 @@ import {
   open,
   ReplayTracker,
   seal,
+  sealHandshakeAck,
   TunnelCipher,
   type TunnelKeypair,
 } from '../../lib/tunnel/crypto';
@@ -86,7 +87,11 @@ async function connectTransport(
       server_ephemeral_pubkey: base64urlEncode(serverEphemeral.publicKey),
     })
   );
-  fire('tunnel:frame', { payload: base64urlEncode(seal(internals.staticDhKey!, ack)) });
+  fire('tunnel:frame', {
+    payload: base64urlEncode(
+      sealHandshakeAck(internals.staticDhKey!, internals.clientEphemeralKeypair!.publicKey, ack)
+    ),
+  });
   await connectP;
   return new TunnelCipher('server', keys);
 }
@@ -260,12 +265,21 @@ describe('TunnelTransport', () => {
     fire('tunnel:connected');
     await Promise.resolve();
 
-    type HandshakeInternals = { staticDhKey: Uint8Array | null };
+    type HandshakeInternals = {
+      staticDhKey: Uint8Array | null;
+      clientEphemeralKeypair: TunnelKeypair | null;
+    };
     const internals = transport as unknown as HandshakeInternals;
     expect(internals.staticDhKey).toBeTruthy();
 
     fire('tunnel:frame', {
-      payload: base64urlEncode(seal(internals.staticDhKey!, new TextEncoder().encode('not json'))),
+      payload: base64urlEncode(
+        sealHandshakeAck(
+          internals.staticDhKey!,
+          internals.clientEphemeralKeypair!.publicKey,
+          new TextEncoder().encode('not json')
+        )
+      ),
     });
     await expect(connectP).rejects.toThrow();
 
@@ -290,13 +304,20 @@ describe('TunnelTransport', () => {
     fire('tunnel:connected');
     await Promise.resolve();
 
-    type HandshakeInternals = { staticDhKey: Uint8Array | null };
+    type HandshakeInternals = {
+      staticDhKey: Uint8Array | null;
+      clientEphemeralKeypair: TunnelKeypair | null;
+    };
     const internals = transport as unknown as HandshakeInternals;
     expect(internals.staticDhKey).toBeTruthy();
 
     fire('tunnel:frame', {
       payload: base64urlEncode(
-        seal(internals.staticDhKey!, new TextEncoder().encode(JSON.stringify({ kind: 'nope' })))
+        sealHandshakeAck(
+          internals.staticDhKey!,
+          internals.clientEphemeralKeypair!.publicKey,
+          new TextEncoder().encode(JSON.stringify({ kind: 'nope' }))
+        )
       ),
     });
     await expect(connectP).rejects.toThrow(/invalid handshake ack/i);

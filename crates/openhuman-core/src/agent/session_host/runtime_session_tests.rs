@@ -43,13 +43,65 @@ async fn committed_progress_uses_each_turns_receipt_sender() {
     ));
     assert!(matches!(
         second_rx.recv().await,
-        Some(AgentProgress::TurnCompleted { iterations: 2 })
+        Some(AgentProgress::TurnCompleted {
+            iterations: 2,
+            stop: None
+        })
     ));
     assert!(matches!(
         first_rx.try_recv(),
         Err(tokio::sync::mpsc::error::TryRecvError::Empty)
     ));
     drop(first);
+}
+
+/// A turn the harness stopped early (here: the failure breaker) still commits
+/// through `after_commit`. The stop the driver recorded on the turn's sidecar
+/// must ride on `TurnCompleted`, or the trace closes the turn as a clean
+/// completion and nobody can find it.
+#[tokio::test]
+async fn committed_progress_carries_the_sidecar_stop_on_turn_completed() {
+    use crate::agent::progress::AgentProgress;
+    use crate::agent::turn_stop::{TurnStop, TurnStopKind};
+    use tinyagents_runtime::{
+        CommitReceipt, ResumeMode, SessionTurnOutcome, TranscriptTurnOptions,
+    };
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel(4);
+    let mut context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    context.progress = Some(tx);
+    context.session_sidecar.lock().unwrap().stop = Some(TurnStop::breaker(
+        "Stopping after 2 attempt(s): failure class `uncertain_side_effect` still blocks \
+         operation `web_answer_tool` on `x`. Resolve this blocker before retrying.",
+    ));
+    let receipt = CommitReceipt {
+        outcome: SessionTurnOutcome {
+            history: Vec::new(),
+            output: Some("I stopped this turn early".into()),
+            interrupted: false,
+        },
+        options: TranscriptTurnOptions {
+            request_id: None,
+            thread_id: None,
+            stream: true,
+            resume: ResumeMode::Never,
+            context,
+        },
+        transcript: None,
+    };
+
+    assert!(super::progress::send_receipt_progress(&receipt, "q", "a", 3).await);
+    let mut completed = None;
+    while let Ok(event) = rx.try_recv() {
+        if let AgentProgress::TurnCompleted { stop, .. } = event {
+            completed = Some(stop);
+        }
+    }
+    let stop = completed
+        .expect("TurnCompleted delivered")
+        .expect("TurnCompleted carries the stop");
+    assert_eq!(stop.kind, TurnStopKind::Breaker);
+    assert_eq!(stop.operation.as_deref(), Some("web_answer_tool"));
 }
 
 #[test]
@@ -84,7 +136,7 @@ async fn committed_turn_completion_waits_for_a_full_progress_channel() {
 
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     tx.send(AgentProgress::TurnStarted).await.unwrap();
-    let send = super::progress::send_committed_turn_progress(&tx, "question", "answer", 2);
+    let send = super::progress::send_committed_turn_progress(&tx, "question", "answer", 2, None);
     tokio::pin!(send);
     assert!(matches!(
         futures::poll!(send.as_mut()),
@@ -97,7 +149,10 @@ async fn committed_turn_completion_waits_for_a_full_progress_channel() {
         tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
             .await
             .expect("terminal progress event"),
-        Some(AgentProgress::TurnCompleted { iterations: 2 })
+        Some(AgentProgress::TurnCompleted {
+            iterations: 2,
+            stop: None
+        })
     ));
     assert!(matches!(
         tokio::time::timeout(std::time::Duration::from_secs(1), rx.recv())
@@ -119,7 +174,9 @@ async fn committed_turn_completion_is_bounded_when_progress_stalls() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(1);
     tx.send(AgentProgress::TurnStarted).await.unwrap();
 
-    assert!(!super::progress::send_committed_turn_progress(&tx, "question", "answer", 2).await);
+    assert!(
+        !super::progress::send_committed_turn_progress(&tx, "question", "answer", 2, None).await
+    );
     assert!(matches!(rx.recv().await, Some(AgentProgress::TurnStarted)));
     assert!(rx.try_recv().is_err(), "timed-out send must be cancelled");
 }

@@ -474,3 +474,44 @@ fn the_repl_tools_join_a_belt_only_while_handle_mode_is_active() {
     super::ensure_repl_tools_visible(&mut none, true);
     assert_eq!(none.len(), 1);
 }
+
+#[tokio::test]
+async fn a_curated_orchestrator_sees_and_holds_every_juice_tool_in_handle_mode() {
+    // Regression for the 0.64.x "unknown tool juice_*" cluster: with large
+    // results stored behind a handle, the footer tells the model to call
+    // `juice_find` / `juice_summarize` / `juice_retrieve`. A curated
+    // (`ToolScope::Named`) belt that lacked them was told to call tools it
+    // could not dispatch.
+    use crate::agent::session_host::types::OpenHumanSessionHost;
+    use crate::inference::tokenjuice::{REPL_TOOL_NAMES, RETRIEVE_TOOL_NAME};
+
+    let _ = crate::agent::harness::definition::AgentDefinitionRegistry::init_global_builtins();
+
+    let tmp = tempfile::TempDir::new().unwrap();
+    let mut config = test_config(&tmp);
+    config.context.compaction_enabled = true;
+    config.tokenjuice.router_enabled = true;
+    config.tokenjuice.ccr_enabled = true;
+    config.tokenjuice.repl_handle_enabled = true;
+    assert!(crate::inference::tokenjuice::repl_handle_active(&config));
+
+    let agent = OpenHumanSessionHost::from_config_for_agent(&config, "orchestrator")
+        .expect("orchestrator is a shipped agent definition");
+    let visible = agent.visible_tool_names_for_test();
+    assert!(
+        !visible.is_empty(),
+        "the orchestrator's belt is curated; an empty set would make this test vacuous"
+    );
+    let registered: std::collections::HashSet<&str> =
+        agent.tools().iter().map(|t| t.name()).collect();
+    for name in REPL_TOOL_NAMES.iter().copied().chain([RETRIEVE_TOOL_NAME]) {
+        assert!(
+            visible.contains(name),
+            "{name} must be visible to the orchestrator"
+        );
+        assert!(
+            registered.contains(name),
+            "{name} must be registered so a call to it dispatches"
+        );
+    }
+}

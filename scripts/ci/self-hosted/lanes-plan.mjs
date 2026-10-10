@@ -121,11 +121,12 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
     `set -a && . ${modulesEnvFile} && set +a && ${cmd}`;
 
   // Not run on pull requests: the core doctests (an uninstrumented core build
-  // of their own), openhuman-tui's coverage (a core build with default
-  // features, just for it) and the TinyJuice host-module regression (one test
-  // against the downloaded module). CI Lite runs all three on every push to
-  // `main` that touches the Rust core (rust-coverage.sh and its
-  // rust-core-coverage job).
+  // of their own) and the TinyJuice host-module regression (one test against
+  // the downloaded module). CI Lite runs both on every push to `main` that
+  // touches the Rust core (rust-coverage.sh and its rust-core-coverage job).
+  // openhuman-tui's tests DO run on pull requests: the rust-core path filter
+  // arms this job for any change under core, embed, tinyhumans, rpc, cli or
+  // tui, which is every crate the TUI depends on.
   //
   // Also left to those pushes, as duplicates of what runs here:
   //  - `cargo test -p openhuman-embed` / `-p openhuman-tinyhumans` (default
@@ -329,13 +330,14 @@ export function buildPlan({ profile, areas, env = {}, isPullRequest = true }) {
             "test-modules",
             ex63 ? "frontend:pnpm-install" : "pnpm-install",
           ],
-          // Doctests and tui coverage run on pushes to main instead (see above).
+          // Doctests run on pushes to main instead (see above); the tui suite
+          // runs here (OH_COV_TUI=1).
           // ex63: the core's unit tests run under cargo-nextest, one process
           // per test and in parallel (the guest image ships cargo-nextest).
           env: {
             OUT: "ci-out/lcov/lcov-core.info",
             OH_COV_DOCTESTS: "0",
-            OH_COV_TUI: "0",
+            OH_COV_TUI: "1",
             ...(ex63 ? { OH_COV_RUNNER: "nextest" } : {}),
           },
           run: withModules("bash scripts/ci/rust-coverage.sh"),

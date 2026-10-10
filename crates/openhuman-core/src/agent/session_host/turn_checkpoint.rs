@@ -566,14 +566,18 @@ pub(crate) fn parse_close_verdict(text: &str) -> CloseVerdict {
 /// Distinct from [`build_deterministic_checkpoint`]: the turn did NOT hit the
 /// iteration cap, so this reads as a completed summary, not a paused one.
 ///
-/// Quotes each result's own output (issue #6278): a failure's message is
-/// usually the only explanation of why the request was not done, and it used to
-/// be reduced to the word "failed". When the breaker halted the run (issue
-/// #6279) its stop note is quoted too, because it names the rung that tripped
-/// and, for a missing connection or exhausted credits, what the user must do.
-/// The lead does not say the calls failed: `RepeatProgressMiddleware` halts
-/// through the same slot when identical calls keep *succeeding*, and the
-/// records below carry each call's real status.
+/// Without a stop note it quotes each result's own output (issue #6278): a
+/// failure's message is usually the only explanation of why the request was not
+/// done, and it used to be reduced to the word "failed".
+///
+/// When the breaker halted the run it delegates to
+/// [`super::stop_summary::render_stop_summary`]: one plain-language reason
+/// derived from the stop note, identical results collapsed with a count, and
+/// at most each tool's name and a short scrubbed error line. The stop note is
+/// written for the model and tool output can carry a user's personal details,
+/// so neither is quoted to the user. It does not call successful calls failed:
+/// `RepeatProgressMiddleware` halts through the same slot when identical calls
+/// keep *succeeding*.
 pub(crate) fn build_deterministic_final_summary(
     results: &[CheckpointToolResult],
     stop_reason: Option<&str>,
@@ -581,24 +585,12 @@ pub(crate) fn build_deterministic_final_summary(
     if results.is_empty() && stop_reason.is_none() {
         return "I finished this turn but produced no result to report.".to_string();
     }
-    let mut out = match stop_reason {
-        Some(reason) => {
-            let mut lead = String::from(
-                "I stopped this turn early because my tool calls were not making progress, so I \
-                 could not finish the request.\n\n**Why I stopped**\n",
-            );
-            for line in reason.trim().lines() {
-                lead.push_str("> ");
-                lead.push_str(line);
-                lead.push('\n');
-            }
-            lead.push_str("\n**What each tool call returned**\n");
-            lead
-        }
-        None => String::from(
-            "I finished this turn without writing up a result. Here is what each tool call returned:\n",
-        ),
-    };
+    if let Some(reason) = stop_reason {
+        return super::stop_summary::render_stop_summary(results, reason);
+    }
+    let mut out = String::from(
+        "I finished this turn without writing up a result. Here is what each tool call returned:\n",
+    );
     if results.is_empty() {
         out.push_str("\n- (no tool calls completed)\n");
     } else {

@@ -32,17 +32,45 @@
 //! [`RuntimeBuilder`] is the configuration path: it hands the embed builder
 //! the SDK transport, the hosted controllers and the Jev ranker through
 //! embed's seam options, and forwards the embed presets and knobs. Hosts that
-//! still boot the core themselves (the desktop shell's
-//! `run_server_embedded_with_ready`, the CLI's `run_core_from_args`, a
-//! `CoreBuilder`) call [`install`] once before the first backend-touching
+//! still boot the core themselves (a bare `run_core_from_args`, a
+//! `CoreBuilder`, a test fixture) call [`install`] once before the first backend-touching
 //! dispatch instead; it resolves the same wiring and applies it to the
 //! process globals.
 //!
 //! This crate depends on `openhuman-embed` alone. Core internals it needs
 //! come through embed's `#[doc(hidden)] __host` list; it re-exports only its
-//! own curated surface, never the core.
+//! own curated surface, never the core. The [`embed`] module below is a
+//! curated list of the embed items the layers above (rpc and the hosts) and
+//! library users take, not the crate: embed's own `__host` is not on it.
 
-pub use openhuman_embed as embed;
+/// The embed surface this layer passes up: the runtime and its builder, the
+/// host presets' types, the library agent API, and the facades the hosts use
+/// (`config`, `artifacts`, `chat_surface`, `modules`, `process`, ...). Every
+/// entry is named here on purpose; embed's doc-hidden `__host` list is not
+/// among them.
+pub mod embed {
+    // Runtime, builder and the knobs the hosts configure it with.
+    pub use openhuman_embed::{
+        Access, Agent, AgentSpec, ApiKey, ConfigSource, CoreError, CoreRuntime, DomainSet, Harness,
+        HarnessBuilder, HostKind, Provider, Runtime, RuntimeBuilder, RuntimeError, ServiceSet,
+        TokenSource, Workspace,
+    };
+    // Process-level facts a host reads.
+    pub use openhuman_embed::{
+        schema_for_rpc_method, PickListenPortError, HTTP_SERVER_COMPILED_IN, VOICE_COMPILED_IN,
+    };
+    // The curated facades (each is an explicit list inside embed).
+    #[cfg(feature = "modules")]
+    pub use openhuman_embed::modules;
+    pub use openhuman_embed::{
+        artifacts, chat_surface, config, identity, memory, process, seams, session_store,
+    };
+}
+
+/// Core internals for `openhuman-rpc` only, forwarded from embed's
+/// `#[doc(hidden)]` list. No layer above re-exports this.
+#[doc(hidden)]
+pub use openhuman_embed::__host;
 
 pub mod backend;
 pub mod hosted;

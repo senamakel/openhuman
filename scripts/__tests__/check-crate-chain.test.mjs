@@ -11,6 +11,11 @@ import {
   checkManifestEdges,
   checkRepository,
   findForbiddenPaths,
+  findPatternHits,
+  CORE_WHOLESALE_REEXPORT_PATTERNS,
+  HOST_RPC_INTERNAL_PATTERNS,
+  RPC_INTERNAL_REEXPORT_PATTERNS,
+  WHOLESALE_REEXPORT_PATTERNS,
   formatReport,
   parseNormalDependencies,
   parsePackageName,
@@ -26,7 +31,9 @@ const CHECKER = resolve(REPO_ROOT, 'scripts/ci/check-crate-chain.mjs');
 test('reads the package name and workspace members', () => {
   assert.equal(parsePackageName('[package]\nname = "openhuman-tui" # the TUI\n'), 'openhuman-tui');
   assert.deepEqual(
-    parseWorkspaceMembers('[workspace]\nmembers = [\n  "crates/a",\n  # "crates/old",\n  "crates/b",\n]\n'),
+    parseWorkspaceMembers(
+      '[workspace]\nmembers = [\n  "crates/a",\n  # "crates/old",\n  "crates/b",\n]\n'
+    ),
     ['crates/a', 'crates/b']
   );
 });
@@ -63,8 +70,13 @@ openhuman-tui = { path = "../openhuman-tui" }
 });
 
 test('a commented-out dependency is not an edge', () => {
-  const deps = parseNormalDependencies('[dependencies]\n# openhuman-core = { path = "x" }\nlog = "0.4"\n');
-  assert.deepEqual(deps.map(d => d.key), ['log']);
+  const deps = parseNormalDependencies(
+    '[dependencies]\n# openhuman-core = { path = "x" }\nlog = "0.4"\n'
+  );
+  assert.deepEqual(
+    deps.map(d => d.key),
+    ['log']
+  );
 });
 
 test('workspace dependencies resolve their package rename', () => {
@@ -82,7 +94,13 @@ openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
 test('each layer may name only the layer directly below it', () => {
   assert.deepEqual(CHAIN['openhuman-embed'], ['openhuman']);
   assert.deepEqual(CHAIN['openhuman-cli'], ['openhuman-rpc']);
-  assert.deepEqual(checkManifestEdges({ crate: 'openhuman-tui', deps: [{ key: 'openhuman-rpc', package: 'openhuman-rpc', workspace: false }] }), []);
+  assert.deepEqual(
+    checkManifestEdges({
+      crate: 'openhuman-tui',
+      deps: [{ key: 'openhuman-rpc', package: 'openhuman-rpc', workspace: false }],
+    }),
+    []
+  );
 });
 
 test('a host depending on the core is a violation, even through a workspace alias', () => {
@@ -127,7 +145,98 @@ test('host source naming core internals by path is flagged, with file and line',
 });
 
 test('a test name that merely contains openhuman_core is not a path', () => {
-  assert.deepEqual(findForbiddenPaths('fn binary_path_result_contains_openhuman_core() {}', 'x.rs'), []);
+  assert.deepEqual(
+    findForbiddenPaths('fn binary_path_result_contains_openhuman_core() {}', 'x.rs'),
+    []
+  );
+});
+
+test('a layer re-exporting the layer below wholesale is flagged', () => {
+  const flagged = text =>
+    findPatternHits(text, 'lib.rs', WHOLESALE_REEXPORT_PATTERNS).map(h => h.pattern);
+  assert.deepEqual(flagged('pub use openhuman_embed as embed;\n'), [
+    'pub use openhuman_embed as …',
+  ]);
+  assert.deepEqual(flagged('pub use openhuman_tinyhumans as tinyhumans;\n'), [
+    'pub use openhuman_tinyhumans as …',
+  ]);
+  assert.deepEqual(flagged('pub use openhuman_tinyhumans::embed;\n'), [
+    'pub use openhuman_tinyhumans::embed (the crate, not a list)',
+  ]);
+  assert.deepEqual(flagged('pub use openhuman_embed::*;\n'), ['pub use openhuman_embed::*']);
+  assert.deepEqual(flagged('pub use openhuman_embed;\n'), [
+    'pub use openhuman_embed / openhuman_tinyhumans (the bare crate)',
+  ]);
+  // Curated lists, private aliases and comments are fine.
+  assert.deepEqual(flagged('pub use openhuman_embed::{Runtime, RuntimeBuilder};\n'), []);
+  assert.deepEqual(flagged('use openhuman_embed as embed;\n'), []);
+  assert.deepEqual(flagged('// pub use openhuman_embed as embed;\n'), []);
+  assert.deepEqual(flagged('/* pub use openhuman_embed::*; */\n'), []);
+});
+
+test('embed may not re-export the core wholesale, and grouped wholesale forms are flagged', () => {
+  const core = text =>
+    findPatternHits(text, 'lib.rs', CORE_WHOLESALE_REEXPORT_PATTERNS).map(h => h.line);
+  assert.deepEqual(core('pub use openhuman_core as core;\n'), [1]);
+  assert.deepEqual(core('pub use openhuman_core::*;\n'), [1]);
+  assert.deepEqual(core('pub use openhuman_core::{self, agent};\n'), [1]);
+  assert.deepEqual(core('pub use openhuman_core::agent::turn_origin::AgentTurnOrigin;\n'), []);
+  assert.deepEqual(core('pub use openhuman_core::{CoreBuilder, CoreRuntime};\n'), []);
+  const grouped = text =>
+    findPatternHits(text, 'lib.rs', WHOLESALE_REEXPORT_PATTERNS).map(h => h.line);
+  assert.deepEqual(grouped('pub use openhuman_embed::{self as embed};\n'), [1]);
+  assert.deepEqual(grouped('pub use openhuman_tinyhumans::{SessionManager, CoreLink};\n'), []);
+});
+
+test('rpc may not re-export the internal list on a public path', () => {
+  const flagged = text =>
+    findPatternHits(text, 'lib.rs', RPC_INTERNAL_REEXPORT_PATTERNS).map(h => `${h.line}`);
+  assert.deepEqual(flagged('pub use openhuman_tinyhumans::__host as core_host;\n'), ['1']);
+  assert.deepEqual(
+    flagged(
+      'pub mod embed {\n    pub use openhuman_tinyhumans::embed::{\n        config,\n        __host,\n    };\n}\n'
+    ),
+    ['2']
+  );
+  assert.deepEqual(flagged('pub(crate) use openhuman_tinyhumans::__host as core_host;\n'), []);
+  // A public re-export of a module beneath the list is still the list leaking.
+  assert.deepEqual(flagged('pub use crate::core_host::config;\n'), ['1']);
+  // `unwrap_rpc` is the one item rpc passes up from the list.
+  assert.deepEqual(flagged('pub use crate::core_host::core::unwrap_rpc;\n'), []);
+});
+
+test('a host, root test or example naming the internal list is flagged, aliased or not', () => {
+  const flagged = text =>
+    findPatternHits(text, 'main.rs', HOST_RPC_INTERNAL_PATTERNS).map(h => `${h.line}`);
+  assert.deepEqual(flagged('use openhuman_rpc::embed::__host::config;\n'), ['1']);
+  assert.deepEqual(flagged('use openhuman_rpc as rpc;\nuse rpc::core_host::agent;\n'), ['2']);
+  assert.deepEqual(flagged('use openhuman_rpc::embed::config;\n'), []);
+});
+
+test('char literals do not desynchronize the stripper; grouped embed is flagged', () => {
+  const flagged = text =>
+    findPatternHits(text, 'lib.rs', WHOLESALE_REEXPORT_PATTERNS).map(h => h.line);
+  assert.deepEqual(flagged("let t = s.trim_matches('\"');\npub use openhuman_embed as e;\n"), [2]);
+  assert.deepEqual(flagged('pub use openhuman_tinyhumans::{embed, RuntimeBuilder};\n'), [1]);
+  assert.deepEqual(
+    flagged('pub use openhuman_tinyhumans::{embed::process, RuntimeBuilder};\n'),
+    []
+  );
+  const internal = text =>
+    findPatternHits(text, 'lib.rs', RPC_INTERNAL_REEXPORT_PATTERNS).map(h => h.line);
+  assert.deepEqual(internal('pub use crate::core_host::{core::unwrap_rpc, secret};\n'), [1]);
+});
+
+test('string literals and comments are not code', () => {
+  const flagged = text =>
+    findPatternHits(text, 'lib.rs', WHOLESALE_REEXPORT_PATTERNS).map(h => h.pattern);
+  assert.deepEqual(flagged('log::warn!("pub use openhuman_embed as embed;");\n'), []);
+  assert.deepEqual(flagged('let s = r#"pub use openhuman_embed::*;"#;\n'), []);
+  assert.deepEqual(flagged('let s = "a \\" pub use openhuman_embed as e;";\n'), []);
+  assert.deepEqual(flagged('/* a /* nested */ pub use openhuman_embed as e; */\n'), []);
+  assert.deepEqual(flagged('"x";\npub use openhuman_embed as embed;\n'), [
+    'pub use openhuman_embed as …',
+  ]);
 });
 
 // ── the real repository ────────────────────────────────────────────────────
@@ -135,9 +244,13 @@ test('a test name that merely contains openhuman_core is not a path', () => {
 test('the checked-in manifests and host sources hold the chain', () => {
   const result = checkRepository(REPO_ROOT);
   assert.ok(result.checked.length >= 7, `checked only ${result.checked.join(', ')}`);
-  assert.ok(result.checked.includes('openhuman-app'), 'the desktop shell is outside the workspace and must still be checked');
+  assert.ok(
+    result.checked.includes('openhuman-app'),
+    'the desktop shell is outside the workspace and must still be checked'
+  );
   assert.deepEqual(result.edgeViolations, [], formatReport(result));
   assert.deepEqual(result.sourceViolations, [], formatReport(result));
+  assert.deepEqual(result.facadeViolations, [], formatReport(result));
 });
 
 test('the CLI exits 1 and names the edge when a host reaches past rpc', () => {
@@ -156,13 +269,30 @@ test('the CLI exits 1 and names the edge when a host reaches past rpc', () => {
       'openhuman-tui',
       '[package]\nname = "openhuman-tui"\n[dependencies]\nopenhuman-core = { path = "../openhuman-core", package = "openhuman" }\n'
     );
-    crate('openhuman-app', '[package]\nname = "openhuman-app"\n[dependencies]\nopenhuman-rpc = { path = "../openhuman-rpc" }\n');
+    crate(
+      'openhuman-app',
+      '[package]\nname = "openhuman-app"\n[dependencies]\nopenhuman-rpc = { path = "../openhuman-rpc" }\n'
+    );
     crate('openhuman-cli', '[package]\nname = "openhuman-cli"\n');
-    writeFileSync(join(dir, 'crates/openhuman-cli/src/main.rs'), 'fn main() { openhuman_core::run(); }\n');
+    writeFileSync(
+      join(dir, 'crates/openhuman-cli/src/main.rs'),
+      'fn main() { openhuman_core::run(); }\n'
+    );
+    for (const layer of ['openhuman-embed', 'openhuman-tinyhumans', 'openhuman-rpc']) {
+      mkdirSync(join(dir, 'crates', layer, 'src'), { recursive: true });
+    }
+    writeFileSync(
+      join(dir, 'crates/openhuman-rpc/src/lib.rs'),
+      'pub use openhuman_tinyhumans as tinyhumans;\n'
+    );
     const result = spawnSync('node', [CHECKER, dir], { encoding: 'utf8' });
     assert.equal(result.status, 1, result.stdout + result.stderr);
     assert.match(result.stderr, /openhuman-tui -> openhuman: may only depend on openhuman-rpc/);
     assert.match(result.stderr, /crates\/openhuman-cli\/src\/main\.rs:1: openhuman_core::/);
+    assert.match(
+      result.stderr,
+      /crates\/openhuman-rpc\/src\/lib\.rs:1: pub use openhuman_tinyhumans as/
+    );
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

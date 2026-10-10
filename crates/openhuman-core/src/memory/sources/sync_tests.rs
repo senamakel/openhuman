@@ -284,6 +284,65 @@ async fn store_all_skips_a_bad_item_but_fails_when_nothing_stored() {
     );
 }
 
+/// More items than one request may carry (`MAX_STORE_MANY`), so the store
+/// spans several batches. Pins that nothing is dropped or double-counted at a
+/// chunk boundary, and that a bad item in the middle still only costs itself.
+#[tokio::test]
+async fn store_all_spans_chunk_boundaries_without_losing_items() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+    let bound = engine::resolve(&config).engine().unwrap();
+
+    let good = |n: usize| {
+        tinymemory_api::StoreItem::learning(
+            format!("fact {n}"),
+            tinymemory_api::LearningKind::Fact,
+            0.8,
+            tinymemory_api::MemoryMeta::default(),
+        )
+    };
+    // Two and a half requests' worth.
+    let total = tinymemory_api::MAX_STORE_MANY * 2 + 50;
+    let items: Vec<_> = (0..total).map(good).collect();
+    assert_eq!(
+        store_all(
+            &config,
+            &bound,
+            items,
+            (MemorySourceKind::Folder, "src"),
+            &tinymemory_tools::MemoryLayout::default()
+        )
+        .await
+        .unwrap(),
+        total as u64,
+        "every item across every chunk must be counted exactly once"
+    );
+
+    // A blank item in the second chunk: that chunk falls back to one request
+    // per item, and only the blank one is lost.
+    let mut items: Vec<_> = (0..total).map(good).collect();
+    items[tinymemory_api::MAX_STORE_MANY + 10] = tinymemory_api::StoreItem::learning(
+        "   ",
+        tinymemory_api::LearningKind::Fact,
+        0.8,
+        tinymemory_api::MemoryMeta::default(),
+    );
+    assert_eq!(
+        store_all(
+            &config,
+            &bound,
+            items,
+            (MemorySourceKind::Folder, "src"),
+            &tinymemory_tools::MemoryLayout::default()
+        )
+        .await
+        .unwrap(),
+        total as u64 - 1,
+        "a bad item must cost only itself, not its chunk"
+    );
+}
+
 #[test]
 fn reset_interrupted_marks_syncing_sources_idle() {
     let tmp = tempfile::tempdir().unwrap();

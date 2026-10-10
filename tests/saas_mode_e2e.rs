@@ -10,6 +10,9 @@ use std::time::{Duration, Instant};
 
 use serde_json::{json, Value};
 
+#[path = "saas_mode/cluster.rs"]
+mod cluster;
+
 const BEARER: &str = "saas-e2e-gateway-bearer-0123456789abcdef";
 
 /// Environment a developer machine may carry that would point the child at a
@@ -23,6 +26,8 @@ const SCRUBBED_ENV: &[&str] = &[
     "OPENHUMAN_APPROVAL_GATE",
     "OPENHUMAN_SANDBOX",
     "OPENHUMAN_MODE",
+    "OPENHUMAN_STORAGE_URL",
+    "OPENHUMAN_NODE_ID",
 ];
 
 struct Deployment {
@@ -227,58 +232,61 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
         );
     }
 
-    // The operator plane provisions one agent per user, keyed by a hash of
-    // the gateway's user id, which is never echoed back.
+    // The operator plane provisions one profile per user. A user id outside
+    // the raw charset is hashed, and never echoed back.
     let (_, body) = rpc_with(
         &client,
         &base,
         Some(BEARER),
-        "openhuman.user_agents_provision",
+        "openhuman.profiles_provision",
         json!({ "user_id": "alice@example.com" }),
     );
     let result = body
         .get("result")
         .unwrap_or_else(|| panic!("provision: {body}"));
-    let agent_id = result
-        .pointer("/result/agent_id")
-        .or_else(|| result.get("agent_id"))
+    let profile_id = result
+        .pointer("/result/profile_id")
+        .or_else(|| result.get("profile_id"))
         .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("agent_id in {result}"))
+        .unwrap_or_else(|| panic!("profile_id in {result}"))
         .to_string();
     assert_eq!(
-        agent_id,
-        openhuman_core::user_agents::UserAgentId::for_user("alice@example.com")
-            .unwrap()
-            .to_string(),
-        "the agent id is the deterministic hash of the user id"
+        profile_id,
+        openhuman_core::profiles::ProfileId::for_user(
+            "alice@example.com",
+            openhuman_core::profiles::ProfileIdMode::Raw
+        )
+        .unwrap()
+        .to_string(),
+        "a user id outside the raw charset maps to its deterministic hash"
     );
     assert!(!body.to_string().contains("alice"), "{body}");
     assert!(d
         .root
-        .join("agents")
-        .join(&agent_id)
+        .join("users")
+        .join(&profile_id)
         .join("workspace")
         .is_dir());
 
-    let (_, body) = rpc(&client, &base, Some(BEARER), "openhuman.user_agents_list");
-    assert!(body.to_string().contains(&agent_id), "{body}");
+    let (_, body) = rpc(&client, &base, Some(BEARER), "openhuman.profiles_list");
+    assert!(body.to_string().contains(&profile_id), "{body}");
     let (_, body) = rpc_with(
         &client,
         &base,
         Some(BEARER),
-        "openhuman.user_agents_status",
-        json!({ "agent_id": agent_id }),
+        "openhuman.profiles_status",
+        json!({ "profile_id": profile_id }),
     );
     assert!(body.get("result").is_some(), "{body}");
     let (_, body) = rpc_with(
         &client,
         &base,
         Some(BEARER),
-        "openhuman.user_agents_deprovision",
-        json!({ "agent_id": agent_id }),
+        "openhuman.profiles_deprovision",
+        json!({ "profile_id": profile_id }),
     );
     assert!(body.get("result").is_some(), "{body}");
-    assert!(!d.root.join("agents").join(&agent_id).exists());
+    assert!(!d.root.join("users").join(&profile_id).exists());
     assert!(
         d.root.join("deprovisioned").is_dir(),
         "archived, not deleted"
@@ -335,7 +343,7 @@ fn user_rpc_with(
     method: &str,
     params: Value,
 ) -> (u16, Value) {
-    use openhuman_core::user_agents::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
+    use openhuman_core::profiles::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
     let signature = sig
         .map(str::to_owned)
         .unwrap_or_else(|| sign(BEARER, user, now()));
@@ -352,7 +360,7 @@ fn user_rpc_with(
 }
 
 #[test]
-fn gateway_requests_run_under_the_named_users_agent() {
+fn gateway_requests_run_under_the_named_users_profile() {
     let d = deployment(true);
     let (server, base, client) = start(&d);
 
@@ -361,17 +369,21 @@ fn gateway_requests_run_under_the_named_users_agent() {
         &client,
         &base,
         Some(BEARER),
-        "openhuman.user_agents_provision",
+        "openhuman.profiles_provision",
         json!({ "user_id": "alice" }),
     );
-    let alice = openhuman_core::user_agents::UserAgentId::for_user("alice").unwrap();
+    let alice = openhuman_core::profiles::ProfileId::for_user(
+        "alice",
+        openhuman_core::profiles::ProfileIdMode::Raw,
+    )
+    .unwrap();
     assert!(body.to_string().contains(alice.as_str()), "{body}");
     let (_, body) = rpc_with(
         &client,
         &base,
         Some(BEARER),
-        "openhuman.user_agents_set_credential",
-        json!({ "agent_id": alice.as_str(), "kind": "session", "token": "alice-session-jwt" }),
+        "openhuman.profiles_set_credential",
+        json!({ "profile_id": alice.as_str(), "kind": "session", "token": "alice-session-jwt" }),
     );
     assert!(body.get("result").is_some(), "{body}");
     assert!(!body.to_string().contains("alice-session-jwt"), "{body}");
@@ -379,8 +391,8 @@ fn gateway_requests_run_under_the_named_users_agent() {
         &client,
         &base,
         Some(BEARER),
-        "openhuman.user_agents_status",
-        json!({ "agent_id": alice.as_str() }),
+        "openhuman.profiles_status",
+        json!({ "profile_id": alice.as_str() }),
     );
     assert!(
         body.to_string().contains("\"has_credential\":true"),
@@ -399,7 +411,7 @@ fn gateway_requests_run_under_the_named_users_agent() {
         BEARER,
         "alice",
         None,
-        "openhuman.user_agents_list",
+        "openhuman.profiles_list",
     );
     assert!(
         body.get("error").is_some(),
@@ -423,11 +435,29 @@ fn gateway_requests_run_under_the_named_users_agent() {
         "core.ping",
     );
     assert_eq!(status, 401, "{body}");
-    let forged = openhuman_core::user_agents::gateway::sign(BEARER, "alice", now());
+    let forged = openhuman_core::profiles::gateway::sign(BEARER, "alice", now());
     let (status, body) = user_rpc(&client, &base, BEARER, "bob", Some(&forged), "core.ping");
     assert_eq!(status, 401, "alice's signature does not cover bob: {body}");
     let (status, body) = user_rpc(&client, &base, BEARER, "bob", None, "core.ping");
     assert_eq!(status, 403, "bob is not provisioned: {body}");
+    // A repeated signature header is refused, not resolved to the first value.
+    {
+        use openhuman_core::profiles::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
+        let response = client
+            .post(format!("{base}/rpc"))
+            .bearer_auth(BEARER)
+            .header(USER_HEADER, "alice")
+            .header(USER_SIG_HEADER, sign(BEARER, "alice", now()))
+            .header(USER_SIG_HEADER, sign(BEARER, "alice", now()))
+            .json(&json!({ "jsonrpc": "2.0", "id": 1, "method": "core.ping", "params": {} }))
+            .send()
+            .expect("POST /rpc");
+        assert_eq!(
+            response.status().as_u16(),
+            400,
+            "a repeated signature header"
+        );
+    }
 
     // Single-user surfaces are closed.
     for path in ["/events", "/events/domain", "/v1/models", "/dev/connect"] {
@@ -442,8 +472,8 @@ fn gateway_requests_run_under_the_named_users_agent() {
     }
 
     // The credential lives in alice's own directory.
-    let agent_dir = d.root.join("agents").join(alice.as_str());
-    let stored: Vec<_> = std::fs::read_dir(&agent_dir)
+    let profile_dir = d.root.join("users").join(alice.as_str());
+    let stored: Vec<_> = std::fs::read_dir(&profile_dir)
         .unwrap()
         .flatten()
         .map(|e| e.file_name().to_string_lossy().into_owned())
@@ -460,13 +490,16 @@ fn provision(client: &reqwest::blocking::Client, base: &str, user: &str) -> Stri
         client,
         base,
         Some(BEARER),
-        "openhuman.user_agents_provision",
+        "openhuman.profiles_provision",
         json!({ "user_id": user }),
     );
     assert!(body.get("result").is_some(), "provision {user}: {body}");
-    openhuman_core::user_agents::UserAgentId::for_user(user)
-        .unwrap()
-        .to_string()
+    openhuman_core::profiles::ProfileId::for_user(
+        user,
+        openhuman_core::profiles::ProfileIdMode::Raw,
+    )
+    .unwrap()
+    .to_string()
 }
 
 fn thread_ids(body: &Value) -> Vec<String> {
@@ -536,7 +569,7 @@ fn each_user_sees_only_their_own_threads() {
 
     // Each user's threads live in their own workspace.
     for (agent, owner) in [(&alice, "alice"), (&bob, "bob")] {
-        let threads = d.root.join("agents").join(agent).join("workspace");
+        let threads = d.root.join("users").join(agent).join("workspace");
         assert!(threads.is_dir(), "{owner}'s workspace");
     }
     // Boot migrations leave an empty index in the operator workspace; no user
@@ -567,7 +600,7 @@ fn each_user_sees_only_their_own_threads() {
 
 /// Open `/events?client_id=` for `user` and forward each SSE `data:` line.
 fn user_events(base: &str, user: &str, client_id: &str) -> std::sync::mpsc::Receiver<String> {
-    use openhuman_core::user_agents::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
+    use openhuman_core::profiles::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
     use std::io::BufRead;
     let (tx, rx) = std::sync::mpsc::channel();
     let url = format!("{base}/events?client_id={client_id}");
@@ -816,8 +849,8 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
         &client,
         &base,
         Some(BEARER),
-        "openhuman.user_agents_set_credential",
-        json!({ "agent_id": alice, "kind": "session", "token": "alice-session-jwt" }),
+        "openhuman.profiles_set_credential",
+        json!({ "profile_id": alice, "kind": "session", "token": "alice-session-jwt" }),
     );
     assert!(body.get("result").is_some(), "{body}");
 
@@ -860,11 +893,11 @@ fn a_users_turn_reaches_inference_with_their_own_credential() {
 
 #[test]
 fn a_duplicate_or_unreadable_user_header_is_refused() {
-    use openhuman_core::user_agents::gateway::USER_HEADER;
+    use openhuman_core::profiles::gateway::USER_HEADER;
     let d = deployment(true);
     let (server, base, client) = start(&d);
     let body =
-        json!({ "jsonrpc": "2.0", "id": 1, "method": "openhuman.user_agents_list", "params": {} });
+        json!({ "jsonrpc": "2.0", "id": 1, "method": "openhuman.profiles_list", "params": {} });
 
     // Two user headers: refused, never run as the operator.
     let status = client
@@ -891,5 +924,173 @@ fn a_duplicate_or_unreadable_user_header_is_refused() {
         .status()
         .as_u16();
     assert_eq!(status, 400);
+    drop(server);
+}
+
+/// Start a SaaS core whose backend is a closed port, so every turn fails fast
+/// and its failure is itself the reply, without any real inference.
+fn start_offline(d: &Deployment) -> (Server, String, reqwest::blocking::Client) {
+    let port = free_port();
+    let child = core_command(d, &["--port", &port.to_string()])
+        .env("BACKEND_URL", "http://127.0.0.1:9")
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .spawn()
+        .expect("spawn openhuman-core");
+    let server = Server(child);
+    let base = format!("http://127.0.0.1:{port}");
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .build()
+        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(120);
+    while !client
+        .get(format!("{base}/health"))
+        .send()
+        .is_ok_and(|r| r.status().is_success())
+    {
+        assert!(Instant::now() < deadline, "SaaS core never became healthy");
+        std::thread::sleep(Duration::from_millis(250));
+    }
+    (server, base, client)
+}
+
+#[test]
+fn a_profile_holds_web_and_relayed_channel_threads() {
+    let d = deployment(true);
+    let (server, base, client) = start_offline(&d);
+    provision(&client, &base, "alice");
+    provision(&client, &base, "bob");
+    let call = |user: &str, method: &str, params: Value| {
+        user_rpc_with(&client, &base, BEARER, user, None, method, params)
+    };
+
+    // The gateway listens on each user's stream under one client id.
+    let alice_events = user_events(&base, "alice", "channel-relay");
+    let bob_events = user_events(&base, "bob", "channel-relay");
+    for (who, rx) in [("alice", &alice_events), ("bob", &bob_events)] {
+        let first = rx.recv_timeout(Duration::from_secs(10)).unwrap();
+        assert_eq!(first, "status:200", "{who}'s stream opens");
+    }
+
+    // Alice chats on the web...
+    let (_, body) = call(
+        "alice",
+        "openhuman.threads_upsert",
+        json!({ "id": "web-1", "title": "web", "created_at": "2026-10-09T00:00:00Z" }),
+    );
+    assert!(body.get("result").is_some(), "{body}");
+    let (status, body) = call(
+        "alice",
+        "openhuman.channel_web_chat",
+        json!({ "client_id": "c1", "thread_id": "web-1", "message": "hello on the web" }),
+    );
+    assert_eq!(status, 200, "{body}");
+
+    // ...and the gateway relays a Telegram message of hers.
+    let relayed = json!({
+        "channel": "telegram",
+        "chat_id": "777",
+        "sender_id": "555",
+        "sender_name": "Alice",
+        "message_id": "tg-1",
+        "text": "hello from telegram",
+    });
+    let (status, body) = call("alice", "openhuman.channel_relay_inbound", relayed.clone());
+    assert_eq!(status, 200, "{body}");
+    let text = body.to_string();
+    assert!(text.contains("\"accepted\":true"), "{body}");
+    let channel_thread = "channel:telegram/555/777";
+    assert!(text.contains(channel_thread), "{body}");
+
+    // The reply (here the offline backend's error) reaches alice's stream as
+    // `channel_outbound`, for the gateway to deliver.
+    let mut outbound = None;
+    let until = Instant::now() + Duration::from_secs(90);
+    while Instant::now() < until && outbound.is_none() {
+        match alice_events.recv_timeout(Duration::from_millis(500)) {
+            Ok(data) if data.contains("channel_outbound") => outbound = Some(data),
+            Ok(_) | Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
+            Err(e) => panic!("alice's stream closed: {e}"),
+        }
+    }
+    let outbound = outbound.expect("alice receives channel_outbound");
+    let event: Value = serde_json::from_str(&outbound).expect("event json");
+    assert_eq!(event["thread_id"], channel_thread, "{event}");
+    assert_eq!(event["structured"]["channel"], "telegram", "{event}");
+    assert_eq!(event["structured"]["chat_id"], "777", "{event}");
+    assert!(
+        event["full_response"]
+            .as_str()
+            .is_some_and(|t| !t.is_empty()),
+        "{event}"
+    );
+    assert!(event.get("agent").is_none(), "no routing stamp on the wire");
+    // The turn reached the agent: the offline backend's error, never the
+    // dispatch failing to find an `agent.run_turn` handler.
+    assert!(
+        !event["full_response"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("no native handler"),
+        "relayed turn must reach the agent: {event}"
+    );
+
+    // A gateway retry of the same message runs nothing twice.
+    let (_, body) = call("alice", "openhuman.channel_relay_inbound", relayed);
+    assert!(body.to_string().contains("\"duplicate\":true"), "{body}");
+
+    // A relay cannot forge a thread id through its fields.
+    let (_, body) = call(
+        "alice",
+        "openhuman.channel_relay_inbound",
+        json!({ "channel": "telegram", "chat_id": "1/2", "sender_id": "3",
+                "message_id": "x", "text": "hi" }),
+    );
+    assert!(body.get("error").is_some(), "{body}");
+
+    // Alice's profile holds both threads; bob's holds neither.
+    let (_, alice_list) = call("alice", "openhuman.threads_list", json!({}));
+    let alice_ids = thread_ids(&alice_list);
+    assert!(alice_ids.contains(&"web-1".to_string()), "{alice_list}");
+    assert!(
+        alice_ids.contains(&channel_thread.to_string()),
+        "{alice_list}"
+    );
+    let (_, bob_list) = call("bob", "openhuman.threads_list", json!({}));
+    let bob_ids = thread_ids(&bob_list);
+    assert!(
+        !bob_ids.contains(&"web-1".to_string()) && !bob_ids.contains(&channel_thread.to_string()),
+        "{bob_list}"
+    );
+
+    // The relayed exchange is on alice's channel thread.
+    let (_, messages) = call(
+        "alice",
+        "openhuman.threads_messages_list",
+        json!({ "thread_id": channel_thread }),
+    );
+    assert!(
+        messages.to_string().contains("hello from telegram"),
+        "{messages}"
+    );
+
+    // Bob's stream carried none of alice's events.
+    std::thread::sleep(Duration::from_secs(1));
+    let leaked: Vec<String> = bob_events.try_iter().collect();
+    assert!(
+        leaked.is_empty(),
+        "bob must see none of alice's events: {leaked:?}"
+    );
+
+    // No relayed turn lands in the operator workspace.
+    let operator_index = d
+        .root
+        .join("operator/workspace/memory/conversations/threads.jsonl");
+    let operator_threads = std::fs::read_to_string(&operator_index).unwrap_or_default();
+    assert!(
+        !operator_threads.contains("telegram"),
+        "no relayed thread in the operator workspace: {operator_threads}"
+    );
     drop(server);
 }

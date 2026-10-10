@@ -546,7 +546,7 @@ pub async fn clear_session(config: &Config) -> Result<Outcome<Value>, String> {
 
 /// A process-wide credential is a single-user concept: installing one
 /// activates a user directory and rebinds process globals. A SaaS process
-/// keeps one credential per user agent instead (`user_agents.set_credential`).
+/// keeps one credential per profile instead (`profiles.set_credential`).
 fn refuse_process_credential_in_saas(operation: &str) -> Result<(), String> {
     process_credential_refusal(crate::core::runtime::is_saas(), operation)
 }
@@ -560,7 +560,7 @@ pub(crate) fn process_credential_refusal(saas: bool, operation: &str) -> Result<
         );
         return Err(format!(
             "{operation} is not available in SaaS mode; the gateway installs each user's \
-             credential through user_agents.set_credential"
+             credential through profiles.set_credential"
         ));
     }
     Ok(())

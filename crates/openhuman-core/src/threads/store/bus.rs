@@ -48,6 +48,13 @@ const LOG_PREFIX: &str = "[memory:conversations:bus]";
 /// This bridges typed channel events onto the workspace-backed JSONL
 /// conversation store so non-web channels persist alongside UI threads.
 pub fn register_conversation_persistence_subscriber(workspace_dir: PathBuf) {
+    // One subscriber bound to one workspace cannot serve many users: in SaaS
+    // it would write every user's channel conversations into the operator's
+    // workspace. Profiles keep their threads through their own scoped turns.
+    if crate::core::runtime::is_saas() {
+        log::info!("{LOG_PREFIX} conversation persistence subscriber not registered in SaaS mode");
+        return;
+    }
     let workspace = CONVERSATION_PERSISTENCE_WORKSPACE
         .get_or_init(|| Arc::new(RwLock::new(workspace_dir.clone())));
     match workspace.write() {
@@ -75,6 +82,82 @@ pub fn register_conversation_persistence_subscriber(workspace_dir: PathBuf) {
             );
         }
     }
+}
+
+/// How many claimed channel turns are remembered. The subscriber sees an
+/// event within moments of its publication, so a short FIFO is plenty.
+const CLAIMED_TURNS_CAPACITY: usize = 1024;
+
+/// Channel turns whose caller persists them itself (the hosted-channel relay,
+/// which writes under the caller's own scope and thread id). Keyed by
+/// `(channel, message_id)`, oldest first, at most `capacity` long.
+#[derive(Debug)]
+struct ClaimedTurns {
+    capacity: usize,
+    keys: std::collections::VecDeque<(String, String)>,
+}
+
+impl ClaimedTurns {
+    fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            keys: std::collections::VecDeque::new(),
+        }
+    }
+
+    fn claim(&mut self, channel: &str, message_id: &str) {
+        if self.contains(channel, message_id) {
+            return;
+        }
+        if self.keys.len() >= self.capacity {
+            self.keys.pop_front();
+        }
+        self.keys
+            .push_back((channel.to_string(), message_id.to_string()));
+    }
+
+    fn contains(&self, channel: &str, message_id: &str) -> bool {
+        self.keys
+            .iter()
+            .any(|(c, m)| c == channel && m == message_id)
+    }
+}
+
+static CLAIMED_TURNS: OnceLock<std::sync::Mutex<ClaimedTurns>> = OnceLock::new();
+
+fn claimed_turns() -> std::sync::MutexGuard<'static, ClaimedTurns> {
+    CLAIMED_TURNS
+        .get_or_init(|| std::sync::Mutex::new(ClaimedTurns::new(CLAIMED_TURNS_CAPACITY)))
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+}
+
+/// Mark the channel message `(channel, message_id)` as persisted by its
+/// caller, so this subscriber does not mirror it a second time under the
+/// listener-derived thread id.
+///
+/// A no-op in SaaS: the subscriber is never registered there, so nothing
+/// would read the claim, and its `(channel, message_id)` key carries no
+/// tenant — one profile's claim would otherwise shadow another profile's
+/// message with the same platform id. Outside SaaS there is one user, and the
+/// subscriber (which runs off the bus, with no caller scope to key on) reads
+/// the bare key.
+pub(crate) fn claim_channel_turn(channel: &str, message_id: &str) {
+    claim_channel_turn_in(crate::core::runtime::is_saas(), channel, message_id);
+}
+
+/// [`claim_channel_turn`] as a function of the mode.
+pub(crate) fn claim_channel_turn_in(saas: bool, channel: &str, message_id: &str) {
+    if saas {
+        log::trace!("{LOG_PREFIX} SaaS: channel turn claim skipped channel={channel}");
+        return;
+    }
+    claimed_turns().claim(channel, message_id);
+}
+
+/// Whether `(channel, message_id)` was claimed by [`claim_channel_turn`].
+pub(crate) fn is_claimed_channel_turn(channel: &str, message_id: &str) -> bool {
+    claimed_turns().contains(channel, message_id)
 }
 
 pub struct ConversationPersistenceSubscriber {
@@ -111,6 +194,24 @@ impl EventHandler<DomainEvent> for ConversationPersistenceSubscriber {
     }
 
     async fn handle(&self, event: &DomainEvent) {
+        if let DomainEvent::ChannelMessageReceived {
+            channel,
+            message_id,
+            ..
+        }
+        | DomainEvent::ChannelMessageProcessed {
+            channel,
+            message_id,
+            ..
+        } = event
+        {
+            if is_claimed_channel_turn(channel, message_id) {
+                log::debug!(
+                    "{LOG_PREFIX} skipping channel turn persisted by its caller channel={channel}"
+                );
+                return;
+            }
+        }
         match event {
             DomainEvent::ChannelMessageReceived {
                 channel,

@@ -222,12 +222,12 @@ suite "openhuman-embed" llvm_cov_embed --no-report --no-fail-fast -p openhuman-e
 suite "openhuman-rpc" llvm_cov_package --no-report --no-fail-fast -p openhuman-rpc --all-targets
 suite "openhuman-tinyhumans" llvm_cov_embed --no-report --no-fail-fast -p openhuman-tinyhumans --all-targets
 # The terminal frontend builds the core a third time (default features, not the
-# product set), so CI Fast leaves it to pushes to main (OH_COV_TUI=0), where
-# CI Lite runs this script with it on.
+# product set). It is on by default and on in the PR lane; OH_COV_TUI=0 is an
+# opt-out for local runs.
 if [ "${OH_COV_TUI:-1}" = "1" ]; then
   suite "openhuman-tui" llvm_cov_package --no-report --no-fail-fast -p openhuman-tui --all-targets
 else
-  log "skipping openhuman-tui (OH_COV_TUI=${OH_COV_TUI}); pushes to main run it"
+  log "skipping openhuman-tui (OH_COV_TUI=${OH_COV_TUI})"
 fi
 
 if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then

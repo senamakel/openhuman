@@ -53,12 +53,15 @@ fn restore_default_sigpipe() {}
 #[cfg(feature = "crash-reporting")]
 fn init_sentry() -> process::sentry::sdk::ClientInitGuard {
     let config = process::sentry::SentryConfig::new(
-        sentry_dsn(),
+        process::sentry::core_dsn(
+            option_env!("OPENHUMAN_CORE_SENTRY_DSN"),
+            option_env!("OPENHUMAN_SENTRY_DSN"),
+        ),
         process::sentry::release_tag(
             env!("CARGO_PKG_VERSION"),
             option_env!("OPENHUMAN_BUILD_SHA"),
         ),
-        resolve_environment(std::env::var("OPENHUMAN_APP_ENV").ok()),
+        process::sentry::resolve_environment(std::env::var("OPENHUMAN_APP_ENV").ok()),
     );
     log::debug!(
         "[cli] sentry init environment={} dsn_set={}",
@@ -66,36 +69,6 @@ fn init_sentry() -> process::sentry::sdk::ClientInitGuard {
         config.dsn.is_some()
     );
     process::sentry::sdk::init(process::sentry::client_options(config))
-}
-
-/// The core DSN: `OPENHUMAN_CORE_SENTRY_DSN`, then the legacy
-/// `OPENHUMAN_SENTRY_DSN`, at runtime and then baked in at compile time.
-/// `None` gives a client that sends nothing.
-#[cfg(feature = "crash-reporting")]
-fn sentry_dsn() -> Option<String> {
-    process::sentry::first_non_blank([
-        std::env::var("OPENHUMAN_CORE_SENTRY_DSN").ok(),
-        std::env::var("OPENHUMAN_SENTRY_DSN").ok(),
-        option_env!("OPENHUMAN_CORE_SENTRY_DSN").map(str::to_owned),
-        option_env!("OPENHUMAN_SENTRY_DSN").map(str::to_owned),
-    ])
-}
-
-/// The deployment environment: `OPENHUMAN_APP_ENV` (lower-cased) when set,
-/// else `development` for debug builds and `production` for release builds.
-#[cfg(feature = "crash-reporting")]
-fn resolve_environment(app_env: Option<String>) -> String {
-    if let Some(value) = app_env {
-        let trimmed = value.trim().to_ascii_lowercase();
-        if !trimmed.is_empty() {
-            return trimmed;
-        }
-    }
-    if cfg!(debug_assertions) {
-        "development".to_string()
-    } else {
-        "production".to_string()
-    }
 }
 
 #[cfg(all(test, feature = "crash-reporting"))]

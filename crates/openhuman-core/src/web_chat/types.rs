@@ -88,6 +88,9 @@ pub(super) struct SessionEntry {
 #[derive(Debug)]
 pub(super) struct InFlightEntry {
     pub(super) request_id: String,
+    /// The client that started the turn, so a teardown that no client asked
+    /// for (a lost profile lease) still resolves that client's stream.
+    pub(super) client_id: String,
     pub(super) handle: tokio::task::JoinHandle<()>,
     pub(super) run_queue: std::sync::Arc<
         tinyagents_harness::run_queue::RunQueue<crate::agent::queued_turn::QueuedTurn>,
@@ -108,6 +111,8 @@ pub(super) struct InFlightEntry {
 #[derive(Debug)]
 pub(super) struct ParallelEntry {
     pub(super) thread_id: String,
+    /// The client that started the turn (see [`InFlightEntry::client_id`]).
+    pub(super) client_id: String,
     pub(super) handle: tokio::task::JoinHandle<()>,
     pub(super) cancel_token: tokio_util::sync::CancellationToken,
 }

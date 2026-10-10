@@ -1,18 +1,41 @@
 //! Which recovery class and budget a failed tool call gets
-//! ([`recovery_policy`]), split out of `repeated_failure.rs` so the breaker
+//! ([`recovery_policy_with_effect`]), split out of `repeated_failure.rs` so the breaker
 //! stays readable: the ladder driver lives there, the classification here.
 
+use super::call_effect::{call_effect, CallEffect};
 use super::fetched_site::fetched_site_policy;
 use tinyinference_llm::failure::is_recoverable_failure_text as is_recoverable_tool_failure;
 
 /// Explicit recovery policy. Only recognised failures enter the classified
 /// ledger; unknown prose continues through the established exact-repeat guard.
+///
+/// Judges the call's side effect from `tool`'s name alone; the breaker, which
+/// sees the call's arguments and the registered tools, uses
+/// [`recovery_policy_with_effect`]. Test-only: every production caller knows
+/// the call's arguments.
+#[cfg(test)]
 pub(super) fn recovery_policy(
     tool: &str,
     error: &str,
     body_level_failure: bool,
 ) -> Option<(&'static str, usize)> {
-    let (class, budget) = classified_recovery_policy(tool, error, body_level_failure)?;
+    recovery_policy_with_effect(tool, error, body_level_failure, CallEffect::Unknown)
+}
+
+/// [`recovery_policy`] for a call whose side effect is already known
+/// ([`super::call_effect::call_effect`]). `CallEffect::Unknown` falls back to
+/// reading `tool`'s name.
+pub(super) fn recovery_policy_with_effect(
+    tool: &str,
+    error: &str,
+    body_level_failure: bool,
+    effect: CallEffect,
+) -> Option<(&'static str, usize)> {
+    let effect = match effect {
+        CallEffect::Unknown => call_effect(None, tool, &serde_json::Value::Null),
+        known => known,
+    };
+    let (class, budget) = classified_recovery_policy(tool, error, body_level_failure, effect)?;
     // A connector, the hosted backend or the memory store refusing the
     // request (401/403, a missing or invalid key) says that service is not
     // available in this session. That is a tool to stop using, not a reason
@@ -84,10 +107,73 @@ pub(super) fn is_optional_service(tool: &str) -> bool {
     )
 }
 
+/// Read tools whose timeout is always transient, kept as a floor under the
+/// side-effect reading for a call judged by name alone (no registered tool
+/// facts, e.g. a dispatcher's unregistered target): a `web_fetch` declaring
+/// network access must not become an uncertain action because its policy
+/// does not say `read_only`, and `web_answer_tool` carries no reading verb.
+/// Every entry is a production tool name; `web_search` was dropped when the
+/// search tools became TinySearch's `web_*_tool` set.
+const ALWAYS_RETRYABLE_ON_TIMEOUT: &[&str] = &[
+    "web_search_tool",
+    "web_answer_tool",
+    "web_contents_tool",
+    "web_fetch",
+    "file_read",
+    "list_files",
+    "desktop_list_windows",
+];
+
+/// Whether `error` reports a failure from before the tool did anything: its
+/// runtime could not be resolved or built, or its process never spawned.
+/// Nothing ran, so there is nothing to reconcile, whatever the tool does.
+/// Conservative on purpose: only the tools' own pre-execution wording.
+pub(super) fn is_pre_execution_failure(error: &str) -> bool {
+    let lower = error.to_ascii_lowercase();
+    [
+        "runtime unavailable",
+        "runtime resolution",
+        "failed to build runtime command",
+        "failed to spawn",
+    ]
+    .iter()
+    .any(|marker| lower.contains(marker))
+}
+
+/// Whether `error` is the tool rejecting its arguments before running.
+fn is_argument_rejection(error: &str) -> bool {
+    let lower = error.to_ascii_lowercase();
+    lower.contains("schema validation") || lower.contains("invalid arguments")
+}
+
+/// The shell agent commands run under on this host, for a nudge that has to
+/// say which commands exist.
+fn host_shell_description() -> String {
+    let shell = if cfg!(windows) {
+        "cmd.exe"
+    } else {
+        crate::agent::platform_shell::bash_path().unwrap_or("sh")
+    };
+    format!("{} (`{shell}`)", std::env::consts::OS)
+}
+
+/// The corrective nudge for a `shell` command that called a program this host
+/// does not have, naming the host OS and shell so the model can switch to a
+/// command that exists there (a POSIX tool on Windows is the usual case).
+pub(super) fn missing_program_nudge(tool: &str, detail: &str) -> String {
+    format!(
+        "The `{tool}` command failed because a program it calls is not available on this host \
+         ({detail}). Commands run on {}. Retry once with a command that exists there, or check \
+         first (`where` on Windows, `command -v` elsewhere); do not resend it unchanged.",
+        host_shell_description()
+    )
+}
+
 pub(super) fn classified_recovery_policy(
     tool: &str,
     error: &str,
     body_level_failure: bool,
+    effect: CallEffect,
 ) -> Option<(&'static str, usize)> {
     use crate::tools::status::ToolFailureClass as Class;
     if body_level_failure {
@@ -110,6 +196,26 @@ pub(super) fn classified_recovery_policy(
     // generic no-progress ladder still bounds a command repeated unchanged.
     if is_command_exit_report(error) {
         return None;
+    }
+    // A delegated task (a TinyComputer browser task) that ended without
+    // finishing. The call itself is not uncertain: the task reports what it
+    // did and what to change, and its prose (a page's `403`, a planner's
+    // `timed out`) is that report, not the call's verdict, so keyword
+    // sniffing must not turn it into a zero-retry credential or uncertain
+    // class. One changed attempt; a model gateway failing under the task
+    // (5xx, connection) is transient like any other.
+    if error
+        .trim_start()
+        .starts_with(crate::tools::status::TASK_FAILED_MARKER)
+    {
+        // Classify the headline only: the task report appended after the
+        // blank line is page and planner text, not the call's verdict.
+        let headline = error.split("\n\n").next().unwrap_or(error);
+        let class = crate::tools::status::classify(headline, false).class;
+        return Some(match class {
+            Class::ServiceUnavailable | Class::ModelConnection => ("transient", 2),
+            _ => ("task_failed", 1),
+        });
     }
     // A module the host could not load stays unloaded until the app restarts,
     // so retrying the same tool cannot help. Steer the model off it once
@@ -158,7 +264,20 @@ pub(super) fn classified_recovery_policy(
     Some(match class {
         Class::MissingPermission => ("permission", 0),
         Class::BadCredentials => ("authentication", 0),
-        Class::BlockedByPolicy | Class::Denied | Class::ApprovalExpired => ("policy", 0),
+        // The policy refused this call before the tool ran, and its refusal
+        // names a narrower, permitted alternative (scope the path, a read
+        // instead of a write). One alternative is the point of that copy:
+        // halting on the refusal itself ended production turns after one
+        // attempt. Its own class, so a refusal does not share a budget with
+        // the user's denial, and a second refusal on the same operation and
+        // scope still stops.
+        Class::BlockedByPolicy => ("blocked_by_policy", 1),
+        // The user said no, or never answered. Asking again only re-prompts.
+        Class::Denied | Class::ApprovalExpired => ("policy", 0),
+        // A shell command calling a program this host lacks (often a POSIX
+        // tool on Windows) is a call the model can correct: one retry, with a
+        // nudge naming the host OS and shell. Other tools keep zero.
+        Class::MissingApp if tool == "shell" => ("missing_app", 1),
         Class::Unsupported | Class::MissingApp => ("unsupported", 0),
         Class::NotFound
             if tool.contains("desktop") && error.to_ascii_lowercase().contains("window") =>
@@ -167,11 +286,20 @@ pub(super) fn classified_recovery_policy(
         }
         Class::NotFound => ("not_found", 1),
         Class::ServiceUnavailable | Class::ModelConnection => ("transient", 2),
+        // A schema rejection that merely names a `timeout_secs` field reads as
+        // a timeout to the keyword classifier; it is a wrong call.
+        Class::Timeout if is_argument_rejection(error) => {
+            ("invalid_arguments", ARGUMENT_SCHEMA_RECOVERY)
+        }
+        // A timeout is uncertain only when the call could have changed
+        // something. One that happened before the tool ran (runtime
+        // resolution, spawn), or on a read (`use_skill` → `composio_list_tools`
+        // halted turns on its first timeout), is retried like any transient
+        // failure.
         Class::Timeout
-            if matches!(
-                tool,
-                "web_search" | "web_fetch" | "file_read" | "list_files" | "desktop_list_windows"
-            ) =>
+            if ALWAYS_RETRYABLE_ON_TIMEOUT.contains(&tool)
+                || is_pre_execution_failure(error)
+                || effect == CallEffect::ReadOnly =>
         {
             ("transient", 2)
         }
@@ -185,6 +313,13 @@ pub(super) fn classified_recovery_policy(
         // there can repeat an effect the agent cannot observe.
         Class::Timeout if tool == "shell" => ("uncertain_side_effect", 1),
         Class::Timeout => ("uncertain_side_effect", 0),
+        // The harness's own schema-validation answer, classified from its
+        // prefix before any keyword in the echoed schema could read as a
+        // timeout or a credential failure.
+        Class::InvalidArguments => ("invalid_arguments", ARGUMENT_SCHEMA_RECOVERY),
+        // A finished command's exit report; `is_command_exit_report` above
+        // already returns before this for the bare shape. Same reasoning.
+        Class::CommandFailed => return None,
         Class::Unknown if is_recoverable_tool_failure(error) => ("transient", 2),
         // Its own class, not the `validation` bucket: the ledger keys on
         // (class, operation, scope), so pooling this with `unknown tool` and

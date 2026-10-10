@@ -24,6 +24,10 @@ Implementations live in [`vendor/tinychannels/src/providers/`](../../../../../ve
 
 `CliChannel` is not a provider re-export: `channels/mod.rs` takes it from the ungated `tinychannels-runtime` crate.
 
+## Relay
+
+[`relay/`](./relay/README.md) is not a provider transport. It is the host entry for messages a gateway relays in from a hosted platform (`openhuman.channel_relay_inbound`), answered through the dispatch pipeline with replies published as `channel_outbound` events.
+
 ## Capabilities, not provider special cases
 
 What a provider can do beyond send/receive is declared once, upstream, in `tinychannels_bus::capabilities_for` (`ChannelCapabilities`): `remote_control`, `chat_approvals`, `progressive_edits` and `history_key_ignores_thread`. The host reads those flags instead of comparing channel names:

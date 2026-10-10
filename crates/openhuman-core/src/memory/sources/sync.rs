@@ -17,7 +17,7 @@ use crate::config::schema::{MemorySourceConfig, MemorySourceKind};
 use crate::config::Config;
 use crate::memory::engine::{self, BoundEngine};
 use crate::memory::error::{MemoryError, MemoryResult};
-use crate::memory::ops::store_on;
+use crate::memory::ops::{store_many_on, store_on};
 use crate::memory::types::SourceStatus;
 
 use super::state;
@@ -97,6 +97,11 @@ pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryRes
     .await
 }
 
+/// How many items go to the engine in one request. The contract caps a batch
+/// at [`tinymemory_api::MAX_STORE_MANY`]; sitting at the cap is what makes the
+/// request count `ceil(N / 100)` instead of `N`.
+const STORE_CHUNK: usize = tinymemory_api::MAX_STORE_MANY;
+
 /// Files `items` into `layout`'s brain, each under the brain source it
 /// belongs to (`memory::brain::brain_node`), and queues one belief build
 /// per node it touched. Returns how many were stored.
@@ -111,22 +116,61 @@ pub(crate) async fn store_all(
     let mut failed = 0u64;
     let mut last_error = None;
     let mut touched = std::collections::BTreeSet::new();
+    let brain_source = crate::memory::brain::brain_source(kind);
+
+    // Placing an item under its brain node is pure, so do every one up front:
+    // a batch has to carry both the node (what `touched` collects, and what
+    // the belief-build jobs below are keyed on) and the filed item.
+    let mut placed = Vec::with_capacity(items.len());
     for item in items {
-        let brain_source = crate::memory::brain::brain_source(kind);
         let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)?;
         let item = crate::memory::brain::file_into(node.clone(), item);
-        match store_on(bound, item).await {
-            Ok(_) => {
-                stored += 1;
-                touched.insert(node);
+        placed.push((node, item));
+    }
+
+    while !placed.is_empty() {
+        let take = placed.len().min(STORE_CHUNK);
+        let chunk: Vec<_> = placed.drain(..take).collect();
+        // Cloned because a rejected batch hands nothing back, and the
+        // item-by-item retry below needs the items. One clone per chunk
+        // against one request per chunk instead of one per item.
+        let batch: Vec<tinymemory_api::StoreItem> =
+            chunk.iter().map(|(_, item)| item.clone()).collect();
+        match store_many_on(bound, batch).await {
+            Ok(receipts) => {
+                stored += receipts.len() as u64;
+                for (node, _) in chunk {
+                    touched.insert(node);
+                }
             }
             // Out of credits or unreachable refuses every item, so stop
             // rather than fail each one in turn.
             Err(error) if error.is_account_wide() => return Err(error),
             Err(error) => {
-                tracing::debug!(id = %source_id, code = error.code(), "[memory:sources] item store failed");
-                failed += 1;
-                last_error = Some(error);
+                // One invalid item rejects the whole batch. Skipping its
+                // siblings would store fewer items than the per-item path
+                // did, so retry this chunk one at a time: the accounting that
+                // follows is then exactly what it was before batching.
+                tracing::debug!(
+                    id = %source_id,
+                    code = error.code(),
+                    count = chunk.len(),
+                    "[memory:sources] batch store failed — retrying item by item"
+                );
+                for (node, item) in chunk {
+                    match store_on(bound, item).await {
+                        Ok(_) => {
+                            stored += 1;
+                            touched.insert(node);
+                        }
+                        Err(error) if error.is_account_wide() => return Err(error),
+                        Err(error) => {
+                            tracing::debug!(id = %source_id, code = error.code(), "[memory:sources] item store failed");
+                            failed += 1;
+                            last_error = Some(error);
+                        }
+                    }
+                }
             }
         }
     }

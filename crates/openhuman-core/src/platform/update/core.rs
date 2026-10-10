@@ -343,18 +343,30 @@ async fn check_available_with_base_url(base_url: &str) -> Result<UpdateInfo, Str
     let platform_asset = find_platform_asset(&release.assets);
 
     if update_available && platform_asset.is_none() {
-        let message = format!(
-            "update {latest_version} is available, but no core asset was found for {}",
+        if cfg!(target_os = "linux") {
+            // Releases publish a core archive for Linux, so its absence is a
+            // broken release the normal updater cannot apply.
+            let message = format!(
+                "update {latest_version} is available, but no core asset was found for {}",
+                platform_triple()
+            );
+            log::error!("[update] {message}");
+            crate::core::observability::report_error(
+                &message,
+                "update",
+                "check_releases",
+                &[("failure", "missing_platform_asset")],
+            );
+            return Err(message);
+        }
+        // Expected off Linux, not a failure (Sentry TAURI-RUST-122R/122S/13B8/13B9):
+        // macOS and Windows update through the Tauri updater's installers, not
+        // a core archive. Report the update with no download url; `update_run`
+        // answers that with `missing_asset_result`.
+        log::warn!(
+            "[update] update {latest_version} is available, but no core asset was published for {}; reporting it without a download",
             platform_triple()
         );
-        log::error!("[update] {message}");
-        crate::core::observability::report_error(
-            &message,
-            "update",
-            "check_releases",
-            &[("failure", "missing_platform_asset")],
-        );
-        return Err(message);
     }
 
     let info = UpdateInfo {

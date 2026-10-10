@@ -112,7 +112,12 @@ impl Tool for GetToolContractTool {
             )));
         };
 
-        match catalog.iter().find(|c| c.slug.eq_ignore_ascii_case(&slug)) {
+        // `action_slug_matches` also accepts a separated alias
+        // (`GOOGLE_DRIVE_FIND_FILE` for `GOOGLEDRIVE_FIND_FILE`).
+        match catalog
+            .iter()
+            .find(|c| crate::integrations::composio::contract::action_slug_matches(&c.slug, &slug))
+        {
             Some(contract) => {
                 // B12: a prior real-output probe (get_tool_output_sample) for
                 // this exact slug is ACTUAL observed data and always wins

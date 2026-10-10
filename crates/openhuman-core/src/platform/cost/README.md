@@ -66,7 +66,7 @@ None. The module has no `bus.rs` and no `DomainEvent` publishers/subscribers.
 
 ## Persistence
 
-- Append-only JSONL at `<workspace>/state/costs.jsonl`, one `CostRecord` per line.
+- Append-only JSONL at `<workspace>/state/costs.jsonl`, one `CostRecord` per line. When the host configured a storage backend (`crate::storage`), records are `cost_records` documents under the acting agent's scope instead ([`tracker_documents.rs`](./tracker_documents.rs)), and the file is not used; the period totals are recomputed from the scope's documents rather than cached.
 - Legacy migration: a pre-existing `<workspace>/.openhuman/costs.db` is moved (rename, copy-fallback) to the new path on first `CostTracker::new`.
 - In-memory caches in `CostStorage`: `daily_cost_usd` / `monthly_cost_usd` plus the cached day/year/month they pertain to; rebuilt by full file scan on construction and on period rollover. Malformed lines are skipped with a `warn`.
 - Per-session in-memory `Vec<CostRecord>` (`session_costs`) backs the session figures in `get_summary`.

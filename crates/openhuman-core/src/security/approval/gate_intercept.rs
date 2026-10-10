@@ -50,12 +50,35 @@ impl ApprovalGate {
         // `AgentTurnOrigin` around `run_turn`. Unlabelled callers map to
         // `Unknown`, which is denied — the gate refuses to execute an
         // external_effect tool from an unlabelled call site.
+        let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
+        // Approval of job creation grants the scheduler permission to run the
+        // saved prompt and deliver its answer, not permission for arbitrary
+        // future external effects. Enforce this before global auto-approval,
+        // per-tool allowlists, and per-agent approval bypasses.
+        if let AgentTurnOrigin::TrustedAutomation {
+            source: TrustedAutomationSource::Cron,
+            job_id,
+        } = &origin
+        {
+            tracing::warn!(
+                tool = tool_name,
+                job_id = %job_id,
+                "[approval::gate] scheduled agent external effect denied"
+            );
+            return (
+                GateOutcome::Deny {
+                    reason: format!(
+                        "{POLICY_DENIED_MARKER} Scheduled agent turns cannot use '{tool_name}' for an external effect."
+                    ),
+                },
+                None,
+            );
+        }
         // SaaS has no per-user approval surface: never park, allow only what
         // the deployment's sandboxed tool groups open.
         if let Some(outcome) = saas_outcome_with(crate::core::runtime::is_saas(), tool_name) {
             return (outcome, None);
         }
-        let origin = turn_origin::current().unwrap_or(AgentTurnOrigin::Unknown);
         if forced
             && !matches!(
                 &origin,
@@ -250,13 +273,29 @@ impl ApprovalGate {
             } => Some((thread_id.clone(), client_id.clone())),
             _ => None,
         };
-        if chat_ctx.is_none() && origin_chat_route.is_some() {
+        // The fallback is taken exactly when the park runs on a task detached
+        // from the chat turn that shows it — an async-delegated sub-agent. Such
+        // a park can outlive that turn (the parent replies "I've asked the
+        // image agent…" and its `chat_done` fires while the child still waits
+        // here), so the route records it as `detached` and the web surface
+        // (`is_detached_request`) marks the card: the frontend
+        // keeps it across the parent's turn end instead of clearing it as a
+        // park that "cannot outlive its turn" — the clear that left every
+        // async `image_agent` / `video_agent` approval invisible until it
+        // expired at 600s.
+        let detached = !forced && chat_ctx.is_none() && origin_chat_route.is_some();
+        if detached {
             tracing::debug!(
                 tool = tool_name,
                 "[approval::gate] APPROVAL_CHAT_CONTEXT absent on a WebChat turn — routing the \
-                 approval via the origin's thread/client (async-delegated sub-agent path, #5499)"
+                 approval via the origin's thread/client (async-delegated sub-agent path, #5499); \
+                 marking the card detached so it survives the parent turn's end"
             );
         }
+        // Any park raised inside a sub-agent run — detached or inline — gets
+        // the shorter `SUBAGENT_APPROVAL_TTL` window.
+        let subagent_park = !forced
+            && (detached || crate::agent::harness::spawn_depth_context::current_spawn_depth() > 0);
         let chat_thread_id = chat_ctx
             .as_ref()
             .map(|c| c.thread_id.clone())
@@ -303,14 +342,16 @@ impl ApprovalGate {
             }
             AgentTurnOrigin::TrustedAutomation {
                 source: TrustedAutomationSource::Cron,
-                job_id,
+                ..
             } => {
-                tracing::debug!(
-                    tool = tool_name,
-                    job_id = %job_id,
-                    "[approval::gate] trusted cron automation — allowing without prompt"
+                return (
+                    GateOutcome::Deny {
+                        reason: format!(
+                            "{POLICY_DENIED_MARKER} Scheduled agent turns cannot use '{tool_name}' for an external effect."
+                        ),
+                    },
+                    None,
                 );
-                return (GateOutcome::Allow, None);
             }
             AgentTurnOrigin::TrustedAutomation {
                 source: TrustedAutomationSource::Background,
@@ -412,7 +453,8 @@ impl ApprovalGate {
         // waiting 180s, so a core restart or an `expire_stale` sweep mid-park
         // could leave the row "actionable" for the wrong window (CodeRabbit
         // + Codex review on PR #5112).
-        let effective_ttl = Self::resolve_park_ttl(self.effective_ttl(), copilot_stream);
+        let effective_ttl =
+            Self::resolve_park_ttl(self.effective_ttl(), copilot_stream, subagent_park);
         let expires_at = Some(now + chrono::Duration::from_std(effective_ttl).unwrap_or_default());
 
         // Correlation context (flow-approval-surface, PR2): a Workflow-origin
@@ -480,6 +522,7 @@ impl ApprovalGate {
                 tool_call_id: tool_call_id.map(str::to_string),
                 forced,
                 agent_id: agent_id.clone(),
+                detached,
             },
         );
         if let Err(err) = store::insert_pending(&self.config, &pending, &self.session_id) {
@@ -597,6 +640,14 @@ impl ApprovalGate {
                  COPILOT_APPROVAL_TTL"
             );
         }
+        if subagent_park {
+            tracing::debug!(
+                tool = tool_name,
+                detached,
+                ttl_secs = effective_ttl.as_secs(),
+                "[approval::gate] sub-agent park — clamping park window to SUBAGENT_APPROVAL_TTL"
+            );
+        }
 
         // Optional caller-supplied park bound (issue #4756). A caller
         // (`composio_connect`) can cap how long the gate parks so a turn
@@ -655,7 +706,7 @@ pub(crate) fn saas_outcome_with(saas: bool, tool_name: &str) -> Option<GateOutco
     if !saas {
         return None;
     }
-    Some(saas_outcome(crate::user_agents::tools::gate_verdict(
+    Some(saas_outcome(crate::profiles::tools::gate_verdict(
         tool_name,
     )))
 }

@@ -70,45 +70,82 @@ const PRICING_TABLE: &[ModelPricing] = &[
 /// managed default's rate so an old cost record still estimates sanely.
 const LEGACY_TIER_ROWS: &[&str] = &crate::config::LEGACY_TIER_MODELS;
 
-/// Look up pricing for a model name, falling back to [`FALLBACK_PRICING`].
+/// Zero-rate pricing for free model variants (OpenRouter's `…:free` ids).
+const FREE_PRICING: ModelPricing = ModelPricing {
+    model: "<free>",
+    input_per_mtok_usd: 0.0,
+    cached_input_per_mtok_usd: 0.0,
+    output_per_mtok_usd: 0.0,
+};
+
+/// Whether `model` names a free variant: OpenRouter's `vendor/model:free`
+/// suffix (case-insensitive, optionally behind a provider prefix such as
+/// `openrouter.` or `openrouter/`).
+pub(crate) fn is_free_model(model: &str) -> bool {
+    model.trim().to_ascii_lowercase().ends_with(":free")
+}
+
+/// Look up pricing for a model name when it is actually known, or `None`.
 ///
 /// Resolution order:
-/// 1. Exact match on the managed default model (or a retired tier slug /
+/// 1. A free variant (`…:free`) is priced at zero.
+/// 2. Exact match on the managed default model (or a retired tier slug /
 ///    `hint:*` alias, which ran on it).
-/// 2. The concrete-vendor-model pricing catalog
+/// 3. The concrete-vendor-model pricing catalog
 ///    ([`crate::platform::cost::catalog`]) — accurate per-model rates for
 ///    `claude-*`, `gpt-*`, `gemini-*`, `deepseek-*`, `kimi-*`, `qwen-*`,
 ///    `mistral-*`, including OpenRouter-style `vendor/model` ids.
-/// 3. [`FALLBACK_PRICING`].
-pub(crate) fn lookup_pricing(model: &str) -> ModelPricing {
+///
+/// Reporting surfaces (trace export, journal roll-ups) use this so an unknown
+/// model records no cost rather than a made-up one.
+pub(crate) fn lookup_known_pricing(model: &str) -> Option<ModelPricing> {
     let trimmed = model.trim();
+    if is_free_model(trimmed) {
+        return Some(FREE_PRICING);
+    }
     if let Some(row) = PRICING_TABLE.iter().find(|row| row.model == trimmed) {
-        return *row;
+        return Some(*row);
     }
     if trimmed.starts_with("hint:") || LEGACY_TIER_ROWS.contains(&trimmed) {
-        return PRICING_TABLE[0];
+        return Some(PRICING_TABLE[0]);
     }
-    if let Some(price) = crate::platform::cost::catalog::lookup(model) {
-        return ModelPricing {
-            model: price.model_id,
-            input_per_mtok_usd: price.input_per_mtok_usd,
-            cached_input_per_mtok_usd: price.cached_input_per_mtok_usd,
-            output_per_mtok_usd: price.output_per_mtok_usd,
-        };
-    }
-    FALLBACK_PRICING
+    crate::platform::cost::catalog::lookup(model).map(|price| ModelPricing {
+        model: price.model_id,
+        input_per_mtok_usd: price.input_per_mtok_usd,
+        cached_input_per_mtok_usd: price.cached_input_per_mtok_usd,
+        output_per_mtok_usd: price.output_per_mtok_usd,
+    })
 }
 
-/// Estimate the USD cost of a single provider call from its token
-/// usage. Used as a fallback when `charged_amount_usd` is missing.
-pub fn estimate_call_cost_usd(model: &str, usage: &BilledUsage) -> f64 {
-    let pricing = lookup_pricing(model);
+/// Look up pricing for a model name, falling back to [`FALLBACK_PRICING`].
+///
+/// Same resolution as [`lookup_known_pricing`], plus the conservative
+/// fallback so budget caps still bite on an unknown model. Use it for budget
+/// enforcement only; reporting a cost should go through
+/// [`estimate_known_call_cost_usd`].
+pub(crate) fn lookup_pricing(model: &str) -> ModelPricing {
+    lookup_known_pricing(model).unwrap_or(FALLBACK_PRICING)
+}
+
+fn estimate_with(pricing: &ModelPricing, usage: &BilledUsage) -> f64 {
     let cached = usage.cached_input_tokens();
     let standard_input = usage.input_tokens.saturating_sub(cached);
     let m = 1_000_000.0_f64;
     (standard_input as f64) / m * pricing.input_per_mtok_usd
         + (cached as f64) / m * pricing.cached_input_per_mtok_usd
         + (usage.output_tokens as f64) / m * pricing.output_per_mtok_usd
+}
+
+/// Estimate a call's USD cost from a known price, or `None` when the model's
+/// price is unknown (no fabricated fallback rate). Free variants cost `0`.
+pub fn estimate_known_call_cost_usd(model: &str, usage: &BilledUsage) -> Option<f64> {
+    lookup_known_pricing(model).map(|pricing| estimate_with(&pricing, usage))
+}
+
+/// Estimate the USD cost of a single provider call from its token
+/// usage. Used as a fallback when `charged_amount_usd` is missing.
+pub fn estimate_call_cost_usd(model: &str, usage: &BilledUsage) -> f64 {
+    estimate_with(&lookup_pricing(model), usage)
 }
 
 /// Pick the most authoritative USD figure for a single provider call.

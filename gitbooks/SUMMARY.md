@@ -87,6 +87,7 @@
 - [Pluggable engines](developing/engines.md)
 - [Jev](developing/jev.md)
 - [Embedding OpenHuman](developing/embedding.md)
+- [SaaS profiles](developing/saas-profiles.md)
 - [One TinyHumans API key](developing/tinyhumans-api-key.md)
 - [Hooks](developing/hooks.md)
 - [MCP Server](developing/mcp-server.md)

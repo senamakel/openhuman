@@ -20,6 +20,9 @@
 
 pub mod agents;
 pub mod documents;
+pub mod lease;
+mod lease_documents;
+mod lease_local;
 pub mod secrets;
 
 use std::future::Future;
@@ -122,34 +125,42 @@ pub fn clear() -> bool {
     BACKEND.clear()
 }
 
-/// The storage scope of the current call: the acting agent's
-/// ([`scope_for_agent`]) when the dispatch carries one
-/// (`CoreContext::session_agent`), else [`Scope::local`] — except in SaaS
-/// mode, where a call with no acting agent is refused rather than given a
-/// bucket every user would share.
+/// The storage scope of the current call: the tenant's profile
+/// ([`scope_for_profile`]) when the work runs for one, else the acting
+/// agent's ([`scope_for_agent`], `CoreContext::session_agent`), else
+/// [`Scope::local`] — except in SaaS mode, where only a profile scope is
+/// handed out: a call with no profile (or no task scope at all) is refused
+/// rather than given a bucket other users could share.
 ///
 /// # Errors
 ///
-/// In SaaS mode, when the current context names no agent.
+/// In SaaS mode, when the current task serves no profile.
 pub fn current_scope() -> Result<Scope, StorageError> {
-    let agent = crate::core::runtime::CoreContext::current()
-        .and_then(|context| context.session_agent().map(str::to_string));
-    scope_from(agent.as_deref(), crate::core::runtime::mode::is_saas())
+    let saas = crate::core::runtime::mode::is_saas();
+    match crate::core::runtime::current_tenant() {
+        Ok(tenant) => scope_from(tenant.profile.as_deref(), tenant.agent.as_deref(), saas),
+        Err(no_tenant) => Err(StorageError::invalid_input(no_tenant.to_string())),
+    }
 }
 
-/// [`current_scope`] with its two inputs made explicit, so the rule is
-/// testable without a booted context or a locked mode.
+/// [`current_scope`] with its inputs made explicit, so the rule is testable
+/// without a booted context or a locked mode.
 ///
 /// # Errors
 ///
-/// When `saas` and there is no `agent`.
-pub fn scope_from(agent: Option<&str>, saas: bool) -> Result<Scope, StorageError> {
-    match agent {
-        Some(agent) => Ok(scope_for_agent(agent)),
-        None if saas => Err(StorageError::invalid_input(
-            "no acting agent in SaaS mode; refusing a shared storage scope",
+/// When `saas` and there is no `profile`.
+pub fn scope_from(
+    profile: Option<&str>,
+    agent: Option<&str>,
+    saas: bool,
+) -> Result<Scope, StorageError> {
+    match (profile, agent) {
+        (Some(profile), _) => Ok(scope_for_profile(profile)),
+        (None, _) if saas => Err(StorageError::invalid_input(
+            "no profile in SaaS mode; refusing a shared storage scope",
         )),
-        None => Ok(Scope::local()),
+        (None, Some(agent)) => Ok(scope_for_agent(agent)),
+        (None, None) => Ok(Scope::local()),
     }
 }
 
@@ -214,6 +225,16 @@ pub fn driver_is_shared(driver: &str) -> bool {
     driver == "mongodb"
 }
 
+/// Whether a backend with this driver name makes a compare-and-swap
+/// (`Precondition::Version` / `Absent`) atomic across processes, which a
+/// [`lease::DocumentLeases`] needs to exclude other nodes. MongoDB and SQLite
+/// do (a database-side conditional write; SQLite's immediate transaction
+/// under the file lock); the memory driver lives in one process, and the
+/// file driver checks versions in-process only.
+pub fn driver_has_cross_process_cas(driver: &str) -> bool {
+    matches!(driver, "mongodb" | "sqlite")
+}
+
 /// Whether the installed backend may be shared with other processes; `false`
 /// when none is installed. See [`driver_is_shared`].
 pub fn installed_is_shared() -> bool {
@@ -224,6 +245,23 @@ pub fn installed_is_shared() -> bool {
 /// mapping the session store uses, so every domain agrees on it.
 pub fn scope_for_agent(agent_id: &str) -> Scope {
     tinyagents_session::DriverSessionStores::scope_for(agent_id)
+}
+
+/// The storage scope profile `profile_id`'s records live under:
+/// `profile:<id>`, or `profile-sha256:<hex of the id>` when that is not a
+/// valid scope (too long, whitespace, control characters). Injective: a
+/// literal scope always starts with `profile:`, a hashed one never does, and
+/// two distinct profiles never share either form.
+pub fn scope_for_profile(profile_id: &str) -> Scope {
+    const PREFIX: &str = "profile:";
+    let literal = format!("{PREFIX}{profile_id}");
+    if let Ok(scope) = Scope::new(&literal) {
+        return scope;
+    }
+    use sha2::Digest;
+    let digest = sha2::Sha256::digest(profile_id.as_bytes());
+    Scope::new(format!("profile-sha256:{}", hex::encode(digest)))
+        .unwrap_or_else(|_| unreachable!("a sha256 hex scope is always valid"))
 }
 
 #[cfg(test)]

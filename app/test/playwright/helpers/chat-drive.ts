@@ -255,9 +255,9 @@ export async function startNewThread(page: Page): Promise<string> {
   const previous = await selectedThreadId(page);
   const sidebar = page.getByTestId('new-thread-sidebar-button');
   if (await sidebar.isVisible().catch(() => false)) {
-    await sidebar.click({ force: true });
+    await sidebar.click();
   } else {
-    await page.getByTestId('new-thread-button').click({ force: true });
+    await page.getByTestId('new-thread-button').click();
   }
   await expect.poll(async () => selectedThreadId(page), { timeout: 20_000 }).not.toBe(previous);
   return waitForSelectedThreadId(page);

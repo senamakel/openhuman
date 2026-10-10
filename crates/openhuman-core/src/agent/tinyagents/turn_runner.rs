@@ -299,7 +299,7 @@ pub(super) async fn run_turn_via_tinyagents_body(
         run_context.tool_rules.clone(),
     );
     super::response_shape::install(&mut harness, hosted_root.is_some());
-
+    super::deadline_wind_down::install(&mut harness, &handle, &run_context, &subagent_scope);
     // Fail-closed registry validation gate (issue #4249, Workstream 10 — registry).
     // The projected `CapabilityRegistry` produced these diagnostics during
     // assembly; enforce them here, *before* the first model dispatch, so an

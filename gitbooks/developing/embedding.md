@@ -398,6 +398,69 @@ println!("{}", second.reply);
 and `Agent`, so a host that outgrows one agent adds more on the same
 runtime rather than rebuilding.
 
+## Many users in one process: ProfileRuntime
+
+A `Runtime` serves one operator, and its agents share that operator's
+credentials. A server that already authenticates its own users and needs each
+of them isolated (their own workspace, credential, threads, memory and
+security policy) uses `ProfileRuntime` instead. It is the hosted SaaS mode's
+profile host, driven in-process without the JSON-RPC gateway: one profile per
+user, laid out like the desktop's `users/<id>/`.
+
+```rust,no_run
+# async fn demo() -> Result<(), openhuman_embed::ProfileError> {
+use openhuman_embed::profiles::ProfileCredentialKind;
+use openhuman_embed::{ProfileRuntime, RelayMessage, SaasConfig};
+
+let profiles = ProfileRuntime::build(SaasConfig::new("/srv/openhuman")).await?;
+
+let alice = profiles.provision("alice").await?;
+profiles
+    .set_credential(&alice.profile_id, ProfileCredentialKind::ApiKey, "th_...")
+    .await?;
+
+let handle = profiles.open("alice").await?;
+let reply = handle.chat("t1", "Remind me to water the ferns.").await?;
+println!("{}", reply.text);
+
+// A message alice sent the product's Telegram bot: it lands on her
+// `channel:telegram/555/777` thread, and the reply arrives on her events
+// as `channel_outbound` for you to deliver.
+let mut events = handle.events();
+handle
+    .relay_inbound(RelayMessage::new("telegram", "777", "555", "tg-1", "hi"))
+    .await?;
+# let _ = events.recv().await; Ok(()) }
+```
+
+What to know before reaching for it:
+
+- **It locks the process into SaaS mode.** Building a `ProfileRuntime` fails
+  if any core already runs in the process, and afterwards
+  `Runtime::builder()`, `Harness` and a second `ProfileRuntime` all refuse to
+  boot. Give it a process of its own.
+- **The boot guard runs.** The root must be absolute, existing, not
+  world-writable and outside `~/.openhuman`, and single-user environment
+  variables (`OPENHUMAN_WORKSPACE`, `OPENHUMAN_CORE_TOKEN`, ...) must be
+  unset. A missing service token file is written for you (owner-only,
+  random), since nothing serves a gateway here.
+- **A thread id is unique per profile.** Two users' `t1` are two
+  conversations; nothing about one is visible to the other, including its
+  events (`ProfileHandle::events` only yields that profile's).
+- **A handle keeps its profile open.** While a `ProfileHandle` (or a clone)
+  is alive, the profile is not evicted and `release` refuses it. Drop the
+  handles to let idle eviction (`idle_evict_secs`, `max_profiles_open`) close
+  it.
+- **Inference is managed.** A profile's config is forced and names no
+  endpoint, so its turns go through the installed backend transport
+  (`openhuman_tinyhumans::install`) with the profile's own credential.
+- **Calls go through the user surface.** `ProfileHandle::call` reaches only
+  the reviewed `USER_METHODS` (threads, web chat, relay, the user's memory),
+  as a gateway request would.
+
+The same host also runs as a server behind a gateway, across several nodes;
+see [SaaS profiles](saas-profiles.md) for deploying it.
+
 ## Connecting to the hosted backend
 
 `openhuman-embed` alone installs no backend transport: agents, memory,
@@ -509,6 +572,13 @@ OPENHUMAN_EXAMPLE_TINYHUMANS_API_KEY=th_... \
   cargo run -p openhuman-embed --example two_agents -- "Describe this directory."
 ```
 
+Two users on one thread id, each with their own SaaS profile, fully offline
+(a local mock answers inference):
+
+```bash
+cargo run -p openhuman-embed --example profiles
+```
+
 `OPENHUMAN_EXAMPLE_BACKEND_URL` points non-inference backend calls
 somewhere specific, and `OPENHUMAN_EXAMPLE_SKILLS_DIR` supplies skill
 bundles. The repository-root `examples/embed_headless.rs` and
@@ -521,7 +591,9 @@ Tests worth reading alongside the examples, all under
 `Harness` runs a real turn against a mocked provider with nothing else
 bound; `runtime_agents.rs` runs three agents with different
 providers, access tiers, skills, MCP servers and working directories on one
-runtime; `public_api.rs` pins the host-facing embedding contract at
+runtime; `saas_profiles.rs` keeps two `ProfileRuntime` users apart on one
+thread id and relays a platform message onto a user's channel thread;
+`public_api.rs` pins the host-facing embedding contract at
 compile time. Run them with:
 
 ```bash

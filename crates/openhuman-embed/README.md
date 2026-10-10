@@ -427,6 +427,63 @@ returned `ChannelListener` stops the bot when it is dropped. Behind the
 `channels` feature (on by default). See the gitbook's "Channels" section and
 `tests/channel_agents.rs`.
 
+## Many users in one process: `ProfileRuntime`
+
+`Runtime` serves one operator. A server that already authenticates its own
+users and wants each of them isolated (their own workspace, credential,
+threads, memory and policy) uses `ProfileRuntime` instead: the SaaS profile
+host (`openhuman_core::profiles`) driven in-process, without the JSON-RPC
+gateway.
+
+```rust,no_run
+# async fn demo() -> Result<(), openhuman_embed::ProfileError> {
+use openhuman_embed::profiles::ProfileCredentialKind;
+use openhuman_embed::{ProfileRuntime, RelayMessage, SaasConfig};
+
+let profiles = ProfileRuntime::build(SaasConfig::new("/srv/openhuman")).await?;
+let alice = profiles.provision("alice").await?;
+profiles
+    .set_credential(&alice.profile_id, ProfileCredentialKind::ApiKey, "th_...")
+    .await?;
+
+let handle = profiles.open("alice").await?;       // keeps alice open
+let reply = handle.chat("t1", "hello").await?;    // web chat, final reply
+let mut events = handle.events();                  // only alice's events
+handle
+    .relay_inbound(RelayMessage::new("telegram", "777", "555", "tg-1", "hi"))
+    .await?;                                       // reply arrives as `channel_outbound`
+# let _ = (reply, events.recv().await); Ok(()) }
+```
+
+- `ProfileRuntime::{build, builder}` boot `core::runtime::saas::build` with a
+  `SaasConfig` (the operator's settings: root, slots, idle eviction, id mode,
+  storage URL, node id, lease TTL). `ProfileRuntimeBuilder::session_store`
+  installs a host session store first. When the configured service token file
+  is missing, `build` writes a random owner-only one, since nothing serves a
+  gateway here; the rest of the boot guard runs unchanged.
+- `provision(user_id)`, `open(user_id)`, `list()`, `release(&ProfileId)`,
+  `deprovision(&ProfileId)`, `set_credential(..)` and `shutdown()` map onto
+  the `ProfileHost`. `open` answers `OpenError::HeldElsewhere(record)` for a
+  profile another node holds the lease on.
+- A `ProfileHandle` holds its profile **in use** while it (or a clone) lives:
+  not evicted, and `release` refuses it. Every call runs under the profile's
+  own `CoreContext`, through the same `USER_METHODS` surface as the gateway:
+  `chat(thread, text)` (creates the thread, waits for `chat_done` /
+  `chat_error`), `relay_inbound(RelayMessage)`, `events()`, `threads()`,
+  `messages(thread)`, `call(method, params)` and `scope(fut)`.
+- **It locks the process into SaaS mode** (`core/runtime/mode.rs`). It fails
+  if any core already runs in the process, and once it is built
+  `Runtime::builder()`, `Harness` and a second `ProfileRuntime` all refuse to
+  boot. Use it in a process of its own.
+- A profile's config is forced: it names no inference endpoint. Turns use
+  managed inference through the installed backend transport
+  (`openhuman_tinyhumans::install` in a real host) with each profile's own
+  credential.
+
+See [`examples/profiles.rs`](examples/profiles.rs), `tests/saas_profiles.rs`,
+[`gitbooks/developing/saas-profiles.md`](../../gitbooks/developing/saas-profiles.md)
+and [`profiles/README.md`](../openhuman-core/src/profiles/README.md).
+
 ## Tools on an agent
 
 `AgentSpec::tools` gives an agent the host's own in-process tools, each with
@@ -448,11 +505,12 @@ agent to another. See [`src/agent/README.md`](src/agent/README.md).
 | [`src/call.rs`](src/call.rs) | The private typed dispatch helper over `CoreRuntime::invoke` that every facade method uses. |
 | [`src/config.rs`](src/config.rs), [`src/auth.rs`](src/auth.rs), [`src/core_agent.rs`](src/core_agent.rs) | The `Core` sub-facades: runtime flags, credentials (`Session`, `AuthState`), and the orchestrator turn. |
 | [`src/memory.rs`](src/memory.rs) | `Memory`, the per-tenant memory facade returned by `Runtime::memory`. |
+| [`src/profiles.rs`](src/profiles.rs), [`src/profiles/handle.rs`](src/profiles/handle.rs) | `ProfileRuntime`, `ProfileRuntimeBuilder`, `ProfileHandle`, `ProfileEvents`, `ProfileError`: SaaS profiles in-process (locks the process to SaaS mode). |
 | [`src/process.rs`](src/process.rs), [`src/process_sentry.rs`](src/process_sentry.rs) | Host lifecycle helpers: the agent-sized tokio runtime, logging init, dotenv and launch overrides, the master key, and (`crash-reporting`) the Sentry `ClientOptions` with the single `before_send` chain. |
 | [`src/artifacts.rs`](src/artifacts.rs), [`src/chat_surface.rs`](src/chat_surface.rs), [`src/identity.rs`](src/identity.rs), [`src/modules.rs`](src/modules.rs) | Curated host facades: artifact file resolution, the in-process web-chat event stream, the signed-in identity peek, bundled module releases. `config` also carries `load_or_init`, `load_config_with_timeout`, `default_root_openhuman_dir`, `read_active_user_id`. |
-| [`src/host_internals.rs`](src/host_internals.rs) | `__host` (doc-hidden): an explicit list of core modules for `openhuman-tinyhumans` and `openhuman-rpc` only. |
+| [`src/host_internals.rs`](src/host_internals.rs) | `__host` (doc-hidden): an explicit list of core items (nested modules mirroring the core paths, each entry used by a named consumer) for `openhuman-tinyhumans` and `openhuman-rpc` only. |
 | [`src/error.rs`](src/error.rs) | `CoreError`, the error every facade call returns (`Domain`, `Unavailable`, `Rpc`, route refusals). |
-| [`examples/`](examples/README.md) | Runnable programs: one turn on a harness, and two agents on one runtime. |
+| [`examples/`](examples/README.md) | Runnable programs: one turn on a harness, two agents on one runtime, and two users' profiles on one thread id. |
 | [`tests/`](tests/README.md) | End-to-end suites against `wiremock` providers. |
 
 ## Key types and entry points
@@ -475,6 +533,8 @@ agent to another. See [`src/agent/README.md`](src/agent/README.md).
   `Stateless`, or `Inherit`.
 - `Harness` ([`src/harness/mod.rs`](src/harness/mod.rs)): one runtime, one agent.
 - `Core` ([`src/lib.rs`](src/lib.rs)): the typed facade over a caller-built runtime.
+- `ProfileRuntime` and `ProfileHandle` ([`src/profiles.rs`](src/profiles.rs)): one SaaS profile per
+  user, in-process. Exclusive with `Runtime` in a process.
 
 ## One model call, no runtime: `Completer`
 
@@ -590,6 +650,9 @@ has the resulting binary sizes and per-agent memory.
 
 ## Gotchas
 
+- A `ProfileRuntime` locks the process to SaaS mode for good: build it in a
+  process that runs no `Runtime`, `Harness` or caller-built core, before and
+  after.
 - One runtime per process. The keyring master key, the RPC bearer, the
   event bus and the `Once`-guarded domain subscribers are process-scoped
   (`CoreContext::init`). A second `RuntimeBuilder::build` returns
@@ -643,9 +706,11 @@ cargo test -p openhuman-embed --features inference,mcp,skills
 cargo test -p openhuman-embed --features inference,mcp,skills --test runtime_agents
 cargo test -p openhuman-embed --features inference,mcp,skills --test cron_agents
 cargo test -p openhuman-embed --features inference,mcp,skills --test channel_agents
+cargo test -p openhuman-embed --test saas_profiles
 ```
 
 `tests/channel_agents.rs` drives a runtime agent from a mocked Telegram Bot API: the bound agent answers with its prompt and read-only host tool under the `ExternalChannel` origin, its write tool is withheld and refused, and the reply is posted back to the chat.
+`tests/saas_profiles.rs` boots a `ProfileRuntime` on a temp root against a mocked inference endpoint: two users on thread `t1` see only their own messages and ride their own credential, a held handle keeps its profile from being released, a relayed Telegram message lands on the user's `channel:` thread with its reply on that user's events only, and the process refuses any other core afterwards.
 `tests/cron_agents.rs` runs a cron job as a runtime agent with its host tool under the
 `TrustedAutomation { Cron }` origin, records a system job handler's error, and starts and
 stops the scheduler with the runtime.

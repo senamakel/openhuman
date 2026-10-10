@@ -49,3 +49,17 @@ fn lifecycle_state_serializes_to_variant_name() {
     let json = serde_json::to_string(&ToolLifecycleState::NeedsUserInput).unwrap();
     assert_eq!(json, "\"NeedsUserInput\"");
 }
+
+#[test]
+fn structural_classes_are_permanent() {
+    // Neither an argument the model got wrong nor a command that exited
+    // non-zero becomes right by re-running the identical call.
+    assert_eq!(
+        ToolFailureClass::InvalidArguments.category(),
+        FailureCategory::Permanent
+    );
+    assert_eq!(
+        ToolFailureClass::CommandFailed.category(),
+        FailureCategory::Permanent
+    );
+}

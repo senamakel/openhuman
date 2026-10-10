@@ -37,12 +37,18 @@ async fn nested_scope_yields_the_inner_sink() {
     .expect("a sink is visible inside the nested scope");
 
     observed
-        .send(AgentProgress::TurnCompleted { iterations: 1 })
+        .send(AgentProgress::TurnCompleted {
+            iterations: 1,
+            stop: None,
+        })
         .await
         .expect("send on the innermost sink");
     assert!(matches!(
         inner_rx.recv().await,
-        Some(AgentProgress::TurnCompleted { iterations: 1 })
+        Some(AgentProgress::TurnCompleted {
+            iterations: 1,
+            stop: None
+        })
     ));
     // The outer sink saw nothing — the inner scope shadows it.
     assert!(outer_rx.try_recv().is_err());

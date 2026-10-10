@@ -19,7 +19,8 @@
 //! **The `mcp.json` document.** Installing a server is no longer a catalog
 //! action: the user declares servers in one `mcp.json` document and
 //! [`super::config_ops`] reconciles the store against it (`config_get` /
-//! `config_set`). The catalog is browse-only.
+//! `config_set`). There is no install-from-catalog RPC: the app declares a
+//! hosted server from the catalog into `mcp.json` itself.
 
 use std::collections::HashMap;
 use std::time::Instant;

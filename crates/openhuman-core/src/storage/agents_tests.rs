@@ -139,17 +139,26 @@ async fn without_a_backend_only_the_local_scope_runs() {
     assert_eq!(runs[0].0, None);
     assert!(for_each_agent("test", || async {}).await.is_empty());
     assert_eq!(
-        find_owner("test", || async { false }).await,
-        None,
+        find_owner("test", || async { Ok(false) }).await,
+        Ok(None),
         "nothing anywhere"
     );
-    assert_eq!(find_owner("test", || async { true }).await, Some(None));
+    assert_eq!(
+        find_owner("test", || async { Ok(true) }).await,
+        Ok(Some(None))
+    );
+    assert!(
+        find_owner("test", || async { Err("down".to_string()) })
+            .await
+            .is_err(),
+        "a failed lookup with no match fails closed"
+    );
     let inside = within_agent(Some("agents-test-unvisited"), async {
         CoreContext::current().and_then(|c| c.session_agent().map(str::to_string))
     })
     .await;
-    assert_eq!(inside.as_deref(), Some("agents-test-unvisited"));
-    assert_eq!(within_agent(None, async { 7 }).await, 7);
+    assert_eq!(inside.flatten().as_deref(), Some("agents-test-unvisited"));
+    assert_eq!(within_agent(None, async { 7 }).await, Some(7));
     AgentContextRegistry::deregister("agents-test-unvisited", &agent);
 }
 
@@ -162,4 +171,43 @@ async fn without_a_backend_the_live_pass_runs_only_local() {
     let runs = for_each_live_scope("test", || async { 1 }).await;
     assert_eq!(runs, vec![(None, 1)]);
     AgentContextRegistry::deregister("agents-test-live-pass", &agent);
+}
+
+#[test]
+fn the_first_scope_reporting_the_record_owns_it() {
+    let found = decide(vec![
+        (None, Ok(false)),
+        (Some("a".into()), Err("down".into())),
+        (Some("b".into()), Ok(true)),
+    ]);
+    assert_eq!(found, Ok(Some(Some("b".to_string()))));
+    let failed = decide(vec![
+        (None, Ok(false)),
+        (Some("a".into()), Err("down".into())),
+    ]);
+    let failed = failed.unwrap_err();
+    assert_eq!(failed.agent.as_deref(), Some("a"));
+    assert_eq!(failed.to_string(), "lookup failed in scope a: down");
+    assert_eq!(decide(Vec::new()), Ok(None));
+}
+
+#[tokio::test]
+async fn the_local_pass_runs_outside_the_callers_agent() {
+    if installed().is_some() {
+        return;
+    }
+    let agent = live_agent("agents-test-caller");
+    let seen = CoreContext::scope(Arc::clone(&agent), async {
+        for_each_scope("test", || async {
+            CoreContext::current().and_then(|c| c.session_agent().map(str::to_string))
+        })
+        .await
+    })
+    .await;
+    // Without a default context the caller's own context stays; with one,
+    // the local pass leaves the agent.
+    if CoreContext::default_context().is_some() {
+        assert_eq!(seen, vec![(None, None)]);
+    }
+    AgentContextRegistry::deregister("agents-test-caller", &agent);
 }

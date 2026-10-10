@@ -340,14 +340,13 @@ pub(crate) async fn run_chat_task(
     // Settle the turn's own snapshot now the turn is over.
     //
     // The bridge marks the snapshot terminal on its way out, but it only exits
-    // once its progress sender drops — and for a cached per-thread session that
-    // does not happen until the *next* turn replaces the sink, so a bridge
-    // routinely outlives its turn by minutes (the `did not drain` warning above
-    // is the visible edge of it). The last turn of a thread has no next turn to
-    // release it, leaving `Streaming` on disk indefinitely: re-entering the
-    // thread then hydrates that snapshot and paints a live "Thinking..."
-    // indicator under a reply that was already delivered. The turn has ended
-    // here by construction, so record that. A bridge that later observes
+    // once every clone of its progress sender drops. The cached session no
+    // longer keeps the turn's commit receipt (which held two), yet a detached
+    // sub-agent may still hold one past the turn, and an exit the bridge never
+    // reaches would leave `Streaming` on disk: re-entering the thread then
+    // hydrates that snapshot and paints a live "Thinking..." indicator under a
+    // reply that was already delivered. The turn has ended here by
+    // construction, so record that. A bridge that later observes
     // `TurnCompleted` overwrites this with `Completed`, terminal either way.
     {
         let lifecycle = if result.is_ok() {

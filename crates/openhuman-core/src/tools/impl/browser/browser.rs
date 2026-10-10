@@ -30,7 +30,9 @@ use std::{
     sync::{Arc, Mutex as StdMutex},
     time::Instant,
 };
-use task_actions::{approve_task_action, host_hint, parse_action, required, task_inputs};
+use task_actions::{
+    approve_task_action, host_hint, parse_action, required, task_inputs, task_outcome,
+};
 use tinycomputer_bus::agent::{ContinueTaskRequest, TaskId, TaskStatus, TaskView};
 use tinycomputer_bus::browser::{
     Action, DownloadState, DownloadWaitRequest, NavigateRequest, ReadRequest, SessionId,
@@ -321,11 +323,18 @@ impl BrowserTool {
         Ok(serde_json::to_value(view)?)
     }
 
-    /// Report a task view; a `needs_approval` pause is held with a one-use
-    /// token that only `confirm_pending` (through the host gate) can spend.
+    /// Report a task view as the tool's outcome ([`task_outcome`]): a task
+    /// that failed or was cancelled under the caller is an error.
     async fn report(&self, view: TaskView) -> anyhow::Result<Value> {
-        let mut output = serde_json::to_value(&view)?;
-        if let Some(hint) = host_hint(&view) {
+        let output = self.describe(&view).await?;
+        task_outcome(&view, output)
+    }
+
+    /// Render a task view; a `needs_approval` pause is held with a one-use
+    /// token that only `confirm_pending` (through the host gate) can spend.
+    async fn describe(&self, view: &TaskView) -> anyhow::Result<Value> {
+        let mut output = serde_json::to_value(view)?;
+        if let Some(hint) = host_hint(view) {
             output["host_hint"] = json!(hint);
         }
         if let TaskStatus::NeedsApproval { action, target, .. } = &view.status {
@@ -369,11 +378,11 @@ impl BrowserTool {
         )
         .await
         .map_err(anyhow::Error::msg)?;
-        let mut output = self.report(view).await?;
+        let mut output = self.describe(&view).await?;
         if !approved {
             output["approval"] = json!("denied by the host");
         }
-        Ok(output)
+        task_outcome(&view, output)
     }
 
     /// `origin` is the turn this call runs under; it decides only whether an
@@ -480,6 +489,10 @@ impl BrowserTool {
     }
 }
 
+/// The browser tool's deadline: the approval gate's ten-minute park plus two
+/// minutes for the action itself. See `BrowserTool::timeout_policy`.
+pub(crate) const BROWSER_TOOL_TIMEOUT_MS: u64 = 12 * 60 * 1000;
+
 #[async_trait]
 impl Tool for BrowserTool {
     fn exposure(&self) -> tinytools::ToolExposure {
@@ -510,6 +523,14 @@ impl Tool for BrowserTool {
     }
     fn parameters_schema(&self) -> Value {
         static_schema!(include_str!("parameters/browser.json"))
+    }
+    /// Direct consequential actions park on the approval gate *inside*
+    /// `execute` (`intercept_forced`), which waits up to the gate's TTL. The
+    /// inherited 120s per-tool deadline would cut that park long before the
+    /// user can answer, so the browser carries its own budget: the longest
+    /// park plus time for the action itself.
+    fn timeout_policy(&self, _args: &Value) -> tinytools::ToolTimeout {
+        tinytools::ToolTimeout::Millis(BROWSER_TOOL_TIMEOUT_MS)
     }
     fn external_effect_with_args(&self, args: &Value) -> bool {
         // Gate direct mutations before perform; task steps pause for approval.
@@ -560,3 +581,7 @@ mod tests;
 #[cfg(test)]
 #[path = "browser_schema_tests.rs"]
 mod schema_tests;
+
+#[cfg(test)]
+#[path = "browser_task_outcome_tests.rs"]
+mod task_outcome_tests;

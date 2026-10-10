@@ -54,6 +54,7 @@ pub mod saas;
 pub mod services;
 pub mod spawn;
 pub(crate) mod subscribers;
+pub mod tenant;
 
 pub use agent_scope::{agent_scope_dir, current_slot, AgentContextRegistry, AgentScopedState};
 pub use builder::{CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource};
@@ -61,3 +62,4 @@ pub use context::{ContextOverlay, CoreContext};
 pub use mode::{current_mode, is_saas, Mode};
 pub use saas::SaasConfig;
 pub use spawn::{spawn_blocking_scoped, spawn_scoped};
+pub use tenant::{current_tenant, session_key, tenant_key, NoTenant, Tenant};

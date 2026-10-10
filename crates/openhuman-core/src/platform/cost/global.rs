@@ -92,6 +92,12 @@ pub fn init_global(config: CostConfig, workspace_dir: &Path) {
 /// figures start over with the new tracker. A failed construction keeps the
 /// previous tracker rather than leaving the process with none.
 pub fn rebind_global(config: CostConfig, workspace_dir: &Path) {
+    // In SaaS every profile owns its tracker (see `seed_tenant_tracker`); the
+    // process-wide slot is never read, so rebinding it would only mislead.
+    if crate::core::runtime::is_saas() {
+        log::debug!("[cost] rebind_global ignored in SaaS mode");
+        return;
+    }
     if let Some(current) = try_global() {
         if current.workspace_dir() == workspace_dir {
             log::debug!(
@@ -126,8 +132,54 @@ pub fn rebind_global(config: CostConfig, workspace_dir: &Path) {
 /// Fetch the global tracker if it has been initialised. Returns `None`
 /// before bootstrap or after an init failure — callers must treat the
 /// absence as a soft no-op.
+///
+/// In SaaS this is the calling tenant's own tracker
+/// ([`seed_tenant_tracker`]), never the process-wide one: one user's spend
+/// must not land in, or be read from, another's ledger. A SaaS task with no
+/// scope, or the operator, gets `None`.
 pub fn try_global() -> Option<Arc<CostTracker>> {
+    let saas = crate::core::runtime::is_saas();
+    if saas {
+        return tracker_in(crate::core::runtime::tenant::context_in(saas).as_deref());
+    }
     GLOBAL_TRACKER.read().clone()
+}
+
+/// A SaaS tenant's cost tracker, held in its context's state slots.
+#[derive(Default)]
+pub(crate) struct TenantTracker(RwLock<Option<Arc<CostTracker>>>);
+
+/// Give `ctx` (a SaaS profile's context) a cost tracker over the profile's
+/// own workspace. Called when the profile opens; a failure leaves it without
+/// one (its usage goes unrecorded) rather than borrowing another ledger.
+pub fn seed_tenant_tracker(
+    ctx: &crate::core::runtime::CoreContext,
+    config: &crate::config::Config,
+) {
+    match CostTracker::new(config.cost.clone(), &config.workspace_dir) {
+        Ok(tracker) => {
+            *ctx.agent_state().slot::<TenantTracker>().0.write() = Some(Arc::new(tracker));
+            log::debug!(
+                "[cost] tenant tracker seeded workspace={}",
+                config.workspace_dir.display()
+            );
+        }
+        Err(err) => {
+            // Never keep a tracker over a previous workspace.
+            *ctx.agent_state().slot::<TenantTracker>().0.write() = None;
+            log::warn!(
+                "[cost] could not seed the tenant tracker at {}: {err}",
+                config.workspace_dir.display()
+            );
+        }
+    }
+}
+
+/// The tracker `ctx` was seeded with; `None` without a context.
+pub(crate) fn tracker_in(
+    ctx: Option<&crate::core::runtime::CoreContext>,
+) -> Option<Arc<CostTracker>> {
+    ctx.and_then(|ctx| ctx.agent_state().slot::<TenantTracker>().0.read().clone())
 }
 
 /// Convenience hook used by the agent turn loop: translates a provider

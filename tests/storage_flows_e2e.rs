@@ -87,7 +87,7 @@ async fn a_configured_backend_holds_cron_flows_and_flow_state() {
             retries: Some(0),
             single_flight: true,
         };
-        policy::set_policy(&policy_config, "job-1", wanted.clone()).unwrap();
+        policy::set_policy(&policy_config, "job-1", wanted).unwrap();
         assert_eq!(policy::get_policy(&policy_config, "job-1").unwrap(), wanted);
         policy::clear_policy(&policy_config, "job-1").unwrap();
         assert_eq!(

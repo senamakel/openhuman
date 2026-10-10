@@ -35,7 +35,16 @@ fn classified_halt_returns_partial_work_without_provider_usage() {
     let close = classified_halt_close(&outcome).expect("classified halt");
     assert_eq!(close.usage.model_calls, 0);
     assert!(close.output.contains("permission"), "{}", close.output);
-    assert!(close.output.contains("three items"), "{}", close.output);
+    assert!(
+        close.output.contains("`list` succeeded"),
+        "{}",
+        close.output
+    );
+    assert!(
+        !close.output.contains("three items"),
+        "no raw tool output: {}",
+        close.output
+    );
     assert!(close.output.contains("403 Forbidden"), "{}", close.output);
 }
 

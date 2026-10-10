@@ -486,3 +486,80 @@ async fn correct_workspace_after_stale_events() {
     assert_eq!(messages[0].id, "user:m1");
     assert_eq!(messages[0].content, "valid");
 }
+
+#[tokio::test]
+async fn claimed_channel_turns_are_left_to_their_caller() {
+    let temp = TempDir::new().expect("tempdir");
+    let subscriber = ConversationPersistenceSubscriber::new(temp.path().to_path_buf());
+    claim_channel_turn("relay-test-channel", "claimed-1");
+    assert!(is_claimed_channel_turn("relay-test-channel", "claimed-1"));
+    assert!(!is_claimed_channel_turn("relay-test-channel", "other"));
+
+    for event in [
+        DomainEvent::ChannelMessageReceived {
+            channel: "relay-test-channel".into(),
+            message_id: "claimed-1".into(),
+            sender: "alice".into(),
+            reply_target: "room-1".into(),
+            content: "hello".into(),
+            thread_ts: None,
+            inbound_envelope: None,
+            workspace_dir: temp.path().to_path_buf(),
+        },
+        DomainEvent::ChannelMessageProcessed {
+            channel: "relay-test-channel".into(),
+            message_id: "claimed-1".into(),
+            sender: "alice".into(),
+            reply_target: "room-1".into(),
+            content: "hello".into(),
+            thread_ts: None,
+            response: "hi".into(),
+            provider: "p".into(),
+            model: "m".into(),
+            elapsed_ms: 1,
+            success: true,
+            workspace_dir: temp.path().to_path_buf(),
+        },
+    ] {
+        subscriber.handle(&event).await;
+    }
+
+    let threads = crate::threads::store::list_threads(temp.path().to_path_buf()).expect("threads");
+    assert!(
+        threads.is_empty(),
+        "a claimed turn is not mirrored: {threads:?}"
+    );
+}
+
+#[test]
+fn saas_claims_nothing() {
+    claim_channel_turn_in(true, "relay-saas-channel", "saas-claim-1");
+    assert!(
+        !is_claimed_channel_turn("relay-saas-channel", "saas-claim-1"),
+        "no subscriber reads a claim in SaaS, so none is kept to collide across profiles"
+    );
+    claim_channel_turn_in(false, "relay-saas-channel", "saas-claim-2");
+    assert!(is_claimed_channel_turn(
+        "relay-saas-channel",
+        "saas-claim-2"
+    ));
+}
+
+#[test]
+fn the_claim_list_is_bounded() {
+    let mut claimed = ClaimedTurns::new(3);
+    for i in 0..5 {
+        claimed.claim("telegram", &format!("m{i}"));
+    }
+    claimed.claim("telegram", "m4");
+    assert!(!claimed.contains("telegram", "m0"), "oldest evicted");
+    assert!(!claimed.contains("telegram", "m1"), "oldest evicted");
+    assert!(claimed.contains("telegram", "m2"));
+    assert!(claimed.contains("telegram", "m4"));
+    assert!(!claimed.contains("discord", "m4"), "keyed by channel too");
+    assert_eq!(
+        claimed.keys.len(),
+        3,
+        "a repeated claim is not stored twice"
+    );
+}

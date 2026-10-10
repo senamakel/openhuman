@@ -65,7 +65,7 @@ pub struct DomainSet {
     pub modules: bool,
     /// Everything not in a named family — always on in `full()`.
     pub platform: bool,
-    /// The SaaS operator plane (`user_agents.*`). Off in every preset but
+    /// The SaaS operator plane (`profiles.*`). Off in every preset but
     /// `DomainSet::saas()`, `full()` included: a single-user core has no
     /// users to provision.
     pub operator: bool,

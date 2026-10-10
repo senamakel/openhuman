@@ -56,10 +56,11 @@
     "test:install-ps1": "pwsh -NoProfile -File scripts/tests/OpenHumanWindowsInstall.Tests.ps1",
     "rust:check": "pnpm --filter openhuman-app rust:check",
     "rust:clippy": "cargo clippy -p openhuman -p openhuman-cli -p openhuman-tinyhumans -- -D warnings && pnpm --filter openhuman-app rust:clippy",
-    "rust:layout": "node scripts/ci/check-openhuman-rust-layout.mjs && node scripts/ci/check-crate-chain.mjs",
+    "rust:layout": "node scripts/ci/check-openhuman-rust-layout.mjs && node scripts/ci/check-crate-chain.mjs && node scripts/ci/check-storage-bypass.mjs",
     "rust:ignored-tests": "node scripts/ci/check-ignored-tests.mjs",
     "dep:audit": "bash scripts/dep-audit/run.sh",
     "agent:runtime-boundary": "node scripts/ci/check-agent-runtime-boundary.mjs",
+    "storage:bypass": "node scripts/ci/check-storage-bypass.mjs",
     "saas:ambient": "node scripts/ci/check-saas-ambient.mjs",
     "typecheck": "pnpm --filter openhuman-app compile",
     "tauri:ios:init": "bash scripts/ios-init.sh",
@@ -85,7 +86,8 @@
   },
   "pnpm": {
     "patchedDependencies": {
-      "@assistant-ui/react-lexical@0.2.10": "app/patches/@assistant-ui__react-lexical@0.2.10.patch"
+      "@assistant-ui/react-lexical@0.2.10": "app/patches/@assistant-ui__react-lexical@0.2.10.patch",
+      "mdast-util-gfm-autolink-literal@2.0.1": "app/patches/mdast-util-gfm-autolink-literal@2.0.1.patch"
     }
   }
 }

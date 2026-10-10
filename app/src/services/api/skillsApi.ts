@@ -483,7 +483,7 @@ export const skillsApi = {
    * immediately with the new background run's `run_id`, the canonical
    * skill/workflow id, and the log path the run is streaming into; the actual
    * autonomous work continues in the background and finishes with
-   * status `DONE` / `DEGENERATE` / `FAILED` in the run log.
+   * status `DONE` / `STOPPED` / `DEGENERATE` / `FAILED` in the run log.
    */
   runWorkflow: async (
     workflowId: string,
@@ -659,15 +659,16 @@ export interface RunLogSlice {
  * One run entry returned by `openhuman.skill_runtime_recent_runs`. Wire shape
  * mirrors `crate::skills::run_log::ScannedRun`. `status` is
  * `"RUNNING"` while the run hasn't written its `--- result ---` footer
- * yet; after the footer lands it becomes `"DONE"` / `"DEGENERATE"` /
- * `"FAILED"`.
+ * yet; after the footer lands it becomes `"DONE"` / `"STOPPED"` /
+ * `"DEGENERATE"` / `"FAILED"`. `"STOPPED"` means the harness ended the run
+ * early (failure breaker, deadline wind-down or iteration cap).
  */
 export interface ScannedRun {
   run_id: string;
   workflow_id: string;
   /** RFC3339-with-trailing-`UTC` timestamp from the log header. */
   started: string;
-  status: 'RUNNING' | 'DONE' | 'DEGENERATE' | 'FAILED' | string;
+  status: 'RUNNING' | 'DONE' | 'STOPPED' | 'DEGENERATE' | 'FAILED' | string;
   /** Footer `duration: <ms> ms`. Null while running. */
   duration_ms: number | null;
   /** Footer `finished:` timestamp. Null while running. */

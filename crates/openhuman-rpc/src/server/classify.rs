@@ -62,6 +62,14 @@ pub(super) enum FailureDisposition {
     /// error message (CodeRabbit on #4153), so the handler replaces it with
     /// [`USAGE_BACKOFF_CLIENT_MESSAGE`].
     UsageProbeBackoff,
+    /// A native module failed to load earlier in this process and the cached
+    /// failure is being returned again. tinybus never unloads a library, so
+    /// the outcome cannot change before a restart; the load failure itself was
+    /// reported once when the module resolved
+    /// (`modules::ops::report_resolution_failure`). Re-reporting it on every
+    /// call was the TAURI-RUST-117K flood (~1M events). Core's
+    /// `ExpectedErrorKind::ModuleUnavailable` decides what qualifies.
+    ModuleUnavailable,
     /// A downstream call (backend_api / integrations / provider) already
     /// demoted the underlying transient failure to a warn. Re-reporting at
     /// error level would re-create the Sentry noise the lower-layer demote was
@@ -107,6 +115,10 @@ pub(super) fn classify_failure(message: &str, expected_user_state: bool) -> Fail
         FailureDisposition::SessionExpired
     } else if observability::is_suppressed_usage_probe_backoff(message) {
         FailureDisposition::UsageProbeBackoff
+    } else if observability::expected_error_kind(message)
+        == Some(observability::ExpectedErrorKind::ModuleUnavailable)
+    {
+        FailureDisposition::ModuleUnavailable
     } else if observability::is_transient_message_failure(message) {
         FailureDisposition::TransientDownstream
     } else if let Some(unknown_method) =

@@ -74,6 +74,7 @@ pub mod memory;
 #[cfg(feature = "modules")]
 pub mod modules;
 pub mod platform;
+pub mod profiles;
 pub mod runtime;
 pub mod sandbox;
 pub mod search;
@@ -86,7 +87,6 @@ pub mod threads;
 #[cfg(feature = "tinymemes")]
 pub mod tinymemes;
 pub mod tools;
-pub mod user_agents;
 pub mod util;
 pub mod voice;
 pub mod web3;
@@ -114,6 +114,23 @@ pub use core::types::HostKind;
 ///
 /// Returns an error if command execution fails.
 pub fn run_core_from_args(args: &[String]) -> anyhow::Result<()> {
+    run_core_from_args_with(args, None)
+}
+
+/// [`run_core_from_args`] with a host-supplied boot description.
+///
+/// `host_boot` rides on the `run` / `serve` [`ServeRequest`] to the installed
+/// server launcher, which boots from it instead of its own default preset.
+/// Explicit command-line flags still apply on top of it; see [`ServeRequest`]
+/// for the precedence. Subcommands that do not start a server ignore it.
+///
+/// # Errors
+///
+/// Returns an error if command execution fails.
+pub fn run_core_from_args_with(
+    args: &[String],
+    host_boot: Option<core::server_launcher::HostBoot>,
+) -> anyhow::Result<()> {
     core::cli::load_dotenv_for_cli()?;
     platform::service::apply_startup_restart_delay_from_env();
     // A SaaS boot roots the keyring under its operator directory
@@ -121,5 +138,5 @@ pub fn run_core_from_args(args: &[String]) -> anyhow::Result<()> {
     if !core::runtime::mode::requested_in(args, std::env::var("OPENHUMAN_MODE").ok().as_deref()) {
         security::keyring::init_master_key().map_err(anyhow::Error::msg)?;
     }
-    core::cli::run_from_cli_args(args)
+    core::cli::run_from_cli_args_with(args, host_boot)
 }

@@ -82,10 +82,14 @@ pub async fn handle_402_and_pay(
 }
 
 /// The `x402_request` agent tool, wired to OpenHuman's wallet, chain
-/// transport and proxy policy.
+/// transport, proxy and network policy. `allowed_domains` is the same list
+/// passed to the other agent network tools.
 #[cfg(feature = "web3")]
-pub fn request_tool() -> tinywallet_x402::tools::X402RequestTool {
-    seams::request_tool()
+pub fn request_tool(
+    security: std::sync::Arc<crate::security::SecurityPolicy>,
+    allowed_domains: Vec<String>,
+) -> tinywallet_x402::tools::X402RequestTool {
+    seams::request_tool(security, allowed_domains)
 }
 
 // ---------------------------------------------------------------------------

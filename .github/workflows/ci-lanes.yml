@@ -214,6 +214,10 @@ jobs:
     container:
       # Empty for the pester group: pwsh ships on the bare runner image.
       image: ${{ matrix.container }}
+      # The runner's PID 1 (`tail -f /dev/null`) never reaps orphans, so a
+      # killed grandchild stays a zombie that `kill(pid, 0)` still finds and the
+      # process-group timeout tests fail. `--init` puts a reaping init at PID 1.
+      options: --init
     strategy:
       fail-fast: false
       matrix: ${{ fromJSON(needs.plan.outputs.matrix) }}

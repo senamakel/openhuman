@@ -7,7 +7,7 @@
 //! 2. the process-global transport installed with [`install_backend_transport`]
 //!    (per thread under `cfg(test)`, so installs cannot leak between tests)
 //!    — the path the desktop shell and CLI use, because they boot the core
-//!    through `run_server_embedded_with_ready` / `run_core_from_args` rather
+//!    through `openhuman_rpc::host` / `run_core_from_args` rather
 //!    than through the builder;
 //! 3. under `cfg(test)` only, a plain `reqwest` transport so the crate's
 //!    wiremock unit tests need no host crate;

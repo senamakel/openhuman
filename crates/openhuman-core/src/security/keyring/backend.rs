@@ -15,6 +15,9 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use tinystoragedrivers::secrets::KeyringSecrets;
+
+use crate::security::keyring::adapter;
 use crate::security::keyring::error::KeyringError;
 use crate::security::keyring::file_store;
 
@@ -37,55 +40,64 @@ pub trait KeyringBackend: Send + Sync {
 
 // ── OsBackend ─────────────────────────────────────────────────────────────────
 
-/// Production backend: native OS credential store via the `keyring` crate.
-pub struct OsBackend;
+/// Production backend: the native OS credential store, through
+/// `tinystoragedrivers`' [`KeyringSecrets`] (the `SecretStore` port) over the
+/// synchronous bridge.
+///
+/// The layout is unchanged: service `openhuman`, one credential per
+/// `"{user_id}:{key}"`, so every entry written by the previous direct
+/// `keyring::Entry` implementation reads back.
+pub struct OsBackend {
+    store: KeyringSecrets,
+}
 
 const SERVICE_NAME: &str = "openhuman";
 
+impl OsBackend {
+    /// The backend over the platform credential store.
+    pub fn new() -> Self {
+        Self::with_store(KeyringSecrets::new(SERVICE_NAME))
+    }
+
+    /// The backend over an explicit store (a mock credential builder in tests).
+    pub fn with_store(store: KeyringSecrets) -> Self {
+        Self { store }
+    }
+}
+
+impl Default for OsBackend {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl KeyringBackend for OsBackend {
     fn get(&self, namespaced_key: &str) -> Result<Option<String>, KeyringError> {
-        let entry =
-            keyring::Entry::new(SERVICE_NAME, namespaced_key).map_err(|e| KeyringError::Os {
-                key: namespaced_key.to_string(),
-                source: e,
-            })?;
-        match entry.get_password() {
-            Ok(v) => Ok(Some(v)),
-            Err(keyring::Error::NoEntry) => Ok(None),
-            Err(keyring::Error::NoStorageAccess(_)) => Ok(None),
-            Err(e) => Err(KeyringError::Os {
-                key: namespaced_key.to_string(),
-                source: e,
-            }),
+        use tinystoragedrivers::secrets::SecretStore as _;
+        let (store, name) = (self.store.clone(), namespaced_key.to_string());
+        match crate::storage::block_on(async move { store.get(&name).await }) {
+            Ok(value) => adapter::utf8(namespaced_key, value),
+            // A locked or denied store reads as "nothing there", as before.
+            Err(e) if adapter::is_no_access(&e) => Ok(None),
+            Err(e) => Err(adapter::os_error(namespaced_key, e)),
         }
     }
 
     fn set(&self, namespaced_key: &str, value: &str) -> Result<(), KeyringError> {
-        let entry =
-            keyring::Entry::new(SERVICE_NAME, namespaced_key).map_err(|e| KeyringError::Os {
-                key: namespaced_key.to_string(),
-                source: e,
-            })?;
-        entry.set_password(value).map_err(|e| KeyringError::Os {
-            key: namespaced_key.to_string(),
-            source: e,
-        })
+        use tinystoragedrivers::secrets::SecretStore as _;
+        let (store, name) = (self.store.clone(), namespaced_key.to_string());
+        let value = zeroize::Zeroizing::new(value.as_bytes().to_vec());
+        crate::storage::block_on(async move { store.set(&name, &value).await })
+            .map_err(|e| adapter::os_error(namespaced_key, e))
     }
 
     fn delete(&self, namespaced_key: &str) -> Result<(), KeyringError> {
-        let entry =
-            keyring::Entry::new(SERVICE_NAME, namespaced_key).map_err(|e| KeyringError::Os {
-                key: namespaced_key.to_string(),
-                source: e,
-            })?;
-        match entry.delete_credential() {
+        use tinystoragedrivers::secrets::SecretStore as _;
+        let (store, name) = (self.store.clone(), namespaced_key.to_string());
+        match crate::storage::block_on(async move { store.delete(&name).await.map(|_| ()) }) {
             Ok(()) => Ok(()),
-            Err(keyring::Error::NoEntry) => Ok(()),
-            Err(keyring::Error::NoStorageAccess(_)) => Ok(()),
-            Err(e) => Err(KeyringError::Os {
-                key: namespaced_key.to_string(),
-                source: e,
-            }),
+            Err(e) if adapter::is_no_access(&e) => Ok(()),
+            Err(e) => Err(adapter::os_error(namespaced_key, e)),
         }
     }
 

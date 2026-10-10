@@ -176,7 +176,14 @@ races it against the inherited cancellation token. Execution itself routes throu
   bus so detached runs that outlive their spawning turn are not left `running`
   forever.
 - `subagent_sessions/`: `SubagentSessionStore` writes
-  `{workspace}/.openhuman/subagent_sessions.json` (atomic tmp-file rename).
+  `{workspace}/.openhuman/subagent_sessions.json` (atomic tmp-file rename), or
+  one `subagent_sessions` document per session under the acting agent's scope
+  when a storage backend is configured (`store_documents.rs`).
+- `running_subagents/task_ledger.rs`: the detached-task ledger is
+  `{workspace}/.openhuman/orchestration_tasks.jsonl`, or `orchestration_tasks`
+  documents per storage scope when a backend is configured
+  (`task_ledger_documents.rs`); the boot orphan sweep is skipped on a shared
+  backend.
 - `delegation.rs`: checkpoints `DelegationState` through
   `tinyagents_graph::SqliteCheckpointer` in `graph_checkpoints.db` under the
   workspace.

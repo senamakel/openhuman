@@ -24,7 +24,7 @@ use zeroize::Zeroizing;
 use super::{current_scoped, ScopedStorage, StorageError};
 
 /// The key provider every scope's secrets use, built once per process.
-fn keys() -> Result<Arc<dyn KeyProvider>, StorageError> {
+pub(crate) fn keys() -> Result<Arc<dyn KeyProvider>, StorageError> {
     // Only a built provider is cached; a failed key load is retried next call.
     static KEYS: OnceLock<Arc<dyn KeyProvider>> = OnceLock::new();
     if let Some(keys) = KEYS.get() {

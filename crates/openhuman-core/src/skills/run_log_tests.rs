@@ -268,3 +268,27 @@ fn noisy_events_are_skipped_steps_are_kept() {
     assert!(line.contains("memory_search"));
     assert!(line.contains("it 2"));
 }
+
+/// A workflow run whose turn the harness stopped early (breaker, wind-down,
+/// iteration cap) must not be written up as `DONE`: the drain hands the stop
+/// back so the footer can say `STOPPED`, and the step log names it.
+#[tokio::test]
+async fn drain_to_log_returns_the_turns_stop() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().join("run.log");
+    let (tx, rx) = tokio::sync::mpsc::channel(4);
+    tx.send(AgentProgress::TurnCompleted {
+        iterations: 5,
+        stop: Some(crate::agent::turn_stop::TurnStop::iteration_cap()),
+    })
+    .await
+    .unwrap();
+    drop(tx);
+    let stop = drain_to_log(rx, path.clone()).await;
+    assert_eq!(
+        stop,
+        Some(crate::agent::turn_stop::TurnStop::iteration_cap())
+    );
+    let log = std::fs::read_to_string(&path).expect("log written");
+    assert!(log.contains("stopped: iteration_cap"), "{log}");
+}

@@ -80,8 +80,11 @@ pub(crate) fn cancel_by_session_in_workspace(
 /// keep running (and later try to deliver) against a thread that no longer
 /// exists. Returns the number of sub-agents cancelled.
 pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
+    let own = caller_workspace();
     let cancelled = registry()
-        .cancel_where(|metadata| metadata.parent_thread_id.as_deref() == Some(thread_id))
+        .cancel_where(|metadata| {
+            metadata.parent_thread_id.as_deref() == Some(thread_id) && own.admits(metadata)
+        })
         .expect("detached task registry lock poisoned");
     for entry in &cancelled {
         record_cancelled(&entry.metadata.workspace_dir, entry.task_id.as_str());
@@ -108,8 +111,11 @@ pub(crate) fn cancel_for_thread(thread_id: &str) -> usize {
 /// which is exactly what Stop is meant to prevent. Returns the cancelled task
 /// ids.
 pub(crate) fn stop_for_thread(thread_id: &str) -> Vec<String> {
+    let own = caller_workspace();
     let cancelled = registry()
-        .cancel_where(|metadata| metadata.parent_thread_id.as_deref() == Some(thread_id))
+        .cancel_where(|metadata| {
+            metadata.parent_thread_id.as_deref() == Some(thread_id) && own.admits(metadata)
+        })
         .expect("detached task registry lock poisoned");
     let mut task_ids = Vec::with_capacity(cancelled.len());
     for entry in cancelled {
@@ -154,8 +160,9 @@ pub(crate) fn stop_for_thread(thread_id: &str) -> Vec<String> {
 /// that wins the cooperative-abort race. Headless sub-agents (no parent thread)
 /// are still aborted but contribute no id.
 pub(crate) fn cancel_all() -> Vec<String> {
+    let own = caller_workspace();
     let cancelled = registry()
-        .cancel_all()
+        .cancel_where(|metadata| own.admits(metadata))
         .expect("detached task registry lock poisoned");
     let count = cancelled.len();
     let mut thread_ids: Vec<String> = Vec::new();
@@ -174,6 +181,53 @@ pub(crate) fn cancel_all() -> Vec<String> {
         thread_ids.len()
     );
     thread_ids
+}
+
+/// Which registered sub-agents a thread-scoped cancel may reach.
+///
+/// Thread ids are only unique per user, and the registry is process-wide. On
+/// the desktop every child belongs to the one user, as before. In SaaS only
+/// children working in the caller's own (profile) workspace qualify, so one
+/// user's Stop, delete or purge never reaches another user's work; a caller
+/// with no scope reaches none.
+pub(crate) enum CallerWorkspace {
+    All,
+    Only(std::path::PathBuf),
+    Nothing,
+}
+
+impl CallerWorkspace {
+    pub(crate) fn admits(&self, metadata: &super::registry::RunningSubagentMetadata) -> bool {
+        match self {
+            Self::All => true,
+            Self::Only(dir) => metadata.workspace_dir == *dir,
+            Self::Nothing => false,
+        }
+    }
+}
+
+pub(crate) fn caller_workspace() -> CallerWorkspace {
+    caller_workspace_in(
+        crate::core::runtime::is_saas(),
+        crate::core::runtime::tenant::context_in(true).as_deref(),
+    )
+}
+
+/// [`caller_workspace`] as a function of the mode and the task's own scope.
+pub(crate) fn caller_workspace_in(
+    saas: bool,
+    scoped: Option<&crate::core::runtime::CoreContext>,
+) -> CallerWorkspace {
+    if !saas {
+        return CallerWorkspace::All;
+    }
+    match scoped.and_then(|ctx| ctx.workspace_dir().ok()) {
+        Some(dir) => CallerWorkspace::Only(dir),
+        None => {
+            log::warn!("[running_subagents] cancel without a tenant scope in SaaS; reaching none");
+            CallerWorkspace::Nothing
+        }
+    }
 }
 
 #[cfg(test)]

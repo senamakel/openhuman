@@ -108,6 +108,11 @@ struct LocalState {
     enabled: bool,
 }
 
+// Deliberately local, not on the storage port: this is the one machine's own
+// consent to let the agent drive its desktop. A shared backend would let a
+// flag set on one host enable control on another that never consented, and
+// corrupt or missing state must keep failing closed. Allowlisted in
+// `scripts/ci/check-storage-bypass.mjs`.
 fn state_path(config: &Config) -> std::path::PathBuf {
     config
         .workspace_dir

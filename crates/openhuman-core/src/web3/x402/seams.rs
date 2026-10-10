@@ -10,8 +10,8 @@
 //! - a `Transport`: [`OpenHumanTransport`](crate::web3::wallet::transport::OpenHumanTransport),
 //!   the failover-aware RPC adapter the wallet already uses, for the Solana
 //!   blockhash.
-//! - a [`ProxyPolicy`]: [`RuntimeProxyPolicy`] applies the runtime proxy
-//!   configuration to the tool's HTTP client.
+//! - a [`ProxyPolicy`]: [`RuntimeProxyPolicy`] refuses direct, address-pinned
+//!   requests when runtime or environment proxy policy requires a proxy.
 //! - a [`ThreadScope`]: [`TaskLocalThread`] names the chat thread running the
 //!   tool call, so the ledger can attribute the payment to it.
 //!
@@ -23,13 +23,18 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use log::debug;
+use tinytools_std::network::NetGate;
+use tinytools_std::url_guard::{normalize_allowed_domains, validate_url_with_dns_check};
 use tinywallet_x402::crypto::{CryptoPayments, PaymentAccount, PaymentSigner, SignScheme};
 use tinywallet_x402::protocol::ProxyPolicy;
 use tinywallet_x402::thread::ThreadScope;
-use tinywallet_x402::tools::X402RequestTool;
+use tinywallet_x402::tools::{
+    AuthorizedRequest, ProposedRequest, RequestAuthorizationError, RequestGuard, X402RequestTool,
+};
 use tinywallet_x402::wire::PaymentChain;
 
 use crate::security::approval::APPROVAL_CHAT_CONTEXT;
+use crate::security::SecurityPolicy;
 use crate::web3::wallet::transport::OpenHumanTransport;
 use crate::web3::wallet::WalletChain;
 
@@ -39,9 +44,76 @@ const LOG_PREFIX: &str = "[x402::seams]";
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct WalletPaymentSigner;
 
-/// The runtime proxy configuration, applied to x402's outbound HTTP.
+/// The runtime and environment proxy configuration for x402 outbound HTTP.
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct RuntimeProxyPolicy;
+
+#[derive(Debug)]
+pub(crate) struct HostRequestGuard {
+    security: Arc<SecurityPolicy>,
+    allowed_domains: Vec<String>,
+}
+
+#[async_trait]
+impl RequestGuard for HostRequestGuard {
+    fn needs_approval(&self) -> bool {
+        self.security.network_needs_approval()
+    }
+
+    async fn authorize(
+        &self,
+        request: &ProposedRequest,
+    ) -> Result<AuthorizedRequest, RequestAuthorizationError> {
+        if !self.security.can_act() {
+            return Err(RequestAuthorizationError::Denied(
+                "Action blocked: autonomy is read-only".into(),
+            ));
+        }
+        let parsed = reqwest::Url::parse(&request.url)
+            .map_err(|error| RequestAuthorizationError::InvalidDestination(error.to_string()))?;
+        if parsed.scheme() != "https" {
+            return Err(RequestAuthorizationError::InvalidDestination(
+                "x402 payment requests require HTTPS".into(),
+            ));
+        }
+        let host = parsed
+            .host_str()
+            .map(str::to_string)
+            .unwrap_or_else(|| "unknown".to_string());
+        if let Some(reason) = self.security.local_only_block(&host) {
+            return Err(RequestAuthorizationError::Denied(
+                reason
+                    .strip_prefix("[policy-blocked] ")
+                    .unwrap_or(&reason)
+                    .to_string(),
+            ));
+        }
+        if self.security.is_rate_limited() {
+            return Err(RequestAuthorizationError::Denied(
+                "Action blocked: rate limit exceeded".into(),
+            ));
+        }
+        let target = validate_url_with_dns_check(&request.url, &self.allowed_domains)
+            .await
+            .map_err(|error| RequestAuthorizationError::InvalidDestination(error.to_string()))?;
+        if !self.security.record_action() {
+            return Err(RequestAuthorizationError::Denied(
+                "Action blocked: rate limit exceeded".into(),
+            ));
+        }
+        // A 402 retry adds PAYMENT-SIGNATURE even when the original request
+        // has no headers. Disclose that potential metadata before either send.
+        self.security
+            .disclose(&target.host, request.body.is_some(), true);
+        let mut approved_request = request.clone();
+        approved_request.url = target.url;
+        Ok(AuthorizedRequest {
+            request: approved_request,
+            host: target.host,
+            addrs: target.addrs,
+        })
+    }
+}
 
 /// The chat thread running the current tool call, read from
 /// `APPROVAL_CHAT_CONTEXT`.
@@ -187,6 +259,34 @@ impl ProxyPolicy for RuntimeProxyPolicy {
     fn apply(&self, builder: reqwest::ClientBuilder, service: &str) -> reqwest::ClientBuilder {
         crate::config::apply_runtime_proxy_to_builder(builder, service)
     }
+
+    fn allows_direct_connection(&self, service: &str) -> bool {
+        let config = crate::config::runtime_proxy_config();
+        direct_connection_allowed(&config, service, |key| {
+            std::env::var_os(key).is_some_and(|value| !value.is_empty())
+        })
+    }
+}
+
+/// A guarded request must connect to its vetted address directly. Treat any
+/// configured proxy for this service, including process proxy variables, as
+/// requiring the proxy until the host can pin an address through that proxy.
+fn direct_connection_allowed(
+    config: &crate::config::ProxyConfig,
+    service: &str,
+    env_has_value: impl Fn(&str) -> bool,
+) -> bool {
+    const PROXY_ENV_KEYS: &[&str] = &[
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "ALL_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "all_proxy",
+    ];
+    !(config.enabled && config.scope == crate::config::ProxyScope::Environment)
+        && !config.should_apply_to_service(service)
+        && !PROXY_ENV_KEYS.iter().any(|key| env_has_value(key))
 }
 
 /// The crypto rail's payment builder, over OpenHuman's wallet and transport.
@@ -198,13 +298,27 @@ pub(crate) fn payments() -> CryptoPayments {
 }
 
 /// The `x402_request` tool, over the same seams.
-pub(crate) fn request_tool() -> X402RequestTool {
+pub(crate) fn request_tool(
+    security: Arc<SecurityPolicy>,
+    allowed_domains: Vec<String>,
+) -> X402RequestTool {
     X402RequestTool::new(
         Arc::new(WalletPaymentSigner),
         Arc::new(OpenHumanTransport::new()),
         Arc::new(RuntimeProxyPolicy),
     )
     .with_thread_scope(Arc::new(TaskLocalThread))
+    .with_request_guard(Arc::new(host_request_guard(security, allowed_domains)))
+}
+
+fn host_request_guard(
+    security: Arc<SecurityPolicy>,
+    allowed_domains: Vec<String>,
+) -> HostRequestGuard {
+    HostRequestGuard {
+        security,
+        allowed_domains: normalize_allowed_domains(allowed_domains),
+    }
 }
 
 #[cfg(test)]

@@ -58,8 +58,9 @@ The same edges as a list:
 | `openhuman-app` | `openhuman-rpc` (`http-client`, `server`, `jev`, the product gates) |
 
 [`scripts/ci/check-crate-chain.mjs`](../scripts/ci/check-crate-chain.mjs) (run by `pnpm rust:layout`) fails on any
-other edge, and on a host `src/` that names `__host`, `core_host` or
-`openhuman_core::`. The layers above embed reach core internals through
+other edge, on a host `src/` that names `__host`, `core_host` or
+`openhuman_core::`, and on a layer that re-exports the one below wholesale
+(`pub use openhuman_embed as …`) or lets `__host` out of rpc. The layers above embed reach core internals through
 embed's doc-hidden `__host` list; the hosts use the curated facade re-exported
 by rpc (`openhuman_rpc::embed`, `openhuman_rpc::tinyhumans`). Dev-dependencies
 are exempt: `openhuman-cli`'s root tests and examples take the core, embed and

@@ -246,6 +246,41 @@ export async function waitForAppReady(page: Page): Promise<void> {
       page.evaluate(() => document.querySelector('[data-testid="boot-check-picker"]') !== null)
     )
     .toBe(false);
+
+  // Harness setup can install runtimes on a cold core. It deliberately blocks
+  // user input behind a full-screen dialog until the user chooses to continue
+  // in the background, so settle that product flow before a spec drives UI.
+  const init = await callCoreRpc<{ snapshot?: { overall?: string; started_at?: string | null } }>(
+    'openhuman.harness_init_status'
+  );
+  if (init.snapshot?.overall === 'running' || init.snapshot?.overall === 'failed') {
+    const alreadyDismissed = await page.evaluate(
+      startedAt =>
+        window.sessionStorage.getItem('harness-init-dismissed-run') === (startedAt ?? 'unkeyed'),
+      init.snapshot.started_at
+    );
+    if (alreadyDismissed) return;
+
+    const continueButton = page.getByRole('button', { name: /Run in background|Continue anyway/ });
+    await expect
+      .poll(
+        async () => {
+          if (await continueButton.isVisible().catch(() => false)) return true;
+          const current = await callCoreRpc<{ snapshot?: { overall?: string } }>(
+            'openhuman.harness_init_status'
+          );
+          return current.snapshot?.overall === 'done' || current.snapshot?.overall === 'idle';
+        },
+        { timeout: 10_000 }
+      )
+      .toBe(true);
+    if (await continueButton.isVisible().catch(() => false)) {
+      await continueButton.click();
+      await expect(page.getByRole('dialog', { name: 'Setting things up' })).toBeHidden({
+        timeout: 5_000,
+      });
+    }
+  }
 }
 
 export async function dismissWalkthroughIfPresent(page: Page): Promise<void> {

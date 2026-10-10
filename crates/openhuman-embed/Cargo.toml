@@ -82,6 +82,10 @@ async-trait = "0.1"
 tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["conformance"] }
 dirs = "6"
 env_logger = "0.11"
+# The profile tests and example implement a stub `BackendTransport`, whose
+# `http_client` hands out a `reqwest::Client`. Same features as the core's, so
+# the dev graph adds no reqwest feature (see the unification note below).
+reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
 wiremock = "0.6"
 # Feature unification with openhuman-cli's dev-dependencies. Cargo builds the
 # core once per distinct feature set of its dependencies, and the tests of

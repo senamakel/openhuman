@@ -44,6 +44,16 @@ pub(crate) async fn load<T>(path: &Path) -> Result<T, String>
 where
     T: DeserializeOwned + Default,
 {
+    if let Some(docs) =
+        super::file_store_documents::current().map_err(|e| format!("[composio:store] {e:#}"))?
+    {
+        return docs.load(path).map_err(|error| {
+            format!(
+                "[composio:store] reading {} failed: {error:#}",
+                path.display()
+            )
+        });
+    }
     let bytes = match tokio::fs::read(path).await {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(T::default()),
@@ -71,6 +81,16 @@ pub(crate) async fn save<T>(path: &Path, value: &T) -> Result<(), String>
 where
     T: Serialize,
 {
+    if let Some(docs) =
+        super::file_store_documents::current().map_err(|e| format!("[composio:store] {e:#}"))?
+    {
+        return docs.save(path, value).map_err(|error| {
+            format!(
+                "[composio:store] writing {} failed: {error:#}",
+                path.display()
+            )
+        });
+    }
     let bytes = serde_json::to_vec_pretty(value)
         .map_err(|error| format!("[composio:store] serializing failed: {error}"))?;
     if let Some(dir) = path.parent() {

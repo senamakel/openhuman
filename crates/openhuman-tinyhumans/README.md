@@ -156,7 +156,7 @@ policy or product identity of its own; it asks the installed transport.
 
 | Path | What it does |
 | --- | --- |
-| [`src/lib.rs`](src/lib.rs) | Crate root: module declarations and the public re-exports (`install`, `RuntimeBuilder`, the session types, `SdkBackendTransport`, `ProductIdentity`). Re-exports `openhuman_embed` as `embed`. |
+| [`src/lib.rs`](src/lib.rs) | Crate root: module declarations and the public re-exports (`install`, `RuntimeBuilder`, the session types, `SdkBackendTransport`, `ProductIdentity`). Its `embed` module is a curated `pub use` list of the embed items rpc, the hosts and library users take (not the crate); it forwards embed's `#[doc(hidden)] __host` to rpc only. |
 | [`src/install.rs`](src/install.rs) | `install`, `is_installed`, `InstallOptions`, `InstallError`. Process-global, idempotent. |
 | [`src/runtime.rs`](src/runtime.rs) | `RuntimeBuilder` and `RuntimeError`: an embed builder that installs the transport on `build()`. |
 | [`src/backend/`](src/backend/README.md) | Where the backend is (`url.rs`), how requests are attributed (`headers.rs`), and who they are attributed to (`product.rs`). |

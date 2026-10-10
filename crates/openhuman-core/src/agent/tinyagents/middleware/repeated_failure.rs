@@ -17,6 +17,7 @@ use tinyagents_harness::steering::{SteeringCommand, SteeringHandle};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
+use super::call_effect::{call_effect, dispatch_target, CallEffect, ToolFactsLookup};
 use super::fetched_site::{fetch_host_scope, heuristic_text};
 use super::loop_guards::{
     is_repeat_call_exempt, RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD,
@@ -96,6 +97,13 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// kept so a *repeat* of it still counts as a failure while a different
     /// command's non-zero exit counts as information (see `after_tool`).
     last_exit_report: std::sync::Mutex<Option<String>>,
+    /// Call ID to what the call may have done ([`call_effect`]), judged in
+    /// `before_tool` where the arguments are visible. Decides whether a
+    /// timeout is a retryable read or an uncertain action.
+    call_effects: std::sync::Mutex<std::collections::HashMap<String, CallEffect>>,
+    /// The registered tools' declarations (read-only policy, external effect,
+    /// permission level). Without it only tool names are read.
+    tool_facts: Option<ToolFactsLookup>,
 }
 
 impl RepeatedToolFailureMiddleware {
@@ -119,7 +127,17 @@ impl RepeatedToolFailureMiddleware {
             recoverable_sig_counts: std::sync::Mutex::new(std::collections::HashMap::new()),
             recoverable_consecutive: AtomicU32::new(0),
             pending_nudges: Arc::new(Mutex::new(Vec::new())),
+            call_effects: std::sync::Mutex::new(std::collections::HashMap::new()),
+            tool_facts: None,
         }
+    }
+
+    /// Judge each call's side effect from the registered tools' own
+    /// declarations ([`super::call_effect::tool_sets_lookup`]) rather than
+    /// from tool names alone.
+    pub(crate) fn with_tool_facts(mut self, lookup: ToolFactsLookup) -> Self {
+        self.tool_facts = Some(lookup);
+        self
     }
 
     /// The request-scoped half of this breaker. Register it **last**: its
@@ -230,8 +248,26 @@ fn args_fingerprint(arguments: &serde_json::Value) -> String {
 /// Stable resource identity supplied by the call, excluding free-form queries,
 /// prompts, credentials, and URL query parameters. An absent target remains
 /// scoped to the operation, never to the changing argument fingerprint.
+///
+/// A dispatcher (`use_skill`, `composio_execute`) is scoped by the skill and
+/// tool it reaches, and by that inner call's resource fields: every
+/// `use_skill` failure used to share one budget, so a timeout in one skill's
+/// sub-tool and a refusal in another's halted the turn together.
 pub(super) fn failure_scope(tool: &str, arguments: &serde_json::Value) -> String {
     let mut scope = tool.to_owned();
+    let mut resource_args = arguments;
+    if let Some(target) = dispatch_target(tool, arguments) {
+        if let Some(skill) = target.skill {
+            scope.push_str(":skill=");
+            scope.push_str(&crate::util::truncate_with_ellipsis(skill, 80));
+        }
+        scope.push_str(":tool=");
+        scope.push_str(&crate::util::truncate_with_ellipsis(target.tool, 120));
+        if let Some(inner) = target.args.filter(|a| a.is_object()) {
+            resource_args = inner;
+        }
+    }
+    let arguments = resource_args;
     for field in [
         "account_id",
         "workspace_id",
@@ -261,7 +297,11 @@ pub(super) fn failure_scope(tool: &str, arguments: &serde_json::Value) -> String
     scope
 }
 
-pub(super) use super::failure_policy::{is_command_exit_report, recovery_policy};
+#[cfg(test)]
+pub(super) use super::failure_policy::recovery_policy;
+pub(super) use super::failure_policy::{
+    is_command_exit_report, missing_program_nudge, recovery_policy_with_effect,
+};
 
 /// Detect a **body-level** failure from `validate_workflow` / `dry_run_workflow`
 /// (issue: flows breaker doesn't see repeated invalid-graph loops). Both tools
@@ -316,6 +356,16 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         if let Ok(mut scopes) = self.target_scopes.lock() {
             scopes.insert(call.id.clone(), failure_scope(&call.name, &call.arguments));
         }
+        let effect = call_effect(self.tool_facts.as_ref(), &call.name, &call.arguments);
+        tracing::trace!(
+            tool = %call.name,
+            call_id = %call.id,
+            effect = ?effect,
+            "[tinyagents::mw] tool call side effect judged for failure classification"
+        );
+        if let Ok(mut effects) = self.call_effects.lock() {
+            effects.insert(call.id.clone(), effect);
+        }
         Ok(())
     }
 
@@ -340,6 +390,12 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             .ok()
             .and_then(|mut scopes| scopes.remove(&invocation.call_id().to_string()))
             .unwrap_or_else(|| tool_name.to_owned());
+        let effect = self
+            .call_effects
+            .lock()
+            .ok()
+            .and_then(|mut effects| effects.remove(&invocation.call_id().to_string()))
+            .unwrap_or_default();
         // A result the repeat guard answered itself (blocked/halted without
         // running the tool) is the guard's verdict, not the tool failing, so it
         // must not feed the failure ladder.
@@ -378,6 +434,8 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 "authentication",
                 "site_refused",
                 "policy",
+                "blocked_by_policy",
+                "task_failed",
                 "unsupported",
                 "missing_window",
                 "missing_app",
@@ -394,7 +452,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             }
         } else if !is_repeat_call_exempt(tool_name) {
             if let Some((class, budget)) =
-                recovery_policy(tool_name, &failure_text, body_level_failure)
+                recovery_policy_with_effect(tool_name, &failure_text, body_level_failure, effect)
             {
                 let key = ClassifiedFailure::new(class, tool_name, &scope);
                 if let NoProgress::Halt(mut summary) = self.classified.record(&key, budget) {
@@ -423,10 +481,20 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                         | "uncertain_side_effect"
                         | "unavailable"
                         | "service_refused"
+                        | "blocked_by_policy"
+                        | "task_failed"
                 ) {
                     let instruction = match class {
                         "service_refused" => format!(
                             "The `{tool_name}` tool cannot be used in this session: the service refused the request ({}). Do not call `{tool_name}` again; continue with your other tools.",
+                            first_error_line(&failure_text)
+                        ),
+                        "blocked_by_policy" => format!(
+                            "The `{tool_name}` call was blocked by policy and did not run ({}). Try one narrower, permitted alternative (a scoped path, a bounded command, a read instead of a write) or continue with other tools; do not resend it unchanged. Another refusal of this operation ends the turn.",
+                            first_error_line(&failure_text)
+                        ),
+                        "task_failed" => format!(
+                            "The `{tool_name}` task ended without finishing ({}). Follow its hint once: change the goal, inputs or starting point it names, or continue with other tools. Do not rerun it unchanged.",
                             first_error_line(&failure_text)
                         ),
                         "validation" => "The last call failed validation. Correct its schema or arguments once before trying again.".to_owned(),
@@ -436,6 +504,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                         ),
                         "uncertain_side_effect" => "The last command timed out and was killed; it may have partly run. Check its effect before repeating anything, then retry at most once as a smaller, bounded step (fewer items per call, a per-item timeout such as `timeout 5`, or background it and poll).".to_owned(),
                         "unavailable" => format!("The `{tool_name}` tool is unavailable for the rest of this run: a module it needs failed to load and will not recover until the app restarts. Do not call `{tool_name}` again; continue with your other tools."),
+                        "missing_app" if tool_name == "shell" => {
+                            missing_program_nudge(tool_name, &first_error_line(&failure_text))
+                        }
                         _ => "The desktop target was not found. Rediscover the current app and window once before trying again.".to_owned(),
                     };
                     tracing::debug!(

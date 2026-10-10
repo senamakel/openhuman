@@ -65,6 +65,7 @@ pub(crate) fn assemble_live_tool_harness(
     } = surface;
     let mut harness: AgentHarness<(), OpenHumanRunContext> = AgentHarness::new();
     harness.with_policy(run_policy_for(LIVE_MAX_TOOL_CALLS, false));
+    crate::tools::timeout::install_harness_tool_timeouts(&mut harness);
 
     let mut capability_registry: CapabilityRegistry<()> = CapabilityRegistry::new();
     let (tool_count, names, diagnostics, _snapshot) = register_turn_tools_and_agents(

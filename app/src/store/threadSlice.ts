@@ -572,6 +572,26 @@ const threadSlice = createSlice({
         state.messages = truncated;
       }
     },
+    /**
+     * Drop exactly these rows from a thread's cache. Unlike
+     * `truncateMessagesFrom`, rows appended after the caller took its
+     * snapshot survive — a regenerate that resolves after its new turn has
+     * already streamed in must not take the new reply with it.
+     */
+    removeMessagesById: (
+      state,
+      action: PayloadAction<{ threadId: string; messageIds: readonly string[] }>
+    ) => {
+      const { threadId, messageIds } = action.payload;
+      const existing = state.messagesByThreadId[threadId];
+      if (!existing || messageIds.length === 0) return;
+      const doomed = new Set(messageIds);
+      const kept = existing.filter(m => !doomed.has(m.id));
+      state.messagesByThreadId[threadId] = kept;
+      if (state.selectedThreadId === threadId) {
+        state.messages = kept;
+      }
+    },
   },
   extraReducers: builder => {
     builder
@@ -702,6 +722,7 @@ export const {
   resetThreadCachesPreservingSelection,
   setWelcomeThreadId,
   truncateMessagesFrom,
+  removeMessagesById,
 } = threadSlice.actions;
 
 export default threadSlice.reducer;

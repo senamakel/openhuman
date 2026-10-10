@@ -19,6 +19,7 @@ EXPECTED=$(cat <<'EOF'
 agent/harness/builtin_definitions_tests.rs
 agent/harness/definition_tests.rs
 agent/session_host/builder/factory.rs
+agent/session_host/prelude_integrations.rs
 agent/session_host/runtime_session.rs
 agent/session_host/runtime_session_tests.rs
 agent/registry/agents/loader.rs
@@ -39,6 +40,7 @@ mcp/server/resources.rs
 mcp/server/mod.rs
 mcp/server/tools/mod.rs
 platform/socket/event_handlers.rs
+profiles/surface_tests.rs
 security/credentials/ops/credential.rs
 skills/bundled/mod.rs
 skills/mod.rs
@@ -54,6 +56,7 @@ tools/registry/schemas_tests.rs
 web3/stub.rs
 web3/wallet/stub.rs
 web3/x402/stub.rs
+profiles/surface_tests.rs
 EOF
 )
 

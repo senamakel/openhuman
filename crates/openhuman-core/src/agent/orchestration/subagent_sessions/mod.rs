@@ -1,5 +1,6 @@
 mod ops;
 mod store;
+mod store_documents;
 mod types;
 
 pub use ops::{

@@ -32,9 +32,16 @@ on `storage-mongodb`.
 - `driver_is_shared(driver)` / `installed_is_shared()`: whether other
   processes may write the same backend (MongoDB). Boot-time recovery, such
   as the orphaned-run sweep, is skipped on a shared backend.
-- `current_scope()` / `current_scoped()`: the acting agent's scope (`local`
-  on a single-user host; an error in SaaS mode with no acting agent) and the
-  installed backend under it.
+- `driver_has_cross_process_cas(driver)`: whether a compare-and-swap on
+  that driver is atomic across processes (MongoDB, SQLite), which a
+  clustered node's leases need. Memory and file drivers coordinate only
+  within one process.
+- `scope_for_profile(profile_id)`: the scope a SaaS profile's records live
+  under (`profile:<id>`, hashed when that is not a valid scope).
+- `current_scope()` / `current_scoped()`: the tenant's scope — its profile's
+  when it serves one, else the acting agent's, else `local` on a single-user
+  host; an error in SaaS mode without a profile — and the installed backend
+  under it.
 - `block_on(future)`: runs a storage future from synchronous store code on
   one shared runtime thread.
 - `documents::Repo` and `documents::compare_and_swap`: the base the domain
@@ -42,8 +49,60 @@ on `storage-mongodb`.
   declares its collections and runs each call; `compare_and_swap` is the
   guarded-`UPDATE` loop.
 
+## Leases
+
+`storage::lease` gives one node exclusive, expiring ownership of a key; the
+SaaS profile host uses it so exactly one core process serves a profile.
+`LeaseStore` has four operations, each taking the caller's clock (`now_ms`)
+so the rules never read the wall clock:
+
+- `acquire(key, now_ms)` takes the key when it has no record, or its record
+  is released, expired (`now_ms >= expires_at_ms`) or already this node's;
+  otherwise `LeaseError::Held(record)` names the owner, its endpoint and
+  (`retry_after_ms`) when to retry. Epochs start at 1 and every acquisition
+  except a re-entrant one (the same store instance re-acquiring the epoch it
+  holds) writes `epoch + 1`.
+- `renew(grant, now_ms)` extends the grant by CAS on its record version; any
+  write since (a takeover, a release) makes it `LeaseError::Lost`.
+- `release(grant)` writes `released = true` under the same CAS and keeps the
+  record.
+- `holder(key)` returns the stored record, live or not (`is_live(now_ms)`).
+
+A grant's `previous_unclean` is set exactly when the acquisition replaced a
+record that was not released and that this store instance did not hold: a
+foreign holder that expired, or this node's own id left by a crashed earlier
+process. The profile host runs workspace recovery on it. Node ids must be
+unique among live processes.
+
+| Store | Where | Use |
+| --- | --- | --- |
+| `DocumentLeases` | one document per key, scope `cluster`, collection `leases`; every write carries `Precondition::Absent` or `Version` | clustered nodes on a driver with cross-process CAS |
+| `LocalLeases` | an exclusive `fs2` flock on `<root>/<sha256(key) hex>/.lease`, record in `.lease.json` beside it; no expiry, the OS drops the lock when the process dies | hosts without a backend |
+
+Keys are 1 to 200 bytes of ASCII letters, digits and `- _ . @`, not starting
+with `.`, so they are safe as directory names and document ids. The scope
+`cluster` is shared by every node; an agent whose id is literally `cluster`
+would map to the same scope (`scope_for_agent`).
+
+Tests: `lease_tests.rs` (the acquire rule), `lease_documents_tests.rs`
+(contention, expiry, takeover, stale renew, clean release, and an
+eight-thread race on a SQLite file with `--features storage-sqlite`),
+`lease_local_tests.rs` (two instances on one root, crashed holder), and
+`lease_model_tests.rs`, a proptest state machine of random acquire, renew,
+release, clock and crash steps across 2 to 4 nodes checked against a
+reference model.
+
 ## Consumers
 
+- The SaaS profile host (`profiles::lease`, `profiles::registry`): one
+  lease per profile (`DocumentLeases` over the installed backend, else
+  `LocalLeases` under `<root>/users`) and the profile registry, collection
+  `profiles` in the same `cluster` scope. A lease taken over unclean runs
+  the profile's workspace recovery; a lost one fences the profile. See
+  `profiles/README.md`. The server opens the operator's storage URL before
+  boot (`openhuman-rpc`'s `session_store::install_for_saas`);
+  `openhuman_embed::ProfileRuntime` opens and installs it itself when no
+  backend is installed yet.
 - The session store: `openhuman_rpc::session_store::install_for_host` opens
   the configured backend before boot and installs `DriverSessionStores`
   over it. See that module's README.
@@ -74,7 +133,7 @@ on `storage-mongodb`.
 ## Background work and agent scopes
 
 Work done inside an agent's turn runs under that agent's `CoreContext`
-(`session_agent`, set for embed agents and SaaS user agents), so with a
+(`session_agent`, set for embed agents and SaaS profiles), so with a
 backend installed its records land in that agent's scope. Background work
 runs under the process default context and on its own would only see
 `local`. `storage::agents` closes the gap:
@@ -104,7 +163,7 @@ before. The cron scheduler visits live agents only
 (`cron::scheduler::tick_live_agents`): an agent's jobs need its live
 context (host tools, prompt) to run, so a recorded agent's jobs wait until
 it is live again; with a backend it no longer needs the agent's `jobs.db`. In SaaS mode agent ids are not recorded and `local` is skipped;
-per-user background work there is `user_agents::background`.
+per-user background work there is `profiles::background`.
 
 ## Boundaries
 

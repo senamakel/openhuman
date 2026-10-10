@@ -10,7 +10,7 @@
 //! * category identifiers serialize to stable snake_case strings.
 
 use super::rules::{is_ipv4, is_luhn_valid};
-use super::{scan, PiiCategory, RiskLevel};
+use super::{redact_identifiers, scan, PiiCategory, RiskLevel};
 
 // ---------------------------------------------------------------------------
 // Per-category detection (recall / true positives)
@@ -315,4 +315,28 @@ fn ipv4_validator_bounds_octets() {
     assert!(is_ipv4("255.255.255.255"));
     assert!(!is_ipv4("256.1.1.1"));
     assert!(!is_ipv4("1.2.3"));
+}
+
+// ---------------------------------------------------------------------------
+// Redaction
+// ---------------------------------------------------------------------------
+
+#[test]
+fn redact_identifiers_replaces_structured_values_only() {
+    let out = redact_identifiers(
+        "user jane.doe@example.com logged in from 203.0.113.7, call +1 415-555-0100 about the patient",
+    );
+    assert!(!out.contains("jane.doe@example.com"), "{out}");
+    assert!(!out.contains("203.0.113.7"), "{out}");
+    assert!(!out.contains("415-555-0100"), "{out}");
+    assert!(out.contains("[redacted]"), "{out}");
+    // Topical keywords are context, not identifiers: kept.
+    assert!(out.contains("patient"), "{out}");
+}
+
+#[test]
+fn redact_identifiers_keeps_values_that_fail_validation() {
+    // Not a valid IPv4 address, not a Luhn-valid card: left as written.
+    let text = "version 999.1.1.1 build 1234567890123456";
+    assert_eq!(redact_identifiers(text), text);
 }

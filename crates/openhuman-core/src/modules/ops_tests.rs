@@ -312,6 +312,66 @@ fn load_errors_render_for_callers_that_cannot_wait_again() {
     assert!(message.contains("still loading"), "{message}");
 }
 
+#[tokio::test]
+async fn a_loader_error_carries_the_terminal_marker_exactly_once() {
+    // `blocking` marks a loader error terminal, but tinybus' release-cache path
+    // and `load_local` already say so; appending again doubled the sentence.
+    // The failure policy keys on both phrases, so each must stay, once.
+    let marker = crate::tools::status::MODULE_FAULT_MARKER;
+    for loader_error in [
+        "module 'tinydocs' could not be loaded: digest mismatch. This is terminal for the \
+         running process; restart the app to try again",
+        "module 'tinydocs' could not be loaded from the installer bundle: refused. Restart the \
+         app after repairing the installation",
+    ] {
+        let owned = loader_error.to_string();
+        let error = ops::blocking(move || Err(owned)).await.unwrap_err();
+        assert_eq!(error.matches(marker).count(), 1, "{error}");
+        assert_eq!(
+            error.matches("restart the app to try again").count(),
+            1,
+            "{error}"
+        );
+    }
+}
+
+/// The Sentry payload of TAURI-RUST-117K: a load refused at admission, with the
+/// terminal marker the loader adds.
+const REFUSED_LOAD: &str = "module 'tinyconnectors' could not be loaded from the installer \
+     bundle: module `windows-2022-x86_64` refused: module directory is writable by another \
+     user. Restart the app after repairing the installation. This is terminal for the running \
+     process; restart the app to try again";
+
+#[cfg(feature = "crash-reporting")]
+#[test]
+fn a_failed_resolution_is_reported_once_with_the_module_id() {
+    // The resolution runs once per process and caches its failure, so this
+    // report is the one Sentry event per broken install. Every later caller's
+    // re-report is demoted as `ModuleUnavailable`; this one must not be.
+    let events = sentry::test::with_captured_events(|| {
+        ops::report_resolution_failure("tinyconnectors", REFUSED_LOAD);
+    });
+    assert_eq!(events.len(), 1, "{events:?}");
+    let tags = &events[0].tags;
+    assert_eq!(tags.get("domain").map(String::as_str), Some("modules"));
+    assert_eq!(tags.get("operation").map(String::as_str), Some("resolve"));
+    assert_eq!(
+        tags.get("module").map(String::as_str),
+        Some("tinyconnectors")
+    );
+
+    // The same reason re-reported by a caller is demoted.
+    let repeats = sentry::test::with_captured_events(|| {
+        crate::core::observability::report_error_or_expected(
+            REFUSED_LOAD,
+            "composio",
+            "list_connections",
+            &[],
+        );
+    });
+    assert!(repeats.is_empty(), "{repeats:?}");
+}
+
 #[test]
 fn bundled_dir_prefers_registered_then_env_then_exe_sibling() {
     let root = tempfile::tempdir().unwrap();
@@ -366,4 +426,17 @@ fn bundled_dir_skips_a_missing_candidate_for_a_valid_later_one() {
         ),
         Some(exe_dir.join("bundled-modules"))
     );
+}
+
+/// A module-bus startup failure is cached like any loader error, so it must
+/// carry the terminal marker the observability classifier demotes on.
+#[test]
+fn a_marked_bus_startup_failure_is_classified_as_module_unavailable() {
+    let marked = ops::mark_terminal("the module bus could not start: no runtime".to_string());
+    assert!(marked.ends_with("restart the app to try again"), "{marked}");
+    assert!(crate::core::observability::is_module_unavailable_message(
+        &marked
+    ));
+    // Idempotent: an already-marked error is not annotated twice.
+    assert_eq!(ops::mark_terminal(marked.clone()), marked);
 }

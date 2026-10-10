@@ -136,7 +136,7 @@ migrations, cost ledger, socket manager, subscribers, services) is in
 [`crates/openhuman-cli/src/main.rs`](../openhuman-cli/src/main.rs) and the desktop binary's `core` and `mcp`
 subcommands. It loads dotenv, applies the startup restart delay, initializes
 the keyring master key, and dispatches to `core::cli`. A host that serves RPC
-calls `openhuman_rpc::server::install_cli_server()` first.
+boots through `openhuman_rpc::host::cli`, which installs the server launcher.
 
 ## Layout
 

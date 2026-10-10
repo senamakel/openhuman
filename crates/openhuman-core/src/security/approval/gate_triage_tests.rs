@@ -125,9 +125,8 @@ async fn intercept_with_unknown_origin_denies() {
 }
 
 #[tokio::test]
-async fn intercept_with_trusted_cron_origin_allows_without_prompt() {
-    // Cron jobs the user explicitly authorized run trusted automation;
-    // the gate allows without prompt and does not persist a row.
+async fn intercept_with_trusted_cron_origin_denies_external_effect() {
+    // Creating a cron job does not authorize its future tool effects.
     let (gate, _dir) = test_gate();
     let origin = AgentTurnOrigin::TrustedAutomation {
         job_id: "cron-42".into(),
@@ -138,10 +137,10 @@ async fn intercept_with_trusted_cron_origin_allows_without_prompt() {
         gate.intercept("shell", "run ls", serde_json::json!({})),
     )
     .await;
-    assert!(matches!(outcome, GateOutcome::Allow));
+    assert!(matches!(outcome, GateOutcome::Deny { .. }));
     assert!(
         gate.list_pending().unwrap().is_empty(),
-        "trusted cron must not persist a pending row"
+        "denied cron effects must not persist a pending row"
     );
 }
 

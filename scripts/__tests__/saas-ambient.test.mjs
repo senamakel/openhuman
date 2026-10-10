@@ -9,7 +9,7 @@ import path from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-import { codeOf, compare, scan } from "../ci/check-saas-ambient.mjs";
+import { codeOf, compare, exempt, scan } from "../ci/check-saas-ambient.mjs";
 
 const repoRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 const script = path.join(repoRoot, "scripts", "ci", "check-saas-ambient.mjs");
@@ -107,4 +107,52 @@ test("fails on a fixed site still in the baseline", () => {
   const { status, out } = run({ [`${SRC}/a.rs`]: "spawn_scoped(f);\n" }, baseline);
   assert.equal(status, 1);
   assert.match(out, /remove them/);
+});
+
+test("flags ambient context reads in a tenant-keyed path", () => {
+  const found = scan(
+    `${SRC}/web_chat/ops/state.rs`,
+    [
+      "let agent = crate::core::runtime::CoreContext::current()",
+      "    .and_then(|ctx| ctx.session_agent().map(str::to_owned));",
+      "let overlay = overlay.session_agent(id);",
+      "let tenant = crate::core::runtime::current_tenant()?;",
+    ].join("\n"),
+  );
+  assert.deepEqual(
+    found.map((f) => [f.rule, f.line]),
+    [
+      ["ambient-context", 1],
+      ["ambient-context", 2],
+    ],
+  );
+});
+
+test("the runtime itself may read the ambient context", () => {
+  const finding = { rule: "ambient-context" };
+  assert.equal(exempt(`${SRC}/core/runtime/tenant.rs`, finding), true);
+  assert.equal(exempt(`${SRC}/storage/mod.rs`, finding), false);
+  assert.equal(exempt(`${SRC}/core/runtime/spawn.rs`, { rule: "bare-spawn" }), true);
+  assert.equal(exempt(`${SRC}/core/runtime/tenant.rs`, { rule: "bare-spawn" }), false);
+});
+
+test("a new CoreContext::current() in a tenant-keyed path fails the ratchet", () => {
+  const files = {
+    [`${SRC}/web_chat/ops/state.rs`]: "let t = current_tenant();\n",
+    [`${SRC}/core/runtime/context.rs`]: "let c = CoreContext::current();\n",
+  };
+  const clean = run(files, []);
+  assert.equal(clean.status, 0, clean.out);
+
+  const regressed = run(
+    {
+      ...files,
+      [`${SRC}/web_chat/ops/state.rs`]:
+        "let agent = CoreContext::current().and_then(|c| c.session_agent().map(str::to_owned));\n",
+    },
+    [],
+  );
+  assert.equal(regressed.status, 1);
+  assert.match(regressed.out, /ambient-context: crates\/openhuman-core\/src\/web_chat\/ops\/state.rs:1/);
+  assert.match(regressed.out, /current_tenant/);
 });

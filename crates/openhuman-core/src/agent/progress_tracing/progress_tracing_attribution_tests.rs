@@ -237,9 +237,15 @@ fn model_call_completed_emits_generation_span_with_usage_cost_and_pricing() {
         serde_json::json!(0.0886)
     );
     assert!(a.contains_key("gen_ai.pricing.output_per_mtok_usd"));
-    // Zero reasoning / cache-write tokens are omitted on the generation.
+    // Zero reasoning tokens are omitted; cache writes always flow (even 0)
+    // so every route reports the same usage dimensions.
     assert!(!a.contains_key("gen_ai.usage.reasoning_tokens"));
-    assert!(!a.contains_key("gen_ai.usage.cache_creation_tokens"));
+    assert_eq!(
+        a["gen_ai.usage.cache_creation_tokens"],
+        serde_json::json!(0)
+    );
+    assert_eq!(a["gen_ai.usage.total_tokens"], serde_json::json!(1_200));
+    assert_eq!(a["gen_ai.cost.source"], serde_json::json!("priced"));
 }
 
 #[test]
@@ -628,6 +634,7 @@ fn subagent_span_records_prompt_and_final_output_when_capture_on() {
                 worktree_path: None,
                 changed_files: vec![],
                 dirty_status: None,
+                stop: None,
             },
             105,
         ),

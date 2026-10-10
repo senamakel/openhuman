@@ -86,7 +86,7 @@ pub(super) fn build_backend_at(path: &Path) -> Box<dyn KeyringBackend> {
         match backend_kind_from_env_value(&env_val) {
             Some(BackendKind::Os) => {
                 log::info!("[keyring] backend=os (OPENHUMAN_KEYRING_BACKEND override)");
-                return Box::new(backend::OsBackend);
+                return Box::new(backend::OsBackend::new());
             }
             Some(BackendKind::File) => {
                 log::info!(

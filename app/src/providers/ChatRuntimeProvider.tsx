@@ -51,9 +51,11 @@ import {
   clearInferenceStatusForThread,
   clearParallelRequest,
   clearPendingApprovalForThread,
+  clearPendingApprovalIfRequest,
   clearPendingPlanReviewForThread,
   clearProcessingForThread,
   clearStreamingAssistantForThread,
+  clearTurnApprovalForThread,
   endInferenceTurn,
   fetchAndHydrateCompletedTurnState,
   fetchAndHydrateTurnState,
@@ -1435,6 +1437,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 toolkit,
                 toolCallId: event.tool_call_id,
                 expiresAt: event.expires_at,
+                ...(event.detached === true ? { detached: true } : {}),
               },
             })
           );
@@ -1455,10 +1458,23 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           // would race the optimistic clear and, worse, drop a card whose
           // decision the USER on this client is mid-click on when the event
           // for a DIFFERENT thread's request arrives.
-          if (
-            !event.thread_id ||
-            (event.resolution !== 'expired' && event.resolution !== 'cancelled')
-          ) {
+          if (!event.thread_id) return;
+          // A detached card (an async sub-agent's) has no turn end of its own
+          // to clear it, so any resolution of exactly that request — a decision
+          // made on another client or by a typed reply, an expiry, a cancel —
+          // removes it here. Matching on `request_id` keeps a different
+          // thread's or a newer request's card.
+          const held = store.getState().chatRuntime.pendingApprovalByThread[event.thread_id];
+          if (held?.detached && held.requestId === event.request_id) {
+            dispatch(
+              clearPendingApprovalIfRequest({
+                threadId: event.thread_id,
+                requestId: event.request_id,
+              })
+            );
+            return;
+          }
+          if (event.resolution !== 'expired' && event.resolution !== 'cancelled') {
             return;
           }
           dispatch(
@@ -1683,8 +1699,9 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           const completeSegmentDelivery = hasCompleteSegmentDelivery(event, segmentDelivery);
 
           dispatch(recordChatTurnUsage(chatTurnUsagePayload(event)));
-          // A parked gate cannot outlive its turn, so those go now.
-          dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+          // A parked gate cannot outlive its turn, so those go now — except a
+          // detached one (an async sub-agent's), which is still waiting.
+          dispatch(clearTurnApprovalForThread({ threadId: event.thread_id }));
           dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
           // Nothing the turn RENDERED is cleared here. The streaming buffer, the
           // status line and the running rows used to be torn down first, before
@@ -1887,7 +1904,7 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           if (!olderTurn) {
             dispatch(clearInferenceStatusForThread({ threadId: event.thread_id }));
             dispatch(clearStreamingAssistantForThread({ threadId: event.thread_id }));
-            dispatch(clearPendingApprovalForThread({ threadId: event.thread_id }));
+            dispatch(clearTurnApprovalForThread({ threadId: event.thread_id }));
             dispatch(clearPendingPlanReviewForThread({ threadId: event.thread_id }));
 
             const existing = currentState.chatRuntime.toolTimelineByThread[event.thread_id] ?? [];

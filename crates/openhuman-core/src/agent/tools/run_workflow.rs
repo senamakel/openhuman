@@ -193,6 +193,27 @@ fn outcome_to_result(
     outcome: Option<crate::skills::run_log::RunOutcome>,
 ) -> ToolResult {
     match outcome {
+        // The harness stopped the run's turn early: it did not finish, so the
+        // caller's failure policy and trace must see a failure, not a result.
+        Some(o) if o.status == "STOPPED" => {
+            tracing::debug!(
+                run_id,
+                workflow_id,
+                "[run_workflow] run was stopped early; returning a failed tool result"
+            );
+            ToolResult::error(
+                json!({
+                    "run_id": run_id,
+                    "workflow_id": workflow_id,
+                    "status": o.status,
+                    "error": "The workflow run was stopped before it finished. Do not report it \
+                              as done; relay the blocker below or try a different approach.",
+                    "output": o.output,
+                    "log": log_path.display().to_string(),
+                })
+                .to_string(),
+            )
+        }
         Some(o) => ToolResult::success(
             json!({
                 "run_id": run_id,

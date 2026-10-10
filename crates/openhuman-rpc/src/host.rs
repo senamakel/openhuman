@@ -3,8 +3,8 @@
 //!
 //! | Entry | Replaces | Builder |
 //! |---|---|---|
-//! | [`cli`] | `tinyhumans::install` → `server::install_cli_server` → `run_core_from_args` | [`cli_builder`]: the `cli` preset, connected, with the server launcher and the `http_host` controllers |
-//! | [`desktop`] | `tinyhumans::install` + `server::run_server_embedded_with_ready` | [`desktop_builder`]: the `desktop` preset, connected, with the bearer, listener, services, server launcher and `http_host` controllers |
+//! | [`cli`] | `tinyhumans::install` → the server launcher → `run_core_from_args` | [`cli_builder`]: the `cli` preset, connected, with the server launcher and the `http_host` controllers |
+//! | [`desktop`] | `tinyhumans::install` + the embedded server entry | [`desktop_builder`]: the `desktop` preset, connected, with the bearer, listener, services, server launcher and `http_host` controllers |
 //! | [`tui`] | `tinyhumans::install` + `session_store::install_for_host` + `CoreBuilder(full, none)` | [`tui_builder`]: the `tui` preset, connected, with the on-disk session store ([`tui`] swaps in the configured storage URL's store) |
 //!
 //! Each `*_builder` returns a [`tinyhumans::RuntimeBuilder`] so a host can
@@ -69,7 +69,97 @@ pub fn cli(args: &[String]) -> anyhow::Result<()> {
         args.first().map(String::as_str).unwrap_or("<none>"),
         args.len()
     );
-    cli_builder().run_from_args(args)
+    let mut builder = cli_builder();
+    if cli_command_uses_storage(args, |namespace| {
+        // `subsystems` only renders status; it never touches stored state.
+        namespace != "subsystems"
+            && crate::core_host::core::all::cli_handler_for_namespace(namespace).is_some()
+    }) {
+        // The preflight reads the URL before the dispatcher loads `.env`
+        // itself, so a URL supplied through the dotenv file must be loaded now.
+        if let Err(error) = crate::core_host::core::cli::load_dotenv_for_cli() {
+            log::warn!(
+                "[rpc:host] cli: early dotenv load failed ({error}); a storage url set only \
+                 in that file will not be seen"
+            );
+        }
+        // A one-shot command reads the same backend the server would: the
+        // configured storage URL, opened on the core's storage runtime so the
+        // backend outlives this call. No URL leaves the classic layout alone.
+        let provider = crate::core_host::storage::block_on_anyhow(
+            crate::session_store::provider_if_configured(),
+        )?;
+        if let Some(provider) = provider {
+            log::debug!("[rpc:host] cli: storage-backed session store installed");
+            builder = builder.session_store(provider);
+        }
+    }
+    builder.run_from_args(args)
+}
+
+/// Whether the CLI subcommand in `args` should open the configured storage
+/// backend itself, following the dispatcher's own grammar
+/// (`core::cli::parse_launch_options` then the subcommand match): only the
+/// model/provider launch flags precede the command, and the first other token
+/// is the command. `run` / `serve` open storage in their own server boot;
+/// help, the moved TUI names and `sentry-test` never touch stored state; a
+/// bare namespace only prints help unless it has a domain CLI handler
+/// (`has_cli_handler`, e.g. `voice`), which runs. `help` counts only where
+/// the dispatcher reads it (the command, the function slot or the slot after
+/// it), never as an option value.
+#[cfg(feature = "server")]
+fn cli_command_uses_storage(args: &[String], has_cli_handler: impl Fn(&str) -> bool) -> bool {
+    let is_help = |arg: &str| matches!(arg, "-h" | "--help" | "help");
+    let mut rest = args.iter().map(String::as_str).peekable();
+    while let Some(arg) = rest.peek().copied() {
+        match arg {
+            "--model" | "--model-id" | "-m" | "--provider" | "--provider-id" | "-p" => {
+                rest.next();
+                match rest.next() {
+                    // The dispatcher rejects a missing or dash-led value with
+                    // its own error; do not open storage ahead of it.
+                    None => return false,
+                    Some(value) if value.starts_with('-') => return false,
+                    Some(_) => {}
+                }
+            }
+            _ if arg.starts_with("--model=")
+                || arg.starts_with("--model-id=")
+                || arg.starts_with("--provider=")
+                || arg.starts_with("--provider-id=") =>
+            {
+                rest.next();
+            }
+            _ => break,
+        }
+    }
+    let Some(command) = rest.next() else {
+        return false;
+    };
+    if is_help(command) {
+        return false;
+    }
+    let tail: Vec<&str> = rest.collect();
+    match command {
+        "run" | "serve" | "tui" | "chat" | "sentry-test" => false,
+        // The MCP server speaks stdio when given no function and runs agent
+        // sessions, so it needs the backend.
+        "mcp" | "mcp-server" => !tail.iter().any(|a| is_help(a)),
+        // `call` and `agent` print help when given none, or on a help token
+        // or flag anywhere in their own tails.
+        "call" | "agent" => match tail.first() {
+            None => false,
+            Some(_) => !tail.iter().any(|a| is_help(a)),
+        },
+        // A namespace reads help only in the function slot and the slot
+        // after it; later `--help` tokens are option values to its parser.
+        namespace => match tail.as_slice() {
+            [] => has_cli_handler(namespace),
+            [function, ..] if is_help(function) => false,
+            [_, slot, ..] if is_help(slot) => false,
+            _ => true,
+        },
+    }
 }
 
 /// What the embedded desktop server binds and how it authenticates.
@@ -114,12 +204,17 @@ impl std::fmt::Debug for DesktopOptions {
 }
 
 /// The desktop host's builder: the `desktop` preset with every background
-/// service (Socket.IO per `options`), the in-memory bearer and listener, this
+/// service except the core update poller (Socket.IO per `options`), the
+/// in-memory bearer and listener, this
 /// crate's server launcher and the `http_host.*` controllers.
 #[cfg(feature = "server")]
 pub fn desktop_builder(options: &DesktopOptions) -> RuntimeBuilder {
     let mut services = ServiceSet::desktop();
     services.socketio = options.socketio;
+    // The shell updates through the Tauri updater; releases publish core
+    // archives for Linux only, so the core's own poller could only report a
+    // missing asset here (Sentry TAURI-RUST-122R/122S/13B8/13B9).
+    services.update_scheduler = false;
     let mut builder = RuntimeBuilder::desktop()
         .services(services)
         .server_launcher(crate::server::cli::launch)

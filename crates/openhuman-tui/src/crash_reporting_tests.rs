@@ -13,14 +13,3 @@ fn release_tag_uses_the_package_version_without_a_build_sha() {
         );
     }
 }
-
-#[test]
-fn environment_prefers_app_env_lowercased() {
-    assert_eq!(resolve_environment(Some(" Staging ".into())), "staging");
-    let fallback = if cfg!(debug_assertions) {
-        "development"
-    } else {
-        "production"
-    };
-    assert_eq!(resolve_environment(Some("  ".into())), fallback);
-}

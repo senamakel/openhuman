@@ -1,5 +1,13 @@
 //! SQLite-backed mtime state store for the vault file watcher.
 //!
+//! **Deliberately local, not on the storage port.** The rows are absolute
+//! paths on this machine and the mtimes the local filesystem reported for
+//! them. Neither means anything on another host, so a shared backend (a
+//! MongoDB behind several cores) would make one machine skip, or re-ingest,
+//! files because of what a different machine saw. It stays a per-machine
+//! SQLite file; `scripts/ci/check-storage-bypass.mjs` allowlists it with this
+//! reason.
+//!
 //! Persists `path → last_mtime_secs` across restarts so the watcher can
 //! detect real changes on startup without re-ingesting every file from
 //! scratch.  One row per tracked file; the table is created lazily on

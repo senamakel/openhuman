@@ -2,7 +2,7 @@
 
 Runnable programs that use `openhuman-embed` the way a host product would.
 Cargo discovers them, so they run with `cargo run -p openhuman-embed
---example <name>`. Both build their tokio runtime by hand with
+--example <name>`. Each builds its tokio runtime by hand with
 `AGENT_WORKER_STACK_BYTES` and `MAX_BLOCKING_THREADS` instead of
 `#[tokio::main]`, because a turn overflows tokio's default worker stack. Set
 `RUST_LOG=debug` to see the `[embed]` log lines around each turn.
@@ -46,6 +46,21 @@ URL, so on the managed path also set `OPENHUMAN_EXAMPLE_BACKEND_URL` to the
 backend's inference base, or managed calls answer `BACKEND_UNAVAILABLE:`. A
 real host would build with `openhuman_tinyhumans::RuntimeBuilder` instead.
 
+## profiles
+
+Two users, alice and bob, each with their own SaaS profile in one process,
+both chatting on a thread they call `t1`. Each reads `t1` back and sees only
+their own messages: a thread id is unique per profile. It builds a
+`ProfileRuntime` on a temporary root and runs fully offline, against a local
+mock that answers `echo: <your message>` through a stub backend transport:
+
+```bash
+cargo run -p openhuman-embed --example profiles
+```
+
+Building a `ProfileRuntime` locks the process into SaaS mode, so this example
+cannot share a process with the other two.
+
 ## Optional settings
 
 | Variable | Effect |
@@ -53,7 +68,7 @@ real host would build with `openhuman_tinyhumans::RuntimeBuilder` instead.
 | `OPENHUMAN_EXAMPLE_BACKEND_URL` | Points the core's non-inference backend calls at your own backend. |
 | `OPENHUMAN_EXAMPLE_SKILLS_DIR` | Skill bundles to copy in (the reviewer only, in `two_agents`). Ignored without the `skills` feature. |
 
-These programs make real network calls to the endpoint you configure. The
+`run_turn` and `two_agents` make real network calls to the endpoint you configure; `profiles` makes none. The
 tests in [`../tests/`](../tests/README.md) cover the same paths against mocks.
 The repository-root [`examples/embed_headless.rs`](../../../examples/embed_headless.rs) and [`examples/embed_kernel.rs`](../../../examples/embed_kernel.rs)
 use `CoreBuilder` directly, without this crate; run them with

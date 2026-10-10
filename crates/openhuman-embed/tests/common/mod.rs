@@ -219,3 +219,145 @@ pub async fn eventually<T>(what: &str, mut check: impl FnMut() -> Option<T>) -> 
     }
     panic!("timed out waiting for {what}");
 }
+
+/// A backend transport that sends managed inference to `base_url` (a mock)
+/// and answers every control-plane call as "no backend". For suites that run
+/// turns through the core's managed-inference path, such as SaaS profiles,
+/// whose configs name no inference endpoint of their own.
+pub struct PointedTransport {
+    base_url: String,
+    client: reqwest::Client,
+}
+
+impl PointedTransport {
+    pub fn install(base_url: &str) {
+        openhuman_embed::install_backend_transport(std::sync::Arc::new(Self {
+            base_url: base_url.trim_end_matches('/').to_string(),
+            client: reqwest::Client::new(),
+        }));
+    }
+}
+
+#[async_trait::async_trait]
+impl openhuman_embed::BackendTransport for PointedTransport {
+    async fn send_json(
+        &self,
+        req: openhuman_embed::BackendRequest<'_>,
+    ) -> Result<serde_json::Value, openhuman_embed::BackendTransportError> {
+        // Forward inference requests to the pointed mock endpoint.
+        // This uses the same HTTP client as a real transport would.
+        let url = format!("{}/{}", self.base_url, req.path.trim_start_matches('/'));
+        let resp = self
+            .client
+            .post(&url)
+            .json(&req.body)
+            .send()
+            .await
+            .map_err(|_| openhuman_embed::BackendTransportError::Unavailable)?;
+        resp.json()
+            .await
+            .map_err(|_| openhuman_embed::BackendTransportError::Unavailable)
+    }
+
+    async fn send_multipart(
+        &self,
+        _req: openhuman_embed::BackendRequest<'_>,
+        _form: reqwest::multipart::Form,
+    ) -> Result<serde_json::Value, openhuman_embed::BackendTransportError> {
+        Err(openhuman_embed::BackendTransportError::Unavailable)
+    }
+
+    fn http_client(&self, _profile: openhuman_embed::TransportProfile) -> reqwest::Client {
+        reqwest::Client::new()
+    }
+
+    fn base_url(
+        &self,
+        _configured: Option<&str>,
+        _purpose: openhuman_embed::BaseUrlPurpose,
+    ) -> String {
+        self.base_url.clone()
+    }
+
+    fn product_identity(&self) -> String {
+        "openhuman-embed-test".to_string()
+    }
+
+    fn attribution_headers(&self) -> reqwest::header::HeaderMap {
+        reqwest::header::HeaderMap::new()
+    }
+
+    fn name(&self) -> &'static str {
+        "embed-test-pointed"
+    }
+}
+
+/// A mock OpenAI-compatible endpoint that answers every chat completion with
+/// `echo: <the last user message>`, streamed when the request asks for it,
+/// and every other request with an empty success.
+pub async fn echo_inference() -> MockServer {
+    let server = MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::path_regex(r"chat/completions$"))
+        .respond_with(EchoCompletion)
+        .with_priority(1)
+        .mount(&server)
+        .await;
+    wiremock::Mock::given(wiremock::matchers::any())
+        .respond_with(
+            wiremock::ResponseTemplate::new(200)
+                .set_body_json(json!({ "success": true, "data": [] })),
+        )
+        .with_priority(10)
+        .mount(&server)
+        .await;
+    server
+}
+
+/// The last user message of a chat-completion request body.
+pub fn last_user_message(body: &serde_json::Value) -> String {
+    body.get("messages")
+        .and_then(|m| m.as_array())
+        .and_then(|messages| {
+            messages
+                .iter()
+                .rev()
+                .find(|m| m.get("role").and_then(|r| r.as_str()) == Some("user"))
+        })
+        .and_then(|m| match m.get("content")? {
+            serde_json::Value::String(s) => Some(s.clone()),
+            other => Some(other.to_string()),
+        })
+        .unwrap_or_default()
+}
+
+struct EchoCompletion;
+
+impl wiremock::Respond for EchoCompletion {
+    fn respond(&self, request: &Request) -> wiremock::ResponseTemplate {
+        let body: serde_json::Value = serde_json::from_slice(&request.body).unwrap_or_default();
+        let reply = format!("echo: {}", last_user_message(&body));
+        if body.get("stream").and_then(|s| s.as_bool()) == Some(true) {
+            let chunk = json!({
+                "id": "chatcmpl-embed-test",
+                "object": "chat.completion.chunk",
+                "created": 1_700_000_000_u64,
+                "model": "embed-test-model",
+                "choices": [{ "index": 0, "delta": { "role": "assistant", "content": reply }, "finish_reason": null }]
+            });
+            let done = json!({
+                "id": "chatcmpl-embed-test",
+                "object": "chat.completion.chunk",
+                "created": 1_700_000_000_u64,
+                "model": "embed-test-model",
+                "choices": [{ "index": 0, "delta": {}, "finish_reason": "stop" }],
+                "usage": { "prompt_tokens": 1, "completion_tokens": 1, "total_tokens": 2 }
+            });
+            wiremock::ResponseTemplate::new(200).set_body_raw(
+                format!("data: {chunk}\n\ndata: {done}\n\ndata: [DONE]\n\n"),
+                "text/event-stream",
+            )
+        } else {
+            wiremock::ResponseTemplate::new(200).set_body_json(chat_completion(&reply))
+        }
+    }
+}

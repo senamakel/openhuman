@@ -447,7 +447,10 @@ fn turn_completed_keeps_snapshot_as_completed_and_finish_is_noop() {
     let dir = tempdir().expect("tempdir");
     let store = TurnStateStore::new(dir.path().to_path_buf());
     let mut mirror = TurnStateMirror::new(store.clone(), "t", "req-1");
-    mirror.observe(&AgentProgress::TurnCompleted { iterations: 3 });
+    mirror.observe(&AgentProgress::TurnCompleted {
+        iterations: 3,
+        stop: None,
+    });
     // The snapshot is kept (not deleted) so a reloaded client can replay the
     // finished turn's processing transcript, marked terminal `Completed` with
     // the live fields quiesced.
@@ -529,6 +532,7 @@ fn subagent_lifecycle_records_and_clears_active() {
         worktree_path: None,
         changed_files: Vec::new(),
         dirty_status: None,
+        stop: None,
     });
     let s = m.snapshot();
     assert_eq!(s.tool_timeline[0].status, ToolTimelineStatus::Success);
@@ -720,6 +724,7 @@ fn subagent_completed_persists_capped_output_on_the_activity() {
         worktree_path: None,
         changed_files: Vec::new(),
         dirty_status: None,
+        stop: None,
     });
 
     let entry = m

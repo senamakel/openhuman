@@ -53,7 +53,7 @@ current call. The first hit wins:
    (`CoreBuilder::backend_transport`, inherited by `CoreContext::derive_with`).
 2. The process global set by `install_backend_transport`. The desktop shell,
    TUI and CLI use this path because they boot the core through
-   `run_server_embedded_with_ready` or `run_core_from_args` rather than the
+   `openhuman_rpc::host` or `run_core_from_args` rather than the
    builder. `openhuman_tinyhumans::install` (or `RuntimeBuilder` for library
    hosts) does the install.
 3. Under `cfg(test)` only, `PlainHttpTransport` from [`transport/plain.rs`](./transport/plain.rs).

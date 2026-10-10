@@ -204,6 +204,10 @@ impl RuntimeBuilder {
         server_launcher(launcher: ServerLauncher)
     );
     forward!(
+        /// See [`openhuman_embed::RuntimeBuilder::storage`].
+        storage(source: openhuman_embed::seams::StorageSource)
+    );
+    forward!(
         /// See [`openhuman_embed::RuntimeBuilder::live_policy`].
         live_policy(policy: Arc<SecurityPolicy>)
     );

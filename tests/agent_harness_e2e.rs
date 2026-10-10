@@ -131,6 +131,19 @@ fn captured_requests_mention_unknown_tool(requests: &[Value]) -> bool {
         .contains("unknown tool")
 }
 
+/// Asserts the model's follow-up request carries the expired-approval text
+/// (`unanswered_approval_text`): an unanswered prompt is not a refusal, but the
+/// model is still told not to achieve the same result another way.
+fn assert_model_saw_the_expiry(requests: &[Value]) {
+    let body = serde_json::to_string(requests).unwrap_or_default();
+    assert!(
+        body.contains("not answered in time")
+            && body.contains("approval window expired")
+            && body.contains("another way"),
+        "the model must be told the approval expired and not to work around it; captured: {body}"
+    );
+}
+
 /// Asserts the model's follow-up request carries the refusal the security
 /// gate renders for a refused approval (`decision_for_outcome`), not the
 /// harness's bare "tool call was not approved" fallback.
@@ -1626,7 +1639,7 @@ async fn approval_gate_timeout_inner() {
         full_response.contains("TIMEOUT_ACK_CANARY"),
         "full_response must contain TIMEOUT_ACK_CANARY after TTL auto-deny; got: {full_response}"
     );
-    assert_model_saw_the_refusal(&with_captured(|c| c.clone()));
+    assert_model_saw_the_expiry(&with_captured(|c| c.clone()));
 
     // The file's content must remain the placeholder (not the canary).
     // Use .expect() so a missing file fails loudly rather than vacuously passing.

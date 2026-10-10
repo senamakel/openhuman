@@ -183,6 +183,9 @@ async fn start_chat_inner(
     if message.is_empty() {
         return Err(StartChatError::Other("message is required".to_string()));
     }
+    // A profile this node no longer hosts (its lease was lost or released)
+    // starts no new turn here. No-op outside SaaS.
+    crate::profiles::host::ensure_hosted().map_err(StartChatError::Other)?;
 
     // Save originals before scanning, history, memory, or queue persistence.
     // A missing config/root cannot safely accept an upload.
@@ -688,6 +691,7 @@ async fn start_chat_inner(
             map_key,
             InFlightEntry {
                 request_id: request_id.clone(),
+                client_id: client_id.clone(),
                 handle,
                 run_queue: turn_run_queue,
                 cancel_token,

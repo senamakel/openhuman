@@ -177,3 +177,37 @@ fn turning_jev_back_on_does_not_replace_a_host_ranker() {
     );
     assert_eq!(summary.tool_ranker.as_deref(), Some("host-ranker"));
 }
+
+#[test]
+fn connect_keeps_cli_knobs_for_the_host_boot() {
+    use openhuman_embed::seams::HostBoot;
+    use openhuman_embed::{DomainSet, ServiceSet, TokenSource};
+
+    let mut domains = DomainSet::full();
+    domains.mcp = false;
+    // `run_from_args` is `connect()` followed by the embed builder's
+    // `run_from_args`, which wraps the connected builder in a `HostBoot` for
+    // the core's `run` / `serve` launcher. This covers the connect step and
+    // the HostBoot extraction; the dispatch itself needs a live CLI process
+    // and is covered by the cli/saas e2e suites.
+    let connected = RuntimeBuilder::cli()
+        .domains(domains)
+        .services(ServiceSet::headless_api())
+        .token(TokenSource::Fixed(Arc::new("bearer".into())))
+        .listen("0.0.0.0", 7812)
+        .connect()
+        .expect("connect");
+    let boot = HostBoot::new(connected);
+    let handed = openhuman_embed::RuntimeBuilder::from_host_boot(&boot).expect("the builder");
+    let summary = handed.summary();
+    assert_eq!(summary.domains.map(|d| d.mcp), Some(false));
+    assert_eq!(summary.services, Some(ServiceSet::headless_api()));
+    assert!(summary.fixed_token);
+    assert_eq!(summary.listen_host.as_deref(), Some("0.0.0.0"));
+    assert_eq!(summary.listen_port, Some(7812));
+    assert!(
+        summary.has_backend_transport,
+        "the server binds the transport"
+    );
+    assert_eq!(summary.controller_extensions, vec![DomainGroup::Hosted]);
+}

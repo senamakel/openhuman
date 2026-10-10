@@ -107,42 +107,6 @@ pub(super) async fn finalize_turn_outcome(
         observability::surface_cache_layout_events(model, &cache_layout_events);
     }
 
-    // Terminal turn event (parity with the legacy engine's `progress::emit`): the
-    // harness stream has no run-completed event, so emit `TurnCompleted` here with
-    // the model-call count as the iteration total. Parent turns only; best-effort.
-    // `turn_completed_sink` is `None` for sub-agent turns AND when the caller
-    // opted to emit the terminal event itself after its post-run wrap-up
-    // (`defer_turn_completed_to_caller`, #4457 defect C) — so this is the single
-    // emission point for callers with no post-run streaming (channel/CLI).
-    if let Some(sink) = &turn_completed_sink {
-        // NOT best-effort. `TurnCompleted` is the web bridge's sole completion
-        // signal: drop it and `parent_completed` stays false, so the bridge
-        // marks a turn that actually finished as `interrupted` and never emits
-        // `chat_done`. The turn's output still reaches the journal, session
-        // transcript and memory, so the agent "remembers" replying while
-        // the user's thread shows silence. A heavy turn (many tools + long
-        // streaming) reliably fills the 256-slot channel, which is why only
-        // tool-heavy turns were affected.
-        //
-        // Blocking is safe *here specifically*: this site is guarded by
-        // `subagent_scope.is_none()`, so it only ever runs on a parent turn
-        // with nothing awaiting it. The sub-agent stall documented on
-        // `tool_progress::emit` comes from parking a *sub-agent's* loop while
-        // the orchestrator awaits its tool call — unreachable from this path.
-        // Deltas and sub-agent lifecycle events stay lossy via `emit`.
-        if let Err(err) = sink
-            .send(AgentProgress::TurnCompleted {
-                iterations: run.model_calls as u32,
-            })
-            .await
-        {
-            tracing::warn!(
-                error = %err,
-                "[tinyagents] TurnCompleted not delivered — progress receiver gone"
-            );
-        }
-    }
-
     // Response-cache effectiveness for this turn (issue #4249, 03.2). Additive —
     // logged with a grep-friendly `[cache]` prefix here; wiring the counts into the
     // cost-footer DTO is a follow-up coordinated with workstream 06. Only the
@@ -213,6 +177,54 @@ pub(super) async fn finalize_turn_outcome(
         && breaker_halt.is_none()
         && (wrap_up_injected
             || (run.model_calls >= max_iterations && run.final_response.is_none()));
+
+    // Terminal turn event (parity with the legacy engine's `progress::emit`): the
+    // harness stream has no run-completed event, so emit `TurnCompleted` here with
+    // the model-call count as the iteration total. Parent turns only; best-effort.
+    // `turn_completed_sink` is `None` for sub-agent turns AND when the caller
+    // opted to emit the terminal event itself after its post-run wrap-up
+    // (`defer_turn_completed_to_caller`, #4457 defect C) — so this is the single
+    // emission point for callers with no post-run streaming (channel/CLI).
+    // A run the harness stopped (breaker / cap) is traced as stopped, not as a
+    // clean completion. No deadline wind-down on this path: only the session
+    // turn carries one, and it records the stop through its sidecar.
+    let stop = crate::agent::turn_stop::TurnStop::classify(breaker_halt.as_deref(), false, hit_cap);
+    if let Some(stop) = stop.as_ref().filter(|_| turn_completed_sink.is_some()) {
+        tracing::debug!(
+            model,
+            "[tinyagents] turn stopped early; carrying it on TurnCompleted {}",
+            stop.status_message()
+        );
+    }
+    if let Some(sink) = &turn_completed_sink {
+        // NOT best-effort. `TurnCompleted` is the web bridge's sole completion
+        // signal: drop it and `parent_completed` stays false, so the bridge
+        // marks a turn that actually finished as `interrupted` and never emits
+        // `chat_done`. The turn's output still reaches the journal, session
+        // transcript and memory, so the agent "remembers" replying while
+        // the user's thread shows silence. A heavy turn (many tools + long
+        // streaming) reliably fills the 256-slot channel, which is why only
+        // tool-heavy turns were affected.
+        //
+        // Blocking is safe *here specifically*: this site is guarded by
+        // `subagent_scope.is_none()`, so it only ever runs on a parent turn
+        // with nothing awaiting it. The sub-agent stall documented on
+        // `tool_progress::emit` comes from parking a *sub-agent's* loop while
+        // the orchestrator awaits its tool call — unreachable from this path.
+        // Deltas and sub-agent lifecycle events stay lossy via `emit`.
+        if let Err(err) = sink
+            .send(AgentProgress::TurnCompleted {
+                iterations: run.model_calls as u32,
+                stop,
+            })
+            .await
+        {
+            tracing::warn!(
+                error = %err,
+                "[tinyagents] TurnCompleted not delivered — progress receiver gone"
+            );
+        }
+    }
 
     let (early_exit_tool, mut text) = match early_exit {
         Some(exit) => (Some(exit.tool), exit.question),

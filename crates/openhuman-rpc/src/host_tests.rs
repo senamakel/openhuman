@@ -33,6 +33,7 @@ fn desktop_builder_carries_bearer_listener_and_services() {
     assert_eq!(summary.domains, Some(DomainSet::full()));
     let mut expected = ServiceSet::desktop();
     expected.socketio = false;
+    expected.update_scheduler = false;
     assert_eq!(summary.services, Some(expected));
     assert!(summary.fixed_token);
     assert_eq!(summary.listen_host.as_deref(), Some("127.0.0.1"));
@@ -54,7 +55,29 @@ fn desktop_defaults_leave_listener_and_token_to_the_environment() {
     assert!(!summary.fixed_token);
     assert_eq!(summary.listen_host, None);
     assert_eq!(summary.listen_port, None);
-    assert_eq!(summary.services, Some(ServiceSet::desktop()));
+    let mut expected = ServiceSet::desktop();
+    expected.update_scheduler = false;
+    assert_eq!(summary.services, Some(expected));
+}
+
+/// Sentry TAURI-RUST-122R/122S/13B8/13B9: the shell updates through the
+/// Tauri updater and releases publish core archives for Linux only, so an
+/// in-process core polling for its own archive reported a missing asset
+/// every hour on macOS and Windows. The standalone CLI keeps the poller.
+#[cfg(feature = "server")]
+#[test]
+fn only_the_standalone_cli_runs_the_core_update_poller() {
+    let desktop = desktop_builder(&DesktopOptions::default())
+        .into_embed()
+        .summary();
+    assert!(
+        !desktop
+            .services
+            .expect("desktop sets services")
+            .update_scheduler
+    );
+    let cli = cli_builder().into_embed().summary();
+    assert!(cli.services.expect("cli sets services").update_scheduler);
 }
 
 #[cfg(feature = "server")]
@@ -92,4 +115,50 @@ fn tui_builder_runs_every_domain_without_services_on_the_disk_store() {
     assert_eq!(summary.services, Some(ServiceSet::none()));
     assert!(summary.has_session_store);
     assert!(!summary.has_server_launcher, "the TUI binds no server");
+}
+
+#[test]
+#[cfg(feature = "server")]
+fn cli_storage_is_opened_for_one_shot_commands_only() {
+    let args = |parts: &[&str]| parts.iter().map(|p| p.to_string()).collect::<Vec<_>>();
+    let uses = |parts: &[&str]| cli_command_uses_storage(&args(parts), |ns| ns == "voice");
+    assert!(uses(&["agent", "list"]));
+    assert!(uses(&["cron", "list"]));
+    assert!(uses(&["--model", "x", "approvals", "list"]));
+    assert!(uses(&["--model=x", "-p", "y", "cron", "list"]));
+    // Bare `voice` has a domain CLI handler, so it runs and needs storage;
+    // other bare namespaces only print help.
+    assert!(uses(&["voice"]));
+    assert!(uses(&["voice", "--skip-cleanup"]));
+    assert!(!uses(&["cron"]));
+    assert!(!uses(&["serve"]));
+    assert!(!uses(&["--provider=a", "-m", "b", "run"]));
+    assert!(!uses(&[]));
+    assert!(!uses(&["--help"]));
+    assert!(!uses(&["help"]));
+    assert!(!uses(&["cron", "--help"]));
+    assert!(!uses(&["cron", "help"]));
+    assert!(!uses(&["cron", "list", "-h"]));
+    assert!(!uses(&["cron", "list", "--help"]));
+    assert!(!uses(&["agent"]));
+    assert!(!uses(&["agent", "--help"]));
+    assert!(!uses(&["agent", "help"]));
+    assert!(!uses(&["call", "--help"]));
+    assert!(!uses(&["mcp", "-h"]));
+    assert!(uses(&["agent", "chat"]));
+    // Later `--help` tokens are option values to the namespace parser.
+    assert!(uses(&["cron", "list", "--format", "json", "--help"]));
+    assert!(uses(&["cron", "add", "--name", "--help"]));
+    assert!(uses(&["mcp"]));
+    assert!(!uses(&["mcp", "help"]));
+    assert!(!uses(&["mcp", "--verbose", "--help"]));
+    assert!(!uses(&["agent", "foo", "help"]));
+    assert!(!uses(&["call", "foo", "help"]));
+    assert!(uses(&["mcp-server"]));
+    assert!(!uses(&["mcp", "--help"]));
+    assert!(!uses(&["--model", "--help", "cron", "list"]));
+    assert!(!uses(&["--model"]));
+    // `help` as an option value is not a help request.
+    assert!(uses(&["cron", "add", "--name", "help"]));
+    assert!(uses(&["--model", "help", "cron", "list"]));
 }

@@ -1,3 +1,4 @@
+use super::super::shell_platform::{PYTHON_UTF8_DEFAULTS, SAFE_ENV_VARS};
 use super::*;
 use crate::agent::host_runtime::{NativeRuntime, RuntimeAdapter};
 use crate::config::test_env::EnvVarGuard;
@@ -60,6 +61,8 @@ fn test_security_with_env_cmd() -> Arc<SecurityPolicy> {
     })
 }
 
+#[path = "shell_tests_platform_tests.rs"]
+mod platform_tests;
 #[path = "shell_tests_runtime_and_sandbox_tests.rs"]
 mod runtime_and_sandbox_tests;
 #[path = "shell_tests_schema_and_env_tests.rs"]

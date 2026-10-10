@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use chrono::{Duration, Utc};
+use chrono::{Datelike, Duration, Utc};
 use openhuman_core::agent::tinyagents::host::OpenHumanBudgetGate;
 use openhuman_core::config::Config;
 use openhuman_core::core::invoke::{default_state, invoke_method};
@@ -59,12 +59,22 @@ async fn cost_reports_group_the_ledger_and_a_refuse_budget_stops_the_call() {
     let tracker = cost::try_global().expect("this process owns the global tracker");
 
     // Seed the ledger, oldest first.
-    let start = Utc::now() - Duration::seconds(CALLS.len() as i64 + 1);
+    // Milliseconds apart, so the ledger stays inside the current budget month
+    // even at a month boundary.
+    let month_start = Utc::now()
+        .date_naive()
+        .with_day(1)
+        .expect("first of the month")
+        .and_hms_opt(0, 0, 0)
+        .expect("midnight")
+        .and_utc();
+    let start = Utc::now() - Duration::milliseconds(CALLS.len() as i64 + 1);
     for (i, (model, thread, input, cached, cost_usd)) in CALLS.iter().enumerate() {
         let mut usage = TokenUsage::new(*model, *input, 10, 0.0, 0.0);
         usage.cached_input_tokens = *cached;
         usage.cost_usd = *cost_usd;
-        usage.timestamp = start + Duration::seconds(i as i64);
+        // Never before the budget month's start (UTC midnight on the 1st).
+        usage.timestamp = (start + Duration::milliseconds(i as i64)).max(month_start);
         usage.scope.thread_id = Some((*thread).to_string());
         usage.scope.agent_id = Some("orchestrator".to_string());
         tracker.record_usage_unconditional(usage).expect("record");

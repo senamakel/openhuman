@@ -22,6 +22,12 @@ import { BILLING_DASHBOARD_URL } from '../links';
 import { openUrl } from '../openUrl';
 import { getSessionToken } from '../tauriCommands';
 
+const sentryCapture = vi.hoisted(() => vi.fn());
+vi.mock('@sentry/react', async importOriginal => ({
+  ...(await importOriginal<typeof import('@sentry/react')>()),
+  captureException: sentryCapture,
+}));
+
 vi.mock('../configPersistence', () => ({ getStoredCoreMode: vi.fn() }));
 vi.mock('../../services/coreRpcClient', () => ({
   clearCoreRpcUrlCache: vi.fn(),
@@ -354,6 +360,22 @@ describe('desktopDeepLinkListener', () => {
     expect(state.errorMessageKey).toBeNull();
   });
 
+  // Sentry TAURI-REACT-1S: a rejection that is not an `Error` (a Tauri invoke
+  // rejects with whatever the command serialized) stringified to
+  // "[object Object]" and grouped under `auth store failed: other`.
+  it('reports a non-Error store rejection under its own PII-free kind', async () => {
+    sentryCapture.mockClear();
+    vi.mocked(storeSessionToken).mockRejectedValueOnce({ code: 42 });
+
+    vi.mocked(getCurrent).mockResolvedValue([authDeepLinkWithState('token=abc&key=auth')]);
+
+    await setupDesktopDeepLinkListener();
+    await waitForAuthSettled();
+
+    const captured = sentryCapture.mock.calls.map(([error]) => (error as Error).message);
+    expect(captured).toContain('auth store failed: non_error');
+  });
+
   // The core cannot read its own config.toml: permanent, host-side, and
   // identical for every config-dependent RPC. It previously fell through to the
   // generic "Please try again", which is advice that can never work. The copy is
@@ -522,6 +544,39 @@ describe('classifyAuthStoreFailure', () => {
     ['totally unrelated explosion', 'other'],
   ])('classifies %j as %s', (message, expected) => {
     expect(classifyAuthStoreFailure(message)).toBe(expected);
+  });
+
+  // Sentry TAURI-REACT-1S: the session owner's own prefixes (Rust
+  // `SessionError`: `CORE:` / `BACKEND:` / `INVALID:`) and the listener's own
+  // fail-closed error all collapsed into `other`.
+  it.each([
+    ['CORE: auth.set_credential failed: boom', 'core'],
+    ['BACKEND: could not resolve the backend URL', 'backend'],
+    ['INVALID: a local session needs a user payload', 'invalid'],
+    [
+      'CORE: session owner reported success but the core holds no session token',
+      'core_no_session_token',
+    ],
+  ])('classifies the owner error %j as %s', (message, expected) => {
+    expect(classifyAuthStoreFailure(message)).toBe(expected);
+  });
+
+  it('keeps specific buckets ahead of the CORE: prefix', () => {
+    expect(classifyAuthStoreFailure('CORE: core RPC operation timed out')).toBe('auth_me_timeout');
+    expect(
+      classifyAuthStoreFailure(
+        'CORE: Failed to read config file: /x/config.toml: Permission denied (os error 13)'
+      )
+    ).toBe('config_unreadable');
+  });
+
+  it('classifies non-Error rejections without stringifying them', () => {
+    expect(classifyAuthStoreFailure({ code: 42 })).toBe('non_error');
+    expect(classifyAuthStoreFailure(undefined)).toBe('non_error');
+    expect(classifyAuthStoreFailure(null)).toBe('non_error');
+    // A serialized error object still carries a classifiable message.
+    expect(classifyAuthStoreFailure({ message: 'CORE: boom' })).toBe('core');
+    expect(classifyAuthStoreFailure(new Error('INVALID: no user'))).toBe('invalid');
   });
 
   // Contract pin: the classifier matches substrings of the Rust-produced error

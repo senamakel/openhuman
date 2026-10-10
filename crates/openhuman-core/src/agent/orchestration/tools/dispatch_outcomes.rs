@@ -74,3 +74,32 @@ pub(crate) fn incomplete_envelope(
         envelope
     }
 }
+
+/// How a sub-agent handed back as `Incomplete { reason }` was stopped
+/// (iteration cap or failure breaker), for its `SubagentCompleted` event.
+pub(crate) fn incomplete_stop(reason: &str) -> Option<crate::agent::turn_stop::TurnStop> {
+    Some(crate::agent::turn_stop::TurnStop::from_incomplete_reason(
+        reason,
+    ))
+}
+
+/// The parent's tool result for a sub-agent the harness stopped early: a
+/// **failure** carrying `envelope` (the actionable "did not finish" framing
+/// plus the stop summary and partial progress), so the parent's failure
+/// policy and its trace see the stop. It used to be a success the parent
+/// could narrate as done.
+pub(crate) fn stopped_subagent_result(
+    tool_name: &str,
+    agent_id: &str,
+    task_id: &str,
+    reason: &str,
+    envelope: String,
+) -> ToolResult {
+    let stop = crate::agent::turn_stop::TurnStop::from_incomplete_reason(reason);
+    log::debug!(
+        "[subagent] {tool_name} child stopped early agent_id={agent_id} task_id={task_id} \
+         {}; returning a failed tool result",
+        stop.status_message()
+    );
+    ToolResult::error(envelope)
+}

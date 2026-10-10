@@ -502,6 +502,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.connectIntegration': '새 통합을 연결해 줘.',
   'chat.welcomeSuggestion.dailySummaryFlow': '매일 요약을 이메일로 보내주는 플로우를 만들어 줘.',
   'chat.typeMessage': '메시지를 보내세요...',
+  'chat.regenerate.unavailable':
+    '이 답변은 다시 생성할 수 없습니다. 대신 최신 답변을 다시 생성해 보세요.',
+  'chat.regenerate.failed': '답변을 다시 생성하지 못했습니다. 다시 시도해 주세요.',
   'chat.send': '메시지 보내기',
   'chat.stopGeneration': '생성 중지',
   'chat.followupHint': '후속 메시지를 대기열에 추가: 이 응답 후 전송 · 병렬 분기는 ⌘/Ctrl+Enter',
@@ -1213,7 +1216,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} 페이지 열기',
   'mcp.installed.emptyAddInJson': 'mcp.json에서 추가',
   'mcp.registry.intro':
-    'MCP 서버 디렉터리입니다. 서버를 열면 설치 안내가 있는 해당 서버의 페이지로 이동합니다. mcp.json 탭에서 추가하세요.',
+    'MCP 서버 디렉터리입니다. 설정이 필요 없는 호스팅 서버는 한 번의 클릭으로 추가됩니다. 그 밖의 서버는 해당 페이지에서 설치 안내를 확인한 뒤 mcp.json 탭에서 선언하세요.',
+  'mcp.registry.action.add': '추가',
+  'mcp.registry.action.added': '추가됨',
+  'mcp.registry.action.adding': '추가 중…',
+  'mcp.registry.aria.add': '{name} 추가',
+  'mcp.registry.needsSetup':
+    '이 서버는 추가하기 전에 설정이 필요합니다. 설치 안내를 보려면 해당 페이지를 여세요.',
+  'mcp.registry.addFailed': '이 서버를 추가할 수 없습니다.',
+  'mcp.registry.connectFailed': '추가했지만 서버가 연결되지 않았습니다.',
   'mcp.json.loadFailedTitle': 'mcp.json을 읽을 수 없습니다',
   'mcp.json.loadFailedBody':
     '코어가 응답하지 않아 문서를 표시하지 않습니다. 빈 편집기는 서버를 지우는 저장을 유도할 수 있습니다.',
@@ -1686,6 +1697,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': '연결되었습니다. 사용할 준비가 되었습니다.',
   'bootCheck.authFailed': '해당 토큰이 작동하지 않았습니다. 다시 확인하고 시도하세요.',
   'bootCheck.unreachablePrefix': '연결할 수 없습니다:',
+  'bootCheck.socketDisabled':
+    '연결되었지만 이 코어에서는 실시간 기능이 꺼져 있습니다. --jsonrpc-only로 시작되었습니다. 채팅과 실시간 업데이트를 쓰려면 이 플래그 없이 다시 시작하세요.',
   'bootCheck.checkingCore': 'OpenHuman을 시작하는 중…',
   'bootCheck.cannotReach': '연결할 수 없습니다',
   'bootCheck.cannotReachDesc': '연결하지 못했습니다. 다른 곳에서 시도해 볼까요?',
@@ -1754,6 +1767,10 @@ const messages: TranslationMap = {
   'about.update.status.error': '업데이트 확인 실패',
   'about.update.status.default': '업데이트 확인',
   'welcome.continueLocallyExperimental': '로컬에서 계속(실험적)',
+  'auth.profileSwitch.title': '별도 프로필로 로그인할까요?',
+  'auth.profileSwitch.body':
+    '클라우드에 로그인하면 OpenHuman이 별도의 계정 프로필로 전환됩니다. 로컬 대화, 메모리, 제공업체 설정은 이 기기의 users/{profileId}에 남아 있습니다. 돌아가려면 로그아웃한 다음 시작 화면에서 로컬 세션을 선택하세요.',
+  'auth.profileSwitch.continue': '로그인 계속하기',
   'welcome.localSessionStarting': '로컬 세션 시작 중...',
   'welcome.coreConfigUnreadable':
     '런타임이 자체 구성 파일을 읽지 못했습니다. config.toml이 다른 사용자 계정 소유이거나 다른 이유로 런타임 프로세스가 접근할 수 없는 상태일 수 있습니다. 런타임을 다시 시작하고, 그래도 해결되지 않으면 작업 디렉터리의 소유권을 복구하거나 볼륨을 다시 만드세요.',

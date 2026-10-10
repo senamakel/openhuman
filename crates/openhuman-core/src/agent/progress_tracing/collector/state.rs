@@ -13,6 +13,10 @@ pub(super) struct FirstDeltas {
     pub(super) any_unix_ms: Option<u64>,
     /// First visible text delta.
     pub(super) text_unix_ms: Option<u64>,
+    /// Most recent delta of any kind. A call whose every delta lands in the
+    /// last instant before completion was not streamed (see
+    /// [`super::model_call`]'s unstreamed-call guard).
+    pub(super) last_unix_ms: Option<u64>,
 }
 
 impl FirstDeltas {
@@ -20,6 +24,7 @@ impl FirstDeltas {
     /// unless an earlier one is already recorded.
     pub(super) fn observe(&mut self, now_unix_ms: u64, is_text: bool) {
         self.any_unix_ms.get_or_insert(now_unix_ms);
+        self.last_unix_ms = Some(now_unix_ms);
         if is_text {
             self.text_unix_ms.get_or_insert(now_unix_ms);
         }
@@ -37,6 +42,75 @@ pub(super) struct SubagentState {
     pub(super) open_tools: BTreeMap<String, usize>,
     /// First streamed delta of the child's in-flight model call.
     pub(super) first_deltas: FirstDeltas,
+    /// Langfuse-facing label (`{provider}.{model}`) of the child's latest
+    /// model call, stamped on the child tool spans it requests.
+    pub(super) last_model: Option<String>,
+    /// Raw model of the child's most recent call, the fallback name for a call
+    /// that arrives without one.
+    pub(super) last_raw_model: Option<String>,
+    /// Last child iteration span opened, kept after it closes so a model call
+    /// or tool event reported after the subagent finished still nests under it.
+    pub(super) last_iteration_span_id: Option<String>,
+    /// Start-time bookkeeping for the child's model calls (see [`CallClock`]).
+    pub(super) call_clock: CallClock,
+}
+
+impl SubagentState {
+    pub(super) fn new(span_index: usize) -> Self {
+        Self {
+            span_index,
+            current_iteration_span_id: None,
+            open_tools: BTreeMap::new(),
+            first_deltas: FirstDeltas::default(),
+            last_model: None,
+            last_raw_model: None,
+            last_iteration_span_id: None,
+            call_clock: CallClock::default(),
+        }
+    }
+}
+
+/// Per-scope bookkeeping for a model call's start time.
+///
+/// The progress stream carries no per-call request start: a generation used
+/// to start at its enclosing iteration's start, so several calls folded into
+/// one iteration (retries, or a child's calls whose iteration events were
+/// lost) all shared that instant and each one's latency covered every call
+/// before it. A call cannot have started before the previous call in the same
+/// iteration ended, so that end is the tighter bound; an explicit start
+/// (the journal's `ModelCompleted.started_at_ms`) beats both.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub(super) struct CallClock {
+    /// End of the previous generation in the current iteration.
+    pub(super) last_call_end_unix_ms: Option<u64>,
+    /// Explicit request start for the next call, set by a source that knows
+    /// it ([`SpanCollector::set_next_call_start`]).
+    pub(super) explicit_start_unix_ms: Option<u64>,
+}
+
+/// How a turn ended, for the root span's status.
+///
+/// `AgentProgress` has no aborted/failed turn variant, so a host that knows
+/// the outcome passes it to [`SpanCollector::finish_with_outcome`]; a turn
+/// span still open at [`SpanCollector::finish`] (no `TurnCompleted` arrived)
+/// is sealed as [`TurnOutcome::Incomplete`].
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TurnOutcome {
+    /// The turn produced its reply.
+    Completed,
+    /// The turn failed with an error.
+    Failed { message: String },
+    /// A deadline or per-call timeout ended the turn.
+    TimedOut { message: String },
+    /// The user (or the host) cancelled the turn.
+    Cancelled { reason: Option<String> },
+    /// The stream closed before the turn reported an outcome.
+    Incomplete,
+    /// The harness stopped the turn early (failure breaker, deadline
+    /// wind-down, iteration cap) and it reached the completion path anyway.
+    Stopped {
+        stop: crate::agent::turn_stop::TurnStop,
+    },
 }
 
 /// Pure state machine that folds an [`crate::agent::progress::AgentProgress`]
@@ -68,6 +142,27 @@ pub struct SpanCollector {
     pub(super) subagents: BTreeMap<String, SubagentState>,
     /// First streamed delta of the parent turn's in-flight model call.
     pub(super) first_deltas: FirstDeltas,
+    /// Langfuse-facing label (`{provider}.{model}`) of the parent turn's latest
+    /// model call. Tool calls run after the model call that requested them
+    /// completes, so this names the model behind every tool span opened next.
+    pub(super) last_model: Option<String>,
+    /// Raw model of the parent turn's most recent call, the fallback name for
+    /// a call that arrives without one.
+    pub(super) last_raw_model: Option<String>,
+    /// Start-time bookkeeping for the parent turn's model calls.
+    pub(super) call_clock: CallClock,
+    /// Subagents that already reported completion/failure, kept so their late
+    /// events (tool completions, model calls) still resolve to their spans
+    /// instead of being dropped or misparented under the parent iteration.
+    pub(super) finished_subagents: BTreeMap<String, SubagentState>,
+    /// Latest event timestamp seen; the end of a span force-closed at
+    /// [`SpanCollector::finish`] when nothing tighter is known.
+    pub(super) last_activity_unix_ms: u64,
+    /// Whether the turn span's input is already set. The first `TurnContent`
+    /// input is the originating user message; later ones (the commit path's
+    /// last user-role message can be tool results or a harness nudge) must
+    /// not overwrite it.
+    pub(super) turn_input_recorded: bool,
 }
 
 impl SpanCollector {
@@ -84,6 +179,12 @@ impl SpanCollector {
             open_tools: BTreeMap::new(),
             subagents: BTreeMap::new(),
             first_deltas: FirstDeltas::default(),
+            last_model: None,
+            last_raw_model: None,
+            call_clock: CallClock::default(),
+            finished_subagents: BTreeMap::new(),
+            last_activity_unix_ms: 0,
+            turn_input_recorded: false,
         }
     }
 
@@ -101,6 +202,43 @@ impl SpanCollector {
     /// All spans recorded so far (finished and in-flight).
     pub fn spans(&self) -> &[TraceSpan] {
         &self.spans
+    }
+
+    /// Record that the next model call in `subagent_task_id`'s scope (`None`
+    /// = the parent turn) was dispatched at `start_unix_ms`. Consumed by that
+    /// call's generation span. Used by the journal projection, whose
+    /// `ModelCompleted` carries the real request start.
+    pub(crate) fn set_next_call_start(
+        &mut self,
+        subagent_task_id: Option<&str>,
+        start_unix_ms: u64,
+    ) {
+        let clock = match subagent_task_id {
+            None => Some(&mut self.call_clock),
+            Some(id) => self
+                .subagents
+                .get_mut(id)
+                .or_else(|| self.finished_subagents.get_mut(id))
+                .map(|state| &mut state.call_clock),
+        };
+        if let Some(clock) = clock {
+            clock.explicit_start_unix_ms = Some(start_unix_ms);
+        }
+    }
+
+    /// Live or finished subagent state for `task_id`.
+    pub(super) fn subagent_state(&self, task_id: &str) -> Option<&SubagentState> {
+        self.subagents
+            .get(task_id)
+            .or_else(|| self.finished_subagents.get(task_id))
+    }
+
+    /// Mutable live or finished subagent state for `task_id`.
+    pub(super) fn subagent_state_mut(&mut self, task_id: &str) -> Option<&mut SubagentState> {
+        match self.subagents.get_mut(task_id) {
+            Some(state) => Some(state),
+            None => self.finished_subagents.get_mut(task_id),
+        }
     }
 
     /// Index of the span with `span_id`, if any.

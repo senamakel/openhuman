@@ -152,7 +152,13 @@ pub(super) fn handle_skills_recent_runs(params: Map<String, Value>) -> Controlle
 pub(super) fn handle_skills_run(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<WorkflowsRunParams>(params)?;
-        let started = match spawn_workflow_run_background(payload.workflow_id, payload.inputs).await
+        let origin = crate::agent::turn_origin::current()
+            .unwrap_or(crate::agent::turn_origin::AgentTurnOrigin::Cli);
+        let started = match crate::agent::turn_origin::with_origin(
+            origin,
+            spawn_workflow_run_background(payload.workflow_id, payload.inputs),
+        )
+        .await
         {
             Ok(s) => s,
             Err(e) => return Err(e),

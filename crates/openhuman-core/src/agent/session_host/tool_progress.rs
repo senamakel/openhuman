@@ -130,7 +130,13 @@ impl ProgressReporter for TurnProgress {
 
     async fn turn_completed(&self, iterations: u32) {
         if let Some(ref sink) = self.sink {
-            emit(sink, AgentProgress::TurnCompleted { iterations });
+            emit(
+                sink,
+                AgentProgress::TurnCompleted {
+                    iterations,
+                    stop: None,
+                },
+            );
         }
     }
 

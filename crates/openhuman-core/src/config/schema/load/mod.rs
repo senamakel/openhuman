@@ -10,6 +10,7 @@ mod migrate;
 mod parse;
 mod saas_scope;
 mod secrets;
+pub(crate) mod source;
 
 pub use active_workspace::active_workspace_dir_cached;
 pub(crate) use active_workspace::invalidate_active_workspace;
@@ -62,7 +63,7 @@ pub(crate) use parse::config_from_toml_str;
 #[cfg(test)]
 pub(crate) use std::path::PathBuf;
 
-mod atomic_commit;
+pub(super) mod atomic_commit;
 
 #[cfg(unix)]
 pub(super) async fn sync_directory(path: &std::path::Path) -> anyhow::Result<()> {

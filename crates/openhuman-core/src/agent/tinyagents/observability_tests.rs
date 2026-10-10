@@ -255,42 +255,92 @@ async fn tool_completed_projects_output_arguments_and_elapsed() {
     assert!(arguments.unwrap().to_string().contains("ping"));
 }
 
+/// The answer the crate injects for an unknown tool (`unknown_tool_message`).
+const UNKNOWN_TOOL_ANSWER: &str =
+    "unknown tool `search_files` (arguments: {\"query\":\"config\"}): \
+     no tool with that name is available to you, and calling it again will fail the same way.";
+
+/// Emit what the crate emits for an unknown-tool call since TOOL-11: the typed
+/// `UnknownToolCall`, then — through `recover_tool_call` — an ordinary
+/// `ToolStarted`/`ToolCompleted` pair under the same call id whose result is
+/// the corrective error text.
+fn emit_recovered_unknown_tool_call(sink: &EventSink, call_id: &str) {
+    sink.emit(AgentEvent::UnknownToolCall {
+        call_id: call_id.into(),
+        requested_name: "search_files".to_string(),
+        arguments: serde_json::json!({ "query": "config" }),
+        recovery: "tool_error".to_string(),
+    });
+    sink.emit(AgentEvent::ToolStarted {
+        parent_call_id: None,
+        call_id: call_id.into(),
+        tool_name: "search_files".to_string(),
+        input: Some(serde_json::json!({ "query": "config" })),
+    });
+    sink.emit(AgentEvent::ToolCompleted {
+        parent_call_id: None,
+        call_id: call_id.into(),
+        tool_name: "search_files".to_string(),
+        started_at_ms: None,
+        input: Some(serde_json::json!({ "query": "config" })),
+        output: Some(serde_json::Value::String(UNKNOWN_TOOL_ANSWER.to_string())),
+        duration_ms: Some(0),
+        output_bytes: Some(UNKNOWN_TOOL_ANSWER.len() as u64),
+        error: Some(UNKNOWN_TOOL_ANSWER.to_string()),
+        metadata: None,
+    });
+}
+
 #[tokio::test]
-async fn unknown_tool_call_projects_attempted_name_as_failed_timeline_row() {
-    // #4118: the crate recovers an unavailable-tool call via ReturnToolError
-    // without ever emitting Started/Completed for it. The bridge must still
-    // surface the *attempted* tool on the timeline (a failed call) so the UI
-    // shows what the agent tried, instead of the attempt vanishing.
+async fn unknown_tool_call_projects_exactly_one_failed_timeline_row() {
+    // Production Langfuse showed two ERROR tool observations ~15ms apart for
+    // every unknown-tool call: the bridge synthesised a Started/Completed pair
+    // off `UnknownToolCall` (null output, NotFound copy) and the crate's own
+    // recovered pair produced a second one carrying the error text. Exactly
+    // one row per call, carrying the error text and the NotFound class.
     let (tx, mut rx) = tokio::sync::mpsc::channel(64);
     let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
     let sink = EventSink::new();
     sink.subscribe(bridge.clone());
 
-    sink.emit(AgentEvent::UnknownToolCall {
-        call_id: "c9".into(),
-        requested_name: "search_files".to_string(),
-        arguments: serde_json::json!({ "query": "config" }),
-        recovery: "tool_error".to_string(),
-    });
+    emit_recovered_unknown_tool_call(&sink, "c9");
 
-    let mut started_name = None;
-    let mut completed: Option<(String, bool)> = None;
-    let mut failure = None;
+    let mut started = Vec::new();
+    let mut completed = Vec::new();
     while let Ok(p) = rx.try_recv() {
         match p {
-            AgentProgress::ToolCallStarted { tool_name, .. } => started_name = Some(tool_name),
+            AgentProgress::ToolCallStarted {
+                tool_name,
+                display_label,
+                ..
+            } => started.push((tool_name, display_label)),
             AgentProgress::ToolCallCompleted {
                 tool_name,
                 success,
-                failure: f,
+                failure,
+                output,
+                display_label,
                 ..
-            } => {
-                completed = Some((tool_name, success));
-                failure = f;
-            }
+            } => completed.push((tool_name, success, failure, output, display_label)),
             _ => {}
         }
     }
+    assert_eq!(started.len(), 1, "exactly one started row: {started:?}");
+    assert_eq!(completed.len(), 1, "exactly one completed row");
+    assert_eq!(started[0].0, "search_files");
+    assert_eq!(
+        started[0].1.as_deref(),
+        Some("Search Files (unavailable)"),
+        "the timeline still says the tool was unavailable"
+    );
+    let (tool_name, success, failure, output, label) = completed.remove(0);
+    assert_eq!(tool_name, "search_files");
+    assert!(!success, "the attempted tool is projected as a failed call");
+    assert_eq!(
+        output, UNKNOWN_TOOL_ANSWER,
+        "the row carries the error text"
+    );
+    assert_eq!(label.as_deref(), Some("Search Files (unavailable)"));
     // #6277: a tool the agent does not have fails identically on every retry,
     // so the timeline must not tell the user to "try again / run diagnostics".
     let failure = failure.expect("the failed row carries a classified failure");
@@ -299,19 +349,76 @@ async fn unknown_tool_call_projects_attempted_name_as_failed_timeline_row() {
         crate::tools::status::ToolFailureClass::NotFound,
         "an unavailable tool must be classified NotFound, not Unknown"
     );
-    assert!(
-        !failure.recoverable,
-        "an unavailable tool is not recoverable by retrying"
+    assert!(!failure.recoverable);
+}
+
+#[tokio::test]
+async fn unknown_tool_call_alone_projects_no_tool_row() {
+    // The typed event only annotates the call; the crate's recovered pair is
+    // what opens and closes the row.
+    let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+    let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
+    let sink = EventSink::new();
+    sink.subscribe(bridge.clone());
+
+    sink.emit(AgentEvent::UnknownToolCall {
+        call_id: "c9".into(),
+        requested_name: "search_files".to_string(),
+        arguments: serde_json::json!({}),
+        recovery: "tool_error".to_string(),
+    });
+    while let Ok(p) = rx.try_recv() {
+        assert!(
+            !matches!(
+                p,
+                AgentProgress::ToolCallStarted { .. } | AgentProgress::ToolCallCompleted { .. }
+            ),
+            "UnknownToolCall must not synthesise its own tool row"
+        );
+    }
+}
+
+#[tokio::test]
+async fn unknown_tool_call_in_a_child_run_projects_one_subagent_row() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+    let bridge = OpenhumanEventBridge::with_scope(
+        Some(tx),
+        "mock-model",
+        "managed",
+        10,
+        Some(super::SubagentScope {
+            agent_id: "researcher".to_string(),
+            task_id: "task-1".to_string(),
+            extended_policy: false,
+            journal_run_id: None,
+        }),
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        Vec::new(),
     );
+    let sink = EventSink::new();
+    sink.subscribe(bridge.clone());
+
+    emit_recovered_unknown_tool_call(&sink, "c10");
+
+    let (mut started, mut completed) = (0, 0);
+    let mut class = None;
+    while let Ok(p) = rx.try_recv() {
+        match p {
+            AgentProgress::SubagentToolCallStarted { .. } => started += 1,
+            AgentProgress::SubagentToolCallCompleted { failure, .. } => {
+                completed += 1;
+                class = failure.map(|f| f.class);
+            }
+            _ => {}
+        }
+    }
+    assert_eq!((started, completed), (1, 1));
     assert_eq!(
-        started_name.as_deref(),
-        Some("search_files"),
-        "the attempted unavailable tool name must appear on the timeline"
-    );
-    assert_eq!(
-        completed,
-        Some(("search_files".to_string(), false)),
-        "the attempted tool must be projected as a *failed* call"
+        class,
+        Some(crate::tools::status::ToolFailureClass::NotFound)
     );
 }
 

@@ -33,5 +33,5 @@ mod types;
 #[path = "pii_tests.rs"]
 mod tests;
 
-pub use detector::scan;
+pub use detector::{redact_identifiers, scan, REDACTED_IDENTIFIER};
 pub use types::{CategoryHit, PiiCategory, PiiScanResult, RiskLevel};

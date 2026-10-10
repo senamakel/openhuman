@@ -16,6 +16,34 @@
 //! and the embed facade reach session state through the port, and keep a
 //! fallback to the same files only for hosts that install no store.
 //!
+//! # Why there are three install paths
+//!
+//! The store is one provider; what differs is how long it must stay installed:
+//!
+//! - **Servers (`server::shims::build_and_serve`, used by `host::cli` and
+//!   `host::desktop`)** install it for the life of the process
+//!   ([`install_for_host`]), before the runtime builds so the recovery sweep
+//!   sees it. They deliberately avoid `RuntimeBuilder::session_store`, which
+//!   restores the previous provider when the runtime drops: the desktop
+//!   restarts its in-process server in place, and a detached turn still
+//!   writing across that gap must keep landing in this layout rather than in
+//!   the core's no-provider fallback. A builder that carries its own store
+//!   skips this step.
+//! - **The TUI (`host::tui_builder` / `host::tui`)** hands the provider to the
+//!   builder ([`provider`], [`provider_for_host`]). Its runtime lives for the
+//!   whole process and is dropped once at exit, so restore-on-drop is correct
+//!   and leaves nothing installed behind it.
+//! - **SaaS (`server::run_server_saas`)** calls [`install`] directly. The core
+//!   boots from `core::runtime::saas::build` rather than a `RuntimeBuilder`, and the
+//!   store resolves the workspace of the context each call runs under, so
+//!   every user agent keeps its own sessions. It is process-lifetime for the
+//!   same reason as the servers.
+//!
+//! [`install_for_host`] and [`provider_for_host`] differ from [`install`] and
+//! [`provider`] only in honouring a configured storage URL
+//! (`OPENHUMAN_STORAGE_URL` / `[storage] url`), which swaps this on-disk layout
+//! for TinyAgents' `DriverSessionStores` over that backend.
+//!
 //! It serves one operator: every agent shares the workspace, as it always
 //! has, so it does not claim the per-agent isolation a multi-user host's
 //! store must provide.
@@ -165,10 +193,11 @@ pub fn provider() -> Arc<dyn SessionStoreProvider> {
 ///
 /// # Errors
 ///
-/// When a URL is configured but cannot be parsed or opened. A deployment that
-/// asked for a backend must not quietly fall back to local files.
+/// When a URL is configured but cannot be parsed or opened, or the config
+/// that may name one cannot be loaded. A deployment that asked for a backend
+/// must not quietly fall back to local files.
 pub async fn install_for_host() -> anyhow::Result<()> {
-    install_for_url(configured_storage_url().await).await
+    install_for_url(configured_storage_url().await?).await
 }
 
 /// The session store the host's configuration asks for, as a provider a
@@ -184,27 +213,52 @@ pub async fn install_for_host() -> anyhow::Result<()> {
 ///
 /// When a URL is configured but cannot be parsed or opened.
 pub async fn provider_for_host() -> anyhow::Result<Arc<dyn SessionStoreProvider>> {
-    provider_for_url(configured_storage_url().await).await
+    provider_for_url(configured_storage_url().await?).await
+}
+
+/// The storage-backed session store, only when the host's configuration
+/// names a storage URL; `None` leaves the classic layout and any process
+/// state untouched. For one-shot CLI commands, which have no reason to
+/// install the classic store but must see the same backend the server does.
+///
+/// # Errors
+///
+/// When the URL cannot be resolved, parsed or opened.
+pub async fn provider_if_configured() -> anyhow::Result<Option<Arc<dyn SessionStoreProvider>>> {
+    match configured_storage_url().await? {
+        Some(url) => provider_for_url(Some(url)).await.map(Some),
+        None => Ok(None),
+    }
 }
 
 /// The storage URL the host asks for: `OPENHUMAN_STORAGE_URL`, else
 /// `[storage] url` from the config, else `None` (the classic layout).
-async fn configured_storage_url() -> Option<String> {
-    match std::env::var(crate::core_host::storage::STORAGE_URL_VAR) {
-        Ok(url) if !url.trim().is_empty() => Some(url.trim().to_string()),
-        _ => match crate::core_host::config::rpc::load_config_with_timeout().await {
-            Ok(config) => crate::core_host::storage::configured_url(&config),
-            // An unreadable config keeps the desktop booting on the classic
-            // layout, as it always has. Remote deployments pin the backend
-            // with `OPENHUMAN_STORAGE_URL`, which never reads the config.
-            Err(error) => {
-                log::warn!(
-                    "[rpc:session_store] config unavailable ({error}); keeping the on-disk layout"
-                );
-                None
-            }
-        },
+///
+/// # Errors
+///
+/// When no environment URL pins the backend and the config cannot be loaded:
+/// the config may name a `[storage] url`, and a deployment that asked for a
+/// backend must not quietly fall back to local files.
+async fn configured_storage_url() -> anyhow::Result<Option<String>> {
+    let env = std::env::var(crate::core_host::storage::STORAGE_URL_VAR).ok();
+    // A URL in the environment wins and never reads the config.
+    if env.as_deref().is_some_and(|url| !url.trim().is_empty()) {
+        return Ok(storage_url_from(env, &Default::default()));
     }
+    let config = crate::core_host::config::rpc::load_config_with_timeout()
+        .await
+        .map_err(|error| {
+            anyhow::anyhow!("loading the config to resolve the storage url: {error}")
+        })?;
+    Ok(storage_url_from(env, &config))
+}
+
+/// The core's URL rule ([`crate::core_host::storage::url_from`]) over `config`.
+fn storage_url_from(
+    env: Option<String>,
+    config: &crate::core_host::config::Config,
+) -> Option<String> {
+    crate::core_host::storage::url_from(env, config)
 }
 
 /// [`install_for_host`] with the URL already resolved: `None` installs the
@@ -232,6 +286,31 @@ pub async fn install_for_url(url: Option<String>) -> anyhow::Result<()> {
 pub async fn provider_for_url(
     url: Option<String>,
 ) -> anyhow::Result<Arc<dyn SessionStoreProvider>> {
+    provider_for_url_with(url, None).await
+}
+
+/// [`install_for_url`] for a SaaS core: a backend's session store never
+/// sweeps in-flight turns on open, whatever its driver. In SaaS mode recovery
+/// is lease-driven — a profile's turns are interrupted only when its lease is
+/// taken over from a holder that never released it — because another node
+/// may be running them. With no URL this is the classic on-disk store.
+///
+/// # Errors
+///
+/// When `url` cannot be parsed or opened.
+pub async fn install_for_saas(url: Option<String>) -> anyhow::Result<()> {
+    let provider = provider_for_url_with(url, Some(false)).await?;
+    log::debug!("[rpc:session_store] installing process-wide (SaaS, lease-driven recovery)");
+    crate::core_host::agent::session_store::install(provider);
+    Ok(())
+}
+
+/// [`provider_for_url`] with the recovery sweep made explicit: `None`
+/// recovers on open exactly when the driver is single-process.
+async fn provider_for_url_with(
+    url: Option<String>,
+    recover_on_open: Option<bool>,
+) -> anyhow::Result<Arc<dyn SessionStoreProvider>> {
     use anyhow::Context as _;
 
     let Some(url) = url else {
@@ -244,15 +323,16 @@ pub async fn provider_for_url(
     let backend = crate::core_host::storage::open(&url)
         .await
         .context("opening the configured storage backend")?;
-    let single_process = !crate::core_host::storage::driver_is_shared(backend.driver());
+    let recover = recover_on_open
+        .unwrap_or_else(|| !crate::core_host::storage::driver_is_shared(backend.driver()));
     let provider = tinyagents_session::DriverSessionStores::new(Arc::clone(&backend))
         .context("starting the session store bridge")?
-        .recover_on_open(single_process);
+        .recover_on_open(recover);
     // Only a fully working bridge makes the backend the process's storage.
     crate::core_host::storage::install(backend);
     log::info!(
         "[rpc:session_store] opened the storage-backed session store \
-         recover_on_open={single_process}"
+         recover_on_open={recover}"
     );
     Ok(Arc::new(provider))
 }

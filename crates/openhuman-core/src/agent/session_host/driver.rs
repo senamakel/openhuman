@@ -396,9 +396,24 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
                     .map(|usage| usage.charged_amount_usd)
                     .unwrap_or_default();
             observed.duration = Some(started.elapsed());
+            observed.driver_finished_at = Some(std::time::Instant::now());
             observed.tool_outcomes = outcome.tool_outcomes.clone();
             observed.hit_cap = outcome.hit_cap;
             observed.wrap_up_injected = outcome.wrap_up_injected;
+            // How the harness stopped the turn, if it did. The wind-down
+            // middleware marked the sidecar during the run.
+            observed.stop = crate::agent::turn_stop::TurnStop::classify(
+                outcome.breaker_halt.as_deref(),
+                observed.wind_down,
+                outcome.hit_cap,
+            );
+            if let Some(stop) = &observed.stop {
+                tracing::debug!(
+                    model = %self.model_name,
+                    "[session-driver] turn stopped early; recording on the sidecar {}",
+                    stop.status_message()
+                );
+            }
             observed.resolved_route = outcome.resolved_route.clone();
         }
         // The turn compacted its context: persist the compacted history, so the

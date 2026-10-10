@@ -105,6 +105,7 @@ pub(super) fn install<C: Send + Sync + 'static>(
     is_subagent: bool,
     agent_definition_id: Option<&str>,
     wrap_up: &Option<Arc<FinalCallWrapUpMiddleware>>,
+    turn_wall_clock_ms: Option<u64>,
 ) {
     if !applies(is_subagent, agent_definition_id) {
         tracing::debug!(
@@ -116,7 +117,7 @@ pub(super) fn install<C: Send + Sync + 'static>(
     }
     let mut middleware =
         VerifyBeforeFinishMiddleware::new(check_message()).with_trigger(should_check);
-    if let Some(ms) = super::agent_turn_wall_clock_ms() {
+    if let Some(ms) = turn_wall_clock_ms {
         middleware = middleware.with_wall_clock_limit(Duration::from_millis(ms));
     }
     if let Some(wrap_up) = wrap_up.as_ref() {

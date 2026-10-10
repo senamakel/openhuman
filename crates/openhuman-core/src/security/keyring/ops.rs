@@ -62,23 +62,35 @@ fn storage_error(error: crate::storage::StorageError) -> KeyringError {
 /// Returns `Ok(None)` when no entry exists for this user + key combination.
 /// Never logs the secret value.
 pub fn get(user_id: &str, key: &str) -> Result<Option<String>, KeyringError> {
-    use tinystoragedrivers::secrets::SecretStore as _;
     let Some(secrets) = storage_secrets()? else {
         return process_get(user_id, key);
     };
     log::debug!("[keyring] get (storage)");
-    let name = namespaced_key(user_id, key);
+    get_adopting(secrets, &namespaced_key(user_id, key), key, || {
+        process_get(user_id, key).ok().flatten()
+    })
+}
+
+/// Read `name` from the storage-backed `secrets`. On a miss, ask `legacy` for
+/// a secret an earlier process-keyring install stored and adopt it into
+/// storage, so enabling a backend does not hide it. `key` is only for errors.
+fn get_adopting(
+    secrets: tinystoragedrivers::secrets::DocumentSecrets,
+    name: &str,
+    key: &str,
+    legacy: impl FnOnce() -> Option<String>,
+) -> Result<Option<String>, KeyringError> {
+    use tinystoragedrivers::secrets::SecretStore as _;
     let write_back = secrets.clone();
-    let value =
-        crate::storage::block_on(async move { secrets.get(&name).await }).map_err(storage_error)?;
+    let owned = name.to_string();
+    let value = crate::storage::block_on(async move { secrets.get(&owned).await })
+        .map_err(storage_error)?;
     let Some(value) = value else {
-        // Not on the backend yet: adopt a secret an earlier process-keyring
-        // install stored, so enabling a backend does not hide it.
-        let legacy = process_get(user_id, key).ok().flatten();
+        let legacy = legacy();
         if let Some(legacy) = &legacy {
-            let name = namespaced_key(user_id, key);
+            let owned = name.to_string();
             let bytes = zeroize::Zeroizing::new(legacy.as_bytes().to_vec());
-            match crate::storage::block_on(async move { write_back.set(&name, &bytes).await }) {
+            match crate::storage::block_on(async move { write_back.set(&owned, &bytes).await }) {
                 Ok(()) => log::debug!("[keyring] adopted process-backend secret into storage"),
                 Err(_) => log::warn!("[keyring] could not adopt process-backend secret"),
             }
@@ -417,3 +429,7 @@ pub(crate) fn force_backend_for_test(
         panic!("force_backend_for_test must be called before BACKEND initialization");
     }
 }
+
+#[cfg(test)]
+#[path = "ops_adoption_tests.rs"]
+mod adoption_tests;

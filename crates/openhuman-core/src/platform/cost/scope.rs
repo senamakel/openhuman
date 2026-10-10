@@ -20,8 +20,9 @@ impl UsageScope {
         let origin = crate::core::runtime::CoreContext::current_turn_origin();
         let (thread_id, origin) = describe_origin(origin.as_ref());
         let definition = crate::memory::scope::current().and_then(|identity| identity.agent_id);
-        let session_agent = crate::core::runtime::CoreContext::current()
-            .and_then(|ctx| ctx.session_agent().map(str::to_owned));
+        let session_agent = crate::core::runtime::current_tenant()
+            .ok()
+            .and_then(|tenant| tenant.agent);
         let (agent_id, subagent_task_id) = match subagent {
             Some((agent, task)) => (Some(agent.to_string()), Some(task.to_string())),
             None => (definition, None),

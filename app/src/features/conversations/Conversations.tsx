@@ -357,6 +357,10 @@ const Conversations = ({
   const persistedFailedMessageByThreadRef = useRef<Map<string, ThreadMessage>>(new Map());
   const createThreadErrorRef = useRef(createThreadError);
   createThreadErrorRef.current = createThreadError;
+  // Startup thread restoration is asynchronous. If the user chooses a thread
+  // while its initial `loadThreads` is in flight, that older callback must not
+  // overwrite the newer selection when it resolves.
+  const threadSelectionIntentRef = useRef(0);
   const displayedSendError = deriveChatErrorBanner(
     sendError,
     createThreadError,
@@ -735,9 +739,12 @@ const Conversations = ({
   // foreground turn's timer alive.
   const turnSignatureByThreadRef = useRef<Map<string, readonly unknown[]>>(new Map());
 
-  const handleCreateNewThread = async () => {
+  const handleCreateNewThread = async (fromInitialLoad = false) => {
+    if (!fromInitialLoad) threadSelectionIntentRef.current += 1;
+    const selectionIntentAtCreate = threadSelectionIntentRef.current;
     try {
       const thread = await dispatch(createNewThread()).unwrap();
+      if (threadSelectionIntentRef.current !== selectionIntentAtCreate) return;
       dispatch(setSelectedThread(thread.id));
       void dispatch(loadThreadMessages(thread.id));
       if (shouldSyncChatRoute) {
@@ -834,11 +841,12 @@ const Conversations = ({
 
   useEffect(() => {
     let cancelled = false;
+    const selectionIntentAtLoad = threadSelectionIntentRef.current;
 
     void dispatch(loadThreads())
       .unwrap()
       .then(data => {
-        if (cancelled) return;
+        if (cancelled || threadSelectionIntentRef.current !== selectionIntentAtLoad) return;
         // Match the sidebar's default General filter here so initial/resume
         // selection can't auto-pick a thread hidden by the selected tab.
         const visibleThreads = data.threads.filter(t => isThreadVisibleInTab(t, GENERAL_TAB_VALUE));
@@ -891,7 +899,7 @@ const Conversations = ({
           dispatch(setSelectedThread(emptyThread.id));
           void dispatch(loadThreadMessages(emptyThread.id));
         } else {
-          void handleCreateNewThread();
+          void handleCreateNewThread(true);
         }
       })
       .catch(err => {
@@ -1932,6 +1940,7 @@ const Conversations = ({
       selectedThreadId={selectedThreadId ?? null}
       onCreateThread={() => void handleCreateNewThread()}
       onSelectThread={id => {
+        threadSelectionIntentRef.current += 1;
         dispatch(setSelectedThread(id));
         void dispatch(loadThreadMessages(id));
         if (shouldSyncChatRoute) {
@@ -2345,6 +2354,7 @@ const Conversations = ({
             type="button"
             data-analytics-id="chat-header-back-to-parent-thread"
             onClick={() => {
+              threadSelectionIntentRef.current += 1;
               dispatch(setSelectedThread(selectedThreadParent.id));
               void dispatch(loadThreadMessages(selectedThreadParent.id));
               navigate(chatThreadPath(selectedThreadParent.id));

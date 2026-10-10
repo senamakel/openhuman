@@ -10,9 +10,10 @@ agent-facing tools, the prompt-injection scan over remote tool definitions,
 and turning what the reconnect supervisor observed into this application's
 own events.
 
-The catalogs are **browse-only**. There is no install-from-catalog RPC, no
-install tool and no setup agent: a user finds a server in the Registry tab,
-opens its own page, and declares it in `mcp.json`.
+There is no install-from-catalog RPC, no install tool and no setup agent. In
+the Registry tab, a hosted server that needs no setup is added in one click:
+the app declares it in `mcp.json` through `config_get` / `config_set`. Any
+other server opens its own page, and the user declares it in `mcp.json`.
 
 The RPC namespace and the on-disk database filename are still `mcp_clients`,
 unchanged across the move, existing frontend code and existing on-disk state

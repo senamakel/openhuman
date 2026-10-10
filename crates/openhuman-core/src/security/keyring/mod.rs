@@ -38,6 +38,7 @@
 //! directory rather than any real workspace, so test code cannot reach a
 //! developer's live store.
 
+mod adapter;
 pub mod backend;
 pub mod crypto;
 pub mod encrypted_file_backend;

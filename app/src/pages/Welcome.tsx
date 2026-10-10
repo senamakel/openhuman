@@ -18,6 +18,7 @@ import {
 } from '../store/deepLinkAuthState';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { resolveTheme, setThemeMode, type ThemeMode } from '../store/themeSlice';
+import { getActiveUserId } from '../store/userScopedStorage';
 import { clearAllAppData } from '../utils/clearAllAppData';
 import { clearStoredCoreMode, clearStoredCoreToken, storeRpcUrl } from '../utils/configPersistence';
 import {
@@ -31,12 +32,17 @@ import { openUrl } from '../utils/openUrl';
 const log = createDebug('app:welcome');
 
 /** The sign-in buttons, shared by the TinyHumans card and the hand-off panel. */
-const ProviderButtons = () => (
+const ProviderButtons = ({ localProfileId }: { localProfileId: string | null }) => (
   <div className="flex flex-wrap items-center justify-center gap-3">
     {oauthProviderConfigs
       .filter(provider => provider.showOnWelcome)
       .map(provider => (
-        <OAuthProviderButton key={provider.id} provider={provider} className="rounded-full!" />
+        <OAuthProviderButton
+          key={provider.id}
+          provider={provider}
+          className="rounded-full!"
+          localProfileId={localProfileId}
+        />
       ))}
   </div>
 );
@@ -364,7 +370,7 @@ const Welcome = () => {
                       {t('welcome.th.providers')}
                     </p>
                     <div data-testid="welcome-cta-tinyhumans">
-                      <ProviderButtons />
+                      <ProviderButtons localProfileId={getActiveUserId()} />
                     </div>
                   </div>
                 </div>

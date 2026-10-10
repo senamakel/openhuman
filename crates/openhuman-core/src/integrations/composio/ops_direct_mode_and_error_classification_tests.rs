@@ -203,6 +203,22 @@ async fn composio_execute_routes_through_direct_mode() {
     );
 }
 
+#[cfg(feature = "crash-reporting")]
+#[test]
+fn a_cached_module_load_failure_is_not_reported_per_call() {
+    // TAURI-RUST-117K: the connector module failed to load, the failure is
+    // cached, and every composio call returned it. The load was reported once
+    // at resolution; the op-layer funnel must not report it again per call.
+    let error = "module 'tinyconnectors' could not be loaded from the installer bundle: \
+                 module `windows-2022-x86_64` refused: module directory is writable by \
+                 another user. Restart the app after repairing the installation. This is \
+                 terminal for the running process; restart the app to try again";
+    let events = sentry::test::with_captured_events(|| {
+        report_composio_op_error("list_connections", error);
+    });
+    assert!(events.is_empty(), "{events:?}");
+}
+
 // ── classify_composio_failure_tag ──────────────────────────────
 //
 // Pin the failure-tag routing for `report_composio_op_error` so the

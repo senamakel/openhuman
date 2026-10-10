@@ -11,26 +11,5 @@
     "Delete an entry the moment the pins are reconciled. An exemption that has",
     "stopped being true fails the gate too \u2014 `expect` must still match."
   ],
-  "exemptions": [
-    {
-      "id": "tinywallet",
-      "expect": "v0.7.3-2-gb5391776",
-      "reason": "Pin carries the test-file rename commits after the v0.7.3 release; re-pin to the next tinywallet release containing them."
-    },
-    {
-      "id": "tinybox",
-      "expect": "v0.1.15-2-g392a1f07",
-      "reason": "Pin carries the Seatbelt process-group fix (tinybox#24) merged after the v0.1.15 release; re-pin to the next tinybox release containing it and delete this entry."
-    },
-    {
-      "id": "tinysearch",
-      "expect": "v0.3.6-6-gb52d8f88",
-      "reason": "Inherited from main (16a0967f): the submodule pin carries six commits past the v0.3.6 release the registry downloads; surfaced here only because this PR touches vendor/. Re-pin to the next tinysearch release and delete this entry."
-    },
-    {
-      "id": "tinymcp",
-      "expect": "v0.5.0",
-      "reason": "Inherited from main (16a0967f): vendor/tinymcp is on the v0.5.0 tag while the registry still downloads v0.4.0. Move the registry to v0.5.0 with checksums from the published release, then delete this entry."
-    }
-  ]
+  "exemptions": []
 }

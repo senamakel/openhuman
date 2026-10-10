@@ -62,6 +62,39 @@ fn settings() -> &'static ToolTimeoutSettings {
     })
 }
 
+/// Install the process-global per-tool timeout settings on `harness`.
+///
+/// The harness enforces a tool's [`ToolTimeout`] policy only when settings are
+/// installed (`AgentHarness::with_tool_timeout_settings`); without them every
+/// `Inherit` tool — MCP calls, `use_skill` dispatches, integration actions —
+/// ran until the run's wall-clock budget, so a hung call blocked the turn for
+/// ~600s instead of failing at the configured 120s (regressed when the host's
+/// own adapter deadline was removed in f33a398faa). The installed value is a
+/// clone of the shared settings, so later [`set_tool_timeout_secs`] pushes
+/// reach already-assembled harnesses on their next tool call.
+///
+/// Long-running tools opt out through their own policy rather than here:
+/// scripting tools (`shell`, `node_exec`, …) are `Unbounded` unless the call
+/// passes `timeout_secs`, media generation carries its own budget, and
+/// `composio_connect` / `browser` size theirs to the approval park they wait
+/// on inside `execute`.
+pub fn install_harness_tool_timeouts<State: Send + Sync, Ctx: Send + Sync>(
+    harness: &mut tinyagents_harness::runtime::AgentHarness<State, Ctx>,
+) {
+    install_with(harness, settings().clone());
+}
+
+fn install_with<State: Send + Sync, Ctx: Send + Sync>(
+    harness: &mut tinyagents_harness::runtime::AgentHarness<State, Ctx>,
+    settings: ToolTimeoutSettings,
+) {
+    tracing::debug!(
+        inherited_secs = settings.inherited_timeout().map_or(0, |d| d.as_secs()),
+        "[tool_timeout] installing per-tool timeout settings on the harness"
+    );
+    harness.with_tool_timeout_settings(settings);
+}
+
 /// Parse a raw env-var value into a bounded timeout.
 ///
 /// Testable split from the global resolution: this function is pure and never

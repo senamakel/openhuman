@@ -507,6 +507,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.dailySummaryFlow':
     'এমন একটি ফ্লো তৈরি করো যা আমাকে প্রতিদিন সারসংক্ষেপ ইমেল করে।',
   'chat.typeMessage': 'একটি বার্তা পাঠান...',
+  'chat.regenerate.unavailable':
+    'এই উত্তরটি পুনরায় তৈরি করা যাবে না। এর পরিবর্তে সর্বশেষ উত্তরটি পুনরায় তৈরি করে দেখুন।',
+  'chat.regenerate.failed': 'উত্তরটি পুনরায় তৈরি করা যায়নি। অনুগ্রহ করে আবার চেষ্টা করুন।',
   'chat.send': 'বার্তা পাঠান',
   'chat.stopGeneration': 'জেনারেশন বন্ধ করুন',
   'chat.followupHint':
@@ -1221,7 +1224,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name}-এর পেজ খুলুন',
   'mcp.installed.emptyAddInJson': 'mcp.json-এ যোগ করুন',
   'mcp.registry.intro':
-    'MCP সার্ভারের একটি ডিরেক্টরি। কোনো সার্ভার খুললে আপনি তার নিজস্ব পেজে যাবেন, যেখানে ইনস্টল নির্দেশনা আছে; এটি mcp.json ট্যাবে যোগ করুন।',
+    'MCP সার্ভারের একটি ডিরেক্টরি। যেসব হোস্টেড সার্ভারে কোনো সেটআপ লাগে না সেগুলো এক ক্লিকে যোগ হয়; অন্য সার্ভারের ক্ষেত্রে ইনস্টল নির্দেশনার জন্য তার পেজ খুলুন এবং mcp.json ট্যাবে সেটি যোগ করুন।',
+  'mcp.registry.action.add': 'যোগ করুন',
+  'mcp.registry.action.added': 'যোগ করা হয়েছে',
+  'mcp.registry.action.adding': 'যোগ করা হচ্ছে…',
+  'mcp.registry.aria.add': '{name} যোগ করুন',
+  'mcp.registry.needsSetup':
+    'যোগ করার আগে এই সার্ভারটির সেটআপ দরকার। ইনস্টল নির্দেশনার জন্য এর পেজ খুলুন।',
+  'mcp.registry.addFailed': 'এই সার্ভারটি যোগ করা যায়নি।',
+  'mcp.registry.connectFailed': 'যোগ করা হয়েছে, কিন্তু সার্ভারটি সংযুক্ত হয়নি।',
   'mcp.json.loadFailedTitle': 'mcp.json পড়া যায়নি',
   'mcp.json.loadFailedBody':
     'কোর সাড়া দেয়নি, তাই ডকুমেন্টটি দেখানো হচ্ছে না। খালি এডিটর এমন সেভে প্ররোচিত করবে যা আপনার সার্ভার মুছে দেবে।',
@@ -1697,6 +1708,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': 'সংযুক্ত। সব ঠিকঠাক।',
   'bootCheck.authFailed': 'টোকেনটি কাজ করেনি। আবার পরীক্ষা করুন।',
   'bootCheck.unreachablePrefix': 'পৌঁছানো যায়নি:',
+  'bootCheck.socketDisabled':
+    'সংযুক্ত হয়েছে, কিন্তু এই কোরে রিয়েলটাইম বন্ধ আছে। এটি --jsonrpc-only দিয়ে চালু হয়েছে; চ্যাট ও লাইভ আপডেট কাজ করাতে ওই ফ্ল্যাগ ছাড়া আবার চালু করুন।',
   'bootCheck.checkingCore': 'OpenHuman চালু হচ্ছে…',
   'bootCheck.cannotReach': 'পৌঁছানো যাচ্ছে না',
   'bootCheck.cannotReachDesc': 'আমরা সংযোগ করতে পারিনি। অন্য কোথাও চেষ্টা করতে চান?',
@@ -1765,6 +1778,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'আপডেট পরীক্ষা ব্যর্থ',
   'about.update.status.default': 'আপডেট পরীক্ষা করুন',
   'welcome.continueLocallyExperimental': 'লোকালি চালিয়ে যান (প্রায়োগিক)',
+  'auth.profileSwitch.title': 'আলাদা প্রোফাইলে সাইন ইন করবেন?',
+  'auth.profileSwitch.body':
+    'ক্লাউডে সাইন ইন করলে OpenHuman আলাদা অ্যাকাউন্ট প্রোফাইলে যাবে। আপনার স্থানীয় কথোপকথন, মেমরি ও প্রদানকারী সেটিংস এই ডিভাইসের users/{profileId}-এ থাকবে। ফিরে যেতে সাইন আউট করে স্বাগতম স্ক্রিনে স্থানীয় সেশন বেছে নিন।',
+  'auth.profileSwitch.continue': 'সাইন ইন চালিয়ে যান',
   'welcome.localSessionStarting': 'স্থানীয় অধিবেশন শুরু করা হচ্ছে...',
   'welcome.coreConfigUnreadable':
     'রানটাইম তার কনফিগারেশন ফাইল পড়তে পারেনি। config.toml অন্য কোনো ব্যবহারকারী অ্যাকাউন্টের হতে পারে, অথবা অন্য কোনো কারণে রানটাইম প্রক্রিয়ার জন্য দুর্গম হতে পারে। রানটাইম পুনরায় চালু করুন, আর তাতে কাজ না হলে ওয়ার্কস্পেসের মালিকানা ঠিক করুন বা এর ভলিউম নতুন করে তৈরি করুন।',

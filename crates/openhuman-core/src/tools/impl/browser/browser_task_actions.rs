@@ -23,6 +23,44 @@ pub(super) fn host_hint(view: &TaskView) -> Option<&'static str> {
     }
 }
 
+/// A task report as the tool's outcome: a task that failed, or was cancelled
+/// under the caller, is an error carrying its reason, hint and full report,
+/// so the turn, the failure breaker and the tool status all see the task did
+/// not finish. Every other state (running, paused for a person, input or
+/// approval, a checkpoint, done) is a success the model acts on.
+pub(super) fn task_outcome(view: &TaskView, output: Value) -> anyhow::Result<Value> {
+    let marker = crate::tools::status::TASK_FAILED_MARKER;
+    let headline = match &view.status {
+        TaskStatus::Failed {
+            step, reason, hint, ..
+        } => {
+            let at = step.map_or_else(
+                || " before any step ran".to_owned(),
+                |step| format!(" at step {step}"),
+            );
+            let mut line = format!("{marker} Browser task failed{at}: {}", reason.trim());
+            if !hint.trim().is_empty() {
+                line.push_str(&format!(" Hint: {}", hint.trim()));
+            }
+            if let Some(host) = output["host_hint"].as_str() {
+                line.push_str(&format!(" {host}"));
+            }
+            line
+        }
+        TaskStatus::Cancelled => format!(
+            "{marker} Browser task was cancelled before it finished: {}",
+            view.summary.trim()
+        ),
+        _ => return Ok(output),
+    };
+    tracing::debug!(
+        task_id = %view.id,
+        "[tool.browser] task ended without finishing; reporting a tool error"
+    );
+    let report = serde_json::to_string_pretty(&output).unwrap_or_default();
+    Err(anyhow::anyhow!("{headline}\n\n{report}"))
+}
+
 pub(super) fn task_inputs(args: &Value) -> anyhow::Result<BTreeMap<String, String>> {
     args["inputs"].as_object().map_or_else(
         || Ok(BTreeMap::new()),

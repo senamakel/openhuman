@@ -391,6 +391,9 @@ const en: TranslationMap = {
   'chat.welcomeSuggestion.connectIntegration': 'Connect a new integration.',
   'chat.welcomeSuggestion.dailySummaryFlow': 'Build a flow that emails me a daily summary.',
   'chat.typeMessage': 'Send a message...',
+  'chat.regenerate.unavailable':
+    "This reply can't be regenerated. Try regenerating the latest reply instead.",
+  'chat.regenerate.failed': "Couldn't regenerate the reply. Please try again.",
   'chat.send': 'Send message',
   'chat.stopGeneration': 'Stop generating',
   'chat.followupHint':
@@ -1400,7 +1403,15 @@ const en: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Open the page for {name}',
   'mcp.installed.emptyAddInJson': 'Add one in mcp.json',
   'mcp.registry.intro':
-    'A directory of MCP servers. Opening a server takes you to its own page, where the install instructions live; add it under the mcp.json tab.',
+    'A directory of MCP servers. Hosted servers that need no setup are added in one click; for any other server, open its page for the install instructions and declare it in the mcp.json tab.',
+  'mcp.registry.action.add': 'Add',
+  'mcp.registry.action.added': 'Added',
+  'mcp.registry.action.adding': 'Adding…',
+  'mcp.registry.aria.add': 'Add {name}',
+  'mcp.registry.needsSetup':
+    'This server needs setup before it can be added. Open its page for the install instructions.',
+  'mcp.registry.addFailed': "Couldn't add this server.",
+  'mcp.registry.connectFailed': "Added, but the server didn't connect.",
   'mcp.json.loadFailedTitle': "Couldn't read mcp.json",
   'mcp.json.loadFailedBody':
     'The core did not answer, so the document is not shown. An empty editor would invite a save that wipes your servers.',
@@ -1956,6 +1967,8 @@ const en: TranslationMap = {
   'bootCheck.connectedOk': "Connected. You're good to go.",
   'bootCheck.authFailed': "That token didn't work. Double-check it and try again.",
   'bootCheck.unreachablePrefix': "Couldn't reach it:",
+  'bootCheck.socketDisabled':
+    'Connected, but realtime is off on this core. It was started with --jsonrpc-only; restart it without that flag so chat and live updates work.',
   'bootCheck.checkingCore': 'Starting OpenHuman…',
   'bootCheck.cannotReach': "Can't reach it",
   'bootCheck.cannotReachDesc': "We couldn't connect. Want to try somewhere else?",
@@ -2029,6 +2042,10 @@ const en: TranslationMap = {
 
   // Welcome: connection error messages
   'welcome.continueLocallyExperimental': 'Continue Locally (Experimental)',
+  'auth.profileSwitch.title': 'Sign in with a separate profile?',
+  'auth.profileSwitch.body':
+    'Cloud sign-in switches OpenHuman to a separate account profile. Your local threads, memory, and provider settings remain on this device in users/{profileId}. To return to them, sign out and choose the local session on the Welcome screen.',
+  'auth.profileSwitch.continue': 'Continue to sign in',
   'welcome.localSessionStarting': 'Starting local session...',
   'welcome.coreConfigUnreadable':
     'The runtime could not read its configuration file. config.toml may belong to a different user account, or be inaccessible to the runtime process for another reason. Restart the runtime, and if that does not help, repair the workspace ownership or re-create its volume.',

@@ -258,3 +258,113 @@ async fn a_shell_family_child_dies_with_a_dropped_future() {
     let _ = std::fs::remove_dir_all(&dir);
     assert!(gone, "shell {shell} survived its dropped future");
 }
+
+// ── Harness installation (regression: the 120s default was never installed
+// into the TinyAgents harness after f33a398faa, so `Inherit` tools ran until
+// the run's wall-clock budget) ──────────────────────────────────────────────
+
+mod harness_install {
+    use super::*;
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use std::sync::Arc;
+
+    use async_trait::async_trait;
+    use serde_json::{json, Value};
+    use tinyagents_harness::runtime::AgentHarness;
+    use tinyagents_harness::testkit::{text_response, tool_call_response};
+    use tinyinference_llm::message::Message;
+    use tinyinference_llm::providers::MockModel;
+    use tinyinference_llm::tool::ToolCall;
+    use tinytools::{Tool, ToolResult};
+
+    /// A tool that inherits the global timeout and never finishes in time.
+    struct HungTool {
+        finished: Arc<AtomicBool>,
+    }
+
+    #[async_trait]
+    impl Tool for HungTool {
+        fn name(&self) -> &str {
+            "hung_mcp_call"
+        }
+        fn description(&self) -> &str {
+            "stands in for an MCP call that never answers"
+        }
+        fn parameters_schema(&self) -> Value {
+            json!({"type": "object"})
+        }
+        async fn execute(&self, _args: Value) -> anyhow::Result<ToolResult> {
+            tokio::time::sleep(Duration::from_secs(60)).await;
+            self.finished.store(true, Ordering::SeqCst);
+            Ok(ToolResult::success("too late"))
+        }
+    }
+
+    #[test]
+    fn the_host_installs_the_shared_settings() {
+        let mut harness: AgentHarness<(), ()> = AgentHarness::new();
+        assert!(harness.tool_timeout_settings().is_none());
+        install_harness_tool_timeouts(&mut harness);
+        let installed = harness
+            .tool_timeout_settings()
+            .expect("the host installs per-tool timeout settings");
+        assert_eq!(installed, settings());
+        assert_eq!(
+            installed.resolve(ToolTimeout::Inherit).deadline,
+            Some(Duration::from_secs(tool_execution_timeout_secs())),
+            "an Inherit tool gets the configured deadline"
+        );
+        assert_eq!(
+            installed.resolve(ToolTimeout::Unbounded).deadline,
+            None,
+            "long-running tools that declare Unbounded stay exempt"
+        );
+    }
+
+    #[tokio::test]
+    async fn a_hung_inherit_tool_is_cut_off_at_its_budget() {
+        let finished = Arc::new(AtomicBool::new(false));
+        let mut harness: AgentHarness<(), ()> = AgentHarness::new();
+        harness.register_model(
+            "mock",
+            Arc::new(MockModel::with_responses(vec![
+                tool_call_response(ToolCall::new("c1", "hung_mcp_call", json!({}))),
+                text_response("done"),
+            ])),
+        );
+        harness.register_tool(Arc::new(HungTool {
+            finished: finished.clone(),
+        }));
+        // One-second inherited budget so the test is fast; production installs
+        // the same type with the configured 120s.
+        install_with(&mut harness, build_settings(1));
+
+        let started = std::time::Instant::now();
+        let run = harness
+            .invoke_in_context(
+                &(),
+                tinyagents_harness::context::RunContext::new(
+                    tinyagents_harness::context::RunConfig::new("timeout-e2e"),
+                    (),
+                ),
+                vec![Message::user("go")],
+            )
+            .await
+            .expect("a timed-out tool is a recoverable result, not a run failure");
+        let elapsed = started.elapsed();
+
+        assert!(
+            elapsed < Duration::from_secs(20),
+            "the call is cut at its budget, not left to run: {elapsed:?}"
+        );
+        assert!(
+            !finished.load(Ordering::SeqCst),
+            "the hung call never completed"
+        );
+        let transcript = format!("{:?}", run.messages);
+        assert!(
+            transcript.contains("hung_mcp_call") && transcript.contains("timed out after 1000 ms"),
+            "the model is told the tool timed out: {transcript}"
+        );
+    }
+}

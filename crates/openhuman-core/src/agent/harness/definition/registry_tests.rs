@@ -74,3 +74,10 @@ fn a_file_sourced_override_is_not_builtins_only() {
     let registry = AgentDefinitionRegistry::builtins_only().with_definitions([overridden]);
     assert!(!registry.holds_builtins_only());
 }
+
+#[test]
+fn a_builtin_tagged_override_with_other_contents_is_not_builtins_only() {
+    let registry = AgentDefinitionRegistry::builtins_only()
+        .with_definitions([named("orchestrator", "replaced but still tagged Builtin")]);
+    assert!(!registry.holds_builtins_only());
+}

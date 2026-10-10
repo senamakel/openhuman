@@ -26,13 +26,16 @@ recorded on the wrong server.
 
 | File | What it proves |
 | --- | --- |
-| [`common/mod.rs`](common/mod.rs) | Shared helpers: `runtime()`, `offline_config()`, `provider(reply)`, `stub_backend()`, `chat_completion`, `tool_call_completion`, and request inspectors (`chat_requests`, `tool_names`, `tool_results`). |
+| [`common/mod.rs`](common/mod.rs) | Shared helpers: `runtime()`, `offline_config()`, `provider(reply)`, `stub_backend()`, `chat_completion`, `tool_call_completion`, `echo_inference()` with `PointedTransport` (managed inference to a mock), and request inspectors (`chat_requests`, `tool_names`, `tool_results`, `last_user_message`). |
+| [`facades.rs`](facades.rs) | The runtime-free curated facades (`artifacts`, `chat_surface`, `identity`, `config` helpers, `modules`), the compile-status constants and `schema_for_rpc_method`. |
+| [`seams_runtime.rs`](seams_runtime.rs) | A controller extension is invokable after a real `build()`, a `live_policy` is applied after boot, and hooks are removed on drop while the extension outlives the runtime. |
 | [`harness_embed.rs`](harness_embed.rs) | A `Harness` runs a real turn with no transport and no background services, routes it to the mock provider, and binds nothing. |
 | [`runtime_agents.rs`](runtime_agents.rs) | Several agents on one runtime keep their own provider, access tier, skills, MCP servers and working directory, and the runtime's API key reaches a mocked managed backend as a bearer. |
 | [`session_store.rs`](session_store.rs) | On a `Stateless` workspace with `InMemorySessionStores`, transcripts, journal and run status land in the store per agent, a reopened agent resumes from the store, and nothing durable is written to the scratch directory. |
 | [`attached_tools.rs`](attached_tools.rs) | `Agent::attach_tools` sources survive clones and session resume, and name collisions are refused. |
 | [`composio_agents.rs`](composio_agents.rs) | Two agents with their own `ComposioHostCredential` reach Composio with their own key only. |
 | [`memory_facade.rs`](memory_facade.rs) | `Runtime::memory` over TinyMemory's in-memory reference engine keeps two tenant roots apart. |
+| [`saas_profiles.rs`](saas_profiles.rs) | A `ProfileRuntime` (SaaS mode, in-process): two users on thread `t1` see only their own messages and ride their own credential, a held `ProfileHandle` keeps its profile from release, a relayed Telegram message lands on the user's `channel:` thread with its `channel_outbound` reply on that user's events only, and the process refuses any other core afterwards. Inference is `common::echo_inference` behind `common::PointedTransport`. |
 | [`public_api.rs`](public_api.rs) | Compile-time check that the host-facing types and signatures stay exported. |
 
 ## Running

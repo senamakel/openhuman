@@ -177,6 +177,11 @@ pub enum AgentProgress {
         /// run. A dirty worktree must not be auto-removed — surfaced so the UI
         /// can require an explicit user decision. `None` for non-isolated.
         dirty_status: Option<bool>,
+        /// Set when the sub-agent's own turn was stopped early (failure
+        /// breaker or iteration cap) and handed back as incomplete. The trace
+        /// collector closes the subagent span at `WARNING` with it. `None` for
+        /// a sub-agent that finished normally.
+        stop: Option<crate::agent::turn_stop::TurnStop>,
     },
 
     /// A sub-agent failed.
@@ -412,6 +417,12 @@ pub enum AgentProgress {
     TurnCompleted {
         /// Total iterations used.
         iterations: u32,
+        /// Set when the harness stopped the turn early (failure breaker,
+        /// deadline wind-down, iteration cap) even though it reached this
+        /// completion path. Content-free; the trace collector closes the turn
+        /// span at `WARNING` with it. `None` for a turn that finished on its
+        /// own.
+        stop: Option<crate::agent::turn_stop::TurnStop>,
     },
 
     /// The turn's content: the user's prompt and the model's final reply.
@@ -425,4 +436,15 @@ pub enum AgentProgress {
         /// The model's final reply for this turn.
         output: Option<String>,
     },
+}
+
+impl AgentProgress {
+    /// A [`Self::TurnCompleted`] for a turn that finished on its own (no
+    /// early stop).
+    pub fn turn_completed(iterations: u32) -> Self {
+        Self::TurnCompleted {
+            iterations,
+            stop: None,
+        }
+    }
 }

@@ -19,6 +19,7 @@
 
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::runtime::javascript::NodeBootstrap;
+use crate::sandbox;
 use crate::security::{CommandClass, GateDecision, SecurityPolicy};
 use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
@@ -251,16 +252,17 @@ impl NpmExecTool {
         }
         let command = parts.join(" ");
 
-        // When the agent's sandbox mode is `Sandboxed`, route execution
-        // through the sandbox backend (Docker / OS-level `cwd_jail` /
-        // documented noop) instead of the native runtime path. Mirrors
-        // the wiring in `ShellTool::run_with_security` (PR #3261) so
-        // npm_exec gets the same isolation guarantees as shell. The
-        // security/rate-limit checks above still apply.
-        if matches!(
-            crate::agent::harness::current_sandbox_mode(),
-            Some(crate::agent::harness::definition::SandboxMode::Sandboxed)
-        ) {
+        // Route sandboxed agents and explicit operator backend selections
+        // through the shared sandbox path before native execution.
+        let sandbox_required = match sandbox::command_requires_sandbox().await {
+            Ok(required) => required,
+            Err(err) => {
+                return Ok(ToolResult::error(format!(
+                    "Cannot read sandbox configuration: {err}"
+                )))
+            }
+        };
+        if sandbox_required {
             return Ok(self
                 .run_sandboxed(
                     &path_policy,
@@ -373,40 +375,23 @@ impl NpmExecTool {
             Duration::from_secs(crate::tools::timeout::SANDBOX_UNBOUNDED_CAP_SECS)
         });
 
-        // Load the live `RuntimeConfig` so `resolve_sandbox_policy` derives
-        // the right backend (Docker / local / noop) from the operator's
-        // configuration instead of the unconfigured `RuntimeConfig::default()`.
-        // Falls back to defaults with a warning if the config load fails —
-        // a failed config read shouldn't block tool execution. (CodeRabbit
-        // finding on PR #3309.)
-        let runtime_cfg = match crate::config::ops::load_config_with_timeout().await {
-            Ok(cfg) => cfg.runtime,
-            Err(err) => {
-                tracing::warn!(
-                    error = %err,
-                    "[npm_exec] failed to load live RuntimeConfig — falling back to defaults"
-                );
-                crate::config::RuntimeConfig::default()
-            }
-        };
-        // `is_remote_session = false` matches `ShellTool::run_sandboxed`'s
-        // current behavior (PR #3261). Threading the real session origin
-        // through requires a new `tokio::task_local!` next to
-        // `CURRENT_AGENT_SANDBOX_MODE` and is the same gap across all three
-        // shell-family tools; tracked separately so it can be fixed uniformly.
-        let policy = sandbox::resolve_sandbox_policy(
-            crate::agent::harness::definition::SandboxMode::Sandboxed,
+        let policy = match sandbox::ops::resolve_command_policy(
             &security.action_dir,
             &security.workspace_dir,
-            &runtime_cfg,
-            false,
-        );
+        )
+        .await
+        {
+            Ok(policy) => policy,
+            Err(why) => return ToolResult::error(format!("Sandbox unavailable: {why}")),
+        };
 
-        tracing::debug!(
-            backend = ?policy.backend,
-            runtime_kind = ?runtime_cfg.kind,
-            "[npm_exec] routing to sandbox backend"
-        );
+        if policy.backend == sandbox::SandboxBackendKind::Docker {
+            return ToolResult::error(
+                "npm_exec cannot use the Docker sandbox: its host npm and Node.js binaries are not mounted in the container",
+            );
+        }
+
+        tracing::debug!(backend = ?policy.backend, "[npm_exec] routing to sandbox backend");
 
         // Forward the managed Node.js bin dir on PATH so npm child invocations
         // (e.g. `npm run` spawning user scripts) resolve `node`/`npx`

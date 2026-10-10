@@ -25,7 +25,8 @@ root = "/srv/oh"
 service_token_file = "/run/secrets/gateway"
 tool_allowlist = ["host_shell"]
 rpc_allowlist_extra = ["threads.list"]
-max_agents_open = 8
+max_profiles_open = 8
+profile_ids = "hashed"
 idle_evict_secs = 60
 shared_backend_api_key = true
 custom_definitions = true
@@ -50,7 +51,8 @@ cpu_limit = 0.5
     assert_eq!(config.sandbox.memory_limit_mb, 256);
     assert_eq!(config.sandbox.cpu_limit, 0.5);
     assert_eq!(config.rpc_allowlist_extra, vec!["threads.list".to_string()]);
-    assert_eq!(config.max_agents_open, 8);
+    assert_eq!(config.max_profiles_open, 8);
+    assert_eq!(config.profile_ids, crate::profiles::ProfileIdMode::Hashed);
     assert_eq!(config.idle_evict_secs, 60);
     assert!(config.shared_backend_api_key && config.custom_definitions);
     assert!(!config.require_user_signature);
@@ -140,4 +142,82 @@ fn boot_refuses_a_registry_with_workspace_definitions() {
         .unwrap_err()
         .to_string();
     assert!(err.contains("built-ins only"), "{err}");
+}
+
+#[test]
+fn cluster_settings_default_and_resolve() {
+    let mut config = SaasConfig::new("/srv/oh");
+    assert_eq!(config.lease_ttl_secs, 30);
+    assert_eq!(config.lease_ttl(), std::time::Duration::from_secs(30));
+    assert_eq!(config.operator_dir(), PathBuf::from("/srv/oh/operator"));
+    assert!(!config.is_clustered());
+    assert_eq!(config.storage_url_with(None), None);
+
+    config.storage_url = Some("sqlite:/srv/oh/a.db".into());
+    assert_eq!(
+        config.storage_url_with(None).as_deref(),
+        Some("sqlite:/srv/oh/a.db")
+    );
+    assert_eq!(
+        config.storage_url_with(Some("sqlite:/env.db")).as_deref(),
+        Some("sqlite:/env.db"),
+        "OPENHUMAN_STORAGE_URL wins"
+    );
+    assert_eq!(
+        config.storage_url_with(Some("  ")).as_deref(),
+        Some("sqlite:/srv/oh/a.db"),
+        "a blank environment value is unset"
+    );
+
+    assert_eq!(config.resolve_node_id(Some("node-env")), "node-env");
+    let mut fresh = SaasConfig::new("/srv/oh");
+    let random = fresh.resolve_node_id(None).to_owned();
+    assert!(random.starts_with("node-"), "{random}");
+    assert_eq!(
+        fresh.resolve_node_id(Some("ignored")),
+        random,
+        "resolved once"
+    );
+    let mut configured = SaasConfig::new("/srv/oh");
+    configured.node_id = Some("node-file".into());
+    assert_eq!(configured.resolve_node_id(Some("node-env")), "node-file");
+
+    config.operator_dir = Some("/srv/oh/operators/a".into());
+    assert_eq!(config.operator_dir(), PathBuf::from("/srv/oh/operators/a"));
+    config.advertise_url = Some("http://a:7788".into());
+    assert!(config.is_clustered());
+}
+
+#[test]
+fn reads_the_cluster_settings() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("operator.toml");
+    std::fs::write(
+        &path,
+        r#"
+root = "/srv/oh"
+storage_url = "sqlite:/srv/oh/shared.db"
+node_id = "node-a"
+advertise_url = "http://10.0.0.1:7788"
+lease_ttl_secs = 5
+operator_dir = "/srv/oh/operators/node-a"
+"#,
+    )
+    .unwrap();
+    let config = SaasConfig::load(&path).unwrap();
+    assert_eq!(config.node_id.as_deref(), Some("node-a"));
+    assert_eq!(config.lease_ttl_secs, 5);
+    assert!(config.is_clustered());
+    assert_eq!(
+        config.operator_config().workspace_dir,
+        PathBuf::from("/srv/oh/operators/node-a/workspace")
+    );
+}
+
+#[test]
+fn the_pre_rename_max_agents_open_key_still_sets_the_limit() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("operator.toml");
+    std::fs::write(&path, "root = \"/srv/openhuman\"\nmax_agents_open = 7\n").unwrap();
+    assert_eq!(SaasConfig::load(&path).unwrap().max_profiles_open, 7);
 }

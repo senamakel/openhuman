@@ -9,6 +9,7 @@
 mod attachment_input;
 mod memory_ingest;
 mod permanent;
+mod post_commit;
 mod tool_rules;
 #[path = "runtime_session_turn.rs"]
 mod turn;
@@ -48,7 +49,6 @@ mod progress;
 /// resume cache, or persistence handle. Those are exclusively `Session` state.
 #[derive(Default)]
 pub(super) struct OpenHumanSessionState {
-    last_commit: Option<CommitReceipt<OpenHumanRunContext>>,
     terminals: Vec<SessionTerminal>,
     pub(super) last_turn_hit_cap: bool,
     pub(super) last_turn_usage: Option<crate::agent::tinyagents::host::LastTurnUsage>,
@@ -59,6 +59,10 @@ pub(super) struct OpenHumanSessionState {
     pub(super) reply_language_directive: Option<String>,
     pub(super) time_zone: Option<String>,
     prelude: Option<OpenHumanTurnPrelude>,
+    /// The previous turn's deferred post-commit work (thread-goal
+    /// accounting). The next turn awaits it before loading the goal
+    /// (`post_commit::await_pending`).
+    pending_post_commit: Option<tokio::task::JoinHandle<()>>,
 }
 
 /// Owned host-only inputs used by the async runtime preparation hook.
@@ -614,8 +618,12 @@ impl OpenHumanTurnPrelude {
         );
         run_context.dispatch = Some(Arc::new(
             crate::agent::tinyagents::host::TurnDispatchState::new(
-                crate::agent::tinyagents::agent_turn_wall_clock_ms()
-                    .map(std::time::Duration::from_millis),
+                crate::agent::tinyagents::agent_turn_wall_clock_ms_for(
+                    self.runtime_config
+                        .as_deref()
+                        .is_some_and(crate::agent::tinyagents::chat_provider_is_local),
+                )
+                .map(std::time::Duration::from_millis),
             ),
         ));
         run_context.sandbox_mode = Some(self.sandbox_mode);
@@ -1098,6 +1106,14 @@ impl OpenHumanSessionHost {
                                 "OpenHumanTurnPrelude",
                             )
                         })?;
+                        // The previous turn's goal accounting was deferred past
+                        // its completion; settle it before this turn reads the goal.
+                        let pending_post_commit = state
+                            .lock()
+                            .unwrap_or_else(|poisoned| poisoned.into_inner())
+                            .pending_post_commit
+                            .take();
+                        post_commit::await_pending(pending_post_commit).await;
                         let new_session = !view.resumed && view.history.is_empty();
                         prelude
                             .refresh_turn_boundary(new_session)
@@ -1228,88 +1244,17 @@ impl OpenHumanSessionHost {
                     let agent_id = agent_id.clone();
                     let channel = channel.clone();
                     Box::pin(async move {
-                        let iterations = receipt
-                            .outcome
-                            .history
-                            .iter()
-                            .filter(|message| matches!(message, Message::Assistant(_)))
-                            .count()
-                            .max(1) as u32;
-                        let output = receipt.outcome.output.clone().unwrap_or_default();
-                        // Skips compaction checkpoints (user-role, not the user's words).
-                        let input =
-                            crate::agent::tinyagents::last_user_message(&receipt.outcome.history)
-                                .map(user_text_with_markers)
-                                .unwrap_or_default();
-                        let sidecar = receipt
-                            .options
-                            .context
-                            .session_sidecar
-                            .lock()
-                            .unwrap_or_else(std::sync::PoisonError::into_inner)
-                            .clone();
-                        let usage = holistic_last_turn_usage(&sidecar);
-                        let interrupted = sidecar.hit_cap || receipt.outcome.interrupted;
-                        let tool_calls = sidecar
-                            .tool_outcomes
-                            .iter()
-                            .map(|outcome| crate::agent::hooks::ToolCallRecord {
-                                name: outcome.name.clone(),
-                                arguments: outcome.arguments.clone(),
-                                success: outcome.success,
-                                output_summary: crate::agent::hooks::sanitize_tool_output(
-                                    &outcome.content,
-                                    &outcome.name,
-                                    outcome.success,
-                                ),
-                                duration_ms: outcome.duration_ms,
-                            })
-                            .collect::<Vec<_>>();
-                        let turn_duration_ms = sidecar
-                            .duration
-                            .map(|duration| duration.as_millis().min(u128::from(u64::MAX)) as u64)
-                            .unwrap_or_default();
-                        let prelude = state
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner())
-                            .prelude
-                            .clone();
-                        if let Some(prelude) = prelude {
-                            prelude.finalize_after_durable_commit(&receipt).await;
-                            account_committed_turn_against_goal(
-                                &prelude.workspace_dir,
-                                receipt.options.context.thread_id.as_deref(),
-                                &sidecar,
-                            )
-                            .await;
-                        }
-                        let _ =
-                            progress::send_receipt_progress(&receipt, &input, &output, iterations)
-                                .await;
-                        state
-                            .lock()
-                            .unwrap_or_else(|poisoned| poisoned.into_inner())
-                            .last_commit = Some(receipt);
-                        {
-                            let mut state = state
-                                .lock()
-                                .unwrap_or_else(|poisoned| poisoned.into_inner());
-                            state.last_turn_hit_cap = interrupted;
-                            state.last_turn_usage = Some(usage);
-                        }
-                        crate::agent::hooks::fire_hooks(
+                        post_commit::finalize_committed_turn(
+                            &state,
                             &post_turn_hooks,
-                            crate::agent::hooks::TurnContext {
-                                user_message: input,
-                                assistant_response: output,
-                                tool_calls,
-                                turn_duration_ms,
-                                session_id: Some(session_id.clone()),
-                                agent_id: Some(agent_id.clone()),
-                                entrypoint: Some(channel.clone()),
-                                iteration_count: iterations as usize,
+                            post_commit::TurnIdentity {
+                                session_id,
+                                agent_id,
+                                channel,
                             },
-                        );
+                            receipt,
+                        )
+                        .await;
                         Ok(())
                     })
                 }
@@ -1414,9 +1359,8 @@ impl OpenHumanSessionHost {
         }
         self.session_history_locator_memo
             .get_or_init(|| {
-                let session_agent_id = crate::core::runtime::CoreContext::current()
-                    .and_then(|context| context.session_agent().map(str::to_owned))
-                    .unwrap_or_else(|| self.agent_definition_id.clone());
+                let session_agent_id =
+                    crate::agent::session_store::current_agent_key_or(&self.agent_definition_id);
                 transcripts_or_files(&session_agent_id, &self.workspace_dir)
             })
             .clone()

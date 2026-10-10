@@ -22,6 +22,8 @@
 //! [`super::completion_notice`].
 
 use std::collections::{HashMap, HashSet, VecDeque};
+// Keys of `HostState`'s thread and session maps: per profile (see `profile_key`).
+use crate::core::runtime::tenant::profile_key as key;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
@@ -190,19 +192,19 @@ pub(crate) fn router_for_workspace(workspace_dir: &Path) -> Arc<CompletionRouter
 fn note_thread_workspace(thread_id: &str, workspace_dir: &Path) {
     state()
         .thread_workspaces
-        .insert(thread_id.to_string(), workspace_dir.to_path_buf());
+        .insert(key(thread_id), workspace_dir.to_path_buf());
 }
 
 /// The router that holds `thread_id`'s completions, if any child of that thread
 /// was spawned or recorded in this process.
 pub(crate) fn router_for_thread(thread_id: &str) -> Option<Arc<CompletionRouter>> {
-    let workspace = state().thread_workspaces.get(thread_id).cloned()?;
+    let workspace = state().thread_workspaces.get(&key(thread_id)).cloned()?;
     Some(router_for_workspace(&workspace))
 }
 
 /// The workspace holding `thread_id`'s completions, if known to this process.
 pub(crate) fn workspace_for_thread(thread_id: &str) -> Option<PathBuf> {
-    state().thread_workspaces.get(thread_id).cloned()
+    state().thread_workspaces.get(&key(thread_id)).cloned()
 }
 
 /// Claim `workspace_dir`'s boot recovery for this process. `true` exactly once
@@ -216,13 +218,14 @@ pub(crate) fn claim_recovery(workspace_dir: &Path) -> bool {
 
 /// Remember that `session_id` is a turn on `thread_id`.
 pub(crate) fn note_session_thread(session_id: &str, thread_id: &str) {
+    let session_key = key(session_id);
     let mut st = state();
     if st
         .session_threads
-        .insert(session_id.to_string(), thread_id.to_string())
+        .insert(session_key.clone(), thread_id.to_string())
         .is_none()
     {
-        st.session_order.push_back(session_id.to_string());
+        st.session_order.push_back(session_key);
         while st.session_order.len() > SESSION_THREADS_CAP {
             if let Some(oldest) = st.session_order.pop_front() {
                 st.session_threads.remove(&oldest);
@@ -234,7 +237,7 @@ pub(crate) fn note_session_thread(session_id: &str, thread_id: &str) {
 /// The chat thread a session id belongs to: the cached mapping, else the
 /// `thread_id` a web-channel session id carries in its JSON body.
 pub(crate) fn thread_for_session(session_id: &str) -> Option<String> {
-    if let Some(thread) = state().session_threads.get(session_id) {
+    if let Some(thread) = state().session_threads.get(&key(session_id)) {
         return Some(thread.clone());
     }
     if !session_id.starts_with('{') {
@@ -304,8 +307,9 @@ pub(crate) async fn record_outcome(
     {
         // The in-memory gates back up the router's durable cancelled-parent
         // marker, so a failed `cancel_parent` write cannot let a late result in.
+        let thread_key = key(&thread_id);
         let st = state();
-        if st.deleted_threads.contains(&thread_id) || st.stopped_threads.contains(&thread_id) {
+        if st.deleted_threads.contains(&thread_key) || st.stopped_threads.contains(&thread_key) {
             log::debug!(
                 "[background_completions] dropping completion task_id={task_id} for \
                  stopped/deleted thread_id={thread_id}"
@@ -322,6 +326,7 @@ pub(crate) async fn record_outcome(
     }
     note_thread_workspace(&thread_id, workspace_dir);
     note_session_thread(parent_session, &thread_id);
+    super::completion_owners::note(&[&task_id, parent_session]); // owner, for off-task delivery
 
     let record = CompletionRecord::new(
         task_id.clone(),
@@ -514,10 +519,11 @@ pub(crate) fn mark_collected(workspace_dir: &Path, task_id: &str) -> bool {
 /// process. Returns the number of queued completions removed.
 pub(crate) fn discard_for_thread(workspace_dir: &Path, thread_id: &str) -> usize {
     let seen = {
+        let thread_key = key(thread_id);
         let mut st = state();
-        st.deleted_threads.insert(thread_id.to_string());
-        st.stopped_threads.remove(thread_id);
-        st.thread_workspaces.contains_key(thread_id)
+        st.deleted_threads.insert(thread_key.clone());
+        st.stopped_threads.remove(&thread_key);
+        st.thread_workspaces.contains_key(&thread_key)
     };
     let entry = entry_for(workspace_dir);
     // Nothing in this process or on disk refers to the thread (an ordinary chat
@@ -584,7 +590,7 @@ fn cancel_deleted_parent(entry: &Entry, thread_id: &str) -> usize {
 /// the stopped generation's task ids stay tombstoned
 /// ([`finish_stop_for_thread`]). Returns the number of queued completions removed.
 pub(crate) fn discard_pending_for_thread(thread_id: &str) -> usize {
-    state().stopped_threads.insert(thread_id.to_string());
+    state().stopped_threads.insert(key(thread_id));
     let Some(router) = router_for_thread(thread_id) else {
         return 0;
     };
@@ -622,7 +628,7 @@ pub(crate) fn finish_stop_for_thread(thread_id: &str, task_ids: &[String]) {
 /// Only a thread this process stopped or cancelled pays for the durable resume
 /// marker, so an ordinary chat message writes nothing.
 pub(crate) fn resume_stopped_thread(thread_id: &str) {
-    let was_stopped = state().stopped_threads.remove(thread_id);
+    let was_stopped = state().stopped_threads.remove(&key(thread_id));
     if !was_stopped {
         return;
     }
@@ -649,20 +655,21 @@ pub(crate) fn mark_stopped_task_if_thread_stopped(
     task_id: &str,
 ) -> bool {
     let entry = entry_for(workspace_dir);
+    let thread_key = key(thread_id);
     let (first_sight, mut stopped) = {
         let mut st = state();
         let first_sight = st
             .thread_workspaces
-            .insert(thread_id.to_string(), workspace_dir.to_path_buf())
+            .insert(thread_key.clone(), workspace_dir.to_path_buf())
             .is_none();
         let stopped =
-            st.stopped_threads.contains(thread_id) || st.deleted_threads.contains(thread_id);
+            st.stopped_threads.contains(&thread_key) || st.deleted_threads.contains(&thread_key);
         (first_sight, stopped)
     };
     // A delete outlives a restart: the durable marker, not just this process's
     // memory, decides whether a late child belongs to a dead thread.
     if first_sight && !stopped && is_marked_deleted(&entry, thread_id) {
-        state().deleted_threads.insert(thread_id.to_string());
+        state().deleted_threads.insert(thread_key);
         stopped = true;
     }
     if stopped {
@@ -692,7 +699,7 @@ pub(crate) fn clear_all(workspace_dir: &Path) -> usize {
         .collect();
     let mut removed = 0;
     for parent in parents {
-        state().deleted_threads.insert(parent.clone());
+        state().deleted_threads.insert(key(&parent));
         removed += cancel_deleted_parent(&entry, &parent);
     }
     log::debug!("[background_completions] clear_all removed={removed}");

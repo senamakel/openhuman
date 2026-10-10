@@ -20,7 +20,7 @@ import {
   deriveSharedSecret,
   generateKeypair,
   keypairFromSecretKey,
-  open,
+  openHandshakeAck,
   ReplayTracker,
   sealHandshake,
   TunnelCipher,
@@ -61,7 +61,7 @@ export class TunnelTransport implements CoreTransport {
     reject: (err: Error) => void;
     timeoutId: ReturnType<typeof setTimeout>;
   } | null = null;
-  private readonly replayTracker = new ReplayTracker();
+  private replayTracker = new ReplayTracker();
   private readonly reassembler = new Reassembler();
   private readonly rateLimiter = new TokenBucket(100, 100);
 
@@ -138,6 +138,7 @@ export class TunnelTransport implements CoreTransport {
         this.staticDhKey = null;
         this.clientEphemeralKeypair = null;
         this.cipher = null;
+        this.replayTracker = new ReplayTracker();
         this._connectPromise = null;
       });
 
@@ -233,7 +234,11 @@ export class TunnelTransport implements CoreTransport {
 
     let plaintext: Uint8Array;
     try {
-      plaintext = open(this.staticDhKey, frameBytes, this.replayTracker);
+      plaintext = openHandshakeAck(
+        this.staticDhKey,
+        this.clientEphemeralKeypair.publicKey,
+        frameBytes
+      );
     } catch (err) {
       this.handshakeAck?.reject(err as Error);
       logErr('[tunnel] handshake ack open failed: %s', (err as Error).message);

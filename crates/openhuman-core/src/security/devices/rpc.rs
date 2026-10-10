@@ -137,8 +137,9 @@ pub async fn devices_create_pairing(
             core_pubkey: core_pubkey.clone(),
             rpc_url: rpc_url.clone(),
             expires_at: expires_at.clone(),
-            agent: crate::core::runtime::CoreContext::current()
-                .and_then(|context| context.session_agent().map(str::to_string)),
+            agent: crate::core::runtime::current_tenant()
+                .ok()
+                .and_then(|tenant| tenant.agent),
         },
     );
 

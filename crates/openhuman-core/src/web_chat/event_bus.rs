@@ -29,10 +29,7 @@ pub fn publish_web_channel_event(mut event: WebChannelEvent) {
     if event.ts.is_none() {
         event.ts = Some(crate::web_chat::progress_bridge::unix_epoch_ms());
     }
-    if event.agent.is_none() {
-        event.agent = crate::core::runtime::CoreContext::current()
-            .and_then(|context| context.session_agent().map(str::to_owned));
-    }
+    event.stamp_tenant(crate::core::runtime::current_tenant().ok());
     let _ = EVENT_BUS.send(event);
 }
 
@@ -552,6 +549,7 @@ pub fn approval_request_event(
     client_id: &str,
     tool_call_id: Option<&str>,
     expires_at: Option<&str>,
+    detached: bool,
 ) -> WebChannelEvent {
     WebChannelEvent {
         event: "approval_request".to_string(),
@@ -563,6 +561,7 @@ pub fn approval_request_event(
         args: Some(args_redacted.clone()),
         tool_call_id: tool_call_id.map(str::to_string),
         expires_at: expires_at.map(str::to_string),
+        detached: detached.then_some(true),
         ..Default::default()
     }
 }
@@ -633,6 +632,7 @@ impl EventHandler<DomainEvent> for ApprovalSurfaceSubscriber {
                         client_id,
                         tool_call_id.as_deref(),
                         expires_at.as_deref(),
+                        crate::security::approval::is_detached_request(request_id),
                     ));
                 }
                 _ => {

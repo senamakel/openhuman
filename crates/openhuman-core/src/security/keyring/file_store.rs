@@ -201,7 +201,15 @@ fn temp_path_for(path: &Path) -> PathBuf {
 /// a recognisable extension.
 pub fn quarantine_corrupt(path: &Path, suffix: &str) -> Option<PathBuf> {
     let stamp = chrono::Utc::now().timestamp();
-    let target = path.with_extension(format!("{suffix}.corrupt.{stamp}"));
+    let mut target = path.with_extension(format!("{suffix}.corrupt.{stamp}"));
+    // Two recoveries within one second must not share a name: `rename`
+    // replaces an existing destination on every platform, which would destroy
+    // the earlier preserved bytes.
+    let mut attempt = 1u32;
+    while target.exists() {
+        target = path.with_extension(format!("{suffix}.corrupt.{stamp}.{attempt}"));
+        attempt += 1;
+    }
     match std::fs::rename(path, &target) {
         Ok(()) => {
             log::error!(

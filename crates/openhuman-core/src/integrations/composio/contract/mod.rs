@@ -16,8 +16,8 @@ pub use profile::{
     ConnectedIdentity, IdentityKind, ProviderUserProfile,
 };
 pub use scopes::{
-    agent_ready_toolkits, classify_unknown, find_curated, toolkit_from_slug, CuratedTool,
-    ToolScope, UserScopePref,
+    action_slug_matches, agent_ready_toolkits, canonical_action_slug, classify_unknown,
+    find_curated, toolkit_from_slug, CuratedTool, ToolScope, UserScopePref,
 };
 pub use tasks::{GithubFetchMode, NormalizedTask, TaskContainer, TaskFetchFilter, TaskKind};
 

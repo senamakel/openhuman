@@ -344,5 +344,7 @@ fn projects_turn_content_from_root_model_io() {
     );
 }
 
+#[path = "journal_projection_accuracy_tests.rs"]
+mod accuracy_tests;
 #[path = "journal_projection_cost_rollup_tests.rs"]
 mod cost_rollup_tests;

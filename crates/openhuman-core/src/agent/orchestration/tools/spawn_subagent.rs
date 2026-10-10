@@ -13,6 +13,7 @@
 //! prompt with a filtered tool list, on a cheaper model where applicable.
 //!
 use crate::agent::harness::definition::AgentDefinitionRegistry;
+use crate::agent::orchestration::tools::dispatch::{incomplete_stop, stopped_subagent_result};
 use crate::agent::progress::AgentProgress;
 use crate::agent::subagent_host::{
     run_subagent_with_parent, SubagentRunOptions, SubagentRunOutcome, SubagentRunStatus,

@@ -483,6 +483,42 @@ fn a_refused_approval_is_a_deny_the_model_can_read() {
     }
 }
 
+/// A prompt that expired unanswered is reported as that — not as a refusal,
+/// and not as nothing — so the agent tells the user the action is waiting on
+/// their approval (the 600s `media_generate_image` expiries in sub-agents left
+/// the parent with no usable result). It still carries no policy marker, so
+/// the turn is not paused before the model can reply, and it names no human.
+#[test]
+fn an_unanswered_approval_tells_the_model_it_was_not_answered() {
+    // The exact reason the gate's TTL path produces.
+    let gate_reason = format!(
+        "[policy-denied] Approval for 'media_generate_image' timed out after 180s: {}, so it \
+         was not run.",
+        crate::security::approval::APPROVAL_UNANSWERED_PHRASE
+    );
+    let decision = decision_for_outcome(
+        "media_generate_image",
+        GateOutcome::Deny {
+            reason: gate_reason,
+        },
+    );
+    assert!(!decision.is_allowed());
+    let reason = decision.denial_reason().expect("a reason for the model");
+    assert!(reason.contains("not answered"), "{reason}");
+    assert!(reason.contains("ask again"), "{reason}");
+    assert!(reason.contains("another way"), "{reason}");
+    assert_eq!(
+        crate::tools::status::classify(reason, false).class,
+        crate::tools::status::ToolFailureClass::Unknown,
+        "{reason}"
+    );
+    let lower = reason.to_lowercase();
+    assert!(
+        !lower.contains("user denied") && !lower.contains("declined") && !lower.contains("human"),
+        "{reason}"
+    );
+}
+
 #[test]
 fn an_approved_park_is_still_prompted_and_allowed() {
     let decision = decision_for_outcome("write_file", GateOutcome::Allow);

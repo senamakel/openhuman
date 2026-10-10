@@ -528,3 +528,37 @@ fn the_announcement_rule_fails_closed_on_an_unknown_workspace() {
     // whoever is connected.
     assert!(!announces_to(Some(a), None));
 }
+
+/// A cron job that completed as an agent is stored with that agent: the
+/// scheduler's note names it even when the job is already gone.
+#[tokio::test]
+async fn a_noted_cron_completion_names_its_agent() {
+    let context =
+        crate::core::runtime::CoreContext::for_test(crate::core::runtime::DomainSet::full(), None)
+            .derive_with(
+                crate::core::runtime::ContextOverlay::new(
+                    crate::config::Config::default(),
+                    crate::core::runtime::DomainSet::full(),
+                    Default::default(),
+                )
+                .session_agent("notif-owner-agent"),
+            );
+    crate::core::runtime::CoreContext::scope(context, async {
+        crate::cron::completion_owner::note("notif-owner-job");
+    })
+    .await;
+    let event = DomainEvent::CronJobCompleted {
+        job_id: "notif-owner-job".into(),
+        success: true,
+        output: String::new(),
+    };
+    let owner = event_owner(&crate::config::Config::default(), &event).await;
+    assert_eq!(owner, Ok(Some("notif-owner-agent".to_string())));
+    // Taken: asked again, the job is no one's (no backend installed here).
+    if crate::storage::installed().is_none() {
+        assert_eq!(
+            event_owner(&crate::config::Config::default(), &event).await,
+            Ok(None)
+        );
+    }
+}

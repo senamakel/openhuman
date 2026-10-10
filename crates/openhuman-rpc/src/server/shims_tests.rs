@@ -77,17 +77,9 @@ fn server_shim_refuses_public_bind_without_operator_token() {
                     ]);
                     let services = ServiceSet::headless_api();
 
-                    let error = super::run_server_with_services(
-                        Some("0.0.0.0"),
-                        Some(0),
-                        services,
-                        true,
-                        None,
-                        None,
-                        None,
-                    )
-                    .await
-                    .expect_err("public bind must require an operator-supplied token");
+                    let error = super::run_server_with_services(Some("0.0.0.0"), Some(0), services)
+                        .await
+                        .expect_err("public bind must require an operator-supplied token");
 
                     assert!(error
                         .to_string()

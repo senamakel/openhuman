@@ -130,9 +130,12 @@ impl RuntimeBuilder {
         // build cannot undo (the stored API key, the host memory engine), so
         // a refused controller extension leaves neither behind. Restorable
         // seams are undone by this guard if the boot below fails.
-        let mut seams = std::mem::take(&mut self.seams)
-            .install()
+        let mut host_seams = std::mem::take(&mut self.seams);
+        host_seams
+            .open_storage()
+            .await
             .map_err(RuntimeError::Invalid)?;
+        let mut seams = host_seams.install().map_err(RuntimeError::Invalid)?;
 
         // Before `CoreBuilder::build()`: the scheduler gate reads the credential
         // store exactly once, at boot, to decide whether it is signed in.

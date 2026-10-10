@@ -77,7 +77,7 @@ e2e-test-support = ["openhuman-tinyhumans/e2e-test-support"]
 [dependencies]
 # The only openhuman crate this layer depends on. Core internals the server
 # needs come through embed's `#[doc(hidden)]` `__host` list (reached as
-# `openhuman_tinyhumans::embed::__host`); there is no direct `openhuman-core`
+# `openhuman_tinyhumans::__host`, which tinyhumans forwards); there is no direct `openhuman-core`
 # edge (chain: core -> embed -> tinyhumans -> rpc -> hosts).
 openhuman-tinyhumans = { path = "../openhuman-tinyhumans", default-features = false }
 log = "0.4"
@@ -106,6 +106,9 @@ tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", default-features = false, optional = true }
 
 [dev-dependencies]
+# Property tests for the SaaS gateway's header handling; same spelling as the
+# core's dev-dependency.
+proptest = "1"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
 sentry = { version = "0.47.0", default-features = false, features = ["test"] }
 tempfile = "3"

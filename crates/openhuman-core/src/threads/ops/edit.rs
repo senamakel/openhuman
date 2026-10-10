@@ -239,17 +239,29 @@ async fn next_reply_request_id_after(
 fn resolve_head_transcript(
     workspace_dir: &std::path::Path,
     thread_id: &str,
-) -> Result<
-    (
-        SessionRef,
-        std::sync::Arc<dyn TranscriptLocator>,
-        SessionTranscript,
-    ),
-    String,
-> {
-    let root_path =
+) -> Result<HeadTranscript, String> {
+    find_head_transcript(workspace_dir, thread_id)?
+        .ok_or_else(|| format!("thread {thread_id} has no session transcript"))
+}
+
+type HeadTranscript = (
+    SessionRef,
+    std::sync::Arc<dyn TranscriptLocator>,
+    SessionTranscript,
+);
+
+/// [`resolve_head_transcript`], answering `Ok(None)` when the thread has never
+/// written a session transcript. Read and resolve failures still error.
+fn find_head_transcript(
+    workspace_dir: &std::path::Path,
+    thread_id: &str,
+) -> Result<Option<HeadTranscript>, String> {
+    let Some(root_path) =
         tinyagents_session::transcript::find_root_transcript_for_thread(workspace_dir, thread_id)
-            .ok_or_else(|| format!("thread {thread_id} has no session transcript"))?;
+    else {
+        log::debug!("[threads][edit] thread {thread_id} has no session transcript");
+        return Ok(None);
+    };
     let root_transcript = tinyagents_session::transcript::read_transcript(&root_path)
         .map_err(|e| format!("read root transcript for thread {thread_id}: {e}"))?;
     let agent_id = root_transcript.meta.agent_id.clone().unwrap_or_default();
@@ -264,7 +276,7 @@ fn resolve_head_transcript(
     .map_err(|e| format!("resolve head transcript path for thread {thread_id}: {e}"))?;
     let head_transcript = tinyagents_session::transcript::read_transcript(&head_path)
         .map_err(|e| format!("read head transcript for thread {thread_id}: {e}"))?;
-    Ok((head, locator, head_transcript))
+    Ok(Some((head, locator, head_transcript)))
 }
 
 /// A truncation seed carrying the head transcript's own metadata forward
@@ -316,7 +328,11 @@ fn truncate_transcript_for_regenerate(
     thread_id: &str,
     target_request_id: Option<&str>,
 ) -> Result<Option<(String, String)>, String> {
-    let (head, locator, transcript) = resolve_head_transcript(workspace_dir, thread_id)?;
+    // Sentry TAURI-REACT-AK: a thread that never wrote a transcript has no turn
+    // to regenerate — the caller turns `None` into that friendly error.
+    let Some((head, locator, transcript)) = find_head_transcript(workspace_dir, thread_id)? else {
+        return Ok(None);
+    };
     let cut = match target_request_id {
         Some(request_id) => {
             let index = transcript

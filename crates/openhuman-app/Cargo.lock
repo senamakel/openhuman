@@ -7461,7 +7461,7 @@ dependencies = [
 
 [[package]]
 name = "tinybox-core"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "async-trait",
  "serde",
@@ -7470,7 +7470,7 @@ dependencies = [
 
 [[package]]
 name = "tinybox-docker"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "async-trait",
  "tinybox-core",
@@ -7479,7 +7479,7 @@ dependencies = [
 
 [[package]]
 name = "tinybox-host"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "async-trait",
  "tinybox-core",
@@ -7488,7 +7488,7 @@ dependencies = [
 
 [[package]]
 name = "tinybox-jail"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "landlock",
  "log",
@@ -7500,7 +7500,7 @@ dependencies = [
 
 [[package]]
 name = "tinybox-ssh"
-version = "0.1.15"
+version = "0.1.16"
 dependencies = [
  "async-trait",
  "tinybox-core",
@@ -7513,6 +7513,7 @@ version = "0.1.2"
 dependencies = [
  "async-trait",
  "flate2",
+ "libc",
  "serde",
  "serde_json",
  "sha2 0.10.9",
@@ -7538,7 +7539,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "async-imap",
@@ -7580,7 +7581,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-bus"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7601,7 +7602,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-runtime"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7615,7 +7616,7 @@ dependencies = [
 
 [[package]]
 name = "tinycomputer-accessibility"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "arboard",
  "cpal",
@@ -7628,7 +7629,7 @@ dependencies = [
 
 [[package]]
 name = "tinycomputer-bus"
-version = "0.10.0"
+version = "0.10.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -7636,7 +7637,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "async-trait",
  "chrono",
@@ -7655,7 +7656,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors-bus"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -7663,7 +7664,7 @@ dependencies = [
 
 [[package]]
 name = "tinyconnectors-sync"
-version = "0.13.0"
+version = "0.13.1"
 dependencies = [
  "async-trait",
  "serde",
@@ -7674,7 +7675,7 @@ dependencies = [
 
 [[package]]
 name = "tinydocs-bus"
-version = "0.1.21"
+version = "0.1.22"
 dependencies = [
  "serde",
  "thiserror 2.0.20",
@@ -7682,7 +7683,7 @@ dependencies = [
 
 [[package]]
 name = "tinyflows"
-version = "0.8.6"
+version = "0.8.7"
 dependencies = [
  "async-trait",
  "futures-timer",
@@ -7773,7 +7774,7 @@ dependencies = [
 
 [[package]]
 name = "tinyhosts"
-version = "0.2.2"
+version = "0.2.3"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7791,7 +7792,7 @@ dependencies = [
 
 [[package]]
 name = "tinyhumans-sdk"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "base64 0.22.1",
  "futures",
@@ -7871,7 +7872,6 @@ dependencies = [
  "reqwest 0.12.28",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "thiserror 2.0.20",
  "tinyinference-core",
  "tinytools-agent",
@@ -7956,7 +7956,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -7982,7 +7982,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice-bus"
-version = "0.6.0"
+version = "0.6.1"
 dependencies = [
  "serde",
  "serde_json",
@@ -8008,7 +8008,7 @@ dependencies = [
 
 [[package]]
 name = "tinymcp"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8035,7 +8035,7 @@ dependencies = [
 
 [[package]]
 name = "tinymcp-bus"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "schemars 1.2.2",
  "serde",
@@ -8059,7 +8059,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.25.0"
+version = "1.26.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -8072,7 +8072,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.25.0"
+version = "1.26.0"
 dependencies = [
  "async-trait",
  "calamine",
@@ -8099,7 +8099,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.25.0"
+version = "1.26.0"
 dependencies = [
  "chrono",
  "futures",
@@ -8112,7 +8112,7 @@ dependencies = [
 
 [[package]]
 name = "tinyruntime-bus"
-version = "0.2.11"
+version = "0.2.12"
 dependencies = [
  "serde",
  "serde_json",
@@ -8120,7 +8120,7 @@ dependencies = [
 
 [[package]]
 name = "tinyruntime-pyserver"
-version = "0.2.11"
+version = "0.2.12"
 dependencies = [
  "serde",
  "serde_json",
@@ -8131,7 +8131,7 @@ dependencies = [
 
 [[package]]
 name = "tinysearch-bus"
-version = "0.3.6"
+version = "0.4.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -8139,7 +8139,7 @@ dependencies = [
 
 [[package]]
 name = "tinyskills"
-version = "0.2.9"
+version = "0.2.10"
 dependencies = [
  "cap-fs-ext",
  "cap-std",
@@ -8180,6 +8180,7 @@ dependencies = [
  "chacha20poly1305",
  "fs4",
  "hkdf",
+ "keyring",
  "serde_json",
  "sha2 0.10.9",
  "tinystoragedrivers-core",
@@ -8267,7 +8268,7 @@ checksum = "fd3ca314f692efd6c868f8408f53fe444634a845f96c028b97d35f6a1f79f0ee"
 
 [[package]]
 name = "tinyvoice"
-version = "0.1.11"
+version = "0.1.12"
 dependencies = [
  "cpal",
  "log",
@@ -8288,7 +8289,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-bus"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "serde",
  "tinywallet-crypto",
@@ -8297,7 +8298,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-crypto"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "async-trait",
  "bech32",
@@ -8312,7 +8313,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-web3"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8333,7 +8334,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-x402"
-version = "0.7.3"
+version = "0.7.4"
 dependencies = [
  "anyhow",
  "async-trait",

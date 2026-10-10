@@ -41,7 +41,7 @@ fn schemas_config_get_has_no_inputs() {
 
 #[test]
 fn there_is_no_install_from_the_catalog_any_more() {
-    // Installing is declaring a server in mcp.json; the catalog is browse-only.
+    // Installing is declaring a server in mcp.json; the catalog has no install RPC.
     assert_eq!(schemas("install").function, "unknown");
     assert_eq!(schemas("config_assist").function, "unknown");
 }

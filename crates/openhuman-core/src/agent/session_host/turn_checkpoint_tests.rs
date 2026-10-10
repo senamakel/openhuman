@@ -180,48 +180,27 @@ fn the_final_summary_quotes_each_failure_message() {
     assert!(!out.contains("tool-call limit"), "not a capped turn: {out}");
 }
 
-/// Issue #6279: when the breaker halted the run, the fallback says the turn
-/// stopped early and keeps the stop note as a quoted reason, beside the
-/// records, instead of standing in for the whole reply.
+/// Issue #6279, revised: a halted turn says it stopped early and why, in
+/// plain language derived from the stop note, and lists each tool with its
+/// short error line instead of quoting the note (written for the model) or the
+/// raw records. The detailed cases live in `stop_summary_tests.rs`.
 #[test]
-fn the_final_summary_of_a_halted_turn_keeps_the_stop_note_and_the_records() {
+fn the_final_summary_of_a_halted_turn_gives_a_reason_and_names_the_tools() {
     let out = build_deterministic_final_summary(
         &[result("install_item", false, "no direct download")],
         Some(STOP_NOTE),
     );
     assert!(
-        out.starts_with("I stopped this turn early"),
+        out.starts_with("I stopped this turn early because the same step kept failing."),
         "lead missing: {out}"
     );
     assert!(
-        out.contains("**Why I stopped**\n> Stopping:"),
-        "stop note must be quoted: {out}"
+        !out.contains("Stopping:"),
+        "the stop note is not quoted: {out}"
     );
     assert!(
-        out.contains("  > no direct download"),
-        "records must follow: {out}"
-    );
-}
-
-/// The breaker also halts a run whose identical calls keep succeeding
-/// (`RepeatProgressMiddleware`). The fallback must not call those calls failed
-/// when its own records show them `ok` (Codex review on #6289).
-#[test]
-fn the_final_summary_of_a_successful_repeat_halt_does_not_claim_failure() {
-    let out = build_deterministic_final_summary(
-        &[result("list_items", true, "3 items")],
-        Some(
-            "Stopping: the same successful tool-call batch was issued 3 times in a row with \
-             identical arguments and no new information.",
-        ),
-    );
-    assert!(
-        !out.to_lowercase().contains("fail"),
-        "a halt over successful calls must not be described as failing: {out}"
-    );
-    assert!(
-        out.contains("`list_items` — ok"),
-        "records keep their status: {out}"
+        out.contains("- `install_item` failed: no direct download"),
+        "the tool and its error line follow: {out}"
     );
 }
 

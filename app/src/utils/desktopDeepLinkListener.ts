@@ -34,6 +34,10 @@ import { isTauri as coreIsTauri } from './tauriCommands/common';
 
 const SESSION_TOKEN_UPDATED_EVENT = 'core-state:session-token-updated';
 
+/** Thrown when the session owner reports success but the core holds no token. */
+const CORE_NO_SESSION_TOKEN_ERROR =
+  'CORE: session owner reported success but the core holds no session token';
+
 /**
  * CSRF / session-fixation protection for `openhuman://auth` deep links (finding
  * C3). Because `openhuman://` is an OS-registered scheme, ANY web page the
@@ -198,7 +202,7 @@ const applySessionToken = async (install: () => Promise<void>): Promise<void> =>
   // the secret through the renderer.
   const sessionToken = await getSessionToken();
   if (!sessionToken) {
-    throw new Error('CORE: session owner reported success but the core holds no session token');
+    throw new Error(CORE_NO_SESSION_TOKEN_ERROR);
   }
   patchCoreStateSnapshot({ snapshot: { sessionToken } });
   window.dispatchEvent(new CustomEvent(SESSION_TOKEN_UPDATED_EVENT, { detail: { sessionToken } }));
@@ -296,7 +300,7 @@ const handleAuthDeepLink = async (parsed: URL, requireStateNonce = true) => {
         { requiresAppDataReset: true }
       );
     } else {
-      const kind = classifyAuthStoreFailure(rawMessage);
+      const kind = classifyAuthStoreFailure(error);
       // Capture a SYNTHETIC error keyed only by `kind` — never the raw error.
       // Two reasons (both raised in review):
       //  1. PII: the upstream `/auth/me` failure embeds the verbatim backend
@@ -362,7 +366,14 @@ const isDecryptionFailure = (message: string): boolean => {
  * place the bounce becomes debuggable. Returns a stable enum-like string (no URLs,
  * no tokens) safe to use as a Sentry tag / fingerprint.
  */
-export const classifyAuthStoreFailure = (message: string): string => {
+export const classifyAuthStoreFailure = (failure: unknown): string => {
+  const message = authStoreFailureMessage(failure);
+  // A rejection with no message at all (a Tauri invoke rejects with whatever
+  // the command serialized): `String(obj)` is "[object Object]", which told
+  // the `other` bucket nothing.
+  if (message === null) return 'non_error';
+  // Our own fail-closed check after a "successful" store; exact, so first.
+  if (message === CORE_NO_SESSION_TOKEN_ERROR) return 'core_no_session_token';
   // The session owner prefixes its errors with a stable kind; map those first
   // so the buckets do not depend on the prose behind the prefix.
   switch (sessionErrorKind(message)) {
@@ -390,7 +401,28 @@ export const classifyAuthStoreFailure = (message: string): string => {
     return 'auth_me_gateway';
   if (/network|fetch failed|connection|dns|unreachable/.test(m)) return 'network';
   if (/auth\/me|session validation failed/.test(m)) return 'auth_me_other';
+  // The owner's remaining prefixes (Rust `SessionError::{Core, Backend,
+  // Invalid}`), checked after the content buckets above so a `CORE:`-wrapped
+  // timeout or unreadable config still lands in its specific kind.
+  if (message.startsWith('BACKEND:')) return 'backend';
+  if (message.startsWith('CORE:')) return 'core';
+  if (message.startsWith('INVALID:')) return 'invalid';
   return 'other';
+};
+
+/**
+ * The text of a store failure, or `null` when it carries none. A Tauri invoke
+ * rejects with the command's serialized error — a string, or an object that
+ * may hold a `message`.
+ */
+const authStoreFailureMessage = (failure: unknown): string | null => {
+  if (failure instanceof Error) return failure.message;
+  if (typeof failure === 'string') return failure;
+  if (typeof failure === 'object' && failure !== null && 'message' in failure) {
+    const { message } = failure as { message: unknown };
+    if (typeof message === 'string') return message;
+  }
+  return null;
 };
 
 /**

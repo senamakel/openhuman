@@ -25,6 +25,7 @@
 //! re-exports them so `tinyagents::middleware::*` paths stay stable.
 
 mod approval;
+mod call_effect;
 mod cli_rpc_only;
 mod cost_budget;
 mod credential_scrub;
@@ -47,6 +48,7 @@ mod turn_context;
 mod unmet_deliverable;
 
 pub(crate) use approval::ApprovalSecurityMiddleware;
+pub(crate) use call_effect::tool_sets_lookup;
 pub(crate) use cli_rpc_only::CliRpcOnlyMiddleware;
 pub(crate) use cost_budget::CostBudgetMiddleware;
 pub(crate) use credential_scrub::credential_scrub_middleware;

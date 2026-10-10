@@ -313,7 +313,7 @@ mod resolve_park_ttl_tests {
     fn default_park_keeps_the_full_ttl() {
         let default_ttl = DEFAULT_APPROVAL_TTL;
         assert_eq!(
-            ApprovalGate::resolve_park_ttl(default_ttl, false),
+            ApprovalGate::resolve_park_ttl(default_ttl, false, false),
             default_ttl,
             "a plain park (no copilot stream) must not be clamped"
         );
@@ -323,7 +323,7 @@ mod resolve_park_ttl_tests {
     fn copilot_stream_shortens_a_default_ten_minute_park() {
         let default_ttl = DEFAULT_APPROVAL_TTL;
         assert_eq!(
-            ApprovalGate::resolve_park_ttl(default_ttl, true),
+            ApprovalGate::resolve_park_ttl(default_ttl, true, false),
             COPILOT_APPROVAL_TTL,
             "a flows_build copilot-streaming park must clamp to COPILOT_APPROVAL_TTL"
         );
@@ -341,7 +341,7 @@ mod resolve_park_ttl_tests {
         // already shorter than either clamp).
         let short_ttl = Duration::from_secs(60);
         assert_eq!(
-            ApprovalGate::resolve_park_ttl(short_ttl, true),
+            ApprovalGate::resolve_park_ttl(short_ttl, true, false),
             short_ttl,
             "copilot clamp must not extend a boot-time TTL that is already shorter"
         );

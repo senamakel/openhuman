@@ -47,6 +47,7 @@ pub mod contract_gate;
 pub(crate) mod direct_auth;
 pub mod execute_dispatch;
 pub(crate) mod file_store;
+mod file_store_documents;
 pub mod googlecalendar_args;
 pub mod identity;
 pub mod identity_store;

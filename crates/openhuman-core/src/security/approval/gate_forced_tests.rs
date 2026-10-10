@@ -156,7 +156,7 @@ fn saas_outcome_never_parks_and_denies_without_an_allowlisted_group() {
 
 #[test]
 fn saas_outcome_maps_an_allowlisted_verdict_to_allow() {
-    use crate::user_agents::tools::{gate_verdict_with, SaasToolGroup};
+    use crate::profiles::tools::{gate_verdict_with, SaasToolGroup};
     let verdict = gate_verdict_with("shell", &[SaasToolGroup::HostShell]);
     assert!(matches!(saas_outcome(verdict), GateOutcome::Allow));
     let verdict = gate_verdict_with("shell", &[SaasToolGroup::HostFiles]);

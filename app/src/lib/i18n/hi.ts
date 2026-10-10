@@ -510,6 +510,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.connectIntegration': 'एक नया इंटीग्रेशन कनेक्ट करो।',
   'chat.welcomeSuggestion.dailySummaryFlow': 'एक ऐसा फ़्लो बनाओ जो मुझे रोज़ाना सारांश ईमेल करे।',
   'chat.typeMessage': 'कोई संदेश भेजें...',
+  'chat.regenerate.unavailable':
+    'यह जवाब दोबारा नहीं बनाया जा सकता। इसके बजाय नवीनतम जवाब दोबारा बनाकर देखें।',
+  'chat.regenerate.failed': 'जवाब दोबारा नहीं बनाया जा सका। कृपया फिर से कोशिश करें।',
   'chat.send': 'मैसेज भेजें',
   'chat.stopGeneration': 'जेनरेशन रोकें',
   'chat.followupHint':
@@ -1227,7 +1230,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': '{name} का पेज खोलें',
   'mcp.installed.emptyAddInJson': 'mcp.json में जोड़ें',
   'mcp.registry.intro':
-    'MCP सर्वरों की निर्देशिका। किसी सर्वर को खोलने पर आप उसके अपने पेज पर पहुँचते हैं, जहाँ इंस्टॉल निर्देश होते हैं; उसे mcp.json टैब में जोड़ें।',
+    'MCP सर्वरों की निर्देशिका। जिन होस्टेड सर्वरों को किसी सेटअप की ज़रूरत नहीं होती, वे एक क्लिक में जुड़ जाते हैं; बाकी सर्वरों के लिए इंस्टॉल निर्देशों हेतु उनका पेज खोलें और उन्हें mcp.json टैब में जोड़ें।',
+  'mcp.registry.action.add': 'जोड़ें',
+  'mcp.registry.action.added': 'जोड़ा गया',
+  'mcp.registry.action.adding': 'जोड़ा जा रहा है…',
+  'mcp.registry.aria.add': '{name} जोड़ें',
+  'mcp.registry.needsSetup':
+    'इस सर्वर को जोड़ने से पहले सेटअप की ज़रूरत है। इंस्टॉल निर्देशों के लिए इसका पेज खोलें।',
+  'mcp.registry.addFailed': 'यह सर्वर जोड़ा नहीं जा सका।',
+  'mcp.registry.connectFailed': 'जोड़ा गया, लेकिन सर्वर कनेक्ट नहीं हुआ।',
   'mcp.json.loadFailedTitle': 'mcp.json पढ़ा नहीं जा सका',
   'mcp.json.loadFailedBody':
     'कोर ने जवाब नहीं दिया, इसलिए दस्तावेज़ नहीं दिखाया गया। खाली संपादक ऐसा सेव करने को प्रेरित करेगा जो आपके सर्वर मिटा दे।',
@@ -1700,6 +1711,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': 'कनेक्ट हो गया। आप तैयार हैं।',
   'bootCheck.authFailed': 'वह टोकन काम नहीं किया। दोबारा चेक करके कोशिश करें।',
   'bootCheck.unreachablePrefix': 'नहीं पहुँच पाए:',
+  'bootCheck.socketDisabled':
+    'कनेक्ट हो गया, लेकिन इस कोर पर रीयलटाइम बंद है। इसे --jsonrpc-only के साथ शुरू किया गया था; चैट और लाइव अपडेट के लिए इसे इस फ़्लैग के बिना दोबारा शुरू करें।',
   'bootCheck.checkingCore': 'OpenHuman शुरू हो रहा है…',
   'bootCheck.cannotReach': 'पहुँच नहीं पा रहे',
   'bootCheck.cannotReachDesc': 'हम कनेक्ट नहीं कर सके। क्या कहीं और कोशिश करना चाहेंगे?',
@@ -1768,6 +1781,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'अपडेट चेक विफल',
   'about.update.status.default': 'अपडेट चेक करें',
   'welcome.continueLocallyExperimental': 'लोकल रूप से जारी रखें (प्रायोगिक)',
+  'auth.profileSwitch.title': 'अलग प्रोफ़ाइल से साइन इन करें?',
+  'auth.profileSwitch.body':
+    'क्लाउड साइन-इन OpenHuman को अलग खाते की प्रोफ़ाइल पर ले जाएगा। आपकी स्थानीय बातचीत, मेमोरी और प्रदाता सेटिंग्स इस डिवाइस पर users/{profileId} में रहेंगी। वापस जाने के लिए साइन आउट करें और स्वागत स्क्रीन पर स्थानीय सत्र चुनें।',
+  'auth.profileSwitch.continue': 'साइन इन जारी रखें',
   'welcome.localSessionStarting': 'स्थानीय सत्र प्रारंभ हो रहा है...',
   'welcome.coreConfigUnreadable':
     'रनटाइम अपनी कॉन्फ़िगरेशन फ़ाइल नहीं पढ़ सका। हो सकता है config.toml किसी दूसरे उपयोगकर्ता खाते का हो, या किसी अन्य कारण से रनटाइम प्रक्रिया के लिए दुर्गम हो। रनटाइम को पुनः आरंभ करें, और यदि इससे मदद न मिले तो वर्कस्पेस का स्वामित्व ठीक करें या उसका वॉल्यूम दोबारा बनाएँ।',

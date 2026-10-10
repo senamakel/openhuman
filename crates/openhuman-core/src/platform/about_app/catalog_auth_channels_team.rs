@@ -221,7 +221,7 @@ Capability {
         name: "Browse MCP Server Registry",
         domain: "channels",
         category: CapabilityCategory::Channels,
-        description: "Search and discover MCP servers from the Smithery.ai and official modelcontextprotocol registries. The directory is browse-only: a server opens its own page, where its install instructions live.",
+        description: "Search and discover MCP servers from the Smithery.ai and official modelcontextprotocol registries. A hosted server that needs no setup is added to mcp.json in one click; any other server opens its own page, where its install instructions live.",
         how_to: "Connections > MCP Servers > Registry",
         status: CapabilityStatus::Beta,
         privacy: Some(CapabilityPrivacy {

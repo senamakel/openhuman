@@ -15,10 +15,16 @@ impl SubagentSessionStore {
     }
 
     pub fn load(&self) -> Result<Vec<DurableSubagentSession>, String> {
+        if let Some(docs) = super::store_documents::current().map_err(|err| format!("{err:#}"))? {
+            return docs.load().map_err(|err| format!("{err:#}"));
+        }
         load_from_path(&self.path())
     }
 
     pub fn save(&self, sessions: &[DurableSubagentSession]) -> Result<(), String> {
+        if let Some(docs) = super::store_documents::current().map_err(|err| format!("{err:#}"))? {
+            return docs.save(sessions).map_err(|err| format!("{err:#}"));
+        }
         save_to_path(&self.path(), sessions)
     }
 }

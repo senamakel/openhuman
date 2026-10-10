@@ -12,6 +12,7 @@ pub mod auth;
 pub mod bus;
 pub mod bus_testing;
 pub mod cli;
+mod cli_serve;
 pub mod dispatch;
 pub mod domain_group;
 pub mod envelope;

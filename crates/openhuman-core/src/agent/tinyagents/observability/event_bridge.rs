@@ -88,6 +88,13 @@ pub(crate) struct OpenhumanEventBridge {
     /// `ToolStarted` and taken on `ToolCompleted` so the projected completion
     /// event carries a real `elapsed_ms` (the crate event has no timing).
     pub(super) tool_started_at: Mutex<std::collections::HashMap<String, std::time::Instant>>,
+    /// `call_id → requested tool name` for calls the crate answered as an
+    /// unknown tool (`AgentEvent::UnknownToolCall`, recovery `tool_error`).
+    /// The crate then emits an ordinary `ToolStarted`/`ToolCompleted` pair for
+    /// the same call id (`recover_tool_call`); this map lets that pair carry
+    /// the "unavailable" label and the `NotFound` class instead of the bridge
+    /// projecting a second row of its own.
+    pub(super) unknown_calls: Mutex<std::collections::HashMap<String, String>>,
     /// The turn's registered tool sets, retained (cheap `Arc` clones — never
     /// the tools themselves) so the bridge can resolve a live `&dyn Tool` by
     /// name and call its own [`tinytools::Tool::display_label`] /
@@ -168,6 +175,7 @@ impl OpenhumanEventBridge {
             recorded_iterations: Mutex::new(std::collections::HashSet::new()),
             resolved_calls: Mutex::new(std::collections::HashMap::new()),
             tool_started_at: Mutex::new(std::collections::HashMap::new()),
+            unknown_calls: Mutex::new(std::collections::HashMap::new()),
             tool_sets,
             state: Mutex::new(BridgeState::default()),
             overflow: Arc::default(),

@@ -72,7 +72,7 @@ use tinyagents_harness::observability::trace_export::{RunType, TraceContext, Tra
 #[cfg(test)]
 use tinyagents_harness::observability::trace_export::{SpanKind, SpanStatus};
 
-pub use collector::SpanCollector;
+pub use collector::{SpanCollector, TurnOutcome};
 
 /// Product identity stamped onto exported telemetry (OTLP service name, scope,
 /// Langfuse release/version and run-total labels).

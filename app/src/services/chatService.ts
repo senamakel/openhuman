@@ -340,6 +340,13 @@ export interface ChatApprovalRequestEvent {
    * expiry countdown on the approval card. Absent on an older core.
    */
   expires_at?: string;
+  /**
+   * `true` when the park can outlive the chat turn it is shown on — an
+   * async-delegated sub-agent (wire contract: `DomainEvent::ApprovalRequested.
+   * detached`, additive). The card is kept across that turn's `chat_done` and
+   * cleared by `approval_decided` instead. Absent for an in-turn park.
+   */
+  detached?: boolean;
 }
 
 /**

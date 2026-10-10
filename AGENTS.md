@@ -386,12 +386,11 @@ Additional rules:
   router and handlers, auth middleware, Socket.IO, `/dev/connect`, the
   listener bind (`openhuman_rpc::server::serve`) and the `run_server*` entry
   points. `openhuman_rpc::host::cli` gives the core this crate's server as
-  the `run`/`serve` launcher (the older `install_cli_server()` +
-  `run_core_from_args` pair does the same for embedders that predate it).
+  the `run`/`serve` launcher.
   Domain-owned HTTP handlers the router mounts (`inference::http`, the
   dictation WebSocket) stay in their domains behind core's `http-server`
   feature. The `http_host` static-directory file server lives here too
-  (`openhuman_rpc::http_host`); `install_cli_server()` and
+  (`openhuman_rpc::http_host`); `host::cli`, `host::desktop` and
   `build_core_http_router()` register its `http_host.*` controllers as a core
   extension, so a host without this crate has no `http_host` surface.
 - The hosts boot through `openhuman_rpc::host`: `host::cli(args)` is the

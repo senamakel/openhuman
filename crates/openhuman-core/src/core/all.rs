@@ -87,14 +87,14 @@ fn group_allowed(group: DomainGroup) -> bool {
 }
 
 /// Whether `g` is live in the ambient scope: its family is enabled and, for a
-/// SaaS user, the method is on the user surface (`user_agents::surface`).
+/// SaaS user, the method is on the user surface (`profiles::surface`).
 fn visible(g: &GroupedController) -> bool {
     group_allowed(g.group) && on_surface(g)
 }
 
 fn on_surface(g: &GroupedController) -> bool {
     let operator = g.group == DomainGroup::Operator;
-    crate::user_agents::surface::method_visible(&g.controller.rpc_method_name(), operator)
+    crate::profiles::surface::method_visible(&g.controller.rpc_method_name(), operator)
 }
 
 /// The global static registry of all controllers, initialized once on first access.
@@ -730,11 +730,11 @@ fn build_registered_controllers() -> Vec<GroupedController> {
         DomainGroup::Agent,
         crate::agent::orchestration::all_subagent_control_registered_controllers(),
     );
-    // SaaS operator plane: provision and inspect user agents.
+    // SaaS operator plane: provision and inspect user profiles.
     push(
         &mut controllers,
         DomainGroup::Operator,
-        crate::user_agents::all_user_agents_registered_controllers(),
+        crate::profiles::all_profiles_registered_controllers(),
     );
     controllers
 }
@@ -818,7 +818,7 @@ pub fn namespace_description(namespace: &str) -> Option<&'static str> {
         "agent" => Some("Per-thread agent run-mode control (Plan vs Build)."),
         "ai" => Some("Agent-generated artifact storage, retrieval, and lifecycle management."),
         "app_state" => Some("Expose core-owned app shell state for frontend polling."),
-        "user_agents" => Some("SaaS operator plane: provision and inspect the agent serving each user."),
+        "profiles" => Some("SaaS operator plane: provision and inspect the profile serving each user."),
         "auth" => Some("Manage app session and provider credentials."),
         "agent_experience" => Some("Local procedural experience capture and retrieval for agents."),
         "channels" => Some("Channel definitions, connections, and lifecycle management."),

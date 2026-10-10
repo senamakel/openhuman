@@ -200,3 +200,40 @@ fn exposes_the_channels_contract() {
     let _ = ChannelError::UnknownAgent("x".into());
     let _ = ChannelError::Invalid("x".into());
 }
+
+#[test]
+fn exposes_the_curated_facades_and_compile_status() {
+    use openhuman_embed::artifacts::{self, ArtifactKind, FileRoots};
+    use openhuman_embed::chat_surface::{self, WebChannelEvent};
+    use openhuman_embed::config::{self, RuntimeFlags};
+    use openhuman_embed::identity::{self, UserIdentity};
+    use openhuman_embed::{ControllerSchema, HTTP_SERVER_COMPILED_IN, VOICE_COMPILED_IN};
+
+    // Signatures, pinned by coercion to a function pointer.
+    let _: fn(&std::path::Path) -> Option<String> = config::read_active_user_id;
+    let _: fn() -> anyhow::Result<std::path::PathBuf> = config::default_root_openhuman_dir;
+    let _: fn() -> Option<UserIdentity> = identity::peek_credential_user_identity;
+    let _: fn(&str) -> Option<ControllerSchema> = openhuman_embed::schema_for_rpc_method;
+    let _: fn(WebChannelEvent) = chat_surface::publish_web_channel_event;
+    let _ = chat_surface::subscribe_web_channel_events;
+    let _ = chat_surface::register_approval_surface_subscriber;
+    let _ = chat_surface::register_artifact_surface_subscriber;
+    let _ = artifacts::resolve_ready_file;
+    let _ = FileRoots::new("/tmp/embed-public-api").with_trusted([]);
+    let _ = ArtifactKind::Document;
+    let _ = RuntimeFlags {
+        browser_allow_all: false,
+        log_prompts: false,
+    };
+
+    const _: bool = HTTP_SERVER_COMPILED_IN;
+    const _: bool = VOICE_COMPILED_IN;
+}
+
+#[cfg(feature = "modules")]
+#[test]
+fn exposes_the_module_configuration_facade() {
+    let _: fn(std::path::PathBuf) -> Result<(), std::path::PathBuf> =
+        openhuman_embed::modules::set_bundled_releases_dir;
+    let _: &str = openhuman_embed::modules::browser::MODULE_ID;
+}

@@ -365,6 +365,81 @@ async fn direct_list_tools_forwards_tags_and_reshapes_v3_envelope() {
 }
 
 #[tokio::test]
+async fn direct_connected_integrations_fetches_schemas_without_backend_composio_route() {
+    let _module = module_guard().await;
+    let tmp = tempfile::tempdir().unwrap();
+    let backend_tool_requests = Arc::new(AtomicUsize::new(0));
+    let backend_hits = backend_tool_requests.clone();
+    let backend = Router::new().route(
+        "/agent-integrations/composio/tools",
+        get(move || {
+            let hits = backend_hits.clone();
+            async move {
+                hits.fetch_add(1, Ordering::SeqCst);
+                (
+                    StatusCode::UNAUTHORIZED,
+                    Json(json!({"error":"SESSION_EXPIRED"})),
+                )
+            }
+        }),
+    );
+    let backend_url = start_mock_backend(backend).await;
+
+    let direct_api = Router::new()
+        .route(
+            "/connected_accounts",
+            get(|| async {
+                Json(json!({"items":[{
+                    "id":"connection-1",
+                    "status":"ACTIVE",
+                    "toolkit":{"slug":"gmail"}
+                }]}))
+            }),
+        )
+        .route(
+            "/tools",
+            get(|| async {
+                Json(json!({"items":[{
+                    "slug":"GMAIL_SEND_EMAIL",
+                    "description":"Send email",
+                    "input_parameters":{"type":"object"},
+                    "toolkit":{"slug":"gmail"}
+                }]}))
+            }),
+        );
+    let direct_url = start_mock_backend(direct_api).await;
+    let mut config = config_with_session_token(&tmp);
+    config.workspace_dir = tmp.path().join("workspace");
+    config.api_url = Some(backend_url);
+    crate::security::credentials::AuthService::from_config(&config)
+        .store_provider_token(
+            crate::security::credentials::APP_SESSION_PROVIDER,
+            crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+            "desktop.test.local",
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("store offline local session token");
+    crate::security::credentials::api_key::store_api_key(&config, "th_test_backend_key")
+        .expect("store backend API key");
+    config.composio.mode = "direct".into();
+    config.composio.pin_host_credential(
+        crate::config::ComposioHostCredential::direct("ck_test_spawn_direct")
+            .base_urls(direct_url.clone(), direct_url),
+    );
+
+    let integrations = crate::integrations::composio::fetch_connected_integrations(&config).await;
+
+    let gmail = integrations
+        .iter()
+        .find(|integration| integration.toolkit == "gmail")
+        .expect("direct connection should be represented");
+    assert_eq!(gmail.tools.len(), 1);
+    assert_eq!(gmail.tools[0].name, "GMAIL_SEND_EMAIL");
+    assert_eq!(backend_tool_requests.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn pricing_for_config_short_circuits_in_direct_mode() {
     // Build a client pointed at an unreachable backend — if the
     // short-circuit fires, we never actually attempt the network call

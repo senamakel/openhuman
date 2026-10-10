@@ -42,6 +42,9 @@ permissions:
   packages: read
 
 env:
+  # Property tests (proptest) run on a fixed seed in CI so a red run
+  # reproduces locally; run with another seed or PROPTEST_CASES to explore.
+  PROPTEST_RNG_SEED: "20261009"
   # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
   GH_TOKEN: ${{ github.token }}
 
@@ -218,7 +221,7 @@ jobs:
           # web3, documents, meet, contacts, inference and crash-reporting.
           # Source of truth: scripts/ci/product-features.txt.
           #
-          # The same silent-skip trap the bin-tools note below describes applies
+          # The same silent-skip trap the bin-tools note below describes (for openhuman-fleet) applies
           # here, and harder: four tests/*.rs targets carry `required-features`
           # (observability_smoke, x402_twit_sh_live, json_rpc_e2e,
           # raw_coverage_all — see Cargo.toml). Without these features
@@ -232,11 +235,11 @@ jobs:
           CLI_FEATURES="${FEATURES},bin-tools"
           echo "[test-reusable] feature set: ${FEATURES} (cli: ${CLI_FEATURES})"
 
-          # `--features bin-tools` is load-bearing, not cosmetic: the ops binaries
-          # under crates/openhuman-cli/src/bin/ declare `required-features = ["bin-tools"]`, so without
-          # it `--bins` silently skips them and this lane goes green having
-          # compiled none of them. fleet.rs carries a `#[cfg(test)] mod`, so those
-          # tests would vanish too, with no error.
+          # `--features bin-tools` is load-bearing, not cosmetic: the
+          # `openhuman-fleet` bin (crates/openhuman-cli/src/bin/fleet.rs) declares
+          # `required-features = ["http-server", "bin-tools"]`, so without it
+          # `--bins` silently skips it and this lane goes green having compiled
+          # none of it. Its tests would vanish too, with no error.
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib --features "${FEATURES}"
           # The core binary and developer bins live in the CLI crate.
           bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --bins --features "${CLI_FEATURES}"

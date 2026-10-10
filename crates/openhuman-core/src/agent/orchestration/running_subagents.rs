@@ -55,6 +55,7 @@ mod resolve;
 mod roster;
 mod steering;
 mod task_ledger;
+mod task_ledger_documents;
 mod wait;
 
 #[cfg(test)]
@@ -63,6 +64,8 @@ mod tests;
 
 #[cfg(test)]
 pub(crate) use cancel::prune;
+#[cfg(test)]
+pub(crate) use cancel::{caller_workspace_in, CallerWorkspace};
 pub(crate) use cancel::{
     cancel_all, cancel_by_session_in_workspace, cancel_by_task, cancel_for_thread, stop_for_thread,
     CancelledSubagent,

@@ -31,6 +31,8 @@ pub mod hosting;
 pub use hosting::HostingConfig;
 pub mod storage;
 pub use storage::StorageConfig;
+pub mod profile_layout;
+pub use profile_layout::{users_dir, ProfileLayout};
 mod identity_cost;
 mod load;
 pub(crate) use load::config_from_toml_str;

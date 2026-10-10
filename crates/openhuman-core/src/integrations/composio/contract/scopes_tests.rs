@@ -11,8 +11,8 @@
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
 use super::{
-    agent_ready_toolkits, classify_unknown, find_curated, toolkit_from_slug, CuratedTool,
-    ToolScope, UserScopePref,
+    action_slug_matches, agent_ready_toolkits, canonical_action_slug, classify_unknown,
+    find_curated, toolkit_from_slug, CuratedTool, ToolScope, UserScopePref,
 };
 
 #[test]
@@ -175,4 +175,90 @@ fn the_agent_ready_list_names_the_native_providers() {
     for native in ["gmail", "notion", "github", "linear"] {
         assert!(slugs.contains(&native), "{native} is missing from the list");
     }
+}
+
+#[test]
+fn spaced_google_and_microsoft_prefixes_resolve_to_the_real_toolkit() {
+    // Production: `get_tool_contract { slug: "GOOGLE_DRIVE_FIND_FILE" }` looked
+    // up the non-existent toolkit `google` and told the model to retry a fetch
+    // that could never succeed.
+    for (slug, toolkit) in [
+        ("GOOGLE_DRIVE_FIND_FILE", "googledrive"),
+        ("GOOGLE_CALENDAR_EVENTS_LIST", "googlecalendar"),
+        ("GOOGLE_SHEETS_BATCH_GET", "googlesheets"),
+        ("GOOGLE_DOCS_GET_DOCUMENT_BY_ID", "googledocs"),
+        ("GOOGLE_MEET_CREATE_MEET", "googlemeet"),
+        ("GOOGLE_TASKS_LIST_TASKS", "googletasks"),
+        ("GOOGLE_SLIDES_CREATE_PRESENTATION", "googleslides"),
+        ("GOOGLE_PHOTOS_LIST_ALBUMS", "googlephotos"),
+        ("GOOGLE_MAPS_TEXT_SEARCH", "google_maps"),
+        ("MICROSOFT_OUTLOOK_SEND_EMAIL", "outlook"),
+        ("google_drive_find_file", "googledrive"),
+    ] {
+        assert_eq!(toolkit_from_slug(slug).as_deref(), Some(toolkit), "{slug}");
+    }
+    // The canonical spellings are unchanged.
+    assert_eq!(
+        toolkit_from_slug("GOOGLEDRIVE_FIND_FILE").as_deref(),
+        Some("googledrive")
+    );
+    assert_eq!(
+        toolkit_from_slug("GOOGLECALENDAR_FIND_EVENT").as_deref(),
+        Some("googlecalendar")
+    );
+    // A prefix only matches at a segment boundary.
+    assert_eq!(
+        toolkit_from_slug("GOOGLE_DRIVERS_X").as_deref(),
+        Some("google")
+    );
+}
+
+#[test]
+fn every_resolved_multi_segment_toolkit_is_one_the_app_knows_or_a_real_composio_slug() {
+    let known = agent_ready_toolkits();
+    for slug in [
+        "GOOGLE_DRIVE_X",
+        "GOOGLE_CALENDAR_X",
+        "GOOGLE_SHEETS_X",
+        "GOOGLE_DOCS_X",
+        "MICROSOFT_TEAMS_X",
+        "MICROSOFT_OUTLOOK_X",
+        "ONE_DRIVE_X",
+    ] {
+        let toolkit = toolkit_from_slug(slug).unwrap();
+        assert!(known.contains(&toolkit.as_str()), "{slug} -> {toolkit}");
+    }
+}
+
+#[test]
+fn a_spaced_alias_is_rewritten_to_the_canonical_action_slug() {
+    assert_eq!(
+        canonical_action_slug("GOOGLE_DRIVE_FIND_FILE").as_deref(),
+        Some("GOOGLEDRIVE_FIND_FILE")
+    );
+    assert_eq!(
+        canonical_action_slug("google_calendar_events_list").as_deref(),
+        Some("GOOGLECALENDAR_EVENTS_LIST")
+    );
+    assert_eq!(
+        canonical_action_slug("MICROSOFT_OUTLOOK_SEND_EMAIL").as_deref(),
+        Some("OUTLOOK_SEND_EMAIL")
+    );
+    // Already canonical, or a toolkit whose real actions carry the underscore.
+    assert_eq!(canonical_action_slug("GOOGLEDRIVE_FIND_FILE"), None);
+    assert_eq!(canonical_action_slug("MICROSOFT_TEAMS_SEND_MESSAGE"), None);
+    assert_eq!(canonical_action_slug("GMAIL_SEND_EMAIL"), None);
+
+    assert!(action_slug_matches(
+        "GOOGLEDRIVE_FIND_FILE",
+        "GOOGLE_DRIVE_FIND_FILE"
+    ));
+    assert!(action_slug_matches(
+        "GOOGLEDRIVE_FIND_FILE",
+        "googledrive_find_file"
+    ));
+    assert!(!action_slug_matches(
+        "GOOGLEDRIVE_FIND_FILE",
+        "GOOGLE_DRIVE_LIST_FILES"
+    ));
 }

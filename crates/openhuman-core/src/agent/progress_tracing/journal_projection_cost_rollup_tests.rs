@@ -261,13 +261,52 @@ fn cache_creation_tokens_reach_the_projected_generation_span() {
     );
 }
 
-/// #4118: the crate recovers an unavailable tool call without emitting
-/// `ToolStarted`/`ToolCompleted`, and the live bridge synthesises the pair. The
-/// projection had no arm, so it was short a whole tool span — a span *count*
-/// divergence, not merely a missing attribute.
+/// The answer the crate injects for an unknown tool (`unknown_tool_message`).
+const UNKNOWN_TOOL_ANSWER: &str =
+    "unknown tool `send_fax` (arguments: {\"to\":\"1234\"}): no tool \
+     with that name is available to you, and calling it again will fail the same way.";
+
+/// The crate's recovered pair for an unknown tool (TOOL-11 `recover_tool_call`):
+/// an ordinary `ToolStarted`/`ToolCompleted` under the same call id, after the
+/// typed `UnknownToolCall`.
+fn recovered_unknown_tool_pair(offset: u64, ts: u64) -> Vec<AgentObservation> {
+    vec![
+        obs(
+            offset,
+            ts,
+            AgentEvent::ToolStarted {
+                parent_call_id: None,
+                call_id: CallId::new("t1"),
+                tool_name: "send_fax".to_string(),
+                input: None,
+            },
+        ),
+        obs(
+            offset + 1,
+            ts + 1,
+            AgentEvent::ToolCompleted {
+                parent_call_id: None,
+                call_id: CallId::new("t1"),
+                tool_name: "send_fax".to_string(),
+                started_at_ms: Some(ts),
+                input: None,
+                output: None,
+                duration_ms: Some(0),
+                output_bytes: Some(UNKNOWN_TOOL_ANSWER.len() as u64),
+                error: Some(UNKNOWN_TOOL_ANSWER.to_string()),
+                metadata: None,
+            },
+        ),
+    ]
+}
+
+/// An unknown-tool call projects exactly one failed tool span. The projection
+/// used to synthesise a pair off `UnknownToolCall` while the crate journals its
+/// own recovered pair, so production Langfuse showed two ERROR observations per
+/// unknown-tool call (one with null output, one with the error text).
 #[test]
-fn unknown_tool_call_projects_a_failed_tool_span() {
-    let observations = vec![
+fn unknown_tool_call_projects_exactly_one_failed_tool_span() {
+    let mut observations = vec![
         obs(
             0,
             1_000,
@@ -291,35 +330,47 @@ fn unknown_tool_call_projects_a_failed_tool_span() {
                 call_id: CallId::new("t1"),
                 requested_name: "send_fax".to_string(),
                 arguments: serde_json::json!({ "to": "1234" }),
-                recovery: "rewrite:none".to_string(),
-            },
-        ),
-        obs(
-            3,
-            1_030,
-            AgentEvent::RunCompleted {
-                run_id: RunId::new("run-1"),
-                outcome: None,
+                recovery: "tool_error".to_string(),
             },
         ),
     ];
+    observations.extend(recovered_unknown_tool_pair(10, 1_021));
+    observations.push(obs(
+        3,
+        1_030,
+        AgentEvent::RunCompleted {
+            run_id: RunId::new("run-1"),
+            outcome: None,
+        },
+    ));
 
-    let spans = spans_from_observations(ctx(), 10, &observations);
-    let tool = spans
-        .iter()
-        .find(|s| s.kind == SpanKind::Tool)
-        .expect("the recovered call still produces a tool span");
+    let spans = spans_from_observations(ctx().with_capture_content(true), 10, &observations);
+    let tools: Vec<&TraceSpan> = spans.iter().filter(|s| s.kind == SpanKind::Tool).collect();
+    assert_eq!(
+        tools.len(),
+        1,
+        "exactly one tool span per unknown-tool call"
+    );
+    let tool = tools[0];
     assert_eq!(tool.name, "tool.send_fax");
     assert_eq!(tool.attributes["tool.success"], serde_json::json!(false));
     assert_eq!(tool.status, SpanStatus::Error);
+    assert_eq!(
+        tool.attributes["error.message"],
+        serde_json::json!(
+            crate::tools::status::describe(crate::tools::status::ToolFailureClass::NotFound)
+                .cause_plain
+        ),
+        "the one span carries the NotFound cause"
+    );
 }
 
 /// The child-scope half of the `UnknownToolCall` projection: a sub-agent that
-/// names an unavailable tool gets the same synthesised failed-call pair, nested
+/// names an unavailable tool gets the same single failed tool span, nested
 /// under its subagent span rather than the root turn.
 #[test]
 fn unknown_tool_call_inside_a_subagent_projects_a_child_tool_span() {
-    let observations = vec![
+    let mut observations = vec![
         obs(
             0,
             1_000,
@@ -351,9 +402,12 @@ fn unknown_tool_call_inside_a_subagent_projects_a_child_tool_span() {
                 call_id: CallId::new("t1"),
                 requested_name: "send_fax".to_string(),
                 arguments: serde_json::json!({ "to": "1234" }),
-                recovery: "rewrite:none".to_string(),
+                recovery: "tool_error".to_string(),
             },
         ),
+    ];
+    observations.extend(recovered_unknown_tool_pair(10, 1_031));
+    observations.extend([
         obs(
             4,
             1_040,
@@ -370,7 +424,7 @@ fn unknown_tool_call_inside_a_subagent_projects_a_child_tool_span() {
                 outcome: None,
             },
         ),
-    ];
+    ]);
 
     let spans = spans_from_observations(ctx(), 10, &observations);
     let subagent = spans
@@ -381,6 +435,11 @@ fn unknown_tool_call_inside_a_subagent_projects_a_child_tool_span() {
         .iter()
         .find(|s| s.kind == SpanKind::Tool)
         .expect("the recovered child call still produces a tool span");
+    assert_eq!(
+        spans.iter().filter(|s| s.kind == SpanKind::Tool).count(),
+        1,
+        "exactly one child tool span per unknown-tool call"
+    );
     assert_eq!(tool.name, "tool.send_fax");
     assert_eq!(tool.attributes["tool.success"], serde_json::json!(false));
     assert_eq!(tool.status, SpanStatus::Error);

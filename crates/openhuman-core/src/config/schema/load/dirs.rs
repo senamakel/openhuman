@@ -428,14 +428,19 @@ pub(super) async fn resolve_config_dirs_ignoring_env(
     // the data intact. The async variant is used so the transient-lock backoff
     // does not block a tokio worker with `std::thread::sleep`.
     if let Some(user_id) = read_active_user_id_checked_async(default_openhuman_dir).await? {
-        let user_dir = user_openhuman_dir(default_openhuman_dir, &user_id);
-        let user_workspace = user_dir.join("workspace");
+        // The shared profile layout (`users/<id>/{config.toml,workspace}`),
+        // the same one a SaaS core lays its profiles out with.
+        let profile = crate::config::schema::ProfileLayout::new(default_openhuman_dir, &user_id);
         tracing::debug!(
             user_id = %user_id,
-            user_dir = %user_dir.display(),
+            user_dir = %profile.dir.display(),
             "Config dirs resolved via active_user.toml"
         );
-        return Ok((user_dir, user_workspace, ConfigResolutionSource::ActiveUser));
+        return Ok((
+            profile.dir,
+            profile.workspace_dir,
+            ConfigResolutionSource::ActiveUser,
+        ));
     }
 
     if let Some((openhuman_dir, workspace_dir)) =
@@ -448,17 +453,17 @@ pub(super) async fn resolve_config_dirs_ignoring_env(
         ));
     }
 
-    let user_dir = pre_login_user_dir(default_openhuman_dir);
-    let user_workspace = user_dir.join("workspace");
+    let profile =
+        crate::config::schema::ProfileLayout::at(pre_login_user_dir(default_openhuman_dir));
     tracing::debug!(
         user_id = %PRE_LOGIN_USER_ID,
-        user_dir = %user_dir.display(),
+        user_dir = %profile.dir.display(),
         default_workspace_dir = %default_workspace_dir.display(),
         "Config dirs resolved to pre-login user directory (no active user, no workspace marker)"
     );
     Ok((
-        user_dir,
-        user_workspace,
+        profile.dir,
+        profile.workspace_dir,
         ConfigResolutionSource::DefaultConfigDir,
     ))
 }

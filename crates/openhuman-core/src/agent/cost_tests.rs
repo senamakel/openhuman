@@ -92,3 +92,42 @@ fn turn_cost_aggregates_token_counts() {
     assert_eq!(tc.output_tokens, 125);
     assert_eq!(tc.cached_input_tokens, 20);
 }
+
+#[test]
+fn free_models_are_priced_at_zero() {
+    // OpenRouter `:free` variants are not billed; the catalog would otherwise
+    // price `deepseek/...:free` like its paid sibling, or the fallback at $3/$15.
+    for model in [
+        "deepseek/deepseek-chat-v3.1:free",
+        "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+        "Totally-Unknown-Model:FREE",
+    ] {
+        assert!(is_free_model(model), "{model}");
+        let usage = usage(1_000_000, 1_000_000, 0, 0.0);
+        assert_eq!(estimate_call_cost_usd(model, &usage), 0.0, "{model}");
+        assert_eq!(estimate_known_call_cost_usd(model, &usage), Some(0.0));
+        assert_eq!(call_cost_usd(model, &usage), 0.0);
+    }
+    assert!(!is_free_model("deepseek/deepseek-chat"));
+}
+
+#[test]
+fn unknown_model_has_no_known_price() {
+    assert!(lookup_known_pricing("totally-unknown-model").is_none());
+    assert_eq!(
+        estimate_known_call_cost_usd("totally-unknown-model", &usage(1_000, 100, 0, 0.0)),
+        None,
+        "reporting must not fabricate a cost for an unpriced model"
+    );
+    // Budget enforcement still sees the conservative fallback.
+    assert!(estimate_call_cost_usd("totally-unknown-model", &usage(1_000, 100, 0, 0.0)) > 0.0);
+}
+
+#[test]
+fn known_model_estimate_matches_budget_estimate() {
+    let usage = usage(10_000, 2_000, 4_000, 0.0);
+    assert_eq!(
+        estimate_known_call_cost_usd(FLASH, &usage),
+        Some(estimate_call_cost_usd(FLASH, &usage))
+    );
+}

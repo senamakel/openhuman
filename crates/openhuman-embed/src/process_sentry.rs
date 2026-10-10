@@ -69,6 +69,57 @@ pub fn first_non_blank(candidates: impl IntoIterator<Item = Option<String>>) -> 
         .find(|value| !value.is_empty())
 }
 
+/// The core binaries' DSN: `OPENHUMAN_CORE_SENTRY_DSN`, then the legacy
+/// `OPENHUMAN_SENTRY_DSN`, read at runtime and then from the values the
+/// calling crate baked in at compile time.
+///
+/// `baked_core` / `baked_legacy` are the caller's
+/// `option_env!("OPENHUMAN_CORE_SENTRY_DSN")` / `option_env!("OPENHUMAN_SENTRY_DSN")`:
+/// they must be expanded in the host crate, because `option_env!` reads the
+/// environment of the crate being compiled. `None` gives a client that sends
+/// nothing.
+pub fn core_dsn(baked_core: Option<&str>, baked_legacy: Option<&str>) -> Option<String> {
+    select_core_dsn(
+        std::env::var("OPENHUMAN_CORE_SENTRY_DSN").ok(),
+        std::env::var("OPENHUMAN_SENTRY_DSN").ok(),
+        baked_core,
+        baked_legacy,
+    )
+}
+
+/// The precedence behind [`core_dsn`], with the runtime values passed in:
+/// runtime core, runtime legacy, baked core, baked legacy; blanks skipped.
+fn select_core_dsn(
+    runtime_core: Option<String>,
+    runtime_legacy: Option<String>,
+    baked_core: Option<&str>,
+    baked_legacy: Option<&str>,
+) -> Option<String> {
+    first_non_blank([
+        runtime_core,
+        runtime_legacy,
+        baked_core.map(str::to_owned),
+        baked_legacy.map(str::to_owned),
+    ])
+}
+
+/// The deployment environment: `app_env` (the host's `OPENHUMAN_APP_ENV`,
+/// trimmed and lower-cased) when non-blank, else `development` for debug
+/// builds and `production` for release builds.
+pub fn resolve_environment(app_env: Option<String>) -> String {
+    if let Some(value) = app_env {
+        let trimmed = value.trim().to_ascii_lowercase();
+        if !trimmed.is_empty() {
+            return trimmed;
+        }
+    }
+    if cfg!(debug_assertions) {
+        "development".to_string()
+    } else {
+        "production".to_string()
+    }
+}
+
 /// The signed-in user's id from the core's credential identity slot — the
 /// CLI's fallback, and the default for [`SentryConfig::user_id`].
 pub fn credential_user_id() -> Option<String> {

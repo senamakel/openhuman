@@ -285,10 +285,20 @@ impl<T: Tool> Tool for MediaArtifactTool<T> {
         options: ToolCallOptions,
         context: Option<&dyn ToolRunContext>,
     ) -> anyhow::Result<ToolResult> {
-        let result = self
-            .inner
-            .execute_with_context(args.clone(), options, context)
-            .await?;
+        // Generation blocks for minutes; report a heartbeat (with the video
+        // job's polled state) so the wait is visible on the call.
+        let label = match self.kind {
+            ArtifactKind::Video => "Generating video",
+            _ => "Generating image",
+        };
+        let result = super::progress::with_progress_heartbeat(
+            context,
+            label,
+            super::progress::HEARTBEAT_INTERVAL,
+            self.inner
+                .execute_with_context(args.clone(), options, context),
+        )
+        .await?;
         if result.is_error {
             return Ok(result);
         }

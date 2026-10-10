@@ -4,7 +4,7 @@ Self-update domain for the `openhuman-core` binary. Checks GitHub Releases (`tin
 
 ## Responsibilities
 - Query the GitHub Releases "latest" API and compare semver-ish tags against the compiled `CARGO_PKG_VERSION` (`is_newer`).
-- Select the release asset matching this platform's target triple (`openhuman-core-{triple}`, `.exe` on Windows).
+- Select the release asset matching this platform's target triple (`openhuman-core-{triple}`, `.exe` on Windows). Releases publish core archives for Linux only, so a newer release with no asset for this triple is reported as available with no `download_url` (logged at warn, not an error).
 - Download the asset to a temp file, set `0o755` on Unix, and atomically rename it into the staging dir (current-exe dir by default).
 - Orchestrate the full `check → apply → restart` flow (`update_run`), publishing a service restart for the `SelfReplace` strategy or staging-only for `Supervisor`.
 - Run a periodic background checker (default 1h, floor 10 min) that logs availability and emits health events.
@@ -66,7 +66,7 @@ None. No `store.rs`: staged binaries are written to the filesystem (current-exe 
 
 ## Used by
 - `crates/openhuman-core/src/core/all.rs`: registers `all_update_registered_controllers()` / `all_update_controller_schemas()` into the controller registry.
-- `crates/openhuman-core/src/core/runtime/services.rs`: spawns `update::scheduler::run(config.update)` as a background service at core start.
+- `crates/openhuman-core/src/core/runtime/services.rs`: spawns `update::scheduler::run(config.update)` as a background service at core start when `ServiceSet::update_scheduler` is set (the desktop shell turns it off in `host::desktop_builder` because it updates through the Tauri updater; `ServiceSet::desktop()` itself leaves it on).
 - `crates/openhuman-core/src/tools/impl/system/update_check.rs` and `update_apply.rs`: agent tools wrapping the RPC layer.
 
 ## Notes / gotchas

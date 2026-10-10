@@ -565,8 +565,11 @@ impl ProgressSink for OpenHumanProgressSink {
                     );
                     return;
                 }
-                self.forward_lifecycle(AgentProgress::TurnCompleted { iterations })
-                    .await;
+                self.forward_lifecycle(AgentProgress::TurnCompleted {
+                    iterations,
+                    stop: None,
+                })
+                .await;
             }
 
             ProgressEvent::Error { run, message } => {

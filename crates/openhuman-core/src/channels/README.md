@@ -71,6 +71,10 @@ The subscriber derives a thread id from (channel, sender, reply target, thread) 
                                BackendProgressiveSender --> backend REST
 ```
 
+### Path 3: gateway-relayed inbound (`channel_relay_inbound`)
+
+A gateway that owns a hosted platform's webhook (the SaaS cloud gateway for Telegram, iMessage and Discord) relays each message in as its user with `openhuman.channel_relay_inbound` ([`providers/relay/`](./providers/relay/README.md)). The message is recorded on the caller's `channel:<channel>/<sender>/<chat>` thread (`derive_inbound_thread_id`), then runs through the Path 1 pipeline (`process_channel_message`, `ExternalChannel` origin) with a runtime context built from the caller's own config. Replies go to `RelayChannel`, which publishes them as `channel_outbound` events on the caller's `/events` stream for the gateway to deliver, and are recorded on the thread.
+
 ### Outbound: proactive messages
 
 [`proactive.rs`](./proactive.rs) subscribes to `DomainEvent::ProactiveMessageRequested`. Every proactive message goes to the web channel (`web_chat::publish_web_channel_event`). If the user has set an active external channel and that channel is in the started channel map, it is sent there too. The always-on boot registers a web-only variant (`register_web_only_proactive_subscriber`); the full runtime registers one with the real channel map and publishes its active-channel handle, so `channels.set_default` (through `set_runtime_active_channel`) takes effect without a restart.

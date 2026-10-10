@@ -3,9 +3,9 @@
 //! The registry itself moved to `tinymcp`: the Smithery and official catalogs,
 //! the SQLite store, the live connection map, the subprocess supervisor and the
 //! browser sign-in flow all live there now. What is left here is what belongs
-//! to *this* application. The catalogs are browse-only: a server is declared
-//! in the user's `mcp.json` (`tinymcp::registry::config_doc`), never installed
-//! from a listing.
+//! to *this* application. A server is declared in the user's `mcp.json`
+//! (`tinymcp::registry::config_doc`); there is no install-from-catalog RPC. The
+//! app's Registry tab declares a hosted server there in one step.
 //!
 //! # Modules
 //!

@@ -241,8 +241,8 @@ the JSON-RPC server.
 
 `run` and `serve` need a server, which the core does not contain.
 [`server_launcher.rs`](./server_launcher.rs) holds a `ServerLauncher` port; the host installs one
-(`openhuman_rpc::server::install_cli_server()` in the `openhuman-core` binary
-and the desktop app) before calling `run_from_cli_args`. Without it those
+(`openhuman_rpc::host::cli` for the `openhuman-core` binary, the desktop
+builder for the app) before calling `run_from_cli_args`. Without it those
 subcommands fail with an explanation.
 
 ### Logging, redaction and crash reporting

@@ -81,6 +81,7 @@ pub use builder::{ConfigSource, RuntimeBuilder};
 pub use lifecycle::RemoveAgent;
 pub use run::run_from_args;
 #[doc(hidden)]
+pub use seams::StorageSource;
 pub use summary::BuilderSummary;
 
 use std::collections::HashMap;

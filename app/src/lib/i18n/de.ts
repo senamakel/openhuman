@@ -531,6 +531,10 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.dailySummaryFlow':
     'Erstelle einen Flow, der mir täglich eine Zusammenfassung per E-Mail schickt.',
   'chat.typeMessage': 'Nachricht senden...',
+  'chat.regenerate.unavailable':
+    'Diese Antwort kann nicht neu generiert werden. Generiere stattdessen die neueste Antwort neu.',
+  'chat.regenerate.failed':
+    'Die Antwort konnte nicht neu generiert werden. Bitte versuche es erneut.',
   'chat.send': 'Nachricht senden',
   'chat.stopGeneration': 'Generierung stoppen',
   'chat.followupHint':
@@ -1264,7 +1268,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Seite für {name} öffnen',
   'mcp.installed.emptyAddInJson': 'In mcp.json hinzufügen',
   'mcp.registry.intro':
-    'Ein Verzeichnis von MCP-Servern. Ein Server öffnet seine eigene Seite mit der Installationsanleitung; füge ihn im Tab mcp.json hinzu.',
+    'Ein Verzeichnis von MCP-Servern. Gehostete Server ohne Einrichtung werden mit einem Klick hinzugefügt; bei allen anderen öffnest du die Seite des Servers mit der Installationsanleitung und trägst ihn im Tab mcp.json ein.',
+  'mcp.registry.action.add': 'Hinzufügen',
+  'mcp.registry.action.added': 'Hinzugefügt',
+  'mcp.registry.action.adding': 'Wird hinzugefügt…',
+  'mcp.registry.aria.add': '{name} hinzufügen',
+  'mcp.registry.needsSetup':
+    'Dieser Server muss vor dem Hinzufügen eingerichtet werden. Öffne seine Seite für die Installationsanleitung.',
+  'mcp.registry.addFailed': 'Dieser Server konnte nicht hinzugefügt werden.',
+  'mcp.registry.connectFailed': 'Hinzugefügt, aber der Server hat sich nicht verbunden.',
   'mcp.json.loadFailedTitle': 'mcp.json konnte nicht gelesen werden',
   'mcp.json.loadFailedBody':
     'Der Kern hat nicht geantwortet, daher wird das Dokument nicht angezeigt. Ein leerer Editor würde zu einem Speichern verleiten, das deine Server löscht.',
@@ -1752,6 +1764,8 @@ const messages: TranslationMap = {
   'bootCheck.authFailed':
     'Dieser Token hat nicht funktioniert. Prüfe ihn noch einmal und versuche es erneut.',
   'bootCheck.unreachablePrefix': 'Konnte es nicht erreichen:',
+  'bootCheck.socketDisabled':
+    'Verbunden, aber Echtzeit ist auf diesem Core deaktiviert. Er wurde mit --jsonrpc-only gestartet; starte ihn ohne dieses Flag neu, damit Chat und Live-Updates funktionieren.',
   'bootCheck.checkingCore': 'OpenHuman wird gestartet…',
   'bootCheck.cannotReach': 'Keine Verbindung möglich',
   'bootCheck.cannotReachDesc':
@@ -1821,6 +1835,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Die Aktualisierungsprüfung ist fehlgeschlagen',
   'about.update.status.default': 'Nach Updates suchen',
   'welcome.continueLocallyExperimental': 'Lokal fortfahren (Experimentell)',
+  'auth.profileSwitch.title': 'Mit einem separaten Profil anmelden?',
+  'auth.profileSwitch.body':
+    'Bei der Cloud-Anmeldung wechselt OpenHuman zu einem separaten Kontoprofil. Deine lokalen Unterhaltungen, dein Gedächtnis und deine Anbietereinstellungen bleiben auf diesem Gerät unter users/{profileId}. Um zurückzukehren, melde dich ab und wähle auf dem Willkommensbildschirm die lokale Sitzung.',
+  'auth.profileSwitch.continue': 'Weiter zur Anmeldung',
   'welcome.localSessionStarting': 'Lokal starten Sitzung...',
   'welcome.coreConfigUnreadable':
     'Die Laufzeitumgebung konnte ihre Konfigurationsdatei nicht lesen. config.toml gehört möglicherweise einem anderen Benutzerkonto oder ist für den Laufzeitprozess aus einem anderen Grund nicht zugänglich. Starten Sie die Laufzeitumgebung neu, und reparieren Sie andernfalls die Besitzrechte des Arbeitsverzeichnisses oder erstellen Sie dessen Volume neu.',

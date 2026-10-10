@@ -50,6 +50,7 @@ impl CoreContext {
             backend_transport: ctx.backend_transport.clone(),
             turn_origin: origin.or_else(|| ctx.turn_origin.clone()),
             session_agent: ctx.session_agent.clone(),
+            profile: ctx.profile.clone(),
             agent: ctx.agent.clone(),
         });
         CURRENT_CONTEXT.scope(context, fut).await

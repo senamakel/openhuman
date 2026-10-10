@@ -21,8 +21,8 @@ pub mod schemas;
 pub mod types;
 
 pub use ops::{
-    build_elevated_op, create_sandbox_backend, execute_in_sandbox, is_elevated_op,
-    resolve_sandbox_policy,
+    build_elevated_op, command_requires_sandbox, create_sandbox_backend, execute_in_sandbox,
+    is_elevated_op, resolve_sandbox_policy,
 };
 pub use schemas::{
     all_controller_schemas as all_sandbox_controller_schemas,

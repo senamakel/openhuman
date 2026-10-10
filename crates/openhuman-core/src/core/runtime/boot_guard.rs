@@ -142,6 +142,7 @@ pub enum Violation {
     Root(String),
     ServiceToken(String),
     Platform(&'static str),
+    Cluster(String),
 }
 
 impl std::fmt::Display for Violation {
@@ -163,6 +164,7 @@ impl std::fmt::Display for Violation {
             Self::Root(why) => write!(f, "root: {why}"),
             Self::ServiceToken(why) => write!(f, "service token: {why}"),
             Self::Platform(why) => write!(f, "platform: {why}"),
+            Self::Cluster(why) => write!(f, "cluster: {why}"),
         }
     }
 }
@@ -241,7 +243,7 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
         }
     }
 
-    let unknown = crate::user_agents::tools::unknown_entries(&inputs.config.tool_allowlist);
+    let unknown = crate::profiles::tools::unknown_entries(&inputs.config.tool_allowlist);
     if !unknown.is_empty() {
         violations.push(Violation::ToolAllowlist(unknown));
     }
@@ -263,6 +265,9 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
     if let ServiceToken::Invalid(why) = inputs.token {
         violations.push(Violation::ServiceToken(why.clone()));
     }
+    if let Some(why) = cluster_problem(inputs) {
+        violations.push(Violation::Cluster(why));
+    }
 
     if violations.is_empty() {
         log::info!("[saas][boot-guard] deployment checks passed");
@@ -272,6 +277,36 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
             log::error!("[saas][boot-guard] {violation}");
         }
         Err(BootGuardError { violations })
+    }
+}
+
+/// Why a clustered node (one that sets `advertise_url`) cannot keep its
+/// profiles exclusive, if it cannot: its leases need a shared backend whose
+/// compare-and-swap holds across processes
+/// ([`crate::storage::driver_has_cross_process_cas`]). Only the driver name
+/// is reported, never the URL (it may carry a password).
+pub(crate) fn cluster_problem(inputs: &BootInputs<'_>) -> Option<String> {
+    if !inputs.config.is_clustered() {
+        return None;
+    }
+    let env_url = inputs
+        .env
+        .iter()
+        .find(|(var, _)| var == crate::storage::STORAGE_URL_VAR)
+        .map(|(_, value)| value.as_str());
+    let Some(url) = inputs.config.storage_url_with(env_url) else {
+        return Some(
+            "advertise_url is set but no storage_url: nodes of a cluster need one shared backend"
+                .to_string(),
+        );
+    };
+    match crate::storage::StorageUrl::parse(&url) {
+        Ok(parsed) if crate::storage::driver_has_cross_process_cas(parsed.driver()) => None,
+        Ok(parsed) => Some(format!(
+            "storage driver `{}` cannot exclude other nodes from a profile; use sqlite or mongodb",
+            parsed.driver()
+        )),
+        Err(_) => Some("the storage URL does not parse".to_string()),
     }
 }
 
@@ -285,7 +320,7 @@ fn sandbox_problems(inputs: &BootInputs<'_>) -> Vec<String> {
     if !inputs.sandbox_available {
         problems.push("host_shell is allowlisted but Docker is not available".to_string());
     }
-    if crate::user_agents::tools::is_host_network(&sandbox.network) {
+    if crate::profiles::tools::is_host_network(&sandbox.network) {
         problems.push("network `host` defeats the sandbox".to_string());
     }
     if sandbox.image.trim().is_empty() {
@@ -299,7 +334,7 @@ fn sandbox_problems(inputs: &BootInputs<'_>) -> Vec<String> {
 
 /// Whether `config` allowlists a group that needs the container sandbox.
 pub fn needs_sandbox(config: &SaasConfig) -> bool {
-    crate::user_agents::tools::parse_allowlist(&config.tool_allowlist)
+    crate::profiles::tools::parse_allowlist(&config.tool_allowlist)
         .iter()
         .any(|group| group.needs_sandbox())
 }

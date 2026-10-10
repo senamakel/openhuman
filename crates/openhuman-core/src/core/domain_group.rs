@@ -88,8 +88,8 @@ pub enum DomainGroup {
     Modules,
     // Everything not in a named family — always on in `full()`, off otherwise.
     Platform,
-    /// The SaaS operator plane: provisioning and inspecting user agents
-    /// (`user_agents/`). On only under `DomainSet::saas()`.
+    /// The SaaS operator plane: provisioning and inspecting user profiles
+    /// (`profiles/`). On only under `DomainSet::saas()`.
     Operator,
 }
 

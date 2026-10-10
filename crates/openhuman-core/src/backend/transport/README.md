@@ -51,7 +51,7 @@ and must be safe to call concurrently.
 ambient `CoreContext` (set via `CoreBuilder::backend_transport`, inherited by
 `derive_with`), then the process global set by `install_backend_transport`
 (what the desktop shell, TUI, and CLI use, since they boot the core through
-`run_server_embedded_with_ready` / `run_core_from_args` rather than the
+`openhuman_rpc::host` / `run_core_from_args` rather than the
 builder), then, under `cfg(test)` only, the `plain.rs` fallback. Outside
 tests, a miss returns `Err(BackendTransportError::Unavailable)`. There is no
 implicit production fallback.

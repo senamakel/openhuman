@@ -48,6 +48,7 @@ mod recorded_tools;
 mod runtime;
 mod runtime_session;
 mod session_api;
+pub(crate) mod stop_summary;
 #[cfg(test)]
 mod tool_progress;
 mod turn;

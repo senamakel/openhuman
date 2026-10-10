@@ -52,17 +52,112 @@ pub(super) const DEFAULT_AGENT_TURN_TIMEOUT_SECS: u64 = 3_600;
 /// per-tool timeouts.
 pub(super) const DEFAULT_MODEL_CALL_TIMEOUT_SECS: u64 = 900;
 
+/// Per-model-call ceiling for a **local / self-hosted** provider (Ollama,
+/// LM Studio, MLX, llama.cpp...), in seconds (#6042). A local model prefills
+/// the whole prompt before it emits its first token, and a ~57K-token prompt
+/// takes many minutes on consumer hardware, so the hosted 900s ceiling killed
+/// calls that were making progress. One hour; hang detection for hosted
+/// providers keeps the tighter [`DEFAULT_MODEL_CALL_TIMEOUT_SECS`].
+pub(super) const LOCAL_MODEL_CALL_TIMEOUT_SECS: u64 = 3_600;
+
+/// Per-turn ceiling for a local / self-hosted provider, in seconds (#6042):
+/// four hours, so a turn of several slow local calls still fits. Must stay
+/// above [`LOCAL_MODEL_CALL_TIMEOUT_SECS`].
+pub(super) const LOCAL_AGENT_TURN_TIMEOUT_SECS: u64 = 14_400;
+
+/// Extra seconds the outer web-turn backstop allows a local turn beyond the
+/// harness turn ceiling, so the harness's own (more informative) timeout fires
+/// first.
+pub(crate) const LOCAL_WEB_TURN_BACKSTOP_GRACE_SECS: u64 = 300;
+
+/// Whether `provider` (a provider string such as `ollama:llama3`) with the
+/// resolved `endpoint` is a local / self-hosted runtime, which gets the longer
+/// ceilings (#6042).
+///
+/// Do not use `tinyinference_local::profile::is_local_provider_string` for this
+/// on its own: it maps the bare name `openai` onto the generic local
+/// OpenAI-compatible kind, so hosted OpenAI would be classed as local and lose
+/// its tight hang detection. Locality comes from the runtime kind and the
+/// endpoint instead:
+/// - Ollama / LM Studio / MLX / oMLX are self-hosted by definition.
+/// - The generic OpenAI-compatible kinds (`local-openai`, `llamacpp`, `vllm`,
+///   bare `openai`...) can point anywhere, so they are local only when the
+///   endpoint host is loopback or on a private network.
+/// - `openai:<model>` and every other cloud provider are never local.
+pub(crate) fn provider_is_self_hosted(provider: &str, endpoint: Option<&str>) -> bool {
+    use tinyinference_local::profile::{kind_from_provider_string, LocalProviderKind};
+    let p = provider.trim().to_ascii_lowercase();
+    let Some(kind) = kind_from_provider_string(&p) else {
+        return false;
+    };
+    match kind {
+        LocalProviderKind::LocalOpenai => endpoint
+            .and_then(|url| url::Url::parse(url).ok())
+            .is_some_and(|parsed| crate::util::url::host_is_local(&parsed)),
+        _ => true,
+    }
+}
+
+/// Whether `config` routes the chat workload to a local / self-hosted provider.
+pub(crate) fn chat_provider_is_local(config: &crate::config::Config) -> bool {
+    let provider = crate::inference::provider::provider_for_role("chat", config);
+    provider_is_self_hosted(&provider, local_openai_endpoint(config).as_deref())
+}
+
+/// The endpoint the generic local OpenAI-compatible runtime resolves to:
+/// `LOCAL_OPENAI_URL`, else `local_ai.base_url`, else the profile default.
+pub(crate) fn local_openai_endpoint(config: &crate::config::Config) -> Option<String> {
+    std::env::var("LOCAL_OPENAI_URL")
+        .ok()
+        .filter(|v| !v.trim().is_empty())
+        .or_else(|| config.local_ai.base_url.clone())
+        .or_else(|| {
+            Some(
+                tinyinference_local::profile::LOCAL_OPENAI_PROFILE
+                    .default_base_url
+                    .to_string(),
+            )
+        })
+}
+
 /// Resolve the per-turn wall-clock ceiling in milliseconds for the harness
 /// policy. Reads `OPENHUMAN_AGENT_TURN_TIMEOUT_SECS` (falling back to
 /// [`DEFAULT_AGENT_TURN_TIMEOUT_SECS`]); `0` means "no ceiling" → `None`, which
 /// restores the previous unbounded behavior for callers that deliberately opt
 /// out (e.g. very long autonomous runs).
 pub(crate) fn agent_turn_wall_clock_ms() -> Option<u64> {
-    parse_agent_turn_wall_clock_ms(
+    agent_turn_wall_clock_ms_for(false)
+}
+
+/// [`agent_turn_wall_clock_ms`] for a turn on a local provider when `local`:
+/// the env override still wins, otherwise the default is
+/// [`LOCAL_AGENT_TURN_TIMEOUT_SECS`].
+pub(crate) fn agent_turn_wall_clock_ms_for(local: bool) -> Option<u64> {
+    parse_turn_ms_with_default(
         std::env::var("OPENHUMAN_AGENT_TURN_TIMEOUT_SECS")
             .ok()
             .as_deref(),
+        if local {
+            LOCAL_AGENT_TURN_TIMEOUT_SECS
+        } else {
+            DEFAULT_AGENT_TURN_TIMEOUT_SECS
+        },
     )
+}
+
+fn parse_turn_ms_with_default(env_value: Option<&str>, default_secs: u64) -> Option<u64> {
+    let secs = env_value
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .unwrap_or(default_secs);
+    (secs > 0).then(|| secs.saturating_mul(1_000))
+}
+
+/// Outer web-turn backstop for a turn on a local provider: the local turn
+/// ceiling plus [`LOCAL_WEB_TURN_BACKSTOP_GRACE_SECS`], or `None` when the turn
+/// ceiling is disabled. The backstop must sit above the harness ceiling or it
+/// pre-empts it (#6042: it was 900s, under even the hosted 3600s ceiling).
+pub(crate) fn local_web_turn_backstop_secs() -> Option<u64> {
+    agent_turn_wall_clock_ms_for(true).map(|ms| ms / 1_000 + LOCAL_WEB_TURN_BACKSTOP_GRACE_SECS)
 }
 
 /// Pure core of [`agent_turn_wall_clock_ms`]: map an optional
@@ -71,10 +166,7 @@ pub(crate) fn agent_turn_wall_clock_ms() -> Option<u64> {
 /// [`DEFAULT_AGENT_TURN_TIMEOUT_SECS`]; `0` yields `None` (unbounded opt-out).
 /// Kept env-free so it is deterministically unit-testable.
 pub(super) fn parse_agent_turn_wall_clock_ms(env_value: Option<&str>) -> Option<u64> {
-    let secs = env_value
-        .and_then(|v| v.trim().parse::<u64>().ok())
-        .unwrap_or(DEFAULT_AGENT_TURN_TIMEOUT_SECS);
-    (secs > 0).then(|| secs.saturating_mul(1_000))
+    parse_turn_ms_with_default(env_value, DEFAULT_AGENT_TURN_TIMEOUT_SECS)
 }
 
 /// Resolve the per-model-call wall-clock ceiling in milliseconds for the
@@ -83,10 +175,21 @@ pub(super) fn parse_agent_turn_wall_clock_ms(env_value: Option<&str>) -> Option<
 /// `None`, leaving calls bounded only by the turn's remaining wall clock as
 /// before #5766.
 pub(super) fn model_call_wall_clock_ms() -> Option<u64> {
-    parse_model_call_wall_clock_ms(
+    model_call_wall_clock_ms_for(false)
+}
+
+/// [`model_call_wall_clock_ms`] for a local provider when `local` (#6042): the
+/// env override still wins, otherwise [`LOCAL_MODEL_CALL_TIMEOUT_SECS`].
+pub(super) fn model_call_wall_clock_ms_for(local: bool) -> Option<u64> {
+    parse_turn_ms_with_default(
         std::env::var("OPENHUMAN_MODEL_CALL_TIMEOUT_SECS")
             .ok()
             .as_deref(),
+        if local {
+            LOCAL_MODEL_CALL_TIMEOUT_SECS
+        } else {
+            DEFAULT_MODEL_CALL_TIMEOUT_SECS
+        },
     )
 }
 
@@ -97,10 +200,7 @@ pub(super) fn model_call_wall_clock_ms() -> Option<u64> {
 /// env-free so it is deterministically unit-testable — the same shape as
 /// [`parse_agent_turn_wall_clock_ms`].
 pub(super) fn parse_model_call_wall_clock_ms(env_value: Option<&str>) -> Option<u64> {
-    let secs = env_value
-        .and_then(|v| v.trim().parse::<u64>().ok())
-        .unwrap_or(DEFAULT_MODEL_CALL_TIMEOUT_SECS);
-    (secs > 0).then(|| secs.saturating_mul(1_000))
+    parse_turn_ms_with_default(env_value, DEFAULT_MODEL_CALL_TIMEOUT_SECS)
 }
 
 /// Default silence allowed between output events of a streaming model call,
@@ -192,6 +292,17 @@ fn env_str(name: &str) -> Option<String> {
 /// `ReliableProvider` does *not* fail over across the registered workload-tier
 /// routes (chat→burst, reasoning→agentic, …) the way the harness registry can.
 pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool) -> RunPolicy {
+    run_policy_for_provider(max_iterations, response_cache_enabled, false)
+}
+
+/// [`run_policy_for`] with the turn's provider locality: a local / self-hosted
+/// provider gets the longer per-call and per-turn ceilings (#6042); hosted
+/// providers keep the tight defaults so a wedged call is still caught fast.
+pub(crate) fn run_policy_for_provider(
+    max_iterations: usize,
+    response_cache_enabled: bool,
+    local_provider: bool,
+) -> RunPolicy {
     let mut policy = RunPolicy::default();
     // A managed streaming response can finish with reasoning but no visible
     // answer. Reissue that unusable call once; the harness keeps the same
@@ -215,7 +326,7 @@ pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool
     // the parent's remaining-budget wraps the sub-agent tool call, and a child
     // turn with no per-run timeout inherits this policy-level cap. Generous by
     // design (a backstop, not a UX deadline); env-overridable, `0` disables.
-    policy.limits.max_wall_clock_ms = agent_turn_wall_clock_ms();
+    policy.limits.max_wall_clock_ms = agent_turn_wall_clock_ms_for(local_provider);
     // Per-model-call ceiling (#5766): each model call (and retry attempt) gets
     // a fresh `min(ceiling, turn remainder)` budget, so hang detection is
     // per-call instead of riding the turn deadline — which let the turn
@@ -223,7 +334,7 @@ pub(crate) fn run_policy_for(max_iterations: usize, response_cache_enabled: bool
     // able to hold a turn for more than this. Tool calls (incl. sub-agent
     // delegations) are exempt in the harness and keep the remainder-only
     // budget. Env-overridable, `0` disables.
-    policy.limits.max_model_call_ms = model_call_wall_clock_ms();
+    policy.limits.max_model_call_ms = model_call_wall_clock_ms_for(local_provider);
     // Stream silence bounds, explicit so a harness default change cannot
     // alter them. The idle window applies only after the first output event;
     // the first-event bound is OFF by default because local and hidden-

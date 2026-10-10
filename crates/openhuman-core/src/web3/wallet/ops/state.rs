@@ -168,6 +168,13 @@ fn quarantine_corrupted_wallet_state(path: &Path, reason: &str) {
     }
 }
 
+// Deliberately local, not on the storage port (for now): this file is paired
+// with the OS keychain entry for the encrypted mnemonic and falls back to
+// holding that secret itself when no keychain exists. Splitting the metadata
+// onto a shared backend while the key material stays on one machine would
+// leave a wallet that exists in one place and not the other. It moves with
+// the secrets work (`SecretStore`), not as a plain document. Allowlisted in
+// `scripts/ci/check-storage-bypass.mjs`.
 pub(super) fn load_stored_wallet_state_unlocked(
     config: &Config,
 ) -> Result<Option<StoredWalletState>, String> {

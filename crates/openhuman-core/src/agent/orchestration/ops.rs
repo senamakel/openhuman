@@ -519,6 +519,7 @@ impl AgentOrchestrationSession {
                                     worktree_path: None,
                                     changed_files: Vec::new(),
                                     dirty_status: None,
+                                    stop: None,
                                 })
                                 .await;
                         }

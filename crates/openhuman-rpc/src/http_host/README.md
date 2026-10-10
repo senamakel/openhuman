@@ -17,8 +17,7 @@ the four controllers to the core's registry with
 `register_controller_extension`, under `DomainGroup::Platform` (it has no
 domain family of its own, so the runtime's `DomainSet` gates it with the
 platform surface). The server calls the panicking wrapper
-`ensure_registered()` from both `install_cli_server` and
-`build_core_http_router`, and `crate::host` adds the same controllers
+`ensure_registered()` from `build_core_http_router`, and `crate::host` adds the same controllers
 (`http_host::extension()`) to its builders, so every host that runs the RPC server (the desktop
 app and the `openhuman-core` binary) exposes `http_host.*`. Registration is
 idempotent. A host that embeds the core without this crate's server, such as

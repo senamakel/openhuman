@@ -531,14 +531,16 @@ fn a_mistyped_file_path_is_a_correctable_call_not_a_missing_program() {
             "{tool}"
         );
     }
-    // A shell that cannot find a program is still unsupported.
+    // A shell that cannot find a program is a missing program, not a wrong
+    // path: its own class, with one correction (see
+    // `middleware_failure_effect_tests.rs`).
     assert_eq!(
         super::super::repeated_failure::recovery_policy(
             "shell",
             "bash: jq: command not found",
             false
         ),
-        Some(("unsupported", 0))
+        Some(("missing_app", 1))
     );
 }
 

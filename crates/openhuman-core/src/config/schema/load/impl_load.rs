@@ -13,8 +13,7 @@ use super::secrets::{decrypt_config_secrets, encrypt_config_secrets};
 use anyhow::{Context, Result};
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
-use tokio::fs::{self, OpenOptions};
-use tokio::io::AsyncWriteExt;
+use tokio::fs;
 
 /// Guards the "corrupted config read, resetting to defaults" warning so it
 /// fires at most once per process lifetime. Without this, a permanently
@@ -139,6 +138,33 @@ pub(super) async fn read_config_with_recovery_or_default(
     }
 }
 
+/// Parse the text a [`ConfigSource`](super::source::ConfigSource) returned.
+///
+/// A file keeps its recovery: a body that does not parse falls back to the
+/// `.bak` next to it, then to defaults. A document is parsed strictly and a
+/// body that does not parse is an error: the file recovery would consume the
+/// node-local bootstrap `config.toml.bak`, rename the bootstrap file, and save
+/// stale defaults over the shared document.
+pub(super) async fn parse_source_contents(
+    source: &dyn super::source::ConfigSource,
+    config_path: &Path,
+    contents: &str,
+    read_was_recovered: bool,
+) -> Result<(Box<Config>, bool)> {
+    if source.encrypts_body() {
+        let config = parse_toml_off_worker(contents.to_string())
+            .await
+            .map_err(|error| {
+                anyhow::anyhow!("the config document for this scope could not be parsed: {error}")
+            })?;
+        return Ok((config, false));
+    }
+    if read_was_recovered && contents.is_empty() {
+        return Ok((super::branches::default_config_boxed(), true));
+    }
+    Ok(Box::pin(parse_config_boxed(config_path, contents)).await)
+}
+
 pub(crate) async fn parse_config_with_recovery(
     config_path: &Path,
     contents: &str,
@@ -223,7 +249,7 @@ pub(super) async fn migration_source(config_path: &Path, contents: &str) -> Stri
     }
 }
 
-async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {
+pub(super) async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {
     match tokio::task::spawn_blocking(move || {
         super::parse::config_from_toml_str(&contents).map(Box::new)
     })
@@ -337,7 +363,11 @@ impl Config {
         // `Config` temporary its own stack slot, so folding all three branches
         // into this one state machine made the poll frame ~440 KB and stacked
         // on top of the whole agent tower (#6379).
-        if config_path.exists() {
+        // Which source holds the config is decided per call: the file unless a
+        // shared backend and a scope are installed. A process boots before its
+        // backend is installed, so its first load normally reads the file (the
+        // bootstrap config); nothing here enforces that ordering.
+        if super::source::for_config(&config_path)?.exists().await? {
             Box::pin(Self::load_existing_config(
                 openhuman_dir,
                 workspace_dir,
@@ -414,7 +444,12 @@ impl Config {
         let config_path = config_path.to_path_buf();
         let workspace_dir = workspace_dir.to_path_buf();
 
-        if !config_path.exists() {
+        // A snapshot reload reads through the config source: the file, or the
+        // scope's config document on a shared backend (bootstrap tables still
+        // come from the file). The first load of a process does not: see
+        // `source`.
+        let source = super::source::for_config(&config_path)?;
+        if !source.exists().await? {
             let mut config = Config {
                 config_path,
                 workspace_dir,
@@ -435,13 +470,13 @@ impl Config {
             );
         }
 
-        let (raw, read_was_recovered) =
-            Box::pin(read_config_with_recovery_or_default(&config_path)).await?;
-        let (mut config, config_was_corrupted) = if read_was_recovered && raw.is_empty() {
-            (Config::default(), true)
-        } else {
-            parse_config_with_recovery(&config_path, &raw).await
-        };
+        let super::source::ConfigRead {
+            contents: raw,
+            recovered: read_was_recovered,
+        } = Box::pin(source.read()).await?;
+        let (config, config_was_corrupted) =
+            parse_source_contents(source.as_ref(), &config_path, &raw, read_was_recovered).await?;
+        let mut config = *config;
         let config_was_corrupted = config_was_corrupted || read_was_recovered;
         config.config_path = config_path.clone();
         config.workspace_dir = workspace_dir;
@@ -475,94 +510,22 @@ impl Config {
     }
 
     async fn save_inner(&self) -> Result<()> {
+        // Where the text lives is the source's business: the file (atomic
+        // replace with a `.bak`) or, on a shared backend, the config document.
+        let source = super::source::for_config(&self.config_path)?;
         let mut config_to_save = self.clone();
         super::super::cli_overrides::restore_persisted_inference_fields(&mut config_to_save);
-        encrypt_config_secrets(&mut config_to_save)?;
+        // A document source seals the whole body under the scope's data key;
+        // the process-local field key would make it unreadable on another node.
+        if !source.encrypts_body() {
+            encrypt_config_secrets(&mut config_to_save)?;
+        }
 
         let toml_str =
             toml::to_string_pretty(&config_to_save).context("Failed to serialize config")?;
 
-        let parent_dir = self
-            .config_path
-            .parent()
-            .context("Config path must have a parent directory")?;
-
-        fs::create_dir_all(parent_dir).await.with_context(|| {
-            format!(
-                "Failed to create config directory: {}",
-                parent_dir.display()
-            )
-        })?;
-
-        let file_name = self
-            .config_path
-            .file_name()
-            .and_then(|v| v.to_str())
-            .unwrap_or("config.toml");
-        let temp_path = parent_dir.join(format!(".{file_name}.tmp-{}", uuid::Uuid::new_v4()));
-        let backup_path = parent_dir.join(format!("{file_name}.bak"));
-
-        let mut temp_file = OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&temp_path)
-            .await
-            .with_context(|| {
-                format!(
-                    "Failed to create temporary config file: {}",
-                    temp_path.display()
-                )
-            })?;
-
-        // Harden BEFORE any secret bytes are written. `create_new` opens at
-        // `0o666 & ~umask` (0644 under the usual 022), and the atomic rename
-        // below carries the *temp file's* mode onto the live config — so
-        // without this every save silently re-widened a config that holds
-        // `enc2:` provider keys and channel tokens back to world-readable, and
-        // `fs::copy` propagated the same mode onto `config.toml.bak`. The
-        // load-time auto-fix only ever repaired it on the next startup.
-        // Same pattern as `keyring::backend`.
-        //
-        // Non-fatal by design: filesystems that do not implement chmod
-        // (CIFS/SMB, exFAT, some FUSE mounts) would otherwise turn a save that
-        // has always worked into a hard failure. A failed hardening leaves the
-        // file exactly as permissive as it was before this call existed, so
-        // warn and continue rather than regress writability — matching the
-        // best-effort `let _ = set_permissions(..)` on the first-init path.
-        #[cfg(unix)]
-        {
-            use std::{fs::Permissions, os::unix::fs::PermissionsExt};
-            if let Err(e) = fs::set_permissions(&temp_path, Permissions::from_mode(0o600)).await {
-                tracing::warn!(
-                    path = %temp_path.display(),
-                    error = %e,
-                    "[security][config] could not restrict config file to 0600; \
-                     it may be readable by other local users"
-                );
-            }
-        }
-
-        temp_file
-            .write_all(toml_str.as_bytes())
-            .await
-            .context("Failed to write temporary config contents")?;
-        temp_file
-            .sync_all()
-            .await
-            .context("Failed to fsync temporary config file")?;
-        drop(temp_file);
-
-        // Everything above can still fail with the live config untouched.
-        // `commit_replacement` owns the swap, and returns `Err` only while the
-        // old config is still in place — see its docs for why callers that roll
-        // back on `Err` depend on that.
-        super::atomic_commit::commit_replacement(
-            &temp_path,
-            &self.config_path,
-            parent_dir,
-            &backup_path,
-        )
-        .await?;
+        tracing::debug!(source = source.label(), "[config] saving config");
+        source.write(&toml_str).await?;
 
         Ok(())
     }

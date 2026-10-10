@@ -155,13 +155,13 @@ test("a core-only change still installs the node deps rust-core-coverage's mock 
   assert.deepEqual(orderProblems(sub), []);
 });
 
-test("doctests, tui coverage and module-gated tests are outside the PR lane", () => {
+test("doctests and module-gated tests are outside the PR lane, tui tests run on PRs", () => {
   for (const plan of plans()) {
     const cov = plan.lanes
       .find((l) => l.name === "rust-cov")
       .checks.find((c) => c.name === "rust-core-coverage");
     assert.equal(cov.env.OH_COV_DOCTESTS, "0");
-    assert.equal(cov.env.OH_COV_TUI, "0");
+    assert.equal(cov.env.OH_COV_TUI, "1");
     const runs = allRuns(plan).join("\n");
     assert.doesNotMatch(runs, /cargo test -p openhuman --doc/);
     assert.doesNotMatch(runs, /cargo test -p openhuman-(embed|tinyhumans)\b/);
@@ -557,5 +557,13 @@ test("peak RSS follows the process tree, including setsid'd descendants", () => 
     assert.equal(treeRssMiB(table, 999), 0);
   } finally {
     fs.rmSync(dir, { recursive: true, force: true });
+  }
+});
+
+test("the rust-core path filter arms the lane for every crate the tui depends on", () => {
+  const filter = fs.readFileSync(".github/ci-paths-filter.yml", "utf8");
+  const block = filter.split(/^rust-tauri:/m)[0].split(/^rust-core:/m)[1];
+  for (const crate of ["core", "embed", "tinyhumans", "rpc", "cli", "tui"]) {
+    assert.ok(block.includes(`'crates/openhuman-${crate}/**'`), crate);
   }
 });

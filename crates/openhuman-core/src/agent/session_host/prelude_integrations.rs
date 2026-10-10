@@ -255,11 +255,11 @@ impl OpenHumanTurnPrelude {
         // the live lookup rather than pinning this session to the snapshot.
         mutable.connected_integrations_initialized = authoritative;
         mutable.connected_integrations_authoritative = authoritative;
-        mutable.announced_integrations = mutable
-            .connected_integrations
-            .iter()
-            .map(|item| item.toolkit.clone())
-            .collect();
+        // Seed only the toolkits the user actually connected: the list also
+        // carries every allowlisted-but-unconnected toolkit (`connected:
+        // false`), and seeding those made a later diff announce them as
+        // "connected" (feedback: "100+ services connected").
+        mutable.announced_integrations = connected_toolkit_slugs(&mutable.connected_integrations);
         mutable.announced_mcp_servers = mcp_servers;
     }
 
@@ -284,21 +284,12 @@ impl OpenHumanTurnPrelude {
                     .mutable
                     .lock()
                     .unwrap_or_else(std::sync::PoisonError::into_inner);
-                let current_slugs: std::collections::HashSet<_> =
-                    current.iter().map(|item| item.toolkit.clone()).collect();
-                mutable
-                    .announced_integrations
-                    .retain(|slug| current_slugs.contains(slug));
-                mutable
-                    .pending_integration_announcement
-                    .retain(|slug| current_slugs.contains(slug));
-                for slug in &current_slugs {
-                    if mutable.announced_integrations.insert(slug.clone())
-                        && !mutable.pending_integration_announcement.contains(slug)
-                    {
-                        mutable.pending_integration_announcement.push(slug.clone());
-                    }
-                }
+                let state = &mut *mutable;
+                merge_integration_announcements(
+                    &mut state.announced_integrations,
+                    &mut state.pending_integration_announcement,
+                    &current,
+                );
                 mutable.connected_integrations = current;
                 mutable.connected_integrations_authoritative = authoritative;
             }
@@ -381,3 +372,51 @@ async fn load_connected_integrations(
         }
     }
 }
+
+/// Toolkit slugs the user has an active connection for. The integration list
+/// also carries every allowlisted toolkit with `connected: false`; those are
+/// available to connect, not connected, and must never be announced as such.
+fn connected_toolkit_slugs(
+    items: &[crate::agent::prompts::ConnectedIntegration],
+) -> std::collections::HashSet<String> {
+    items
+        .iter()
+        .filter(|item| item.connected)
+        .map(|item| item.toolkit.clone())
+        .collect()
+}
+
+/// Diff the live integration list against what this session already
+/// announced: drop announcements for toolkits that are no longer connected
+/// and queue an `[integration update]` for each newly connected one. Only
+/// `connected` items count (see [`connected_toolkit_slugs`]).
+fn merge_integration_announcements(
+    announced: &mut std::collections::HashSet<String>,
+    pending: &mut Vec<String>,
+    current: &[crate::agent::prompts::ConnectedIntegration],
+) {
+    let current_slugs = connected_toolkit_slugs(current);
+    announced.retain(|slug| current_slugs.contains(slug));
+    pending.retain(|slug| current_slugs.contains(slug));
+    let mut added: Vec<&String> = current_slugs
+        .iter()
+        .filter(|slug| !announced.contains(*slug))
+        .collect();
+    added.sort();
+    for slug in added {
+        announced.insert(slug.clone());
+        if !pending.contains(slug) {
+            pending.push(slug.clone());
+        }
+    }
+    tracing::debug!(
+        connected = current_slugs.len(),
+        listed = current.len(),
+        pending = pending.len(),
+        "[session] integration announcements diffed against connected toolkits"
+    );
+}
+
+#[cfg(test)]
+#[path = "prelude_integrations_tests.rs"]
+mod tests;

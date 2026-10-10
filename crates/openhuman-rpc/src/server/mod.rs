@@ -9,7 +9,7 @@
 //! | `classify` | how the `/rpc` handler reports a failed call |
 //! | `socketio` | the Socket.IO live-event bridge and `rpc:request` |
 //! | `dev_connect` | the debug-only `/dev/connect` handoff |
-//! | `cli` | [`install_cli_server`], the launcher behind `openhuman-core run` |
+//! | `cli` | the launcher behind `openhuman-core run` |
 //!
 //! Dispatch itself is core's
 //! (`invoke_method`); every
@@ -27,11 +27,7 @@ mod socketio;
 #[cfg(test)]
 mod testing;
 
-pub use cli::install_cli_server;
 pub use http::{build_core_http_router, rpc_handler};
 pub use serve::{serve, EmbeddedReadySignal};
-pub use shims::{
-    run_server, run_server_embedded, run_server_embedded_with_ready, run_server_headless,
-    run_server_saas,
-};
+pub use shims::{run_server, run_server_headless, run_server_saas};
 pub use socketio::publish_companion_state_changed;

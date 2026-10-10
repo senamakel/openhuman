@@ -11,15 +11,17 @@
 //! lifetime, avoiding the N-prompt problem where dev-signed macOS builds
 //! block on each individual keychain entry.
 
-use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 
+use crate::security::keyring::adapter;
 use crate::security::keyring::backend::KeyringBackend;
 use crate::security::keyring::crypto::{self, KEY_LEN};
 use crate::security::keyring::error::KeyringError;
 use crate::security::keyring::file_store;
 use crate::security::keyring::store::BackendKind;
+use tinystoragedrivers::secrets::EncryptedFileSecrets;
+use zeroize::Zeroizing;
 
 const KEYCHAIN_SERVICE: &str = "openhuman";
 const KEYCHAIN_MASTER_KEY_USERNAME: &str = "app:master_key";
@@ -414,14 +416,23 @@ fn master_key() -> Option<&'static [u8; KEY_LEN]> {
 
 // ── Backend ──────────────────────────────────────────────────────────────────
 
-/// Every secret in one ChaCha20-Poly1305 file.
+/// Every secret in one ChaCha20-Poly1305 file: an adapter over
+/// `tinystoragedrivers`' [`EncryptedFileSecrets`] (the `SecretStore` port),
+/// keeping the file format (`secrets.enc`: one `nonce ‖ ciphertext ‖ tag` blob
+/// over a JSON object of strings) and the `secrets.enc.lock` advisory lock
+/// byte-for-byte, so a workspace written by either side reads on the other.
 ///
-/// Mutations are a read → decrypt → modify → encrypt → write cycle over the
-/// whole set, guarded by the cross-process advisory lock in
-/// [`file_store::lock_for_write`]. An in-process mutex would not do: more than
-/// one process routinely addresses the same workspace (a desktop core and a
-/// second process embedding the same core), and the later writer's snapshot —
-/// read before the earlier writer landed — silently drops the earlier secret.
+/// What stays here, because it is a desktop policy and not a storage format:
+///
+/// - the master key (env, else OS keychain; see [`init_master_key`]);
+/// - the one-time import of a legacy plaintext `dev-keychain.json`;
+/// - **corruption recovery**. The driver fails closed on a file that does not
+///   decrypt or parse and leaves it untouched, which is right for a server
+///   that has an operator. A desktop has none: failing closed would wedge
+///   every `set` (so sign-in) forever. This adapter keeps today's behaviour
+///   instead: log, move the bytes aside as `secrets.enc.corrupt.<ts>` (never
+///   deleted, so the secrets stay recoverable with the right key) and carry
+///   on with an empty store. See [`adapter::recover_corrupt_file`].
 pub struct EncryptedFileBackend {
     path: PathBuf,
     workspace_dir: PathBuf,
@@ -435,63 +446,40 @@ impl EncryptedFileBackend {
         }
     }
 
-    fn read_map(&self, key: &[u8; KEY_LEN]) -> Result<HashMap<String, String>, KeyringError> {
-        if !self.path.exists() {
-            return self.migrate_legacy_dev_keychain(key);
-        }
+    fn store(&self, key: &[u8; KEY_LEN]) -> EncryptedFileSecrets {
+        EncryptedFileSecrets::at_path(self.path.clone(), Zeroizing::new(*key))
+    }
 
-        let blob = std::fs::read(&self.path).map_err(|e| KeyringError::MigrationReadFailed {
-            path: self.path.display().to_string(),
-            source: e,
-        })?;
-
-        if blob.is_empty() {
-            return Ok(HashMap::new());
-        }
-
-        match crypto::chacha20_decrypt(key, &blob) {
-            Ok(plaintext) => serde_json::from_slice::<HashMap<String, String>>(&plaintext)
-                .map_err(|e| {
-                    log::warn!(
-                        "[keyring:encrypted_file] decrypted data is not valid JSON: {e}; \
-                         treating as corrupt"
-                    );
-                    self.handle_corruption();
-                    KeyringError::Backend("corrupt secrets file (invalid JSON)".to_string())
-                })
-                .or_else(|_| Ok(HashMap::new())),
-            Err(e) => {
-                log::error!(
-                    "[keyring:encrypted_file] decryption failed: {e}; master key may have \
-                     changed or file is corrupt"
-                );
-                self.handle_corruption();
-                Ok(HashMap::new())
+    /// Run one driver call, recovering once from a corrupt file.
+    fn run<T, F, Fut>(&self, key: &[u8; KEY_LEN], op: F) -> Result<T, KeyringError>
+    where
+        T: Send + 'static,
+        F: Fn(EncryptedFileSecrets) -> Fut,
+        Fut: std::future::Future<Output = tinystoragedrivers::Result<T>> + Send + 'static,
+    {
+        self.import_legacy_dev_keychain(key)?;
+        match crate::storage::block_on(op(self.store(key))) {
+            Err(error) if adapter::is_corruption(&error) => {
+                adapter::recover_corrupt_file(&self.path, key, &error)?;
+                crate::storage::block_on(op(self.store(key))).map_err(adapter::backend_error)
             }
+            result => result.map_err(adapter::backend_error),
         }
     }
 
-    fn write_map(
-        &self,
-        key: &[u8; KEY_LEN],
-        map: &HashMap<String, String>,
-    ) -> Result<(), KeyringError> {
-        let json = serde_json::to_vec(map)
-            .map_err(|e| KeyringError::Backend(format!("failed to serialize secrets: {e}")))?;
-
-        let blob = crypto::chacha20_encrypt(key, &json)
-            .map_err(|e| KeyringError::Backend(format!("encryption failed: {e}")))?;
-
-        file_store::write_atomic(&self.path, &blob)
-    }
-
-    fn migrate_legacy_dev_keychain(
-        &self,
-        key: &[u8; KEY_LEN],
-    ) -> Result<HashMap<String, String>, KeyringError> {
+    /// Import `dev-keychain.json` into a missing `secrets.enc`, once.
+    fn import_legacy_dev_keychain(&self, key: &[u8; KEY_LEN]) -> Result<(), KeyringError> {
         let legacy_path = self.workspace_dir.join(LEGACY_DEV_KEYCHAIN);
-        if !legacy_path.exists() {
-            return Ok(HashMap::new());
+        if self.path.exists() || !legacy_path.exists() {
+            return Ok(());
+        }
+        // The driver's own writes take this same lock, so it is released
+        // before they run: this import stages the file itself.
+        let _guard = file_store::lock_for_write(&self.path)?;
+        // Rechecked under the lock: another process may have imported (and
+        // renamed) the legacy file between the unlocked check and here.
+        if self.path.exists() || !legacy_path.exists() {
+            return Ok(());
         }
 
         log::info!(
@@ -504,20 +492,26 @@ impl EncryptedFileBackend {
             source: e,
         })?;
 
-        let map: HashMap<String, String> = if bytes.is_empty() {
-            HashMap::new()
+        let map: std::collections::BTreeMap<String, String> = if bytes.is_empty() {
+            Default::default()
         } else {
             serde_json::from_slice(&bytes).unwrap_or_else(|e| {
                 log::warn!(
                     "[keyring:encrypted_file] legacy {LEGACY_DEV_KEYCHAIN} is corrupt ({e}); \
                      starting fresh"
                 );
-                HashMap::new()
+                Default::default()
             })
         };
 
         if !map.is_empty() {
-            self.write_map(key, &map)?;
+            let json =
+                zeroize::Zeroizing::new(serde_json::to_vec(&map).map_err(|e| {
+                    KeyringError::Backend(format!("failed to serialize secrets: {e}"))
+                })?);
+            let blob = crypto::chacha20_encrypt(key, &json)
+                .map_err(|e| KeyringError::Backend(format!("encryption failed: {e}")))?;
+            file_store::write_atomic(&self.path, &blob)?;
         }
 
         let migrated_path = legacy_path.with_extension("json.migrated");
@@ -533,44 +527,38 @@ impl EncryptedFileBackend {
                 map.len()
             );
         }
-
-        Ok(map)
-    }
-
-    /// Move an undecryptable / unparseable secrets file aside so the next call
-    /// starts fresh without destroying the bytes.
-    fn handle_corruption(&self) {
-        file_store::quarantine_corrupt(&self.path, "enc");
+        Ok(())
     }
 
     /// [`KeyringBackend::get`] under an explicit master key.
-    fn get_with_key(
+    pub(super) fn get_with_key(
         &self,
         key: &[u8; KEY_LEN],
         namespaced_key: &str,
     ) -> Result<Option<String>, KeyringError> {
-        // `read_map` can mutate the filesystem: it migrates a missing file and
-        // quarantines corrupt ciphertext. Hold the same lock as writers for
-        // either case so a delayed quarantine cannot rename a replacement a
-        // concurrent `set` just published.
-        let _guard = file_store::lock_for_write(&self.path)?;
-        let map = self.read_map(key)?;
-        Ok(map.get(namespaced_key).cloned())
+        use tinystoragedrivers::secrets::SecretStore as _;
+        let name = namespaced_key.to_string();
+        let value = self.run(key, move |store| {
+            let name = name.clone();
+            async move { store.get(&name).await }
+        })?;
+        adapter::utf8(namespaced_key, value)
     }
 
     /// [`KeyringBackend::set`] under an explicit master key.
-    fn set_with_key(
+    pub(super) fn set_with_key(
         &self,
         key: &[u8; KEY_LEN],
         namespaced_key: &str,
         value: &str,
     ) -> Result<(), KeyringError> {
-        // Held across the read as well as the write: taking it around the write
-        // alone would still let a stale map overwrite a concurrent one.
-        let _guard = file_store::lock_for_write(&self.path)?;
-        let mut map = self.read_map(key)?;
-        map.insert(namespaced_key.to_string(), value.to_string());
-        self.write_map(key, &map)
+        use tinystoragedrivers::secrets::SecretStore as _;
+        let name = namespaced_key.to_string();
+        let value = Zeroizing::new(value.as_bytes().to_vec());
+        self.run(key, move |store| {
+            let (name, value) = (name.clone(), value.clone());
+            async move { store.set(&name, &value).await }
+        })
     }
 }
 
@@ -592,15 +580,15 @@ impl KeyringBackend for EncryptedFileBackend {
     }
 
     fn delete(&self, namespaced_key: &str) -> Result<(), KeyringError> {
+        use tinystoragedrivers::secrets::SecretStore as _;
         let Some(key) = master_key() else {
             return Ok(());
         };
-        let _guard = file_store::lock_for_write(&self.path)?;
-        let mut map = self.read_map(key)?;
-        if map.remove(namespaced_key).is_some() {
-            self.write_map(key, &map)?;
-        }
-        Ok(())
+        let name = namespaced_key.to_string();
+        self.run(key, move |store| {
+            let name = name.clone();
+            async move { store.delete(&name).await.map(|_| ()) }
+        })
     }
 
     fn name(&self) -> &'static str {
@@ -611,3 +599,7 @@ impl KeyringBackend for EncryptedFileBackend {
 #[cfg(test)]
 #[path = "encrypted_file_backend_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "encrypted_file_backend_fixture_tests.rs"]
+mod fixture_tests;

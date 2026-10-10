@@ -15,6 +15,10 @@
 //                   the config you were handed
 //   env-mutation    std::env::set_var / remove_var — process-wide
 //   home-dir        dirs::home_dir() / home_dir() — the host's home, not the user's
+//   ambient-context CoreContext::current() / .session_agent() outside
+//                   core/runtime/ — in SaaS, current() falls back to the
+//                   operator's context; key tenant state through
+//                   core::runtime::current_tenant / tenant_key instead
 //
 //   node scripts/ci/check-saas-ambient.mjs
 //   node scripts/ci/check-saas-ambient.mjs --write-baseline
@@ -55,6 +59,11 @@ export const RULES = [
     pattern: /\b(?:dirs::)?home_dir\s*\(\s*\)/,
     hint: "the host's home directory is not a user's",
   },
+  {
+    rule: "ambient-context",
+    pattern: /\bCoreContext::current\s*\(\s*\)|\.session_agent\s*\(\s*\)/,
+    hint: "read the tenant through core::runtime::current_tenant() (fails closed in SaaS) and key tables with tenant_key / session_key",
+  },
 ];
 
 // The helpers that implement the scoped spawns are the one place a bare
@@ -62,6 +71,17 @@ export const RULES = [
 const BARE_SPAWN_EXEMPT = new Set([
   "crates/openhuman-core/src/core/runtime/spawn.rs",
 ]);
+
+// The runtime owns the context and the tenant rules built on it; the
+// ambient-context rule applies everywhere else.
+const AMBIENT_CONTEXT_EXEMPT_PREFIX = "crates/openhuman-core/src/core/runtime/";
+
+/** Findings `rel` is exempt from. */
+export function exempt(rel, finding) {
+  if (finding.rule === "bare-spawn") return BARE_SPAWN_EXEMPT.has(rel);
+  if (finding.rule === "ambient-context") return rel.startsWith(AMBIENT_CONTEXT_EXEMPT_PREFIX);
+  return false;
+}
 
 function isTestFile(rel) {
   return (
@@ -138,9 +158,7 @@ async function main() {
     const rel = relative(repoRoot, path).split(sep).join("/");
     if (isTestFile(rel)) continue;
     const found = scan(rel, await readFile(path, "utf8"));
-    findings.push(
-      ...(BARE_SPAWN_EXEMPT.has(rel) ? found.filter((f) => f.rule !== "bare-spawn") : found),
-    );
+    findings.push(...found.filter((f) => !exempt(rel, f)));
   }
 
   if (writeBaseline) {

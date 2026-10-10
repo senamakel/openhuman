@@ -19,8 +19,8 @@ pub(super) use budget_correlation::{
 };
 
 pub use channel_ops::{
-    cancel_chat, cancel_chat_scoped, channel_web_cancel, channel_web_chat, channel_web_queue_clear,
-    channel_web_queue_remove, channel_web_queue_status,
+    cancel_all_turns, cancel_chat, cancel_chat_scoped, channel_web_cancel, channel_web_chat,
+    channel_web_queue_clear, channel_web_queue_remove, channel_web_queue_status,
 };
 
 pub use start_chat::{start_chat, StartChatError};
@@ -35,8 +35,12 @@ pub use state::parallel_in_flight_entries_for_test;
 #[cfg(test)]
 pub(crate) use state::scoped_key;
 pub(super) use state::thread_sessions;
+#[cfg(test)]
+pub(crate) use state::track_parallel_turn_for_test;
 pub use state::{cancel_should_target, in_flight_entries_for_test, invalidate_thread_sessions};
 pub(crate) use state::{event_session_id_for, key_for};
+#[cfg(test)]
+pub(crate) use state::{key_in, unscope_in};
 
 #[cfg(any(test, debug_assertions))]
 pub use test_hooks::set_test_forced_run_chat_task_error;

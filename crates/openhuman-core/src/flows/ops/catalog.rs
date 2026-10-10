@@ -78,7 +78,7 @@ pub async fn flows_get_tool_contract(
     };
     match catalog
         .iter()
-        .find(|c| c.slug.eq_ignore_ascii_case(trimmed))
+        .find(|c| crate::integrations::composio::contract::action_slug_matches(&c.slug, trimmed))
     {
         Some(contract) => {
             let contract = crate::flows::tinyflows::caps::apply_probe_override(contract.clone());

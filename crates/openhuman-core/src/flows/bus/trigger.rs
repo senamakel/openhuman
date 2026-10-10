@@ -111,17 +111,9 @@ impl FlowTriggerSubscriber {
         })
     }
 
-    /// The configuration to handle an event under: the acting agent's own
-    /// when the handler runs as one (`super::owner`, `crate::storage::agents`)
-    /// — its provider, access policy and action directory — else the one this
-    /// subscriber was registered with.
+    /// The configuration to handle an event under (`super::owner::config_for_scope`).
     pub(super) fn config_for_scope(&self) -> Arc<Config> {
-        let acting = crate::core::runtime::CoreContext::current()
-            .is_some_and(|context| context.session_agent().is_some());
-        match acting.then(crate::core::runtime::CoreContext::current_embedder_config) {
-            Some(Some(config)) => Arc::new(config),
-            _ => Arc::clone(&self.config),
-        }
+        super::owner::config_for_scope(&self.config)
     }
 
     /// `DomainEvent::FlowScheduleTick` — a `flow`-type cron job fired. Loads
@@ -265,12 +257,8 @@ impl EventHandler<DomainEvent> for FlowTriggerSubscriber {
         match event {
             // The flow runs as the agent it belongs to (`super::owner`).
             DomainEvent::FlowScheduleTick { flow_id } => {
-                let owner = super::owner::flow_owner(&self.config, flow_id).await;
-                crate::storage::agents::within_agent(
-                    owner.as_deref(),
-                    self.handle_schedule_tick(flow_id),
-                )
-                .await
+                super::owner::as_owner(&self.config, flow_id, self.handle_schedule_tick(flow_id))
+                    .await
             }
             // Every scope's flows may listen for this trigger: match them in
             // each, so each run starts as its flow's owner.

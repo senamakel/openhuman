@@ -94,6 +94,38 @@ pub fn scan(content: &str) -> PiiScanResult {
     }
 }
 
+/// Replacement for every value [`redact_identifiers`] removes.
+pub const REDACTED_IDENTIFIER: &str = "[redacted]";
+
+/// Replace every **structured identifier** in `content` (email, phone number,
+/// national id, payment card, IBAN, IPv4 address, postal address) with
+/// [`REDACTED_IDENTIFIER`].
+///
+/// Uses the same rules (and validators) as [`scan`], so what is redacted is
+/// exactly what would be counted. Topical keyword categories (medical, legal,
+/// ...) describe context rather than identify anyone and are left in place.
+/// For text shown back to a user from a source that may quote someone's
+/// details, such as a tool's error line.
+pub fn redact_identifiers(content: &str) -> String {
+    let mut out = content.to_string();
+    for rule in rules() {
+        if !rule.category.is_structured_identifier() {
+            continue;
+        }
+        let redacted = rule.regex.replace_all(&out, |caps: &regex::Captures<'_>| {
+            let matched = &caps[0];
+            match rule.validator {
+                Some(validator) if !validator(matched) => matched.to_string(),
+                _ => REDACTED_IDENTIFIER.to_string(),
+            }
+        });
+        if let std::borrow::Cow::Owned(changed) = redacted {
+            out = changed;
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 #[path = "detector_tests.rs"]
 mod tests;

@@ -121,6 +121,17 @@ pub(crate) struct SessionTurnSidecar {
     pub hit_cap: bool,
     pub wrap_up_injected: bool,
     pub resolved_route: Option<ResolvedModelRoute>,
+    /// When the driver handed its candidate to the runtime. `after_commit`
+    /// subtracts it from its own start to log how long the durable commit
+    /// took (`[session-runtime] post-commit`).
+    pub driver_finished_at: Option<std::time::Instant>,
+    /// Set by the deadline wind-down middleware when it paused this turn
+    /// (`tinyagents::deadline_wind_down`).
+    pub wind_down: bool,
+    /// How the turn was stopped early, if it was (breaker, wind-down,
+    /// iteration cap). The driver classifies it; `after_commit` carries it on
+    /// `TurnCompleted` so the trace shows a stopped turn at `WARNING`.
+    pub stop: Option<crate::agent::turn_stop::TurnStop>,
 }
 
 /// Immutable inputs to the host's pre-dispatch policy.
@@ -247,6 +258,11 @@ pub struct OpenHumanRunContext {
     pub progress: Option<Sender<AgentProgress>>,
     /// Stop policies evaluated after each model call.
     pub stop_hooks: Vec<Arc<dyn StopHook>>,
+    /// Wall-clock deadline of the top-level turn this run belongs to, set
+    /// only by the session turn entry point from the web backstop
+    /// (`agent::turn_deadline`). The harness winds the run down and clamps
+    /// its wall clock against it. `None` for turns without a backstop.
+    pub turn_deadline: Option<crate::agent::turn_deadline::TurnDeadline>,
     /// Parent runtime snapshot used by canonical recursive tool dispatch.
     pub parent: Option<ParentExecutionContext>,
     /// Context-preparation sources already consumed in this turn.
@@ -353,6 +369,7 @@ impl OpenHumanRunContext {
             origin: None,
             progress: None,
             stop_hooks: crate::agent::stop_hooks::current_stop_hooks(),
+            turn_deadline: None,
             parent: None,
             prepared_context_sources: Arc::new(Vec::new()),
             file_state_agent_id: None,

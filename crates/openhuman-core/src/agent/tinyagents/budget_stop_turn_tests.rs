@@ -1,4 +1,5 @@
-//! Hosted-turn integration coverage for the per-turn budget stop hook.
+//! Hosted-turn integration coverage for the per-turn budget stop hook and the
+//! turn-deadline wind-down, the two graceful pauses of a top-level turn.
 
 use super::*;
 use crate::agent::stop_hooks::{BudgetStopHook, StopDecision, StopHook, TurnState};
@@ -189,4 +190,144 @@ async fn budget_stop_hook_pauses_the_hosted_turn_inner() {
         stop_reason.lock().expect("stop reason lock").as_deref(),
         Some("turn cost $3.0000 reached cap $1.0000")
     );
+}
+
+#[test]
+fn deadline_wind_down_pauses_the_hosted_turn_with_its_work_intact() {
+    std::thread::Builder::new()
+        .stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("test runtime")
+                .block_on(deadline_wind_down_pauses_the_hosted_turn_inner());
+        })
+        .expect("test thread")
+        .join()
+        .expect("test thread panicked");
+}
+
+/// A turn whose deadline is past its wind-down point (800s into a 900s
+/// backstop) must not be dropped and must not keep calling the model: it
+/// pauses after the tool round in flight and returns `Ok` with that round's
+/// results. A blank terminal text with completed tool outcomes is exactly the
+/// shape the session driver's grounded close turns into the user's answer
+/// (`needs_final_close`), instead of the backstop discarding the turn.
+async fn deadline_wind_down_pauses_the_hosted_turn_inner() {
+    let tool_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let model_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let model: Arc<dyn ChatModel<()>> = Arc::new(BudgetedToolModel(model_calls.clone()));
+    let models = TurnModelSource::from_model(model)
+        .build("root-test-model", 0.0, None, None)
+        .expect("scripted turn models build");
+    let (tx, _rx) = tokio::sync::mpsc::channel(64);
+    let mut context = root_context("deadline-wind-down", "/tmp/deadline-wind-down", tx);
+    let now = std::time::Instant::now();
+    context.turn_deadline = Some(crate::agent::turn_deadline::TurnDeadline::new(
+        now - std::time::Duration::from_secs(800),
+        std::time::Duration::from_secs(900),
+    ));
+
+    let outcome = run_root_turn_via_hosted_agent(
+        context,
+        hosted_base(),
+        "main".to_string(),
+        models,
+        "test".to_string(),
+        "root-test-model",
+        root_messages("deadline-wind-down"),
+        vec![Arc::new(vec![
+            Box::new(LimitedTool(tool_calls.clone())) as Box<dyn Tool>
+        ])],
+        None,
+        50,
+        None,
+        None,
+        &[],
+        true,
+        None,
+        TurnContextMiddleware::default(),
+        None,
+        true,
+    )
+    .await
+    .expect("a wound-down turn returns its partial work, not an error");
+
+    assert_eq!(
+        model_calls.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "no model call after the wind-down point"
+    );
+    assert_eq!(tool_calls.load(std::sync::atomic::Ordering::SeqCst), 1);
+    assert_eq!(outcome.tool_calls, 1);
+    assert!(
+        outcome.text.trim().is_empty(),
+        "no final answer yet: the close writes it"
+    );
+    assert_eq!(
+        outcome.tool_outcomes.len(),
+        1,
+        "the completed round is kept"
+    );
+    assert!(
+        !outcome.hit_cap,
+        "a deadline wind-down is not an iteration cap"
+    );
+}
+
+#[test]
+fn a_turn_before_its_wind_down_point_runs_to_its_final_answer() {
+    std::thread::Builder::new()
+        .stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .spawn(|| {
+            tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("test runtime")
+                .block_on(async {
+                    let tool_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+                    let model_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+                    let model: Arc<dyn ChatModel<()>> =
+                        Arc::new(BudgetedToolModel(model_calls.clone()));
+                    let models = TurnModelSource::from_model(model)
+                        .build("root-test-model", 0.0, None, None)
+                        .expect("scripted turn models build");
+                    let (tx, _rx) = tokio::sync::mpsc::channel(64);
+                    let mut context = root_context("deadline-fresh", "/tmp/deadline-fresh", tx);
+                    context.turn_deadline =
+                        Some(crate::agent::turn_deadline::TurnDeadline::starting_now(
+                            std::time::Duration::from_secs(900),
+                        ));
+                    let outcome = run_root_turn_via_hosted_agent(
+                        context,
+                        hosted_base(),
+                        "main".to_string(),
+                        models,
+                        "test".to_string(),
+                        "root-test-model",
+                        root_messages("deadline-fresh"),
+                        vec![Arc::new(vec![
+                            Box::new(LimitedTool(tool_calls.clone())) as Box<dyn Tool>
+                        ])],
+                        None,
+                        50,
+                        None,
+                        None,
+                        &[],
+                        true,
+                        None,
+                        TurnContextMiddleware::default(),
+                        None,
+                        true,
+                    )
+                    .await
+                    .expect("turn completes");
+                    assert_eq!(model_calls.load(std::sync::atomic::Ordering::SeqCst), 2);
+                    assert_eq!(outcome.text, "done");
+                });
+        })
+        .expect("test thread")
+        .join()
+        .expect("test thread panicked");
 }

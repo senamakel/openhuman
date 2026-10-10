@@ -522,6 +522,9 @@ const messages: TranslationMap = {
   'chat.welcomeSuggestion.dailySummaryFlow':
     'Crea un flusso che mi invii un riepilogo giornaliero via email.',
   'chat.typeMessage': 'Invia un messaggio...',
+  'chat.regenerate.unavailable':
+    'Questa risposta non può essere rigenerata. Prova a rigenerare la risposta più recente.',
+  'chat.regenerate.failed': 'Impossibile rigenerare la risposta. Riprova.',
   'chat.send': 'Invia messaggio',
   'chat.stopGeneration': 'Interrompi generazione',
   'chat.followupHint':
@@ -1253,7 +1256,15 @@ const messages: TranslationMap = {
   'mcp.tab.aria.openServerPage': 'Apri la pagina di {name}',
   'mcp.installed.emptyAddInJson': 'Aggiungine uno in mcp.json',
   'mcp.registry.intro':
-    'Una directory di server MCP. Aprendo un server vai alla sua pagina, dove trovi le istruzioni di installazione; aggiungilo nella scheda mcp.json.',
+    'Una directory di server MCP. I server ospitati che non richiedono configurazione si aggiungono con un clic; per gli altri, apri la loro pagina per le istruzioni di installazione e dichiarali nella scheda mcp.json.',
+  'mcp.registry.action.add': 'Aggiungi',
+  'mcp.registry.action.added': 'Aggiunto',
+  'mcp.registry.action.adding': 'Aggiunta in corso…',
+  'mcp.registry.aria.add': 'Aggiungi {name}',
+  'mcp.registry.needsSetup':
+    'Questo server richiede una configurazione prima di poter essere aggiunto. Apri la sua pagina per le istruzioni di installazione.',
+  'mcp.registry.addFailed': 'Impossibile aggiungere questo server.',
+  'mcp.registry.connectFailed': 'Aggiunto, ma il server non si è connesso.',
   'mcp.json.loadFailedTitle': 'Impossibile leggere mcp.json',
   'mcp.json.loadFailedBody':
     'Il core non ha risposto, quindi il documento non viene mostrato: un editor vuoto inviterebbe a salvare cancellando i tuoi server.',
@@ -1733,6 +1744,8 @@ const messages: TranslationMap = {
   'bootCheck.connectedOk': 'Connesso. Tutto a posto.',
   'bootCheck.authFailed': 'Token non valido. Controllalo e riprova.',
   'bootCheck.unreachablePrefix': 'Impossibile raggiungerlo:',
+  'bootCheck.socketDisabled':
+    'Connesso, ma il tempo reale è disattivato su questo core. È stato avviato con --jsonrpc-only; riavvialo senza quel flag perché chat e aggiornamenti in tempo reale funzionino.',
   'bootCheck.checkingCore': 'Avvio di OpenHuman…',
   'bootCheck.cannotReach': 'Impossibile raggiungerlo',
   'bootCheck.cannotReachDesc': 'Non siamo riusciti a connetterci. Vuoi provare altrove?',
@@ -1801,6 +1814,10 @@ const messages: TranslationMap = {
   'about.update.status.error': 'Verifica aggiornamento fallita',
   'about.update.status.default': 'Verifica aggiornamenti',
   'welcome.continueLocallyExperimental': 'Continua Localmente (Sperimentale)',
+  'auth.profileSwitch.title': 'Accedere con un profilo separato?',
+  'auth.profileSwitch.body':
+    "L'accesso cloud sposterà OpenHuman su un profilo account separato. Le tue conversazioni, la memoria e le impostazioni dei provider locali resteranno su questo dispositivo in users/{profileId}. Per tornare, esci e scegli la sessione locale nella schermata di benvenuto.",
+  'auth.profileSwitch.continue': "Continua con l'accesso",
   'welcome.localSessionStarting': 'Avvio sessione locale...',
   'welcome.coreConfigUnreadable':
     'Il runtime non è riuscito a leggere il proprio file di configurazione. config.toml potrebbe appartenere a un altro account utente oppure essere inaccessibile al processo per un altro motivo. Riavvia il runtime e, se non basta, correggi la proprietà della cartella di lavoro o ricrea il suo volume.',

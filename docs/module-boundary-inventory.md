@@ -86,8 +86,8 @@ remain unchanged until compatible upstream releases are available.
 | TinyChannels contract vocabulary separated from provider, relay, pairing and runtime behavior | [tinychannels#56](https://github.com/tinyhumansai/tinychannels/pull/56) | 1,174 default and 1,180 all-feature tests; independent contract audit and relocation review accepted; bus files at least 98.65% coverage; legacy provider/worker coverage gaps disclosed |
 | TinyBox pure contract, shell facts, reserved sandbox/process handles and acknowledged cleanup/shutdown | [tinybox#30](https://github.com/tinyhumansai/tinybox/pull/30) | 710 default and all-feature tests; 57 source files at least 90% coverage; compiled native-process artifact verification; independent lifecycle review accepted; supervised execution currently limited to Unix passthrough |
 | TinyWallet pure contracts, address validation and stateless EVM construction with exact approval facts | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 745 all-feature and 601 default tests; four-chain signing and native/ERC-20/contract construction through the compiled artifact; pure contract audit; all 95 source files at least 90% coverage; independent construction review accepted |
-| TinyVoice device enumeration, recording/continuous capture, reserved hotkey leases, replayable batches and acknowledged shutdown | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | Contract 1.4; 32-member compiled artifact; 86 module tests; independent hotkey, Windows owner and Xvfb cleanup fixtures; pure contract audit and per-file coverage gate, with the existing physical-device exclusion; Windows GNU cross-check, no physical Windows/MSVC or macOS input validation |
-| TinyRuntime pure JSONL worker vocabulary, persistent cache recipes and module-owned lifecycle | [tinyruntime#29](https://github.com/tinyhumansai/tinyruntime/pull/29) | 235 router unit tests, 6 default / 7 all-feature public API tests, 61 contract tests, 35 pyserver tests and doctests; 12-member compiled artifact verifies cache preparation, reuse, adoption and rebuilding; per-file coverage gate passes; independent cleanup and cache reviews accepted |
+| TinyVoice device enumeration, recording/continuous capture, reserved hotkey leases, replayable batches and acknowledged shutdown | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | Contract 1.4; 32-member compiled artifact; 86 module tests; independent hotkey, Windows owner and Xvfb cleanup fixtures; pure contract audit and Windows GNU cross-check; acceptance held for formatting/test-file cleanup and coverage gaps in formatted hotkey sources; no physical Windows/MSVC or macOS input validation |
+| TinyRuntime pure JSONL worker vocabulary, persistent cache recipes, optional provider preparation and module-owned lifecycle | [tinyruntime#29](https://github.com/tinyhumansai/tinyruntime/pull/29) | 244 router unit tests, 6 default / 7 all-feature public API tests, 64 contract tests, 35 pyserver tests and doctests; 13-member compiled artifact verifies old-provider compatibility, preparation, cache reuse, adoption and rebuilding; per-file coverage gate passes; independent cleanup, cache and provider-bridge reviews accepted |
 | TinyMCP pure shared vocabulary, supervisor observations, server callbacks and bounded text/argument/tool rendering operations | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,471 all-feature and 1,359 default tests; dynamic 44-member artifact verification; pure contract audit; all 93 source files at least 90% coverage; independent lifecycle, vocabulary and library-feature reviews accepted; external regressions cover module-disabled and host feature combinations |
 
 The TinyDocs and TinyJuice operations need new published module artifacts.
@@ -106,8 +106,11 @@ Docker/namespace and Windows supervision, streaming, file transfer, forwarding a
 gateway operations remain required before migrating its host callers.
 
 TinyRuntime’s generic worker slice does not yet replace persistent Python/model
-provisioning or the host’s linked worker path. Declarative cache recipes are independently reviewed in the owning PR. Python
-provider integration and TinyJuice recipe ownership remain separate migrations.
+provisioning or the host’s linked worker path. Declarative cache recipes and
+optional provider preparation are independently reviewed in the owning PR. Contract 1.4 preserves the original provider operations,
+negotiates preparation capability and allows explicit per-step deadlines within a
+bounded whole-recipe deadline. Python provider integration and TinyJuice recipe
+ownership remain separate migrations.
 
 TinyHosts’ bounded directory preparation currently returns up to 4 MiB of source.
 Existing larger Launch/Deploy requests keep their transport budget. Streaming or

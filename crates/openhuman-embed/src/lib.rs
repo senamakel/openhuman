@@ -111,7 +111,6 @@ mod error;
 mod harness;
 pub mod identity;
 pub mod memory;
-#[cfg(feature = "modules")]
 pub mod modules;
 pub mod process;
 #[cfg(feature = "channels")]

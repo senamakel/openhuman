@@ -45,10 +45,12 @@ the host library chain. Asynchronous filesystem checks use immutable scopes
 containing host-authorized roots and internal-state reservations. The client
 requires artifact attestation and fails closed if loading or validation fails.
 
-The production registry must be completed from a published release manifest
-before this migration can ship. Native fixture tests use their own explicit
-test digest and never replace a production pin. Shell policy, approvals,
-redaction, and crypto still run through their existing host implementations.
+The production registry pins TinySecurity v0.2.2 and its 11 supported host
+archives using digests copied from the published checksum manifest. Native CI
+loads these released archives through digest admission. Explicit local fixtures
+remain available for module development and never replace production pins.
+Shell policy, approvals, redaction, and crypto still run through their existing
+host implementations.
 
 ## Resolution order
 

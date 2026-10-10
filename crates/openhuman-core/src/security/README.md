@@ -22,10 +22,11 @@ recipient, a timeout, or a malformed response denies access without a local
 fallback. Synchronous lexical checks remain host preflights during this phase;
 they do not substitute for the asynchronous I/O authorization.
 
-Production admission requires published release checksums in the module
-registry. `scripts/ci/security-native-fixture.sh` instead builds an explicitly
-isolated native test fixture and invokes its admission, path, and latency tests.
-Those fixture digests are never production release pins. Shell policy,
+Production admission pins TinySecurity v0.2.2 and its published archive checksums
+in the module registry. `scripts/ci/security-native-fixture.sh` loads those
+released archives and invokes their admission, path, and latency tests. Explicit
+local fixtures remain available for development; their digests never become
+production release pins. Shell policy,
 approvals, redaction, and crypto continue to use their existing host engines
 until their own migration phases are implemented and verified.
 

@@ -2,15 +2,11 @@ use super::*;
 use tinybus::{broker::Broker, module::ModuleHost, transport::memory::MemoryBus, Connection};
 use tinysecurity_bus::{PathAccess, PathPolicy, PathTrustedRoot, PathValidationResult};
 
-/// This is run explicitly by the native-module CI lane after building the
-/// fixture. It never substitutes an unpinned artifact into the product client.
+/// The native CI lane loads the real release through its compiled archive pin.
+/// An explicitly selected local fixture remains available for module development.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires OPENHUMAN_TEST_SECURITY_MODULE pointing to the built native fixture"]
+#[ignore = "requires a released host key or an explicitly selected local native fixture"]
 async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
-    let library = std::path::PathBuf::from(
-        std::env::var_os("OPENHUMAN_TEST_SECURITY_MODULE")
-            .expect("native fixture path must be configured"),
-    );
     let target = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target");
     std::fs::create_dir_all(&target).unwrap();
     let fixture_root = std::env::var_os("OPENHUMAN_TEST_SECURITY_FIXTURE_DIR")
@@ -23,45 +19,59 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
     std::fs::create_dir_all(&fixture_root).unwrap();
     let fixtures = tempfile::tempdir_in(&fixture_root).unwrap();
     restrict_native_fixture(fixtures.path());
-    // Library admission may need an owned HOME cache in a root container.
-    // Acting files stay under checkout target, away from /root's protected
-    // policy floor. Neither directory changes compilation output locations.
     let acting = tempfile::tempdir_in(&target).unwrap();
-    let name = library.file_name().unwrap().to_str().unwrap();
-    let copied = fixtures.path().join(name);
-    std::fs::copy(&library, &copied).unwrap();
-    let digest = tinybus::module::sha256_file(&copied).unwrap();
-    std::fs::write(
-        fixtures.path().join("modules.toml"),
-        format!("\"{name}\" = \"{digest}\"\n"),
-    )
-    .unwrap();
-    let record = super::super::ModuleRecord {
-        id: MODULE_ID,
-        description: "test-only hashed native fixture",
-        bus_name: names::INTERFACE,
-        object_path: names::OBJECT_PATH,
-        version: "test-only",
-        release_url: "https://example.invalid",
-        assets: Box::leak(
-            vec![super::super::PlatformAsset {
-                host_key: "test-only",
-                archive: "test-only-library",
-                sha256: Box::leak(digest.into_boxed_str()),
-            }]
-            .into_boxed_slice(),
-        ),
-        load: super::super::LoadPolicy::Eager,
-    };
     let transport = MemoryBus::new();
     let broker = Broker::new();
     let broker_task = broker.spawn(transport.clone());
     let host = ModuleHost::new(broker);
-    host.load_file_with_config(
-        &copied,
-        serde_json::to_value(ModuleConfig::default()).unwrap(),
-    )
-    .unwrap();
+    let configuration = serde_json::to_value(ModuleConfig::default()).unwrap();
+    let record = if let Ok(host_key) = std::env::var("OPENHUMAN_TEST_SECURITY_RELEASE_HOST") {
+        let record = *super::super::registry::find(MODULE_ID).unwrap();
+        let asset = record
+            .asset_for(&host_key)
+            .expect("published fixture platform must be pinned");
+        host.load_github_release(
+            record.release_url,
+            asset.archive,
+            Some(asset.sha256),
+            configuration,
+        )
+        .expect("released module must pass manifest, digest and native admission");
+        record
+    } else {
+        // Explicit local development fixture. It never supplies production pins.
+        let library = std::path::PathBuf::from(
+            std::env::var_os("OPENHUMAN_TEST_SECURITY_MODULE")
+                .expect("configure a released host key or a local native fixture"),
+        );
+        let name = library.file_name().unwrap().to_str().unwrap();
+        let copied = fixtures.path().join(name);
+        std::fs::copy(&library, &copied).unwrap();
+        let digest = tinybus::module::sha256_file(&copied).unwrap();
+        std::fs::write(
+            fixtures.path().join("modules.toml"),
+            format!("\"{name}\" = \"{digest}\"\n"),
+        )
+        .unwrap();
+        host.load_file_with_config(&copied, configuration).unwrap();
+        super::super::ModuleRecord {
+            id: MODULE_ID,
+            description: "test-only hashed native fixture",
+            bus_name: names::INTERFACE,
+            object_path: names::OBJECT_PATH,
+            version: "test-only",
+            release_url: "https://example.invalid",
+            assets: Box::leak(
+                vec![super::super::PlatformAsset {
+                    host_key: "test-only",
+                    archive: "test-only-library",
+                    sha256: Box::leak(digest.into_boxed_str()),
+                }]
+                .into_boxed_slice(),
+            ),
+            load: super::super::LoadPolicy::Eager,
+        }
+    };
     let client = Connection::connect(transport.connect().await.unwrap())
         .await
         .unwrap();

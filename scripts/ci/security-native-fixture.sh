@@ -1,24 +1,28 @@
 #!/usr/bin/env bash
-# Build the real native module for the explicitly invoked adapter fixture test.
-# Its test-only library digest never becomes a product release pin.
+# Exercise the released module through the compiled registry and archive digest.
+# For explicit local module development, set OPENHUMAN_TEST_SECURITY_MODULE.
 set -euo pipefail
 
-bash scripts/ci-cancel-aware.sh cargo build --release \
-  --manifest-path vendor/tinysecurity/Cargo.toml -p tinysecurity-module
+if [[ -z "${OPENHUMAN_TEST_SECURITY_MODULE:-}" ]]; then
+  case "$(uname -s)" in
+    Darwin)
+      case "$(uname -m)" in
+        arm64) security_host="macos-15-arm64" ;;
+        x86_64) security_host="macos-15-x86_64" ;;
+        *) echo "Unsupported macOS architecture" >&2; exit 1 ;;
+      esac ;;
+    Linux)
+      case "$(uname -m)" in
+        aarch64) security_host="ubuntu-22.04-arm64" ;;
+        x86_64) security_host="ubuntu-22.04-x86_64" ;;
+        *) echo "Unsupported Linux architecture" >&2; exit 1 ;;
+      esac ;;
+    MINGW* | MSYS* | CYGWIN*) security_host="windows-2025-x86_64" ;;
+    *) echo "Unsupported native security fixture host" >&2; exit 1 ;;
+  esac
+  export OPENHUMAN_TEST_SECURITY_RELEASE_HOST="${OPENHUMAN_TEST_SECURITY_RELEASE_HOST:-$security_host}"
+fi
 
-case "$(uname -s)" in
-  Darwin) security_library="libtinysecurity_module.dylib" ;;
-  Linux) security_library="libtinysecurity_module.so" ;;
-  MINGW* | MSYS* | CYGWIN*) security_library="tinysecurity_module.dll" ;;
-  *) echo "Unsupported native security fixture host" >&2; exit 1 ;;
-esac
-
-export OPENHUMAN_TEST_SECURITY_MODULE="$PWD/vendor/tinysecurity/target/release/$security_library"
-test -f "$OPENHUMAN_TEST_SECURITY_MODULE"
-
-# CI container checkouts may be owned by the host runner uid. Copy the test
-# library under the current user's owned ancestors for strict native admission.
-# Compiled build output stays in the vendored checkout's target directory.
 export OPENHUMAN_TEST_SECURITY_FIXTURE_DIR="$HOME/.cache/openhuman-security-fixtures"
 mkdir -p "$OPENHUMAN_TEST_SECURITY_FIXTURE_DIR"
 

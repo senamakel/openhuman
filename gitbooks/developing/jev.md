@@ -7,7 +7,7 @@ icon: scale-balanced
 
 # Jev
 
-Jev is a decision model, not a text generator. Give it a request and a handful of labelled options, and it returns a calibrated probability for each one in about 150 milliseconds. OpenHuman uses it as a fast, cheap judge wherever a turn must pick from a short list instead of writing prose. That means tool selection during a search and step-by-step browser control.
+Jev is a decision model, not a text generator. Give it a request and a handful of labelled options, and it returns a calibrated probability for each one in about 150 milliseconds. OpenHuman uses it as a fast, cheap judge wherever a turn must pick from a short list instead of writing prose. That means tool selection during a search, step-by-step browser control and optional advice about unresolved tool failures.
 
 The models are `jev-1.13` and `jev-latest`, built by TypeSafe AI. OpenHuman reaches them through the TinyHumans System One proxy or, on a bring-your-own-key OpenRouter route, directly. Input costs $0.042 per million tokens and output is free. A typical tool search uses one to two thousand tokens. There is no session, no chain of thought and nothing to stream: one request, one set of probabilities.
 
@@ -16,7 +16,7 @@ The models are `jev-1.13` and `jev-latest`, built by TypeSafe AI. OpenHuman reac
 Jev answers three kinds of question. They are defined in `tinyjevclient`:
 
 - Choice: probabilities over a set of named options. The caller can take the best one, the top three, or drop everything below a confidence floor.
-- Score: one calibrated number for one thing, instead of a choice among several.
+- Score: a probability distribution over ordered rubric categories. Recovery uses its expectation as a correction-feasibility score; that score is not a probability of success.
 - Noul: a yes/no probability. OpenHuman uses it to ask "does this apply at all" instead of "which of these applies".
 
 Tool search sends a Choice and a Noul in the same request. The Choice picks a tool from the shortlist (plus a `none` option), and the Noul says whether the request needs a tool at all. Browser control calls Jev once per step to decide the next action.
@@ -43,6 +43,53 @@ The tinyagents harness owns the `tool_search` / `tool_call` bridge over every to
 The ranker resolves its Jev route and credential on every search instead of caching them at install time, because a desktop can sign in and out while the process keeps running. The route is `agent.tool_search.jev_route` (see [Configuration](#configuration)): the TinyHumans proxy, TypeSafe's own API, or OpenRouter's System One API. The built Jev client is cached by route, credential and backend URL, so a stable session does not rebuild an HTTP client on every search.
 
 If the process has no usable embedding provider, `TinyHumansJevRanker` declines and the harness uses its own BM25 ranking. Running Jev over a lexical shortlist would only add a network round trip for no gain.
+
+### Tool failure recovery
+
+Tool recovery is opt-in. The default classifier remains `keywords`; `compare` and
+`jev` consult a separate decision contract for failures that trusted host facts and
+the existing keyword rules have not settled. This recovery request is distinct from
+tool search: its Choice classifies a failure, its Noul asks whether a permitted next
+attempt can recover without an external prerequisite, and a Score is included only
+when a concrete correction is evidenced.
+
+TinyTools owns the provider-neutral observation, question wording, distributions,
+validation and `RecoveryAdviser` in `tinytools-jev::recovery`. OpenHuman supplies the
+transport and applies its execution policy. A classification cannot grant permission,
+renew approval, establish that a write did not happen, or automatically execute a
+tool. Success, denial, expired approval, cancellation, terminal faults and trusted
+authentication or permission facts take precedence. The host also excludes executed
+writes with uncertain effects from decision evaluation.
+
+A request contains a minimized, scrubbed diagnostic and bounded argument names and
+types. It carries no transcript or raw argument values. Diagnostics that cannot be
+safely minimized are skipped. Provider errors, malformed answers, contradictory
+advice, low confidence, cancellation and exhausted decision limits retain the
+existing keyword fallback and repeated-failure guards. Every failed invocation
+still counts against its stable operation and resource scope; advice cannot increase
+retry headroom or reset that accounting.
+
+In `jev` mode, validated advice can lower a failure ceiling or add a nudge for the
+next model request. The model still chooses its next call through the normal tool
+bridge, permissions and approval gates. Nudges are ephemeral: the original tool
+result and durable transcript stay intact, and the session's frozen system prompt
+and tool declarations are preserved. `compare` evaluates observationally and
+leaves those model-facing results, nudges and failure decisions unchanged.
+
+With `alternate_tools = true`, a confidently classified wrong-tool failure or a
+counted repeated blocker can request an alternate. Candidates come from the turn's
+registered, callable, read-only tools and exclude refused capabilities. An alternate
+is advice for the main model, and its eventual call still passes ordinary admission.
+Classification and alternate evaluation share one total deadline and both consume
+the per-run decision limit.
+
+The host snapshots recovery configuration, route and credential when assembling a
+turn. It does not switch credentials during that run. Recovery inherits the tool
+search route and origin when its own settings are absent; an explicit route uses
+only that route's credential. Each advisory evaluation has one total deadline,
+including provider work, capped at three seconds and the run's remaining wall-clock
+time. Cancellation and a per-run decision limit also bound it. The built-in transport
+makes a single attempt.
 
 ### Browser control
 
@@ -96,6 +143,45 @@ top_k = 3
 
 Without an embedding provider, or without a credential for the selected route, tool search falls back to BM25 automatically. `auto` and `jev` therefore cost nothing extra when no credential is set. A setup with no TinyHumans account needs an embedding provider that does not depend on one (for example `memory.embedding_provider = "custom:<OpenAI-compatible endpoint>"`) and a TypeSafe or OpenRouter key.
 
+### Recovery configuration
+
+`RecoveryConfig` (`crates/openhuman-core/src/config/schema/recovery.rs`) is the
+separate `[agent.recovery]` block:
+
+```toml
+[agent.recovery]
+classifier = "keywords" # default; "off" | "compare" | "jev"
+decision_timeout_ms = 3000 # 1..=3000, also bounded by remaining run time
+max_decisions_per_run = 8 # 1..=64
+alternate_tools = false # opt-in advice from admitted read-only tools
+# jev_route = "typesafe" # absent: inherit agent.tool_search.jev_route
+# jev_base_url = "https://api.example.com" # absent: inherit tool search origin
+threshold_version = "provisional-v1"
+class_confidence = 0.75
+recoverability = 0.75
+advice_confidence = 0.75
+repeated_blocker = 2
+```
+
+| Classifier | Behavior |
+| --- | --- |
+| `keywords` | Existing keyword classification and recovery guards; no decision request. |
+| `off` | No decision request; existing repeated-failure and safety guards remain active. |
+| `compare` | Evaluate unresolved eligible failures without changing model-facing behavior. |
+| `jev` | Apply validated advisory classification to unresolved eligible failures, with keyword fallback. |
+
+Thresholds are explicit provisional policy values, not a claim of measured recovery
+accuracy. Choice confidence measures distribution concentration, not correctness;
+Score expectation measures ordered feasibility, not success probability. The tool
+search benchmark below does not measure recovery. Recovery remains opt-in until
+separate evaluation and calibration justify changing its default.
+
+Embedders can install a `RecoveryProviderFactory` through
+`RuntimeBuilder::recovery_provider`. The factory receives the immutable turn
+configuration and returns a TinyTools `RecoveryEvaluator`, or declines so fallback
+continues. The core has no default remote provider. Dropping the runtime restores
+the previous factory if its installed factory still owns the slot.
+
 ## Running the benchmark
 
 `tool-search-bench` lives in the `profile/` crate of [openhuman-benchmarks](https://github.com/tinyhumansai/openhuman-benchmarks). From a checkout of that repository:
@@ -110,8 +196,10 @@ cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --dump-c
 
 ## Where the code lives
 
-- `vendor/tinyagents/vendor/tinytools/crates/tinytools-jev/`: the transport-neutral `ToolRanker` implementation, its retrieval strategies and the `JevRankerConfig` / `JevRanking` types.
-- `crates/openhuman-tinyhumans/src/jev/`: the TinyHumans evaluator (`TinyJevEvaluator`, over `tinyjevclient`) and the process-installed ranker (`TinyHumansJevRanker`).
+- `vendor/tinyagents/vendor/tinytools/crates/tinytools-jev/`: the transport-neutral `ToolRanker` implementation, retrieval strategies and ranking types; `src/recovery/` owns the separate advisory contract and validation.
+- `crates/openhuman-tinyhumans/src/jev/`: the TinyHumans evaluator (`TinyJevEvaluator`, over `tinyjevclient`), the process-installed ranker (`TinyHumansJevRanker`) and the mechanical recovery transport (`recovery.rs`).
+- `crates/openhuman-core/src/agent/tinyagents/recovery_provider.rs` and `middleware/recovery_advice.rs`: the installed recovery seam, run bounds, minimized observations and advice projection.
+- `crates/openhuman-core/src/config/schema/recovery.rs`: the recovery configuration and bounds.
 - `crates/openhuman-core/src/agent/tinyagents/discovery/`: the host slot that holds the installed ranker and turns `[agent.tool_search]` into the policy a turn runs with.
 - `crates/openhuman-core/src/modules/browser_task.rs`: the browser-task entry point that runs `JevController`.
 - [`docs/plans/jev-tool-search-baseline.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/plans/jev-tool-search-baseline.md): the full benchmark writeup.

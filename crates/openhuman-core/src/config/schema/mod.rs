@@ -147,3 +147,10 @@ pub use voice_providers::{
 };
 mod types;
 pub use types::*;
+
+#[cfg(test)]
+#[path = "recovery_tests.rs"]
+mod recovery_tests;
+
+mod recovery;
+pub use recovery::{RecoveryClassifier, RecoveryConfig};

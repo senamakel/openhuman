@@ -135,6 +135,7 @@ impl RequiredOutputContract {
 #[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
 #[serde(default)]
 pub struct AgentConfig {
+    pub recovery: super::RecoveryConfig,
     /// When true: bootstrap_max_chars=6000, rag_chunk_limit=2. Use for 13B or smaller models.
     #[serde(default)]
     pub compact_context: bool,
@@ -511,6 +512,7 @@ impl Default for AgentConfig {
             required_output: None,
             agents_md_enabled: default_agents_md_enabled(),
             tool_search: ToolSearchConfig::default(),
+            recovery: super::RecoveryConfig::default(),
         }
     }
 }

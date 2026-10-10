@@ -313,3 +313,12 @@ pub mod providers {
 }
 
 pub use agent_progress::AgentProgress;
+
+/// Advisory recovery extension types; core has no default remote provider.
+pub mod recovery {
+    pub use openhuman_core::agent::tinyagents::recovery_provider::{
+        install_recovery_provider, RecoveryAnswer, RecoveryDecision, RecoveryEffect,
+        RecoveryEvaluator, RecoveryObservation, RecoveryPhase, RecoveryProviderFactory,
+        RecoveryQuestion, RecoveryRequest,
+    };
+}

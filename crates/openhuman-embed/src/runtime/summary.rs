@@ -51,6 +51,8 @@ pub struct BuilderSummary {
     pub controller_extensions: Vec<DomainGroup>,
     /// The [`kind`](tinytools::ToolRanker::kind) of the tool ranker.
     pub tool_ranker: Option<String>,
+    /// Whether an advisory recovery factory was supplied.
+    pub has_recovery_provider: bool,
     /// Names of configured post-turn hooks.
     pub post_turn_hooks: Vec<String>,
     /// Names of configured tool hooks.
@@ -92,6 +94,7 @@ impl RuntimeBuilder {
                 .tool_ranker
                 .as_ref()
                 .map(|ranker| ranker.kind().to_string()),
+            has_recovery_provider: self.seams.recovery_provider.is_some(),
             post_turn_hooks: self
                 .seams
                 .post_turn_hooks

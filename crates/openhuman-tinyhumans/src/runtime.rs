@@ -122,6 +122,16 @@ impl RuntimeBuilder {
         self
     }
 
+    /// Use a host recovery evaluator factory instead of the connected default.
+    /// The embed runtime restores the previous factory when it drops.
+    pub fn recovery_provider(
+        mut self,
+        factory: openhuman_embed::recovery::RecoveryProviderFactory,
+    ) -> Self {
+        self.inner = self.inner.recovery_provider(factory);
+        self
+    }
+
     /// A `tool_search` ranker of the host's own, in place of the Jev ranker.
     /// See [`openhuman_embed::RuntimeBuilder::tool_ranker`].
     pub fn tool_ranker(mut self, ranker: Arc<dyn ToolRanker>) -> Self {
@@ -275,6 +285,12 @@ impl RuntimeBuilder {
                 log::debug!("[tinyhumans] host tool ranker kept; Jev ranker skipped");
             } else {
                 inner = inner.tool_ranker(ranker);
+            }
+        }
+        #[cfg(feature = "jev")]
+        {
+            if !inner.summary().has_recovery_provider {
+                inner = inner.recovery_provider(crate::jev::recovery::recovery_provider());
             }
         }
         Ok(inner)

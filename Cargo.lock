@@ -4574,6 +4574,7 @@ dependencies = [
  "tinystoragedrivers",
  "tinytools",
  "tinytools-agent",
+ "tinytools-jev",
  "tinytools-std",
  "tinyvoice",
  "tinyvoice-bus",

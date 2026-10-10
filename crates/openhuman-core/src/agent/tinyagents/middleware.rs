@@ -36,6 +36,8 @@ mod loop_guards;
 mod memory_pack;
 mod nudge_injector;
 mod packed_tool_route;
+mod recovery_advice;
+mod recovery_telemetry;
 mod repeated_failure;
 mod research_budget;
 mod shell_turn_budget;

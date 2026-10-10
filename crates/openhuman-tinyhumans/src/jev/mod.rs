@@ -19,6 +19,7 @@
 
 mod evaluator;
 mod ranker;
+pub mod recovery;
 mod route;
 
 pub use evaluator::TinyJevEvaluator;

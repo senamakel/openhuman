@@ -183,6 +183,7 @@ tinyinference-voice = { path = "../../vendor/tinyagents/vendor/tinyinference/cra
 # No `[patch.crates-io]` entry: the crate is not published, so the path is the
 # whole address — the same arrangement as `tinyhumans-sdk` and the `-bus`
 # crates. After cloning: `git submodule update --init --recursive vendor/`.
+tinytools-jev = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-jev" }
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tinytools-agent = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-agent" }
 tinytools-std = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-std" }

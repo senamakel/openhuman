@@ -366,3 +366,41 @@ async fn an_unopenable_storage_url_fails_the_open() {
     let error = seams.open_storage().await.expect_err("bad url");
     assert!(error.contains("storage backend"), "{error}");
 }
+
+static RECOVERY_LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+#[test]
+fn dropping_recovery_seam_restores_previous_factory_and_preserves_replacement() {
+    let _guard = RECOVERY_LOCK.lock().unwrap();
+    let original = installed_recovery_provider();
+    let previous: RecoveryProviderFactory = Arc::new(|_| None);
+    install_recovery_provider(previous.clone());
+    let ours: RecoveryProviderFactory = Arc::new(|_| None);
+    let installed = HostSeams {
+        recovery_provider: Some(ours),
+        ..Default::default()
+    }
+    .install()
+    .unwrap();
+    drop(installed);
+    assert!(Arc::ptr_eq(
+        &installed_recovery_provider().unwrap(),
+        &previous
+    ));
+    let installed = HostSeams {
+        recovery_provider: Some(Arc::new(|_| None)),
+        ..Default::default()
+    }
+    .install()
+    .unwrap();
+    let replacement: RecoveryProviderFactory = Arc::new(|_| None);
+    install_recovery_provider(replacement.clone());
+    drop(installed);
+    assert!(Arc::ptr_eq(
+        &installed_recovery_provider().unwrap(),
+        &replacement
+    ));
+    match original {
+        Some(p) => install_recovery_provider(p),
+        None => clear_recovery_provider(),
+    }
+}

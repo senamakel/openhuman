@@ -246,6 +246,7 @@ pub(super) fn assemble_turn_harness(
     }
 
     // Capture context settings before `install` consumes `context_mw`.
+    let recovery_config = context_mw.runtime_config.clone();
     let autocompact_enabled = context_mw.autocompact_enabled;
     let compaction = context_mw.compaction;
     // Captured for the same reason `autocompact_enabled` is — `install` consumes
@@ -319,7 +320,10 @@ pub(super) fn assemble_turn_harness(
     // on failing calls; side effects come from the tools' own declarations.
     let repeated_failure = handle.as_ref().map(|handle| {
         let (t, halt) = (REPEATED_TOOL_FAILURE_THRESHOLD, halt_summary.clone());
-        let mw = middleware::RepeatedToolFailureMiddleware::new(handle.clone(), t, halt);
+        let mut mw = middleware::RepeatedToolFailureMiddleware::new(handle.clone(), t, halt);
+        if let Some(config) = &recovery_config {
+            mw = mw.with_recovery(config);
+        }
         Arc::new(mw.with_tool_facts(middleware::tool_sets_lookup(tool_sets.clone())))
     });
     if let Some(mw) = &repeated_failure {
@@ -360,6 +364,10 @@ pub(super) fn assemble_turn_harness(
             has_thread,
             &session_deferred,
         );
+
+    if let Some(mw) = &repeated_failure {
+        mw.set_recovery_registry(harness.tools(), tool_policy.as_ref().map(|p| &p.session));
+    }
 
     // SHADOW tool-exposure layer (issue #4249, 01.3 — dynamic exposure). Compose
     // the OpenHuman exposure policy as a crate-native selection layer

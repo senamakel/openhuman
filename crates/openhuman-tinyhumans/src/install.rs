@@ -199,6 +199,8 @@ pub(crate) fn wiring(options: &InstallOptions) -> Result<Wiring, InstallError> {
 /// resolves the process global when a context carries none.
 pub fn install(options: InstallOptions) -> Result<Arc<SdkBackendTransport>, InstallError> {
     let (controllers, ranker) = prepare(&options);
+    #[cfg(feature = "jev")]
+    openhuman_embed::recovery::install_recovery_provider(crate::jev::recovery::recovery_provider());
 
     if let Some(extension) = controllers {
         // Idempotent in the core: an identical re-registration is a no-op.

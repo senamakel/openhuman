@@ -104,112 +104,12 @@ pub(crate) struct RepeatedToolFailureMiddleware {
     /// The registered tools' declarations (read-only policy, external effect,
     /// permission level). Without it only tool names are read.
     tool_facts: Option<ToolFactsLookup>,
+    recovery: Option<super::recovery_advice::RunRecovery>,
+    recovery_shapes: Mutex<std::collections::HashMap<String, (String, CallEffect)>>,
 }
 
-impl RepeatedToolFailureMiddleware {
-    /// Build the breaker. `identical_threshold` (the identical-signature retry
-    /// ceiling) is handed straight to [`NoProgressTracker::new`], which clamps it
-    /// so a nudge always precedes a halt (a single failure is never a loop).
-    pub(crate) fn new(
-        handle: SteeringHandle,
-        identical_threshold: usize,
-        halt_summary: crate::agent::tinyagents::HaltSummarySlot,
-    ) -> Self {
-        Self {
-            handle,
-            halt_summary,
-            tracker: NoProgressTracker::new(identical_threshold),
-            classified: ClassifiedFailureTracker::default(),
-            last_exit_report: std::sync::Mutex::default(),
-            step: AtomicUsize::new(0),
-            arg_sigs: std::sync::Mutex::new(std::collections::HashMap::new()),
-            target_scopes: std::sync::Mutex::new(std::collections::HashMap::new()),
-            recoverable_sig_counts: std::sync::Mutex::new(std::collections::HashMap::new()),
-            recoverable_consecutive: AtomicU32::new(0),
-            pending_nudges: Arc::new(Mutex::new(Vec::new())),
-            call_effects: std::sync::Mutex::new(std::collections::HashMap::new()),
-            tool_facts: None,
-        }
-    }
-
-    /// Judge each call's side effect from the registered tools' own
-    /// declarations ([`super::call_effect::tool_sets_lookup`]) rather than
-    /// from tool names alone.
-    pub(crate) fn with_tool_facts(mut self, lookup: ToolFactsLookup) -> Self {
-        self.tool_facts = Some(lookup);
-        self
-    }
-
-    /// The request-scoped half of this breaker. Register it **last**: its
-    /// `before_model` must run after the transcript snapshot (which a failed
-    /// turn persists) and after every reduction step.
-    pub(crate) fn nudge_injector(&self) -> PendingNudgeInjector {
-        PendingNudgeInjector {
-            pending: self.pending_nudges.clone(),
-        }
-    }
-
-    fn queue_nudge(&self, instruction: impl Into<String>) {
-        if let Ok(mut pending) = self.pending_nudges.lock() {
-            pending.push(instruction.into());
-        }
-    }
-
-    /// Drain the queued nudges (what the injector does before a request).
-    #[cfg(test)]
-    pub(crate) fn take_pending_nudges(&self) -> Vec<String> {
-        self.pending_nudges
-            .lock()
-            .map(|mut pending| std::mem::take(&mut *pending))
-            .unwrap_or_default()
-    }
-
-    /// Clear the consecutive recoverable-failure streak. Called on any success or
-    /// non-recoverable failure (the per-signature identical counts persist across
-    /// the turn, matching the legacy guard). Idempotent.
-    fn reset_recoverable_streak(&self) {
-        self.recoverable_consecutive.store(0, Ordering::SeqCst);
-    }
-
-    /// Record one recoverable failure and return a root-cause halt summary once
-    /// its extended headroom is exhausted (identical `>=` [`RECOVERABLE_REPEAT_FAILURE_THRESHOLD`]
-    /// or consecutive `>=` [`RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD`]).
-    fn record_recoverable(&self, tool: &str, arg_fp: &str, failure_text: &str) -> Option<String> {
-        let key = format!("{tool}\u{1f}{arg_fp}");
-        let count = self
-            .recoverable_sig_counts
-            .lock()
-            .ok()
-            .map(|mut counts| {
-                let c = counts.entry(key).or_insert(0);
-                *c += 1;
-                *c
-            })
-            .unwrap_or(0);
-        let consecutive = self.recoverable_consecutive.fetch_add(1, Ordering::SeqCst) + 1;
-        tracing::debug!(
-            tool,
-            count,
-            consecutive,
-            "[tinyagents::mw] recoverable tool failure recorded with extended circuit-breaker headroom"
-        );
-        if count >= RECOVERABLE_REPEAT_FAILURE_THRESHOLD {
-            return Some(recoverable_identical_halt_summary(
-                tool,
-                count,
-                failure_text,
-            ));
-        }
-        if consecutive >= RECOVERABLE_NO_PROGRESS_FAILURE_THRESHOLD {
-            return Some(recoverable_no_progress_halt_summary(
-                consecutive,
-                tool,
-                failure_text,
-            ));
-        }
-        None
-    }
-}
+#[path = "repeated_failure_state.rs"]
+mod state;
 
 /// The first line of a failure, plus the first stderr line when the text is a
 /// command exit report -- that is where a program's own reason tends to be.
@@ -357,6 +257,23 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             scopes.insert(call.id.clone(), failure_scope(&call.name, &call.arguments));
         }
         let effect = call_effect(self.tool_facts.as_ref(), &call.name, &call.arguments);
+        // New remote advice trusts only host registry declarations; name guesses
+        // remain confined to the pre-existing keyword policy.
+        let advisory_effect = self
+            .tool_facts
+            .as_ref()
+            .and_then(|f| f(&call.name, &call.arguments))
+            .filter(|f| !f.external && !f.elevated && f.classified == Some(CallEffect::ReadOnly))
+            .map_or(CallEffect::Unknown, |_| CallEffect::ReadOnly);
+        if let Ok(mut shapes) = self.recovery_shapes.lock() {
+            shapes.insert(
+                call.id.clone(),
+                (
+                    super::recovery_advice::argument_shape(&call.arguments),
+                    advisory_effect,
+                ),
+            );
+        }
         tracing::trace!(
             tool = %call.name,
             call_id = %call.id,
@@ -377,6 +294,17 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         result: &mut TaToolResult,
     ) -> TaResult<()> {
         let tool_name = invocation.tool_name();
+        let (shape, advisory_effect) = self
+            .recovery_shapes
+            .lock()
+            .ok()
+            .and_then(|mut m| m.remove(&invocation.call_id().to_string()))
+            .unwrap_or_else(|| (String::new(), CallEffect::Unknown));
+        if result.is_error {
+            if let Some(recovery) = &self.recovery {
+                recovery.record_failure(tool_name);
+            }
+        }
         let content = crate::agent::tinyagents::middleware::tool_result_text(result);
         let arg_fp = self
             .arg_sigs
@@ -427,6 +355,9 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
         let heuristic_failure_text = heuristic_text(tool_name, &failure_text);
 
         if !result.is_error && !body_level_failure {
+            if let Some(recovery) = &self.recovery {
+                recovery.clear(&scope);
+            }
             // Only a successful observation against this operation and scope
             // demonstrates that its blocker changed. Unrelated successes do not.
             for class in [
@@ -671,6 +602,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             recoverable_miss: false,
         };
 
+        let mut tracker_halted = false;
         match self.tracker.record(step, &attempt) {
             NoProgress::Continue => {}
             NoProgress::Nudge(instruction) => {
@@ -686,6 +618,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 self.queue_nudge(instruction);
             }
             NoProgress::Halt(summary) => {
+                tracker_halted = true;
                 // #4092: if the blocker is user-actionable (a missing connection),
                 // escalate with a concrete ask instead of the crate's generic
                 // "unreachable environment, report back" summary.
@@ -712,6 +645,44 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 // and idempotent).
                 self.handle.send(SteeringCommand::Pause);
                 self.tracker.reset();
+            }
+        }
+        // All hard/keyword/terminal/recoverable paths have already returned.
+        // Count this unknown invocation exactly once in the existing tracker,
+        // regardless of provider success. Compare never changes visible state.
+        if !tracker_halted
+            && attempt_error.is_some()
+            && !hard_reject
+            && !exit_report
+            && !body_level_failure
+            && !is_repeat_call_exempt(tool_name)
+        {
+            if let Some(recovery) = &self.recovery {
+                let safe = super::recovery_advice::diagnostic(&failure_text);
+                // Unsafe excerpts abstain while preserving stable accounting.
+                let (halt, nudge) = recovery
+                    .advise(
+                        _ctx,
+                        &scope,
+                        tool_name,
+                        shape,
+                        safe.as_deref()
+                            .unwrap_or("Tool failed; diagnostic cannot be safely minimized"),
+                        if safe.is_some() {
+                            advisory_effect
+                        } else {
+                            CallEffect::Unknown
+                        },
+                    )
+                    .await;
+                if halt {
+                    if let Ok(mut slot) = self.halt_summary.lock() {
+                        *slot = Some(format!("The `{tool_name}` operation remains blocked. Stop this operation and report the blocker; existing permissions still apply."));
+                    }
+                    self.handle.send(SteeringCommand::Pause);
+                } else if let Some(nudge) = nudge {
+                    self.queue_nudge(nudge);
+                }
             }
         }
         Ok(())

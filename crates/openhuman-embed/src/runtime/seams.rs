@@ -10,6 +10,7 @@
 //! |---|---|---|
 //! | [`controller_extension`](RuntimeBuilder::controller_extension) | before boot | kept: the registry has no removal; re-registering the same controllers is a no-op |
 //! | [`tool_ranker`](RuntimeBuilder::tool_ranker) | before boot | the previous ranker is restored, if ours still holds the slot |
+//! | [`recovery_provider`](RuntimeBuilder::recovery_provider) | before boot | the previous factory is restored, if ours still holds the slot |
 //! | [`post_turn_hook`](RuntimeBuilder::post_turn_hook) / [`tool_hook`](RuntimeBuilder::tool_hook) | before boot, replacing a same-named hook | newest first, while ours still holds the name: ours removed, a replaced same-named hook restored |
 //! | [`server_launcher`](RuntimeBuilder::server_launcher) | before boot | kept: first install wins for the process |
 //! | [`live_policy`](RuntimeBuilder::live_policy) | after boot | kept: the next boot (or a config reload) installs its own |
@@ -19,6 +20,11 @@
 //! one derived from the config; installing earlier would be overwritten. A
 //! later `config.update_autonomy_settings` reload or channel startup rebuilds
 //! the policy from config again — the override lasts until then.
+
+use openhuman_core::agent::tinyagents::recovery_provider::{
+    clear_recovery_provider, install_recovery_provider, installed_recovery_provider,
+    RecoveryProviderFactory,
+};
 
 use std::sync::Arc;
 
@@ -81,6 +87,7 @@ impl From<Arc<dyn StorageBackend>> for StorageSource {
 pub(crate) struct HostSeams {
     pub(crate) controller_extensions: Vec<ControllerExtension>,
     pub(crate) tool_ranker: Option<Arc<dyn ToolRanker>>,
+    pub(crate) recovery_provider: Option<RecoveryProviderFactory>,
     pub(crate) post_turn_hooks: Vec<Arc<dyn PostTurnHook>>,
     pub(crate) tool_hooks: Vec<Arc<dyn ToolHook>>,
     pub(crate) server_launcher: Option<ServerLauncher>,
@@ -211,7 +218,13 @@ impl HostSeams {
             None => None,
         };
 
+        let recovery_provider = self.recovery_provider.map(|ours| {
+            let previous = installed_recovery_provider();
+            install_recovery_provider(ours.clone());
+            (ours, previous)
+        });
         Ok(InstalledSeams {
+            recovery_provider,
             storage,
             ranker,
             post_turn_hooks,
@@ -238,6 +251,7 @@ struct InstalledHook<H: ?Sized> {
 /// Seams a runtime installed. Dropping it restores the restorable ones; see
 /// the module docs.
 pub(crate) struct InstalledSeams {
+    recovery_provider: Option<(RecoveryProviderFactory, Option<RecoveryProviderFactory>)>,
     storage: Option<InstalledStorage>,
     ranker: Option<InstalledRanker>,
     /// Our hooks, in install order, each with the same-named hook it replaced.
@@ -340,6 +354,14 @@ impl Drop for InstalledSeams {
         if !self.restore {
             return;
         }
+        if let Some((ours, previous)) = self.recovery_provider.take() {
+            if installed_recovery_provider().is_some_and(|now| Arc::ptr_eq(&now, &ours)) {
+                match previous {
+                    Some(previous) => install_recovery_provider(previous),
+                    None => clear_recovery_provider(),
+                }
+            }
+        }
         if let Some((ours, previous)) = self.storage.take() {
             let still_ours =
                 openhuman_core::storage::installed().is_some_and(|now| Arc::ptr_eq(&now, &ours));
@@ -414,6 +436,12 @@ impl RuntimeBuilder {
     /// registering identical controllers again is a no-op.
     pub fn controller_extension(mut self, extension: ControllerExtension) -> Self {
         self.seams.controller_extensions.push(extension);
+        self
+    }
+
+    /// Installs an advisory recovery factory, restored when the runtime drops.
+    pub fn recovery_provider(mut self, provider: RecoveryProviderFactory) -> Self {
+        self.seams.recovery_provider = Some(provider);
         self
     }
 

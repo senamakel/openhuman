@@ -86,6 +86,8 @@ remain unchanged until compatible upstream releases are available.
 
 | TinyConnectors argument preparation, task filtering, structured provider errors and leased archives | [tinyconnectors#46](https://github.com/tinyhumansai/tinyconnectors/pull/46) | 423 tests; dynamic artifact calls; user archive lifecycle fixtures; pure contract audit; per-file coverage at least 90% |
 
+| TinyWallet contract dependency cut and module-side address validation | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 735 tests; four-chain signing fixtures; dynamic artifact E2E; pure contract audit; all 94 source files at least 90% coverage |
+
 The TinyDocs and TinyJuice operations need new published module artifacts.
 TinyHosts keeps existing member arities and wire forms. No local build digest
 has been used as a release pin, and these PRs do not yet remove any host exception.

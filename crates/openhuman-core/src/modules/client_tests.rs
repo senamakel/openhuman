@@ -17,10 +17,12 @@ async fn unknown_modules_are_not_loaded_or_reported_using_untrusted_ids() {
         .call::<serde_json::Value>("private-user-path-and-token", "Anything", ())
         .await;
     assert_eq!(result, Err(ModuleCallError::Unavailable));
-    assert!(!result
-        .unwrap_err()
-        .to_string()
-        .contains("private-user-path-and-token"));
+    assert!(
+        !result
+            .unwrap_err()
+            .to_string()
+            .contains("private-user-path-and-token")
+    );
 }
 
 #[cfg(not(feature = "modules"))]
@@ -110,12 +112,21 @@ impl BusFixture {
             detail: "module stopped accepting calls".to_string(),
         })
     }
+
+    async fn malformed_json(&self) -> tinybus::Result<String> {
+        Ok("{ private response data".to_owned())
+    }
+
+    async fn delayed(&self) -> tinybus::Result<()> {
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+        Ok(())
+    }
 }
 
 #[cfg(all(feature = "modules", feature = "crash-reporting"))]
 #[test]
 fn independent_invocation_faults_report_separately_around_a_success() {
-    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
+    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -180,7 +191,7 @@ fn independent_invocation_faults_report_separately_around_a_success() {
 #[cfg(all(feature = "modules", feature = "crash-reporting"))]
 #[test]
 fn cached_native_module_unavailability_is_reported_once() {
-    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
+    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
     let runtime = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -234,7 +245,7 @@ fn cached_native_module_unavailability_is_reported_once() {
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn bus_calls_preserve_tuple_arity_and_never_downgrade_confidentiality() {
-    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
+    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
     let bus = MemoryBus::new();
     Broker::new().spawn(bus.clone());
     let service = Connection::connect(bus.connect().await.unwrap())
@@ -277,6 +288,99 @@ async fn bus_calls_preserve_tuple_arity_and_never_downgrade_confidentiality() {
         invoke_proxy::<()>(record, &proxy, "MissingMember", (), false).await,
         Err(ModuleCallError::IncompatibleContract)
     );
+}
+
+#[cfg(feature = "modules")]
+#[test]
+fn configured_client_timeout_overrides_the_default_for_fixture_calls() {
+    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let (proxy, _service) = runtime.block_on(async {
+        let bus = MemoryBus::new();
+        Broker::new().spawn(bus.clone());
+        let service = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        let caller = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        service
+            .serve_at(
+                ObjectPath::new("/test/ModuleClient").unwrap(),
+                BusFixture(std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0))),
+            )
+            .await
+            .unwrap();
+        service.request_name("test.ModuleClient").await.unwrap();
+        let proxy = caller
+            .proxy(
+                "test.ModuleClient",
+                "/test/ModuleClient",
+                "test.ModuleClient",
+            )
+            .unwrap();
+        (proxy, service)
+    });
+    let client = ModuleClient::fixture(proxy).with_timeout(std::time::Duration::from_millis(5));
+    let result = runtime.block_on(client.call::<()>("tinysearch", "Delayed", ()));
+    assert_eq!(result, Err(ModuleCallError::TransportFailed));
+}
+
+#[cfg(all(feature = "modules", feature = "crash-reporting"))]
+#[test]
+fn malformed_inner_json_from_a_real_bus_reply_is_reported_as_a_sanitized_fault() {
+    use tinybus::{Connection, ObjectPath, broker::Broker, transport::memory::MemoryBus};
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let (proxy, _service) = runtime.block_on(async {
+        let bus = MemoryBus::new();
+        Broker::new().spawn(bus.clone());
+        let service = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        let caller = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        service
+            .serve_at(
+                ObjectPath::new("/test/ModuleClient").unwrap(),
+                BusFixture(std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0))),
+            )
+            .await
+            .unwrap();
+        service.request_name("test.ModuleClient").await.unwrap();
+        let proxy = caller
+            .proxy(
+                "test.ModuleClient",
+                "/test/ModuleClient",
+                "test.ModuleClient",
+            )
+            .unwrap();
+        (proxy, service)
+    });
+    let client = ModuleClient::fixture(proxy);
+    let events = sentry::test::with_captured_events(|| {
+        assert_eq!(
+            runtime.block_on(client.call_json::<serde_json::Value>(
+                "tinysearch",
+                "MalformedJson",
+                ()
+            )),
+            Err(ModuleCallError::ModuleFault)
+        );
+    });
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(
+        events[0].tags.get("reason_code").map(String::as_str),
+        Some("module_fault")
+    );
+    let captured = format!("{events:?}");
+    assert!(!captured.contains("private response data"));
 }
 
 #[cfg(feature = "crash-reporting")]

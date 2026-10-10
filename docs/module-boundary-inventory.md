@@ -84,6 +84,7 @@ remain unchanged until compatible upstream releases are available.
 | TinyComputer native permissions, confidential focus/paste and opaque Globe listeners | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | Full workspace checks; 88-member dynamic artifact verification; pure contract audit; native bridge 100% line coverage |
 | TinyConnectors argument preparation, task filtering, structured provider errors and leased archives | [tinyconnectors#46](https://github.com/tinyhumansai/tinyconnectors/pull/46) | 423 tests; dynamic artifact calls; user archive lifecycle fixtures; pure contract audit; per-file coverage at least 90% |
 | TinyChannels contract vocabulary separated from provider, relay, pairing and runtime behavior | [tinychannels#56](https://github.com/tinyhumansai/tinychannels/pull/56) | 1,174 default and 1,180 all-feature tests; independent contract audit and relocation review accepted; bus files at least 98.65% coverage; legacy provider/worker coverage gaps disclosed |
+| TinyBox pure contract, shell facts, reserved sandbox/process handles and acknowledged cleanup/shutdown | [tinybox#30](https://github.com/tinyhumansai/tinybox/pull/30) | 710 default and all-feature tests; 57 source files at least 90% coverage; compiled native-process artifact verification; independent lifecycle review accepted; supervised execution currently limited to Unix passthrough |
 | TinyWallet contract dependency cut and module-side address validation | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 735 tests; four-chain signing fixtures; dynamic artifact E2E; pure contract audit; all 94 source files at least 90% coverage |
 | TinyVoice device enumeration, reserved recording/continuous capture handles, bounded output and acknowledged shutdown | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | 188 tests and one doctest; 26-member compiled artifact verification; pure contract audit; covered files at least 90%, with the existing physical-device exclusion; independent lifecycle review accepted |
 | TinyMCP pure shared vocabulary, supervisor observations, server callbacks and bounded text/argument/tool rendering operations | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,470 all-feature and 1,358 default tests; dynamic 44-member artifact verification; pure contract audit; all 93 source files at least 90% coverage; independent lifecycle and vocabulary reviews accepted |
@@ -95,3 +96,7 @@ has been used as a release pin, and these PRs do not yet remove any host excepti
 TinyChannels preserves its serialized vocabulary and moves behavioral APIs to
 implementation crates, using compatibility extension traits where needed. Its
 relay/pairing/delivery bus operations and OpenHuman adapters remain outstanding.
+
+TinyBox currently refuses supervised execution on unsupported backends and platforms.
+Docker/namespace and Windows supervision, streaming, file transfer, forwarding and
+gateway operations remain required before migrating its host callers.

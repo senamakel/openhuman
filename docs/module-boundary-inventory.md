@@ -87,7 +87,7 @@ remain unchanged until compatible upstream releases are available.
 | TinyBox pure contract, shell facts, reserved sandbox/process handles and acknowledged cleanup/shutdown | [tinybox#30](https://github.com/tinyhumansai/tinybox/pull/30) | 710 default and all-feature tests; 57 source files at least 90% coverage; compiled native-process artifact verification; independent lifecycle review accepted; supervised execution currently limited to Unix passthrough |
 | TinyWallet pure contracts, address validation and stateless EVM construction with exact approval facts | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 745 all-feature and 601 default tests; four-chain signing and native/ERC-20/contract construction through the compiled artifact; pure contract audit; all 95 source files at least 90% coverage; independent construction review accepted |
 | TinyVoice device enumeration, reserved recording/continuous capture handles, bounded output and acknowledged shutdown | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | 188 tests and one doctest; 26-member compiled artifact verification; pure contract audit; covered files at least 90%, with the existing physical-device exclusion; independent lifecycle review accepted |
-| TinyRuntime pure JSONL worker vocabulary and module-owned reserve/prepare/start/request/status/stop/shutdown | [tinyruntime#29](https://github.com/tinyhumansai/tinyruntime/pull/29) | 322 all-feature and 321 default tests; 11-member compiled artifact with seven worker operations; all 42 measured production files at least 90% coverage; independent cleanup review accepted |
+| TinyRuntime pure JSONL worker vocabulary, persistent cache recipes and module-owned lifecycle | [tinyruntime#29](https://github.com/tinyhumansai/tinyruntime/pull/29) | 235 router unit tests, 6 public API tests, 61 contract tests, 35 pyserver tests and doctests; 12-member compiled artifact verifies cache preparation, reuse, adoption and rebuilding; per-file coverage gate passes; independent cleanup and cache reviews accepted |
 | TinyMCP pure shared vocabulary, supervisor observations, server callbacks and bounded text/argument/tool rendering operations | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,471 all-feature and 1,359 default tests; dynamic 44-member artifact verification; pure contract audit; all 93 source files at least 90% coverage; independent lifecycle, vocabulary and library-feature reviews accepted; external regressions cover module-disabled and host feature combinations |
 
 The TinyDocs and TinyJuice operations need new published module artifacts.
@@ -106,7 +106,7 @@ Docker/namespace and Windows supervision, streaming, file transfer, forwarding a
 gateway operations remain required before migrating its host callers.
 
 TinyRuntime’s generic worker slice does not yet replace persistent Python/model
-provisioning or the host’s linked worker path. Declarative cache recipes, Python
+provisioning or the host’s linked worker path. Declarative cache recipes are independently reviewed in the owning PR. Python
 provider integration and TinyJuice recipe ownership remain separate migrations.
 
 TinyHosts’ bounded directory preparation currently returns up to 4 MiB of source.

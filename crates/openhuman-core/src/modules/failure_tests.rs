@@ -65,3 +65,21 @@ fn reason_codes_and_stages_are_closed_vocabulary() {
         assert!(reason.stage().chars().all(|c| c.is_ascii_lowercase()));
     }
 }
+
+#[cfg(feature = "crash-reporting")]
+#[test]
+fn a_pre_core_report_without_a_sentry_client_can_be_captured_later() {
+    let record = crate::modules::registry::find("tinyhosts").unwrap();
+    let hub = std::sync::Arc::new(sentry::Hub::new_from_top(sentry::Hub::current()));
+    hub.bind_client(None);
+    sentry::Hub::run(hub, || report(record, Reason::IncompatibleContract));
+    let events = sentry::test::with_captured_events(|| {
+        report(record, Reason::IncompatibleContract);
+        report(record, Reason::IncompatibleContract);
+    });
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(
+        events[0].tags.get("module").map(String::as_str),
+        Some("tinyhosts")
+    );
+}

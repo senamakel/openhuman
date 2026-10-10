@@ -45,14 +45,6 @@ impl Reason {
 /// is bounded. Concurrent callers cannot duplicate the same terminal report.
 pub(super) fn report(record: &'static ModuleRecord, reason: Reason) {
     static REPORTED: OnceLock<Mutex<HashSet<(&'static str, Reason)>>> = OnceLock::new();
-    let first = REPORTED
-        .get_or_init(|| Mutex::new(HashSet::new()))
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert((record.id, reason));
-    if !first {
-        return;
-    }
     let platform = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
     let capture = || {
         crate::core::observability::report_error(
@@ -68,6 +60,22 @@ pub(super) fn report(record: &'static ModuleRecord, reason: Reason) {
             ],
         )
     };
+    // Pre-core embedders may call before Sentry is initialized. Do not spend
+    // the process deduplication key on an event no bound client can receive.
+    #[cfg(feature = "crash-reporting")]
+    let retain_key = sentry::Hub::current().client().is_some();
+    #[cfg(not(feature = "crash-reporting"))]
+    let retain_key = true;
+    if retain_key {
+        let first = REPORTED
+            .get_or_init(|| Mutex::new(HashSet::new()))
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .insert((record.id, reason));
+        if !first {
+            return;
+        }
+    }
     // A host may have put request payloads or user paths on its current scope.
     // These terminal events carry only the closed metadata above.
     #[cfg(feature = "crash-reporting")]

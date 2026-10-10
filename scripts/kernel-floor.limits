@@ -668,4 +668,9 @@
 # 338/316/2 2026-10-09 cron and flows on the storage ports add the first-party
 #                      tinyflows-drivers crate (one package, one name; no new
 #                      external crate, native builds unchanged).
-flows:338:316:2
+# 339/317/2 2026-10-10 Pre-core module registry vocabulary adds tinycomputer-bus
+#                      to loader-disabled builds. Only its pure contract is
+#                      added (one package/name); no native or implementation
+#                      dependency is introduced. This foundation is additive,
+#                      not a dependency-shedding claim.
+flows:339:317:2

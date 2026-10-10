@@ -5,6 +5,8 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+export const CONTRACT_REGISTRY = 'registry+https://github.com/rust-lang/crates.io-index';
+
 export const CONTRACT_CLOSURE = new Set([
   'serde', 'serde_core', 'serde_derive', 'serde_json', 'itoa', 'memchr', 'zmij',
   'thiserror', 'thiserror-impl', 'schemars', 'schemars_derive', 'dyn-clone',
@@ -66,7 +68,7 @@ export function auditGraph(metadata, roots, policy, contract = null) {
       if (path.length > 1) {
         const sourceMismatch = !contract && policy.contractManifests?.[name] &&
           packages.get(id).manifest_path !== policy.contractManifests[name];
-        const forbidden = contract ? !CONTRACT_CLOSURE.has(name) :
+        const forbidden = contract ? !CONTRACT_CLOSURE.has(name) || packages.get(id).source !== CONTRACT_REGISTRY :
           isImplementation(name, policy) || sourceMismatch;
         if (forbidden) {
           const scope = contract ?? 'hosts';

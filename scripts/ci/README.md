@@ -35,8 +35,10 @@ not a completed migration. `pnpm rust:module-boundaries:complete` additionally
 rejects all exceptions and pending contracts. Cargo failure is an audit failure.
 Generated probes and lockfiles stay in the checkout's `target/module-boundaries/`.
 
-Only `check-openhuman-rust-layout.mjs` and `check-crate-chain.mjs` are wired to a pnpm script
-(`pnpm rust:layout`); the rest are invoked directly, e.g.
+`check-openhuman-rust-layout.mjs` and `check-crate-chain.mjs` run through
+`pnpm rust:layout`. The module-boundary audit has the two pnpm commands above,
+and the ambient-access ratchet runs through `pnpm saas:ambient`. Other gates
+are invoked directly, e.g.
 `node scripts/ci/check-feature-forwarding.mjs` or
 `bash scripts/ci/orch-ip-gate.sh`, and can be run the same way locally. Every
 gate here runs from `.github/workflows/ci-lite.yml`; `ci-full.yml` does not

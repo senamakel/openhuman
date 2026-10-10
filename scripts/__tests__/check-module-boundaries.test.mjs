@@ -1,14 +1,14 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
-import { auditGraph, graph, isImplementation, validatePolicy } from '../ci/check-module-boundaries.mjs';
+import { auditGraph, graph, isImplementation, validatePolicy, CONTRACT_REGISTRY } from '../ci/check-module-boundaries.mjs';
 
 const policy = JSON.parse(readFileSync(new URL('../ci/module-boundaries.json', import.meta.url), 'utf8'));
 const strict = { ...policy, exceptions: [] };
 function metadata(edges, names = {}) {
   const ids = [...new Set(Object.entries(edges).flatMap(([id, deps]) => [id, ...deps.map(d => d[0])]))];
   return {
-    packages: ids.map(id => ({ id, name: names[id] ?? id })),
+    packages: ids.map(id => ({ id, name: names[id] ?? id, source: CONTRACT_REGISTRY })),
     resolve: { nodes: ids.map(id => ({ id, deps: (edges[id] ?? []).map(([pkg, kind = null, target = null]) => ({ pkg, dep_kinds: [{ kind, target }] })) })) },
   };
 }
@@ -99,4 +99,20 @@ test('a same-named contract from another source cannot evade independent auditin
   assert.equal(auditGraph(m, ['host'], pinned).violations.length, 1);
   m.packages.find(pkg => pkg.name === 'tinyjuice-bus').manifest_path = '/pinned/Cargo.toml';
   assert.equal(auditGraph(m, ['host'], pinned).violations.length, 0);
+});
+
+
+test('allowlisted vocabulary names cannot mask a path, git or alternate-registry package', () => {
+  for (const source of [null, undefined, 'git+https://example.invalid/serde', 'registry+https://example.invalid/index']) {
+    const m = metadata({ 'tinyjuice-bus': [['serde']], serde: [['syn']] });
+    m.packages.find(pkg => pkg.name === 'serde').source = source;
+    const result = auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus');
+    assert.deepEqual(result.violations.map(v => v.package), ['serde']);
+  }
+});
+
+test('every approved vocabulary descendant must come from the approved registry', () => {
+  const m = metadata({ 'tinyjuice-bus': [['serde']], serde: [['syn']] });
+  m.packages.find(pkg => pkg.name === 'syn').source = null;
+  assert.deepEqual(auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations[0].path, ['tinyjuice-bus', 'serde', 'syn']);
 });

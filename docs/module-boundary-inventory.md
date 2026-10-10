@@ -97,25 +97,21 @@ has been used as a release pin, and these PRs do not yet remove any host excepti
 
 TinyChannels preserves its serialized vocabulary and moves behavioral APIs to
 implementation crates, using compatibility extension traits where needed. Its
-relay/pairing/delivery bus operations and OpenHuman adapters remain outstanding.
+relay/pairing/delivery operations now have owning-module implementations in PR 56,
+including bounded queues, replayable results and shutdown reconciliation. The
+OpenHuman adapters remain outstanding.
 Published v0.1.13 contains the earlier implementation-bearing contract, so that
 release does not unblock this contract cut.
 
 TinyBox currently refuses supervised execution on unsupported backends and platforms.
-Docker/namespace and Windows supervision, streaming, file transfer, forwarding and
-gateway operations remain required before migrating its host callers.
+Docker supervision is implemented in PR 30 and still undergoing lifecycle review.
+Namespace/SSH and native Windows supervision, streaming, file transfer, forwarding
+and gateway operations remain required before migrating its host callers.
 
 TinyRuntime is now excluded from the active migration because it is being removed
 separately. The previously published owning PR remains recorded above; the frozen
 Python-provider work has not been published or integrated. The boundary inventory
 still records existing dependencies until the separate removal reaches OpenHuman.
-
-Previously completed TinyRuntime work does not replace persistent Python/model
-provisioning or the host’s linked worker path. Declarative cache recipes and
-optional provider preparation are independently reviewed in the owning PR. Contract 1.4 preserves the original provider operations,
-negotiates preparation capability and allows explicit per-step deadlines within a
-bounded whole-recipe deadline. Python provider integration and TinyJuice recipe
-ownership remain separate migrations.
 
 TinyHosts’ bounded directory preparation currently returns up to 4 MiB of source.
 Existing larger Launch/Deploy requests keep their transport budget. Streaming or
@@ -130,7 +126,19 @@ to retrieve the inactive reset snapshot. Shared activation types live in the bus
 contract and are re-exported by the implementation. OpenHuman still needs the
 Computer-to-Voice adapter and compatible released artifacts before switching.
 
-TinyDocs still carries legacy PNG/JPEG header interpretation in its bus contract,
-and the host presentation tool calls that code locally. Moving those parsers into
-the module and adding typed image facts is required for the vocabulary-only cut,
-even though the contract dependency closure already passes.
+TinyDocs PR 35 moves PNG/JPEG header interpretation into the module and adds
+bounded typed image inspection. Its parser regressions and rebuilt artifact
+verification pass. The source API change requires a minor package release;
+host presentation and document ingestion still await the approved release.
+
+## Current delivery gates
+
+The module PR babysitters repair CI and review findings and merge only after
+checks, approval, resolved feedback and mergeability all pass. TinyRuntime is
+excluded from that work. CI success does not clear an old changes-requested
+review, and resolved threads do not establish independent approval.
+
+TinyConnectors PR 46 is merged; its canonical main CI passed. The minor release
+[run 38084368799](https://github.com/tinyhumansai/tinyconnectors/actions/runs/38084368799)
+is building compatible platform artifacts. Host adoption remains gated on
+published packages and verified digests. No host dependency cut is claimed here.

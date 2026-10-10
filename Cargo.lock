@@ -4679,7 +4679,7 @@ dependencies = [
  "tinyflows-drivers",
  "tinyflows-schedule",
  "tinyflows-sqlite",
- "tinyhosts",
+ "tinyhosts-bus",
  "tinyinference-core",
  "tinyinference-embeddings",
  "tinyinference-llm",
@@ -7637,21 +7637,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "tinyhosts"
-version = "0.2.3"
+name = "tinyhosts-bus"
+version = "0.3.0"
 dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.23.1",
- "hex",
- "percent-encoding",
- "reqwest 0.12.28",
  "serde",
  "serde_json",
- "sha1 0.11.0",
  "thiserror 2.0.20",
- "tinytools",
- "tracing",
 ]
 
 [[package]]

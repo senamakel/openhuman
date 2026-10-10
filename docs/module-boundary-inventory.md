@@ -81,7 +81,7 @@ remain unchanged until compatible upstream releases are available.
 | TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 737 tests; dynamic artifact E2E; module input/limit guards |
 | Complete TinyDocs Markdown conversion for memory ingestion | [tinydocs#31](https://github.com/tinyhumansai/tinydocs/pull/31) | 183 tests; dynamic artifact E2E; per-file coverage at least 90% |
 | TinyHosts pure vocabulary and authorized source preparation with captured deployment bytes | [tinyhosts#21](https://github.com/tinyhumansai/tinyhosts/pull/21) | 210 all-feature and 179 default tests including doctests; compiled snapshot and large legacy deployment probes; pure contract audit; all 19 implementation files at least 90% coverage; independent preparation review accepted |
-| TinyComputer native permissions, confidential focus/paste and opaque Globe listeners | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | Full workspace checks; 88-member dynamic artifact verification; pure contract audit; native bridge 100% line coverage |
+| TinyComputer native permissions, confidential focus/paste and reliable Globe leases/read/shutdown | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | 1,372 all-feature and 1,367 default tests; 90-member compiled artifact verification; independent ownership and event-loss review accepted; macOS cross-check and 233-file coverage gate pass; physical macOS helper not exercised on Linux |
 | TinyConnectors argument preparation, task filtering, structured provider errors and leased archives | [tinyconnectors#46](https://github.com/tinyhumansai/tinyconnectors/pull/46) | 423 tests; dynamic artifact calls; user archive lifecycle fixtures; pure contract audit; per-file coverage at least 90% |
 | TinyChannels contract vocabulary separated from provider, relay, pairing and runtime behavior | [tinychannels#56](https://github.com/tinyhumansai/tinychannels/pull/56) | 1,174 default and 1,180 all-feature tests; independent contract audit and relocation review accepted; bus files at least 98.65% coverage; legacy provider/worker coverage gaps disclosed |
 | TinyBox pure contract, shell facts, reserved sandbox/process handles and acknowledged cleanup/shutdown | [tinybox#30](https://github.com/tinyhumansai/tinybox/pull/30) | 710 default and all-feature tests; 57 source files at least 90% coverage; compiled native-process artifact verification; independent lifecycle review accepted; supervised execution currently limited to Unix passthrough |
@@ -112,3 +112,13 @@ provider integration and TinyJuice recipe ownership remain separate migrations.
 TinyHosts’ bounded directory preparation currently returns up to 4 MiB of source.
 Existing larger Launch/Deploy requests keep their transport budget. Streaming or
 module-owned prepared artifacts remain required for larger host directory inputs.
+
+TinyComputer’s reliable Globe reads retain one bounded snapshot until acknowledgment.
+Native overflow, malformed events and unexpected EOF mark continuity loss. Hosts
+must await its terminal shutdown before unloading; Voice hotkey integration remains
+a separate owner slice.
+
+TinyDocs still carries legacy PNG/JPEG header interpretation in its bus contract,
+and the host presentation tool calls that code locally. Moving those parsers into
+the module and adding typed image facts is required for the vocabulary-only cut,
+even though the contract dependency closure already passes.

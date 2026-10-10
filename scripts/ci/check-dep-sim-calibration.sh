@@ -113,8 +113,11 @@ cd "$(dirname "$0")/../.."
 # 316 -> 317 on 2026-10-10: storage-file is always on, adding the
 # first-party tinystoragedrivers-file crate (one package, one name; no new
 # external crate).
-# This matches the current `flows:339:317:2` entry in
+# 317 -> 318 on 2026-10-10: pre-core module registry vocabulary adds the
+# pure tinycomputer-bus contract to loader-disabled builds; no native or
+# implementation dependency is added.
+# This matches the current `flows:340:318:2` entry in
 # scripts/kernel-floor.limits; its preceding entries are historical.
-EXPECTED_NAMES=317
+EXPECTED_NAMES=318
 
 exec python3 scripts/dep-sim.py --cut-nothing --expect-names "${EXPECTED_NAMES}"

@@ -59,9 +59,12 @@ violation was observed; it does not mean this plan is complete.
 The shared `openhuman_rpc::embed::modules::ModuleClient` takes explicit runtime
 configuration and uses the same process-wide loader before or after core
 startup. It has no linked fallback. Resolution reports and client errors use a
-closed reason vocabulary, registry metadata and a bounded deduplication cache;
-raw loader paths and remote fault prose are absent from these Sentry events.
-Existing domain adapters still need to migrate through this reporting path.
+closed reason vocabulary and registry metadata. Cached resolution failures and
+native terminal unavailability are deduplicated; independent failed invocations
+each produce an event. Cached callers revisit reporting if resolution finished
+before a Sentry client was bound. An unfinished loader wait produces no terminal
+event. Reports clear request scope and exclude raw loader paths and remote fault
+prose. Existing domain adapters still need to migrate through this reporting path.
 
 Upstream operations and artifacts, gateway integration, frozen tool restoration,
 lifecycle regressions and coverage of all migrated adapter failures are still

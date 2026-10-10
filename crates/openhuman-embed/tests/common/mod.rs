@@ -64,20 +64,26 @@ pub fn offline_config() -> Config {
 /// sub-agent and aborts the whole process, so building it the documented way is
 /// both what the test needs and a check that the documented way works.
 pub fn runtime() -> tokio::runtime::Runtime {
-    // Core is a normal dependency here, so its unit-test keyring fallback is
-    // absent. Keep encrypted credentials in a process-owned scratch directory.
     static KEYRING: std::sync::OnceLock<tempfile::TempDir> = std::sync::OnceLock::new();
-    KEYRING.get_or_init(|| {
-        let directory = tempfile::tempdir().expect("scratch keyring workspace");
+    let directory = KEYRING.get_or_init(|| tempfile::tempdir().expect("scratch keyring workspace"));
+    runtime_with_keyring(directory.path())
+}
+
+/// Build the tuned runtime with the fixture's intended encrypted keyring root.
+/// SaaS fixtures supply their operator workspace, which their boot guard requires.
+pub fn runtime_with_keyring(workspace: &std::path::Path) -> tokio::runtime::Runtime {
+    // Core is a normal dependency here, so its unit-test keyring fallback is
+    // absent. Supply a fresh headless key before any credential operation.
+    static KEY: std::sync::Once = std::sync::Once::new();
+    KEY.call_once(|| {
         let bytes: [u8; 32] = rand::random();
         let key: String = bytes.iter().map(|byte| format!("{byte:02x}")).collect();
-        std::env::set_var("OPENHUMAN_WORKSPACE", directory.path());
         std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "encrypted_file");
         std::env::remove_var("OPENHUMAN_KEYRING_MASTER_KEY_FILE");
         std::env::set_var("OPENHUMAN_KEYRING_MASTER_KEY", key);
-        openhuman_core::security::keyring::init_master_key().expect("headless test master key");
-        directory
     });
+    openhuman_core::security::keyring::init_workspace(workspace);
+    openhuman_core::security::keyring::init_master_key().expect("headless test master key");
     tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .thread_stack_size(AGENT_WORKER_STACK_BYTES)

@@ -43,6 +43,8 @@ pub struct ModelStatsDto {
     pub cost_usd: f64,
     pub total_tokens: u64,
     pub request_count: usize,
+    /// Requests with no known cost; `cost_usd` excludes them.
+    pub unpriced_request_count: usize,
     pub provider: Option<String>,
     pub percent_of_total: f64,
 }
@@ -153,6 +155,7 @@ fn model_stats_to_dto(stats: &ModelStats, total_cost: f64) -> ModelStatsDto {
         cost_usd: stats.cost_usd,
         total_tokens: stats.total_tokens,
         request_count: stats.request_count,
+        unpriced_request_count: stats.unpriced_request_count,
         provider: provider_for(&stats.model),
         percent_of_total,
     }

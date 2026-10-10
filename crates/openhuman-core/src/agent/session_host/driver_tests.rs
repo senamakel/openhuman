@@ -27,7 +27,6 @@ fn graph_failure_persists_only_accepted_snapshot_history() {
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
-        "chat-v1",
     );
     let partial = failure.partial.expect("snapshot should produce a partial");
     assert_eq!(partial.history.len(), 2);
@@ -63,7 +62,6 @@ fn stalled_model_stream_reports_completed_evidence_instead_of_its_narration() {
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
-        "chat-v1",
     );
     let terminal = failure.outcome.as_ref().expect("typed terminal outcome");
     assert_eq!(
@@ -93,7 +91,10 @@ fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
             cached_input_tokens: 3,
             last_call_input_tokens: 13,
             last_call_output_tokens: 5,
-            charged_amount_usd: 0.004,
+            cost: crate::agent::cost::CostTally {
+                known_usd: 0.004,
+                source: crate::agent::cost::CostSource::Charged,
+            },
             resolved_route: Some(tinyinference_llm::model::ResolvedModelRoute::new(
                 "openhuman",
                 "chat-concrete",
@@ -117,7 +118,6 @@ fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
         &snapshot,
         &sidecar,
         std::time::Duration::from_millis(25),
-        "chat-v1",
     );
     let partial = failure.partial.expect("recoverable snapshot partial");
     assert_eq!(partial.history, vec![Message::user("request")]);
@@ -139,7 +139,11 @@ fn graph_failure_copies_snapshot_usage_and_failed_tool_outcome_to_sidecar() {
         ),
         (13, 5)
     );
-    assert!((observed.cost_usd - 0.004).abs() < f64::EPSILON);
+    assert!((observed.cost.known_usd - 0.004).abs() < f64::EPSILON);
+    assert_eq!(
+        observed.cost.source,
+        crate::agent::cost::CostSource::Charged
+    );
     let route = observed
         .resolved_route
         .as_ref()
@@ -193,7 +197,6 @@ fn empty_snapshot_failure_still_carries_the_typed_terminal_outcome() {
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
-        "chat-v1",
     );
     assert!(typed.partial.is_none());
     let terminal = typed.outcome.expect("typed outcome on the empty branch");
@@ -207,7 +210,6 @@ fn empty_snapshot_failure_still_carries_the_typed_terminal_outcome() {
         &snapshot,
         &sidecar(),
         std::time::Duration::from_millis(1),
-        "chat-v1",
     );
     assert!(untyped.outcome.is_none());
 }

@@ -238,18 +238,29 @@ pub struct SessionClient {
     sdk: TinyHumansClient,
 }
 
+/// Canonical non-secret backend origin shared by client construction and
+/// callers that pin the expected issuer before accepting a callback.
+pub(super) fn normalize_backend_origin(base_url: &str) -> Result<String, SessionClientError> {
+    let mut base = url::Url::parse(base_url.trim())
+        .map_err(|e| SessionClientError::InvalidBaseUrl(e.to_string()))?;
+    if !matches!(base.scheme(), "http" | "https")
+        || base.host_str().is_none()
+        || !base.username().is_empty()
+        || base.password().is_some()
+    {
+        return Err(SessionClientError::InvalidBaseUrl(
+            "must be an absolute http(s) URL with host".to_string(),
+        ));
+    }
+    base.set_path("");
+    base.set_query(None);
+    base.set_fragment(None);
+    Ok(base.as_str().trim_end_matches('/').to_string())
+}
+
 impl SessionClient {
     pub fn new(base_url: &str, headers: &ClientHeaders) -> Result<Self, SessionClientError> {
-        let mut base = url::Url::parse(base_url.trim())
-            .map_err(|e| SessionClientError::InvalidBaseUrl(e.to_string()))?;
-        if !matches!(base.scheme(), "http" | "https") || base.host_str().is_none() {
-            return Err(SessionClientError::InvalidBaseUrl(
-                "must be an absolute http(s) URL with host".to_string(),
-            ));
-        }
-        base.set_path("");
-        base.set_query(None);
-        base.set_fragment(None);
+        let base = normalize_backend_origin(base_url)?;
 
         let http = openhuman_embed::__host::util::tls::tls_client_builder()
             .http1_only()
@@ -261,10 +272,7 @@ impl SessionClient {
         let sdk = TinyHumansClient::new(base.as_str())
             .with_http_client(http)
             .with_default_headers(headers.header_map());
-        Ok(Self {
-            base: base.as_str().trim_end_matches('/').to_string(),
-            sdk,
-        })
+        Ok(Self { base, sdk })
     }
 
     /// The normalised base URL (no trailing slash) — the cache key for

@@ -77,7 +77,10 @@ async fn scoped_stop_hooks_are_visible_to_run_contexts() {
 async fn budget_stop_hook_fails_closed_and_stops_at_cap() {
     let hook = BudgetStopHook::new(1.0);
     let cost = TurnCost {
-        charged_usd: 1.0,
+        cost: crate::agent::cost::CostTally {
+            known_usd: 1.0,
+            source: crate::agent::cost::CostSource::Charged,
+        },
         ..TurnCost::default()
     };
     let state = TurnState {

@@ -45,27 +45,10 @@ fn uncached_only_input_is_widened() {
 }
 
 #[test]
-fn placeholder_cost_for_unpriced_model_is_dropped() {
-    let model = "acme/never-heard-of-it";
-    let placeholder = crate::agent::cost::estimate_call_cost_usd(
-        model,
-        &BilledUsage::from_counts(1_000, 100).with_cached_input_tokens(200),
-    );
-    assert!(placeholder > 0.0);
-    assert_eq!(
-        effective_cost(model, 1_000, 100, 200, placeholder),
-        (0.0, CostSource::Unpriced)
-    );
-    // A provider charge is not the placeholder and is kept.
-    assert_eq!(
-        effective_cost(model, 1_000, 100, 200, 0.5),
-        (0.5, CostSource::Priced)
-    );
-    // Free variants are a known zero price.
-    assert_eq!(
-        effective_cost("x/y:free", 1_000, 100, 0, 0.0),
-        (0.0, CostSource::Priced)
-    );
+fn unknown_cost_is_absent_and_reported_zero_is_preserved() {
+    assert_eq!(effective_cost(None), (None, CostSource::Unpriced));
+    assert_eq!(effective_cost(Some(0.5)), (Some(0.5), CostSource::Priced));
+    assert_eq!(effective_cost(Some(0.0)), (Some(0.0), CostSource::Priced));
 }
 
 #[test]

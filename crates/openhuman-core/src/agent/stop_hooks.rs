@@ -99,7 +99,9 @@ impl StopHook for BudgetStopHook {
                 reason: format!("invalid budget cap configured: max_usd={}", self.max_usd),
             };
         }
-        let spent = ctx.cost.total_usd();
+        // A cap can only bite on spend it can see: calls of unknown cost add
+        // nothing here rather than a made-up rate.
+        let spent = ctx.cost.cost.known_usd;
         if spent >= self.max_usd {
             StopDecision::Stop {
                 reason: format!("turn cost ${spent:.4} reached cap ${:.4}", self.max_usd),

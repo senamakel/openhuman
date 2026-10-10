@@ -160,6 +160,9 @@ pub struct ReportRow {
     pub charged_usd: f64,
     /// The part of `cost_usd` estimated from the price catalog.
     pub estimated_usd: f64,
+    /// Calls with neither a reported charge nor a catalogued price. Their cost
+    /// is missing from `cost_usd`, so a non-zero count means it is a floor.
+    pub unpriced_calls: u64,
     /// `cached_input_tokens ÷ input_tokens`; `0` with no input.
     pub cache_hit_ratio: f64,
 }
@@ -177,6 +180,7 @@ impl ReportRow {
         match usage.cost_source {
             CostSource::ProviderCharged => self.charged_usd += usage.cost_usd,
             CostSource::Estimated => self.estimated_usd += usage.cost_usd,
+            CostSource::Unknown => self.unpriced_calls += 1,
         }
     }
 

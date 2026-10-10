@@ -141,3 +141,39 @@ fn inbound_plan_review_waits_for_typed_overlay_to_close() {
         Some("review-1")
     );
 }
+#[test]
+fn failed_account_thread_replacement_rejects_old_and_unscoped_activity() {
+    let mut state = TranscriptState::new("client");
+    let mut ui = UiState::new(String::new(), "client".into());
+    // Identity reset clears the binding before replacement. A failed local
+    // threads_create_new leaves it empty, so neither scoped nor legacy blank
+    // events may repopulate another account's newly cleared conversation.
+    state.push_system("Could not create a new thread (see logs).");
+    for thread in ["previous-account-thread", ""] {
+        handle_web_event(
+            &WebChannelEvent {
+                event: "text_delta".into(),
+                client_id: "client".into(),
+                thread_id: thread.into(),
+                delta: Some("old secret".into()),
+                ..Default::default()
+            },
+            &mut state,
+            &mut ui,
+        );
+        handle_web_event(
+            &WebChannelEvent {
+                event: "approval_request".into(),
+                client_id: "client".into(),
+                thread_id: thread.into(),
+                request_id: "old-approval".into(),
+                ..Default::default()
+            },
+            &mut state,
+            &mut ui,
+        );
+    }
+    assert_eq!(state.entries().len(), 1);
+    assert!(!state.is_streaming());
+    assert!(ui.pending_approvals.is_empty());
+}

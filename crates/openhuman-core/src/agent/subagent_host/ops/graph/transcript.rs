@@ -77,9 +77,19 @@ pub(super) fn persist_subagent_transcript(
             output: usage.output_tokens,
             cached_input: usage.cached_input_tokens,
             context_window,
-            cost_usd: usage.charged_amount_usd,
+            cost_usd: usage.cost.known_usd,
+            cost_source: Some(match usage.cost.source {
+                crate::agent::cost::CostSource::Charged => transcript::UsageCostSource::Charged,
+                crate::agent::cost::CostSource::Estimated => {
+                    transcript::UsageCostSource::Estimated
+                }
+                crate::agent::cost::CostSource::Unknown => transcript::UsageCostSource::Unknown,
+            }),
             last_call_input: usage.last_call_input_tokens,
             last_call_output: usage.last_call_output_tokens,
+            // The remaining usage fields retain their defaults: this writer
+            // records provider-call size and spend, not reasoning detail.
+            ..Default::default()
         },
         ts: now.clone(),
         reasoning_content: None,
@@ -102,7 +112,7 @@ pub(super) fn persist_subagent_transcript(
         input_tokens: usage.input_tokens,
         output_tokens: usage.output_tokens,
         cached_input_tokens: usage.cached_input_tokens,
-        charged_amount_usd: usage.charged_amount_usd,
+        charged_amount_usd: usage.cost.known_usd,
         thread_id: thread_id.map(str::to_owned),
         task_id: Some(task_id.to_string()),
     };

@@ -68,13 +68,10 @@ impl ChatModel<()> for OpenHumanBackendModel {
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelStream> {
         let model = self.build_wire_model()?;
-        // NOTE (streaming billing parity): the crate SSE parser sets `raw: None`
-        // on the terminal `Completed` response, so the `openhuman.billing` envelope
-        // is not available to `project_managed_usage` here — a streaming managed
-        // turn's charged USD falls back to the catalog cost estimate (token counts
-        // survive via `UsageDelta`). The authoritative charged amount is recovered
-        // on the non-streaming `invoke` path above. Restoring it for streaming
-        // needs the crate to preserve the final chunk's raw JSON (tracked upstream).
+        // The backend sends its charge on an `openhuman-metadata` frame before
+        // `[DONE]`; the crate's SSE parser keeps that envelope on the terminal
+        // response's `raw`, so the streamed `Completed` is projected exactly like
+        // the `invoke` path above and carries the charged USD.
         match model
             .stream(
                 state,
@@ -86,7 +83,14 @@ impl ChatModel<()> for OpenHumanBackendModel {
             // `{"error":…}` payload; it never reaches the `Err` arm (#6724).
             Ok(stream) => Ok(stream.map_items(|item| {
                 observe_in_band_failure(&item);
-                item
+                match item {
+                    tinyinference_llm::model::ModelStreamItem::Completed(response) => {
+                        tinyinference_llm::model::ModelStreamItem::Completed(project_managed_usage(
+                            response,
+                        ))
+                    }
+                    other => other,
+                }
             })),
             Err(e) => {
                 log_managed_dispatch_error(&e, "stream");

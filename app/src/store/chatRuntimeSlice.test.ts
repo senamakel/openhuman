@@ -120,6 +120,7 @@ describe('chatRuntimeSlice recordChatTurnUsage', () => {
       outputTokens: 15,
       costUsd: 0.003,
       runs: 2,
+      costSource: 'charged',
     });
     expect(subs.coder.runs).toBe(1);
     expect(subs.coder.inputTokens).toBe(80);
@@ -271,6 +272,7 @@ describe('chatRuntimeSlice recordChatTurnUsage', () => {
       outputTokens: 80,
       costUsd: 0.006,
       runs: 2,
+      costSource: 'charged',
     });
 
     // A live turn for the same thread adds on top of the seeded base.
@@ -1164,5 +1166,72 @@ describe('detached approvals', () => {
     store.dispatch(dropDetachedApprovalsForThread({ threadId: 't1' }));
     expect(store.getState().chatRuntime.pendingApprovalByThread['t1']).toBeUndefined();
     expect(store.getState().chatRuntime.queuedApprovalsByThread['t1']).toBeUndefined();
+  });
+});
+
+describe('chatRuntimeSlice cost certainty', () => {
+  it('adds reported charges and keeps the thread charged', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({ inputTokens: 10, outputTokens: 1, costUsd: 0.2, costSource: 'charged' })
+    );
+    store.dispatch(recordChatTurnUsage({ inputTokens: 10, outputTokens: 1, costUsd: 0.1 }));
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.costUsd).toBeCloseTo(0.3, 9);
+    expect(usage.costSource).toBe('charged');
+  });
+
+  it('marks the thread unknown when a turn reports no cost, and adds nothing for it', () => {
+    // The core sends `null` instead of a guessed rate; it once sent $4.25 for
+    // a glm-5.3-flash thread the provider billed about $0.30.
+    const store = makeStore();
+    store.dispatch(recordChatTurnUsage({ inputTokens: 10, outputTokens: 1, costUsd: 0.2 }));
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 5_710_657,
+        outputTokens: 30_790,
+        costUsd: null,
+        costSource: 'unknown',
+      })
+    );
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.costSource).toBe('unknown');
+    expect(usage.costUsd).toBeCloseTo(0.2, 9);
+  });
+
+  it('carries an estimate as estimated, and a sub-agent with no cost as unknown', () => {
+    const store = makeStore();
+    store.dispatch(
+      recordChatTurnUsage({
+        inputTokens: 10,
+        outputTokens: 1,
+        costUsd: 0.05,
+        costSource: 'estimated',
+        subAgents: [{ agentId: 'researcher', inputTokens: 3, outputTokens: 1, costUsd: null }],
+      })
+    );
+    const usage = store.getState().chatRuntime.sessionTokenUsage;
+    expect(usage.costSource).toBe('estimated');
+    expect(usage.subAgents.researcher.costSource).toBe('unknown');
+  });
+
+  it('hydrates an unknown thread cost from the usage RPC', () => {
+    const store = makeStore();
+    store.dispatch(
+      hydrateThreadUsage({
+        threadId: 'thr-unknown',
+        inputTokens: 7_021_942,
+        outputTokens: 42_669,
+        cachedTokens: 6_466_688,
+        costUsd: null,
+        turns: 3,
+        contextWindow: 1_048_576,
+        lastTurnInputTokens: 5_710_657,
+        lastTurnOutputTokens: 30_790,
+      })
+    );
+    const bucket = store.getState().chatRuntime.usageByThread['thr-unknown'];
+    expect(bucket.costSource).toBe('unknown');
+    expect(bucket.costUsd).toBe(0);
   });
 });

@@ -1,5 +1,28 @@
 use super::*;
 
+#[test]
+fn viewport_journal_is_bounded_and_identifies_non_tail_changes_and_resets() {
+    let mut state = TranscriptState::new("client");
+    state.push_system("first");
+    state.push_system("second");
+    let snapshot = state.viewport_revision();
+    assert_eq!(state.viewport_changes_since(snapshot), Some(vec![]));
+    state.toggle_entry(0);
+    state.push_system("third");
+    assert_eq!(state.viewport_changes_since(snapshot), Some(vec![0, 2]));
+    for _ in 0..140 {
+        state.push_system("more");
+    }
+    assert_eq!(state.viewport_changes.len(), 128);
+    assert_eq!(state.viewport_changes_since(snapshot), None);
+    let snapshot = state.viewport_revision();
+    state.load_transcript(&serde_json::json!({"items":[]}));
+    assert_eq!(state.viewport_changes_since(snapshot), None);
+    let snapshot = state.viewport_revision();
+    state.clear();
+    assert_eq!(state.viewport_changes_since(snapshot), None);
+}
+
 const CLIENT: &str = "tui-abc123";
 
 fn ev(event: &str) -> WebChannelEvent {
@@ -220,7 +243,7 @@ fn projected_transcript_is_restored_in_chronological_order() {
 }
 
 #[test]
-fn tool_call_and_result_produce_tool_entries() {
+fn tool_result_updates_the_originating_activity() {
     let mut s = TranscriptState::new(CLIENT);
     s.begin_user_turn("do it");
     let call = WebChannelEvent {
@@ -242,11 +265,11 @@ fn tool_call_and_result_produce_tool_entries() {
         .iter()
         .filter(|e| e.kind == EntryKind::Tool)
         .collect();
-    assert_eq!(tools.len(), 2);
-    assert!(tools[0].text.starts_with("→ web_search"));
-    assert!(tools[0].text.contains("rust ratatui"));
-    assert!(tools[1].text.starts_with("✓ web_search"));
-    assert!(tools[1].text.contains("3 results"));
+    assert_eq!(tools.len(), 1);
+    assert!(tools[0].text.starts_with("✓ web_search"));
+    let activity = tools[0].activity.as_ref().unwrap();
+    assert!(activity.args.contains("rust ratatui"));
+    assert_eq!(activity.output, "3 results");
 }
 
 #[test]
@@ -296,4 +319,104 @@ fn truncate_line_collapses_newlines_and_caps_length() {
     let out = truncate_line(&long);
     assert!(!out.contains('\n'));
     assert!(out.chars().count() <= 121, "capped to MAX + ellipsis");
+}
+
+#[test]
+fn concurrent_same_named_tools_match_results_by_call_identity() {
+    let mut state = TranscriptState::new(CLIENT);
+    state.set_thread("thread-1");
+    for id in ["a", "b"] {
+        state.apply_event(&WebChannelEvent {
+            tool_call_id: Some(id.into()),
+            tool_name: Some("read".into()),
+            request_id: "turn".into(),
+            ..ev("tool_call")
+        });
+    }
+    state.apply_event(&WebChannelEvent {
+        tool_call_id: Some("b".into()),
+        tool_name: Some("read".into()),
+        request_id: "turn".into(),
+        success: Some(false),
+        output: Some("failure".into()),
+        ..ev("tool_result")
+    });
+    assert_eq!(
+        state.entries()[0].activity.as_ref().unwrap().status,
+        Status::Running
+    );
+    assert_eq!(
+        state.entries()[1].activity.as_ref().unwrap().status,
+        Status::Error
+    );
+    state.apply_event(&WebChannelEvent {
+        tool_call_id: Some("b".into()),
+        request_id: "turn".into(),
+        success: Some(false),
+        ..ev("tool_result")
+    });
+    assert_eq!(state.entries().len(), 2);
+}
+
+#[test]
+fn child_activity_accumulates_output_and_failed_status_in_one_record() {
+    let mut state = TranscriptState::new(CLIENT);
+    for (event, delta) in [
+        ("subagent_spawned", None),
+        ("subagent_text_delta", Some("partial")),
+        ("subagent_failed", None),
+    ] {
+        state.apply_event(&WebChannelEvent {
+            skill_id: Some("task".into()),
+            request_id: "turn".into(),
+            delta: delta.map(str::to_string),
+            message: Some("Timed out".into()),
+            ..ev(event)
+        });
+    }
+    assert_eq!(state.entries().len(), 1);
+    let child = state.entries()[0].activity.as_ref().unwrap();
+    assert!(child.child);
+    assert_eq!(child.status, Status::Error);
+    assert_eq!(child.output, "partial");
+    assert!(child.details().contains("Timed out"));
+}
+
+#[test]
+fn sequence_duplicates_do_not_duplicate_streamed_text() {
+    let mut state = TranscriptState::new(CLIENT);
+    let event = WebChannelEvent {
+        request_id: "turn".into(),
+        seq: Some(0),
+        ..text_delta("one")
+    };
+    state.apply_event(&event);
+    state.apply_event(&event);
+    assert_eq!(state.entries()[0].text, "one");
+}
+
+#[test]
+fn replay_restores_inspectable_tool_and_child_output_without_flattening() {
+    let mut state = TranscriptState::new(CLIENT);
+    state.load_transcript(&serde_json::json!({"items":[{"kind":"subagent","id":"child","agentId":"Explore","status":"completed","items":[{"kind":"assistantMessage","content":"child answer"}]},{"kind":"toolCall","callId":"a","name":"read","args":{"file":"a.rs"},"result":"file body","status":"success"}]}));
+    assert_eq!(state.entries().len(), 2);
+    assert_eq!(
+        state.entries()[0].activity.as_ref().unwrap().output,
+        "file body"
+    );
+    assert_eq!(
+        state.entries()[1].activity.as_ref().unwrap().output,
+        "child answer"
+    );
+}
+
+#[test]
+fn clearing_display_during_streaming_keeps_turn_and_resets_cursors() {
+    let mut state = TranscriptState::new(CLIENT);
+    state.begin_user_turn("question");
+    state.apply_event(&text_delta("first"));
+    state.clear();
+    state.apply_event(&text_delta("next"));
+    assert!(state.is_streaming());
+    assert_eq!(state.entries()[0].text, "next");
 }

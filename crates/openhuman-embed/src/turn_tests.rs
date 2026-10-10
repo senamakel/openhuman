@@ -239,7 +239,7 @@ fn a_turn_outcome_carries_what_the_turn_spent() {
     let spent = openhuman_core::agent::tinyagents::host::LastTurnUsage {
         input_tokens: 1_200,
         output_tokens: 340,
-        cost_usd: 0.0042,
+        cost_usd: Some(0.0042),
         ..Default::default()
     };
     let outcome = TurnOutcome {
@@ -254,7 +254,7 @@ fn a_turn_outcome_carries_what_the_turn_spent() {
     let metered = outcome.usage.as_ref().expect("a metered turn");
     assert_eq!(metered.input_tokens, 1_200);
     assert_eq!(metered.output_tokens, 340);
-    assert!((metered.cost_usd - 0.0042).abs() < f64::EPSILON);
+    assert!((metered.cost_usd.expect("a priced turn") - 0.0042).abs() < f64::EPSILON);
 
     // Unmetered is representable and distinct, which is what the RPC path and
     // a session that reported nothing both produce.

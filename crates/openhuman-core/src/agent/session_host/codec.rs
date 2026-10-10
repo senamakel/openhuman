@@ -9,6 +9,7 @@ use tinyagents_runtime::{RuntimeError, TranscriptCodec, TranscriptTurnOptions};
 use tinyagents_session::transcript::view::TOOL_RESULT_FAILURES_METADATA_KEY;
 use tinyagents_session::transcript::{
     MessageUsage, SessionTranscript, ToolFailure, TranscriptMessage, TranscriptToolCall, TurnUsage,
+    UsageCostSource,
 };
 use tinyinference_llm::message::Message;
 use tinytools_agent::dialect::parse_replayed_results;
@@ -142,7 +143,7 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
         if sidecar.input_tokens == 0
             && sidecar.output_tokens == 0
             && sidecar.cached_input_tokens == 0
-            && sidecar.cost_usd == 0.0
+            && sidecar.cost.known_usd == 0.0
             && route.is_none()
         {
             return Ok(None);
@@ -161,7 +162,12 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
                 output: sidecar.output_tokens,
                 cached_input: sidecar.cached_input_tokens,
                 context_window: sidecar.context_window,
-                cost_usd: sidecar.cost_usd,
+                cost_usd: sidecar.cost.known_usd,
+                cost_source: Some(match sidecar.cost.source {
+                    crate::agent::cost::CostSource::Charged => UsageCostSource::Charged,
+                    crate::agent::cost::CostSource::Estimated => UsageCostSource::Estimated,
+                    crate::agent::cost::CostSource::Unknown => UsageCostSource::Unknown,
+                }),
                 last_call_input: sidecar.last_call_input_tokens,
                 last_call_output: sidecar.last_call_output_tokens,
             },

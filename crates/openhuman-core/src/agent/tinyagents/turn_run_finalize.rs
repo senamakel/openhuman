@@ -130,17 +130,27 @@ pub(super) async fn finalize_turn_outcome(
     // cached tokens and the estimated charged USD) when the observed path ran;
     // otherwise fall back to the run's aggregate totals and estimate the cost from
     // them so a fire-and-forget turn still reports a real (non-$0) cost.
-    let (input_tokens, output_tokens, cached_input_tokens, charged_amount_usd) = bridge_totals
-        .unwrap_or_else(|| {
+    let (input_tokens, output_tokens, cached_input_tokens, cost) =
+        bridge_totals.unwrap_or_else(|| {
             let input = run.usage.usage.input_tokens;
             let output = run.usage.usage.output_tokens;
             let cached = run.usage.usage.cache_read_tokens;
-            let charged =
-                crate::platform::cost::catalog::estimate_cost_usd(model, input, output, cached);
-            crate::agent::tinyagents::turn_outcome::record_unobserved_turn_usage(
-                model, input, output, cached, charged,
+            // No per-call charges on this path: the catalog estimate when the
+            // model has a list price, else the turn's cost is unknown.
+            let estimate = crate::agent::cost::estimate_call_cost_usd(
+                model,
+                &crate::inference::provider::BilledUsage::from_counts(input, output)
+                    .with_cached_input_tokens(cached),
             );
-            (input, output, cached, charged)
+            crate::agent::tinyagents::turn_outcome::record_unobserved_turn_usage(
+                model, input, output, cached, estimate,
+            );
+            let mut cost = crate::agent::cost::CostTally::default();
+            cost.add(match estimate {
+                Some(usd) => crate::agent::cost::CallCost::Estimated(usd),
+                None => crate::agent::cost::CallCost::Unknown,
+            });
+            (input, output, cached, cost)
         });
 
     // An early-exit tool fired: the loop paused after its round. Surface the tool
@@ -320,7 +330,7 @@ pub(super) async fn finalize_turn_outcome(
         input_tokens,
         output_tokens,
         cached_input_tokens,
-        charged_amount_usd,
+        cost,
         early_exit_tool,
         hit_cap,
         wrap_up_injected,

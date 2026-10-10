@@ -22,7 +22,8 @@ pub(super) struct BridgeState {
     pub(super) input_tokens: u64,
     pub(super) output_tokens: u64,
     pub(super) cached_input_tokens: u64,
-    pub(super) charged_amount_usd: f64,
+    /// Every call's cost: reported charge, catalog estimate, or unknown.
+    pub(super) cost: crate::agent::cost::CostTally,
     /// Local response-cache hits observed on this turn (issue #4249, 03.2). A hit
     /// means the harness served a model call from its [`ResponseCache`] without
     /// invoking the provider. Additive counters — a follow-up (coordinated with
@@ -39,7 +40,8 @@ pub(super) struct BridgeState {
 /// the same numbers as the wallet accounting.
 #[derive(Clone, Copy, Debug)]
 pub(super) struct ResolvedCallFigures {
-    pub(super) cost_usd: f64,
+    /// `None` when the call's cost is unknown.
+    pub(super) cost_usd: Option<f64>,
     pub(super) cache_creation_tokens: u64,
     pub(super) reasoning_tokens: u64,
 }
@@ -226,20 +228,19 @@ impl OpenhumanEventBridge {
     #[cfg(test)]
     pub(super) fn totals(&self) -> (u64, u64, f64) {
         let s = self.state.lock().unwrap();
-        (s.input_tokens, s.output_tokens, s.charged_amount_usd)
+        (s.input_tokens, s.output_tokens, s.cost.known_usd)
     }
 
-    /// Cumulative `(input_tokens, output_tokens, cached_input_tokens, charged_usd)`
+    /// Cumulative `(input_tokens, output_tokens, cached_input_tokens, cost)`
     /// observed so far — the full accounting the turn persists (transcript cost /
-    /// session meters), so a normal turn no longer records `$0` and zero cached
-    /// tokens despite real usage.
-    pub(crate) fn totals_with_cost(&self) -> (u64, u64, u64, f64) {
+    /// session meters). `cost` says whether every call was priced.
+    pub(crate) fn totals_with_cost(&self) -> (u64, u64, u64, crate::agent::cost::CostTally) {
         let s = self.state.lock().unwrap();
         (
             s.input_tokens,
             s.output_tokens,
             s.cached_input_tokens,
-            s.charged_amount_usd,
+            s.cost,
         )
     }
 
@@ -369,20 +370,22 @@ impl OpenhumanEventBridge {
             .unwrap_or_else(|p| p.into_inner())
             .pop_front();
 
-        // Estimate as the floor via the tier-aware `agent::cost` table (managed
-        // handles like `hint:chat`/`hint:burst` + the vendor catalog + heuristics —
-        // the catalog-only lookup priced every managed-tier call as $0); prefer
-        // the provider's own charged amount when it reported one (charged >
-        // estimate precedence, so credit-metered backends surface real billing
-        // rather than a token-rate estimate).
-        let estimate = Self::estimate_call_cost(&self.model, usage);
+        // The provider's reported charge wins; without one, the catalog's list
+        // price; without that, the call's cost is unknown (never a default
+        // rate).
         let provider_cost = carried
             .as_ref()
-            .filter(|u| !u.cost_is_estimate)
+            .filter(|u| u.charge_reported && !u.cost_is_estimate)
             .map(|u| u.charged_amount_usd)
-            .filter(|c| c.is_finite() && *c > 0.0);
-        let cost_is_estimate = provider_cost.is_none();
-        let call_cost = provider_cost.unwrap_or(estimate);
+            .filter(|c| c.is_finite() && *c >= 0.0);
+        let cost = match provider_cost {
+            Some(charged) => crate::agent::cost::CallCost::Charged(charged),
+            None => match Self::estimate_call_cost(&self.model, usage) {
+                Some(estimate) => crate::agent::cost::CallCost::Estimated(estimate),
+                None => crate::agent::cost::CallCost::Unknown,
+            },
+        };
+        let call_cost = cost.usd();
         // The context window + cache-creation/reasoning breakdown only exist on
         // the carried provider usage (the crate `Usage` mapping drops them); fall
         // back to the catalogue window and the crate token counts when absent.
@@ -408,11 +411,7 @@ impl OpenhumanEventBridge {
         tracing::trace!(
             model = %self.model,
             iteration,
-            charged_from_provider = carried
-                .as_ref()
-                .map(|u| !u.cost_is_estimate && u.charged_amount_usd > 0.0)
-                .unwrap_or(false),
-            call_cost,
+            ?cost,
             context_window,
             "[cost] recording per-call usage (charged>estimate precedence via provider carry)"
         );
@@ -436,12 +435,12 @@ impl OpenhumanEventBridge {
             s.input_tokens += usage.input_tokens;
             s.output_tokens += usage.output_tokens;
             s.cached_input_tokens += usage.cache_read_tokens;
-            s.charged_amount_usd += call_cost;
+            s.cost.add(cost);
             (
                 s.input_tokens,
                 s.output_tokens,
                 s.cached_input_tokens,
-                s.charged_amount_usd,
+                s.cost.known_usd,
             )
         };
 
@@ -452,10 +451,10 @@ impl OpenhumanEventBridge {
             .with_cached_input_tokens(usage.cache_read_tokens)
             .with_cache_creation_tokens(cache_creation_tokens)
             .with_reasoning_tokens(reasoning_tokens);
-        let usage_info = if cost_is_estimate {
-            usage_info.with_estimated_usd(call_cost)
-        } else {
-            usage_info.with_charged_usd(call_cost)
+        let usage_info = match cost {
+            crate::agent::cost::CallCost::Charged(usd) => usage_info.with_charged_usd(usd),
+            crate::agent::cost::CallCost::Estimated(usd) => usage_info.with_estimated_usd(usd),
+            crate::agent::cost::CallCost::Unknown => usage_info,
         };
         if reasoning_tokens > 0 || cache_creation_tokens > 0 {
             log::debug!(
@@ -500,7 +499,8 @@ impl OpenhumanEventBridge {
     /// like `hint:chat`/`hint:burst` + the vendor catalog + heuristics) — the
     /// previous `cost::catalog::estimate_cost_usd` only knew concrete vendor
     /// ids, so every managed-tier call priced as $0 in traces and the footer.
-    pub(super) fn estimate_call_cost(model: &str, usage: &Usage) -> f64 {
+    /// `None` for a model the catalog does not price.
+    pub(super) fn estimate_call_cost(model: &str, usage: &Usage) -> Option<f64> {
         crate::agent::cost::estimate_call_cost_usd(
             model,
             &BilledUsage::from_counts(usage.input_tokens, usage.output_tokens)

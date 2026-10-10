@@ -80,8 +80,15 @@ export interface SubagentUsageWire {
   agent_id: string;
   input_tokens: number;
   output_tokens: number;
-  cost_usd: number;
+  /** `null` when the child's cost is not known. */
+  cost_usd: number | null;
 }
+
+/**
+ * Where a reported cost came from: every call billed by the provider, some
+ * call priced from published list rates, or not known at all.
+ */
+export type CostSource = 'charged' | 'estimated' | 'unknown';
 
 /**
  * Holistic token/cost/context totals for a completed turn, carried on
@@ -93,7 +100,13 @@ export interface TurnUsageWire {
   input_tokens: number;
   output_tokens: number;
   cached_input_tokens: number;
-  cost_usd: number;
+  /**
+   * The turn's cost, or `null` when the core does not know it (no reported
+   * charge and no catalogued price). Never a guessed rate.
+   */
+  cost_usd: number | null;
+  /** Absent from an older core, whose `cost_usd` is always a number. */
+  cost_source?: CostSource;
   context_window: number;
   /**
    * Tokens the parent's context held after the turn's final model call: the
@@ -665,7 +678,8 @@ export interface SubagentProgressDetail {
   input_tokens?: number;
   output_tokens?: number;
   cached_input_tokens?: number;
-  cost_usd?: number;
+  /** `null` when the child's cost is not known. */
+  cost_usd?: number | null;
   /**
    * Provider-assigned id of the `spawn_subagent`/`spawn_async_subagent`/
    * `delegate_*` tool call that started this delegation

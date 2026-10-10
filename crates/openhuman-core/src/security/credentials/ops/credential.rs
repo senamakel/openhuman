@@ -66,6 +66,9 @@ pub struct SetCredentialRequest {
     /// The user payload (the host's `/auth/me` answer, or the local user).
     #[serde(default)]
     pub user: Option<Value>,
+    /// Normalized backend used by the host to validate this session.
+    #[serde(default)]
+    pub issuing_backend: Option<String>,
 }
 
 fn sanitize_user(user: Option<Value>) -> Option<Value> {
@@ -182,7 +185,16 @@ pub async fn set_credential(
     request: SetCredentialRequest,
 ) -> Result<Outcome<AuthStateResponse>, String> {
     refuse_process_credential_in_saas("set_credential")?;
+    let issuing_backend = request.issuing_backend.clone();
     let resolved = resolve(request)?;
+    let issuing_backend = if resolved.kind == CredentialKind::Session {
+        issuing_backend
+            .as_deref()
+            .map(crate::security::credentials::session_support::normalize_session_backend)
+            .transpose()?
+    } else {
+        None
+    };
     let _mutation = CREDENTIAL_MUTATION_LOCK.lock().await;
 
     if resolved.kind == CredentialKind::ApiKey {
@@ -226,6 +238,29 @@ pub async fn set_credential(
     let same_user = existing_user_id.as_deref() == Some(user_id.as_str());
     let refresh = same_token && same_user;
 
+    let mut metadata = std::collections::HashMap::new();
+    if resolved.kind == CredentialKind::Session {
+        let previous_backend = existing
+            .as_ref()
+            .filter(|_| same_token)
+            .and_then(|profile| {
+                profile.metadata.get(
+                    crate::security::credentials::session_support::SESSION_ISSUING_BACKEND_META,
+                )
+            });
+        if let (Some(previous), Some(issuing)) = (previous_backend, issuing_backend.as_ref()) {
+            if previous != issuing {
+                return Err("SESSION_BACKEND_MISMATCH: cannot rebind a stored session to a different backend".into());
+            }
+        }
+        if let Some(backend) = previous_backend.cloned().or(issuing_backend) {
+            metadata.insert(
+                crate::security::credentials::session_support::SESSION_ISSUING_BACKEND_META
+                    .to_string(),
+                backend,
+            );
+        }
+    }
     if existing_token.is_some() && !same_user {
         tracing::info!(
             domain = "credentials",
@@ -235,8 +270,6 @@ pub async fn set_credential(
         let cleared = clear_session_credential(config).await?;
         logs.extend(cleared.logs);
     }
-
-    let mut metadata = std::collections::HashMap::new();
     metadata.insert("user_id".to_string(), user_id.clone());
     if let Some(user) = &resolved.user {
         metadata.insert("user_json".to_string(), user.to_string());
@@ -533,6 +566,7 @@ pub async fn store_session(
             kind: None,
             user_id,
             user,
+            issuing_backend: None,
         },
     )
     .await

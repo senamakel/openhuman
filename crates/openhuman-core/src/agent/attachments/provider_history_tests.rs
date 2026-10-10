@@ -75,13 +75,14 @@ async fn missing_historical_media_does_not_block_latest_valid_media() {
 async fn secure_open_refuses_replaced_final_symlink() {
     use std::os::unix::fs::symlink;
     let temp = tempfile::tempdir().unwrap();
-    let allowed = temp.path().join("allowed.txt");
-    let outside = temp.path().join("outside.txt");
+    let root = temp.path().canonicalize().unwrap();
+    let allowed = root.join("allowed.txt");
+    let outside = root.join("outside.txt");
     tokio::fs::write(&allowed, b"allowed").await.unwrap();
     tokio::fs::write(&outside, b"secret").await.unwrap();
     tokio::fs::remove_file(&allowed).await.unwrap();
     symlink(&outside, &allowed).unwrap();
 
-    let error = secure_open(&allowed, temp.path()).unwrap_err();
+    let error = secure_open(&allowed, &root).unwrap_err();
     assert_eq!(error.raw_os_error(), Some(libc::ELOOP));
 }

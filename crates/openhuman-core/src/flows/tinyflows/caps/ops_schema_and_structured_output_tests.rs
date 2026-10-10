@@ -68,7 +68,11 @@ fn crate_model_response_preserves_flow_completion_contract() {
         },
         usage: Some(usage),
         finish_reason: Some("tool_calls".to_string()),
-        raw: crate::agent::tinyagents::model::merge_openhuman_usage_meta(None, 0.125, 128_000),
+        raw: crate::agent::tinyagents::model::merge_openhuman_usage_meta(
+            None,
+            Some(0.125),
+            128_000,
+        ),
         resolved_model: None,
         continue_turn: None,
         served_from_cache: false,

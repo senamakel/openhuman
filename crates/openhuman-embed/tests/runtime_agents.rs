@@ -301,7 +301,10 @@ fn one_runtime_hosts_independently_configured_agents() {
                 .usage
                 .expect("runtime-owned agent reports turn usage");
             assert_eq!(usage.input_tokens, 1_000_000);
-            assert!(usage.cost_usd >= 1.0, "budgeted usage: {usage:?}");
+            assert!(
+                usage.cost_usd.is_some_and(|usd| usd >= 1.0),
+                "budgeted usage: {usage:?}"
+            );
             let withholding_requests = common::chat_requests(&withholding_provider).await;
             assert_eq!(withholding_requests.len(), 2);
             let hidden_request: serde_json::Value =

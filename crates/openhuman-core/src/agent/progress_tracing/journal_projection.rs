@@ -480,7 +480,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
                 // reported a cache write.
                 cache_creation_tokens: usage.cache_creation_tokens,
                 reasoning_tokens: usage.reasoning_tokens,
-                cost_usd: 0.0,
+                cost_usd: None,
             }];
             if scope.is_none() {
                 // The request's last user message is the user's own words on
@@ -527,7 +527,7 @@ fn observation_to_progress(obs: &AgentObservation, state: &mut ReplayState) -> V
             // the call with the same estimator the live path uses as its floor.
             // The token counts are exact; `cost_usd` is an estimate.
             // An unpriced model adds nothing rather than a placeholder rate.
-            state.cost_usd += crate::agent::cost::estimate_known_call_cost_usd(
+            state.cost_usd += crate::agent::cost::estimate_call_cost_usd(
                 &state.model,
                 &crate::inference::provider::BilledUsage::from_counts(
                     usage.input_tokens,

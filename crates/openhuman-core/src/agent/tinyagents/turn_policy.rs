@@ -125,11 +125,12 @@ pub(crate) fn local_openai_endpoint(config: &crate::config::Config) -> Option<St
 /// [`DEFAULT_AGENT_TURN_TIMEOUT_SECS`]); `0` means "no ceiling" → `None`, which
 /// restores the previous unbounded behavior for callers that deliberately opt
 /// out (e.g. very long autonomous runs).
+#[cfg(test)]
 pub(crate) fn agent_turn_wall_clock_ms() -> Option<u64> {
     agent_turn_wall_clock_ms_for(false)
 }
 
-/// [`agent_turn_wall_clock_ms`] for a turn on a local provider when `local`:
+/// Resolve the wall-clock ceiling for a turn on a local provider when `local`:
 /// the env override still wins, otherwise the default is
 /// [`LOCAL_AGENT_TURN_TIMEOUT_SECS`].
 pub(crate) fn agent_turn_wall_clock_ms_for(local: bool) -> Option<u64> {
@@ -160,7 +161,7 @@ pub(crate) fn local_web_turn_backstop_secs() -> Option<u64> {
     agent_turn_wall_clock_ms_for(true).map(|ms| ms / 1_000 + LOCAL_WEB_TURN_BACKSTOP_GRACE_SECS)
 }
 
-/// Pure core of [`agent_turn_wall_clock_ms`]: map an optional
+/// Pure core of the per-turn wall-clock ceiling: map an optional
 /// `OPENHUMAN_AGENT_TURN_TIMEOUT_SECS` value to a wall-clock ceiling in
 /// milliseconds. An absent/unparseable value falls back to
 /// [`DEFAULT_AGENT_TURN_TIMEOUT_SECS`]; `0` yields `None` (unbounded opt-out).

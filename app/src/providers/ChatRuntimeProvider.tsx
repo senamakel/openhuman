@@ -38,6 +38,7 @@ import {
   type ChatThreadTodosChangedEvent,
   type ChatToolCallEvent,
   type ChatToolResultEvent,
+  type CostSource,
   type ProactiveMessageEvent,
   segmentText,
   subscribeChatEvents,
@@ -366,7 +367,8 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
   inputTokens: number;
   outputTokens: number;
   cachedTokens?: number;
-  costUsd?: number;
+  costUsd?: number | null;
+  costSource?: CostSource;
   contextWindow?: number;
   contextTokens?: number;
   threadId?: string;
@@ -374,7 +376,7 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
     agentId: string;
     inputTokens: number;
     outputTokens: number;
-    costUsd: number;
+    costUsd: number | null;
   }>;
 } {
   const u = event.usage;
@@ -384,6 +386,7 @@ function chatTurnUsagePayload(event: ChatDoneEvent): {
       outputTokens: u.output_tokens,
       cachedTokens: u.cached_input_tokens,
       costUsd: u.cost_usd,
+      costSource: u.cost_source,
       contextWindow: u.context_window,
       contextTokens: u.context_tokens,
       threadId: event.thread_id,
@@ -1035,14 +1038,16 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
                 inputTokens: childInput ?? 0,
                 outputTokens: childOutput ?? 0,
                 cachedTokens: event.subagent?.cached_input_tokens ?? 0,
-                costUsd: event.subagent?.cost_usd ?? 0,
+                // `null` (cost not known) is kept so the thread shows no
+                // price; an absent field means "nothing to add".
+                costUsd: event.subagent?.cost_usd === undefined ? 0 : event.subagent.cost_usd,
                 subAgentSpendOnly: true,
                 subAgents: [
                   {
                     agentId: event.tool_name ?? 'subagent',
                     inputTokens: childInput ?? 0,
                     outputTokens: childOutput ?? 0,
-                    costUsd: event.subagent?.cost_usd ?? 0,
+                    costUsd: event.subagent?.cost_usd === undefined ? 0 : event.subagent.cost_usd,
                   },
                 ],
               })

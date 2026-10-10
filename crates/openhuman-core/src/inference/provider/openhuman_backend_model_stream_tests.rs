@@ -219,3 +219,91 @@ async fn managed_stream_marks_the_cacheable_prefix_for_anthropic_models_only() {
         assert_eq!(markers > 0, expect_markers, "model={model} body={body}");
     }
 }
+
+/// Streams `chunks` from a mock backend and returns the terminal response.
+async fn streamed_response(chunks: Vec<Value>) -> tinyinference_llm::model::ModelResponse {
+    use futures::StreamExt;
+    use tinyinference_llm::model::ModelStreamItem;
+
+    let tmp = tempfile::TempDir::new().expect("scratch credentials");
+    seed_app_session(tmp.path());
+    let addr = spawn_sse_chat_server(chunks).await;
+    let backend = backend_pointed_at(&addr, tmp.path());
+    backend
+        .stream(&(), ModelRequest::new(vec![Message::user("hi")]))
+        .await
+        .expect("mock SSE response")
+        .collect::<Vec<_>>()
+        .await
+        .into_iter()
+        .find_map(|item| match item {
+            ModelStreamItem::Completed(response) => Some(response),
+            _ => None,
+        })
+        .expect("stream completes")
+}
+
+/// The backend bills a streamed call and reports the charge on its own frame
+/// before `[DONE]`. The streamed response must carry that charge to the cost
+/// accounting, as the non-streaming path always has; it used to be dropped,
+/// so every streamed managed turn fell back to a guessed rate.
+#[tokio::test]
+async fn managed_stream_carries_the_backend_charge_to_the_cost_accounting() {
+    let response = streamed_response(vec![
+        serde_json::json!({ "choices": [{ "index": 0, "delta": { "content": "hi" }, "finish_reason": "stop" }] }),
+        serde_json::json!({ "choices": [], "usage": { "prompt_tokens": 1000, "completion_tokens": 20, "total_tokens": 1020 } }),
+        serde_json::json!({ "openhuman": {
+            "usage": { "input_tokens": 1000, "output_tokens": 20, "total_tokens": 1020, "cached_input_tokens": 800 },
+            "billing": { "charged_amount_usd": 0.0000634 }
+        } }),
+    ])
+    .await;
+
+    let billed = crate::agent::tinyagents::model::usage_info_from_response(&response)
+        .expect("usage reported");
+    assert!(
+        billed.charge_reported,
+        "the backend's charge reached the core"
+    );
+    assert!((billed.charged_amount_usd - 0.0000634).abs() < 1e-12);
+    assert_eq!(billed.cached_input_tokens(), 800);
+    assert_eq!(
+        crate::agent::cost::call_cost("openrouter/z-ai/glm-5.3-flash", &billed),
+        crate::agent::cost::CallCost::Charged(0.0000634)
+    );
+}
+
+/// A free route bills $0, and that is a known cost, not a missing one.
+#[tokio::test]
+async fn managed_stream_keeps_a_zero_charge_as_known() {
+    let response = streamed_response(vec![
+        serde_json::json!({ "choices": [{ "index": 0, "delta": { "content": "hi" }, "finish_reason": "stop" }] }),
+        serde_json::json!({ "choices": [], "usage": { "prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12 } }),
+        serde_json::json!({ "openhuman": { "billing": { "charged_amount_usd": 0.0 } } }),
+    ])
+    .await;
+    let billed = crate::agent::tinyagents::model::usage_info_from_response(&response)
+        .expect("usage reported");
+    assert_eq!(
+        crate::agent::cost::call_cost("openrouter/z-ai/glm-5.3-flash", &billed),
+        crate::agent::cost::CallCost::Charged(0.0)
+    );
+}
+
+/// A stream with no billing frame carries no charge: the cost stays unknown
+/// for an uncatalogued model instead of being priced at a default rate.
+#[tokio::test]
+async fn managed_stream_without_a_billing_frame_has_no_charge() {
+    let response = streamed_response(vec![
+        serde_json::json!({ "choices": [{ "index": 0, "delta": { "content": "hi" }, "finish_reason": "stop" }] }),
+        serde_json::json!({ "choices": [], "usage": { "prompt_tokens": 10, "completion_tokens": 2, "total_tokens": 12 } }),
+    ])
+    .await;
+    let billed = crate::agent::tinyagents::model::usage_info_from_response(&response)
+        .expect("usage reported");
+    assert!(!billed.charge_reported);
+    assert_eq!(
+        crate::agent::cost::call_cost("openrouter/z-ai/glm-5.3-flash", &billed),
+        crate::agent::cost::CallCost::Unknown
+    );
+}

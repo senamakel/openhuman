@@ -29,6 +29,10 @@ fn base_url_is_normalised_and_validated() {
         SessionClient::new("ftp://x", &headers()),
         Err(SessionClientError::InvalidBaseUrl(_))
     ));
+    assert!(matches!(
+        SessionClient::new("https://operator:secret@api.example.com", &headers()),
+        Err(SessionClientError::InvalidBaseUrl(_))
+    ));
 }
 
 #[test]

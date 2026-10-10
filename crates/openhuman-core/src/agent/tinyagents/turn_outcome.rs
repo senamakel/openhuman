@@ -32,10 +32,9 @@ pub(crate) struct TinyagentsTurnOutcome {
     /// Accumulated cached (cache-read) input tokens. Carried so the turn persists
     /// real cached usage instead of zero (issue #4249, Phase 5).
     pub cached_input_tokens: u64,
-    /// Estimated charged USD for the turn (from `cost::catalog::estimate_cost_usd`
-    /// over the observed usage). Carried so the transcript / session meters record
-    /// a real cost instead of `$0` on every non-cap turn.
-    pub charged_amount_usd: f64,
+    /// The turn's cost: each call's reported charge, else its catalog
+    /// estimate, else unknown (see [`crate::agent::cost::call_cost`]).
+    pub cost: crate::agent::cost::CostTally,
     /// Set when an early-exit tool (e.g. `ask_user_clarification`) fired: the
     /// loop paused so the caller can checkpoint and surface the question. When
     /// present, `text` holds the question. Mirrors the legacy `early_exit_tool`.
@@ -145,7 +144,7 @@ pub(crate) fn record_unobserved_turn_usage(
     input_tokens: u64,
     output_tokens: u64,
     cached_input_tokens: u64,
-    charged_amount_usd: f64,
+    estimated_usd: Option<f64>,
 ) -> bool {
     if input_tokens == 0 && output_tokens == 0 {
         return false;
@@ -154,15 +153,18 @@ pub(crate) fn record_unobserved_turn_usage(
         model,
         input_tokens,
         output_tokens,
-        charged_usd = charged_amount_usd,
+        ?estimated_usd,
         "[tinyagents] recording unobserved-turn usage into the global cost tracker"
     );
-    crate::platform::cost::record_provider_usage(
-        model,
-        &crate::inference::provider::BilledUsage::from_counts(input_tokens, output_tokens)
-            .with_cached_input_tokens(cached_input_tokens)
-            .with_charged_usd(charged_amount_usd),
-    );
+    let usage = crate::inference::provider::BilledUsage::from_counts(input_tokens, output_tokens)
+        .with_cached_input_tokens(cached_input_tokens);
+    // No per-call charge reached this path; record the catalog estimate when
+    // the model has one, else the record stays unpriced.
+    let usage = match estimated_usd {
+        Some(usd) => usage.with_estimated_usd(usd),
+        None => usage,
+    };
+    crate::platform::cost::record_provider_usage(model, &usage);
     true
 }
 

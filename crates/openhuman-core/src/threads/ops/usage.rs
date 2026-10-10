@@ -20,7 +20,11 @@ pub struct ThreadTokenUsageResponse {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cached_input_tokens: u64,
-    pub cost_usd: f64,
+    /// The thread's cost, or `null` when some turn's cost is not known (no
+    /// recorded charge and no catalogued price). Never a guessed rate.
+    pub cost_usd: Option<f64>,
+    /// `charged`, `estimated` (some turn priced from list rates) or `unknown`.
+    pub cost_source: crate::agent::cost::CostSource,
     pub turn_count: usize,
     /// Spend of the most recent turn, the orchestrator's own: every model call
     /// of that turn summed, so a long tool loop reports many times its context.
@@ -52,7 +56,8 @@ pub struct SubagentUsageDto {
     pub agent_id: String,
     pub input_tokens: u64,
     pub output_tokens: u64,
-    pub cost_usd: f64,
+    /// `null` when this archetype's cost is not known.
+    pub cost_usd: Option<f64>,
     pub runs: usize,
 }
 
@@ -62,21 +67,6 @@ pub async fn token_usage(
 ) -> Result<Outcome<ApiEnvelope<ThreadTokenUsageResponse>>, String> {
     let dir = workspace_dir().await?;
     let spend = thread_spend(&dir, &request.thread_id);
-
-    // Re-audit cost at CURRENT pricing rather than trusting the
-    // `charged_amount_usd` persisted in the transcript: those values were
-    // stamped at turn time and don't reflect later tier-pricing corrections.
-    // Recompute from the persisted token counts using the last-known model's
-    // rates; falls back to `fallback` only when the model is unknown.
-    let audit_cost =
-        |model: Option<&str>, input: u64, output: u64, cached: u64, fallback: f64| match model {
-            Some(m) => crate::agent::cost::estimate_call_cost_usd(
-                m,
-                &crate::inference::provider::BilledUsage::from_counts(input, output)
-                    .with_cached_input_tokens(cached),
-            ),
-            None => fallback,
-        };
 
     if !spend.found_transcript {
         return Ok(envelope(
@@ -96,39 +86,26 @@ pub async fn token_usage(
             .unwrap_or(0)
     };
 
-    // Orchestrator (root) spend, re-audited.
-    let orchestrator_cost = audit_cost(
-        root_model.as_deref(),
-        spend.root.input_tokens,
-        spend.root.output_tokens,
-        spend.root.cached_input_tokens,
-        spend.root.cost_usd,
-    );
+    let orchestrator_cost = recorded_cost(&spend.root.cost_split, root_model.as_deref());
 
-    // Sub-agent archetypes, each re-audited with its own model. Older
-    // sub-agent transcripts didn't persist a model on their messages, so
-    // fall back to the thread's (root) model rather than pricing them at
-    // $0 — sub-agents usually run on the same managed tier as the parent.
+    // Sub-agent archetypes. Older sub-agent transcripts didn't persist a
+    // model on their messages; their unpriced turns are priced with the
+    // thread's (root) model, sub-agents usually running on the parent's tier.
     let mut subagents = Vec::with_capacity(spend.subagents.len());
-    let (mut sub_in, mut sub_out, mut sub_cached, mut sub_cost) = (0u64, 0u64, 0u64, 0.0);
+    let (mut sub_in, mut sub_out, mut sub_cached) = (0u64, 0u64, 0u64);
+    let mut cost = orchestrator_cost;
     for (agent_id, (child, runs)) in &spend.subagents {
         let sub_model = child.model.as_deref().or(root_model.as_deref());
-        let cost = audit_cost(
-            sub_model,
-            child.input_tokens,
-            child.output_tokens,
-            child.cached_input_tokens,
-            child.cost_usd,
-        );
+        let child_cost = recorded_cost(&child.cost_split, sub_model);
         sub_in = sub_in.saturating_add(child.input_tokens);
         sub_out = sub_out.saturating_add(child.output_tokens);
         sub_cached = sub_cached.saturating_add(child.cached_input_tokens);
-        sub_cost += cost;
+        cost.merge(child_cost);
         subagents.push(SubagentUsageDto {
             agent_id: agent_id.clone(),
             input_tokens: child.input_tokens,
             output_tokens: child.output_tokens,
-            cost_usd: cost,
+            cost_usd: child_cost.usd(),
             runs: *runs,
         });
     }
@@ -138,11 +115,20 @@ pub async fn token_usage(
     let input_tokens = spend.root.input_tokens.saturating_add(sub_in);
     let output_tokens = spend.root.output_tokens.saturating_add(sub_out);
     let cached_input_tokens = spend.root.cached_input_tokens.saturating_add(sub_cached);
-    let cost_usd = orchestrator_cost + sub_cost;
+    let cost_usd = cost.usd();
+    tracing::debug!(
+        thread_id = %request.thread_id,
+        ?cost_usd,
+        cost_source = ?cost.source,
+        unpriced_turns = spend.root.cost_split.unpriced_turns,
+        "[threads] token_usage cost (recorded charges; unpriced turns re-priced from the catalog or left unknown)"
+    );
     // A thread whose transcripts exist but recorded no spend must not claim
     // usage: the UI replaces its live bucket with this payload.
-    let has_usage =
-        input_tokens > 0 || output_tokens > 0 || cached_input_tokens > 0 || cost_usd > 0.0;
+    let has_usage = input_tokens > 0
+        || output_tokens > 0
+        || cached_input_tokens > 0
+        || cost_usd.is_some_and(|usd| usd > 0.0);
 
     let response = ThreadTokenUsageResponse {
         thread_id: request.thread_id.clone(),
@@ -150,6 +136,7 @@ pub async fn token_usage(
         output_tokens,
         cached_input_tokens,
         cost_usd,
+        cost_source: cost.source,
         turn_count: spend.root.turns,
         last_turn_input_tokens: spend.root.last_input_tokens,
         last_turn_output_tokens: spend.root.last_output_tokens,
@@ -174,7 +161,8 @@ fn empty_response(thread_id: &str) -> ThreadTokenUsageResponse {
         input_tokens: 0,
         output_tokens: 0,
         cached_input_tokens: 0,
-        cost_usd: 0.0,
+        cost_usd: Some(0.0),
+        cost_source: crate::agent::cost::CostSource::Charged,
         turn_count: 0,
         last_turn_input_tokens: 0,
         last_turn_output_tokens: 0,
@@ -186,3 +174,48 @@ fn empty_response(thread_id: &str) -> ThreadTokenUsageResponse {
         subagents: Vec::new(),
     }
 }
+
+/// A transcript's cost as the thread usage reports it.
+///
+/// Turns that recorded their cost's source are summed as recorded: a provider
+/// charge is never re-priced. Turns without a usable source (written before
+/// the field, or unknown at the time) are priced from the vendor catalog when
+/// `model` has a list price, else the total is unknown. Nothing falls back to
+/// a default rate.
+fn recorded_cost(
+    split: &tinyagents_session::transcript::spend::CostSplit,
+    model: Option<&str>,
+) -> crate::agent::cost::CostTally {
+    use crate::agent::cost::{CallCost, CostSource, CostTally};
+    use tinyagents_session::transcript::UsageCostSource;
+
+    let mut cost = CostTally {
+        known_usd: split.priced_cost_usd,
+        source: match split.priced_source {
+            Some(UsageCostSource::Estimated) => CostSource::Estimated,
+            Some(UsageCostSource::Unknown) => CostSource::Unknown,
+            Some(UsageCostSource::Charged) | None => CostSource::Charged,
+        },
+    };
+    if split.unpriced_turns > 0 {
+        let estimate = model.and_then(|model| {
+            crate::agent::cost::estimate_call_cost_usd(
+                model,
+                &crate::inference::provider::BilledUsage::from_counts(
+                    split.unpriced_input_tokens,
+                    split.unpriced_output_tokens,
+                )
+                .with_cached_input_tokens(split.unpriced_cached_input_tokens),
+            )
+        });
+        cost.add(match estimate {
+            Some(usd) => CallCost::Estimated(usd),
+            None => CallCost::Unknown,
+        });
+    }
+    cost
+}
+
+#[cfg(test)]
+#[path = "usage_tests.rs"]
+mod tests;

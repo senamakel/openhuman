@@ -126,7 +126,7 @@ fn tool_spans_carry_the_model_that_requested_them() {
                 cached_input_tokens: 0,
                 cache_creation_tokens: 0,
                 reasoning_tokens: 0,
-                cost_usd: 0.0,
+                cost_usd: Some(0.0),
             },
             9,
         ),

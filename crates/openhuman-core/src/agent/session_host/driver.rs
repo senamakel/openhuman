@@ -213,7 +213,6 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
                     &snapshot,
                     &sidecar,
                     started.elapsed(),
-                    &self.model_name,
                 ));
             }
         };
@@ -387,14 +386,14 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
                 + repair_usage
                     .map(|usage| usage.cached_input_tokens)
                     .unwrap_or_default();
-            observed.cost_usd = outcome.charged_amount_usd
-                + close
-                    .as_ref()
-                    .map(|close| close.usage.charged_amount_usd)
-                    .unwrap_or_default()
-                + repair_usage
-                    .map(|usage| usage.charged_amount_usd)
-                    .unwrap_or_default();
+            let mut cost = outcome.cost;
+            if let Some(close) = close.as_ref() {
+                cost.merge(close.usage.cost);
+            }
+            if let Some(repair) = repair_usage {
+                cost.merge(repair.cost);
+            }
+            observed.cost = cost;
             let loop_last_call = snapshot
                 .lock()
                 .ok()
@@ -538,7 +537,6 @@ fn driver_error_with_snapshot(
         std::sync::Mutex<crate::agent::tinyagents::host::run_context::SessionTurnSidecar>,
     >,
     elapsed: std::time::Duration,
-    fallback_model: &str,
 ) -> DriverFailure {
     // Classify from the typed harness error when the chain carries one, rather
     // than matching on its rendered text.
@@ -575,24 +573,9 @@ fn driver_error_with_snapshot(
         observed.cached_input_tokens = guard.cached_input_tokens;
         observed.last_call_input_tokens = guard.last_call_input_tokens;
         observed.last_call_output_tokens = guard.last_call_output_tokens;
-        observed.cost_usd = if guard.charged_amount_usd > 0.0 {
-            guard.charged_amount_usd
-        } else {
-            let pricing_model = guard
-                .resolved_route
-                .as_ref()
-                .map(|route| route.route.as_str())
-                .filter(|route| !route.trim().is_empty())
-                .unwrap_or(fallback_model);
-            crate::agent::cost::estimate_call_cost_usd(
-                pricing_model,
-                &crate::inference::provider::BilledUsage::from_counts(
-                    guard.input_tokens,
-                    guard.output_tokens,
-                )
-                .with_cached_input_tokens(guard.cached_input_tokens),
-            )
-        };
+        // Each answered call was priced as it arrived (reported charge, else
+        // catalog estimate, else unknown); nothing is re-estimated here.
+        observed.cost = guard.cost;
         observed.duration = Some(elapsed);
         observed.tool_outcomes = guard.tool_outcomes.clone();
         observed.resolved_route = guard.resolved_route.clone();

@@ -9,6 +9,55 @@ use tinyinference_llm::tool::ToolCall;
 use tinytools::Tool;
 use tinytools::ToolResult;
 
+#[test]
+fn subagent_transcript_keeps_cumulative_spend_separate_from_unknown_last_call() {
+    let workspace = tempfile::tempdir().unwrap();
+    let usage = AggregatedUsage {
+        input_tokens: 120,
+        output_tokens: 30,
+        cached_input_tokens: 40,
+        cost: crate::agent::cost::CostTally {
+            known_usd: 0.01,
+            source: crate::agent::cost::CostSource::Charged,
+        },
+        last_call_input_tokens: 0,
+        last_call_output_tokens: 0,
+    };
+    super::transcript::persist_subagent_transcript(
+        workspace.path(),
+        "root__usage",
+        "worker",
+        "task",
+        "mock",
+        "model",
+        &[TranscriptMessage::assistant("done")],
+        &usage,
+        None,
+        200_000,
+        "test",
+        2,
+    );
+    let root = crate::agent::session_store::transcript_root(workspace.path());
+    let path = tinyagents_session::transcript::resolve_keyed_transcript_path(&root, "root__usage")
+        .unwrap();
+    let transcript = tinyagents_session::transcript::read_transcript(&path).unwrap();
+    let recorded = &transcript
+        .messages
+        .last()
+        .unwrap()
+        .turn_usage
+        .as_ref()
+        .unwrap()
+        .usage;
+    assert_eq!(recorded.input, 120);
+    assert_eq!(recorded.output, 30);
+    assert_eq!(recorded.cached_input, 40);
+    assert_eq!(recorded.context_window, 200_000);
+    assert_eq!(recorded.cost_usd, 0.01);
+    assert_eq!(recorded.last_call_input, 0);
+    assert_eq!(recorded.last_call_output, 0);
+}
+
 fn native_tool_profile() -> &'static ModelProfile {
     static PROFILE: std::sync::LazyLock<ModelProfile> = std::sync::LazyLock::new(|| ModelProfile {
         provider: Some("subagent-graph-test".to_string()),

@@ -111,7 +111,7 @@ fn model_call(model: &str, reasoning: u64, cache_write: u64) -> AgentProgress {
         cached_input_tokens: 300,
         cache_creation_tokens: cache_write,
         reasoning_tokens: reasoning,
-        cost_usd: 0.0042,
+        cost_usd: Some(0.0042),
     }
 }
 
@@ -145,7 +145,7 @@ fn model_call_with_content(subagent_task_id: Option<&str>) -> AgentProgress {
         cached_input_tokens: 0,
         cache_creation_tokens: 0,
         reasoning_tokens: 0,
-        cost_usd: 0.001,
+        cost_usd: Some(0.001),
     }
 }
 

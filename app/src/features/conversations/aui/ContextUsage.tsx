@@ -40,6 +40,7 @@ import {
   type ContextBreakdown as ContextBreakdownData,
   getContextBreakdown,
 } from '../../../services/api/agentContextApi';
+import type { CostSource } from '../../../services/chatService';
 import { emptySessionTokenUsage, type SessionTokenUsage } from '../../../store/chatRuntimeSlice';
 import { useAppSelector } from '../../../store/hooks';
 
@@ -51,6 +52,16 @@ const DEFAULT_CONTEXT_WINDOW = 200_000;
 const EMPTY_USAGE = emptySessionTokenUsage();
 
 const formatUsd = (usd: number): string => (usd >= 1 ? `$${usd.toFixed(2)}` : `$${usd.toFixed(4)}`);
+
+/**
+ * A cost as the core reported it: the provider's charge as is, a list-price
+ * estimate marked `≈`, and nothing (`—`) when the cost is not known. An
+ * unknown cost is never shown as a number: the core declines to guess one.
+ */
+export function formatCost(usd: number, source: CostSource): string {
+  if (source === 'unknown') return '—';
+  return source === 'estimated' ? `≈ ${formatUsd(usd)}` : formatUsd(usd);
+}
 
 type BreakdownState =
   | { status: 'idle' }
@@ -189,11 +200,12 @@ export function ContextUsage({
         : 0;
     const stats = [
       { label: t('token.popCacheHit'), value: `${cacheHit}%` },
-      { label: t('token.costTitle'), value: formatUsd(usage.costUsd) },
+      { label: t('token.costTitle'), value: formatCost(usage.costUsd, usage.costSource) },
       ...Object.values(usage.subAgents).map(sub => ({
         label: t('conversations.composer.context.subagentCost').replace('{agent}', sub.agentId),
-        value: `${(sub.inputTokens + sub.outputTokens).toLocaleString('en-US')} · ${formatUsd(
-          sub.costUsd
+        value: `${(sub.inputTokens + sub.outputTokens).toLocaleString('en-US')} · ${formatCost(
+          sub.costUsd,
+          sub.costSource
         )}`,
       })),
     ];

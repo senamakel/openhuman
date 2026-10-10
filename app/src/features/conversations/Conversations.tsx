@@ -823,6 +823,7 @@ const Conversations = ({
             outputTokens: u.outputTokens,
             cachedTokens: u.cachedInputTokens,
             costUsd: u.costUsd,
+            costSource: u.costSource,
             turns: u.turnCount,
             contextWindow: u.contextWindow,
             lastTurnInputTokens: u.lastTurnInputTokens,

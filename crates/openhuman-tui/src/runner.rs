@@ -35,6 +35,9 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
     let mut resume_picker = false;
     let mut use_last = false;
     let mut no_alt_screen = false;
+    let mut no_mouse = false;
+    let mut demo = false;
+    let mut bench = false;
     let mut provider: Option<String> = None;
     let mut model: Option<String> = None;
     let mut prompt_parts = Vec::new();
@@ -42,6 +45,21 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
     let mut i = 0usize;
     while i < args.len() {
         match args[i].as_str() {
+            "--no-telemetry" => {
+                i += 1;
+            }
+            "--bench" => {
+                bench = true;
+                i += 1;
+            }
+            "--demo" => {
+                demo = true;
+                i += 1;
+            }
+            "--no-mouse" => {
+                no_mouse = true;
+                i += 1;
+            }
             "--thread" => {
                 thread_id = Some(
                     args.get(i + 1)
@@ -100,6 +118,12 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
         }
     }
 
+    if bench {
+        return super::benchmark::run();
+    }
+    if demo {
+        return super::demo::run(no_mouse);
+    }
     process::set_transient_inference_overrides(provider.as_deref(), model.as_deref());
 
     // File-only logging — never stderr while the TUI owns the terminal.
@@ -123,6 +147,7 @@ pub fn run_from_cli(args: &[String]) -> anyhow::Result<()> {
         initial_prompt: (!prompt_parts.is_empty()).then(|| prompt_parts.join(" ")),
         resume_picker,
         no_alt_screen,
+        no_mouse,
     };
     rt.block_on(async_main(
         thread_id,
@@ -266,9 +291,13 @@ fn short_hex() -> String {
 fn print_help() {
     println!("Usage: openhuman-tui [OPTIONS] [PROMPT]");
     println!();
-    println!("Open the tabbed terminal UI for core logs, orchestrator chat, configuration,");
+    println!("Open the conversation-first terminal UI for agent chat, tools, configuration,");
     println!("and account settings. Runs the core in-process — no server, no ports.");
     println!();
+    println!("  --demo          Offline interactive UI preview (no model calls).");
+    println!("  --bench         Reproducible offline viewport/render benchmark (JSON).");
+    println!("  --no-telemetry  Skip the host crash-report client for isolated profiling.");
+    println!("  --no-mouse      Keep native terminal mouse selection.");
     println!("  --thread <id>   Attach to an existing conversation thread.");
     println!("  --new           Force a new thread (default when --thread is omitted).");
     println!("  --resume        Open the saved-thread picker (starts on the latest thread).");
@@ -278,8 +307,8 @@ fn print_help() {
     println!("  -m, --model <id>     Override the model for this TUI session.");
     println!("  -v, --verbose   Debug-level logging (written to the log file, never the UI).");
     println!();
-    println!("Keys: Ctrl+Tab or Alt+1-4 switch tabs · Enter send · Shift+Enter newline ·");
-    println!("      / opens commands · Ctrl+C / Ctrl+D quit.");
+    println!("Keys: Ctrl+P commands · Enter send/steer · Ctrl+Q queue · Shift+Enter newline ·");
+    println!("      Ctrl+J newline · Tab focus · / opens commands · Ctrl+D quit.");
 }
 
 #[cfg(test)]

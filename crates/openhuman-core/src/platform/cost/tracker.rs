@@ -194,12 +194,16 @@ impl CostTracker {
                     cost_usd: 0.0,
                     total_tokens: 0,
                     request_count: 0,
+                    unpriced_request_count: 0,
                 });
             model_entry.cost_usd += record.usage.cost_usd;
             model_entry.total_tokens = model_entry
                 .total_tokens
                 .saturating_add(record.usage.total_tokens);
             model_entry.request_count += 1;
+            if record.usage.cost_source == CostSource::Unknown {
+                model_entry.unpriced_request_count += 1;
+            }
         })?;
 
         let mut out = Vec::with_capacity(span as usize);
@@ -340,10 +344,12 @@ impl CostTracker {
                         cost_usd: 0.0,
                         total_tokens: 0,
                         request_count: 0,
+                        unpriced_request_count: 0,
                     });
                 entry.cost_usd += stats.cost_usd;
                 entry.total_tokens = entry.total_tokens.saturating_add(stats.total_tokens);
                 entry.request_count += stats.request_count;
+                entry.unpriced_request_count += stats.unpriced_request_count;
             }
         }
         let mut by_model: Vec<ModelStats> = by_model_totals.into_values().collect();
@@ -426,11 +432,15 @@ fn build_session_model_stats(session_costs: &[CostRecord]) -> HashMap<String, Mo
                 cost_usd: 0.0,
                 total_tokens: 0,
                 request_count: 0,
+                unpriced_request_count: 0,
             });
 
         entry.cost_usd += record.usage.cost_usd;
         entry.total_tokens += record.usage.total_tokens;
         entry.request_count += 1;
+        if record.usage.cost_source == CostSource::Unknown {
+            entry.unpriced_request_count += 1;
+        }
     }
 
     by_model

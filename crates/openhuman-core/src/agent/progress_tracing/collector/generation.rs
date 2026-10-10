@@ -2,9 +2,6 @@
 //! usage normalization across provider routes, cost provenance, and the
 //! unstreamed-call guard for time to first token.
 
-use crate::agent::cost;
-use crate::inference::provider::BilledUsage;
-
 /// A call whose first delta landed this close to its completion was not
 /// streamed: non-streaming providers (the OpenAI Responses path used by the
 /// ChatGPT/Codex sign-in) emit the whole reply as one synthetic delta right
@@ -92,8 +89,7 @@ pub(super) fn normalize_usage(
 pub(super) enum CostSource {
     /// A provider charge or an estimate from a known price.
     Priced,
-    /// The model has no known price and the reported figure was the
-    /// estimator's placeholder rate; no cost is recorded.
+    /// The call has neither a reported charge nor a known estimate.
     Unpriced,
 }
 
@@ -106,35 +102,15 @@ impl CostSource {
     }
 }
 
-/// The cost to record for a call, and its provenance.
-///
-/// The live bridge prices a call with [`cost::estimate_call_cost_usd`] when
-/// the provider reports no charge, and that estimator falls back to a
-/// placeholder rate for an unknown model (kept there so budget caps still
-/// bite). On a trace that placeholder reads as a real charge, so a figure
-/// that is exactly the placeholder estimate for an unpriced model is dropped:
-/// the generation carries no cost and Langfuse falls back to its own model
-/// price table, if it has one. A provider charge differs from that estimate
-/// and is kept.
-pub(super) fn effective_cost(
-    model: &str,
-    input_tokens: u64,
-    output_tokens: u64,
-    cache_read: u64,
-    reported_usd: f64,
-) -> (f64, CostSource) {
-    if cost::lookup_known_pricing(model).is_some() {
-        return (reported_usd, CostSource::Priced);
-    }
-    let placeholder = cost::estimate_call_cost_usd(
-        model,
-        &BilledUsage::from_counts(input_tokens, output_tokens).with_cached_input_tokens(cache_read),
-    );
-    if (reported_usd - placeholder).abs() <= 1e-12 {
-        (0.0, CostSource::Unpriced)
+/// Preserve the optional cost supplied by the call's accounting layer.
+/// Unknown costs stay absent; a reported zero remains a known price.
+pub(super) fn effective_cost(reported_usd: Option<f64>) -> (Option<f64>, CostSource) {
+    let source = if reported_usd.is_some() {
+        CostSource::Priced
     } else {
-        (reported_usd, CostSource::Priced)
-    }
+        CostSource::Unpriced
+    };
+    (reported_usd, source)
 }
 
 /// Whether a call with these delta stamps was really streamed. A call is

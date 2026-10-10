@@ -170,6 +170,7 @@ fn child_ledgers_are_isolated_and_parent_keeps_completed_child_totals() {
             output_tokens: 2,
             cached_input_tokens: 1,
             charged_amount_usd: 0.01,
+            cost_source: crate::agent::cost::CostSource::Charged,
         },
     });
     assert!(right.subagent_usage_entries().is_empty());

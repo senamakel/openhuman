@@ -408,9 +408,9 @@ pub enum AgentProgress {
         cache_creation_tokens: u64,
         /// Reasoning/thinking tokens, when the provider reports them.
         reasoning_tokens: u64,
-        /// Best-available USD cost for this single call (charged when the
-        /// backend reported it, else a catalog estimate).
-        cost_usd: f64,
+        /// USD cost of this single call: the backend's reported charge, else
+        /// the catalog's list-price estimate; `None` when neither exists.
+        cost_usd: Option<f64>,
     },
 
     /// The turn completed with a final text response.

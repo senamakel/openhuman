@@ -45,7 +45,19 @@ fn insert_host_metadata(
 fn journal_extra_metadata(message: &TranscriptMessage) -> Option<serde_json::Value> {
     let mut extra = message.extra_metadata.clone();
     if let Some(usage) = message.turn_usage.as_ref() {
-        if let Ok(payload) = serde_json::to_value(usage) {
+        if let Ok(mut payload) = serde_json::to_value(usage) {
+            // Older journal rows omitted these unknown measurements. Preserve
+            // that wire shape while retaining measured final-call counts.
+            if let Some(counts) = payload
+                .get_mut("usage")
+                .and_then(serde_json::Value::as_object_mut)
+            {
+                for field in ["last_call_input", "last_call_output"] {
+                    if counts.get(field).and_then(serde_json::Value::as_u64) == Some(0) {
+                        counts.remove(field);
+                    }
+                }
+            }
             insert_host_metadata(&mut extra, TURN_USAGE_METADATA_KEY, payload);
         }
     }
@@ -117,3 +129,7 @@ pub fn journal_message_from_transcript(message: TranscriptMessage) -> JournalMes
         extra_metadata: journal_extra_metadata(&message),
     }
 }
+
+#[cfg(test)]
+#[path = "projector_tests.rs"]
+mod tests;

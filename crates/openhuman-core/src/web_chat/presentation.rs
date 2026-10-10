@@ -23,7 +23,7 @@ fn usage_payload(usage: Option<&LastTurnUsage>) -> Option<TurnUsagePayload> {
             agent_id: s.agent_id.clone(),
             input_tokens: s.usage.input_tokens,
             output_tokens: s.usage.output_tokens,
-            cost_usd: s.usage.charged_amount_usd,
+            cost_usd: s.usage.cost().usd(),
         })
         .collect();
     Some(TurnUsagePayload {
@@ -31,6 +31,7 @@ fn usage_payload(usage: Option<&LastTurnUsage>) -> Option<TurnUsagePayload> {
         output_tokens: usage.output_tokens,
         cached_input_tokens: usage.cached_input_tokens,
         cost_usd: usage.cost_usd,
+        cost_source: usage.cost_source,
         context_window: usage.context_window,
         context_tokens: usage.context_tokens,
         subagents,

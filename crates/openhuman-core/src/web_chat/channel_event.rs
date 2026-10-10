@@ -345,7 +345,13 @@ pub struct TurnUsagePayload {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cached_input_tokens: u64,
-    pub cost_usd: f64,
+    /// The turn's cost, or `null` when it is not known (some call had no
+    /// reported charge and no catalogued price). The UI shows no price then.
+    pub cost_usd: Option<f64>,
+    /// `charged` (every call billed by the provider), `estimated` (some call
+    /// priced from list rates) or `unknown`.
+    #[serde(default)]
+    pub cost_source: crate::agent::cost::CostSource,
     pub context_window: u64,
     /// Tokens the parent's context held after the turn's final model call: the
     /// context gauge's numerator. Unlike the totals above it is one request,
@@ -366,7 +372,8 @@ pub struct SubagentUsagePayload {
     pub agent_id: String,
     pub input_tokens: u64,
     pub output_tokens: u64,
-    pub cost_usd: f64,
+    /// `null` when the child's cost is not known.
+    pub cost_usd: Option<f64>,
 }
 
 /// Per-event subagent progress detail attached to `WebChannelEvent`.

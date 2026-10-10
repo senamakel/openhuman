@@ -22,7 +22,7 @@ fn call(
     output: u64,
     cache_read: u64,
     cache_write: u64,
-    cost: f64,
+    cost: impl Into<Option<f64>>,
 ) -> AgentProgress {
     AgentProgress::ModelCallCompleted {
         model: model.to_string(),
@@ -36,7 +36,7 @@ fn call(
         cached_input_tokens: cache_read,
         cache_creation_tokens: cache_write,
         reasoning_tokens: 0,
-        cost_usd: cost,
+        cost_usd: cost.into(),
     }
 }
 
@@ -445,7 +445,7 @@ fn empty_provider_and_model_do_not_produce_dot_labels() {
 // ── 7. unpriced / free models ───────────────────────────────────────────────
 
 #[test]
-fn unpriced_model_placeholder_cost_is_not_recorded() {
+fn unpriced_model_unknown_cost_is_not_recorded() {
     let model = "acme/never-heard-of-it";
     let placeholder = crate::agent::cost::estimate_call_cost_usd(
         model,
@@ -460,10 +460,7 @@ fn unpriced_model_placeholder_cost_is_not_recorded() {
         ),
     ]);
     let g = generations(c.spans())[0];
-    assert_eq!(
-        g.attributes["gen_ai.usage.cost_usd"],
-        serde_json::json!(0.0)
-    );
+    assert!(!g.attributes.contains_key("gen_ai.usage.cost_usd"));
     assert_eq!(
         g.attributes["gen_ai.cost.source"],
         serde_json::json!("unpriced")

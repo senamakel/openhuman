@@ -248,13 +248,15 @@ describe('TunnelCipher (directional v2)', () => {
     expect(() => serverOpener.open(frame)).toThrow(/authentication failed/i);
   });
 
-  it('legacy v1 frames are explicitly rejected with re-pair hint', () => {
+  it('legacy v1 frames are explicitly rejected with protocol upgrade hint', () => {
     // Hand-roll a v1-shaped frame: 0x01 || nonce(24) || ct(16 bytes).
     const v1Frame = new Uint8Array(1 + 24 + 16);
     v1Frame[0] = LEGACY_FRAME_VERSION_V1;
     const client = new TunnelCipher('client', keys);
     expect(() => client.open(v1Frame)).toThrow(/UnsupportedFrameVersion/);
-    expect(() => client.open(v1Frame)).toThrow(/re-pair/);
+    expect(() => client.open(v1Frame)).toThrow(
+      /upgrade to v2 directional subkeys before reconnecting/
+    );
   });
 });
 

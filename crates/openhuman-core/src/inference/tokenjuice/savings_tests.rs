@@ -4,7 +4,7 @@ use super::*;
 fn records_and_aggregates() {
     // Use a fresh local state to avoid clobbering the process-global one.
     let mut agg = SavingsAggregate::default();
-    let cost = cost_saved_usd("agentic-v1", 1000);
+    let cost = cost_saved_usd("claude-sonnet-4-6", 1000);
     agg.total.add(2000, 1000, cost);
     agg.by_compressor
         .entry("smartcrusher".into())
@@ -17,9 +17,9 @@ fn records_and_aggregates() {
 
 #[test]
 fn cost_uses_input_price() {
-    // agentic-v1 input pricing is used for saved-token cost estimates.
-    let c = cost_saved_usd("agentic-v1", 1_000_000);
-    assert!((c - 0.0886).abs() < 1e-6, "got {c}");
+    // Catalogued model input pricing is used for saved-token cost estimates.
+    let c = cost_saved_usd("claude-sonnet-4-6", 1_000_000);
+    assert!((c - 3.0).abs() < 1e-6, "got {c}");
 }
 
 #[test]
@@ -41,5 +41,8 @@ fn record_saving_attributes_to_given_model() {
         agg.by_model.contains_key("turn-model-x"),
         "saving must be attributed to the supplied model"
     );
-    assert!(agg.by_model["turn-model-x"].cost_saved_usd > 0.0);
+    assert_eq!(
+        agg.by_model["turn-model-x"].cost_saved_usd, 0.0,
+        "an unknown model has no estimated monetary saving"
+    );
 }

@@ -195,7 +195,33 @@ pub struct SubagentUsage {
     pub input_tokens: u64,
     pub output_tokens: u64,
     pub cached_input_tokens: u64,
+    /// Sum of the run's known call costs; read with `cost_source`.
     pub charged_amount_usd: f64,
+    /// How certain `charged_amount_usd` is. `Unknown` means some call had no
+    /// charge and no catalogued price, so the sum is incomplete.
+    #[serde(
+        default = "unknown_cost_source",
+        skip_serializing_if = "is_unknown_cost_source"
+    )]
+    pub cost_source: crate::agent::cost::CostSource,
+}
+
+fn unknown_cost_source() -> crate::agent::cost::CostSource {
+    crate::agent::cost::CostSource::Unknown
+}
+
+fn is_unknown_cost_source(source: &crate::agent::cost::CostSource) -> bool {
+    *source == crate::agent::cost::CostSource::Unknown
+}
+
+impl SubagentUsage {
+    /// The run's cost as a tally, for folding into a parent's.
+    pub fn cost(&self) -> crate::agent::cost::CostTally {
+        crate::agent::cost::CostTally {
+            known_usd: self.charged_amount_usd,
+            source: self.cost_source,
+        }
+    }
 }
 
 /// Which prompt-construction path the runner took for a sub-agent.
@@ -347,3 +373,7 @@ pub enum SubagentRunError {
         observed_samples: u64,
     },
 }
+
+#[cfg(test)]
+#[path = "types_tests.rs"]
+mod tests;

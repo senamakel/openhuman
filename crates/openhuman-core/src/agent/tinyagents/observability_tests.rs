@@ -161,9 +161,10 @@ async fn model_completed_projects_generation_with_content_and_provider() {
     assert!(input.unwrap().to_string().contains("You are OpenHuman."));
     assert!(output.unwrap().to_string().contains("hi"));
     assert_eq!(input_tokens, 1_000);
-    // chat-v1 is a managed tier handle — the tier-aware estimator must
-    // price it (> $0); the old catalog-only lookup returned exactly 0.
-    assert!(cost_usd > 0.0, "managed tier call must not price as $0");
+    // chat-v1 is a managed tier handle with no catalogued list price, and this
+    // call carried no reported charge: its cost is unknown, not a guessed
+    // default rate (which once priced glm-5.3-flash at 14x what was billed).
+    assert_eq!(cost_usd, None, "an unpriced call reports no cost");
 }
 
 #[tokio::test]

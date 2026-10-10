@@ -40,7 +40,7 @@ fn completed(iteration: u32) -> AgentProgress {
         cached_input_tokens: 90,
         cache_creation_tokens: 0,
         reasoning_tokens: 5,
-        cost_usd: 0.001,
+        cost_usd: Some(0.001),
     }
 }
 

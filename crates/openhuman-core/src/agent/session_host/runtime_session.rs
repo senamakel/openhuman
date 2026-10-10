@@ -816,17 +816,16 @@ pub(super) fn holistic_last_turn_usage(
     let cached_input_tokens = tokens(sidecar.cached_input_tokens, |usage| {
         usage.cached_input_tokens
     });
-    let cost_usd = sidecar
-        .subagents
-        .iter()
-        .fold(sidecar.cost_usd, |total, entry| {
-            total + entry.usage.charged_amount_usd
-        });
+    let mut cost = sidecar.cost;
+    for entry in &sidecar.subagents {
+        cost.merge(entry.usage.cost());
+    }
     crate::agent::tinyagents::host::LastTurnUsage {
         input_tokens,
         output_tokens,
         cached_input_tokens,
-        cost_usd,
+        cost_usd: cost.usd(),
+        cost_source: cost.source,
         context_window: sidecar.context_window,
         context_tokens: sidecar
             .last_call_input_tokens

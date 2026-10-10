@@ -44,10 +44,9 @@ pub(super) fn project_managed_usage(mut response: ModelResponse) -> ModelRespons
         .and_then(|oh| serde_json::from_value(oh.clone()).ok())
         .unwrap_or_default();
 
-    let charged_amount_usd = envelope
-        .billing
-        .map(|b| b.charged_amount_usd)
-        .unwrap_or(0.0);
+    // A `billing` block is the backend's statement of what it debited, so it
+    // is a known charge even at zero; no block means no charge was reported.
+    let charged_amount_usd = envelope.billing.map(|b| b.charged_amount_usd);
     let context_window = envelope
         .usage
         .as_ref()

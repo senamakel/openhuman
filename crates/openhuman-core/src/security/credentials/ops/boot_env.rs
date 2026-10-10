@@ -62,6 +62,7 @@ pub async fn seed_session_from_env(config: &Config) {
         kind: Some(CredentialKind::Session.as_str().to_string()),
         user_id: None,
         user: None,
+        issuing_backend: None,
     };
     match set_credential(config, request).await {
         Ok(outcome) => log::info!(

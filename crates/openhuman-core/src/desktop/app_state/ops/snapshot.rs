@@ -20,7 +20,7 @@ use super::LOG_PREFIX;
 use crate::config::rpc as config_rpc;
 use crate::core::Outcome;
 use crate::security::credentials::session_support::{
-    load_app_session_profile, session_state_from_profile, session_token_from_profile,
+    load_app_session_profile, session_state_from_profile,
 };
 use log::{debug, warn};
 use serde_json::Value;
@@ -68,7 +68,12 @@ pub async fn snapshot() -> Result<Outcome<AppStateSnapshot>, String> {
             .await
             .unwrap_or_else(|e| Err(format!("[app_state] auth profile load task panicked: {e}")))?;
     let mut auth = session_state_from_profile(session_profile.as_ref());
-    let session_token = session_token_from_profile(session_profile.as_ref());
+    let session_token = crate::security::credentials::session_support::session_token_for_config(
+        &config,
+        session_profile.as_ref(),
+    )
+    .ok()
+    .flatten();
     let current_user = sanitize_snapshot_user(auth.user.clone());
     auth.user = current_user.clone();
     let auth_ms = t_auth.elapsed().as_millis();

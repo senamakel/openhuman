@@ -12459,18 +12459,12 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
     assert_eq!(data["input_tokens"], 5200);
     assert_eq!(data["output_tokens"], 1100);
     assert_eq!(data["cached_input_tokens"], 600);
-    // Cost is RE-AUDITED at current pricing, NOT the stale persisted charge.
-    // The coder sub-agent has no model, so it's priced at the thread's model
-    // (`reasoning-v1`, a retired tier slug that prices as the managed default,
-    // DeepSeek V4 Flash), NOT $0.
-    // orchestrator: (4200-600)*0.0886 + 600*0.0886 + 900*0.1772 = 0.0005316
-    // coder:        1000*0.0886 + 0 + 200*0.1772                = 0.00012404
-    // total                                                      = 0.00065564
-    let cost = data["cost_usd"].as_f64().expect("cost_usd");
-    assert!(
-        (cost - 0.000_655_64).abs() < 1e-9,
-        "re-audited total cost should be ~0.000656, got {cost}"
-    );
+    // These records predate `cost_source`, so their persisted cost may be a
+    // guessed rate and is not reported. `reasoning-v1` (a retired tier slug,
+    // and the coder's fallback model) has no catalogued list price either, so
+    // the thread's cost is unknown: `null`, never a default rate.
+    assert!(data["cost_usd"].is_null(), "cost_usd: {}", data["cost_usd"]);
+    assert_eq!(data["cost_source"], "unknown");
     assert_eq!(data["turn_count"], 2);
     assert_eq!(data["last_turn_input_tokens"], 350);
     assert_eq!(data["last_turn_output_tokens"], 80);
@@ -12488,7 +12482,10 @@ async fn json_rpc_threads_token_usage_reads_persisted_thread_totals() {
     assert_eq!(subs[0]["input_tokens"], 1000);
     assert_eq!(subs[0]["output_tokens"], 200);
     assert_eq!(subs[0]["runs"], 1);
-    assert!((subs[0]["cost_usd"].as_f64().expect("sub cost") - 0.000_124_04).abs() < 1e-9);
+    assert!(
+        subs[0]["cost_usd"].is_null(),
+        "an unpriced sub-agent reports no cost"
+    );
 
     // Unknown thread → all-zero totals with has_usage=false (brand-new thread).
     let resp_unknown = post_json_rpc(

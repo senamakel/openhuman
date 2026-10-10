@@ -431,6 +431,7 @@ fn secure_open_rejects_invalid_paths_and_reads_authorized_absolute_paths() {
     let temp = tempfile::tempdir().unwrap();
     let root = temp.path().join("workspace");
     std::fs::create_dir(&root).unwrap();
+    let root = root.canonicalize().unwrap();
     let file = root.join("allowed.txt");
     std::fs::write(&file, b"allowed bytes").unwrap();
 

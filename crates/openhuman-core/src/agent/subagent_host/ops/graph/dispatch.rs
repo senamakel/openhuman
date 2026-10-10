@@ -25,7 +25,8 @@ pub(in super::super) struct AggregatedUsage {
     pub(in super::super) input_tokens: u64,
     pub(in super::super) output_tokens: u64,
     pub(in super::super) cached_input_tokens: u64,
-    pub(in super::super) charged_amount_usd: f64,
+    /// Cost of the run's calls: reported charge, catalog estimate, or unknown.
+    pub(in super::super) cost: crate::agent::cost::CostTally,
     pub(in super::super) last_call_input_tokens: u64,
     pub(in super::super) last_call_output_tokens: u64,
 }
@@ -302,12 +303,8 @@ pub(in super::super) async fn run_subagent_via_graph(
                     cached_input_tokens: snapshot.cached_input_tokens,
                     last_call_input_tokens: snapshot.last_call_input_tokens,
                     last_call_output_tokens: snapshot.last_call_output_tokens,
-                    charged_amount_usd: crate::platform::cost::catalog::estimate_cost_usd(
-                        model,
-                        snapshot.input_tokens,
-                        snapshot.output_tokens,
-                        snapshot.cached_input_tokens,
-                    ),
+                    // Each answered call was priced as it arrived.
+                    cost: snapshot.cost,
                 };
                 (recovered, unanswered, usage, snapshot.model_calls)
             };
@@ -378,7 +375,7 @@ pub(in super::super) async fn run_subagent_via_graph(
         // outcome now reports both) so sub-agent spend rolls into the parent
         // instead of being recorded as uncached and $0.
         cached_input_tokens: outcome.cached_input_tokens,
-        charged_amount_usd: outcome.charged_amount_usd,
+        cost: outcome.cost,
         last_call_input_tokens,
         last_call_output_tokens,
     };
@@ -412,18 +409,8 @@ pub(in super::super) async fn run_subagent_via_graph(
                     usage.input_tokens += u.input_tokens;
                     usage.output_tokens += u.output_tokens;
                     usage.cached_input_tokens += u.cached_input_tokens();
-                    let call_cost =
-                        if u.charged_amount_usd.is_finite() && u.charged_amount_usd > 0.0 {
-                            u.charged_amount_usd
-                        } else {
-                            crate::platform::cost::catalog::estimate_cost_usd(
-                                model,
-                                u.input_tokens,
-                                u.output_tokens,
-                                u.cached_input_tokens(),
-                            )
-                        };
-                    usage.charged_amount_usd += call_cost;
+                    let call_cost = crate::agent::cost::call_cost(model, &u);
+                    usage.cost.add(call_cost);
                     let billed = crate::inference::provider::BilledUsage::from_counts(
                         u.input_tokens,
                         u.output_tokens,
@@ -432,13 +419,12 @@ pub(in super::super) async fn run_subagent_via_graph(
                     .with_cached_input_tokens(u.cached_input_tokens())
                     .with_cache_creation_tokens(u.cache_creation_tokens)
                     .with_reasoning_tokens(u.reasoning_tokens);
-                    let billed = if !u.cost_is_estimate
-                        && u.charged_amount_usd.is_finite()
-                        && u.charged_amount_usd > 0.0
-                    {
-                        billed.with_charged_usd(call_cost)
-                    } else {
-                        billed.with_estimated_usd(call_cost)
+                    let billed = match call_cost {
+                        crate::agent::cost::CallCost::Charged(usd) => billed.with_charged_usd(usd),
+                        crate::agent::cost::CallCost::Estimated(usd) => {
+                            billed.with_estimated_usd(usd)
+                        }
+                        crate::agent::cost::CallCost::Unknown => billed,
                     };
                     crate::platform::cost::record_provider_usage_scoped(
                         model,
@@ -453,7 +439,7 @@ pub(in super::super) async fn run_subagent_via_graph(
                         input_tokens = u.input_tokens,
                         output_tokens = u.output_tokens,
                         cached_input_tokens = u.cached_input_tokens(),
-                        call_cost,
+                        ?call_cost,
                         "[subagent] cap-hit summary call folded + priced + recorded into cost tracker (#4467, item 2)"
                     );
                 }

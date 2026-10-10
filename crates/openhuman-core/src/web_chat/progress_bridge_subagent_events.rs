@@ -222,7 +222,8 @@ pub(super) fn on_subagent_completed(
                 input_tokens: usage.as_ref().map(|u| u.input_tokens),
                 output_tokens: usage.as_ref().map(|u| u.output_tokens),
                 cached_input_tokens: usage.as_ref().map(|u| u.cached_input_tokens),
-                cost_usd: usage.as_ref().map(|u| u.charged_amount_usd),
+                // `None` also when the child's cost is unknown (never a guess).
+                cost_usd: usage.as_ref().and_then(|u| u.cost().usd()),
                 // Worktree isolation metadata (#3376) — drives the inline
                 // subagent worktree row's open/diff/remove actions. All
                 // `None`/absent for non-isolated workers.

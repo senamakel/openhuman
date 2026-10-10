@@ -96,9 +96,10 @@ pub(crate) struct TranscriptSnapshot {
     /// context window was, which is what the context gauge shows.
     pub(crate) last_call_input_tokens: u64,
     pub(crate) last_call_output_tokens: u64,
-    /// Provider-reported cost where available, otherwise the host's per-call
-    /// estimate. This covers only model calls the provider answered.
-    pub(crate) charged_amount_usd: f64,
+    /// Cost of the model calls the provider answered: each call's reported
+    /// charge, else its catalog estimate, else unknown (see
+    /// [`crate::agent::cost::call_cost`]).
+    pub(crate) cost: crate::agent::cost::CostTally,
     /// The last accepted model route. A failed follow-up has no response of
     /// its own, so this remains the route that incurred the snapshot usage.
     pub(crate) resolved_route: Option<ResolvedModelRoute>,
@@ -329,8 +330,13 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                     })
                     .or(guard.pricing_model.as_deref())
                     .unwrap_or_default();
-                guard.charged_amount_usd +=
-                    crate::agent::cost::call_cost_usd(cost_model, &host_usage);
+                let call_cost = crate::agent::cost::call_cost(cost_model, &host_usage);
+                tracing::debug!(
+                    model = cost_model,
+                    ?call_cost,
+                    "[cost] per-call cost (charged, catalog estimate, or unknown)"
+                );
+                guard.cost.add(call_cost);
             }
             if route.is_some() {
                 guard.resolved_route = route;

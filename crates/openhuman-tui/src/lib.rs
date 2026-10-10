@@ -1,6 +1,6 @@
 //! OpenHuman terminal client, embedding the core in-process.
 //!
-//! A [ratatui]-based agent cockpit with Chat, Logs, Config, and Settings,
+//! A [ratatui]-based conversation UI with mouse control, themes, and diagnostics,
 //! persistent thread resume, command/file pickers, approvals, plan review,
 //! agent/skill/MCP/artifact views, Git review, and a multiline composer.
 //! Chat uses the **same `web_chat` surface** the desktop app drives (`openhuman.channel_web_chat` /
@@ -30,17 +30,27 @@
 //!
 //! See `README.md` for build/run instructions and the packaging story.
 
+mod account;
+mod actions;
+mod activity;
 mod app;
+mod benchmark;
 mod cockpit;
 mod composer;
 mod controls;
 mod crash_reporting;
+mod demo;
+mod effects;
+mod input;
+mod presentation;
 mod render;
 mod runner;
 mod session;
 mod state;
 mod terminal;
+mod theme;
 mod ui_state;
+mod viewport;
 
 pub use crash_reporting::init_crash_reporting;
 pub use runner::run_from_cli;

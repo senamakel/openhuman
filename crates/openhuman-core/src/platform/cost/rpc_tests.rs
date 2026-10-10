@@ -29,6 +29,7 @@ fn make_model_stats(model: &str, cost: f64) -> ModelStats {
         cost_usd: cost,
         total_tokens: 1500,
         request_count: 1,
+        unpriced_request_count: 0,
     }
 }
 

@@ -187,8 +187,9 @@ const OPENHUMAN_USAGE_META_KEY: &str = "openhuman_usage_meta";
 #[derive(Debug, Clone, Copy, Default, serde::Serialize, serde::Deserialize)]
 struct OpenhumanUsageMeta {
     /// Provider-charged amount in USD (`BilledUsage::charged_amount_usd`).
-    #[serde(default)]
-    charged_amount_usd: f64,
+    /// `None` when no charge was reported; `Some(0.0)` is a free call.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    charged_amount_usd: Option<f64>,
     /// Model context window in tokens (`BilledUsage::context_window`).
     #[serde(default)]
     context_window: u64,
@@ -199,11 +200,12 @@ struct OpenhumanUsageMeta {
 /// providers that don't surface billing stay `raw: None`).
 fn openhuman_usage_meta_raw(usage: Option<&BilledUsage>) -> Option<serde_json::Value> {
     let u = usage?;
-    if u.charged_amount_usd <= 0.0 && u.context_window() == 0 {
+    let charged = (u.charge_reported && !u.cost_is_estimate).then_some(u.charged_amount_usd);
+    if charged.is_none() && u.context_window() == 0 {
         return None;
     }
     let meta = OpenhumanUsageMeta {
-        charged_amount_usd: u.charged_amount_usd,
+        charged_amount_usd: charged,
         context_window: u.context_window(),
     };
     Some(serde_json::json!({ OPENHUMAN_USAGE_META_KEY: meta }))
@@ -226,10 +228,10 @@ fn openhuman_usage_meta_raw(usage: Option<&BilledUsage>) -> Option<serde_json::V
 /// wire JSON) or creates a fresh object.
 pub(crate) fn merge_openhuman_usage_meta(
     raw: Option<serde_json::Value>,
-    charged_amount_usd: f64,
+    charged_amount_usd: Option<f64>,
     context_window: u64,
 ) -> Option<serde_json::Value> {
-    if charged_amount_usd <= 0.0 && context_window == 0 {
+    if charged_amount_usd.is_none() && context_window == 0 {
         return raw;
     }
     let meta = match serde_json::to_value(OpenhumanUsageMeta {
@@ -267,13 +269,12 @@ pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<Bille
         .and_then(|v| v.get(OPENHUMAN_USAGE_META_KEY))
         .and_then(|v| serde_json::from_value::<OpenhumanUsageMeta>(v.clone()).ok())
         .unwrap_or_default();
-    if meta.charged_amount_usd <= 0.0 {
+    if meta.charged_amount_usd.is_none() {
         meta.charged_amount_usd = response
             .raw
             .as_ref()
             .and_then(|value| value.get("total_cost_usd"))
-            .and_then(serde_json::Value::as_f64)
-            .unwrap_or_default();
+            .and_then(serde_json::Value::as_f64);
     }
     Some(
         BilledUsage::from_counts(usage.input_tokens, usage.output_tokens)
@@ -281,7 +282,7 @@ pub(crate) fn usage_info_from_response(response: &ModelResponse) -> Option<Bille
             .with_cached_input_tokens(usage.cache_read_tokens)
             .with_cache_creation_tokens(usage.cache_creation_tokens)
             .with_reasoning_tokens(usage.reasoning_tokens)
-            .with_charged_usd(meta.charged_amount_usd),
+            .with_reported_charge(meta.charged_amount_usd),
     )
 }
 

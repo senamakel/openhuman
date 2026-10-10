@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { callCoreRpc } from '../../../services/coreRpcClient';
 import chatRuntimeReducer, { hydrateThreadUsage } from '../../../store/chatRuntimeSlice';
-import { contextBreakdownSegments, ContextUsage } from './ContextUsage';
+import { contextBreakdownSegments, ContextUsage, formatCost } from './ContextUsage';
 
 vi.mock('../../../services/coreRpcClient', () => ({ callCoreRpc: vi.fn() }));
 
@@ -268,5 +268,14 @@ describe('contextBreakdownSegments', () => {
       ['Your input', 70_000],
     ]);
     expect(segments.reduce((sum, s) => sum + s.tokens, 0)).toBe(100_000);
+  });
+});
+
+describe('formatCost', () => {
+  it('shows a charge as is, marks an estimate, and shows no price when unknown', () => {
+    expect(formatCost(0.2986, 'charged')).toBe('$0.2986');
+    expect(formatCost(4.25, 'charged')).toBe('$4.25');
+    expect(formatCost(0.05, 'estimated')).toBe('≈ $0.0500');
+    expect(formatCost(4.25, 'unknown')).toBe('—');
   });
 });

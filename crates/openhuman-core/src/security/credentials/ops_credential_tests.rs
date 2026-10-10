@@ -1,6 +1,57 @@
 use super::*;
 use crate::security::credentials::api_key;
 
+#[tokio::test]
+async fn same_token_refresh_preserves_issuing_backend_and_refuses_rebinding() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp);
+    let key = crate::security::credentials::session_support::SESSION_ISSUING_BACKEND_META;
+    let mut metadata = std::collections::HashMap::new();
+    metadata.insert("user_id".into(), "test-user".into());
+    metadata.insert(key.into(), "https://issuer.example".into());
+    AuthService::from_config(&config)
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            "synthetic-session",
+            metadata,
+            true,
+        )
+        .unwrap();
+    let state = set_credential(
+        &config,
+        SetCredentialRequest {
+            token: "synthetic-session".into(),
+            user_id: Some("test-user".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap()
+    .value;
+    assert_eq!(
+        state.issuing_backend.as_deref(),
+        Some("https://issuer.example")
+    );
+    let error = set_credential(
+        &config,
+        SetCredentialRequest {
+            token: "synthetic-session".into(),
+            user_id: Some("test-user".into()),
+            issuing_backend: Some("https://different.example".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap_err();
+    assert!(error.starts_with("SESSION_BACKEND_MISMATCH"));
+    let stored = crate::security::credentials::session_support::load_app_session_profile(&config)
+        .unwrap()
+        .unwrap();
+    assert_eq!(stored.metadata.get(key).unwrap(), "https://issuer.example");
+}
+
 // ── secret_store_for_config ────────────────────────────────────
 
 #[test]

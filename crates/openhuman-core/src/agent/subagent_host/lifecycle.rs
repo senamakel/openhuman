@@ -879,9 +879,12 @@ impl OpenHumanPersistence {
                         .input_tokens
                         .saturating_add(checkpoint.usage.output_tokens),
                     cache_read_tokens: checkpoint.usage.cached_input_tokens,
-                    charged_amount: Some(ChargedAmount::usd_micros(
-                        (checkpoint.usage.charged_amount_usd * 1_000_000.0).round() as i64,
-                    )),
+                    // An unknown cost crosses as no charge at all, never as $0.
+                    charged_amount: checkpoint
+                        .usage
+                        .cost()
+                        .usd()
+                        .map(|usd| ChargedAmount::usd_micros((usd * 1_000_000.0).round() as i64)),
                     ..Usage::default()
                 },
             },
@@ -1037,6 +1040,7 @@ impl tinyagents_orchestration::subagent::SubagentPersistence for OpenHumanPersis
                     .charged_amount
                     .map(|amount| amount.micros as f64 / 1_000_000.0)
                     .unwrap_or_default(),
+                cost_source: cost_source_of(pause.outcome.usage.usage.charged_amount.as_ref()),
             },
             artifact_paths: pause
                 .outcome
@@ -1194,9 +1198,12 @@ fn host_outcome_to_neutral(
                     .input_tokens
                     .saturating_add(outcome.usage.output_tokens),
                 cache_read_tokens: outcome.usage.cached_input_tokens,
-                charged_amount: Some(ChargedAmount::usd_micros(
-                    (outcome.usage.charged_amount_usd * 1_000_000.0).round() as i64,
-                )),
+                // An unknown cost crosses as no charge at all, never as $0.
+                charged_amount: outcome
+                    .usage
+                    .cost()
+                    .usd()
+                    .map(|usd| ChargedAmount::usd_micros((usd * 1_000_000.0).round() as i64)),
                 ..Usage::default()
             },
         },
@@ -1265,6 +1272,7 @@ fn outcome_to_host(
                 .charged_amount
                 .map(|amount| amount.micros as f64 / 1_000_000.0)
                 .unwrap_or_default(),
+            cost_source: cost_source_of(outcome.usage.usage.charged_amount.as_ref()),
         },
         artifact_paths: outcome
             .artifacts
@@ -1303,4 +1311,13 @@ fn outcome_to_host(
 
 fn map_lifecycle_error(error: SubagentError) -> SubagentRunError {
     SubagentRunError::Provider(anyhow::anyhow!(error.to_string()))
+}
+/// A child run's cost as it comes back across the orchestration boundary.
+/// That `Usage` can only say whether a charge is present, so a present one is
+/// read as charged and an absent one as unknown (it was sent as absent).
+fn cost_source_of(charged: Option<&ChargedAmount>) -> crate::agent::cost::CostSource {
+    match charged {
+        Some(_) => crate::agent::cost::CostSource::Charged,
+        None => crate::agent::cost::CostSource::Unknown,
+    }
 }

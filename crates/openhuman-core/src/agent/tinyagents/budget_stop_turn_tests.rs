@@ -148,7 +148,7 @@ async fn budget_stop_hook_pauses_the_hosted_turn_inner() {
     let model_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let model: Arc<dyn ChatModel<()>> = Arc::new(BudgetedToolModel(model_calls.clone()));
     let models = TurnModelSource::from_model(model)
-        .build("root-test-model", 0.0, None, None)
+        .build("claude-sonnet-4-6", 0.0, None, None)
         .expect("scripted turn models build");
     let (tx, _rx) = tokio::sync::mpsc::channel(8);
     let mut context = root_context("budget-stop", "/tmp/budget-stop", tx);
@@ -164,7 +164,7 @@ async fn budget_stop_hook_pauses_the_hosted_turn_inner() {
         "main".to_string(),
         models,
         "test".to_string(),
-        "root-test-model",
+        "claude-sonnet-4-6",
         root_messages("budget-stop"),
         vec![Arc::new(vec![
             Box::new(LimitedTool(tool_calls.clone())) as Box<dyn Tool>
@@ -219,7 +219,7 @@ async fn deadline_wind_down_pauses_the_hosted_turn_inner() {
     let model_calls = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let model: Arc<dyn ChatModel<()>> = Arc::new(BudgetedToolModel(model_calls.clone()));
     let models = TurnModelSource::from_model(model)
-        .build("root-test-model", 0.0, None, None)
+        .build("claude-sonnet-4-6", 0.0, None, None)
         .expect("scripted turn models build");
     let (tx, _rx) = tokio::sync::mpsc::channel(64);
     let mut context = root_context("deadline-wind-down", "/tmp/deadline-wind-down", tx);
@@ -235,7 +235,7 @@ async fn deadline_wind_down_pauses_the_hosted_turn_inner() {
         "main".to_string(),
         models,
         "test".to_string(),
-        "root-test-model",
+        "claude-sonnet-4-6",
         root_messages("deadline-wind-down"),
         vec![Arc::new(vec![
             Box::new(LimitedTool(tool_calls.clone())) as Box<dyn Tool>
@@ -291,7 +291,7 @@ fn a_turn_before_its_wind_down_point_runs_to_its_final_answer() {
                     let model: Arc<dyn ChatModel<()>> =
                         Arc::new(BudgetedToolModel(model_calls.clone()));
                     let models = TurnModelSource::from_model(model)
-                        .build("root-test-model", 0.0, None, None)
+                        .build("claude-sonnet-4-6", 0.0, None, None)
                         .expect("scripted turn models build");
                     let (tx, _rx) = tokio::sync::mpsc::channel(64);
                     let mut context = root_context("deadline-fresh", "/tmp/deadline-fresh", tx);
@@ -305,7 +305,7 @@ fn a_turn_before_its_wind_down_point_runs_to_its_final_answer() {
                         "main".to_string(),
                         models,
                         "test".to_string(),
-                        "root-test-model",
+                        "claude-sonnet-4-6",
                         root_messages("deadline-fresh"),
                         vec![Arc::new(vec![
                             Box::new(LimitedTool(tool_calls.clone())) as Box<dyn Tool>

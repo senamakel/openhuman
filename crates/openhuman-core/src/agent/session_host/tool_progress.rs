@@ -122,7 +122,8 @@ impl ProgressReporter for TurnProgress {
                 input_tokens: cost.input_tokens,
                 output_tokens: cost.output_tokens,
                 cached_input_tokens: cost.cached_input_tokens,
-                total_usd: cost.total_usd(),
+                // Known spend so far; an unpriced call adds nothing to it.
+                total_usd: cost.cost.known_usd,
             };
             emit(sink, event);
         }

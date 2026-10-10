@@ -156,10 +156,10 @@ impl EventListener for OpenhumanEventBridge {
                     .lock()
                     .unwrap_or_else(|p| p.into_inner())
                     .remove(&iteration);
-                let call_cost = resolved
-                    .as_ref()
-                    .map(|r| r.cost_usd)
-                    .unwrap_or_else(|| Self::estimate_call_cost(&self.model, &usage));
+                let call_cost = match resolved.as_ref() {
+                    Some(r) => r.cost_usd,
+                    None => Self::estimate_call_cost(&self.model, &usage),
+                };
                 let cache_creation_tokens = resolved
                     .as_ref()
                     .map(|r| r.cache_creation_tokens)
@@ -171,7 +171,7 @@ impl EventListener for OpenhumanEventBridge {
                 log::debug!(
                     "[tinyagents][usage] model_call_completed model={} provider={} iteration={} \
                      child={} in={} out={} cache_read={} cache_write={} reasoning={} \
-                     cost_usd={:.6} input_captured={} output_captured={}",
+                     cost_usd={:?} input_captured={} output_captured={}",
                     self.model,
                     self.provider_id,
                     iteration,

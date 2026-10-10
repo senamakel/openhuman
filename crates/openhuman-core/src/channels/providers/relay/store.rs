@@ -10,6 +10,8 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 
+type ThreadLocks = Mutex<HashMap<(PathBuf, String), Arc<tokio::sync::Mutex<()>>>>;
+
 use chrono::Utc;
 use serde_json::json;
 use tinyagents_session::transcript::TranscriptMessage;
@@ -39,7 +41,6 @@ pub fn reply_message_id(message_id: &str) -> String {
 /// One async lock per `(workspace, thread)`, so the duplicate check and the
 /// append in [`record_inbound`] are atomic against a concurrent gateway retry.
 fn thread_lock(workspace_dir: &Path, thread_id: &str) -> Arc<tokio::sync::Mutex<()>> {
-    type ThreadLocks = Mutex<HashMap<(PathBuf, String), Arc<tokio::sync::Mutex<()>>>>;
     static LOCKS: OnceLock<ThreadLocks> = OnceLock::new();
     let mut map = LOCKS
         .get_or_init(|| Mutex::new(HashMap::new()))

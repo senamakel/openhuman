@@ -89,9 +89,14 @@ impl UsageScope {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
 #[serde(rename_all = "snake_case")]
 pub enum CostSource {
+    /// Priced from the vendor catalog's published list rates.
     #[default]
     Estimated,
+    /// The provider reported what it billed.
     ProviderCharged,
+    /// No charge was reported and the model has no catalogued price; the
+    /// record's `cost_usd` is `0.0` and must not be read as free.
+    Unknown,
 }
 
 impl TokenUsage {
@@ -194,6 +199,11 @@ pub struct ModelStats {
     pub total_tokens: u64,
     /// Number of requests for this model
     pub request_count: usize,
+    /// Requests whose cost is not known (no reported charge, no catalogued
+    /// price). They add nothing to `cost_usd`, so when this equals
+    /// `request_count` the model's cost is unknown, not zero.
+    #[serde(default)]
+    pub unpriced_request_count: usize,
 }
 
 impl Default for CostSummary {

@@ -208,9 +208,10 @@ TinyJuice [#59](https://github.com/tinyhumansai/tinyjuice/pull/59) merged as
 canonical base. Fresh locked all-feature tests passed (739 tests and doctests),
 and a separately run compiled-artifact TinyBus test passed. Both final hosted
 Rust jobs passed, with approval and zero unresolved threads. Minor release run
-38091415272 is building the eleven shipped-platform artifacts; the new HTML
-and query host callers remain pending compatible released artifacts and digest
-pins. The isolated `module-tinyjuice-host` checkout now owns the turn-bound
+38091415272 succeeded. The eleven v0.7.0 platform archives have been downloaded
+and verified against both published checksums and GitHub asset digests. The
+source pin is `b89632a8f7b96580a9f6718d185eb60b14a41a8a`; HTML and query
+adapters now use the module, with host-loader interoperability checks pending. The isolated `module-tinyjuice-host` checkout now owns the turn-bound
 summary callback registry instead of re-exporting its implementation from
 TinyJuice; its 57 TokenJuice domain tests pass using the existing callback DTO.
 

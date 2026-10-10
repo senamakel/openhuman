@@ -200,7 +200,7 @@ fn drain_target(event: &DomainEvent) -> Option<(&String, Option<&String>, Durati
             task_id,
             ..
         } => Some((parent_session, Some(task_id), DEBOUNCE)),
-        _ => return None,
+        _ => None,
     }
 }
 

@@ -356,7 +356,10 @@ fn ensure_service_token(path: &Path) -> Result<(), ProfileError> {
     // This ensures that if the write is interrupted, the target path is left in its original state.
     let parent = path.parent().unwrap_or_else(|| Path::new("."));
     let mut temp_path = parent.to_path_buf();
-    temp_path.push(format!(".service-token-tmp-{}", uuid::Uuid::new_v4().simple()));
+    temp_path.push(format!(
+        ".service-token-tmp-{}",
+        uuid::Uuid::new_v4().simple()
+    ));
 
     {
         let mut options = std::fs::OpenOptions::new();

@@ -246,12 +246,9 @@ impl openhuman_embed::BackendTransport for PointedTransport {
     ) -> Result<serde_json::Value, openhuman_embed::BackendTransportError> {
         // Forward inference requests to the pointed mock endpoint.
         // This uses the same HTTP client as a real transport would.
-        let url = format!(
-            "{}/{}",
-            self.base_url,
-            req.path.trim_start_matches('/')
-        );
-        let resp = self.client
+        let url = format!("{}/{}", self.base_url, req.path.trim_start_matches('/'));
+        let resp = self
+            .client
             .post(&url)
             .json(&req.body)
             .send()

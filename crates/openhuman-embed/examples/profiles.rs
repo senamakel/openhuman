@@ -80,7 +80,10 @@ async fn run() -> anyhow::Result<()> {
             .await?;
         let handle = profiles.open(user).await?;
         let reply = handle.chat("t1", said).await?;
-        println!("\n[{user}] sent message to t1; got reply ({} bytes)", reply.text.len());
+        println!(
+            "\n[{user}] sent message to t1; got reply ({} bytes)",
+            reply.text.len()
+        );
         handles.push((user, handle));
     }
 

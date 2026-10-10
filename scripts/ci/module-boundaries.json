@@ -14,7 +14,6 @@
     "tinybox-ssh",
     "tinycomputer-accessibility",
     "tinyvoice",
-    "tinyruntime-pyserver",
     "tinywallet-crypto",
     "tinywallet-web3",
     "tinywallet-x402",
@@ -28,7 +27,6 @@
     "tinydocs-extract",
     "tinysearch",
     "tinysearch-core",
-    "tinyruntime",
     "cpal"
   ],
   "implementationPrefixes": [
@@ -41,7 +39,6 @@
     "tinywallet-",
     "tinycomputer-",
     "tinyvoice-",
-    "tinyruntime-",
     "tinydocs-",
     "tinysearch-"
   ],
@@ -80,11 +77,6 @@
       "name": "tinyvoice-bus",
       "manifest": "vendor/tinyvoice/crates/tinyvoice-bus/Cargo.toml",
       "owner": "https://github.com/tinyhumansai/tinyvoice"
-    },
-    {
-      "name": "tinyruntime-bus",
-      "manifest": "vendor/tinyruntime/crates/tinyruntime-bus/Cargo.toml",
-      "owner": "https://github.com/tinyhumansai/tinyruntime"
     },
     {
       "name": "tinydocs-bus",
@@ -171,11 +163,6 @@
       "scope": "hosts",
       "package": "tinyvoice",
       "reason": "Capture and hotkey lifecycles need module operations."
-    },
-    {
-      "scope": "hosts",
-      "package": "tinyruntime-pyserver",
-      "reason": "Python-worker lifecycle needs module operations."
     },
     {
       "scope": "hosts",
@@ -271,6 +258,12 @@
       "scope": "hosts",
       "package": "cpal",
       "reason": "Voice capture and the accessibility microphone probe still link host audio-device access."
+    }
+  ],
+  "excludedSubsystems": [
+    {
+      "owner": "tinyruntime",
+      "reason": "Excluded by user: TinyRuntime removal is being implemented separately. This migration does not change its host or module."
     }
   ]
 }

@@ -126,3 +126,14 @@ test('bare owning packages and their implementation descendants are both forbidd
     if (contract) assert.equal(isImplementation(contract.name, strict), false, contract.name);
   }
 });
+
+
+test('the separately removed runtime is outside this migration but cannot enter another contract', () => {
+  const excluded = policy.excludedSubsystems?.find(item => item.owner === 'tinyruntime');
+  assert.ok(excluded?.reason?.trim());
+  const host = metadata({ host: [['tinyruntime-pyserver'], ['tinyjuice']] });
+  assert.deepEqual(auditGraph(host, ['host'], strict).violations.map(item => item.package), ['tinyjuice']);
+  assert.ok(!policy.exceptions.some(item => item.package.startsWith('tinyruntime')));
+  const contract = metadata({ 'tinyjuice-bus': [['tinyruntime-bus']] });
+  assert.equal(auditGraph(contract, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations[0].package, 'tinyruntime-bus');
+});

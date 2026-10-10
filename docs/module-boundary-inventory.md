@@ -43,6 +43,11 @@ implementation imports independently of host feature selection. Probes do not
 compile native module code, and their manifests and lockfiles are kept under
 `target/module-boundaries/` in the checkout.
 
+TinyRuntime is explicitly outside this migration, as requested, and is recorded
+in `excludedSubsystems` instead of the temporary exception list. Its removal
+is separate work. It still cannot enter another audited contract's approved
+serialization closure.
+
 Exceptions are exact package/scope pairs with reasons. Host exceptions still
 traverse their descendants. Contract exceptions stop at the first unsafe edge:
 its implementation closure is not approved, and that edge must be removed with
@@ -208,3 +213,8 @@ and query host callers remain pending compatible released artifacts and digest
 pins. The isolated `module-tinyjuice-host` checkout now owns the turn-bound
 summary callback registry instead of re-exporting its implementation from
 TinyJuice; its 57 TokenJuice domain tests pass using the existing callback DTO.
+
+The TinyRuntime scope exclusion removes its temporary exception from this
+branch's acceptance count (31 remaining exceptions before the next module
+cut). This is an inventory scope change, not a dependency reduction or a
+TinyRuntime implementation change.

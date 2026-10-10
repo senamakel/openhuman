@@ -461,7 +461,7 @@ fn final_call_tokens(
     [repair, close]
         .into_iter()
         .flatten()
-        .find(|usage| usage.last_call_input_tokens > 0 || usage.last_call_output_tokens > 0)
+        .find(|usage| usage.model_calls > 0)
         .map(|usage| (usage.last_call_input_tokens, usage.last_call_output_tokens))
         .or(loop_last_call)
         .unwrap_or_default()

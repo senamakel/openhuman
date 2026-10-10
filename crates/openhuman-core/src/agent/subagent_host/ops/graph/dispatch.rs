@@ -26,6 +26,8 @@ pub(in super::super) struct AggregatedUsage {
     pub(in super::super) output_tokens: u64,
     pub(in super::super) cached_input_tokens: u64,
     pub(in super::super) charged_amount_usd: f64,
+    pub(in super::super) last_call_input_tokens: u64,
+    pub(in super::super) last_call_output_tokens: u64,
 }
 
 /// Drive a sub-agent turn on the tinyagents harness. Returns
@@ -298,6 +300,8 @@ pub(in super::super) async fn run_subagent_via_graph(
                     input_tokens: snapshot.input_tokens,
                     output_tokens: snapshot.output_tokens,
                     cached_input_tokens: snapshot.cached_input_tokens,
+                    last_call_input_tokens: snapshot.last_call_input_tokens,
+                    last_call_output_tokens: snapshot.last_call_output_tokens,
                     charged_amount_usd: crate::platform::cost::catalog::estimate_cost_usd(
                         model,
                         snapshot.input_tokens,
@@ -358,6 +362,15 @@ pub(in super::super) async fn run_subagent_via_graph(
     };
     history.extend(suffix);
 
+    let (last_call_input_tokens, last_call_output_tokens) = {
+        let snapshot = transcript_snapshot
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        (
+            snapshot.last_call_input_tokens,
+            snapshot.last_call_output_tokens,
+        )
+    };
     let mut usage = AggregatedUsage {
         input_tokens: outcome.input_tokens,
         output_tokens: outcome.output_tokens,
@@ -366,6 +379,8 @@ pub(in super::super) async fn run_subagent_via_graph(
         // instead of being recorded as uncached and $0.
         cached_input_tokens: outcome.cached_input_tokens,
         charged_amount_usd: outcome.charged_amount_usd,
+        last_call_input_tokens,
+        last_call_output_tokens,
     };
 
     // Cap hit with work still pending: summarize the run-so-far into a resumable

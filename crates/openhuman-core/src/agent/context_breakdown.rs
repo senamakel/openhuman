@@ -1,6 +1,7 @@
 //! RPC `agent.context_breakdown` — a UI-friendly view over
 //! [`PromptSizeReport`](super::debug::prompt_size::PromptSizeReport) plus,
-//! when a `thread_id` is given, that thread's persisted history spend, so
+//! when a `thread_id` is given, that thread's persisted final context with
+//! fixed prompt and generated output removed, so
 //! the composer's context-usage indicator can show a system/tools/history
 //! split instead of just the fixed per-turn prefix.
 //!
@@ -33,7 +34,8 @@ pub struct ContextBreakdownParams {
     #[serde(default)]
     pub agent_id: Option<String>,
     /// When given, adds a `"history"` section sized from this thread's
-    /// persisted usage (`threads.token_usage`'s last-turn input tokens).
+    /// persisted usage (`threads.token_usage`'s final context less fixed prompt
+    /// and generated output).
     #[serde(default)]
     pub thread_id: Option<String>,
 }
@@ -132,11 +134,27 @@ async fn cached_report(agent_id: &str, config: &Config) -> Result<PromptSizeRepo
 /// recorded usage. Silent no-op (no section added) on any lookup failure —
 /// a context breakdown must never fail just because the optional history
 /// enrichment couldn't be computed.
-fn history_tokens(context_tokens: usize, fixed_prompt_tokens: usize) -> usize {
-    context_tokens.saturating_sub(fixed_prompt_tokens)
+fn history_tokens(
+    context_tokens: usize,
+    fixed_prompt_tokens: usize,
+    output_tokens: usize,
+    context_window: usize,
+) -> usize {
+    let bounded_context = if context_window > 0 {
+        context_tokens.min(context_window)
+    } else {
+        context_tokens
+    };
+    bounded_context
+        .saturating_sub(fixed_prompt_tokens)
+        .saturating_sub(output_tokens)
 }
 
-async fn history_section(thread_id: &str, fixed_prompt_tokens: usize) -> Option<ContextSection> {
+async fn history_section(
+    thread_id: &str,
+    fixed_prompt_tokens: usize,
+    context_window: usize,
+) -> Option<ContextSection> {
     let outcome = crate::threads::ops::token_usage(crate::threads::ops::ThreadTokenUsageRequest {
         thread_id: thread_id.to_string(),
     })
@@ -149,7 +167,12 @@ async fn history_section(thread_id: &str, fixed_prompt_tokens: usize) -> Option<
     // Tokens, not bytes, is what `token_usage` actually recorded — reverse
     // the module's own byte-per-token estimate so `bytes` stays a consistent
     // (if approximate) unit across every section in the response.
-    let est = history_tokens(usage.last_turn_context_tokens as usize, fixed_prompt_tokens);
+    let est = history_tokens(
+        usage.last_turn_context_tokens as usize,
+        fixed_prompt_tokens,
+        usage.last_turn_output_tokens as usize,
+        context_window,
+    );
     let bytes = est.saturating_mul(crate::agent::debug::prompt_size::EST_BYTES_PER_TOKEN);
     Some(ContextSection {
         label: "history".to_string(),
@@ -197,18 +220,6 @@ pub async fn context_breakdown(
     sections.push(tools_section(&report.tools));
     let fixed_prompt_tokens = sections.iter().map(|section| section.est_tokens).sum();
 
-    if let Some(thread_id) = params
-        .thread_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        if let Some(history) = history_section(thread_id, fixed_prompt_tokens).await {
-            sections.push(history);
-        }
-    }
-
-    let total_est_tokens: usize = sections.iter().map(|s| s.est_tokens).sum();
     let provider = crate::inference::provider::provider_for_role("chat", &config);
     let context_window = crate::inference::model_context::context_window_for_route(
         &provider,
@@ -217,6 +228,20 @@ pub async fn context_breakdown(
     )
     .unwrap_or(0);
 
+    if let Some(thread_id) = params
+        .thread_id
+        .as_deref()
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        if let Some(history) =
+            history_section(thread_id, fixed_prompt_tokens, context_window as usize).await
+        {
+            sections.push(history);
+        }
+    }
+
+    let total_est_tokens: usize = sections.iter().map(|s| s.est_tokens).sum();
     let response = ContextBreakdownResponse {
         agent_id: report.agent.clone(),
         model: report.model.clone(),

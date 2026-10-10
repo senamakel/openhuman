@@ -90,6 +90,19 @@ describe('ContextUsage', () => {
     expect(screen.getByTestId('composer-context-usage')).toHaveTextContent('10%');
   });
 
+  it('clamps a provider-reported context above the window', () => {
+    renderUsage(
+      {},
+      {
+        lastTurnInputTokens: 2_000_000,
+        lastTurnOutputTokens: 0,
+        lastTurnContextTokens: 2_000_000,
+        contextWindow: 1_000_000,
+      }
+    );
+    expect(screen.getByTestId('composer-context-usage')).toHaveTextContent('100%');
+  });
+
   it("prefers the selected model's window over the one the last turn reported", () => {
     renderUsage({ modelContextWindow: 100_000 });
 

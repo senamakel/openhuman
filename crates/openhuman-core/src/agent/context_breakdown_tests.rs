@@ -51,8 +51,13 @@ fn est_tokens_divides_by_the_shared_bytes_per_token_constant() {
 
 #[test]
 fn history_section_excludes_prompt_and_tool_tokens_already_listed() {
-    assert_eq!(history_tokens(100_000, 30_000), 70_000);
-    assert_eq!(history_tokens(20_000, 30_000), 0);
+    assert_eq!(history_tokens(100_000, 30_000, 10_000, 200_000), 60_000);
+    assert_eq!(history_tokens(20_000, 30_000, 0, 200_000), 0);
+    assert_eq!(
+        history_tokens(2_000_000, 30_000, 10_000, 1_000_000),
+        960_000
+    );
+    assert_eq!(history_tokens(100_000, 30_000, 10_000, 0), 60_000);
 }
 
 #[test]
@@ -90,7 +95,7 @@ async fn history_section_is_none_for_an_unknown_thread() {
     // `has_usage: false` (or the RPC itself fails) and this must degrade to
     // `None` rather than propagating an error — the breakdown must still
     // answer with just the prompt/tools sections.
-    let section = history_section("context-breakdown-unknown-thread-id", 0).await;
+    let section = history_section("context-breakdown-unknown-thread-id", 0, 0).await;
     assert!(section.is_none());
 }
 

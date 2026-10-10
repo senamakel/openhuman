@@ -134,15 +134,13 @@ export function ContextUsage({
       : usage.contextWindow > 0
         ? usage.contextWindow
         : DEFAULT_CONTEXT_WINDOW;
+  const contextTokens = Math.min(usage.lastTurnContextUsed, contextWindow);
 
   // The ring measures one request against the window. The turn's input and
   // output totals sum every model call of the turn, so on a long tool loop
   // they run to many times the window; they belong with the spend figures
   // below, not under the gauge.
-  const ringUsage = useMemo<TokenUsage>(
-    () => ({ totalTokens: usage.lastTurnContextUsed }),
-    [usage.lastTurnContextUsed]
-  );
+  const ringUsage = useMemo<TokenUsage>(() => ({ totalTokens: contextTokens }), [contextTokens]);
 
   const labels = useMemo<ContextDisplayLabels>(
     () => ({
@@ -201,7 +199,10 @@ export function ContextUsage({
     ];
     body = (
       <ContextBreakdown
-        segments={contextBreakdownSegments(breakdown.data, t, usage)}
+        segments={contextBreakdownSegments(breakdown.data, t, {
+          ...usage,
+          lastTurnContextUsed: contextTokens,
+        })}
         limit={limit}
         title={t('conversations.composer.context.title')}
         headroomLabel={t('conversations.composer.context.headroom')}

@@ -2537,10 +2537,17 @@ async fn json_rpc_protocol_auth_and_agent_hello_inner() {
     let thread_id = "thread-1";
     let events_url = format!("{}/events?client_id={}", rpc_base, client_id);
     let sse_task = tokio::spawn(async move { read_terminal_web_chat_event(&events_url).await });
-    push_forced_chat_completion_when(
-        "Hello from web channel",
-        forced_text_completion("Hello from e2e mock agent"),
+    let mut tool_call = forced_tool_call_completion(
+        "todo",
+        json!({"todos": [{"content": "finish the test", "status": "completed"}]}),
     );
+    tool_call["usage"]["prompt_tokens"] = json!(23);
+    tool_call["usage"]["completion_tokens"] = json!(7);
+    push_forced_chat_completion_when("Hello from web channel", tool_call);
+    let mut final_call = forced_text_completion("Hello from e2e mock agent");
+    final_call["usage"]["prompt_tokens"] = json!(17);
+    final_call["usage"]["completion_tokens"] = json!(5);
+    push_forced_chat_completion_when("Hello from web channel", final_call);
 
     let web_chat = post_json_rpc(
         &rpc_base,
@@ -2575,7 +2582,7 @@ async fn json_rpc_protocol_auth_and_agent_hello_inner() {
         sse_event
             .pointer("/usage/context_tokens")
             .and_then(Value::as_u64),
-        Some(20),
+        Some(22),
         "chat_done carries the final call's input plus output token count: {sse_event}"
     );
     assert!(

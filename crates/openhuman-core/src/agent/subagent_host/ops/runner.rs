@@ -1045,6 +1045,8 @@ async fn run_typed_mode(
                         output_tokens,
                         cached_input_tokens,
                         charged_amount_usd,
+                        last_call_input_tokens: 0,
+                        last_call_output_tokens: 0,
                     },
                     res.early_exit_tool,
                     res.hit_cap,

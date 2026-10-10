@@ -102,6 +102,133 @@ impl BusFixture {
             message: "secret-value /home/private-user/payload".to_string(),
         })
     }
+
+    async fn unavailable(&self) -> tinybus::Result<()> {
+        Err(tinybus::Error::ModuleUnavailable {
+            module: "test.ModuleClient".to_string(),
+            state: "faulted".to_string(),
+            detail: "module stopped accepting calls".to_string(),
+        })
+    }
+}
+
+#[cfg(all(feature = "modules", feature = "crash-reporting"))]
+#[test]
+fn independent_invocation_faults_report_separately_around_a_success() {
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let proxy = runtime.block_on(async {
+        let bus = MemoryBus::new();
+        Broker::new().spawn(bus.clone());
+        let service = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        let caller = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        service
+            .serve_at(
+                ObjectPath::new("/test/ModuleClient").unwrap(),
+                BusFixture(std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0))),
+            )
+            .await
+            .unwrap();
+        service.request_name("test.ModuleClient").await.unwrap();
+        let proxy = caller
+            .proxy(
+                "test.ModuleClient",
+                "/test/ModuleClient",
+                "test.ModuleClient",
+            )
+            .unwrap();
+        (proxy, service)
+    });
+    let (proxy, _service) = proxy;
+    let record = registry::find("tinysearch").unwrap();
+    let events = sentry::test::with_captured_events(|| {
+        runtime.block_on(async {
+            assert_eq!(
+                invoke_proxy::<()>(record, &proxy, "Fault", (), false).await,
+                Err(ModuleCallError::ModuleFault)
+            );
+            assert_eq!(
+                invoke_proxy::<u32>(record, &proxy, "Sum", (20, 22), false).await,
+                Ok(42)
+            );
+            assert_eq!(
+                invoke_proxy::<()>(record, &proxy, "Fault", (), false).await,
+                Err(ModuleCallError::ModuleFault)
+            );
+        });
+    });
+
+    assert_eq!(events.len(), 2, "{events:?}");
+    for event in &events {
+        assert_eq!(
+            event.tags.get("reason_code").map(String::as_str),
+            Some("module_fault")
+        );
+        let captured = format!("{event:?}");
+        assert!(!captured.contains("secret-value"));
+        assert!(!captured.contains("/home/private-user"));
+    }
+}
+
+#[cfg(all(feature = "modules", feature = "crash-reporting"))]
+#[test]
+fn cached_native_module_unavailability_is_reported_once() {
+    use tinybus::{broker::Broker, transport::memory::MemoryBus, Connection, ObjectPath};
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let proxy = runtime.block_on(async {
+        let bus = MemoryBus::new();
+        Broker::new().spawn(bus.clone());
+        let service = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        let caller = Connection::connect(bus.connect().await.unwrap())
+            .await
+            .unwrap();
+        service
+            .serve_at(
+                ObjectPath::new("/test/ModuleClient").unwrap(),
+                BusFixture(std::sync::Arc::new(std::sync::atomic::AtomicUsize::new(0))),
+            )
+            .await
+            .unwrap();
+        service.request_name("test.ModuleClient").await.unwrap();
+        let proxy = caller
+            .proxy(
+                "test.ModuleClient",
+                "/test/ModuleClient",
+                "test.ModuleClient",
+            )
+            .unwrap();
+        (proxy, service)
+    });
+    let (proxy, _service) = proxy;
+    let record = registry::find("tinybox").unwrap();
+    let events = sentry::test::with_captured_events(|| {
+        runtime.block_on(async {
+            for _ in 0..2 {
+                assert_eq!(
+                    invoke_proxy::<()>(record, &proxy, "Unavailable", (), false).await,
+                    Err(ModuleCallError::Unavailable)
+                );
+            }
+        });
+    });
+
+    assert_eq!(events.len(), 1, "{events:?}");
+    assert_eq!(
+        events[0].tags.get("reason_code").map(String::as_str),
+        Some("module_unavailable")
+    );
 }
 
 #[cfg(feature = "modules")]

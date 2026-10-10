@@ -276,6 +276,86 @@ async fn a_bounded_wait_with_nothing_cached_and_downloads_off_fails_rather_than_
     }
 }
 
+#[cfg(feature = "crash-reporting")]
+#[test]
+fn terminal_resolution_cached_failure_is_reported_when_a_client_becomes_available() {
+    const MODULE: &str = "tinycomputer";
+    let table = tinybus::module::resolution::global();
+    table.forget(MODULE);
+
+    // Model resolution finishing before core/Sentry startup, then publish its
+    // terminal outcome into the same process-wide table read by ensure_loaded.
+    let hub = std::sync::Arc::new(sentry::Hub::new_from_top(sentry::Hub::current()));
+    hub.bind_client(None);
+    sentry::Hub::run(hub, || {
+        ops::report_resolution_failure(MODULE, "private token /home/private-user/module.so");
+    });
+    let sender = table.mark_in_flight(MODULE);
+    table.complete(
+        MODULE,
+        tinybus::module::resolution::Resolution::Failed(
+            "private token /home/private-user/module.so".to_string(),
+        ),
+        sender,
+    );
+
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let events = sentry::test::with_captured_events(|| {
+        runtime.block_on(async {
+            let config = Config::default();
+            let (first, second) = tokio::join!(
+                ops::ensure_loaded_within(&config, MODULE, None),
+                ops::ensure_loaded_within(&config, MODULE, None),
+            );
+            for result in [first, second] {
+                assert!(matches!(result, Err(ops::LoadError::Failed(_))));
+            }
+            let repeated = ops::ensure_loaded_within(&config, MODULE, None)
+                .await
+                .expect_err("the same cached failure remains terminal");
+            assert!(matches!(repeated, ops::LoadError::Failed(_)));
+        });
+    });
+    table.forget(MODULE);
+    assert_eq!(events.len(), 1, "{events:?}");
+    let captured = format!("{:?}", events[0]);
+    assert!(!captured.contains("private token"));
+    assert!(!captured.contains("/home/private-user"));
+    assert_eq!(
+        events[0].tags.get("reason_code").map(String::as_str),
+        Some("resolution_failed")
+    );
+}
+
+#[cfg(feature = "crash-reporting")]
+#[test]
+fn terminal_resolution_wait_timeout_is_not_reported_as_terminal() {
+    const MODULE: &str = "tinyvoice";
+    let table = tinybus::module::resolution::global();
+    table.forget(MODULE);
+    let _sender = table.mark_in_flight(MODULE);
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let events = sentry::test::with_captured_events(|| {
+        runtime.block_on(async {
+            let result = ops::ensure_loaded_within(
+                &Config::default(),
+                MODULE,
+                Some(std::time::Duration::ZERO),
+            )
+            .await;
+            assert!(matches!(result, Err(ops::LoadError::StillLoading)));
+        });
+    });
+    table.forget(MODULE);
+    assert!(events.is_empty(), "{events:?}");
+}
+
 #[test]
 fn every_shipped_registry_entry_names_a_cache_directory() {
     // Every shipped registry entry names a directory on every host it claims.

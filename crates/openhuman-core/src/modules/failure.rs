@@ -1,4 +1,4 @@
-//! Sanitized terminal module reports, deduplicated for the process lifetime.
+//! Sanitized terminal module reports with deduplication for cached outcomes.
 
 use std::collections::HashSet;
 use std::sync::{Mutex, OnceLock};
@@ -15,6 +15,7 @@ pub(super) enum Reason {
     IncompatibleContract,
     TransportFailed,
     ModuleFault,
+    ModuleUnavailable,
 }
 
 impl Reason {
@@ -27,6 +28,7 @@ impl Reason {
             Self::IncompatibleContract => "incompatible_contract",
             Self::TransportFailed => "transport_failed",
             Self::ModuleFault => "module_fault",
+            Self::ModuleUnavailable => "module_unavailable",
         }
     }
 
@@ -38,6 +40,7 @@ impl Reason {
             Self::IncompatibleContract => "contract",
             Self::TransportFailed => "transport",
             Self::ModuleFault => "execution",
+            Self::ModuleUnavailable => "execution",
         }
     }
 }
@@ -47,15 +50,21 @@ impl Reason {
 /// There are finitely many registry records and reasons, so the process cache
 /// is bounded. Concurrent callers cannot duplicate the same terminal report.
 pub(super) fn report(record: &'static ModuleRecord, reason: Reason) {
-    report_metadata(record.id, record.version, reason);
+    report_metadata(record.id, record.version, reason, true);
+}
+
+/// Report a failure from this invocation. Independent executions can fail
+/// with the same sanitized reason and still represent distinct terminal events.
+pub(super) fn report_invocation(record: &'static ModuleRecord, reason: Reason) {
+    report_metadata(record.id, record.version, reason, false);
 }
 
 /// Unknown identifiers never become event metadata or deduplication keys.
 pub(super) fn report_unknown_module() {
-    report_metadata("unregistered", "unknown", Reason::UnknownModule);
+    report_metadata("unregistered", "unknown", Reason::UnknownModule, true);
 }
 
-fn report_metadata(module: &'static str, version: &'static str, reason: Reason) {
+fn report_metadata(module: &'static str, version: &'static str, reason: Reason, deduplicate: bool) {
     static REPORTED: OnceLock<Mutex<HashSet<(&'static str, Reason)>>> = OnceLock::new();
     let platform = format!("{}-{}", std::env::consts::OS, std::env::consts::ARCH);
     let capture = || {
@@ -78,7 +87,7 @@ fn report_metadata(module: &'static str, version: &'static str, reason: Reason) 
     let retain_key = sentry::Hub::current().client().is_some();
     #[cfg(not(feature = "crash-reporting"))]
     let retain_key = true;
-    if retain_key {
+    if retain_key && deduplicate {
         let first = REPORTED
             .get_or_init(|| Mutex::new(HashSet::new()))
             .lock()

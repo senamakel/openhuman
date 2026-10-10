@@ -162,7 +162,13 @@ pub async fn ensure_loaded_within(
 
     let receiver = match resolution::global().claim(id) {
         Claim::Done(Resolution::Ready) => return Ok(()),
-        Claim::Done(Resolution::Failed(reason)) => return Err(LoadError::Failed(reason)),
+        Claim::Done(Resolution::Failed(reason)) => {
+            // The original resolution may have completed before a Sentry
+            // client was bound. Revisit reporting at the actual cached caller
+            // boundary; the report key suppresses duplicates once captured.
+            report_resolution_failure(id, &reason);
+            return Err(LoadError::Failed(reason));
+        }
         Claim::Wait(receiver) => receiver,
         Claim::Run { sender, receiver } => {
             start_resolution(config.clone(), record, sender).await;
@@ -171,7 +177,10 @@ pub async fn ensure_loaded_within(
     };
     match resolution::global().wait(id, receiver, within).await {
         Waited::Ready => Ok(()),
-        Waited::Failed(reason) => Err(LoadError::Failed(reason)),
+        Waited::Failed(reason) => {
+            report_resolution_failure(id, &reason);
+            Err(LoadError::Failed(reason))
+        }
         Waited::StillLoading => Err(LoadError::StillLoading),
     }
 }
@@ -232,10 +241,11 @@ async fn start_resolution(
 ///
 /// A resolution runs once and its failure is cached for every later caller
 /// (see the module docs), so this is the single Sentry event a broken install
-/// produces. Those callers re-raise the cached reason, and those re-reports
-/// classify as `ExpectedErrorKind::ModuleUnavailable` and are demoted; this
-/// one goes through [`report_error`] directly so the classifier cannot swallow
-/// it too.
+/// produces. The failed resolution itself reports here, and cached callers
+/// revisit this function in case the original resolution happened before a
+/// Sentry client was bound. Its stable report key suppresses repeats. The
+/// report goes through [`report_error`] directly so the observability
+/// classifier cannot swallow the original terminal event.
 ///
 /// [`report_error`]: crate::core::observability::report_error
 pub(super) fn report_resolution_failure(id: &str, reason: &str) {

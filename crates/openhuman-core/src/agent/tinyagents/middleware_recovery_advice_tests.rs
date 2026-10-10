@@ -371,7 +371,12 @@ impl tinytools::Tool for RecoveryTool {
 
 #[tokio::test]
 async fn main_model_alternate_call_still_passes_normal_admission_and_hidden_calls_never_execute() {
-    for permit_alternate in [true, false] {
+    for (permit_alternate, refused_tool) in [
+        (true, None),
+        (true, Some("denied_lookup")),
+        (true, Some("hidden_lookup")),
+        (false, None),
+    ] {
         use tinyagents_harness::middleware::ToolAllowlistMiddleware;
         use tinyagents_harness::runtime::AgentHarness;
         use tinyagents_harness::testkit::ScriptedModel;
@@ -417,13 +422,15 @@ async fn main_model_alternate_call_still_passes_normal_admission_and_hidden_call
             r.finish_reason = Some("tool_calls".into());
             r
         };
-        let model = Arc::new(ScriptedModel::new(vec![
+        let mut responses = vec![
             response("first", "read_catalog"),
             response("next", "lookup_public"),
-            response("denied", "denied_lookup"),
-            response("hidden", "hidden_lookup"),
-            ModelResponse::assistant("done"),
-        ]));
+        ];
+        if let Some(name) = refused_tool {
+            responses.push(response("refused", name));
+        }
+        responses.push(ModelResponse::assistant("done"));
+        let model = Arc::new(ScriptedModel::new(responses));
         let mut harness: AgentHarness<(), crate::agent::tinyagents::host::OpenHumanRunContext> =
             AgentHarness::new();
         harness.register_model("mock", model.clone());
@@ -461,9 +468,22 @@ async fn main_model_alternate_call_still_passes_normal_admission_and_hidden_call
                 ctx(),
                 vec![TaMessage::user("look up the public catalog")],
             )
-            .await
-            .unwrap();
-        assert_eq!(run.text().as_deref(), Some("done"));
+            .await;
+        if permit_alternate && refused_tool.is_none() {
+            let run = run.unwrap();
+            assert_eq!(run.text().as_deref(), Some("done"));
+            assert!(!run
+                .messages
+                .iter()
+                .any(|m| m.text().contains("Advisory recovery")));
+        } else {
+            let expected = refused_tool.unwrap_or("lookup_public");
+            assert!(matches!(
+                run,
+                Err(tinyagents_harness::TinyAgentsError::Validation(message))
+                    if message == format!("tool `{expected}` is not on the allowlist")
+            ));
+        }
         assert_eq!(first.calls.load(Ordering::SeqCst), 1);
         assert_eq!(
             alternate.calls.load(Ordering::SeqCst),
@@ -476,10 +496,6 @@ async fn main_model_alternate_call_still_passes_normal_admission_and_hidden_call
             .messages
             .iter()
             .any(|m| m.text().contains("lookup_public")));
-        assert!(!run
-            .messages
-            .iter()
-            .any(|m| m.text().contains("Advisory recovery")));
     }
 }
 

@@ -121,11 +121,14 @@ impl GatewayRefusal {
                     record.owner,
                     record.epoch
                 );
+                // A file-lock lease never expires (`u64::MAX`), so the raw
+                // value is no retry hint (and overflows a JSON consumer's
+                // safe integers); cap it.
                 Self {
                     status: 409,
                     message: PROFILE_HELD.to_string(),
                     held_by: Some(HeldBy {
-                        retry_after_ms: record.retry_after_ms(now_ms),
+                        retry_after_ms: record.retry_after_ms(now_ms).min(MAX_RETRY_AFTER_MS),
                         owner: record.owner,
                         endpoint: record.endpoint,
                     }),
@@ -134,6 +137,9 @@ impl GatewayRefusal {
         }
     }
 }
+
+/// The longest `retry_after_ms` a `409` reports.
+const MAX_RETRY_AFTER_MS: u64 = 60_000;
 
 /// Where a gateway request runs.
 #[derive(Debug)]

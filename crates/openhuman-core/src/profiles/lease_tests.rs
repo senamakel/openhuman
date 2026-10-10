@@ -194,11 +194,21 @@ async fn renewal_keeps_the_lease_and_a_lost_lease_fences_the_profile() {
         .unwrap();
     assert!(stolen.previous_unclean);
 
+    let mut events = crate::web_chat::subscribe_web_channel_events();
     let report = renew_once(&a).await;
     assert_eq!(report.fenced, vec![alice.clone()]);
     assert!(state.is_fenced(), "the profile is fenced");
     assert!(!a.is_open(&alice), "and closed");
     assert!(turn.is_cancelled(), "its in-flight turns are stopped");
+    // The cancelled event goes to the client that started the turn, so its
+    // stream resolves rather than staying "running".
+    let mut cancelled_for = None;
+    while let Ok(event) = events.try_recv() {
+        if event.event == "chat_cancelled" && event.request_id == "req-1" {
+            cancelled_for = Some(event.client_id);
+        }
+    }
+    assert_eq!(cancelled_for.as_deref(), Some("test-client"));
 }
 
 #[tokio::test]

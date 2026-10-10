@@ -82,6 +82,19 @@ fn a_profile_held_elsewhere_is_a_409_naming_the_holder() {
 }
 
 #[test]
+fn a_lease_that_never_expires_reports_a_capped_retry_hint() {
+    let record = crate::storage::lease::LeaseRecord {
+        owner: "node-a".into(),
+        endpoint: None,
+        epoch: 1,
+        expires_at_ms: u64::MAX,
+        released: false,
+    };
+    let refusal = GatewayRefusal::from_open_error(OpenError::HeldElsewhere(record), 4_000);
+    assert_eq!(refusal.held_by.unwrap().retry_after_ms, 60_000);
+}
+
+#[test]
 fn other_open_errors_keep_their_statuses() {
     let alice = id("alice");
     let status = |error| GatewayRefusal::from_open_error(error, 0).status;

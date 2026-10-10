@@ -77,7 +77,7 @@ remain unchanged until compatible upstream releases are available.
 
 | Change | Canonical PR | Local verification |
 | --- | --- | --- |
-| Async HTML extraction seam and deadlines in TinyTools | [tinytools#60](https://github.com/tinyhumansai/tinytools/pull/60) | 1,152 unit tests and 6 doctests; clippy/build |
+| Async HTML extraction seam, deadlines and generic tool-metadata sanitization in TinyTools | [tinytools#60](https://github.com/tinyhumansai/tinytools/pull/60) | 1,183 workspace tests and six doctests; clippy/build; independent sanitizer review accepted; all 113 source files at least 90% coverage |
 | TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 737 tests; dynamic artifact E2E; module input/limit guards |
 | Complete TinyDocs Markdown conversion for memory ingestion | [tinydocs#31](https://github.com/tinyhumansai/tinydocs/pull/31) | 183 tests; dynamic artifact E2E; per-file coverage at least 90% |
 | Minimal TinyHosts vocabulary and recorded tool declarations | [tinyhosts#21](https://github.com/tinyhumansai/tinyhosts/pull/21) | 195 tests; dynamic Execute/Providers fixture; pure contract audit; per-file coverage at least 90% |

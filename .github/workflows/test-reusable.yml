@@ -311,6 +311,9 @@ jobs:
       - name: Exercise private redactors with the shared corpus
         shell: bash
         run: bash scripts/ci-cancel-aware.sh cargo test -p openhuman --no-default-features --features inference,web3,modules shared_security -- --nocapture
+      - name: Exercise attested native security adapter and latency budget
+        shell: bash
+        run: bash scripts/ci/security-native-fixture.sh
       - name: Record existing in-process latency baseline
         shell: bash
         run: bash scripts/ci-cancel-aware.sh cargo test -p openhuman-cli --no-default-features --test security_characterization_e2e in_process_policy_latency_baseline -- --nocapture

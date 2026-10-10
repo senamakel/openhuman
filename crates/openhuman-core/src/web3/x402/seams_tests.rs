@@ -79,7 +79,7 @@ fn payment_chains_map_onto_the_wallets_chains() {
 
 #[test]
 fn the_proxy_policy_yields_a_buildable_client() {
-    let builder = RuntimeProxyPolicy.apply(reqwest::Client::builder(), "tool.x402_request");
+    let builder = RuntimeProxyPolicy.apply(reqwest13::Client::builder(), "tool.x402_request");
     assert!(builder.build().is_ok());
 }
 

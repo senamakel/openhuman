@@ -1,15 +1,10 @@
 //! Encrypted-file keyring backend.
 //!
-//! Stores all secrets in a single ChaCha20-Poly1305-encrypted file on disk,
-//! keyed by an app-scoped master key. The key is loaded once at core startup
-//! via [`init_master_key`] — from the environment when an operator supplies
-//! it ([`MASTER_KEY_ENV`] / [`MASTER_KEY_FILE_ENV`], for headless deployments
-//! with no OS keychain), otherwise from the OS keychain — and cached in a
-//! process-wide static. The backend itself never touches the OS keychain.
-//!
-//! This design reduces OS keychain access to exactly ONE call per process
-//! lifetime, avoiding the N-prompt problem where dev-signed macOS builds
-//! block on each individual keychain entry.
+//! Stores secrets in one ChaCha20-Poly1305-encrypted file. [`init_master_key`]
+//! loads and caches the app-scoped key once, using [`MASTER_KEY_ENV`] or
+//! [`MASTER_KEY_FILE_ENV`] for headless deployments, otherwise the OS keychain.
+//! The backend itself never accesses the OS keychain, avoiding repeated macOS
+//! permission prompts.
 
 use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
@@ -593,7 +588,7 @@ impl EncryptedFileBackend {
             key,
             legacy_path,
             destination_lock,
-            |path, lock| file_store::sync_parent_dir(path, lock),
+            file_store::sync_parent_dir,
         )
     }
 

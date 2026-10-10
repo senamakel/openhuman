@@ -34,6 +34,9 @@ pub struct DocumentLeases {
     /// re-entrant and lets a restarted node (same id, fresh instance) see its
     /// own leftover record as unclean.
     held: Mutex<HashMap<String, u64>>,
+    /// Serializes `acquire` on this instance so an older completion cannot
+    /// overwrite newer held state.
+    acquire_gate: tokio::sync::Mutex<()>,
     declared: tokio::sync::OnceCell<()>,
 }
 
@@ -65,6 +68,7 @@ impl DocumentLeases {
             // the instant it is issued.
             ttl_ms: u64::try_from(ttl.as_millis()).unwrap_or(u64::MAX).max(1),
             held: Mutex::new(HashMap::new()),
+            acquire_gate: tokio::sync::Mutex::new(()),
             declared: tokio::sync::OnceCell::new(),
         }
     }
@@ -216,6 +220,7 @@ impl LeaseStore for DocumentLeases {
     async fn acquire(&self, key: &str, now_ms: u64) -> Result<LeaseGrant, LeaseError> {
         validate_key(key)?;
         self.declare().await?;
+        let _gate = self.acquire_gate.lock().await;
         let expires_at_ms = now_ms.saturating_add(self.ttl_ms);
         for attempt in 0..ACQUIRE_ATTEMPTS {
             let found = self.read(key).await?;

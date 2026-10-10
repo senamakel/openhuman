@@ -9,7 +9,7 @@
 //!   only by compare-and-swap, so it is correct across processes on a driver
 //!   with cross-process CAS ([`super::driver_has_cross_process_cas`]).
 //! - [`LocalLeases`] is for hosts without a backend: an exclusive `flock` on
-//!   `<root>/<key>/.lease`, which the OS drops when the holder dies.
+//!   `<root>/<sha256(key) hex>/.lease`, which the OS drops when the holder dies.
 //!
 //! No wall clock is read here: every operation takes `now_ms`, so behaviour
 //! is a function of its inputs and the tests are deterministic.

@@ -4700,6 +4700,7 @@ dependencies = [
  "log",
  "once_cell",
  "openhuman-tinyhumans",
+ "proptest",
  "rand 0.10.2",
  "reqwest",
  "sentry",

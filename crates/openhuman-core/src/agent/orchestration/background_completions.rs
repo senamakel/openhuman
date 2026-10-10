@@ -22,7 +22,6 @@
 //! [`super::completion_notice`].
 
 use std::collections::{HashMap, HashSet, VecDeque};
-
 // Keys of `HostState`'s thread and session maps: per profile (see `profile_key`).
 use crate::core::runtime::tenant::profile_key as key;
 use std::path::{Path, PathBuf};
@@ -327,6 +326,7 @@ pub(crate) async fn record_outcome(
     }
     note_thread_workspace(&thread_id, workspace_dir);
     note_session_thread(parent_session, &thread_id);
+    super::completion_owners::note(&[&task_id, parent_session]); // owner, for off-task delivery
 
     let record = CompletionRecord::new(
         task_id.clone(),

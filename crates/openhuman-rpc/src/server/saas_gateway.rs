@@ -164,3 +164,7 @@ pub(crate) fn decide(
 #[cfg(test)]
 #[path = "saas_gateway_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "saas_gateway_proptest_tests.rs"]
+mod proptest_tests;

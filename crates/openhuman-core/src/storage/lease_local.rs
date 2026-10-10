@@ -1,6 +1,6 @@
 //! [`LocalLeases`]: leases as OS file locks, for hosts without a backend.
 //!
-//! The holder keeps an exclusive `flock` (`fs2`) on `<root>/<key>/.lease`
+//! The holder keeps an exclusive `flock` (`fs2`) on `<root>/<sha256(key) hex>/.lease`
 //! open for as long as it holds the key; the OS drops it when the process
 //! dies, so liveness needs no clock and these leases never expire
 //! (`expires_at_ms == u64::MAX`). The record itself sits beside the lock in
@@ -93,20 +93,19 @@ impl LocalLeases {
             .map_err(|error| io_error("open", &path, &error))
     }
 
-    /// The record on disk; an unreadable one reads as an unknown owner, so a
-    /// torn read can never let a caller through.
-    fn read_record(&self, key: &str) -> Option<LeaseRecord> {
+    /// The record on disk: `None` only when there is none. An unreadable or
+    /// malformed record is an error, never a fresh start, so a fencing epoch
+    /// is not reused and crash recovery is not skipped.
+    fn read_record(&self, key: &str) -> Result<Option<LeaseRecord>, StorageError> {
         let path = local_dir(&self.root, key).join(RECORD_FILE);
-        let bytes = fs::read(&path).ok()?;
-        Some(
-            serde_json::from_slice(&bytes).unwrap_or_else(|_| LeaseRecord {
-                owner: "unknown".to_string(),
-                endpoint: None,
-                epoch: 0,
-                expires_at_ms: u64::MAX,
-                released: false,
-            }),
-        )
+        let bytes = match fs::read(&path) {
+            Ok(bytes) => bytes,
+            Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+            Err(error) => return Err(io_error("read", &path, &error)),
+        };
+        serde_json::from_slice(&bytes).map(Some).map_err(|error| {
+            StorageError::serialization(format!("lease record {}: {error}", path.display()))
+        })
     }
 
     fn write_record(&self, key: &str, record: &LeaseRecord) -> Result<(), StorageError> {
@@ -165,7 +164,9 @@ impl LeaseStore for LocalLeases {
                 let path = local_dir(&self.root, key).join(LOCK_FILE);
                 return Err(io_error("lock", &path, &error).into());
             }
-            let record = self.read_record(key).unwrap_or_else(|| LeaseRecord {
+            // Locked elsewhere: only a missing record reads as an unknown
+            // owner; an unreadable or malformed one is a storage error.
+            let record = self.read_record(key)?.unwrap_or_else(|| LeaseRecord {
                 owner: "unknown".to_string(),
                 endpoint: None,
                 epoch: 0,
@@ -181,7 +182,13 @@ impl LeaseStore for LocalLeases {
             );
             return Err(LeaseError::Held(record));
         }
-        let previous = self.read_record(key);
+        let previous = match self.read_record(key) {
+            Ok(previous) => previous,
+            Err(error) => {
+                let _ = FileExt::unlock(&file);
+                return Err(error.into());
+            }
+        };
         let unclean = previous.as_ref().is_some_and(|record| !record.released);
         let epoch = match previous {
             None => 1,
@@ -248,14 +255,17 @@ impl LeaseStore for LocalLeases {
 
     async fn release(&self, grant: LeaseGrant) -> Result<(), LeaseError> {
         self.with_current(&grant, |held| {
-            let holding = held.remove(&grant.key).ok_or(LeaseError::Lost)?;
+            let holding = held.get(&grant.key).ok_or(LeaseError::Lost)?;
             let record = LeaseRecord {
                 released: true,
-                ..holding.record
+                ..holding.record.clone()
             };
-            let written = self.write_record(&grant.key, &record);
-            let _ = FileExt::unlock(&holding.file);
-            written?;
+            // Persist first: on failure the lock and holding stay, so no one
+            // can take the key over a record still saying "not released".
+            self.write_record(&grant.key, &record)?;
+            if let Some(holding) = held.remove(&grant.key) {
+                let _ = FileExt::unlock(&holding.file);
+            }
             tracing::debug!(
                 target: "openhuman::storage::lease",
                 key = %grant.key,
@@ -272,7 +282,7 @@ impl LeaseStore for LocalLeases {
         if let Some(holding) = self.held().get(key) {
             return Ok(Some(holding.record.clone()));
         }
-        let Some(mut record) = self.read_record(key) else {
+        let Some(mut record) = self.read_record(key)? else {
             return Ok(None);
         };
         if !record.released {

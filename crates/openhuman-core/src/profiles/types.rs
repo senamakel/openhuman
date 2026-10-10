@@ -184,3 +184,7 @@ pub struct CredentialResult {
 #[cfg(test)]
 #[path = "types_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "types_proptest_tests.rs"]
+mod proptest_tests;

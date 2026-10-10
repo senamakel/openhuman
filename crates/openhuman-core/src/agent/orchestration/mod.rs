@@ -20,6 +20,7 @@ pub(crate) mod background_completions;
 pub(crate) mod background_delivery;
 pub mod command_center;
 pub(crate) mod completion_notice;
+pub(crate) mod completion_owners;
 pub(crate) mod completion_target;
 pub(crate) mod delegation;
 pub use delegation::open_delegation_checkpointer;
@@ -44,6 +45,10 @@ mod ops_tests;
 #[cfg(test)]
 #[path = "background_completions_tenant_tests.rs"]
 mod background_completions_tenant_tests;
+
+#[cfg(test)]
+#[path = "background_delivery_tenant_tests.rs"]
+mod background_delivery_tenant_tests;
 
 pub use agent_teams::{all_agent_team_controller_schemas, all_agent_team_registered_controllers};
 pub use command_center::{

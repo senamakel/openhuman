@@ -162,3 +162,7 @@ pub fn check_thread_id(id: &str) -> Result<(), String> {
 #[cfg(test)]
 #[path = "surface_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "surface_proptest_tests.rs"]
+mod proptest_tests;

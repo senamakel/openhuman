@@ -67,3 +67,60 @@ async fn keys_are_validated_and_nothing_is_held_by_default() {
     assert!(a.holder("free").await.unwrap().is_none());
     assert!(!dir.path().join("..").join("x").join(".lease").exists());
 }
+
+#[tokio::test]
+async fn a_malformed_record_is_an_error_not_a_fresh_start() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = LocalLeases::new(dir.path(), "a");
+    let key_dir = local_dir(dir.path(), "k");
+    fs::create_dir_all(&key_dir).unwrap();
+    fs::write(key_dir.join(RECORD_FILE), b"{not json").unwrap();
+    assert!(matches!(
+        a.acquire("k", 0).await,
+        Err(LeaseError::Storage(_))
+    ));
+    assert!(matches!(a.holder("k").await, Err(LeaseError::Storage(_))));
+}
+
+#[tokio::test]
+async fn a_contended_key_with_a_malformed_record_is_a_storage_error() {
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = (
+        LocalLeases::new(dir.path(), "a"),
+        LocalLeases::new(dir.path(), "b"),
+    );
+    a.acquire("k", 0).await.unwrap();
+    std::fs::write(local_dir(dir.path(), "k").join(RECORD_FILE), b"{not json").unwrap();
+    assert!(matches!(
+        b.acquire("k", 1).await,
+        Err(LeaseError::Storage(_))
+    ));
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn a_failed_release_write_keeps_the_lock_and_the_holding() {
+    use std::os::unix::fs::PermissionsExt;
+    let dir = tempfile::tempdir().unwrap();
+    let (a, b) = (
+        LocalLeases::new(dir.path(), "a"),
+        LocalLeases::new(dir.path(), "b"),
+    );
+    let grant = a.acquire("k", 0).await.unwrap();
+    let key_dir = local_dir(dir.path(), "k");
+    std::fs::set_permissions(&key_dir, std::fs::Permissions::from_mode(0o555)).unwrap();
+    if std::fs::write(key_dir.join("probe"), b"").is_ok() {
+        // Running with privileges that ignore the mode (root): not testable.
+        std::fs::set_permissions(&key_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+        return;
+    }
+    let failed = a.release(grant.clone()).await;
+    let contended = b.acquire("k", 1).await;
+    std::fs::set_permissions(&key_dir, std::fs::Permissions::from_mode(0o755)).unwrap();
+    assert!(failed.is_err());
+    match contended {
+        Err(LeaseError::Held(record)) => assert!(!record.released),
+        other => panic!("expected Held, got {other:?}"),
+    }
+    a.release(grant).await.unwrap();
+}

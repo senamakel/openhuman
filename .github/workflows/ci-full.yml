@@ -33,6 +33,9 @@ permissions:
   packages: read
 
 env:
+  # Property tests (proptest) run on a fixed seed in CI so a red run
+  # reproduces locally; run with another seed or PROPTEST_CASES to explore.
+  PROPTEST_RNG_SEED: "20261009"
   # Consumed by scripts/ci-cancel-aware.sh's cancellation watchdog.
   GH_TOKEN: ${{ github.token }}
   NPM_CONFIG_STORE_DIR: .pnpm-store

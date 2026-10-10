@@ -70,11 +70,9 @@ fn hosting_off_yields_no_account() {
     let workspace = tempfile::tempdir().expect("tempdir");
     let config = config_with(workspace.path(), false, "token");
 
-    assert!(
-        Account::from_config(&config)
-            .expect("resolution does not fail")
-            .is_none()
-    );
+    assert!(Account::from_config(&config)
+        .expect("resolution does not fail")
+        .is_none());
 }
 
 #[test]
@@ -193,6 +191,59 @@ fn the_module_registry_pins_the_released_hosts_artifact_set() {
     );
 }
 
+#[cfg(feature = "modules")]
+#[tokio::test]
+#[ignore = "requires OPENHUMAN_TINYHOSTS_TEST_MODULE pointing to the released v0.3.0 native artifact"]
+async fn released_artifact_serves_providers_and_confidential_local_preparation() {
+    use base64::Engine as _;
+
+    let artifact = std::env::var_os("OPENHUMAN_TINYHOSTS_TEST_MODULE")
+        .expect("set OPENHUMAN_TINYHOSTS_TEST_MODULE to the released TinyHosts v0.3.0 library");
+    let workspace = tempfile::tempdir().expect("workspace");
+    let site = workspace.path().join("site");
+    std::fs::create_dir(&site).expect("site directory");
+    let html = b"<!doctype html><title>module fixture</title>";
+    std::fs::write(site.join("index.html"), html).expect("fixture HTML");
+
+    let mut config = config_with(workspace.path(), true, "fixture-api-key");
+    config.modules.allow_download = false;
+    config
+        .modules
+        .overrides
+        .push(crate::config::schema::ModuleOverride {
+            id: "tinyhosts".to_owned(),
+            path: artifact.to_string_lossy().into_owned(),
+        });
+    let account = Account::connect_with_config("vercel", "fixture-api-key", None, config)
+        .expect("account configuration");
+    let workspace = workspace
+        .path()
+        .canonicalize()
+        .expect("canonical workspace");
+    let prepared = account
+        .execute(serde_json::json!({
+            "operation": "prepare_bundle",
+            "directory": { "workspace": workspace, "path": "site" }
+        }))
+        .await
+        .expect("released module Providers and PrepareBundle calls");
+    let prepared: tinyhosts_bus::preparation::PreparedBundle =
+        serde_json::from_value(prepared).expect("typed prepared bundle");
+
+    assert_eq!(prepared.contract_version, (1, 1));
+    assert_eq!(prepared.file_count, 1);
+    assert_eq!(prepared.total_bytes, html.len() as u64);
+    assert_eq!(prepared.bundle.len(), 1);
+    assert_eq!(prepared.bundle[0].path, "index.html");
+    assert_eq!(
+        base64::engine::general_purpose::STANDARD
+            .decode(&prepared.bundle[0].contents)
+            .expect("base64 file content"),
+        html,
+        "the native preparation operation returns only the local fixture bytes"
+    );
+}
+
 #[tokio::test]
 async fn providers_and_launch_use_the_declared_bus_members_and_confidential_execute() {
     let workspace = tempfile::tempdir().expect("workspace");
@@ -210,13 +261,11 @@ async fn providers_and_launch_use_the_declared_bus_members_and_confidential_exec
         .await
         .unwrap();
     assert!(!result.is_error);
-    assert!(
-        result
-            .markdown_formatted
-            .as_deref()
-            .unwrap()
-            .contains("deploy-1")
-    );
+    assert!(result
+        .markdown_formatted
+        .as_deref()
+        .unwrap()
+        .contains("deploy-1"));
 
     let calls = calls.lock().unwrap();
     assert_eq!(
@@ -259,11 +308,9 @@ async fn disabled_module_loader_does_not_fall_back_to_a_linked_provider() {
         .unwrap();
     let result = list.execute(serde_json::json!({})).await.unwrap();
     assert!(result.is_error);
-    assert!(
-        result.content[0]
-            .render()
-            .starts_with("MODULE_CALL_REPORTED:")
-    );
+    assert!(result.content[0]
+        .render()
+        .starts_with("MODULE_CALL_REPORTED:"));
 }
 
 #[tokio::test]
@@ -282,11 +329,9 @@ async fn connect_with_config_preserves_embedding_module_policy() {
         .unwrap();
     let result = list.execute(serde_json::json!({})).await.unwrap();
     assert!(result.is_error);
-    assert!(
-        result.content[0]
-            .render()
-            .starts_with("MODULE_CALL_REPORTED:")
-    );
+    assert!(result.content[0]
+        .render()
+        .starts_with("MODULE_CALL_REPORTED:"));
 }
 
 #[tokio::test]
@@ -343,16 +388,12 @@ async fn confidential_execute_failure_is_not_retried_as_an_ordinary_call() {
 
     let result = list.execute(serde_json::json!({})).await.unwrap();
     assert!(result.is_error);
-    assert!(
-        result.content[0]
-            .render()
-            .contains("MODULE_CALL_REPORTED: module execution failed")
-    );
-    assert!(
-        !result.content[0]
-            .render()
-            .contains("never-render-this-secret")
-    );
+    assert!(result.content[0]
+        .render()
+        .contains("MODULE_CALL_REPORTED: module execution failed"));
+    assert!(!result.content[0]
+        .render()
+        .contains("never-render-this-secret"));
     let calls = calls.lock().unwrap();
     assert_eq!(calls.len(), 2, "one Providers call and one failed Execute");
     assert_eq!(calls[0].0, "Providers");
@@ -408,11 +449,9 @@ fn an_operation_with_the_wrong_typed_outcome_is_reported_once_without_reply_data
         runtime.block_on(async {
             let result = list.execute(serde_json::json!({})).await.unwrap();
             assert!(result.is_error);
-            assert!(
-                result.content[0]
-                    .render()
-                    .contains("MODULE_CALL_REPORTED: module execution failed")
-            );
+            assert!(result.content[0]
+                .render()
+                .contains("MODULE_CALL_REPORTED: module execution failed"));
             assert!(!result.content[0].render().contains("private-site"));
         });
     });

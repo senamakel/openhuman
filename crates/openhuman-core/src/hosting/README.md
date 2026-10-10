@@ -30,3 +30,19 @@ custom module policy or artifact root can use `Account::connect_with_config`.
 return type exposed TinyHosts' concrete implementation trait, which cannot be
 kept in the host crate without restoring that dependency. Callers should use
 the stable `Account::tools()` surface or the TinyHosts bus contract directly.
+
+The ignored `released_artifact_serves_providers_and_confidential_local_preparation`
+test exercises the pinned artifact through OpenHuman's configured module loader
+and real private TinyBus. It queries `Providers`, then sends a confidential
+`PrepareBundle` for a temporary local HTML file and checks the returned typed
+snapshot. This operation is local and does not contact a hosting provider. Run
+it with the released library at hand:
+
+```bash
+OPENHUMAN_TINYHOSTS_TEST_MODULE=/path/to/libtinyhosts.so \
+  scripts/ci-cancel-aware.sh cargo +stable test --locked \
+    --manifest-path Cargo.toml -p openhuman --no-default-features \
+    --features 'hosting,crash-reporting' \
+    hosting::test::released_artifact_serves_providers_and_confidential_local_preparation \
+    -- --ignored --exact
+```

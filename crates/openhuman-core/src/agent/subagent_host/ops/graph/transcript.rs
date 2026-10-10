@@ -80,16 +80,11 @@ pub(super) fn persist_subagent_transcript(
             cost_usd: usage.cost.known_usd,
             cost_source: Some(match usage.cost.source {
                 crate::agent::cost::CostSource::Charged => transcript::UsageCostSource::Charged,
-                crate::agent::cost::CostSource::Estimated => {
-                    transcript::UsageCostSource::Estimated
-                }
+                crate::agent::cost::CostSource::Estimated => transcript::UsageCostSource::Estimated,
                 crate::agent::cost::CostSource::Unknown => transcript::UsageCostSource::Unknown,
             }),
             last_call_input: usage.last_call_input_tokens,
             last_call_output: usage.last_call_output_tokens,
-            // The remaining usage fields retain their defaults: this writer
-            // records provider-call size and spend, not reasoning detail.
-            ..Default::default()
         },
         ts: now.clone(),
         reasoning_content: None,

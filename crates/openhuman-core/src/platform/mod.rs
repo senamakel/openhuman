@@ -5,6 +5,8 @@
 //! has to start, stay healthy, report cost, and be reachable over Socket.IO.
 
 pub mod about_app;
+#[cfg(feature = "voice")]
+pub mod cloud_voice_provider;
 pub mod connectivity;
 pub mod cost;
 pub mod doctor;

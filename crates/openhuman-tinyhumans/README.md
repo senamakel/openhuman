@@ -7,6 +7,8 @@ port with the vendored `tinyhumans-sdk`, installs it into a process, and adds
 the pieces that only make sense for a TinyHumans-connected product: the hosted
 RPC proxies (billing, team, referral and so on), the host-side login and
 session owner, and the Jev-backed `tool_search` ranker.
+With `voice` enabled, it also installs the cloud voice provider described in
+[`src/voice/README.md`](src/voice/README.md).
 
 Every host that boots a core and wants the backend calls into this crate first:
 the desktop shell ([`crates/openhuman-app`](../openhuman-app/)), the TUI ([`crates/openhuman-tui`](../openhuman-tui/)),
@@ -74,6 +76,10 @@ It does four things, in this order:
    `openhuman_embed::install_backend_transport`. On a later
    call it reuses the transport it already built, re-installing it into the
    core slot if something cleared it (tests do this).
+
+The transport connection also installs the cloud voice factory when `voice` is
+enabled. The factory resolves the current call's configuration and credential;
+installation does not capture a login token.
 
 `install` returns the `Arc<SdkBackendTransport>` so a host that also uses
 `CoreBuilder` can bind it explicitly with `CoreBuilder::backend_transport`.

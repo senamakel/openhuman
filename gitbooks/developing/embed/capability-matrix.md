@@ -20,7 +20,6 @@ This matrix comes from the default-feature compiled capability-report example. R
 | `media` | Yes |
 | `modules` | Yes |
 | `rss-bench` | No |
-| `runtime-node` | No |
 | `scheduler-gate` | Yes |
 | `skills` | Yes |
 | `storage-file` | No |

@@ -191,7 +191,6 @@ The compiled capability report describes this build:
     "media": true,
     "modules": true,
     "rss-bench": false,
-    "runtime-node": false,
     "scheduler-gate": true,
     "skills": true,
     "storage-file": false,

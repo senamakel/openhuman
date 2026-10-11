@@ -115,3 +115,7 @@ fn classify_backend_error(error: anyhow::Error) -> ProviderError {
     };
     provider_error(kind, error.to_string())
 }
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod tests;

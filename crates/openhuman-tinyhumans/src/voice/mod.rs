@@ -60,7 +60,7 @@ impl CloudVoiceProvider for Provider {
                     Some(body),
                 )
                 .await
-                .map_err(classify_backend_error)
+                .map_err(|error| classify_backend_error(error, self.credential.secret()))
         })
     }
 
@@ -77,7 +77,7 @@ impl CloudVoiceProvider for Provider {
                             None,
                         )
                         .await
-                        .map_err(classify_backend_error)?;
+                        .map_err(|error| classify_backend_error(error, self.credential.secret()))?;
                     requests::voice_agent_session(&raw).map_err(|message| {
                         provider_error(ProviderErrorKind::InvalidResponse, message)
                     })
@@ -92,7 +92,7 @@ impl CloudVoiceProvider for Provider {
                             Some(options),
                         )
                         .await
-                        .map_err(classify_backend_error)?;
+                        .map_err(|error| classify_backend_error(error, self.credential.secret()))?;
                     requests::gemini_session(&raw).map_err(|message| {
                         provider_error(ProviderErrorKind::InvalidResponse, message)
                     })
@@ -106,14 +106,19 @@ fn provider_error(kind: ProviderErrorKind, message: String) -> ProviderError {
     ProviderError { kind, message }
 }
 
-fn classify_backend_error(error: anyhow::Error) -> ProviderError {
+fn classify_backend_error(error: anyhow::Error, secret: &str) -> ProviderError {
     let kind = match error.downcast_ref::<BackendApiError>() {
         Some(BackendApiError::Unauthorized { .. }) => ProviderErrorKind::SessionExpired,
         Some(BackendApiError::ApiKeyRejected { .. }) => ProviderErrorKind::ApiKeyRejected,
         Some(BackendApiError::BackendUnavailable { .. }) => ProviderErrorKind::Unavailable,
         _ => ProviderErrorKind::Transport,
     };
-    provider_error(kind, error.to_string())
+    let mut message = error.to_string();
+    let secret = secret.trim();
+    if !secret.is_empty() {
+        message = message.replace(secret, "[REDACTED]");
+    }
+    provider_error(kind, message)
 }
 
 #[cfg(test)]

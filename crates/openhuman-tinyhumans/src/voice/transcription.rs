@@ -32,7 +32,11 @@ pub(super) async fn transcribe(
             .url_for("/")
             .map_err(|error| provider_error(ProviderErrorKind::InvalidInput, error.to_string()))?,
     )
-    .with_http_client(client.raw_client().map_err(super::classify_backend_error)?)
+    .with_http_client(
+        client
+            .raw_client()
+            .map_err(|error| super::classify_backend_error(error, credential.secret()))?,
+    )
     .with_token(Some(credential.secret().to_string()));
     let raw = sdk
         .raw()

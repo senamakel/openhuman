@@ -23,6 +23,6 @@ its established response normalization. Native TinyVoice processing runs through
 the compiled module; this backend provider does not replace its behavior.
 
 Sibling unit tests cover validation, endpoint policy, request shapes and typed
-failure projection without network access. `tests/cloud_voice_backend.rs` covers
+failure projection without network access. `tests/cloud_voice_backend_e2e.rs` covers
 the installed composition against local HTTP mocks, including credential
 rotation, multipart headers, response limits, and realtime and synthesis routes.

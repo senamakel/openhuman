@@ -417,6 +417,6 @@ name = "embeddings_opt_out"
 path = "../../tests/embeddings_opt_out.rs"
 
 [[test]]
-name = "cloud_voice_backend"
-path = "../../tests/cloud_voice_backend.rs"
+name = "cloud_voice_backend_e2e"
+path = "../../tests/cloud_voice_backend_e2e.rs"
 required-features = ["voice"]

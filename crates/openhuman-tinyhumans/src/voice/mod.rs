@@ -116,7 +116,12 @@ fn classify_backend_error(error: anyhow::Error, secret: &str) -> ProviderError {
     let mut message = format!("{error:#}");
     let secret = secret.trim();
     if !secret.is_empty() {
-        message = message.replace(secret, "[REDACTED]");
+        let marker = if "[REDACTED]".contains(secret) {
+            ""
+        } else {
+            "[REDACTED]"
+        };
+        message = message.replace(secret, marker);
     }
     provider_error(kind, message)
 }

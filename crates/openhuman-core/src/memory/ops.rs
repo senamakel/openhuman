@@ -319,12 +319,23 @@ pub async fn learn_with(
 }
 
 /// Scrubs `item` and stores it on the bound engine.
-pub async fn store_item(config: &Config, mut item: StoreItem) -> MemoryResult<StoreReceipt> {
+pub async fn store_item(config: &Config, item: StoreItem) -> MemoryResult<StoreReceipt> {
+    store_item_with(config, item, WriteOptions::visible()).await
+}
+
+/// [`store_item`], returning as soon as `options` allows: a host capturing
+/// as it goes passes [`WriteOptions::accepted`] so it never waits on the
+/// engine indexing the item.
+pub async fn store_item_with(
+    config: &Config,
+    mut item: StoreItem,
+    options: WriteOptions,
+) -> MemoryResult<StoreReceipt> {
     if let Some(root) = super::user_scope::confinement(config)? {
         super::user_scope::clamp_item(&mut item, &root);
     }
     let bound = bound(config)?;
-    store_on(&bound, item).await
+    store_on_with(&bound, item, options).await
 }
 
 /// Stores `item` on `bound`; the bound engine scrubs it ([`super::guard`]).

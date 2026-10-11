@@ -1241,12 +1241,10 @@ async fn config_env_overlay_public_loader_applies_runtime_and_tool_overrides() {
     assert!(config.proxy.enabled);
     assert_eq!(config.proxy.scope, ProxyScope::Services);
     assert!(config.proxy.should_apply_to_service("tool.browser"));
-    assert!(!config.node.enabled);
-    assert_eq!(config.node.version, "v24.0.0");
-    assert!(!config.node.prefer_system);
-    assert!(!config.runtime_python.enabled);
-    assert_eq!(config.runtime_python.minimum_version, "3.13.0");
-    assert!(config.runtime_python.prefer_system);
+    // Deprecated runtime environment settings must not resurrect removed fields.
+    let serialized = serde_json::to_value(&config).expect("serialize config");
+    assert!(serialized.get("node").is_none());
+    assert!(serialized.get("runtime_python").is_none());
     assert!(!config.observability.analytics_enabled);
     assert_eq!(
         config.observability.sentry_dsn.as_deref(),

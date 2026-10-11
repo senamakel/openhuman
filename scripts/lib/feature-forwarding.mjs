@@ -478,6 +478,10 @@ export const CHAIN_GATES_NOT_FORWARDED = {
  * catch. An entry here says "this one is local by design".
  */
 export const CHAIN_LOCAL_GATES = {
+  'openhuman-embed': {
+    profiles:
+      'Embed owns the headless ProfileRuntime SaaS facade and examples; core profile identity/workspace operations are unconditional, so this facade gate has no core twin.',
+  },
   'openhuman-tinyhumans': {
     jev: 'This crate owns the gate: the Jev-backed `tool_search` ranker (`tinytools-jev` over the TinyHumans System One proxy).',
   },

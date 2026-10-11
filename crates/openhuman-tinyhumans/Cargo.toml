@@ -8,9 +8,9 @@ repository.workspace = true
 readme = "README.md"
 publish = false
 
-# Every gate forwards 1:1 to `openhuman-embed`, which forwards it to the core.
-# This crate adds no gates of its own: it is the layer that *connects* an
-# embed runtime to the TinyHumans backend, not a feature surface.
+# Forward core gates and embed-owned facades through `openhuman-embed`.
+# This layer connects an embed runtime to the TinyHumans backend and owns
+# the Jev ranker gate below.
 [features]
 langfuse = ["openhuman-embed/langfuse"]
 # `jev` is this crate's one gate of its own: the Jev-backed `tool_search`
@@ -19,6 +19,7 @@ langfuse = ["openhuman-embed/langfuse"]
 # `tool_search` with BM25 alone.
 default = ["openhuman-embed/default", "jev"]
 jev = ["dep:tinytools-jev", "dep:tinyjevclient"]
+profiles = ["openhuman-embed/profiles"]
 http-server = ["openhuman-embed/http-server"]
 inference = ["openhuman-embed/inference"]
 documents = ["openhuman-embed/documents"]

@@ -390,6 +390,7 @@ default = [
 # embed -> core); `scripts/ci/check-feature-forwarding.mjs` checks the link.
 # The Jev-backed `tool_search` ranker.
 jev = ["openhuman-rpc/jev"]
+profiles = ["openhuman-rpc/profiles"]
 http-server = ["openhuman-rpc/http-server"]
 inference = ["openhuman-rpc/inference"]
 documents = ["openhuman-rpc/documents"]

@@ -49,6 +49,7 @@ session-store = ["dep:tinyagents-session", "dep:tinyagents-harness", "dep:chrono
 # The Jev `tool_search` ranker the shared host boot (`host`) wires in.
 jev = ["openhuman-tinyhumans/jev"]
 # Product gates, forwarded down the chain.
+profiles = ["openhuman-tinyhumans/profiles"]
 http-server = ["openhuman-tinyhumans/http-server"]
 inference = ["openhuman-tinyhumans/inference"]
 documents = ["openhuman-tinyhumans/documents"]

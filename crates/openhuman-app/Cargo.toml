@@ -264,6 +264,8 @@ windows-sys = { version = "0.59", features = [
 
 [features]
 default = ["gateways"]
+# Explicit opt-in to the embed-owned headless SaaS facade.
+profiles = ["openhuman-rpc/profiles"]
 # Routing the frontend to a core somewhere other than this process: a
 # container, a machine over SSH, or a container on a machine over SSH. Calls
 # the TinyBox module through openhuman-rpc's curated embed facade.

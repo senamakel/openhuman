@@ -32,6 +32,7 @@ default = [
 ]
 crash-reporting = ["openhuman-rpc/crash-reporting"]
 jev = ["openhuman-rpc/jev"]
+profiles = ["openhuman-rpc/profiles"]
 http-server = ["openhuman-rpc/http-server"]
 inference = ["openhuman-rpc/inference"]
 documents = ["openhuman-rpc/documents"]

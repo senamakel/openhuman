@@ -61,7 +61,12 @@ fn backend_failure_preserves_the_context_chain_without_echoing_credentials() {
 
 #[test]
 fn backend_failure_redaction_marker_does_not_echo_the_active_credential() {
-    let error = classify_backend_error(anyhow::anyhow!("proxy rejected REDACTED"), "REDACTED");
-    assert!(matches!(error, VoiceError::Transport { .. }));
-    assert!(!error.to_string().contains("REDACTED"));
+    for detail in ["proxy rejected REDACTED", "REDREDACTEDACTED"] {
+        let error = classify_backend_error(anyhow::anyhow!(detail), "REDACTED");
+        assert!(matches!(error, VoiceError::Transport { .. }));
+        assert!(
+            !error.to_string().contains("REDACTED"),
+            "redaction reintroduced the credential from {detail:?}"
+        );
+    }
 }

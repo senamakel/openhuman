@@ -91,7 +91,7 @@ chat_onboarding_completed = true
 encrypt = false
 
 [local_ai]
-enabled = false
+runtime_enabled = false
 
 
 "#;
@@ -100,7 +100,7 @@ enabled = false
 fn assert_offline_config() -> openhuman_core::config::Config {
     let parsed: openhuman_core::config::Config =
         toml::from_str(TEST_CONFIG_TOML).expect("test config must match the Config schema");
-    assert!(!parsed.local_ai.enabled);
+    assert!(!parsed.local_ai.runtime_enabled);
     assert_eq!(parsed.api_url.as_deref(), Some("http://127.0.0.1:9"));
     parsed
 }

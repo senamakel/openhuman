@@ -93,6 +93,8 @@ uuid = { version = "1", features = ["v4"] }
 async-trait = "0.1"
 tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["conformance"] }
 dirs = "6"
+# `cron_tests` builds core `CronJob`s, whose schedule types live in tinyflows.
+tinyflows-schedule = { path = "../../vendor/tinyflows/crates/tinyflows-schedule" }
 env_logger = "0.11"
 # The profile tests and example implement a stub `BackendTransport`, whose
 # `http_client` hands out a `reqwest::Client`. Same features as the core's, so

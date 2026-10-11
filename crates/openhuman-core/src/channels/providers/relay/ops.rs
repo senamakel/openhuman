@@ -87,6 +87,8 @@ pub(crate) async fn run_relay_turn(
     thread_id: String,
     request_id: String,
 ) -> Vec<String> {
+    // One turn at a time per profile: wait behind its chat and cron turns.
+    let _turn = crate::profiles::turn_gate::acquire().await;
     let workspace_dir = config.workspace_dir.clone();
     // The thread is busy for the whole turn, so a background result due on it
     // waits instead of landing mid-turn. The pipeline's session id does not

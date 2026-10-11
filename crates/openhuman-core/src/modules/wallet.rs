@@ -70,9 +70,12 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tinywallet_bus::names::methods;
 use tinywallet_bus::wire::{
-    DerivedAccount, ExportRequest, ExportedKey, Scheme, SecretMaterial, SignMessageRequest,
+    DeriveMnemonicSeedRequest, DeriveMnemonicSeedResponse, DerivedAccount,
+    EncodeErc20TransferRequest, EncodeErc20TransferResponse, ExportRequest, ExportedKey,
+    GenerateMnemonicRequest, GenerateMnemonicResponse, Scheme, SecretMaterial, SignMessageRequest,
     SignRequest, Signature, SignedTransaction, TransactionSpec,
 };
+use zeroize::Zeroize;
 
 use super::{host, ops, registry};
 use crate::config::Config;
@@ -147,15 +150,73 @@ pub async fn derive_account(
     config: &Config,
     secret: &SecretMaterial,
 ) -> Result<DerivedAccount, WalletCallError> {
-    let proxy = attested_proxy(config).await?;
     log::debug!(
         "[modules:wallet] derive_account chain={:?} module={MODULE_ID} (confidential)",
         secret.chain
     );
-    proxy
-        .call_confidential(methods::DERIVE_ACCOUNT, (secret.clone(),))
-        .await
-        .map_err(|error| classify(&error))
+    let mut request = secret.clone();
+    let result = call_confidential(config, methods::DERIVE_ACCOUNT, &request).await;
+    request.mnemonic.zeroize();
+    result
+}
+
+/// Generate a recovery phrase inside the attested TinyWallet module.
+///
+/// # Errors
+///
+/// [`WalletCallError`]. The phrase is returned to the host for encryption and
+/// custody, but generation and BIP-39 vocabulary remain module-owned.
+pub async fn generate_mnemonic(
+    config: &Config,
+    word_count: u8,
+) -> Result<GenerateMnemonicResponse, WalletCallError> {
+    call_confidential(
+        config,
+        methods::GENERATE_MNEMONIC,
+        &GenerateMnemonicRequest { word_count },
+    )
+    .await
+}
+
+/// Derive a standard BIP-39 seed inside the attested module.
+///
+/// The caller uses the seed only for OpenHuman's generic storage-key KDF.
+///
+/// # Errors
+///
+/// [`WalletCallError`]. Invalid or unsupported phrases are classified as
+/// [`WalletCallError::InvalidInput`].
+pub async fn derive_mnemonic_seed(
+    config: &Config,
+    mnemonic: String,
+) -> Result<DeriveMnemonicSeedResponse, WalletCallError> {
+    let mut request = DeriveMnemonicSeedRequest { mnemonic };
+    let result = call_confidential(config, methods::DERIVE_MNEMONIC_SEED, &request).await;
+    request.mnemonic.zeroize();
+    result
+}
+
+/// Encode ERC-20 transfer calldata with the module-owned ABI implementation.
+///
+/// # Errors
+///
+/// Returns [`WalletCallError`] if the module is unavailable or rejects the
+/// recipient or base-unit amount.
+pub async fn encode_erc20_transfer(
+    config: &Config,
+    to_address: &str,
+    amount_raw: &str,
+) -> Result<String, WalletCallError> {
+    let response: EncodeErc20TransferResponse = call(
+        config,
+        methods::ENCODE_ERC20_TRANSFER,
+        &EncodeErc20TransferRequest {
+            to_address: to_address.to_owned(),
+            amount_raw: amount_raw.to_owned(),
+        },
+    )
+    .await?;
+    Ok(response.calldata)
 }
 
 /// Sign opaque bytes with the key derived from `secret`.
@@ -316,94 +377,94 @@ async fn attested_proxy(config: &Config) -> Result<tinybus::Proxy, WalletCallErr
     Ok(proxy)
 }
 
-// Library checksums verified against modules.toml and the library bytes in each
-// registry-pinned TinyWallet v0.13.0 archive. A library is trusted only while
-// its corresponding archive remains pinned in the supplied ModuleRecord.
+// Embedded library checksums verified from all 17 archives in the
+// registry-pinned TinyWallet v0.19.0 release. Each library is trusted only
+// while its archive checksum remains pinned in the supplied ModuleRecord.
 const PINNED_WALLET_LIBRARIES: &[(&str, &str)] = &[
-    // ubuntu-24.04-x86_64
-    (
-        "284983d01c548109b3e9d5bbca1951787912f713b4a98920b9b45cfd034b6760",
-        "f9a13c65e14b7cf9de57beeb40e8753a212234795a75fe8d8d11564a4ccabb67",
-    ),
-    // ubuntu-24.04-arm64
-    (
-        "18ef8ffe518f731dc594d1606554ca12c840219e54f230382937061c395ab860",
-        "66961c39b0e2ebcb3c69ab1f6c1aa7cb59a830d787565b7fbb91339ca594d644",
-    ),
-    // ubuntu-22.04-x86_64
-    (
-        "92d0d0fe9ab20fdf4c44aa58d762b7e28b6a08876899a5b2d368df3feabcd2d5",
-        "7b6fdd843622a29b610633e0f5cabf6f48c8aa7566a466696916e99d1221eb08",
-    ),
-    // ubuntu-22.04-arm64
-    (
-        "4d0e17d778c0c84df17e4c5b7fa60aa9296efecc5726902008946409b3a3c9e1",
-        "6f91352fbf5bdf69b7c76ae33f100b67320e3239573d4bb5402ba21ed51e7680",
-    ),
-    // macos-26-arm64
-    (
-        "e01a70efbcece8e134abfa84c70181425802415525303d7ba2a7798afbab1041",
-        "a8181f4a927f86182fadc4c65f12854cf7f719dc57b00ac1ff7da2e0a1ecc5b4",
-    ),
-    // macos-26-x86_64
-    (
-        "c48f1f7807d0b25c2b54dca97237f6e64d02ec3a9396370cd8e3b1857419296a",
-        "684f2d74d3abaca8712eddafa0e7dd67ddfa9fa64ca03427959a03d20e31e3c0",
-    ),
-    // macos-15-arm64
-    (
-        "95f69f2e17ff1785d032f6e1017e12de5c6dc09af9633e67fc9c225dfcef9ce6",
-        "39f3674672bfaef485838eba98a60fb21c173d5f161449abc0dacc4c2a8aa8ff",
-    ),
-    // macos-15-x86_64
-    (
-        "f3114694e2d666ea1b030db952c589f08d79c60ab79aadb844327e273c5faaf5",
-        "3ed1c36990a6fde7710d6616f7ddc2d68d0ed029c73f93aef859a0a023ed5e4b",
-    ),
-    // windows-2025-x86_64
-    (
-        "7b79a25a1fccef17a4c6e0d400f49646c3a5f321821bb03ddc23e76d6030717a",
-        "66278854fe0843d46f3029baa9e5deccaf9fa20d757eea20ceae321f3ee72310",
-    ),
-    // windows-2022-x86_64
-    (
-        "0b7126be04b23dd5fad883d7f1dd33dd65c1042af68f93593590ea07c5daa95e",
-        "b547c227e56400f92ffd21829d510f455e4be446d049106e7490039919acb267",
-    ),
-    // windows-11-arm64
-    (
-        "483d3fda2c46de71c8efd5dfa4ec828c0b6c86bb164c8362c1356f85cb8ec231",
-        "ee10089c09b5e3b5f178484816fc90f297ad7c23e209d3281a10e0668d0aeaca",
-    ),
     // archlinux-arm64
     (
-        "ad2222bd1d2dd680568f486e40389c0b963cf5ba2d170f9d658985f31cabb511",
-        "66766056becbb6d55078952989ae542c88758075bae58ce5e9c9294b7712701e",
+        "59863d52205fabe486a16dfbf573a007d19c3237236cee3a8ff236281cdf6ba9",
+        "33929ad0096de1ea9e7a2cb03eeecba27ff35e44f8d10bc74941c65481c03683",
     ),
     // archlinux-x86_64
     (
-        "d67f541330f7712106238b90d993550d2e2e55f33d3c8c9f50669a1a51c1e981",
-        "725a256ded1ee0f2bc0f6360f1dac84f94423b8816162c4202b6c71d2194f1b1",
+        "645679737effe617f566af7349dc7153f29dac21fa7a377a610ccf72054e7454",
+        "7770801d0ddc7c659391b3d1f06b3aa757cc086094c9bd9b40306de77e8b28c2",
     ),
     // fedora-43-arm64
     (
-        "a2d62b03f2e99008ee3fe7ea84290fd050e12016ce36e89fda24d5449e795261",
-        "3fb82b1ae8dbce52999be065b8e64bcc3668d056a2fba90a5f6f067343ea6161",
+        "c05ff2da4101246b7a50a37a44632a8502a5747f5e7cc416258fb728782d91b6",
+        "3d23139debe5d9d0d69c9feefcbe2372449cda547f81eae590dfb82f7842e2e3",
     ),
     // fedora-43-x86_64
     (
-        "0c8c5dbf2aa7b7caa371aa6366c7cfdd232fda41e2dbd894d2ef344c7c2cfa0a",
-        "7be79421594597b6fc8b9c15a16a7df3218f8d78651a3ac85153f6cb88d6532e",
+        "c4399bbb1c9d3c42545fb78474f548337cfc4a96ebb49ce50912ca4c85dd3aa4",
+        "2ddd77bf0645ad8dce6b8e4ab6554ac913d5f0e9ee21ab6b234c8d572d0d763e",
     ),
     // fedora-44-arm64
     (
-        "272b535910fc4bc84099887b7ccfbdd9d41a6d187616086c174f86cb77f21757",
-        "09226fb7f644746cd9ed12523ffc08962be035d5a2f1d5004f5e1bc70d74cb0d",
+        "d17075dd175d0bd3bebe31350a3bcc58320c698f4c54f69691f85dd54297fdb9",
+        "d00d9630dff068c0980e9b81c6184eba0af11fd3168ea2bcdc57ebad713eb91a",
     ),
     // fedora-44-x86_64
     (
-        "3dcad60a65d4f0bbb1af838468a2f52d648d22b2fbc849ae0548a30ed9806646",
-        "b6eab1fc5076a55764cb44a04e500cc52928604a8c1b42ed9426e4ba9966ba4b",
+        "ef64e56e536a2661ae0ddcd799632819c02f391a5e7f98431adc184f7df45adb",
+        "71df95081c6b0da69e52bb4ae461c841763436332eae5e19b269730a5bf1688e",
+    ),
+    // macos-15-arm64
+    (
+        "15397175e39dffbfe372bb40a4dccd6e03440ed5925043d41df058a335e1427d",
+        "e1e95043354060e98a604ef7a2c4ec0407bf22c906f4240b1438e303c4283bbd",
+    ),
+    // macos-15-x86_64
+    (
+        "389e68114a4d1243afe04e8143e7f6ebd321c1cc24b54be2d768c7ee8643c7b1",
+        "deb320a1e0214105e1621f83fbb43c3e884ed7923d5303ae56b113b4f31eef2e",
+    ),
+    // macos-26-arm64
+    (
+        "bff93e7c33fcf663c0b69117add0e249c461233a58eb5ba2f1b753a9a8944350",
+        "4aaaec17daa9c3aca68c02342761138aa100a10886a3845a1e3068c755665091",
+    ),
+    // macos-26-x86_64
+    (
+        "72e1ef5c1047c0ac848abb9cd1cf69e6639ac4e8527496979406922852a4d2d3",
+        "3655a3efb340c1959704b71e67056499e47b0dde719b9139e8d3a4d5608c7d57",
+    ),
+    // ubuntu-22.04-arm64
+    (
+        "d981e334615d4a4d2ea003a4c3d59ee8f631d6f52532cfa70dc97143e97a6fe8",
+        "6a30e85422cfeb919efcf70ece5e503ba9fd6145eac1e6229caff326d7c438e7",
+    ),
+    // ubuntu-22.04-x86_64
+    (
+        "4511bf4a03f9163f5493472c1b294eccd8087e44efbde6b7e50c2ee4867b707c",
+        "04ed808e5c32234b9879a1468da6034c8bdc214beaf6da4f6303b1a9efb83f9b",
+    ),
+    // ubuntu-24.04-arm64
+    (
+        "aa79e84f60892f2ff624f42619f928b2699bdbea613f7bc2a0595f769c7f1d68",
+        "27ec59b039fff01ebf01ba065a061fa84c67552f3486e1e9757a1210a52304fd",
+    ),
+    // ubuntu-24.04-x86_64
+    (
+        "55c27a4c85631aee0509e9c74ae1eceb5f3fb3aa43540294bdd4991eac5500af",
+        "5d0a3ae5881f91966249858cd155e5b9c244bd419d06698d808f972a8d23afc9",
+    ),
+    // windows-11-arm64
+    (
+        "f91ef12a88c324a4c890be0ff8114239d835770541ce8cfd6059f015d3720764",
+        "0b702e879f7514f0204bc867c3c6e01e429fcba993ef1817be65110097c6b0bd",
+    ),
+    // windows-2022-x86_64
+    (
+        "398bce97e33fa44faa3e92eb20cdd448089882233858a952b7710ad4d1806546",
+        "83aaed32e29ead292066e123efb91f1ebd21545ea0d8a3b3ca20fdd7cd99e644",
+    ),
+    // windows-2025-x86_64
+    (
+        "17856ed57fb14840c3a4c5cde9167a68d9a8d578ee63728852b894d3d1e8fec1",
+        "34d33e8534cb36acaf771cfd8a73a2dc6149ecdd4d143cc1af76088457795d8b",
     ),
 ];
 

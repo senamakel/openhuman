@@ -5,17 +5,12 @@ use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::execution::{
-    balances, chain_status, execute_prepared, lookup_tx, network_defaults, prepare_transfer,
-    supported_assets, tx_receipt, tx_status, ExecutePreparedParams, PrepareTransferParams,
+    balances, chain_status, encode_erc20_transfer, execute_prepared, lookup_tx, network_defaults,
+    prepare_transfer, supported_assets, tx_receipt, tx_status, ExecutePreparedParams,
+    PrepareTransferParams,
 };
-use {
-    super::ops::WalletSetupParams, tinywallet_web3::crypto::wallet::WalletAccount,
-    tinywallet_web3::crypto::wallet::WalletSetupSource,
-};
-use {
-    tinywallet_web3::crypto::abi::encode_erc20_transfer,
-    tinywallet_web3::crypto::defaults::EvmNetwork, tinywallet_web3::crypto::wallet::WalletChain,
-};
+use super::ops::{WalletAccount, WalletSetupParams, WalletSetupSource};
+use super::{EvmNetwork, WalletChain};
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -48,6 +43,17 @@ struct EncodeErc20TransferParams {
     amount_raw: String,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct GenerateMnemonicParams {
+    word_count: u8,
+}
+
+#[derive(Debug, Deserialize)]
+struct RecoveryPhraseParams {
+    phrase: String,
+}
+
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     all_wallet_controller_schemas()
 }
@@ -75,6 +81,9 @@ pub fn all_wallet_controller_schemas() -> Vec<ControllerSchema> {
         wallet_schemas("tx_receipt"),
         wallet_schemas("lookup_tx"),
         wallet_schemas("reveal_recovery_phrase"),
+        wallet_schemas("generate_mnemonic"),
+        wallet_schemas("validate_mnemonic"),
+        wallet_schemas("derive_recovery_material"),
     ]
 }
 
@@ -131,6 +140,18 @@ pub fn all_wallet_registered_controllers() -> Vec<RegisteredController> {
         RegisteredController {
             schema: wallet_schemas("reveal_recovery_phrase"),
             handler: handle_reveal_recovery_phrase,
+        },
+        RegisteredController {
+            schema: wallet_schemas("generate_mnemonic"),
+            handler: handle_generate_mnemonic,
+        },
+        RegisteredController {
+            schema: wallet_schemas("validate_mnemonic"),
+            handler: handle_validate_mnemonic,
+        },
+        RegisteredController {
+            schema: wallet_schemas("derive_recovery_material"),
+            handler: handle_derive_recovery_material,
         },
     ]
 }
@@ -355,6 +376,42 @@ pub fn wallet_schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "generate_mnemonic" => ControllerSchema {
+            namespace: "wallet",
+            function: "generate_mnemonic",
+            description: "Generate a recovery phrase inside the TinyWallet module.",
+            inputs: vec![required_json("wordCount", "BIP-39 word count: 12, 15, 18, 21, or 24.")],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Generated recovery phrase and word count.",
+                required: true,
+            }],
+        },
+        "validate_mnemonic" => ControllerSchema {
+            namespace: "wallet",
+            function: "validate_mnemonic",
+            description: "Validate a recovery phrase in the TinyWallet module.",
+            inputs: vec![required_string("phrase", "Recovery phrase to validate.")],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Whether the phrase is valid BIP-39 input.",
+                required: true,
+            }],
+        },
+        "derive_recovery_material" => ControllerSchema {
+            namespace: "wallet",
+            function: "derive_recovery_material",
+            description: "Derive the host storage-key seed and public wallet accounts through TinyWallet.",
+            inputs: vec![required_string("phrase", "Recovery phrase to derive wallet setup material from.")],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Seed bytes for the OpenHuman storage-key KDF and derived public chain accounts.",
+                required: true,
+            }],
+        },
         _ => ControllerSchema {
             namespace: "wallet",
             function: "unknown",
@@ -414,11 +471,8 @@ fn handle_encode_erc20_transfer(params: Map<String, Value>) -> ControllerFuture 
         if parsed.chain != WalletChain::Evm {
             return Err("encode_erc20_transfer only supports the evm chain".to_string());
         }
-        serde_json::to_value(encode_erc20_transfer(
-            &parsed.to_address,
-            &parsed.amount_raw,
-        )?)
-        .map_err(|e| format!("failed to encode ERC20 transfer output: {e}"))
+        serde_json::to_value(encode_erc20_transfer(&parsed.to_address, &parsed.amount_raw).await?)
+            .map_err(|e| format!("failed to encode ERC20 transfer output: {e}"))
     })
 }
 
@@ -480,6 +534,36 @@ fn handle_reveal_recovery_phrase(_params: Map<String, Value>) -> ControllerFutur
     })
 }
 
+fn handle_generate_mnemonic(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let parsed: GenerateMnemonicParams = serde_json::from_value(Value::Object(params))
+            .map_err(|e| format!("invalid params: {e}"))?;
+        crate::web3::wallet::generate_recovery_phrase(parsed.word_count)
+            .await?
+            .into_cli_compatible_json()
+    })
+}
+
+fn handle_validate_mnemonic(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let parsed: RecoveryPhraseParams = serde_json::from_value(Value::Object(params))
+            .map_err(|e| format!("invalid params: {e}"))?;
+        crate::web3::wallet::validate_recovery_phrase(parsed.phrase)
+            .await?
+            .into_cli_compatible_json()
+    })
+}
+
+fn handle_derive_recovery_material(params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        let parsed: RecoveryPhraseParams = serde_json::from_value(Value::Object(params))
+            .map_err(|e| format!("invalid params: {e}"))?;
+        crate::web3::wallet::derive_recovery_material(parsed.phrase)
+            .await?
+            .into_cli_compatible_json()
+    })
+}
+
 /// Shared input schema for the tx_status / tx_receipt / lookup_tx readers.
 fn tx_query_inputs() -> Vec<FieldSchema> {
     vec![
@@ -499,6 +583,15 @@ fn required_json(name: &'static str, comment: &'static str) -> FieldSchema {
     FieldSchema {
         name,
         ty: TypeSchema::Json,
+        comment,
+        required: true,
+    }
+}
+
+fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {
+    FieldSchema {
+        name,
+        ty: TypeSchema::String,
         comment,
         required: true,
     }

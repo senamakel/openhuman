@@ -30,6 +30,9 @@ async fn the_module_bus_is_a_singleton_and_serves_proxies() {
 #[cfg(feature = "web3")]
 #[tokio::test]
 async fn wallet_host_callback_is_served_before_the_module_is_loaded() {
+    let workspace = tempfile::tempdir().expect("isolated wallet workspace");
+    let _workspace_env =
+        crate::web3::wallet::test_support::set_workspace_env_for_test(&workspace).await;
     let runtime = runtime().await.expect("runtime should start");
     let proxy = runtime
         .proxy(

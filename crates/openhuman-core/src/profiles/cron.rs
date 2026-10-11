@@ -98,6 +98,9 @@ pub async fn sweep(host: &ProfileHost, now: DateTime<Utc>) -> SweepReport {
             report.skipped += due.len();
             continue;
         }
+        // The profile's turn gate, taken before the occurrences are claimed so
+        // a wait behind a live chat turn does not eat into the claim lease.
+        let turn = super::turn_gate::acquire_profile(id.as_str()).await;
         let mut claimed = Vec::new();
         for job in due {
             match claims::claim_occurrence(docs.as_ref(), &job, host.node(), now).await {
@@ -138,6 +141,7 @@ pub async fn sweep(host: &ProfileHost, now: DateTime<Utc>) -> SweepReport {
             }
         })
         .await;
+        drop(turn);
         if outcome {
             report.ran += count;
         } else {

@@ -18,7 +18,7 @@ copying its implementation into a host, or accepting weaker isolation.
 | tinymcp | tinymcp | tinymcp-bus | core MCP registry, supervisor, CLI stdio/HTTP server | Supervisor notifications, server protocol operations and callbacks for approved host tools/resources/prompts |
 | tinychannels | tinychannels, tinychannels-runtime (remaining runtime callers) | tinychannels-bus | core channels, TinyHumans host, CLI REPL | Contract is pure; v0.1.18 supplies complete Discord response vocabulary provider connection preparation and health observations. Discord discovery/permission checks, credential tests and connection validation/defaults and `doctor channels` health checks use confidential module calls. Remaining runtime callers need bus cutover with inbound/status callbacks and shutdown draining |
 | tinyhosts | none | tinyhosts-bus | core hosting tools | Released Execute/Providers contract consumed through the module; workspace authorization, credentials and approval policy remain in OpenHuman |
-| tinywallet | tinywallet-crypto, tinywallet-web3, tinywallet-x402 through remaining host imports | tinywallet-bus | core wallet/web3/x402 | Contract is pure at v0.13.0; native transfer preparation/execution use confidential module calls with host custody, exact approval binding and explicit close. Initialization, remaining validation, Web3 quotes/swaps, x402 payments, budgets and ledger still need host cutover |
+| tinywallet | none in normal/build host dependencies | tinywallet-bus | core wallet/web3/x402 | Complete: v0.19.0 contract 1.13 owns mnemonic validation/derivation, native transactions, Web3 quotes/execution, ERC-20 encoding, and x402 payment parsing/budgets/ledger. OpenHuman retains encrypted-key custody, authenticated transport, explicit approval, and lifecycle orchestration |
 | tinybox | tinybox-core, tinybox-jail, tinybox-docker | tinybox-bus | core sandbox and security, desktop gateways | Pre-core gateways use the released v0.1.18 bus client. Core sandbox execution and shell analysis still require cutover |
 | tinycomputer | none | tinycomputer-bus | core voice, paste/focus and permission checks | Permission, focus, paste and Globe listener operations use the module; native thread and target rules remain covered |
 | tinyvoice | None | tinyvoice-bus | core voice capture/hotkeys | Module-owned devices, recording and continuous capture, bounded audio reads/batches, explicit lease cleanup; computer module permission decisions |
@@ -332,3 +332,23 @@ This cut removes the `tinyvoice` and `cpal` host exceptions, leaving nine
 implementation exceptions for Channels, MCP, Box and Wallet. The resolved
 voice-only normal/build graph falls from 323 packages to 318; this is a
 dependency count, with no inferred binary size or build-time reduction.
+
+
+## TinyWallet wallet, Web3, and x402 host cutover
+
+TinyWallet v0.19.0 (contract 1.13) is pinned at released source
+`722e7cc9e00a45997765e47c41f3bf451f7911d7`. Wallet setup, mnemonic validation
+and derivation, transaction construction and signing, Web3 quote execution,
+ERC-20 calldata encoding, and x402 payment parsing, budgets and ledger now run
+through the compiled module. OpenHuman keeps encrypted-key custody, authenticated
+HTTP/RPC transport, explicit quote/payment approval and user-scoped lifecycle
+management. The host has no normal/build dependency on
+`tinywallet-crypto`, `tinywallet-web3` or `tinywallet-x402`; the wallet module
+implementation remains only a test fixture dependency.
+
+The v0.19.0 release provides 17 platform archives. Independent local verification
+matched every downloaded archive against its GitHub digest and the embedded
+`modules.toml` hash; the released Ubuntu artifact also passed the TinyBus
+operation and signing E2E. The module-boundary audit reports zero violations
+and no remaining Wallet implementation exceptions. TinyRuntime remains excluded
+from this migration.

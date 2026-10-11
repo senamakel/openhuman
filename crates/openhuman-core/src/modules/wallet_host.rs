@@ -10,12 +10,12 @@ use std::future::Future;
 use std::sync::{Mutex, OnceLock};
 
 use tinybus::ObjectPath;
+use tinywallet_bus::wire::HostEndpointReference;
 use tinywallet_bus::wire::{
     AuthorizationResult, AuthorizeNativeWalletExecutionRequest, AuthorizeWeb3ExecutionRequest,
     AuthorizeX402PaymentRequest, ChainTransportRequest, ChainTransportResult, HostResponse,
     WalletAccountInfo, WalletAccountsResponse, WalletBackendRequest, WalletBackendResponse,
 };
-use tinywallet_crypto::rpc::{NetworkId, Transport, TransportError};
 
 const HOST_ERROR_NAME: &str = "ai.tinyhumans.tinywallet.Host.Error.CallbackFailed";
 
@@ -35,9 +35,17 @@ static APPROVALS: OnceLock<Mutex<HashSet<ApprovalKey>>> = OnceLock::new();
 static NATIVE_APPROVAL_QUOTES: OnceLock<
     Mutex<HashMap<String, tinywallet_bus::wire::PreparedTransaction>>,
 > = OnceLock::new();
-static ENDPOINT_REFERENCES: OnceLock<
-    Mutex<HashMap<String, (tinywallet_bus::wire::RpcEndpointKey, String)>>,
+static WEB3_APPROVAL_QUOTES: OnceLock<
+    Mutex<HashMap<String, tinywallet_bus::wire::Web3QuoteResponse>>,
 > = OnceLock::new();
+static ENDPOINT_REFERENCES: OnceLock<Mutex<HashMap<String, EndpointReference>>> = OnceLock::new();
+
+#[derive(Debug, Clone)]
+struct EndpointReference {
+    service: String,
+    key: tinywallet_bus::wire::RpcEndpointKey,
+    url: String,
+}
 
 fn approvals() -> &'static Mutex<HashSet<ApprovalKey>> {
     APPROVALS.get_or_init(|| Mutex::new(HashSet::new()))
@@ -48,51 +56,70 @@ fn native_approval_quotes(
     NATIVE_APPROVAL_QUOTES.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn endpoint_references(
-) -> &'static Mutex<HashMap<String, (tinywallet_bus::wire::RpcEndpointKey, String)>> {
+fn web3_approval_quotes() -> &'static Mutex<HashMap<String, tinywallet_bus::wire::Web3QuoteResponse>>
+{
+    WEB3_APPROVAL_QUOTES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn endpoint_references() -> &'static Mutex<HashMap<String, EndpointReference>> {
     ENDPOINT_REFERENCES.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn x402_request_owner_matches(
+    request: &AuthorizeX402PaymentRequest,
+    context: &crate::security::approval::ApprovalChatContext,
+) -> bool {
+    request.owner.as_ref().is_some_and(|owner| {
+        owner.thread_id == context.thread_id && owner.client_id == context.client_id
+    })
+}
+
+fn x402_approval_facts(request: &AuthorizeX402PaymentRequest) -> serde_json::Value {
+    serde_json::json!({
+        "url": request.url,
+        "network": request.network,
+        "asset": request.asset,
+        "recipient": request.recipient,
+        "amount_atomic": request.amount_atomic,
+    })
 }
 
 /// Bind module-issued opaque endpoint aliases to the current host configuration.
 /// Actual URLs remain in this process and are never serialized onto TinyBus.
 pub(crate) fn bind_endpoint_references(
-    configured: &tinywallet_bus::wire::NativeWalletConfigResponse,
+    service: &str,
+    references: &[HostEndpointReference],
 ) -> Result<(), String> {
-    use tinywallet_bus::wire::RpcEndpointKey;
-
     let mut resolved = HashMap::new();
-    for endpoint in &configured.endpoint_references {
-        let url = match endpoint.key {
-            RpcEndpointKey::Evm { network } => {
-                crate::web3::wallet::endpoints::rpc_url_for_evm_network(network)
-            }
-            RpcEndpointKey::Btc => crate::web3::wallet::endpoints::rpc_url_for_chain(
-                tinywallet_web3::crypto::wallet::WalletChain::Btc,
-            ),
-            RpcEndpointKey::Solana => crate::web3::wallet::endpoints::rpc_url_for_chain(
-                tinywallet_web3::crypto::wallet::WalletChain::Solana,
-            ),
-            RpcEndpointKey::Tron => crate::web3::wallet::endpoints::rpc_url_for_chain(
-                tinywallet_web3::crypto::wallet::WalletChain::Tron,
-            ),
-        };
+    for endpoint in references {
+        let url = crate::web3::wallet::endpoints::override_for_endpoint(endpoint.key).ok_or_else(
+            || "wallet module referenced an endpoint without a host override".to_string(),
+        )?;
         if endpoint.reference.trim().is_empty()
             || resolved
-                .insert(endpoint.reference.clone(), (endpoint.key, url))
+                .insert(
+                    endpoint.reference.clone(),
+                    EndpointReference {
+                        service: service.to_owned(),
+                        key: endpoint.key,
+                        url,
+                    },
+                )
                 .is_some()
         {
             return Err("wallet module returned an invalid endpoint reference".into());
         }
     }
-    *endpoint_references()
+    endpoint_references()
         .lock()
-        .map_err(|_| "wallet endpoint reference store is unavailable".to_string())? = resolved;
+        .map_err(|_| "wallet endpoint reference store is unavailable".to_string())?
+        .extend(resolved);
     Ok(())
 }
 
-pub(crate) fn clear_endpoint_references() {
+pub(crate) fn clear_endpoint_references(service: &str) {
     if let Ok(mut references) = endpoint_references().lock() {
-        references.clear();
+        references.retain(|_, endpoint| endpoint.service != service);
     }
 }
 
@@ -133,6 +160,7 @@ impl ApprovalPermit {
         kind: ApprovalKind,
         quote_id: &str,
         expected_native_quote: Option<tinywallet_bus::wire::PreparedTransaction>,
+        expected_web3_quote: Option<tinywallet_bus::wire::Web3QuoteResponse>,
     ) -> Self {
         let key = ApprovalKey {
             kind,
@@ -148,6 +176,13 @@ impl ApprovalPermit {
                 active.insert(quote_id.to_owned(), quote);
             }
         }
+        if kind == ApprovalKind::Web3 {
+            if let (Some(quote), Ok(mut active)) =
+                (expected_web3_quote, web3_approval_quotes().lock())
+            {
+                active.insert(quote_id.to_owned(), quote);
+            }
+        }
         Self(key)
     }
 }
@@ -159,6 +194,11 @@ impl Drop for ApprovalPermit {
         }
         if self.0.kind == ApprovalKind::Native {
             if let Ok(mut active) = native_approval_quotes().lock() {
+                active.remove(&self.0.quote_id);
+            }
+        }
+        if self.0.kind == ApprovalKind::Web3 {
+            if let Ok(mut active) = web3_approval_quotes().lock() {
                 active.remove(&self.0.quote_id);
             }
         }
@@ -184,6 +224,103 @@ pub(super) fn native_approval_matches_request(
         && expected_quote == &request.quote
         && request.operation == "transfer"
         && native_intent_matches_quote(expected_quote, &request.intent)
+}
+
+fn web3_approval_matches_request(
+    quote: &tinywallet_bus::wire::Web3QuoteResponse,
+    request: &AuthorizeWeb3ExecutionRequest,
+) -> bool {
+    use tinywallet_bus::wire::{WalletChain, Web3ExecutionIntent, Web3QuoteKind};
+
+    let operation_matches = matches!(
+        (quote.kind, request.operation.as_str()),
+        (Web3QuoteKind::Swap, "swap")
+            | (Web3QuoteKind::Bridge, "bridge")
+            | (Web3QuoteKind::DappCall, "dapp_call")
+    );
+    if quote.quote_id != request.quote_id || !operation_matches {
+        return false;
+    }
+
+    match (&request.transaction, quote.signing_chain) {
+        (
+            Web3ExecutionIntent::Evm {
+                network,
+                to,
+                data,
+                value,
+                chain_id,
+                ..
+            },
+            WalletChain::Evm,
+        ) => {
+            let expected_network = quote
+                .quote
+                .get("network")
+                .and_then(serde_json::Value::as_str);
+            if expected_network.is_some_and(|expected| expected != network)
+                || !known_evm_chain(network, *chain_id)
+            {
+                return false;
+            }
+            let transaction = quote.quote.get("tx");
+            match quote.kind {
+                Web3QuoteKind::DappCall => {
+                    let expected_to = quote
+                        .quote
+                        .get("contractAddress")
+                        .and_then(serde_json::Value::as_str);
+                    let expected_data = quote
+                        .quote
+                        .get("calldata")
+                        .and_then(serde_json::Value::as_str);
+                    let expected_value = quote
+                        .quote
+                        .get("valueRaw")
+                        .and_then(serde_json::Value::as_str);
+                    expected_to.is_some_and(|expected| expected.eq_ignore_ascii_case(to))
+                        && expected_data.is_some_and(|expected| data.as_deref() == Some(expected))
+                        && expected_value.is_some_and(|expected| expected == value)
+                }
+                Web3QuoteKind::Swap | Web3QuoteKind::Bridge => {
+                    transaction.is_some_and(|transaction| {
+                        transaction
+                            .get("to")
+                            .and_then(serde_json::Value::as_str)
+                            .is_some_and(|expected| expected.eq_ignore_ascii_case(to))
+                            && transaction.get("data").and_then(serde_json::Value::as_str)
+                                == data.as_deref()
+                            && decimal_json(transaction.get("value")).as_deref()
+                                == Some(value.as_str())
+                    })
+                }
+            }
+        }
+        (Web3ExecutionIntent::Solana { tx_blob_hex }, WalletChain::Solana) => {
+            let expected = quote
+                .quote
+                .get("tx")
+                .and_then(|transaction| transaction.get("data"))
+                .and_then(serde_json::Value::as_str);
+            matches!(quote.kind, Web3QuoteKind::Swap | Web3QuoteKind::Bridge)
+                && expected == Some(tx_blob_hex.as_str())
+        }
+        _ => false,
+    }
+}
+
+fn known_evm_chain(network: &str, chain_id: u64) -> bool {
+    tinywallet_bus::wire::EvmNetwork::ALL
+        .into_iter()
+        .any(|known| known.as_str() == network && known.chain_id() == chain_id)
+}
+
+fn decimal_json(value: Option<&serde_json::Value>) -> Option<String> {
+    match value? {
+        serde_json::Value::String(value) => Some(value.clone()),
+        serde_json::Value::Number(value) => Some(value.to_string()),
+        _ => None,
+    }
 }
 
 fn native_intent_matches_quote(
@@ -332,9 +469,10 @@ pub(crate) async fn with_confirmed_execution<F: Future>(
     kind: ApprovalKind,
     quote_id: &str,
     expected_native_quote: Option<tinywallet_bus::wire::PreparedTransaction>,
+    expected_web3_quote: Option<tinywallet_bus::wire::Web3QuoteResponse>,
     future: F,
 ) -> F::Output {
-    let _permit = ApprovalPermit::new(kind, quote_id, expected_native_quote);
+    let _permit = ApprovalPermit::new(kind, quote_id, expected_native_quote, expected_web3_quote);
     future.await
 }
 
@@ -356,19 +494,27 @@ impl WalletHost {
         &self,
         request: ChainTransportRequest,
     ) -> tinybus::Result<HostResponse> {
-        let (network, endpoint_ref, chain, evm_chain_id) = match &request {
+        let (endpoint_ref, module_endpoint_url, chain, evm_chain_id) = match &request {
             ChainTransportRequest::JsonRpc { network, .. }
             | ChainTransportRequest::RestGet { network, .. }
             | ChainTransportRequest::RestPost { network, .. } => (
-                network_id(network.chain, network.evm_chain_id),
                 network.endpoint_ref.as_deref(),
+                network.endpoint_url.as_deref(),
                 network.chain,
                 network.evm_chain_id,
             ),
         };
-        let endpoint_url = match endpoint_ref {
-            Some(reference) => {
-                let Some((key, url)) = endpoint_references()
+        let endpoint_url = match (endpoint_ref, module_endpoint_url) {
+            (Some(_), Some(_)) => {
+                return Ok(HostResponse::ChainTransport(
+                    ChainTransportResult::RpcError {
+                        message: "wallet request cannot combine an endpoint reference and URL"
+                            .into(),
+                    },
+                ));
+            }
+            (Some(reference), None) => {
+                let Some(endpoint) = endpoint_references()
                     .lock()
                     .ok()
                     .and_then(|references| references.get(reference).cloned())
@@ -381,7 +527,7 @@ impl WalletHost {
                         },
                     ));
                 };
-                if Some(key) != endpoint_key(chain, evm_chain_id) {
+                if Some(endpoint.key) != endpoint_key(chain, evm_chain_id) {
                     return Ok(HostResponse::ChainTransport(
                         ChainTransportResult::RpcError {
                             message:
@@ -390,59 +536,60 @@ impl WalletHost {
                         },
                     ));
                 }
-                Some(url)
+                endpoint.url
             }
-            None => None,
+            (None, Some(url)) => match validate_module_endpoint_url(url) {
+                Ok(url) => url,
+                Err(message) => {
+                    return Ok(HostResponse::ChainTransport(
+                        ChainTransportResult::RpcError { message },
+                    ));
+                }
+            },
+            (None, None) => {
+                return Ok(HostResponse::ChainTransport(
+                    ChainTransportResult::RpcError {
+                        message: "wallet module did not select an RPC endpoint".into(),
+                    },
+                ));
+            }
         };
-        let transport = crate::web3::wallet::transport::OpenHumanTransport::new();
         let result = match request {
-            ChainTransportRequest::JsonRpc { method, params, .. } => match endpoint_url {
-                Some(url) => crate::web3::wallet::rpc::rpc_call_to::<serde_json::Value>(
-                    &url, &method, params,
+            ChainTransportRequest::JsonRpc { method, params, .. } => {
+                crate::web3::wallet::rpc::rpc_call_to::<serde_json::Value>(
+                    &endpoint_url,
+                    &method,
+                    params,
                 )
                 .await
-                .map_err(|message| crate::web3::wallet::transport::classify(network, message)),
-                None => transport.json_rpc(network, &method, params).await,
-            },
-            ChainTransportRequest::RestGet { path, .. } => match endpoint_url {
-                Some(url) => crate::web3::wallet::rpc::rest_get_text(&join_endpoint(&url, &path))
+                .map_err(classify_transport_error)
+            }
+            ChainTransportRequest::RestGet { path, .. } => {
+                crate::web3::wallet::rpc::rest_get_text(&join_endpoint(&endpoint_url, &path))
                     .await
                     .map(serde_json::Value::String)
-                    .map_err(|message| crate::web3::wallet::transport::classify(network, message)),
-                None => transport
-                    .rest_get(network, &path)
-                    .await
-                    .map(serde_json::Value::String),
-            },
+                    .map_err(classify_transport_error)
+            }
             ChainTransportRequest::RestPost {
                 path,
                 body,
                 content_type,
                 ..
-            } => match endpoint_url {
-                Some(url) => crate::web3::wallet::rpc::rest_post_text(
-                    &join_endpoint(&url, &path),
-                    &body,
-                    &content_type,
-                )
-                .await
-                .map(serde_json::Value::String)
-                .map_err(|message| crate::web3::wallet::transport::classify(network, message)),
-                None => transport
-                    .rest_post(network, &path, body, &content_type)
-                    .await
-                    .map(serde_json::Value::String),
-            },
+            } => crate::web3::wallet::rpc::rest_post_text(
+                &join_endpoint(&endpoint_url, &path),
+                &body,
+                &content_type,
+            )
+            .await
+            .map(serde_json::Value::String)
+            .map_err(classify_transport_error),
         };
         let response = match result {
             Ok(body) => ChainTransportResult::Ok { body },
-            Err(TransportError::Unreachable { message, .. }) => {
+            Err(TransportFailure::Unreachable(message)) => {
                 ChainTransportResult::Unreachable { message }
             }
-            Err(TransportError::Rpc { message, .. }) => ChainTransportResult::RpcError { message },
-            Err(error) => ChainTransportResult::RpcError {
-                message: error.to_string(),
-            },
+            Err(TransportFailure::Rpc(message)) => ChainTransportResult::RpcError { message },
         };
         Ok(HostResponse::ChainTransport(response))
     }
@@ -470,8 +617,15 @@ impl WalletHost {
         &self,
         request: AuthorizeWeb3ExecutionRequest,
     ) -> tinybus::Result<HostResponse> {
+        let quote = web3_approval_quotes()
+            .lock()
+            .ok()
+            .and_then(|mut quotes| quotes.remove(&request.quote_id));
         Ok(HostResponse::Authorization(AuthorizationResult {
-            approved: consume_approval(ApprovalKind::Web3, &request.quote_id),
+            approved: quote
+                .as_ref()
+                .is_some_and(|quote| web3_approval_matches_request(quote, &request))
+                && consume_approval(ApprovalKind::Web3, &request.quote_id),
             reason: None,
         }))
     }
@@ -499,24 +653,63 @@ impl WalletHost {
     /// absent an active guard scope, payment signing fails closed.
     async fn authorize_x402_payment(
         &self,
-        _request: AuthorizeX402PaymentRequest,
+        request: AuthorizeX402PaymentRequest,
     ) -> tinybus::Result<HostResponse> {
+        let owner_matches = crate::security::approval::APPROVAL_CHAT_CONTEXT
+            .try_with(|context| x402_request_owner_matches(&request, context))
+            .unwrap_or(false);
+        let approved = if owner_matches {
+            if let Some(gate) = crate::security::approval::ApprovalGate::try_global() {
+                matches!(
+                    gate.intercept_forced(
+                        "x402_payment",
+                        "Approve this exact x402 payment",
+                        x402_approval_facts(&request),
+                    )
+                    .await,
+                    crate::security::approval::GateOutcome::Allow
+                )
+            } else {
+                false
+            }
+        } else {
+            false
+        };
         Ok(HostResponse::Authorization(AuthorizationResult {
-            approved: false,
-            reason: Some("x402 payment has no active host authorization".into()),
+            approved,
+            reason: (!approved)
+                .then(|| "x402 payment was not explicitly approved for this chat".into()),
         }))
     }
 }
 
-fn network_id(chain: tinywallet_bus::Chain, evm_chain_id: Option<u64>) -> NetworkId {
-    if chain == tinywallet_bus::Chain::Evm {
-        NetworkId {
-            chain,
-            evm_chain_id,
-        }
+enum TransportFailure {
+    Unreachable(String),
+    Rpc(String),
+}
+
+fn classify_transport_error(message: String) -> TransportFailure {
+    if ["transport failed", "read body failed"]
+        .iter()
+        .any(|marker| message.contains(marker))
+    {
+        TransportFailure::Unreachable(message)
     } else {
-        NetworkId::chain(chain)
+        TransportFailure::Rpc(message)
     }
+}
+
+fn validate_module_endpoint_url(raw: &str) -> Result<String, String> {
+    let url = reqwest::Url::parse(raw)
+        .map_err(|_| "wallet module selected an invalid RPC endpoint URL".to_string())?;
+    if !matches!(url.scheme(), "http" | "https")
+        || url.host_str().is_none()
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err("wallet module selected an unsafe RPC endpoint URL".into());
+    }
+    Ok(raw.to_owned())
 }
 
 fn endpoint_key(

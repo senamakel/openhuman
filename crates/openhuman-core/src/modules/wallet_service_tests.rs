@@ -44,6 +44,7 @@ fn shutdown_hook_guard_allows_registration_after_hooks_are_drained() {
 
 #[tokio::test]
 async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() {
+    let _rpc_env = crate::web3::wallet::test_support::UnreachableRpcGuard::set();
     let mut active = Some(service());
     active
         .as_mut()
@@ -74,15 +75,18 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
         );
     let configured = tinywallet_bus::wire::NativeWalletConfigResponse {
         service: NativeWalletServiceHandle {
-            handle: "old-user-service".into(),
+            handle: "opaque-service-handle".into(),
         },
         endpoint_references: vec![tinywallet_bus::wire::HostEndpointReference {
             key: tinywallet_bus::wire::RpcEndpointKey::Btc,
             reference: "old-user-endpoint".into(),
         }],
     };
-    super::super::wallet_host::bind_endpoint_references(&configured)
-        .expect("fixture endpoint alias should bind");
+    super::super::wallet_host::bind_endpoint_references(
+        &configured.service.handle,
+        &configured.endpoint_references,
+    )
+    .expect("fixture endpoint alias should bind");
     let close_calls = Arc::new(AtomicUsize::new(0));
     let observed_calls = close_calls.clone();
 

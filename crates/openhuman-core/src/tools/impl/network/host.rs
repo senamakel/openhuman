@@ -7,6 +7,8 @@
 
 use std::sync::Arc;
 
+#[cfg(feature = "web3")]
+use tinytools::{PermissionLevel, Tool, ToolResult};
 use tinytools_std::network::{
     AsyncHtmlExtractor, HttpLimits, HttpRequestTool, NetGate, WebFetchTool,
 };
@@ -66,6 +68,58 @@ pub fn http_request_tool(
     tool
 }
 
+/// Dedicated x402 agent entry point backed by the same host HTTP policy and
+/// the module payment hook used by `http_request`.
+#[cfg(feature = "web3")]
+pub fn x402_request_tool(
+    gate: Arc<dyn NetGate>,
+    allowed_domains: Vec<String>,
+    max_response_size: usize,
+    timeout_secs: u64,
+) -> impl Tool {
+    X402RequestTool {
+        gate: Arc::clone(&gate),
+        inner: http_request_tool(gate, allowed_domains, max_response_size, timeout_secs),
+    }
+}
+
+#[cfg(feature = "web3")]
+#[derive(Debug)]
+struct X402RequestTool {
+    gate: Arc<dyn NetGate>,
+    inner: HttpRequestTool,
+}
+
+#[cfg(feature = "web3")]
+#[async_trait::async_trait]
+impl Tool for X402RequestTool {
+    fn name(&self) -> &'static str {
+        tinywallet_bus::tools::x402_request_tool_declaration().name
+    }
+
+    fn description(&self) -> &'static str {
+        tinywallet_bus::tools::x402_request_tool_declaration().description
+    }
+
+    fn parameters_schema(&self) -> serde_json::Value {
+        tinywallet_bus::tools::x402_request_tool_declaration()
+            .parameters
+            .clone()
+    }
+
+    fn permission_level(&self) -> PermissionLevel {
+        PermissionLevel::Write
+    }
+
+    fn external_effect_with_args(&self, _args: &serde_json::Value) -> bool {
+        self.gate.network_needs_approval()
+    }
+
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        self.inner.execute(args).await
+    }
+}
+
 /// `web_fetch`, converting HTML through TinyJuice and opting into TinyJuice's
 /// optional `summary_focus` argument.
 pub fn web_fetch_tool(
@@ -91,10 +145,9 @@ mod x402 {
     //! x402 machine payment for `http_request`'s `402 Payment Required` retry.
 
     use async_trait::async_trait;
-    use base64::engine::Engine as _;
-    use tinytools_std::network::{PaymentAttempt, PaymentHook, PaymentOutcome};
+    use tinytools_std::network::{PaymentAttempt, PaymentHook};
 
-    use crate::web3::x402;
+    use crate::modules::x402_service;
 
     #[derive(Debug)]
     pub(super) struct X402PaymentHook;
@@ -106,73 +159,61 @@ mod x402 {
             url: &str,
             response_headers: &reqwest::header::HeaderMap,
         ) -> Result<PaymentAttempt, String> {
-            let payment_result = x402::handle_402_and_pay(response_headers, url)
+            let challenge = response_headers
+                .get("PAYMENT-REQUIRED")
+                .or_else(|| response_headers.get("X-PAYMENT-REQUIRED"))
+                .and_then(|value| value.to_str().ok())
+                .ok_or_else(|| {
+                    "402 response is missing a valid PAYMENT-REQUIRED header".to_string()
+                })?;
+            let config = crate::config::rpc::load_config_with_timeout()
                 .await
-                .map_err(|e| format!("x402 payment failed: {e}"))?;
-
-            // Stamped with the ledger's session and the active chat thread, exactly as
-            // the `x402_request` tool stamps its own.
-            let record = x402::pending_record(&payment_result);
-            let record_id = record.id.clone();
-            let _ = x402::store::with_ledger_mut(|l| l.record_payment(record));
+                .map_err(|error| format!("x402 payment failed: {error}"))?;
+            let owner = crate::security::approval::APPROVAL_CHAT_CONTEXT
+                .try_with(|context| tinywallet_bus::wire::QuoteOwner {
+                    thread_id: context.thread_id.clone(),
+                    client_id: context.client_id.clone(),
+                })
+                .ok();
+            let (service, payment) =
+                x402_service::prepare_payment(&config, url.to_owned(), challenge.to_owned(), owner)
+                    .await
+                    .map_err(|error| format!("x402 payment failed: {error}"))?;
 
             log::debug!(
                 "[tool.http_request] retrying with x402 payment header amount={} asset={}",
-                payment_result.amount_atomic,
-                payment_result.asset
+                payment.amount_atomic,
+                payment.asset
             );
 
-            let url = url.to_string();
+            let payment_id = payment.payment_id;
+            let config = config.clone();
             Ok(PaymentAttempt {
-                headers: vec![("PAYMENT-SIGNATURE".to_string(), payment_result.header_value)],
-                settle: Box::new(move |outcome| settle(&record_id, &url, &outcome)),
+                headers: vec![("PAYMENT-SIGNATURE".to_string(), payment.payment_header)],
+                settle: Box::new(move |outcome| {
+                    if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+                        runtime.spawn(async move {
+                            if let Err(error) = x402_service::record_payment(
+                                &config,
+                                service,
+                                payment_id,
+                                outcome.status,
+                                outcome.payment_response,
+                            )
+                            .await
+                            {
+                                log::warn!(
+                                    "[tool.http_request] x402 settlement recording failed: {error}"
+                                );
+                            }
+                        });
+                    } else {
+                        log::warn!(
+                            "[tool.http_request] x402 settlement not recorded: runtime unavailable"
+                        );
+                    }
+                }),
             })
-        }
-    }
-
-    /// Write the retry's result back onto the ledger entry the payment opened.
-    fn settle(record_id: &str, url: &str, outcome: &PaymentOutcome) {
-        let settled_status = if outcome.success {
-            x402::PaymentStatus::Settled
-        } else {
-            x402::PaymentStatus::Failed
-        };
-        let tx_sig = outcome
-            .payment_response
-            .as_deref()
-            .and_then(|b64| base64::engine::general_purpose::STANDARD.decode(b64).ok())
-            .and_then(|bytes| serde_json::from_slice::<x402::SettlementResponse>(&bytes).ok())
-            .and_then(|r| {
-                if r.success && !r.transaction.is_empty() {
-                    Some(r.transaction)
-                } else {
-                    None
-                }
-            });
-
-        let _ = x402::store::with_ledger_mut(|l| {
-            if let Some(rec) = l
-                .recent_payments(100)
-                .into_iter()
-                .find(|r| r.id == record_id)
-            {
-                let mut updated = rec;
-                updated.status = settled_status;
-                updated.tx_signature = tx_sig.clone();
-                l.record_payment(updated);
-            }
-        });
-
-        if settled_status == x402::PaymentStatus::Settled {
-            log::debug!(
-                "[tool.http_request] x402 payment settled for {url} tx={:?}",
-                tx_sig
-            );
-        } else {
-            log::warn!(
-                "[tool.http_request] x402 payment retry returned status {}",
-                outcome.status
-            );
         }
     }
 }

@@ -12,17 +12,8 @@
 //! (`cargo check --no-default-features`) is
 //! the only thing that catches drift.
 
-use std::path::Path;
-
 use crate::core::all::RegisteredController;
 use crate::core::ControllerSchema;
-
-/// No-op: there is no spending ledger to initialise when x402 is compiled out.
-/// Mirrors `store::init_global` (re-exported as `init_ledger`). The boot call
-/// site is additionally runtime-gated on `DomainGroup::Web3`.
-pub fn init_ledger(_workspace_dir: &Path, _session_id: &str) {
-    log::debug!("[x402-stub] init_ledger ignored (web3 disabled)");
-}
 
 /// No x402 controller schemas when the domain is compiled out.
 pub fn all_x402_controller_schemas() -> Vec<ControllerSchema> {

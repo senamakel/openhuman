@@ -43,6 +43,9 @@ pub(crate) async fn run_chat_task(
     // clobbered by — the primary turn's cached agent. See `QueueMode::Parallel`.
     fork: bool,
 ) -> Result<WebChatTaskResult, String> {
+    // One turn at a time per profile: wait behind its relay and cron turns.
+    let _turn = crate::profiles::turn_gate::acquire().await;
+
     #[cfg(any(test, debug_assertions))]
     {
         let mut slot = TEST_FORCED_RUN_CHAT_TASK_ERROR.lock().await;

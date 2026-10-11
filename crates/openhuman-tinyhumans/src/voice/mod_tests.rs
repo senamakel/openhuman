@@ -44,3 +44,16 @@ fn backend_failure_details_do_not_echo_the_active_credential() {
     assert_eq!(error.kind, ProviderErrorKind::Transport);
     assert_eq!(error.message, "proxy rejected [REDACTED]");
 }
+
+#[test]
+fn backend_failure_preserves_the_context_chain_without_echoing_credentials() {
+    let error = classify_backend_error(
+        anyhow::anyhow!("connection refused using current-secret").context("voice request failed"),
+        "current-secret",
+    );
+    assert_eq!(error.kind, ProviderErrorKind::Transport);
+    assert_eq!(
+        error.message,
+        "voice request failed: connection refused using [REDACTED]"
+    );
+}

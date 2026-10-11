@@ -8,7 +8,7 @@ use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::cron::{CronJob, SessionTarget};
+use {tinyflows_schedule::types::CronJob, tinyflows_schedule::types::SessionTarget};
 
 /// Recency window the morning briefing installs around its turn so Composio
 /// task-fetch tools only surface tasks created/changed in the last day. Read

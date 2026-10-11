@@ -33,7 +33,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use super::providers::ToolScope;
+use super::contract::ToolScope;
 use super::tools::resolve_action_scope;
 use crate::agent::harness::definition::SandboxMode;
 use crate::agent::tinyagents::host::run_context::sandbox_mode_for_tool;
@@ -393,7 +393,7 @@ impl ComposioActionTool {
         // baked into a client this tool captured at construction.
         let res = super::module_client::call::<_, super::types::ComposioExecuteResponse>(
             &live_config,
-            super::module_client::methods::EXECUTE,
+            tinyconnectors_bus::names::methods::EXECUTE,
             super::types::ComposioExecuteRequest {
                 tool: self.action_name.clone(),
                 arguments: args,

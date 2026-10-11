@@ -81,8 +81,15 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
             .filter(|outcome| !outcome.success)
             .map(|outcome| outcome.call_id.clone())
             .collect::<std::collections::HashSet<_>>();
-        for row in &mut rows {
-            if row.role == "tool" && row.id.as_ref().is_some_and(|id| failures.contains(id)) {
+        // Only this turn's rows: providers reuse call ids across turns
+        // (`call_0`, `call_1`, ...), and re-flagging a carried-over row would
+        // rewrite a persisted result, so the commit would stop extending the
+        // transcript and open a new generation.
+        for (row, is_fresh) in rows.iter_mut().zip(&fresh) {
+            if *is_fresh
+                && row.role == "tool"
+                && row.id.as_ref().is_some_and(|id| failures.contains(id))
+            {
                 row.tool_failure = Some(ToolFailure {
                     failed: true,
                     detail: None,

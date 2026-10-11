@@ -13,10 +13,13 @@
 
 use super::delivery::strip_openhuman_link_markup;
 use crate::config::Config;
-use crate::cron::{channel_bridge, CronJob, DeliveryStatus, JobOrigin};
 use crate::web_chat::{publish_web_channel_event, WebChannelEvent};
 use anyhow::{anyhow, Result};
 use std::path::Path;
+use {
+    crate::cron::channel_bridge, tinyflows_schedule::types::CronJob,
+    tinyflows_schedule::types::DeliveryStatus, tinyflows_schedule::types::JobOrigin,
+};
 
 /// What a scheduled run replies when it has nothing worth sending.
 pub(crate) const NO_REPLY: &str = "NO_REPLY";

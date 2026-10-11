@@ -68,8 +68,8 @@ use tinyinference_llm::usage::Usage;
 
 use crate::config::{Config, DEFAULT_MODEL};
 use crate::cron::scheduler_gate;
-use crate::inference::tokenjuice::AgentTokenjuiceCompression;
 use crate::platform::cost;
+use tinyjuice_bus::types::AgentTokenjuiceCompression;
 
 /// OpenHuman's [`BudgetGate`]: scheduler-gate back-pressure, cost-tracker
 /// budget enforcement, and TokenJuice-profile-aware compression advice.

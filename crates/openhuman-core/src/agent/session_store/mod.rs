@@ -17,13 +17,7 @@
 use std::sync::{Arc, LazyLock, PoisonError, RwLock};
 
 pub use agent_transcripts::{agent_transcript_root, AgentTranscriptFiles};
-// Keep host codecs identical to the records the harness and stores persist.
-pub use tinyagents_graph::todos::TodoList;
-pub use tinyagents_harness::events::{AgentEvent, HarnessRunStatus};
-pub use tinyagents_harness::ids::ExecutionStatus;
-pub use tinyagents_harness::observability::AgentObservation;
-pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};
-pub use tinyagents_session::transcript::import::types::{JournalMessage, SessionDescriptor};
+use tinyagents_session::port::{AgentStores, SessionStoreProvider};
 
 mod agent_transcripts;
 

@@ -245,7 +245,6 @@ per tick would multiply request count for text the client discards.
 | [`server.rs`](./server.rs), [`server/`](./server/) | The `VoiceServer` dictation runtime: hotkey loop, recording lifecycle, gates, delivery, global singleton. [README](server/README.md). |
 | [`always_on.rs`](./always_on.rs), [`always_on/`](./always_on/) | VAD-driven continuous listening, screen-lock pause, wake word and intent routing. [README](always_on/README.md). |
 | [`audio_capture.rs`](./audio_capture.rs) | Microphone recording to 16 kHz mono WAV (`start_recording`, `RecordingHandle`, `RecordingResult`, `list_input_devices`) with peak RMS and the host microphone-permission policy. The `cpal` stream is `tinyvoice::capture`. |
-| [`hotkey.rs`](./hotkey.rs) | Re-export of TinyVoice bus hotkey vocabulary. TinyVoice owns native listener parsing and lifecycle. |
 | [`dictation_listener.rs`](./dictation_listener.rs) | The two broadcast channels and host event-forwarding lifecycle over TinyVoice's native listener. |
 | [`bus.rs`](./bus.rs) | `publish_ptt_transcript_committed`. |
 | `live/` | Live voice agents: `providers.rs`, `session.rs`, `ws.rs` (`http-server` only), `persist.rs`, `ops.rs` / `schemas.rs` (`voice.live_*`), `types.rs`, `error.rs`, and `prompt.md` (voice guidance for the model). |

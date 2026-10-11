@@ -808,11 +808,9 @@ flows = ["modules", "dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-cop
 # always-on domains. This gate's value is tool-surface + prompt-bloat +
 # startup cost, NOT binary size.
 #
-# NOTE: `openhuman::skills::types` and `::ops_types` stay compiled even when
-# this feature is OFF — `tools::traits` re-exports `ToolResult`/`ToolContent`
-# out of `skills::types` and ~236 files consume them, so those inert serde
-# types are a type carve-out, not part of the gated behaviour. See
-# `crates/openhuman-core/src/skills/stub.rs`.
+# Workflow metadata in `openhuman::skills::ops_types` remains compiled with
+# this feature OFF; generic tool-result types come directly from tinytools.
+# Neither is part of the gated behavior. See src/skills/stub.rs.
 skills = ["tinyskills/registry"]
 # MCP domains, all under the `mcp/` family: `mcp::server` (the `openhuman mcp`
 # stdio/HTTP server exposing our tool surface), `mcp::registry` (dynamic

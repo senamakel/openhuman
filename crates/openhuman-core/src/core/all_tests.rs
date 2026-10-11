@@ -263,10 +263,9 @@ fn skill_controllers_registered_when_feature_on() {
 /// unknown-method and absent from `/schema`. This is the compile-time
 /// stub-facade correctness gate (see `crate::skills::stub`).
 ///
-/// Note this does NOT cover `skills::types` / `skills::ops_types`: those stay
-/// compiled in both directions (the type carve-out — `tools::traits` re-exports
-/// `ToolResult`/`ToolContent` out of them), but they expose no controllers, so
-/// the namespaces are absent either way.
+/// Workflow metadata in `skills::ops_types` stays compiled in both directions.
+/// Generic tool-result types come from `tinytools`. Neither exposes controllers,
+/// so these namespaces are absent either way.
 #[test]
 #[cfg(not(feature = "skills"))]
 fn skill_controllers_absent_when_feature_off() {

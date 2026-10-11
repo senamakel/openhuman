@@ -13,7 +13,7 @@ use uuid::Uuid;
 
 use crate::config::Config;
 use crate::voice::audio_capture::{self, RecordingHandle};
-use crate::voice::hotkey::{ActivationMode, HotkeyEvent};
+use tinyvoice_bus::hotkey::{ActivationMode, HotkeyEvent};
 
 use super::hotkey_listener::start_hotkey_listener;
 use super::pipeline::{capture_expected_app_name, process_recording_bg};

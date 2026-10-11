@@ -41,12 +41,12 @@ pub(crate) use slot::SchedulerSlot;
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
-use crate::cron::{due_jobs, CronJob};
 use crate::security::SecurityPolicy;
 use anyhow::Result;
 use chrono::Utc;
 use std::sync::Arc;
 use tokio::time::{self, Duration};
+use {crate::cron::due_jobs, tinyflows_schedule::types::CronJob};
 
 const MIN_POLL_SECONDS: u64 = 5;
 

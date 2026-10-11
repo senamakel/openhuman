@@ -23,8 +23,12 @@ const noBaseline = process.argv.includes("--no-baseline");
 const embedContractExports = new Map(
   [
     [
-      "crates/openhuman-core/src/agent/host_overrides.rs",
+      "crates/openhuman-embed/src/stream.rs",
       ["pub use tinyagents_harness::cancel::CancellationToken;"],
+    ],
+    [
+      "crates/openhuman-embed/src/budget.rs",
+      ["pub use tinyinference_llm::model::budget::{Budget, BudgetExceeded, BudgetSnapshot, CallBudget, Spend, SpendLimits};"],
     ],
     [
       "crates/openhuman-embed/src/config.rs",
@@ -36,6 +40,15 @@ const embedContractExports = new Map(
       "crates/openhuman-embed/src/lib.rs",
       [
         "pub use tinytools::ToolPolicy;",
+        "pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};",
+        // Persisted codecs added to the public session-store API in #7462.
+        "pub use tinyagents_graph::todos::TodoList;",
+        "pub use tinyagents_harness::events::{AgentEvent, HarnessRunStatus};",
+        "pub use tinyagents_harness::ids::ExecutionStatus;",
+        "pub use tinyagents_harness::observability::AgentObservation;",
+        "pub use tinyagents_session::transcript::import::types::{JournalMessage, SessionDescriptor};",
+        // Existing embed tool injection API now names its contract directly.
+        "pub use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};",
         "pub use tinyagents_harness::middleware::{StopDecision, StopHook};",
         "pub use tinyagents_session::port::{AppendStore, InMemorySessionStores, InMemoryTranscriptLocator, InMemoryTurnStates, Store, TurnStates};",
         "pub use tinyagents_session::testkit::conformance::{session_store_conformance, session_store_isolation_conformance};",
@@ -427,6 +440,24 @@ function assertSelfTests() {
   )
     throw new Error(
       "agent-runtime boundary self-test: host tool policy export must stay exact",
+    );
+  const toolExport =
+    "pub use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};";
+  if (
+    !isEmbedContractExport(embedPath, [{ text: toolExport }], 0) ||
+    isEmbedContractExport(
+      "crates/openhuman-core/src/tools/mod.rs",
+      [{ text: toolExport }],
+      0,
+    ) ||
+    isEmbedContractExport(
+      embedPath,
+      [{ text: toolExport.replace("ToolResult", "ToolResult, ToolRegistry") }],
+      0,
+    )
+  )
+    throw new Error(
+      "agent-runtime boundary self-test: embed tool injection contract must stay exact",
     );
   const stopExport = [
     { text: "pub use tinyagents_harness::middleware::{StopDecision, StopHook};" },

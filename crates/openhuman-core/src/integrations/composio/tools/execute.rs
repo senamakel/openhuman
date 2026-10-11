@@ -15,8 +15,8 @@ use crate::config::Config;
 use crate::integrations::composio::task_recency_context::current_task_recency_window;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolRunContext};
 
+use super::super::contract::{toolkit_from_slug, ToolScope};
 use super::super::ops::load_user_scope_pref;
-use super::super::providers::{toolkit_from_slug, ToolScope};
 use super::visibility::{
     action_mutates_external_state, evaluate_tool_visibility, resolve_action_scope,
     scope_error_message, ToolDecision,

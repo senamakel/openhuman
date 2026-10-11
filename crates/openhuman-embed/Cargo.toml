@@ -73,6 +73,10 @@ tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus" }
 # the core's so one copy resolves.
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", default-features = false }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+# Native persisted todo codec exposed by the existing session-store contract.
+tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", default-features = false }
+# Native cancellation contract, exposed unchanged by the existing stream API.
+tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false }
 # The wire request/response types `complete` converts to; same path as the
 # core's so one copy resolves.
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
@@ -152,6 +156,11 @@ required-features = ["profiles"]
 # Operator-admitted cron and time tools, the iteration cap, no backend credential.
 [[test]]
 name = "profile_operator_tools"
+required-features = ["channels"]
+
+# A refused tool call must not fail a turn in a thread that already ran `cron`.
+[[test]]
+name = "profile_refused_tool_generation"
 required-features = ["channels"]
 
 [[example]]

@@ -55,7 +55,7 @@ fn minimal_input_json() -> serde_json::Value {
 /// Pull the JSON payload out of a tool result.
 fn payload_of(result: &ToolResult) -> serde_json::Value {
     match result.content.first().expect("a content block") {
-        crate::skills::types::ToolContent::Json { data } => data.clone(),
+        tinytools::ToolContent::Json { data } => data.clone(),
         other => panic!("expected Json content block, got {other:?}"),
     }
 }

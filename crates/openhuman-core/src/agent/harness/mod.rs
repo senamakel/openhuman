@@ -30,7 +30,7 @@ pub(crate) mod tool_result_artifacts;
 
 // NOTE: deliberately no flat re-export here. `artifact_offload::ArtifactKind`
 // would shadow the unrelated `openhuman::agent::artifacts::ArtifactKind` for anyone
-// glob-importing this module; callers use the `artifact_offload::` path.
+// glob-importing this module; callers import the owning library directly.
 pub use definition::{
     AgentDefinition, AgentDefinitionRegistry, DefinitionSource, ModelSpec, PromptSource,
     SandboxMode, ToolScope,

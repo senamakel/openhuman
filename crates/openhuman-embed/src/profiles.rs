@@ -53,10 +53,10 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use openhuman_core::agent::session_store::SessionStoreProvider;
 use openhuman_core::core::runtime::CoreRuntime;
 use openhuman_core::profiles::credentials::UserCredentialKind;
 use openhuman_core::profiles::ProfileHost;
+use tinyagents_session::port::SessionStoreProvider;
 
 use crate::error::CoreError;
 

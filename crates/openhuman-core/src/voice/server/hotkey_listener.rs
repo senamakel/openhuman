@@ -8,7 +8,7 @@ use std::time::Duration;
 use log::warn;
 use tokio_util::sync::CancellationToken;
 
-use crate::voice::hotkey;
+use tinyvoice_bus::hotkey;
 
 use super::LOG_PREFIX;
 

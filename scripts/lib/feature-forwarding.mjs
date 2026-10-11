@@ -61,11 +61,11 @@ export const INTENTIONALLY_NOT_FORWARDED = {
  * product assertion must not read them as "unexpected".
  */
 export const SHELL_RPC_LOCAL_GATES = {
-  'http-client':
+  "http-client":
     "openhuman-rpc's authenticated JSON-RPC client; the shell relays non-loopback runtimes through it.",
   server:
     "openhuman-rpc's JSON-RPC server and `host::desktop`, which the shell boots its embedded core with.",
-  jev: 'The Jev-backed `tool_search` ranker (openhuman-tinyhumans), shipped by the product.',
+  jev: "The Jev-backed `tool_search` ranker (openhuman-tinyhumans), shipped by the product.",
 };
 
 /**
@@ -80,17 +80,17 @@ export function stripComments(text) {
     for (let i = 0; i < line.length; i++) {
       const ch = line[i];
       if (quote) {
-        if (ch === quote && line[i - 1] !== '\\') quote = null;
+        if (ch === quote && line[i - 1] !== "\\") quote = null;
       } else if (ch === '"' || ch === "'") {
         quote = ch;
-      } else if (ch === '#') {
+      } else if (ch === "#") {
         cut = i;
         break;
       }
     }
     out.push(cut === -1 ? line : line.slice(0, cut));
   }
-  return out.join('\n');
+  return out.join("\n");
 }
 
 /**
@@ -100,8 +100,8 @@ export function stripComments(text) {
 function readArray(text, open) {
   let depth = 0;
   for (let i = open; i < text.length; i++) {
-    if (text[i] === '[') depth++;
-    else if (text[i] === ']') {
+    if (text[i] === "[") depth++;
+    else if (text[i] === "]") {
       depth--;
       if (depth === 0) return text.slice(open + 1, i);
     }
@@ -123,7 +123,7 @@ function readArray(text, open) {
  */
 function arrayItems(raw) {
   if (raw === null) return [];
-  return [...raw.matchAll(/"([^"]+)"|'([^']+)'/g)].map(m => m[1] ?? m[2]);
+  return [...raw.matchAll(/"([^"]+)"|'([^']+)'/g)].map((m) => m[1] ?? m[2]);
 }
 
 /**
@@ -144,7 +144,7 @@ export function parseCoreDefaultFeatures(coreToml) {
   const section = nextTable === -1 ? rest : rest.slice(0, nextTable);
   const defaultAt = section.search(/^[ \t]*default[ \t]*=[ \t]*\[/m);
   if (defaultAt === -1) return [];
-  return arrayItems(readArray(section, section.indexOf('[', defaultAt)));
+  return arrayItems(readArray(section, section.indexOf("[", defaultAt)));
 }
 
 /**
@@ -155,18 +155,23 @@ export function parseCoreDefaultFeatures(coreToml) {
  * shell inherits the core's defaults and forwarding is moot — there is nothing
  * to drift.
  */
-export function parseShellForwardedFeatures(shellToml, depName = 'openhuman-rpc') {
+export function parseShellForwardedFeatures(
+  shellToml,
+  depName = "openhuman-rpc",
+) {
   const text = stripComments(shellToml);
   // `[ \t]` not `\s`, for the same newline-matching reason as above.
-  const declAt = text.search(new RegExp(`^[ \\t]*${depName}[ \\t]*=[ \\t]*\\{`, 'm'));
+  const declAt = text.search(
+    new RegExp(`^[ \\t]*${depName}[ \\t]*=[ \\t]*\\{`, "m"),
+  );
   if (declAt === -1) return null;
-  const braceOpen = text.indexOf('{', declAt);
+  const braceOpen = text.indexOf("{", declAt);
   // Scan to the matching close brace; the inline table spans lines.
   let depth = 0;
   let braceClose = -1;
   for (let i = braceOpen; i < text.length; i++) {
-    if (text[i] === '{') depth++;
-    else if (text[i] === '}') {
+    if (text[i] === "{") depth++;
+    else if (text[i] === "}") {
       depth--;
       if (depth === 0) {
         braceClose = i;
@@ -179,7 +184,9 @@ export function parseShellForwardedFeatures(shellToml, depName = 'openhuman-rpc'
   const defaultFeatures = !/default-features\s*=\s*false/.test(decl);
   const featuresAt = decl.search(/features\s*=\s*\[/);
   const features =
-    featuresAt === -1 ? [] : arrayItems(readArray(decl, decl.indexOf('[', featuresAt)));
+    featuresAt === -1
+      ? []
+      : arrayItems(readArray(decl, decl.indexOf("[", featuresAt)));
   return { defaultFeatures, features };
 }
 
@@ -198,8 +205,10 @@ export function parseCoreFeatureNames(coreToml) {
   const rest = text.slice(header.index + header[0].length);
   const nextTable = rest.search(/^[ \t]*\[[^[\]]+\][ \t]*$/m);
   const section = nextTable === -1 ? rest : rest.slice(0, nextTable);
-  const names = [...section.matchAll(/^[ \t]*([A-Za-z0-9_-]+)[ \t]*=/gm)].map(m => m[1]);
-  return names.filter(name => name !== 'default');
+  const names = [...section.matchAll(/^[ \t]*([A-Za-z0-9_-]+)[ \t]*=/gm)].map(
+    (m) => m[1],
+  );
+  return names.filter((name) => name !== "default");
 }
 
 /**
@@ -220,7 +229,9 @@ export function parseCoreFeatureGraph(coreToml) {
   const nextTable = rest.search(/^[ \t]*\[[^[\]]+\][ \t]*$/m);
   const section = nextTable === -1 ? rest : rest.slice(0, nextTable);
   const graph = new Map();
-  for (const match of section.matchAll(/^[ \t]*([A-Za-z0-9_-]+)[ \t]*=[ \t]*\[/gm)) {
+  for (const match of section.matchAll(
+    /^[ \t]*([A-Za-z0-9_-]+)[ \t]*=[ \t]*\[/gm,
+  )) {
     // `match[0]` ends on the `[` that opens the array, so its last index is
     // exactly where `readArray` must start scanning for the balanced close.
     const open = match.index + match[0].length - 1;
@@ -243,7 +254,7 @@ export function resolveEnabledFeatures(graph, seeds) {
   const queue = [...seeds];
   while (queue.length > 0) {
     const name = queue.pop();
-    if (name.startsWith('dep:') || name.includes('/')) continue;
+    if (name.startsWith("dep:") || name.includes("/")) continue;
     if (enabled.has(name)) continue;
     enabled.add(name);
     for (const item of graph.get(name) ?? []) queue.push(item);
@@ -261,8 +272,8 @@ export function resolveEnabledFeatures(graph, seeds) {
 export function parseProductFeatures(text) {
   return text
     .split(/\r?\n/)
-    .map(line => line.replace(/#.*/, '').trim())
-    .filter(line => line.length > 0);
+    .map((line) => line.replace(/#.*/, "").trim())
+    .filter((line) => line.length > 0);
 }
 
 /**
@@ -285,29 +296,32 @@ export function checkProductForwarding({
   localGates = SHELL_RPC_LOCAL_GATES,
 }) {
   const empty = { missing: [], unexpected: [], unknown: [] };
-  if (shell === null) return { ok: false, reason: 'dependency-not-found', ...empty };
+  if (shell === null)
+    return { ok: false, reason: "dependency-not-found", ...empty };
   if (shell.defaultFeatures) {
     // The shell would inherit `default`, which is now deliberately SMALLER
     // than the product set. That is a defect, not the benign "nothing to
     // drift" case it used to be.
-    return { ok: false, reason: 'shell-inherits-defaults', ...empty };
+    return { ok: false, reason: "shell-inherits-defaults", ...empty };
   }
   const forwarded = new Set(shell.features);
   const product = new Set(productFeatures);
   const known = new Set([...coreFeatureNames, ...hostFeatureNames]);
   // In the product set, absent from the shell → compiled out of the shipped app.
-  const missing = productFeatures.filter(gate => !forwarded.has(gate));
+  const missing = productFeatures.filter((gate) => !forwarded.has(gate));
   // Forwarded by the shell but not in the product set → the product grew a
   // gate without anyone editing the file that says what the product is.
   // `openhuman-rpc`'s own gates (server, client, Jev ranker) are not core
   // gates and are exempt by name. Host gates explicitly listed in the product
   // file, such as os-keyring, still require shell forwarding.
   const unexpected = shell.features.filter(
-    gate => !product.has(gate) && !Object.prototype.hasOwnProperty.call(localGates, gate)
+    (gate) =>
+      !product.has(gate) &&
+      !Object.prototype.hasOwnProperty.call(localGates, gate),
   );
   // Named in the product set but not declared by core or a host → typo, or a gate
   // renamed/deleted without updating this list.
-  const unknown = productFeatures.filter(gate => !known.has(gate));
+  const unknown = productFeatures.filter((gate) => !known.has(gate));
   return {
     ok: missing.length === 0 && unexpected.length === 0 && unknown.length === 0,
     reason: null,
@@ -318,48 +332,55 @@ export function checkProductForwarding({
 }
 
 export function formatProductReport(result, { productFeatures, shell }) {
-  if (result.reason === 'dependency-not-found') {
-    return 'FAIL: could not find the `openhuman-rpc` dependency in the shell manifest.\nThe guard cannot verify forwarding — fix the parser or the manifest.';
+  if (result.reason === "dependency-not-found") {
+    return "FAIL: could not find the `openhuman-rpc` dependency in the shell manifest.\nThe guard cannot verify forwarding — fix the parser or the manifest.";
   }
-  if (result.reason === 'shell-inherits-defaults') {
+  if (result.reason === "shell-inherits-defaults") {
     return [
-      'FAIL: the shell no longer sets `default-features = false` on `openhuman-rpc`.',
-      'It would inherit `[features] default`, which is the CONTRIBUTOR set and is',
-      'deliberately smaller than the product — voice, web3, documents, meet, contacts',
-      'and crash-reporting would vanish from the shipped app.',
-    ].join('\n');
+      "FAIL: the shell no longer sets `default-features = false` on `openhuman-rpc`.",
+      "It would inherit `[features] default`, which is the CONTRIBUTOR set and is",
+      "deliberately smaller than the product — voice, web3, documents, meet, contacts",
+      "and crash-reporting would vanish from the shipped app.",
+    ].join("\n");
   }
   const lines = [
-    `Product gates (${productFeatures.length}, scripts/ci/product-features.txt): ${productFeatures.join(', ') || '(none)'}`,
-    `Shell forwards (${shell.features.length}): ${shell.features.join(', ') || '(none)'}`,
+    `Product gates (${productFeatures.length}, scripts/ci/product-features.txt): ${productFeatures.join(", ") || "(none)"}`,
+    `Shell forwards (${shell.features.length}): ${shell.features.join(", ") || "(none)"}`,
   ];
   if (result.unknown.length > 0) {
-    lines.push('', 'Product gates that are not declared in core or host `[features]` tables:');
+    lines.push(
+      "",
+      "Product gates that are not declared in core or host `[features]` tables:",
+    );
     for (const gate of result.unknown) lines.push(`  - ${gate}`);
-    lines.push('Either the name is a typo or the gate was renamed/deleted.');
+    lines.push("Either the name is a typo or the gate was renamed/deleted.");
   }
   if (result.missing.length > 0) {
-    lines.push('', 'Product gates NOT forwarded by the desktop shell:');
+    lines.push("", "Product gates NOT forwarded by the desktop shell:");
     for (const gate of result.missing) lines.push(`  - ${gate}`);
     lines.push(
-      '',
-      'Each of these is compiled OUT of the shipped desktop app, silently.',
-      'Add it to the `openhuman-rpc` features list in crates/openhuman-app/Cargo.toml.',
-      'See #4901 (voice, 56 users) and #4918 (tokenjuice-treesitter).'
+      "",
+      "Each of these is compiled OUT of the shipped desktop app, silently.",
+      "Add it to the `openhuman-rpc` features list in crates/openhuman-app/Cargo.toml.",
+      "See #4901 (voice, 56 users) and #4918 (tokenjuice-treesitter).",
     );
   }
   if (result.unexpected.length > 0) {
-    lines.push('', 'Gates the shell forwards that the product set does not list:');
+    lines.push(
+      "",
+      "Gates the shell forwards that the product set does not list:",
+    );
     for (const gate of result.unexpected) lines.push(`  - ${gate}`);
     lines.push(
-      '',
-      'The shipped app would grow a domain that scripts/ci/product-features.txt',
-      'does not claim. Either add it there (a product decision — the CI product',
-      'lanes will then cover it too) or drop it from the shell.'
+      "",
+      "The shipped app would grow a domain that scripts/ci/product-features.txt",
+      "does not claim. Either add it there (a product decision — the CI product",
+      "lanes will then cover it too) or drop it from the shell.",
     );
   }
-  if (result.ok) lines.push('', 'OK: the shell forwards exactly the product gate set.');
-  return lines.join('\n');
+  if (result.ok)
+    lines.push("", "OK: the shell forwards exactly the product gate set.");
+  return lines.join("\n");
 }
 
 /**
@@ -372,59 +393,84 @@ export function formatProductReport(result, { productFeatures, shell }) {
  */
 export function diffForwarding({ coreDefaults, shell, allowlist = {} }) {
   if (shell === null) {
-    return { ok: false, reason: 'dependency-not-found', missing: [], stale: [], allowed: [] };
+    return {
+      ok: false,
+      reason: "dependency-not-found",
+      missing: [],
+      stale: [],
+      allowed: [],
+    };
   }
   // Inheriting defaults means there is no forwarding list to drift.
   if (shell.defaultFeatures) {
-    return { ok: true, reason: 'inherits-defaults', missing: [], stale: [], allowed: [] };
+    return {
+      ok: true,
+      reason: "inherits-defaults",
+      missing: [],
+      stale: [],
+      allowed: [],
+    };
   }
   const forwarded = new Set(shell.features);
   const missing = [];
   const allowed = [];
   for (const gate of coreDefaults) {
     if (forwarded.has(gate)) continue;
-    if (Object.prototype.hasOwnProperty.call(allowlist, gate)) allowed.push(gate);
+    if (Object.prototype.hasOwnProperty.call(allowlist, gate))
+      allowed.push(gate);
     else missing.push(gate);
   }
   // A gate that is allow-listed AND forwarded is a contradiction: the allow-list
   // entry is stale and would mask a real drop if the gate were later removed.
-  const stale = Object.keys(allowlist).filter(gate => forwarded.has(gate));
-  return { ok: missing.length === 0 && stale.length === 0, reason: null, missing, stale, allowed };
+  const stale = Object.keys(allowlist).filter((gate) => forwarded.has(gate));
+  return {
+    ok: missing.length === 0 && stale.length === 0,
+    reason: null,
+    missing,
+    stale,
+    allowed,
+  };
 }
 
 export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
-  if (result.reason === 'dependency-not-found') {
-    return 'FAIL: could not find the `openhuman-rpc` dependency in the shell manifest.\nThe guard cannot verify forwarding — fix the parser or the manifest.';
+  if (result.reason === "dependency-not-found") {
+    return "FAIL: could not find the `openhuman-rpc` dependency in the shell manifest.\nThe guard cannot verify forwarding — fix the parser or the manifest.";
   }
-  if (result.reason === 'inherits-defaults') {
-    return 'OK: the shell inherits the core default features (no `default-features = false`), so no forwarding is required.';
+  if (result.reason === "inherits-defaults") {
+    return "OK: the shell inherits the core default features (no `default-features = false`), so no forwarding is required.";
   }
   const lines = [
-    `Core default gates (${coreDefaults.length}): ${coreDefaults.join(', ') || '(none)'}`,
-    `Shell forwards (${shell.features.length}): ${shell.features.join(', ') || '(none)'}`,
+    `Core default gates (${coreDefaults.length}): ${coreDefaults.join(", ") || "(none)"}`,
+    `Shell forwards (${shell.features.length}): ${shell.features.join(", ") || "(none)"}`,
   ];
   for (const gate of result.allowed) {
     lines.push(`  allowed: ${gate} — ${allowlist[gate]}`);
   }
   if (result.stale.length > 0) {
-    lines.push('', 'Stale allow-list entries (gate is forwarded, so the entry is wrong):');
+    lines.push(
+      "",
+      "Stale allow-list entries (gate is forwarded, so the entry is wrong):",
+    );
     for (const gate of result.stale) lines.push(`  - ${gate}`);
   }
   if (result.missing.length > 0) {
-    lines.push('', 'Default-ON core gates NOT forwarded by the desktop shell:');
+    lines.push("", "Default-ON core gates NOT forwarded by the desktop shell:");
     for (const gate of result.missing) lines.push(`  - ${gate}`);
     lines.push(
-      '',
-      'Each of these is compiled OUT of the shipped desktop app, silently.',
-      'Fix by adding the gate to the `openhuman-rpc` features list in',
-      'crates/openhuman-app/Cargo.toml — or, if the exclusion is deliberate, add it to',
-      'INTENTIONALLY_NOT_FORWARDED in scripts/ci/check-feature-forwarding.mjs',
-      'with a reason. See #4901 (voice) and #4918 (tokenjuice-treesitter).'
+      "",
+      "Each of these is compiled OUT of the shipped desktop app, silently.",
+      "Fix by adding the gate to the `openhuman-rpc` features list in",
+      "crates/openhuman-app/Cargo.toml — or, if the exclusion is deliberate, add it to",
+      "INTENTIONALLY_NOT_FORWARDED in scripts/ci/check-feature-forwarding.mjs",
+      "with a reason. See #4901 (voice) and #4918 (tokenjuice-treesitter).",
     );
   }
   if (result.ok)
-    lines.push('', 'OK: every default-ON core gate is forwarded to the desktop shell.');
-  return lines.join('\n');
+    lines.push(
+      "",
+      "OK: every default-ON core gate is forwarded to the desktop shell.",
+    );
+  return lines.join("\n");
 }
 
 // ── the library chain: core → embed → tinyhumans → rpc → cli/tui (#6364) ──
@@ -464,9 +510,9 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
  * "excluded on purpose" from "forgotten" without going archaeology.
  */
 export const CHAIN_GATES_NOT_FORWARDED = {
-  'openhuman-embed': {
-    'rss-bench':
-      'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in tinyhumansai/openhuman-benchmarks (`profile/`, #6944), which enables the core gate directly; no host in this repository turns it on.',
+  "openhuman-embed": {
+    "rss-bench":
+      "Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in tinyhumansai/openhuman-benchmarks (`profile/`, #6944), which enables the core gate directly; no host in this repository turns it on.",
   },
 };
 
@@ -478,24 +524,26 @@ export const CHAIN_GATES_NOT_FORWARDED = {
  * catch. An entry here says "this one is local by design".
  */
 export const CHAIN_LOCAL_GATES = {
-  'openhuman-embed': {
+  "openhuman-embed": {
     profiles:
-      'Embed owns the headless ProfileRuntime SaaS facade and examples; core profile identity/workspace operations are unconditional, so this facade gate has no core twin.',
+      "Embed owns the headless ProfileRuntime SaaS facade and examples; core profile identity/workspace operations are unconditional, so this facade gate has no core twin.",
   },
-  'openhuman-tinyhumans': {
-    jev: 'This crate owns the gate: the Jev-backed `tool_search` ranker (`tinytools-jev` over the TinyHumans System One proxy).',
+  "openhuman-tinyhumans": {
+    jev: "This crate owns the gate: the Jev-backed `tool_search` ranker (`tinytools-jev` over the TinyHumans System One proxy).",
   },
-  'openhuman-rpc': {
-    'os-keyring': 'Host-owned native secret storage and master-key providers; the core exposes only install ports.',
-    'http-client':
-      'The authenticated JSON-RPC HTTP client (`post_json_rpc`); transport code this crate owns, with no core twin.',
+  "openhuman-rpc": {
+    "os-keyring":
+      "Host-owned native secret storage and master-key providers; the core exposes only install ports.",
+    "http-client":
+      "The authenticated JSON-RPC HTTP client (`post_json_rpc`); transport code this crate owns, with no core twin.",
     server:
       "The core's JSON-RPC server (router, Socket.IO, listener) and the shared host boot; lives only in this crate.",
-    'session-store':
-      'The on-disk session store (`session_store`) behind the TinyAgents port; a host-side provider, not a core gate.',
+    "session-store":
+      "The on-disk session store (`session_store`) behind the TinyAgents port; a host-side provider, not a core gate.",
   },
-  'openhuman-cli': {
-    'bin-tools': 'CLI argument parsing + logger init for the `openhuman-fleet` binary.',
+  "openhuman-cli": {
+    "bin-tools":
+      "CLI argument parsing + logger init for the `openhuman-fleet` binary.",
   },
 };
 
@@ -533,18 +581,21 @@ export function diffChainForwarding({
   notForwarded = {},
   localGates = {},
 }) {
-  const declared = new Set([...features.keys()].filter(name => name !== 'default'));
+  const declared = new Set(
+    [...features.keys()].filter((name) => name !== "default"),
+  );
   const missing = [];
   const misrouted = [];
   const allowed = [];
   for (const source of sources) {
     for (const gate of source.gates) {
-      if (gate === 'default') continue;
+      if (gate === "default") continue;
       if (!declared.has(gate)) {
         // Only a required source can be missing from here: an optional source
         // (tinyhumans → cli) says nothing about gates this crate never took.
         if (!source.required) continue;
-        if (Object.prototype.hasOwnProperty.call(notForwarded, gate)) allowed.push(gate);
+        if (Object.prototype.hasOwnProperty.call(notForwarded, gate))
+          allowed.push(gate);
         else missing.push({ gate, source: source.crate });
         continue;
       }
@@ -561,27 +612,30 @@ export function diffChainForwarding({
   const dangling = [];
   for (const gate of declared) {
     for (const item of features.get(gate) ?? []) {
-      const slash = item.indexOf('/');
+      const slash = item.indexOf("/");
       if (slash === -1) continue;
-      const source = sources.find(candidate => candidate.crate === item.slice(0, slash));
+      const source = sources.find(
+        (candidate) => candidate.crate === item.slice(0, slash),
+      );
       if (!source) continue;
       const target = item.slice(slash + 1);
       if (!source.gates.includes(target)) dangling.push({ gate, item });
     }
   }
-  const upstream = new Set(sources.flatMap(source => source.gates));
+  const upstream = new Set(sources.flatMap((source) => source.gates));
   // Declared here, in no source, and not claimed as local: either a gate the
   // core dropped (the #6360 shape) or a local gate nobody documented.
   const unknown = [...declared].filter(
-    gate =>
-      !upstream.has(gate) && !Object.prototype.hasOwnProperty.call(localGates, gate)
+    (gate) =>
+      !upstream.has(gate) &&
+      !Object.prototype.hasOwnProperty.call(localGates, gate),
   );
   // A "local" gate an upstream crate now declares is no longer local, and the
   // entry would hide a genuinely missing forward for it. One this crate has
   // since dropped is stale for the opposite reason: it describes nothing, and
   // would silently excuse a gate by that name the day one reappears.
   const staleLocal = Object.keys(localGates).filter(
-    gate => upstream.has(gate) || !declared.has(gate)
+    (gate) => upstream.has(gate) || !declared.has(gate),
   );
   // Mirrors `diffForwarding`'s stale check, in both directions: an exclusion
   // for a gate that IS carried here is wrong and would mask the day it gets
@@ -589,10 +643,12 @@ export function diffChainForwarding({
   // name that no longer exists — it also stops appearing in the `allowed:`
   // report, so nothing draws attention to it.
   const requiredUpstream = new Set(
-    sources.filter(source => source.required).flatMap(source => source.gates)
+    sources
+      .filter((source) => source.required)
+      .flatMap((source) => source.gates),
   );
   const staleExclusion = Object.keys(notForwarded).filter(
-    gate => declared.has(gate) || !requiredUpstream.has(gate)
+    (gate) => declared.has(gate) || !requiredUpstream.has(gate),
   );
   return {
     ok:
@@ -619,56 +675,69 @@ export function formatChainReport(result, { notForwarded = {} } = {}) {
     lines.push(`  allowed: ${gate} — ${notForwarded[gate]}`);
   }
   if (result.missing.length > 0) {
-    lines.push('', `Gates ${result.crate} does not forward:`);
-    for (const { gate, source } of result.missing) lines.push(`  - ${gate} (declared by ${source})`);
+    lines.push("", `Gates ${result.crate} does not forward:`);
+    for (const { gate, source } of result.missing)
+      lines.push(`  - ${gate} (declared by ${source})`);
     lines.push(
-      '',
+      "",
       `Add \`${result.missing[0].gate} = ["${result.missing[0].source}/${result.missing[0].gate}"]\` to that crate's [features] table,`,
-      'or, if the omission is deliberate, add it to CHAIN_GATES_NOT_FORWARDED in',
-      'scripts/lib/feature-forwarding.mjs with a reason. A gate missing here is off',
-      'for every embedder while the CLI product lanes still resolve the name.'
+      "or, if the omission is deliberate, add it to CHAIN_GATES_NOT_FORWARDED in",
+      "scripts/lib/feature-forwarding.mjs with a reason. A gate missing here is off",
+      "for every embedder while the CLI product lanes still resolve the name.",
     );
   }
   if (result.misrouted.length > 0) {
-    lines.push('', `Gates ${result.crate} declares but does not forward to their source:`);
-    for (const { gate, expected } of result.misrouted) lines.push(`  - ${gate} (expected "${expected}")`);
+    lines.push(
+      "",
+      `Gates ${result.crate} declares but does not forward to their source:`,
+    );
+    for (const { gate, expected } of result.misrouted)
+      lines.push(`  - ${gate} (expected "${expected}")`);
   }
   if (result.dangling.length > 0) {
-    lines.push('', `Forwards from ${result.crate} to a gate that no longer exists:`);
-    for (const { gate, item } of result.dangling) lines.push(`  - ${gate} -> "${item}"`);
     lines.push(
-      '',
+      "",
+      `Forwards from ${result.crate} to a gate that no longer exists:`,
+    );
+    for (const { gate, item } of result.dangling)
+      lines.push(`  - ${gate} -> "${item}"`);
+    lines.push(
+      "",
       'cargo rejects this outright ("depends on <crate> with feature <gate> but',
       '<crate> does not have that feature"), but only for whoever builds that crate',
-      'first, and it reads as a dependency problem rather than forwarding drift (#6360).'
+      "first, and it reads as a dependency problem rather than forwarding drift (#6360).",
     );
   }
   if (result.unknown.length > 0) {
-    lines.push('', `Gates ${result.crate} declares that no crate below it has:`);
+    lines.push(
+      "",
+      `Gates ${result.crate} declares that no crate below it has:`,
+    );
     for (const gate of result.unknown) lines.push(`  - ${gate}`);
     lines.push(
-      '',
-      'Either the gate was removed from the core and this forward is stale (#6360:',
-      'a `cargo check` error, not a gate check), or it is local to this crate and',
-      'belongs in CHAIN_LOCAL_GATES with a reason.'
+      "",
+      "Either the gate was removed from the core and this forward is stale (#6360:",
+      "a `cargo check` error, not a gate check), or it is local to this crate and",
+      "belongs in CHAIN_LOCAL_GATES with a reason.",
     );
   }
   if (result.staleLocal.length > 0) {
     lines.push(
-      '',
-      `Stale CHAIN_LOCAL_GATES entries (a crate below now declares the gate, or ${result.crate} no longer does):`
+      "",
+      `Stale CHAIN_LOCAL_GATES entries (a crate below now declares the gate, or ${result.crate} no longer does):`,
     );
     for (const gate of result.staleLocal) lines.push(`  - ${gate}`);
   }
   if (result.staleExclusion.length > 0) {
     lines.push(
-      '',
-      'Stale CHAIN_GATES_NOT_FORWARDED entries (the gate IS forwarded, or no crate below declares it any more):'
+      "",
+      "Stale CHAIN_GATES_NOT_FORWARDED entries (the gate IS forwarded, or no crate below declares it any more):",
     );
     for (const gate of result.staleExclusion) lines.push(`  - ${gate}`);
   }
-  if (result.ok) lines.push(`  OK: forwards every gate of the crates below it.`);
-  return lines.join('\n');
+  if (result.ok)
+    lines.push(`  OK: forwards every gate of the crates below it.`);
+  return lines.join("\n");
 }
 
 /**
@@ -678,8 +747,11 @@ export function formatChainReport(result, { notForwarded = {} } = {}) {
  * there is nothing to forward.
  */
 export function rpcForwardedGates(rpcFeatures) {
-  const local = CHAIN_LOCAL_GATES['openhuman-rpc'] ?? {};
+  const local = CHAIN_LOCAL_GATES["openhuman-rpc"] ?? {};
   return [...rpcFeatures.keys()].filter(
-    name => name !== 'default' && (name === 'os-keyring' || !Object.prototype.hasOwnProperty.call(local, name))
+    (name) =>
+      name !== "default" &&
+      (name === "os-keyring" ||
+        !Object.prototype.hasOwnProperty.call(local, name)),
   );
 }

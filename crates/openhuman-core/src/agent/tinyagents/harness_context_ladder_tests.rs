@@ -60,3 +60,33 @@ fn an_override_without_a_window_still_pins_with_a_token_tail() {
     assert!(policy.pin_turn_user_message);
     assert_eq!(policy.keep_recent_tokens, Some(19_200));
 }
+
+// ── microcompact budget (prompt-cache churn when the window is unknown) ──────
+
+#[test]
+fn an_unknown_window_still_gives_microcompact_a_budget_so_short_runs_stay_append_only() {
+    // Unbudgeted microcompact blanks every old tool body on every turn, which
+    // rewrites the sent prefix and misses the provider's prompt cache.
+    for window in [None, Some(0)] {
+        let mw = microcompact_middleware(5, window);
+        assert_eq!(
+            mw.token_budget(),
+            Some(legacy_max_input_tokens(UNKNOWN_WINDOW_FALLBACK_TOKENS)),
+            "window {window:?}"
+        );
+    }
+}
+
+#[test]
+fn the_unknown_window_budget_is_finite_so_blanking_still_backstops_growth() {
+    let budget = microcompact_middleware(5, None).token_budget().unwrap();
+    assert!(budget < UNKNOWN_WINDOW_FALLBACK_TOKENS);
+    assert!(budget > 0);
+}
+
+#[test]
+fn a_known_window_keeps_the_trim_allowance_as_the_microcompact_budget() {
+    let mw = microcompact_middleware(5, Some(200_000));
+    assert_eq!(mw.token_budget(), Some(legacy_max_input_tokens(200_000)));
+    assert_eq!(mw.keep_recent(), 5);
+}

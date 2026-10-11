@@ -21,6 +21,15 @@ use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::model::TurnChatModel;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 
+/// Window assumed for sizing microcompact when the model's context window is
+/// unknown (not in any static table, no `context_length` from `/v1/models`).
+/// Deliberately conservative: small enough that a runaway transcript is still
+/// blanked well before any real model overflows, large enough that a short run
+/// stays append-only and prompt-cache eligible. Used only for microcompact;
+/// compression and trim still treat an unknown window as "nothing to size
+/// against", and known-window behaviour is unchanged.
+pub(super) const UNKNOWN_WINDOW_FALLBACK_TOKENS: u64 = 64_000;
+
 /// Fractions of a capped turn's model-call budget at which the model is told
 /// how many calls are left (#6958; `FinalCallWrapUpMiddleware::with_budget_notice`).
 const BUDGET_NOTICE_THRESHOLDS: [f64; 2] = [0.5, 0.8];
@@ -154,16 +163,8 @@ pub(super) fn install_context_ladder(
         // answered from the last five results while well inside a window with
         // room for all ten. Not a capped-turn problem: every turn. The budget
         // matches the trim's allowance, putting microcompact strictly behind
-        // compression. With no window there is nothing to size against and
-        // nothing else bounding growth, so always-blank stays as the backstop.
-        let microcompact = tinyagents_harness::middleware::MicrocompactMiddleware::new(
-            microcompact_keep_recent,
-            crate::agent::context::CLEARED_PLACEHOLDER,
-        );
-        let microcompact = match context_window.filter(|w| *w > 0) {
-            Some(window) => microcompact.with_token_budget(legacy_max_input_tokens(window).max(1)),
-            None => microcompact,
-        };
+        // compression. See `microcompact_middleware` for the unknown-window case.
+        let microcompact = microcompact_middleware(microcompact_keep_recent, context_window);
         // Emit `AgentEvent::Compressed` when a body is cleared. Off by default —
         // the middleware was built as "a silent transcript rewrite" — which is
         // why blanking was, until now, the one reduction step nobody could see
@@ -352,6 +353,33 @@ pub(super) fn compression_policy(
         None => window.map(summarization_policy),
     }
     .map(|policy| with_turn_aware_tail(policy, window))
+}
+
+/// Build the microcompact step of the context ladder.
+///
+/// With a known window the token budget is the trim's allowance
+/// (`legacy_max_input_tokens(window)`). Without one, the budget is sized
+/// against [`UNKNOWN_WINDOW_FALLBACK_TOKENS`] instead of being left unset:
+/// a bare microcompact blanks every tool result older than `keep_recent` on
+/// every turn, and each blanking rewrites an already-sent prefix position, so
+/// the provider's prompt (KV) cache misses from that point on. Observed on a
+/// router whose model id had no static window: 77 of 80 turns emitted
+/// `compressed` events, only 48-67% of input tokens were cached (99% when the
+/// same prompts were sent append-only) and cold calls took ~6-7 s vs ~3 s
+/// warm. The finite fallback keeps a short run append-only while still
+/// blanking once the transcript outgrows it, so growth stays bounded.
+pub(super) fn microcompact_middleware(
+    keep_recent: usize,
+    context_window: Option<u64>,
+) -> tinyagents_harness::middleware::MicrocompactMiddleware {
+    let window = context_window
+        .filter(|w| *w > 0)
+        .unwrap_or(UNKNOWN_WINDOW_FALLBACK_TOKENS);
+    tinyagents_harness::middleware::MicrocompactMiddleware::new(
+        keep_recent,
+        crate::agent::context::CLEARED_PLACEHOLDER,
+    )
+    .with_token_budget(legacy_max_input_tokens(window).max(1))
 }
 
 /// Share of the context window a compaction keeps verbatim as its tail.

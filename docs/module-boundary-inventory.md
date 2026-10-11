@@ -13,7 +13,7 @@ copying its implementation into a host, or accepting weaker isolation.
 
 | Owner | Linked implementation packages | Contract | Host consumers | Required module work |
 | --- | --- | --- | --- | --- |
-| tinyjuice | tinyjuice | tinyjuice-bus | core tools, compression, CCR REPL | HTML extraction, query supplied artifacts against module CCR store, schema and tool declarations; retain turn-bound model callbacks |
+| tinyjuice | none (module loaded through TinyBus) | tinyjuice-bus | core tools, compression, CCR REPL | Complete: PR #59 provides module-owned compression, CCR queries, HTML extraction, schemas and declarations; the host retains turn-bound model callbacks and artifact authorization |
 | tinyconnectors | tinyconnectors, tinyconnectors-sync | tinyconnectors-bus | core integrations, credentials and triggers | Argument preparation, calendar defaults, task windows, structured provider errors, trigger archives; preserve sign-in/out reconciliation |
 | tinymcp | tinymcp | tinymcp-bus | core MCP registry, supervisor, CLI stdio/HTTP server | Supervisor notifications, server protocol operations and callbacks for approved host tools/resources/prompts |
 | tinychannels | tinychannels, tinychannels-runtime; runtime/crypto code in contract | tinychannels-bus | core channels and podcast email, TinyHumans host, CLI REPL | Move providers, signing and pairing out of contract; relay config, pairing, start/stop/send/status, inbound/status callbacks, bounded delivery/draining |
@@ -86,7 +86,7 @@ remain unchanged until compatible upstream releases are available.
 | Change | Canonical PR | Local verification |
 | --- | --- | --- |
 | Async HTML extraction seam, deadlines and generic tool-metadata sanitization in TinyTools | [tinytools#60](https://github.com/tinyhumansai/tinytools/pull/60) | 1,183 workspace tests and six doctests; clippy/build; independent sanitizer review accepted; all 113 source files at least 90% coverage |
-| TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 737 tests; dynamic artifact E2E; module input/limit guards |
+| TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 739 all-feature tests and doctests; compiled-artifact E2E; module input/limit guards |
 | Complete TinyDocs Markdown conversion for memory ingestion | [tinydocs#31](https://github.com/tinyhumansai/tinydocs/pull/31) | 183 tests; dynamic artifact E2E; per-file coverage at least 90% |
 | TinyHosts pure vocabulary and authorized source preparation with captured deployment bytes | [tinyhosts#21](https://github.com/tinyhumansai/tinyhosts/pull/21) | 210 all-feature and 179 default tests including doctests; compiled snapshot and large legacy deployment probes; pure contract audit; all 19 implementation files at least 90% coverage; independent preparation review accepted |
 | TinyComputer native permissions, confidential focus/paste and reliable Globe leases/read/shutdown | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | 1,372 all-feature and 1,367 default tests; 90-member compiled artifact verification; independent ownership and event-loss review accepted; macOS cross-check and 233-file coverage gate pass; physical macOS helper not exercised on Linux |
@@ -99,7 +99,7 @@ remain unchanged until compatible upstream releases are available.
 | TinyRuntime pure JSONL worker vocabulary, persistent cache recipes, optional provider preparation and module-owned lifecycle | [tinyruntime#29](https://github.com/tinyhumansai/tinyruntime/pull/29) | 244 router unit tests, 6 default / 7 all-feature public API tests, 64 contract tests, 35 pyserver tests and doctests; 13-member compiled artifact verifies old-provider compatibility, preparation, cache reuse, adoption and rebuilding; per-file coverage gate passes; independent cleanup, cache and provider-bridge reviews accepted |
 | TinyMCP pure shared vocabulary, supervisor observations, server callbacks and bounded text/argument/tool rendering operations | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,471 all-feature and 1,359 default tests; dynamic 44-member artifact verification; pure contract audit; all 93 source files at least 90% coverage; independent lifecycle, vocabulary and library-feature reviews accepted; external regressions cover module-disabled and host feature combinations |
 
-The TinyDocs and TinyJuice operations need new published module artifacts.
+The TinyDocs operations need a new published module artifact.
 TinyHosts preserves existing member arities and adds authorized preparation inside
 Execute; consuming that operation requires a new published artifact. No local build digest
 has been used as a release pin, and these PRs do not yet remove any host exception.

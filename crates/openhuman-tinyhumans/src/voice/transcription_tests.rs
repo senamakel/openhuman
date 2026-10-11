@@ -75,7 +75,8 @@ fn native_sdk_failures_keep_authentication_classification() {
                 max_bytes: MAX_RESPONSE_BYTES
             },
             false
-        ),
+        )
+        .message,
         "transcription response exceeds 65536 bytes"
     );
 }

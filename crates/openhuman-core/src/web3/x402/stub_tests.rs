@@ -1,4 +1,6 @@
 use super::*;
+use crate::web3::x402::init_ledger;
+use std::path::Path;
 
 #[test]
 fn init_ledger_is_callable_noop() {

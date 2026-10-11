@@ -113,7 +113,7 @@ fn classify_backend_error(error: anyhow::Error, secret: &str) -> ProviderError {
         Some(BackendApiError::BackendUnavailable { .. }) => ProviderErrorKind::Unavailable,
         _ => ProviderErrorKind::Transport,
     };
-    let mut message = error.to_string();
+    let mut message = format!("{error:#}");
     let secret = secret.trim();
     if !secret.is_empty() {
         message = message.replace(secret, "[REDACTED]");

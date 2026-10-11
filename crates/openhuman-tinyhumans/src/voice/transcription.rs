@@ -1,11 +1,14 @@
 //! Hosted STT request validation and native SDK multipart dispatch.
 
+use super::provider_error;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use openhuman_embed::__host::{
     backend::BackendClient, security::credentials::session_support::BackendCredential,
 };
 use reqwest::multipart::{Form, Part};
-use tinyvoice_bus::provider::{Transcription, TranscriptionRequest};
+use tinyvoice_bus::provider::{
+    ProviderError, ProviderErrorKind, Transcription, TranscriptionRequest,
+};
 
 const MAX_AUDIO_BASE64_LEN: usize = 33_554_432;
 const MAX_RESPONSE_BYTES: usize = 65_536;
@@ -14,22 +17,22 @@ pub(super) async fn transcribe(
     client: &BackendClient,
     credential: &BackendCredential,
     request: TranscriptionRequest,
-) -> Result<Transcription, String> {
+) -> Result<Transcription, ProviderError> {
     let url = client
         .url_for("/openai/v1/audio/transcriptions")
-        .map_err(|error| error.to_string())?;
-    ensure_endpoint(&url, credential.is_api_key())?;
-    let form = transcription_form(request)?;
+        .map_err(|error| provider_error(ProviderErrorKind::InvalidInput, error.to_string()))?;
+    ensure_endpoint(&url, credential.is_api_key())
+        .map_err(|message| provider_error(ProviderErrorKind::InvalidInput, message))?;
+    let form = transcription_form(request)
+        .map_err(|message| provider_error(ProviderErrorKind::InvalidInput, message))?;
     // This OpenAI-compatible endpoint has historically accepted both the JWT
     // and TinyHumans API key as Bearer; keep that endpoint-specific contract.
     let sdk = tinyhumans_sdk::TinyHumansClient::new(
-        client.url_for("/").map_err(|error| error.to_string())?,
-    )
-    .with_http_client(
         client
-            .raw_client()
-            .map_err(openhuman_embed::__host::backend::flatten_authed_error)?,
+            .url_for("/")
+            .map_err(|error| provider_error(ProviderErrorKind::InvalidInput, error.to_string()))?,
     )
+    .with_http_client(client.raw_client().map_err(super::classify_backend_error)?)
     .with_token(Some(credential.secret().to_string()));
     let raw = sdk
         .raw()
@@ -43,7 +46,12 @@ pub(super) async fn transcribe(
     let text = raw
         .get("text")
         .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| "transcription response missing string `text`".to_string())?
+        .ok_or_else(|| {
+            provider_error(
+                ProviderErrorKind::InvalidResponse,
+                "transcription response missing string text".into(),
+            )
+        })?
         .trim()
         .to_string();
     Ok(Transcription { text })
@@ -111,21 +119,26 @@ fn nonempty(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
 }
 
-fn classify_error(error: tinyhumans_sdk::Error, is_api_key: bool) -> String {
-    if matches!(error, tinyhumans_sdk::Error::Status { status: 401, .. }) {
-        let prefix = if is_api_key {
-            "API_KEY_REJECTED"
-        } else {
-            "SESSION_EXPIRED"
-        };
-        return format!("{prefix}: transcription request failed (401 Unauthorized): {error}");
-    }
-    match error {
-        tinyhumans_sdk::Error::ResponseTooLarge { max_bytes } => {
-            format!("transcription response exceeds {max_bytes} bytes")
+fn classify_error(error: tinyhumans_sdk::Error, is_api_key: bool) -> ProviderError {
+    let kind = match &error {
+        tinyhumans_sdk::Error::Status { status: 401, .. } if is_api_key => {
+            ProviderErrorKind::ApiKeyRejected
         }
-        other => format!("transcription request failed: {other}"),
-    }
+        tinyhumans_sdk::Error::Status { status: 401, .. } => ProviderErrorKind::SessionExpired,
+        tinyhumans_sdk::Error::ResponseTooLarge { .. } | tinyhumans_sdk::Error::Decode(_) => {
+            ProviderErrorKind::InvalidResponse
+        }
+        _ => ProviderErrorKind::Transport,
+    };
+    provider_error(
+        kind,
+        match error {
+            tinyhumans_sdk::Error::ResponseTooLarge { max_bytes } => {
+                format!("transcription response exceeds {max_bytes} bytes")
+            }
+            other => format!("transcription request failed: {other}"),
+        },
+    )
 }
 
 #[cfg(test)]

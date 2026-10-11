@@ -13,4 +13,3 @@ fn result_serializes_snake_case_for_the_wire() {
     assert_eq!(json.get("agent_id").unwrap(), "a4");
     assert_eq!(json.get("user_token").unwrap(), "tok");
 }
-

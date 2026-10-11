@@ -67,8 +67,8 @@ fn native_sdk_failures_keep_authentication_classification() {
         status: 401,
         body: serde_json::json!({"error": "rejected"}),
     };
-    assert!(classify_error(status(), false).starts_with("SESSION_EXPIRED:"));
-    assert!(classify_error(status(), true).starts_with("API_KEY_REJECTED:"));
+    assert!(classify_error(status(), false).kind == ProviderErrorKind::SessionExpired);
+    assert!(classify_error(status(), true).kind == ProviderErrorKind::ApiKeyRejected);
     assert_eq!(
         classify_error(
             tinyhumans_sdk::Error::ResponseTooLarge {

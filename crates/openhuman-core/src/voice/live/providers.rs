@@ -9,8 +9,8 @@
 //! | `gemini` | Google directly | `provider:google` |
 //! | `sarvam` | Sarvam directly | `provider:sarvam` |
 //!
-//! Minting tickets and signed URLs happens here, against the backend, because
-//! `tinyliveagents` deliberately holds no backend or credential code.
+//! Ticket and signed URL requests dispatch through the installed host provider;
+//! generic live configuration and connection preparation remain here.
 
 use serde_json::json;
 use tinyagents_live::tinyliveagents::elevenlabs::ElevenLabsConvai;
@@ -20,18 +20,15 @@ use tinyagents_live::tinyliveagents::{AudioFormat, LiveConfig, LiveProvider};
 
 use super::error::LiveVoiceError;
 use super::types::{LiveProviderInfo, LiveProviderKind};
-use crate::platform::cloud_voice_provider;
-use tinyvoice_bus::provider::{RealtimeRequest, RealtimeSession};
 use crate::config::schema::voice_live::{
     LIVE_PROVIDERS, LIVE_PROVIDER_ELEVENLABS_HOSTED, LIVE_PROVIDER_GEMINI,
     LIVE_PROVIDER_GEMINI_HOSTED, LIVE_PROVIDER_SARVAM,
 };
 use crate::config::Config;
+use crate::platform::cloud_voice_provider;
+use tinyvoice_bus::provider::{RealtimeRequest, RealtimeSession};
 
 const LOG_PREFIX: &str = "[voice-live]";
-
-/// The backend route that mints a Gemini Live relay ticket.
-pub(crate) 
 
 /// Gemini Live prebuilt voices.
 const GEMINI_VOICES: &[&str] = &[
@@ -252,13 +249,26 @@ async fn mint_gemini_ticket(
 ) -> Result<GeminiTicket, LiveVoiceError> {
     let session = cloud_voice_provider::for_config(config)
         .map_err(LiveVoiceError::not_configured)?
-        .realtime(RealtimeRequest::GeminiLive { options: gemini::ticket_request(live) })
+        .realtime(RealtimeRequest::GeminiLive {
+            options: gemini::ticket_request(live),
+        })
         .await
         .map_err(|error| LiveVoiceError::backend(cloud_voice_provider::product_error(error)))?;
-    let RealtimeSession::GeminiLive { ws_url, session_id, model } = session else {
-        return Err(LiveVoiceError::backend("voice provider returned the wrong realtime session kind"));
+    let RealtimeSession::GeminiLive {
+        ws_url,
+        session_id,
+        model,
+    } = session
+    else {
+        return Err(LiveVoiceError::backend(
+            "voice provider returned the wrong realtime session kind",
+        ));
     };
-    Ok(GeminiTicket { ws_url, session_id, model })
+    Ok(GeminiTicket {
+        ws_url,
+        session_id,
+        model,
+    })
 }
 
 #[cfg(test)]

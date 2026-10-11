@@ -3,10 +3,10 @@
 //! The voice domain preserves the renderer contract and internal approval
 //! classification. Backend transport and credentials belong to the host layer.
 
-use serde::{Deserialize, Serialize};
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::platform::cloud_voice_provider;
+use serde::{Deserialize, Serialize};
 use tinyvoice_bus::provider::{RealtimeRequest, RealtimeSession};
 
 /// A short-lived signed URL for a realtime voice-agent session plus the agent
@@ -31,11 +31,20 @@ pub async fn mint_voice_agent_signed_url(
         .realtime(RealtimeRequest::VoiceAgent)
         .await
         .map_err(cloud_voice_provider::product_error)?;
-    let RealtimeSession::VoiceAgent { signed_url, agent_id, user_token } = session else {
+    let RealtimeSession::VoiceAgent {
+        signed_url,
+        agent_id,
+        user_token,
+    } = session
+    else {
         return Err("voice provider returned the wrong realtime session kind".into());
     };
     Ok(Outcome::single_log(
-        VoiceAgentSignedUrl { signed_url, agent_id, user_token },
+        VoiceAgentSignedUrl {
+            signed_url,
+            agent_id,
+            user_token,
+        },
         "voice agent connection minted through the installed provider",
     ))
 }

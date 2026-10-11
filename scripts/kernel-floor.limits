@@ -649,4 +649,5 @@
 #                      one name; no external crate, native builds unchanged).
 # 337/315/2 2026-10-10 remove the managed runtime and ML compression stacks;
 #                      two unique packages and names leave the flows graph.
-flows:337:315:2
+# 338/316/2 Pre-core module registry adds the pure tinycomputer-bus contract.
+flows:338:316:2

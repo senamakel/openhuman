@@ -421,3 +421,42 @@ channel threads, `409`) and `crates/openhuman-embed/tests/saas_profiles.rs`
   installed through one node is only readable there unless secrets live in
   the storage backend.
 - Existing `agents/u-*` data is orphaned.
+
+## In-process host capabilities
+
+`openhuman_embed::ProfileRuntimeBuilder` accepts the existing `HostTools`
+factory, `ToolScopeSpec::Named` (or `HostOnly`) and an asynchronous
+`can_use_tool` callback. Registration contains exactly the selected admitted
+native and host tools. A wildcard is refused. SaaS hard denies, host group
+opt-ins, the profile lease fence and channel permission ceilings remain
+stronger than the callback. With no callback, execution is denied.
+Operations requiring supervised approval must use `Named`; `HostOnly` does
+not provide the static operator allowlist used for that exemption.
+
+The factory receives the exact durable chat or relay thread through
+`TurnContext::session_id`; its ambient tenant
+(`openhuman_embed::current_tenant`) is the owning profile. During
+execution, `openhuman_embed::current_turn_origin` exposes the task's original
+`AgentTurnOrigin`, including channel sender and reply target. Concurrent
+messages do not mutate another turn's routing context.
+
+Channel permissions default to read-only, including unknown channels. Hosts
+must explicitly configure `web_channel` and their relayed channel to `Write`
+or `Execute` for memory or cron mutation. This grants only a ceiling: a named
+tool and the callback are still required. Ordinary public channel agents keep
+their read-only posture. Dangerous profile ceilings are refused.
+
+`memory_engine` supplies the existing `MemoryEngine` contract through each
+profile's local adapters. Requests retain the forced `user:<profile-id>` root;
+a mismatched config fails closed. The process-global host engine is still
+ignored in SaaS. Resolution refuses a profile whose lease expired or was
+latched, including queued workers resolving after lease loss. This is an
+admission check: an external engine call already admitted can still finish
+if lease loss happens while it is in flight; the generic `MemoryEngine`
+contract does not provide atomic storage fencing.
+
+Native assembly remains within the profile domain families registered at boot.
+Currently that includes memory and threads; selecting another family does not
+enable it. Provider credentials, operator-selected additional native domains
+and scheduled profile turn resolution are separate capabilities; selecting a
+native tool does not start a driver.

@@ -156,7 +156,7 @@ The in-app web chat (RPC namespace `channel`, singular) is a separate domain in 
 
 ## Gotchas
 
-- The default `channels` feature gates provider orchestration and enables the module loader. Serialized config, messages, and controller declarations use the unconditional `tinychannels-bus` contract. Legacy provider traits and runtime helpers remain linked as explicit migration exceptions. The CLI REPL is host-owned orchestration; voice-only podcast email uses the loaded module and does not enable the provider implementation. `WhatsAppWebChannel` additionally needs the `whatsapp-web` feature.
+- The default `channels` feature gates provider orchestration and enables the module loader. Serialized config, messages, and controller declarations use the unconditional `tinychannels-bus` contract. Legacy provider traits and runtime helpers remain linked as explicit migration exceptions. The CLI REPL is host-owned orchestration. `WhatsAppWebChannel` additionally needs the `whatsapp-web` feature.
 - `start_channels` is skipped on cores with no listening integrations, which includes most desktop installs. Anything every core needs (the `ChannelInboundSubscriber`, the web-only proactive subscriber, tool-timeout seeding, self-improvement subscribers, the flows trigger subscriber) is registered in `core/runtime/subscribers.rs`, not in `start_channels`. Put new always-needed wiring there.
 - Several registrations in `start_channels` overlap with `bootstrap_core_runtime` (agent handlers, the agent definition registry). They are written to be idempotent; keep them that way.
 - The channel session token must be captured before the first `await` on config loading. Otherwise a logout during startup leaves a listener running for the old account.

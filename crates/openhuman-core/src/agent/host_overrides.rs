@@ -15,6 +15,8 @@ pub use tinyagents_harness::cancel::CancellationToken;
 /// Runtime or agent host adapters, shared by every context derived from it.
 #[derive(Default)]
 pub struct HostOverrides {
+    /// Immutable operator capabilities for an authenticated hosted profile.
+    pub profile_capabilities: Option<Arc<crate::profiles::capabilities::ProfileCapabilities>>,
     /// Parent runtime adapters; local hook registration never edits this parent.
     pub parent: Option<Arc<HostOverrides>>,
     /// Approval registration barrier owned by this agent instance.
@@ -40,6 +42,17 @@ impl std::fmt::Debug for HostOverrides {
 }
 
 impl HostOverrides {
+    /// Resolve inherited profile adapters without installing process globals.
+    pub fn profile_capabilities(
+        &self,
+    ) -> Option<Arc<crate::profiles::capabilities::ProfileCapabilities>> {
+        self.profile_capabilities.clone().or_else(|| {
+            self.parent
+                .as_ref()
+                .and_then(|parent| parent.profile_capabilities())
+        })
+    }
+
     /// Resolve the instance barrier inherited by derived turn contexts.
     pub fn approval_scope(&self) -> Option<Arc<crate::security::approval::ApprovalScope>> {
         self.approval_scope

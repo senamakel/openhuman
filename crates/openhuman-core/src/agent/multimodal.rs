@@ -158,16 +158,6 @@ impl TextExtractor for DocumentsTextExtractor {
 
 // ── Marker helpers over `TranscriptMessage` ────────────────────────────────────
 
-/// Strip every `[IMAGE:…]` marker and return `(cleaned_text, refs_in_order)`.
-pub fn parse_image_markers(content: &str) -> (String, Vec<String>) {
-    markers::parse_image_markers(content)
-}
-
-/// Strip every `[FILE:…]` marker and return `(cleaned_text, refs_in_order)`.
-pub fn parse_file_markers(content: &str) -> (String, Vec<String>) {
-    markers::parse_file_markers(content)
-}
-
 /// The base64 payload Ollama's `images` array expects, or `None`.
 pub fn extract_ollama_image_payload(image_ref: &str) -> Option<String> {
     markers::extract_ollama_image_payload(image_ref)

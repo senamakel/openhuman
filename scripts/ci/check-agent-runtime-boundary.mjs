@@ -36,6 +36,7 @@ const embedContractExports = new Map(
       "crates/openhuman-embed/src/lib.rs",
       [
         "pub use tinytools::ToolPolicy;",
+        "pub use tinyagents_harness::middleware::{StopDecision, StopHook};",
         "pub use tinyinference_llm::message::MessageDelta;",
         "pub use tinyinference_llm::model::{ChatModel, DeferredHandle, DeferredStatus, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem, ModelStreamMetadata};",
         "pub use tinyinference_llm::{Error, Result};",
@@ -421,6 +422,21 @@ function assertSelfTests() {
   )
     throw new Error(
       "agent-runtime boundary self-test: host tool policy export must stay exact",
+    );
+  const stopExport = [
+    { text: "pub use tinyagents_harness::middleware::{StopDecision, StopHook};" },
+  ];
+  if (
+    !isEmbedContractExport(embedPath, stopExport, 0) ||
+    isEmbedContractExport("crates/openhuman-core/src/lib.rs", stopExport, 0) ||
+    isEmbedContractExport(
+      embedPath,
+      [{ text: "pub use tinyagents_harness::middleware::{StopDecision, StopHook, TurnState};" }],
+      0,
+    )
+  )
+    throw new Error(
+      "agent-runtime boundary self-test: embed stop contracts must stay exact",
     );
   const sdkPath = "crates/openhuman-core/src/agent/tinyagents/budget.rs";
   const sdkStatement =

@@ -19,13 +19,13 @@ use tokio::sync::mpsc::Sender;
 use crate::agent::harness::definition::SandboxMode;
 use crate::agent::harness::fork_context::{AgentContextPreparedSource, ParentExecutionContext};
 use crate::agent::progress::AgentProgress;
-use crate::agent::stop_hooks::StopHook;
 use crate::agent::subagent_host::SubagentUsage;
 use crate::agent::tinyagents::turn_outcome::ToolOutcomeSink;
 use crate::agent::tinyagents::{
     turn_outcome::ToolCallOutcome, turn_policy::ToolPolicyEnforcement, TurnContextMiddleware,
 };
 use crate::agent::turn_origin::AgentTurnOrigin;
+use tinyagents_harness::middleware::StopHook;
 use tinyagents_harness::store::InMemoryStore as ToolResultArtifactIndexStore;
 use tinyinference_llm::model::ResolvedModelRoute;
 
@@ -279,7 +279,7 @@ pub struct OpenHumanRunContext {
     /// UI/event progress receiver for this turn tree.
     pub progress: Option<Sender<AgentProgress>>,
     /// Stop policies evaluated after each model call.
-    pub stop_hooks: Vec<Arc<dyn StopHook>>,
+    pub stop_hooks: Vec<Arc<dyn StopHook<crate::agent::cost::TurnCost>>>,
     /// Wall-clock deadline of the top-level turn this run belongs to, set
     /// only by the session turn entry point from the web backstop
     /// (`agent::turn_deadline`). The harness winds the run down and clamps
@@ -336,6 +336,10 @@ pub struct OpenHumanRunContext {
     /// Exact executable dynamic/delegation tools selected with
     /// [`Self::current_tools`] for this turn.
     pub(crate) current_synthesized_tools: Option<Arc<Vec<Box<dyn tinytools::Tool>>>>,
+    /// Native session declarations recorded before this turn. These names
+    /// explain historical declarations without granting an executable source.
+    pub(crate) recorded_tool_names: Arc<std::collections::HashSet<String>>,
+
     /// Tools the session serves through `tool_search` for this turn although
     /// their own exposure is `Direct` (the agent definition's
     /// `deferred_tools`). Turn assembly registers them as `Deferred`, so the
@@ -414,6 +418,7 @@ impl OpenHumanRunContext {
             tool_policy: None,
             current_tools: None,
             current_synthesized_tools: None,
+            recorded_tool_names: Arc::new(std::collections::HashSet::new()),
             deferred_tool_names: Arc::new(std::collections::HashSet::new()),
             tool_rules: None,
             context_middleware: None,

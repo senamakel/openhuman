@@ -345,21 +345,6 @@ pub fn all_tools_with_runtime(
             security.clone(),
             action_dir.to_path_buf(),
         )),
-        // Audio-toolkit podcast tools — gated with the `voice` feature (they
-        // live in the `audio_toolkit` domain, which is compiled out when voice
-        // is disabled).
-        #[cfg(feature = "voice")]
-        Box::new(AudioGeneratePodcastTool::new(
-            config.clone(),
-            security.clone(),
-        )),
-        #[cfg(feature = "voice")]
-        Box::new(AudioEmailPodcastTool::new(config.clone(), security.clone())),
-        #[cfg(feature = "voice")]
-        Box::new(AudioGenerateAndEmailPodcastTool::new(
-            config.clone(),
-            security.clone(),
-        )),
         Box::new(GmailUnsubscribeTool),
         // Skills metadata tools. `skill_run` is already exposed by RunSkillTool
         // above, so it is not duplicated. Reads ship default-ON; the

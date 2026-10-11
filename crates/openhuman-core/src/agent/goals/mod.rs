@@ -4,7 +4,7 @@
 //! graph continuation, and native harness tools. This module contains the
 //! remaining OpenHuman-specific adapters: workspace-store resolution, domain
 //! events, and bridges for
-//! OpenHuman's `Tool` and `StopHook` traits.
+//! the shared tool contract and TinyAgents' stop-hook contract.
 
 pub mod runtime;
 pub mod store;

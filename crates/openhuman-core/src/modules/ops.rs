@@ -429,8 +429,7 @@ pub(super) fn load_local(
 /// for embedding and chat compute; the other modules need no host config.
 fn module_config(config: &Config, id: &str) -> serde_json::Value {
     if id == super::search::MODULE_ID {
-        return serde_json::to_value(super::search::module_config(config))
-            .expect("TinySearch config serializes");
+        return super::search::load_configuration(config);
     }
     if id == super::desktop::MODULE_ID {
         return super::desktop::module_config(config);

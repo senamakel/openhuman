@@ -490,6 +490,20 @@ pub fn model_accepts_image_input(model_id: &str) -> bool {
     VISION_INPUT_MODELS.contains(&normalized.as_str()) || VISION_INPUT_MODELS.contains(&bare)
 }
 
+/// Supply the product's flat list prices through the harness-owned pricing type.
+pub fn tinyagents_pricing(price: &ModelPrice) -> tinyagents_harness::cost::ModelPricing {
+    tinyagents_harness::cost::ModelPricing {
+        input_per_token: per_token(price.input_per_mtok_usd),
+        output_per_token: per_token(price.output_per_mtok_usd),
+        cache_read_input_per_token: per_token(price.cached_input_per_mtok_usd),
+        cache_creation_input_per_token: None,
+        input_audio_per_token: None,
+        output_reasoning_per_token: None,
+        // The local price table is flat; context-size tiers are not modeled.
+        tiers: Vec::new(),
+    }
+}
+
 /// Project one OpenHuman catalog row into a TinyAgents model-catalog entry.
 ///
 /// This is intentionally a pricing/window projection only. OpenHuman still
@@ -506,16 +520,7 @@ pub fn tinyagents_catalog_entry(price: &ModelPrice) -> tinyagents_registry::Mode
         max_output_tokens: None,
         deprecation_date: None,
         release_date: None,
-        pricing: tinyagents_harness::cost::ModelPricing {
-            input_per_token: per_token(price.input_per_mtok_usd),
-            output_per_token: per_token(price.output_per_mtok_usd),
-            cache_read_input_per_token: per_token(price.cached_input_per_mtok_usd),
-            cache_creation_input_per_token: None,
-            input_audio_per_token: None,
-            output_reasoning_per_token: None,
-            // The local price table is flat; context-size tiers are not modeled.
-            tiers: Vec::new(),
-        },
+        pricing: tinyagents_pricing(price),
         capabilities: tinyagents_registry::ModelCapabilities {
             prompt_caching: price.cached_input_per_mtok_usd > 0.0,
             vision: model_accepts_image_input(price.model_id),

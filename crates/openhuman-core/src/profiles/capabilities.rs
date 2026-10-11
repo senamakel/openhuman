@@ -1,0 +1,214 @@
+//! Immutable operator-selected tool and memory adapters for hosted profiles.
+//!
+//! Registration is narrowed before the session receives its registry. Every
+//! call additionally passes the profile lease fence and the host permission
+//! callback. These adapters never install process-wide user capabilities.
+
+use crate::agent::hooks::{ToolHook, ToolHookContext, ToolHookDecision};
+use crate::agent::{HostTools, HostTurnTools, TurnContext};
+use crate::config::Config;
+use crate::core::runtime::{ContextOverlay, CoreContext};
+use crate::tools::toolpacks::{GroupMode, ToolGroups};
+use std::collections::{HashMap, HashSet};
+use std::sync::Arc;
+use tinytools::PermissionLevel;
+
+/// Capabilities fixed when the profile runtime boots.
+pub struct ProfileCapabilities {
+    host: Option<HostTools>,
+    names: Option<HashSet<String>>,
+    permission: Option<Arc<dyn ToolHook>>,
+    channels: HashMap<String, PermissionLevel>,
+    groups: Vec<super::tools::SaasToolGroup>,
+    /// The shared engine, resolved only under the forced profile memory root.
+    pub memory_engine: Option<Arc<dyn tinymemory_api::MemoryEngine>>,
+}
+
+impl ProfileCapabilities {
+    /// Construct immutable adapters. `None` names select only supplied host tools.
+    pub fn new(
+        host: Option<HostTools>,
+        names: Option<HashSet<String>>,
+        permission: Option<Arc<dyn ToolHook>>,
+        channels: HashMap<String, PermissionLevel>,
+        groups: Vec<super::tools::SaasToolGroup>,
+        memory_engine: Option<Arc<dyn tinymemory_api::MemoryEngine>>,
+    ) -> Self {
+        Self {
+            host,
+            names,
+            permission,
+            channels,
+            groups,
+            memory_engine,
+        }
+    }
+
+    /// Capabilities of the ambient authenticated profile, never the operator.
+    pub fn current() -> Option<Arc<Self>> {
+        let ctx = CoreContext::scoped()?;
+        ctx.profile()?;
+        ctx.host_overrides()?.profile_capabilities()
+    }
+
+    /// Permission ceiling explicitly granted to this hosted channel.
+    pub fn channel_permission(&self, channel: &str) -> PermissionLevel {
+        self.channels.get(channel).copied().unwrap_or_default()
+    }
+
+    /// Overlay the operator's explicit ceilings; unknown channels stay read-only.
+    pub fn configure(&self, config: &mut Config) {
+        config.agent.channel_permissions.extend(
+            self.channels
+                .iter()
+                .map(|(name, level)| (name.clone(), level.to_string().to_lowercase())),
+        );
+    }
+
+    /// Whether a selected name may reach the host permission decision.
+    pub fn admits(&self, name: &str) -> bool {
+        super::tools::admits_with(name, true, &self.groups)
+            && !matches!(
+                crate::tools::ops::tool_group(name),
+                crate::core::all::DomainGroup::Skills
+                    | crate::core::all::DomainGroup::Flows
+                    | crate::core::all::DomainGroup::Mcp
+            )
+            && !matches!(
+                name,
+                "http_request" | "spawn_agent" | "spawn_async_subagent" | "use_skill"
+            )
+            && !name.starts_with("delegate_")
+            && !name.starts_with("mcp_")
+            && !crate::tools::toolpacks::pack_for_tool(name)
+                .is_some_and(|pack| pack.id == "workflows")
+            && self.names.as_ref().is_none_or(|names| names.contains(name))
+    }
+
+    /// An explicitly named operation can pass the supervised gate only with a host callback.
+    pub fn authorizes_approval(&self, name: &str) -> bool {
+        self.permission.is_some()
+            && self
+                .names
+                .as_ref()
+                .is_some_and(|names| names.contains(name))
+            && self.admits(name)
+    }
+
+    /// Build the exact selected belt for this profile and session.
+    pub fn turn_tools(&self, config: &Config, turn: TurnContext<'_>) -> HostTurnTools {
+        let mut supplied = self
+            .host
+            .as_ref()
+            .map(|host| host(turn))
+            .unwrap_or_default();
+        supplied.tools.retain(|tool| self.admits(tool.name()));
+        if let Some(names) = &self.names {
+            let mut groups = ToolGroups::none();
+            for name in names.iter().filter(|name| self.admits(name)) {
+                if let Some(pack) = crate::tools::toolpacks::pack_for_tool(name) {
+                    groups = groups.with(pack.id, GroupMode::Advertised);
+                }
+            }
+            if let Some(ctx) = CoreContext::scoped() {
+                // Native construction stays inside the domains registered for this
+                // profile. The named packs narrow registration within those domains.
+                let assembly =
+                    ctx.derive_with(ContextOverlay::new(config.clone(), ctx.domains(), groups));
+                let security = Arc::new(crate::security::SecurityPolicy::from_config(
+                    &config.autonomy,
+                    &config.workspace_dir,
+                    &config.action_dir,
+                ));
+                let native = CoreContext::sync_scope(assembly, || {
+                    crate::tools::ops::all_tools(
+                        Arc::new(config.clone()),
+                        &security,
+                        crate::security::AuditLogger::disabled(),
+                        &config.browser,
+                        &config.http_request,
+                        &config.action_dir,
+                        &config.agents,
+                        config,
+                    )
+                });
+                let supplied_names: HashSet<_> = supplied
+                    .tools
+                    .iter()
+                    .map(|t| t.name().to_string())
+                    .collect();
+                supplied.tools.extend(native.into_iter().filter(|tool| {
+                    self.admits(tool.name()) && !supplied_names.contains(tool.name())
+                }));
+            }
+        }
+        // Metadata from the host cannot widen registration or hide a registered
+        // tool from the catalogue: the selected belt is advertised exactly.
+        supplied.visible = supplied
+            .tools
+            .iter()
+            .map(|tool| tool.name().to_string())
+            .collect();
+        supplied.permanent.clear();
+        supplied.withheld.clear();
+        supplied
+    }
+
+    /// A factory retaining these immutable adapters and this forced config.
+    pub fn factory(self: &Arc<Self>, config: &Config) -> HostTools {
+        let capabilities = Arc::clone(self);
+        let config = config.clone();
+        Arc::new(move |turn| capabilities.turn_tools(&config, turn))
+    }
+
+    /// Bind the permission callback to the owning profile's lease.
+    pub fn hook(
+        self: &Arc<Self>,
+        profile: &super::ProfileId,
+        fence: Arc<crate::storage::fence::LeaseFence>,
+    ) -> Arc<dyn ToolHook> {
+        Arc::new(ProfilePermission {
+            capabilities: Arc::clone(self),
+            profile: profile.as_str().to_owned(),
+            fence,
+        })
+    }
+}
+
+struct ProfilePermission {
+    capabilities: Arc<ProfileCapabilities>,
+    profile: String,
+    fence: Arc<crate::storage::fence::LeaseFence>,
+}
+
+#[async_trait::async_trait]
+impl ToolHook for ProfilePermission {
+    fn name(&self) -> &str {
+        "profile.can_use_tool"
+    }
+    async fn before_tool(&self, _: &ToolHookContext) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn after_tool(&self, _: &ToolHookContext) -> anyhow::Result<()> {
+        Ok(())
+    }
+    async fn before_tool_decision(&self, context: &ToolHookContext) -> ToolHookDecision {
+        let tenant = crate::core::runtime::current_tenant()
+            .ok()
+            .and_then(|tenant| tenant.profile);
+        if tenant.as_deref() != Some(self.profile.as_str())
+            || self.fence.check_local(super::lease::now_ms()).is_err()
+            || !self.capabilities.admits(&context.tool_name)
+        {
+            return ToolHookDecision::Deny(
+                "tool is outside the hosted profile capability boundary".into(),
+            );
+        }
+        match &self.capabilities.permission {
+            Some(permission) => permission.before_tool_decision(context).await,
+            None => {
+                ToolHookDecision::Deny("this profile has no host tool permission callback".into())
+            }
+        }
+    }
+}

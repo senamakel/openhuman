@@ -61,6 +61,7 @@ use openhuman_core::profiles::ProfileHost;
 use crate::error::CoreError;
 
 mod handle;
+mod host;
 
 pub use handle::{ChatReply, ProfileEvents, ProfileHandle, RelayAccepted};
 pub use openhuman_core::channels::providers::relay::RelayInboundParams as RelayMessage;
@@ -118,6 +119,7 @@ pub enum ProfileError {
 pub struct ProfileRuntimeBuilder {
     config: SaasConfig,
     session_store: Option<Arc<dyn SessionStoreProvider>>,
+    host_options: host::ProfileHostOptions,
 }
 
 impl ProfileRuntimeBuilder {
@@ -126,6 +128,7 @@ impl ProfileRuntimeBuilder {
         Self {
             config,
             session_store: None,
+            host_options: Default::default(),
         }
     }
 
@@ -153,7 +156,9 @@ impl ProfileRuntimeBuilder {
         let Self {
             config,
             session_store,
+            host_options,
         } = self;
+        let capabilities = host_options.finish(&config)?;
         ensure_service_token(&config.service_token_path())?;
         if let Some(url) = config.resolved_storage_url() {
             if openhuman_core::storage::installed().is_none() {
@@ -173,7 +178,14 @@ impl ProfileRuntimeBuilder {
             None
         };
 
-        let core = match openhuman_core::core::runtime::saas::build(config, None, None).await {
+        let core = match openhuman_core::core::runtime::saas::build_with_profile_capabilities(
+            config,
+            None,
+            None,
+            Some(capabilities),
+        )
+        .await
+        {
             Ok(core) => core,
             Err(e) => {
                 // Boot failed; restore the previous session store if we installed one.

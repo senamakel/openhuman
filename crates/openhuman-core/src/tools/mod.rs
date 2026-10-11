@@ -55,8 +55,6 @@ pub use crate::skills::runtime::tools::*;
 pub use crate::skills::search::SkillSearchTool;
 #[cfg(feature = "skills")]
 pub use crate::skills::tools::*;
-#[cfg(feature = "voice")]
-pub use crate::voice::audio_toolkit::tools::*;
 #[cfg(feature = "web3")]
 pub use crate::web3::wallet::tools::*;
 pub use implementations::*;

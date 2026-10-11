@@ -24,6 +24,7 @@
 //! [`CoreContext`]: crate::core::runtime::CoreContext
 
 pub mod background;
+pub mod capabilities;
 pub mod credentials;
 pub mod fence;
 pub mod gateway;

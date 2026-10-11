@@ -314,7 +314,6 @@ const REPRESENTATIVE: &[(&str, crate::core::all::DomainGroup)] = {
         ("mcp_list_servers", G::Mcp),
         ("wallet_get_address", G::Web3),
         ("media_generate_image", G::Media),
-        ("audio_generate_podcast", G::Voice),
         ("create_workflow", G::Flows),
         ("run_workflow", G::Skills),
         ("cron_add", G::Automation),
@@ -341,6 +340,8 @@ const TOOL_LESS: &[crate::core::all::DomainGroup] = {
         G::Security,
         G::Modules,
         G::Channels,
+        // Voice retains RPC and dictation capabilities, but owns no agent tools.
+        G::Voice,
         G::Hosted,
         G::Operator,
         // Reserved domain after managed runtime tools were removed.

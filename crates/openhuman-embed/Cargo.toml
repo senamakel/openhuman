@@ -67,6 +67,7 @@ tinymcp-bus = { path = "../../vendor/tinymcp/crates/tinymcp-bus" }
 # The session store port (`SessionStoreProvider`) a host implements to keep
 # conversations in its own database, and the in-memory provider; same path as
 # the core's so one copy resolves.
+tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", default-features = false }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
 # The wire request/response types `complete` converts to; same path as the
 # core's so one copy resolves.
@@ -123,6 +124,11 @@ required-features = ["storage-sqlite"]
 # SaaS profiles are exposed only when the channel facade is compiled.
 [[test]]
 name = "saas_profiles"
+required-features = ["channels"]
+
+# Host capability regression exercises the authenticated profile facade.
+[[test]]
+name = "profile_host_capabilities"
 required-features = ["channels"]
 
 [[example]]

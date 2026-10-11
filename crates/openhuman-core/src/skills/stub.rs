@@ -103,5 +103,5 @@ pub mod bus {
 
 // NOTE: no `tools` module here. The `pub use skills::tools::*` glob in
 // `tools/mod.rs` is `#[cfg(feature = "skills")]` instead — mirroring the
-// `voice` gate's handling of the `audio_toolkit::tools::*` glob. An empty stub
+// feature-specific domain globs. An empty stub
 // module would re-export nothing and trip `unused_imports` at the glob site.

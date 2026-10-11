@@ -53,6 +53,24 @@ pub(crate) fn bound_agent_id<'a>(config: &'a Config, channel: &str) -> Option<&'
 
 /// Resolve `channel`'s binding against the installed host agents.
 pub(crate) fn route(ctx: &ChannelRuntimeContext, channel: &str) -> HostRoute {
+    if let Some(capabilities) = crate::profiles::capabilities::ProfileCapabilities::current() {
+        if let (Some(context), Some(config), Some(definitions)) = (
+            crate::core::runtime::CoreContext::scoped(),
+            ctx.config.as_ref(),
+            crate::agent::harness::definition::AgentDefinitionRegistry::current(),
+        ) {
+            if let Some(definition) = definitions.get("orchestrator") {
+                return HostRoute::Agent(Box::new(HostAgent {
+                    definition: definition.clone(),
+                    config: config.as_ref().clone(),
+                    host_tools: Some(capabilities.factory(config)),
+                    context,
+                    hooks: Default::default(),
+                }));
+            }
+        }
+        return HostRoute::Missing("profile agent".into());
+    }
     let Some(agent_id) = ctx
         .config
         .as_deref()

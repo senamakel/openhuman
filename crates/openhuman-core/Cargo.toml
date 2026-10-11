@@ -259,8 +259,8 @@ tinychannels-runtime = { version = "0.1", path = "../../vendor/tinychannels/crat
 # The provider stack that IMPLEMENTS that vocabulary — Telegram, Discord,
 # Slack, IMAP, WhatsApp, the relay transport loop. Optional: it owns the
 # `reqwest` / `rusqlite` / `rustls` / `tokio-tungstenite` cohort, which a
-# workflow-only build has no use for. Enabled by `channels`; voice-only podcast
-# email executes through the separately loaded TinyChannels module.
+# workflow-only build has no use for. Enabled by `channels`; the loaded
+# TinyChannels module handles provider execution.
 tinychannels = { version = "0.1", features = ["relay-websocket"], optional = true }
 # tinybus — the message bus. Owns what `crates/openhuman-core/src/core/event_bus/` used to: the typed
 # pub/sub surface (`EventBus`, `EventHandler`, `SubscriptionHandle`), the
@@ -394,7 +394,6 @@ walkdir = "2"
 hostname = "0.4.2"
 rustls = { version = "0.23", default-features = false, features = ["ring"] }
 sysinfo = { version = "0.33", default-features = false, features = ["system"] }
-lettre = { version = "0.11.22", default-features = false, features = ["builder"], optional = true }
 # HTTP server framework for the domain-owned routes (`/v1`, dictation, the MCP
 # HTTP transport). Exclusive to the default-ON `http-server`
 # feature (#5048); the JSON-RPC server that mounts them lives in
@@ -636,7 +635,7 @@ storage-file = []
 # keeping them on means `cargo check` and rust-analyzer still typecheck nearly
 # all of the tree. The gates turned OFF are the ones that carry the graph —
 # web3's ethers/secp256k1 cohort, the
-# `voice`+`inference` cpal/lettre/arboard/enigo/rdev stack and
+# `voice`+`inference` cpal/arboard/enigo/rdev stack and
 # `crash-reporting`'s sentry tree. The terminal-specific
 # ratatui/crossterm cohort lives in the separate `openhuman-tui` package.
 # Turning the core gates off takes a
@@ -733,13 +732,11 @@ tinymemes = ["dep:tinymemes"]
 # tinybus never unloads one. See `crates/openhuman-core/src/modules/` before adding an entry
 # to the registry.
 modules = ["tinybus/modules", "dep:tinybox-bus"]
-# Voice + audio_toolkit domains: STT/TTS providers, the standalone dictation
-# server, always-on listening, and podcast audio generation/email delivery.
-# Default-ON — the desktop app always ships with voice. Slim / headless builds
-# opt out via `--no-default-features --features "<explicit list without voice>"`,
-# which also drops the exclusive `lettre` (podcast email) dependency. `hound`
-# used to be on that list; WAV framing moved to the `tinyvoice` module, so the
-# crate left this graph entirely rather than merely being gated. Composes with the runtime `DomainSet::voice` flag (#4796): the
+# Voice domain: STT/TTS providers, the standalone dictation
+# server, and always-on listening.
+# The desktop product enables voice explicitly; contributor defaults leave it
+# off. WAV framing moved to the `tinyvoice` module, removing the former `hound`
+# dependency. Composes with the runtime `DomainSet::voice` flag (#4796): the
 # feature narrows the compile-time surface, `DomainSet` gates it at runtime.
 # Requires `inference` (the microphone-permission probe), so enabling `voice` turns
 # `inference` on transitively.
@@ -756,9 +753,6 @@ voice = [
     # The member names and payload types the module answers with. Contract
     # only — `serde` and nothing else.
     "dep:tinyvoice-bus",
-    "dep:lettre",
-    # Podcast SMTP delivery uses the loadable Channels module. The always-on
-    # bus dependency provides its upload vocabulary without linking providers.
     # `voice::live`: live voice agent sessions over tinyagents-live.
     "dep:tinyagents-live",
 ]
@@ -822,8 +816,8 @@ flows = ["modules", "dep:tinyflows", "dep:tinyflows-catalog", "dep:tinyflows-cop
 # Composes with the runtime `DomainSet::skills` flag (#4796): the feature
 # narrows the compile-time surface, `DomainSet` gates it at runtime.
 #
-# The dep list is INTENTIONALLY EMPTY — do not "fix" it. Unlike `voice`
-# (`hound`/`lettre`), these domains have no exclusive dependencies: every crate
+# The dep list is INTENTIONALLY EMPTY — do not "fix" it. Unlike `voice`,
+# these domains have no exclusive dependencies: every crate
 # they touch (serde, serde_json, tokio, anyhow, async-trait, …) is shared with
 # always-on domains. This gate's value is tool-surface + prompt-bloat +
 # startup cost, NOT binary size.

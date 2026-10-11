@@ -301,9 +301,22 @@ impl DomainSet {
 /// Boot a SaaS core: check the deployment, lock the process to SaaS, and
 /// build the operator plane.
 pub async fn build(
+    config: SaasConfig,
+    host: Option<String>,
+    port: Option<u16>,
+) -> anyhow::Result<CoreRuntime> {
+    build_with_profile_capabilities(config, host, port, None).await
+}
+
+/// Boot with immutable operator adapters for authenticated profile turns.
+///
+/// # Errors
+/// As [`build`].
+pub async fn build_with_profile_capabilities(
     mut config: SaasConfig,
     host: Option<String>,
     port: Option<u16>,
+    capabilities: Option<Arc<crate::profiles::capabilities::ProfileCapabilities>>,
 ) -> anyhow::Result<CoreRuntime> {
     if CoreContext::current().is_some() {
         anyhow::bail!(
@@ -409,7 +422,8 @@ pub async fn build(
     }
     let host = Arc::new(
         crate::profiles::ProfileHost::with_backend(config, runtime.context().clone(), backend)
-            .map_err(|e| anyhow::anyhow!("[saas] {e}"))?,
+            .map_err(|e| anyhow::anyhow!("[saas] {e}"))?
+            .with_capabilities(capabilities),
     );
     crate::profiles::host::install(Arc::clone(&host));
     crate::profiles::lease::heartbeat(Arc::clone(&host), runtime.context().clone());

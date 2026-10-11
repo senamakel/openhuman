@@ -1,8 +1,7 @@
 //! Channel contracts and OpenHuman runtime orchestration.
 //!
 //! Provider orchestration is gated by `channels`. Serialized configuration,
-//! messages, and schemas come from `tinychannels-bus`. Podcast email delivery
-//! calls the loaded module even in a voice-only build.
+//! messages, and schemas come from `tinychannels-bus`.
 //!
 //! The local REPL is host orchestration. The legacy provider trait remains an
 //! explicit implementation exception during the runtime migration to TinyBus.

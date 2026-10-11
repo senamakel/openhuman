@@ -59,7 +59,9 @@ pub(super) fn assemble_turn_harness(
     context_window: Option<u64>,
     early_exit_tools: &[&str],
     context_mw: TurnContextMiddleware,
-    stop_hooks: Vec<Arc<dyn crate::agent::stop_hooks::StopHook>>,
+    stop_hooks: Vec<
+        Arc<dyn tinyagents_harness::middleware::StopHook<crate::agent::cost::TurnCost>>,
+    >,
     tool_policy: Option<ToolPolicyEnforcement>,
     required_capabilities: Option<CapabilitySet>,
     deterministic_cacheable: bool,
@@ -324,7 +326,6 @@ pub(super) fn assemble_turn_harness(
         &mut harness,
         handle.as_ref(),
         model,
-        max_iterations,
         stop_hooks,
         halt_summary.clone(),
     );

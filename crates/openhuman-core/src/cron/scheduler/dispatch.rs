@@ -73,6 +73,12 @@ impl JobDispatcher {
             if get_policy(config, &job.id).is_err() {
                 continue;
             }
+            // Operator limits (`cron::limits`) also bind rows stored before
+            // they were switched on.
+            if let Err(error) = crate::cron::limits::check_run(config, &job) {
+                tracing::warn!(job_id = %job.id, %error, "[cron:dispatch] job refused by operator limits");
+                continue;
+            }
             claim_slot(config, &job);
             let config = config.clone();
             let security = Arc::clone(security);

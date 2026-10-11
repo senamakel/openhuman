@@ -221,3 +221,17 @@ fn the_pre_rename_max_agents_open_key_still_sets_the_limit() {
     std::fs::write(&path, "root = \"/srv/openhuman\"\nmax_agents_open = 7\n").unwrap();
     assert_eq!(SaasConfig::load(&path).unwrap().max_profiles_open, 7);
 }
+
+#[test]
+fn reads_the_operators_cron_limits() {
+    let tmp = tempfile::tempdir().unwrap();
+    let path = tmp.path().join("operator.toml");
+    std::fs::write(
+        &path,
+        "root = \"/srv/oh\"\n[cron]\nagent_jobs_only = true\nmax_active_jobs = 5\n",
+    )
+    .unwrap();
+    let cron = SaasConfig::load(&path).unwrap().cron;
+    assert!(cron.agent_jobs_only);
+    assert_eq!((cron.min_interval_secs, cron.max_active_jobs), (300, 5));
+}

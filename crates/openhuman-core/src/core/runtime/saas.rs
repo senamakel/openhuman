@@ -97,6 +97,45 @@ pub struct SaasConfig {
     /// nodes sharing one root each set their own.
     #[serde(default)]
     pub operator_dir: Option<PathBuf>,
+    /// Cron limits forced onto every profile; a user's own config cannot
+    /// loosen them.
+    #[serde(default)]
+    pub cron: SaasCronConfig,
+}
+
+/// `[cron]`: the operator's cron limits for hosted profiles (see
+/// [`crate::cron::limits`]).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct SaasCronConfig {
+    /// Allow only agent jobs bound to the conversation that created them:
+    /// no shell or flow jobs, no chosen delivery destination.
+    #[serde(default)]
+    pub agent_jobs_only: bool,
+    /// With `agent_jobs_only`: seconds between runs of a recurring job, at least.
+    #[serde(default = "default_cron_min_interval_secs")]
+    pub min_interval_secs: u64,
+    /// With `agent_jobs_only`: most enabled jobs one profile may hold.
+    #[serde(default = "default_cron_max_active_jobs")]
+    pub max_active_jobs: u32,
+}
+
+impl Default for SaasCronConfig {
+    fn default() -> Self {
+        Self {
+            agent_jobs_only: false,
+            min_interval_secs: default_cron_min_interval_secs(),
+            max_active_jobs: default_cron_max_active_jobs(),
+        }
+    }
+}
+
+fn default_cron_min_interval_secs() -> u64 {
+    300
+}
+
+fn default_cron_max_active_jobs() -> u32 {
+    20
 }
 
 /// `[sandbox]`: the one-shot container a user's shell command runs in. The
@@ -184,6 +223,7 @@ impl SaasConfig {
             advertise_url: None,
             lease_ttl_secs: default_lease_ttl_secs(),
             operator_dir: None,
+            cron: SaasCronConfig::default(),
         }
     }
 

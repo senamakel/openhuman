@@ -171,6 +171,9 @@ pub fn create_agent_job(
     input: AgentJobInput,
     origin: Option<JobOrigin>,
 ) -> Result<CronJob, String> {
+    if cron::limits::enforced(config) && origin.is_none() {
+        return Err("cron jobs can only be created from a conversation".to_string());
+    }
     let session_target = input.session_target.unwrap_or(if origin.is_some() {
         SessionTarget::Current
     } else {

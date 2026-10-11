@@ -50,6 +50,9 @@ pub(super) async fn execute_job_with_retry_for_run(
     let mut last_agent_error: Option<String> = None;
     // A per-job override (`cron::policy`) wins; `Some(0)` is one attempt. An
     // unreadable policy refuses the run (and any later attempt) outright.
+    if let Err(error) = crate::cron::limits::check_run(config, job) {
+        return (false, error.to_string());
+    }
     let policy = match crate::cron::policy::get_policy(config, &job.id) {
         Ok(policy) => policy,
         Err(error) => return (false, error.to_string()),

@@ -405,6 +405,19 @@ cargo test -p openhuman cron::
 pnpm debug rust cron
 ```
 
+## Agent-only limits (`limits.rs`)
+
+`[cron] agent_jobs_only = true` is an operator-owned mode for hosted
+profiles (`SaasConfig::cron` forces it, with `min_interval_secs` = 300 and
+`max_active_jobs` = 20, onto every profile; a profile's own config cannot
+loosen it). It refuses shell and flow jobs, restricts delivery to `origin` and
+`none`, requires a job to be created from a conversation (the origin is read
+from the live turn, never from tool arguments), keeps recurring jobs
+`min_interval_secs` apart and caps enabled jobs at `max_active_jobs`, counted
+in the store. Checks run in `store.rs` when a job is added or updated, and
+again where it runs (scheduler dispatch, Run Now, the run tool), so rows stored
+earlier are refused too.
+
 ## Further reading
 
 - [Parent module README](../../README.md)

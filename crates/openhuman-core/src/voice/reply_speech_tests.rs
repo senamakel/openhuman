@@ -1,3 +1,4 @@
+use super::*;
 #[test]
 fn tts_unauthorized_flattens_to_session_expiry_not_hard_error() {
     // TAURI-RUST-8X1: a lapsed-session 401 on the TTS endpoint
@@ -13,12 +14,10 @@ fn tts_unauthorized_flattens_to_session_expiry_not_hard_error() {
     // classifier: build the typed error → flatten → classify. If either the
     // sentinel mapping or the classifier drifts, this fails instead of
     // silently re-leaking the TTS 401.
-    let flat = crate::backend::flatten_authed_error(anyhow::Error::new(
-        crate::backend::BackendApiError::Unauthorized {
-            method: "POST".to_string(),
-            path: "/openai/v1/audio/speech".to_string(),
-        },
-    ));
+    let flat = cloud_voice_provider::product_error(tinyvoice_bus::provider::ProviderError {
+        kind: tinyvoice_bus::provider::ProviderErrorKind::SessionExpired,
+        message: "backend rejected session token on POST /openai/v1/audio/speech".into(),
+    });
 
     assert!(
         flat.contains("SESSION_EXPIRED"),
@@ -39,9 +38,10 @@ fn tts_unauthorized_flattens_to_session_expiry_not_hard_error() {
 fn tts_non_auth_error_is_not_demoted_to_session_expiry() {
     // A genuine TTS failure (timeout, 5xx, …) must keep its full anyhow chain
     // and NOT be demoted — real backend/TTS breakage must still reach Sentry.
-    let flat = crate::backend::flatten_authed_error(
-        anyhow::anyhow!("connect timeout").context("backend request POST /openai/v1/audio/speech"),
-    );
+    let flat = cloud_voice_provider::product_error(tinyvoice_bus::provider::ProviderError {
+        kind: tinyvoice_bus::provider::ProviderErrorKind::Transport,
+        message: "backend request POST /openai/v1/audio/speech: connect timeout".into(),
+    });
 
     assert!(
         !flat.contains("SESSION_EXPIRED"),

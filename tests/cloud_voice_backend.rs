@@ -14,7 +14,7 @@ use openhuman_core::voice::{
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
-fn config(root: &std::path::Path, endpoint: &str) -> Config {
+fn voice_config(root: &std::path::Path, endpoint: &str) -> Config {
     Config {
         workspace_dir: root.join("workspace"),
         action_dir: root.join("action"),
@@ -40,7 +40,7 @@ async fn cloud_calls_use_current_credentials_and_preserve_multipart_and_session_
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"success":true,"data":{"signedUrl":"wss://voice.invalid/session","agentId":"agent","userToken":"user-binding"}})))
         .mount(&server).await;
     let root = tempfile::tempdir().unwrap();
-    let config = config(root.path(), &server.uri());
+    let config = voice_config(root.path(), &server.uri());
     api_key::store_api_key(&config, "first-api-key").unwrap();
     let options = CloudTranscribeOptions {
         language: Some("fr".into()),
@@ -112,7 +112,7 @@ async fn cloud_authentication_errors_remain_classified_without_credential_echoes
         .mount(&server)
         .await;
     let root = tempfile::tempdir().unwrap();
-    let config = config(root.path(), &server.uri());
+    let config = voice_config(root.path(), &server.uri());
     AuthService::from_config(&config)
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -148,7 +148,7 @@ async fn cloud_transcription_bounds_responses_and_refuses_unsafe_or_offline_cred
         .mount(&server)
         .await;
     let root = tempfile::tempdir().unwrap();
-    let mut config = config(root.path(), &server.uri());
+    let mut config = voice_config(root.path(), &server.uri());
     api_key::store_api_key(&config, "test-api-key").unwrap();
     assert!(transcribe_cloud(&config, "AQID", &Default::default())
         .await
@@ -160,7 +160,7 @@ async fn cloud_transcription_bounds_responses_and_refuses_unsafe_or_offline_cred
         .unwrap_err()
         .contains("refusing to send"));
     let offline = tempfile::tempdir().unwrap();
-    let config = config(offline.path(), &server.uri());
+    let config = voice_config(offline.path(), &server.uri());
     AuthService::from_config(&config)
         .store_provider_token(
             APP_SESSION_PROVIDER,

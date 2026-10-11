@@ -325,8 +325,7 @@ count, rolling recent-transcript buffer) behind a `OnceCell` singleton.
 
 ## Boundaries
 
-- `tinyinference-voice` (in `vendor/tinyagents/vendor/tinyinference`) owns hosted
-  STT transport, Piper execution, cleanup and streaming PCM mechanics, and the
+- `tinyinference-voice` (in `vendor/tinyagents/vendor/tinyinference`) owns Piper execution, cleanup and streaming PCM mechanics, and the
   reply-speech response types. `crate::inference` supplies the local runtime
   config and provider policy.
 - The `tinyvoice` native module (`vendor/tinyvoice`, reached through
@@ -348,10 +347,12 @@ count, rolling recent-transcript buffer) behind a `OnceCell` singleton.
   `/ws/live-voice` (bearer header or `?token=`, plus the origin allowlist) and
   forwards the broadcast channels over Socket.IO. Do not add auth checks inside
   the handlers here.
-- Backend credentials come from
-  `security::credentials::session_support::resolve_backend_credential` (session
-  JWT or TinyHumans API key) and backend URLs from `BackendClient`. The core
-  does not hold hosted URLs itself.
+- Cloud STT, reply speech and hosted realtime bootstrap dispatch through the
+  minimal `tinyvoice-bus::provider` contract. The installed TinyHumans provider
+  resolves current credentials and owns backend URLs and SDK HTTP calls. The
+  voice domain keeps provider selection, local fallbacks, RPC outcomes and
+  established response normalization; native voice operations use the compiled
+  TinyVoice module.
 - Config shape lives under `config/schema/` (`voice_server.rs`,
   `voice_providers.rs`); migrations live in `config/migrations/`.
 

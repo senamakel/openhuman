@@ -460,3 +460,21 @@ Currently that includes memory and threads; selecting another family does not
 enable it. Provider credentials, operator-selected additional native domains
 and scheduled profile turn resolution are separate capabilities; selecting a
 native tool does not start a driver.
+
+## Scheduled jobs (`cron.rs`)
+
+A hosted profile has no scheduler of its own. When a host installs a
+`cron::host_delivery::CronDelivery` (`ProfileRuntimeBuilder::cron_delivery` in
+the embed crate), the background tick calls `cron::sweep` once a minute: for
+every provisioned profile it reads the due agent jobs straight from the shared
+storage backend (a closed profile is seen without being opened), opens the
+profile, claims each `(job, scheduled time)` occurrence in the store
+(`cron::claims`, an absent-only write with a lease, so two nodes never both run
+it) and runs the claimed jobs under that profile's context with the ordinary
+dispatcher. An `origin`-mode reply goes to the host with the profile id, the
+thread the job was created in and its `JobOrigin`; `NO_REPLY` is never
+delivered. Shell and flow jobs are not run. Without a shared backend there is
+nothing to sweep.
+
+On shutdown a sweep in flight is not awaited: its claims lapse after ten
+minutes and another node may then run the interrupted occurrence again.

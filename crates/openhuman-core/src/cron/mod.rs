@@ -11,7 +11,9 @@ pub mod scheduler_gate;
 
 pub mod bus;
 pub mod channel_bridge;
+pub mod claims;
 pub mod completion_owner;
+pub mod host_delivery;
 pub mod job_builder;
 pub mod limits;
 pub mod ops;

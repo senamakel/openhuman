@@ -67,6 +67,9 @@ pub use handle::{ChatReply, ProfileEvents, ProfileHandle, RelayAccepted};
 pub use openhuman_core::channels::providers::relay::RelayInboundParams as RelayMessage;
 pub use openhuman_core::core::runtime::saas::{SaasCronConfig, SaasSandboxConfig};
 pub use openhuman_core::core::runtime::SaasConfig;
+pub use openhuman_core::cron::host_delivery::{CronDelivery, CronReply};
+pub use openhuman_core::cron::JobOrigin;
+pub use openhuman_core::profiles::cron::SweepReport as CronSweepReport;
 pub use openhuman_core::profiles::{OpenError, ProfileId, ProfileIdMode, ProfileSummary};
 pub use openhuman_core::storage::lease::LeaseRecord;
 pub use openhuman_core::threads::{ConversationMessageRecord, ConversationThreadSummary};
@@ -120,6 +123,7 @@ pub struct ProfileRuntimeBuilder {
     config: SaasConfig,
     session_store: Option<Arc<dyn SessionStoreProvider>>,
     host_options: host::ProfileHostOptions,
+    cron_delivery: Option<Arc<dyn CronDelivery>>,
 }
 
 impl ProfileRuntimeBuilder {
@@ -129,6 +133,7 @@ impl ProfileRuntimeBuilder {
             config,
             session_store: None,
             host_options: Default::default(),
+            cron_delivery: None,
         }
     }
 
@@ -151,12 +156,27 @@ impl ProfileRuntimeBuilder {
         self
     }
 
+    /// Route the replies of scheduled jobs yourself, and serve them.
+    ///
+    /// With a delivery installed the runtime's background loop sweeps every
+    /// provisioned profile once a minute for due agent jobs
+    /// ([`ProfileRuntime::sweep_cron`]) and hands each reply to
+    /// [`CronDelivery::deliver`] with the profile, the thread the job was
+    /// created in and its [`JobOrigin`]. A run that answers `NO_REPLY`, or
+    /// fails, is never delivered. Without one nothing is swept.
+    #[must_use]
+    pub fn cron_delivery(mut self, delivery: Arc<dyn CronDelivery>) -> Self {
+        self.cron_delivery = Some(delivery);
+        self
+    }
+
     /// Boot the SaaS core. See the [module docs](self) for what this locks.
     pub async fn build(self) -> Result<ProfileRuntime, ProfileError> {
         let Self {
             config,
             session_store,
             host_options,
+            cron_delivery,
         } = self;
         let capabilities = host_options.finish(&config)?;
         ensure_service_token(&config.service_token_path())?;
@@ -203,6 +223,9 @@ impl ProfileRuntimeBuilder {
             }
             ProfileError::Boot("the SaaS core installed no profile host".to_string())
         })?;
+        if let Some(delivery) = cron_delivery {
+            openhuman_core::cron::host_delivery::install(delivery);
+        }
         log::info!(
             "[embed][profiles] profile runtime ready node={} root={}",
             host.node(),
@@ -330,6 +353,19 @@ impl ProfileRuntime {
             .deprovision(profile_id)
             .await
             .map_err(ProfileError::Host)
+    }
+
+    /// Run every provisioned profile's due agent jobs now, as the background
+    /// loop does each minute: see [`ProfileRuntimeBuilder::cron_delivery`].
+    /// Safe to run on several nodes sharing one storage backend: each
+    /// scheduled occurrence is claimed in the store and runs once.
+    pub async fn sweep_cron(&self) -> CronSweepReport {
+        self.sweep_cron_at(chrono::Utc::now()).await
+    }
+
+    /// [`sweep_cron`](Self::sweep_cron) as of `now`.
+    pub async fn sweep_cron_at(&self, now: chrono::DateTime<chrono::Utc>) -> CronSweepReport {
+        openhuman_core::profiles::cron::sweep(&self.inner.host, now).await
     }
 
     /// Store the TinyHumans credential (`kind`) the profile's backend calls

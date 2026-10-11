@@ -110,6 +110,9 @@ fn classify_backend_error(error: anyhow::Error, secret: &str) -> VoiceError {
             "[REDACTED]"
         };
         message = message.replace(secret, marker);
+        if message.contains(secret) {
+            message.clear();
+        }
     }
     match error.downcast_ref::<BackendApiError>() {
         Some(BackendApiError::Unauthorized { .. }) => VoiceError::SessionExpired { message },

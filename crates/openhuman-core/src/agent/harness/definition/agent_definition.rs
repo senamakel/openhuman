@@ -9,7 +9,7 @@ use super::prompt_source::PromptSource;
 use super::source::DefinitionSource;
 use super::subagents::{deserialize_subagent_entries, SubagentEntry};
 use super::tier::AgentTier;
-use crate::inference::tokenjuice::AgentTokenjuiceCompression;
+use tinyjuice_bus::types::AgentTokenjuiceCompression;
 
 /// Iteration ceiling for an [`IterationPolicy::Extended`] agent — the higher
 /// bound a long-running agent (orchestrator, deep research) is allowed to reach

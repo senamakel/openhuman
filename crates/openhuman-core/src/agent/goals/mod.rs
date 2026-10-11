@@ -10,7 +10,7 @@ pub mod runtime;
 pub mod store;
 pub mod tools;
 
-pub use tinyagents_graph::goals::{ThreadGoal, ThreadGoalStatus};
+use tinyagents_graph::goals::ThreadGoal;
 pub use tools::goal_tools;
 
 /// Serialize a [`ThreadGoal`] for the `goal` field on `ThreadGoalUpdated` /

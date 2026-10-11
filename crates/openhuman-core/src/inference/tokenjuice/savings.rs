@@ -22,7 +22,7 @@ use std::sync::{Mutex, OnceLock};
 
 use serde::{Deserialize, Serialize};
 
-use crate::inference::tokenjuice::types::{CompressorKind, ContentKind};
+use {tinyjuice_bus::types::CompressorKind, tinyjuice_bus::types::ContentKind};
 
 /// Per-key (model / compressor) rolled-up savings.
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]

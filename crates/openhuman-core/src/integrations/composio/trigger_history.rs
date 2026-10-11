@@ -7,12 +7,12 @@ use tinyconnectors_bus::{
 };
 use tokio::sync::Mutex;
 
-use super::module_client::methods;
 use super::types::{
     ComposioTriggerEvent, ComposioTriggerHistoryEntry, ComposioTriggerHistoryResult,
 };
 use crate::config::Config;
 use crate::modules::client::ModuleClient;
+use tinyconnectors_bus::names::methods;
 
 static GLOBAL_TRIGGER_HISTORY: OnceLock<Arc<TriggerHistory>> = OnceLock::new();
 

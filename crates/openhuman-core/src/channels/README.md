@@ -102,7 +102,7 @@ When a tool call needs approval on a channel whose provider has `chat_approvals`
 | `host/` | The OpenHuman implementation of the `tinychannels::host` boundary: `build_channel_host` and its adapters (`adapters.rs`), the approval-surface and turn-state subscribers (`channel_events.rs`), and the remote-control host (`remote_control.rs`). |
 | `runtime/` | Startup, listener supervision, the account-lifetime session, and the dispatch pipeline. See [runtime/README.md](runtime/README.md). |
 | `controllers/` | The `channels.*` RPC namespace and `OpenHumanChannelBackend`. See [controllers/README.md](controllers/README.md). |
-| [`bus.rs`](./bus.rs), `bus/` | `ChannelInboundSubscriber` (`subscriber.rs`), the backend progressive sender (`delivery.rs`), and the inbound thread-id re-export (`thread_id.rs`). |
+| [`bus.rs`](./bus.rs), `bus/` | `ChannelInboundSubscriber` (`subscriber.rs`), the backend progressive sender (`delivery.rs`), and inbound identity derived directly through `tinychannels::channel`. |
 | `context.rs` | `ChannelRuntimeContext`, per-sender history maps, history compaction, and timeout/backoff constants re-exported from `tinychannels::context`. |
 | `routes.rs` | Slash-command parsing and per-sender route selection (provider and model overrides). |
 | `proactive.rs` | `ProactiveMessageSubscriber` and the active-channel handle. |
@@ -122,7 +122,7 @@ When a tool call needs approval on a channel whose provider has `chat_approvals`
 - `ProactiveMessageSubscriber` (`proactive.rs`) is outbound proactive delivery.
 - `ChannelSystemPrompt` (`system_prompt.rs`) is the seed prompt for every turn.
 - `OpenHumanChannelBackend` ([`controllers/backend.rs`](./controllers/backend.rs)) implements `tinychannels::ChannelBackend` for the RPC handlers.
-- `ChannelDefinition` and `ChannelAuthMode` are re-exported from `tinychannels::controllers` (through [`controllers/definitions.rs`](./controllers/definitions.rs)) for declarative provider metadata.
+- `ChannelDefinition` and `ChannelAuthMode` are defined by `tinychannels_bus::controllers` for declarative provider metadata.
 - `build_system_prompt` is a re-export of `agent::context::channels_prompt::build_system_prompt`.
 
 ## RPC / CLI surface

@@ -14,11 +14,11 @@ use crate::channels::system_prompt::{ChannelPromptInputs, ChannelSystemPrompt};
 use crate::config::Config;
 use crate::inference::provider;
 use crate::security::SecurityPolicy;
-use crate::skills::Workflow;
 use crate::tools;
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
+use tinyskills::Skill as Workflow;
 use tinytools::Tool;
 
 /// The process-independent pieces of a channel turn.

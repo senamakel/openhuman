@@ -45,8 +45,6 @@ pub mod dictation_listener;
 #[cfg(feature = "voice")]
 pub mod factory;
 #[cfg(feature = "voice")]
-pub mod hotkey;
-#[cfg(feature = "voice")]
 pub mod live;
 #[cfg(feature = "voice")]
 mod ops;

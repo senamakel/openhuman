@@ -33,8 +33,8 @@ pub(crate) fn lookup_pricing(model: &str) -> Option<tinyagents_harness::cost::Mo
             ..Default::default()
         });
     }
-    let price = crate::platform::cost::catalog::lookup(model.trim())?;
-    Some(crate::platform::cost::catalog::tinyagents_pricing(price))
+    let price = tinyagents_registry::pricing::lookup(model.trim())?;
+    Some(tinyagents_registry::pricing::flat_catalog_entry(price, "openhuman-cost-catalog").pricing)
 }
 
 /// Estimate a call from product list prices when no provider charge was reported.

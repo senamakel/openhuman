@@ -47,6 +47,9 @@ pub use store::{
     find_flow_schedule_job, get_job, list_jobs, list_runs, record_last_run, record_run,
     record_run_with_delivery, remove_job, reschedule_after_run, update_job,
 };
+// Retained until the released TinyFlows schedule bus contract is available
+// (tinyhumansai/tinyflows#120). Embed must not link its implementation library
+// just to reach these existing cron types. The #7397 cutover removes this facade.
 #[allow(unused_imports)]
 pub use tinyflows_schedule::schedule::{
     next_run_for_schedule, normalize_expression, runs_closer_than, schedule_cron_expression,

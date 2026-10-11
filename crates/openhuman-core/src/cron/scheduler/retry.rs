@@ -8,10 +8,13 @@ use super::failure_classification::{
 };
 use super::shell_job::run_job_command;
 use crate::config::Config;
-use crate::cron::{CronJob, JobType, SessionTarget};
 use crate::security::SecurityPolicy;
 use chrono::Utc;
 use tokio::time::{self, Duration};
+use {
+    tinyflows_schedule::types::CronJob, tinyflows_schedule::types::JobType,
+    tinyflows_schedule::types::SessionTarget,
+};
 
 pub(super) fn agent_session_target_tag(target: &SessionTarget) -> &'static str {
     match target {

@@ -55,13 +55,13 @@ pub(super) use dispatch::AggregatedUsage;
 #[cfg(test)]
 use crate::agent::progress::AgentProgress;
 #[cfg(test)]
-use crate::inference::tokenjuice::AgentTokenjuiceCompression;
-#[cfg(test)]
 use std::collections::HashSet;
 #[cfg(test)]
 use std::sync::Arc;
 #[cfg(test)]
 use tinyagents_session::transcript::TranscriptMessage;
+#[cfg(test)]
+use tinyjuice_bus::types::AgentTokenjuiceCompression;
 #[cfg(test)]
 #[cfg(test)]
 use worker_mirror::{mirror_worker_thread, mirror_worker_thread_from_history};

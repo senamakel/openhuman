@@ -108,15 +108,14 @@ pub use yuanbao::YuanbaoChannel;
 pub use runtime::test_support;
 
 #[cfg(feature = "channels")]
-pub use commands::doctor_channels;
-#[cfg(feature = "channels")]
-pub use controllers::{ChannelAuthMode, ChannelDefinition};
 // Channel system-prompt assembly lives in
 // `crate::agent::context::channels_prompt` alongside the rest of
 // the prompt-building code. Re-exported here for callers that used the
 // old `channels::build_system_prompt` path.
 #[cfg(feature = "channels")]
 pub use crate::agent::context::channels_prompt::build_system_prompt;
+#[cfg(feature = "channels")]
+pub use commands::doctor_channels;
 #[cfg(feature = "channels")]
 pub use runtime::start_channels;
 #[cfg(feature = "channels")]

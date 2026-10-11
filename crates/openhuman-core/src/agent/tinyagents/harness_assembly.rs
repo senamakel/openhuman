@@ -481,7 +481,7 @@ pub(super) fn assemble_turn_harness(
     //      tracker's per-run token accounting matches the authoritative runtime
     //      `AgentRun.usage` on every model call.
     //   2. A pricing table wired via `BudgetMiddleware::with_pricing(..)` at
-    //      parity with `cost::catalog::estimate_cost_usd`, so the crate can own
+    //      parity with `tinyagents_registry::pricing::estimate_cost_usd`, so the crate can own
     //      MONEY (USD) budgets. Today the shadow compares TOKENS only (the
     //      observe-only crate middleware has no pricing, so its cost stays $0)
     //      and the local gate is the sole money-budget authority.

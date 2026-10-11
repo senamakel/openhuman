@@ -26,7 +26,7 @@ use tinyagents_harness::multimodal::{
     AttachmentStash,
 };
 
-pub use tinyagents_harness::multimodal::{FilePayload, MultimodalError};
+use tinyagents_harness::multimodal::{FilePayload, MultimodalError};
 
 /// Hard upper bound on how long the `tinydocs` module may spend extracting a
 /// PDF's text layer before the attempt is abandoned and the file degrades to a

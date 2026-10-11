@@ -670,7 +670,7 @@ impl OpenHumanSessionHost {
             .unwrap_or(false);
         let effective_tokenjuice_compression = target_def
             .map(|def| def.effective_tokenjuice_compression())
-            .unwrap_or(crate::inference::tokenjuice::AgentTokenjuiceCompression::Full);
+            .unwrap_or(tinyjuice_bus::types::AgentTokenjuiceCompression::Full);
 
         // Stamp the resolved agent definition id onto the OpenHumanSessionHost via the
         // builder. Without this call, `agent_definition_name` falls

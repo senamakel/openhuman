@@ -10,7 +10,7 @@ use std::sync::{Arc, RwLock};
 use crate::agent::hooks::{PostTurnHook, ToolHook};
 use tinyinference_llm::model::ChatModel;
 
-pub use tinyagents_harness::cancel::CancellationToken;
+use tinyagents_harness::cancel::CancellationToken;
 
 /// Runtime or agent host adapters, shared by every context derived from it.
 #[derive(Default)]
@@ -28,7 +28,7 @@ pub struct HostOverrides {
     /// Role-specific native models; absent roles use `model` or config routing.
     pub role_models: BTreeMap<String, Arc<dyn ChatModel<()>>>,
     /// The agent's durable session store, ahead of the runtime's store.
-    pub session_store: Option<Arc<dyn crate::agent::session_store::SessionStoreProvider>>,
+    pub session_store: Option<Arc<dyn tinyagents_session::port::SessionStoreProvider>>,
 }
 
 impl std::fmt::Debug for HostOverrides {

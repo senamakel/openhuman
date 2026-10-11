@@ -10150,7 +10150,7 @@ async fn json_rpc_task_sources_crud_and_status() {
 ///
 /// This test used to register a stub `ComposioProvider` (deleted by
 /// tinymemory v1.13.4 with the whole in-process provider registry — see
-/// `crate::integrations::composio::providers`'s module docs) and
+/// `crate::integrations::composio::contract`'s module docs) and
 /// exercise the full fetch → enrich → route → ingest pipeline against it.
 /// `task_sources::pipeline::fetch_tasks_unavailable` documents why that
 /// capability was not ported forward: tinyconnectors' `Sync` member returns

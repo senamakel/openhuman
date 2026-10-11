@@ -214,7 +214,7 @@ pub(crate) fn seed_and_enrich_model_registry(config: &mut Config) {
         log::debug!(
             "[config] seeded empty model_registry with {} catalogued models (as_of {})",
             config.model_registry.len(),
-            catalog::PRICING_AS_OF
+            tinyagents_registry::pricing::PRICING_AS_OF
         );
         return;
     }

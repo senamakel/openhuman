@@ -48,7 +48,7 @@
 //!    step** — the two are alternatives, not layers. The session-allowlist
 //!    shortcut yields no id and needs no terminal row.
 //! 3. **No `Redacted` outcome is ever produced.** OpenHuman can *detect* PII
-//!    ([`crate::security::pii::scan`]) but exposes no verified
+//!    ([`tinymemory_api::safety::scan`]) but exposes no verified
 //!    public helper that rewrites free text into a redacted copy — the one that
 //!    exists (`approval::redact::scrub_paths`) is private and shaped for JSON
 //!    argument maps. Screening therefore only ever passes or blocks. See the
@@ -715,11 +715,11 @@ impl SecurityGate for OpenHumanSecurityGate {
     /// the screened text, which is the thing suspected of being hostile.
     ///
     /// TODO(phase4): no [`ScreenOutcome::Redacted`] is ever returned. Producing
-    /// one needs a free-text redactor; `security::pii::scan` detects spans but
+    /// one needs a free-text redactor; `tinymemory_api::safety::scan` detects spans but
     /// returns no rewritten string, and `approval::redact::scrub_paths` is
     /// private and shaped for JSON argument maps. Either lift a public
     /// `redact_text(&str) -> String` out of `approval::redact` or add one to
-    /// `security::pii`, then map "PII found, injection clean" to `Redacted`.
+    /// `tinymemory_api::safety`, then map "PII found, injection clean" to `Redacted`.
     async fn screen_input(&self, text: &str, origin: ContentOrigin) -> TaResult<ScreenOutcome> {
         if !self.screens_input {
             return Ok(ScreenOutcome::Pass);

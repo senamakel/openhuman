@@ -22,10 +22,9 @@ use std::path::{Path, PathBuf};
 use async_trait::async_trait;
 
 use tinyagents_graph::goals::budget as crate_budget;
-use tinyagents_graph::goals::{BudgetVerdict, GoalBudgetGuard};
+use tinyagents_graph::goals::{BudgetVerdict, GoalBudgetGuard, ThreadGoal, ThreadGoalStatus};
 
 use super::store::{self, goals_store};
-use super::{ThreadGoal, ThreadGoalStatus};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use tinyagents_harness::middleware::{StopDecision, StopHook, TurnState};

@@ -52,8 +52,8 @@ impl Tool for Probe {
     fn parameters_schema(&self) -> Value {
         json!({"type":"object","properties":{}})
     }
-    async fn execute(&self, _: Value) -> anyhow::Result<openhuman_core::tools::ToolResult> {
-        Ok(openhuman_core::tools::ToolResult::success("value"))
+    async fn execute(&self, _: Value) -> anyhow::Result<tinytools::ToolResult> {
+        Ok(tinytools::ToolResult::success("value"))
     }
 }
 fn billed(mut response: Value) -> Value {

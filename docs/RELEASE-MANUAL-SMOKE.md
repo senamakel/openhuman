@@ -88,6 +88,7 @@ Use a disposable staging account/workspace and synthetic facts. Keep inference r
 - [ ] **Accessibility permission prompt fires on first agent run** — Trigger an agent action that uses Accessibility (e.g. window-control skill). Expected: macOS prompts `OpenHuman would like to control this computer using accessibility features`. Granting it allows the action; denying it surfaces a clear in-app fallback.
 - [ ] **Input Monitoring prompt fires on first hotkey use** — Press the registered global hotkey for the first time. Expected: `Input Monitoring` prompt; granting it makes the hotkey trigger; denying it does not crash the app.
 - [ ] **Microphone prompt fires on first voice capture** — Start a voice session. Expected: standard mic prompt; granted → capture begins; denied → fallback message, no panic.
+- [ ] **Cloud and offline speech routes** — Signed in, transcribe a recording and synthesize a reply with the configured voice; rotate the credential and repeat. Offline, select local Whisper and Piper with their model/voice installed and repeat dictation and reply speech. Expected: text and audible speech on both routes; offline speech makes no backend request.
 - [ ] **File picker does not crash on Documents/Downloads/Desktop selections** — From an embedded app (Slack, Discord, Telegram), trigger a file upload and pick a file from `Documents`, `Downloads`, and `Desktop` in turn. Expected: macOS prompts `OpenHuman would like to access files in your <Folder> folder` the first time per folder; deny + retry must not crash.
 
 ### Windows

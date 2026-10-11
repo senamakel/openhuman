@@ -154,6 +154,8 @@ fn slot() -> &'static Mutex<Option<Arc<SdkBackendTransport>>> {
 /// The process's SDK transport, built once and installed as the core's
 /// global (re-installed if something cleared the slot, as tests do).
 fn connect_transport() -> Result<Arc<SdkBackendTransport>, InstallError> {
+    #[cfg(feature = "voice")]
+    crate::voice::install();
     let mut guard = slot()
         .lock()
         .unwrap_or_else(|poisoned| poisoned.into_inner());

@@ -83,6 +83,8 @@ pub mod jwt;
 mod runtime;
 pub mod session;
 pub mod transport;
+#[cfg(feature = "voice")]
+mod voice;
 
 pub use backend::{product_identity, set_product_identity, ProductIdentity};
 pub use hosted::extension as hosted_controllers;

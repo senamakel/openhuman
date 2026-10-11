@@ -278,6 +278,10 @@ pub mod mcp {
 }
 
 pub mod platform {
+    #[cfg(feature = "voice")]
+    pub mod cloud_voice_provider {
+        pub use openhuman_core::platform::cloud_voice_provider::{install, CloudVoiceProviderFactory};
+    }
     pub mod connectivity {
         pub mod rpc {
             pub use openhuman_core::platform::connectivity::rpc::{

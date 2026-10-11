@@ -25,7 +25,7 @@ documents = ["openhuman-embed/documents"]
 hosting = ["openhuman-embed/hosting"]
 tinymemes = ["openhuman-embed/tinymemes"]
 modules = ["openhuman-embed/modules"]
-voice = ["openhuman-embed/voice"]
+voice = ["openhuman-embed/voice", "dep:tinyvoice-bus"]
 web3 = ["openhuman-embed/web3"]
 # Storage drivers for `[storage] url` (see the core `storage` domain).
 storage-sqlite = ["openhuman-embed/storage-sqlite"]
@@ -67,6 +67,8 @@ tinyjevclient = { git = "https://github.com/tinyhumansai/tinyjevclient", rev = "
 # for the managed Telegram/Discord link flows in `hosted::channel_link`. Same
 # vendored path as the core's, so the types unify. Sync and I/O-free.
 tinychannels-bus = { path = "../../vendor/tinychannels/crates/tinychannels-bus" }
+# Minimal cloud provider interface; backend execution remains in this layer.
+tinyvoice-bus = { path = "../../vendor/tinyvoice/crates/tinyvoice-bus", optional = true }
 # AES-256-GCM decryption of the backend OAuth token handoff (hosted::oauth).
 aes-gcm = "0.10"
 anyhow = "1"

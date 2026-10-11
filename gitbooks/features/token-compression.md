@@ -126,7 +126,7 @@ Everything lives under the `[tokenjuice]` config block (`crates/openhuman-core/s
 - Handle preview: `repl_handle_enabled` (default `true`) and `repl_save_enabled` (default `false`).
 - Thresholds: `min_bytes_to_compress` and `ccr_min_tokens`.
 - CCR: `ccr_enabled`, `ccr_disk_enabled`, `max_cache_entries`, `max_cache_bytes` and `ccr_ttl_secs`.
-- Per kind: `search_enabled`, `code_enabled`, `html_enabled`, plus the `ml_*` keys.
+- Per kind: `search_enabled`, `code_enabled`, `html_enabled`.
 - RPC (`openhuman.tokenjuice_*`): `detect`, `compress` (dry-run the pipeline), `settings_get` and `settings_update` (live partial patch), `cache_stats`, `retrieve`, `savings_stats` and `savings_reset`.
 - Agent tools: `juice_retrieve` recovers a whole stored original. `juice_find`, `juice_extract` and `juice_summarize` query one by handle. All are read-only.
 - Debugging: start the core with `RUST_LOG=openhuman_core::inference::tokenjuice=debug` to watch detection, matching and how much each result is trimmed.

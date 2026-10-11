@@ -67,8 +67,14 @@ fn native_sdk_failures_keep_authentication_classification() {
         status: 401,
         body: serde_json::json!({"error": "rejected"}),
     };
-    assert!(classify_error(status(), false).kind == ProviderErrorKind::SessionExpired);
-    assert!(classify_error(status(), true).kind == ProviderErrorKind::ApiKeyRejected);
+    assert!(matches!(
+        classify_error(status(), false),
+        VoiceError::SessionExpired { .. }
+    ));
+    assert!(matches!(
+        classify_error(status(), true),
+        VoiceError::ApiKeyRejected { .. }
+    ));
     assert_eq!(
         classify_error(
             tinyhumans_sdk::Error::ResponseTooLarge {
@@ -76,7 +82,7 @@ fn native_sdk_failures_keep_authentication_classification() {
             },
             false
         )
-        .message,
+        .to_string(),
         "transcription response exceeds 65536 bytes"
     );
 }

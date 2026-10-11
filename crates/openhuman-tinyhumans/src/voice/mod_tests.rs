@@ -8,31 +8,32 @@ fn backend_authentication_categories_survive_provider_dispatch() {
                 method: "POST".into(),
                 path: "/openai/v1/audio/speech".into(),
             },
-            ProviderErrorKind::SessionExpired,
+            "session_expired",
         ),
         (
             BackendApiError::ApiKeyRejected {
                 method: "GET".into(),
                 path: "/voice-agent/get-signed-url".into(),
             },
-            ProviderErrorKind::ApiKeyRejected,
+            "api_key_rejected",
         ),
         (
             BackendApiError::BackendUnavailable {
                 method: "POST".into(),
                 path: "/agent-integrations/gemini/live/sessions".into(),
             },
-            ProviderErrorKind::Unavailable,
+            "unavailable",
         ),
     ] {
         assert_eq!(
-            classify_backend_error(anyhow::Error::new(error), "").kind,
+            serde_json::to_value(classify_backend_error(anyhow::Error::new(error), "")).unwrap()
+                ["kind"],
             expected
         );
     }
     let error = classify_backend_error(anyhow::anyhow!("connection refused"), "");
-    assert_eq!(error.kind, ProviderErrorKind::Transport);
-    assert_eq!(error.message, "connection refused");
+    assert!(matches!(error, VoiceError::Transport { .. }));
+    assert_eq!(error.to_string(), "connection refused");
 }
 
 #[test]
@@ -41,8 +42,8 @@ fn backend_failure_details_do_not_echo_the_active_credential() {
         anyhow::anyhow!("proxy rejected current-secret"),
         "current-secret",
     );
-    assert_eq!(error.kind, ProviderErrorKind::Transport);
-    assert_eq!(error.message, "proxy rejected [REDACTED]");
+    assert!(matches!(error, VoiceError::Transport { .. }));
+    assert_eq!(error.to_string(), "proxy rejected [REDACTED]");
 }
 
 #[test]
@@ -51,9 +52,9 @@ fn backend_failure_preserves_the_context_chain_without_echoing_credentials() {
         anyhow::anyhow!("connection refused using current-secret").context("voice request failed"),
         "current-secret",
     );
-    assert_eq!(error.kind, ProviderErrorKind::Transport);
+    assert!(matches!(error, VoiceError::Transport { .. }));
     assert_eq!(
-        error.message,
+        error.to_string(),
         "voice request failed: connection refused using [REDACTED]"
     );
 }
@@ -61,6 +62,6 @@ fn backend_failure_preserves_the_context_chain_without_echoing_credentials() {
 #[test]
 fn backend_failure_redaction_marker_does_not_echo_the_active_credential() {
     let error = classify_backend_error(anyhow::anyhow!("proxy rejected REDACTED"), "REDACTED");
-    assert_eq!(error.kind, ProviderErrorKind::Transport);
-    assert!(!error.message.contains("REDACTED"));
+    assert!(matches!(error, VoiceError::Transport { .. }));
+    assert!(!error.to_string().contains("REDACTED"));
 }

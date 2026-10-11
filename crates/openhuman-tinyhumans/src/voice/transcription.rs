@@ -1,14 +1,11 @@
 //! Hosted STT request validation and native SDK multipart dispatch.
 
-use super::provider_error;
 use base64::{engine::general_purpose::STANDARD, Engine};
 use openhuman_embed::__host::{
     backend::BackendClient, security::credentials::session_support::BackendCredential,
 };
 use reqwest::multipart::{Form, Part};
-use tinyvoice_bus::provider::{
-    ProviderError, ProviderErrorKind, Transcription, TranscriptionRequest,
-};
+use tinyvoice_bus::{Error as VoiceError, Transcription, TranscriptionRequest};
 
 const MAX_AUDIO_BASE64_LEN: usize = 33_554_432;
 const MAX_RESPONSE_BYTES: usize = 65_536;
@@ -17,21 +14,23 @@ pub(super) async fn transcribe(
     client: &BackendClient,
     credential: &BackendCredential,
     request: TranscriptionRequest,
-) -> Result<Transcription, ProviderError> {
+) -> Result<Transcription, VoiceError> {
     let url = client
         .url_for("/openai/v1/audio/transcriptions")
-        .map_err(|error| provider_error(ProviderErrorKind::InvalidInput, error.to_string()))?;
+        .map_err(|error| VoiceError::InvalidInput {
+            message: error.to_string(),
+        })?;
     ensure_endpoint(&url, credential.is_api_key())
-        .map_err(|message| provider_error(ProviderErrorKind::InvalidInput, message))?;
-    let form = transcription_form(request)
-        .map_err(|message| provider_error(ProviderErrorKind::InvalidInput, message))?;
+        .map_err(|message| VoiceError::InvalidInput { message })?;
+    let form =
+        transcription_form(request).map_err(|message| VoiceError::InvalidInput { message })?;
     // This OpenAI-compatible endpoint has historically accepted both the JWT
     // and TinyHumans API key as Bearer; keep that endpoint-specific contract.
-    let sdk = tinyhumans_sdk::TinyHumansClient::new(
-        client
-            .url_for("/")
-            .map_err(|error| provider_error(ProviderErrorKind::InvalidInput, error.to_string()))?,
-    )
+    let sdk = tinyhumans_sdk::TinyHumansClient::new(client.url_for("/").map_err(|error| {
+        VoiceError::InvalidInput {
+            message: error.to_string(),
+        }
+    })?)
     .with_http_client(
         client
             .raw_client()
@@ -50,11 +49,8 @@ pub(super) async fn transcribe(
     let text = raw
         .get("text")
         .and_then(serde_json::Value::as_str)
-        .ok_or_else(|| {
-            provider_error(
-                ProviderErrorKind::InvalidResponse,
-                "transcription response missing string text".into(),
-            )
+        .ok_or_else(|| VoiceError::InvalidResponse {
+            message: "transcription response missing string text".into(),
         })?
         .trim()
         .to_string();
@@ -123,26 +119,23 @@ fn nonempty(value: Option<&str>) -> Option<&str> {
     value.map(str::trim).filter(|value| !value.is_empty())
 }
 
-fn classify_error(error: tinyhumans_sdk::Error, is_api_key: bool) -> ProviderError {
-    let kind = match &error {
-        tinyhumans_sdk::Error::Status { status: 401, .. } if is_api_key => {
-            ProviderErrorKind::ApiKeyRejected
+fn classify_error(error: tinyhumans_sdk::Error, is_api_key: bool) -> VoiceError {
+    let message = match &error {
+        tinyhumans_sdk::Error::ResponseTooLarge { max_bytes } => {
+            format!("transcription response exceeds {max_bytes} bytes")
         }
-        tinyhumans_sdk::Error::Status { status: 401, .. } => ProviderErrorKind::SessionExpired,
-        tinyhumans_sdk::Error::ResponseTooLarge { .. } | tinyhumans_sdk::Error::Decode(_) => {
-            ProviderErrorKind::InvalidResponse
-        }
-        _ => ProviderErrorKind::Transport,
+        other => format!("transcription request failed: {other}"),
     };
-    provider_error(
-        kind,
-        match error {
-            tinyhumans_sdk::Error::ResponseTooLarge { max_bytes } => {
-                format!("transcription response exceeds {max_bytes} bytes")
-            }
-            other => format!("transcription request failed: {other}"),
-        },
-    )
+    match error {
+        tinyhumans_sdk::Error::Status { status: 401, .. } if is_api_key => {
+            VoiceError::ApiKeyRejected { message }
+        }
+        tinyhumans_sdk::Error::Status { status: 401, .. } => VoiceError::SessionExpired { message },
+        tinyhumans_sdk::Error::ResponseTooLarge { .. } | tinyhumans_sdk::Error::Decode(_) => {
+            VoiceError::InvalidResponse { message }
+        }
+        _ => VoiceError::Transport { message },
+    }
 }
 
 #[cfg(test)]

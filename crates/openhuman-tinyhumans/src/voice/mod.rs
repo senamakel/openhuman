@@ -10,9 +10,9 @@ use openhuman_embed::__host::{
 };
 use reqwest::Method;
 use serde_json::Value;
-use tinyvoice_bus::provider::{
-    CloudVoiceProvider, ProviderError, ProviderErrorKind, ProviderFuture, RealtimeRequest,
-    RealtimeSession, SynthesisRequest, Transcription, TranscriptionRequest,
+use tinyvoice_bus::{
+    CloudVoiceProvider, Error as VoiceError, ProviderFuture, RealtimeRequest, RealtimeSession,
+    SynthesisRequest, Transcription, TranscriptionRequest,
 };
 
 mod requests;
@@ -51,7 +51,7 @@ impl CloudVoiceProvider for Provider {
     fn synthesize(&self, request: SynthesisRequest) -> ProviderFuture<'_, Value> {
         Box::pin(async move {
             let body = requests::speech_body(request)
-                .map_err(|message| provider_error(ProviderErrorKind::InvalidInput, message))?;
+                .map_err(|message| VoiceError::InvalidInput { message })?;
             self.client
                 .authed_json(
                     &self.credential,
@@ -78,9 +78,8 @@ impl CloudVoiceProvider for Provider {
                         )
                         .await
                         .map_err(|error| classify_backend_error(error, self.credential.secret()))?;
-                    requests::voice_agent_session(&raw).map_err(|message| {
-                        provider_error(ProviderErrorKind::InvalidResponse, message)
-                    })
+                    requests::voice_agent_session(&raw)
+                        .map_err(|message| VoiceError::InvalidResponse { message })
                 }
                 RealtimeRequest::GeminiLive { options } => {
                     let raw = self
@@ -93,26 +92,15 @@ impl CloudVoiceProvider for Provider {
                         )
                         .await
                         .map_err(|error| classify_backend_error(error, self.credential.secret()))?;
-                    requests::gemini_session(&raw).map_err(|message| {
-                        provider_error(ProviderErrorKind::InvalidResponse, message)
-                    })
+                    requests::gemini_session(&raw)
+                        .map_err(|message| VoiceError::InvalidResponse { message })
                 }
             }
         })
     }
 }
 
-fn provider_error(kind: ProviderErrorKind, message: String) -> ProviderError {
-    ProviderError { kind, message }
-}
-
-fn classify_backend_error(error: anyhow::Error, secret: &str) -> ProviderError {
-    let kind = match error.downcast_ref::<BackendApiError>() {
-        Some(BackendApiError::Unauthorized { .. }) => ProviderErrorKind::SessionExpired,
-        Some(BackendApiError::ApiKeyRejected { .. }) => ProviderErrorKind::ApiKeyRejected,
-        Some(BackendApiError::BackendUnavailable { .. }) => ProviderErrorKind::Unavailable,
-        _ => ProviderErrorKind::Transport,
-    };
+fn classify_backend_error(error: anyhow::Error, secret: &str) -> VoiceError {
     let mut message = format!("{error:#}");
     let secret = secret.trim();
     if !secret.is_empty() {
@@ -123,7 +111,12 @@ fn classify_backend_error(error: anyhow::Error, secret: &str) -> ProviderError {
         };
         message = message.replace(secret, marker);
     }
-    provider_error(kind, message)
+    match error.downcast_ref::<BackendApiError>() {
+        Some(BackendApiError::Unauthorized { .. }) => VoiceError::SessionExpired { message },
+        Some(BackendApiError::ApiKeyRejected { .. }) => VoiceError::ApiKeyRejected { message },
+        Some(BackendApiError::BackendUnavailable { .. }) => VoiceError::Unavailable { message },
+        _ => VoiceError::Transport { message },
+    }
 }
 
 #[cfg(test)]

@@ -179,3 +179,58 @@ async fn cloud_transcription_bounds_responses_and_refuses_unsafe_or_offline_cred
     );
     assert_eq!(server.received_requests().await.unwrap().len(), 1);
 }
+
+#[tokio::test]
+async fn reply_speech_and_gemini_tickets_keep_backend_wire_shapes_in_the_host_layer() {
+    use openhuman_core::voice::reply_speech::{synthesize_reply, ReplySpeechOptions};
+    tinyhumans_boot::boot();
+    let server = MockServer::start().await;
+    Mock::given(method("POST")).and(path("/openai/v1/audio/speech"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"success":true,"data":{"audio_base64":"AAA=","mime_type":"audio/wav"}})))
+        .mount(&server).await;
+    Mock::given(method("POST")).and(path("/agent-integrations/gemini/live/sessions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({"success":true,"data":{"wsUrl":"wss://relay.invalid/?ticket=short-lived","sessionId":"session","model":"gemini"}})))
+        .mount(&server).await;
+    let root = tempfile::tempdir().unwrap();
+    let config = voice_config(root.path(), &server.uri());
+    api_key::store_api_key(&config, "speech-api-key").unwrap();
+    let speech = synthesize_reply(
+        &config,
+        " hello ",
+        &ReplySpeechOptions {
+            voice_id: Some(" voice ".into()),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap()
+    .value;
+    assert_eq!(speech.audio_base64, "AAA=");
+    let provider = openhuman_core::platform::cloud_voice_provider::for_config(&config).unwrap();
+    let options = serde_json::json!({"model":"gemini","voice":"Puck"});
+    let session = provider
+        .realtime(
+            serde_json::from_value(serde_json::json!({"kind":"gemini_live","options":options}))
+                .unwrap(),
+        )
+        .await
+        .unwrap();
+    let value = serde_json::to_value(&session).unwrap();
+    assert_eq!(value["ws_url"], "wss://relay.invalid/?ticket=short-lived");
+    assert_eq!(value["session_id"], "session");
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 2);
+    for request in &requests {
+        assert_eq!(request.headers.get("x-api-key").unwrap(), "speech-api-key");
+        assert!(request.headers.get("authorization").is_none());
+    }
+    let speech_body: serde_json::Value = serde_json::from_slice(&requests[0].body).unwrap();
+    assert_eq!(
+        speech_body,
+        serde_json::json!({"text":"hello","with_visemes":true,"voice_id":"voice"})
+    );
+    assert_eq!(
+        serde_json::from_slice::<serde_json::Value>(&requests[1].body).unwrap(),
+        options
+    );
+}

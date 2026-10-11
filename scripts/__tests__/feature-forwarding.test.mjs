@@ -841,6 +841,18 @@ voice = ["openhuman-tinyhumans/voice"]
   assert.deepEqual(result.staleLocal, []);
 });
 
+test('an embed-only headless profiles facade needs no invented core gate', () => {
+  const result = diffChainForwarding({
+    crate: 'openhuman-embed',
+    features: parseFeatureTable('[features]\nprofiles = []\n'),
+    sources: [{ crate: 'openhuman-core', gates: [], required: true }],
+    localGates: CHAIN_LOCAL_GATES['openhuman-embed'] ?? {},
+  });
+  assert.ok(result.ok, formatChainReport(result));
+  assert.deepEqual(result.unknown, []);
+  assert.deepEqual(result.staleLocal, []);
+});
+
 test('every chain allow-list entry carries a reason', () => {
   // A blank reason is how "excluded on purpose" and "forgotten" start looking
   // the same again — the ambiguity that let #4918 sit unnoticed.

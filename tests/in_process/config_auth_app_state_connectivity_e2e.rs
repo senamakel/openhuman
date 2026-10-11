@@ -448,15 +448,16 @@ fn config_schema_defaults_cover_dashboard_capability_memory_and_security_shapes(
         ..Default::default()
     };
     assert!(!local_ai.is_active());
-    #[allow(deprecated)]
-    {
-        assert!(!local_ai.use_local_for_embeddings());
-        local_ai.runtime_enabled = true;
-        assert!(local_ai.is_active());
-        assert!(local_ai.use_local_for_embeddings());
-        assert!(local_ai.use_local_for_heartbeat());
-        assert!(local_ai.use_local_for_subconscious());
-    }
+    local_ai.runtime_enabled = true;
+    assert!(local_ai.is_active());
+    let routing = openhuman_core::config::Config {
+        local_ai,
+        embeddings_provider: Some("ollama:nomic-embed-text".into()),
+        ..Default::default()
+    };
+    assert!(routing.workload_uses_local("embeddings"));
+    assert!(!routing.workload_uses_local("heartbeat"));
+    assert!(!routing.workload_uses_local("subconscious"));
 
     let mut search = openhuman_core::config::schema::SearchConfig {
         brave: openhuman_core::config::schema::SearchEngineCredentials {
@@ -1696,8 +1697,8 @@ async fn credentials_public_ops_cover_service_and_missing_session_error_paths() 
     std::fs::create_dir_all(config.config_path.parent().expect("config parent"))
         .expect("create config parent");
 
-    openhuman_core::security::credentials::start_login_gated_services(&config).await;
-    openhuman_core::security::credentials::stop_login_gated_services(&config).await;
+    openhuman_core::security::credentials::start_credential_gated_services(&config).await;
+    openhuman_core::security::credentials::stop_credential_gated_services(&config).await;
 
     // The account-bound link-token and OAuth ops live in `openhuman-tinyhumans`
     // (`hosted::{channel_link, oauth}`); validation still runs first, and a

@@ -386,8 +386,7 @@ async fn load_connected_integrations(
     match crate::integrations::composio::fetch_connected_integrations_status(config).await {
         FetchConnectedIntegrationsStatus::Authoritative(connected) => Some((connected, true)),
         FetchConnectedIntegrationsStatus::Unavailable => {
-            let stale =
-                crate::integrations::composio::cached_active_integrations_including_expired(config);
+            let stale = crate::integrations::composio::cached_active_integrations(config);
             log::warn!(
                 "[session] integrations fetch unavailable; using stale snapshot={}",
                 stale.as_ref().map_or(0, Vec::len)

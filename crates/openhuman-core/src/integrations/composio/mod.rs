@@ -69,9 +69,9 @@ pub use bus::{
 };
 pub use identity::connection_identity;
 pub use ops::{
-    cached_active_integrations, cached_active_integrations_including_expired, connected_set_hash,
-    fetch_connected_integrations, fetch_connected_integrations_status,
-    invalidate_connected_integrations_cache, FetchConnectedIntegrationsStatus,
+    cached_active_integrations, connected_set_hash, fetch_connected_integrations,
+    fetch_connected_integrations_status, invalidate_connected_integrations_cache,
+    FetchConnectedIntegrationsStatus,
 };
 pub use schemas::{
     all_controller_schemas as all_composio_controller_schemas,

@@ -92,7 +92,7 @@ There is no periodic loop here, and Composio data is not synced into memory.
 From `mod.rs` re-exports:
 
 - **Client**: `ComposioRoute`, `resolve_composio_route`, `ComposioActionTool`.
-- **Ops**: `cached_active_integrations`, `cached_active_integrations_including_expired`, `connected_set_hash`, `fetch_connected_integrations`, `fetch_connected_integrations_status`, `FetchConnectedIntegrationsStatus`, `invalidate_connected_integrations_cache`.
+- **Ops**: `cached_active_integrations`, `connected_set_hash`, `fetch_connected_integrations`, `fetch_connected_integrations_status`, `FetchConnectedIntegrationsStatus`, `invalidate_connected_integrations_cache`.
 - **Prompt type**: `ConnectedIntegration` (re-exported from `crate::agent::prompts::types`).
 - **Schemas**: `all_composio_controller_schemas`, `all_composio_registered_controllers`.
 - **Agent tools**: `all_composio_agent_tools`.

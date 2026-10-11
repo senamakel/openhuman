@@ -22,7 +22,7 @@ is mounted as a submodule of [`load/dirs.rs`](./load/dirs.rs) via `#[path]`.
 | `[[capability_providers]]` | [`capability_providers.rs`](./capability_providers.rs) | `CapabilityProviderConfig` |
 | `[channels_config]`, `[sandbox]` | [`channels.rs`](./channels.rs) | `ChannelsConfig` and per-provider configs re-exported from `tinychannels_bus`; `SandboxConfig`, `ResourceLimitsConfig`, `AuditConfig`, and `SecurityConfig` (only `DaemonConfig` embeds the last one) |
 | `[claude_agent_sdk]` | [`claude_agent_sdk.rs`](./claude_agent_sdk.rs) | `ClaudeAgentSdkConfig` |
-| `[[cloud_providers]]`, `primary_cloud`, `*_provider` slugs | [`cloud_providers.rs`](./cloud_providers.rs) | `CloudProviderCreds`, `CloudProviderType`, `AuthStyle` |
+| `[[cloud_providers]]`, `primary_cloud`, `*_provider` slugs | [`cloud_providers.rs`](./cloud_providers.rs) | `CloudProviderCreds`, `AuthStyle` |
 | `[context]` | [`context.rs`](./context.rs) | `ContextConfig` |
 | `[cost]` | [`identity_cost.rs`](./identity_cost.rs) | `CostConfig`, `ModelPricing` |
 | `[dashboard]` | [`dashboard.rs`](./dashboard.rs) | `DashboardConfig`, `DiagramViewerConfig`, `EventStreamConfig`, `ModelHealthConfig` |

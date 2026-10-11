@@ -1168,6 +1168,76 @@ fn ensure_test_rpc_auth() {
 }
 
 #[tokio::test]
+async fn json_rpc_legacy_provider_type_preserves_default_endpoint() {
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    write_min_config(&home.join(".openhuman"), "http://127.0.0.1:9");
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+    for (index, method) in [
+        "openhuman.config_update_model_settings",
+        "openhuman.inference_update_model_settings",
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        let updated = post_json_rpc(
+            &rpc_base,
+            41_250 + index as i64,
+            method,
+            json!({
+                "cloud_providers": [{"slug": "legacy", "endpoint": "", "type": " anthropic ",
+                    "default_model": "claude-sonnet-4"}]
+            }),
+        )
+        .await;
+        let snapshot = peel_logs_envelope(assert_no_jsonrpc_error(
+            &updated,
+            "legacy provider endpoint update",
+        ));
+        let path = snapshot["config_path"].as_str().expect("saved config path");
+        let persisted: openhuman_core::config::Config =
+            toml::from_str(&std::fs::read_to_string(path).unwrap()).unwrap();
+        let provider = persisted
+            .cloud_providers
+            .iter()
+            .find(|p| p.slug == "legacy")
+            .unwrap();
+        assert_eq!(
+            provider.endpoint, "https://api.anthropic.com/v1",
+            "{method}"
+        );
+        assert_eq!(
+            provider.auth_style,
+            openhuman_core::config::schema::AuthStyle::Anthropic
+        );
+        assert_eq!(provider.default_model.as_deref(), Some("claude-sonnet-4"));
+        let updated = post_json_rpc(
+            &rpc_base,
+            41_260 + index as i64,
+            method,
+            json!({"cloud_providers": [{"slug": "legacy", "endpoint": "http://127.0.0.1:9/v1",
+                "type": "anthropic", "auth_style": "bearer"}]}),
+        )
+        .await;
+        let snapshot = peel_logs_envelope(assert_no_jsonrpc_error(
+            &updated,
+            "explicit provider values",
+        ));
+        let providers = snapshot["config"]["cloud_providers"].as_array().unwrap();
+        let provider = providers.iter().find(|p| p["slug"] == "legacy").unwrap();
+        assert_eq!(provider["endpoint"], "http://127.0.0.1:9/v1");
+        assert_eq!(provider["auth_style"], "bearer");
+    }
+    rpc_join.abort();
+}
+
+#[tokio::test]
 async fn json_rpc_config_update_browser_settings_persists_backend() {
     let _env_lock = json_rpc_e2e_env_lock_async().await;
     let tmp = tempdir().expect("tempdir");

@@ -3,10 +3,7 @@
 //! Split into submodules; this module re-exports the main `Config` and all public types.
 
 pub mod cloud_providers;
-pub use cloud_providers::{
-    generate_provider_id, is_slug_reserved, migrate_legacy_fields, AuthStyle, CloudProviderCreds,
-    CloudProviderType,
-};
+pub use cloud_providers::{generate_provider_id, is_slug_reserved, AuthStyle, CloudProviderCreds};
 pub mod ephemeral_route;
 pub use ephemeral_route::{EphemeralRoute, EPHEMERAL_ROUTE_SLUG};
 mod agent;

@@ -231,24 +231,22 @@ fn slug_needs_connected_set(slug: &str) -> bool {
 /// nothing to go on (the caller then fails closed).
 async fn connected_toolkit_slugs(config: &Config) -> Option<Vec<String>> {
     use crate::integrations::composio::{
-        cached_active_integrations_including_expired, fetch_connected_integrations_status,
+        cached_active_integrations, fetch_connected_integrations_status,
         FetchConnectedIntegrationsStatus,
     };
 
     let integrations = match fetch_connected_integrations_status(config).await {
         FetchConnectedIntegrationsStatus::Authoritative(v) => v,
-        FetchConnectedIntegrationsStatus::Unavailable => {
-            match cached_active_integrations_including_expired(config) {
-                Some(v) => {
-                    tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable — using last-known (possibly stale) cached connections for the tool_call allowlist");
-                    v
-                }
-                None => {
-                    tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable and no cached snapshot — connected-toolkit allowlist is empty this call");
-                    return None;
-                }
+        FetchConnectedIntegrationsStatus::Unavailable => match cached_active_integrations(config) {
+            Some(v) => {
+                tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable — using last-known (possibly stale) cached connections for the tool_call allowlist");
+                v
             }
-        }
+            None => {
+                tracing::warn!(target: "flows", "[flows] connected-toolkit lookup: backend unavailable and no cached snapshot — connected-toolkit allowlist is empty this call");
+                return None;
+            }
+        },
     };
 
     Some(

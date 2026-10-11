@@ -221,7 +221,3 @@ pub async fn stop_credential_gated_services(config: &Config) {
 
     log::info!("[services] all login-gated services stopped");
 }
-
-/// Historical names, kept for call sites outside this module.
-pub use start_credential_gated_services as start_login_gated_services;
-pub use stop_credential_gated_services as stop_login_gated_services;

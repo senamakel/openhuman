@@ -149,12 +149,13 @@ impl Account {
         self.providers_loaded
             .get_or_try_init(|| async {
                 let response = self.call_providers().await?;
-                let providers: Vec<String> = serde_json::from_str(&response).map_err(|_| {
-                    crate::modules::client::ModuleClient::report_malformed_reply("tinyhosts");
-                    anyhow::anyhow!(
-                        crate::modules::client::ModuleCallError::ModuleFault.to_string()
-                    )
-                })?;
+                let providers: Vec<String> =
+                    serde_json::from_str(&response).map_err(|_| {
+                        crate::modules::client::ModuleClient::report_malformed_reply("tinyhosts");
+                        anyhow::anyhow!(
+                            crate::modules::client::ModuleCallError::ModuleFault.to_string()
+                        )
+                    })?;
                 if !providers.iter().any(|provider| provider == &self.provider) {
                     crate::modules::client::ModuleClient::report_unavailable("tinyhosts");
                     anyhow::bail!(crate::modules::client::ModuleCallError::Unavailable.to_string());

@@ -688,4 +688,7 @@
 #                      profile; making flows enable the loader adds three.
 #                      Measured net change: five fewer packages/names, with
 #                      the same two native builds. No binary-size claim.
-flows:335:313:2
+# 326/304/2 2026-10-11 Combined released module adapters on current main,
+#                      including the existing managed-runtime removal.
+#                      Measured with dep-sim --cut-nothing; no size claim.
+flows:326:304:2

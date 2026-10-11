@@ -1,6 +1,6 @@
 //! Shared module access for hosts, including before a core runtime is started.
 
-use serde::{Serialize, de::DeserializeOwned};
+use serde::{de::DeserializeOwned, Serialize};
 use std::time::Duration;
 
 use crate::config::Config;

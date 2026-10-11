@@ -3,7 +3,7 @@
 use std::path::{Component, Path, PathBuf};
 
 use async_trait::async_trait;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tinyhosts_bus::{PermissionLevel as ContractPermission, ToolDeclaration};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult};
 

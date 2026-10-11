@@ -6,17 +6,14 @@ use std::path::Path;
 use std::sync::atomic::{AtomicU32, Ordering};
 use tinyagents_tasks::DEFAULT_MAX_ATTEMPTS;
 use tokio::sync::MutexGuard;
-
 /// Serializes tests over the process-wide router registry (`clear_all` in the
 /// thread-purge tests sweeps every open workspace).
 async fn test_guard() -> MutexGuard<'static, ()> {
     crate::config::TEST_ENV_LOCK.lock().await
 }
-
 fn workspace() -> TestWorkspace {
     TestWorkspace::new()
 }
-
 async fn record(ws: &Path, session: &str, task: &str, summary: &str, thread: &str) {
     record_completion(
         ws,
@@ -28,7 +25,6 @@ async fn record(ws: &Path, session: &str, task: &str, summary: &str, thread: &st
     )
     .await;
 }
-
 fn pending_ids(ws: &Path, thread: &str) -> Vec<String> {
     pending_for(ws, thread)
         .into_iter()

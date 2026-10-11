@@ -242,3 +242,26 @@ The TinyRuntime scope exclusion removes its temporary exception from this
 branch's acceptance count (31 remaining exceptions before the next module
 cut). This is an inventory scope change, not a dependency reduction or a
 TinyRuntime implementation change.
+
+## Released cutover integration (2026-10-11)
+
+The `module-released-cutover` branch integrates the prepared foundation,
+Connectors, Hosts, Juice, and document adapters onto OpenHuman main
+`9f46749f173263487116b0fb8bf3ddefccb3b5b2`. Search is already on that base.
+The existing TinyRuntime removal is preserved; runtime worker migration and
+further bus error-reporting work remain outside this integration.
+
+The host compiles TinyConnectors v0.14.0, TinyHosts v0.3.0, TinyJuice v0.7.1,
+and TinyDocs v0.2.0 contracts and executes their affected operations through
+released modules. The module boundary audit reports zero violations and zero
+stale exceptions, with 27 temporary exceptions and one pending contract.
+The migration is therefore still incomplete. The flows dependency simulator
+measures 326 packages, 304 unique crate names, and two native builds
+(`libsqlite3-sys`, `ring`), compared with current main's 337 packages and
+315 names. Package counts do not establish build-time or binary-size savings.
+
+The full pin gate still reports pre-existing Computer and MCP source/artifact
+drift. Their pending host cutovers must reconcile these pins; no new exception
+hides this mismatch. All eleven Juice v0.7.1 archive bytes were independently
+verified against the host registry, release checksum manifest, and GitHub asset
+digests. Local Docs and Hosts archives also match the registry SHA-256 pins.

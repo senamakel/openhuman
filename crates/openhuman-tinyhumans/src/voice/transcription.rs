@@ -25,8 +25,14 @@ pub(super) async fn transcribe(client: &BackendClient, credential: &BackendCrede
 }
 
 fn ensure_endpoint(url: &url::Url, is_api_key: bool) -> Result<(), String> {
-    let secure = url.scheme() == "https" || (url.scheme() == "http" && matches!(url.host_str(), Some("localhost" | "127.0.0.1" | "[::1]" | "::1")));
-    let managed = matches!(url.host_str(), Some("api.tinyhumans.ai" | "api-staging.tinyhumans.ai" | "localhost" | "127.0.0.1" | "[::1]" | "::1"));
+    let loopback = match url.host() {
+        Some(url::Host::Domain("localhost")) => true,
+        Some(url::Host::Ipv4(address)) => address.is_loopback(),
+        Some(url::Host::Ipv6(address)) => address.is_loopback(),
+        _ => false,
+    };
+    let secure = url.scheme() == "https" || (url.scheme() == "http" && loopback);
+    let managed = (url.scheme() == "https" && matches!(url.host_str(), Some("api.tinyhumans.ai" | "staging-api.tinyhumans.ai"))) || loopback;
     if !secure || (is_api_key && !managed) {
         return Err("refusing to send the TinyHumans API key over a non-HTTPS, non-loopback endpoint".into());
     }

@@ -57,3 +57,10 @@ fn backend_failure_preserves_the_context_chain_without_echoing_credentials() {
         "voice request failed: connection refused using [REDACTED]"
     );
 }
+
+#[test]
+fn backend_failure_redaction_marker_does_not_echo_the_active_credential() {
+    let error = classify_backend_error(anyhow::anyhow!("proxy rejected REDACTED"), "REDACTED");
+    assert_eq!(error.kind, ProviderErrorKind::Transport);
+    assert!(!error.message.contains("REDACTED"));
+}

@@ -4086,6 +4086,7 @@ dependencies = [
  "tinyinference-voice",
  "tinymcp",
  "tinymcp-bus",
+ "tinystoragedrivers-core",
  "tinytools",
  "tinytools-agent",
  "tokio",

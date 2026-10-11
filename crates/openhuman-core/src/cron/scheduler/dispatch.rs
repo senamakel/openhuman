@@ -32,7 +32,7 @@ use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::core::runtime::CoreContext;
-use crate::cron::policy::policy_or_default;
+use crate::cron::policy::get_policy;
 use crate::cron::{next_run_for_schedule, record_run, update_job, CronJob, CronJobPatch, Schedule};
 use crate::security::SecurityPolicy;
 
@@ -68,6 +68,11 @@ impl JobDispatcher {
                 skip_in_flight(config, &job);
                 continue;
             };
+            // Fail closed: an unreadable policy refuses the job before its slot
+            // is advanced, so the occurrence is retried once the read recovers.
+            if get_policy(config, &job.id).is_err() {
+                continue;
+            }
             claim_slot(config, &job);
             let config = config.clone();
             let security = Arc::clone(security);
@@ -143,8 +148,8 @@ fn claim_slot(config: &Config, job: &CronJob) {
 
 /// A due job whose previous run is still going.
 fn skip_in_flight(config: &Config, job: &CronJob) {
-    let policy = policy_or_default(config, &job.id);
-    if !policy.single_flight || matches!(job.schedule, Schedule::At { .. }) {
+    let single_flight = get_policy(config, &job.id).is_ok_and(|policy| policy.single_flight);
+    if !single_flight || matches!(job.schedule, Schedule::At { .. }) {
         tracing::trace!(job_id = %job.id, "[cron:dispatch] still running; not dispatched again");
         return;
     }

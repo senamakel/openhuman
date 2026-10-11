@@ -95,6 +95,11 @@
       "name": "tinysearch-bus",
       "manifest": "vendor/tinysearch/crates/tinysearch-bus/Cargo.toml",
       "owner": "https://github.com/tinyhumansai/tinysearch"
+    },
+    {
+      "name": "tinyhosts-bus",
+      "manifest": "vendor/tinyhosts/crates/tinyhosts-bus/Cargo.toml",
+      "owner": "https://github.com/tinyhumansai/tinyhosts"
     }
   ],
   "pendingContracts": [
@@ -103,12 +108,6 @@
       "manifest": "vendor/tinybox/crates/tinybox-bus/Cargo.toml",
       "owner": "https://github.com/tinyhumansai/tinybox",
       "reason": "Sandbox execution, shell analysis and pre-core gateways need a bus contract."
-    },
-    {
-      "name": "tinyhosts-bus",
-      "manifest": "vendor/tinyhosts/crates/tinyhosts-bus/Cargo.toml",
-      "owner": "https://github.com/tinyhumansai/tinyhosts",
-      "reason": "Hosting contract crate has not been published."
     }
   ],
   "exceptions": [
@@ -131,11 +130,6 @@
       "scope": "hosts",
       "package": "tinychannels-runtime",
       "reason": "Providers, relay, pairing and delivery lifecycles still call the implementation."
-    },
-    {
-      "scope": "hosts",
-      "package": "tinyhosts",
-      "reason": "Hosting contract crate has not been published."
     },
     {
       "scope": "hosts",

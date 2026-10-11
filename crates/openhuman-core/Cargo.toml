@@ -525,22 +525,11 @@ tinyjuice-bus = { path = "../../vendor/tinyjuice/crates/tinyjuice-bus" }
 # feeds them each original over the bus: see `inference/tokenjuice/repl_tools.rs`.
 tinyjuice = { path = "../../vendor/tinyjuice", default-features = false, features = ["tinytools", "host"] }
 
-# TinyHosts — the unified hosting API: one `Host` trait over a hosting provider,
-# and the `launch` flow that puts a Next.js application, its database, its
-# environment and its domains on it in the one order that works.
-#
-# The provider vocabulary stops inside the crate. What OpenHuman gets is the
-# model — sites, deployments, databases, domains, analytics — so which provider
-# a user pastes a key for is a config value here rather than a code path.
-#
-# Taken with the `vercel` provider only, which is the one that exists.
-#
-# Vendored as a path dependency like `tinyhumans-sdk`: the crate is not
-# published to crates.io, so there is no `[patch.crates-io]` entry for it.
-# After cloning: `git submodule update --init vendor/tinyhosts`.
-#
+# Transport-free host contract for the compiled TinyHosts provider module.
+# Provider operations, deployment sequencing, and bounded source preparation
+# stay in the owner repository; OpenHuman adds only the configured adapter.
 # Optional: exclusive to the default-OFF `hosting` feature.
-tinyhosts = { path = "../../vendor/tinyhosts", default-features = false, features = ["vercel", "tools"], optional = true }
+tinyhosts-bus = { path = "../../vendor/tinyhosts/crates/tinyhosts-bus", optional = true }
 
 # TinyWallet — host-agnostic multi-chain wallet primitives. Owns the address
 # formats themselves: parsing, validation, and the conversions between their
@@ -784,7 +773,7 @@ documents = ["modules", "dep:tinydocs-bus", "tinymemory-integrations/documents-o
 # still only registered once a credential actually resolves — from
 # `[hosting].api_key` or the provider's environment variable — because a tool
 # that cannot work is worse than a tool that is not there.
-hosting = ["dep:tinyhosts"]
+hosting = ["modules", "dep:tinyhosts-bus"]
 # TinyMemes: remixes the final reply with the user's register, regional slang
 # and, sometimes, a reaction meme. Compiled into product builds; at runtime it
 # is still off until `OPENHUMAN_TINYMEMES` (or a build-time

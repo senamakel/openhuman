@@ -25,8 +25,13 @@ fn slot() -> &'static RwLock<Option<Arc<dyn CloudVoiceProviderFactory>>> {
 }
 
 /// Install the host backend factory, returning the previous composition.
-pub fn install(factory: Arc<dyn CloudVoiceProviderFactory>) -> Option<Arc<dyn CloudVoiceProviderFactory>> {
-    slot().write().unwrap_or_else(|poisoned| poisoned.into_inner()).replace(factory)
+pub fn install(
+    factory: Arc<dyn CloudVoiceProviderFactory>,
+) -> Option<Arc<dyn CloudVoiceProviderFactory>> {
+    slot()
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .replace(factory)
 }
 
 /// Resolve cloud transport without linking a backend implementation.
@@ -35,14 +40,19 @@ pub fn install(factory: Arc<dyn CloudVoiceProviderFactory>) -> Option<Arc<dyn Cl
 /// Returns `BACKEND_UNAVAILABLE` when no host factory is installed, otherwise
 /// the factory's configuration error.
 pub fn for_config(config: &Config) -> Result<Arc<dyn CloudVoiceProvider>, String> {
-    let factory = slot().read().unwrap_or_else(|poisoned| poisoned.into_inner()).clone()
+    let factory = slot()
+        .read()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .clone()
         .ok_or_else(|| "BACKEND_UNAVAILABLE: cloud voice provider is not installed".to_string())?;
     factory.for_config(config)
 }
 
 #[cfg(test)]
 pub(crate) fn restore(factory: Option<Arc<dyn CloudVoiceProviderFactory>>) {
-    *slot().write().unwrap_or_else(|poisoned| poisoned.into_inner()) = factory;
+    *slot()
+        .write()
+        .unwrap_or_else(|poisoned| poisoned.into_inner()) = factory;
 }
 
 /// Project stable provider categories into the product's existing error contract.

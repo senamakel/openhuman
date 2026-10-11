@@ -4199,6 +4199,7 @@ dependencies = [
  "tinyjevclient",
  "tinytools",
  "tinytools-jev",
+ "tinyvoice-bus",
  "tokio",
  "tracing",
  "tracing-subscriber",

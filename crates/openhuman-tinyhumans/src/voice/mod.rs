@@ -10,10 +10,13 @@ use openhuman_embed::__host::{
 };
 use reqwest::Method;
 use serde_json::Value;
-use tinyvoice_bus::provider::{CloudVoiceProvider, ProviderFuture, RealtimeRequest, RealtimeSession, SynthesisRequest, Transcription, TranscriptionRequest};
+use tinyvoice_bus::provider::{
+    CloudVoiceProvider, ProviderFuture, RealtimeRequest, RealtimeSession, SynthesisRequest,
+    Transcription, TranscriptionRequest,
+};
 
-mod transcription;
 mod requests;
+mod transcription;
 
 pub(crate) fn install() {
     cloud_voice_provider::install(Arc::new(Factory));
@@ -38,13 +41,25 @@ struct Provider {
 
 impl CloudVoiceProvider for Provider {
     fn transcribe(&self, request: TranscriptionRequest) -> ProviderFuture<'_, Transcription> {
-        Box::pin(transcription::transcribe(&self.client, &self.credential, request))
+        Box::pin(transcription::transcribe(
+            &self.client,
+            &self.credential,
+            request,
+        ))
     }
 
     fn synthesize(&self, request: SynthesisRequest) -> ProviderFuture<'_, Value> {
         Box::pin(async move {
             let body = requests::speech_body(request)?;
-            self.client.authed_json(&self.credential, Method::POST, "/openai/v1/audio/speech", Some(body)).await.map_err(flatten_authed_error)
+            self.client
+                .authed_json(
+                    &self.credential,
+                    Method::POST,
+                    "/openai/v1/audio/speech",
+                    Some(body),
+                )
+                .await
+                .map_err(flatten_authed_error)
         })
     }
 
@@ -52,11 +67,29 @@ impl CloudVoiceProvider for Provider {
         Box::pin(async move {
             match request {
                 RealtimeRequest::VoiceAgent => {
-                    let raw = self.client.authed_json(&self.credential, Method::GET, "/voice-agent/get-signed-url", None).await.map_err(flatten_authed_error)?;
+                    let raw = self
+                        .client
+                        .authed_json(
+                            &self.credential,
+                            Method::GET,
+                            "/voice-agent/get-signed-url",
+                            None,
+                        )
+                        .await
+                        .map_err(flatten_authed_error)?;
                     requests::voice_agent_session(&raw)
                 }
                 RealtimeRequest::GeminiLive { options } => {
-                    let raw = self.client.authed_json(&self.credential, Method::POST, "/agent-integrations/gemini/live/sessions", Some(options)).await.map_err(flatten_authed_error)?;
+                    let raw = self
+                        .client
+                        .authed_json(
+                            &self.credential,
+                            Method::POST,
+                            "/agent-integrations/gemini/live/sessions",
+                            Some(options),
+                        )
+                        .await
+                        .map_err(flatten_authed_error)?;
                     requests::gemini_session(&raw)
                 }
             }

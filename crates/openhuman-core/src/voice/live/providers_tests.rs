@@ -68,25 +68,6 @@ fn live_config_follows_the_settings_per_provider() {
     assert_eq!(unknown.system_instruction, None);
 }
 
-#[test]
-fn parses_wrapped_and_bare_tickets() {
-    let wrapped = json!({"data": {"wsUrl": "wss://x/ws?ticket=t", "sessionId": "s", "model": "m"}});
-    assert_eq!(
-        parse_ticket(&wrapped).unwrap(),
-        GeminiTicket {
-            ws_url: "wss://x/ws?ticket=t".into(),
-            session_id: "s".into(),
-            model: "m".into()
-        }
-    );
-    let bare = json!({"wsUrl": "wss://y"});
-    assert_eq!(parse_ticket(&bare).unwrap().session_id, "");
-    assert_eq!(
-        parse_ticket(&json!({"data": {}})).unwrap_err().code,
-        "backend"
-    );
-}
-
 #[tokio::test]
 async fn byok_providers_need_a_stored_key() {
     let dir = tempfile::tempdir().unwrap();

@@ -18,10 +18,10 @@
 use log::{debug, warn};
 use serde_json::Value;
 
-use crate::platform::cloud_voice_provider;
-use tinyvoice_bus::provider::SynthesisRequest;
 use crate::config::Config;
 use crate::core::Outcome;
+use crate::platform::cloud_voice_provider;
+use tinyvoice_bus::provider::SynthesisRequest;
 
 const LOG_PREFIX: &str = "[voice_reply]";
 

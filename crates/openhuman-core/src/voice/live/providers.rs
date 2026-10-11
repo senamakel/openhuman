@@ -12,8 +12,7 @@
 //! Minting tickets and signed URLs happens here, against the backend, because
 //! `tinyliveagents` deliberately holds no backend or credential code.
 
-use reqwest::Method;
-use serde_json::{json, Value};
+use serde_json::json;
 use tinyagents_live::tinyliveagents::elevenlabs::ElevenLabsConvai;
 use tinyagents_live::tinyliveagents::gemini::{self, GeminiLive, GeminiRelay};
 use tinyagents_live::tinyliveagents::sarvam::SarvamCascade;
@@ -21,7 +20,8 @@ use tinyagents_live::tinyliveagents::{AudioFormat, LiveConfig, LiveProvider};
 
 use super::error::LiveVoiceError;
 use super::types::{LiveProviderInfo, LiveProviderKind};
-use crate::backend::BackendClient;
+use crate::platform::cloud_voice_provider;
+use tinyvoice_bus::provider::{RealtimeRequest, RealtimeSession};
 use crate::config::schema::voice_live::{
     LIVE_PROVIDERS, LIVE_PROVIDER_ELEVENLABS_HOSTED, LIVE_PROVIDER_GEMINI,
     LIVE_PROVIDER_GEMINI_HOSTED, LIVE_PROVIDER_SARVAM,
@@ -31,7 +31,7 @@ use crate::config::Config;
 const LOG_PREFIX: &str = "[voice-live]";
 
 /// The backend route that mints a Gemini Live relay ticket.
-pub(crate) const GEMINI_LIVE_SESSIONS_PATH: &str = "/agent-integrations/gemini/live/sessions";
+pub(crate) 
 
 /// Gemini Live prebuilt voices.
 const GEMINI_VOICES: &[&str] = &[
@@ -71,7 +71,7 @@ pub(crate) fn stored_key(slug: &str, config: &Config) -> Option<String> {
 
 /// Whether a backend credential is available for hosted providers.
 fn backend_ready(config: &Config) -> bool {
-    crate::security::credentials::session_support::resolve_backend_credential(config).is_ok()
+    cloud_voice_provider::for_config(config).is_ok()
 }
 
 fn strings(items: &[&str]) -> Vec<String> {
@@ -246,48 +246,19 @@ pub(crate) struct GeminiTicket {
     pub(crate) model: String,
 }
 
-/// Parses the backend's ticket response (`data`-wrapped or bare).
-pub(crate) fn parse_ticket(raw: &Value) -> Result<GeminiTicket, LiveVoiceError> {
-    let data = raw.get("data").unwrap_or(raw);
-    let field = |name: &str| {
-        data.get(name)
-            .and_then(Value::as_str)
-            .filter(|v| !v.is_empty())
-            .map(str::to_string)
-    };
-    let ws_url = field("wsUrl").ok_or_else(|| {
-        LiveVoiceError::backend("backend returned no wsUrl for the live session".to_string())
-    })?;
-    Ok(GeminiTicket {
-        ws_url,
-        session_id: field("sessionId").unwrap_or_default(),
-        model: field("model").unwrap_or_default(),
-    })
-}
-
 async fn mint_gemini_ticket(
     config: &Config,
     live: &LiveConfig,
 ) -> Result<GeminiTicket, LiveVoiceError> {
-    let credential =
-        crate::security::credentials::session_support::resolve_backend_credential(config)
-            .map_err(LiveVoiceError::not_configured)?;
-    let api_url =
-        crate::backend::require_base_url(&config.api_url).map_err(LiveVoiceError::backend)?;
-    crate::voice::realtime::ensure_secure_backend_url(&api_url).map_err(LiveVoiceError::backend)?;
-    let client =
-        BackendClient::new(&api_url).map_err(|e| LiveVoiceError::backend(e.to_string()))?;
-    let body = gemini::ticket_request(live);
-    let raw = client
-        .authed_json(
-            &credential,
-            Method::POST,
-            GEMINI_LIVE_SESSIONS_PATH,
-            Some(body),
-        )
+    let session = cloud_voice_provider::for_config(config)
+        .map_err(LiveVoiceError::not_configured)?
+        .realtime(RealtimeRequest::GeminiLive { options: gemini::ticket_request(live) })
         .await
-        .map_err(|error| LiveVoiceError::backend(crate::backend::flatten_authed_error(error)))?;
-    parse_ticket(&raw)
+        .map_err(|error| LiveVoiceError::backend(cloud_voice_provider::product_error(error)))?;
+    let RealtimeSession::GeminiLive { ws_url, session_id, model } = session else {
+        return Err(LiveVoiceError::backend("voice provider returned the wrong realtime session kind"));
+    };
+    Ok(GeminiTicket { ws_url, session_id, model })
 }
 
 #[cfg(test)]

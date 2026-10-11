@@ -409,3 +409,8 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 [[test]]
 name = "embeddings_opt_out"
 path = "../../tests/embeddings_opt_out.rs"
+
+[[test]]
+name = "cloud_voice_backend"
+path = "../../tests/cloud_voice_backend.rs"
+required-features = ["voice"]

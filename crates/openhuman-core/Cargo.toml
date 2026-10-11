@@ -497,37 +497,7 @@ tinyvoice = { path = "../../vendor/tinyvoice/crates/tinyvoice", default-features
 # After cloning: `git submodule update --init vendor/tinyjuice`.
 tinyjuice-bus = { path = "../../vendor/tinyjuice/crates/tinyjuice-bus" }
 
-# TinyJuice — the engine crate, for its pure content transforms only.
-#
-# The router, the CCR cache, the rule engine and ranged retrieval stay behind
-# the loadable-module boundary: those need the module's state, its disk tier and
-# its retrieval markers, and nothing here calls them. What this dependency buys
-# is the stateless half — `compressors::html::html_to_markdown`, which `web_fetch`
-# runs on every HTML response so the model reads a page's prose, headings and
-# links instead of its minified JS.
-#
-# That transform has no business being reimplemented here: it is content
-# handling, TinyJuice owns content handling, and a second copy would drift.
-# Reaching it through TinyBus instead would make a core tool's default output
-# depend on whether an optional cdylib loaded and on `compaction_enabled`
-# (default `false`), which is not a defensible way to decide what a fetched page
-# looks like. See `src/inference/tokenjuice/README.md`.
-#
-# `default-features = false` drops `tinyjuice-treesitter` and with it the three
-# tree-sitter grammars — those serve the code compressor, which lives behind the
-# module boundary and is not called from here.
-#
-# The `tinytools` feature adds `tinyjuice::repl::tools`, the `juice_find`,
-# `juice_extract` and `juice_summarize` tool declarations. It names tinytools by
-# URL; the root `[patch]` redirects that to the copy tinyagents vendors, so
-# there is still exactly one `tinytools` package and one `Tool` trait. The CCR
-# store those ops read lives in the module, so the host wraps the tools and
-# feeds them each original over the bus: see `inference/tokenjuice/repl_tools.rs`.
-tinyjuice = { path = "../../vendor/tinyjuice", default-features = false, features = ["tinytools", "host"] }
-
-# Transport-free host contract for the compiled TinyHosts provider module.
-# Provider operations, deployment sequencing, and bounded source preparation
-# stay in the owner repository; OpenHuman adds only the configured adapter.
+# Transport-free vocabulary for the compiled TinyHosts provider module.
 # Optional: exclusive to the default-OFF `hosting` feature.
 tinyhosts-bus = { path = "../../vendor/tinyhosts/crates/tinyhosts-bus", optional = true }
 

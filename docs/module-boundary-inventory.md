@@ -13,7 +13,7 @@ copying its implementation into a host, or accepting weaker isolation.
 
 | Owner | Linked implementation packages | Contract | Host consumers | Required module work |
 | --- | --- | --- | --- | --- |
-| tinyjuice | tinyjuice | tinyjuice-bus | core tools, compression, CCR REPL | HTML extraction, query supplied artifacts against module CCR store, schema and tool declarations; retain turn-bound model callbacks |
+| tinyjuice | none (module loaded through TinyBus) | tinyjuice-bus | core tools, compression, CCR REPL | Complete: PR #59 provides module-owned compression, CCR queries, HTML extraction, schemas and declarations; the host retains turn-bound model callbacks and artifact authorization |
 | tinyconnectors | tinyconnectors, tinyconnectors-sync | tinyconnectors-bus | core integrations, credentials and triggers | Argument preparation, calendar defaults, task windows, structured provider errors, trigger archives; preserve sign-in/out reconciliation |
 | tinymcp | tinymcp | tinymcp-bus | core MCP registry, supervisor, CLI stdio/HTTP server | Supervisor notifications, server protocol operations and callbacks for approved host tools/resources/prompts |
 | tinychannels | tinychannels, tinychannels-runtime; runtime/crypto code in contract | tinychannels-bus | core channels and podcast email, TinyHumans host, CLI REPL | Move providers, signing and pairing out of contract; relay config, pairing, start/stop/send/status, inbound/status callbacks, bounded delivery/draining |
@@ -42,6 +42,11 @@ schema and error-derive closures are approved. This catches optional runtime or
 implementation imports independently of host feature selection. Probes do not
 compile native module code, and their manifests and lockfiles are kept under
 `target/module-boundaries/` in the checkout.
+
+TinyRuntime is explicitly outside this migration, as requested, and is recorded
+in `excludedSubsystems` instead of the temporary exception list. Its removal
+is separate work. It still cannot enter another audited contract's approved
+serialization closure.
 
 Exceptions are exact package/scope pairs with reasons. Host exceptions still
 traverse their descendants. Contract exceptions stop at the first unsafe edge:
@@ -81,7 +86,7 @@ remain unchanged until compatible upstream releases are available.
 | Change | Canonical PR | Local verification |
 | --- | --- | --- |
 | Async HTML extraction seam, deadlines and generic tool-metadata sanitization in TinyTools | [tinytools#60](https://github.com/tinyhumansai/tinytools/pull/60) | 1,183 workspace tests and six doctests; clippy/build; independent sanitizer review accepted; all 113 source files at least 90% coverage |
-| TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 737 tests; dynamic artifact E2E; module input/limit guards |
+| TinyJuice typed CCR/content queries, HTML extraction, pure schemas and declarations | [tinyjuice#59](https://github.com/tinyhumansai/tinyjuice/pull/59) | 739 all-feature tests and doctests; compiled-artifact E2E; module input/limit guards |
 | Complete TinyDocs Markdown conversion for memory ingestion | [tinydocs#31](https://github.com/tinyhumansai/tinydocs/pull/31) | 183 tests; dynamic artifact E2E; per-file coverage at least 90% |
 | TinyHosts pure vocabulary and authorized source preparation with captured deployment bytes | [tinyhosts#21](https://github.com/tinyhumansai/tinyhosts/pull/21) | 210 all-feature and 179 default tests including doctests; compiled snapshot and large legacy deployment probes; pure contract audit; all 19 implementation files at least 90% coverage; independent preparation review accepted |
 | TinyComputer native permissions, confidential focus/paste and reliable Globe leases/read/shutdown | [tinycomputer#87](https://github.com/tinyhumansai/tinycomputer/pull/87) | 1,372 all-feature and 1,367 default tests; 90-member compiled artifact verification; independent ownership and event-loss review accepted; macOS cross-check and 233-file coverage gate pass; physical macOS helper not exercised on Linux |
@@ -89,11 +94,12 @@ remain unchanged until compatible upstream releases are available.
 | TinyChannels contract vocabulary separated from provider, relay, pairing and runtime behavior | [tinychannels#56](https://github.com/tinyhumansai/tinychannels/pull/56) | 1,174 default and 1,180 all-feature tests; independent contract audit and relocation review accepted; bus files at least 98.65% coverage; legacy provider/worker coverage gaps disclosed |
 | TinyBox pure contract, shell facts, reserved sandbox/process handles and acknowledged cleanup/shutdown | [tinybox#30](https://github.com/tinyhumansai/tinybox/pull/30) | 710 default and all-feature tests; 57 source files at least 90% coverage; compiled native-process artifact verification; independent lifecycle review accepted; supervised execution currently limited to Unix passthrough |
 | TinyWallet pure contracts, address validation and stateless EVM construction with exact approval facts | [tinywallet#56](https://github.com/tinyhumansai/tinywallet/pull/56) | 745 all-feature and 601 default tests; four-chain signing and native/ERC-20/contract construction through the compiled artifact; pure contract audit; all 95 source files at least 90% coverage; independent construction review accepted |
+| TinyWallet module-owned Web3 and x402 operations with scoped service handles | [tinywallet#62](https://github.com/tinyhumansai/tinywallet/pull/62) | Independent verification at ec22874: 60 module tests, every source file at least 90% coverage, and Rust 1.88 native runners execute two signing tests plus one lifecycle test. Hosted coverage passes; signed-payment budget accounting remains under review repair before merge and compatible release |
 | TinyVoice device enumeration, recording/continuous capture, reserved hotkey leases, replayable batches and acknowledged shutdown | [tinyvoice#23](https://github.com/tinyhumansai/tinyvoice/pull/23) | Contract 1.4; 32-member compiled artifact; 88 module tests; independent hotkey, Windows owner and Xvfb cleanup fixtures; pure contract audit, own-module formatting and Windows GNU test cross-check; formatted module source coverage 1,592/1,743 (91.34%), with the existing physical-device exclusion; no physical Windows/MSVC or macOS input validation |
 | TinyRuntime pure JSONL worker vocabulary, persistent cache recipes, optional provider preparation and module-owned lifecycle | [tinyruntime#29](https://github.com/tinyhumansai/tinyruntime/pull/29) | 244 router unit tests, 6 default / 7 all-feature public API tests, 64 contract tests, 35 pyserver tests and doctests; 13-member compiled artifact verifies old-provider compatibility, preparation, cache reuse, adoption and rebuilding; per-file coverage gate passes; independent cleanup, cache and provider-bridge reviews accepted |
 | TinyMCP pure shared vocabulary, supervisor observations, server callbacks and bounded text/argument/tool rendering operations | [tinymcp#54](https://github.com/tinyhumansai/tinymcp/pull/54) | 1,471 all-feature and 1,359 default tests; dynamic 44-member artifact verification; pure contract audit; all 93 source files at least 90% coverage; independent lifecycle, vocabulary and library-feature reviews accepted; external regressions cover module-disabled and host feature combinations |
 
-The TinyDocs and TinyJuice operations need new published module artifacts.
+The TinyDocs operations need a new published module artifact.
 TinyHosts preserves existing member arities and adds authorized preparation inside
 Execute; consuming that operation requires a new published artifact. No local build digest
 has been used as a release pin, and these PRs do not yet remove any host exception.
@@ -192,8 +198,47 @@ five additional distro bundles; the next complete wallet-operations release
 must use the current distro-inclusive workflow before host adoption. Wallet #61
 merged with 35 passing hosted checks and approval.
 
+Wallet #62 adds module-owned Web3 quotes/execution and x402 budgets/payments.
+Its ordinary hosted coverage gate still needs additional service lifecycle
+fixtures. The host's native wallet also calls `WalletEngine` for balances,
+network and asset catalogues, transfer preparation/execution, and transaction
+status, receipt and lookup operations. Those need a further owning-module
+contract and implementation change before the wallet implementation dependency
+cut; releasing #62 alone will not complete that migration.
+
 The current base also contains unrelated source/artifact pin drift for computer,
 search, docs, runtime/providers, MCP and Box. The module-pin gate reports this;
 it is not treated as a passing check or hidden by new exceptions. The stale
 Wallet and Channels pin exemptions were removed because those base pins now
 agree. TinyRuntime changes remain excluded from this migration.
+
+TinyJuice [#59](https://github.com/tinyhumansai/tinyjuice/pull/59) merged as
+`c3288ed1e5f30e52d22f634f8f00ac66322e67d9` after incorporating the latest
+canonical base. Fresh locked all-feature tests passed (739 tests and doctests),
+and a separately run compiled-artifact TinyBus test passed. Both final hosted
+Rust jobs passed, with approval and zero unresolved threads. Minor release run
+38091415272 succeeded. The eleven v0.7.0 platform archives have been downloaded
+and verified against both published checksums and GitHub asset digests. The
+source pin is `b89632a8f7b96580a9f6718d185eb60b14a41a8a`; HTML and query
+adapters now use the module. The isolated `module-tinyjuice-host` checkout owns
+the turn-bound summary callback registry using the existing callback DTO.
+All 66 Juice tests pass with the released native library configured through
+OpenHuman's pinned loader, including cached-handle queries, supplied-content
+queries, HTML extraction and resumed frozen tool declarations. Resume retains
+recorded executors when current REPL flags are off, preserves the recorded
+schemas verbatim, and does not add live declarations to a frozen subset or
+empty snapshot. Disabled module loading still fails the retained executor
+explicitly. The library checks pass both without the loader and with the
+repository-pinned Rust compiler.
+
+The TinyJuice cut removes its host implementation exception. The transitional
+audit now reports zero violations, zero stale exceptions, 30 remaining temporary
+exceptions and two pending contracts. Its 22 checker tests pass. The measured
+flows profile contains 328 packages, 306 names and two native builds, seven
+fewer packages and names than the connector integration profile. This does not
+establish a build-time or binary-size improvement.
+
+The TinyRuntime scope exclusion removes its temporary exception from this
+branch's acceptance count (31 remaining exceptions before the next module
+cut). This is an inventory scope change, not a dependency reduction or a
+TinyRuntime implementation change.

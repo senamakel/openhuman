@@ -235,3 +235,24 @@ fn reads_the_operators_cron_limits() {
     assert!(cron.agent_jobs_only);
     assert_eq!((cron.min_interval_secs, cron.max_active_jobs), (300, 5));
 }
+
+#[test]
+fn debug_output_redacts_the_storage_url() {
+    let mut config = SaasConfig::new("/srv/oh");
+    config.storage_url = Some("mongodb://admin:hunter2@db.internal/oh".into());
+    let shown = format!("{config:?}");
+    assert!(
+        !shown.contains("hunter2") && !shown.contains("db.internal"),
+        "{shown}"
+    );
+    assert!(shown.contains("<redacted>"));
+    assert!(!format!("{:?}", SaasConfig::new("/srv/oh")).contains("<redacted>"));
+}
+
+#[test]
+fn reads_the_tool_iteration_cap() {
+    let config: SaasConfig =
+        toml::from_str("root = \"/srv/oh\"\nmax_tool_iterations = 4\n").unwrap();
+    assert_eq!(config.max_tool_iterations, Some(4));
+    assert_eq!(SaasConfig::new("/srv/oh").max_tool_iterations, None);
+}

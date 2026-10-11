@@ -16,8 +16,9 @@ impl OpenHumanSessionHost {
         session_id: Option<&str>,
     ) -> anyhow::Result<Self> {
         if let Some(capabilities) = crate::profiles::capabilities::ProfileCapabilities::current() {
-            let definition = super::factory::resolve_target_definition(config, agent_id)?
+            let mut definition = super::factory::resolve_target_definition(config, agent_id)?
                 .ok_or_else(|| anyhow::anyhow!("profile agent definition is unavailable"))?;
+            capabilities.apply_system_prompt(&mut definition);
             let factory = capabilities.factory(config);
             return Self::from_config_host_only(config, &definition, Some(&factory), session_id);
         }

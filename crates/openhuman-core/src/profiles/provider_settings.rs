@@ -44,6 +44,12 @@ impl ProfileProviderSettings {
             .then_some(std::borrow::Cow::Borrowed(name))
     }
 
+    /// Whether the operator configured a direct chat provider, so profile
+    /// turns need no TinyHumans backend credential.
+    pub(crate) fn has_direct_chat(&self) -> bool {
+        self.chat.is_some()
+    }
+
     /// Validate operator-owned direct routes and their presentation.
     ///
     /// # Errors

@@ -31,7 +31,11 @@ skills = ["openhuman-core/skills"]
 mcp = ["openhuman-core/mcp"]
 # Also carries `process::sentry`, the shared Sentry options + before_send chain.
 crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting"]
-channels = ["openhuman-core/channels"]
+# The in-process SaaS profile facade (`ProfileRuntime`). Headless: it does not
+# pull in tinychannels or axum. Relaying a platform message into a profile
+# (`ProfileHandle::relay_inbound`) is a channel transport and needs `channels`.
+profiles = []
+channels = ["profiles", "openhuman-core/channels"]
 whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate"]
@@ -121,7 +125,8 @@ required-features = ["channels"]
 name = "storage"
 required-features = ["storage-sqlite"]
 
-# SaaS profiles are exposed only when the channel facade is compiled.
+# SaaS profiles need `profiles`; these two also relay platform messages, which
+# needs `channels`.
 [[test]]
 name = "saas_profiles"
 required-features = ["channels"]
@@ -133,9 +138,22 @@ required-features = ["channels"]
 
 # Due agent jobs of hosted profiles run once, as their own profile.
 [[test]]
+name = "profile_direct_providers"
+required-features = ["profiles"]
+
+[[test]]
+name = "profile_system_prompt"
+required-features = ["profiles"]
+
+[[test]]
 name = "profile_cron_sweep"
+required-features = ["profiles"]
+
+# Operator-admitted cron and time tools, the iteration cap, no backend credential.
+[[test]]
+name = "profile_operator_tools"
 required-features = ["channels"]
 
 [[example]]
 name = "profiles"
-required-features = ["channels"]
+required-features = ["profiles"]

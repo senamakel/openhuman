@@ -141,7 +141,7 @@ pub use permission::PermissionFuture;
 pub mod observe;
 
 pub mod process;
-#[cfg(feature = "channels")]
+#[cfg(feature = "profiles")]
 pub mod profiles;
 /// Explicit ordered fallback and truncation policies.
 pub mod routing;
@@ -187,13 +187,14 @@ pub use harness::{
 };
 #[cfg(feature = "mcp")]
 pub use harness::{HttpHeader, McpAuthConfig, McpServer};
-#[cfg(feature = "channels")]
+#[cfg(feature = "profiles")]
 pub use profiles::{
     ChatReply, CronDelivery, CronReply, CronSweepReport, DirectProfileProvider, JobOrigin,
     OpenError, ProfileError, ProfileEvents, ProfileHandle, ProfileId, ProfileIdMode,
-    ProfileRuntime, ProfileRuntimeBuilder, ProfileSummary, Provisioned, RelayAccepted,
-    RelayMessage, SaasConfig,
+    ProfileRuntime, ProfileRuntimeBuilder, ProfileSummary, Provisioned, SaasConfig,
 };
+#[cfg(all(feature = "profiles", feature = "channels"))]
+pub use profiles::{RelayAccepted, RelayMessage};
 pub use runtime::builder::DEFAULT_MAX_AGENTS;
 /// Read-only view of a [`RuntimeBuilder`], for the layered crates' tests.
 #[doc(hidden)]

@@ -22,6 +22,8 @@ pub struct ProfileCapabilities {
     groups: Vec<super::tools::SaasToolGroup>,
     /// The shared engine, resolved only under the forced profile memory root.
     pub memory_engine: Option<Arc<dyn tinymemory_api::MemoryEngine>>,
+    /// The operator's whole system prompt, when set.
+    system_prompt: Option<String>,
 }
 
 impl ProfileCapabilities {
@@ -41,6 +43,26 @@ impl ProfileCapabilities {
             channels,
             groups,
             memory_engine,
+            system_prompt: None,
+        }
+    }
+
+    /// Replace every profile's system prompt with `prompt`, verbatim: no
+    /// SOUL/IDENTITY files, routing text, tool guidance or style block.
+    #[must_use]
+    pub fn with_system_prompt(mut self, prompt: Option<String>) -> Self {
+        self.system_prompt = prompt;
+        self
+    }
+
+    /// Make `definition` render the operator's system prompt, if one is set.
+    pub fn apply_system_prompt(
+        &self,
+        definition: &mut crate::agent::harness::definition::AgentDefinition,
+    ) {
+        if let Some(prompt) = &self.system_prompt {
+            definition.system_prompt =
+                crate::agent::harness::definition::PromptSource::Verbatim(prompt.clone());
         }
     }
 
@@ -63,6 +85,17 @@ impl ProfileCapabilities {
                 .iter()
                 .map(|(name, level)| (name.clone(), level.to_string().to_lowercase())),
         );
+    }
+
+    /// Whether the operator named `name` in its tool scope and it is one of
+    /// [`OPERATOR_ADMITTABLE`](super::tools::OPERATOR_ADMITTABLE), the tools
+    /// registered although their domain family is off for profiles.
+    pub fn names_admittable(&self, name: &str) -> bool {
+        super::tools::OPERATOR_ADMITTABLE.contains(&name)
+            && self
+                .names
+                .as_ref()
+                .is_some_and(|names| names.contains(name))
     }
 
     /// Whether a selected name may reach the host permission decision.

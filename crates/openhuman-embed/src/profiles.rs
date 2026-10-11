@@ -63,7 +63,10 @@ use crate::error::CoreError;
 mod handle;
 mod host;
 
-pub use handle::{ChatReply, ProfileEvents, ProfileHandle, RelayAccepted};
+#[cfg(feature = "channels")]
+pub use handle::RelayAccepted;
+pub use handle::{ChatReply, ProfileEvents, ProfileHandle};
+#[cfg(feature = "channels")]
 pub use openhuman_core::channels::providers::relay::RelayInboundParams as RelayMessage;
 /// Validated operator-owned direct inference settings.
 pub use openhuman_core::core::runtime::direct_profile_provider::DirectProfileProvider;

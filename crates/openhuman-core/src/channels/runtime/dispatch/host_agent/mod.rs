@@ -60,8 +60,10 @@ pub(crate) fn route(ctx: &ChannelRuntimeContext, channel: &str) -> HostRoute {
             crate::agent::harness::definition::AgentDefinitionRegistry::current(),
         ) {
             if let Some(definition) = definitions.get("orchestrator") {
+                let mut definition = definition.clone();
+                capabilities.apply_system_prompt(&mut definition);
                 return HostRoute::Agent(Box::new(HostAgent {
-                    definition: definition.clone(),
+                    definition,
                     config: config.as_ref().clone(),
                     host_tools: Some(capabilities.factory(config)),
                     context,

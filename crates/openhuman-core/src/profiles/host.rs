@@ -229,6 +229,7 @@ impl ProfileHost {
         config.cron.agent_jobs_only = cron.agent_jobs_only;
         config.cron.min_interval_secs = cron.min_interval_secs;
         config.cron.max_active_jobs = cron.max_active_jobs;
+        config.agent.max_tool_iterations_override = self.saas.max_tool_iterations;
         config
     }
 

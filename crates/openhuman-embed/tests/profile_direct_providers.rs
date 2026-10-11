@@ -12,7 +12,6 @@ use common::{
 use openhuman_embed::config::{
     SearchConfig, SearchEngineCredentials, SearchPresentation, SearchProviderSettings, SearchRole,
 };
-use openhuman_embed::profiles::ProfileCredentialKind;
 use openhuman_embed::seams::ToolHookDecision;
 use openhuman_embed::{
     DirectProfileProvider, PermissionLevel, ProfileRuntime, SaasConfig, ToolScopeSpec,
@@ -170,15 +169,8 @@ async fn scenario() {
         .build()
         .await
         .unwrap();
-    let provisioned = runtime.provision("alice").await.unwrap();
-    runtime
-        .set_credential(
-            &provisioned.profile_id,
-            ProfileCredentialKind::ApiKey,
-            "fixture-key",
-        )
-        .await
-        .unwrap();
+    // No `set_credential`: a direct chat provider needs no backend credential.
+    runtime.provision("alice").await.unwrap();
     let handle = runtime.open("alice").await.unwrap();
     let reply = handle.chat("t1", "look things up").await.unwrap();
     assert_eq!(reply.text, "done");

@@ -15,6 +15,7 @@ pub(super) struct ProfileHostOptions {
     permission: Option<Arc<dyn ToolHook>>,
     channels: HashMap<String, PermissionLevel>,
     memory: Option<Arc<dyn tinymemory_api::MemoryEngine>>,
+    system_prompt: Option<String>,
 }
 
 impl ProfileHostOptions {
@@ -41,6 +42,15 @@ impl ProfileHostOptions {
                 "profile channel permissions cannot be dangerous".into(),
             ));
         }
+        if self
+            .system_prompt
+            .as_deref()
+            .is_some_and(|p| p.trim().is_empty())
+        {
+            return Err(ProfileError::Boot(
+                "the profile system prompt must not be empty".into(),
+            ));
+        }
         Ok(Arc::new(
             openhuman_core::profiles::capabilities::ProfileCapabilities::new(
                 self.tools,
@@ -49,7 +59,8 @@ impl ProfileHostOptions {
                 self.channels,
                 openhuman_core::profiles::tools::parse_allowlist(&config.tool_allowlist),
                 self.memory,
-            ),
+            )
+            .with_system_prompt(self.system_prompt),
         ))
     }
 }
@@ -98,6 +109,18 @@ impl ProfileRuntimeBuilder {
             .into_iter()
             .map(|(name, level)| (name.into(), level))
             .collect();
+        self
+    }
+
+    /// Own every profile's system prompt. `prompt` is sent verbatim, as the
+    /// whole system prompt of every chat, relay and cron turn: it replaces
+    /// each profile's SOUL.md and IDENTITY.md and OpenHuman's own routing,
+    /// tool-guidance and style sections, so nothing in it can mention a tool
+    /// the host does not offer. Users cannot override it. An empty prompt is
+    /// refused at build time. Without this the built-in prompt is used.
+    #[must_use]
+    pub fn system_prompt(mut self, prompt: impl Into<String>) -> Self {
+        self.host_options.system_prompt = Some(prompt.into());
         self
     }
 

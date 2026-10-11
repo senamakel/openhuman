@@ -285,6 +285,13 @@ A profile holds one thread per conversation, whatever interface it came in on:
     hard-denied whatever the allowlist says (`tools::HARD_DENIED`).
   - There is no per-user approval surface, so the approval gate never parks
     in SaaS: it allows tools from an allowlisted group and refuses the rest.
+  - An embedding operator can also name `cron`, `current_time` and
+    `resolve_time` in `tool_scope(ToolScopeSpec::Named(..))`
+    (`tools::OPERATOR_ADMITTABLE`); only those three are registered despite
+    their family being off, and only when named. Cron stays bound by
+    `[cron] agent_jobs_only`.
+  - `max_tool_iterations` caps tool rounds per profile turn (chat, relay and
+    cron), forced as `agent.max_tool_iterations_override`.
 - **The user surface is an allowlist.** Within the user families, only the
   methods on `surface::USER_METHODS` are live: thread reads and writes
   (including `threads_delete` and `threads_purge`, confined to the caller),

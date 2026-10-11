@@ -26,7 +26,9 @@ use crate::core::types::HostKind;
 use crate::tools::toolpacks::ToolGroups;
 
 /// The operator's SaaS deployment settings.
-#[derive(Debug, Clone, PartialEq, Deserialize)]
+///
+/// `Debug` redacts `storage_url`, which can carry database credentials.
+#[derive(Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SaasConfig {
     /// Root of every user's state and the operator's own. Must be an absolute,
@@ -110,6 +112,43 @@ pub struct SaasConfig {
     /// loosen them.
     #[serde(default)]
     pub cron: SaasCronConfig,
+    /// Most tool-call rounds one profile turn may take (chat, relay and cron
+    /// alike). Forced onto every profile as `agent.max_tool_iterations_override`,
+    /// so it wins over any agent definition's own cap. `None` leaves the
+    /// definition in charge.
+    #[serde(default)]
+    pub max_tool_iterations: Option<usize>,
+}
+
+impl std::fmt::Debug for SaasConfig {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("SaasConfig")
+            .field("root", &self.root)
+            .field("chat_provider", &self.chat_provider)
+            .field("search", &self.search)
+            .field("search_role_names", &self.search_role_names)
+            .field("service_token_file", &self.service_token_file)
+            .field("tool_allowlist", &self.tool_allowlist)
+            .field("sandbox", &self.sandbox)
+            .field("rpc_allowlist_extra", &self.rpc_allowlist_extra)
+            .field("max_profiles_open", &self.max_profiles_open)
+            .field("profile_ids", &self.profile_ids)
+            .field("idle_evict_secs", &self.idle_evict_secs)
+            .field("shared_backend_api_key", &self.shared_backend_api_key)
+            .field("custom_definitions", &self.custom_definitions)
+            .field("require_user_signature", &self.require_user_signature)
+            .field(
+                "storage_url",
+                &self.storage_url.as_ref().map(|_| "<redacted>"),
+            )
+            .field("node_id", &self.node_id)
+            .field("advertise_url", &self.advertise_url)
+            .field("lease_ttl_secs", &self.lease_ttl_secs)
+            .field("operator_dir", &self.operator_dir)
+            .field("cron", &self.cron)
+            .field("max_tool_iterations", &self.max_tool_iterations)
+            .finish()
+    }
 }
 
 /// `[cron]`: the operator's cron limits for hosted profiles (see
@@ -236,6 +275,7 @@ impl SaasConfig {
             lease_ttl_secs: default_lease_ttl_secs(),
             operator_dir: None,
             cron: SaasCronConfig::default(),
+            max_tool_iterations: None,
         }
     }
 

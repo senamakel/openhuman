@@ -356,6 +356,26 @@ async fn a_profile_with_a_live_turn_is_not_evicted() {
 }
 
 #[tokio::test]
+async fn the_operators_iteration_cap_binds_every_profile_whatever_its_config_says() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut saas = SaasConfig::new(tmp.path());
+    saas.max_tool_iterations = Some(4);
+    let host = ProfileHost::new(saas, CoreContext::for_test(DomainSet::full(), None));
+    let id = profile("alice");
+    host.provision(&id).await.unwrap();
+    let layout = ProfileLayout::new(tmp.path(), &id);
+    std::fs::write(
+        &layout.config_path,
+        "[agent]\nmax_tool_iterations_override = 99\n",
+    )
+    .unwrap();
+    let forced = host.provisioned_config(&id).await.unwrap();
+    let opened = host.open(&id).await.unwrap();
+    assert_eq!(forced.agent.max_tool_iterations_override, Some(4));
+    assert_eq!(opened.config.agent.max_tool_iterations_override, Some(4));
+}
+
+#[tokio::test]
 async fn the_operators_cron_limits_bind_every_profile_whatever_its_config_says() {
     let tmp = tempfile::tempdir().unwrap();
     let mut saas = SaasConfig::new(tmp.path());

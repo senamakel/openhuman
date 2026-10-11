@@ -45,7 +45,9 @@ mod worker_mirror;
 // unaffected by the responsibility split.
 #[cfg(test)]
 pub(super) use dispatch::inherited_thread_id;
-pub(super) use dispatch::{run_subagent_via_graph, AggregatedUsage};
+pub(super) use dispatch::run_subagent_via_graph;
+#[cfg(test)]
+pub(super) use dispatch::AggregatedUsage;
 
 // Only what `graph_tests.rs`'s `use super::*` still needs directly (the rest
 // of the original flat imports now live with the code that uses them, in

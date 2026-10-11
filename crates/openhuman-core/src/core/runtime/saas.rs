@@ -32,6 +32,15 @@ pub struct SaasConfig {
     /// Root of every user's state and the operator's own. Must be an absolute,
     /// existing directory that is not world-writable.
     pub root: PathBuf,
+    /// Validated direct inference defaults shared by profile chat, relay, and cron.
+    #[serde(default)]
+    pub chat_provider: Option<super::direct_profile_provider::DirectProfileProvider>,
+    /// Operator-owned direct Exa/Gemini policy; never a user settings RPC.
+    #[serde(default)]
+    pub search: Option<crate::config::SearchConfig>,
+    /// Advertised names for the three search roles. Missing entries retain canonical names.
+    #[serde(default)]
+    pub search_role_names: std::collections::BTreeMap<tinysearch_bus::Role, String>,
     /// The gateway's bearer, one line in a `0600` file. Defaults to
     /// `<root>/service.token`.
     #[serde(default)]
@@ -208,6 +217,9 @@ impl SaasConfig {
     pub fn new(root: impl Into<PathBuf>) -> Self {
         Self {
             root: root.into(),
+            chat_provider: None,
+            search: None,
+            search_role_names: std::collections::BTreeMap::new(),
             service_token_file: None,
             tool_allowlist: Vec::new(),
             sandbox: SaasSandboxConfig::default(),
@@ -231,8 +243,10 @@ impl SaasConfig {
     pub fn load(path: &Path) -> anyhow::Result<Self> {
         let raw = std::fs::read_to_string(path)
             .map_err(|e| anyhow::anyhow!("reading SaaS config {}: {e}", path.display()))?;
-        let config: Self = toml::from_str(&raw)
-            .map_err(|e| anyhow::anyhow!("parsing SaaS config {}: {e}", path.display()))?;
+        let config: Self = toml::from_str(&raw).map_err(|e| {
+            // `message()` omits the source excerpt, which could hold a key.
+            anyhow::anyhow!("parsing SaaS config {}: {}", path.display(), e.message())
+        })?;
         log::debug!(
             "[saas] loaded operator config from {} (root={})",
             path.display(),
@@ -358,6 +372,7 @@ pub async fn build_with_profile_capabilities(
     port: Option<u16>,
     capabilities: Option<Arc<crate::profiles::capabilities::ProfileCapabilities>>,
 ) -> anyhow::Result<CoreRuntime> {
+    crate::profiles::provider_settings::ProfileProviderSettings::from_saas(&config)?;
     if CoreContext::current().is_some() {
         anyhow::bail!(
             "[saas] a core is already running in this process; a SaaS core must be the only one"
@@ -370,7 +385,9 @@ pub async fn build_with_profile_capabilities(
     let token = ServiceToken::read(&config.service_token_path());
     let env: Vec<(String, String)> = std::env::vars().collect();
     let sandbox_available = if boot_guard::needs_sandbox(&config) {
-        crate::sandbox::docker::is_docker_available().await
+        crate::sandbox::docker::is_docker_available(&crate::config::Config::default())
+            .await
+            .unwrap_or(false)
     } else {
         false
     };

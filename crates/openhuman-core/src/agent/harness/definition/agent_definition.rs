@@ -226,7 +226,7 @@ pub struct AgentDefinition {
     /// * `{ skills = "*" }` entries admit no sub-agent, so they are always
     ///   allowed.
     ///
-    /// Combined with the harness's `MAX_SPAWN_DEPTH = 3` task-local
+    /// Combined with the host's `MAX_SPAWN_DEPTH = 3` policy
     /// gate, this means any execution chain bottoms out within three
     /// hops: `chat → reasoning → worker` (or `chat → worker` for the
     /// fast path).
@@ -243,15 +243,6 @@ pub struct AgentDefinition {
     /// Tracks where the definition was loaded from (Builtin vs. File).
     #[serde(skip)]
     pub source: DefinitionSource,
-
-    // ── turn graph ──────────────────────────────────────────────────────
-    /// How this agent's turn is driven (issue #4249). Injected post-load from
-    /// the agent folder's `graph.rs::graph()` (mirrors how
-    /// [`PromptSource::Dynamic`] is injected from `prompt.rs::build`); TOML-
-    /// authored agents cannot set it, so it is `#[serde(skip)]` and defaults to
-    /// [`AgentGraph::Default`] (the shared default turn graph).
-    #[serde(skip, default)]
-    pub graph: crate::agent::harness::agent_graph::AgentGraph,
 }
 
 impl AgentDefinition {

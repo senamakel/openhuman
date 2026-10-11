@@ -30,7 +30,9 @@ pub mod tools;
 pub mod scheduler;
 
 pub use ops as rpc;
-pub use ops::{add_once, add_once_at, parse_human_delay, pause_job, resume_job, update_cron_job};
+#[cfg(test)]
+pub use ops::update_cron_job;
+pub use ops::{add_once, add_once_at, parse_human_delay, pause_job, resume_job};
 // Pure scheduling logic (schedule model, next-run computation) lives in
 // `tinyflows-schedule`; the host keeps the scheduler runtime, store, config
 // and RPC, and re-exports the upstream names so `cron::Schedule` etc. hold.

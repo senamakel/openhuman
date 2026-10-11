@@ -12,7 +12,7 @@ mod origin_context;
 mod origin_delivery;
 mod retry;
 mod run_record;
-mod shell_job;
+pub(crate) mod shell_job;
 mod slot;
 
 #[cfg(test)]

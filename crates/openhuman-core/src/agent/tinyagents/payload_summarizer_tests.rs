@@ -36,7 +36,6 @@ fn dummy_definition() -> AgentDefinition {
         agent_tier: crate::agent::harness::definition::AgentTier::Worker,
         searches_connected_mcp: false,
         source: DefinitionSource::Builtin,
-        graph: Default::default(),
     }
 }
 

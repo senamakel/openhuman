@@ -75,6 +75,11 @@ required-features = ["http-server", "bin-tools"]
 # otherwise gate-free target — required-features is the blunt instrument, and
 # it costs the whole target when the gate is off.
 [[test]]
+name = "tinysearch_module_e2e"
+path = "../../tests/tinysearch_module_e2e.rs"
+required-features = ["modules"]
+
+[[test]]
 # Reproduction of the removed spend cap: needs its own process because the
 # global CostTracker is a `OnceCell`, so a shared `--lib` process makes the
 # spend state order-dependent.
@@ -340,6 +345,7 @@ tar = "0.4"
 tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", features = ["sqlite", "storage-drivers"] }
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = ["sqlite", "multimodal"] }
 tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinysearch-bus = { path = "../../vendor/tinysearch/crates/tinysearch-bus" }
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false, features = ["macros", "uds"] }
 tinychannels = { version = "0.1", features = ["relay-websocket"] }
 tinyinference-core = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-core" }

@@ -37,6 +37,11 @@ const embedContractExports = new Map(
       [
         "pub use tinytools::ToolPolicy;",
         "pub use tinyagents_harness::middleware::{StopDecision, StopHook};",
+        "pub use tinyagents_session::port::{AppendStore, InMemorySessionStores, InMemoryTranscriptLocator, InMemoryTurnStates, Store, TurnStates};",
+        "pub use tinyagents_session::testkit::conformance::{session_store_conformance, session_store_isolation_conformance};",
+        "pub use tinyagents_session::transcript::{SessionRef, SessionTranscript, TranscriptHistory, TranscriptLocator, TranscriptMessage, TranscriptMeta, TranscriptPartial, TranscriptRead, TranscriptTurn};",
+        "pub use tinyagents_session::turn_state::{TurnLifecycle, TurnState};",
+        "pub use tinyagents_session::{Result as StoreResult, TinyAgentsError as StoreError};",
         "pub use tinyinference_llm::message::MessageDelta;",
         "pub use tinyinference_llm::model::{ChatModel, DeferredHandle, DeferredStatus, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem, ModelStreamMetadata};",
         "pub use tinyinference_llm::{Error, Result};",

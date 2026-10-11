@@ -379,6 +379,21 @@ pub struct OpenHumanRunContext {
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HostOperationContext {
     pub(crate) origin: Option<AgentTurnOrigin>,
+    pub(crate) sandbox_mode: Option<SandboxMode>,
+}
+
+/// Reads the calling agent's sandbox policy from the explicit tool carrier.
+/// Direct tool dispatch has no agent-specific mode.
+pub(crate) fn sandbox_mode_for_tool(
+    context: Option<&dyn tinytools::ToolRunContext>,
+) -> Option<SandboxMode> {
+    context
+        .and_then(tinytools::ToolRunContext::host_extension)
+        .and_then(|extension| {
+            extension.downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()
+        })
+        .and_then(|context| context.state::<HostOperationContext>())
+        .and_then(|host| host.sandbox_mode)
 }
 
 impl Default for OpenHumanRunContext {
@@ -542,9 +557,17 @@ impl OpenHumanRunContext {
     /// `tinytools::WorkspaceDescriptor`; no type alias, re-export or task-local
     /// bridge is involved.
     pub fn into_tinyagents(
-        self,
+        mut self,
         mut config: tinyagents_harness::context::RunConfig,
     ) -> tinyagents_harness::context::RunContext<Self> {
+        // Imported transport facts and explicit child context must survive entry
+        // into the native driver, which scopes the depth recorded in RunConfig.
+        let depth = config
+            .depth()
+            .max(self.spawn_depth)
+            .max(tinyagents_harness::context::current_run_depth().map_or(0, |facts| facts.depth));
+        self.spawn_depth = depth;
+        config = config.with_depth(depth);
         if config.thread_id.is_none() {
             if let Some(thread_id) = self.thread_id.as_deref() {
                 config = config.with_thread(thread_id);
@@ -554,6 +577,7 @@ impl OpenHumanRunContext {
         let workspace = self.workspace.clone();
         let host_operations = Arc::new(HostOperationContext {
             origin: self.origin.clone(),
+            sandbox_mode: self.sandbox_mode,
         });
         let context = tinyagents_harness::context::RunContext::new(config, self)
             .with_cancellation(cancellation)

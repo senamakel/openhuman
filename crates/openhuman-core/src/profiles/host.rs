@@ -141,6 +141,8 @@ impl ProfileHost {
         operator: Arc<CoreContext>,
         backend: Option<Arc<dyn StorageBackend>>,
     ) -> Result<Self, String> {
+        super::provider_settings::ProfileProviderSettings::from_saas(&saas)
+            .map_err(|error| error.to_string())?;
         let node = saas.resolve_node_id(None).to_owned();
         let leases = profile_lease::store_for(
             &saas.root,
@@ -230,13 +232,23 @@ impl ProfileHost {
         config
     }
 
+    /// [`Self::forced_config`] plus the operator's direct providers, for any
+    /// config that serves chat, relay or cron turns.
+    fn serving_config(&self, layout: &ProfileLayout, id: &ProfileId) -> Result<Config, String> {
+        let mut config = self.forced_config(layout, id);
+        super::provider_settings::ProfileProviderSettings::from_saas(&self.saas)
+            .map_err(|error| error.to_string())?
+            .bind(&mut config);
+        Ok(config)
+    }
+
     /// The forced config of provisioned profile `id`, without opening it (and
     /// so without taking a profile slot or its lease).
     pub async fn provisioned_config(&self, id: &ProfileId) -> Result<Config, String> {
         if self.registry.get(id).await?.is_none() {
             return Err(format!("profile {id} is not provisioned"));
         }
-        Ok(self.forced_config(&self.layout_of(id), id))
+        self.serving_config(&self.layout_of(id), id)
     }
 
     /// Profile `id`, opening it — and taking its lease — if it is provisioned
@@ -310,7 +322,9 @@ impl ProfileHost {
             profile_lease::release_all(self, vec![(id.clone(), grant)]).await;
             return Err(OpenError::Storage(error));
         }
-        let mut config = self.forced_config(&layout, id);
+        let mut config = self
+            .serving_config(&layout, id)
+            .map_err(OpenError::Storage)?;
         if let Some(capabilities) = &self.capabilities {
             capabilities.configure(&mut config);
         }

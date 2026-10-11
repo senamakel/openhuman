@@ -199,7 +199,7 @@ pub(super) async fn run_agent_job_for_run(
                             recency_window_secs = MORNING_BRIEFING_TASK_RECENCY_SECS,
                             "[cron] applying morning-briefing task recency window"
                         );
-                        crate::agent::harness::with_task_recency_window(
+                        crate::integrations::composio::task_recency_context::with_task_recency_window(
                             std::time::Duration::from_secs(MORNING_BRIEFING_TASK_RECENCY_SECS),
                             turn,
                         )

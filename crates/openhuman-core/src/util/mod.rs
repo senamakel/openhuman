@@ -40,3 +40,6 @@ pub use text::{
     truncate_with_suffix, utf8_safe_prefix_at_byte_boundary,
 };
 pub use types::MaybeSet;
+
+#[cfg(test)]
+pub(crate) mod module_test_process;

@@ -98,10 +98,14 @@ impl Tool for CronUpdateTool {
         };
 
         if let Some(command) = &patch.command {
-            if !self.security.is_command_allowed(command) {
-                return Ok(ToolResult::error(format!(
-                    "Command blocked by security policy: {command}"
-                )));
+            if let Err(reason) = super::super::scheduler::shell_job::authorize_shell_command(
+                &self.config,
+                &self.security,
+                command,
+            )
+            .await
+            {
+                return Ok(ToolResult::error(reason));
             }
         }
 

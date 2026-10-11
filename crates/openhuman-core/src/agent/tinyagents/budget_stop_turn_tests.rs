@@ -43,6 +43,7 @@ impl ChatModel<()> for BudgetedToolModel {
         Some(PROFILE.get_or_init(|| {
             let mut profile = ModelProfile::default();
             profile.tool_calling = true;
+            profile.model = Some("claude-sonnet-4-6".to_string());
             profile
         }))
     }

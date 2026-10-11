@@ -2,11 +2,8 @@
 //! surface can restrict task-fetch results to "recently created/changed"
 //! without widening the [`tinytools::Tool`] trait signature.
 //!
-//! Sibling of [`super::sandbox_context`]: same task-local pattern, different
-//! concept. `CURRENT_AGENT_SANDBOX_MODE` carries the calling agent's sandbox
-//! mode; [`TASK_RECENCY_WINDOW`] carries an optional "only data newer than
-//! `now - window`" hint that the `composio_execute` handler applies to a
-//! curated set of task-fetch slugs (see `tinyconnectors-bus::PrepareArguments`).
+//! This Composio product policy is installed by the morning briefing runner
+//! and applied to curated task-fetch actions through the connector bus.
 //!
 //! Why a task-local instead of a `Tool::execute` argument: the tool trait is
 //! invoked from many call sites (CLI, JSON-RPC, tests, agent loops). A
@@ -30,14 +27,14 @@ tokio::task_local! {
 /// Returns the active task-recency window, if the scope is installed.
 ///
 /// `None` outside [`with_task_recency_window`] — i.e. normal chat turns,
-/// direct CLI/JSON-RPC tool dispatch, or unit tests calling a [`Tool`]
+/// direct CLI/JSON-RPC tool dispatch, or unit tests calling a [`tinytools::Tool`]
 /// directly. Callers treat `None` as "no recency restriction".
 pub fn current_task_recency_window() -> Option<Duration> {
     let window = TASK_RECENCY_WINDOW.try_with(|w| *w).ok();
     tracing::trace!(
         has_window = window.is_some(),
         window_secs = window.map(|w| w.as_secs()),
-        "[harness][task-window] read current window"
+        "[composio][task-window] read current window"
     );
     window
 }
@@ -54,10 +51,10 @@ where
 {
     tracing::trace!(
         window_secs = window.as_secs(),
-        "[harness][task-window] scope enter"
+        "[composio][task-window] scope enter"
     );
     let out = TASK_RECENCY_WINDOW.scope(window, future).await;
-    tracing::trace!("[harness][task-window] scope exit");
+    tracing::trace!("[composio][task-window] scope exit");
     out
 }
 

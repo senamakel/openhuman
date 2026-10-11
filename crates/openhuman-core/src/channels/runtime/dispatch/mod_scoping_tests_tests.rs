@@ -75,7 +75,6 @@ fn def_with_scope(scope: ToolScope) -> AgentDefinition {
         agent_tier: crate::agent::harness::definition::AgentTier::Worker,
         searches_connected_mcp: false,
         source: DefinitionSource::Builtin,
-        graph: Default::default(),
     }
 }
 

@@ -70,13 +70,18 @@ with exponential backoff starting at `reliability.provider_backoff_ms` (at
 least 200 ms).
 
 `shell` jobs run through `run_job_command_with_timeout`
-([`scheduler/shell_job.rs`](./scheduler/shell_job.rs)). Before spawning anything it checks the security
-policy in order: `can_act`, `is_rate_limited`, `is_command_allowed`, a scan of
-the arguments for forbidden paths, and `record_action` against the action
-budget. Any refusal returns a string starting `blocked by security policy:`,
-which the retry loop treats as final. The command has a hard 120 second timeout
-(`SHELL_JOB_TIMEOUT_SECS`). With the autonomy policy disabled (the default),
-most of these checks are inert; see the project `CLAUDE.md`.
+([`scheduler/shell_job.rs`](./scheduler/shell_job.rs)). Before spawning anything,
+it checks `can_act`, `is_rate_limited`, the host security policy against command
+facts returned by TinyBox `AnalyzeCommand`, and `record_action` against the
+action budget. Missing module analysis fails closed; no local parser replaces
+it. Any refusal returns a string starting `blocked by security policy:`, which
+the retry loop treats as final. Execution uses TinyBox `StartExec` on a
+module-owned passthrough resource, preserving the action directory and the
+shell's default pipeline exit status. The command has a hard 120 second timeout
+(`SHELL_JOB_TIMEOUT_SECS`); timeout cancellation and output cleanup are
+acknowledged by TinyBox before the resource is closed. With the autonomy policy
+disabled (the default), most policy checks are inert; see the project
+`CLAUDE.md`.
 
 `agent` jobs run a full agent turn ([`scheduler/agent_run.rs`](./scheduler/agent_run.rs)):
 

@@ -157,7 +157,9 @@ Published from `ops/` via `crate::core::bus::BUS.publish` (`crate::core::events:
 - `crate::config`: `Config` / `ComposioConfig` (`mode`, `entity_id`), `config::rpc` config loading.
 - `crate::modules`: loads the `tinyconnectors` native module that `module_client.rs` calls into (behind the `modules` feature).
 - `tinyconnectors_bus`: the wire contract (member names, payload types) for the `tinyconnectors` module call surface; a plain dependency, not feature-gated.
-- `crate::agent::harness`: sandbox mode (`current_sandbox_mode` / `SandboxMode`) for tool gating; `current_task_recency_window` applied through `tinyconnectors::execute::{apply_window_args, filter_response}` in [`tools/execute.rs`](./tools/execute.rs).
+- `crate::agent::tinyagents::host::run_context`: explicit sandbox mode projected
+  from the typed tool execution context for per-action and dispatcher gating.
+- [`task_recency_context.rs`](./task_recency_context.rs): Composio-owned morning briefing recency scope; `tools/execute.rs` forwards its window through the connector bus.
 - `tinytools`: `Tool`, `ToolResult`, `ToolCategory`, `PermissionLevel`, `ToolCallOptions`.
 - `crate::security`: `SecurityPolicy` / `ToolOperation` for direct-tool gating.
 - `crate::security::credentials`: encrypted store for the direct-mode API key.

@@ -209,6 +209,7 @@ async fn mock_llm_orchestrator_lists_and_runs_workflows_through_the_loop() {
         MultimodalFileConfig::default(),
         None,
         None,
+        crate::agent::harness::SandboxMode::None,
     )
     .await
     .expect("tool loop should run to completion");

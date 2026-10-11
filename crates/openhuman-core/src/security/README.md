@@ -133,10 +133,9 @@ The invariants that hold with the policy enabled:
   (`DEFAULT_APPROVAL_TTL` in [`approval/gate.rs`](./approval/gate.rs); the Flow Canvas copilot path
   uses a three-minute window).
 
-The shell-string scanning itself (segment splitting, quoting, heredoc
-stripping, segment classification, hidden-execution detection) is
-`tinybox_core::shell`, in `vendor/tinybox/crates/tinybox-core`.
-[`policy/command_checks.rs`](./policy/command_checks.rs) composes it with the tier.
+The TinyBox module owns shell-string scanning and returns `CommandAnalysis`
+facts over the `tinybox-bus` contract. [`policy/command_checks.rs`](./policy/command_checks.rs)
+applies the host's autonomy tier and protected-path policy to those facts.
 
 ### Hot-swapping the policy
 
@@ -239,10 +238,11 @@ The subfolders register their own namespaces: `approval.*` ([`approval/`](./appr
 ## Boundaries
 
 - Sandbox backends do not live here. `crates/openhuman-core/src/sandbox/`
-  picks a backend per session and delegates local confinement to
-  `tinybox-jail` (`vendor/tinybox`).
-- Shell parsing and command classification primitives are owned by
-  `tinybox` (`tinybox_core::shell`). Policy over them stays here.
+  picks a backend per session and delegates native confinement and process
+  ownership to the loaded TinyBox module (`vendor/tinybox`).
+- Shell parsing and command classification run inside the loaded TinyBox module;
+  its `CommandAnalysis` response is the bus boundary. Policy over those facts
+  stays here.
 - Secret and PII scrubbers are TinyMemory's
   (`tinymemory_integrations::safety`, `vendor/tinymemory`); this folder only
   pins the policy.

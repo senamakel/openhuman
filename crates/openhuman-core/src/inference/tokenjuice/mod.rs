@@ -149,19 +149,7 @@ pub async fn install_from_config(config: &crate::config::Config) -> Result<(), S
 
 /// Construct explicit access over the shared process-wide loader.
 fn client(config: &crate::config::Config) -> crate::modules::client::ModuleClient {
-    #[allow(unused_mut)] // Fixture overrides are compiled only into tests.
-    let mut config = config.clone();
-    #[cfg(test)]
-    if let Some(path) = std::env::var_os("TINYJUICE_TEST_MODULE") {
-        config
-            .modules
-            .overrides
-            .push(crate::config::schema::ModuleOverride {
-                id: "tinyjuice".into(),
-                path: path.to_string_lossy().into_owned(),
-            });
-    }
-    crate::modules::client::ModuleClient::new(config)
+    crate::modules::client::ModuleClient::new(config.clone())
 }
 
 /// Everything the module considers about one tool result.
@@ -414,9 +402,7 @@ mod repl_module_tests;
 pub async fn query(
     request: tinyjuice_bus::wire::QueryRequest,
 ) -> Result<tinyjuice_bus::wire::QueryResponse, String> {
-    let config = crate::config::Config::load_or_init()
-        .await
-        .map_err(|e| e.to_string())?;
+    let config = crate::config::ops::load_config_with_timeout().await?;
     query_for_config(&config, request).await
 }
 
@@ -433,9 +419,7 @@ pub(crate) async fn query_for_config(
 
 /// Extract HTML through the compiled module independently of compression settings.
 pub async fn extract_html(html: String) -> Result<String, String> {
-    let config = crate::config::Config::load_or_init()
-        .await
-        .map_err(|e| e.to_string())?;
+    let config = crate::config::ops::load_config_with_timeout().await?;
     let response: tinyjuice_bus::wire::HtmlResponse = client(&config)
         .call("tinyjuice", methods::EXTRACT_HTML, (html,))
         .await

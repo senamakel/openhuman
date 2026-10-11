@@ -185,6 +185,9 @@ async fn normalize_loaded_config(config: &mut Config) {
     // `chat_onboarding_completed` field is retained only for backward-compatible
     // deserialization.
 
+    if let Some(binding) = config.profile_providers.clone() {
+        binding.apply_chat(config);
+    }
     seed_and_enrich_model_registry(config);
 }
 

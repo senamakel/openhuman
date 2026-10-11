@@ -30,8 +30,14 @@ pub fn default_tools_with_runtime(
     runtime: Arc<dyn RuntimeAdapter>,
 ) -> Vec<Box<dyn Tool>> {
     let audit = AuditLogger::disabled();
+    let config = Arc::new(Config::default());
     vec![
-        Box::new(ShellTool::new(security.clone(), runtime, audit)),
+        Box::new(ShellTool::with_config(
+            security.clone(),
+            runtime,
+            audit,
+            config,
+        )),
         Box::new(FileReadTool::new(security.clone())),
         Box::new(FileWriteTool::new(security)),
     ]
@@ -78,10 +84,11 @@ pub fn all_tools_with_runtime(
     root_config: &crate::config::Config,
     approval_workspace_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
-    let shell: Box<dyn Tool> = Box::new(ShellTool::new(
+    let shell: Box<dyn Tool> = Box::new(ShellTool::with_config(
         security.clone(),
         Arc::clone(&runtime),
         Arc::clone(&audit),
+        Arc::clone(&config),
     ));
 
     let file_write: Box<dyn Tool> = match approval_workspace_root {

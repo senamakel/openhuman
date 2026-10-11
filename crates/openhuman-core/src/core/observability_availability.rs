@@ -56,11 +56,32 @@ pub fn is_backend_unavailable_message(msg: &str) -> bool {
 /// - `the memory module failed to load` — the memory facade's rendering of the
 ///   same cached failure.
 ///
+/// Connector presentation strings also identify already-reported bus failures;
+/// they retain their established wording without an internal marker.
+///
 /// A bare `could not be loaded` is deliberately not enough: config, update
 /// policy and workflows use it for failures that must keep paging.
 pub fn is_module_unavailable_message(msg: &str) -> bool {
     let lower = msg.to_ascii_lowercase();
-    msg.contains("MODULE_CALL_REPORTED:")
+    // Connector provider errors preserve their established product wording.
+    // Recognize only Composio provenance; a generic Execute failure can belong
+    // to another module whose adapter has not migrated to this reporting path.
+    let connector_output = msg.starts_with("[composio:error:")
+        || msg.starts_with("Composio v3 ")
+        || msg.starts_with("Failed to decode Composio v3 ")
+        || [
+            tinyconnectors_bus::names::methods::LIST_CONNECTIONS_DIRECT,
+            tinyconnectors_bus::names::methods::LIST_TOOLS_DIRECT,
+        ]
+        .iter()
+        .any(|member| {
+            msg.strip_prefix(member)
+                .is_some_and(|tail| tail.starts_with(": ai.tinyhumans.tinybus.Error.Failed: "))
+        })
+        || (msg.starts_with("[composio] ")
+            && msg.contains(": ai.tinyhumans.tinybus.Error.Failed: "));
+    connector_output
+        || msg.contains("MODULE_CALL_REPORTED:")
         || msg.contains(crate::tools::status::MODULE_FAULT_MARKER)
         || (lower.contains("module '") && lower.contains("could not be loaded"))
         || (lower.contains("module '")

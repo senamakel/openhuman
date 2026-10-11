@@ -58,6 +58,7 @@ fn reason_codes_and_stages_are_closed_vocabulary() {
         Reason::IncompatibleContract,
         Reason::TransportFailed,
         Reason::ModuleFault,
+        Reason::ModuleUnavailable,
     ] {
         assert!(reason
             .code()

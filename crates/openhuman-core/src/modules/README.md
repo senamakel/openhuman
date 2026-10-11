@@ -210,7 +210,7 @@ download, its `dlopen`, or its resident memory.
 
 | Path | Module | What it does |
 | --- | --- | --- |
-| [`documents.rs`](documents.rs) | `tinydocs` | `generate_docx`, `generate_pptx`, `extract_text`, `extract_document`, `render_pdf`. Inbound bytes ride a tinybus stream; produced documents are held by the module and pulled with `ReadOutput`, then released. Feature `documents`. |
+| [`documents.rs`](documents.rs) | `tinydocs` | `generate_docx`, `generate_pptx`, `extract_text`, bounded `extract_document`, complete `convert_markdown`, `inspect_image`, and `render_pdf`. Inbound bytes ride a TinyBus stream; held results are pulled with `ReadOutput` and released. Feature `documents`. |
 | [`wallet.rs`](wallet.rs) | `tinywallet` | `derive_account`, `sign_transaction_in_module`, `sign_message`, `export_key`. Key material goes only to an attested module whose attested digest is one the registry pinned (`attested_proxy`). Feature `web3`. |
 | [`voice.rs`](voice.rs) | `tinyvoice` | Intent routing, command extraction, wake-word and hallucination checks, capture preparation, WAV encoding, frame energies, and a `VadSession` driven from the always-on capture loop. Every call returns a `VoiceCallError` the caller falls back from. Feature `voice`. |
 | [`desktop.rs`](desktop.rs) | `tinycomputer` | The shared proxy for TinyComputer: loads it with an 8 second bound, reinitializes it when its configuration fingerprint changes, and exposes `call`, `permissions`, `state`, `jev_ready`. |

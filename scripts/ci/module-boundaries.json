@@ -169,16 +169,6 @@
       "reason": "Validation, transaction construction, web3 and x402 need module operations."
     },
     {
-      "scope": "hosts",
-      "package": "pdf-extract",
-      "reason": "Memory documents-office still enables local PDF extraction."
-    },
-    {
-      "scope": "hosts",
-      "package": "calamine",
-      "reason": "Memory documents-office still enables local XLSX parsing."
-    },
-    {
       "scope": "tinychannels-bus",
       "package": "anyhow",
       "reason": "Channel trait, relay signing and pairing implementations remain in the contract; move them to the module."

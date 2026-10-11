@@ -653,8 +653,8 @@ storage-file = []
 # Why the split: the gates left ON below cost almost nothing to compile, so
 # keeping them on means `cargo check` and rust-analyzer still typecheck nearly
 # all of the tree. The gates turned OFF are the ones that carry the graph —
-# web3's ethers/secp256k1 cohort, `documents`' zstd/bzip2 native builds,
-# `voice`+`inference`'s cpal/lettre/arboard/enigo/rdev stack and
+# web3's ethers/secp256k1 cohort, the
+# `voice`+`inference` cpal/lettre/arboard/enigo/rdev stack and
 # `crash-reporting`'s sentry tree. The terminal-specific
 # ratatui/crossterm cohort lives in the separate `openhuman-tui` package.
 # Turning the core gates off takes a
@@ -727,10 +727,10 @@ inference = ["tinycomputer-accessibility/microphone-probe"]
 # reference instead of extracted text
 # (`agent::multimodal::extract_pdf_text`). Slim / headless builds opt out via
 # `--no-default-features --features "<explicit list without documents>"`.
-# `tinymemory-integrations/documents-office`: memory's brain and file sources
-# read PDF, DOCX, PPTX and XLSX (memory::convert). Kept behind `documents` so
-# the parsers stay off the always-on path (kernel floor).
-documents = ["modules", "dep:tinydocs-bus", "tinymemory-integrations/documents-office"]
+# Memory's brain and file sources send PDF, DOCX, PPTX and XLSX to the
+# TinyDocs module. The host includes only its pure bus vocabulary; document
+# parsers stay in the module.
+documents = ["modules", "dep:tinydocs-bus"]
 # Hosting: the `hosting_*` agent tools that put a workspace on a real hosting
 # provider — a site, a managed database wired into it, its environment, its
 # domains, its deployments and the traffic they served. Default-OFF,

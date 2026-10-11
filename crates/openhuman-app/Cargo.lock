@@ -8108,7 +8108,7 @@ name = "tinyinference-llm"
 version = "0.3.1"
 dependencies = [
  "async-trait",
- "base64 0.22.1",
+ "base64 0.23.1",
  "bytes",
  "futures",
  "reqwest 0.12.28",

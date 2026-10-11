@@ -829,11 +829,7 @@ async fn managed_runtime_provisioning_rpcs_are_not_registered() {
         let message = response["error"]["message"]
             .as_str()
             .expect("unknown method error");
-        assert!(message.starts_with("unknown method:"), "{response}");
-        assert!(
-            message.contains(method.trim_start_matches("openhuman.")),
-            "{response}"
-        );
+        assert_eq!(message, format!("unknown method: {method}"));
     }
     h.join.abort();
 }

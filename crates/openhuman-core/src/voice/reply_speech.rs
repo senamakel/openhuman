@@ -16,10 +16,10 @@
 //! (the trait's default) so the approval gate never prompts on TTS.
 
 use log::{debug, warn};
-use reqwest::Method;
-use serde_json::{json, Value};
+use serde_json::Value;
 
-use crate::backend::BackendClient;
+use crate::platform::cloud_voice_provider;
+use tinyvoice_bus::provider::SynthesisRequest;
 use crate::config::Config;
 use crate::core::Outcome;
 
@@ -89,10 +89,7 @@ pub struct ReplySpeechOptions {
 
 /// Synthesize the agent's reply through the hosted backend.
 ///
-/// Uses [`BackendClient`] for the same reason `referral` does: the
-/// desktop WebView's `fetch` to the backend can fail with an opaque
-/// "Load failed" (CORS/TLS quirks), and routing through the core gives us
-/// a consistent auth + retry surface.
+/// The host provider owns backend authentication and transport.
 pub async fn synthesize_reply(
     config: &Config,
     text: &str,
@@ -128,70 +125,22 @@ pub async fn synthesize_reply(
         ));
     }
 
-    // API key (sent as `x-api-key`) or live session JWT (sent as Bearer).
-    let credential =
-        crate::security::credentials::session_support::resolve_backend_credential(config)?;
-
-    let api_url = crate::backend::require_base_url(&config.api_url)?;
-    let client = BackendClient::new(&api_url).map_err(|e| e.to_string())?;
-
-    let mut body = serde_json::Map::new();
-    body.insert("text".to_string(), json!(trimmed));
-    body.insert("with_visemes".to_string(), json!(true));
-    if let Some(v) = opts
-        .voice_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        body.insert("voice_id".to_string(), json!(v));
-    }
-    if let Some(v) = opts
-        .model_id
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        body.insert("model_id".to_string(), json!(v));
-    }
-    if let Some(v) = opts
-        .output_format
-        .as_deref()
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-    {
-        body.insert("output_format".to_string(), json!(v));
-    }
-    if let Some(settings) = opts.voice_settings.as_ref() {
-        if !settings.is_null() {
-            body.insert("voice_settings".to_string(), settings.clone());
-        }
-    }
-
     debug!(
         "{LOG_PREFIX} synthesize chars={} voice={}",
         trimmed.len(),
         opts.voice_id.as_deref().unwrap_or("default")
     );
 
-    // `flatten_authed_error` maps the typed `BackendApiError::Unauthorized`
-    // (expected session-lapse 401 from `authed_json`) onto the `SESSION_EXPIRED`
-    // sentinel so the JSON-RPC layer (`core/jsonrpc.rs::is_session_expired_error`)
-    // classifies it as session expiry and skips Sentry, matching the #3384
-    // team/billing pattern. The previous `e.to_string()` produced the raw
-    // "backend rejected session token on POST /openai/v1/audio/speech" Display
-    // string, which matched none of the session-expiry classifiers and leaked
-    // every lapsed-session TTS 401 to Sentry (TAURI-RUST-8X1). Every other error
-    // keeps its full `{e:#}` anyhow chain so genuine TTS failures still report.
-    let raw = client
-        .authed_json(
-            &credential,
-            Method::POST,
-            "/openai/v1/audio/speech",
-            Some(Value::Object(body)),
-        )
+    let raw = cloud_voice_provider::for_config(config)?
+        .synthesize(SynthesisRequest {
+            text: trimmed.to_string(),
+            voice_id: opts.voice_id.clone(),
+            model_id: opts.model_id.clone(),
+            output_format: opts.output_format.clone(),
+            voice_settings: opts.voice_settings.clone(),
+        })
         .await
-        .map_err(crate::backend::flatten_authed_error)?;
+        .map_err(cloud_voice_provider::product_error)?;
 
     let result = normalize_response(&raw);
     debug!(

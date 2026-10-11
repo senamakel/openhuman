@@ -44,3 +44,14 @@ pub fn for_config(config: &Config) -> Result<Arc<dyn CloudVoiceProvider>, String
 pub(crate) fn restore(factory: Option<Arc<dyn CloudVoiceProviderFactory>>) {
     *slot().write().unwrap_or_else(|poisoned| poisoned.into_inner()) = factory;
 }
+
+/// Project stable provider categories into the product's existing error contract.
+pub fn product_error(error: tinyvoice_bus::provider::ProviderError) -> String {
+    use tinyvoice_bus::provider::ProviderErrorKind;
+    match error.kind {
+        ProviderErrorKind::SessionExpired => format!("SESSION_EXPIRED: {}", error.message),
+        ProviderErrorKind::ApiKeyRejected => format!("API_KEY_REJECTED: {}", error.message),
+        ProviderErrorKind::Unavailable => format!("BACKEND_UNAVAILABLE: {}", error.message),
+        _ => error.message,
+    }
+}

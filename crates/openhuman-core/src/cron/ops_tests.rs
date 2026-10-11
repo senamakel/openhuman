@@ -1,5 +1,5 @@
 use super::*;
-use crate::cron::ActiveHours;
+use crate::cron::{get_job, ActiveHours};
 use tempfile::TempDir;
 
 fn test_config(tmp: &TempDir) -> Config {

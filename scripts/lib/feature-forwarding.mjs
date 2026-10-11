@@ -464,9 +464,6 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
  * "excluded on purpose" from "forgotten" without going archaeology.
  */
 export const CHAIN_GATES_NOT_FORWARDED = {
-  'openhuman-tinyhumans': {
-    profiles: 'The headless ProfileRuntime API belongs to openhuman-embed; the TinyHumans layer does not expose a standalone profiles gate. Its channels gate already enables embed profiles for channel relays.',
-  },
   'openhuman-embed': {
     'rss-bench':
       'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in tinyhumansai/openhuman-benchmarks (`profile/`, #6944), which enables the core gate directly; no host in this repository turns it on.',

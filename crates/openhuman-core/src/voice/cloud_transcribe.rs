@@ -5,7 +5,20 @@ use crate::core::Outcome;
 use crate::platform::cloud_voice_provider;
 use tinyvoice_bus::provider::TranscriptionRequest;
 
-pub use tinyinference_voice::cloud::{CloudTranscribeOptions, CloudTranscribeResult};
+pub use tinyvoice_bus::provider::Transcription as CloudTranscribeResult;
+
+/// Caller-selected hints for the cloud transcription controller.
+#[derive(Debug, Default, Clone)]
+pub struct CloudTranscribeOptions {
+    /// Optional transcription model.
+    pub model: Option<String>,
+    /// Optional language hint.
+    pub language: Option<String>,
+    /// Input audio MIME type.
+    pub mime_type: Option<String>,
+    /// Original file-name hint.
+    pub file_name: Option<String>,
+}
 
 /// Transcribe renderer-supplied base64 audio through the installed provider.
 pub async fn transcribe_cloud(
@@ -24,7 +37,7 @@ pub async fn transcribe_cloud(
         .await
         .map_err(cloud_voice_provider::product_error)?;
     Ok(Outcome::single_log(
-        CloudTranscribeResult { text: result.text },
+        result,
         "cloud STT through the installed voice provider",
     ))
 }

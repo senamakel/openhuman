@@ -455,3 +455,7 @@ mod tests;
 #[cfg(test)]
 #[path = "cache_scope_tests.rs"]
 mod scope_tests;
+
+#[cfg(test)]
+#[path = "cache_lifecycle_tests.rs"]
+mod lifecycle_tests;

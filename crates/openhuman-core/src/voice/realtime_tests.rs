@@ -1,5 +1,4 @@
 use super::*;
-use serde_json::json;
 
 #[test]
 fn result_serializes_snake_case_for_the_wire() {

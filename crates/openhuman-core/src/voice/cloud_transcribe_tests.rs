@@ -21,16 +21,14 @@ async fn cloud_transcription_dispatches_through_the_installed_host_provider() {
         }
         fn synthesize(&self, _: SynthesisRequest) -> ProviderFuture<'_, serde_json::Value> {
             Box::pin(std::future::ready(Err(
-                tinyvoice_bus::provider::ProviderError {
-                    kind: tinyvoice_bus::provider::ProviderErrorKind::InvalidInput,
+                tinyvoice_bus::Error::InvalidInput {
                     message: "not requested".into(),
                 },
             )))
         }
         fn realtime(&self, _: RealtimeRequest) -> ProviderFuture<'_, RealtimeSession> {
             Box::pin(std::future::ready(Err(
-                tinyvoice_bus::provider::ProviderError {
-                    kind: tinyvoice_bus::provider::ProviderErrorKind::InvalidInput,
+                tinyvoice_bus::Error::InvalidInput {
                     message: "not requested".into(),
                 },
             )))

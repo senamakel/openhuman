@@ -17,7 +17,7 @@ fn host(root: &std::path::Path, max_open: usize, idle_secs: u64) -> ProfileHost 
 // Real ProfileHost contexts supply ownership and layout. Only the fake service
 // identity and cached response are fixtures; these tests make no backend calls.
 fn seed(state: &crate::profiles::host::Profile, toolkit: &str) -> (Config, String) {
-    let mut config = state.context().embedder_config().unwrap();
+    let mut config = state.context().embedder_config().unwrap().clone();
     config.composio.pin_host_credential(
         ComposioHostCredential::direct("ck_profile_lifecycle_fixture")
             .entity_id("profile-lifecycle-fixture"),

@@ -59,6 +59,7 @@ fn runtime_context(workspace_dir: PathBuf) -> ChannelRuntimeContext {
             "ok",
         ]));
     ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(HashMap::new()),
         turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(model)),
         default_provider: Arc::new("openai".into()),

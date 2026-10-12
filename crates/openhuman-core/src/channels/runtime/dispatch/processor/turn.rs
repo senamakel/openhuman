@@ -344,6 +344,7 @@ pub(crate) async fn process_channel_runtime_message(
         Some(host) => Box::pin(run_host_agent_turn(
             *host,
             HostChannelTurn {
+                relay_thread: ctx.relay_thread.clone(),
                 channel: msg.channel.clone(),
                 history_key: history_key.clone(),
                 prior_turns: seed_rows(&history),

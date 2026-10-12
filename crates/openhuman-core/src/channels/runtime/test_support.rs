@@ -413,6 +413,7 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         .clone()
         .unwrap_or_else(std::env::temp_dir);
     let ctx = Arc::new(ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(channels_by_name),
         turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(model)),
         default_provider: Arc::new("harness-provider".to_string()),

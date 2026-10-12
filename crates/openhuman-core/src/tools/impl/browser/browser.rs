@@ -284,6 +284,16 @@ impl BrowserTool {
             flow,
             site,
         };
+        // The browser this conversation keeps open holds the persistent
+        // profile, which the task's own browser needs: it is let go first.
+        if self.client.config().browser.profile_mode == "persistent" {
+            if let Err(error) = self.close().await {
+                tracing::debug!(
+                    error = %error,
+                    "[tool.browser] could not close this conversation's browser before a task"
+                );
+            }
+        }
         let view = crate::modules::browser_task::start(self.client.config(), &task)
             .await
             .map_err(anyhow::Error::msg)?;

@@ -5,6 +5,58 @@ use crate::agent::turn_origin::AgentTurnOrigin;
 use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
 use std::sync::Mutex;
 
+#[tokio::test]
+async fn relayed_thread_and_external_authority_survive_scoped_spawn() {
+    let tmp = tempfile::tempdir().unwrap();
+    let context = CoreContext::for_test(DomainSet::full(), None).derive_with(
+        ContextOverlay::new(config(&tmp), DomainSet::full(), Default::default())
+            .session_agent("relay-agent"),
+    );
+    let origin = AgentTurnOrigin::ExternalChannel {
+        channel: "telegram".into(),
+        sender: Some("42".into()),
+        sender_name: None,
+        reply_target: "-100".into(),
+        message_id: "spawned-turn".into(),
+        history_key: None,
+    };
+    let thread = params("spawned-turn", "hello").thread_id();
+    CoreContext::scope(context, async {
+        CoreContext::scope(
+            CoreContext::scoped()
+                .unwrap()
+                .derive_channel_turn(Some(thread.clone()), None),
+            async {
+                crate::agent::turn_origin::with_origin(origin, async {
+                    let (child_thread, child_agent, child_origin) =
+                        crate::core::runtime::spawn_scoped(async {
+                            (
+                                CoreContext::current_channel_thread(),
+                                CoreContext::scoped()
+                                    .and_then(|ctx| ctx.session_agent().map(str::to_owned)),
+                                crate::agent::turn_origin::current(),
+                            )
+                        })
+                        .await
+                        .unwrap();
+                    assert_eq!(child_thread.as_deref(), Some(thread.as_str()));
+                    assert_eq!(child_agent.as_deref(), Some("relay-agent"));
+                    assert!(matches!(
+                        child_origin,
+                        Some(AgentTurnOrigin::ExternalChannel { channel, sender, .. })
+                            if channel == "telegram" && sender.as_deref() == Some("42")
+                    ));
+                })
+                .await;
+            },
+        )
+        .await;
+        assert!(CoreContext::current_channel_thread().is_none());
+        assert!(CoreContext::current_turn_origin().is_none());
+    })
+    .await;
+}
+
 fn config(tmp: &tempfile::TempDir) -> Config {
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();

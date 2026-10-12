@@ -10,6 +10,7 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
+use std::path::PathBuf;
 use std::pin::Pin;
 use std::time::{Duration, Instant};
 
@@ -69,8 +70,12 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
             allow_destructive: false,
             browser_endpoint: None,
             headed: !config.browser.headless,
-            browser_executable: None,
-            browser_profile: None,
+            // Read from the settings for every task, so a saved Chrome path
+            // or profile applies without restarting the app.
+            browser_executable: config.browser.chrome_path.clone(),
+            browser_profile: (config.browser.profile_mode == "persistent")
+                .then(|| config.browser.profile_path.clone())
+                .flatten(),
         },
         budget: TaskBudget {
             max_actions: Some(task.max_actions),
@@ -114,6 +119,7 @@ pub(crate) async fn begin<'a>(
         return Err("a browser task needs at least one allowed origin".to_owned());
     }
     let mut request = start_request(config, task);
+    let claimed = claim_profile(&mut request, super::browser_profile::PROFILE_WAIT).await;
     let mut following = super::browser_sites::apply(config, task, &mut request).await;
     tracing::debug!(
         origins = task.origins.len(),
@@ -122,18 +128,28 @@ pub(crate) async fn begin<'a>(
         learning = following.is_some(),
         "[browser-task] starting"
     );
-    let view = match send(request.clone()).await {
+    let sent = match send(request.clone()).await {
         Err(error) if refused_flow(&error) => match following.as_mut() {
             Some(reusing) if reusing.reuses_plan() => {
                 // The error's text is the module's, and can quote the plan.
                 tracing::warn!("[browser-task] the module refused a saved plan; planning afresh");
                 super::browser_sites::refused(config, reusing).await;
                 request.flow = None;
-                send(request).await?
+                send(request).await
             }
-            _ => return Err(error),
+            _ => Err(error),
         },
-        sent => sent?,
+        sent => sent,
+    };
+    let view = match sent {
+        Ok(view) => view,
+        Err(error) => {
+            // A task that did not start starts no browser on the profile.
+            if let Some(profile) = claimed {
+                super::browser_profile::release(&profile);
+            }
+            return Err(error);
+        }
     };
     super::browser_sites::follow(config, &view.id, following);
     Ok(view)
@@ -281,15 +297,43 @@ fn refused_flow(error: &str) -> bool {
     ))
 }
 
+/// Claims `request`'s persistent profile for the task's browser, or leaves it
+/// a fresh profile when another browser still holds the folder after `wait`;
+/// the folder it claimed. Chrome lets one browser at a time use a profile
+/// folder, so a task waits a moment for one closing on it (the browser of the
+/// task before it, which closes as it ends), and otherwise runs in a fresh
+/// profile rather than fail to start its browser.
+async fn claim_profile(request: &mut StartTaskRequest, wait: Duration) -> Option<PathBuf> {
+    let profile = PathBuf::from(request.constraints.browser_profile.as_ref()?);
+    if super::browser_profile::claim_within(&profile, wait).await {
+        return Some(profile);
+    }
+    tracing::warn!(
+        "[browser-task] another browser holds the persistent profile; this task runs in a fresh profile"
+    );
+    request.constraints.browser_profile = None;
+    None
+}
+
+/// A module reply as its data, or as the error the tool reports: its code,
+/// message and hint, and where the user fixes a Chrome the module was not
+/// given or could not start ([`super::browser::chrome_hint`]).
 fn unwrap_response<Reply>(member: &str, response: AgentResponse<Reply>) -> Result<Reply, String> {
     match (response.ok, response.data, response.error) {
         (true, Some(data), _) => Ok(data),
-        (_, _, Some(error)) => Err(format!(
-            "browser task {member} failed [{}]: {} {}",
-            error.code, error.message, error.hint
-        )
-        .trim_end()
-        .to_owned()),
+        (_, _, Some(error)) => {
+            let host = super::browser::chrome_hint(&error.message).unwrap_or_default();
+            let said = [error.message.as_str(), error.hint.as_str(), host]
+                .into_iter()
+                .map(str::trim)
+                .filter(|part| !part.is_empty())
+                .collect::<Vec<_>>()
+                .join(" ");
+            Err(format!(
+                "browser task {member} failed [{}]: {said}",
+                error.code
+            ))
+        }
         _ => Err(format!("browser task {member} returned no result")),
     }
 }

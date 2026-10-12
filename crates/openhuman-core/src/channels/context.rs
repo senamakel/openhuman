@@ -30,6 +30,9 @@ pub(crate) type RouteSelectionMap = Arc<Mutex<HashMap<String, ChannelRouteSelect
 
 #[derive(Clone)]
 pub(crate) struct ChannelRuntimeContext {
+    /// Explicit durable conversation for a hosted relay; ordinary channels
+    /// use their existing per-sender history and have no relay thread.
+    pub(crate) relay_thread: Option<String>,
     pub(crate) channels_by_name: Arc<HashMap<String, Arc<dyn super::Channel>>>,
     /// Injected model source used only by tests and bespoke channel hosts.
     /// Production contexts carry `config` and construct crate-native sources.

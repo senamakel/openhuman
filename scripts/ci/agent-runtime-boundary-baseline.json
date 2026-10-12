@@ -428,27 +428,6 @@
   },
   {
     "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/channels/providers/relay/mod.rs",
-    "line": 40,
-    "text": "pub(crate) fn current_thread_id() -> Option<String> {",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/channels/runtime/dispatch/host_agent/turn.rs",
-    "line": 71,
-    "text": "let relay_thread = crate::channels::providers::relay::current_thread_id();",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/channels/runtime/dispatch/host_agent/turn.rs",
-    "line": 91,
-    "text": ".scope(crate::agent::turn_origin::with_origin(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/cron/origin.rs",
     "line": 54,
     "text": "let origin = turn_origin::current()?;",

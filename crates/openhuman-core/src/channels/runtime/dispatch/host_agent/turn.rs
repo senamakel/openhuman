@@ -11,6 +11,8 @@ use tinyagents_session::transcript::TranscriptMessage;
 
 /// One channel message, as a host agent's turn needs it.
 pub(crate) struct HostChannelTurn {
+    /// Durable thread supplied explicitly by a hosted relay.
+    pub(crate) relay_thread: Option<String>,
     /// The channel the message came in on (`"telegram"`).
     pub(crate) channel: String,
     /// The chat's history key: the session the host belt is told about and
@@ -35,6 +37,7 @@ pub(crate) async fn run_host_agent_turn(
     turn: HostChannelTurn,
 ) -> anyhow::Result<AgentTurnResponse> {
     let HostChannelTurn {
+        relay_thread,
         channel,
         history_key,
         prior_turns,
@@ -68,7 +71,9 @@ pub(crate) async fn run_host_agent_turn(
         "[channels::dispatch::host_agent] running channel turn as host agent"
     );
 
-    let relay_thread = crate::channels::providers::relay::current_thread_id();
+    host.context = host
+        .context
+        .derive_channel_turn(relay_thread.clone(), Some(origin.clone()));
     let mut session = host.session_host(
         &config,
         Some(relay_thread.as_deref().unwrap_or(&history_key)),
@@ -88,10 +93,7 @@ pub(crate) async fn run_host_agent_turn(
     session.set_on_progress(progress);
 
     let text = host
-        .scope(crate::agent::turn_origin::with_origin(
-            origin.clone(),
-            session.run_single_with_origin(&message, Some(origin)),
-        ))
+        .scope(session.run_single_with_origin(&message, Some(origin)))
         .await?;
     Ok(AgentTurnResponse::with_resolved_route(
         text,

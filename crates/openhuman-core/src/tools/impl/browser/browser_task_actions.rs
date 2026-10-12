@@ -9,16 +9,13 @@ use tinycomputer_bus::agent::{TaskStatus, TaskView};
 use tinycomputer_bus::browser::{Action, LocateBy, Locator, ScrollDirection, Target, WaitState};
 
 /// What the host adds to a task report the agent cannot act on alone: a
-/// task that failed because Chrome was not found says where the user sets
-/// its path, rather than leaving the agent to install a browser.
+/// task that failed because Chrome was not found, or would not start from
+/// the path the user set, says where the user sets that path, rather than
+/// leaving the agent to install a browser.
 pub(super) fn host_hint(view: &TaskView) -> Option<&'static str> {
     match &view.status {
-        TaskStatus::Failed { reason, hint, .. }
-            if crate::modules::browser::chrome_not_found(reason)
-                || crate::modules::browser::chrome_not_found(hint) =>
-        {
-            Some(crate::modules::browser::CHROME_NOT_FOUND_HINT)
-        }
+        TaskStatus::Failed { reason, hint, .. } => crate::modules::browser::chrome_hint(reason)
+            .or_else(|| crate::modules::browser::chrome_hint(hint)),
         _ => None,
     }
 }

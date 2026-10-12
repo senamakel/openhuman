@@ -691,4 +691,9 @@
 # 326/304/2 2026-10-11 Combined released module adapters on current main,
 #                      including the existing managed-runtime removal.
 #                      Measured with dep-sim --cut-nothing; no size claim.
-flows:326:304:2
+# 323/298/2 2026-10-12 Re-measure merged upstream main at dc3ef0735281.
+#                      Both cargo tree and dep-sim --cut-nothing resolve 323
+#                      packages / 298 names / 2 native builds on Linux. Record
+#                      the existing reduction so it cannot silently grow back;
+#                      this ratchet change adds no dependency or size claim.
+flows:323:298:2

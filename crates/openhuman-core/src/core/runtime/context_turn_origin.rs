@@ -35,7 +35,25 @@ impl CoreContext {
         origin: Option<crate::agent::turn_origin::AgentTurnOrigin>,
         fut: F,
     ) -> F::Output {
-        let context = Arc::new(CoreContext {
+        CURRENT_CONTEXT
+            .scope(ctx.derive_channel_turn(None, origin), fut)
+            .await
+    }
+
+    /// The relay thread of the current task, without an operator fallback.
+    pub(crate) fn current_channel_thread() -> Option<String> {
+        Self::scoped().and_then(|ctx| ctx.channel_thread.clone())
+    }
+
+    /// Bind channel facts to this agent context, preserving its tenant,
+    /// tools, workspace and capability ceiling. No shared context is mutated.
+    pub(crate) fn derive_channel_turn(
+        &self,
+        thread: Option<String>,
+        origin: Option<crate::agent::turn_origin::AgentTurnOrigin>,
+    ) -> Arc<CoreContext> {
+        let ctx = self;
+        Arc::new(CoreContext {
             host_kind: ctx.host_kind,
             workspace_binding: RwLock::new(
                 ctx.workspace_binding
@@ -49,10 +67,10 @@ impl CoreContext {
             user_skill_roots: ctx.user_skill_roots,
             backend_transport: ctx.backend_transport.clone(),
             turn_origin: origin.or_else(|| ctx.turn_origin.clone()),
+            channel_thread: thread.or_else(|| ctx.channel_thread.clone()),
             session_agent: ctx.session_agent.clone(),
             profile: ctx.profile.clone(),
             agent: ctx.agent.clone(),
-        });
-        CURRENT_CONTEXT.scope(context, fut).await
+        })
     }
 }

@@ -130,7 +130,9 @@ pub(crate) async fn run_relay_turn(
 
     let mut channels_by_name: HashMap<String, Arc<dyn crate::channels::Channel>> = HashMap::new();
     channels_by_name.insert(params.channel.clone(), channel.clone());
-    let ctx = Arc::new(runtime_context(&config, parts, Arc::new(channels_by_name)));
+    let mut runtime = runtime_context(&config, parts, Arc::new(channels_by_name));
+    runtime.relay_thread = Some(thread_id.clone());
+    let ctx = Arc::new(runtime);
 
     // The thread is the conversation's memory: seed the pipeline's per-chat
     // history from it, since this runtime context lives for one message.
@@ -163,7 +165,16 @@ pub(crate) async fn run_relay_turn(
         request_id = %request_id,
         "[channels::relay] dispatching relayed turn"
     );
-    super::with_thread(thread_id.clone(), process_channel_message(ctx, message)).await;
+    let turn = process_channel_message(ctx, message);
+    if let Some(context) = crate::core::runtime::CoreContext::scoped() {
+        crate::core::runtime::CoreContext::scope(
+            context.derive_channel_turn(Some(thread_id.clone()), None),
+            Box::pin(turn),
+        )
+        .await;
+    } else {
+        turn.await;
+    }
 
     let replies = channel.sent();
     record(&workspace_dir, &params, &thread_id, &replies).await;

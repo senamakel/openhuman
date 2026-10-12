@@ -436,6 +436,20 @@ fn a_task_that_found_no_chrome_tells_the_agent_to_ask_for_its_path() {
         host_hint(&failed("the last three actions changed nothing")),
         None
     );
+    // TinyComputer 0.11's own words: the step's note names a missing Chrome,
+    // or a Chrome path that names no Chrome it can start.
+    assert_eq!(
+        host_hint(&failed(
+            "https://www.amazon.in could not be opened: BROWSER_UNAVAILABLE (browser unavailable: no Chrome or Chromium was found on this machine; give the path of the browser to use)"
+        )),
+        Some(crate::modules::browser::CHROME_NOT_FOUND_HINT)
+    );
+    assert_eq!(
+        host_hint(&failed(
+            "https://www.amazon.in could not be opened: BROWSER_UNAVAILABLE (browser unavailable: the browser binary given could not be started (Chrome exited before providing DevTools URL); check that its path names Chrome or Chromium)"
+        )),
+        Some(crate::modules::browser::CHROME_PATH_HINT)
+    );
 }
 
 struct ThreadOnly(&'static str);

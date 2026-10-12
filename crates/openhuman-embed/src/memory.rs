@@ -24,7 +24,10 @@
 //!   widen it to a sibling tenant;
 //! - [`Memory::forget`] forgets only ids the root's subtree holds — an id from
 //!   another tenant is left alone as if it named nothing;
-//! - [`Memory::learn`] writes at the root, whatever the caller's metadata says.
+//! - [`Memory::learn`] writes at the root, whatever the caller's metadata says,
+//!   and [`Memory::store`] writes at the root or one agent's node below it;
+//! - [`Memory::search`] ranks only items the root's subtree holds, narrowed by
+//!   kind and tag.
 //!
 //! The engine is the one every agent uses: the configured `[memory]` engine,
 //! or one the host installed with [`install_host_engine`]. With neither, memory
@@ -34,7 +37,9 @@
 use openhuman_core::config::Config;
 use openhuman_core::memory::engine::{self, Binding};
 use openhuman_core::memory::{brain, explore, lifecycle, ops, types};
-use tinymemory_api::{ItemKind, MemoryMeta, MetaFilter, Namespace, Reach};
+use tinymemory_api::{
+    ItemKind, MemoryMeta, MetaFilter, Namespace, Reach, StoreItem, StoreReceipt, WriteOptions,
+};
 use tinymemory_tools::MemoryLayout;
 
 pub use openhuman_core::memory::brain::{
@@ -87,6 +92,22 @@ pub struct ItemsQuery {
     pub limit: Option<usize>,
     /// Engine cursor of the next page.
     pub cursor: Option<String>,
+}
+
+/// Which items [`Memory::search`] ranks.
+#[derive(Debug, Clone, Default)]
+pub struct SearchQuery {
+    /// What to rank the items against.
+    pub query: String,
+    /// One memory agent's node plus the root's items it inherits, as
+    /// [`Memory::recall`] reads it; `None` searches the whole root.
+    pub agent_id: Option<String>,
+    /// Item kinds to include; empty means every kind.
+    pub kinds: Vec<ItemKind>,
+    /// Match an item carrying any one of these tags; empty means no constraint.
+    pub tags_any: Vec<String>,
+    /// Most hits returned.
+    pub limit: Option<usize>,
 }
 
 /// One tenant's memory: every call confined to one layout root. See the
@@ -251,6 +272,52 @@ impl Memory {
             },
         )
         .await
+    }
+
+    /// Ranked items matching `query.query` under the root, narrowed by kind
+    /// and tag: [`Memory::fetch`] for a host that files what it captures
+    /// under tags of its own and reads only some of them back.
+    pub async fn search(&self, query: SearchQuery) -> MemoryResult<FetchView> {
+        let mut filter = self.reading(query.agent_id.as_deref())?;
+        filter.kinds = query.kinds;
+        filter.tags_any = query.tags_any;
+        ops::fetch(
+            &self.config,
+            types::FetchParams {
+                refers_to: None,
+                query: query.query,
+                mode: None,
+                filter: Some(filter),
+                limit: query.limit,
+                cursor: None,
+            },
+        )
+        .await
+    }
+
+    /// Stores an item of any kind the host captured itself (a document, a
+    /// conversation, a learning) at the root, shared by every agent bound
+    /// there, or at `agent_id`'s node. The node is authoritative: a
+    /// namespace in the item's meta is overwritten. Everything else in the
+    /// meta (tags, source, `observed_at`, `observed_actor`) is kept, so an
+    /// identical item stored again is a replay
+    /// ([`StoreItem::fingerprint`](api::StoreItem::fingerprint)).
+    ///
+    /// [`WriteOptions::accepted`] returns once the engine has durably
+    /// accepted the item, before it is readable: a capture on a live path,
+    /// or a bulk import that reads nothing back until it ends.
+    pub async fn store(
+        &self,
+        mut item: StoreItem,
+        agent_id: Option<&str>,
+        options: WriteOptions,
+    ) -> MemoryResult<StoreReceipt> {
+        let node = match agent_id.map(str::trim).filter(|agent| !agent.is_empty()) {
+            Some(agent) => self.layout.conversations(agent)?,
+            None => self.layout.learnings().clone(),
+        };
+        item.meta_mut().namespace = node;
+        ops::store_item_with(&self.config, item, options).await
     }
 
     /// Stores a shared learning at the root. The root is authoritative: a

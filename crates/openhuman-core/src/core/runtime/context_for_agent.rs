@@ -34,6 +34,7 @@ impl CoreContext {
             user_skill_roots: self.user_skill_roots,
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
+            channel_thread: self.channel_thread.clone(),
             session_agent: Some(agent.to_string()),
             profile: self.profile.clone(),
             agent: parts,

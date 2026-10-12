@@ -39,13 +39,16 @@ impl OpenHumanSessionHost {
             cancellation,
             run_context: context.into_tinyagents(root_config),
         };
-        // Load a bound, otherwise empty session before its normal lifecycle so
-        // the host prelude can rebuild its recorded integration executors.
-        if matches!(options.resume, ResumeMode::Session)
-            && self
-                .runtime_session
-                .as_ref()
-                .is_some_and(|session| session.history().is_empty())
+        // Load persisted state before the normal turn lifecycle so the host
+        // can read native recorded declarations for both bound sessions and
+        // cold, unthreaded latest-agent resumes.
+        if matches!(
+            options.resume,
+            ResumeMode::Session | ResumeMode::LatestForAgent
+        ) && self
+            .runtime_session
+            .as_ref()
+            .is_some_and(|session| session.history().is_empty())
         {
             let runtime = self
                 .runtime_session

@@ -42,6 +42,7 @@ impl Channel for Telegram {
 fn context(channel: Arc<Telegram>, config: Config) -> Arc<ChannelRuntimeContext> {
     let channel: Arc<dyn Channel> = channel;
     Arc::new(ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(HashMap::from([("telegram".to_string(), channel)])),
         turn_model_source: None,
         default_provider: Arc::new("test-provider".to_string()),

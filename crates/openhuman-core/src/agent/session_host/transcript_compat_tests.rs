@@ -599,7 +599,18 @@ fn regenerate_session_compat() {
 #[cfg(feature = "voice")]
 #[test]
 fn resumed_thread_with_retired_podcast_tool_remains_usable() {
-    run_async(async {
+    assert_retired_tool_replay(true);
+}
+
+#[cfg(feature = "voice")]
+#[test]
+fn latest_agent_session_with_retired_podcast_tool_remains_usable() {
+    assert_retired_tool_replay(false);
+}
+
+#[cfg(feature = "voice")]
+fn assert_retired_tool_replay(identity_bound: bool) {
+    run_async(async move {
         const RETIRED: &str = "audio_generate_podcast";
         struct ArchivedAudioTool;
         #[async_trait::async_trait]
@@ -661,11 +672,33 @@ fn resumed_thread_with_retired_podcast_tool_remains_usable() {
             ],
             true,
         );
-        let mut resumed = build_host(root.path(), next.clone(), true, "retired-audio-thread");
-        assert!(resumed
-            .resume_bound_session()
-            .await
-            .expect("resume archive"));
+        let mut resumed = if identity_bound {
+            build_host(root.path(), next.clone(), true, "retired-audio-thread")
+        } else {
+            let chat_model: Arc<dyn ChatModel<()>> = next.clone();
+            crate::agent::SessionHostBuilder::new()
+                .chat_model(chat_model)
+                .tools(tools())
+                .workspace_dir(workspace.clone())
+                .action_dir(root.path().to_path_buf())
+                .tool_dispatcher(Box::new(tinytools_agent::dialect::NativeDialect))
+                .build()
+                .expect("unthreaded session build")
+        };
+        if identity_bound {
+            assert!(resumed
+                .resume_bound_session()
+                .await
+                .expect("resume archive"));
+        } else {
+            resumed
+                .ensure_runtime_session()
+                .expect("cold runtime session");
+            assert!(matches!(
+                resumed.turn_resume_mode(),
+                tinyagents_runtime::ResumeMode::LatestForAgent
+            ));
+        }
         // An explicit host tool belt is authoritative, while archived declarations
         // remain intact in the durable transcript.
         assert_eq!(

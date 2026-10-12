@@ -115,6 +115,7 @@ async fn message_dispatch_processes_messages_in_parallel() {
         channels_by_name.insert(channel.name().to_string(), channel);
 
         let runtime_ctx = Arc::new(ChannelRuntimeContext {
+            relay_thread: None,
             channels_by_name: Arc::new(channels_by_name),
             turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(
                 Arc::new(SlowModel {
@@ -189,6 +190,7 @@ async fn process_channel_message_cancels_scoped_typing_task() {
     channels_by_name.insert(channel.name().to_string(), channel);
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(channels_by_name),
         turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(
             Arc::new(SlowModel {
@@ -277,6 +279,7 @@ async fn dispatch_routes_through_agent_run_turn_bus_handler() {
     channels_by_name.insert(channel.name().to_string(), channel);
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(channels_by_name),
         // Still need a model for the context field, but the stubbed bus
         // handler never invokes it — so a minimal no-op is fine.
@@ -363,6 +366,7 @@ async fn channel_processed_event_records_resolved_agent_route() {
     channels_by_name.insert(channel.name().to_string(), channel);
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(channels_by_name),
         turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(
             Arc::new(super::common::DummyModel),
@@ -475,6 +479,7 @@ async fn process_channel_message_hardens_multimodal_files_against_smuggled_marke
         ..Default::default()
     };
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(channels_by_name),
         turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(
             Arc::new(super::common::DummyModel),
@@ -558,6 +563,7 @@ async fn process_channel_message_hardens_against_relative_path_markers() {
     channels_by_name.insert(channel.name().to_string(), channel);
 
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name: Arc::new(channels_by_name),
         turn_model_source: Some(crate::agent::tinyagents::TurnModelSource::from_model(
             Arc::new(super::common::DummyModel),

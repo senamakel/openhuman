@@ -103,6 +103,8 @@ pub struct CoreContext {
     backend_transport: Option<Arc<dyn crate::backend::transport::BackendTransport>>,
     /// Explicit authority on this derived turn context.
     turn_origin: Option<crate::agent::turn_origin::AgentTurnOrigin>,
+    /// Durable relay conversation carried by the immutable turn context.
+    channel_thread: Option<String>,
     /// The agent whose stores a host-installed session store
     /// ([`crate::agent::session_store`]) hands out to work under this
     /// context. `None` for booted contexts, which use the shared default.
@@ -270,6 +272,7 @@ impl CoreContext {
             user_skill_roots: true,
             backend_transport,
             turn_origin: None,
+            channel_thread: None,
             session_agent: None,
             profile: None,
             agent: Default::default(),
@@ -388,6 +391,7 @@ impl CoreContext {
             user_skill_roots: overlay.user_skill_roots,
             backend_transport: self.backend_transport.clone(),
             turn_origin: self.turn_origin.clone(),
+            channel_thread: self.channel_thread.clone(),
             session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
             profile: overlay.profile.or_else(|| self.profile.clone()),
             agent,
@@ -542,6 +546,7 @@ impl CoreContext {
             user_skill_roots: true,
             backend_transport: None,
             turn_origin: None,
+            channel_thread: None,
             session_agent: None,
             profile: None,
             agent: Default::default(),
@@ -574,6 +579,7 @@ impl CoreContext {
             user_skill_roots: true,
             backend_transport: None,
             turn_origin: None,
+            channel_thread: None,
             session_agent: None,
             profile: None,
             agent: Default::default(),

@@ -234,6 +234,7 @@ pub(crate) fn runtime_context(
     channels_by_name: Arc<HashMap<String, Arc<dyn crate::channels::Channel>>>,
 ) -> ChannelRuntimeContext {
     ChannelRuntimeContext {
+        relay_thread: None,
         channels_by_name,
         turn_model_source: None,
         default_provider: Arc::new(parts.provider_name),

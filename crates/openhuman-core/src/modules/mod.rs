@@ -30,7 +30,9 @@
 //! - [`documents`] — the host half of the `tinydocs` module's three operations.
 //! - [`browser`] and [`browser_task`] — TinyComputer browser members and tasks
 //!   without linking the browser engine into the core; [`browser_sites`] keeps
-//!   what finished tasks learned about each site for the next task there.
+//!   what finished tasks learned about each site for the next task there, and
+//!   [`browser_profile`] tells whether a Chrome holds the persistent profile
+//!   and claims it for a browser about to start.
 //! - [`wallet`] — the host half of the `tinywallet` module, which builds and
 //!   assembles transactions while the signing key stays in this process.
 //! - [`host`] — the module broker, connection and loader.
@@ -43,6 +45,8 @@ pub mod accessibility;
 pub mod boot;
 #[cfg(feature = "modules")]
 pub mod browser;
+#[cfg(feature = "modules")]
+pub(crate) mod browser_profile;
 #[cfg(feature = "modules")]
 pub(crate) mod browser_sites;
 #[cfg(feature = "modules")]

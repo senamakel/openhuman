@@ -182,11 +182,17 @@ pub fn schemas(function: &str) -> ControllerSchema {
 }
 
 /// What the settings page's Chrome check shows when Chrome would not start:
-/// where to fix a missing Chrome, or else the module's own reason.
+/// where to fix a missing Chrome or a Chrome path that names no Chrome, or
+/// else the module's own reason.
 fn readiness_error(detail: &str) -> String {
     if super::browser::chrome_not_found(detail) {
         "Chrome was not found. Set Chrome path below to the Chrome program (for example \
          /Applications/Google Chrome.app/Contents/MacOS/Google Chrome), save, and test again."
+            .to_owned()
+    } else if super::browser::chrome_path_unusable(detail) {
+        "Chrome could not be started from Chrome path. Set it to the Chrome program itself \
+         (for example /Applications/Google Chrome.app/Contents/MacOS/Google Chrome), save, and \
+         test again."
             .to_owned()
     } else {
         format!("Chrome could not start: {detail}")

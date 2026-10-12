@@ -107,6 +107,18 @@ fn the_chrome_check_says_where_to_fix_a_missing_chrome() {
         super::readiness_error("Bus: launch timed out"),
         "Chrome could not start: Bus: launch timed out"
     );
+    // TinyComputer 0.11's own words for each.
+    let missing = super::readiness_error(
+        "BrowserUnavailable: browser unavailable: no Chrome or Chromium was found on this machine; give the path of the browser to use",
+    );
+    assert!(missing.starts_with("Chrome was not found."), "{missing}");
+    let unusable = super::readiness_error(
+        "BrowserUnavailable: browser unavailable: the browser binary given could not be started (Chrome exited before providing DevTools URL); check that its path names Chrome or Chromium",
+    );
+    assert!(
+        unusable.starts_with("Chrome could not be started from Chrome path."),
+        "{unusable}"
+    );
 }
 
 #[tokio::test]

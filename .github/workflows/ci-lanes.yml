@@ -83,6 +83,13 @@ jobs:
       # log live and passes or fails on that lane alone; `Lane summary` waits
       # for the whole run and carries the overall result. `!cancelled()` keeps
       # a red lane from hiding the lanes after it.
+      # The embed-consumer bootstrap uses stdlib tomllib (Python >= 3.11).
+      # Both runner profiles must use the same interpreter before spawning lanes.
+      - name: Setup Python for lanes
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
       - name: Start lanes
         id: lanes
         env:
@@ -300,6 +307,13 @@ jobs:
       # log live and passes or fails on that lane alone; `Lane summary` waits
       # for the whole run and carries the overall result. `!cancelled()` keeps
       # a red lane from hiding the lanes after it.
+      # The embed-consumer bootstrap uses stdlib tomllib (Python >= 3.11).
+      # Both runner profiles must use the same interpreter before spawning lanes.
+      - name: Setup Python for lanes
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
       - name: Start lanes
         id: lanes
         run: >-

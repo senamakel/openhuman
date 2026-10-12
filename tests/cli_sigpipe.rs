@@ -79,6 +79,11 @@ fn headless_default_keyring_stores_provider_secrets_encrypted() {
     use std::process::Command;
 
     let workspace = tempfile::tempdir().expect("temporary OpenHuman workspace");
+    // macOS exposes the system temporary directory through aliases under
+    // `/var`; the secrets driver deliberately refuses symlinked namespace
+    // components, so pass the canonical workspace path to the child.
+    let workspace_path = std::fs::canonicalize(workspace.path())
+        .expect("canonicalize temporary OpenHuman workspace");
     let secret = "provider-secret-e2e";
     let params = format!(r#"{{"provider":"openai","token":"{secret}"}}"#);
     let output = Command::new(env!("CARGO_BIN_EXE_openhuman-core"))
@@ -89,8 +94,8 @@ fn headless_default_keyring_stores_provider_secrets_encrypted() {
             "--params",
             &params,
         ])
-        .current_dir(workspace.path())
-        .env("OPENHUMAN_WORKSPACE", workspace.path())
+        .current_dir(&workspace_path)
+        .env("OPENHUMAN_WORKSPACE", &workspace_path)
         .env("OPENHUMAN_KEYRING_MASTER_KEY", "42".repeat(32))
         .env_remove("OPENHUMAN_KEYRING_MASTER_KEY_FILE")
         .env_remove("OPENHUMAN_APP_ENV")
@@ -104,7 +109,7 @@ fn headless_default_keyring_stores_provider_secrets_encrypted() {
         String::from_utf8_lossy(&output.stderr)
     );
 
-    let encrypted = std::fs::read(workspace.path().join("secrets.enc"))
+    let encrypted = std::fs::read(workspace_path.join("secrets.enc"))
         .expect("default backend should create the encrypted keyring file");
     assert!(!encrypted
         .windows(secret.len())

@@ -112,7 +112,7 @@ impl Account {
         team: Option<&str>,
         config: Config,
     ) -> anyhow::Result<Self> {
-        if provider.trim().to_ascii_lowercase() != "vercel" {
+        if !provider.trim().eq_ignore_ascii_case("vercel") {
             anyhow::bail!("unknown hosting provider `{provider}`");
         }
         if api_key.trim().is_empty() {

@@ -23,8 +23,9 @@ const LOG_PREFIX: &str = "[dictation_listener]";
 
 // ── Listener task handle (for stop support) ─────────────────────────
 
-static LISTENER_HANDLE: Lazy<Mutex<Option<(CancellationToken, JoinHandle<()>)>>> =
-    Lazy::new(|| Mutex::new(None));
+type ListenerTask = (CancellationToken, JoinHandle<()>);
+
+static LISTENER_HANDLE: Lazy<Mutex<Option<ListenerTask>>> = Lazy::new(|| Mutex::new(None));
 
 // ── Broadcast channel for dictation events ────────────────────────────
 

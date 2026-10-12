@@ -42,13 +42,27 @@ The bounded production correction is `627f422ed4`. Initial postfix session
 `9958` failed compilation on two accidentally unborrowed references in
 the unchanged reconciliation code. Those original borrows were restored;
 the compiler-only result is excluded from behavioral acceptance.
-The original six assertions are unchanged. Fresh focused GREEN and
-compatibility results are pending.
+The original six assertions are unchanged. Session `81027` compiled in 2m03s and passed all six cases, with no failures
+or ignored tests. Compatibility session `93000` then passed the full Composio
+family (**369 passed, 0 failed, 0 ignored**) and the existing ProfileHost
+family (**20 passed, 0 failed, 0 ignored**), retaining all prior scope,
+epoch-reclamation, missing-scope diagnostic, desktop and lifecycle controls.
+These are **389 distinct top-level passing tests**; the six focused cases
+are already included in Composio, and its one nested subprocess repetition
+is excluded from the count. Both sessions exited 0 and their complete
+outputs were read.
+
+Independent review found no concrete source issue in the trusted scope
+derivation, exact-grant checks or lock/admission ordering; its fresh GREEN
+conditions are now satisfied.
 
 Logs are retained outside disposable build output:
 `.validation/cache-profile-lifecycle-red.log`,
 `.validation/cache-profile-lifecycle-green.log` and
-`.validation/cache-profile-lifecycle-green-retry.log`.
+`.validation/cache-profile-lifecycle-green-retry.log`,
+`.validation/cache-profile-composio-green.log`,
+`.validation/cache-profile-host-green.log` and
+`.validation/cache-profile-compat-progress.log`.
 
 The focused command is:
 

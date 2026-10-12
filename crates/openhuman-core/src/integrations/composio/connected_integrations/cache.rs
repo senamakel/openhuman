@@ -411,7 +411,7 @@ pub(crate) fn sync_cache_with_connections(
         };
         guard
             .iter()
-            .filter(|(key, _)| key.starts_with(prefix))
+            .filter(|(key, _)| key.starts_with(&prefix))
             .filter_map(|(key, cached)| {
                 let cached_set = connected_toolkit_set(&cached.entries);
                 // Also check per-toolkit connection IDs (not just counts)
@@ -448,7 +448,7 @@ pub(crate) fn sync_cache_with_connections(
     }
 
     if let Ok(mut guard) = INTEGRATIONS_CACHE.write() {
-        cache_generation(prefix).fetch_add(1, Ordering::SeqCst);
+        cache_generation(&prefix).fetch_add(1, Ordering::SeqCst);
         for (key, cached_set, live_set) in divergent_keys {
             // Diff logging — makes Windows-timing regressions easy to
             // catch in user-supplied debug dumps without leaking any

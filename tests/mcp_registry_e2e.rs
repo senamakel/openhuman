@@ -37,8 +37,10 @@ fn fresh_workspace_config() -> (tempfile::TempDir, Config) {
 }
 
 async fn install_server(config: &Config, name: &str, server: Value) -> String {
+    let mut servers = Map::new();
+    servers.insert(name.to_owned(), server);
     let document = json!({
-        "mcpServers": Map::from([(name.to_owned(), server)])
+        "mcpServers": servers
     });
     openhuman_core::mcp::registry::config_ops::mcp_clients_config_set(config, document)
         .await
@@ -231,9 +233,11 @@ async fn per_config_auth_failure_surfaces_401_reason_without_cross_workspace_lea
         connections::auth_hint_for_config(&config_a, &server_id).await,
         Some("credential_required")
     );
-    assert!(connections::last_error_for_config(&config_a, &server_id)
-        .await
-        .is_some_and(|error| !error.trim().is_empty()));
+    assert_eq!(
+        connections::last_error_for_config(&config_a, &server_id).await,
+        None,
+        "401 response text stays hidden; the typed auth hint carries the user-facing reason"
+    );
     assert!(connections::auth_hint_for_config(&config_b, &server_id)
         .await
         .is_none());

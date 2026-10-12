@@ -261,15 +261,7 @@ pub(super) fn summarizes_tool_output(agent_id: &str, config: &crate::config::Con
 pub(super) fn should_synthesize_delegation_tools(def: &AgentDefinition) -> bool {
     match &def.tools {
         ToolScope::Wildcard => !def.subagents.is_empty(),
-        ToolScope::Named(names) => names.iter().any(|name| {
-            matches!(
-                name.as_str(),
-                "spawn_subagent"
-                    | "spawn_async_subagent"
-                    | "spawn_parallel_agents"
-                    | "spawn_worker_thread"
-            )
-        }),
+        ToolScope::Named(_) => def.tools.names_a_spawn_tool(),
     }
 }
 

@@ -109,12 +109,13 @@ pub const HARD_DENIED: &[&str] = &[
     "pushover",
 ];
 
-/// Tools outside a profile's domain families that an operator may still admit
-/// by naming them in `tool_scope(ToolScopeSpec::Named(..))`: the scheduler
-/// (`cron`, an Automation tool, bounded by `[cron] agent_jobs_only`) and the
-/// two clock tools (`current_time`, `resolve_time`, Platform tools with no
-/// reach beyond the wall clock). Nothing else in those families qualifies, and
-/// a name not in the operator's scope is never registered.
+/// Tools outside a profile's (or an embedded agent's) domain families that an
+/// operator may still admit by naming them in
+/// `tool_scope(ToolScopeSpec::Named(..))`: the scheduler (`cron`, bounded by
+/// `[cron] agent_jobs_only`) and the two clock tools (`current_time`,
+/// `resolve_time`, Platform tools with no reach beyond the wall clock).
+/// Nothing else in those families qualifies, and a name not in the scope is
+/// never registered. An embedded agent names them in its definition's scope.
 pub const OPERATOR_ADMITTABLE: &[&str] = &["cron", "current_time", "resolve_time"];
 
 /// Whether `tool` is hard-denied to users.
@@ -164,10 +165,11 @@ pub fn allowlisted() -> Vec<SaasToolGroup> {
         .unwrap_or_default()
 }
 
-/// The tool-list filter. Outside SaaS this is the domain filter alone.
+/// The tool-list filter. Outside SaaS this is the domain filter, plus the
+/// [`OPERATOR_ADMITTABLE`] tools the current agent names in its scope.
 pub fn admits(tool: &str, domain_ok: bool) -> bool {
     if !is_saas() {
-        return domain_ok;
+        return domain_ok || admitted_by_name(tool, current_named_tools().as_deref());
     }
     let mut admitted = admits_with(tool, domain_ok, &allowlisted());
     if !admitted
@@ -182,6 +184,24 @@ pub fn admits(tool: &str, domain_ok: bool) -> bool {
         log::debug!("[profiles][tools] withholding `{tool}` from profiles");
     }
     admitted
+}
+
+/// Whether `tool` is one of the [`OPERATOR_ADMITTABLE`] tools and `named`
+/// lists it.
+pub fn admitted_by_name(tool: &str, named: Option<&std::collections::HashSet<String>>) -> bool {
+    let admitted =
+        OPERATOR_ADMITTABLE.contains(&tool) && named.is_some_and(|names| names.contains(tool));
+    if admitted {
+        log::debug!("[profiles][tools] admitting named `{tool}` outside its domain family");
+    }
+    admitted
+}
+
+/// The named tool scope of the agent the current context serves, if any.
+fn current_named_tools() -> Option<std::sync::Arc<std::collections::HashSet<String>>> {
+    crate::core::runtime::context::CoreContext::current()?
+        .host_overrides()?
+        .named_tools()
 }
 
 /// The approval gate's answer in SaaS, where it never parks: `Ok` for a tool

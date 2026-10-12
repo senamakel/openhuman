@@ -184,6 +184,13 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         // moved `config_path` would silently point this agent at another.
         config.config_path = base.config_path.clone();
     }
+    // Runtime::agent holds the agent-map lock across instantiate. Check the
+    // final workspace (after the config escape hatch) before creating any
+    // directories, so a new agent cannot reuse an id whose old MCP service
+    // still awaits close acknowledgment.
+    if openhuman_core::mcp::host::agent_close_pending(&config.workspace_dir, &id) {
+        return Err(AgentError::CleanupPending);
+    }
     if host_only {
         // After the escape hatch, so it cannot loosen either.
         Access::readonly().apply(&mut config);
@@ -236,6 +243,22 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         opt_named_belt_into_discovery(&mut definition.tools);
     }
 
+    // A named scope is an explicit allowlist: unless it names a spawn tool it
+    // delegates only to the sub-agents its host declares, never to the
+    // inherited built-in roster (which would otherwise come back as
+    // `delegate_*` tools the scope never listed).
+    if matches!(
+        definition.tools,
+        openhuman_core::agent::harness::definition::ToolScope::Named(_)
+    ) && !definition.tools.names_a_spawn_tool()
+        && !definition.subagents.is_empty()
+    {
+        log::debug!(
+            "[embed][agent] id={id} named scope names no spawn tool; dropping {} inherited sub-agent(s)",
+            definition.subagents.len()
+        );
+        definition.subagents.clear();
+    }
     let definitions = own_catalogue(&catalogue, &id, &mut definition, parts.subagents)?;
 
     // ── narrowing ────────────────────────────────────────────────────────
@@ -270,6 +293,9 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
     overrides.model = provider.custom_model();
     overrides.role_models = provider.role_models().clone();
     overrides.session_store = parts.session_store;
+    if let openhuman_core::agent::harness::definition::ToolScope::Named(names) = &definition.tools {
+        overrides.named_tools = Some(std::sync::Arc::new(names.iter().cloned().collect()));
+    }
     let overrides = std::sync::Arc::new(overrides);
     for hook in parts.post_turn_hooks {
         overrides.post_turn_hook(hook.name(), Some(hook.clone()));

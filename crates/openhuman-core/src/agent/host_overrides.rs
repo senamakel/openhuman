@@ -29,6 +29,11 @@ pub struct HostOverrides {
     pub role_models: BTreeMap<String, Arc<dyn ChatModel<()>>>,
     /// The agent's durable session store, ahead of the runtime's store.
     pub session_store: Option<Arc<dyn tinyagents_session::port::SessionStoreProvider>>,
+    /// The tools the agent's definition names, when its scope is a named
+    /// list: what lets an embedded agent have one of the
+    /// [`OPERATOR_ADMITTABLE`](crate::profiles::tools::OPERATOR_ADMITTABLE)
+    /// tools although its domain family is off.
+    pub named_tools: Option<Arc<std::collections::HashSet<String>>>,
 }
 
 impl std::fmt::Debug for HostOverrides {
@@ -51,6 +56,14 @@ impl HostOverrides {
                 .as_ref()
                 .and_then(|parent| parent.profile_capabilities())
         })
+    }
+
+    /// The named tool scope of this agent, or of the nearest parent that has
+    /// one.
+    pub fn named_tools(&self) -> Option<Arc<std::collections::HashSet<String>>> {
+        self.named_tools
+            .clone()
+            .or_else(|| self.parent.as_ref().and_then(|parent| parent.named_tools()))
     }
 
     /// Resolve the instance barrier inherited by derived turn contexts.

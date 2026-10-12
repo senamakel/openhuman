@@ -30,6 +30,77 @@ pub fn ambient_config() -> Option<Config> {
     }
 }
 
+/// Closes an already-cached agent-scoped MCP client and returns only after the
+/// module acknowledges cleanup. Failed closes stay cached and unavailable so
+/// shutdown or a later cleanup attempt can retry them.
+#[cfg(feature = "mcp")]
+pub async fn close_agent(workspace_dir: &std::path::Path, agent_id: &str) -> bool {
+    crate::mcp::module_client::McpConfiguredClient::close_agent_data_dir(
+        &workspace_dir.join("agents").join(agent_id),
+    )
+    .await
+}
+
+/// Schedules cleanup for a dropped agent without opening a client. The exact
+/// cached client is retired before the cleanup task is spawned.
+#[cfg(feature = "mcp")]
+pub fn schedule_agent_close(workspace_dir: &std::path::Path, agent_id: &str) {
+    crate::mcp::module_client::McpConfiguredClient::schedule_agent_close_data_dir(
+        &workspace_dir.join("agents").join(agent_id),
+    );
+}
+
+/// Schedules module close followed by host-owned cleanup for this agent's
+/// scoped data directory. The directory remains reserved until both the
+/// module acknowledgment and callback succeed. The callback runs synchronously
+/// while MCP cleanup locks are held, so it must be short and must not reenter
+/// MCP client lookup, close, or scheduling APIs.
+#[cfg(feature = "mcp")]
+pub fn schedule_agent_close_with_cleanup(
+    workspace_dir: &std::path::Path,
+    agent_id: &str,
+    after_close: std::sync::Arc<dyn Fn() -> bool + Send + Sync>,
+) {
+    crate::mcp::module_client::McpConfiguredClient::schedule_agent_close_and_cleanup(
+        &workspace_dir.join("agents").join(agent_id),
+        after_close,
+    );
+}
+
+/// Whether a cached agent client still awaits module cleanup acknowledgment.
+#[cfg(feature = "mcp")]
+pub fn agent_close_pending(workspace_dir: &std::path::Path, agent_id: &str) -> bool {
+    crate::mcp::module_client::McpConfiguredClient::agent_close_pending(
+        &workspace_dir.join("agents").join(agent_id),
+    )
+}
+
+/// There is no MCP client to close when the feature is disabled.
+#[cfg(not(feature = "mcp"))]
+pub async fn close_agent(_workspace_dir: &std::path::Path, _agent_id: &str) -> bool {
+    true
+}
+
+/// There is no MCP client to close when the feature is disabled.
+#[cfg(not(feature = "mcp"))]
+pub fn schedule_agent_close(_workspace_dir: &std::path::Path, _agent_id: &str) {}
+
+/// Runs host-owned cleanup immediately when MCP is disabled.
+#[cfg(not(feature = "mcp"))]
+pub fn schedule_agent_close_with_cleanup(
+    _workspace_dir: &std::path::Path,
+    _agent_id: &str,
+    after_close: std::sync::Arc<dyn Fn() -> bool + Send + Sync>,
+) {
+    let _ = after_close();
+}
+
+/// No agent-scoped module cleanup is pending when MCP is disabled.
+#[cfg(not(feature = "mcp"))]
+pub fn agent_close_pending(_workspace_dir: &std::path::Path, _agent_id: &str) -> bool {
+    false
+}
+
 /// Converts the MCP section of product configuration to the module contract.
 pub fn client_config(config: &Config) -> tinymcp_bus::McpClientConfig {
     let mut client = tinymcp_bus::McpClientConfig {

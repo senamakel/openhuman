@@ -289,7 +289,8 @@ A profile holds one thread per conversation, whatever interface it came in on:
     `resolve_time` in `tool_scope(ToolScopeSpec::Named(..))`
     (`tools::OPERATOR_ADMITTABLE`); only those three are registered despite
     their family being off, and only when named. Cron stays bound by
-    `[cron] agent_jobs_only`.
+    `[cron] agent_jobs_only`. An embedded (library) agent gets the same three
+    by naming them in its own definition's scope (`HostOverrides::named_tools`).
   - `max_tool_iterations` caps tool rounds per profile turn (chat, relay and
     cron), forced as `agent.max_tool_iterations_override`.
 - **The user surface is an allowlist.** Within the user families, only the

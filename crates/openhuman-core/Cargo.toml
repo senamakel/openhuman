@@ -488,32 +488,14 @@ tinyhosts-bus = { path = "../../vendor/tinyhosts/crates/tinyhosts-bus", optional
 # not pay for it. See the two-set note above `default`.
 #
 # Taken as `tinywallet-bus`, the contract crate, and NOT the root `tinywallet`
-# crate. The root crate is where key derivation, transaction building, signing
-# and the chain clients live, and those are the gates that pull the `bitcoin`
-# crate and its native secp256k1 build; all of it happens inside the loaded
-# `tinywallet` module now, so this binary links none of it. What the contract
-# crate carries is exactly what a host still runs itself: the wire types that
-# cross the bus, the bus member names, address validation, the EIP-712 and ERC-20
-# encoders the x402 payment path builds with, the `Transport` seam this crate
-# implements, and the Tron verifier that checks what a node handed back before
-# a transaction is sent for signing.
+# crate. The host carries transport-neutral wire vocabulary only; wallet,
+# Web3, x402 parsing, payment construction, signing, ABI encoding and ledger
+# behavior execute inside the loaded TinyWallet module.
 #
 # The root crate is still taken under [dev-dependencies], where test fixtures
 # derive a known account. Dev-dependency features are not linked into the
 # shipped binary, so that does not undo the shed.
-tinywallet-bus = { path = "../../vendor/tinywallet/crates/tinywallet-bus", default-features = false, features = ["btc", "evm", "solana", "tron", "keccak", "net", "wire", "eip712", "abi", "tx-codec"], optional = true }
-# Transitional adapter dependency: the pre-cutover host WalletEngine still
-# consumes this leaf transport trait. It is removed with the direct engine path
-# once every Wallet/Web3/x402 caller uses the module contract.
-tinywallet-crypto = { path = "../../vendor/tinywallet/crates/tinywallet-crypto", default-features = false, features = ["net", "serde"], optional = true }
-# The x402 payment flow (402 challenge, EVM/Solana payment builders, the
-# spending ledger, the `x402_request` tool), moved out of `web3/x402`. The host
-# keeps signing, proxy policy and RPC controllers and hands them in as seams.
-tinywallet-x402 = { path = "../../vendor/tinywallet/crates/tinywallet-x402", default-features = false, features = ["wire", "pay", "ledger", "tools"], optional = true }
-# The wallet engine and the swap/bridge/dapp service, moved out of `web3/`.
-# The host implements its seams (signer, accounts, RPC endpoints, quote scope,
-# backend) and keeps the controllers, keyring and consent.
-tinywallet-web3 = { path = "../../vendor/tinywallet/crates/tinywallet-web3", default-features = false, features = ["tools"], optional = true }
+tinywallet-bus = { path = "../../vendor/tinywallet/crates/tinywallet-bus", default-features = false, features = ["wire"], optional = true }
 
 
 [target.'cfg(windows)'.dependencies]
@@ -742,31 +724,14 @@ voice = [
     # `voice::live`: live voice agent sessions over tinyagents-live.
     "dep:tinyagents-live",
 ]
-# Web3 family: openhuman::web3 + web3::wallet + web3::x402 — the
-# crypto wallet (multi-chain sign/broadcast), the high-level swap/bridge/dapp
-# surface, and the x402 machine-payment protocol. Default-ON — the desktop app
-# always ships with the wallet. Slim / headless builds opt out via
-# `--no-default-features --features "<explicit list without web3>"`, which
-# drops the exclusive `bitcoin` (P2WPKH PSBT) + `ethers-core` / `ethers-signers`
-# / `coins-bip39` (EVM/mnemonic signing, used by the multi-chain wallet's EVM
-# path) dependencies. Composes
-# with the runtime `DomainSet::Web3` flag (#4796): the feature narrows the
-# compile-time surface, `DomainSet` gates it at runtime.
-# `k256` and `coins-bip39` are gone from this list: nothing in the shipped
-# binary derives a key or signs with secp256k1 any more — the wallet module
-# does both. `k256` is gone entirely; `coins-bip39` is gone entirely
-# (the fixtures derive through `tinywallet`'s own copy).
-#
-# `curve25519-dalek` is gone from this list: the Solana off-curve check that
-# derives an Associated Token Account is address arithmetic that now lives in
-# `tinywallet-web3` (and `tinywallet-x402`), which own their own copy.
+# Web3 family: product RPC/controllers, module adapters, and host-configured
+# transport/custody/approval callbacks for Wallet, swaps, bridges, dapps, and
+# x402. The algorithms and provider-specific state live in TinyWallet; this
+# feature carries only the lightweight bus contract and generic HTTP client.
 web3 = [
     "dep:reqwest13",
     "dep:webpki-roots",
     "dep:tinywallet-bus",
-    "dep:tinywallet-crypto",
-    "dep:tinywallet-x402",
-    "dep:tinywallet-web3",
     "modules",
 ]
 

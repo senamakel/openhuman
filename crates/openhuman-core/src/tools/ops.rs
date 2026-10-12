@@ -143,7 +143,7 @@ pub fn all_tools_with_runtime(
     #[cfg(feature = "flows")]
     tools.extend(crate::flows::registration::tools(config.clone(), security));
     #[cfg(feature = "web3")]
-    tools.extend(crate::web3::wallet::registration::tools());
+    tools.extend(crate::web3::wallet::tools::all_agent_tools());
     tools.append(&mut vec![
         Box::new(ScheduleTool::new(security.clone(), root_config.clone())),
         Box::new(ProxyConfigTool::new(config.clone(), security.clone())),
@@ -308,9 +308,11 @@ pub fn all_tools_with_runtime(
     // or SPL payment signing, and ledger recording. Gated with the `web3`
     // feature (the x402 domain is compiled out when web3 is disabled).
     #[cfg(feature = "web3")]
-    tools.push(Box::new(crate::web3::x402::request_tool(
+    tools.push(Box::new(crate::tools::x402_request_tool(
         security.clone(),
         http_config.allowed_domains.clone(),
+        http_config.max_response_size,
+        http_config.timeout_secs,
     )));
 
     // Coding-harness baseline `web_fetch` (issue #1205) — single-purpose

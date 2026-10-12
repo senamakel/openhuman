@@ -3985,9 +3985,6 @@ dependencies = [
  "tinyvoice-bus",
  "tinywallet",
  "tinywallet-bus",
- "tinywallet-crypto",
- "tinywallet-web3",
- "tinywallet-x402",
  "tokio",
  "tokio-tungstenite 0.29.0",
  "tokio-util",
@@ -4094,6 +4091,7 @@ dependencies = [
  "tinyagents-harness",
  "tinyagents-session",
  "tinybus",
+ "tinyflows-schedule",
  "tinyinference-embeddings",
  "tinyinference-llm",
  "tinymcp-bus",
@@ -7313,12 +7311,13 @@ dependencies = [
 
 [[package]]
 name = "tinywallet"
-version = "0.13.0"
+version = "0.19.0"
 dependencies = [
  "coins-bip32",
  "coins-bip39",
  "ed25519-dalek",
  "hmac 0.13.0",
+ "rand 0.9.5",
  "ripemd 0.2.0",
  "sha2 0.11.0",
  "sha3 0.12.0",
@@ -7331,7 +7330,7 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-bus"
-version = "0.13.0"
+version = "0.19.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -7340,64 +7339,20 @@ dependencies = [
 
 [[package]]
 name = "tinywallet-crypto"
-version = "0.13.0"
+version = "0.19.0"
 dependencies = [
- "async-trait",
  "bech32 0.12.0",
  "bs58",
  "hex",
- "serde",
- "serde_json",
  "sha2 0.11.0",
  "sha3 0.12.0",
  "thiserror 2.0.20",
  "tinywallet-bus",
-]
-
-[[package]]
-name = "tinywallet-web3"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.23.1",
- "bs58",
- "curve25519-dalek 5.0.0",
- "hex",
- "log",
- "parking_lot",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "tinytools",
- "tinywallet-bus",
- "tinywallet-crypto",
- "tinywallet-x402",
 ]
 
 [[package]]
 name = "tinywallet-x402"
-version = "0.13.0"
-dependencies = [
- "anyhow",
- "async-trait",
- "base64 0.23.1",
- "bs58",
- "chrono",
- "curve25519-dalek 5.0.0",
- "hex",
- "log",
- "reqwest 0.13.5",
- "serde",
- "serde_json",
- "sha2 0.11.0",
- "sha3 0.12.0",
- "thiserror 2.0.20",
- "tinytools",
- "tinywallet-bus",
- "tinywallet-crypto",
- "uuid",
-]
+version = "0.19.0"
 
 [[package]]
 name = "tokio"

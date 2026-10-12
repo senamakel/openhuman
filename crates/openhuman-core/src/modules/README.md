@@ -211,7 +211,7 @@ download, its `dlopen`, or its resident memory.
 | Path | Module | What it does |
 | --- | --- | --- |
 | [`documents.rs`](documents.rs) | `tinydocs` | `generate_docx`, `generate_pptx`, `extract_text`, bounded `extract_document`, complete `convert_markdown`, `inspect_image`, and `render_pdf`. Inbound bytes ride a TinyBus stream; held results are pulled with `ReadOutput` and released. Feature `documents`. |
-| [`wallet.rs`](wallet.rs) | `tinywallet` | `derive_account`, `sign_transaction_in_module`, `sign_message`, `export_key`. Key material goes only to an attested module whose attested digest is one the registry pinned (`attested_proxy`). Feature `web3`. |
+| [`wallet.rs`](wallet.rs) | `tinywallet` | Typed wallet, Web3, ERC-20 encoding, and x402 calls. Key material goes only to confidential calls to an attested module whose digest is pinned by the registry (`attested_proxy`). Feature `web3`. |
 | [`voice.rs`](voice.rs) | `tinyvoice` | Intent routing, command extraction, wake-word and hallucination checks, capture preparation, WAV encoding, frame energies, and a `VadSession` driven from the always-on capture loop. Every call returns a `VoiceCallError` the caller falls back from. Feature `voice`. |
 | [`desktop.rs`](desktop.rs) | `tinycomputer` | The shared proxy for TinyComputer: loads it with an 8 second bound, reinitializes it when its configuration fingerprint changes, and exposes `call`, `permissions`, `state`, `jev_ready`. |
 | [`computer_config.rs`](computer_config.rs) | `tinycomputer` | The private configuration: `jev` (decision model), `planner` (planner, rescue and output models), `browser` (Chrome path), `trace_path`. Rebuilt from `[computer]` and stored credentials on every call; `OPENHUMAN_COMPUTER_TRACE` turns tracing on. |
@@ -322,7 +322,7 @@ loadable:
   | `tinydocs-bus` | `documents` |
   | `tinyvoice-bus` | `voice` |
   | `tinyjuice-bus` | inference kernel |
-  | `tinywallet-bus` | `web3` (the chain primitives are in `tinywallet-crypto`) |
+  | `tinywallet-bus` | `web3` (transport-neutral module contract vocabulary) |
   | `tinymcp-bus` | `mcp` |
   | `tinysearch-bus` | search provider declarations and bus payloads |
   | `tinycomputer-bus` | desktop, browser and task members |
@@ -343,8 +343,8 @@ loadable:
   budgets, and approval of irreversible steps.
 - Callers outside this folder: `runtime::client` re-exports `execute`,
   `resolve` and `RuntimeCallError` from `modules::runtime` so `runtime/`
-  compiles without the gate; `web3/seams.rs` and `web3/x402/seams.rs` use
-  `wallet.rs`; `tools/impl/document`, `tools/impl/presentation`,
+  compiles without the gate; wallet, Web3, and x402 adapters use `wallet.rs`;
+  `tools/impl/document`, `tools/impl/presentation`,
   `agent/multimodal.rs` and `agent/attachments/` use `documents.rs`;
   `voice/always_on` and `voice/streaming.rs` use `voice.rs`;
   `tools/impl/browser/` and `desktop/control/` use the TinyComputer files;

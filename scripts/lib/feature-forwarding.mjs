@@ -464,6 +464,9 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
  * "excluded on purpose" from "forgotten" without going archaeology.
  */
 export const CHAIN_GATES_NOT_FORWARDED = {
+  'openhuman-tinyhumans': {
+    profiles: 'The headless ProfileRuntime API belongs to openhuman-embed; the TinyHumans layer does not expose a standalone profiles gate. Its channels gate already enables embed profiles for channel relays.',
+  },
   'openhuman-embed': {
     'rss-bench':
       'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in tinyhumansai/openhuman-benchmarks (`profile/`, #6944), which enables the core gate directly; no host in this repository turns it on.',
@@ -478,6 +481,9 @@ export const CHAIN_GATES_NOT_FORWARDED = {
  * catch. An entry here says "this one is local by design".
  */
 export const CHAIN_LOCAL_GATES = {
+  'openhuman-embed': {
+    profiles: 'The in-process ProfileRuntime facade is implemented in openhuman-embed and has no core gate; channels also enables it for profile relays.',
+  },
   'openhuman-tinyhumans': {
     jev: 'This crate owns the gate: the Jev-backed `tool_search` ranker (`tinytools-jev` over the TinyHumans System One proxy).',
   },

@@ -7,7 +7,7 @@ use serde_json::json;
 use std::collections::HashSet;
 use std::sync::Mutex;
 use {
-    crate::cron, crate::cron::add_shell_job, crate::cron::get_job, crate::cron::update_job,
+    crate::cron, crate::cron::add_shell_job, crate::cron::update_job,
     tinyflows_schedule::types::CronJob, tinyflows_schedule::types::CronJobPatch,
     tinyflows_schedule::types::CronRun, tinyflows_schedule::types::Schedule,
 };

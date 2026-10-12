@@ -115,21 +115,6 @@
       "scope": "hosts",
       "package": "tinychannels-runtime",
       "reason": "Providers, relay, pairing and delivery lifecycles still call the implementation."
-    },
-    {
-      "scope": "hosts",
-      "package": "tinywallet-crypto",
-      "reason": "Validation, transaction construction, web3 and x402 need module operations."
-    },
-    {
-      "scope": "hosts",
-      "package": "tinywallet-web3",
-      "reason": "Validation, transaction construction, web3 and x402 need module operations."
-    },
-    {
-      "scope": "hosts",
-      "package": "tinywallet-x402",
-      "reason": "Validation, transaction construction, web3 and x402 need module operations."
     }
   ],
   "excludedSubsystems": [

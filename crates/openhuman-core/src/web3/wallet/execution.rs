@@ -1,10 +1,6 @@
-//! Host adapters over the wallet engine: the read and write operations wrapped
-//! in the controller contract's [`Outcome`].
-//!
-//! The logic (balances, transfers, lookups, the quote store) lives in
-//! `tinywallet_web3::crypto`. What this file adds is the `Outcome` envelope and
-//! its log lines, and the engine the operations run on
-//! ([`crate::web3::seams::engine`]).
+//! Typed TinyWallet module operations adapted to product controller results.
+//! This host supplies configuration, custody, transport and approvals; wallet
+//! algorithms and user-scoped service state remain in the compiled module.
 
 use crate::config::rpc as config_rpc;
 use crate::core::Outcome;
@@ -20,7 +16,7 @@ pub use tinywallet_bus::wire::{
 
 use tinywallet_bus::wire::{EvmNetwork, WalletNetworkDefaults};
 
-use tinywallet_web3::crypto::wallet::WalletChain;
+use super::ops::WalletChain;
 
 /// Default row for every supported network, with the host's endpoints.
 pub async fn network_defaults() -> Result<Outcome<Vec<WalletNetworkDefaults>>, String> {
@@ -220,6 +216,14 @@ pub async fn lookup_tx(
         result,
         vec!["wallet tx looked up".to_string()],
     ))
+}
+
+/// Encode ERC-20 transfer calldata in the loaded wallet module.
+pub async fn encode_erc20_transfer(to_address: &str, amount_raw: &str) -> Result<String, String> {
+    let config = config_rpc::load_config_with_timeout().await?;
+    wallet_module::encode_erc20_transfer(&config, to_address, amount_raw)
+        .await
+        .map_err(|error| error.to_string())
 }
 
 /// The quotes that can still be executed. Test support and the introspection

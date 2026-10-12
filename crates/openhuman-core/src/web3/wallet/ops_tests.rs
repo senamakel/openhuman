@@ -1,6 +1,5 @@
 use super::*;
 use crate::config::Config;
-use tinywallet_web3::crypto::wallet::WalletSetupSource;
 
 fn sample_account(chain: WalletChain) -> WalletAccount {
     WalletAccount {

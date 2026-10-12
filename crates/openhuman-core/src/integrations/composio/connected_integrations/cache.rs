@@ -77,10 +77,15 @@ fn current_cache_scope_prefix(operation: &'static str) -> Option<String> {
             return None;
         }
     };
+    Some(cache_scope_prefix(scope.as_str()))
+}
+
+/// The same profile encoding is used by ambient reads and trusted retirement.
+fn cache_scope_prefix(scope: &str) -> String {
     let mut digest = Sha256::new();
     digest.update(b"openhuman-integrations-cache-scope-v1\0");
-    digest.update(scope.as_str().as_bytes());
-    Some(format!("scope:{}/", hex::encode(digest.finalize())))
+    digest.update(scope.as_bytes());
+    format!("scope:{}/", hex::encode(digest.finalize()))
 }
 
 /// Admit a fetched snapshot only while its calling scope's epoch is current.
@@ -213,10 +218,25 @@ pub fn invalidate_connected_integrations_cache() {
     let Some(prefix) = current_cache_scope_prefix("invalidate") else {
         return;
     };
+    invalidate_cache_scope(&prefix);
+}
+
+/// Retire the exact profile selected by ProfileHost's lifecycle, independent
+/// of the operator task context running release/eviction/fencing. ProfileHost
+/// calls this while holding its slot lock so a successor cannot reopen before
+/// the old snapshot and already-started warm are invalidated.
+pub(crate) fn retire_profile_integrations_cache(profile: &crate::profiles::types::ProfileId) {
+    let Ok(scope) = crate::storage::scope_from(Some(profile.as_str()), None, true) else {
+        return;
+    };
+    invalidate_cache_scope(&cache_scope_prefix(scope.as_str()));
+}
+
+fn invalidate_cache_scope(prefix: &str) {
     if let Ok(mut guard) = INTEGRATIONS_CACHE.write() {
-        let entries = guard.keys().filter(|key| key.starts_with(&prefix)).count();
-        cache_generation(&prefix).fetch_add(1, Ordering::SeqCst);
-        guard.retain(|key, _| !key.starts_with(&prefix));
+        let entries = guard.keys().filter(|key| key.starts_with(prefix)).count();
+        cache_generation(prefix).fetch_add(1, Ordering::SeqCst);
+        guard.retain(|key, _| !key.starts_with(prefix));
         tracing::info!(
             cached_keys = entries,
             "[composio][integrations] cache invalidated"
@@ -391,7 +411,7 @@ pub(crate) fn sync_cache_with_connections(
         };
         guard
             .iter()
-            .filter(|(key, _)| key.starts_with(&prefix))
+            .filter(|(key, _)| key.starts_with(prefix))
             .filter_map(|(key, cached)| {
                 let cached_set = connected_toolkit_set(&cached.entries);
                 // Also check per-toolkit connection IDs (not just counts)
@@ -428,7 +448,7 @@ pub(crate) fn sync_cache_with_connections(
     }
 
     if let Ok(mut guard) = INTEGRATIONS_CACHE.write() {
-        cache_generation(&prefix).fetch_add(1, Ordering::SeqCst);
+        cache_generation(prefix).fetch_add(1, Ordering::SeqCst);
         for (key, cached_set, live_set) in divergent_keys {
             // Diff logging — makes Windows-timing regressions easy to
             // catch in user-supplied debug dumps without leaking any

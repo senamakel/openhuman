@@ -34,6 +34,7 @@ use super::registry::ProfileRegistry;
 use super::types::{ProfileId, ProfileMeta, ProfileSummary};
 use crate::config::Config;
 use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet, SaasConfig};
+use crate::integrations::composio::connected_integrations::retire_profile_integrations_cache;
 use crate::storage::fence::{FenceRegistry, LeaseFence};
 use crate::storage::lease::{LeaseGrant, LeaseStore};
 use crate::storage::StorageBackend;
@@ -407,7 +408,10 @@ impl ProfileHost {
         match open.get(id) {
             None => Ok(None),
             Some(slot) if in_use(slot) => Err(format!("profile {id} is in use; try again shortly")),
-            Some(_) => Ok(open.remove(id).map(|slot| slot.grant)),
+            Some(_) => Ok(open.remove(id).map(|slot| {
+                retire_profile_integrations_cache(id);
+                slot.grant
+            })),
         }
     }
 
@@ -505,7 +509,12 @@ impl ProfileHost {
                 .map(|(id, _)| id.clone())
                 .collect();
             idle.into_iter()
-                .filter_map(|id| open.remove(&id).map(|slot| (id, slot.grant)))
+                .filter_map(|id| {
+                    open.remove(&id).map(|slot| {
+                        retire_profile_integrations_cache(&id);
+                        (id, slot.grant)
+                    })
+                })
                 .collect()
         };
         log::info!(
@@ -542,7 +551,10 @@ impl ProfileHost {
         let state = {
             let mut open = self.lock();
             match open.get(id) {
-                Some(slot) if slot.grant == *grant => open.remove(id).map(|slot| slot.state),
+                Some(slot) if slot.grant == *grant => open.remove(id).map(|slot| {
+                    retire_profile_integrations_cache(id);
+                    slot.state
+                }),
                 _ => None,
             }
         };
@@ -579,7 +591,10 @@ impl ProfileHost {
         idle.into_iter()
             .filter_map(|id| {
                 log::debug!("[profiles] evicted idle profile={id}");
-                open.remove(&id).map(|slot| (id, slot.grant))
+                open.remove(&id).map(|slot| {
+                    retire_profile_integrations_cache(&id);
+                    (id, slot.grant)
+                })
             })
             .collect()
     }
@@ -599,6 +614,7 @@ impl ProfileHost {
                 .map(|(id, _)| id.clone());
             if let Some(id) = victim {
                 if let Some(slot) = open.remove(&id) {
+                    retire_profile_integrations_cache(&id);
                     log::debug!("[profiles] evicted least recently used profile={id}");
                     closed.push((id, slot.grant));
                 }

@@ -87,46 +87,38 @@ fn approval_describes_selector_and_locator_targets() {
 }
 
 #[test]
-fn direct_actions_use_typed_targets_and_reject_unbounded_inputs() {
+fn direct_actions_decode_through_the_bus_tool_args() {
     assert!(
-        matches!(parse_action(&json!({"action":"click","selector":"@e1"})).unwrap(), Action::Click { target: Target::Ref { value }, .. } if value == "e1")
+        matches!(direct_action(&json!({"action":"click","selector":"@e1"})).unwrap(), Action::Click { target: Target::Ref { value }, .. } if value == "e1")
     );
-    assert!(parse_action(&json!({"action":"click"})).is_err());
-    assert!(parse_action(&json!({"action":"scroll","direction":"diagonal"})).is_err());
-    assert!(parse_action(&json!({"action":"arbitrary_script"})).is_err());
-}
-
-#[test]
-fn browser_action_parser_covers_supported_direct_and_find_actions() {
-    for args in [
-        json!({"action":"fill","selector":"#email","value":"x"}),
-        json!({"action":"type","text":"hello"}),
-        json!({"action":"get_text","selector":"#title"}),
-        json!({"action":"is_visible","selector":"#title"}),
-        json!({"action":"hover","selector":"#title"}),
-        json!({"action":"press","key":"Enter"}),
-        json!({"action":"scroll","direction":"left","pixels":32}),
-        json!({"action":"wait","text":"Ready","ms":5,"timeout_ms":25}),
-    ] {
-        assert!(parse_action(&args).is_ok(), "{args}");
-    }
-
-    for find_action in ["click", "fill", "text", "hover"] {
-        let mut args = json!({
-            "action":"find", "by":"role", "value":"button", "find_action":find_action
-        });
-        if find_action == "fill" {
-            args["fill_value"] = json!("hello");
-        }
-        assert!(parse_action(&args).is_ok(), "{find_action}");
-    }
-
-    assert!(parse_action(&json!({"action":"scroll","direction":"up","pixels":u64::MAX})).is_ok());
-    assert!(parse_action(
+    assert!(direct_action(&json!({"action":"click"})).is_err());
+    assert!(direct_action(&json!({"action":"scroll","direction":"diagonal"})).is_err());
+    assert!(direct_action(&json!({"action":"arbitrary_script"})).is_err());
+    assert!(direct_action(
         &json!({"action":"find","by":"text","value":"Save","find_action":"text"})
     )
     .is_ok());
-    assert!(parse_action(&json!({"action":"wait","selector":"#ready"})).is_ok());
+}
+
+#[test]
+fn model_visible_browser_schema_is_the_bus_schema() {
+    let tool = BrowserTool::new(
+        std::sync::Arc::new(crate::security::SecurityPolicy::default()),
+        std::sync::Arc::new(BrowserClient::new(std::sync::Arc::new(
+            crate::config::Config::default(),
+        ))),
+        3,
+    );
+    let schema = tinytools::Tool::parameters_schema(&tool);
+    assert_eq!(schema, tinycomputer_bus::browser::tool::parameters_schema());
+    assert_eq!(schema["required"], json!(["action"]));
+    assert_eq!(
+        schema["properties"]["action"]["enum"]
+            .as_array()
+            .unwrap()
+            .len(),
+        22
+    );
 }
 
 #[test]

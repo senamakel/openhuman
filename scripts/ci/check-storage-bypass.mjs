@@ -68,12 +68,6 @@ const LEGACY_READER =
 export const ALLOW = new Map(
   [
     [
-      "modules/browser_profile.rs",
-      "json-write",
-      "lock.exists() && std::fs::OpenOptions::new().write(true).open(&lock).is_err()",
-      "probes Chrome's machine-local Windows profile lock for sharing violations; opens an existing file without creating, truncating or writing persisted state",
-    ],
-    [
       "security/approval/store_import.rs",
       "sqlite-open",
       "let conn = Connection::open(&db_path).with_context(|| {",

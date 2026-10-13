@@ -204,8 +204,12 @@ impl BrowserClient {
         } else {
             None
         };
-        let claimed =
-            claim_profile(&mut options, super::browser_profile::SESSION_PROFILE_WAIT).await;
+        let claimed = claim_profile(
+            &self.config,
+            &mut options,
+            super::profile_claim::SESSION_WAIT_MS,
+        )
+        .await;
         options.download_dir = browser.download_dir.clone();
         options.default_timeout_ms = browser.task_timeout_secs.saturating_mul(1000);
         options.allowed_origins =
@@ -214,7 +218,7 @@ impl BrowserClient {
         // An open session's Chrome holds the profile itself; one that did
         // not open holds nothing.
         if let Some(profile) = claimed {
-            super::browser_profile::release(&profile);
+            super::profile_claim::release(&self.config, &profile).await;
         }
         opened
     }
@@ -495,18 +499,21 @@ fn parsed_browser_url(raw: &str) -> Result<url::Url, BrowserCallError> {
 /// a session in one conversation found the profile held by another
 /// conversation's browser, or a task's.
 async fn claim_profile(
+    config: &Config,
     options: &mut SessionOptions,
-    wait: std::time::Duration,
-) -> Option<std::path::PathBuf> {
-    let profile = std::path::PathBuf::from(options.user_data_dir.as_ref()?);
-    if super::browser_profile::claim_within(&profile, wait).await {
-        return Some(profile);
+    wait_ms: u64,
+) -> Option<String> {
+    let profile = options.user_data_dir.clone()?;
+    match super::profile_claim::claim(config, &profile, wait_ms).await {
+        super::profile_claim::Claim::Claimed(path) => Some(path),
+        super::profile_claim::Claim::Fresh => {
+            tracing::warn!(
+                "[browser] another browser holds the persistent profile; this session uses a fresh profile"
+            );
+            options.user_data_dir = None;
+            None
+        }
     }
-    tracing::warn!(
-        "[browser] another browser holds the persistent profile; this session uses a fresh profile"
-    );
-    options.user_data_dir = None;
-    None
 }
 
 fn browser_allow_all() -> bool {

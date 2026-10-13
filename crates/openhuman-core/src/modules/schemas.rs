@@ -202,6 +202,7 @@ fn readiness_error(detail: &str) -> String {
 fn handle_browser_check_readiness(_params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mut config = config_rpc::load_config_with_timeout().await?;
+        crate::core::runtime::components::require_config(&config, "computer")?;
         // The probe never navigates. Give its disposable session a non-routable
         // origin so an empty website allowlist does not prevent a Chrome check.
         config.http_request.allowed_domains = vec!["example.invalid".into()];
@@ -251,6 +252,7 @@ fn handle_browser_forget_sites(params: Map<String, Value>) -> ControllerFuture {
             }
         };
         let config = config_rpc::load_config_with_timeout().await?;
+        crate::core::runtime::components::require_config(&config, "computer")?;
         let forgotten = super::browser_sites::forget(&config, site.as_deref())
             .await
             .map_err(|error| format!("could not forget learned site data: {error}"))?;
@@ -267,6 +269,7 @@ fn handle_computer_status(params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let load = params.get("load").and_then(Value::as_bool).unwrap_or(false);
         let config = config_rpc::load_config_with_timeout().await?;
+        crate::core::runtime::components::require_config(&config, "computer")?;
         controller_value(super::computer::status(&config, load).await)
     })
 }

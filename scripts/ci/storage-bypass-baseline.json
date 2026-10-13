@@ -198,14 +198,14 @@
   {
     "rule": "json-write",
     "path": "crates/openhuman-core/src/flows/tinyflows/caps/code.rs",
-    "line": 111,
+    "line": 112,
     "text": "tokio::fs::write(&script_path, script_body)",
     "occurrence": 1
   },
   {
     "rule": "json-write",
     "path": "crates/openhuman-core/src/flows/tinyflows/caps/code.rs",
-    "line": 114,
+    "line": 115,
     "text": "tokio::fs::write(&input_path, input_json)",
     "occurrence": 1
   },
@@ -255,6 +255,13 @@
     "rule": "json-write",
     "path": "crates/openhuman-core/src/modules/browser_task_report.rs",
     "line": 304,
+    "text": "let mut options = tokio::fs::OpenOptions::new();",
+    "occurrence": 1
+  },
+  {
+    "rule": "json-write",
+    "path": "crates/openhuman-core/src/modules/site_memory_host.rs",
+    "line": 147,
     "text": "let mut options = tokio::fs::OpenOptions::new();",
     "occurrence": 1
   },

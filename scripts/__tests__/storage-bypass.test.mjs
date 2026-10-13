@@ -228,14 +228,3 @@ test("a verbatim copy of an allowlisted line is still a finding", () => {
     [[3, 2]],
   );
 });
-
-test("Chrome's Windows lock probe is not persisted state; additional writes still fail", () => {
-  const file = `${SRC}/modules/browser_profile.rs`;
-  const probe =
-    "lock.exists() && std::fs::OpenOptions::new().write(true).open(&lock).is_err()";
-  const { status, out } = run({ [file]: probe }, []);
-  assert.equal(status, 0, out);
-  const extra = run({ [file]: `${probe}\nstd::fs::write(path, data);` }, []);
-  assert.equal(extra.status, 1, extra.out);
-  assert.match(extra.out, /New storage-bypass sites/);
-});

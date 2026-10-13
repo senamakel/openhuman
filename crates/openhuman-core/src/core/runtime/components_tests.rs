@@ -145,3 +145,13 @@ fn channels_off_names_the_typed_error_and_owns_the_channels_group() {
         Some("channels")
     );
 }
+
+#[test]
+fn require_config_refuses_with_the_typed_error_only_when_the_flag_is_off() {
+    let mut config = crate::config::Config::default();
+    assert!(require_config(&config, "computer").is_ok());
+    config.components.computer = false;
+    let err = require_config(&config, "computer").unwrap_err();
+    assert!(err.contains("COMPONENT_DISABLED:computer"), "{err}");
+    assert!(require_config(&config, "search").is_ok());
+}

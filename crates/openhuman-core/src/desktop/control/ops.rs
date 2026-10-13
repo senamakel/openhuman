@@ -120,8 +120,13 @@ fn state_path(config: &Config) -> std::path::PathBuf {
         .join("desktop-control.json")
 }
 
+/// Effective desktop control: the `[components] computer` ceiling AND this
+/// machine's local consent. The flag can only remove access, never grant it.
 /// Corrupt or unreadable local state fails closed, never enabling desktop access.
 pub fn enabled(config: &Config) -> bool {
+    if !config.components.computer {
+        return false;
+    }
     let _lock = STATE_LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);

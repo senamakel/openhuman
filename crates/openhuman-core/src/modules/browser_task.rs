@@ -10,7 +10,6 @@
 
 use std::collections::BTreeMap;
 use std::future::Future;
-use std::path::PathBuf;
 use std::pin::Pin;
 use std::time::{Duration, Instant};
 
@@ -119,7 +118,7 @@ pub(crate) async fn begin<'a>(
         return Err("a browser task needs at least one allowed origin".to_owned());
     }
     let mut request = start_request(config, task);
-    let claimed = claim_profile(&mut request, super::browser_profile::PROFILE_WAIT).await;
+    let claimed = claim_profile(config, &mut request, super::profile_claim::TASK_WAIT_MS).await;
     let mut following = super::browser_sites::apply(config, task, &mut request).await;
     tracing::debug!(
         origins = task.origins.len(),
@@ -146,7 +145,7 @@ pub(crate) async fn begin<'a>(
         Err(error) => {
             // A task that did not start starts no browser on the profile.
             if let Some(profile) = claimed {
-                super::browser_profile::release(&profile);
+                super::profile_claim::release(config, &profile).await;
             }
             return Err(error);
         }
@@ -303,16 +302,22 @@ fn refused_flow(error: &str) -> bool {
 /// folder, so a task waits a moment for one closing on it (the browser of the
 /// task before it, which closes as it ends), and otherwise runs in a fresh
 /// profile rather than fail to start its browser.
-async fn claim_profile(request: &mut StartTaskRequest, wait: Duration) -> Option<PathBuf> {
-    let profile = PathBuf::from(request.constraints.browser_profile.as_ref()?);
-    if super::browser_profile::claim_within(&profile, wait).await {
-        return Some(profile);
+async fn claim_profile(
+    config: &Config,
+    request: &mut StartTaskRequest,
+    wait_ms: u64,
+) -> Option<String> {
+    let profile = request.constraints.browser_profile.clone()?;
+    match super::profile_claim::claim(config, &profile, wait_ms).await {
+        super::profile_claim::Claim::Claimed(path) => Some(path),
+        super::profile_claim::Claim::Fresh => {
+            tracing::warn!(
+                "[browser-task] another browser holds the persistent profile; this task runs in a fresh profile"
+            );
+            request.constraints.browser_profile = None;
+            None
+        }
     }
-    tracing::warn!(
-        "[browser-task] another browser holds the persistent profile; this task runs in a fresh profile"
-    );
-    request.constraints.browser_profile = None;
-    None
 }
 
 /// A module reply as its data, or as the error the tool reports: its code,

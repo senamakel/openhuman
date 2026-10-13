@@ -189,46 +189,11 @@ fn tinycomputers_own_words_for_a_missing_or_unusable_chrome_get_the_users_fix() 
 }
 
 #[tokio::test]
-async fn a_session_opens_in_a_fresh_profile_while_another_chrome_holds_it() {
-    // Live, a second conversation's browser found the profile held by the
-    // first's, and Chrome exited at once.
-    let profile =
-        std::env::temp_dir().join(format!("openhuman-session-profile-{}", std::process::id()));
-    let _ = std::fs::remove_dir_all(&profile);
-    std::fs::create_dir_all(&profile).unwrap();
-    let held = profile.to_string_lossy().into_owned();
-    let mut options = SessionOptions {
-        user_data_dir: Some(held.clone()),
-        ..SessionOptions::default()
-    };
-    let wait = std::time::Duration::from_millis(50);
-    assert_eq!(
-        claim_profile(&mut options, wait).await,
-        Some(profile.clone())
-    );
-    assert_eq!(options.user_data_dir.as_deref(), Some(held.as_str()));
-
-    // A second session while the first's browser is still starting.
-    let mut second = SessionOptions {
-        user_data_dir: Some(held.clone()),
-        ..SessionOptions::default()
-    };
-    assert_eq!(claim_profile(&mut second, wait).await, None);
-    assert!(second.user_data_dir.is_none());
-    super::super::browser_profile::release(&profile);
-
-    #[cfg(not(windows))]
-    {
-        let here = sysinfo::System::host_name().unwrap_or_default();
-        std::os::unix::fs::symlink(
-            format!("{here}-{}", std::process::id()),
-            profile.join("SingletonLock"),
-        )
-        .unwrap();
-        assert_eq!(claim_profile(&mut options, wait).await, None);
-        assert!(options.user_data_dir.is_none());
-    }
-    let _ = std::fs::remove_dir_all(&profile);
+async fn a_session_without_a_persistent_profile_claims_nothing() {
+    let mut options = SessionOptions::default();
+    let config = Config::default();
+    assert_eq!(claim_profile(&config, &mut options, 50).await, None);
+    assert!(options.user_data_dir.is_none());
 }
 
 #[test]

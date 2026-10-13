@@ -13,7 +13,6 @@ use crate::agent::turn_origin::AgentTurnOrigin;
 use crate::modules::browser::BrowserClient;
 use crate::security::approval::{ApprovalGate, GateOutcome};
 use crate::security::SecurityPolicy;
-use crate::tools::schema_cache::static_schema;
 use async_trait::async_trait;
 use pending::{approval_target, needs_host_confirmation, Pending};
 use serde_json::{json, Value};
@@ -31,7 +30,7 @@ use std::{
     time::Instant,
 };
 use task_actions::{
-    approve_task_action, host_hint, parse_action, required, task_inputs, task_outcome,
+    approve_task_action, direct_action, host_hint, required, task_inputs, task_outcome,
 };
 use tinycomputer_bus::agent::{ContinueTaskRequest, TaskId, TaskStatus, TaskView};
 use tinycomputer_bus::browser::{
@@ -489,7 +488,7 @@ impl BrowserTool {
                 Ok(serde_json::to_value(d)?)
             }
             _ => {
-                let action = parse_action(args)?;
+                let action = direct_action(args)?;
                 approve_browser_action(&self.client, &id, &action, false, origin).await?;
                 Ok(serde_json::to_value(
                     self.client.perform(&id, action).await?,
@@ -532,7 +531,7 @@ impl Tool for BrowserTool {
         )
     }
     fn parameters_schema(&self) -> Value {
-        static_schema!(include_str!("parameters/browser.json"))
+        tinycomputer_bus::browser::tool::parameters_schema()
     }
     /// Direct consequential actions park on the approval gate *inside*
     /// `execute` (`intercept_forced`), which waits up to the gate's TTL. The
@@ -587,10 +586,6 @@ impl Tool for BrowserTool {
 #[cfg(test)]
 #[path = "browser_computer_tests.rs"]
 mod tests;
-
-#[cfg(test)]
-#[path = "browser_schema_tests.rs"]
-mod schema_tests;
 
 #[cfg(test)]
 #[path = "browser_task_outcome_tests.rs"]

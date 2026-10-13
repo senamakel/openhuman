@@ -189,10 +189,13 @@ pub fn all_tools_with_runtime(
     tools.extend(crate::desktop::dashboard::tools::registered_tools(
         config.clone(),
     ));
+    // `[components] computer = false` unregisters the desktop and browser tools.
     #[cfg(feature = "modules")]
-    tools.extend(crate::desktop::control::tools::registered_tools(
-        config.clone(),
-    ));
+    if config.components.computer {
+        tools.extend(crate::desktop::control::tools::registered_tools(
+            config.clone(),
+        ));
+    }
     tools.extend(crate::security::tools::registered_tools(config.clone()));
     tools.extend(crate::platform::service::tools::registered_tools(
         config.clone(),
@@ -282,7 +285,7 @@ pub fn all_tools_with_runtime(
     tools.extend(crate::agent::goals::goal_tools(&root_config.workspace_dir));
 
     #[cfg(feature = "modules")]
-    if browser_config.enabled {
+    if browser_config.enabled && config.components.computer {
         // BrowserClient enforces the shared `http_request.allowed_domains`
         // policy for both browser tools.
         let browser_client = Arc::new(crate::modules::browser::BrowserClient::new(config.clone()));

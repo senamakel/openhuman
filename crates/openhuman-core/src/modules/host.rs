@@ -194,6 +194,7 @@ async fn build_runtime() -> tinybus::Result<ModuleRuntime> {
     } else {
         tracing::debug!("[modules] juice component off; MlHost not served");
     }
+    super::site_memory_host::install(&connection).await?;
     super::storage_host::install(&connection).await?;
     #[cfg(feature = "tinymemes")]
     {

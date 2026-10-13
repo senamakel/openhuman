@@ -24,7 +24,7 @@ use tinymemes_bus::{
 
 use super::{docs, inference, jev, search};
 use crate::config::Config;
-use crate::core::runtime::{is_saas, CoreContext};
+use crate::core::runtime::CoreContext;
 use crate::memory::scope::MemoryIdentity;
 
 /// How long an entry may live without its `End`.
@@ -35,7 +35,7 @@ const MAX_AGE: Duration = Duration::from_secs(15 * 60);
 /// Callbacks arrive on the module bus, outside the task that asked for the
 /// remix, so the caller's context and memory identity are captured when the
 /// remix is registered and re-entered for each callback ([`Session::enter`]).
-/// In SaaS only the caller's own scope counts, so an unscoped caller's
+/// Only the caller's own scope counts, so in SaaS an unscoped caller's
 /// callbacks fail closed instead of acting as the operator.
 pub(super) struct Session {
     config: Config,
@@ -49,11 +49,10 @@ impl Session {
         Self {
             config: config.clone(),
             jev: tokio::sync::OnceCell::new(),
-            context: if is_saas() {
-                CoreContext::scoped()
-            } else {
-                CoreContext::current()
-            },
+            // Only the caller's own task scope is carried. Without one, a
+            // single-user process falls back to its default context on the
+            // callback side as anywhere else, and SaaS fails closed.
+            context: CoreContext::scoped(),
             identity: crate::memory::scope::current(),
         }
     }

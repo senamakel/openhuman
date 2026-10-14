@@ -39,9 +39,25 @@ pub struct TickReport {
     pub skipped: usize,
 }
 
-/// Start the loop. It runs until the process exits.
+/// Aborts the wrapped task when dropped, so the blob sweeper lives exactly as
+/// long as the loop that started it (aborting the loop drops this guard).
+struct AbortOnDrop(tokio::task::JoinHandle<()>);
+
+impl Drop for AbortOnDrop {
+    fn drop(&mut self) {
+        self.0.abort();
+    }
+}
+
+/// Start the loop. It runs until the process exits. It also owns the storage
+/// blob sweeper: SaaS runs without the cron service that normally starts it,
+/// and the sweeper visits `profile:<id>` scopes through the installed host.
 pub fn spawn(host: Arc<ProfileHost>) -> tokio::task::JoinHandle<()> {
     crate::core::runtime::spawn_scoped(async move {
+        let _blob_sweeper = AbortOnDrop(crate::storage::blob_sweep::spawn(
+            crate::storage::blob_sweep::FIRST_SWEEP_DELAY,
+            crate::storage::blob_sweep::SWEEP_INTERVAL,
+        ));
         log::info!(
             "[profiles][background] started (every {}s)",
             TICK_INTERVAL.as_secs()

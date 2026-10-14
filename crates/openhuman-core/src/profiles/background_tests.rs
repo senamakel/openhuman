@@ -83,3 +83,12 @@ async fn a_tick_sweeps_idle_profiles() {
     tick(&host).await;
     assert!(!host.is_open(&id));
 }
+
+#[tokio::test]
+async fn blob_sweeper_guard_aborts_the_task_when_dropped() {
+    let task = tokio::spawn(std::future::pending::<()>());
+    let probe = task.abort_handle();
+    drop(AbortOnDrop(task));
+    tokio::task::yield_now().await;
+    assert!(probe.is_finished());
+}

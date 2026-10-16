@@ -55,12 +55,14 @@ fn an_ambiguous_module_id_falls_back_to_a_hashed_scope() {
     assert!(hashed.as_str().starts_with("module-sha256:"));
     assert_ne!(hashed, module_scope(None, &local, "a@c").unwrap());
     // For a profile there is no hash fallback: it would leave the fence.
-    assert!(module_scope(
-        Some("acme"),
-        &crate::storage::scope_for_profile("acme"),
-        "a@b"
-    )
-    .is_err());
+    assert!(
+        module_scope(
+            Some("acme"),
+            &crate::storage::scope_for_profile("acme"),
+            "a@b"
+        )
+        .is_err()
+    );
 }
 
 #[tokio::test]
@@ -133,9 +135,9 @@ async fn a_module_write_under_a_stale_lease_is_fenced_by_the_host() {
 
 #[tokio::test]
 async fn the_bus_hands_the_host_the_brokers_sender_and_nothing_else() {
+    use tinybus::Connection;
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
-    use tinybus::Connection;
 
     let bus = MemoryBus::new();
     Broker::new().spawn(bus.clone());
@@ -198,10 +200,12 @@ async fn the_bus_hands_the_host_the_brokers_sender_and_nothing_else() {
     // A forged scope is a refused request, not a different scope.
     let mut forged = get("notes", "a");
     forged["scope"] = json!("local");
-    assert!(documents(&module)
-        .call::<Value>("Get", forged)
-        .await
-        .is_err());
+    assert!(
+        documents(&module)
+            .call::<Value>("Get", forged)
+            .await
+            .is_err()
+    );
 
     // Secrets are on a confidential route: an ordinary call never reaches the host.
     let secrets = module
@@ -211,15 +215,18 @@ async fn the_bus_hands_the_host_the_brokers_sender_and_nothing_else() {
             STORAGE_INTERFACE,
         )
         .unwrap();
-    assert!(secrets
-        .call::<Value>("Get", json!({"name": "token.a"}))
-        .await
-        .is_err());
-    assert!(rig
-        .trail
-        .0
-        .lock()
-        .unwrap()
-        .iter()
-        .all(|record| record.object != "Secrets"));
+    assert!(
+        secrets
+            .call::<Value>("Get", json!({"name": "token.a"}))
+            .await
+            .is_err()
+    );
+    assert!(
+        rig.trail
+            .0
+            .lock()
+            .unwrap()
+            .iter()
+            .all(|record| record.object != "Secrets")
+    );
 }

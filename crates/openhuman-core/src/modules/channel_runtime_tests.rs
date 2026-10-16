@@ -224,6 +224,31 @@ pub(super) fn runtime_transport(
     super::runtime_transport_real(runtime)
 }
 
+#[tokio::test]
+async fn fixture_transport_uses_the_fixture_proxy_connection() {
+    use tinybus::{transport::memory::MemoryBus, Broker};
+
+    let transport = MemoryBus::new();
+    Broker::new().spawn(transport.clone());
+    let fixture_connection = Connection::connect(transport.connect().await.unwrap())
+        .await
+        .unwrap();
+    let fixture_proxy = fixture_connection
+        .proxy(
+            tinychannels_bus::BUS_NAME,
+            OBJECT_PATH,
+            tinychannels_bus::BUS_NAME,
+        )
+        .unwrap();
+    let client =
+        crate::modules::client(crate::config::Config::default()).with_fixture(fixture_proxy);
+    let runtime = super::super::runtime::runtime().await.unwrap();
+
+    let (connection, proxy) = runtime_transport(&client, runtime).unwrap();
+    assert_eq!(connection.unique_name(), fixture_connection.unique_name());
+    assert_eq!(proxy.destination().as_str(), tinychannels_bus::BUS_NAME);
+}
+
 #[derive(Clone)]
 struct TransportFixture {
     sends: Arc<std::sync::atomic::AtomicUsize>,

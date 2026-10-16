@@ -25,11 +25,16 @@ pub fn load_enabled(host: &ModuleHost, skip: &[String]) -> Vec<Result<ModuleInfo
     if skip.is_empty() {
         return host.load_search_paths();
     }
+    load_enabled_from_paths(host, skip, ModuleHost::search_paths())
+}
+
+fn load_enabled_from_paths(
+    host: &ModuleHost,
+    skip: &[String],
+    paths: impl IntoIterator<Item = std::path::PathBuf>,
+) -> Vec<Result<ModuleInfo, tinybus::Error>> {
     let mut outcomes = Vec::new();
-    for dir in ModuleHost::search_paths()
-        .into_iter()
-        .filter(|p| p.is_dir())
-    {
+    for dir in paths.into_iter().filter(|p| p.is_dir()) {
         let mut files: Vec<_> = match std::fs::read_dir(&dir) {
             Ok(entries) => entries.filter_map(|e| e.ok().map(|e| e.path())).collect(),
             Err(_) => Vec::new(),

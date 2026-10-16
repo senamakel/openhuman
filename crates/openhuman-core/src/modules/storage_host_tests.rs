@@ -726,3 +726,6 @@ async fn a_key_provider_failure_at_bind_is_retried_not_cached() {
     rig.env.keys_ready.store(true, Ordering::SeqCst);
     set_secret(&rig).await.unwrap();
 }
+
+#[path = "storage_host_lifecycle_tests.rs"]
+mod lifecycle;

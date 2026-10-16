@@ -2,11 +2,15 @@
 //! reaches [`StorageHost`], and how a caller's watch invalidations get from the
 //! caller's bound server to the proxy's unicast forwarder.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use tinybus::BusName;
+use tinybus::{
+    BusName, Connection, InterfaceName, MatchRule, MemberName, ObjectPath, WeakConnection,
+    BUS_INTERFACE, BUS_NAME, BUS_PATH,
+};
 use tinystoragedrivers::BlobReader;
 use tinystoragedrivers_bus::{BlobKeyRequest, BlobStreamHead, PutBlobStreamRequest, WatchChanged};
 use tinystoragedrivers_busproxy::{HostFailure, StorageCall, StorageEndpoint};
@@ -72,6 +76,13 @@ impl StorageHost {
         relays.get(sender).map(|relay| relay.tx.subscribe())
     }
 
+    /// Drop the signals relay for a peer the broker has detached.
+    pub(super) fn release_relay(&self, sender: &BusName) {
+        if let Ok(mut relays) = self.relays.lock() {
+            relays.remove(sender);
+        }
+    }
+
     /// Starts feeding `sender`'s relay from `binding`'s server, replacing a
     /// bridge from an earlier binding. The bridge subscribes before it is
     /// spawned, so nothing the server signals afterwards is lost.
@@ -135,14 +146,23 @@ impl StorageHost {
 /// [`StorageHost`].
 pub(super) struct HostEndpoint {
     host: Arc<StorageHost>,
+    connection: WeakConnection,
     /// Where the work runs when the objects are served from a linked module's
     /// own runtime: the host's, which the backend handles were opened on.
     runtime: Option<tokio::runtime::Handle>,
 }
 
 impl HostEndpoint {
-    pub(super) fn new(host: Arc<StorageHost>, runtime: Option<tokio::runtime::Handle>) -> Self {
-        Self { host, runtime }
+    pub(super) fn new(
+        host: Arc<StorageHost>,
+        connection: WeakConnection,
+        runtime: Option<tokio::runtime::Handle>,
+    ) -> Self {
+        Self {
+            host,
+            connection,
+            runtime,
+        }
     }
 
     /// Runs `work` on the host's runtime when one was given.
@@ -168,12 +188,37 @@ impl StorageEndpoint for HostEndpoint {
         let host = Arc::clone(&self.host);
         let (object, request, admission) = (call.object, call.request, call.admission);
         let selector = call.selector.to_string();
+        let is_watch_open = selector == "WatchOpen";
         let sender = call.sender.cloned();
-        self.on_host(async move {
-            host.handle(object, &selector, request, sender.as_ref(), admission)
-                .await
-        })
-        .await
+        let sender_for_liveness = sender.clone();
+        let result = self
+            .on_host(async move {
+                host.handle(object, &selector, request, sender.as_ref(), admission)
+                    .await
+            })
+            .await;
+        if is_watch_open {
+            if let Some(sender) = sender_for_liveness {
+                // The bus dispatches calls concurrently with signals. A queued
+                // WatchOpen can reach this endpoint after its detach signal
+                // already removed the relay, so check liveness after handling
+                // the call as well as listening for detach events.
+                if let Some(connection) = self.connection.upgrade() {
+                    match connection.name_owner(sender.as_str()).await {
+                        Ok(Some(owner)) if owner == sender => {}
+                        Ok(_) => self.host.release_relay(&sender),
+                        Err(error) => tracing::debug!(
+                            target: "storage_host",
+                            %error,
+                            "[storage-host] could not confirm watch caller liveness"
+                        ),
+                    }
+                } else {
+                    self.host.release_relay(&sender);
+                }
+            }
+        }
+        result
     }
 
     async fn put_blob_stream(
@@ -202,4 +247,70 @@ impl StorageEndpoint for HostEndpoint {
     fn watch_signals(&self, sender: &BusName) -> Option<broadcast::Receiver<WatchChanged>> {
         self.host.watch_signals(sender)
     }
+}
+
+/// Removes caller relays when the broker reports their unique peer detached.
+/// Well-known-name releases from live peers do not match this predicate.
+pub(super) async fn watch_peer_detach(
+    connection: &Connection,
+    host: Arc<StorageHost>,
+) -> tinybus::Result<()> {
+    let mut rule = MatchRule::new()
+        .signals()
+        .sender(BusName::new(BUS_NAME)?)
+        .interface(InterfaceName::new(BUS_INTERFACE)?)
+        .member(MemberName::new("NameOwnerChanged")?);
+    rule.path = Some(ObjectPath::new(BUS_PATH)?);
+    let mut signals = connection.add_match(rule.clone()).await?;
+    let connection = connection.downgrade();
+    tokio::spawn(async move {
+        loop {
+            match signals.recv().await {
+                Ok(signal) => {
+                    if !rule.matches(&signal) {
+                        continue;
+                    }
+                    let Ok((name, old_owner, new_owner)) =
+                        serde_json::from_value::<(BusName, Option<BusName>, Option<BusName>)>(
+                            signal.body,
+                        )
+                    else {
+                        tracing::warn!(
+                            target: "storage_host",
+                            "[storage-host] ignored malformed name-owner notification"
+                        );
+                        continue;
+                    };
+                    if name.is_unique() && old_owner.as_ref() == Some(&name) && new_owner.is_none()
+                    {
+                        host.release_relay(&name);
+                    }
+                }
+                Err(broadcast::error::RecvError::Lagged(missed)) => {
+                    tracing::warn!(
+                        target: "storage_host",
+                        missed,
+                        "[storage-host] peer-detach notifications lagged"
+                    );
+                    let candidates: HashSet<_> = host
+                        .relays
+                        .lock()
+                        .map(|relays| relays.keys().cloned().collect())
+                        .unwrap_or_default();
+                    let Some(connection) = connection.upgrade() else {
+                        return;
+                    };
+                    if let Ok(names) = connection.list_names().await {
+                        if let Ok(mut relays) = host.relays.lock() {
+                            relays.retain(|peer, _| {
+                                !candidates.contains(peer) || names.contains(peer)
+                            });
+                        }
+                    }
+                }
+                Err(broadcast::error::RecvError::Closed) => return,
+            }
+        }
+    });
+    Ok(())
 }

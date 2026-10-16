@@ -603,9 +603,14 @@ pub(super) async fn serve_objects(
     host: &Arc<StorageHost>,
     runtime: Option<tokio::runtime::Handle>,
 ) -> tinybus::Result<tinystoragedrivers_busproxy::ServedStorage> {
+    endpoint::watch_peer_detach(connection, Arc::clone(host)).await?;
     tinystoragedrivers_busproxy::serve(
         connection,
-        Arc::new(HostEndpoint::new(Arc::clone(host), runtime)),
+        Arc::new(HostEndpoint::new(
+            Arc::clone(host),
+            connection.downgrade(),
+            runtime,
+        )),
     )
     .await
 }

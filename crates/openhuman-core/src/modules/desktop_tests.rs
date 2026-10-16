@@ -9,7 +9,10 @@ use tinybus::transport::memory::MemoryBus;
 use tinybus::{Connection, InterfaceName, MemberName, ObjectPath};
 use tinycomputer_bus::{names, DesktopError, DesktopResponse};
 
-use super::{call, call_with_proxy, fingerprint, jev_ready, module_config, state, MODULE_ID};
+use super::{
+    call, call_with_proxy, fingerprint, jev_ready, module_config, reinitialize_if_changed, state,
+    MODULE_ID,
+};
 use crate::config::Config;
 use crate::security::credentials::{api_key, AuthService};
 
@@ -168,4 +171,37 @@ fn registry_and_contract_address_agree() {
     let record = crate::modules::registry::find(MODULE_ID).expect("desktop registry entry");
     assert_eq!(record.bus_name, names::INTERFACE);
     assert_eq!(record.object_path, names::OBJECT_PATH);
+}
+
+#[tokio::test]
+async fn failed_reinitialize_is_retried_after_reverting_to_previous_config() {
+    let previous = tokio::sync::Mutex::new(None);
+    let attempts = Arc::new(Mutex::new(Vec::new()));
+
+    let calls = Arc::clone(&attempts);
+    reinitialize_if_changed(&previous, 1, || async move {
+        calls.lock().expect("attempts lock").push("A");
+        Ok(())
+    })
+    .await
+    .expect("initial config A");
+
+    let calls = Arc::clone(&attempts);
+    let error = reinitialize_if_changed(&previous, 2, || async move {
+        calls.lock().expect("attempts lock").push("B");
+        Err("reinitialize failed".to_owned())
+    })
+    .await
+    .expect_err("config B should fail");
+    assert_eq!(error, "reinitialize failed");
+
+    let calls = Arc::clone(&attempts);
+    reinitialize_if_changed(&previous, 1, || async move {
+        calls.lock().expect("attempts lock").push("A");
+        Ok(())
+    })
+    .await
+    .expect("reverting to config A should reinitialize");
+
+    assert_eq!(*attempts.lock().expect("attempts lock"), ["A", "B", "A"]);
 }

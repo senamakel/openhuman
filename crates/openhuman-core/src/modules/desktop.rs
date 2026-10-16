@@ -1,5 +1,6 @@
 //! Host calls to the attested tinycomputer module.
 
+use std::future::Future;
 use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 
@@ -32,6 +33,24 @@ fn fingerprint(value: &serde_json::Value) -> u64 {
     hasher.finish()
 }
 
+async fn reinitialize_if_changed<F, Fut>(
+    previous: &tokio::sync::Mutex<Option<u64>>,
+    current: u64,
+    reinitialize: F,
+) -> Result<(), String>
+where
+    F: FnOnce() -> Fut,
+    Fut: Future<Output = Result<(), String>>,
+{
+    let mut previous = previous.lock().await;
+    if *previous != Some(current) {
+        *previous = None;
+        reinitialize().await?;
+        *previous = Some(current);
+    }
+    Ok(())
+}
+
 /// Load the module, refresh its private configuration when it changed, and
 /// return a proxy for its one interface (desktop, browser and task members).
 pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
@@ -52,8 +71,7 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
     // The lock makes credential rotation atomic across concurrent tool calls.
     let configuration = module_config(config);
     let current = fingerprint(&configuration);
-    let mut previous = last_config().lock().await;
-    if *previous != Some(current) {
+    reinitialize_if_changed(last_config(), current, || async {
         runtime
             .connection()
             .reinitialize_module(MODULE_ID, configuration)
@@ -67,10 +85,10 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
                     tinybus::module::resolution::global().mark_faulted(MODULE_ID, message.clone());
                 }
                 message
-            })?;
-    }
-    *previous = Some(current);
-    drop(previous);
+            })
+            .map(|_| ())
+    })
+    .await?;
     runtime
         .proxy(names::INTERFACE, names::OBJECT_PATH)
         .map_err(|error| format!("TinyComputer module proxy unavailable: {error}"))

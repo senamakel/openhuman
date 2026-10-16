@@ -608,7 +608,7 @@ pub(super) async fn serve_objects(
         connection,
         Arc::new(HostEndpoint::new(
             Arc::clone(host),
-            connection.clone(),
+            connection.downgrade(),
             runtime,
         )),
     )

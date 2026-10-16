@@ -9,7 +9,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tinybus::{
     BUS_INTERFACE, BUS_NAME, BUS_PATH, BusName, Connection, InterfaceName, MatchRule, MemberName,
-    ObjectPath,
+    ObjectPath, WeakConnection,
 };
 use tinystoragedrivers::BlobReader;
 use tinystoragedrivers_bus::{BlobKeyRequest, BlobStreamHead, PutBlobStreamRequest, WatchChanged};
@@ -146,7 +146,7 @@ impl StorageHost {
 /// [`StorageHost`].
 pub(super) struct HostEndpoint {
     host: Arc<StorageHost>,
-    connection: Connection,
+    connection: WeakConnection,
     /// Where the work runs when the objects are served from a linked module's
     /// own runtime: the host's, which the backend handles were opened on.
     runtime: Option<tokio::runtime::Handle>,
@@ -155,7 +155,7 @@ pub(super) struct HostEndpoint {
 impl HostEndpoint {
     pub(super) fn new(
         host: Arc<StorageHost>,
-        connection: Connection,
+        connection: WeakConnection,
         runtime: Option<tokio::runtime::Handle>,
     ) -> Self {
         Self {
@@ -202,14 +202,18 @@ impl StorageEndpoint for HostEndpoint {
                 // WatchOpen can reach this endpoint after its detach signal
                 // already removed the relay, so check liveness after handling
                 // the call as well as listening for detach events.
-                match self.connection.name_owner(sender.as_str()).await {
-                    Ok(Some(owner)) if owner == sender => {}
-                    Ok(_) => self.host.release_relay(&sender),
-                    Err(error) => tracing::debug!(
-                        target: "storage_host",
-                        %error,
-                        "[storage-host] could not confirm watch caller liveness"
-                    ),
+                if let Some(connection) = self.connection.upgrade() {
+                    match connection.name_owner(sender.as_str()).await {
+                        Ok(Some(owner)) if owner == sender => {}
+                        Ok(_) => self.host.release_relay(&sender),
+                        Err(error) => tracing::debug!(
+                            target: "storage_host",
+                            %error,
+                            "[storage-host] could not confirm watch caller liveness"
+                        ),
+                    }
+                } else {
+                    self.host.release_relay(&sender);
                 }
             }
         }
@@ -257,7 +261,7 @@ pub(super) async fn watch_peer_detach(
         .member(MemberName::new("NameOwnerChanged")?);
     rule.path = Some(ObjectPath::new(BUS_PATH)?);
     let mut signals = connection.add_match(rule.clone()).await?;
-    let connection = connection.clone();
+    let connection = connection.downgrade();
     tokio::spawn(async move {
         loop {
             match signals.recv().await {
@@ -292,6 +296,9 @@ pub(super) async fn watch_peer_detach(
                         .lock()
                         .map(|relays| relays.keys().cloned().collect())
                         .unwrap_or_default();
+                    let Some(connection) = connection.upgrade() else {
+                        return;
+                    };
                     if let Ok(names) = connection.list_names().await {
                         if let Ok(mut relays) = host.relays.lock() {
                             relays.retain(|peer, _| {

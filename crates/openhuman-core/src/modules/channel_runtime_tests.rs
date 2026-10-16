@@ -100,6 +100,63 @@ async fn a_failed_cleanup_can_be_retried_without_aborting_pending_work() {
         .unwrap();
 }
 
+#[tokio::test]
+async fn failed_module_stops_cleanup_retries() {
+    use tinybus::module::resolution::{Resolution, ResolutionState, ResolutionTable};
+
+    let table = ResolutionTable::default();
+    let (sender, _) = match table.claim("channel-runtime-failed-fixture") {
+        tinybus::module::resolution::Claim::Run { sender, receiver: _ } => (sender, ()),
+        _ => unreachable!(),
+    };
+    table.complete(
+        "channel-runtime-failed-fixture",
+        Resolution::Failed("fixture fault".into()),
+        sender,
+    );
+    let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let result = tokio::time::timeout(
+        Duration::from_millis(50),
+        retry_stop(
+            {
+                let attempts = attempts.clone();
+                move || {
+                    attempts.fetch_add(1, Ordering::SeqCst);
+                    async { Err(ModuleCallError::TransportFailed) }
+                }
+            },
+            || matches!(table.peek("channel-runtime-failed-fixture"), ResolutionState::Failed(_)),
+            |_| std::future::ready(()),
+        ),
+    )
+    .await;
+
+    assert!(result.is_ok(), "failed module cleanup must stop retrying");
+    assert_eq!(attempts.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn unresponsive_module_cleanup_has_a_bounded_retry_count() {
+    let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let result = tokio::time::timeout(
+        Duration::from_millis(50),
+        retry_stop(
+            {
+                let attempts = attempts.clone();
+                move || {
+                    attempts.fetch_add(1, Ordering::SeqCst);
+                    async { Err(ModuleCallError::TransportFailed) }
+                }
+            },
+            || false,
+            |_| std::future::ready(()),
+        ),
+    )
+    .await;
+    assert!(result.is_ok(), "unresponsive cleanup must have a retry cap");
+    assert!(attempts.load(Ordering::SeqCst) <= 4);
+}
+
 #[derive(Clone)]
 struct TransportFixture {
     sends: Arc<std::sync::atomic::AtomicUsize>,

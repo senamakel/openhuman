@@ -13,6 +13,7 @@ use tinychannels_bus::{
 use tokio::sync::Mutex;
 
 const CLOSE_BUDGET: Duration = Duration::from_secs(15);
+const STOP_RETRY_DELAY: Duration = Duration::from_secs(5);
 
 /// Keeps a captured host adapter exported until the module acknowledges stop.
 #[derive(Clone)]
@@ -75,12 +76,7 @@ impl Drop for LeaseState {
                     return;
                 }
             }
-            loop {
-                if cleanup.run().await.is_ok() {
-                    break;
-                }
-                tokio::time::sleep(Duration::from_secs(5)).await;
-            }
+            retry_stop(|| cleanup.run(), || false, tokio::time::sleep).await;
         });
     }
 }
@@ -136,9 +132,7 @@ impl ChannelRuntimeLease {
             Ok(object) => object,
             Err(error) => {
                 runtime.spawn(async move {
-                    while cleanup.run().await.is_err() {
-                        tokio::time::sleep(Duration::from_secs(5)).await;
-                    }
+                    retry_stop(|| cleanup.run(), || false, tokio::time::sleep).await;
                 });
                 return Err(error);
             }
@@ -202,10 +196,6 @@ fn runtime_transport(
     client: &ModuleClient,
     runtime: &'static tinybus::module::ModuleRuntime,
 ) -> Result<(Connection, Proxy), ModuleCallError> {
-    #[cfg(test)]
-    if let Some(proxy) = client.fixture_proxy() {
-        return Ok((proxy.connection().clone(), proxy));
-    }
     let _ = client;
     Ok((
         runtime.connection().clone(),
@@ -213,6 +203,28 @@ fn runtime_transport(
             .proxy(tinychannels_bus::BUS_NAME, OBJECT_PATH)
             .map_err(|_| ModuleCallError::IncompatibleContract)?,
     ))
+}
+
+async fn retry_stop<Stop, StopFuture, IsFailed, Wait, WaitFuture>(
+    mut stop: Stop,
+    mut is_failed: IsFailed,
+    mut wait: Wait,
+) where
+    Stop: FnMut() -> StopFuture,
+    StopFuture: std::future::Future<Output = Result<(), ModuleCallError>>,
+    IsFailed: FnMut() -> bool,
+    Wait: FnMut(Duration) -> WaitFuture,
+    WaitFuture: std::future::Future<Output = ()>,
+{
+    loop {
+        if stop().await.is_ok() {
+            return;
+        }
+        if is_failed() {
+            return;
+        }
+        wait(STOP_RETRY_DELAY).await;
+    }
 }
 
 fn validate_reservation(reservation: &ChannelRuntimeReservation) -> Result<(), ModuleCallError> {

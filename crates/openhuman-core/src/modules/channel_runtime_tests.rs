@@ -138,22 +138,21 @@ async fn failed_module_stops_cleanup_retries() {
 #[tokio::test]
 async fn unresponsive_module_cleanup_has_a_bounded_retry_count() {
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let result = tokio::time::timeout(
-        Duration::from_secs(5),
+    let retry = tokio::spawn(
         retry_stop(
             {
                 let attempts = attempts.clone();
                 move || {
-                    attempts.fetch_add(1, Ordering::SeqCst);
+                    let count = attempts.fetch_add(1, Ordering::SeqCst) + 1;
+                    assert!(count <= 4, "cleanup exceeded the four-attempt cap");
                     async { Err(ModuleCallError::TransportFailed) }
                 }
             },
             || false,
-            |_| tokio::task::yield_now(),
+            |_| std::future::ready(()),
         ),
-    )
-    .await;
-    assert!(result.is_ok(), "unresponsive cleanup must have a retry cap");
+    );
+    retry.await.expect("unresponsive cleanup must have a retry cap");
     assert!(attempts.load(Ordering::SeqCst) <= 4);
 }
 

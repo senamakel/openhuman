@@ -58,7 +58,10 @@ async fn stale_wallet_close_failure_still_opens_and_installs_replacement() {
 
     assert_eq!(close_calls.load(Ordering::SeqCst), 1);
     assert_eq!(open_calls.load(Ordering::SeqCst), 1);
-    assert_eq!(active.as_ref().unwrap().response.service.handle, "replacement-handle");
+    assert_eq!(
+        active.as_ref().unwrap().response.service.handle,
+        "replacement-handle"
+    );
     assert!(active.as_ref().unwrap().prepared_quotes.is_empty());
 }
 
@@ -130,8 +133,16 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
     .expect_err("an unacknowledged close must remain retryable");
 
     assert_eq!(close_calls.load(Ordering::SeqCst), 1);
-    assert!(active.as_ref().is_some_and(|service| service.prepared_quotes.contains_key("old-user-quote")), "failed close must retain the service quote state");
-    assert!(super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"), "failed close must retain aliases needed for retry");
+    assert!(
+        active
+            .as_ref()
+            .is_some_and(|service| service.prepared_quotes.contains_key("old-user-quote")),
+        "failed close must retain the service quote state"
+    );
+    assert!(
+        super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
+        "failed close must retain aliases needed for retry"
+    );
 
     let observed_calls = close_calls.clone();
     close_active_native_wallet_with(&mut active, move |request| async move {

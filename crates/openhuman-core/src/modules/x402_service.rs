@@ -176,11 +176,26 @@ async fn ensure_service(
     Ok(())
 }
 
-async fn replace_service_with<C, CFut, Open, OFut>(active: &mut Option<X402Service>, close: C, open: Open) -> Result<(), WalletCallError>
-where C: FnOnce(X402CloseRequest) -> CFut, CFut: Future<Output = Result<(), WalletCallError>>,
-      Open: FnOnce() -> OFut, OFut: Future<Output = Result<X402Service, WalletCallError>> {
+async fn replace_service_with<C, CFut, Open, OFut>(
+    active: &mut Option<X402Service>,
+    close: C,
+    open: Open,
+) -> Result<(), WalletCallError>
+where
+    C: FnOnce(X402CloseRequest) -> CFut,
+    CFut: Future<Output = Result<(), WalletCallError>>,
+    Open: FnOnce() -> OFut,
+    OFut: Future<Output = Result<X402Service, WalletCallError>>,
+{
     if let Some(old) = active.take() {
-        if close(X402CloseRequest { service: old.handle.clone() }).await.is_err() { tracing::warn!("[modules:x402] failed to close stale service during replacement"); }
+        if close(X402CloseRequest {
+            service: old.handle.clone(),
+        })
+        .await
+        .is_err()
+        {
+            tracing::warn!("[modules:x402] failed to close stale service during replacement");
+        }
         drop(old);
     }
     *active = Some(open().await?);

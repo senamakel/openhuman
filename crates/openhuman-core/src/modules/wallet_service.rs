@@ -81,8 +81,12 @@ async fn ensure_native_wallet(
     }) {
         replace_service_with(
             active,
-            |request| async move { wallet::call::<_, ()>(config, methods::NATIVE_WALLET_CLOSE, request).await },
-            |service| super::wallet_host::clear_endpoint_references(&service.response.service.handle),
+            |request| async move {
+                wallet::call::<_, ()>(config, methods::NATIVE_WALLET_CLOSE, request).await
+            },
+            |service| {
+                super::wallet_host::clear_endpoint_references(&service.response.service.handle)
+            },
             || async {
                 let response: NativeWalletConfigResponse = wallet::call(
                     config,
@@ -97,26 +101,55 @@ async fn ensure_native_wallet(
                     let _ = wallet::call::<_, ()>(
                         config,
                         methods::NATIVE_WALLET_CLOSE,
-                        NativeWalletCloseRequest { service: response.service.clone() },
-                    ).await;
+                        NativeWalletCloseRequest {
+                            service: response.service.clone(),
+                        },
+                    )
+                    .await;
                     return Err(WalletCallError::Failed(error));
                 }
                 Ok(NativeWalletService {
-                    config: config.clone(), workspace: workspace.clone(),
-                    configuration: configuration.clone(), accounts: accounts.clone(),
-                    response, prepared_quotes: HashMap::new(),
+                    config: config.clone(),
+                    workspace: workspace.clone(),
+                    configuration: configuration.clone(),
+                    accounts: accounts.clone(),
+                    response,
+                    prepared_quotes: HashMap::new(),
                 })
             },
-        ).await?;
+        )
+        .await?;
     }
 
     if active.is_none() {
-        let response: NativeWalletConfigResponse = wallet::call(config, methods::NATIVE_WALLET_CONFIGURE, configuration.clone()).await?;
-        if let Err(error) = super::wallet_host::bind_endpoint_references(&response.service.handle, &response.endpoint_references) {
-            let _ = wallet::call::<_, ()>(config, methods::NATIVE_WALLET_CLOSE, NativeWalletCloseRequest { service: response.service.clone() }).await;
+        let response: NativeWalletConfigResponse = wallet::call(
+            config,
+            methods::NATIVE_WALLET_CONFIGURE,
+            configuration.clone(),
+        )
+        .await?;
+        if let Err(error) = super::wallet_host::bind_endpoint_references(
+            &response.service.handle,
+            &response.endpoint_references,
+        ) {
+            let _ = wallet::call::<_, ()>(
+                config,
+                methods::NATIVE_WALLET_CLOSE,
+                NativeWalletCloseRequest {
+                    service: response.service.clone(),
+                },
+            )
+            .await;
             return Err(WalletCallError::Failed(error));
         }
-        *active = Some(NativeWalletService { config: config.clone(), workspace, configuration, accounts, response, prepared_quotes: HashMap::new() });
+        *active = Some(NativeWalletService {
+            config: config.clone(),
+            workspace,
+            configuration,
+            accounts,
+            response,
+            prepared_quotes: HashMap::new(),
+        });
         register_native_wallet_shutdown_hook();
     }
     Ok(())
@@ -136,7 +169,10 @@ where
     OFut: Future<Output = Result<NativeWalletService, WalletCallError>>,
 {
     if let Some(old) = active.take() {
-        close(NativeWalletCloseRequest { service: old.response.service.clone() }).await?;
+        close(NativeWalletCloseRequest {
+            service: old.response.service.clone(),
+        })
+        .await?;
         clear(&old);
         drop(old);
     }

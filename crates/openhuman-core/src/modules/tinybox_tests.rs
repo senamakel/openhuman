@@ -157,16 +157,19 @@ fn host_and_module_contract_versions_must_cover_the_full_host_surface() {
 async fn command_facts_use_contract_member_and_positional_arguments() {
     let (_service, client, calls) = mock_client().await;
     let command = "printf 'hello'".to_owned();
-    let facts: contract::CommandAnalysis =
-        call_with_client(&client, ANALYZE_COMMAND, (command.clone(),), false)
-            .await
-            .expect("typed command facts");
+    for _ in 0..2 {
+        let facts: contract::CommandAnalysis =
+            call_with_client(&client, ANALYZE_COMMAND, (command.clone(),), false)
+                .await
+                .expect("typed command facts");
+        assert_eq!(facts.literal_words, ["printf", "hello"]);
+    }
 
-    assert_eq!(facts.literal_words, ["printf", "hello"]);
     assert_eq!(
         calls.lock().expect("call log lock").as_slice(),
         [
             (CAPABILITIES.to_owned(), json!([])),
+            (ANALYZE_COMMAND.to_owned(), json!([command.clone()])),
             (ANALYZE_COMMAND.to_owned(), json!([command]))
         ]
     );

@@ -42,13 +42,16 @@ fn a_claimed_folder_is_kept_and_a_held_one_means_a_fresh_profile() {
 }
 
 #[test]
-fn profile_claim_rejects_malformed_tinycomputer_envelopes() {
+fn profile_claim_rejects_a_tinycomputer_envelope_version_mismatch() {
     let version_mismatch = DesktopResponse {
         version: "999".into(),
         ..DesktopResponse::ok("browser-claim-profile", serde_json::json!({"outcome":"claimed"}))
     };
     assert!(unwrap_response(version_mismatch).is_none());
+}
 
+#[test]
+fn profile_claim_rejects_success_envelopes_that_also_carry_an_error() {
     let contradictory = DesktopResponse {
         error: Some(tinycomputer_bus::DesktopError::new("BROKEN", "contradictory")),
         ..DesktopResponse::ok("browser-claim-profile", serde_json::json!({"outcome":"claimed"}))
@@ -59,7 +62,7 @@ fn profile_claim_rejects_malformed_tinycomputer_envelopes() {
 #[test]
 fn profile_claim_keeps_valid_success_and_module_failure_behavior() {
     let success = DesktopResponse::ok("browser-claim-profile", serde_json::json!({"outcome":"claimed"}));
-    assert_eq!(unwrap_response(success), Some(serde_json::json!({"outcome":"claimed"})));
+    assert_eq!(unwrap_response(success).unwrap(), serde_json::json!({"outcome":"claimed"}));
     let failure = DesktopResponse::err(
         "browser-claim-profile",
         tinycomputer_bus::DesktopError::new("PROFILE_BUSY", "profile is held"),

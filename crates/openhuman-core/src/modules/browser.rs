@@ -466,18 +466,27 @@ impl BrowserClient {
             .call(member, (request,))
             .await
             .map_err(BrowserCallError::from_bus)?;
-        if !response.ok {
-            let error = BrowserCallError::from_response(&response);
-            tracing::debug!(member, error = %error, "[browser] tinycomputer call failed");
-            return Err(error);
-        }
-        serde_json::from_value(response.data.unwrap_or(serde_json::Value::Null)).map_err(|error| {
-            BrowserCallError::Bus {
-                name: "InvalidReply".into(),
-                message: format!("{member} returned an unexpected reply: {error}"),
-            }
-        })
+        decode_response(member, response)
     }
+}
+
+/// Unwraps the response for the browser call path. Kept separate so envelope
+/// behavior can be exercised without loading the native module.
+fn decode_response<R: DeserializeOwned>(
+    member: &str,
+    response: DesktopResponse,
+) -> Result<R, BrowserCallError> {
+    if !response.ok {
+        let error = BrowserCallError::from_response(&response);
+        tracing::debug!(member, error = %error, "[browser] tinycomputer call failed");
+        return Err(error);
+    }
+    serde_json::from_value(response.data.unwrap_or(serde_json::Value::Null)).map_err(|error| {
+        BrowserCallError::Bus {
+            name: "InvalidReply".into(),
+            message: format!("{member} returned an unexpected reply: {error}"),
+        }
+    })
 }
 
 fn session_ref(session: &SessionId) -> SessionRef {

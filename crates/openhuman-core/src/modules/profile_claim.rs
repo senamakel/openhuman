@@ -93,11 +93,18 @@ async fn call<A: serde::Serialize + Sync>(
 ) -> Option<Value> {
     let proxy = super::desktop::proxy(config).await.ok()?;
     let response: DesktopResponse = proxy.call(member, (request,)).await.ok()?;
-    if !response.ok {
+    let Some(data) = unwrap_response(response) else {
         tracing::debug!(member, "[profile-claim] the module refused the call");
         return None;
-    }
-    Some(response.data.unwrap_or(Value::Null))
+    };
+    Some(data)
+}
+
+/// Unwraps the profile-claim reply without requiring a loaded native module.
+fn unwrap_response(response: DesktopResponse) -> Option<Value> {
+    response
+        .ok
+        .then(|| response.data.unwrap_or(Value::Null))
 }
 
 #[cfg(test)]

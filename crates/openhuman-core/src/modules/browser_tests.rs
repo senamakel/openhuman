@@ -132,13 +132,16 @@ fn failed_reply_without_a_name_falls_back_to_the_code() {
 }
 
 #[test]
-fn browser_rejects_malformed_tinycomputer_envelopes() {
+fn browser_rejects_a_tinycomputer_envelope_version_mismatch() {
     let version_mismatch = DesktopResponse {
         version: "999".into(),
         ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
     };
     assert!(decode_response::<serde_json::Value>("OpenSession", version_mismatch).is_err());
+}
 
+#[test]
+fn browser_rejects_success_envelopes_that_also_carry_an_error() {
     let contradictory = DesktopResponse {
         error: Some(tinycomputer_bus::DesktopError::new("BROKEN", "contradictory")),
         ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
@@ -149,7 +152,7 @@ fn browser_rejects_malformed_tinycomputer_envelopes() {
 #[test]
 fn browser_keeps_valid_envelope_success_and_module_error_behavior() {
     let success = DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}));
-    assert_eq!(decode_response::<serde_json::Value>("OpenSession", success), Ok(serde_json::json!({"id":"s"})));
+    assert_eq!(decode_response::<serde_json::Value>("OpenSession", success).unwrap(), serde_json::json!({"id":"s"}));
 
     let failure = DesktopResponse::err(
         "browser-open-session",

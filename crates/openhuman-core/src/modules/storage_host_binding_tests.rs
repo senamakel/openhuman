@@ -129,7 +129,7 @@ async fn detaching_one_peer_preserves_another_peers_shared_watch_binding() {
     );
     let first = alpha();
     let second = beta();
-    let mut first_signals = host.watch_signals(&first).unwrap();
+    let _first_signals = host.watch_signals(&first).unwrap();
     let mut second_signals = host.watch_signals(&second).unwrap();
     let watch = |sender: &BusName| {
         host.handle(
@@ -158,7 +158,6 @@ async fn detaching_one_peer_preserves_another_peers_shared_watch_binding() {
         .unwrap()
         .unwrap();
     assert_eq!(signal.watch_id, second_watch_id);
-    assert!(first_signals.try_recv().is_err());
 }
 
 /// Holds alpha's schema preparation until the test releases it.

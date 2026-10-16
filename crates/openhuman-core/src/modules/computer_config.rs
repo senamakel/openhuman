@@ -248,9 +248,9 @@ pub fn module_config(config: &Config) -> Value {
     Value::Object(out)
 }
 
-/// Which account pays for TinyComputer's decisions, for the settings UI:
-/// `hosted` (TinyHumans credits), `direct_openrouter` (the user's key),
-/// `open_jev` or `sage` (their own keys), or `unavailable` (no credential).
+/// The decision route implied by the configured model family, for status UI.
+/// This is a settings hint and does not validate whether credentials authorize
+/// a request; activation performs that private validation.
 #[must_use]
 pub fn billing_route(config: &Config) -> &'static str {
     configured_routes(config).decision

@@ -38,11 +38,10 @@ pub struct ComputerStatus {
     pub module: Option<ModuleStatus>,
     /// `[computer] decision_model`.
     pub decision_model: &'static str,
-    /// Who pays for decisions: `hosted`, `direct_openrouter`, `open_jev`,
-    /// `sage`, or `unavailable`.
+    /// Configured decision model route hint: `hosted`, `direct_openrouter`,
+    /// `open_jev`, `sage`, or `unavailable`. It does not validate credentials.
     pub decision_route: &'static str,
-    /// Where planner and rescue calls go: `hosted`, `direct_openrouter`, or
-    /// `unavailable`.
+    /// Configured planner route hint. It does not validate credentials.
     pub planner_route: &'static str,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub capabilities: Option<ComputerCapabilities>,
@@ -67,8 +66,9 @@ async fn describe(config: &Config, load: bool) -> Result<Capabilities, String> {
         .map_err(|error| format!("TinyComputer Describe failed: {error}"))
 }
 
-/// Report the module. `load` asks the module itself (loading it if needed);
-/// otherwise it is only asked when already serving.
+/// Report the module. `load` asks the module itself (loading and refreshing
+/// private configuration if needed); otherwise a ready module is queried
+/// through the existing runtime without loading or reconfiguring it.
 pub async fn status(config: &Config, load: bool) -> ComputerStatus {
     let module = || {
         super::ops::list(config)

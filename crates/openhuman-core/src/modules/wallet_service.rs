@@ -168,13 +168,15 @@ where
     Open: FnOnce() -> OFut,
     OFut: Future<Output = Result<NativeWalletService, WalletCallError>>,
 {
-    if let Some(old) = active.as_ref() {
-        close(NativeWalletCloseRequest {
+    if let Some(old) = active.take() {
+        if close(NativeWalletCloseRequest {
             service: old.response.service.clone(),
         })
-        .await?;
-    }
-    if let Some(old) = active.take() {
+        .await
+        .is_err()
+        {
+            tracing::warn!("[modules:wallet] failed to close stale native wallet service during replacement");
+        }
         clear(&old);
         drop(old);
     }

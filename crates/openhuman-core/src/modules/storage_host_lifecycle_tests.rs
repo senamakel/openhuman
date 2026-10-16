@@ -10,6 +10,50 @@ impl CallerDirectory for EveryBusPeerIsAlpha {
 }
 
 #[tokio::test]
+async fn detach_monitor_does_not_keep_its_serving_connection_alive() {
+    use tinybus::Connection;
+    use tinybus::broker::Broker;
+    use tinybus::transport::memory::MemoryBus;
+
+    const CLOSE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+
+    let bus = MemoryBus::new();
+    Broker::new().spawn(bus.clone());
+    let observer = Connection::connect(bus.connect().await.unwrap())
+        .await
+        .unwrap();
+    let service = Connection::connect(bus.connect().await.unwrap())
+        .await
+        .unwrap();
+    let service_name = service.unique_name().unwrap();
+    let rig = rig();
+    let host = Arc::new(StorageHost::new(
+        Arc::new(EveryBusPeerIsAlpha),
+        Arc::clone(&rig.env) as Arc<dyn Environment>,
+        Arc::clone(&rig.trail) as Arc<dyn AuditSink>,
+    ));
+    let served = serve_objects(&service, &host, None).await.unwrap();
+
+    drop(served);
+    drop(service);
+    tokio::time::timeout(CLOSE_DEADLINE, async {
+        loop {
+            if observer
+                .name_owner(service_name.as_str())
+                .await
+                .unwrap()
+                .is_none()
+            {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("dropping the final service handle closes its broker peer");
+}
+
+#[tokio::test]
 async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
     use tinybus::Connection;
     use tinybus::broker::Broker;

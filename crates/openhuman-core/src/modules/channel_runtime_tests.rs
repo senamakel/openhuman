@@ -219,7 +219,7 @@ async fn a_hung_stop_call_is_bounded_by_its_attempt_deadline() {
     let result = tokio::time::timeout(
         Duration::from_secs(5),
         retry_stop_with_timeout(
-            || std::future::pending(),
+            std::future::pending::<Result<(), ModuleCallError>>,
             || false,
             |_| std::future::ready(()),
             Duration::from_millis(20),

@@ -276,9 +276,9 @@ async fn claim_profile(
 /// message and hint, and where the user fixes a Chrome the module was not
 /// given or could not start ([`super::browser::chrome_hint`]).
 fn unwrap_response<Reply>(member: &str, response: AgentResponse<Reply>) -> Result<Reply, String> {
-    match (response.ok, response.data, response.error) {
-        (true, Some(data), _) => Ok(data),
-        (_, _, Some(error)) => {
+    match super::envelope::decode(None, None, response.ok, response.data, response.error) {
+        Ok(data) => Ok(data),
+        Err(super::envelope::EnvelopeError::Operation(error)) => {
             let host = super::browser::chrome_hint(&error.message).unwrap_or_default();
             let said = [error.message.as_str(), error.hint.as_str(), host]
                 .into_iter()
@@ -291,6 +291,8 @@ fn unwrap_response<Reply>(member: &str, response: AgentResponse<Reply>) -> Resul
                 error.code
             ))
         }
-        _ => Err(format!("browser task {member} returned no result")),
+        Err(super::envelope::EnvelopeError::Malformed) => {
+            Err(format!("browser task {member} returned no result"))
+        }
     }
 }

@@ -70,6 +70,7 @@ pub mod desktop;
 #[cfg(feature = "documents")]
 #[cfg(feature = "modules")]
 pub mod documents;
+mod envelope;
 #[cfg(feature = "modules")]
 pub mod linked;
 #[cfg(feature = "modules")]

@@ -102,9 +102,14 @@ async fn call<A: serde::Serialize + Sync>(
 
 /// Unwraps the profile-claim reply without requiring a loaded native module.
 fn unwrap_response(response: DesktopResponse) -> Option<Value> {
-    response
-        .ok
-        .then(|| response.data.unwrap_or(Value::Null))
+    super::envelope::decode(
+        Some(&response.version),
+        Some(tinycomputer_bus::ENVELOPE_VERSION),
+        response.ok,
+        response.data,
+        response.error,
+    )
+    .ok()
 }
 
 #[cfg(test)]

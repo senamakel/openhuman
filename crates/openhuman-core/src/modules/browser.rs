@@ -476,16 +476,29 @@ fn decode_response<R: DeserializeOwned>(
     member: &str,
     response: DesktopResponse,
 ) -> Result<R, BrowserCallError> {
-    if !response.ok {
-        let error = BrowserCallError::from_response(&response);
-        tracing::debug!(member, error = %error, "[browser] tinycomputer call failed");
-        return Err(error);
-    }
-    serde_json::from_value(response.data.unwrap_or(serde_json::Value::Null)).map_err(|error| {
-        BrowserCallError::Bus {
-            name: "InvalidReply".into(),
-            message: format!("{member} returned an unexpected reply: {error}"),
+    let data = match super::envelope::decode(
+        Some(&response.version),
+        Some(tinycomputer_bus::ENVELOPE_VERSION),
+        response.ok,
+        response.data.clone(),
+        response.error.clone(),
+    ) {
+        Ok(data) => data,
+        Err(super::envelope::EnvelopeError::Operation(_)) => {
+            let error = BrowserCallError::from_response(&response);
+            tracing::debug!(member, error = %error, "[browser] tinycomputer call failed");
+            return Err(error);
         }
+        Err(super::envelope::EnvelopeError::Malformed) => {
+            return Err(BrowserCallError::Bus {
+                name: "InvalidReply".into(),
+                message: format!("{member} returned a malformed TinyComputer response envelope"),
+            });
+        }
+    };
+    serde_json::from_value(data).map_err(|error| BrowserCallError::Bus {
+        name: "InvalidReply".into(),
+        message: format!("{member} returned an unexpected reply: {error}"),
     })
 }
 

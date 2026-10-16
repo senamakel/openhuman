@@ -175,7 +175,9 @@ where
         .await
         .is_err()
         {
-            tracing::warn!("[modules:wallet] failed to close stale native wallet service during replacement");
+            tracing::warn!(
+                "[modules:wallet] failed to close stale native wallet service during replacement"
+            );
         }
         clear(&old);
         drop(old);

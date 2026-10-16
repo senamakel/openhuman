@@ -58,8 +58,6 @@ use self::endpoint::HostEndpoint;
 use super::storage_grants::{authorize, declared, filter_reply, Object, Plan, StorageGrant};
 use crate::storage::{Scope, StorageBackend, StorageError};
 
-use self::cache::BindError;
-
 /// The largest blob a module may send by `PutStream`. The body is bounded per
 /// chunk by the bus and by its declared length by the server, so this is the
 /// host's own ceiling on one module's single upload.

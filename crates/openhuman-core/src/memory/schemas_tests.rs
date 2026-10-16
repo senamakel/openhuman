@@ -55,7 +55,7 @@ fn object(value: Value) -> Map<String, Value> {
 /// Runs `function`'s handler against `config` (as the embedder-supplied
 /// config, so no on-disk config is read).
 async fn call(config: &Config, function: &str, params: Value) -> Result<Value, String> {
-    let handler = handler_for(function);
+    let handler = handler_for(function).expect("known memory test function has a handler");
     let ctx = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
     CoreContext::scope(ctx.clone(), async move {
         handler(DispatchCtx::new(ctx.clone()), object(params)).await
@@ -81,6 +81,23 @@ fn unknown_function_gets_the_placeholder_schema() {
     let unknown = schema("no_such_function");
     assert_eq!(unknown.function, "unknown");
     assert!(!FUNCTIONS.contains(&"unknown"));
+}
+
+#[test]
+fn every_function_resolves_to_its_registered_handler() {
+    assert_eq!(HANDLERS.len(), FUNCTIONS.len());
+
+    for ((name, expected_handler), function) in HANDLERS.iter().zip(FUNCTIONS) {
+        assert_eq!(*name, function, "handler table order must match FUNCTIONS");
+        let actual_handler = handler_for(function)
+            .unwrap_or_else(|| panic!("missing handler for memory function {function}"));
+        assert!(std::ptr::fn_addr_eq(actual_handler, *expected_handler));
+    }
+}
+
+#[test]
+fn unknown_function_does_not_resolve_to_a_handler() {
+    assert!(handler_for("no_such_function").is_none());
 }
 
 #[test]

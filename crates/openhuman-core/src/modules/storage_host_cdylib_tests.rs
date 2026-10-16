@@ -23,7 +23,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::{Mutex, OnceLock};
 
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tinybus::broker::Broker;
 use tinybus::module::ModuleHost;
 use tinybus::transport::memory::MemoryBus;
@@ -31,9 +31,9 @@ use tinybus::{Connection, Proxy};
 use tinystoragedrivers::secrets::{DerivedKeys, KeyProvider};
 use zeroize::Zeroizing;
 
-use crate::modules::storage_grants::{StorageGrant, declared};
+use crate::modules::storage_grants::{declared, StorageGrant};
 use crate::modules::storage_host::{
-    AuditRecord, AuditSink, CallerDirectory, Environment, StorageHost, module_scope,
+    module_scope, AuditRecord, AuditSink, CallerDirectory, Environment, StorageHost,
 };
 use crate::modules::storage_host_linked::attach;
 use crate::storage::{Scope, StorageBackend, StorageError};
@@ -300,13 +300,12 @@ async fn a_loaded_module_reads_and_writes_its_own_granted_collection() {
     assert!(read.to_string().contains("qualified_name"), "{read}");
     // It landed in the module's own scope, in the backend the host opened.
     let own = rig.backend.for_scope(&rig.scope("tinymcp")).unwrap();
-    assert!(
-        own.documents()
-            .get("mcp_servers", "files")
-            .await
-            .unwrap()
-            .is_some()
-    );
+    assert!(own
+        .documents()
+        .get("mcp_servers", "files")
+        .await
+        .unwrap()
+        .is_some());
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -367,22 +366,19 @@ async fn a_loaded_module_cannot_reach_another_modules_collections() {
     }
     // Untouched: the refusal came before the backend.
     let after = victim.documents().get(&theirs, "session").await.unwrap();
-    assert!(
-        after
-            .expect("the other module's document survives")
-            .doc
-            .to_string()
-            .contains("OTHER-MODULES-SECRET")
-    );
+    assert!(after
+        .expect("the other module's document survives")
+        .doc
+        .to_string()
+        .contains("OTHER-MODULES-SECRET"));
     // And its own scope never got the collection.
     let own = rig.backend.for_scope(&rig.scope("tinymcp")).unwrap();
-    assert!(
-        !own.documents()
-            .collections("")
-            .await
-            .unwrap()
-            .contains(&theirs)
-    );
+    assert!(!own
+        .documents()
+        .collections("")
+        .await
+        .unwrap()
+        .contains(&theirs));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -436,14 +432,12 @@ async fn a_loaded_module_cannot_name_or_reach_another_scope() {
     assert!(wrote.get("ok").is_some(), "{wrote}");
     for scope in [Scope::local(), Scope::new("someone-else").unwrap()] {
         let handle = rig.backend.for_scope(&scope).unwrap();
-        assert!(
-            handle
-                .documents()
-                .get("mcp_servers", "mine")
-                .await
-                .unwrap()
-                .is_none()
-        );
+        assert!(handle
+            .documents()
+            .get("mcp_servers", "mine")
+            .await
+            .unwrap()
+            .is_none());
     }
 }
 
@@ -574,14 +568,12 @@ async fn a_blob_over_the_inline_cap_is_refused_and_stores_nothing() {
         "an oversized inline blob must fail: {big}"
     );
     let handle = rig.backend.for_scope(&rig.scope("tinyjuice")).unwrap();
-    assert!(
-        handle
-            .blobs()
-            .head("tinyjuice_ccr/over-cap")
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(handle
+        .blobs()
+        .head("tinyjuice_ccr/over-cap")
+        .await
+        .unwrap()
+        .is_none());
     // The refusal does not take the module's connection down with it.
     let after: Value = rig
         .probe
@@ -619,16 +611,12 @@ async fn every_call_is_audited_under_the_module_id_without_a_payload() {
         .await;
     let trail = rig.trail.0.lock().unwrap().clone();
     assert!(trail.iter().all(|record| record.module == "tinymcp"));
-    assert!(
-        trail
-            .iter()
-            .any(|record| record.op == "Put" && record.outcome == "ok")
-    );
-    assert!(
-        trail
-            .iter()
-            .any(|record| record.outcome == "target-not-granted")
-    );
+    assert!(trail
+        .iter()
+        .any(|record| record.op == "Put" && record.outcome == "ok"));
+    assert!(trail
+        .iter()
+        .any(|record| record.outcome == "target-not-granted"));
     assert!(!format!("{trail:?}").contains("PAYLOAD-MARKER"));
 }
 

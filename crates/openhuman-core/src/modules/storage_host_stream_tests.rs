@@ -50,11 +50,9 @@ async fn a_streamed_blob_is_stored_in_the_callers_scope_and_read_back() {
         .unwrap();
     assert!(other.is_none());
     let trail = rig.trail.0.lock().unwrap().clone();
-    assert!(
-        trail
-            .iter()
-            .any(|r| r.op == "PutStream" && r.outcome == "ok" && r.module == "alpha")
-    );
+    assert!(trail
+        .iter()
+        .any(|r| r.op == "PutStream" && r.outcome == "ok" && r.module == "alpha"));
 }
 
 #[tokio::test]
@@ -96,16 +94,15 @@ async fn a_streamed_blob_is_decided_like_any_other_call() {
     ));
     // Nothing was stored by any of the refusals.
     let scope = rig.env.module_scope("alpha").unwrap();
-    assert!(
-        rig.backend
-            .for_scope(&scope)
-            .unwrap()
-            .blobs()
-            .head("files/a")
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(rig
+        .backend
+        .for_scope(&scope)
+        .unwrap()
+        .blobs()
+        .head("files/a")
+        .await
+        .unwrap()
+        .is_none());
 }
 
 #[tokio::test]

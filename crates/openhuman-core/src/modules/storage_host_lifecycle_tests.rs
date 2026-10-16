@@ -37,7 +37,7 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
     ));
     let _served = serve_objects(&service, &host, None).await.unwrap();
 
-    let mut anchor = Connection::connect(bus.connect().await.unwrap())
+    let anchor = Connection::connect(bus.connect().await.unwrap())
         .await
         .unwrap();
     anchor

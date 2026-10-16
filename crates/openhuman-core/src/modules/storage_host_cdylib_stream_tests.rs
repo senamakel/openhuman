@@ -63,16 +63,12 @@ async fn a_blob_over_the_bus_frame_round_trips_through_a_peer_bound_stream() {
         "{missing}"
     );
     let trail = rig.trail.0.lock().unwrap().clone();
-    assert!(
-        trail
-            .iter()
-            .any(|r| r.op == "PutStream" && r.outcome == "ok" && r.module == "tinyjuice")
-    );
-    assert!(
-        trail
-            .iter()
-            .any(|r| r.op == "GetStream" && r.outcome == "ok" && r.module == "tinyjuice")
-    );
+    assert!(trail
+        .iter()
+        .any(|r| r.op == "PutStream" && r.outcome == "ok" && r.module == "tinyjuice"));
+    assert!(trail
+        .iter()
+        .any(|r| r.op == "GetStream" && r.outcome == "ok" && r.module == "tinyjuice"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -85,14 +81,12 @@ async fn a_streamed_blob_is_still_bound_by_the_grant_and_the_length() {
         .await;
     assert!(outside.get("err").is_some(), "{outside}");
     let handle = rig.backend.for_scope(&rig.scope("tinyjuice")).unwrap();
-    assert!(
-        handle
-            .blobs()
-            .head("tinyjuice_other/x")
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(handle
+        .blobs()
+        .head("tinyjuice_other/x")
+        .await
+        .unwrap()
+        .is_none());
     let denied_get = rig.member("StreamGet", ("tinyjuice_other/x",)).await;
     assert!(
         denied_get["err"].to_string().contains("target-not-granted"),
@@ -125,14 +119,12 @@ async fn an_inline_blob_no_frame_can_carry_fails_fast_instead_of_hanging() {
         started.elapsed()
     );
     let handle = rig.backend.for_scope(&rig.scope("tinyjuice")).unwrap();
-    assert!(
-        handle
-            .blobs()
-            .head("tinyjuice_ccr/over-frame")
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(handle
+        .blobs()
+        .head("tinyjuice_ccr/over-frame")
+        .await
+        .unwrap()
+        .is_none());
     let after: Value = rig
         .member("PutBlob", ("tinyjuice_ccr/after", 2048usize))
         .await;
@@ -158,11 +150,9 @@ async fn a_watch_signal_reaches_the_module_that_opened_the_watch() {
         .await;
     assert!(denied(&refused, "target-not-granted"), "{refused}");
     let trail = rig.trail.0.lock().unwrap().clone();
-    assert!(
-        trail
-            .iter()
-            .any(|r| r.op == "WatchOpen" && r.outcome == "ok" && r.module == "tinymcp")
-    );
+    assert!(trail
+        .iter()
+        .any(|r| r.op == "WatchOpen" && r.outcome == "ok" && r.module == "tinymcp"));
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -270,14 +260,12 @@ async fn a_second_module_cannot_read_or_take_the_first_modules_streams() {
         "a peer took another peer's stream: {hijack:?}"
     );
     let handle = rig.backend.for_scope(&rig.scope("tinyjuice")).unwrap();
-    assert!(
-        handle
-            .blobs()
-            .head("tinyjuice_ccr/hijacked")
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(handle
+        .blobs()
+        .head("tinyjuice_ccr/hijacked")
+        .await
+        .unwrap()
+        .is_none());
     // The refused attempt did not spend the stream: its owner still uses it.
     let used = rig.member("UseStream", ("tinyjuice_ccr/owned", MIB)).await;
     assert!(

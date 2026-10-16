@@ -58,6 +58,8 @@ use self::endpoint::HostEndpoint;
 use super::storage_grants::{authorize, declared, filter_reply, Object, Plan, StorageGrant};
 use crate::storage::{Scope, StorageBackend, StorageError};
 
+use self::cache::BindError;
+
 /// The largest blob a module may send by `PutStream`. The body is bounded per
 /// chunk by the bus and by its declared length by the server, so this is the
 /// host's own ceiling on one module's single upload.
@@ -204,16 +206,8 @@ pub(crate) struct StorageHost {
     audit: Arc<dyn AuditSink>,
     bindings: tokio::sync::Mutex<HashMap<(String, String), Arc<Binding>>>,
     relays: std::sync::Mutex<HashMap<BusName, endpoint::Relay>>,
-    peer_modules: std::sync::Mutex<HashMap<BusName, Arc<PeerModule>>>,
+    peer_modules: std::sync::Mutex<HashMap<BusName, Arc<cache::PeerModule>>>,
 }
-
-/// A per-peer lookup cell. It serializes concurrent first calls from one
-/// sender without making unrelated senders wait for broker owner lookups.
-struct PeerModule {
-    module: tokio::sync::Mutex<Option<String>>,
-}
-
-const MAX_BINDINGS: usize = 256;
 
 impl StorageHost {
     pub(crate) fn new(
@@ -298,80 +292,6 @@ impl StorageHost {
             binding,
             plan,
         })
-    }
-
-    /// Resolves a sender once for its broker peer lifetime. The cache entry is
-    /// detached from the host before any owner lookup completes, so a late
-    /// lookup cannot repopulate state after the peer's detach event.
-    async fn module_for(&self, sender: &BusName) -> Option<String> {
-        let entry = {
-            let mut peers = self.peer_modules.lock().ok()?;
-            Arc::clone(peers.entry(sender.clone()).or_insert_with(|| {
-                Arc::new(PeerModule {
-                    module: tokio::sync::Mutex::new(None),
-                })
-            }))
-        };
-        let mut cached = entry.module.lock().await;
-        if let Some(module) = cached.as_ref() {
-            return Some(module.clone());
-        }
-        let module = self.directory.module_for(sender).await?;
-        let still_live_entry = self
-            .peer_modules
-            .lock()
-            .ok()
-            .and_then(|peers| peers.get(sender).map(|current| Arc::ptr_eq(current, &entry)))
-            .unwrap_or(false);
-        if still_live_entry {
-            *cached = Some(module.clone());
-        }
-        Some(module)
-    }
-
-    /// Invalidates per-peer identity and prunes bindings that no active watch
-    /// relay or in-flight storage call still uses.
-    pub(super) fn release_peer(&self, sender: &BusName) {
-        if let Ok(mut peers) = self.peer_modules.lock() {
-            peers.remove(sender);
-        }
-        self.release_relay(sender);
-        self.prune_idle_bindings();
-    }
-
-    pub(super) fn peer_candidates(&self) -> std::collections::HashSet<BusName> {
-        let mut peers = self
-            .peer_modules
-            .lock()
-            .map(|entries| entries.keys().cloned().collect())
-            .unwrap_or_default();
-        if let Ok(relays) = self.relays.lock() {
-            peers.extend(relays.keys().cloned());
-        }
-        peers
-    }
-
-    /// Bindings are shared by module and scope. Keep those feeding a live
-    /// caller's watch, and drop idle bindings so profile churn cannot grow the
-    /// cache without limit.
-    fn prune_idle_bindings(&self) {
-        let active = self
-            .relays
-            .lock()
-            .map(|relays| {
-                relays
-                    .values()
-                    .filter_map(|relay| relay.fed_by.as_ref())
-                    .cloned()
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
-        if let Ok(mut bindings) = self.bindings.try_lock() {
-            bindings.retain(|_, binding| {
-                Arc::strong_count(binding) > 1
-                    || active.iter().any(|weak| weak.ptr_eq(&Arc::downgrade(binding)))
-            });
-        }
     }
 
     /// Consults the write fence when the plan writes. `Err` is already audited.
@@ -494,111 +414,6 @@ impl StorageHost {
         }
     }
 
-    /// The module's binding for `scope`, built on first use and again when the
-    /// installed backend changed. The host runs the declared schema here.
-    async fn bind(&self, module: &str, scope: Scope) -> Result<Arc<Binding>, BindError> {
-        let key = (module.to_string(), scope.as_str().to_string());
-        loop {
-            let backend = self.environment.backend().ok_or(BindError::NoBackend)?;
-            if let Some(existing) = self.bindings.lock().await.get(&key) {
-                if Arc::ptr_eq(&existing.backend, &backend) {
-                    return Ok(Arc::clone(existing));
-                }
-            }
-            let built = self.build_binding(module, scope.clone(), Arc::clone(&backend)).await?;
-
-            let mut bindings = self.bindings.lock().await;
-            if let Some(existing) = bindings.get(&key) {
-                if Arc::ptr_eq(&existing.backend, &backend) {
-                    return Ok(Arc::clone(existing));
-                }
-            }
-            // A backend switch while schema preparation was in flight must
-            // not let the old backend overwrite a binding made for the new one.
-            let still_current = self
-                .environment
-                .backend()
-                .is_some_and(|current| Arc::ptr_eq(&current, &backend));
-            if !still_current {
-                drop(bindings);
-                continue;
-            }
-            if bindings.len() >= MAX_BINDINGS {
-                let active = self
-                    .relays
-                    .lock()
-                    .map(|relays| {
-                        relays
-                            .values()
-                            .filter_map(|relay| relay.fed_by.as_ref())
-                            .cloned()
-                            .collect::<Vec<_>>()
-                    })
-                    .unwrap_or_default();
-                let evict = bindings.iter().find_map(|(candidate_key, candidate)| {
-                    let feeding_watch = active
-                        .iter()
-                        .any(|weak| weak.ptr_eq(&Arc::downgrade(candidate)));
-                    (!feeding_watch && Arc::strong_count(candidate) == 1)
-                        .then(|| candidate_key.clone())
-                });
-                if let Some(evict) = evict {
-                    bindings.remove(&evict);
-                } else {
-                    return Err(BindError::BindingLimit);
-                }
-            }
-            bindings.insert(key.clone(), Arc::clone(&built));
-            return Ok(built);
-        }
-    }
-
-    async fn build_binding(
-        &self,
-        module: &str,
-        scope: Scope,
-        backend: Arc<dyn StorageBackend>,
-    ) -> Result<Arc<Binding>, BindError> {
-        let grant = self.environment.grant(module).ok_or(BindError::NoGrant)?;
-        grant.validate().map_err(|reason| {
-            tracing::error!(
-                target: "openhuman::storage_host",
-                module,
-                reason,
-                "[storage_host] refused an invalid storage grant"
-            );
-            BindError::BadGrant
-        })?;
-        let storage = backend
-            .for_scope(&scope)
-            .map_err(|_| BindError::Backend(StorageKind::Backend))?;
-        for spec in grant.specs() {
-            storage
-                .documents()
-                .ensure_collection(spec)
-                .await
-                .map_err(|_| BindError::Backend(StorageKind::Backend))?;
-        }
-        let mut server = StorageServer::new(storage.clone());
-        if !grant.secret_prefixes.is_empty() {
-            // A key-provider failure is retryable, so refuse the bind rather
-            // than cache a server that silently lacks secrets.
-            let keys = self.environment.keys().map_err(|_| {
-                tracing::warn!(
-                    target: "openhuman::storage_host",
-                    module,
-                    "[storage_host] no master key; refusing to bind a grant with secrets"
-                );
-                BindError::Backend(StorageKind::Backend)
-            })?;
-            server = server.with_secrets(Arc::new(DocumentSecrets::new(&storage, keys)));
-        }
-        Ok(Arc::new(Binding {
-            backend,
-            grant,
-            server,
-        }))
-    }
 }
 
 /// A call that passed identification, with what answering it needs.
@@ -628,36 +443,6 @@ impl AuditedCall {
             target: target.to_string(),
             outcome,
         });
-    }
-}
-
-enum BindError {
-    NoBackend,
-    NoGrant,
-    BadGrant,
-    BindingLimit,
-    Backend(StorageKind),
-}
-
-impl BindError {
-    fn label(&self) -> &'static str {
-        match self {
-            Self::NoBackend => "no-backend",
-            Self::NoGrant => "no-grant-declared",
-            Self::BadGrant => "invalid-grant",
-            Self::BindingLimit => "binding-cache-full",
-            Self::Backend(_) => "backend-error",
-        }
-    }
-
-    fn into_host(self) -> HostError {
-        match self {
-            Self::NoBackend => failure(StorageKind::Unavailable),
-            Self::NoGrant => HostError::Denied("no-grant-declared"),
-            Self::BadGrant => HostError::Denied("invalid-grant"),
-            Self::BindingLimit => failure(StorageKind::Unavailable),
-            Self::Backend(kind) => failure(kind),
-        }
     }
 }
 
@@ -789,6 +574,9 @@ pub(super) async fn install(
 
 #[path = "storage_host_endpoint.rs"]
 mod endpoint;
+
+#[path = "storage_host_cache.rs"]
+mod cache;
 
 #[cfg(test)]
 #[path = "storage_host_tests.rs"]

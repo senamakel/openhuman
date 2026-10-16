@@ -304,3 +304,41 @@ async fn a_slow_old_backend_cannot_replace_a_new_backend_binding() {
     let bindings = host.bindings.lock().await;
     assert!(Arc::ptr_eq(&bindings.get(&("alpha".into(), scope.as_str().into())).unwrap().backend, &new_backend));
 }
+
+#[tokio::test]
+async fn replacing_a_binding_at_capacity_does_not_require_an_eviction() {
+    let old_backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let env = Arc::new(Env {
+        backend: Mutex::new(Some(Arc::clone(&old_backend))),
+        profile: Mutex::new(None),
+        grants: HashMap::from([("alpha", grant("notes"))]),
+        fences: Mutex::new(None),
+        keys_ready: AtomicBool::new(true),
+    });
+    let host = StorageHost::new(
+        Arc::new(Directory(HashMap::new())),
+        Arc::clone(&env) as Arc<dyn Environment>,
+        Arc::new(Trail::default()),
+    );
+    let scopes = (0..256)
+        .map(|index| Scope::new(format!("scope-{index}")).unwrap())
+        .collect::<Vec<_>>();
+    let mut active = Vec::with_capacity(scopes.len());
+    for scope in &scopes {
+        active.push(host.bind("alpha", scope.clone()).await.unwrap());
+    }
+    assert_eq!(host.bindings.lock().await.len(), 256);
+
+    let new_backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    *env.backend.lock().unwrap() = Some(Arc::clone(&new_backend));
+    host.bind("alpha", scopes[0].clone())
+        .await
+        .expect("replacing an existing key preserves map capacity");
+    let bindings = host.bindings.lock().await;
+    assert_eq!(bindings.len(), 256);
+    assert!(Arc::ptr_eq(
+        &bindings.get(&("alpha".into(), scopes[0].as_str().into())).unwrap().backend,
+        &new_backend,
+    ));
+    drop(active);
+}

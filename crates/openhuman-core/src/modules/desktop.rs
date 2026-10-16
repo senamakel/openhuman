@@ -85,6 +85,7 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
                 }
                 message
             })
+            .map(|_| ())
     })
     .await?;
     runtime

@@ -202,11 +202,14 @@ impl StorageEndpoint for HostEndpoint {
                 // WatchOpen can reach this endpoint after its detach signal
                 // already removed the relay, so check liveness after handling
                 // the call as well as listening for detach events.
-                if !matches!(
-                    self.connection.name_owner(sender.as_str()).await,
-                    Ok(Some(owner)) if owner == sender
-                ) {
-                    self.host.release_relay(&sender);
+                match self.connection.name_owner(sender.as_str()).await {
+                    Ok(Some(owner)) if owner == sender => {}
+                    Ok(_) => self.host.release_relay(&sender),
+                    Err(error) => tracing::debug!(
+                        target: "storage_host",
+                        %error,
+                        "[storage-host] could not confirm watch caller liveness"
+                    ),
                 }
             }
         }

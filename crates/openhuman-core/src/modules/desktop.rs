@@ -1,7 +1,7 @@
 //! Host calls to the attested tinycomputer module.
 
-use std::hash::{Hash, Hasher};
 use std::future::Future;
+use std::hash::{Hash, Hasher};
 use std::sync::OnceLock;
 
 use serde::Serialize;

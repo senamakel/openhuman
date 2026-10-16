@@ -203,8 +203,5 @@ async fn failed_reinitialize_is_retried_after_reverting_to_previous_config() {
     .await
     .expect("reverting to config A should reinitialize");
 
-    assert_eq!(
-        *attempts.lock().expect("attempts lock"),
-        ["A", "B", "A"]
-    );
+    assert_eq!(*attempts.lock().expect("attempts lock"), ["A", "B", "A"]);
 }

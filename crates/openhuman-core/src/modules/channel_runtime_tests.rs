@@ -226,7 +226,7 @@ pub(super) fn runtime_transport(
 
 #[tokio::test]
 async fn fixture_transport_uses_the_fixture_proxy_connection() {
-    use tinybus::{transport::memory::MemoryBus, Broker};
+    use tinybus::{broker::Broker, transport::memory::MemoryBus};
 
     let transport = MemoryBus::new();
     Broker::new().spawn(transport.clone());
@@ -246,6 +246,10 @@ async fn fixture_transport_uses_the_fixture_proxy_connection() {
 
     let (connection, proxy) = runtime_transport(&client, runtime).unwrap();
     assert_eq!(connection.unique_name(), fixture_connection.unique_name());
+    assert_eq!(
+        proxy.connection().unique_name(),
+        fixture_connection.unique_name()
+    );
     assert_eq!(proxy.destination().as_str(), tinychannels_bus::BUS_NAME);
 }
 

@@ -8,8 +8,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::Value;
 use tinybus::{
-    BUS_INTERFACE, BUS_NAME, BUS_PATH, BusName, Connection, InterfaceName, MatchRule, MemberName,
-    ObjectPath, WeakConnection,
+    BusName, Connection, InterfaceName, MatchRule, MemberName, ObjectPath, WeakConnection,
+    BUS_INTERFACE, BUS_NAME, BUS_PATH,
 };
 use tinystoragedrivers::BlobReader;
 use tinystoragedrivers_bus::{BlobKeyRequest, BlobStreamHead, PutBlobStreamRequest, WatchChanged};

@@ -11,9 +11,9 @@ impl CallerDirectory for EveryBusPeerIsAlpha {
 
 #[tokio::test]
 async fn detach_monitor_does_not_keep_its_serving_connection_alive() {
-    use tinybus::Connection;
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
+    use tinybus::Connection;
 
     const CLOSE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
 
@@ -55,9 +55,9 @@ async fn detach_monitor_does_not_keep_its_serving_connection_alive() {
 
 #[tokio::test]
 async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
-    use tinybus::Connection;
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
+    use tinybus::Connection;
     use tinystoragedrivers_busproxy::StorageCall;
 
     const DETACH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
@@ -130,7 +130,7 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
     use tinybus::transport::memory::MemoryBus;
     use tinybus::{Connection, InterfaceName, MemberName};
     use tinystoragedrivers_bus::STORAGE_INTERFACE;
-    use tinystoragedrivers_busproxy::{OBJECT_ROOT, WATCH_MEMBER, watch_path};
+    use tinystoragedrivers_busproxy::{watch_path, OBJECT_ROOT, WATCH_MEMBER};
 
     const SENDERS: usize = 300;
     const DETACH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);

@@ -2,7 +2,8 @@ use super::*;
 use crate::config::Config;
 use crate::modules::ops::disabled_lib_stems;
 use std::path::PathBuf;
-use tinybus::{module::ModuleHost, Broker};
+use tinybus::broker::Broker;
+use tinybus::module::ModuleHost;
 
 #[test]
 fn skips_only_files_named_after_a_disabled_library() {
@@ -25,6 +26,9 @@ fn disabled_released_module_is_not_loaded_from_search_path() {
     let host = ModuleHost::new(Broker::new());
     let outcomes = load_enabled_from_paths(&host, &skip, [dir.path().to_path_buf()]);
 
-    assert!(outcomes.is_empty(), "disabled artifact produced load outcomes");
+    assert!(
+        outcomes.is_empty(),
+        "disabled artifact produced load outcomes"
+    );
     assert!(host.list().is_empty(), "disabled artifact was loaded");
 }

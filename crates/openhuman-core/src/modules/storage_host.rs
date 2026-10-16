@@ -204,6 +204,7 @@ pub(crate) struct StorageHost {
     audit: Arc<dyn AuditSink>,
     bindings: tokio::sync::Mutex<HashMap<(String, String), Arc<Binding>>>,
     relays: std::sync::Mutex<HashMap<BusName, endpoint::Relay>>,
+    peer_modules: std::sync::Mutex<HashMap<BusName, Arc<cache::PeerModule>>>,
 }
 
 impl StorageHost {
@@ -218,6 +219,7 @@ impl StorageHost {
             audit,
             bindings: tokio::sync::Mutex::new(HashMap::new()),
             relays: std::sync::Mutex::new(HashMap::new()),
+            peer_modules: std::sync::Mutex::new(HashMap::new()),
         }
     }
 
@@ -239,7 +241,7 @@ impl StorageHost {
             );
             return Err(HostError::Denied("unauthenticated-caller"));
         };
-        let Some(module) = self.directory.module_for(sender).await else {
+        let Some(module) = self.module_for(sender).await else {
             tracing::warn!(
                 target: "openhuman::storage_host",
                 object = object.as_str(),
@@ -409,60 +411,6 @@ impl StorageHost {
             }
         }
     }
-
-    /// The module's binding for `scope`, built on first use and again when the
-    /// installed backend changed. The host runs the declared schema here.
-    async fn bind(&self, module: &str, scope: Scope) -> Result<Arc<Binding>, BindError> {
-        let backend = self.environment.backend().ok_or(BindError::NoBackend)?;
-        let key = (module.to_string(), scope.as_str().to_string());
-        let mut bindings = self.bindings.lock().await;
-        if let Some(existing) = bindings.get(&key) {
-            if Arc::ptr_eq(&existing.backend, &backend) {
-                return Ok(Arc::clone(existing));
-            }
-        }
-        let grant = self.environment.grant(module).ok_or(BindError::NoGrant)?;
-        grant.validate().map_err(|reason| {
-            tracing::error!(
-                target: "openhuman::storage_host",
-                module,
-                reason,
-                "[storage_host] refused an invalid storage grant"
-            );
-            BindError::BadGrant
-        })?;
-        let storage = backend
-            .for_scope(&scope)
-            .map_err(|_| BindError::Backend(StorageKind::Backend))?;
-        for spec in grant.specs() {
-            storage
-                .documents()
-                .ensure_collection(spec)
-                .await
-                .map_err(|_| BindError::Backend(StorageKind::Backend))?;
-        }
-        let mut server = StorageServer::new(storage.clone());
-        if !grant.secret_prefixes.is_empty() {
-            // A key-provider failure is retryable, so refuse the bind rather
-            // than cache a server that silently lacks secrets.
-            let keys = self.environment.keys().map_err(|_| {
-                tracing::warn!(
-                    target: "openhuman::storage_host",
-                    module,
-                    "[storage_host] no master key; refusing to bind a grant with secrets"
-                );
-                BindError::Backend(StorageKind::Backend)
-            })?;
-            server = server.with_secrets(Arc::new(DocumentSecrets::new(&storage, keys)));
-        }
-        let binding = Arc::new(Binding {
-            backend,
-            grant,
-            server,
-        });
-        bindings.insert(key, Arc::clone(&binding));
-        Ok(binding)
-    }
 }
 
 /// A call that passed identification, with what answering it needs.
@@ -492,33 +440,6 @@ impl AuditedCall {
             target: target.to_string(),
             outcome,
         });
-    }
-}
-
-enum BindError {
-    NoBackend,
-    NoGrant,
-    BadGrant,
-    Backend(StorageKind),
-}
-
-impl BindError {
-    fn label(&self) -> &'static str {
-        match self {
-            Self::NoBackend => "no-backend",
-            Self::NoGrant => "no-grant-declared",
-            Self::BadGrant => "invalid-grant",
-            Self::Backend(_) => "backend-error",
-        }
-    }
-
-    fn into_host(self) -> HostError {
-        match self {
-            Self::NoBackend => failure(StorageKind::Unavailable),
-            Self::NoGrant => HostError::Denied("no-grant-declared"),
-            Self::BadGrant => HostError::Denied("invalid-grant"),
-            Self::Backend(kind) => failure(kind),
-        }
     }
 }
 
@@ -650,6 +571,9 @@ pub(super) async fn install(
 
 #[path = "storage_host_endpoint.rs"]
 mod endpoint;
+
+#[path = "storage_host_cache.rs"]
+mod cache;
 
 #[cfg(test)]
 #[path = "storage_host_tests.rs"]

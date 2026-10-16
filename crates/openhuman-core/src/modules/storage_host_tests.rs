@@ -178,6 +178,9 @@ fn denied(label: &'static str) -> Result<Value, HostError> {
     Err(HostError::Denied(label))
 }
 
+#[path = "storage_host_binding_tests.rs"]
+mod binding_tests;
+
 #[tokio::test]
 async fn a_module_stores_and_reads_its_own_documents() {
     let rig = rig();

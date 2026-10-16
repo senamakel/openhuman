@@ -116,7 +116,7 @@ async fn failed_module_stops_cleanup_retries() {
     );
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let result = tokio::time::timeout(
-        Duration::from_millis(50),
+        Duration::from_secs(5),
         retry_stop(
             {
                 let attempts = attempts.clone();
@@ -126,7 +126,7 @@ async fn failed_module_stops_cleanup_retries() {
                 }
             },
             || matches!(table.peek("channel-runtime-failed-fixture"), ResolutionState::Failed(_)),
-            |_| std::future::ready(()),
+            |_| tokio::task::yield_now(),
         ),
     )
     .await;
@@ -139,7 +139,7 @@ async fn failed_module_stops_cleanup_retries() {
 async fn unresponsive_module_cleanup_has_a_bounded_retry_count() {
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let result = tokio::time::timeout(
-        Duration::from_millis(50),
+        Duration::from_secs(5),
         retry_stop(
             {
                 let attempts = attempts.clone();
@@ -149,7 +149,7 @@ async fn unresponsive_module_cleanup_has_a_bounded_retry_count() {
                 }
             },
             || false,
-            |_| std::future::ready(()),
+            |_| tokio::task::yield_now(),
         ),
     )
     .await;

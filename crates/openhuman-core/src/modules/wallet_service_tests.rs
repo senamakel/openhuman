@@ -43,7 +43,7 @@ fn shutdown_hook_guard_allows_registration_after_hooks_are_drained() {
 }
 
 #[tokio::test]
-async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() {
+async fn failed_close_discards_service_and_releases_user_state() {
     let _rpc_env = crate::web3::wallet::test_support::UnreachableRpcGuard::set();
     let mut active = Some(service());
     active
@@ -99,15 +99,10 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
     .expect_err("an unacknowledged close must remain retryable");
 
     assert_eq!(close_calls.load(Ordering::SeqCst), 1);
+    assert!(active.is_none(), "failed close must discard stale service state");
     assert!(
-        active
-            .as_ref()
-            .is_some_and(|service| service.prepared_quotes.contains_key("old-user-quote")),
-        "failed close must retain the service quote state"
-    );
-    assert!(
-        super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
-        "failed close must retain aliases needed for retry"
+        !super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
+        "failed close must release endpoint aliases"
     );
 
     let observed_calls = close_calls.clone();
@@ -119,7 +114,7 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
     .await
     .expect("successful retry should release the service");
 
-    assert_eq!(close_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(close_calls.load(Ordering::SeqCst), 1);
     assert!(active.is_none(), "the cached quote set must be released");
     assert!(
         !super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
@@ -133,7 +128,7 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
     })
     .await
     .expect("closing an already-empty service is a no-op");
-    assert_eq!(close_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(close_calls.load(Ordering::SeqCst), 1);
 }
 
 #[test]

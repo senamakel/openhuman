@@ -104,8 +104,12 @@ pub(crate) async fn proxy_if_loaded() -> Result<Proxy, String> {
         .ok_or_else(|| "TinyComputer module is not in the compiled registry".to_owned())?;
     let runtime = crate::modules::runtime::existing()
         .ok_or_else(|| "TinyComputer module runtime is not running".to_owned())?;
-    runtime
-        .proxy(names::INTERFACE, names::OBJECT_PATH)
+    proxy_from_connection(runtime.connection())
+}
+
+fn proxy_from_connection(connection: &tinybus::Connection) -> Result<Proxy, String> {
+    connection
+        .proxy(names::INTERFACE, names::OBJECT_PATH, names::INTERFACE)
         .map_err(|error| format!("TinyComputer module proxy unavailable: {error}"))
 }
 

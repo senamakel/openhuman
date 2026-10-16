@@ -60,6 +60,10 @@ async fn describe(config: &Config, load: bool) -> Result<Capabilities, String> {
     } else {
         super::desktop::proxy_if_loaded().await?
     };
+    describe_proxy(proxy).await
+}
+
+async fn describe_proxy(proxy: tinybus::Proxy) -> Result<Capabilities, String> {
     proxy
         .call(tinycomputer_bus::agent::names::methods::DESCRIBE, ())
         .await

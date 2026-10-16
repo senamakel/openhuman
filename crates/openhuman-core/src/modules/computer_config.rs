@@ -23,8 +23,15 @@ use crate::security::credentials::session_support::{
     is_local_session_token, resolve_backend_credential, BackendCredential,
 };
 
+#[cfg(test)]
+thread_local! {
+    static PRIVATE_CONFIG_CREDENTIAL_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 /// A stored provider key, falling back to its environment variable.
 fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
+    #[cfg(test)]
+    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
     lookup_key_for_slug(slug, config)
         .ok()
         .filter(|key| !key.trim().is_empty())
@@ -34,10 +41,22 @@ fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
 /// The signed-in TinyHumans bearer, if any. The offline local token is not
 /// a backend credential.
 fn tinyhumans_bearer(config: &Config) -> Option<String> {
+    #[cfg(test)]
+    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
     resolve_backend_credential(config)
         .ok()
         .map(BackendCredential::into_secret)
         .filter(|token| !is_local_session_token(token))
+}
+
+#[cfg(test)]
+pub(super) fn reset_private_config_credential_lookups() {
+    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(0));
+}
+
+#[cfg(test)]
+pub(super) fn private_config_credential_lookups() -> usize {
+    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(std::cell::Cell::get)
 }
 
 fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {

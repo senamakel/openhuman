@@ -16,6 +16,29 @@ async fn status_without_load_reports_routes_and_skips_describe() {
 }
 
 #[tokio::test]
+async fn status_does_not_build_private_config_or_touch_credentials_and_trace_directory() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.config_path = dir.path().join("config.toml");
+    config.workspace_dir = dir.path().join("workspace");
+    config.secrets.encrypt = false;
+    config.computer.trace = true;
+    super::super::computer_config::reset_private_config_credential_lookups();
+
+    let _status = status(&config, false).await;
+
+    assert_eq!(
+        super::super::computer_config::private_config_credential_lookups(),
+        0,
+        "status must not resolve private module credentials"
+    );
+    assert!(
+        !super::super::computer_config::trace_dir(&config).exists(),
+        "status must not create the private trace directory"
+    );
+}
+
+#[tokio::test]
 async fn load_on_a_disabled_host_reports_the_failure() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = Config::default();

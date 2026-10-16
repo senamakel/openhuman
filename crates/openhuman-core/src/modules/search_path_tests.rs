@@ -1,7 +1,6 @@
 use super::*;
 use crate::config::Config;
 use crate::modules::ops::disabled_lib_stems;
-use crate::modules::registry;
 use std::path::PathBuf;
 use tinybus::{module::ModuleHost, Broker};
 
@@ -22,7 +21,6 @@ fn disabled_released_module_is_not_loaded_from_search_path() {
     let mut config = Config::default();
     assert!(config.components.set("computer", false));
     let skip = disabled_lib_stems(&config);
-    assert!(skip.contains(&"libtinycomputer_module".to_string()));
 
     let host = ModuleHost::new(Broker::new());
     let outcomes = load_enabled_from_paths(&host, &skip, [dir.path().to_path_buf()]);

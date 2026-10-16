@@ -2,13 +2,14 @@
 //! reaches [`StorageHost`], and how a caller's watch invalidations get from the
 //! caller's bound server to the proxy's unicast forwarder.
 
+use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
 use tinybus::{
-    BusName, Connection, InterfaceName, MatchRule, MemberName, ObjectPath, BUS_INTERFACE, BUS_NAME,
-    BUS_PATH,
+    BUS_INTERFACE, BUS_NAME, BUS_PATH, BusName, Connection, InterfaceName, MatchRule, MemberName,
+    ObjectPath,
 };
 use tinystoragedrivers::BlobReader;
 use tinystoragedrivers_bus::{BlobKeyRequest, BlobStreamHead, PutBlobStreamRequest, WatchChanged};
@@ -226,17 +227,19 @@ pub(super) async fn watch_peer_detach(
         .interface(InterfaceName::new(BUS_INTERFACE)?)
         .member(MemberName::new("NameOwnerChanged")?);
     rule.path = Some(ObjectPath::new(BUS_PATH)?);
-    let mut signals = connection.add_match(rule).await?;
+    let mut signals = connection.add_match(rule.clone()).await?;
     let connection = connection.clone();
     tokio::spawn(async move {
         loop {
             match signals.recv().await {
                 Ok(signal) => {
-                    let Ok((name, old_owner, new_owner)) = serde_json::from_value::<(
-                        BusName,
-                        Option<BusName>,
-                        Option<BusName>,
-                    )>(signal.body)
+                    if !rule.matches(&signal) {
+                        continue;
+                    }
+                    let Ok((name, old_owner, new_owner)) =
+                        serde_json::from_value::<(BusName, Option<BusName>, Option<BusName>)>(
+                            signal.body,
+                        )
                     else {
                         tracing::warn!(
                             target: "storage_host",
@@ -244,7 +247,8 @@ pub(super) async fn watch_peer_detach(
                         );
                         continue;
                     };
-                    if name.is_unique() && old_owner.as_ref() == Some(&name) && new_owner.is_none() {
+                    if name.is_unique() && old_owner.as_ref() == Some(&name) && new_owner.is_none()
+                    {
                         host.release_relay(&name);
                     }
                 }
@@ -254,9 +258,16 @@ pub(super) async fn watch_peer_detach(
                         missed,
                         "[storage-host] peer-detach notifications lagged"
                     );
+                    let candidates: HashSet<_> = host
+                        .relays
+                        .lock()
+                        .map(|relays| relays.keys().cloned().collect())
+                        .unwrap_or_default();
                     if let Ok(names) = connection.list_names().await {
                         if let Ok(mut relays) = host.relays.lock() {
-                            relays.retain(|peer, _| names.contains(peer));
+                            relays.retain(|peer, _| {
+                                !candidates.contains(peer) || names.contains(peer)
+                            });
                         }
                     }
                 }

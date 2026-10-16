@@ -45,16 +45,12 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
         .await
         .unwrap();
     let anchor_name = anchor.unique_name().unwrap();
-    let mut anchor_signals = anchor
-        .add_match(
-            MatchRule::new()
-                .signals()
-                .interface(InterfaceName::new(STORAGE_INTERFACE).unwrap())
-                .member(MemberName::new(WATCH_MEMBER).unwrap())
-                .path(watch_path(&anchor_name).unwrap()),
-        )
-        .await
-        .unwrap();
+    let mut anchor_rule = MatchRule::new()
+        .signals()
+        .interface(InterfaceName::new(STORAGE_INTERFACE).unwrap())
+        .member(MemberName::new(WATCH_MEMBER).unwrap());
+    anchor_rule.path = Some(watch_path(&anchor_name).unwrap());
+    let mut anchor_signals = anchor.add_match(anchor_rule).await.unwrap();
     let documents = |connection: &Connection| {
         connection
             .proxy(
@@ -73,12 +69,16 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
         .await
         .unwrap();
     let anchor_watch_id = anchor_watch["watch_id"].as_str().unwrap().to_owned();
+    anchor
+        .release_name("ai.tinyhumans.test.StorageAnchor")
+        .await
+        .unwrap();
 
     let mut previous_name: Option<String> = None;
     let mut last_peer: Option<Connection> = None;
     let mut last_signals = None;
     let mut last_watch_id = None;
-    for index in 1..SENDERS {
+    for index in 1..=SENDERS {
         if let Some(previous) = previous_name.take() {
             tokio::time::timeout(DETACH_DEADLINE, async {
                 loop {
@@ -100,19 +100,17 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
         let peer = Connection::connect(bus.connect().await.unwrap())
             .await
             .unwrap();
-        let well_known = format!("ai.tinyhumans.test.Storage{index}");
-        peer.request_name(&well_known).await.unwrap();
         let unique = peer.unique_name().unwrap();
-        let mut signals = peer
-            .add_match(
-                MatchRule::new()
-                    .signals()
-                    .interface(InterfaceName::new(STORAGE_INTERFACE).unwrap())
-                    .member(MemberName::new(WATCH_MEMBER).unwrap())
-                    .path(watch_path(&unique).unwrap()),
-            )
-            .await
-            .unwrap();
+        let mut signals = if index == SENDERS {
+            let mut rule = MatchRule::new()
+                .signals()
+                .interface(InterfaceName::new(STORAGE_INTERFACE).unwrap())
+                .member(MemberName::new(WATCH_MEMBER).unwrap());
+            rule.path = Some(watch_path(&unique).unwrap());
+            Some(peer.add_match(rule).await.unwrap())
+        } else {
+            None
+        };
         let documents = documents(&peer);
         let opened: Value = documents
             .call(
@@ -122,17 +120,21 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
             .await
             .unwrap();
         let watch_id = opened["watch_id"].as_str().unwrap().to_owned();
-        if index < SENDERS - 1 {
-            let _: Value = documents
-                .call("WatchClose", json!({"watch_id":watch_id}))
-                .await
-                .unwrap();
+        if index < SENDERS {
+            // Leave one dead peer's watch active to prove detach tears down
+            // its relay without consuming the shared server's watch budget.
+            if index > 1 {
+                let _: Value = documents
+                    .call("WatchClose", json!({"watch_id":watch_id}))
+                    .await
+                    .unwrap();
+            }
             drop(documents);
             drop(peer);
-            previous_name = Some(well_known);
+            previous_name = Some(unique.as_str().to_owned());
         } else {
             last_peer = Some(peer);
-            last_signals = Some(signals);
+            last_signals = signals.take();
             last_watch_id = Some(watch_id);
         }
     }

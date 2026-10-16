@@ -81,7 +81,7 @@ async fn ensure_native_wallet(
     }) {
         replace_service_with(
             active,
-            |service| async move { close_native_wallet(config, service).await },
+            |request| async move { wallet::call::<_, ()>(config, methods::NATIVE_WALLET_CLOSE, request).await },
             |service| super::wallet_host::clear_endpoint_references(&service.response.service.handle),
             || async {
                 let response: NativeWalletConfigResponse = wallet::call(
@@ -129,14 +129,14 @@ async fn replace_service_with<C, CFut, Clear, Open, OFut>(
     open: Open,
 ) -> Result<(), WalletCallError>
 where
-    C: FnOnce(&NativeWalletService) -> CFut,
+    C: FnOnce(NativeWalletCloseRequest) -> CFut,
     CFut: Future<Output = Result<(), WalletCallError>>,
     Clear: FnOnce(&NativeWalletService),
     Open: FnOnce() -> OFut,
     OFut: Future<Output = Result<NativeWalletService, WalletCallError>>,
 {
     if let Some(old) = active.take() {
-        close(&old).await?;
+        close(NativeWalletCloseRequest { service: old.response.service.clone() }).await?;
         clear(&old);
         drop(old);
     }

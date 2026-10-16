@@ -54,7 +54,7 @@ async fn ensure_service(
             || current.configuration != configuration
     }) {
         replace_service_with(active,
-            |current| async move { wallet::call::<_, ()>(config, methods::WEB3_CLOSE, Web3CloseRequest { service: current.response.service.clone() }).await },
+            |request| async move { wallet::call::<_, ()>(config, methods::WEB3_CLOSE, request).await },
             || async {
                 let response: Web3ConfigureResponse = wallet::call(config, methods::WEB3_CONFIGURE_WITH_ENDPOINTS, configuration.clone()).await?;
                 if let Err(error) = wallet_host::bind_endpoint_references(&response.service.handle, &response.endpoint_references) {
@@ -97,11 +97,11 @@ async fn ensure_service(
 }
 
 async fn replace_service_with<C, CFut, Open, OFut>(active: &mut Option<Web3Service>, close: C, open: Open) -> Result<(), wallet::WalletCallError>
-where C: FnOnce(&Web3Service) -> CFut, CFut: Future<Output = Result<(), wallet::WalletCallError>>,
+where C: FnOnce(Web3CloseRequest) -> CFut, CFut: Future<Output = Result<(), wallet::WalletCallError>>,
       Open: FnOnce() -> OFut, OFut: Future<Output = Result<Web3Service, wallet::WalletCallError>> {
     if let Some(old) = active.take() {
         let handle = old.response.service.handle.clone();
-        if close(&old).await.is_err() { tracing::warn!("[modules:web3] failed to close stale service during replacement"); }
+        if close(Web3CloseRequest { service: old.response.service.clone() }).await.is_err() { tracing::warn!("[modules:web3] failed to close stale service during replacement"); }
         wallet_host::clear_endpoint_references(&handle);
         drop(old);
     }

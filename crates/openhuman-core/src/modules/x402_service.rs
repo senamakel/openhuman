@@ -130,7 +130,7 @@ async fn ensure_service(
             || current.config.monthly_max_atomic != budget.2
     }) {
         replace_service_with(active,
-            |current| async move { wallet::call::<_, ()>(config, methods::X402_CLOSE, X402CloseRequest { service: current.handle.clone() }).await },
+            |request| async move { wallet::call::<_, ()>(config, methods::X402_CLOSE, request).await },
             || async {
                 if !super::import_legacy_x402(ctx, &workspace).await {
                     return Err(WalletCallError::Unavailable("x402 legacy payment import failed; the service is not opened".to_string()));
@@ -177,10 +177,10 @@ async fn ensure_service(
 }
 
 async fn replace_service_with<C, CFut, Open, OFut>(active: &mut Option<X402Service>, close: C, open: Open) -> Result<(), WalletCallError>
-where C: FnOnce(&X402Service) -> CFut, CFut: Future<Output = Result<(), WalletCallError>>,
+where C: FnOnce(X402CloseRequest) -> CFut, CFut: Future<Output = Result<(), WalletCallError>>,
       Open: FnOnce() -> OFut, OFut: Future<Output = Result<X402Service, WalletCallError>> {
     if let Some(old) = active.take() {
-        if close(&old).await.is_err() { tracing::warn!("[modules:x402] failed to close stale service during replacement"); }
+        if close(X402CloseRequest { service: old.handle.clone() }).await.is_err() { tracing::warn!("[modules:x402] failed to close stale service during replacement"); }
         drop(old);
     }
     *active = Some(open().await?);

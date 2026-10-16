@@ -90,15 +90,21 @@ pub(crate) fn resolve_bundled_dir(
 }
 
 /// Library file stems of every module whose component is off, for skipping
-/// their search-path artifacts. Both `name` and `libname` spellings.
+/// their search-path artifacts. Includes released ABI and source-build names.
 #[must_use]
 pub fn disabled_lib_stems(config: &Config) -> Vec<String> {
     registry::ALL
         .iter()
         .filter(|record| disabled_component(config, record.id).is_some())
         .flat_map(|record| {
-            let stem = record.source.lib_name.to_string();
-            [format!("lib{stem}"), stem]
+            let id = record.id;
+            let lib_name = record.source.lib_name;
+            [
+                format!("{id}_module"),
+                format!("lib{id}_module"),
+                lib_name.to_string(),
+                format!("lib{lib_name}"),
+            ]
         })
         .collect()
 }

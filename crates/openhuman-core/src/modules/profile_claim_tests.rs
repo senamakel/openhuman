@@ -40,3 +40,68 @@ fn a_claimed_folder_is_kept_and_a_held_one_means_a_fresh_profile() {
         Claim::Fresh
     );
 }
+
+#[test]
+fn profile_claim_rejects_a_tinycomputer_envelope_version_mismatch() {
+    let version_mismatch = DesktopResponse {
+        version: "999".into(),
+        ..DesktopResponse::ok(
+            "browser-claim-profile",
+            serde_json::json!({"outcome":"claimed"}),
+        )
+    };
+    assert!(unwrap_response(serde_json::to_value(version_mismatch).unwrap()).is_none());
+}
+
+#[test]
+fn profile_claim_rejects_success_envelopes_that_also_carry_an_error() {
+    let contradictory = DesktopResponse {
+        error: Some(tinycomputer_bus::DesktopError::new(
+            "BROKEN",
+            "contradictory",
+        )),
+        ..DesktopResponse::ok(
+            "browser-claim-profile",
+            serde_json::json!({"outcome":"claimed"}),
+        )
+    };
+    assert!(unwrap_response(serde_json::to_value(contradictory).unwrap()).is_none());
+}
+
+#[test]
+fn profile_claim_keeps_valid_success_and_module_failure_behavior() {
+    let success = DesktopResponse::ok(
+        "browser-claim-profile",
+        serde_json::json!({"outcome":"claimed"}),
+    );
+    assert_eq!(
+        unwrap_response(serde_json::to_value(success).unwrap()).unwrap(),
+        serde_json::json!({"outcome":"claimed"})
+    );
+    let failure = DesktopResponse::err(
+        "browser-claim-profile",
+        tinycomputer_bus::DesktopError::new("PROFILE_BUSY", "profile is held"),
+    );
+    assert!(unwrap_response(serde_json::to_value(failure).unwrap()).is_none());
+}
+
+#[test]
+fn profile_claim_distinguishes_explicit_null_data_from_missing_data() {
+    let explicit_null = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-claim-profile",
+        "ok": true,
+        "data": null
+    });
+    assert_eq!(
+        unwrap_response(explicit_null),
+        Some(serde_json::Value::Null)
+    );
+
+    let missing = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-claim-profile",
+        "ok": true
+    });
+    assert_eq!(unwrap_response(missing), None);
+}

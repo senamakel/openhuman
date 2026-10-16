@@ -132,6 +132,74 @@ fn failed_reply_without_a_name_falls_back_to_the_code() {
 }
 
 #[test]
+fn browser_rejects_a_tinycomputer_envelope_version_mismatch() {
+    let version_mismatch = DesktopResponse {
+        version: "999".into(),
+        ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
+    };
+    assert!(decode_response::<serde_json::Value>(
+        "OpenSession",
+        serde_json::to_value(version_mismatch).unwrap()
+    )
+    .is_err());
+}
+
+#[test]
+fn browser_rejects_success_envelopes_that_also_carry_an_error() {
+    let contradictory = DesktopResponse {
+        error: Some(tinycomputer_bus::DesktopError::new(
+            "BROKEN",
+            "contradictory",
+        )),
+        ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
+    };
+    assert!(decode_response::<serde_json::Value>(
+        "OpenSession",
+        serde_json::to_value(contradictory).unwrap()
+    )
+    .is_err());
+}
+
+#[test]
+fn browser_keeps_valid_envelope_success_and_module_error_behavior() {
+    let success = DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}));
+    assert_eq!(
+        decode_response::<serde_json::Value>("OpenSession", serde_json::to_value(success).unwrap())
+            .unwrap(),
+        serde_json::json!({"id":"s"})
+    );
+
+    let failure = DesktopResponse::err(
+        "browser-open-session",
+        tinycomputer_bus::DesktopError::new("POLICY_DENIED", "origin is not allowed"),
+    );
+    assert!(
+        matches!(decode_response::<serde_json::Value>("OpenSession", serde_json::to_value(failure).unwrap()), Err(BrowserCallError::Bus { name, message }) if name == "POLICY_DENIED" && message == "origin is not allowed")
+    );
+}
+
+#[test]
+fn browser_distinguishes_explicit_null_data_from_missing_data() {
+    let explicit_null = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-close-session",
+        "ok": true,
+        "data": null
+    });
+    assert_eq!(
+        decode_response::<serde_json::Value>("CloseSession", explicit_null).unwrap(),
+        serde_json::Value::Null
+    );
+
+    let missing = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-close-session",
+        "ok": true
+    });
+    assert!(decode_response::<serde_json::Value>("CloseSession", missing).is_err());
+}
+
+#[test]
 fn a_missing_chrome_tells_the_agent_where_the_user_sets_its_path() {
     let response: DesktopResponse = serde_json::from_value(serde_json::json!({
         "version": "2.5",

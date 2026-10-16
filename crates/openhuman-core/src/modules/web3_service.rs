@@ -108,7 +108,10 @@ where
     OFut: Future<Output = Result<Web3Service, wallet::WalletCallError>>,
 {
     if let Some(old) = active.as_ref() {
-        close(Web3CloseRequest { service: old.response.service.clone() }).await?;
+        close(Web3CloseRequest {
+            service: old.response.service.clone(),
+        })
+        .await?;
     }
     if let Some(old) = active.take() {
         let handle = old.response.service.handle.clone();

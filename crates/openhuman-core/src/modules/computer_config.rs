@@ -71,6 +71,24 @@ pub(super) fn fake_private_config_credentials(enabled: bool) {
 }
 
 #[cfg(test)]
+pub(super) struct FakePrivateConfigCredentialsGuard;
+
+#[cfg(test)]
+impl FakePrivateConfigCredentialsGuard {
+    pub(super) fn new() -> Self {
+        fake_private_config_credentials(true);
+        Self
+    }
+}
+
+#[cfg(test)]
+impl Drop for FakePrivateConfigCredentialsGuard {
+    fn drop(&mut self) {
+        fake_private_config_credentials(false);
+    }
+}
+
+#[cfg(test)]
 pub(super) fn private_config_credential_lookups() -> usize {
     PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(std::cell::Cell::get)
 }

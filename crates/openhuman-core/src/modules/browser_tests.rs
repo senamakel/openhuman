@@ -132,6 +132,33 @@ fn failed_reply_without_a_name_falls_back_to_the_code() {
 }
 
 #[test]
+fn browser_rejects_malformed_tinycomputer_envelopes() {
+    let version_mismatch = DesktopResponse {
+        version: "999".into(),
+        ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
+    };
+    assert!(decode_response::<serde_json::Value>("OpenSession", version_mismatch).is_err());
+
+    let contradictory = DesktopResponse {
+        error: Some(tinycomputer_bus::DesktopError::new("BROKEN", "contradictory")),
+        ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
+    };
+    assert!(decode_response::<serde_json::Value>("OpenSession", contradictory).is_err());
+}
+
+#[test]
+fn browser_keeps_valid_envelope_success_and_module_error_behavior() {
+    let success = DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}));
+    assert_eq!(decode_response::<serde_json::Value>("OpenSession", success), Ok(serde_json::json!({"id":"s"})));
+
+    let failure = DesktopResponse::err(
+        "browser-open-session",
+        tinycomputer_bus::DesktopError::new("POLICY_DENIED", "origin is not allowed"),
+    );
+    assert!(matches!(decode_response::<serde_json::Value>("OpenSession", failure), Err(BrowserCallError::Bus { name, message }) if name == "POLICY_DENIED" && message == "origin is not allowed"));
+}
+
+#[test]
 fn a_missing_chrome_tells_the_agent_where_the_user_sets_its_path() {
     let response: DesktopResponse = serde_json::from_value(serde_json::json!({
         "version": "2.5",

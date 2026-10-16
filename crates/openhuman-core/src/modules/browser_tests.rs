@@ -137,7 +137,11 @@ fn browser_rejects_a_tinycomputer_envelope_version_mismatch() {
         version: "999".into(),
         ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
     };
-    assert!(decode_response::<serde_json::Value>("OpenSession", version_mismatch).is_err());
+    assert!(decode_response::<serde_json::Value>(
+        "OpenSession",
+        serde_json::to_value(version_mismatch).unwrap()
+    )
+    .is_err());
 }
 
 #[test]
@@ -149,14 +153,19 @@ fn browser_rejects_success_envelopes_that_also_carry_an_error() {
         )),
         ..DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}))
     };
-    assert!(decode_response::<serde_json::Value>("OpenSession", contradictory).is_err());
+    assert!(decode_response::<serde_json::Value>(
+        "OpenSession",
+        serde_json::to_value(contradictory).unwrap()
+    )
+    .is_err());
 }
 
 #[test]
 fn browser_keeps_valid_envelope_success_and_module_error_behavior() {
     let success = DesktopResponse::ok("browser-open-session", serde_json::json!({"id":"s"}));
     assert_eq!(
-        decode_response::<serde_json::Value>("OpenSession", success).unwrap(),
+        decode_response::<serde_json::Value>("OpenSession", serde_json::to_value(success).unwrap())
+            .unwrap(),
         serde_json::json!({"id":"s"})
     );
 
@@ -165,7 +174,7 @@ fn browser_keeps_valid_envelope_success_and_module_error_behavior() {
         tinycomputer_bus::DesktopError::new("POLICY_DENIED", "origin is not allowed"),
     );
     assert!(
-        matches!(decode_response::<serde_json::Value>("OpenSession", failure), Err(BrowserCallError::Bus { name, message }) if name == "POLICY_DENIED" && message == "origin is not allowed")
+        matches!(decode_response::<serde_json::Value>("OpenSession", serde_json::to_value(failure).unwrap()), Err(BrowserCallError::Bus { name, message }) if name == "POLICY_DENIED" && message == "origin is not allowed")
     );
 }
 

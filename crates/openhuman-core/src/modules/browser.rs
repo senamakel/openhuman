@@ -476,12 +476,11 @@ fn decode_response<R: DeserializeOwned>(
     member: &str,
     raw: serde_json::Value,
 ) -> Result<R, BrowserCallError> {
-    let response: DesktopResponse = serde_json::from_value(raw.clone()).map_err(|error| {
-        BrowserCallError::Bus {
+    let response: DesktopResponse =
+        serde_json::from_value(raw.clone()).map_err(|error| BrowserCallError::Bus {
             name: "InvalidReply".into(),
             message: format!("{member} returned an unexpected reply: {error}"),
-        }
-    })?;
+        })?;
     let data = match super::envelope::decode(
         Some(&response.version),
         Some(tinycomputer_bus::ENVELOPE_VERSION),

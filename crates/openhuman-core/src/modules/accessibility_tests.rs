@@ -197,6 +197,20 @@ fn successful_unit_response_preserves_its_explicit_null_data() {
 }
 
 #[test]
+fn failed_response_rejects_an_explicit_null_data_field() {
+    assert!(matches!(
+        decode::<()>(serde_json::json!({
+            "version": "2.5",
+            "command": "accessibility-paste",
+            "ok": false,
+            "data": null,
+            "error": {"code": "FOCUS_CHANGED", "message": "target changed"}
+        })),
+        Err(AccessibilityError::Bus(ModuleCallError::ModuleFault))
+    ));
+}
+
+#[test]
 fn successful_response_requires_the_data_field_even_for_unit_results() {
     assert!(matches!(
         decode::<()>(

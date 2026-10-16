@@ -50,7 +50,7 @@ fn profile_claim_rejects_a_tinycomputer_envelope_version_mismatch() {
             serde_json::json!({"outcome":"claimed"}),
         )
     };
-    assert!(unwrap_response(version_mismatch).is_none());
+    assert!(unwrap_response(serde_json::to_value(version_mismatch).unwrap()).is_none());
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn profile_claim_rejects_success_envelopes_that_also_carry_an_error() {
             serde_json::json!({"outcome":"claimed"}),
         )
     };
-    assert!(unwrap_response(contradictory).is_none());
+    assert!(unwrap_response(serde_json::to_value(contradictory).unwrap()).is_none());
 }
 
 #[test]
@@ -75,12 +75,12 @@ fn profile_claim_keeps_valid_success_and_module_failure_behavior() {
         serde_json::json!({"outcome":"claimed"}),
     );
     assert_eq!(
-        unwrap_response(success).unwrap(),
+        unwrap_response(serde_json::to_value(success).unwrap()).unwrap(),
         serde_json::json!({"outcome":"claimed"})
     );
     let failure = DesktopResponse::err(
         "browser-claim-profile",
         tinycomputer_bus::DesktopError::new("PROFILE_BUSY", "profile is held"),
     );
-    assert!(unwrap_response(failure).is_none());
+    assert!(unwrap_response(serde_json::to_value(failure).unwrap()).is_none());
 }

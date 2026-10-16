@@ -329,6 +329,7 @@ for (const runner of ["test-rust-with-mock.sh", "test-rust-e2e.sh"]) {
         invocation = [
           "integration_test_targets() { echo mcp_registry_e2e; }",
           "run_build_only_reaper_test() { :; }",
+          "run_tinychannels_linked_fixture_tests() { :; }",
           source.slice(start, end + 3),
           "run_full_suite",
           "set -- --test mcp_registry_e2e -- --nocapture",

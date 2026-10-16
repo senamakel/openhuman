@@ -1,6 +1,6 @@
 use super::*;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 
 use serde_json::json;
 use tinystoragedrivers::secrets::DerivedKeys;

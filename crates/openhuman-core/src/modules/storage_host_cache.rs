@@ -11,6 +11,7 @@ pub(super) struct PeerModule {
     module: tokio::sync::Mutex<Option<String>>,
 }
 
+#[derive(Debug)]
 pub(super) enum BindError {
     NoBackend,
     NoGrant,
@@ -56,7 +57,13 @@ impl StorageHost {
         };
         let mut cached = entry.module.lock().await;
         if let Some(module) = cached.as_ref() {
-            return Some(module.clone());
+            let still_live_entry = self
+                .peer_modules
+                .lock()
+                .ok()
+                .and_then(|peers| peers.get(sender).map(|current| Arc::ptr_eq(current, &entry)))
+                .unwrap_or(false);
+            return still_live_entry.then(|| module.clone());
         }
         let resolved = self.directory.module_for(sender).await;
         let mut peers = self.peer_modules.lock().ok()?;
@@ -89,7 +96,7 @@ impl StorageHost {
     }
 
     pub(super) fn peer_candidates(&self) -> HashSet<BusName> {
-        let mut peers = self
+        let mut peers: HashSet<BusName> = self
             .peer_modules
             .lock()
             .map(|entries| entries.keys().cloned().collect())

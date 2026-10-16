@@ -92,6 +92,28 @@ async fn a_detach_invalidates_the_sender_identity_cache() {
     assert_eq!(directory.calls.load(Ordering::SeqCst), 2);
 }
 
+#[tokio::test]
+async fn an_unknown_sender_does_not_leave_a_negative_peer_cache_entry() {
+    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let env = Arc::new(Env {
+        backend: Mutex::new(Some(backend)),
+        profile: Mutex::new(None),
+        grants: HashMap::from([("alpha", grant("notes"))]),
+        fences: Mutex::new(None),
+        keys_ready: AtomicBool::new(true),
+    });
+    let host = StorageHost::new(
+        Arc::new(CountingDirectory { calls: AtomicUsize::new(0) }),
+        env as Arc<dyn Environment>,
+        Arc::new(Trail::default()),
+    );
+    assert_eq!(
+        host.handle(Object::Documents, "Get", get("notes", "x"), Some(&stranger()), Admission::Private).await,
+        denied("unknown-caller"),
+    );
+    assert!(host.peer_modules.lock().unwrap().is_empty());
+}
+
 struct DelayedDirectory {
     entered: Arc<Notify>,
     release: Arc<Notify>,
@@ -158,17 +180,26 @@ async fn detaching_one_peer_preserves_another_peers_shared_watch_binding() {
     let second = beta();
     let _first_signals = host.watch_signals(&first).unwrap();
     let mut second_signals = host.watch_signals(&second).unwrap();
-    let watch = |sender: &BusName| {
-        host.handle(
+    let _first_watch = host
+        .handle(
             Object::Documents,
             "WatchOpen",
             json!({"collection":"notes","filter":{"op":"all"},"interval_ms":20}),
-            Some(sender),
+            Some(&first),
             Admission::Private,
         )
-    };
-    let _first_watch = watch(&first).await.unwrap();
-    let second_watch = watch(&second).await.unwrap();
+        .await
+        .unwrap();
+    let second_watch = host
+        .handle(
+            Object::Documents,
+            "WatchOpen",
+            json!({"collection":"notes","filter":{"op":"all"},"interval_ms":20}),
+            Some(&second),
+            Admission::Private,
+        )
+        .await
+        .unwrap();
     let second_watch_id = second_watch["watch_id"].as_str().unwrap();
     host.release_peer(&first);
     host.handle(
@@ -180,11 +211,16 @@ async fn detaching_one_peer_preserves_another_peers_shared_watch_binding() {
     )
     .await
     .unwrap();
-    let signal = tokio::time::timeout(std::time::Duration::from_secs(5), second_signals.recv())
-        .await
-        .unwrap()
-        .unwrap();
-    assert_eq!(signal.watch_id, second_watch_id);
+    tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let signal = second_signals.recv().await.unwrap();
+            if signal.watch_id == second_watch_id {
+                break;
+            }
+        }
+    })
+    .await
+    .expect("the remaining peer's watch continues after its sibling detaches");
 }
 
 /// Holds alpha's schema preparation until the test releases it.

@@ -52,15 +52,15 @@ pub struct ComputerStatus {
 }
 
 fn planner_route(config: &Config) -> &'static str {
-    match super::computer_config::module_config(config)["planner"]["provider"].as_str() {
-        Some("tiny_humans") => "hosted",
-        Some("open_router") => "direct_openrouter",
-        _ => "unavailable",
-    }
+    super::computer_config::configured_routes(config).planner
 }
 
-async fn describe(config: &Config) -> Result<Capabilities, String> {
-    let proxy = super::desktop::proxy(config).await?;
+async fn describe(config: &Config, load: bool) -> Result<Capabilities, String> {
+    let proxy = if load {
+        super::desktop::proxy(config).await?
+    } else {
+        super::desktop::proxy_if_loaded().await?
+    };
     proxy
         .call(tinycomputer_bus::agent::names::methods::DESCRIBE, ())
         .await
@@ -81,7 +81,7 @@ pub async fn status(config: &Config, load: bool) -> ComputerStatus {
             .as_ref()
             .is_some_and(|m| m.state == ModuleState::Ready);
     let (capabilities, error) = if ask {
-        match describe(config).await {
+        match describe(config, load).await {
             Ok(capabilities) => (Some(capabilities.into()), None),
             Err(error) => {
                 tracing::debug!(%error, "[computer] describe failed");
@@ -94,7 +94,7 @@ pub async fn status(config: &Config, load: bool) -> ComputerStatus {
     ComputerStatus {
         module: if ask { module() } else { before },
         decision_model: config.computer.decision_model.as_str(),
-        decision_route: super::computer_config::billing_route(config),
+        decision_route: super::computer_config::configured_routes(config).decision,
         planner_route: planner_route(config),
         capabilities,
         error,

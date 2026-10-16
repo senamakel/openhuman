@@ -123,6 +123,31 @@ fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
 /// module's defaults.
 pub const HOSTED_REASONING_MODEL: &str = "agentic-v1";
 
+/// Routes implied by the user's `[computer]` choices. These describe the
+/// configured model family, not whether credentials currently authorize a
+/// request; credential validation belongs to private module activation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConfiguredRoutes {
+    pub decision: &'static str,
+    pub planner: &'static str,
+}
+
+/// Derive settings-page routes without reading credentials or environment.
+#[must_use]
+pub fn configured_routes(config: &Config) -> ConfiguredRoutes {
+    let decision = match config.computer.decision_model {
+        DecisionModel::Jev => "hosted",
+        DecisionModel::OpenJev => "open_jev",
+        DecisionModel::Sage => "sage",
+    };
+    ConfiguredRoutes {
+        decision,
+        // Planner and rescue use the configured hosted reasoning route by
+        // default; explicit model IDs tune the model, not its credentials.
+        planner: "hosted",
+    }
+}
+
 /// The `planner` configuration: the hosted route with the session's bearer
 /// when signed in, else the user's OpenRouter key; the user's chosen models,
 /// with [`HOSTED_REASONING_MODEL`] for any unchosen role on the hosted route.
@@ -228,13 +253,7 @@ pub fn module_config(config: &Config) -> Value {
 /// `open_jev` or `sage` (their own keys), or `unavailable` (no credential).
 #[must_use]
 pub fn billing_route(config: &Config) -> &'static str {
-    match module_config(config)["jev"]["provider"].as_str() {
-        Some("tiny_humans_open_router") => "hosted",
-        Some("open_router") => "direct_openrouter",
-        Some("open_jev") => "open_jev",
-        Some("sage") => "sage",
-        _ => "unavailable",
-    }
+    configured_routes(config).decision
 }
 
 #[cfg(test)]

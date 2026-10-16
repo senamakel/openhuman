@@ -11,7 +11,7 @@ fn accepts_only_the_matching_version_and_exclusive_success_or_error_shape() {
         Err(EnvelopeError::Operation("denied"))
     );
     assert_eq!(
-        decode(Some("2.4"), Some("2.5"), true, Some(7), None),
+        decode(Some("2.4"), Some("2.5"), true, Some(7), None::<&str>,),
         Err(EnvelopeError::Malformed)
     );
     assert_eq!(

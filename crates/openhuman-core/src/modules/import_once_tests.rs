@@ -39,6 +39,25 @@ async fn a_concurrent_caller_waits_for_the_running_import() {
 }
 
 #[tokio::test]
+async fn mcp_legacy_import_runs_once_for_a_scope_and_directory() {
+    let ctx = crate::core::runtime::DispatchCtx::host_default();
+    let dir = std::path::PathBuf::from("/import-once/mcp");
+    let runs = std::sync::atomic::AtomicUsize::new(0);
+    for _ in 0..2 {
+        import_legacy_mcp_with(&ctx, &dir, async {
+            runs.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(Done(true))
+        })
+        .await;
+    }
+    assert_eq!(
+        runs.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "the MCP marker and migration should be consulted once per scope and directory"
+    );
+}
+
+#[tokio::test]
 async fn an_unsettled_outcome_and_a_cancelled_import_are_retried() {
     let ctx = crate::core::runtime::DispatchCtx::host_default();
     let dir = std::path::PathBuf::from("/import-once/retry");

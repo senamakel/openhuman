@@ -13,6 +13,21 @@ use crate::modules::types::ModuleState;
 use tinybus::module::Reason;
 use tinybus::module::{LoadError, Resolver};
 
+#[test]
+fn listing_module_status_builds_one_resolver_for_the_whole_registry() {
+    let builds = std::sync::atomic::AtomicUsize::new(0);
+    let statuses = ops::list_with(&Config::default(), |_| {
+        builds.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        ops::resolver(&Config::default())
+    });
+    assert_eq!(statuses.len(), registry::ALL.len());
+    assert_eq!(
+        builds.load(std::sync::atomic::Ordering::SeqCst),
+        1,
+        "modules.list should share one resolver across every record"
+    );
+}
+
 fn test_bundled_record() -> &'static crate::modules::types::ModuleRecord {
     use crate::modules::types::{LoadPolicy, ModuleRecord, PlatformAsset};
 

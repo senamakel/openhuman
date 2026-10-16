@@ -177,12 +177,29 @@ pub async fn import_legacy_mcp(
     data_dir: &std::path::Path,
 ) {
     #[cfg(feature = "modules")]
-    match storage_import_tinymcp::import_legacy(ctx, data_dir).await {
+    import_legacy_mcp_with(
+        ctx,
+        data_dir,
+        storage_import_tinymcp::import_legacy(ctx, data_dir),
+    )
+    .await;
+    #[cfg(not(feature = "modules"))]
+    let _ = (ctx, data_dir);
+}
+
+#[cfg(feature = "modules")]
+async fn import_legacy_mcp_with<F, T>(
+    _ctx: &crate::core::runtime::DispatchCtx,
+    _data_dir: &std::path::Path,
+    run: F,
+) where
+    F: std::future::Future<Output = anyhow::Result<T>>,
+    T: std::fmt::Debug + Settled,
+{
+    match run.await {
         Ok(outcome) => log::debug!("[mcp] legacy storage import: {outcome:?}"),
         Err(error) => log::warn!("[mcp] legacy storage import failed, will retry: {error:#}"),
     }
-    #[cfg(not(feature = "modules"))]
-    let _ = (ctx, data_dir);
 }
 
 /// What an importer's outcome says about whether it may be skipped next time.

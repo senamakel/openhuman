@@ -6,7 +6,10 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use serde_json::Value;
-use tinybus::BusName;
+use tinybus::{
+    BusName, Connection, InterfaceName, MatchRule, MemberName, ObjectPath, BUS_INTERFACE, BUS_NAME,
+    BUS_PATH,
+};
 use tinystoragedrivers::BlobReader;
 use tinystoragedrivers_bus::{BlobKeyRequest, BlobStreamHead, PutBlobStreamRequest, WatchChanged};
 use tinystoragedrivers_busproxy::{HostFailure, StorageCall, StorageEndpoint};
@@ -70,6 +73,13 @@ impl StorageHost {
             );
         }
         relays.get(sender).map(|relay| relay.tx.subscribe())
+    }
+
+    /// Drop the signals relay for a peer the broker has detached.
+    pub(super) fn release_relay(&self, sender: &BusName) {
+        if let Ok(mut relays) = self.relays.lock() {
+            relays.remove(sender);
+        }
     }
 
     /// Starts feeding `sender`'s relay from `binding`'s server, replacing a
@@ -202,4 +212,57 @@ impl StorageEndpoint for HostEndpoint {
     fn watch_signals(&self, sender: &BusName) -> Option<broadcast::Receiver<WatchChanged>> {
         self.host.watch_signals(sender)
     }
+}
+
+/// Removes caller relays when the broker reports their unique peer detached.
+/// Well-known-name releases from live peers do not match this predicate.
+pub(super) async fn watch_peer_detach(
+    connection: &Connection,
+    host: Arc<StorageHost>,
+) -> tinybus::Result<()> {
+    let mut rule = MatchRule::new()
+        .signals()
+        .sender(BusName::new(BUS_NAME)?)
+        .interface(InterfaceName::new(BUS_INTERFACE)?)
+        .member(MemberName::new("NameOwnerChanged")?);
+    rule.path = Some(ObjectPath::new(BUS_PATH)?);
+    let mut signals = connection.add_match(rule).await?;
+    let connection = connection.clone();
+    tokio::spawn(async move {
+        loop {
+            match signals.recv().await {
+                Ok(signal) => {
+                    let Ok((name, old_owner, new_owner)) = serde_json::from_value::<(
+                        BusName,
+                        Option<BusName>,
+                        Option<BusName>,
+                    )>(signal.body)
+                    else {
+                        tracing::warn!(
+                            target: "storage_host",
+                            "[storage-host] ignored malformed name-owner notification"
+                        );
+                        continue;
+                    };
+                    if name.is_unique() && old_owner.as_ref() == Some(&name) && new_owner.is_none() {
+                        host.release_relay(&name);
+                    }
+                }
+                Err(broadcast::error::RecvError::Lagged(missed)) => {
+                    tracing::warn!(
+                        target: "storage_host",
+                        missed,
+                        "[storage-host] peer-detach notifications lagged"
+                    );
+                    if let Ok(names) = connection.list_names().await {
+                        if let Ok(mut relays) = host.relays.lock() {
+                            relays.retain(|peer, _| names.contains(peer));
+                        }
+                    }
+                }
+                Err(broadcast::error::RecvError::Closed) => return,
+            }
+        }
+    });
+    Ok(())
 }

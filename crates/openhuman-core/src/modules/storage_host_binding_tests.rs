@@ -103,12 +103,21 @@ async fn an_unknown_sender_does_not_leave_a_negative_peer_cache_entry() {
         keys_ready: AtomicBool::new(true),
     });
     let host = StorageHost::new(
-        Arc::new(CountingDirectory { calls: AtomicUsize::new(0) }),
+        Arc::new(CountingDirectory {
+            calls: AtomicUsize::new(0),
+        }),
         env as Arc<dyn Environment>,
         Arc::new(Trail::default()),
     );
     assert_eq!(
-        host.handle(Object::Documents, "Get", get("notes", "x"), Some(&stranger()), Admission::Private).await,
+        host.handle(
+            Object::Documents,
+            "Get",
+            get("notes", "x"),
+            Some(&stranger()),
+            Admission::Private
+        )
+        .await,
         denied("unknown-caller"),
     );
     assert!(host.peer_modules.lock().unwrap().is_empty());

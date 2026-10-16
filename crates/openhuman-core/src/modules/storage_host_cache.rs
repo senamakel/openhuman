@@ -61,7 +61,11 @@ impl StorageHost {
                 .peer_modules
                 .lock()
                 .ok()
-                .and_then(|peers| peers.get(sender).map(|current| Arc::ptr_eq(current, &entry)))
+                .and_then(|peers| {
+                    peers
+                        .get(sender)
+                        .map(|current| Arc::ptr_eq(current, &entry))
+                })
                 .unwrap_or(false);
             return still_live_entry.then(|| module.clone());
         }

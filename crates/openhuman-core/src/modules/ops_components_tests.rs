@@ -43,6 +43,32 @@ fn disabled_lib_stems_cover_only_disabled_modules() {
     assert!(disabled_lib_stems(&Config::default()).is_empty());
 }
 
+#[test]
+fn disabled_lib_stems_cover_every_registry_artifact_name() {
+    for record in registry::ALL {
+        let Some(component) = registry::component_for(record.id) else {
+            continue;
+        };
+        let mut config = Config::default();
+        assert!(config.components.set(component, false));
+
+        let stems = disabled_lib_stems(&config);
+        let id = record.id;
+        let source_name = record.source.lib_name;
+        for expected in [
+            format!("{id}_module"),
+            format!("lib{id}_module"),
+            source_name.to_string(),
+            format!("lib{source_name}"),
+        ] {
+            assert!(
+                stems.contains(&expected),
+                "disabled module {id} is missing search-path stem {expected}"
+            );
+        }
+    }
+}
+
 #[cfg(feature = "web3")]
 #[tokio::test]
 async fn a_disabled_wallet_never_loads_the_tinywallet_module() {

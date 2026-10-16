@@ -79,43 +79,70 @@ async fn ensure_native_wallet(
     if active.as_ref().is_some_and(|service| {
         service_requires_replacement(service, &workspace, &configuration, &accounts)
     }) {
-        if let Some(service) = active.as_ref() {
-            close_native_wallet(config, service).await?;
-        }
-        *active = None;
+        replace_service_with(
+            active,
+            |service| async move { close_native_wallet(config, service).await },
+            |service| super::wallet_host::clear_endpoint_references(&service.response.service.handle),
+            || async {
+                let response: NativeWalletConfigResponse = wallet::call(
+                    config,
+                    methods::NATIVE_WALLET_CONFIGURE,
+                    configuration.clone(),
+                )
+                .await?;
+                if let Err(error) = super::wallet_host::bind_endpoint_references(
+                    &response.service.handle,
+                    &response.endpoint_references,
+                ) {
+                    let _ = wallet::call::<_, ()>(
+                        config,
+                        methods::NATIVE_WALLET_CLOSE,
+                        NativeWalletCloseRequest { service: response.service.clone() },
+                    ).await;
+                    return Err(WalletCallError::Failed(error));
+                }
+                Ok(NativeWalletService {
+                    config: config.clone(), workspace: workspace.clone(),
+                    configuration: configuration.clone(), accounts: accounts.clone(),
+                    response, prepared_quotes: HashMap::new(),
+                })
+            },
+        ).await?;
     }
 
     if active.is_none() {
-        let response: NativeWalletConfigResponse = wallet::call(
-            config,
-            methods::NATIVE_WALLET_CONFIGURE,
-            configuration.clone(),
-        )
-        .await?;
-        if let Err(error) = super::wallet_host::bind_endpoint_references(
-            &response.service.handle,
-            &response.endpoint_references,
-        ) {
-            let _ = wallet::call::<_, ()>(
-                config,
-                methods::NATIVE_WALLET_CLOSE,
-                NativeWalletCloseRequest {
-                    service: response.service.clone(),
-                },
-            )
-            .await;
+        let response: NativeWalletConfigResponse = wallet::call(config, methods::NATIVE_WALLET_CONFIGURE, configuration.clone()).await?;
+        if let Err(error) = super::wallet_host::bind_endpoint_references(&response.service.handle, &response.endpoint_references) {
+            let _ = wallet::call::<_, ()>(config, methods::NATIVE_WALLET_CLOSE, NativeWalletCloseRequest { service: response.service.clone() }).await;
             return Err(WalletCallError::Failed(error));
         }
-        *active = Some(NativeWalletService {
-            config: config.clone(),
-            workspace,
-            configuration,
-            accounts,
-            response,
-            prepared_quotes: HashMap::new(),
-        });
+        *active = Some(NativeWalletService { config: config.clone(), workspace, configuration, accounts, response, prepared_quotes: HashMap::new() });
         register_native_wallet_shutdown_hook();
     }
+    Ok(())
+}
+
+async fn replace_service_with<C, CFut, Clear, Open, OFut>(
+    active: &mut Option<NativeWalletService>,
+    close: C,
+    clear: Clear,
+    open: Open,
+) -> Result<(), WalletCallError>
+where
+    C: FnOnce(&NativeWalletService) -> CFut,
+    CFut: Future<Output = Result<(), WalletCallError>>,
+    Clear: FnOnce(&NativeWalletService),
+    Open: FnOnce() -> OFut,
+    OFut: Future<Output = Result<NativeWalletService, WalletCallError>>,
+{
+    if let Some(old) = active.take() {
+        if close(&old).await.is_err() {
+            tracing::warn!("[modules:wallet] failed to close stale native wallet service during replacement");
+        }
+        clear(&old);
+        drop(old);
+    }
+    *active = Some(open().await?);
     Ok(())
 }
 

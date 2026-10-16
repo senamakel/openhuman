@@ -31,6 +31,37 @@ fn service() -> NativeWalletService {
     }
 }
 
+#[tokio::test]
+async fn stale_wallet_close_failure_still_opens_and_installs_replacement() {
+    let mut active = Some(service());
+    let close_calls = Arc::new(AtomicUsize::new(0));
+    let open_calls = Arc::new(AtomicUsize::new(0));
+    let closes = close_calls.clone();
+    let opens = open_calls.clone();
+
+    replace_service_with(
+        &mut active,
+        move |_| async move {
+            closes.fetch_add(1, Ordering::SeqCst);
+            Err(WalletCallError::Failed("opaque close details".into()))
+        },
+        |_| {},
+        move || async move {
+            opens.fetch_add(1, Ordering::SeqCst);
+            let mut replacement = service();
+            replacement.response.service.handle = "replacement-handle".into();
+            Ok(replacement)
+        },
+    )
+    .await
+    .expect("replacement open should determine the result");
+
+    assert_eq!(close_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(open_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(active.as_ref().unwrap().response.service.handle, "replacement-handle");
+    assert!(active.as_ref().unwrap().prepared_quotes.is_empty());
+}
+
 #[test]
 fn shutdown_hook_guard_allows_registration_after_hooks_are_drained() {
     let registered = AtomicBool::new(false);
@@ -43,7 +74,7 @@ fn shutdown_hook_guard_allows_registration_after_hooks_are_drained() {
 }
 
 #[tokio::test]
-async fn failed_close_discards_service_and_releases_user_state() {
+async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() {
     let _rpc_env = crate::web3::wallet::test_support::UnreachableRpcGuard::set();
     let mut active = Some(service());
     active
@@ -99,11 +130,8 @@ async fn failed_close_discards_service_and_releases_user_state() {
     .expect_err("an unacknowledged close must remain retryable");
 
     assert_eq!(close_calls.load(Ordering::SeqCst), 1);
-    assert!(active.is_none(), "failed close must discard stale service state");
-    assert!(
-        !super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
-        "failed close must release endpoint aliases"
-    );
+    assert!(active.as_ref().is_some_and(|service| service.prepared_quotes.contains_key("old-user-quote")), "failed close must retain the service quote state");
+    assert!(super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"), "failed close must retain aliases needed for retry");
 
     let observed_calls = close_calls.clone();
     close_active_native_wallet_with(&mut active, move |request| async move {
@@ -114,7 +142,7 @@ async fn failed_close_discards_service_and_releases_user_state() {
     .await
     .expect("successful retry should release the service");
 
-    assert_eq!(close_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(close_calls.load(Ordering::SeqCst), 2);
     assert!(active.is_none(), "the cached quote set must be released");
     assert!(
         !super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
@@ -128,7 +156,7 @@ async fn failed_close_discards_service_and_releases_user_state() {
     })
     .await
     .expect("closing an already-empty service is a no-op");
-    assert_eq!(close_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(close_calls.load(Ordering::SeqCst), 2);
 }
 
 #[test]

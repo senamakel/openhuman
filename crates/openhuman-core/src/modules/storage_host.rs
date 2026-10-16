@@ -413,7 +413,6 @@ impl StorageHost {
             }
         }
     }
-
 }
 
 /// A call that passed identification, with what answering it needs.

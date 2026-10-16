@@ -124,11 +124,7 @@ impl StorageHost {
 
     /// Builds outside the shared lock, then publishes only if this backend is
     /// still installed. Concurrent builders reuse the first completed binding.
-    pub(super) async fn bind(
-        &self,
-        module: &str,
-        scope: Scope,
-    ) -> Result<Arc<Binding>, BindError> {
+    pub(super) async fn bind(&self, module: &str, scope: Scope) -> Result<Arc<Binding>, BindError> {
         let key = (module.to_string(), scope.as_str().to_string());
         loop {
             let backend = self.environment.backend().ok_or(BindError::NoBackend)?;
@@ -137,7 +133,9 @@ impl StorageHost {
                     return Ok(Arc::clone(existing));
                 }
             }
-            let built = self.build_binding(module, scope.clone(), Arc::clone(&backend)).await?;
+            let built = self
+                .build_binding(module, scope.clone(), Arc::clone(&backend))
+                .await?;
 
             let mut bindings = self.bindings.lock().await;
             if let Some(existing) = bindings.get(&key) {
@@ -228,4 +226,3 @@ impl StorageHost {
         }))
     }
 }
-

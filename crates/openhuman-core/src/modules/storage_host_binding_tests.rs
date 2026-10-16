@@ -60,13 +60,35 @@ async fn a_detach_invalidates_the_sender_identity_cache() {
         fences: Mutex::new(None),
         keys_ready: AtomicBool::new(true),
     });
-    let directory = Arc::new(CountingDirectory { calls: AtomicUsize::new(0) });
-    let host = StorageHost::new(directory.clone(), env as Arc<dyn Environment>, Arc::new(Trail::default()));
+    let directory = Arc::new(CountingDirectory {
+        calls: AtomicUsize::new(0),
+    });
+    let host = StorageHost::new(
+        directory.clone(),
+        env as Arc<dyn Environment>,
+        Arc::new(Trail::default()),
+    );
     for _ in 0..2 {
-        host.handle(Object::Documents, "Get", get("notes", "x"), Some(&alpha()), Admission::Private).await.unwrap();
+        host.handle(
+            Object::Documents,
+            "Get",
+            get("notes", "x"),
+            Some(&alpha()),
+            Admission::Private,
+        )
+        .await
+        .unwrap();
     }
     host.release_peer(&alpha());
-    host.handle(Object::Documents, "Get", get("notes", "x"), Some(&alpha()), Admission::Private).await.unwrap();
+    host.handle(
+        Object::Documents,
+        "Get",
+        get("notes", "x"),
+        Some(&alpha()),
+        Admission::Private,
+    )
+    .await
+    .unwrap();
     assert_eq!(directory.calls.load(Ordering::SeqCst), 2);
 }
 
@@ -89,7 +111,10 @@ async fn an_owner_lookup_finishing_after_detach_cannot_restore_peer_state() {
     let entered = Arc::new(Notify::new());
     let release = Arc::new(Notify::new());
     let host = Arc::new(StorageHost::new(
-        Arc::new(DelayedDirectory { entered: entered.clone(), release: release.clone() }),
+        Arc::new(DelayedDirectory {
+            entered: entered.clone(),
+            release: release.clone(),
+        }),
         Arc::new(Env {
             backend: Mutex::new(Some(Arc::new(MemoryStorage::new()))),
             profile: Mutex::new(None),
@@ -103,7 +128,9 @@ async fn an_owner_lookup_finishing_after_detach_cannot_restore_peer_state() {
         let host = Arc::clone(&host);
         tokio::spawn(async move { host.module_for(&alpha()).await })
     };
-    tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified())
+        .await
+        .unwrap();
     host.release_peer(&alpha());
     release.notify_one();
     assert_eq!(resolving.await.unwrap(), None);
@@ -169,12 +196,19 @@ struct BlockingStorage {
 }
 
 impl StorageBackend for BlockingStorage {
-    fn driver(&self) -> &'static str { "memory" }
-    fn capabilities(&self) -> tinystoragedrivers::Capabilities { self.inner.capabilities() }
+    fn driver(&self) -> &'static str {
+        "memory"
+    }
+    fn capabilities(&self) -> tinystoragedrivers::Capabilities {
+        self.inner.capabilities()
+    }
     fn database(&self, name: &str) -> tinystoragedrivers::Result<Arc<dyn StorageBackend>> {
         self.inner.database(name)
     }
-    fn for_scope(&self, scope: &Scope) -> tinystoragedrivers::Result<tinystoragedrivers::ScopedStorage> {
+    fn for_scope(
+        &self,
+        scope: &Scope,
+    ) -> tinystoragedrivers::Result<tinystoragedrivers::ScopedStorage> {
         let scoped = self.inner.for_scope(scope)?;
         Ok(tinystoragedrivers::ScopedStorage::new(
             scope.clone(),
@@ -201,24 +235,86 @@ struct BlockingDocuments {
 
 #[async_trait]
 impl tinystoragedrivers::DocumentStore for BlockingDocuments {
-    fn capabilities(&self) -> tinystoragedrivers::Capabilities { self.inner.capabilities() }
-    async fn ensure_collection(&self, spec: &tinystoragedrivers::CollectionSpec) -> tinystoragedrivers::Result<()> {
+    fn capabilities(&self) -> tinystoragedrivers::Capabilities {
+        self.inner.capabilities()
+    }
+    async fn ensure_collection(
+        &self,
+        spec: &tinystoragedrivers::CollectionSpec,
+    ) -> tinystoragedrivers::Result<()> {
         if self.blocked {
             self.entered.notify_one();
             self.release.notified().await;
         }
         self.inner.ensure_collection(spec).await
     }
-    async fn get(&self, c: &str, id: &str) -> tinystoragedrivers::Result<Option<tinystoragedrivers::Versioned<Value>>> { self.inner.get(c, id).await }
-    async fn put(&self, c: &str, id: &str, doc: Value, p: tinystoragedrivers::Precondition) -> tinystoragedrivers::Result<tinystoragedrivers::Version> { self.inner.put(c, id, doc, p).await }
-    async fn delete(&self, c: &str, id: &str, p: tinystoragedrivers::Precondition) -> tinystoragedrivers::Result<bool> { self.inner.delete(c, id, p).await }
-    async fn query(&self, c: &str, q: &tinystoragedrivers::Query) -> tinystoragedrivers::Result<tinystoragedrivers::Page<tinystoragedrivers::Versioned<Value>>> { self.inner.query(c, q).await }
-    async fn count(&self, c: &str, f: &tinystoragedrivers::Filter) -> tinystoragedrivers::Result<u64> { self.inner.count(c, f).await }
-    async fn delete_where(&self, c: &str, f: &tinystoragedrivers::Filter) -> tinystoragedrivers::Result<u64> { self.inner.delete_where(c, f).await }
-    async fn claim(&self, c: &str, f: &tinystoragedrivers::Filter, s: &[tinystoragedrivers::Sort], p: &Value) -> tinystoragedrivers::Result<Option<tinystoragedrivers::Versioned<Value>>> { self.inner.claim(c, f, s, p).await }
-    async fn drop_collection(&self, c: &str) -> tinystoragedrivers::Result<()> { self.inner.drop_collection(c).await }
-    async fn collections(&self, p: &str) -> tinystoragedrivers::Result<Vec<String>> { self.inner.collections(p).await }
-    async fn atomic_batch(&self, ops: Vec<tinystoragedrivers::WriteOp>) -> tinystoragedrivers::Result<Vec<tinystoragedrivers::WriteResult>> { self.inner.atomic_batch(ops).await }
+    async fn get(
+        &self,
+        c: &str,
+        id: &str,
+    ) -> tinystoragedrivers::Result<Option<tinystoragedrivers::Versioned<Value>>> {
+        self.inner.get(c, id).await
+    }
+    async fn put(
+        &self,
+        c: &str,
+        id: &str,
+        doc: Value,
+        p: tinystoragedrivers::Precondition,
+    ) -> tinystoragedrivers::Result<tinystoragedrivers::Version> {
+        self.inner.put(c, id, doc, p).await
+    }
+    async fn delete(
+        &self,
+        c: &str,
+        id: &str,
+        p: tinystoragedrivers::Precondition,
+    ) -> tinystoragedrivers::Result<bool> {
+        self.inner.delete(c, id, p).await
+    }
+    async fn query(
+        &self,
+        c: &str,
+        q: &tinystoragedrivers::Query,
+    ) -> tinystoragedrivers::Result<tinystoragedrivers::Page<tinystoragedrivers::Versioned<Value>>>
+    {
+        self.inner.query(c, q).await
+    }
+    async fn count(
+        &self,
+        c: &str,
+        f: &tinystoragedrivers::Filter,
+    ) -> tinystoragedrivers::Result<u64> {
+        self.inner.count(c, f).await
+    }
+    async fn delete_where(
+        &self,
+        c: &str,
+        f: &tinystoragedrivers::Filter,
+    ) -> tinystoragedrivers::Result<u64> {
+        self.inner.delete_where(c, f).await
+    }
+    async fn claim(
+        &self,
+        c: &str,
+        f: &tinystoragedrivers::Filter,
+        s: &[tinystoragedrivers::Sort],
+        p: &Value,
+    ) -> tinystoragedrivers::Result<Option<tinystoragedrivers::Versioned<Value>>> {
+        self.inner.claim(c, f, s, p).await
+    }
+    async fn drop_collection(&self, c: &str) -> tinystoragedrivers::Result<()> {
+        self.inner.drop_collection(c).await
+    }
+    async fn collections(&self, p: &str) -> tinystoragedrivers::Result<Vec<String>> {
+        self.inner.collections(p).await
+    }
+    async fn atomic_batch(
+        &self,
+        ops: Vec<tinystoragedrivers::WriteOp>,
+    ) -> tinystoragedrivers::Result<Vec<tinystoragedrivers::WriteResult>> {
+        self.inner.atomic_batch(ops).await
+    }
 }
 
 #[tokio::test]
@@ -249,7 +345,15 @@ async fn one_module_binding_does_not_block_another_modules_first_call() {
 
     let alpha_host = Arc::clone(&host);
     let alpha_call = tokio::spawn(async move {
-        alpha_host.handle(Object::Documents, "Get", get("notes", "x"), Some(&alpha()), Admission::Private).await
+        alpha_host
+            .handle(
+                Object::Documents,
+                "Get",
+                get("notes", "x"),
+                Some(&alpha()),
+                Admission::Private,
+            )
+            .await
     });
     tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified())
         .await
@@ -257,7 +361,15 @@ async fn one_module_binding_does_not_block_another_modules_first_call() {
 
     let beta_host = Arc::clone(&host);
     let beta_call = tokio::spawn(async move {
-        beta_host.handle(Object::Documents, "Get", get("other", "x"), Some(&beta()), Admission::Private).await
+        beta_host
+            .handle(
+                Object::Documents,
+                "Get",
+                get("other", "x"),
+                Some(&beta()),
+                Admission::Private,
+            )
+            .await
     });
     let beta_result = tokio::time::timeout(std::time::Duration::from_secs(5), beta_call)
         .await
@@ -295,14 +407,22 @@ async fn a_slow_old_backend_cannot_replace_a_new_backend_binding() {
         let scope = scope.clone();
         tokio::spawn(async move { host.bind("alpha", scope).await })
     };
-    tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
+    tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified())
+        .await
+        .unwrap();
     let new_backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
     *env.backend.lock().unwrap() = Some(Arc::clone(&new_backend));
     host.bind("alpha", scope.clone()).await.unwrap();
     release.notify_one();
     let _ = first.await.unwrap().unwrap();
     let bindings = host.bindings.lock().await;
-    assert!(Arc::ptr_eq(&bindings.get(&("alpha".into(), scope.as_str().into())).unwrap().backend, &new_backend));
+    assert!(Arc::ptr_eq(
+        &bindings
+            .get(&("alpha".into(), scope.as_str().into()))
+            .unwrap()
+            .backend,
+        &new_backend
+    ));
 }
 
 #[tokio::test]
@@ -337,7 +457,10 @@ async fn replacing_a_binding_at_capacity_does_not_require_an_eviction() {
     let bindings = host.bindings.lock().await;
     assert_eq!(bindings.len(), 256);
     assert!(Arc::ptr_eq(
-        &bindings.get(&("alpha".into(), scopes[0].as_str().into())).unwrap().backend,
+        &bindings
+            .get(&("alpha".into(), scopes[0].as_str().into()))
+            .unwrap()
+            .backend,
         &new_backend,
     ));
     drop(active);

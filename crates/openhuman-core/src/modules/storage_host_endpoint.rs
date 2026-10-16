@@ -188,6 +188,7 @@ impl StorageEndpoint for HostEndpoint {
         let host = Arc::clone(&self.host);
         let (object, request, admission) = (call.object, call.request, call.admission);
         let selector = call.selector.to_string();
+        let is_watch_open = selector == "WatchOpen";
         let sender = call.sender.cloned();
         let sender_for_liveness = sender.clone();
         let result = self
@@ -196,7 +197,7 @@ impl StorageEndpoint for HostEndpoint {
                     .await
             })
             .await;
-        if selector == "WatchOpen" {
+        if is_watch_open {
             if let Some(sender) = sender_for_liveness {
                 // The bus dispatches calls concurrently with signals. A queued
                 // WatchOpen can reach this endpoint after its detach signal

@@ -192,10 +192,10 @@ impl StorageEndpoint for HostEndpoint {
         let sender_for_liveness = sender.clone();
         let result = self
             .on_host(async move {
-            host.handle(object, &selector, request, sender.as_ref(), admission)
-                .await
-        })
-        .await;
+                host.handle(object, &selector, request, sender.as_ref(), admission)
+                    .await
+            })
+            .await;
         if selector == "WatchOpen" {
             if let Some(sender) = sender_for_liveness {
                 // The bus dispatches calls concurrently with signals. A queued

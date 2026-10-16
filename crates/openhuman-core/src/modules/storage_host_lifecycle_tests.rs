@@ -11,9 +11,9 @@ impl CallerDirectory for EveryBusPeerIsAlpha {
 
 #[tokio::test]
 async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
+    use tinybus::Connection;
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
-    use tinybus::Connection;
     use tinystoragedrivers_busproxy::StorageCall;
 
     const DETACH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
@@ -36,11 +36,8 @@ async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
     super::super::endpoint::watch_peer_detach(&service, Arc::clone(&host))
         .await
         .unwrap();
-    let endpoint = super::super::endpoint::HostEndpoint::new(
-        Arc::clone(&host),
-        service.clone(),
-        None,
-    );
+    let endpoint =
+        super::super::endpoint::HostEndpoint::new(Arc::clone(&host), service.clone(), None);
 
     // The busproxy asks synchronously for signals before dispatching WatchOpen.
     let _signals = endpoint.watch_signals(&sender).unwrap();

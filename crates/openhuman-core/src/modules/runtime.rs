@@ -77,6 +77,14 @@ pub async fn runtime() -> tinybus::Result<&'static ModuleRuntime> {
     Ok(runtime)
 }
 
+/// Return the module runtime only after its bus and host callbacks have been
+/// initialized. Status polling uses this instead of lazily starting services.
+pub fn existing() -> Option<&'static ModuleRuntime> {
+    let runtime = RUNTIME.get()?.as_ref().ok()?;
+    CALLBACKS.get()?.as_ref().ok()?;
+    Some(runtime)
+}
+
 /// Serve the host objects modules call back into, before any module loads.
 async fn install_callbacks(runtime: &'static ModuleRuntime) -> tinybus::Result<()> {
     let connection = runtime.connection();

@@ -23,8 +23,21 @@ use crate::security::credentials::session_support::{
     is_local_session_token, resolve_backend_credential, BackendCredential,
 };
 
+#[cfg(test)]
+thread_local! {
+    static PRIVATE_CONFIG_CREDENTIAL_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static FAKE_PRIVATE_CONFIG_CREDENTIALS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
+}
+
 /// A stored provider key, falling back to its environment variable.
 fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
+    #[cfg(test)]
+    {
+        PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
+        if FAKE_PRIVATE_CONFIG_CREDENTIALS.with(std::cell::Cell::get) {
+            return None;
+        }
+    }
     lookup_key_for_slug(slug, config)
         .ok()
         .filter(|key| !key.trim().is_empty())
@@ -34,10 +47,50 @@ fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
 /// The signed-in TinyHumans bearer, if any. The offline local token is not
 /// a backend credential.
 fn tinyhumans_bearer(config: &Config) -> Option<String> {
+    #[cfg(test)]
+    {
+        PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
+        if FAKE_PRIVATE_CONFIG_CREDENTIALS.with(std::cell::Cell::get) {
+            return None;
+        }
+    }
     resolve_backend_credential(config)
         .ok()
         .map(BackendCredential::into_secret)
         .filter(|token| !is_local_session_token(token))
+}
+
+#[cfg(test)]
+pub(super) fn reset_private_config_credential_lookups() {
+    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(0));
+}
+
+#[cfg(test)]
+pub(super) fn fake_private_config_credentials(enabled: bool) {
+    FAKE_PRIVATE_CONFIG_CREDENTIALS.with(|fake| fake.set(enabled));
+}
+
+#[cfg(test)]
+pub(super) struct FakePrivateConfigCredentialsGuard;
+
+#[cfg(test)]
+impl FakePrivateConfigCredentialsGuard {
+    pub(super) fn new() -> Self {
+        fake_private_config_credentials(true);
+        Self
+    }
+}
+
+#[cfg(test)]
+impl Drop for FakePrivateConfigCredentialsGuard {
+    fn drop(&mut self) {
+        fake_private_config_credentials(false);
+    }
+}
+
+#[cfg(test)]
+pub(super) fn private_config_credential_lookups() -> usize {
+    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(std::cell::Cell::get)
 }
 
 fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
@@ -69,6 +122,31 @@ fn jev(config: &Config, hosted: Option<&str>) -> Option<Value> {
 /// request timeout on a rescue (HTTP 504). A direct OpenRouter key keeps the
 /// module's defaults.
 pub const HOSTED_REASONING_MODEL: &str = "agentic-v1";
+
+/// Routes implied by the user's `[computer]` choices. These describe the
+/// configured model family, not whether credentials currently authorize a
+/// request; credential validation belongs to private module activation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ConfiguredRoutes {
+    pub decision: &'static str,
+    pub planner: &'static str,
+}
+
+/// Derive settings-page routes without reading credentials or environment.
+#[must_use]
+pub fn configured_routes(config: &Config) -> ConfiguredRoutes {
+    let decision = match config.computer.decision_model {
+        DecisionModel::Jev => "hosted",
+        DecisionModel::OpenJev => "open_jev",
+        DecisionModel::Sage => "sage",
+    };
+    ConfiguredRoutes {
+        decision,
+        // Planner and rescue use the configured hosted reasoning route by
+        // default; explicit model IDs tune the model, not its credentials.
+        planner: "hosted",
+    }
+}
 
 /// The `planner` configuration: the hosted route with the session's bearer
 /// when signed in, else the user's OpenRouter key; the user's chosen models,
@@ -170,18 +248,12 @@ pub fn module_config(config: &Config) -> Value {
     Value::Object(out)
 }
 
-/// Which account pays for TinyComputer's decisions, for the settings UI:
-/// `hosted` (TinyHumans credits), `direct_openrouter` (the user's key),
-/// `open_jev` or `sage` (their own keys), or `unavailable` (no credential).
+/// The decision route implied by the configured model family, for status UI.
+/// This is a settings hint and does not validate whether credentials authorize
+/// a request; activation performs that private validation.
 #[must_use]
 pub fn billing_route(config: &Config) -> &'static str {
-    match module_config(config)["jev"]["provider"].as_str() {
-        Some("tiny_humans_open_router") => "hosted",
-        Some("open_router") => "direct_openrouter",
-        Some("open_jev") => "open_jev",
-        Some("sage") => "sage",
-        _ => "unavailable",
-    }
+    configured_routes(config).decision
 }
 
 #[cfg(test)]

@@ -68,7 +68,20 @@ fn byok_host_uses_openrouter_for_both() {
     for role in ["model", "rescue_model", "output_model"] {
         assert!(value["planner"].get(role).is_none(), "{role}");
     }
-    assert_eq!(billing_route(&config), "direct_openrouter");
+    assert_eq!(billing_route(&config), "hosted");
+}
+
+#[test]
+fn configured_routes_follow_computer_model_without_reading_credentials() {
+    let dir = tempfile::tempdir().unwrap();
+    let mut config = config_in(dir.path());
+    config.computer.decision_model = DecisionModel::OpenJev;
+    config.computer.planner_model = Some("anthropic/claude-sonnet-5".into());
+
+    let routes = configured_routes(&config);
+
+    assert_eq!(routes.decision, "open_jev");
+    assert_eq!(routes.planner, "hosted");
 }
 
 #[test]

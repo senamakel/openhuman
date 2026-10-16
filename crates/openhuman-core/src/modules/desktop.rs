@@ -19,7 +19,9 @@ pub const MODULE_ID: &str = "tinycomputer";
 pub use super::computer_config::{billing_route, module_config};
 
 pub fn jev_ready(config: &Config) -> bool {
-    module_config(config)["jev"].is_object()
+    !super::computer_config::configured_routes(config)
+        .decision
+        .is_empty()
 }
 
 fn last_config() -> &'static tokio::sync::Mutex<Option<u64>> {
@@ -91,6 +93,23 @@ pub(crate) async fn proxy(config: &Config) -> Result<Proxy, String> {
     .await?;
     runtime
         .proxy(names::INTERFACE, names::OBJECT_PATH)
+        .map_err(|error| format!("TinyComputer module proxy unavailable: {error}"))
+}
+
+/// Access an already-loaded module without loading or refreshing its private
+/// configuration. Read-only status polling uses this to keep credentials and
+/// trace directories out of the polling path.
+pub(crate) async fn proxy_if_loaded() -> Result<Proxy, String> {
+    crate::modules::registry::find(MODULE_ID)
+        .ok_or_else(|| "TinyComputer module is not in the compiled registry".to_owned())?;
+    let runtime = crate::modules::runtime::existing()
+        .ok_or_else(|| "TinyComputer module runtime is not running".to_owned())?;
+    proxy_from_connection(runtime.connection())
+}
+
+fn proxy_from_connection(connection: &tinybus::Connection) -> Result<Proxy, String> {
+    connection
+        .proxy(names::INTERFACE, names::OBJECT_PATH, names::INTERFACE)
         .map_err(|error| format!("TinyComputer module proxy unavailable: {error}"))
 }
 

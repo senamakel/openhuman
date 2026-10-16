@@ -44,6 +44,7 @@ where
 {
     let mut previous = previous.lock().await;
     if *previous != Some(current) {
+        *previous = None;
         reinitialize().await?;
         *previous = Some(current);
     }

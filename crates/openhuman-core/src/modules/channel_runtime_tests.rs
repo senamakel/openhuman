@@ -214,6 +214,26 @@ async fn cleanup_retry_backoff_is_capped() {
     );
 }
 
+#[tokio::test]
+async fn a_hung_stop_call_is_bounded_by_its_attempt_deadline() {
+    let result = tokio::time::timeout(
+        Duration::from_secs(5),
+        retry_stop_with_timeout(
+            || std::future::pending(),
+            || false,
+            |_| std::future::ready(()),
+            Duration::from_millis(20),
+        ),
+    )
+    .await;
+
+    assert!(
+        result.is_ok(),
+        "a hung STOP call must not hold cleanup forever"
+    );
+    assert_eq!(result.unwrap(), STOP_MAX_ATTEMPTS);
+}
+
 pub(super) fn runtime_transport(
     client: &ModuleClient,
     runtime: &'static tinybus::module::ModuleRuntime,

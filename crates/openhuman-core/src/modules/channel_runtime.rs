@@ -19,6 +19,7 @@ const STOP_RETRY_DELAYS: [Duration; 3] = [
     Duration::from_secs(1),
 ];
 const STOP_MAX_ATTEMPTS: usize = STOP_RETRY_DELAYS.len() + 1;
+const STOP_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(30);
 
 /// Keeps a captured host adapter exported until the module acknowledges stop.
 #[derive(Clone)]
@@ -225,9 +226,25 @@ fn runtime_transport_real(
 }
 
 async fn retry_stop<Stop, StopFuture, IsFailed, Wait, WaitFuture>(
+    stop: Stop,
+    is_failed: IsFailed,
+    wait: Wait,
+) -> usize
+where
+    Stop: FnMut() -> StopFuture,
+    StopFuture: std::future::Future<Output = Result<(), ModuleCallError>>,
+    IsFailed: FnMut() -> bool,
+    Wait: FnMut(Duration) -> WaitFuture,
+    WaitFuture: std::future::Future<Output = ()>,
+{
+    retry_stop_with_timeout(stop, is_failed, wait, STOP_ATTEMPT_TIMEOUT).await
+}
+
+async fn retry_stop_with_timeout<Stop, StopFuture, IsFailed, Wait, WaitFuture>(
     mut stop: Stop,
     mut is_failed: IsFailed,
     mut wait: Wait,
+    _attempt_timeout: Duration,
 ) -> usize
 where
     Stop: FnMut() -> StopFuture,

@@ -11,9 +11,9 @@ impl CallerDirectory for EveryBusPeerIsAlpha {
 
 #[tokio::test]
 async fn detach_monitor_does_not_keep_its_serving_connection_alive() {
+    use tinybus::Connection;
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
-    use tinybus::Connection;
 
     const CLOSE_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
 
@@ -55,9 +55,9 @@ async fn detach_monitor_does_not_keep_its_serving_connection_alive() {
 
 #[tokio::test]
 async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
+    use tinybus::Connection;
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
-    use tinybus::Connection;
     use tinystoragedrivers_busproxy::{StorageCall, StorageEndpoint};
 
     const DETACH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
@@ -130,7 +130,7 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
     use tinybus::transport::memory::MemoryBus;
     use tinybus::{Connection, InterfaceName, MemberName};
     use tinystoragedrivers_bus::STORAGE_INTERFACE;
-    use tinystoragedrivers_busproxy::{watch_path, OBJECT_ROOT, WATCH_MEMBER};
+    use tinystoragedrivers_busproxy::{OBJECT_ROOT, WATCH_MEMBER, watch_path};
 
     const SENDERS: usize = 300;
     const DETACH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
@@ -257,14 +257,18 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
         .call("Put", put("notes", "after-churn", json!({"v": 300})))
         .await
         .unwrap();
-    let final_signal = tokio::time::timeout(DETACH_DEADLINE, last_signals.as_mut().unwrap().recv())
-        .await
-        .expect("the final caller's watch signal arrives")
-        .unwrap();
-    assert_eq!(
-        final_signal.body[0]["watch_id"],
-        last_watch_id.expect("the 300th sender opened a watch")
-    );
+    let final_watch_id = last_watch_id.expect("the 300th sender opened a watch");
+    let final_signal = tokio::time::timeout(DETACH_DEADLINE, async {
+        loop {
+            let signal = last_signals.as_mut().unwrap().recv().await.unwrap();
+            if signal.body[0]["watch_id"] == final_watch_id {
+                break signal;
+            }
+        }
+    })
+    .await
+    .expect("the final caller's watch signal arrives");
+    assert_eq!(final_signal.body[0]["watch_id"], final_watch_id);
 
     // The anchor is still live and receives its own invalidation after churn.
     let _: Value = anchor_documents

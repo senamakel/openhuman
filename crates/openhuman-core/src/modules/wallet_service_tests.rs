@@ -31,6 +31,40 @@ fn service() -> NativeWalletService {
     }
 }
 
+#[tokio::test]
+async fn stale_wallet_close_failure_still_opens_and_installs_replacement() {
+    let mut active = Some(service());
+    let close_calls = Arc::new(AtomicUsize::new(0));
+    let open_calls = Arc::new(AtomicUsize::new(0));
+    let closes = close_calls.clone();
+    let opens = open_calls.clone();
+
+    replace_service_with(
+        &mut active,
+        move |_| async move {
+            closes.fetch_add(1, Ordering::SeqCst);
+            Err(WalletCallError::Failed("opaque close details".into()))
+        },
+        |_| {},
+        move || async move {
+            opens.fetch_add(1, Ordering::SeqCst);
+            let mut replacement = service();
+            replacement.response.service.handle = "replacement-handle".into();
+            Ok(replacement)
+        },
+    )
+    .await
+    .expect("replacement open should determine the result");
+
+    assert_eq!(close_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(open_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(
+        active.as_ref().unwrap().response.service.handle,
+        "replacement-handle"
+    );
+    assert!(active.as_ref().unwrap().prepared_quotes.is_empty());
+}
+
 #[test]
 fn shutdown_hook_guard_allows_registration_after_hooks_are_drained() {
     let registered = AtomicBool::new(false);

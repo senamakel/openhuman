@@ -1,6 +1,7 @@
 //! User-scoped lifecycle for the module-owned x402 ledger.
 
 use crate::core::runtime::DispatchCtx;
+use std::future::Future;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
@@ -128,17 +129,16 @@ async fn ensure_service(
             || current.config.daily_max_atomic != budget.1
             || current.config.monthly_max_atomic != budget.2
     }) {
-        if let Some(current) = active.as_ref() {
-            wallet::call::<_, ()>(
-                config,
-                methods::X402_CLOSE,
-                X402CloseRequest {
-                    service: current.handle.clone(),
-                },
-            )
-            .await?;
-        }
-        *active = None;
+        replace_service_with(active,
+            |request| async move { wallet::call::<_, ()>(config, methods::X402_CLOSE, request).await },
+            || async {
+                if !super::import_legacy_x402(ctx, &workspace).await {
+                    return Err(WalletCallError::Unavailable("x402 legacy payment import failed; the service is not opened".to_string()));
+                }
+                let service_config = X402ConfigResponse { workspace_dir: workspace.display().to_string(), session_id: format!("x402-{}", uuid::Uuid::new_v4()), per_request_max_atomic: budget.0, daily_max_atomic: budget.1, monthly_max_atomic: budget.2 };
+                let handle: X402ServiceHandle = wallet::call(config, methods::X402_CONFIGURE, X402ConfigureRequest { config: service_config.clone() }).await?;
+                Ok(X402Service { workspace: workspace.clone(), accounts: accounts.clone(), config: service_config, handle })
+            }).await?;
     }
 
     if active.is_none() {
@@ -173,6 +173,32 @@ async fn ensure_service(
             handle,
         });
     }
+    Ok(())
+}
+
+async fn replace_service_with<C, CFut, Open, OFut>(
+    active: &mut Option<X402Service>,
+    close: C,
+    open: Open,
+) -> Result<(), WalletCallError>
+where
+    C: FnOnce(X402CloseRequest) -> CFut,
+    CFut: Future<Output = Result<(), WalletCallError>>,
+    Open: FnOnce() -> OFut,
+    OFut: Future<Output = Result<X402Service, WalletCallError>>,
+{
+    if let Some(old) = active.take() {
+        if close(X402CloseRequest {
+            service: old.handle.clone(),
+        })
+        .await
+        .is_err()
+        {
+            tracing::warn!("[modules:x402] failed to close stale service during replacement");
+        }
+        drop(old);
+    }
+    *active = Some(open().await?);
     Ok(())
 }
 

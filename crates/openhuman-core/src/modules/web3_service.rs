@@ -2,6 +2,7 @@
 
 use crate::core::runtime::DispatchCtx;
 use std::collections::HashMap;
+use std::future::Future;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::OnceLock;
@@ -52,18 +53,16 @@ async fn ensure_service(
             || current.accounts != accounts
             || current.configuration != configuration
     }) {
-        if let Some(current) = active.as_ref() {
-            wallet::call::<_, ()>(
-                config,
-                methods::WEB3_CLOSE,
-                Web3CloseRequest {
-                    service: current.response.service.clone(),
-                },
-            )
-            .await?;
-            wallet_host::clear_endpoint_references(&current.response.service.handle);
-        }
-        *active = None;
+        replace_service_with(active,
+            |request| async move { wallet::call::<_, ()>(config, methods::WEB3_CLOSE, request).await },
+            || async {
+                let response: Web3ConfigureResponse = wallet::call(config, methods::WEB3_CONFIGURE_WITH_ENDPOINTS, configuration.clone()).await?;
+                if let Err(error) = wallet_host::bind_endpoint_references(&response.service.handle, &response.endpoint_references) {
+                    let _ = wallet::call::<_, ()>(config, methods::WEB3_CLOSE, Web3CloseRequest { service: response.service.clone() }).await;
+                    return Err(wallet::WalletCallError::Failed(error));
+                }
+                Ok(Web3Service { workspace: workspace.clone(), accounts: accounts.clone(), configuration: configuration.clone(), response, quotes: HashMap::new() })
+            }).await?;
     }
     if active.is_none() {
         let response: Web3ConfigureResponse = wallet::call(
@@ -96,6 +95,38 @@ async fn ensure_service(
     }
     Ok(())
 }
+
+async fn replace_service_with<C, CFut, Open, OFut>(
+    active: &mut Option<Web3Service>,
+    close: C,
+    open: Open,
+) -> Result<(), wallet::WalletCallError>
+where
+    C: FnOnce(Web3CloseRequest) -> CFut,
+    CFut: Future<Output = Result<(), wallet::WalletCallError>>,
+    Open: FnOnce() -> OFut,
+    OFut: Future<Output = Result<Web3Service, wallet::WalletCallError>>,
+{
+    if let Some(old) = active.take() {
+        let handle = old.response.service.handle.clone();
+        if close(Web3CloseRequest {
+            service: old.response.service.clone(),
+        })
+        .await
+        .is_err()
+        {
+            tracing::warn!("[modules:web3] failed to close stale service during replacement");
+        }
+        wallet_host::clear_endpoint_references(&handle);
+        drop(old);
+    }
+    *active = Some(open().await?);
+    Ok(())
+}
+
+#[cfg(test)]
+#[path = "web3_service_tests.rs"]
+mod tests;
 
 /// The quote owner of a turn whose chat routing is `chat`: quotes are bound to
 /// the thread and client that prepared them, so another chat cannot execute

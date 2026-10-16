@@ -24,16 +24,21 @@ async fn status_does_not_build_private_config_or_touch_credentials_and_trace_dir
     config.secrets.encrypt = false;
     config.computer.trace = true;
     super::super::computer_config::reset_private_config_credential_lookups();
+    super::super::computer_config::fake_private_config_credentials(true);
 
     let _status = status(&config, false).await;
+    let credential_lookups =
+        super::super::computer_config::private_config_credential_lookups();
+    let trace_dir_exists = super::super::computer_config::trace_dir(&config).exists();
+    super::super::computer_config::fake_private_config_credentials(false);
 
     assert_eq!(
-        super::super::computer_config::private_config_credential_lookups(),
+        credential_lookups,
         0,
         "status must not resolve private module credentials"
     );
     assert!(
-        !super::super::computer_config::trace_dir(&config).exists(),
+        !trace_dir_exists,
         "status must not create the private trace directory"
     );
 }

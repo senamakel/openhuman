@@ -26,12 +26,18 @@ use crate::security::credentials::session_support::{
 #[cfg(test)]
 thread_local! {
     static PRIVATE_CONFIG_CREDENTIAL_LOOKUPS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+    static FAKE_PRIVATE_CONFIG_CREDENTIALS: std::cell::Cell<bool> = const { std::cell::Cell::new(false) };
 }
 
 /// A stored provider key, falling back to its environment variable.
 fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
     #[cfg(test)]
-    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
+    {
+        PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
+        if FAKE_PRIVATE_CONFIG_CREDENTIALS.with(std::cell::Cell::get) {
+            return None;
+        }
+    }
     lookup_key_for_slug(slug, config)
         .ok()
         .filter(|key| !key.trim().is_empty())
@@ -42,7 +48,12 @@ fn provider_key(config: &Config, slug: &str, env: &str) -> Option<String> {
 /// a backend credential.
 fn tinyhumans_bearer(config: &Config) -> Option<String> {
     #[cfg(test)]
-    PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
+    {
+        PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(count.get() + 1));
+        if FAKE_PRIVATE_CONFIG_CREDENTIALS.with(std::cell::Cell::get) {
+            return None;
+        }
+    }
     resolve_backend_credential(config)
         .ok()
         .map(BackendCredential::into_secret)
@@ -52,6 +63,11 @@ fn tinyhumans_bearer(config: &Config) -> Option<String> {
 #[cfg(test)]
 pub(super) fn reset_private_config_credential_lookups() {
     PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(0));
+}
+
+#[cfg(test)]
+pub(super) fn fake_private_config_credentials(enabled: bool) {
+    FAKE_PRIVATE_CONFIG_CREDENTIALS.with(|fake| fake.set(enabled));
 }
 
 #[cfg(test)]

@@ -118,23 +118,20 @@ async fn failed_module_stops_cleanup_retries() {
         sender,
     );
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let result = tokio::time::timeout(
-        Duration::from_secs(5),
-        retry_stop(
-            {
-                let attempts = attempts.clone();
-                move || {
-                    attempts.fetch_add(1, Ordering::SeqCst);
-                    async { Err(ModuleCallError::TransportFailed) }
-                }
-            },
-            || resolution_is_failed(&table.peek("channel-runtime-failed-fixture")),
-            |_| tokio::task::yield_now(),
-        ),
+    let result = retry_stop(
+        {
+            let attempts = attempts.clone();
+            move || {
+                attempts.fetch_add(1, Ordering::SeqCst);
+                async { Err(ModuleCallError::TransportFailed) }
+            }
+        },
+        || resolution_is_failed(&table.peek("channel-runtime-failed-fixture")),
+        |_| tokio::task::yield_now(),
     )
     .await;
 
-    assert!(result.is_ok(), "failed module cleanup must stop retrying");
+    assert_eq!(result, 0, "failed module cleanup must stop before STOP");
     assert_eq!(attempts.load(Ordering::SeqCst), 0);
 }
 

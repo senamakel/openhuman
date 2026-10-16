@@ -57,6 +57,20 @@ fn backend_key_is_selected_ahead_of_direct_openrouter_and_rotates_privately() {
     assert_eq!(module_config(&config), rotated);
 }
 
+#[test]
+fn jev_readiness_uses_configured_model_without_resolving_credentials() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let config = config_in(dir.path());
+    super::super::computer_config::reset_private_config_credential_lookups();
+    let _fake_credentials = super::super::computer_config::FakePrivateConfigCredentialsGuard::new();
+
+    assert!(jev_ready(&config));
+    assert_eq!(
+        super::super::computer_config::private_config_credential_lookups(),
+        0
+    );
+}
+
 #[tokio::test]
 async fn disabled_modules_refuse_calls_before_loading_or_reinitializing() {
     let dir = tempfile::tempdir().expect("tempdir");

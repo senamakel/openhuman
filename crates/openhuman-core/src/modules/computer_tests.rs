@@ -10,6 +10,8 @@ async fn status_without_load_reports_routes_and_skips_describe() {
     config.computer.decision_model = crate::config::DecisionModel::Sage;
     let status = status(&config, false).await;
     assert_eq!(status.decision_model, "sage");
+    assert_eq!(status.decision_route, "sage");
+    assert_eq!(status.planner_route, "hosted");
     assert!(status.module.is_some());
     assert!(status.capabilities.is_none());
     assert!(status.error.is_none());
@@ -24,8 +26,7 @@ async fn status_does_not_build_private_config_or_touch_credentials_and_trace_dir
     config.secrets.encrypt = false;
     config.computer.trace = true;
     super::super::computer_config::reset_private_config_credential_lookups();
-    let _fake_credentials =
-        super::super::computer_config::FakePrivateConfigCredentialsGuard::new();
+    let _fake_credentials = super::super::computer_config::FakePrivateConfigCredentialsGuard::new();
 
     let _status = status(&config, false).await;
     let observations = (

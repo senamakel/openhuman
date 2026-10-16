@@ -187,13 +187,15 @@ where
     Open: FnOnce() -> OFut,
     OFut: Future<Output = Result<X402Service, WalletCallError>>,
 {
-    if let Some(old) = active.as_ref() {
-        close(X402CloseRequest {
+    if let Some(old) = active.take() {
+        if close(X402CloseRequest {
             service: old.handle.clone(),
         })
-        .await?;
-    }
-    if let Some(old) = active.take() {
+        .await
+        .is_err()
+        {
+            tracing::warn!("[modules:x402] failed to close stale service during replacement");
+        }
         drop(old);
     }
     *active = Some(open().await?);

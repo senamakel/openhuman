@@ -107,14 +107,16 @@ where
     Open: FnOnce() -> OFut,
     OFut: Future<Output = Result<Web3Service, wallet::WalletCallError>>,
 {
-    if let Some(old) = active.as_ref() {
-        close(Web3CloseRequest {
-            service: old.response.service.clone(),
-        })
-        .await?;
-    }
     if let Some(old) = active.take() {
         let handle = old.response.service.handle.clone();
+        if close(Web3CloseRequest {
+            service: old.response.service.clone(),
+        })
+        .await
+        .is_err()
+        {
+            tracing::warn!("[modules:web3] failed to close stale service during replacement");
+        }
         wallet_host::clear_endpoint_references(&handle);
         drop(old);
     }

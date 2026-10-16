@@ -223,6 +223,7 @@ macro_rules! settled_outcome {
 
 #[cfg(feature = "modules")]
 settled_outcome!(
+    storage_import_tinymcp,
     storage_import_tinyconnectors,
     storage_import_tinybox,
     storage_import_tinyjuice

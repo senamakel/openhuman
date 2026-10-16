@@ -84,3 +84,24 @@ fn profile_claim_keeps_valid_success_and_module_failure_behavior() {
     );
     assert!(unwrap_response(serde_json::to_value(failure).unwrap()).is_none());
 }
+
+#[test]
+fn profile_claim_distinguishes_explicit_null_data_from_missing_data() {
+    let explicit_null = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-claim-profile",
+        "ok": true,
+        "data": null
+    });
+    assert_eq!(
+        unwrap_response(explicit_null),
+        Some(serde_json::Value::Null)
+    );
+
+    let missing = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-claim-profile",
+        "ok": true
+    });
+    assert_eq!(unwrap_response(missing), None);
+}

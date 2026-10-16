@@ -7,7 +7,7 @@ fn accepts_only_the_matching_version_and_exclusive_success_or_error_shape() {
         Ok(7)
     );
     assert_eq!(
-        decode(Some("2.5"), Some("2.5"), false, None, Some("denied")),
+        decode(Some("2.5"), Some("2.5"), false, None::<u8>, Some("denied"),),
         Err(EnvelopeError::Operation("denied"))
     );
     assert_eq!(

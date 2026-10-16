@@ -179,6 +179,27 @@ fn browser_keeps_valid_envelope_success_and_module_error_behavior() {
 }
 
 #[test]
+fn browser_distinguishes_explicit_null_data_from_missing_data() {
+    let explicit_null = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-close-session",
+        "ok": true,
+        "data": null
+    });
+    assert_eq!(
+        decode_response::<serde_json::Value>("CloseSession", explicit_null).unwrap(),
+        serde_json::Value::Null
+    );
+
+    let missing = serde_json::json!({
+        "version": tinycomputer_bus::ENVELOPE_VERSION,
+        "command": "browser-close-session",
+        "ok": true
+    });
+    assert!(decode_response::<serde_json::Value>("CloseSession", missing).is_err());
+}
+
+#[test]
 fn a_missing_chrome_tells_the_agent_where_the_user_sets_its_path() {
     let response: DesktopResponse = serde_json::from_value(serde_json::json!({
         "version": "2.5",

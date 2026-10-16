@@ -102,11 +102,14 @@ async fn a_failed_cleanup_can_be_retried_without_aborting_pending_work() {
 
 #[tokio::test]
 async fn failed_module_stops_cleanup_retries() {
-    use tinybus::module::resolution::{Resolution, ResolutionState, ResolutionTable};
+    use tinybus::module::resolution::{Resolution, ResolutionTable};
 
     let table = ResolutionTable::default();
     let (sender, _) = match table.claim("channel-runtime-failed-fixture") {
-        tinybus::module::resolution::Claim::Run { sender, receiver: _ } => (sender, ()),
+        tinybus::module::resolution::Claim::Run {
+            sender,
+            receiver: _,
+        } => (sender, ()),
         _ => unreachable!(),
     };
     table.complete(
@@ -125,7 +128,7 @@ async fn failed_module_stops_cleanup_retries() {
                     async { Err(ModuleCallError::TransportFailed) }
                 }
             },
-            || matches!(table.peek("channel-runtime-failed-fixture"), ResolutionState::Failed(_)),
+            || resolution_is_failed(&table.peek("channel-runtime-failed-fixture")),
             |_| tokio::task::yield_now(),
         ),
     )
@@ -138,22 +141,90 @@ async fn failed_module_stops_cleanup_retries() {
 #[tokio::test]
 async fn unresponsive_module_cleanup_has_a_bounded_retry_count() {
     let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
-    let retry = tokio::spawn(
-        retry_stop(
-            {
-                let attempts = attempts.clone();
-                move || {
-                    let count = attempts.fetch_add(1, Ordering::SeqCst) + 1;
-                    assert!(count <= 4, "cleanup exceeded the four-attempt cap");
-                    async { Err(ModuleCallError::TransportFailed) }
-                }
-            },
-            || false,
-            |_| std::future::ready(()),
-        ),
+    let retry = tokio::spawn(retry_stop(
+        {
+            let attempts = attempts.clone();
+            move || {
+                let count = attempts.fetch_add(1, Ordering::SeqCst) + 1;
+                assert!(count <= 4, "cleanup exceeded the four-attempt cap");
+                async { Err(ModuleCallError::TransportFailed) }
+            }
+        },
+        || false,
+        |_| std::future::ready(()),
+    ));
+    assert_eq!(
+        retry
+            .await
+            .expect("unresponsive cleanup must have a retry cap"),
+        4
     );
-    retry.await.expect("unresponsive cleanup must have a retry cap");
-    assert!(attempts.load(Ordering::SeqCst) <= 4);
+    assert_eq!(attempts.load(Ordering::SeqCst), 4);
+}
+
+#[tokio::test]
+async fn acknowledged_stop_finishes_without_backoff() {
+    let attempts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let delays = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let result = retry_stop(
+        {
+            let attempts = attempts.clone();
+            move || {
+                attempts.fetch_add(1, Ordering::SeqCst);
+                async { Ok(()) }
+            }
+        },
+        || false,
+        {
+            let delays = delays.clone();
+            move |delay| {
+                delays.lock().unwrap().push(delay);
+                std::future::ready(())
+            }
+        },
+    )
+    .await;
+
+    assert_eq!(result, 1);
+    assert_eq!(attempts.load(Ordering::SeqCst), 1);
+    assert!(delays.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn cleanup_retry_backoff_is_capped() {
+    let delays = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let result = retry_stop(
+        || async { Err(ModuleCallError::TransportFailed) },
+        || false,
+        {
+            let delays = delays.clone();
+            move |delay| {
+                delays.lock().unwrap().push(delay);
+                std::future::ready(())
+            }
+        },
+    )
+    .await;
+
+    assert_eq!(result, STOP_MAX_ATTEMPTS);
+    assert_eq!(
+        delays.lock().unwrap().as_slice(),
+        &[
+            Duration::from_millis(250),
+            Duration::from_millis(500),
+            Duration::from_secs(1),
+        ]
+    );
+}
+
+pub(super) fn runtime_transport(
+    client: &ModuleClient,
+    runtime: &'static tinybus::module::ModuleRuntime,
+) -> Result<(Connection, Proxy), ModuleCallError> {
+    if let Some(proxy) = client.fixture_proxy() {
+        return Ok((proxy.connection().clone(), proxy));
+    }
+    super::runtime_transport_real(runtime)
 }
 
 #[derive(Clone)]

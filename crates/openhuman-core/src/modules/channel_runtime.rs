@@ -81,12 +81,7 @@ impl Drop for LeaseState {
                     return;
                 }
             }
-            retry_stop(
-                || cleanup.run(),
-                channel_module_failed,
-                tokio::time::sleep,
-            )
-            .await;
+            retry_stop(|| cleanup.run(), channel_module_failed, tokio::time::sleep).await;
         });
     }
 }
@@ -142,12 +137,7 @@ impl ChannelRuntimeLease {
             Ok(object) => object,
             Err(error) => {
                 runtime.spawn(async move {
-                    retry_stop(
-                        || cleanup.run(),
-                        channel_module_failed,
-                        tokio::time::sleep,
-                    )
-                    .await;
+                    retry_stop(|| cleanup.run(), channel_module_failed, tokio::time::sleep).await;
                 });
                 return Err(error);
             }
@@ -263,8 +253,15 @@ where
 }
 
 fn channel_module_failed() -> bool {
+    let module_id = super::registry::find("tinychannels")
+        .expect("registered channel module")
+        .id;
+    resolution_is_failed(&tinybus::module::resolution::global().peek(module_id))
+}
+
+fn resolution_is_failed(state: &tinybus::module::resolution::ResolutionState) -> bool {
     matches!(
-        tinybus::module::resolution::global().peek("tinychannels"),
+        state,
         tinybus::module::resolution::ResolutionState::Failed(_)
     )
 }

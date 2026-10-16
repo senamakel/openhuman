@@ -58,7 +58,7 @@ async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
     use tinybus::broker::Broker;
     use tinybus::transport::memory::MemoryBus;
     use tinybus::Connection;
-    use tinystoragedrivers_busproxy::StorageCall;
+    use tinystoragedrivers_busproxy::{StorageCall, StorageEndpoint};
 
     const DETACH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
 

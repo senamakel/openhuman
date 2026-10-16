@@ -50,6 +50,117 @@ async fn repeated_calls_from_one_peer_resolve_its_module_once() {
     assert_eq!(directory.calls.load(Ordering::SeqCst), 1);
 }
 
+#[tokio::test]
+async fn a_detach_invalidates_the_sender_identity_cache() {
+    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let env = Arc::new(Env {
+        backend: Mutex::new(Some(backend)),
+        profile: Mutex::new(None),
+        grants: HashMap::from([("alpha", grant("notes"))]),
+        fences: Mutex::new(None),
+        keys_ready: AtomicBool::new(true),
+    });
+    let directory = Arc::new(CountingDirectory { calls: AtomicUsize::new(0) });
+    let host = StorageHost::new(directory.clone(), env as Arc<dyn Environment>, Arc::new(Trail::default()));
+    for _ in 0..2 {
+        host.handle(Object::Documents, "Get", get("notes", "x"), Some(&alpha()), Admission::Private).await.unwrap();
+    }
+    host.release_peer(&alpha());
+    host.handle(Object::Documents, "Get", get("notes", "x"), Some(&alpha()), Admission::Private).await.unwrap();
+    assert_eq!(directory.calls.load(Ordering::SeqCst), 2);
+}
+
+struct DelayedDirectory {
+    entered: Arc<Notify>,
+    release: Arc<Notify>,
+}
+
+#[async_trait]
+impl CallerDirectory for DelayedDirectory {
+    async fn module_for(&self, _sender: &BusName) -> Option<String> {
+        self.entered.notify_one();
+        self.release.notified().await;
+        Some("alpha".into())
+    }
+}
+
+#[tokio::test]
+async fn an_owner_lookup_finishing_after_detach_cannot_restore_peer_state() {
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let host = Arc::new(StorageHost::new(
+        Arc::new(DelayedDirectory { entered: entered.clone(), release: release.clone() }),
+        Arc::new(Env {
+            backend: Mutex::new(Some(Arc::new(MemoryStorage::new()))),
+            profile: Mutex::new(None),
+            grants: HashMap::from([("alpha", grant("notes"))]),
+            fences: Mutex::new(None),
+            keys_ready: AtomicBool::new(true),
+        }),
+        Arc::new(Trail::default()),
+    ));
+    let resolving = {
+        let host = Arc::clone(&host);
+        tokio::spawn(async move { host.module_for(&alpha()).await })
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
+    host.release_peer(&alpha());
+    release.notify_one();
+    assert_eq!(resolving.await.unwrap(), None);
+    assert!(!host.peer_modules.lock().unwrap().contains_key(&alpha()));
+}
+
+struct EveryPeerIsAlpha;
+
+#[async_trait]
+impl CallerDirectory for EveryPeerIsAlpha {
+    async fn module_for(&self, sender: &BusName) -> Option<String> {
+        sender.is_unique().then(|| "alpha".to_owned())
+    }
+}
+
+#[tokio::test]
+async fn detaching_one_peer_preserves_another_peers_shared_watch_binding() {
+    let rig = rig();
+    let host = StorageHost::new(
+        Arc::new(EveryPeerIsAlpha),
+        Arc::clone(&rig.env) as Arc<dyn Environment>,
+        Arc::clone(&rig.trail) as Arc<dyn AuditSink>,
+    );
+    let first = alpha();
+    let second = beta();
+    let mut first_signals = host.watch_signals(&first).unwrap();
+    let mut second_signals = host.watch_signals(&second).unwrap();
+    let watch = |sender: &BusName| {
+        host.handle(
+            Object::Documents,
+            "WatchOpen",
+            json!({"collection":"notes","filter":{"op":"all"},"interval_ms":20}),
+            Some(sender),
+            Admission::Private,
+        )
+    };
+    let _first_watch = watch(&first).await.unwrap();
+    let second_watch = watch(&second).await.unwrap();
+    let second_watch_id = second_watch["watch_id"].as_str().unwrap();
+    host.release_peer(&first);
+    host.handle(
+        Object::Documents,
+        "Put",
+        put("notes", "after-detach", json!({"v": 1})),
+        Some(&second),
+        Admission::Private,
+    )
+    .await
+    .unwrap();
+    let signal = tokio::time::timeout(std::time::Duration::from_secs(5), second_signals.recv())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(signal.watch_id, second_watch_id);
+    assert!(first_signals.try_recv().is_err());
+}
+
 /// Holds alpha's schema preparation until the test releases it.
 #[derive(Debug)]
 struct BlockingStorage {
@@ -156,4 +267,41 @@ async fn one_module_binding_does_not_block_another_modules_first_call() {
     assert!(beta_result.is_ok());
     release.notify_one();
     assert!(alpha_call.await.unwrap().is_ok());
+}
+
+#[tokio::test]
+async fn a_slow_old_backend_cannot_replace_a_new_backend_binding() {
+    let entered = Arc::new(Notify::new());
+    let release = Arc::new(Notify::new());
+    let old_backend: Arc<dyn StorageBackend> = Arc::new(BlockingStorage {
+        inner: MemoryStorage::new(),
+        entered: entered.clone(),
+        release: release.clone(),
+    });
+    let env = Arc::new(Env {
+        backend: Mutex::new(Some(Arc::clone(&old_backend))),
+        profile: Mutex::new(None),
+        grants: HashMap::from([("alpha", grant("notes"))]),
+        fences: Mutex::new(None),
+        keys_ready: AtomicBool::new(true),
+    });
+    let host = Arc::new(StorageHost::new(
+        Arc::new(Directory(HashMap::new())),
+        Arc::clone(&env) as Arc<dyn Environment>,
+        Arc::new(Trail::default()),
+    ));
+    let scope = module_scope(None, &Scope::local(), "alpha").unwrap();
+    let first = {
+        let host = Arc::clone(&host);
+        let scope = scope.clone();
+        tokio::spawn(async move { host.bind("alpha", scope).await })
+    };
+    tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified()).await.unwrap();
+    let new_backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    *env.backend.lock().unwrap() = Some(Arc::clone(&new_backend));
+    host.bind("alpha", scope.clone()).await.unwrap();
+    release.notify_one();
+    let _ = first.await.unwrap().unwrap();
+    let bindings = host.bindings.lock().await;
+    assert!(Arc::ptr_eq(&bindings.get(&("alpha".into(), scope.as_str().into())).unwrap().backend, &new_backend));
 }

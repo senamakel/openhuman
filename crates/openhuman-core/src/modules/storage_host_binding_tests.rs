@@ -51,6 +51,7 @@ async fn repeated_calls_from_one_peer_resolve_its_module_once() {
 }
 
 /// Holds alpha's schema preparation until the test releases it.
+#[derive(Debug)]
 struct BlockingStorage {
     inner: MemoryStorage,
     entered: Arc<Notify>,
@@ -80,6 +81,7 @@ impl StorageBackend for BlockingStorage {
     }
 }
 
+#[derive(Debug)]
 struct BlockingDocuments {
     inner: Arc<dyn tinystoragedrivers::DocumentStore>,
     blocked: bool,
@@ -139,13 +141,15 @@ async fn one_module_binding_does_not_block_another_modules_first_call() {
     let alpha_call = tokio::spawn(async move {
         alpha_host.handle(Object::Documents, "Get", get("notes", "x"), Some(&alpha()), Admission::Private).await
     });
-    entered.notified().await;
+    tokio::time::timeout(std::time::Duration::from_secs(5), entered.notified())
+        .await
+        .expect("alpha reaches schema preparation");
 
     let beta_host = Arc::clone(&host);
     let beta_call = tokio::spawn(async move {
         beta_host.handle(Object::Documents, "Get", get("other", "x"), Some(&beta()), Admission::Private).await
     });
-    let beta_result = tokio::time::timeout(std::time::Duration::from_millis(250), beta_call)
+    let beta_result = tokio::time::timeout(std::time::Duration::from_secs(5), beta_call)
         .await
         .expect("beta's first bind should finish while alpha is preparing schema")
         .unwrap();

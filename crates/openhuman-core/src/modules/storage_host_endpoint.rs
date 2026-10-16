@@ -206,7 +206,7 @@ impl StorageEndpoint for HostEndpoint {
                 if let Some(connection) = self.connection.upgrade() {
                     match connection.name_owner(sender.as_str()).await {
                         Ok(Some(owner)) if owner == sender => {}
-                        Ok(_) => self.host.release_relay(&sender),
+                        Ok(_) => self.host.release_peer(&sender),
                         Err(error) => tracing::debug!(
                             target: "storage_host",
                             %error,
@@ -214,7 +214,7 @@ impl StorageEndpoint for HostEndpoint {
                         ),
                     }
                 } else {
-                    self.host.release_relay(&sender);
+                    self.host.release_peer(&sender);
                 }
             }
         }
@@ -283,7 +283,7 @@ pub(super) async fn watch_peer_detach(
                     };
                     if name.is_unique() && old_owner.as_ref() == Some(&name) && new_owner.is_none()
                     {
-                        host.release_relay(&name);
+                        host.release_peer(&name);
                     }
                 }
                 Err(broadcast::error::RecvError::Lagged(missed)) => {
@@ -292,19 +292,15 @@ pub(super) async fn watch_peer_detach(
                         missed,
                         "[storage-host] peer-detach notifications lagged"
                     );
-                    let candidates: HashSet<_> = host
-                        .relays
-                        .lock()
-                        .map(|relays| relays.keys().cloned().collect())
-                        .unwrap_or_default();
+                    let candidates: HashSet<_> = host.peer_candidates();
                     let Some(connection) = connection.upgrade() else {
                         return;
                     };
                     if let Ok(names) = connection.list_names().await {
-                        if let Ok(mut relays) = host.relays.lock() {
-                            relays.retain(|peer, _| {
-                                !candidates.contains(peer) || names.contains(peer)
-                            });
+                        for peer in candidates {
+                            if !names.contains(&peer) {
+                                host.release_peer(&peer);
+                            }
                         }
                     }
                 }

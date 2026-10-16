@@ -9,6 +9,75 @@ impl CallerDirectory for EveryBusPeerIsAlpha {
     }
 }
 
+#[tokio::test]
+async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
+    use tinybus::broker::Broker;
+    use tinybus::transport::memory::MemoryBus;
+    use tinybus::Connection;
+    use tinystoragedrivers_busproxy::StorageCall;
+
+    const DETACH_DEADLINE: std::time::Duration = std::time::Duration::from_secs(5);
+
+    let bus = MemoryBus::new();
+    Broker::new().spawn(bus.clone());
+    let service = Connection::connect(bus.connect().await.unwrap())
+        .await
+        .unwrap();
+    let peer = Connection::connect(bus.connect().await.unwrap())
+        .await
+        .unwrap();
+    let sender = peer.unique_name().unwrap();
+    let rig = rig();
+    let host = Arc::new(StorageHost::new(
+        Arc::new(EveryBusPeerIsAlpha),
+        Arc::clone(&rig.env) as Arc<dyn Environment>,
+        Arc::clone(&rig.trail) as Arc<dyn AuditSink>,
+    ));
+    super::super::endpoint::watch_peer_detach(&service, Arc::clone(&host))
+        .await
+        .unwrap();
+    let endpoint = super::super::endpoint::HostEndpoint::new(
+        Arc::clone(&host),
+        service.clone(),
+        None,
+    );
+
+    // The busproxy asks synchronously for signals before dispatching WatchOpen.
+    let _signals = endpoint.watch_signals(&sender).unwrap();
+    drop(peer);
+    tokio::time::timeout(DETACH_DEADLINE, async {
+        loop {
+            let detached = service.name_owner(sender.as_str()).await.unwrap().is_none();
+            let released = !host.relays.lock().unwrap().contains_key(&sender);
+            if detached && released {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("the broker's detach event releases the first relay");
+
+    // A MethodCall task is spawned separately from the signal reader. Model a
+    // queued WatchOpen whose synchronous signal request runs after detach.
+    let _late_signals = endpoint.watch_signals(&sender).unwrap();
+    assert!(host.relays.lock().unwrap().contains_key(&sender));
+    endpoint
+        .call(StorageCall {
+            object: Object::Documents,
+            selector: "WatchOpen",
+            request: json!({"collection":"notes","filter":{"op":"all"},"interval_ms":20}),
+            sender: Some(&sender),
+            admission: Admission::Private,
+        })
+        .await
+        .unwrap();
+    assert!(
+        !host.relays.lock().unwrap().contains_key(&sender),
+        "the post-call liveness check removes a relay recreated after detach"
+    );
+}
+
 /// Exercises the storage endpoint through a real in-memory TinyBus broker.
 /// Each sender opens a watch and detaches before the next sender is created.
 /// The first watch stays active after detach; the rest are closed first. A live

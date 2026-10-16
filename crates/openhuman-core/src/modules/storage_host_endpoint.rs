@@ -146,14 +146,23 @@ impl StorageHost {
 /// [`StorageHost`].
 pub(super) struct HostEndpoint {
     host: Arc<StorageHost>,
+    connection: Connection,
     /// Where the work runs when the objects are served from a linked module's
     /// own runtime: the host's, which the backend handles were opened on.
     runtime: Option<tokio::runtime::Handle>,
 }
 
 impl HostEndpoint {
-    pub(super) fn new(host: Arc<StorageHost>, runtime: Option<tokio::runtime::Handle>) -> Self {
-        Self { host, runtime }
+    pub(super) fn new(
+        host: Arc<StorageHost>,
+        connection: Connection,
+        runtime: Option<tokio::runtime::Handle>,
+    ) -> Self {
+        Self {
+            host,
+            connection,
+            runtime,
+        }
     }
 
     /// Runs `work` on the host's runtime when one was given.
@@ -180,11 +189,28 @@ impl StorageEndpoint for HostEndpoint {
         let (object, request, admission) = (call.object, call.request, call.admission);
         let selector = call.selector.to_string();
         let sender = call.sender.cloned();
-        self.on_host(async move {
+        let sender_for_liveness = sender.clone();
+        let result = self
+            .on_host(async move {
             host.handle(object, &selector, request, sender.as_ref(), admission)
                 .await
         })
-        .await
+        .await;
+        if selector == "WatchOpen" {
+            if let Some(sender) = sender_for_liveness {
+                // The bus dispatches calls concurrently with signals. A queued
+                // WatchOpen can reach this endpoint after its detach signal
+                // already removed the relay, so check liveness after handling
+                // the call as well as listening for detach events.
+                if !matches!(
+                    self.connection.name_owner(sender.as_str()).await,
+                    Ok(Some(owner)) if owner == sender
+                ) {
+                    self.host.release_relay(&sender);
+                }
+            }
+        }
+        result
     }
 
     async fn put_blob_stream(

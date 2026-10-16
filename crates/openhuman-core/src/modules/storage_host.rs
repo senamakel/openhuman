@@ -606,7 +606,11 @@ pub(super) async fn serve_objects(
     endpoint::watch_peer_detach(connection, Arc::clone(host)).await?;
     tinystoragedrivers_busproxy::serve(
         connection,
-        Arc::new(HostEndpoint::new(Arc::clone(host), runtime)),
+        Arc::new(HostEndpoint::new(
+            Arc::clone(host),
+            connection.clone(),
+            runtime,
+        )),
     )
     .await
 }

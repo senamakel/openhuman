@@ -37,7 +37,7 @@ async fn a_queued_watch_open_cannot_restore_a_detached_peers_relay() {
         .await
         .unwrap();
     let endpoint =
-        super::super::endpoint::HostEndpoint::new(Arc::clone(&host), service.clone(), None);
+        super::super::endpoint::HostEndpoint::new(Arc::clone(&host), service.downgrade(), None);
 
     // The busproxy asks synchronously for signals before dispatching WatchOpen.
     let _signals = endpoint.watch_signals(&sender).unwrap();

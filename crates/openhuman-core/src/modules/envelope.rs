@@ -29,3 +29,7 @@ pub(crate) fn decode<T, E>(
         _ => Err(EnvelopeError::Malformed),
     }
 }
+
+#[cfg(test)]
+#[path = "envelope_tests.rs"]
+mod tests;

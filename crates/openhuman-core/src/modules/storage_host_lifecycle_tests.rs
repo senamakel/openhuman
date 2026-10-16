@@ -10,8 +10,9 @@ impl CallerDirectory for EveryBusPeerIsAlpha {
 }
 
 /// Exercises the storage endpoint through a real in-memory TinyBus broker.
-/// Each sender opens and closes a watch, then its connection detaches before
-/// the next sender is created. One anchor watch stays active through the churn.
+/// Each sender opens a watch and detaches before the next sender is created.
+/// The first watch stays active after detach; the rest are closed first. A live
+/// anchor watch stays active through the churn.
 #[tokio::test]
 async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
     use tinybus::broker::Broker;
@@ -74,7 +75,7 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
         .await
         .unwrap();
 
-    let mut previous_name: Option<String> = None;
+    let mut previous_name: Option<BusName> = None;
     let mut last_peer: Option<Connection> = None;
     let mut last_signals = None;
     let mut last_watch_id = None;
@@ -82,19 +83,20 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
         if let Some(previous) = previous_name.take() {
             tokio::time::timeout(DETACH_DEADLINE, async {
                 loop {
-                    if service
+                    let detached = service
                         .name_owner(previous.as_str())
                         .await
                         .unwrap()
-                        .is_none()
-                    {
+                        .is_none();
+                    let relay_released = !host.relays.lock().unwrap().contains_key(&previous);
+                    if detached && relay_released {
                         break;
                     }
                     tokio::task::yield_now().await;
                 }
             })
             .await
-            .expect("broker observes the previous sender detaching");
+            .expect("broker detaches the previous sender and releases its relay");
         }
 
         let peer = Connection::connect(bus.connect().await.unwrap())
@@ -131,7 +133,7 @@ async fn detached_peer_watch_relays_are_released_before_the_256_relay_limit() {
             }
             drop(documents);
             drop(peer);
-            previous_name = Some(unique.as_str().to_owned());
+            previous_name = Some(unique);
         } else {
             last_peer = Some(peer);
             last_signals = signals.take();

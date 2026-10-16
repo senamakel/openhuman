@@ -204,7 +204,16 @@ pub(crate) struct StorageHost {
     audit: Arc<dyn AuditSink>,
     bindings: tokio::sync::Mutex<HashMap<(String, String), Arc<Binding>>>,
     relays: std::sync::Mutex<HashMap<BusName, endpoint::Relay>>,
+    peer_modules: std::sync::Mutex<HashMap<BusName, Arc<PeerModule>>>,
 }
+
+/// A per-peer lookup cell. It serializes concurrent first calls from one
+/// sender without making unrelated senders wait for broker owner lookups.
+struct PeerModule {
+    module: tokio::sync::Mutex<Option<String>>,
+}
+
+const MAX_BINDINGS: usize = 256;
 
 impl StorageHost {
     pub(crate) fn new(
@@ -218,6 +227,7 @@ impl StorageHost {
             audit,
             bindings: tokio::sync::Mutex::new(HashMap::new()),
             relays: std::sync::Mutex::new(HashMap::new()),
+            peer_modules: std::sync::Mutex::new(HashMap::new()),
         }
     }
 
@@ -239,7 +249,7 @@ impl StorageHost {
             );
             return Err(HostError::Denied("unauthenticated-caller"));
         };
-        let Some(module) = self.directory.module_for(sender).await else {
+        let Some(module) = self.module_for(sender).await else {
             tracing::warn!(
                 target: "openhuman::storage_host",
                 object = object.as_str(),
@@ -288,6 +298,80 @@ impl StorageHost {
             binding,
             plan,
         })
+    }
+
+    /// Resolves a sender once for its broker peer lifetime. The cache entry is
+    /// detached from the host before any owner lookup completes, so a late
+    /// lookup cannot repopulate state after the peer's detach event.
+    async fn module_for(&self, sender: &BusName) -> Option<String> {
+        let entry = {
+            let mut peers = self.peer_modules.lock().ok()?;
+            Arc::clone(peers.entry(sender.clone()).or_insert_with(|| {
+                Arc::new(PeerModule {
+                    module: tokio::sync::Mutex::new(None),
+                })
+            }))
+        };
+        let mut cached = entry.module.lock().await;
+        if let Some(module) = cached.as_ref() {
+            return Some(module.clone());
+        }
+        let module = self.directory.module_for(sender).await?;
+        let still_live_entry = self
+            .peer_modules
+            .lock()
+            .ok()
+            .and_then(|peers| peers.get(sender).map(|current| Arc::ptr_eq(current, &entry)))
+            .unwrap_or(false);
+        if still_live_entry {
+            *cached = Some(module.clone());
+        }
+        Some(module)
+    }
+
+    /// Invalidates per-peer identity and prunes bindings that no active watch
+    /// relay or in-flight storage call still uses.
+    pub(super) fn release_peer(&self, sender: &BusName) {
+        if let Ok(mut peers) = self.peer_modules.lock() {
+            peers.remove(sender);
+        }
+        self.release_relay(sender);
+        self.prune_idle_bindings();
+    }
+
+    pub(super) fn peer_candidates(&self) -> std::collections::HashSet<BusName> {
+        let mut peers = self
+            .peer_modules
+            .lock()
+            .map(|entries| entries.keys().cloned().collect())
+            .unwrap_or_default();
+        if let Ok(relays) = self.relays.lock() {
+            peers.extend(relays.keys().cloned());
+        }
+        peers
+    }
+
+    /// Bindings are shared by module and scope. Keep those feeding a live
+    /// caller's watch, and drop idle bindings so profile churn cannot grow the
+    /// cache without limit.
+    fn prune_idle_bindings(&self) {
+        let active = self
+            .relays
+            .lock()
+            .map(|relays| {
+                relays
+                    .values()
+                    .filter_map(|relay| relay.fed_by.as_ref())
+                    .cloned()
+                    .collect::<Vec<_>>()
+            })
+            .unwrap_or_default();
+        if let Ok(mut bindings) = self.bindings.try_lock() {
+            bindings.retain(|_, binding| {
+                Arc::strong_count(binding) > 1
+                    || active.iter().any(|weak| weak.ptr_eq(&Arc::downgrade(binding)))
+            });
+        }
     }
 
     /// Consults the write fence when the plan writes. `Err` is already audited.
@@ -413,14 +497,68 @@ impl StorageHost {
     /// The module's binding for `scope`, built on first use and again when the
     /// installed backend changed. The host runs the declared schema here.
     async fn bind(&self, module: &str, scope: Scope) -> Result<Arc<Binding>, BindError> {
-        let backend = self.environment.backend().ok_or(BindError::NoBackend)?;
         let key = (module.to_string(), scope.as_str().to_string());
-        let mut bindings = self.bindings.lock().await;
-        if let Some(existing) = bindings.get(&key) {
-            if Arc::ptr_eq(&existing.backend, &backend) {
-                return Ok(Arc::clone(existing));
+        loop {
+            let backend = self.environment.backend().ok_or(BindError::NoBackend)?;
+            if let Some(existing) = self.bindings.lock().await.get(&key) {
+                if Arc::ptr_eq(&existing.backend, &backend) {
+                    return Ok(Arc::clone(existing));
+                }
             }
+            let built = self.build_binding(module, scope.clone(), Arc::clone(&backend)).await?;
+
+            let mut bindings = self.bindings.lock().await;
+            if let Some(existing) = bindings.get(&key) {
+                if Arc::ptr_eq(&existing.backend, &backend) {
+                    return Ok(Arc::clone(existing));
+                }
+            }
+            // A backend switch while schema preparation was in flight must
+            // not let the old backend overwrite a binding made for the new one.
+            let still_current = self
+                .environment
+                .backend()
+                .is_some_and(|current| Arc::ptr_eq(&current, &backend));
+            if !still_current {
+                drop(bindings);
+                continue;
+            }
+            if bindings.len() >= MAX_BINDINGS {
+                let active = self
+                    .relays
+                    .lock()
+                    .map(|relays| {
+                        relays
+                            .values()
+                            .filter_map(|relay| relay.fed_by.as_ref())
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    })
+                    .unwrap_or_default();
+                let evict = bindings.iter().find_map(|(candidate_key, candidate)| {
+                    let feeding_watch = active
+                        .iter()
+                        .any(|weak| weak.ptr_eq(&Arc::downgrade(candidate)));
+                    (!feeding_watch && Arc::strong_count(candidate) == 1)
+                        .then(|| candidate_key.clone())
+                });
+                if let Some(evict) = evict {
+                    bindings.remove(&evict);
+                } else {
+                    return Err(BindError::BindingLimit);
+                }
+            }
+            bindings.insert(key.clone(), Arc::clone(&built));
+            return Ok(built);
         }
+    }
+
+    async fn build_binding(
+        &self,
+        module: &str,
+        scope: Scope,
+        backend: Arc<dyn StorageBackend>,
+    ) -> Result<Arc<Binding>, BindError> {
         let grant = self.environment.grant(module).ok_or(BindError::NoGrant)?;
         grant.validate().map_err(|reason| {
             tracing::error!(
@@ -455,13 +593,11 @@ impl StorageHost {
             })?;
             server = server.with_secrets(Arc::new(DocumentSecrets::new(&storage, keys)));
         }
-        let binding = Arc::new(Binding {
+        Ok(Arc::new(Binding {
             backend,
             grant,
             server,
-        });
-        bindings.insert(key, Arc::clone(&binding));
-        Ok(binding)
+        }))
     }
 }
 
@@ -499,6 +635,7 @@ enum BindError {
     NoBackend,
     NoGrant,
     BadGrant,
+    BindingLimit,
     Backend(StorageKind),
 }
 
@@ -508,6 +645,7 @@ impl BindError {
             Self::NoBackend => "no-backend",
             Self::NoGrant => "no-grant-declared",
             Self::BadGrant => "invalid-grant",
+            Self::BindingLimit => "binding-cache-full",
             Self::Backend(_) => "backend-error",
         }
     }
@@ -517,6 +655,7 @@ impl BindError {
             Self::NoBackend => failure(StorageKind::Unavailable),
             Self::NoGrant => HostError::Denied("no-grant-declared"),
             Self::BadGrant => HostError::Denied("invalid-grant"),
+            Self::BindingLimit => failure(StorageKind::Unavailable),
             Self::Backend(kind) => failure(kind),
         }
     }

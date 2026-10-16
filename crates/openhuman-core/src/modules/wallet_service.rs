@@ -168,11 +168,13 @@ where
     Open: FnOnce() -> OFut,
     OFut: Future<Output = Result<NativeWalletService, WalletCallError>>,
 {
-    if let Some(old) = active.take() {
+    if let Some(old) = active.as_ref() {
         close(NativeWalletCloseRequest {
             service: old.response.service.clone(),
         })
         .await?;
+    }
+    if let Some(old) = active.take() {
         clear(&old);
         drop(old);
     }

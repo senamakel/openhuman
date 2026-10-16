@@ -244,7 +244,7 @@ async fn retry_stop_with_timeout<Stop, StopFuture, IsFailed, Wait, WaitFuture>(
     mut stop: Stop,
     mut is_failed: IsFailed,
     mut wait: Wait,
-    _attempt_timeout: Duration,
+    attempt_timeout: Duration,
 ) -> usize
 where
     Stop: FnMut() -> StopFuture,
@@ -257,7 +257,10 @@ where
         if is_failed() {
             return attempt;
         }
-        if stop().await.is_ok() {
+        if matches!(
+            tokio::time::timeout(attempt_timeout, stop()).await,
+            Ok(Ok(()))
+        ) {
             return attempt + 1;
         }
         if is_failed() {

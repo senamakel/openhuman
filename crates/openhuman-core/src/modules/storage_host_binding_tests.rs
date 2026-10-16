@@ -510,3 +510,24 @@ async fn replacing_a_binding_at_capacity_does_not_require_an_eviction() {
     ));
     drop(active);
 }
+
+#[tokio::test]
+async fn idle_scope_bindings_are_evicted_at_the_cache_limit() {
+    let host = StorageHost::new(
+        Arc::new(Directory(HashMap::new())),
+        Arc::new(Env {
+            backend: Mutex::new(Some(Arc::new(MemoryStorage::new()))),
+            profile: Mutex::new(None),
+            grants: HashMap::from([("alpha", grant("notes"))]),
+            fences: Mutex::new(None),
+            keys_ready: AtomicBool::new(true),
+        }),
+        Arc::new(Trail::default()),
+    );
+    for index in 0..300 {
+        host.bind("alpha", Scope::new(format!("scope-{index}")).unwrap())
+            .await
+            .unwrap();
+    }
+    assert_eq!(host.bindings.lock().await.len(), 256);
+}

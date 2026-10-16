@@ -462,7 +462,7 @@ impl BrowserClient {
             .await
             .map_err(BrowserCallError::Unavailable)?;
         tracing::debug!(member, "[browser] tinycomputer call");
-        let response: DesktopResponse = proxy
+        let response: serde_json::Value = proxy
             .call(member, (request,))
             .await
             .map_err(BrowserCallError::from_bus)?;
@@ -474,13 +474,19 @@ impl BrowserClient {
 /// behavior can be exercised without loading the native module.
 fn decode_response<R: DeserializeOwned>(
     member: &str,
-    response: DesktopResponse,
+    raw: serde_json::Value,
 ) -> Result<R, BrowserCallError> {
+    let response: DesktopResponse = serde_json::from_value(raw.clone()).map_err(|error| {
+        BrowserCallError::Bus {
+            name: "InvalidReply".into(),
+            message: format!("{member} returned an unexpected reply: {error}"),
+        }
+    })?;
     let data = match super::envelope::decode(
         Some(&response.version),
         Some(tinycomputer_bus::ENVELOPE_VERSION),
         response.ok,
-        response.data.clone(),
+        raw.get("data").cloned(),
         response.error.clone(),
     ) {
         Ok(data) => data,

@@ -183,12 +183,12 @@ fn microphone_denied_message() -> &'static str {
 }
 
 fn decode<T: DeserializeOwned>(raw: serde_json::Value) -> Result<T, AccessibilityError> {
-    let reply: DesktopResponse = serde_json::from_value(raw).map_err(|_| malformed())?;
+    let reply: DesktopResponse = serde_json::from_value(raw.clone()).map_err(|_| malformed())?;
     let data = match super::envelope::decode(
         Some(&reply.version),
         Some(tinycomputer_bus::ENVELOPE_VERSION),
         reply.ok,
-        reply.data,
+        raw.get("data").cloned(),
         reply.error,
     ) {
         Ok(data) => data,

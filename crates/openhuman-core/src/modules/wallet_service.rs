@@ -136,9 +136,7 @@ where
     OFut: Future<Output = Result<NativeWalletService, WalletCallError>>,
 {
     if let Some(old) = active.take() {
-        if close(&old).await.is_err() {
-            tracing::warn!("[modules:wallet] failed to close stale native wallet service during replacement");
-        }
+        close(&old).await?;
         clear(&old);
         drop(old);
     }

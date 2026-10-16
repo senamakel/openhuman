@@ -13,7 +13,12 @@ use tinychannels_bus::{
 use tokio::sync::Mutex;
 
 const CLOSE_BUDGET: Duration = Duration::from_secs(15);
-const STOP_RETRY_DELAY: Duration = Duration::from_secs(5);
+const STOP_RETRY_DELAYS: [Duration; 3] = [
+    Duration::from_millis(250),
+    Duration::from_millis(500),
+    Duration::from_secs(1),
+];
+const STOP_MAX_ATTEMPTS: usize = STOP_RETRY_DELAYS.len() + 1;
 
 /// Keeps a captured host adapter exported until the module acknowledges stop.
 #[derive(Clone)]
@@ -76,7 +81,12 @@ impl Drop for LeaseState {
                     return;
                 }
             }
-            retry_stop(|| cleanup.run(), || false, tokio::time::sleep).await;
+            retry_stop(
+                || cleanup.run(),
+                channel_module_failed,
+                tokio::time::sleep,
+            )
+            .await;
         });
     }
 }
@@ -132,7 +142,12 @@ impl ChannelRuntimeLease {
             Ok(object) => object,
             Err(error) => {
                 runtime.spawn(async move {
-                    retry_stop(|| cleanup.run(), || false, tokio::time::sleep).await;
+                    retry_stop(
+                        || cleanup.run(),
+                        channel_module_failed,
+                        tokio::time::sleep,
+                    )
+                    .await;
                 });
                 return Err(error);
             }
@@ -196,7 +211,20 @@ fn runtime_transport(
     client: &ModuleClient,
     runtime: &'static tinybus::module::ModuleRuntime,
 ) -> Result<(Connection, Proxy), ModuleCallError> {
-    let _ = client;
+    #[cfg(test)]
+    {
+        return tests::runtime_transport(client, runtime);
+    }
+    #[cfg(not(test))]
+    {
+        let _ = client;
+        runtime_transport_real(runtime)
+    }
+}
+
+fn runtime_transport_real(
+    runtime: &'static tinybus::module::ModuleRuntime,
+) -> Result<(Connection, Proxy), ModuleCallError> {
     Ok((
         runtime.connection().clone(),
         runtime
@@ -209,22 +237,36 @@ async fn retry_stop<Stop, StopFuture, IsFailed, Wait, WaitFuture>(
     mut stop: Stop,
     mut is_failed: IsFailed,
     mut wait: Wait,
-) where
+) -> usize
+where
     Stop: FnMut() -> StopFuture,
     StopFuture: std::future::Future<Output = Result<(), ModuleCallError>>,
     IsFailed: FnMut() -> bool,
     Wait: FnMut(Duration) -> WaitFuture,
     WaitFuture: std::future::Future<Output = ()>,
 {
-    loop {
+    for attempt in 0..STOP_MAX_ATTEMPTS {
+        if is_failed() {
+            return attempt;
+        }
         if stop().await.is_ok() {
-            return;
+            return attempt + 1;
         }
         if is_failed() {
-            return;
+            return attempt + 1;
         }
-        wait(STOP_RETRY_DELAY).await;
+        if let Some(delay) = STOP_RETRY_DELAYS.get(attempt) {
+            wait(*delay).await;
+        }
     }
+    STOP_MAX_ATTEMPTS
+}
+
+fn channel_module_failed() -> bool {
+    matches!(
+        tinybus::module::resolution::global().peek("tinychannels"),
+        tinybus::module::resolution::ResolutionState::Failed(_)
+    )
 }
 
 fn validate_reservation(reservation: &ChannelRuntimeReservation) -> Result<(), ModuleCallError> {

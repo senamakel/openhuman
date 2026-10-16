@@ -36,5 +36,5 @@ fn disabled_released_module_is_not_loaded_from_search_path() {
     }
 
     assert!(outcomes.is_empty(), "disabled artifact produced load outcomes");
-    assert!(host.modules().is_empty(), "disabled artifact was loaded");
+    assert!(host.list().is_empty(), "disabled artifact was loaded");
 }

@@ -197,19 +197,20 @@ async fn join_cleanup(
     result.map_err(|_| ModuleCallError::TransportFailed)?
 }
 
+#[cfg(test)]
 fn runtime_transport(
     client: &ModuleClient,
     runtime: &'static tinybus::module::ModuleRuntime,
 ) -> Result<(Connection, Proxy), ModuleCallError> {
-    #[cfg(test)]
-    {
-        return tests::runtime_transport(client, runtime);
-    }
-    #[cfg(not(test))]
-    {
-        let _ = client;
-        runtime_transport_real(runtime)
-    }
+    tests::runtime_transport(client, runtime)
+}
+
+#[cfg(not(test))]
+fn runtime_transport(
+    _client: &ModuleClient,
+    runtime: &'static tinybus::module::ModuleRuntime,
+) -> Result<(Connection, Proxy), ModuleCallError> {
+    runtime_transport_real(runtime)
 }
 
 fn runtime_transport_real(

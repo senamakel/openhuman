@@ -26,8 +26,10 @@ use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 use tinystoragedrivers::{CollectionSpec, ScopedStorage};
 
-use super::storage_grant_tinyconnectors::{MODULE_ID, PREFS_COLLECTION, TRIGGER_STREAM_PREFIX};
-use super::storage_import_support as support;
+const MODULE_ID: &str = "tinyconnectors";
+const PREFS_COLLECTION: &str = "composio-user-scopes";
+const TRIGGER_STREAM_PREFIX: &str = "triggers/";
+use super::support;
 use crate::core::runtime::DispatchCtx;
 
 const LOG_PREFIX: &str = "[connectors-import]";
@@ -107,7 +109,7 @@ async fn import_into(
     let mut prefs = 0usize;
     for pref in legacy.prefs {
         let doc = json!({ "value": pref.value });
-        if support::put_absent(docs, PREFS_COLLECTION, &pref.key, doc).await? {
+        if super::super::put_absent(docs, PREFS_COLLECTION, &pref.key, doc).await? {
             prefs += 1;
         }
     }
@@ -213,5 +215,5 @@ fn is_day(name: &str) -> bool {
 }
 
 #[cfg(test)]
-#[path = "storage_import_tinyconnectors_tests.rs"]
+#[path = "tinyconnectors_tests.rs"]
 mod tests;

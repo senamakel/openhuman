@@ -31,9 +31,8 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
-use sha2::Digest;
 use tinystoragedrivers::secrets::{DocumentSecrets, SecretStore};
-use tinystoragedrivers::{CollectionSpec, DocumentStore, ErrorKind, Precondition, ScopedStorage};
+use tinystoragedrivers::{CollectionSpec, DocumentStore, ErrorKind, ScopedStorage};
 
 use crate::core::runtime::DispatchCtx;
 use crate::storage::rusqlite::{self, Connection, OpenFlags};
@@ -74,7 +73,7 @@ pub(crate) async fn import_legacy(ctx: &DispatchCtx, data_dir: &Path) -> Result<
     let Some(backend) = crate::storage::installed() else {
         return Ok(Outcome::NoBackend);
     };
-    let scope = super::storage_host::current_module_scope(ctx, MODULE_ID)
+    let scope = crate::modules::storage_host::current_module_scope(ctx, MODULE_ID)
         .map_err(|error| anyhow!("resolve the module scope: {:?}", error.kind()))?;
     let scoped = backend
         .for_scope(&scope)
@@ -92,7 +91,7 @@ async fn import_into(
     data_dir: &Path,
 ) -> Result<Outcome> {
     let docs = scoped.documents();
-    let marker = marker_id(data_dir);
+    let marker = super::super::marker_id("mcp", data_dir);
     docs.ensure_collection(&CollectionSpec::new(MARKER_COLLECTION))
         .await
         .map_err(|error| anyhow!("declare the marker collection: {:?}", error.kind()))?;
@@ -136,10 +135,10 @@ async fn import_into(
 
     let (mut servers, mut secret_count) = (0usize, 0usize);
     for server in legacy_servers {
-        if put_absent(docs, SERVERS, &server.id, server.doc).await? {
+        if super::super::put_absent(docs, SERVERS, &server.id, server.doc).await? {
             servers += 1;
         }
-        put_absent(docs, SERVER_NAMES, &server.claim_id, server.claim).await?;
+        super::super::put_absent(docs, SERVER_NAMES, &server.claim_id, server.claim).await?;
         if !server.env.is_empty() {
             let name = format!("{ENV_SECRET_PREFIX}{}", server.id);
             let present = secrets
@@ -178,7 +177,7 @@ async fn import_into(
         "servers": servers,
         "secrets": secret_count,
         "audit": audited,
-        "at": now_ms(),
+        "at": crate::storage::fence::system_now_ms(),
     });
     match docs
         .put(MARKER_COLLECTION, &marker, body, Precondition::Absent)
@@ -196,21 +195,6 @@ async fn import_into(
         secrets: secret_count,
         audit: audited,
     })
-}
-
-async fn put_absent(
-    docs: &Arc<dyn DocumentStore>,
-    collection: &str,
-    id: &str,
-    doc: Value,
-) -> Result<bool> {
-    match docs.put(collection, id, doc, Precondition::Absent).await {
-        Ok(_) => Ok(true),
-        Err(error) if matches!(error.kind(), ErrorKind::Conflict | ErrorKind::AlreadyExists) => {
-            Ok(false)
-        }
-        Err(error) => Err(anyhow!("write {collection}: {:?}", error.kind())),
-    }
 }
 
 /// One legacy server, in the shapes the module stores.
@@ -243,14 +227,6 @@ fn open_copy(path: &Path, scratch: &Path) -> Result<Connection> {
         .with_context(|| format!("open the copy of {}", path.display()))
 }
 
-fn table_exists(conn: &Connection, table: &str) -> rusqlite::Result<bool> {
-    conn.query_row(
-        "SELECT EXISTS(SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?1)",
-        [table],
-        |row| row.get(0),
-    )
-}
-
 fn columns(conn: &Connection, table: &str) -> Result<Vec<String>> {
     let mut statement = conn.prepare(&format!("PRAGMA table_info({table})"))?;
     let names = statement
@@ -270,7 +246,7 @@ where
 fn read_servers(path: &Path) -> Result<Vec<LegacyServer>> {
     let scratch = tempfile::tempdir().context("scratch directory")?;
     let conn = open_copy(path, scratch.path())?;
-    if !table_exists(&conn, "mcp_servers")? {
+    if !super::super::table_exists(&conn, "mcp_servers")? {
         return Ok(Vec::new());
     }
     let present = columns(&conn, "mcp_servers")?;
@@ -293,7 +269,7 @@ fn read_servers(path: &Path) -> Result<Vec<LegacyServer>> {
         optional("catalog_managed", "0"),
     );
     let mut env = std::collections::BTreeMap::<String, std::collections::BTreeMap<_, _>>::new();
-    if table_exists(&conn, "mcp_client_env")? {
+    if super::super::table_exists(&conn, "mcp_client_env")? {
         let mut statement =
             conn.prepare("SELECT server_id, key, value FROM mcp_client_env ORDER BY rowid")?;
         let rows = statement.query_map([], |row| {
@@ -368,7 +344,7 @@ fn read_servers(path: &Path) -> Result<Vec<LegacyServer>> {
 fn read_audit(path: &Path) -> Result<Vec<Value>> {
     let scratch = tempfile::tempdir().context("scratch directory")?;
     let conn = open_copy(path, scratch.path())?;
-    if !table_exists(&conn, "mcp_writes")? {
+    if !super::super::table_exists(&conn, "mcp_writes")? {
         return Ok(Vec::new());
     }
     let mut statement = conn.prepare(
@@ -396,19 +372,6 @@ fn read_audit(path: &Path) -> Result<Vec<Value>> {
     Ok(rows.collect::<rusqlite::Result<Vec<_>>>()?)
 }
 
-fn marker_id(data_dir: &Path) -> String {
-    let digest = sha2::Sha256::digest(data_dir.as_os_str().as_encoded_bytes());
-    format!("mcp@{}", &hex::encode(digest)[..16])
-}
-
-fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .min(u128::from(u64::MAX)) as u64
-}
-
 #[cfg(test)]
-#[path = "storage_import_tinymcp_tests.rs"]
+#[path = "tinymcp_tests.rs"]
 mod tests;

@@ -136,7 +136,7 @@ fn handle_list_definitions(_ctx: DispatchCtx, _params: Map<String, Value>) -> Co
     Box::pin(async move {
         let cid = new_correlation_id();
         log::debug!(target: "workflow_run_rpc", "[workflow_run_rpc][{cid}] list_definitions.entry");
-        let response = super::ops::list_definitions();
+        let response = crate::modules::ops::list_definitions();
         log::debug!(target: "workflow_run_rpc", "[workflow_run_rpc][{cid}] list_definitions.success count={}", response.count);
         to_json(response)
     })
@@ -160,7 +160,7 @@ fn handle_list(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture
                 s
             })?
         };
-        let response = super::ops::list_runs(&config, &request).map_err(|e| {
+        let response = crate::modules::ops::list_runs(&config, &request).map_err(|e| {
             let s = e.to_string();
             log::warn!(target: "workflow_run_rpc", "[workflow_run_rpc][{cid}] list.error err={s}");
             s
@@ -182,7 +182,7 @@ fn handle_get(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture 
             .and_then(|v| v.as_str())
             .ok_or_else(|| "missing required param: id".to_string())?;
         log::debug!(target: "workflow_run_rpc", "[workflow_run_rpc][{cid}] get.id={id}");
-        let run = super::ops::get_run(&config, id).map_err(|e| {
+        let run = crate::modules::ops::get_run(&config, id).map_err(|e| {
             let s = e.to_string();
             log::warn!(target: "workflow_run_rpc", "[workflow_run_rpc][{cid}] get.error id={id} err={s}");
             s

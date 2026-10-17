@@ -97,7 +97,7 @@ async fn install_callbacks(runtime: &'static ModuleRuntime) -> tinybus::Result<(
     } else {
         tracing::debug!("[modules] juice component off; MlHost not served");
     }
-    super::site_memory_host::install(connection).await?;
+    crate::desktop::site_memory::install(connection).await?;
     super::storage_host::install(connection, runtime.host()).await?;
     #[cfg(feature = "tinymemes")]
     {

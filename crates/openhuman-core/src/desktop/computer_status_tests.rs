@@ -25,13 +25,13 @@ async fn status_does_not_build_private_config_or_touch_credentials_and_trace_dir
     config.workspace_dir = dir.path().join("workspace");
     config.secrets.encrypt = false;
     config.computer.trace = true;
-    super::super::computer_config::reset_private_config_credential_lookups();
-    let _fake_credentials = super::super::computer_config::FakePrivateConfigCredentialsGuard::new();
+    crate::desktop::computer_config::reset_private_config_credential_lookups();
+    let _fake_credentials = crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
 
     let _status = status(&config, false).await;
     let observations = (
-        super::super::computer_config::private_config_credential_lookups(),
-        super::super::computer_config::trace_dir(&config).exists(),
+        crate::desktop::computer_config::private_config_credential_lookups(),
+        crate::desktop::computer_config::trace_dir(&config).exists(),
     );
     assert_eq!(observations, (0, false));
 }

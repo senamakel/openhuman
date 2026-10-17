@@ -145,7 +145,7 @@ pub struct ProfileMeta {
 /// The current [`ProfileMeta::layout_version`].
 pub const LAYOUT_VERSION: u32 = 2;
 
-/// What [`provision`](super::ops::provision) did.
+/// What [`provision`](crate::modules::ops::provision) did.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ProvisionResult {
     pub profile_id: ProfileId,
@@ -153,7 +153,7 @@ pub struct ProvisionResult {
     pub created: bool,
 }
 
-/// What [`deprovision`](super::ops::deprovision) did.
+/// What [`deprovision`](crate::modules::ops::deprovision) did.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct DeprovisionResult {
     pub profile_id: ProfileId,
@@ -161,7 +161,7 @@ pub struct DeprovisionResult {
     pub removed: bool,
 }
 
-/// What [`release`](super::ops::release) did.
+/// What [`release`](crate::modules::ops::release) did.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct ReleaseResult {
     pub profile_id: ProfileId,
@@ -180,8 +180,8 @@ pub struct ProfileSummary {
     pub has_credential: bool,
 }
 
-/// What [`set_credential`](super::ops::set_credential) /
-/// [`clear_credential`](super::ops::clear_credential) did. The credential
+/// What [`set_credential`](crate::modules::ops::set_credential) /
+/// [`clear_credential`](crate::modules::ops::clear_credential) did. The credential
 /// itself is never echoed.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct CredentialResult {

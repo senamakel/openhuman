@@ -31,7 +31,7 @@
 use crate::config::Config;
 
 use super::module_client::{self as connectors};
-use super::ops::fetch_connected_integrations;
+use crate::modules::ops::fetch_connected_integrations;
 use super::types::ComposioUserProfileRequest;
 use tinyconnectors_bus::names::methods;
 

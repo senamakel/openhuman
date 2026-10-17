@@ -298,7 +298,7 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
     if id == super::search::MODULE_ID {
         return super::search::load_configuration(config);
     }
-    if id == super::desktop::MODULE_ID {
+    if id == crate::modules::desktop::MODULE_ID {
         return super::desktop::module_config(config);
     }
     if id == super::connectors::MODULE_ID {

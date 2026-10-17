@@ -8,7 +8,7 @@ use serde_json::json;
 use crate::config::Config;
 use tinytools::{PermissionLevel, Tool, ToolResult};
 
-use super::ops::{resolve_runtimes, RuntimeRequirement};
+use crate::modules::ops::{resolve_runtimes, RuntimeRequirement};
 
 pub struct SkillRuntimeResolveRuntimesTool;
 

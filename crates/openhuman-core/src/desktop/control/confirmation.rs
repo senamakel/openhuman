@@ -122,7 +122,7 @@ pub(super) fn record(app: &str, goal: &str, thread_id: &str, data: &Value) {
 }
 
 pub fn pending() -> Vec<PendingDesktopConfirmation> {
-    if !super::ops::listener_is_loopback() {
+    if !crate::modules::ops::listener_is_loopback() {
         return Vec::new();
     }
     let mut guard = table()
@@ -165,7 +165,7 @@ where
     F: FnOnce(String, String, String) -> Fut,
     Fut: Future<Output = Result<DesktopResponse, String>>,
 {
-    if !super::ops::listener_is_loopback() {
+    if !crate::modules::ops::listener_is_loopback() {
         return Err("desktop confirmation requires a loopback core listener".to_owned());
     }
     let (app, goal, created) = {

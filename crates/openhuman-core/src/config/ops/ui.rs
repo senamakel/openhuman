@@ -127,7 +127,7 @@ pub async fn apply_browser_settings(
     // Tools built before the switch hold the config they were built with.
     #[cfg(feature = "modules")]
     if let Some(learn) = update.learn_from_tasks {
-        crate::modules::site_memory_host::note_switch(&config.workspace_dir, learn);
+        crate::desktop::site_memory::note_switch(&config.workspace_dir, learn);
     }
     let snapshot = snapshot_config_json(config)?;
     Ok(Outcome::new(

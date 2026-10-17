@@ -196,7 +196,7 @@ fn handle_connect(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFu
             .and_then(|v| v.as_str())
             .ok_or("missing required param 'token'")?;
 
-        let state = super::ops::connect_static(mgr, url, token).await?;
+        let state = crate::modules::ops::connect_static(mgr, url, token).await?;
         Ok(status_payload(&state))
     })
 }
@@ -204,7 +204,7 @@ fn handle_connect(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFu
 fn handle_disconnect(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
-        let state = super::ops::disconnect(mgr).await?;
+        let state = crate::modules::ops::disconnect(mgr).await?;
         Ok(status_payload(&state))
     })
 }
@@ -236,7 +236,7 @@ fn handle_emit(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutur
 fn handle_connect_with_session(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let mgr = require_manager()?;
-        let state = super::ops::connect_with_session(&ctx, mgr).await?;
+        let state = crate::modules::ops::connect_with_session(&ctx, mgr).await?;
         Ok(status_payload(&state))
     })
 }

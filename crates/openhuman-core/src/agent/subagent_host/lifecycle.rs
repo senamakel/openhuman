@@ -510,7 +510,7 @@ impl SubagentExecutor<crate::agent::tinyagents::host::OpenHumanRunContext> for O
         // its explicit OpenHuman carrier.
         options.run_context = execution.prepared.run_context.data.clone();
         options.run_context.cancellation = execution.cancellation.clone();
-        match Box::pin(super::ops::run_subagent_direct(
+        match Box::pin(crate::modules::ops::run_subagent_direct(
             &definition,
             &execution
                 .prepared
@@ -900,7 +900,7 @@ impl OpenHumanPersistence {
         &self,
         task_id: &str,
     ) -> Result<super::SubagentCheckpointData, SubagentRunError> {
-        if !super::ops::is_safe_task_id(task_id) {
+        if !crate::modules::ops::is_safe_task_id(task_id) {
             return Err(SubagentRunError::Provider(anyhow::anyhow!(
                 "unsafe task id"
             )));

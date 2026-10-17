@@ -61,7 +61,7 @@ pub(crate) fn subagent_prompt_protocol(
 ///   emits `delegate_code_executor`, `delegate_planner`, …).
 ///
 /// Kept as a tight prefix/exact match rather than a registry lookup so
-/// the strip is cheap to run inside [`super::ops::run_typed_mode`]'s
+/// the strip is cheap to run inside [`crate::modules::ops::run_typed_mode`]'s
 /// filter pass. If the delegation-tool naming scheme changes, update
 /// this function and the corresponding generator in
 /// `orchestrator_tools.rs` together.

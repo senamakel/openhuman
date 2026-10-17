@@ -6,7 +6,7 @@
 use crate::core::runtime::DispatchCtx;
 use serde_json::{Map, Value};
 
-use super::ops::channel_relay_inbound;
+use crate::modules::ops::channel_relay_inbound;
 use super::params::RelayInboundParams;
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};

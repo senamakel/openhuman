@@ -51,14 +51,14 @@ pub struct ComputerStatus {
 }
 
 fn planner_route(config: &Config) -> &'static str {
-    super::computer_config::configured_routes(config).planner
+    crate::desktop::computer_config::configured_routes(config).planner
 }
 
 async fn describe(config: &Config, load: bool) -> Result<Capabilities, String> {
     let proxy = if load {
-        super::desktop::proxy(config).await?
+        crate::modules::desktop::proxy(config).await?
     } else {
-        super::desktop::proxy_if_loaded().await?
+        crate::modules::desktop::proxy_if_loaded().await?
     };
     describe_proxy(proxy).await
 }
@@ -75,9 +75,9 @@ pub(super) async fn describe_proxy(proxy: tinybus::Proxy) -> Result<Capabilities
 /// through the existing runtime without loading or reconfiguring it.
 pub async fn status(config: &Config, load: bool) -> ComputerStatus {
     let module = || {
-        super::ops::list(config)
+        crate::modules::ops::list(config)
             .into_iter()
-            .find(|item| item.id == super::desktop::MODULE_ID)
+            .find(|item| item.id == crate::modules::desktop::MODULE_ID)
     };
     let before = module();
     let ask = load
@@ -98,7 +98,7 @@ pub async fn status(config: &Config, load: bool) -> ComputerStatus {
     ComputerStatus {
         module: if ask { module() } else { before },
         decision_model: config.computer.decision_model.as_str(),
-        decision_route: super::computer_config::configured_routes(config).decision,
+        decision_route: crate::desktop::computer_config::configured_routes(config).decision,
         planner_route: planner_route(config),
         capabilities,
         error,

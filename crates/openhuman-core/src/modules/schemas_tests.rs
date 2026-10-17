@@ -74,7 +74,7 @@ async fn forgetting_sites_reports_how_many_went() {
     let dir = tempfile::tempdir().unwrap();
     let mut config = crate::config::Config::default();
     config.workspace_dir = dir.path().join("workspace");
-    let sites = crate::modules::computer_config::trace_dir(&config).join("sites");
+    let sites = crate::desktop::computer_config::trace_dir(&config).join("sites");
     std::fs::create_dir_all(&sites).unwrap();
     for site in ["shop.test", "books.test"] {
         std::fs::write(sites.join(format!("{site}.json")), b"{}").unwrap();

@@ -10,7 +10,7 @@ use super::execution::{
     prepare_transfer, supported_assets, tx_receipt, tx_status, ExecutePreparedParams,
     PrepareTransferParams,
 };
-use super::ops::{WalletAccount, WalletSetupParams, WalletSetupSource};
+use crate::modules::ops::{WalletAccount, WalletSetupParams, WalletSetupSource};
 use super::{EvmNetwork, WalletChain};
 
 #[derive(Debug, Deserialize)]

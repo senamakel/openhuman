@@ -88,7 +88,7 @@ pub(super) async fn evaluate_tool_visibility(
     };
     // Rows still in the legacy workspace file must be in the module before it
     // is asked, or its default (`write` on) would outrank a stored `write=false`.
-    super::super::ops::ensure_user_scopes_migrated(ctx, config).await;
+    super::crate::modules::ops::ensure_user_scopes_migrated(ctx, config).await;
     let request = VisibleToolsRequest {
         toolkit: toolkit.clone(),
         preference: None,

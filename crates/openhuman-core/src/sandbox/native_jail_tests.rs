@@ -6,7 +6,7 @@ use std::path::PathBuf;
 
 #[test]
 fn jail_status_is_ready_only_for_an_accepted_jail() {
-    use super::super::ops::local_status_for_jail;
+    use super::crate::modules::ops::local_status_for_jail;
     assert_eq!(
         local_status_for_jail(Some(SandboxIsolation::Isolated)),
         SandboxStatus::Ready

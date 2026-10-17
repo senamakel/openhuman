@@ -114,7 +114,7 @@ async fn malformed_controller_inputs_fail_before_loading_config_or_acting() {
 
 #[tokio::test]
 async fn controllers_use_scoped_config_for_disabled_desktop_and_reject_unknown_confirmation() {
-    let _loopback = super::super::ops::test_loopback_guard();
+    let _loopback = super::crate::modules::ops::test_loopback_guard();
     let dir = tempfile::tempdir().unwrap();
     let mut config = crate::config::Config::default();
     config.workspace_dir = dir.path().to_path_buf();

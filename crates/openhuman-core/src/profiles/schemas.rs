@@ -192,25 +192,25 @@ pub fn profiles_schemas(function: &str) -> ControllerSchema {
 fn handle_provision(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<UserParams>(params)?;
-        to_json(super::ops::provision(&payload.user_id).await?)
+        to_json(crate::modules::ops::provision(&payload.user_id).await?)
     })
 }
 
 fn handle_deprovision(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::deprovision(&payload.profile_id).await?)
+        to_json(crate::modules::ops::deprovision(&payload.profile_id).await?)
     })
 }
 
 fn handle_list(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move { to_json(super::ops::list().await?) })
+    Box::pin(async move { to_json(crate::modules::ops::list().await?) })
 }
 
 fn handle_status(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::status(&payload.profile_id).await?)
+        to_json(crate::modules::ops::status(&payload.profile_id).await?)
     })
 }
 
@@ -218,7 +218,7 @@ fn handle_set_credential(_ctx: DispatchCtx, params: Map<String, Value>) -> Contr
     Box::pin(async move {
         let payload = deserialize_params::<CredentialParams>(params)?;
         to_json(
-            super::ops::set_credential(
+            crate::modules::ops::set_credential(
                 &payload.profile_id,
                 payload.kind,
                 &payload.token,
@@ -232,14 +232,14 @@ fn handle_set_credential(_ctx: DispatchCtx, params: Map<String, Value>) -> Contr
 fn handle_clear_credential(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::clear_credential(&payload.profile_id).await?)
+        to_json(crate::modules::ops::clear_credential(&payload.profile_id).await?)
     })
 }
 
 fn handle_release(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::release(&payload.profile_id).await?)
+        to_json(crate::modules::ops::release(&payload.profile_id).await?)
     })
 }
 

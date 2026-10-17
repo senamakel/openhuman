@@ -256,7 +256,7 @@ fn handle_browser_forget_sites(ctx: DispatchCtx, params: Map<String, Value>) -> 
         };
         let config = ctx.load_config().await?;
         crate::core::runtime::components::require_config(&config, "computer")?;
-        let forgotten = super::site_memory_host::forget(&config, site.as_deref())
+        let forgotten = crate::desktop::site_memory::forget(&config, site.as_deref())
             .await
             .map_err(|error| format!("could not forget learned site data: {error}"))?;
         tracing::info!(

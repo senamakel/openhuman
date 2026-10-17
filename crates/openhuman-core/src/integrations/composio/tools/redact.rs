@@ -103,7 +103,7 @@ pub(crate) fn redact_result(mut result: ToolResult, secrets: &[String]) -> ToolR
 
 /// Redact every Composio secret `config` resolves to from `rendered`, report
 /// the redacted copy via
-/// [`report_composio_op_error`](super::super::ops::report_composio_op_error),
+/// [`report_composio_op_error`](super::crate::modules::ops::report_composio_op_error),
 /// and return that same redacted copy for the caller's own error text.
 pub(crate) fn redact_and_report(config: &Config, operation: &str, rendered: &str) -> String {
     let secrets = composio_secrets(config);
@@ -112,7 +112,7 @@ pub(crate) fn redact_and_report(config: &Config, operation: &str, rendered: &str
     } else {
         redact_text(rendered, &secrets)
     };
-    super::super::ops::report_composio_op_error(operation, &redacted);
+    super::crate::modules::ops::report_composio_op_error(operation, &redacted);
     redacted
 }
 

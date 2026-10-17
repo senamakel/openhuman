@@ -91,7 +91,7 @@ async fn call<A: serde::Serialize + Sync>(
     member: &str,
     request: &A,
 ) -> Option<Value> {
-    let proxy = super::desktop::proxy(config).await.ok()?;
+    let proxy = crate::modules::desktop::proxy(config).await.ok()?;
     let response: Value = proxy.call(member, (request,)).await.ok()?;
     let Some(data) = unwrap_response(response) else {
         tracing::debug!(member, "[profile-claim] the module refused the call");

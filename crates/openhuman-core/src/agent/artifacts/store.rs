@@ -143,7 +143,7 @@ pub(crate) async fn get_artifact(
 /// Persist the verbatim producer-tool arguments alongside an artifact's
 /// `meta.json` as `<workspace>/artifacts/<id>/args.json` (#3162).
 ///
-/// Stored so a later [`ops::ai_regenerate`](super::ops::ai_regenerate)
+/// Stored so a later [`ops::ai_regenerate`](crate::modules::ops::ai_regenerate)
 /// can reload the exact spec and re-run generation deterministically —
 /// the Retry affordance on a failed card re-dispatches the *same*
 /// request rather than asking the LLM to reconstruct it. Best-effort

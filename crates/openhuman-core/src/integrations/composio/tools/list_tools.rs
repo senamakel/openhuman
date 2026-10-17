@@ -121,7 +121,7 @@ impl ComposioListToolsTool {
                 .filter_map(|v| v.as_str().map(str::to_string))
                 .collect::<Vec<_>>()
         });
-        let tags = if super::super::ops::should_forward_tags(toolkits.as_deref()) {
+        let tags = if super::crate::modules::ops::should_forward_tags(toolkits.as_deref()) {
             raw_tags
         } else {
             None
@@ -195,7 +195,7 @@ impl ComposioListToolsTool {
         // The module owns the route's query construction and applies the
         // user's stored scope preference to the listing (the default request),
         // so the host does not filter a second time.
-        super::super::ops::ensure_user_scopes_migrated(ctx, &live_config).await;
+        super::crate::modules::ops::ensure_user_scopes_migrated(ctx, &live_config).await;
         let request = ComposioListToolsRequest {
             toolkits: toolkits.clone().unwrap_or_default(),
             tags: tags.clone().unwrap_or_default(),

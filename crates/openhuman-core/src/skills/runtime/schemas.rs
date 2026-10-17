@@ -15,7 +15,7 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 use crate::skills::run_log;
 use crate::skills::schemas::resolve_workspace_dir;
 
-use super::ops::{resolve_runtimes, RuntimeRequirement};
+use crate::modules::ops::{resolve_runtimes, RuntimeRequirement};
 use super::spawn_workflow_run_background;
 
 #[derive(Debug, Deserialize)]

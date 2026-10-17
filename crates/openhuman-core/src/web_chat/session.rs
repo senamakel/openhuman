@@ -389,7 +389,7 @@ pub(crate) async fn checkout_session_agent(
     locale: Option<&str>,
     policy: CheckoutPolicy,
 ) -> Result<CheckedOutSession, String> {
-    let map_key = super::ops::key_for(ctx, thread_id);
+    let map_key = crate::modules::ops::key_for(ctx, thread_id);
     let target_agent_id = pick_target_agent_id(config);
     let effective = effective_session_config(config, model_override.as_deref(), temperature);
     let provider_role = provider_role_for_model_override(effective.default_model.as_deref());
@@ -406,7 +406,7 @@ pub(crate) async fn checkout_session_agent(
     let prior = if policy == CheckoutPolicy::Fork {
         None
     } else {
-        let mut sessions = super::ops::thread_sessions(ctx).lock_owned().await;
+        let mut sessions = crate::modules::ops::thread_sessions(ctx).lock_owned().await;
         sessions.remove(&map_key)
     };
 
@@ -575,9 +575,9 @@ pub(crate) async fn checkin_session_agent(
     agent: OpenHumanSessionHost,
     fingerprint: SessionCacheFingerprint,
 ) {
-    let mut sessions = super::ops::thread_sessions(ctx).lock_owned().await;
+    let mut sessions = crate::modules::ops::thread_sessions(ctx).lock_owned().await;
     sessions.insert(
-        super::ops::key_for(ctx, thread_id),
+        crate::modules::ops::key_for(ctx, thread_id),
         SessionEntry { agent, fingerprint },
     );
 }
@@ -593,8 +593,8 @@ pub(crate) async fn checkin_session_agent_if_vacant(
     agent: OpenHumanSessionHost,
     fingerprint: SessionCacheFingerprint,
 ) -> bool {
-    let mut sessions = super::ops::thread_sessions(ctx).lock_owned().await;
-    match sessions.entry(super::ops::key_for(ctx, thread_id)) {
+    let mut sessions = crate::modules::ops::thread_sessions(ctx).lock_owned().await;
+    match sessions.entry(crate::modules::ops::key_for(ctx, thread_id)) {
         std::collections::hash_map::Entry::Occupied(_) => {
             log::info!(
                 "[web-channel] system turn finished after a newer turn re-cached thread={} — \

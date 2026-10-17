@@ -134,7 +134,7 @@ async fn books_a_bali_flight_up_to_the_payment_page() {
     let plan_text = read("COMPUTER_E2E_FLOW_FILE", PLAN);
     let facts: BTreeMap<String, String> = serde_json::from_str(&facts_text).expect("facts");
 
-    let status = openhuman_core::modules::computer::status(&config, true).await;
+    let status = openhuman_core::desktop::computer_status::status(&config, true).await;
     println!(
         "module: {:?} v{} decision={} ({}) planner={}",
         status.module.as_ref().map(|m| &m.state),

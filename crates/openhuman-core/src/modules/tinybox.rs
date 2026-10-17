@@ -441,7 +441,14 @@ where
         &config.workspace_dir,
     )
     .await;
-    call_with_client(&module_client(config), member, request, confidential).await
+    call_with_client_cached(
+        &module_client(config),
+        member,
+        request,
+        confidential,
+        compatibility_cache(),
+    )
+    .await
 }
 
 fn module_client(config: &Config) -> ModuleClient {
@@ -452,6 +459,7 @@ fn message(error: ModuleCallError) -> String {
     error.to_string()
 }
 
+#[cfg(test)]
 async fn call_with_client<Request, Reply>(
     client: &ModuleClient,
     member: &'static str,
@@ -462,7 +470,10 @@ where
     Request: Serialize + Send,
     Reply: DeserializeOwned,
 {
-    call_with_client_cached(client, member, request, confidential, compatibility_cache()).await
+    // Direct helper callers are test seams; production operations enter via
+    // `call`, which supplies the process-wide compatibility cache.
+    let cache = CompatibilityCache::new();
+    call_with_client_cached(client, member, request, confidential, &cache).await
 }
 
 async fn call_with_client_cached<Request, Reply>(

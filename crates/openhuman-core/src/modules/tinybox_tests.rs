@@ -157,9 +157,16 @@ fn host_and_module_contract_versions_must_cover_the_full_host_surface() {
 async fn command_facts_use_contract_member_and_positional_arguments() {
     let (_service, client, calls) = mock_client().await;
     let command = "printf 'hello'".to_owned();
+    let cache = CompatibilityCache::new();
     for _ in 0..2 {
         let facts: contract::CommandAnalysis =
-            call_with_client(&client, ANALYZE_COMMAND, (command.clone(),), false)
+            call_with_client_cached(
+                &client,
+                ANALYZE_COMMAND,
+                (command.clone(),),
+                false,
+                &cache,
+            )
                 .await
                 .expect("typed command facts");
         assert_eq!(facts.literal_words, ["printf", "hello"]);
@@ -173,6 +180,28 @@ async fn command_facts_use_contract_member_and_positional_arguments() {
             (ANALYZE_COMMAND.to_owned(), json!([command]))
         ]
     );
+}
+
+#[tokio::test]
+async fn an_incompatible_contract_result_is_sticky_for_the_cached_client() {
+    let (_service, client, calls) = mock_client().await;
+    let cache = CompatibilityCache::new();
+    let incompatible = (1, contract::CONTRACT_VERSION.1.saturating_sub(1));
+    let first = validate_observed(&cache, incompatible)
+        .await
+        .expect_err("old contract is rejected");
+    let second = call_with_client_cached::<_, contract::CommandAnalysis>(
+        &client,
+        ANALYZE_COMMAND,
+        ("printf hello",),
+        false,
+        &cache,
+    )
+    .await
+    .expect_err("cached incompatibility remains rejected");
+
+    assert_eq!(first, second);
+    assert!(calls.lock().expect("call log lock").is_empty());
 }
 
 #[tokio::test]

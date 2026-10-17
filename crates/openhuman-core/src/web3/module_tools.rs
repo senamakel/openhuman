@@ -68,13 +68,13 @@ impl Web3ModuleTool {
         args: Value,
         chat: Option<&crate::security::approval::ApprovalChatContext>,
     ) -> anyhow::Result<ToolResult> {
-        let owner = crate::modules::web3_service::owner_of(chat);
+        let owner = crate::web3::service::owner_of(chat);
         let config = match ctx.load_config().await {
             Ok(config) => config,
             Err(error) => return Ok(ToolResult::error(error)),
         };
         let result: anyhow::Result<Value> = match self.name() {
-            "web3_swap_quote" => crate::modules::web3_service::quote(
+            "web3_swap_quote" => crate::web3::service::quote(
                 ctx,
                 &config,
                 owner.clone(),
@@ -84,7 +84,7 @@ impl Web3ModuleTool {
             .await
             .map_err(|error| anyhow::anyhow!(error.to_string()))
             .and_then(|value| serde_json::to_value(value).map_err(Into::into)),
-            "web3_bridge_quote" => crate::modules::web3_service::quote(
+            "web3_bridge_quote" => crate::web3::service::quote(
                 ctx,
                 &config,
                 owner.clone(),
@@ -94,7 +94,7 @@ impl Web3ModuleTool {
             .await
             .map_err(|error| anyhow::anyhow!(error.to_string()))
             .and_then(|value| serde_json::to_value(value).map_err(Into::into)),
-            "web3_dapp_call" => crate::modules::web3_service::quote(
+            "web3_dapp_call" => crate::web3::service::quote(
                 ctx,
                 &config,
                 owner.clone(),
@@ -104,12 +104,12 @@ impl Web3ModuleTool {
             .await
             .map_err(|error| anyhow::anyhow!(error.to_string()))
             .and_then(|value| serde_json::to_value(value).map_err(Into::into)),
-            "web3_swap_routes" => crate::modules::web3_service::routes(ctx, &config)
+            "web3_swap_routes" => crate::web3::service::routes(ctx, &config)
                 .await
                 .map_err(|error| anyhow::anyhow!(error.to_string())),
             "web3_swap_execute" | "web3_bridge_execute" | "web3_dapp_execute" => {
-                match serde_json::from_value::<crate::modules::web3_service::ExecuteParams>(args) {
-                    Ok(params) => crate::modules::web3_service::execute(
+                match serde_json::from_value::<crate::web3::service::ExecuteParams>(args) {
+                    Ok(params) => crate::web3::service::execute(
                         ctx,
                         &config,
                         owner,

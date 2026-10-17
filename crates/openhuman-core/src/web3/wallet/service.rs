@@ -16,7 +16,7 @@ use zeroize::Zeroize;
 
 use crate::config::Config;
 
-use super::wallet::{self, WalletCallError};
+use crate::modules::wallet::{self, WalletCallError};
 
 struct NativeWalletService {
     config: Config,
@@ -50,7 +50,7 @@ where
 {
     let mut active = native_wallet_service().lock().await;
     register_native_wallet_shutdown_hook();
-    let accounts = super::wallet_host::wallet_accounts_snapshot(ctx)
+    let accounts = crate::modules::wallet_host::wallet_accounts_snapshot(ctx)
         .await
         .map_err(WalletCallError::Failed)?;
     let configuration = native_wallet_config_request();
@@ -85,7 +85,7 @@ async fn ensure_native_wallet(
                 wallet::call::<_, ()>(config, methods::NATIVE_WALLET_CLOSE, request).await
             },
             |service| {
-                super::wallet_host::clear_endpoint_references(&service.response.service.handle)
+                crate::modules::wallet_host::clear_endpoint_references(&service.response.service.handle)
             },
             || async {
                 let response: NativeWalletConfigResponse = wallet::call(
@@ -94,7 +94,7 @@ async fn ensure_native_wallet(
                     configuration.clone(),
                 )
                 .await?;
-                if let Err(error) = super::wallet_host::bind_endpoint_references(
+                if let Err(error) = crate::modules::wallet_host::bind_endpoint_references(
                     &response.service.handle,
                     &response.endpoint_references,
                 ) {
@@ -128,7 +128,7 @@ async fn ensure_native_wallet(
             configuration.clone(),
         )
         .await?;
-        if let Err(error) = super::wallet_host::bind_endpoint_references(
+        if let Err(error) = crate::modules::wallet_host::bind_endpoint_references(
             &response.service.handle,
             &response.endpoint_references,
         ) {
@@ -196,7 +196,7 @@ pub(crate) async fn prepare_native_transfer(
 ) -> Result<tinywallet_bus::wire::PreparedTransaction, WalletCallError> {
     let mut active = native_wallet_service().lock().await;
     register_native_wallet_shutdown_hook();
-    let accounts = super::wallet_host::wallet_accounts_snapshot(ctx)
+    let accounts = crate::modules::wallet_host::wallet_accounts_snapshot(ctx)
         .await
         .map_err(WalletCallError::Failed)?;
     ensure_native_wallet(
@@ -247,7 +247,7 @@ pub(crate) async fn execute_native_transfer(
 
     let mut active = native_wallet_service().lock().await;
     register_native_wallet_shutdown_hook();
-    let accounts = super::wallet_host::wallet_accounts_snapshot(ctx)
+    let accounts = crate::modules::wallet_host::wallet_accounts_snapshot(ctx)
         .await
         .map_err(WalletCallError::Failed)?;
     ensure_native_wallet(
@@ -277,8 +277,8 @@ pub(crate) async fn execute_native_transfer(
         confirmed: params.confirmed,
         secret,
     };
-    let result = super::wallet_host::with_confirmed_execution(
-        super::wallet_host::ApprovalKind::Native,
+    let result = crate::modules::wallet_host::with_confirmed_execution(
+        crate::modules::wallet_host::ApprovalKind::Native,
         &params.quote_id,
         Some(quote),
         None,
@@ -348,7 +348,7 @@ async fn close_native_wallet(
         },
     )
     .await?;
-    super::wallet_host::clear_endpoint_references(&service.response.service.handle);
+    crate::modules::wallet_host::clear_endpoint_references(&service.response.service.handle);
     Ok(())
 }
 
@@ -391,7 +391,7 @@ where
     };
     *active = None;
     if let Some(handle) = handle {
-        super::wallet_host::clear_endpoint_references(&handle);
+        crate::modules::wallet_host::clear_endpoint_references(&handle);
     }
     Ok(())
 }

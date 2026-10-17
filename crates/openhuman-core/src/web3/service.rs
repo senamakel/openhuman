@@ -16,7 +16,7 @@ use tinywallet_bus::wire::{
 
 use crate::config::Config;
 
-use super::{wallet, wallet_host};
+use crate::modules::{wallet, wallet_host};
 
 struct Web3Service {
     workspace: PathBuf,
@@ -43,7 +43,7 @@ async fn ensure_service(
         .await
         .map_err(wallet::WalletCallError::Failed)?;
     let workspace = config.workspace_dir.clone();
-    let native_configuration = super::wallet_service::native_wallet_config_request();
+    let native_configuration = crate::web3::wallet::service::native_wallet_config_request();
     let configuration = Web3ConfigureRequest {
         solana_cluster: native_configuration.solana_cluster,
         overridden_endpoints: native_configuration.overridden_endpoints,

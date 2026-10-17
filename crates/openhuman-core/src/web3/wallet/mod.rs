@@ -16,7 +16,7 @@
 //! - [`endpoints`] / [`rpc`] — host endpoint configuration and guarded,
 //!   credential-aware transport callbacks.
 //! - `schemas` — the controllers, with their RPC namespace strings.
-//! - [`crate::modules::wallet_service`] owns the native module service lifetime.
+//! - [`crate::web3::wallet::service`] owns the native module service lifetime.
 //!
 //! ## Compile-time gate (`web3` feature)
 //!

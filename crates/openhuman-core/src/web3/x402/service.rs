@@ -17,7 +17,7 @@ use tinywallet_bus::wire::{
 
 use crate::config::Config;
 
-use super::wallet::{self, WalletCallError};
+use crate::modules::wallet::{self, WalletCallError};
 
 /// Prepare and sign a 402 challenge inside TinyWallet. Both supported rails'
 /// secret material is sent only through the attested confidential call; the
@@ -117,7 +117,7 @@ async fn ensure_service(
 ) -> Result<(), WalletCallError> {
     register_shutdown_hook();
     let workspace = config.workspace_dir.clone();
-    let accounts = super::wallet_host::wallet_accounts_snapshot(ctx)
+    let accounts = crate::modules::wallet_host::wallet_accounts_snapshot(ctx)
         .await
         .map_err(WalletCallError::Failed)?;
     let budget = budget_from(|name| std::env::var(name).ok());

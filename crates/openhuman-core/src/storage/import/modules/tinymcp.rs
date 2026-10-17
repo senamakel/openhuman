@@ -35,7 +35,7 @@ use std::sync::Arc;
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};
 use tinystoragedrivers::secrets::{DocumentSecrets, SecretStore};
-use tinystoragedrivers::{CollectionSpec, DocumentStore, ErrorKind, Precondition, ScopedStorage};
+use tinystoragedrivers::{CollectionSpec, ErrorKind, Precondition, ScopedStorage};
 
 use crate::core::runtime::DispatchCtx;
 use crate::storage::rusqlite::{self, Connection, OpenFlags};

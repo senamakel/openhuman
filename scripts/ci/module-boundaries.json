@@ -112,6 +112,33 @@
       "owner": "https://github.com/tinyhumansai/tinyflows"
     }
   ],
+  "clients": [
+    {
+      "name": "tinydocs-client",
+      "manifest": "vendor/tinydocs/crates/tinydocs-client/Cargo.toml",
+      "owner": "https://github.com/tinyhumansai/tinydocs"
+    },
+    {
+      "name": "tinyvoice-client",
+      "manifest": "vendor/tinyvoice/crates/tinyvoice-client/Cargo.toml",
+      "owner": "https://github.com/tinyhumansai/tinyvoice"
+    },
+    {
+      "name": "tinywallet-client",
+      "manifest": "vendor/tinywallet/crates/tinywallet-client/Cargo.toml",
+      "owner": "https://github.com/tinyhumansai/tinywallet"
+    },
+    {
+      "name": "tinybox-client",
+      "manifest": "vendor/tinybox/crates/tinybox-client/Cargo.toml",
+      "owner": "https://github.com/tinyhumansai/tinybox"
+    },
+    {
+      "name": "tinychannels-client",
+      "manifest": "vendor/tinychannels/crates/tinychannels-client/Cargo.toml",
+      "owner": "https://github.com/tinyhumansai/tinychannels"
+    }
+  ],
   "linkedHost": {
     "package": "openhuman-modules-linked",
     "allowedParents": [

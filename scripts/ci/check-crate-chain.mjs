@@ -3,9 +3,11 @@
 //
 // Each OpenHuman crate may name exactly one OpenHuman crate among its NORMAL
 // dependencies — the layer directly below it — and the hosts (desktop app, CLI,
-// TUI) name `openhuman-rpc` only. Dev-dependencies and build-dependencies are
-// exempt: the CLI's root integration tests reach into the core on purpose, and
-// none of that reaches a shipped binary.
+// TUI) name `openhuman-rpc` only among OpenHuman crates. Hosts may also depend
+// on component `*-bus` contracts and typed `*-client` callers; those external
+// edges are audited for implementation reachability by check-module-boundaries.
+// Dev-dependencies and build-dependencies are exempt: the CLI's root integration
+// tests reach into the core on purpose, and none of that reaches a shipped binary.
 //
 // A second check covers what a manifest cannot show: host source must not
 // reach core internals by path. The layers above embed get core internals

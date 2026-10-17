@@ -42,6 +42,24 @@ test('new implementation packages in owning repositories are forbidden', () => {
   assert.equal(isImplementation('tinywallet-bus', strict), false);
   assert.equal(isImplementation('tinywallet-unregistered-bus', strict), true);
   assert.equal(isImplementation('tinysearch', strict), true);
+  for (const client of policy.clients) assert.equal(isImplementation(client.name, strict), false, client.name);
+});
+test('typed module clients are allowed in the host graph while implementation descendants remain forbidden', () => {
+  for (const client of policy.clients) {
+    const ok = metadata({
+      openhuman: [[client.name]],
+      [client.name]: [['tinybus'], [`${client.name.replace(/-client$/, '')}-bus`]],
+    });
+    assert.deepEqual(auditGraph(ok, ['openhuman'], strict).violations, [], client.name);
+  }
+  const hiddenImplementation = metadata({
+    openhuman: [['tinydocs-client']],
+    'tinydocs-client': [['tinydocs-core']],
+  });
+  assert.deepEqual(
+    auditGraph(hiddenImplementation, ['openhuman'], strict).violations.map(item => item.path),
+    [['openhuman', 'tinydocs-client', 'tinydocs-core']],
+  );
 });
 test('contracts permit only the serialization/schema/error closure', () => {
   const m = metadata({ 'tinyjuice-bus': [['serde'], ['thiserror']], serde: [['serde_derive']], serde_derive: [['syn']], thiserror: [['thiserror-impl']] });
@@ -100,6 +118,16 @@ test('a same-named contract from another source cannot evade independent auditin
   assert.equal(auditGraph(m, ['host'], pinned).violations.length, 1);
   m.packages.find(pkg => pkg.name === 'tinyjuice-bus').manifest_path = '/pinned/Cargo.toml';
   assert.equal(auditGraph(m, ['host'], pinned).violations.length, 0);
+});
+
+test('a same-named client from another source cannot evade the host boundary audit', () => {
+  const m = metadata({ openhuman: [['tinydocs-client']] });
+  const client = policy.clients.find(item => item.name === 'tinydocs-client');
+  const pinned = { ...strict, contractManifests: { [client.name]: '/pinned/tinydocs-client/Cargo.toml' } };
+  m.packages.find(pkg => pkg.name === client.name).manifest_path = '/unexpected/Cargo.toml';
+  assert.deepEqual(auditGraph(m, ['openhuman'], pinned).violations.map(item => item.package), [client.name]);
+  m.packages.find(pkg => pkg.name === client.name).manifest_path = '/pinned/tinydocs-client/Cargo.toml';
+  assert.deepEqual(auditGraph(m, ['openhuman'], pinned).violations, []);
 });
 
 

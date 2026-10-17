@@ -87,12 +87,17 @@ triple, pointer width, endianness, feature bits, and the refusal of a
 
 ### Loading a module
 
-Every caller goes through `ops::ensure_loaded(config, id)` or the bounded
-`ops::ensure_loaded_within(config, id, within)`. The steps, in order:
+Typed adapters use `modules::client(config)` to obtain a tinybus `ModuleClient`,
+which loads a module before calling it. Explicit loading uses
+`ops::ensure_loaded(config, id)` or the bounded
+`ops::ensure_loaded_within(config, id, within)`. These paths share the tinybus
+`Resolver` constructed by `ops::resolver(config)`; the explicit wrappers
+delegate to `Resolver::ensure_loaded_within`. Its steps, in order:
 
 1. If `config.modules.enabled` is false, fail with a message saying so.
-2. `registry::find(id)` looks up the compiled-in `ModuleRecord`; an unknown id
-   fails.
+2. The resolver looks up the id in its compiled-in release records; an unknown id
+   fails. The resolver then applies the host component gate; a disabled
+   component returns `LoadError::Disabled` without loading anything.
 3. `tinybus::module::resolution::global().claim(id)` returns `Done` (already
    ready or already failed), `Wait` (someone else is resolving), or `Run`
    (this caller goes first). Each module has its own slot, so unrelated
@@ -104,7 +109,9 @@ Every caller goes through `ops::ensure_loaded(config, id)` or the bounded
    caller that gives up gets `LoadError::StillLoading`, and the download keeps
    running for the next caller.
 
-The resolution itself (`ops::resolve`) tries the cheapest source first:
+The tinybus `Resolver` owns the loading ladder and tries the cheapest source
+first. OpenHuman supplies its source plan, module configuration, component
+gate, runtime and reporter through `ops::resolver`:
 
 ```text
   already serving on the broker?          (search path at boot, earlier load)
@@ -116,7 +123,7 @@ The resolution itself (`ops::resolve`) tries the cheapest source first:
   module search path?                     OPENHUMAN_MODULE_PATH, then
         | no                              platform data dirs (tinybus)
         v
-  release cache (load_cached)
+  release cache (tinybus Resolver::load_cached)
      host_candidates()  -> artifact keys this host can run, best first
      record.asset_for(key) -> ReleaseAsset { host_key, archive, sha256 }
      ReleasePlan { install_root, bundled_root, allow_download, ... }
@@ -154,7 +161,8 @@ feature list never contains `linked-modules`.
   `openhuman_rpc::embed::modules::register_linked`); the crate
   `crates/openhuman-modules-linked` is the only place module implementation
   crates are linked, and `install()` registers one factory per enabled module
-  feature. `ops::resolve` attaches the factory's `LinkedModule` through
+  feature. `ops::resolver` passes the factory to tinybus, whose
+  `Resolver::load_linked` attaches its `LinkedModule` through
   `ModuleHost::attach_linked_with_config` with the same `module_config` a
   released module gets (the executable's digest is the attestation). Only
   `openhuman-cli` can reach the crate, as an optional dependency behind the
@@ -174,9 +182,10 @@ feature list never contains `linked-modules`.
   `SourceSpec`: submodule, manifest, package, `lib_name`, features). The build
   stages `<out>/<id>/<library>` plus a `modules.toml` holding the file's sha256
   as operator trust, and prints `OPENHUMAN_MODULE_SOURCE_DIR=<out>` and one
-  `OPENHUMAN_MODULE_SOURCE_<ID>=source` line per module. `ops::resolve` loads
-  `<OPENHUMAN_MODULE_SOURCE_DIR>/<id>/<library>` through the same local-file
-  path as an explicit `path` override, so no new loader exists. The digest is
+  `OPENHUMAN_MODULE_SOURCE_<ID>=source` line per module. `source::plan` selects
+  `<OPENHUMAN_MODULE_SOURCE_DIR>/<id>/<library>`, and `ops::resolver` passes it
+  to tinybus as a `ModuleSource::LocalFile`. The tinybus resolver uses the same
+  local-file loading path as an explicit `path` override. The digest is
   never written to `records_*.rs`: registry pins come from published releases
   only. Builds are cached by (submodule tree, rustc, target, profile, features).
 
@@ -431,16 +440,16 @@ loadable:
   to the module, and the host must not re-filter against a second copy of the
   preference. For browser tasks it means allowed surfaces and origins, action
   budgets, and approval of irreversible steps.
-- Callers outside this folder: `runtime::client` re-exports `execute`,
-  `resolve` and `RuntimeCallError` from `modules::runtime` so `runtime/`
-  compiles without the gate; wallet, Web3, and x402 adapters use `wallet.rs`;
+- Callers outside this folder: channels and hosting construct a shared
+  `ModuleClient` through `modules::client(config)`; sandbox adapters use
+  `tinybox.rs`; wallet, Web3, and x402 adapters use `wallet.rs`;
   `tools/impl/document`, `tools/impl/presentation`,
   `agent/multimodal.rs` and `agent/attachments/` use `documents.rs`;
   `voice/always_on` and `voice/streaming.rs` use `voice.rs`;
   `tools/impl/browser/` and `desktop/control/` use the TinyComputer files;
   `integrations/composio/module_client.rs` uses [`connectors.rs`](./connectors.rs);
   `search/tools.rs` and `search/bus.rs` use [`search/`](./search/); and
-  `inference/tokenjuice` calls `ensure_loaded(config, "tinyjuice")` and is
+  `inference/tokenjuice` constructs a `ModuleClient` for TinyJuice calls and is
   called back through [`tokenjuice_host.rs`](./tokenjuice_host.rs).
 
 ## Gotchas

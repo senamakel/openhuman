@@ -26,6 +26,7 @@ impl Drop for EnvironmentRestore {
 
 struct MockTinyBox {
     calls: Arc<Mutex<Vec<(String, Value)>>>,
+    contract_version: Arc<Mutex<(u32, u32)>>,
     docker_control_delay: std::time::Duration,
 }
 
@@ -54,7 +55,7 @@ impl Interface for MockTinyBox {
             .push((member.as_str().to_owned(), args));
         match member.as_str() {
             CAPABILITIES => serde_json::to_value(contract::ModuleCapabilities {
-                contract_version: contract::CONTRACT_VERSION,
+                contract_version: *self.contract_version.lock().expect("contract version lock"),
                 create_backends: vec!["docker".to_owned()],
                 exec_backends: vec!["docker".to_owned()],
                 spawn_backends: vec!["docker".to_owned()],
@@ -94,24 +95,38 @@ impl Interface for MockTinyBox {
     }
 }
 
-async fn mock_client() -> (Connection, ModuleClient, Arc<Mutex<Vec<(String, Value)>>>) {
+pub(super) async fn mock_client() -> (Connection, ModuleClient, Arc<Mutex<Vec<(String, Value)>>>) {
     mock_client_with_docker_control_delay(std::time::Duration::ZERO).await
 }
 
-async fn mock_client_with_docker_control_delay(
+pub(super) async fn mock_client_with_docker_control_delay(
     docker_control_delay: std::time::Duration,
 ) -> (Connection, ModuleClient, Arc<Mutex<Vec<(String, Value)>>>) {
+    let (service, client, calls, _) = mock_client_with_version(docker_control_delay).await;
+    (service, client, calls)
+}
+
+pub(super) async fn mock_client_with_version(
+    docker_control_delay: std::time::Duration,
+) -> (
+    Connection,
+    ModuleClient,
+    Arc<Mutex<Vec<(String, Value)>>>,
+    Arc<Mutex<(u32, u32)>>,
+) {
     let bus = MemoryBus::new();
     Broker::new().spawn(bus.clone());
     let service = Connection::connect(bus.connect().await.expect("service transport"))
         .await
         .expect("service connection");
     let calls = Arc::new(Mutex::new(Vec::new()));
+    let contract_version = Arc::new(Mutex::new(contract::CONTRACT_VERSION));
     service
         .serve_at(
             ObjectPath::new(contract::OBJECT_PATH).expect("TinyBox path"),
             MockTinyBox {
                 calls: Arc::clone(&calls),
+                contract_version: Arc::clone(&contract_version),
                 docker_control_delay,
             },
         )
@@ -131,7 +146,12 @@ async fn mock_client_with_docker_control_delay(
             contract::INTERFACE,
         )
         .expect("TinyBox proxy");
-    (service, crate::modules::ops::fixture_client(proxy), calls)
+    (
+        service,
+        crate::modules::ops::fixture_client(proxy),
+        calls,
+        contract_version,
+    )
 }
 
 #[test]
@@ -184,10 +204,12 @@ async fn command_facts_use_contract_member_and_positional_arguments() {
 
 #[tokio::test]
 async fn an_incompatible_contract_result_is_sticky_for_the_cached_client() {
-    let (_service, client, calls) = mock_client().await;
+    let (_service, client, calls, version) =
+        mock_client_with_version(std::time::Duration::ZERO).await;
     let cache = CompatibilityCache::new(None);
     let incompatible = (1, contract::CONTRACT_VERSION.1.saturating_sub(1));
-    let first = validate_observed(&cache, incompatible)
+    *version.lock().expect("contract version lock") = incompatible;
+    let first = capabilities_with_client(&client, &cache)
         .await
         .expect_err("old contract is rejected");
     let second = call_with_client_cached::<_, contract::CommandAnalysis>(
@@ -201,21 +223,31 @@ async fn an_incompatible_contract_result_is_sticky_for_the_cached_client() {
     .expect_err("cached incompatibility remains rejected");
 
     assert_eq!(first, second);
-    assert!(calls.lock().expect("call log lock").is_empty());
+    assert_eq!(
+        calls
+            .lock()
+            .expect("call log lock")
+            .iter()
+            .filter(|(member, _)| member == CAPABILITIES)
+            .count(),
+        1
+    );
 }
 
 #[tokio::test]
 async fn public_capabilities_observes_and_preserves_sticky_compatibility() {
-    let (_service, client, calls) = mock_client().await;
+    let (_service, client, calls, version) =
+        mock_client_with_version(std::time::Duration::ZERO).await;
     let cache = CompatibilityCache::new(None);
 
     capabilities_with_client(&client, &cache)
         .await
         .expect("compatible capabilities are returned");
     let bad = (1, contract::CONTRACT_VERSION.1.saturating_sub(1));
-    validate_observed(&cache, bad)
+    *version.lock().expect("contract version lock") = bad;
+    capabilities_with_client(&client, &cache)
         .await
-        .expect_err("a newly observed old contract poisons compatibility");
+        .expect_err("the public capabilities call rejects a newly observed old contract");
     capabilities_with_client(&client, &cache)
         .await
         .expect_err("a cached incompatibility is returned before another RPC");
@@ -227,7 +259,7 @@ async fn public_capabilities_observes_and_preserves_sticky_compatibility() {
             .iter()
             .filter(|(member, _)| member == CAPABILITIES)
             .count(),
-        1,
+        2,
         "the sticky failure must avoid a second capabilities call"
     );
 }
@@ -712,95 +744,6 @@ async fn no_workspace_docker_refusal_is_not_retried_as_an_ordinary_call() {
     let calls = calls.lock().expect("call log lock");
     assert_eq!(calls.len(), 1, "only the public capabilities probe ran");
     assert_eq!(calls[0].0, CAPABILITIES);
-}
-
-#[tokio::test]
-async fn docker_controls_use_typed_calls_with_validated_contract_capability(
-) -> Result<(), Box<dyn std::error::Error>> {
-    let (_service, client, calls) = mock_client().await;
-    let status = call_docker_status_with_client(
-        &client,
-        contract::DockerStatusRequest { timeout_ms: 2_000 },
-    )
-    .await?;
-    assert!(status.available);
-
-    let cleanup = call_cleanup_docker_with_client(
-        &client,
-        contract::CleanupDockerRequest {
-            label: "openhuman.sandbox=true".to_owned(),
-            timeout_ms: 2_000,
-        },
-    )
-    .await?;
-    assert_eq!(cleanup.containers_stopped, 3);
-
-    let calls = calls.lock().expect("recorded TinyBox calls");
-    let status_call = calls
-        .iter()
-        .find(|(member, _)| member == DOCKER_STATUS)
-        .expect("status member called");
-    assert_eq!(status_call.1, json!([{ "timeout_ms": 2_000 }]));
-    let cleanup_call = calls
-        .iter()
-        .find(|(member, _)| member == CLEANUP_DOCKER)
-        .expect("cleanup member called");
-    assert_eq!(
-        cleanup_call.1,
-        json!([{ "label": "openhuman.sandbox=true", "timeout_ms": 2_000 }])
-    );
-    assert_eq!(
-        calls
-            .iter()
-            .filter(|(member, _)| member == CAPABILITIES)
-            .count(),
-        2
-    );
-    Ok(())
-}
-
-#[test]
-fn docker_control_transport_deadline_tracks_the_bounded_module_operation() {
-    assert_eq!(
-        docker_control_deadline(10_000, DOCKER_CALL_GRACE),
-        std::time::Duration::from_secs(15)
-    );
-    assert_eq!(
-        docker_control_deadline(1, DOCKER_CALL_GRACE),
-        std::time::Duration::from_millis(5_001)
-    );
-    assert_eq!(
-        docker_control_deadline(u64::MAX, DOCKER_CALL_GRACE),
-        std::time::Duration::from_secs(65),
-        "an invalid oversized request must not create an effectively unbounded bus wait"
-    );
-}
-
-#[tokio::test]
-async fn docker_status_transport_uses_its_bounded_deadline() {
-    let (_service, client, _) =
-        mock_client_with_docker_control_delay(std::time::Duration::from_millis(100)).await;
-    let error = call_docker_status_with_grace(
-        &client,
-        contract::DockerStatusRequest { timeout_ms: 5 },
-        std::time::Duration::from_millis(5),
-    )
-    .await
-    .expect_err("transport must stop waiting at operation deadline plus grace");
-
-    assert!(error.contains("MODULE_CALL_REPORTED"), "{error}");
-
-    let error = call_cleanup_docker_with_grace(
-        &client,
-        contract::CleanupDockerRequest {
-            label: "openhuman.sandbox=true".to_owned(),
-            timeout_ms: 5,
-        },
-        std::time::Duration::from_millis(5),
-    )
-    .await
-    .expect_err("cleanup transport must also stop at its bounded deadline plus grace");
-    assert!(error.contains("MODULE_CALL_REPORTED"), "{error}");
 }
 
 #[test]

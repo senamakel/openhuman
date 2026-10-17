@@ -61,6 +61,9 @@ const DOCKER_CALL_GRACE: Duration = Duration::from_secs(5);
 #[cfg(test)]
 #[path = "tinybox_tests.rs"]
 mod tests;
+#[cfg(test)]
+#[path = "tinybox_docker_tests.rs"]
+mod docker_tests;
 
 /// Resolve TinyBox, require the bus contract supported by this host, and
 /// return its proxy.
@@ -237,7 +240,7 @@ pub async fn run_docker(
 ) -> Result<contract::DockerRunOutput, String> {
     let timeout = Duration::from_millis(request.timeout_ms).saturating_add(DOCKER_CALL_GRACE);
     let client = crate::modules::client(config.clone()).with_timeout(timeout);
-    call_run_docker_with_client(&client, request).await
+    call_run_docker_cached(&client, request, compatibility_cache()).await
 }
 
 /// Run one bounded Docker-isolated command without mounting a workspace.
@@ -250,7 +253,7 @@ pub async fn run_docker_without_workspace(
 ) -> Result<contract::DockerRunOutput, String> {
     let timeout = Duration::from_millis(request.timeout_ms).saturating_add(DOCKER_CALL_GRACE);
     let client = crate::modules::client(config.clone()).with_timeout(timeout);
-    call_run_docker_without_workspace_with_client(&client, request).await
+    call_run_docker_without_workspace_cached(&client, request, compatibility_cache()).await
 }
 
 /// Probe the Docker daemon owned by the TinyBox module host.
@@ -258,7 +261,7 @@ pub async fn docker_status(
     config: &Config,
     request: contract::DockerStatusRequest,
 ) -> Result<contract::DockerStatus, String> {
-    call_docker_status_with_client(&module_client(config), request).await
+    call_docker_status_cached(&module_client(config), request, compatibility_cache()).await
 }
 
 /// Stop TinyBox-owned containers matching the supplied label.
@@ -266,7 +269,7 @@ pub async fn cleanup_docker(
     config: &Config,
     request: contract::CleanupDockerRequest,
 ) -> Result<contract::CleanupDockerOutput, String> {
-    call_cleanup_docker_with_client(&module_client(config), request).await
+    call_cleanup_docker_cached(&module_client(config), request, compatibility_cache()).await
 }
 
 fn docker_control_deadline(timeout_ms: u64, grace: Duration) -> Duration {
@@ -280,50 +283,106 @@ fn docker_control_client(client: &ModuleClient, timeout_ms: u64, grace: Duration
         .with_timeout(docker_control_deadline(timeout_ms, grace))
 }
 
+async fn call_docker_status_cached(
+    client: &ModuleClient,
+    request: contract::DockerStatusRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerStatus, String> {
+    call_docker_status_with_grace_and_cache(client, request, DOCKER_CALL_GRACE, cache).await
+}
+
+#[cfg(test)]
 async fn call_docker_status_with_client(
     client: &ModuleClient,
     request: contract::DockerStatusRequest,
 ) -> Result<contract::DockerStatus, String> {
-    call_docker_status_with_grace(client, request, DOCKER_CALL_GRACE).await
+    call_docker_status_cached(client, request, &CompatibilityCache::new(None)).await
 }
 
+#[cfg(test)]
 async fn call_docker_status_with_grace(
     client: &ModuleClient,
     request: contract::DockerStatusRequest,
     grace: Duration,
 ) -> Result<contract::DockerStatus, String> {
-    let client = docker_control_client(client, request.timeout_ms, grace);
-    call_with_client_cached(&client, DOCKER_STATUS, (request,), false, compatibility_cache()).await
+    call_docker_status_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None)).await
 }
 
+async fn call_docker_status_with_grace_and_cache(
+    client: &ModuleClient,
+    request: contract::DockerStatusRequest,
+    grace: Duration,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerStatus, String> {
+    let client = docker_control_client(client, request.timeout_ms, grace);
+    call_with_client_cached(&client, DOCKER_STATUS, (request,), false, cache).await
+}
+
+async fn call_cleanup_docker_cached(
+    client: &ModuleClient,
+    request: contract::CleanupDockerRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::CleanupDockerOutput, String> {
+    call_cleanup_docker_with_grace_and_cache(client, request, DOCKER_CALL_GRACE, cache).await
+}
+
+#[cfg(test)]
 async fn call_cleanup_docker_with_client(
     client: &ModuleClient,
     request: contract::CleanupDockerRequest,
 ) -> Result<contract::CleanupDockerOutput, String> {
-    call_cleanup_docker_with_grace(client, request, DOCKER_CALL_GRACE).await
+    call_cleanup_docker_cached(client, request, &CompatibilityCache::new(None)).await
 }
 
+#[cfg(test)]
 async fn call_cleanup_docker_with_grace(
     client: &ModuleClient,
     request: contract::CleanupDockerRequest,
     grace: Duration,
 ) -> Result<contract::CleanupDockerOutput, String> {
-    let client = docker_control_client(client, request.timeout_ms, grace);
-    call_with_client_cached(&client, CLEANUP_DOCKER, (request,), false, compatibility_cache()).await
+    call_cleanup_docker_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None)).await
 }
 
+async fn call_cleanup_docker_with_grace_and_cache(
+    client: &ModuleClient,
+    request: contract::CleanupDockerRequest,
+    grace: Duration,
+    cache: &CompatibilityCache,
+) -> Result<contract::CleanupDockerOutput, String> {
+    let client = docker_control_client(client, request.timeout_ms, grace);
+    call_with_client_cached(&client, CLEANUP_DOCKER, (request,), false, cache).await
+}
+
+#[cfg(test)]
 async fn call_run_docker_with_client(
     client: &ModuleClient,
     request: contract::DockerRunRequest,
 ) -> Result<contract::DockerRunOutput, String> {
-    call_with_client_cached(client, RUN_DOCKER, (request,), true, compatibility_cache()).await
+    call_run_docker_cached(client, request, &CompatibilityCache::new(None)).await
 }
 
+async fn call_run_docker_cached(
+    client: &ModuleClient,
+    request: contract::DockerRunRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerRunOutput, String> {
+    call_with_client_cached(client, RUN_DOCKER, (request,), true, cache).await
+}
+
+#[cfg(test)]
 async fn call_run_docker_without_workspace_with_client(
     client: &ModuleClient,
     request: contract::DockerRunRequest,
 ) -> Result<contract::DockerRunOutput, String> {
-    call_with_client_cached(client, RUN_DOCKER_WITHOUT_WORKSPACE, (request,), true, compatibility_cache()).await
+    call_run_docker_without_workspace_cached(client, request, &CompatibilityCache::new(None)).await
+}
+
+async fn call_run_docker_without_workspace_cached(
+    client: &ModuleClient,
+    request: contract::DockerRunRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerRunOutput, String> {
+    call_with_client_cached(client, RUN_DOCKER_WITHOUT_WORKSPACE, (request,), true, cache).await
 }
 
 /// Read a bounded output batch from a live or completed process.

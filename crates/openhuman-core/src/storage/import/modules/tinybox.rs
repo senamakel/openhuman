@@ -21,7 +21,7 @@
 
 //! # Removal criterion
 //!
-//! Delete delete after the minimum supported tinybox version is at least
+//! Delete after the minimum supported tinybox version is at least
 //! 0.1.29, the release that ships its storage contract.
 
 use std::path::Path;

@@ -17,7 +17,7 @@
 //!
 //! # Removal criterion
 //!
-//! Delete delete after every supported tinychannels module
+//! Delete after every supported tinychannels module
 //! implements storage contract v21 and reads the delivery collections.
 
 use std::collections::BTreeMap;

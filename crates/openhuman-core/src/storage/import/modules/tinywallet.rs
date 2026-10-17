@@ -22,7 +22,7 @@
 
 //! # Removal criterion
 //!
-//! Delete delete after the minimum supported tinywallet version is at least
+//! Delete after the minimum supported tinywallet version is at least
 //! 0.22, the release that ships its storage contract.
 
 use std::path::Path;

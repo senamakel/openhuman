@@ -6,7 +6,7 @@
 
 mod proxy;
 
-pub(crate) const MODULE_ID: &str = "tinysearch";
+pub const MODULE_ID: &str = "tinysearch";
 
 pub use proxy::{execute_tool, list_tools, refresh_loaded};
 

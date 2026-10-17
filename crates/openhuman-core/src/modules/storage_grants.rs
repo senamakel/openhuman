@@ -7,7 +7,7 @@
 //! A module with no declaration has no storage, and a request that names
 //! anything outside its grant is refused before it reaches the backend.
 //!
-//! [`authorize`] works on the wire request itself, because that is the one
+//! `authorize` works on the wire request itself, because that is the one
 //! place every selector's target is visible. It never trusts a field to
 //! *widen* access: an unknown selector, a missing or non-string target and a
 //! malformed batch are all refusals.

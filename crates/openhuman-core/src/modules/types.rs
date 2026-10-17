@@ -22,7 +22,7 @@ pub struct ModuleRecord {
     pub version: &'static str,
     /// GitHub release tag URL the artifacts are published under.
     pub release_url: &'static str,
-    /// Per-host artifacts, in the order [`super::platform`] prefers them.
+    /// Per-host artifacts, selected using `tinybus::module::platform::host_candidates`.
     pub assets: &'static [PlatformAsset],
     /// When the module is loaded.
     pub load: LoadPolicy,
@@ -93,7 +93,10 @@ impl SourceSpec {
 /// own type, so the registry records feed the resolver without a conversion.
 pub type PlatformAsset = tinybus::module::ReleaseAsset<'static>;
 
-/// When a module is loaded into the process.
+/// Registry load-policy vocabulary, retained as an extension point.
+///
+/// All current records use [`LoadPolicy::Lazy`]. Boot loads configured search-path
+/// artifacts and may warm connector catalogs, but does not dispatch this policy.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LoadPolicy {
     /// On first use.
@@ -102,11 +105,9 @@ pub enum LoadPolicy {
     /// should not pay a download, a `dlopen`, or the resident cost of a library
     /// that is never unloaded.
     Lazy,
-    /// At boot, before the first request.
+    /// Reserved for a future module that must load before the first request.
     ///
-    /// For a module whose absence would change behaviour rather than just delay
-    /// it — one that has to be serving before something else decides what it can
-    /// offer.
+    /// No current registry record uses this variant, and boot does not act on it.
     Eager,
 }
 

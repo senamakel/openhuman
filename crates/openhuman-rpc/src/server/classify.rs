@@ -65,8 +65,8 @@ pub(super) enum FailureDisposition {
     /// A native module failed to load earlier in this process and the cached
     /// failure is being returned again. tinybus never unloads a library, so
     /// the outcome cannot change before a restart; the load failure itself was
-    /// reported once when the module resolved
-    /// (`modules::ops::report_resolution_failure`). Re-reporting it on every
+    /// reported once by the shared `modules::report::reporter()` passed to the
+    /// tinybus resolver. Re-reporting it on every
     /// call was the TAURI-RUST-117K flood (~1M events). Core's
     /// `ExpectedErrorKind::ModuleUnavailable` decides what qualifies.
     ModuleUnavailable,

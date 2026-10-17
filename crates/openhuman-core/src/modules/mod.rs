@@ -156,4 +156,3 @@ pub fn client(config: crate::config::Config) -> tinybus::module::ModuleClient {
 }
 
 pub use types::{LoadPolicy, ModuleRecord, ModuleSource, ModuleState, ModuleStatus, PlatformAsset};
-

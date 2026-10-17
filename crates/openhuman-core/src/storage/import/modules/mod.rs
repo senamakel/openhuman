@@ -10,20 +10,20 @@
 #[cfg(feature = "modules")]
 use crate::modules::storage_host;
 
+#[cfg(all(feature = "channels", feature = "modules"))]
+pub(crate) mod delivery;
 #[cfg(feature = "modules")]
 mod support;
 #[cfg(feature = "modules")]
-mod tinymcp;
+mod tinybox;
 #[cfg(feature = "modules")]
 mod tinyconnectors;
 #[cfg(feature = "modules")]
-mod tinybox;
-#[cfg(feature = "modules")]
 mod tinyjuice;
+#[cfg(feature = "modules")]
+mod tinymcp;
 #[cfg(all(feature = "modules", feature = "web3"))]
 mod tinywallet;
-#[cfg(all(feature = "channels", feature = "modules"))]
-pub(crate) mod delivery;
 
 /// Imports tinymcp's legacy SQLite files under `data_dir` into the module's
 /// storage, once per directory. Never fails the caller: an error is logged and
@@ -33,12 +33,7 @@ pub async fn import_legacy_mcp(
     data_dir: &std::path::Path,
 ) {
     #[cfg(feature = "modules")]
-    import_legacy_mcp_with(
-        ctx,
-        data_dir,
-        tinymcp::import_legacy(ctx, data_dir),
-    )
-    .await;
+    import_legacy_mcp_with(ctx, data_dir, tinymcp::import_legacy(ctx, data_dir)).await;
     #[cfg(not(feature = "modules"))]
     let _ = (ctx, data_dir);
 }
@@ -75,12 +70,7 @@ macro_rules! settled_outcome {
 }
 
 #[cfg(feature = "modules")]
-settled_outcome!(
-    tinymcp,
-    tinyconnectors,
-    tinybox,
-    tinyjuice
-);
+settled_outcome!(tinymcp, tinyconnectors, tinybox, tinyjuice);
 #[cfg(all(feature = "modules", feature = "web3"))]
 settled_outcome!(tinywallet);
 

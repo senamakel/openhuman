@@ -50,8 +50,11 @@ impl ModuleChannelRuntime {
         // Queued deliveries from before the storage contract move into the
         // module's storage before it starts and reads its queue. Best effort:
         // a failure is retried at the next start, never fatal to channels.
-        match crate::storage::import::modules::delivery::import_legacy_delivery(dispatch_ctx, &config.workspace_dir)
-            .await
+        match crate::storage::import::modules::delivery::import_legacy_delivery(
+            dispatch_ctx,
+            &config.workspace_dir,
+        )
+        .await
         {
             Ok(outcome) => tracing::debug!("[channels] legacy delivery import: {outcome:?}"),
             Err(error) => {

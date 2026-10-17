@@ -33,9 +33,7 @@ pub const SCOPE_SWEEP_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 /// Module scopes that hold expiring blobs under the current acting scope.
 /// A module is included when its declared storage grant has blob prefixes.
 #[cfg(feature = "modules")]
-pub(crate) fn expiring_blob_module_scopes(
-    ctx: &crate::core::runtime::DispatchCtx,
-) -> Vec<Scope> {
+pub(crate) fn expiring_blob_module_scopes(ctx: &crate::core::runtime::DispatchCtx) -> Vec<Scope> {
     crate::modules::storage_grants::blob_module_ids()
         .into_iter()
         .filter_map(|id| crate::modules::storage_host::current_module_scope(ctx, id).ok())
@@ -44,10 +42,7 @@ pub(crate) fn expiring_blob_module_scopes(
 
 /// Module blob scopes for SaaS profile `profile`, derived from its acting scope.
 #[cfg(feature = "modules")]
-pub(crate) fn expiring_blob_module_scopes_for(
-    profile: &str,
-    base: &Scope,
-) -> Vec<Scope> {
+pub(crate) fn expiring_blob_module_scopes_for(profile: &str, base: &Scope) -> Vec<Scope> {
     crate::modules::storage_grants::blob_module_ids()
         .into_iter()
         .filter_map(|id| crate::modules::storage_host::module_scope(Some(profile), base, id).ok())
@@ -119,7 +114,8 @@ pub(crate) async fn sweep_profiles(backend: &dyn StorageBackend, profile_ids: &[
     for id in profile_ids {
         let scope = super::scope_for_profile(id);
         removed += sweep_scope(backend, &scope).await;
-        for module_scope in crate::storage::blob_sweep::expiring_blob_module_scopes_for(id, &scope) {
+        for module_scope in crate::storage::blob_sweep::expiring_blob_module_scopes_for(id, &scope)
+        {
             if module_scope != scope {
                 removed += sweep_scope(backend, &module_scope).await;
             }

@@ -20,6 +20,8 @@
 //!   marker, so the next start retries. A file whose content is not valid JSON
 //!   is skipped, as the module itself would have refused it.
 
+//! Removal criterion: delete after the minimum supported tinyconnectors version is at least 0.18, the release that ships its storage contract.
+
 use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};

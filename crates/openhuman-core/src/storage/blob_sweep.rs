@@ -30,6 +30,42 @@ pub const FIRST_SWEEP_DELAY: Duration = Duration::from_secs(5 * 60);
 /// retried on the next tick.
 pub const SCOPE_SWEEP_TIMEOUT: Duration = Duration::from_secs(5 * 60);
 
+/// Module scopes that hold expiring blobs under the current acting scope.
+/// A module is included when its declared storage grant has blob prefixes.
+#[cfg(feature = "modules")]
+pub(crate) fn expiring_blob_module_scopes(
+    ctx: &crate::core::runtime::DispatchCtx,
+) -> Vec<Scope> {
+    crate::modules::storage_grants::blob_module_ids()
+        .into_iter()
+        .filter_map(|id| crate::modules::storage_host::current_module_scope(ctx, id).ok())
+        .collect()
+}
+
+/// Module blob scopes for SaaS profile `profile`, derived from its acting scope.
+#[cfg(feature = "modules")]
+pub(crate) fn expiring_blob_module_scopes_for(
+    profile: &str,
+    base: &Scope,
+) -> Vec<Scope> {
+    crate::modules::storage_grants::blob_module_ids()
+        .into_iter()
+        .filter_map(|id| crate::modules::storage_host::module_scope(Some(profile), base, id).ok())
+        .collect()
+}
+
+/// With module support disabled there are no module blob scopes to sweep.
+#[cfg(not(feature = "modules"))]
+pub(crate) fn expiring_blob_module_scopes(_ctx: &crate::core::runtime::DispatchCtx) -> Vec<Scope> {
+    Vec::new()
+}
+
+/// With module support disabled there are no module blob scopes to sweep.
+#[cfg(not(feature = "modules"))]
+pub(crate) fn expiring_blob_module_scopes_for(_profile: &str, _base: &Scope) -> Vec<Scope> {
+    Vec::new()
+}
+
 /// Reclaims the lapsed blobs of `scope`, returning how many went. A failure
 /// or a sweep past [`SCOPE_SWEEP_TIMEOUT`] is logged and counts as zero.
 pub async fn sweep_scope(backend: &dyn StorageBackend, scope: &Scope) -> u64 {

@@ -50,7 +50,7 @@ struct LegacyState {
 
 /// How one import attempt ended.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum Outcome {
+pub(crate) enum Outcome {
     /// No storage backend is installed; nothing to write to.
     NoBackend,
     /// The marker says the import already finished.

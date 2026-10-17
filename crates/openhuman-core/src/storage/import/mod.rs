@@ -38,6 +38,9 @@
 //! TinyAgents' importer, which owns those formats; see [`sessions`]. The
 //! tinyflows stores (cron jobs, the flow catalog and checkpoints) are copied
 //! with `tinyflows-import`; see [`tinyflows`].
+//!
+//! One-time imports for loadable module state live in [`modules`], before the
+//! module opens its host-owned storage scope.
 
 pub mod modules;
 pub mod sessions;

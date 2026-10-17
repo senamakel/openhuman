@@ -120,7 +120,11 @@ async fn ensure_service(
     let accounts = crate::modules::wallet_host::wallet_accounts_snapshot(ctx)
         .await
         .map_err(WalletCallError::Failed)?;
-    let budget = budget_from(|name| std::env::var(name).ok());
+    let budget = (
+        config.x402.per_request_max_atomic,
+        config.x402.daily_max_atomic,
+        config.x402.monthly_max_atomic,
+    );
 
     if active.as_ref().is_some_and(|current| {
         current.workspace != workspace
@@ -341,23 +345,6 @@ pub(crate) async fn update_budget(
     current.config.daily_max_atomic = result.daily_max_atomic;
     current.config.monthly_max_atomic = result.monthly_max_atomic;
     Ok(result)
-}
-
-fn budget_from(get: impl Fn(&str) -> Option<String>) -> (u64, u64, u64) {
-    let mut per_request_max_atomic = 1_000_000;
-    let mut daily_max_atomic = 10_000_000;
-    let mut monthly_max_atomic = 100_000_000;
-    if let Some(value) = get("OPENHUMAN_X402_PER_REQUEST_MAX").and_then(|value| value.parse().ok())
-    {
-        per_request_max_atomic = value;
-    }
-    if let Some(value) = get("OPENHUMAN_X402_DAILY_MAX").and_then(|value| value.parse().ok()) {
-        daily_max_atomic = value;
-    }
-    if let Some(value) = get("OPENHUMAN_X402_MONTHLY_MAX").and_then(|value| value.parse().ok()) {
-        monthly_max_atomic = value;
-    }
-    (per_request_max_atomic, daily_max_atomic, monthly_max_atomic)
 }
 
 #[cfg(test)]

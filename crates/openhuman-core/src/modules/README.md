@@ -254,7 +254,7 @@ containers with no cache directory.
 ### Module configuration
 
 Some modules take a private configuration blob at load and on
-reinitialization. `ops::module_config` builds it per id: `search::module_config`
+reinitialization. `ops::module_config` builds it per id: `search::module::module_config`
 for `tinysearch`, `desktop::module_config` (from [`computer_config.rs`](./computer_config.rs)) for
 `tinycomputer`, and `connectors::module_config` for `tinyconnectors`.
 Everything else gets `{}`. When the connector configuration cannot be built

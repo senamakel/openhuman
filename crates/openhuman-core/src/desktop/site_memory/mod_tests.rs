@@ -75,7 +75,7 @@ async fn site_files_are_private_to_their_owner() {
 fn site_memory_is_never_published_to_agent_memory_or_prompts() {
     // The adapter must stay a pure file store: no event bus, memory or prompt
     // surface may be named in its source.
-    let source = include_str!("site_memory_host.rs");
+    let source = include_str!("mod.rs");
     let code = source.split("#[cfg(test)]").next().unwrap();
     for forbidden in ["BUS.", "crate::memory", "prompt", "DomainEvent"] {
         let hits = code

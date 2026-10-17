@@ -8,7 +8,7 @@
 //!    loaded through the module registry (`modules::desktop::proxy`);
 //! 2. the host hands it its private configuration — the decision model
 //!    (`[computer] decision_model`, Jev over OpenRouter here), and the planner
-//!    and rescue route (`modules::computer_config`);
+//!    and rescue route (`desktop::computer_config`);
 //! 3. `desktop::browser` starts the task with `StartTask` (browser only,
 //!    confined to the allowed websites, never allowed to pay), follows it with
 //!    `AwaitTask`, answers `needs_input` from the facts, approves ordinary

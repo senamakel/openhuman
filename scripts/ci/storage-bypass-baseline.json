@@ -253,7 +253,7 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/modules/site_memory_host.rs",
+    "path": "crates/openhuman-core/src/desktop/site_memory/mod.rs",
     "line": 159,
     "text": "let mut options = tokio::fs::OpenOptions::new();",
     "occurrence": 1

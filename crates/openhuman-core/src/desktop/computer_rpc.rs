@@ -1,10 +1,10 @@
 //! TinyComputer RPC handlers registered in the stable `modules` namespace.
 
-use crate::core::runtime::DispatchCtx;
 use crate::core::all::ControllerFuture;
+use crate::core::runtime::DispatchCtx;
 use serde_json::{Map, Value};
-use tinycomputer_bus::browser::SessionOptions;
 use std::sync::Arc;
+use tinycomputer_bus::browser::SessionOptions;
 
 /// What the settings page's Chrome check shows when Chrome would not start:
 /// where to fix a missing Chrome or a Chrome path that names no Chrome, or
@@ -98,7 +98,7 @@ pub(crate) fn handle_computer_status(ctx: DispatchCtx, params: Map<String, Value
         let load = params.get("load").and_then(Value::as_bool).unwrap_or(false);
         let config = ctx.load_config().await?;
         crate::core::runtime::components::require_config(&config, "computer")?;
-        controller_value(super::computer::status(&config, load).await)
+        controller_value(crate::desktop::computer_status::status(&config, load).await)
     })
 }
 
@@ -106,3 +106,7 @@ fn controller_value(value: impl serde::Serialize) -> Result<Value, String> {
     serde_json::to_value(value).map_err(|error| error.to_string())
 }
 
+
+#[cfg(test)]
+#[path = "computer_rpc_tests.rs"]
+mod tests;

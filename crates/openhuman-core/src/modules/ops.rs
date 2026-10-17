@@ -8,8 +8,8 @@
 //! - [`resolver`] turns a [`Config`] and the compiled [`registry`] into the
 //!   resolver's plain inputs: the install directory, whether a cache miss may
 //!   reach the network, the source each module is served from (see
-//!   [`super::source`]), the `[components]` gate, per-module initialisation
-//!   configuration and the shared Sentry reporter ([`super::report`]).
+//!   `super::source`), the `[components]` gate, per-module initialisation
+//!   configuration and the shared Sentry reporter (`super::report`).
 //! - [`client`] is a `tinybus::module::ModuleClient` over that resolver.
 //! - [`list`] and [`state_of`] shape the resolver's answers into the
 //!   `modules.list` RPC output.

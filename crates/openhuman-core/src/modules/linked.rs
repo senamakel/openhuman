@@ -1,6 +1,6 @@
 //! The registry of modules linked into the host executable.
 //!
-//! A `linked` source (`[modules] source = "linked"`, see [`super::source`])
+//! A `linked` source (`[modules] source = "linked"`, see `super::source`)
 //! serves a module from code compiled into the running binary instead of a
 //! downloaded `cdylib`. The core cannot link module implementation crates, so
 //! the code that does (`openhuman-modules-linked`, reachable only from the CLI
@@ -12,7 +12,7 @@
 //!
 //! The registry is empty in every binary that never calls [`register_linked`],
 //! which is every shipped build; a `linked` request then falls back to the
-//! release with a warning (see [`super::source::plan`]).
+//! release with a warning (see `super::source::plan`).
 //!
 //! # Process-global on purpose
 //!

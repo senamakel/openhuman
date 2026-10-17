@@ -45,7 +45,7 @@ pub struct BrowserTask {
     /// as a plan saved from an earlier run. `goal` then explains it.
     pub flow: Option<tinycomputer_bus::Flow>,
     /// The site the task starts on, from its starting address
-    /// ([`super::site_memory_host::site_of`]): the module keeps what it learns
+    /// (`super::site_memory_host::site_of`): the module keeps what it learns
     /// under it, through the host's `SiteMemoryHost`, and hands the task what
     /// earlier tasks there learned.
     pub site: Option<String>,
@@ -93,7 +93,7 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
 /// Start a browser task and follow it until it pauses, finishes, or the host
 /// deadline passes (then the view still says `running`). The module hands the
 /// task what earlier tasks on its site left, and keeps what it learns, through
-/// the host's `SiteMemoryHost` (see [`super::site_memory_host`]).
+/// the host's `SiteMemoryHost` (see `super::site_memory_host`).
 ///
 /// # Errors
 ///

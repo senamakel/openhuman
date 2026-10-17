@@ -663,11 +663,12 @@ impl WalletHost {
             .lock()
             .ok()
             .and_then(|mut quotes| quotes.remove(&request.quote_id));
+        let permit = consume_approval(ApprovalKind::Web3, &request.quote_id);
         Ok(HostResponse::Authorization(AuthorizationResult {
-            approved: quote
-                .as_ref()
-                .is_some_and(|quote| web3_approval_matches_request(quote, &request))
-                && consume_approval(ApprovalKind::Web3, &request.quote_id),
+            approved: permit
+                && quote
+                    .as_ref()
+                    .is_some_and(|quote| web3_approval_matches_request(quote, &request)),
             reason: None,
         }))
     }

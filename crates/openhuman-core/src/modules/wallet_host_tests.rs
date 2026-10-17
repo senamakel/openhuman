@@ -1,8 +1,4 @@
-use super::{
-    consume_approval, native_approval_matches_request, validate_module_endpoint_url,
-    web3_approval_matches_request, x402_approval_facts, x402_request_owner_matches, ApprovalKind,
-    ApprovalPermit,
-};
+use super::*;
 use tinywallet_bus::wire::{
     AuthorizeNativeWalletExecutionRequest, AuthorizeWeb3ExecutionRequest,
     AuthorizeX402PaymentRequest, EvmNetwork, NativeWalletExecutionIntent, PreparedKind,
@@ -187,6 +183,98 @@ fn web3_approval_rejects_changed_quote_intent_before_signing() {
     };
     assert!(!web3_approval_matches_request(&quote, &request));
     drop(permit);
+    assert!(!consume_approval(ApprovalKind::Web3, &quote.quote_id));
+}
+
+#[tokio::test]
+async fn web3_permit_is_consumed_after_a_mismatched_intent() {
+    let quote = web3_quote("web3-mismatch-consumes-permit");
+    let _permit = ApprovalPermit::new(
+        ApprovalKind::Web3,
+        &quote.quote_id,
+        None,
+        Some(quote.clone()),
+    );
+    let mut request = AuthorizeWeb3ExecutionRequest {
+        quote_id: quote.quote_id.clone(),
+        operation: "dapp_call".into(),
+        transaction: Web3ExecutionIntent::Evm {
+            network: "polygon_mainnet".into(),
+            to: "0xattacker".into(),
+            data: Some("0xabcd".into()),
+            value: "5".into(),
+            nonce: 4,
+            gas_limit: 30_000,
+            gas_price_wei: "7".into(),
+            chain_id: 137,
+        },
+    };
+
+    let HostResponse::Authorization(first) = WalletHost
+        .authorize_web3_execution(request.clone())
+        .await
+        .unwrap()
+    else {
+        panic!("expected authorization response");
+    };
+    assert!(!first.approved);
+
+    // Restore the cached quote to isolate permit reuse from the one-shot quote cache.
+    web3_approval_quotes()
+        .lock()
+        .unwrap()
+        .insert(quote.quote_id.clone(), quote.clone());
+    request.transaction = Web3ExecutionIntent::Evm {
+        network: "polygon_mainnet".into(),
+        to: "0x1111111111111111111111111111111111111111".into(),
+        data: Some("0xabcd".into()),
+        value: "5".into(),
+        nonce: 4,
+        gas_limit: 30_000,
+        gas_price_wei: "7".into(),
+        chain_id: 137,
+    };
+    let HostResponse::Authorization(second) =
+        WalletHost.authorize_web3_execution(request).await.unwrap()
+    else {
+        panic!("expected authorization response");
+    };
+    assert!(
+        !second.approved,
+        "a mismatched attempt must spend its permit"
+    );
+}
+
+#[tokio::test]
+async fn web3_permit_approves_the_exact_confirmed_intent_once() {
+    let quote = web3_quote("web3-matching-intent-approves");
+    let _permit = ApprovalPermit::new(
+        ApprovalKind::Web3,
+        &quote.quote_id,
+        None,
+        Some(quote.clone()),
+    );
+    let request = AuthorizeWeb3ExecutionRequest {
+        quote_id: quote.quote_id.clone(),
+        operation: "dapp_call".into(),
+        transaction: Web3ExecutionIntent::Evm {
+            network: "polygon_mainnet".into(),
+            to: "0x1111111111111111111111111111111111111111".into(),
+            data: Some("0xabcd".into()),
+            value: "5".into(),
+            nonce: 4,
+            gas_limit: 30_000,
+            gas_price_wei: "7".into(),
+            chain_id: 137,
+        },
+    };
+
+    let HostResponse::Authorization(result) =
+        WalletHost.authorize_web3_execution(request).await.unwrap()
+    else {
+        panic!("expected authorization response");
+    };
+    assert!(result.approved);
     assert!(!consume_approval(ApprovalKind::Web3, &quote.quote_id));
 }
 

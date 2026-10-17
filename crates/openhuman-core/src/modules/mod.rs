@@ -189,17 +189,21 @@ pub async fn import_legacy_mcp(
 
 #[cfg(feature = "modules")]
 async fn import_legacy_mcp_with<F, T>(
-    _ctx: &crate::core::runtime::DispatchCtx,
-    _data_dir: &std::path::Path,
+    ctx: &crate::core::runtime::DispatchCtx,
+    data_dir: &std::path::Path,
     run: F,
 ) where
     F: std::future::Future<Output = anyhow::Result<T>>,
     T: std::fmt::Debug + Settled,
 {
-    match run.await {
-        Ok(outcome) => log::debug!("[mcp] legacy storage import: {outcome:?}"),
-        Err(error) => log::warn!("[mcp] legacy storage import failed, will retry: {error:#}"),
-    }
+    import_once(
+        ctx,
+        "mcp",
+        storage_grant_tinymcp::MODULE_ID,
+        data_dir,
+        run,
+    )
+    .await;
 }
 
 /// What an importer's outcome says about whether it may be skipped next time.

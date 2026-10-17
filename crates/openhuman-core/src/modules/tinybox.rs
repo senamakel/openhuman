@@ -5,6 +5,7 @@
 //! file access, forwarding, and output collection stay in TinyBox.
 
 use std::time::Duration;
+use std::sync::OnceLock;
 
 use serde::{de::DeserializeOwned, Serialize};
 pub use tinybox_bus as contract;
@@ -461,11 +462,7 @@ where
     Request: Serialize + Send,
     Reply: DeserializeOwned,
 {
-    let capabilities: contract::ModuleCapabilities = client
-        .call(MODULE_ID, CAPABILITIES, ())
-        .await
-        .map_err(message)?;
-    require_compatible(capabilities.contract_version).map_err(message)?;
+    require_compatible_once(client, compatibility_cache()).await?;
     if confidential {
         client
             .call_confidential(MODULE_ID, member, request)
@@ -477,4 +474,29 @@ where
             .await
             .map_err(message)
     }
+}
+
+type CompatibilityCache = tokio::sync::OnceCell<Result<(), String>>;
+
+fn compatibility_cache() -> &'static CompatibilityCache {
+    static CACHE: OnceLock<CompatibilityCache> = OnceLock::new();
+    CACHE.get_or_init(CompatibilityCache::new)
+}
+
+async fn require_compatible_once(
+    client: &ModuleClient,
+    cache: &CompatibilityCache,
+) -> Result<(), String> {
+    let result = cache
+        .get_or_try_init(|| async {
+            let capabilities: contract::ModuleCapabilities = client
+                .call(MODULE_ID, CAPABILITIES, ())
+                .await
+                .map_err(message)?;
+            // Cache a contract mismatch, but let a transport/load failure
+            // escape the outer Result so a later call can retry the probe.
+            Ok::<_, String>(require_compatible(capabilities.contract_version).map_err(message))
+        })
+        .await?;
+    result.clone()
 }

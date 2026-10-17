@@ -353,9 +353,10 @@ fn list_with(
     config: &Config,
     make_resolver: impl Fn(&Config) -> Resolver,
 ) -> Vec<ModuleStatus> {
+    let resolver = make_resolver(config);
     registry::ALL
         .iter()
-        .map(|record| status_of(config, record, &make_resolver(config)))
+        .map(|record| status_of(config, record, &resolver))
         .collect()
 }
 

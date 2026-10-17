@@ -1,6 +1,6 @@
 use super::*;
 
-fn failing() -> tinybus::Result<LinkedModule> {
+fn failing() -> tinybus::Result<tinybus::module::LinkedModule> {
     Err(tinybus::Error::failed("test factory"))
 }
 

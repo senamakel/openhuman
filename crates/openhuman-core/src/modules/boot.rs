@@ -16,6 +16,7 @@
 
 use super::{ops, runtime};
 use crate::config::Config;
+use tinybus::module::ModuleInfo;
 
 /// Load the modules that should be serving before the first request.
 ///
@@ -39,10 +40,9 @@ pub async fn load_declared_modules(config: &Config) {
     // Search paths first: an artifact an operator has placed deliberately should
     // win over a download, and the later lazy call then finds it already
     // serving rather than fetching a second copy.
-    for outcome in runtime
-        .host()
-        .load_search_paths_except(&ops::disabled_lib_stems(config))
-    {
+    for outcome in load_search_path_modules(config, |skip| {
+        runtime.host().load_search_paths_except(skip)
+    }) {
         match outcome {
             Ok(info) => log::info!(
                 "[modules] loaded '{}' {} from the module search path",
@@ -56,6 +56,17 @@ pub async fn load_declared_modules(config: &Config) {
     }
 
     warm_connector_catalogs(config);
+}
+
+/// Pass boot's disabled-component filter to TinyBus's directory loader.
+///
+/// The loader closure keeps this policy boundary testable without mutating
+/// process-global search-path environment or scanning host-installed modules.
+fn load_search_path_modules(
+    config: &Config,
+    load: impl FnOnce(&[String]) -> Vec<Result<ModuleInfo, tinybus::Error>>,
+) -> Vec<Result<ModuleInfo, tinybus::Error>> {
+    load(&ops::disabled_lib_stems(config))
 }
 
 /// Read the connector module's curated catalogs into the host in the

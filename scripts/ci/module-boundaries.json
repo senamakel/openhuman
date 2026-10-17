@@ -134,6 +134,11 @@
       "owner": "https://github.com/tinyhumansai/tinybox"
     },
     {
+      "name": "tinycomputer-client",
+      "manifest": "vendor/tinycomputer/crates/tinycomputer-client/Cargo.toml",
+      "owner": "https://github.com/tinyhumansai/tinycomputer"
+    },
+    {
       "name": "tinychannels-client",
       "manifest": "vendor/tinychannels/crates/tinychannels-client/Cargo.toml",
       "owner": "https://github.com/tinyhumansai/tinychannels"

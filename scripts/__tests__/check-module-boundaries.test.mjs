@@ -61,6 +61,24 @@ test('typed module clients are allowed in the host graph while implementation de
     [['openhuman', 'tinydocs-client', 'tinydocs-core']],
   );
 });
+test('the TinyComputer typed client is admitted without allowing its implementation package', () => {
+  const client = 'tinycomputer-client';
+  assert.ok(policy.clients.some(item => item.name === client), `${client} must be in the client inventory`);
+  assert.equal(isImplementation(client, strict), false);
+  const allowed = metadata({
+    openhuman: [[client]],
+    [client]: [['tinycomputer-bus']],
+  });
+  assert.deepEqual(auditGraph(allowed, ['openhuman'], strict).violations, []);
+  const implementation = metadata({
+    openhuman: [[client]],
+    [client]: [['tinycomputer-module']],
+  });
+  assert.deepEqual(
+    auditGraph(implementation, ['openhuman'], strict).violations.map(item => item.path),
+    [['openhuman', client, 'tinycomputer-module']],
+  );
+});
 test('contracts permit only the serialization/schema/error closure', () => {
   const m = metadata({ 'tinyjuice-bus': [['serde'], ['thiserror']], serde: [['serde_derive']], serde_derive: [['syn']], thiserror: [['thiserror-impl']] });
   assert.deepEqual(auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations, []);

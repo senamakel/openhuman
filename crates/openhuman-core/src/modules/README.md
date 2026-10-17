@@ -433,9 +433,10 @@ loadable:
   | `tinyconnectors-bus` | connector names and the Composio types |
 
   Typed client crates are `tinydocs-client`, `tinyvoice-client`,
-  `tinywallet-client`, `tinybox-client`, and `tinychannels-client`. The host
-  dependency audit admits these named callers while continuing to walk their
-  resolved dependency graphs for component implementation crates.
+  `tinywallet-client`, `tinybox-client`, `tinycomputer-client`, and
+  `tinychannels-client`. The host dependency audit admits these named callers
+  while continuing to walk their resolved dependency graphs for component
+  implementation crates.
 
   Never redeclare a contract type here, and call members through the
   contract's constants rather than string literals. Contract crates stay

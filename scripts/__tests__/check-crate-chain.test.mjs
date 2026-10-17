@@ -112,6 +112,7 @@ test('typed component clients are external host contracts, not OpenHuman chain l
         { key: 'openhuman-rpc', package: 'openhuman-rpc', workspace: false },
         { key: 'tinydocs-client', package: 'tinydocs-client', workspace: false },
         { key: 'tinyvoice-client', package: 'tinyvoice-client', workspace: false },
+        { key: 'tinycomputer-client', package: 'tinycomputer-client', workspace: false },
       ],
     }),
     [],

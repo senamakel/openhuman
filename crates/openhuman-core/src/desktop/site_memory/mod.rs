@@ -1,17 +1,18 @@
 //! Host side of `ai.tinyhumans.tinycomputer.SiteMemoryHost`: where the
 //! TinyComputer module keeps what finished browser tasks learned about a site.
 //!
-//! The module owns the rules (reuse, fact-value filtering, expiry, size
-//! limits); the host owns only the bytes: one file per site in
+//! The module owns reuse, fact-value filtering, per-entry expiry, and size
+//! limits. The host stores one file per site in
 //! `<workspace>/state/computer/sites/<site>.json`, readable by its owner
 //! alone. Site memory goes to the module and nowhere else: this file never
 //! publishes it to the event bus, the agent's memory or a prompt.
 //!
-//! The host also owns three policies the module cannot know: whether tasks
-//! learn at all (`browser.learn_from_tasks`, switched live from Browser
-//! settings), the 30-day sweep of site files nothing has changed, and the
-//! forget epoch that stops a task running when its site was forgotten from
-//! writing it back.
+//! The host owns policies the module cannot know: whether tasks learn at all
+//! (`browser.learn_from_tasks`, switched live from Browser settings), a daily
+//! sweep of backing files whose filesystem metadata is unchanged for 30 days,
+//! and the forget epoch that stops a task running when its site was forgotten
+//! from writing it back. The sweep only bounds stale file retention; the
+//! module expires individual plans and hints when it loads the site's memory.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};

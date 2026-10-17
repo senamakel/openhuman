@@ -364,7 +364,7 @@ fn method_error(error: impl std::fmt::Display) -> tinybus::Error {
     }
 }
 
-pub(super) async fn install(connection: &tinybus::Connection) -> tinybus::Result<()> {
+pub(crate) async fn install(connection: &tinybus::Connection) -> tinybus::Result<()> {
     connection
         .serve_at(ObjectPath::new(OBJECT_PATH)?, SiteMemoryHost)
         .await?;
@@ -377,7 +377,7 @@ pub(super) async fn install(connection: &tinybus::Connection) -> tinybus::Result
 /// Start process-lifetime garbage collection for unchanged backing files.
 /// The task retains no workspace, store, or scope; it reads the current
 /// workspace for each daily sweep and the module runtime owns its lifetime.
-pub(super) fn start_sweeper(runtime: &tinybus::module::ModuleRuntime) {
+pub(crate) fn start_sweeper(runtime: &tinybus::module::ModuleRuntime) {
     runtime.spawn(async {
         let mut timer = tokio::time::interval(std::time::Duration::from_secs(24 * 60 * 60));
         timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

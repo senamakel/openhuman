@@ -16,9 +16,8 @@ use tinyagents_session::transcript::TranscriptMessage;
 use tinyinference_llm::message::Message;
 use tinytools_agent::dialect::ToolDialect;
 
-use crate::agent::{
-    session_host::turn::graph::{self, ChatTurnGraph},
-    tinyagents::{host::OpenHumanHostBase, host::OpenHumanRunContext, TurnModelSource},
+use crate::agent::tinyagents::{
+    host::OpenHumanHostBase, host::OpenHumanRunContext, TurnModelSource, TurnSpec,
 };
 
 /// Immutable host composition consumed by [`OpenHumanSessionDriver`].
@@ -179,37 +178,49 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
             &synthesized_tools,
             &request.run_context.data.recorded_tool_names,
         )?;
-        // The harness must speak the dialect this session's prompt was
-        // composed for: a text dialect strips schemas off the wire and needs
-        // the positional registry to recover P-Format / code-style calls.
+        // Text dialects need the positional registry to recover P-Format and code-style calls.
         let run_context = request.run_context.data.clone().with_tool_dialect(
             tinyagents_harness::dialect::dispatcher_for_format(self.dispatcher.tool_call_format()),
         );
         let cancellation = request.run_context.cancellation.clone();
-        // Boxed: the graph future is very large, and holding it inline in the
-        // `select!` below overflows the worker stack in debug builds.
-        let turn = Box::pin(graph::run_chat_turn_graph(ChatTurnGraph {
-            turn_models,
-            model: self.model_name.clone(),
-            messages,
-            tools,
-            synthesized_tools,
-            visible_tool_names,
-            max_iterations: self.max_iterations,
-            on_progress: run_context.progress.clone(),
-            context_window,
-            run_queue: self.run_queue.clone(),
-            context_mw,
-            tool_policy: Some(tool_policy),
-            workspace_descriptor: self.workspace.clone(),
-            sandbox_mode: self.sandbox_mode,
-            thread_id: run_context.thread_id.clone(),
-            run_context,
-            hosted_base: self.hosted_base.clone(),
-            agent_id: self.agent_id.clone(),
-        }));
-        // A Stop hands the runtime the rounds the provider already accepted,
-        // so the stopped turn's prompt and work stay in the session (#7715).
+        // Boxing avoids worker-stack overflow in debug builds.
+        let turn = Box::pin(async move {
+            let hosted_base = self.hosted_base.clone().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "hosted root invocation is unavailable because the session has no hosted authority"
+                )
+            })?;
+            let mut run_context = run_context;
+            run_context.workspace = self.workspace.clone().or(run_context.workspace);
+            run_context.sandbox_mode = Some(self.sandbox_mode);
+            let provider_id = turn_models.provider_id().to_string();
+            TurnSpec {
+                run_context,
+                turn_models,
+                provider_id,
+                model: &self.model_name,
+                history: messages,
+                // Durable and synthesized tools follow the declared-snapshot order.
+                tool_sets: vec![tools, synthesized_tools],
+                // `Some(empty)` is deny-all; `None` re-exposes the driver registry.
+                allowed: Some(visible_tool_names),
+                max_iterations: self.max_iterations,
+                subagent_scope: None,
+                context_window,
+                run_queue: self.run_queue.clone(),
+                message_run_queue: None,
+                early_exit_tools: &["ask_user_clarification"],
+                pause_at_cap: true,
+                max_output_tokens: Some(crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS),
+                context_mw,
+                tool_policy: Some(tool_policy),
+                deterministic_cacheable: false,
+                defer_turn_completed_to_caller: true,
+            }
+            .run_hosted(hosted_base, self.agent_id.clone())
+            .await
+        });
+        // A Stop hands provider-accepted rounds back so the runtime retains them (#7715).
         let result = tokio::select! {
             biased;
             _ = cancellation.cancelled() => {
@@ -241,37 +252,27 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
                 },
             ));
         }
-        // A cap pause is advisory in the harness.  Treat an exhausted loop
-        // without a usable final response as capped even if that pause arrived
-        // after the loop's own limit check.
+        // A late cap pause still marks an empty exhausted loop as capped.
         outcome.hit_cap |= outcome.text.trim().is_empty()
             && (outcome.model_calls >= self.max_iterations
                 || outcome.tool_calls >= self.max_iterations
                 || outcome.tool_outcomes.len() >= self.max_iterations);
-        // Older hosted-harness paths materialize this fallback before exposing
-        // the outcome, which leaves the raw call counters unavailable here.
-        // It is only produced when the loop exhausted a tool round without a
-        // model conclusion, so normalize it to the same resumable cap state.
+        // Normalize the exhausted-loop fallback when older hosted paths hide raw counters.
         let exhausted_fallback = outcome
             .text
             .starts_with("I finished this turn without writing up a result.");
         outcome.hit_cap |= exhausted_fallback;
-        // The fallback is not a model-authored wrap-up, even when the shared
-        // middleware reports that it attempted one.  Let the grounded close
-        // replace it with the explicit resumable checkpoint.
+        // This fallback is not model-authored; replace it with the resumable checkpoint.
         if exhausted_fallback {
             outcome.wrap_up_injected = false;
         }
 
-        // When the close (and any required-output repair after it) must be
-        // done by, so the turn commits before the backstop drops it.
+        // Keep the close and any required-output repair inside the turn deadline.
         let close_by = request.run_context.data.turn_deadline.map(|deadline| {
             let now = Instant::now();
             now + deadline.close_budget(now)
         });
-        // A Stop during the close or the repair after it hands back the
-        // accepted rounds like a Stop during the loop, instead of letting the
-        // runtime's grace expire and drop the turn (#7776).
+        // A Stop during close or repair also returns accepted rounds (#7776).
         let accepted_history = request.history.clone();
         let stopped = || {
             driver_cancelled_with_snapshot(

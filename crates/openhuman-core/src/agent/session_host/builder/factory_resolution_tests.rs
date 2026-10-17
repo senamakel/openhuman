@@ -1,4 +1,4 @@
-use super::provider_role_for;
+use super::*;
 
 #[test]
 fn legacy_orchestrator_fallback_defaults_to_chat() {

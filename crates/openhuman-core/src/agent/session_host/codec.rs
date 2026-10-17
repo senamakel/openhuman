@@ -35,35 +35,15 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
         // Match against the same adopted view used by decode_history; dropped
         // legacy head results must not shift retained rows' metadata.
         let prior = replayable_host_rows(prior);
-        let mut rows = next
-            .iter()
-            .filter_map(tinyagents_runtime::transcript::message_to_native_transcript)
-            .collect::<Vec<_>>();
-
-        // `Message` intentionally cannot represent all durable transcript
-        // data.  Match each next message to one *unused* previous position and
-        // retain the authoritative raw row there.  Matching by the model
-        // message, rather than by role/content alone, keeps native tool-call
-        // envelopes distinct and also survives a compaction replacement that
-        // keeps non-prefix messages.  New messages alone receive this turn's
-        // request correlation id.
-        let mut consumed = vec![false; previous.len().min(prior.len())];
-        let mut fresh = vec![false; rows.len()];
-        for (next_index, next_message) in next.iter().enumerate() {
-            let matched = previous.iter().enumerate().take(consumed.len()).find_map(
-                |(previous_index, previous_message)| {
-                    (!consumed[previous_index] && previous_message == next_message)
-                        .then_some(previous_index)
-                },
-            );
-            if let Some(previous_index) = matched {
-                rows[next_index] = prior[previous_index].clone();
-                consumed[previous_index] = true;
-            } else {
-                rows[next_index].request_id = options.request_id.clone();
-                fresh[next_index] = true;
-            }
-        }
+        // TinyAgents owns the portable positional reconciliation. Keep the
+        // host's adopted prior view so legacy rows that cannot be replayed do
+        // not shift retained native metadata.
+        let mut reconciled = tinyagents_runtime::transcript::reconcile_native_transcript(
+            &prior,
+            previous,
+            next,
+            options.request_id.as_deref(),
+        );
         // The generic inference `Message::Tool` intentionally carries only a
         // result body and correlation id. OpenHuman's explicit per-turn
         // sidecar preserves the execution failure bit until this persistence
@@ -85,7 +65,7 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
         // (`call_0`, `call_1`, ...), and re-flagging a carried-over row would
         // rewrite a persisted result, so the commit would stop extending the
         // transcript and open a new generation.
-        for (row, is_fresh) in rows.iter_mut().zip(&fresh) {
+        for (row, is_fresh) in reconciled.rows.iter_mut().zip(&reconciled.fresh) {
             if *is_fresh
                 && row.role == "tool"
                 && row.id.as_ref().is_some_and(|id| failures.contains(id))
@@ -97,12 +77,12 @@ impl TranscriptCodec<OpenHumanRunContext> for OpenHumanTranscriptCodec {
             }
         }
         attach_text_dialect_rounds(
-            &mut rows,
-            &fresh,
+            &mut reconciled.rows,
+            &reconciled.fresh,
             &sidecar.tool_outcomes,
             sidecar.resolved_route.as_ref(),
         );
-        Ok(rows)
+        Ok(reconciled.rows)
     }
 
     /// The durable per-turn usage record: **this agent's own spend, excluding

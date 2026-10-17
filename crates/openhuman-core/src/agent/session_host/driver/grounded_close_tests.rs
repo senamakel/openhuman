@@ -1,11 +1,8 @@
-use std::cell::RefCell;
-
 use super::*;
-use crate::agent::session_host::turn_checkpoint::FINAL_ANSWER_INSTRUCTION;
+use std::sync::Arc;
 
 const RECORDS: &str = "\n- `list_directory` — ok\n  > three crates\n";
 const CLEAN_REPLY: &str = "The workspace holds three crates; the build is green.";
-const FALLBACK: &str = "deterministic fallback";
 
 #[test]
 fn classified_halt_returns_partial_work_without_provider_usage() {
@@ -48,157 +45,184 @@ fn classified_halt_returns_partial_work_without_provider_usage() {
     assert!(close.output.contains("403 Forbidden"), "{}", close.output);
 }
 
-/// A candidate carrying a verbatim span of the directive it was just handed —
-/// the shape this guard exists for, spliced from the constant so a reword
-/// cannot leave this fixture quoting text nobody is given.
-fn leaking_reply() -> String {
-    let quoted = FINAL_ANSWER_INSTRUCTION
-        .split('.')
-        .next()
-        .expect("the instruction opens with a sentence")
-        .trim();
-    format!("{quoted}. Anyway: the workspace holds three crates.")
-}
-
-/// Drive [`close_with_one_repair`] over a scripted sequence of candidates,
-/// returning the shipped message, the prompts each attempt was given, the
-/// candidates that reached the verifier, and the usage recorded.
-async fn run(candidates: Vec<String>, verdicts: Vec<Option<CloseViolation>>) -> Shipped {
-    let instruction = final_answer_instruction(None, false, RECORDS);
-    let prompts = RefCell::new(Vec::<String>::new());
-    let verified = RefCell::new(Vec::<String>::new());
-    let remaining = RefCell::new(candidates);
-    let remaining_verdicts = RefCell::new(verdicts);
-
-    let ask = |prompt: String| {
-        prompts.borrow_mut().push(prompt);
-        let candidate = remaining.borrow_mut().remove(0);
-        async move { (candidate, None) }
+/// The host adapter delegates generation and verification to TinyAgents while
+/// retaining its selected model, temperature, output cap and billing gauge.
+#[tokio::test]
+async fn grounded_close_uses_the_selected_model_and_keeps_verifier_out_of_context_gauge() {
+    use tinyagents_harness::testkit::ScriptedModel;
+    use tinyinference_llm::message::{
+        AssistantMessage, ContentBlock, ImageRef, Message, ToolMessage, UserMessage,
     };
-    let verify = |candidate: String| {
-        verified.borrow_mut().push(candidate);
-        let violation = remaining_verdicts.borrow_mut().remove(0);
-        async move { (violation, None) }
-    };
+    use tinyinference_llm::tool::ToolCall;
+    use tinyinference_llm::usage::Usage;
 
-    let mut usage = RepairUsage::for_model("test-model");
-    let output = close_with_one_repair(
-        instruction.clone(),
+    let generation = tinyinference_llm::model::ModelResponse::assistant(CLEAN_REPLY)
+        .with_usage(Usage::new(90, 12));
+    let verification =
+        tinyinference_llm::model::ModelResponse::assistant("ACCEPT").with_usage(Usage::new(7, 2));
+    let scripted = Arc::new(ScriptedModel::new(vec![generation, verification]));
+    let source = TurnModelSource::from_model(scripted.clone());
+    let history = vec![
+        Message::User(UserMessage {
+            content: vec![
+                ContentBlock::Text("inspect ".into()),
+                ContentBlock::Image(ImageRef {
+                    url: "data:image/png;base64,AAAA".into(),
+                    mime_type: Some("image/png".into()),
+                }),
+            ],
+        }),
+        Message::Assistant(AssistantMessage {
+            id: Some("assistant-1".into()),
+            content: vec![
+                ContentBlock::thinking("reasoning context"),
+                ContentBlock::Text("calling the tool".into()),
+            ],
+            tool_calls: vec![ToolCall {
+                id: "tool-call-1".into(),
+                name: "list_directory".into(),
+                arguments: serde_json::json!({"path": "."}),
+                invalid: None,
+            }],
+            usage: None,
+            origin: None,
+        }),
+        Message::Tool(ToolMessage {
+            tool_call_id: "tool-call-1".into(),
+            content: vec![ContentBlock::Text("three crates".into())],
+            trusted_verbatim: false,
+            artifact: None,
+        }),
+    ];
+    let mut outcome = blank_outcome(false);
+    outcome.tool_outcomes = vec![tinyagents_harness::turn_outcome::ToolCallOutcome {
+        call_id: "call-1".into(),
+        name: "list_directory".into(),
+        arguments: serde_json::Value::Null,
+        success: true,
+        content: "three crates".into(),
+        duration_ms: 0,
+    }];
+
+    let closed = close_if_needed(
+        &source,
+        "host-selected-model",
+        0.37,
         None,
-        ask,
-        verify,
-        || FALLBACK.to_string(),
-        &mut usage,
+        &tinytools_agent::dialect::NativeDialect,
+        &history,
+        "Summarize the workspace.",
+        &outcome,
+        None,
     )
-    .await;
+    .await
+    .expect("blank terminal reply needs a close");
 
-    Shipped {
-        output,
-        instruction,
-        prompts: prompts.into_inner(),
-        verified: verified.into_inner(),
-        model_calls: usage.model_calls,
+    assert_eq!(closed.output, CLEAN_REPLY);
+    assert_eq!(closed.usage.model_calls, 2);
+    assert_eq!(closed.usage.input_tokens, 97);
+    assert_eq!(closed.usage.output_tokens, 14);
+    assert_eq!(closed.usage.last_call_input_tokens, 90);
+    assert_eq!(closed.usage.last_call_output_tokens, 12);
+    let requests = scripted.requests();
+    assert_eq!(requests.len(), 2);
+    for request in &requests {
+        assert_eq!(request.model.as_deref(), Some("host-selected-model"));
+        assert_eq!(request.temperature, Some(0.37));
+        assert_eq!(request.max_tokens, Some(AGENT_TURN_MAX_OUTPUT_TOKENS));
+        assert!(request.tools.is_empty());
     }
-}
-
-struct Shipped {
-    output: String,
-    instruction: String,
-    prompts: Vec<String>,
-    verified: Vec<String>,
-    model_calls: usize,
-}
-
-/// The rung that keeps detection from costing the user the answer: the leak is
-/// caught, one corrective re-ask goes out naming it, and the clean second
-/// candidate ships instead of a record dump.
-#[tokio::test]
-async fn a_leaking_candidate_is_repaired_by_one_re_ask() {
-    let shipped = run(vec![leaking_reply(), CLEAN_REPLY.to_string()], vec![None]).await;
-
-    assert_eq!(shipped.output, CLEAN_REPLY);
-    assert_eq!(shipped.prompts.len(), 2, "exactly one re-ask");
+    let expected_history: Vec<_> = history
+        .iter()
+        .filter_map(tinyagents_runtime::transcript::message_to_native_transcript)
+        .map(|message| crate::agent::tinyagents::chat_message_to_message(&message))
+        .collect();
     assert_eq!(
-        shipped.prompts[0], shipped.instruction,
-        "the first attempt gets the instruction unchanged"
-    );
-    assert!(
-        shipped.prompts[1].contains("repeated these directions"),
-        "the re-ask must name the violation: {}",
-        shipped.prompts[1]
-    );
-    assert!(
-        shipped.prompts[1].contains(&shipped.instruction),
-        "the re-ask must still carry the records: {}",
-        shipped.prompts[1]
-    );
-    assert_eq!(
-        shipped.verified,
-        vec![CLEAN_REPLY.to_string()],
-        "the deterministic guard runs first, so the leak never reaches the checker"
-    );
-    assert_eq!(
-        shipped.model_calls, 3,
-        "two closing calls and the one verification"
+        &requests[0].messages[..expected_history.len()],
+        expected_history,
+        "close requests preserve the transcript roundtrip for attachments, reasoning and tool rows"
     );
 }
 
-/// The budget is one. A model that quotes the directive twice is not going to
-/// stop on a third ask, so the turn takes the deterministic summary.
 #[tokio::test]
-async fn a_second_leak_falls_back_to_the_deterministic_summary() {
-    let shipped = run(vec![leaking_reply(), leaking_reply()], vec![]).await;
+async fn terminal_failed_close_requests_are_counted_without_usage() {
+    use tinyagents_harness::testkit::ScriptedModel;
 
-    assert_eq!(shipped.output, FALLBACK);
-    assert_eq!(shipped.prompts.len(), 2, "no third attempt");
-    assert!(
-        shipped.verified.is_empty(),
-        "neither leak is worth a verification call: {:?}",
-        shipped.verified
-    );
-    assert_eq!(shipped.model_calls, 2);
-}
-
-/// A candidate the guard clears but the checker rejects takes the same single
-/// rung — the repair is not reserved for quotations.
-#[tokio::test]
-async fn a_checker_rejection_also_gets_one_repair() {
-    let shipped = run(
-        vec!["I'll go and look.".to_string(), CLEAN_REPLY.to_string()],
-        vec![Some(CloseViolation::Unverified), None],
+    let source = TurnModelSource::from_model(Arc::new(ScriptedModel::new(Vec::new())));
+    let closed = close_if_needed(
+        &source,
+        "test-model",
+        0.0,
+        None,
+        &tinytools_agent::dialect::NativeDialect,
+        &[],
+        "Summarize the workspace.",
+        &blank_outcome(false),
+        None,
     )
-    .await;
+    .await
+    .expect("blank terminal reply needs a close");
 
-    assert_eq!(shipped.output, CLEAN_REPLY);
-    assert!(
-        shipped.prompts[1].contains("did not pass the check"),
-        "{}",
-        shipped.prompts[1]
-    );
-    assert_eq!(shipped.verified.len(), 2);
-    assert_eq!(
-        shipped.model_calls, 4,
-        "two closing calls, two verifications"
-    );
+    assert_eq!(closed.usage.model_calls, 2, "one failed ask and its repair");
+    assert_eq!(closed.usage.input_tokens, 0);
+    assert_eq!(closed.usage.output_tokens, 0);
+    assert_eq!(closed.usage.last_call_input_tokens, 0);
 }
 
-/// An empty candidate is a violation like any other, and is worth the re-ask
-/// rather than dropping straight to the fallback.
 #[tokio::test]
-async fn an_empty_candidate_is_re_asked_before_the_fallback() {
-    let shipped = run(vec!["   ".to_string(), CLEAN_REPLY.to_string()], vec![None]).await;
+async fn required_output_repair_preserves_all_host_output_placements() {
+    use tinyagents_harness::testkit::ScriptedModel;
 
-    assert_eq!(shipped.output, CLEAN_REPLY);
-    assert!(
-        shipped.prompts[1].contains("empty or tried to call a tool"),
-        "{}",
-        shipped.prompts[1]
-    );
-    assert_eq!(
-        shipped.verified,
-        vec![CLEAN_REPLY.to_string()],
-        "an empty candidate is not sent to the checker"
-    );
+    async fn repair(candidate: &str, reply: &str, streamed: bool) -> (String, Vec<String>) {
+        let source = TurnModelSource::from_model(Arc::new(ScriptedModel::replies(vec![candidate])));
+        let contract = tinyagents_harness::config::RequiredOutput {
+            block_key: "result".into(),
+            required_keys: vec!["status".into()],
+        };
+        let mut usage = RepairUsage::for_model("test-model");
+        let (progress, mut receiver) = tokio::sync::mpsc::channel(2);
+        let output = super::repair_required_output(
+            &source,
+            "test-model",
+            0.0,
+            None,
+            &tinytools_agent::dialect::NativeDialect,
+            &contract,
+            &[],
+            reply,
+            streamed,
+            Some(&progress),
+            1,
+            &mut usage,
+        )
+        .await
+        .expect("reply lacks the required block");
+        let mut deltas = Vec::new();
+        while let Ok(event) = receiver.try_recv() {
+            if let crate::progress::AgentProgress::TextDelta { delta, .. } = event {
+                deltas.push(delta);
+            }
+        }
+        (output, deltas)
+    }
+
+    let valid = r#"{"result":"ok","status":"ok"}"#;
+    let invalid = "not structured output";
+    let reply = "Original reply.";
+    let block = r#"{"result":"","status":""}"#;
+
+    let (valid_unstreamed, valid_unstreamed_deltas) = repair(valid, reply, false).await;
+    assert_eq!(valid_unstreamed, valid);
+    assert!(valid_unstreamed_deltas.is_empty());
+    let (valid_streamed, valid_streamed_deltas) = repair(valid, reply, true).await;
+    assert_eq!(valid_streamed, format!("{reply}\n\n{valid}"));
+    assert_eq!(valid_streamed_deltas, vec![format!("\n\n{valid}")]);
+    let (invalid_streamed, invalid_streamed_deltas) = repair(invalid, reply, true).await;
+    assert_eq!(invalid_streamed, format!("{reply}\n\n{block}"));
+    assert_eq!(invalid_streamed_deltas, vec![format!("\n\n{block}")]);
+    let (invalid_unstreamed, invalid_unstreamed_deltas) = repair(invalid, reply, false).await;
+    assert_eq!(invalid_unstreamed, format!("{block}\n\n{reply}"));
+    assert!(invalid_unstreamed_deltas.is_empty());
 }
 
 fn blank_outcome(truncated: bool) -> TinyagentsTurnOutcome {
@@ -252,48 +276,6 @@ fn a_capped_truncated_turn_gets_the_cap_checkpoint() {
     let out = close_instruction(&blank_outcome(true), true, RECORDS);
     assert!(!out.contains("ran out of output tokens"), "{out}");
     assert!(out.contains("<tool_records>"), "{out}");
-}
-
-/// #7716: a close that never answers ships the fallback once the budget runs
-/// out; one that finishes in time, or runs without a deadline, ships its reply.
-/// On the paused clock the budget elapses without real time passing.
-#[tokio::test(start_paused = true)]
-async fn close_budget_bounds_the_close_and_falls_back_on_expiry() {
-    use std::time::Duration;
-    let fallback = || FALLBACK.to_string();
-
-    let stalled = std::future::pending::<String>();
-    let output = within_close_budget(Some(Duration::from_secs(20)), stalled, fallback).await;
-    assert_eq!(output, FALLBACK);
-
-    for budget in [Some(Duration::from_secs(60)), None] {
-        let reply = async { CLEAN_REPLY.to_string() };
-        let output = within_close_budget(budget, reply, fallback).await;
-        assert_eq!(output, CLEAN_REPLY, "budget {budget:?}");
-    }
-}
-
-/// A call that finished before the timeout is still billed: the candidate
-/// came back, then its verifier stalled past the budget.
-#[tokio::test(start_paused = true)]
-async fn timed_out_close_keeps_the_usage_of_finished_calls() {
-    let instruction = final_answer_instruction(None, false, RECORDS);
-    let ask = |_prompt: String| async { (CLEAN_REPLY.to_string(), None) };
-    let verify = |_candidate: String| {
-        std::future::pending::<(Option<CloseViolation>, Option<BilledUsage>)>()
-    };
-    let fallback = || FALLBACK.to_string();
-    let mut usage = RepairUsage::for_model("test-model");
-
-    let output = within_close_budget(
-        Some(std::time::Duration::from_secs(20)),
-        close_with_one_repair(instruction, None, ask, verify, fallback, &mut usage),
-        fallback,
-    )
-    .await;
-
-    assert_eq!(output, FALLBACK);
-    assert_eq!(usage.model_calls, 1, "the answered ask is recorded");
 }
 
 /// The same for the required-output repair (#7721 review): its call answered,

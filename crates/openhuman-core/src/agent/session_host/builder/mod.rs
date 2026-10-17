@@ -7,10 +7,11 @@
 //! [`super::turn`]; accessors and run-helpers live in [`super::runtime`].
 
 #[cfg(feature = "flows")]
-pub(crate) use factory::provider_role_for_definition;
+pub(crate) use factory_resolution::provider_role_for_definition;
 
 mod builder_build;
 mod factory;
+mod factory_resolution;
 mod host_only;
 mod host_tools;
 mod iteration_cap;

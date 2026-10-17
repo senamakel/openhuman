@@ -1,5 +1,5 @@
 use super::*;
-use tinyagents_runtime::ResumeMode;
+use tinyagents_runtime::{ResumeMode, TranscriptCodec, TranscriptTurnOptions};
 
 fn meta() -> tinyagents_session::transcript::TranscriptMeta {
     tinyagents_session::transcript::TranscriptMeta {
@@ -44,6 +44,66 @@ fn codec_still_rejects_an_orphan_result_after_a_user_message() {
         .unwrap_err();
     assert!(error.to_string().contains("later-orphan"), "{error}");
     assert_eq!(transcript.messages[1].id.as_deref(), Some("legacy-head"));
+}
+
+#[test]
+fn durable_turn_usage_keeps_the_root_record_exclusive_with_child_entries() {
+    let context = crate::agent::tinyagents::host::OpenHumanRunContext::new();
+    *context
+        .session_sidecar
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) =
+        crate::agent::tinyagents::host::run_context::SessionTurnSidecar {
+            input_tokens: 11,
+            output_tokens: 5,
+            cached_input_tokens: 3,
+            cost: tinyagents_harness::cost::CostTally {
+                known_usd: 0.004,
+                source: tinyagents_harness::cost::CostSource::Charged,
+            },
+            ..Default::default()
+        };
+    context
+        .subagent_usage
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .push(crate::agent::tinyagents::host::SubagentUsageEntry {
+            task_id: "child-exclusive".into(),
+            agent_id: "researcher".into(),
+            usage: crate::agent::subagent_host::SubagentUsage {
+                input_tokens: 7,
+                output_tokens: 2,
+                cached_input_tokens: 1,
+                charged_amount_usd: 0.002,
+                cost_source: tinyagents_harness::cost::CostSource::Charged,
+            },
+        });
+
+    let options = TranscriptTurnOptions {
+        request_id: Some("request-exclusive".into()),
+        thread_id: Some("thread-exclusive".into()),
+        stream: false,
+        resume: ResumeMode::Never,
+        context: context.clone(),
+    };
+    let usage = OpenHumanTranscriptCodec
+        .turn_usage(&options)
+        .unwrap()
+        .expect("root call usage is durable");
+
+    assert_eq!(usage.usage.input, 11);
+    assert_eq!(usage.usage.output, 5);
+    assert_eq!(usage.usage.cached_input, 3);
+    assert_eq!(usage.usage.cost_usd, 0.004);
+    let sidecar = context
+        .session_sidecar
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    assert_eq!(
+        sidecar.subagents.len(),
+        1,
+        "children remain available to UI billing"
+    );
 }
 
 #[test]

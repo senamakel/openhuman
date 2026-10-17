@@ -4,4 +4,3 @@
 //! `tinyagents_runtime::Session` in `runtime_session`.
 
 mod context;
-pub(crate) mod graph;

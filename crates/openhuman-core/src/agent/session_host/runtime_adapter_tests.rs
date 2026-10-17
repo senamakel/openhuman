@@ -10,7 +10,6 @@ use tinyagents_session::port::{InMemorySessionStores, SessionStoreProvider};
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;
 
-use super::runtime_session::tool_surface::reconcile_synthesized_visibility;
 use super::runtime_session::{account_committed_turn_against_goal, holistic_last_turn_usage};
 use super::{OpenHumanSessionHooks, OpenHumanTranscriptCodec};
 use crate::agent::tinyagents::host::OpenHumanRunContext;
@@ -193,20 +192,18 @@ fn last_turn_usage_reports_the_same_holistic_totals_as_transcript_billing() {
         last_call_output_tokens: 2,
         ..Default::default()
     };
-    sidecar
-        .subagents
-        .push(crate::agent::tinyagents::host::SubagentUsageEntry {
-            task_id: "child-ui".into(),
-            agent_id: "researcher".into(),
-            usage: crate::agent::subagent_host::SubagentUsage {
-                input_tokens: 5,
-                output_tokens: 2,
-                cached_input_tokens: 1,
-                charged_amount_usd: 0.001,
-                cost_source: tinyagents_harness::cost::CostSource::Charged,
-            },
-        });
-
+    let child = crate::agent::tinyagents::host::SubagentUsageEntry {
+        task_id: "child-ui".into(),
+        agent_id: "researcher".into(),
+        usage: crate::agent::subagent_host::SubagentUsage {
+            input_tokens: 5,
+            output_tokens: 2,
+            cached_input_tokens: 1,
+            charged_amount_usd: 0.001,
+            cost_source: tinyagents_harness::cost::CostSource::Charged,
+        },
+    };
+    sidecar.subagents.push(child.clone());
     let usage = holistic_last_turn_usage(&sidecar);
     assert_eq!(usage.input_tokens, 18);
     assert_eq!(usage.output_tokens, 10);
@@ -221,7 +218,7 @@ fn last_turn_usage_reports_the_same_holistic_totals_as_transcript_billing() {
 
 #[test]
 fn explicit_hidden_delegate_stays_hidden_across_dynamic_refreshes() {
-    let mut visible = ["read_file".to_string()]
+    let visible = ["read_file".to_string()]
         .into_iter()
         .collect::<std::collections::HashSet<_>>();
     let prior = [
@@ -237,25 +234,29 @@ fn explicit_hidden_delegate_stays_hidden_across_dynamic_refreshes() {
     .into_iter()
     .collect::<std::collections::HashSet<_>>();
 
-    reconcile_synthesized_visibility(&mut visible, &prior, &refreshed, false);
+    let mut managed = tinyagents_runtime::ManagedToolNames {
+        visible,
+        ..Default::default()
+    };
+    managed.refresh_synthesized(&prior, &refreshed, false);
 
     assert!(
-        !visible.contains("delegate_research"),
+        !managed.visible.contains("delegate_research"),
         "an explicitly hidden existing delegate remains hidden after refresh"
     );
     assert!(
-        !visible.contains("delegate_drive"),
+        !managed.visible.contains("delegate_drive"),
         "a new connection cannot bypass an explicit visibility restriction"
     );
     assert!(
-        !visible.contains("delegate_calendar"),
+        !managed.visible.contains("delegate_calendar"),
         "a revoked connection leaves the surface"
     );
 }
 
 #[test]
 fn wildcard_delegate_visibility_admits_new_connections_and_removes_revoked_ones() {
-    let mut visible = ["read_file".to_string(), "delegate_calendar".to_string()]
+    let visible = ["read_file".to_string(), "delegate_calendar".to_string()]
         .into_iter()
         .collect::<std::collections::HashSet<_>>();
     let prior = ["delegate_calendar".to_string()]
@@ -265,33 +266,48 @@ fn wildcard_delegate_visibility_admits_new_connections_and_removes_revoked_ones(
         .into_iter()
         .collect::<std::collections::HashSet<_>>();
 
-    reconcile_synthesized_visibility(&mut visible, &prior, &refreshed, true);
+    let mut managed = tinyagents_runtime::ManagedToolNames {
+        visible,
+        ..Default::default()
+    };
+    managed.refresh_synthesized(&prior, &refreshed, true);
 
-    assert!(visible.contains("delegate_drive"));
-    assert!(!visible.contains("delegate_calendar"));
-    assert!(visible.contains("read_file"));
+    assert!(managed.visible.contains("delegate_drive"));
+    assert!(!managed.visible.contains("delegate_calendar"));
+    assert!(managed.visible.contains("read_file"));
 }
 
 #[tokio::test]
 async fn committed_goal_accounting_uses_direct_and_completed_child_usage() {
     let workspace = tempfile::tempdir().unwrap();
-    tinyagents_graph::goals::store::set(
-        &crate::storage::sessions::stores_or_ephemeral(workspace.path()).kv,
-        "receipt-goal",
-        "finish migration",
-        Some(20),
-    )
-    .await
-    .unwrap();
-    let mut sidecar = crate::agent::tinyagents::host::run_context::SessionTurnSidecar {
-        input_tokens: 9,
-        output_tokens: 4,
-        duration: Some(std::time::Duration::from_secs(2)),
-        ..Default::default()
-    };
-    sidecar
-        .subagents
-        .push(crate::agent::tinyagents::host::SubagentUsageEntry {
+    let core = crate::core::runtime::CoreContext::for_test(
+        crate::core::runtime::DomainSet::full(),
+        Some(workspace.path().to_path_buf()),
+    );
+    crate::core::runtime::CoreContext::scope(core, async {
+        let goal_store = crate::storage::sessions::stores_or_ephemeral(workspace.path()).kv;
+        tinyagents_graph::goals::store::set(
+            &goal_store,
+            "receipt-goal",
+            "finish migration",
+            Some(20),
+        )
+        .await
+        .unwrap();
+        assert!(
+            tinyagents_graph::goals::store::get(&goal_store, "receipt-goal")
+                .await
+                .unwrap()
+                .is_some(),
+            "the scoped goal store must contain the fixture before accounting"
+        );
+        let mut sidecar = crate::agent::tinyagents::host::run_context::SessionTurnSidecar {
+            input_tokens: 9,
+            output_tokens: 4,
+            duration: Some(std::time::Duration::from_secs(2)),
+            ..Default::default()
+        };
+        let child = crate::agent::tinyagents::host::SubagentUsageEntry {
             task_id: "child-goal".into(),
             agent_id: "researcher".into(),
             usage: crate::agent::subagent_host::SubagentUsage {
@@ -299,26 +315,25 @@ async fn committed_goal_accounting_uses_direct_and_completed_child_usage() {
                 output_tokens: 3,
                 ..Default::default()
             },
-        });
+        };
+        sidecar.subagents.push(child);
+        account_committed_turn_against_goal(workspace.path(), Some("receipt-goal"), &sidecar).await;
 
-    account_committed_turn_against_goal(workspace.path(), Some("receipt-goal"), &sidecar).await;
-
-    let goal = tinyagents_graph::goals::store::get(
-        &crate::storage::sessions::stores_or_ephemeral(workspace.path()).kv,
-        "receipt-goal",
-    )
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(
-        goal.tokens_used, 21,
-        "receipt accounts direct + child usage"
-    );
-    assert_eq!(
-        goal.status,
-        tinyagents_graph::goals::ThreadGoalStatus::BudgetLimited,
-        "receipt-backed accounting advances continuation/budget state"
-    );
+        let goal = tinyagents_graph::goals::store::get(&goal_store, "receipt-goal")
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            goal.tokens_used, 21,
+            "receipt accounts direct + child usage"
+        );
+        assert_eq!(
+            goal.status,
+            tinyagents_graph::goals::ThreadGoalStatus::BudgetLimited,
+            "receipt-backed accounting advances continuation/budget state"
+        );
+    })
+    .await;
 }
 
 fn meta() -> TranscriptMeta {

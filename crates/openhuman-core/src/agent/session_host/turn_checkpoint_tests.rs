@@ -61,6 +61,21 @@ fn checkpoint_records_keep_the_captured_tool_failure_status_and_body() {
     assert!(rendered.contains("permission denied"));
 }
 
+/// Keep OpenHuman's quoted checkpoint format stable while TinyAgents owns
+/// the generic selection and budget walk.
+#[test]
+fn tool_result_renderer_preserves_the_openhuman_block_format() {
+    let rendered = render_tool_results(
+        &[result("read_file", true, "first line\nsecond line")],
+        CHECKPOINT_TOTAL_CHARS,
+    );
+
+    assert_eq!(
+        rendered,
+        "\n- `read_file` — ok\n  > first line\n  > second line\n"
+    );
+}
+
 /// Over the budget the checkpoint starts later rather than truncating every
 /// body, and says how many it skipped — a silent drop reads as "that is all
 /// there was".
@@ -221,20 +236,6 @@ fn the_final_answer_instruction_carries_the_records_and_the_stop_note() {
     let halted = final_answer_instruction(Some(STOP_NOTE), false, &records);
     assert!(halted.contains(&format!("<stop_note>\n{STOP_NOTE}\n</stop_note>")));
     assert!(halted.contains("  > no direct download"));
-}
-
-/// The check is read by its conclusion: the last standalone verdict token wins,
-/// a word that merely contains one is not a verdict, and no verdict is unclear.
-#[test]
-fn the_close_verdict_is_the_last_standalone_verdict_token() {
-    assert_eq!(parse_close_verdict("ACCEPT"), CloseVerdict::Accept);
-    assert_eq!(parse_close_verdict("reject."), CloseVerdict::Reject);
-    assert_eq!(
-        parse_close_verdict("It could ACCEPT, but rule 1 applies.\nREJECT"),
-        CloseVerdict::Reject
-    );
-    assert_eq!(parse_close_verdict("UNACCEPTABLE"), CloseVerdict::Unclear);
-    assert_eq!(parse_close_verdict(""), CloseVerdict::Unclear);
 }
 
 /// The check prompt holds the request, the records and the candidate, so the

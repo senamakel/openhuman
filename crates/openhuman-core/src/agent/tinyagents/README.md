@@ -18,7 +18,7 @@ The adapter seam between OpenHuman and the vendored [`tinyagents`](../../../../.
 
 | File / group | Role |
 | --- | --- |
-| [`mod.rs`](./mod.rs) | Module root: declares submodules and re-exports (`TurnContextMiddleware`, `TranscriptSnapshotSink`, `SubagentScope`, `ToolPolicyEnforcement`, `TinyagentsTurnOutcome`, `TurnModelSource`/`TurnModels`, `TurnSpec::run`). |
+| [`mod.rs`](./mod.rs) | Module root: declares submodules and re-exports (`TurnContextMiddleware`, `TranscriptSnapshotSink`, `SubagentScope`, `ToolPolicyEnforcement`, `TinyagentsTurnOutcome`, `TurnModelSource`, `TurnSpec::run`). |
 | [`turn_policy.rs`](./turn_policy.rs) | `ToolPolicyEnforcement`, provider locality and the `OPENHUMAN_*` overrides feeding `tinyagents_harness::turn_policy::run_policy`. |
 | `turn_runner.rs` | `TurnSpec::run`, the single entry point every production caller uses, plus the `#[cfg(test)]`-only `run_turn_via_tinyagents`. |
 | `turn_models.rs` | `TurnModels` (primary + tier routes + summarizer) and `TurnModelSource`, whose `build`/`build_summarizer` construct crate-native models from `(role, config)` via `build_turn_models_crate`. |

@@ -76,17 +76,16 @@ the bus path because they keep their own history.
  tinyagents_runtime::Session::turn
    |-- OpenHumanSessionHooks::before_turn     prompt, memory pack, tools
    |-- OpenHumanSessionDriver::execute        session_host/driver.rs
+   |     | construct one TurnSpec and call TurnSpec::run_hosted
    |     v
-   |   run_chat_turn_graph                    session_host/turn/graph.rs
-   |     v
-   |   TurnSpec::run_hosted         tinyagents/turn_exec.rs
+   |   TurnDriver::drive_turn        tinyagents/turn_exec.rs
    |     | TurnDriver::prepare: models + tools; install_turn_middleware
    |     v
    |   AgentHarness loop  <---------------------------------+
    |     model call -> tool calls -> middleware -> results --+
    |     |  events -> OpenhumanEventBridge -> AgentProgress -> on_progress
    |     v
-   |   grounded close if the loop hit its cap
+   |   grounded close if the loop hit its cap (host adapter)
    |-- OpenHumanTranscriptCodec              durable rows, commit
    |-- after_commit                          memory, BUS, dual-write
    v
@@ -120,9 +119,10 @@ In order:
    schema the model sees and the authority the driver enforces cannot drift.
 5. The session calls `OpenHumanSessionDriver::execute` with the full
    history and the tool snapshot. The driver builds this turn's tiered
-   `ChatModel` set from `TurnModelSource`, resolves the context window, and
-   calls `run_chat_turn_graph`, which calls
-   `TurnSpec::run_hosted`.
+   `ChatModel` set from `TurnModelSource`, resolves the context window, maps
+   the request-scoped tool, context and run-queue controls into one `TurnSpec`,
+   and calls `TurnSpec::run_hosted` directly. The same boxed future covers
+   hosted-authority validation, cancellation and accepted-round recovery.
 6. `TurnDriver::prepare` plans the turn ([`tinyagents/turn_plan.rs`](./tinyagents/turn_plan.rs)) and `install_turn_middleware` ([`tinyagents/turn_middleware.rs`](./tinyagents/turn_middleware.rs)) registers the
    models, the tools (through `CanonicalSharedToolAdapter`) and the
    middleware stack: approval and security gating, tool policy, cost
@@ -411,7 +411,7 @@ What lives elsewhere:
   `Unknown` and the approval gate fails closed. Recursive execution passes
   `OpenHumanRunContext` explicitly for this reason.
 - The tool surface is all or nothing. An empty visible-tool set is deny-all,
-  not "every tool"; `run_chat_turn_graph` deliberately keeps `Some(empty)`.
+  not "every tool"; `OpenHumanSessionDriver` deliberately keeps `Some(empty)`.
 - A resumed thread's prompt and tools are frozen. Testing a prompt change
   needs a new thread.
 - `agent.run_turn` must be registered before channels dispatch.

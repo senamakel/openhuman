@@ -1,25 +1,3 @@
-//! Host adapter for the browser members of the loadable TinyComputer module.
-//!
-//! TinyComputer serves its browser members (`BrowserOpenSession`,
-//! `BrowserNavigate`, ...) on the same interface as its desktop members, so
-//! this adapter shares the desktop adapter's proxy, which loads the module and
-//! refreshes its private configuration before a call.
-
-use std::sync::Arc;
-
-use serde::{de::DeserializeOwned, Serialize};
-use tinycomputer_bus::agent::Capabilities;
-use tinycomputer_bus::browser::{
-    names, Action, ActionOutcome, DownloadInfo, DownloadWaitRequest, NavigateRequest, PageState,
-    PageText, ReadRequest, SessionId, SessionInfo, SessionOptions, SessionRef, SessionRequest,
-    Snapshot, SnapshotRequest, Viewport,
-};
-use tinycomputer_bus::DesktopResponse;
-
-use crate::config::Config;
-
-pub const MODULE_ID: &str = super::desktop::MODULE_ID;
-
 /// What the agent is told when TinyComputer finds no Chrome. The module looks
 /// in its own cache, the standard install locations, and the Puppeteer and
 /// Playwright caches, so a Chrome kept anywhere else (`~/Applications`, the

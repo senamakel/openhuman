@@ -17,8 +17,11 @@ use tinycomputer_bus::browser::{
 use tinycomputer_bus::DesktopResponse;
 
 use crate::config::Config;
+
+pub const MODULE_ID: &str = crate::modules::desktop::MODULE_ID;
 use super::chrome_hints::chrome_hint;
 
+#[derive(Debug, thiserror::Error)]
 pub enum BrowserCallError {
     #[error("TinyComputer browser unavailable: {0}")]
     Unavailable(String),

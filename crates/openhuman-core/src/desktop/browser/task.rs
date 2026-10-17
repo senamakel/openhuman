@@ -93,7 +93,7 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
 /// Start a browser task and follow it until it pauses, finishes, or the host
 /// deadline passes (then the view still says `running`). The module hands the
 /// task what earlier tasks on its site left, and keeps what it learns, through
-/// the host's `SiteMemoryHost` (see `super::site_memory_host`).
+/// the host's `SiteMemoryHost` (see `crate::modules::site_memory_host`).
 ///
 /// # Errors
 ///
@@ -197,7 +197,7 @@ pub(crate) async fn report_with(
 }
 
 /// Follow `view` until it stops or the host deadline passes, then record
-/// how it stopped (see [`super::browser_task_report`]).
+/// how it stopped (see [`super::task_report`]).
 async fn settle(config: &Config, view: TaskView) -> Result<TaskView, String> {
     let view = follow(config, view).await?;
     super::task_report::record(config, &view).await;

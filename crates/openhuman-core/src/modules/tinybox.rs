@@ -88,12 +88,23 @@ pub async fn describe(config: &Config) -> Result<String, String> {
 
 /// Read module capabilities after enforcing contract compatibility.
 pub async fn capabilities(config: &Config) -> Result<contract::ModuleCapabilities, String> {
+    let cache = compatibility_cache();
+    let mut compatibility = cache.lock().await;
+    if let Some(Err(error)) = compatibility.as_ref() {
+        return Err(error.clone());
+    }
     let client = module_client(config);
     let capabilities: contract::ModuleCapabilities = client
         .call(MODULE_ID, CAPABILITIES, ())
         .await
         .map_err(message)?;
-    validate_observed(compatibility_cache(), capabilities.contract_version).await?;
+    let result = require_compatible(capabilities.contract_version).map_err(message);
+    if let Err(error) = &result {
+        *compatibility = Some(Err(error.clone()));
+    } else if compatibility.is_none() {
+        *compatibility = Some(Ok(()));
+    }
+    result?;
     Ok(capabilities)
 }
 
@@ -279,7 +290,7 @@ async fn call_docker_status_with_grace(
     grace: Duration,
 ) -> Result<contract::DockerStatus, String> {
     let client = docker_control_client(client, request.timeout_ms, grace);
-    call_with_client(&client, DOCKER_STATUS, (request,), false).await
+    call_with_client_cached(&client, DOCKER_STATUS, (request,), false, compatibility_cache()).await
 }
 
 async fn call_cleanup_docker_with_client(
@@ -295,21 +306,21 @@ async fn call_cleanup_docker_with_grace(
     grace: Duration,
 ) -> Result<contract::CleanupDockerOutput, String> {
     let client = docker_control_client(client, request.timeout_ms, grace);
-    call_with_client(&client, CLEANUP_DOCKER, (request,), false).await
+    call_with_client_cached(&client, CLEANUP_DOCKER, (request,), false, compatibility_cache()).await
 }
 
 async fn call_run_docker_with_client(
     client: &ModuleClient,
     request: contract::DockerRunRequest,
 ) -> Result<contract::DockerRunOutput, String> {
-    call_with_client(client, RUN_DOCKER, (request,), true).await
+    call_with_client_cached(client, RUN_DOCKER, (request,), true, compatibility_cache()).await
 }
 
 async fn call_run_docker_without_workspace_with_client(
     client: &ModuleClient,
     request: contract::DockerRunRequest,
 ) -> Result<contract::DockerRunOutput, String> {
-    call_with_client(client, RUN_DOCKER_WITHOUT_WORKSPACE, (request,), true).await
+    call_with_client_cached(client, RUN_DOCKER_WITHOUT_WORKSPACE, (request,), true, compatibility_cache()).await
 }
 
 /// Read a bounded output batch from a live or completed process.
@@ -501,35 +512,43 @@ where
     }
 }
 
-type CompatibilityCache = tokio::sync::OnceCell<Result<(), String>>;
+type CompatibilityCache = tokio::sync::Mutex<Option<Result<(), String>>>;
 
 fn compatibility_cache() -> &'static CompatibilityCache {
     static CACHE: OnceLock<CompatibilityCache> = OnceLock::new();
-    CACHE.get_or_init(CompatibilityCache::new)
+    CACHE.get_or_init(|| CompatibilityCache::new(None))
 }
 
 async fn require_compatible_once(
     client: &ModuleClient,
     cache: &CompatibilityCache,
 ) -> Result<(), String> {
-    let result = cache
-        .get_or_try_init(|| async {
-            let capabilities: contract::ModuleCapabilities = client
-                .call(MODULE_ID, CAPABILITIES, ())
-                .await
-                .map_err(message)?;
-            Ok::<_, String>(require_compatible(capabilities.contract_version).map_err(message))
-        })
-        .await?;
-    result.clone()
+    let mut compatibility = cache.lock().await;
+    if let Some(result) = compatibility.as_ref() {
+        return result.clone();
+    }
+    let capabilities: contract::ModuleCapabilities = client
+        .call(MODULE_ID, CAPABILITIES, ())
+        .await
+        .map_err(message)?;
+    let result = require_compatible(capabilities.contract_version).map_err(message);
+    *compatibility = Some(result.clone());
+    result
 }
 
 async fn validate_observed(
     cache: &CompatibilityCache,
     version: (u32, u32),
 ) -> Result<(), String> {
-    cache
-        .get_or_init(|| async { require_compatible(version).map_err(message) })
-        .await
-        .clone()
+    let mut compatibility = cache.lock().await;
+    if let Some(Err(error)) = compatibility.as_ref() {
+        return Err(error.clone());
+    }
+    let result = require_compatible(version).map_err(message);
+    if let Err(error) = &result {
+        *compatibility = Some(Err(error.clone()));
+    } else if compatibility.is_none() {
+        *compatibility = Some(Ok(()));
+    }
+    result
 }

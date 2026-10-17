@@ -26,7 +26,9 @@
 //! The audit log is imported only into an empty stream, in one batch, so a
 //! retry after a failed attempt cannot duplicate it.
 
-//! Removal criterion: delete after the minimum supported tinymcp version is at least
+//! # Removal criterion
+//!
+//! Delete delete after the minimum supported tinymcp version is at least
 //! 0.18, the release that ships its storage contract.
 
 use std::path::{Path, PathBuf};

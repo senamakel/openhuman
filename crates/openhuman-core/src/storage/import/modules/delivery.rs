@@ -15,7 +15,9 @@
 //! not resurrected from the untouched file. An unreadable file writes no marker
 //! and is retried at the next start.
 //!
-//! Removal criterion: delete after every supported tinychannels module
+//! # Removal criterion
+//!
+//! Delete delete after every supported tinychannels module
 //! implements storage contract v21 and reads the delivery collections.
 
 use std::collections::BTreeMap;

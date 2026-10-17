@@ -20,7 +20,9 @@
 //!   reservations only in memory, so there is nothing on disk to import; the
 //!   `x402_budget` document starts empty.
 
-//! Removal criterion: delete after the minimum supported tinywallet version is at least
+//! # Removal criterion
+//!
+//! Delete delete after the minimum supported tinywallet version is at least
 //! 0.22, the release that ships its storage contract.
 
 use std::path::Path;

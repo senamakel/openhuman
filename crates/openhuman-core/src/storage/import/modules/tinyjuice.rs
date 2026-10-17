@@ -20,7 +20,9 @@
 //!   expire blobs leaves the module on its in-memory cache (it refuses a TTL
 //!   it cannot honour), so nothing is written for it to find.
 
-//! Removal criterion: delete after the minimum supported tinyjuice version is at least
+//! # Removal criterion
+//!
+//! Delete delete after the minimum supported tinyjuice version is at least
 //! 0.10, the release that ships its storage contract.
 
 use std::path::Path;

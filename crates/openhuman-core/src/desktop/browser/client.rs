@@ -117,8 +117,8 @@ impl BrowserClient {
     ) -> Result<SessionInfo, BrowserCallError> {
         self.ensure_ready().await?;
         super::policy::validate_session_settings(self)?;
-        let domains = super::policy::browser_domains(self);
-        if domains.is_empty() && !super::policy::browser_allow_all() && !super::policy::allows_any_site(self) {
+        let domains = self.browser_domains();
+        if domains.is_empty() && !super::policy::browser_allow_all() && !self.allows_any_site() {
             return Err(BrowserCallError::Policy(
                 "allowed websites list is empty".into(),
             ));
@@ -141,7 +141,7 @@ impl BrowserClient {
         options.download_dir = browser.download_dir.clone();
         options.default_timeout_ms = browser.task_timeout_secs.saturating_mul(1000);
         options.allowed_origins =
-            origin.map_or_else(|| super::policy::browser_origins(self), |origin| vec![origin]);
+            origin.map_or_else(|| self.browser_origins(), |origin| vec![origin]);
         let opened = self.call(names::methods::OPEN_SESSION, options).await;
         // An open session's Chrome holds the profile itself; one that did
         // not open holds nothing.
@@ -156,6 +156,94 @@ impl BrowserClient {
         let origin = super::policy::explicit_origin(self, url)?;
         self.open_session_with_origin(SessionOptions::default(), origin)
             .await
+    }
+
+    pub async fn navigate(
+        &self,
+        session: &SessionId,
+        request: NavigateRequest,
+    ) -> Result<PageState, BrowserCallError> {
+        check_url(self, &request.url)?;
+        let page: PageState = self
+            .call(
+                names::methods::NAVIGATE,
+                SessionRequest::new(session.clone(), request),
+            )
+            .await?;
+        check_returned_url(self, &page.url)?;
+        Ok(page)
+    }
+
+    pub async fn snapshot(
+        &self,
+        session: &SessionId,
+        request: SnapshotRequest,
+    ) -> Result<Snapshot, BrowserCallError> {
+        let snapshot: Snapshot = self
+            .call(
+                names::methods::SNAPSHOT,
+                SessionRequest::new(session.clone(), request),
+            )
+            .await?;
+        check_returned_url(self, &snapshot.url)?;
+        Ok(snapshot)
+    }
+
+    pub async fn perform(
+        &self,
+        session: &SessionId,
+        action: Action,
+    ) -> Result<ActionOutcome, BrowserCallError> {
+        let outcome: ActionOutcome = self
+            .call(
+                names::methods::PERFORM,
+                SessionRequest::new(session.clone(), action),
+            )
+            .await?;
+        check_returned_url(self, &outcome.page.url)?;
+        Ok(outcome)
+    }
+
+    pub async fn read_page(
+        &self,
+        session: &SessionId,
+        request: ReadRequest,
+    ) -> Result<PageText, BrowserCallError> {
+        let page: PageText = self
+            .call(
+                names::methods::READ_PAGE,
+                SessionRequest::new(session.clone(), request),
+            )
+            .await?;
+        check_returned_url(self, &page.url)?;
+        Ok(page)
+    }
+
+    pub async fn list_downloads(
+        &self,
+        session: &SessionId,
+    ) -> Result<Vec<DownloadInfo>, BrowserCallError> {
+        self.call(names::methods::LIST_DOWNLOADS, session_ref(session))
+            .await
+    }
+
+    pub async fn wait_download(
+        &self,
+        session: &SessionId,
+        request: DownloadWaitRequest,
+    ) -> Result<DownloadInfo, BrowserCallError> {
+        self.call(
+            names::methods::WAIT_DOWNLOAD,
+            SessionRequest::new(session.clone(), request),
+        )
+        .await
+    }
+
+    pub async fn close_session(&self, session: &SessionId) -> Result<(), BrowserCallError> {
+        let _closed: serde_json::Value = self
+            .call(names::methods::CLOSE_SESSION, session_ref(session))
+            .await?;
+        Ok(())
     }
 
     async fn call<A: Serialize + Send, R: DeserializeOwned>(

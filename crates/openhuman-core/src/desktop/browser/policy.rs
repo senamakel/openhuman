@@ -1,7 +1,6 @@
 //! Shared website, origin, and URL safety policy for browser calls.
 
 use super::{BrowserCallError, BrowserClient};
-use tinycomputer_bus::browser::SessionOptions;
 
 pub(super) fn parsed_browser_url(raw: &str) -> Result<url::Url, BrowserCallError> {
     url::Url::parse(raw)
@@ -25,8 +24,8 @@ pub(super) fn private_or_local(host: &str) -> bool {
 }
 
 impl BrowserClient {
-    pub(crate) fn explicit_origin(&self, raw: &str) -> Result<Option<String>, BrowserCallError> {
-        self.explicit_origin_for_mode(raw, super::policy::browser_allow_all())
+    pub(super) fn explicit_origin(&self, raw: &str) -> Result<Option<String>, BrowserCallError> {
+        self.explicit_origin_for_mode(raw, browser_allow_all())
     }
 
     pub(super) fn explicit_origin_for_mode(
@@ -34,11 +33,11 @@ impl BrowserClient {
         raw: &str,
         allow_all: bool,
     ) -> Result<Option<String>, BrowserCallError> {
-        check_url_for_mode(self, raw, allow_all)?;
+        self.check_url_for_mode(raw, allow_all)?;
         if !allow_all {
             return Ok(None);
         }
-        let url = super::policy::parsed_browser_url(raw)?;
+        let url = parsed_browser_url(raw)?;
         let host = url.host().expect("validated URL has a host");
         Ok(Some(match host {
             url::Host::Domain(host) => format!("https://.{}", host.trim_end_matches('.')),
@@ -46,103 +45,15 @@ impl BrowserClient {
         }))
     }
 
-    pub async fn navigate(
-        &self,
-        session: &SessionId,
-        request: NavigateRequest,
-    ) -> Result<PageState, BrowserCallError> {
-        check_url(self, &request.url)?;
-        let page: PageState = self
-            .call(
-                names::methods::NAVIGATE,
-                SessionRequest::new(session.clone(), request),
-            )
-            .await?;
-        check_returned_url(self, &page.url)?;
-        Ok(page)
+    pub(super) fn check_url(&self, raw: &str) -> Result<(), BrowserCallError> {
+        self.check_url_for_mode(raw, browser_allow_all())
     }
 
-    pub async fn snapshot(
-        &self,
-        session: &SessionId,
-        request: SnapshotRequest,
-    ) -> Result<Snapshot, BrowserCallError> {
-        let snapshot: Snapshot = self
-            .call(
-                names::methods::SNAPSHOT,
-                SessionRequest::new(session.clone(), request),
-            )
-            .await?;
-        check_returned_url(self, &snapshot.url)?;
-        Ok(snapshot)
-    }
-
-    pub async fn perform(
-        &self,
-        session: &SessionId,
-        action: Action,
-    ) -> Result<ActionOutcome, BrowserCallError> {
-        let outcome: ActionOutcome = self
-            .call(
-                names::methods::PERFORM,
-                SessionRequest::new(session.clone(), action),
-            )
-            .await?;
-        check_returned_url(self, &outcome.page.url)?;
-        Ok(outcome)
-    }
-
-    pub async fn read_page(
-        &self,
-        session: &SessionId,
-        request: ReadRequest,
-    ) -> Result<PageText, BrowserCallError> {
-        let page: PageText = self
-            .call(
-                names::methods::READ_PAGE,
-                SessionRequest::new(session.clone(), request),
-            )
-            .await?;
-        check_returned_url(self, &page.url)?;
-        Ok(page)
-    }
-
-    pub async fn list_downloads(
-        &self,
-        session: &SessionId,
-    ) -> Result<Vec<DownloadInfo>, BrowserCallError> {
-        self.call(names::methods::LIST_DOWNLOADS, session_ref(session))
-            .await
-    }
-
-    pub async fn wait_download(
-        &self,
-        session: &SessionId,
-        request: DownloadWaitRequest,
-    ) -> Result<DownloadInfo, BrowserCallError> {
-        self.call(
-            names::methods::WAIT_DOWNLOAD,
-            SessionRequest::new(session.clone(), request),
-        )
-        .await
-    }
-
-    pub async fn close_session(&self, session: &SessionId) -> Result<(), BrowserCallError> {
-        let _closed: serde_json::Value = self
-            .call(names::methods::CLOSE_SESSION, session_ref(session))
-            .await?;
-        Ok(())
-    }
-
-    pub(crate) fn check_url(&self, raw: &str) -> Result<(), BrowserCallError> {
-        check_url_for_mode(self, raw, super::policy::browser_allow_all())
-    }
-
-    pub(super) fn check_url_for_mode(&self, raw: &str, allow_all: bool) -> Result<(), BrowserCallError> {
+    fn check_url_for_mode(&self, raw: &str, allow_all: bool) -> Result<(), BrowserCallError> {
         if raw.trim().is_empty() || raw.chars().any(char::is_whitespace) {
             return Err(BrowserCallError::Policy("invalid URL".into()));
         }
-        let url = super::policy::parsed_browser_url(raw)?;
+        let url = parsed_browser_url(raw)?;
         if url.scheme() != "https" {
             return Err(BrowserCallError::Policy(
                 "only HTTPS URLs are allowed".into(),
@@ -157,9 +68,9 @@ impl BrowserClient {
             .host_str()
             .ok_or_else(|| BrowserCallError::Policy("URL has no host".into()))?;
         let is_private = match url.host() {
-            Some(url::Host::Ipv4(ip)) => super::policy::private_or_local(&ip.to_string()),
-            Some(url::Host::Ipv6(ip)) => super::policy::private_or_local(&ip.to_string()),
-            _ => super::policy::private_or_local(host),
+            Some(url::Host::Ipv4(ip)) => private_or_local(&ip.to_string()),
+            Some(url::Host::Ipv6(ip)) => private_or_local(&ip.to_string()),
+            _ => private_or_local(host),
         };
         if is_private {
             return Err(BrowserCallError::Policy(format!(
@@ -167,8 +78,8 @@ impl BrowserClient {
             )));
         }
         if !allow_all
-            && !allows_any_site(self)
-            && !browser_domains(self).iter().any(|allowed| {
+            && !self.allows_any_site()
+            && !self.browser_domains().iter().any(|allowed| {
                 host.eq_ignore_ascii_case(allowed)
                     || host
                         .to_ascii_lowercase()
@@ -182,14 +93,14 @@ impl BrowserClient {
         Ok(())
     }
 
-    pub(super) fn check_returned_url(&self, raw: &str) -> Result<(), BrowserCallError> {
+    fn check_returned_url(&self, raw: &str) -> Result<(), BrowserCallError> {
         // A fresh session starts at about:blank. It is internal to Chrome and
         // does not make a network request; reporting it lets the agent see it
         // needs to navigate before inspecting page content.
         if raw.eq_ignore_ascii_case("about:blank") {
             return Ok(());
         }
-        check_url(self, raw)
+        self.check_url(raw)
     }
 
     /// Whether the allowed websites are "Allow all" (`*`): the browser may
@@ -219,24 +130,24 @@ impl BrowserClient {
     /// `https://.host` spelling. Empty when none are allowed, which a task
     /// refuses, since an empty list means any origin, private ones included,
     /// to the module.
-    pub(crate) fn task_origins(&self) -> Vec<String> {
-        browser_origins(self)
+    pub(super) fn task_origins(&self) -> Vec<String> {
+        self.browser_origins()
     }
 
     pub(super) fn browser_origins(&self) -> Vec<String> {
-        browser_origins_for_mode(self, super::policy::browser_allow_all())
+        self.browser_origins_for_mode(browser_allow_all())
     }
 
-    pub(super) pub(super) fn browser_origins_for_mode(&self, allow_all: bool) -> Vec<String> {
+    pub(super) fn browser_origins_for_mode(&self, allow_all: bool) -> Vec<String> {
         if allow_all {
             // A nonempty, unmatchable origin keeps TinyComputer's document
             // guard active before the caller supplies an explicit URL.
             return vec!["https://.".to_owned()];
         }
-        if allows_any_site(self) {
+        if self.allows_any_site() {
             return vec!["*".to_owned()];
         }
-        browser_domains(self)
+        self.browser_domains()
             .iter()
             .map(|host| {
                 if host.contains("://") {
@@ -247,19 +158,28 @@ impl BrowserClient {
             })
             .collect()
     }
-
 }
 
 pub(super) fn validate_session_settings(client: &BrowserClient) -> Result<(), BrowserCallError> {
     let browser = &client.config().browser;
     if browser.profile_mode == "persistent"
-        && !browser.profile_path.as_ref().is_some_and(|path| std::path::Path::new(path).is_absolute())
+        && !browser
+            .profile_path
+            .as_ref()
+            .is_some_and(|path| std::path::Path::new(path).is_absolute())
     {
-        return Err(BrowserCallError::Policy("persistent profile requires an absolute profile_path".into()));
+        return Err(BrowserCallError::Policy(
+            "persistent profile requires an absolute profile_path".into(),
+        ));
     }
-    if browser.download_dir.as_ref().is_some_and(|path| !std::path::Path::new(path).is_absolute()) {
-        return Err(BrowserCallError::Policy("download_dir must be absolute".into()));
+    if browser
+        .download_dir
+        .as_ref()
+        .is_some_and(|path| !std::path::Path::new(path).is_absolute())
+    {
+        return Err(BrowserCallError::Policy(
+            "download_dir must be absolute".into(),
+        ));
     }
     Ok(())
 }
-

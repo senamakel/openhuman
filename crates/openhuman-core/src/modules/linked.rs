@@ -5,7 +5,8 @@
 //! downloaded `cdylib`. The core cannot link module implementation crates, so
 //! the code that does (`openhuman-modules-linked`, reachable only from the CLI
 //! in local-development builds) hands the core a *factory* per module id with
-//! [`register_linked`]. The factory returns tinybus' [`LinkedModule`]; the
+//! [`register_linked`]. The factory returns a
+//! [`tinybus::module::LinkedModule`]; the
 //! resolver attaches it through `ModuleHost::attach_linked_with_config` with
 //! the same private configuration a released module gets, so reinitialization
 //! and config behave identically.

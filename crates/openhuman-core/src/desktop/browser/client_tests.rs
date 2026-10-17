@@ -363,3 +363,9 @@ fn browser_policy_blocks_bracketed_ipv6_loopback() {
     let client = BrowserClient::new(Arc::new(Config::default()));
     assert!(client.check_url(url.as_str()).is_err());
 }
+
+#[test]
+fn browser_policy_rejects_the_canonical_local_hostname() {
+    let client = BrowserClient::new(Arc::new(Config::default()));
+    assert!(client.check_url("https://local/").is_err());
+}

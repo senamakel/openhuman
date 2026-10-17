@@ -411,7 +411,7 @@ async fn host_documents(backend: &dyn StorageBackend) -> usize {
 }
 
 async fn import_modules(workspace: &Path) {
-    use openhuman_core::modules;
+    use openhuman_core::storage::import::modules;
     let ctx = openhuman_core::core::runtime::DispatchCtx::process_default();
     modules::import_legacy_mcp(&ctx, workspace).await;
     modules::import_legacy_connectors(&ctx, workspace).await;

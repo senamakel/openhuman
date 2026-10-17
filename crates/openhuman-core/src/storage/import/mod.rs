@@ -39,7 +39,7 @@
 //! tinyflows stores (cron jobs, the flow catalog and checkpoints) are copied
 //! with `tinyflows-import`; see [`tinyflows`].
 
-pub(crate) mod modules;
+pub mod modules;
 pub mod sessions;
 mod snapshot;
 pub mod tinyflows;

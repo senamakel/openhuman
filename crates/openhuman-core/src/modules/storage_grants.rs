@@ -196,10 +196,7 @@ pub fn declared(module_id: &str) -> Option<StorageGrant> {
 /// Module ids whose declared grant owns at least one blob prefix.
 #[must_use]
 pub(crate) fn blob_module_ids() -> Vec<&'static str> {
-    declarations()
-        .iter()
-        .filter_map(|(id, make)| (!make().blob_prefixes.is_empty()).then_some(*id))
-        .collect()
+    Vec::new()
 }
 
 fn declarations() -> &'static [Declaration] {

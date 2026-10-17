@@ -254,7 +254,7 @@ mod x402 {
     use tinytools_std::network::{PaymentAttempt, PaymentHook};
 
     use super::{ApprovalChatContext, DispatchCtx};
-    use crate::web3::x402::service;
+    use crate::web3::x402::service as x402_service;
 
     /// `Err("COMPONENT_DISABLED:wallet")` when `[components] wallet` is off:
     /// the hook declines before any quote, signing or module load. The 402

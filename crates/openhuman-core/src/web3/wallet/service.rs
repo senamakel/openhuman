@@ -418,7 +418,7 @@ fn finish_shutdown_hook_registration(registered: &AtomicBool) {
     registered.store(false, Ordering::Release);
 }
 
-pub(super) fn native_wallet_config_request() -> NativeWalletConfigRequest {
+pub(crate) fn native_wallet_config_request() -> NativeWalletConfigRequest {
     let mut overridden_endpoints = Vec::new();
     for network in EvmNetwork::ALL {
         let key = RpcEndpointKey::Evm { network };

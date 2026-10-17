@@ -24,11 +24,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard};
 
-use tinybus::module::LinkedModule;
-
-/// Builds the linked module for one id. A plain `fn` so a registration carries
-/// no state: the module crate's generated `linked_module` fits directly.
-pub type LinkedFactory = fn() -> tinybus::Result<LinkedModule>;
+pub use tinybus::module::LinkedFactory;
 
 static FACTORIES: Mutex<BTreeMap<&'static str, LinkedFactory>> = Mutex::new(BTreeMap::new());
 
@@ -61,12 +57,6 @@ pub fn is_registered(id: &str) -> bool {
 #[must_use]
 pub(super) fn factory_for(id: &str) -> Option<LinkedFactory> {
     factories().get(id).copied()
-}
-
-/// Ids with a registered factory, for diagnostics.
-#[must_use]
-pub fn registered_ids() -> Vec<&'static str> {
-    factories().keys().copied().collect()
 }
 
 #[cfg(test)]

@@ -39,8 +39,9 @@ pub async fn load_declared_modules(config: &Config) {
     // Search paths first: an artifact an operator has placed deliberately should
     // win over a download, and the later lazy call then finds it already
     // serving rather than fetching a second copy.
-    for outcome in
-        super::search_path::load_enabled(runtime.host(), &ops::disabled_lib_stems(config))
+    for outcome in runtime
+        .host()
+        .load_search_paths_except(&ops::disabled_lib_stems(config))
     {
         match outcome {
             Ok(info) => log::info!(

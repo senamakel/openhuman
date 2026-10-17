@@ -1,8 +1,4 @@
-use super::{
-    consume_approval, native_approval_matches_request, validate_module_endpoint_url,
-    web3_approval_matches_request, x402_approval_facts, x402_request_owner_matches, ApprovalKind,
-    ApprovalPermit, WalletHost, web3_approval_quotes,
-};
+use super::*;
 use tinywallet_bus::wire::{
     AuthorizeNativeWalletExecutionRequest, AuthorizeWeb3ExecutionRequest,
     AuthorizeX402PaymentRequest, EvmNetwork, NativeWalletExecutionIntent, PreparedKind,
@@ -238,14 +234,15 @@ async fn web3_permit_is_consumed_after_a_mismatched_intent() {
         gas_price_wei: "7".into(),
         chain_id: 137,
     };
-    let HostResponse::Authorization(second) = WalletHost
-        .authorize_web3_execution(request)
-        .await
-        .unwrap()
+    let HostResponse::Authorization(second) =
+        WalletHost.authorize_web3_execution(request).await.unwrap()
     else {
         panic!("expected authorization response");
     };
-    assert!(!second.approved, "a mismatched attempt must spend its permit");
+    assert!(
+        !second.approved,
+        "a mismatched attempt must spend its permit"
+    );
 }
 
 #[test]

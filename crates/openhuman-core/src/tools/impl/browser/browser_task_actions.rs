@@ -15,8 +15,10 @@ use tinycomputer_bus::browser::Action;
 /// leaving the agent to install a browser.
 pub(super) fn host_hint(view: &TaskView) -> Option<&'static str> {
     match &view.status {
-        TaskStatus::Failed { reason, hint, .. } => crate::desktop::browser::chrome_hint(reason)
-            .or_else(|| crate::desktop::browser::chrome_hint(hint)),
+        TaskStatus::Failed { reason, hint, .. } => {
+            crate::desktop::browser::chrome_hints::chrome_hint(reason)
+                .or_else(|| crate::desktop::browser::chrome_hints::chrome_hint(hint))
+        }
         _ => None,
     }
 }

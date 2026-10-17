@@ -1,3 +1,6 @@
+use super::super::chrome_hints::{
+    chrome_hint, chrome_not_found, CHROME_NOT_FOUND_HINT, CHROME_PATH_HINT,
+};
 use super::*;
 
 #[test]

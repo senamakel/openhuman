@@ -24,7 +24,7 @@ pub(super) fn private_or_local(host: &str) -> bool {
 }
 
 impl BrowserClient {
-    pub(super) fn explicit_origin(&self, raw: &str) -> Result<Option<String>, BrowserCallError> {
+    pub(crate) fn explicit_origin(&self, raw: &str) -> Result<Option<String>, BrowserCallError> {
         self.explicit_origin_for_mode(raw, browser_allow_all())
     }
 
@@ -45,7 +45,7 @@ impl BrowserClient {
         }))
     }
 
-    pub(super) fn check_url(&self, raw: &str) -> Result<(), BrowserCallError> {
+    pub(crate) fn check_url(&self, raw: &str) -> Result<(), BrowserCallError> {
         self.check_url_for_mode(raw, browser_allow_all())
     }
 

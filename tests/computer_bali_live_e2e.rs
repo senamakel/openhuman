@@ -36,7 +36,7 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use openhuman_core::config::{Config, DecisionModel};
-use openhuman_core::desktop::browser::{self, BrowserTask};
+use openhuman_core::desktop::browser::{self as browser_task, BrowserTask};
 use tinycomputer_bus::agent::{ContinueTaskRequest, TaskStatus, TaskView};
 
 const TASK: &str = include_str!("fixtures/computer/bali/task.md");

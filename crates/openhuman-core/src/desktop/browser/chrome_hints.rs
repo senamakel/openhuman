@@ -51,6 +51,3 @@ pub(crate) fn chrome_hint(text: &str) -> Option<&'static str> {
     } else {
         None
     }
-}
-
-#[derive(Debug, thiserror::Error)]

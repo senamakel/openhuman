@@ -2,6 +2,8 @@ use super::{
     all_controller_schemas, all_registered_controllers, controller_value, schemas, string_param,
 };
 
+use serde_json::{Map, Value};
+
 #[test]
 fn every_schema_is_in_the_modules_namespace() {
     for schema in all_controller_schemas() {

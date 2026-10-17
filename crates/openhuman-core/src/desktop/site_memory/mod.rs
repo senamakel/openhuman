@@ -174,8 +174,11 @@ async fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     tokio::fs::rename(&staged, path).await
 }
 
-#[derive(Clone)]
-struct SiteMemoryHost;
+struct SiteMemoryHost {
+    // The interface owns the timer lifetime. Dropping the served object closes
+    // this sender and lets the timer task finish without retaining its owner.
+    _sweeper_lifecycle: tokio::sync::watch::Sender<bool>,
+}
 
 async fn config() -> tinybus::Result<crate::config::Config> {
     crate::core::runtime::DispatchCtx::host_default()
@@ -364,33 +367,57 @@ fn method_error(error: impl std::fmt::Display) -> tinybus::Error {
     }
 }
 
-pub(crate) async fn install(connection: &tinybus::Connection) -> tinybus::Result<()> {
+pub(crate) async fn install(runtime: &'static tinybus::module::ModuleRuntime) -> tinybus::Result<()> {
+    let connection = runtime.connection();
+    let (lifecycle, timer_lifecycle) = tokio::sync::watch::channel(false);
     connection
-        .serve_at(ObjectPath::new(OBJECT_PATH)?, SiteMemoryHost)
+        .serve_at(
+            ObjectPath::new(OBJECT_PATH)?,
+            SiteMemoryHost {
+                _sweeper_lifecycle: lifecycle,
+            },
+        )
         .await?;
     // The module reaches the host by this name (`optional` in its manifest).
     connection.request_name(INTERFACE).await?;
-    tracing::debug!(interface = INTERFACE, "[site-memory-host] served");
-    Ok(())
-}
-
-/// Start process-lifetime garbage collection for unchanged backing files.
-/// The task retains no workspace, store, or scope; it reads the current
-/// workspace for each daily sweep and the module runtime owns its lifetime.
-pub(crate) fn start_sweeper(runtime: &tinybus::module::ModuleRuntime) {
-    runtime.spawn(async {
-        let mut timer = tokio::time::interval(std::time::Duration::from_secs(24 * 60 * 60));
-        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
-        loop {
-            timer.tick().await;
+    runtime.spawn(run_sweeper(
+        tokio::time::interval(std::time::Duration::from_secs(24 * 60 * 60)),
+        timer_lifecycle,
+        || async {
             match config().await {
                 Ok(config) => sweep_workspace_at(&config.workspace_dir, now_secs()).await,
                 Err(error) => {
                     tracing::warn!(%error, "[site-memory-host] could not load workspace for sweep")
                 }
             }
+        },
+    ));
+    tracing::debug!(interface = INTERFACE, "[site-memory-host] served");
+    Ok(())
+}
+
+/// Run daily garbage collection until the served host object drops. This task
+/// captures only a watch receiver and callback; each tick resolves fresh host
+/// configuration, so no workspace, store, or scope outlives a sweep.
+async fn run_sweeper<F, Fut>(
+    mut timer: tokio::time::Interval,
+    mut lifecycle: tokio::sync::watch::Receiver<bool>,
+    mut sweep: F,
+) where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            changed = lifecycle.changed() => {
+                if changed.is_err() || *lifecycle.borrow() {
+                    return;
+                }
+            }
+            _ = timer.tick() => sweep().await,
         }
-    });
+    }
 }
 
 async fn sweep_workspace_at(workspace: &Path, now: u64) {

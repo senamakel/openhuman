@@ -93,7 +93,7 @@ pub async fn capabilities(config: &Config) -> Result<contract::ModuleCapabilitie
         .call(MODULE_ID, CAPABILITIES, ())
         .await
         .map_err(message)?;
-    require_compatible(capabilities.contract_version).map_err(message)?;
+    validate_observed(compatibility_cache(), capabilities.contract_version).await?;
     Ok(capabilities)
 }
 
@@ -462,7 +462,21 @@ where
     Request: Serialize + Send,
     Reply: DeserializeOwned,
 {
-    require_compatible_once(client, compatibility_cache()).await?;
+    call_with_client_cached(client, member, request, confidential, compatibility_cache()).await
+}
+
+async fn call_with_client_cached<Request, Reply>(
+    client: &ModuleClient,
+    member: &'static str,
+    request: Request,
+    confidential: bool,
+    cache: &CompatibilityCache,
+) -> Result<Reply, String>
+where
+    Request: Serialize + Send,
+    Reply: DeserializeOwned,
+{
+    require_compatible_once(client, cache).await?;
     if confidential {
         client
             .call_confidential(MODULE_ID, member, request)
@@ -493,10 +507,18 @@ async fn require_compatible_once(
                 .call(MODULE_ID, CAPABILITIES, ())
                 .await
                 .map_err(message)?;
-            // Cache a contract mismatch, but let a transport/load failure
-            // escape the outer Result so a later call can retry the probe.
             Ok::<_, String>(require_compatible(capabilities.contract_version).map_err(message))
         })
         .await?;
     result.clone()
+}
+
+async fn validate_observed(
+    cache: &CompatibilityCache,
+    version: (u32, u32),
+) -> Result<(), String> {
+    cache
+        .get_or_init(|| async { require_compatible(version).map_err(message) })
+        .await
+        .clone()
 }

@@ -40,9 +40,9 @@ pub async fn load_declared_modules(config: &Config) {
     // Search paths first: an artifact an operator has placed deliberately should
     // win over a download, and the later lazy call then finds it already
     // serving rather than fetching a second copy.
-    for outcome in load_search_path_modules(config, |skip| {
-        runtime.host().load_search_paths_except(skip)
-    }) {
+    for outcome in
+        load_search_path_modules(config, |skip| runtime.host().load_search_paths_except(skip))
+    {
         match outcome {
             Ok(info) => log::info!(
                 "[modules] loaded '{}' {} from the module search path",

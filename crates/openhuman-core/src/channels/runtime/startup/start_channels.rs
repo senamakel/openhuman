@@ -228,9 +228,8 @@ async fn start_channels_inner(mut config: Config, session: CancellationToken) ->
     // here — `start_channels` is skipped when no channel is configured or
     // `OPENHUMAN_DISABLE_CHANNEL_LISTENERS` is set, which would otherwise leave
     // schedule/app-event workflows undispatched (issue B2 review).
-    // Register the proactive message subscriber so morning briefings,
-    // welcome messages, and other proactive agent output gets routed to
-    // the user's active channel (+ always to web).
+    // Register external proactive delivery to the user's active channel.
+    // Web delivery is registered unconditionally by core subscriber boot.
     let proactive_sub = crate::channels::proactive::ProactiveMessageSubscriber::new(
         Arc::clone(&channels_by_name),
         config.channels_config.active_channel.clone(),

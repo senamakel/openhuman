@@ -1,5 +1,15 @@
 [
   {
+    "file": "crates/openhuman-core/src/web_chat/proactive.rs",
+    "scope": "",
+    "name": "REGISTERED",
+    "type": "std::sync::Once",
+    "count": 1,
+    "category": "A",
+    "reason": "Ensures one process-wide web proactive event subscriber is registered on the monotonic global bus; it stores no tenant or event data.",
+    "verification": "core/runtime/subscribers_tests.rs: proactive_message_reaches_web_on_channelless_core_boot"
+  },
+  {
     "file": "crates/openhuman-core/src/mcp/ui/cache.rs",
     "scope": "",
     "name": "STORE",

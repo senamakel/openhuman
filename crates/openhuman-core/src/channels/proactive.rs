@@ -8,21 +8,14 @@
 //!
 //! Delivery strategy:
 //!
-//! 1. **Web channel** — always receives the message via the Socket.IO
-//!    event bus (`publish_web_channel_event`). This is the in-app
-//!    experience.
-//! 2. **Active external channel** — if the user has set an active
+//! - **Active external channel** — if the user has set an active
 //!    channel (e.g. `"telegram"`, `"discord"`) AND that channel is in
 //!    the registered channels map, the message is sent there too.
-//!
-//! If the active channel is `"web"` or unset, only web delivery occurs
-//! (step 1). This avoids double-delivering to a channel that doesn't
-//! exist.
+//! - The independent `web_chat::proactive` subscriber always delivers the web
+//!   destination, including when the external channels feature is disabled.
 
 use crate::channels::{Channel, ChannelSendExt, SendMessage};
 use crate::core::events::DomainEvent;
-use crate::web_chat::publish_web_channel_event;
-use crate::web_chat::WebChannelEvent;
 use async_trait::async_trait;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -36,27 +29,6 @@ fn proactive_approval_gate() -> Option<Arc<crate::security::approval::ApprovalGa
 #[cfg(test)]
 fn proactive_approval_gate() -> Option<Arc<crate::security::approval::ApprovalGate>> {
     None
-}
-
-/// Register a web-only proactive message subscriber on the global event
-/// bus. Guarded by `std::sync::Once` so it is safe to call from both
-/// `bootstrap_core_runtime` (desktop/JSON-RPC) and domain-level
-/// startup — only the first call takes effect.
-pub fn register_web_only_proactive_subscriber() {
-    use std::sync::Once;
-    static REGISTERED: Once = Once::new();
-    REGISTERED.call_once(|| {
-        if let Some(handle) =
-            crate::core::bus::BUS.subscribe(Arc::new(ProactiveMessageSubscriber::web_only()))
-        {
-            std::mem::forget(handle);
-            tracing::debug!("[proactive] web-only subscriber registered");
-        } else {
-            tracing::warn!(
-                "[proactive] failed to register web-only subscriber — bus not initialized"
-            );
-        }
-    });
 }
 
 /// Routes proactive messages to the user's preferred channel.
@@ -83,13 +55,6 @@ impl ProactiveMessageSubscriber {
         }
     }
 
-    /// Construct a web-only subscriber (no external channels). Used in
-    /// the desktop/JSON-RPC runtime where no external channel instances
-    /// are registered.
-    pub fn web_only() -> Self {
-        Self::new(Arc::new(HashMap::new()), None)
-    }
-
     /// Update the active channel at runtime (e.g. from an RPC call).
     pub fn set_active_channel(&self, channel: Option<String>) {
         if let Ok(mut guard) = self.active_channel.write() {
@@ -109,8 +74,7 @@ impl ProactiveMessageSubscriber {
 /// Telegram↔Discord"). The `channels_set_default` RPC mutates this exact handle
 /// via [`set_runtime_active_channel`] so a default-channel switch from the UI
 /// takes effect without a restart. Only the full channel runtime registers
-/// (the web-only subscriber can't deliver externally), and nothing registers in
-/// unit tests — so [`set_runtime_active_channel`] is a no-op there and never
+/// and nothing registers in unit tests — so [`set_runtime_active_channel`] is a no-op there and never
 /// leaks across the parallel test suite. The choice is also persisted to
 /// `config.channels_config.active_channel`, which seeds the handle on next start.
 type ActiveChannelHandle = Arc<RwLock<Option<String>>>;
@@ -173,14 +137,13 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
             source,
             message,
             job_name,
+            ..
         } = event
         else {
             return;
         };
 
         let thread_id = format!("proactive:{}", job_name.as_deref().unwrap_or("system"));
-        let request_id = uuid::Uuid::new_v4().to_string();
-
         tracing::debug!(
             source = %source,
             thread_id = %thread_id,
@@ -188,50 +151,10 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
             "[proactive] handling proactive message"
         );
 
-        // 1. Always deliver to the web channel via Socket.IO.
-        publish_web_channel_event(WebChannelEvent {
-            event: "proactive_message".to_string(),
-            client_id: "system".to_string(),
-            thread_id: thread_id.clone(),
-            request_id: request_id.clone(),
-            full_response: Some(message.clone()),
-            message: None,
-            error_type: None,
-            error_source: None,
-            error_retryable: None,
-            error_retry_after_ms: None,
-            error_provider: None,
-            error_fallback_available: None,
-            copy_key: None,
-            copy_params: None,
-            tool_name: None,
-            skill_id: None,
-            args: None,
-            output: None,
-            success: Some(true),
-            round: None,
-            segment_index: None,
-            segment_total: None,
-            delta: None,
-            delta_kind: None,
-            tool_call_id: None,
-            failure: None,
-            citations: None,
-            subagent: None,
-            tool_display_label: None,
-            tool_display_detail: None,
-            elapsed_ms: None,
-            structured: None,
-            usage: None,
-            // Proactive delivery is emitted outside the seq-stamping progress
-            // bridge; leave `seq` unset (older clients ignore it).
-            seq: None,
-            ..Default::default()
-        });
-
-        // 2. If an active external channel is configured, deliver there too.
-        //    The `channels_set_default` RPC mutates this handle in place (issue
-        //    #3712), so reading it here picks up a live default-channel switch.
+        // Deliver to the active external channel when configured. The web
+        // destination is handled independently by `web_chat::proactive`. The
+        // `channels_set_default` RPC mutates this handle in place (issue #3712),
+        // so reading it here picks up a live default-channel switch.
         let active = self
             .active_channel
             .read()
@@ -239,7 +162,7 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
             .and_then(|guard| guard.clone());
 
         if let Some(ref channel_name) = active {
-            // "web" is already handled above — skip to avoid noise.
+            // "web" is handled by `web_chat::proactive` — skip to avoid noise.
             if channel_name.eq_ignore_ascii_case("web") {
                 return;
             }
@@ -252,8 +175,7 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
                 // with no resolvable target (e.g. Telegram, which has no stored
                 // default chat) are skipped with a warning rather than handed an
                 // empty recipient that would hit the platform API with a blank
-                // chat/channel id (#3794 review — Codex P2). Web delivery above
-                // already happened, so skipping only drops the external echo.
+                // chat/channel id (#3794 review — Codex P2).
                 let Some(recipient) = ch.proactive_target() else {
                     tracing::warn!(
                         source = %source,
@@ -275,9 +197,9 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
                 // Proactive sends to Telegram/Discord/Slack/etc.
                 // are outbound writes — route through the gate
                 // before handing off to the channel implementation.
-                // Web delivery above is internal and exempt. When
-                // the gate persists an approval row, we keep its
-                // `request_id` so we can record the delivery
+                // The web subscriber is an internal destination and exempt.
+                // When the gate persists an approval row, we keep its
+                // request id so we can record the delivery
                 // outcome after `ch.send` returns (issue #2135).
                 let mut approval_request_id: Option<String> = None;
                 let mut approval_gate_for_audit: Option<

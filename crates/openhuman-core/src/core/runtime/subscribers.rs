@@ -30,7 +30,7 @@ pub struct DomainSubscriberPlan {
     pub desktop: bool,
     /// webhook request subscriber (skills own inbound webhook routing).
     pub skills: bool,
-    /// channel-inbound + web-only proactive.
+    /// channel-inbound dispatch.
     pub channels: bool,
     /// flows trigger dispatch.
     pub flows: bool,
@@ -117,6 +117,10 @@ pub(super) fn register_domain_subscribers(
 
     let plan = DomainSubscriberPlan::for_domains(domains);
     log::debug!("[event_bus] register_domain_subscribers: domains={domains:?} plan={plan:?}");
+
+    // Proactive messages always have a web destination, including builds
+    // without the optional external channels runtime.
+    crate::web_chat::proactive::register_proactive_subscriber();
 
     // `subscribe_global` returns `None` only before the process-global bus is
     // initialized. Because that bus is a monotonic `OnceLock`, checking it here
@@ -298,12 +302,11 @@ pub(super) fn register_domain_subscribers(
         log::debug!("[event_bus] device-tunnel subscriber SKIPPED — Security domain disabled");
     }
 
-    // Channels: inbound dispatch + web-only proactive messaging.
+    // Channels: inbound dispatch.
     // The `plan.channels` runtime guard cannot stand in for the compile-time
-    // gate: the `channels::bus::ChannelInboundSubscriber` +
-    // `channels::proactive` type paths below must still resolve for this to
-    // compile, so the whole block is `#[cfg]`-gated too (mirrors the flows
-    // dual-gate below).
+    // gate: the `channels::bus::ChannelInboundSubscriber` type path below must
+    // still resolve for this to compile, so the whole block is `#[cfg]`-gated
+    // too (mirrors the flows dual-gate below).
     #[cfg(feature = "channels")]
     if plan.channels {
         if group_first_time(DomainGroup::Channels) {
@@ -316,18 +319,13 @@ pub(super) fn register_domain_subscribers(
                     "[event_bus] failed to register channel subscriber — bus not initialized"
                 );
             }
-            // Web-only proactive message subscriber (no external channel
-            // instances are registered here in the desktop runtime).
-            crate::channels::proactive::register_web_only_proactive_subscriber();
         }
     } else {
-        log::debug!(
-            "[event_bus] Channels subscribers (inbound + web-only proactive) SKIPPED — Channels domain disabled"
-        );
+        log::debug!("[event_bus] channel-inbound subscriber SKIPPED — Channels domain disabled");
     }
     #[cfg(not(feature = "channels"))]
     log::debug!(
-        "[event_bus] Channels subscribers (inbound + web-only proactive) SKIPPED — channels feature disabled at compile time"
+        "[event_bus] channel-inbound subscriber SKIPPED — channels feature disabled at compile time"
     );
 
     // Flows trigger dispatch (issue B2): maps

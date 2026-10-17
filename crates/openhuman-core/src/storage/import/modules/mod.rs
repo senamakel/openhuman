@@ -20,7 +20,7 @@ mod tinyjuice;
 #[cfg(all(feature = "modules", feature = "web3"))]
 mod tinywallet;
 #[cfg(all(feature = "channels", feature = "modules"))]
-mod delivery;
+pub(crate) mod delivery;
 
 /// Imports tinymcp's legacy SQLite files under `data_dir` into the module's
 /// storage, once per directory. Never fails the caller: an error is logged and
@@ -211,7 +211,7 @@ pub async fn import_legacy_tinybox(
 pub(crate) fn expiring_blob_module_scopes(
     ctx: &crate::core::runtime::DispatchCtx,
 ) -> Vec<crate::storage::Scope> {
-    ["tinyjuice"]
+    crate::modules::storage_grants::blob_module_ids()
         .into_iter()
         .filter_map(|id| storage_host::current_module_scope(ctx, id).ok())
         .collect()
@@ -224,7 +224,7 @@ pub(crate) fn expiring_blob_module_scopes_for(
     profile: &str,
     base: &crate::storage::Scope,
 ) -> Vec<crate::storage::Scope> {
-    ["tinyjuice"]
+    crate::modules::storage_grants::blob_module_ids()
         .into_iter()
         .filter_map(|id| storage_host::module_scope(Some(profile), base, id).ok())
         .collect()

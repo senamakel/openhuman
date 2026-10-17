@@ -18,7 +18,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tinycomputer_bus::agent::{RescueOutcome, TaskId, TaskReport, TaskStatus, TaskView};
-use tinycomputer_bus::flow::StepOutcome;
+use tinycomputer_bus::flow::{StepOutcome, STEP_KINDS};
 use tokio::io::AsyncWriteExt;
 
 use crate::config::Config;
@@ -235,22 +235,7 @@ impl Summary {
 /// A step kind as the log may show it: one of the flow grammar's own words,
 /// never free text.
 fn kind_name(kind: &str) -> &'static str {
-    const KINDS: &[&str] = &[
-        "open",
-        "browse",
-        "do",
-        "enter",
-        "choose",
-        "read",
-        "extract",
-        "pick",
-        "verify",
-        "wait_for",
-        "if",
-        "repeat_until",
-        "stop_before",
-    ];
-    KINDS
+    STEP_KINDS
         .iter()
         .find(|known| kind.eq_ignore_ascii_case(known))
         .copied()

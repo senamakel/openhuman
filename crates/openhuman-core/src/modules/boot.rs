@@ -2,11 +2,11 @@
 //!
 //! Two things, and deliberately not a third.
 //!
-//! Modules marked [`LoadPolicy::Eager`] are loaded, because their absence would
-//! change what the core offers rather than merely delay it. Modules on the search
-//! path are loaded, because that is how an operator or a developer puts an
-//! artifact in front of this host without editing config — tinybus honours
-//! `OPENHUMAN_MODULE_PATH` first, then the platform data directories.
+//! Modules on the search path are loaded, because that is how an operator or a
+//! developer puts an artifact in front of this host without editing config —
+//! tinybus honours `OPENHUMAN_MODULE_PATH` first, then the platform data
+//! directories. Registry load policy remains available for a future eager module;
+//! all current records are lazy.
 //!
 //! What does not happen is downloading every registry entry. A [`LoadPolicy::Lazy`]
 //! module stays unloaded until something asks for it, so a user who never
@@ -14,8 +14,7 @@
 //! a library that is never unloaded. Boot is also the worst moment to spend
 //! network on something nobody has asked for yet.
 
-use super::types::LoadPolicy;
-use super::{ops, registry, runtime};
+use super::{ops, runtime};
 use crate::config::Config;
 
 /// Load the modules that should be serving before the first request.
@@ -52,26 +51,6 @@ pub async fn load_declared_modules(config: &Config) {
             // Expected and not worth a warning: a search directory usually holds
             // nothing, and tinybus reports each refusal with a sanitised reason.
             Err(err) => log::debug!("[modules] search-path artifact not admitted: {err}"),
-        }
-    }
-
-    for record in registry::ALL {
-        if record.load != LoadPolicy::Eager {
-            continue;
-        }
-        if let Some(component) = ops::disabled_component(config, record.id) {
-            log::info!(
-                "[modules] eager module '{}' skipped: component '{component}' is disabled",
-                record.id
-            );
-            continue;
-        }
-        log::info!("[modules] eager module '{}' resolving at boot", record.id);
-        if let Err(reason) = ops::ensure_loaded(config, record.id).await {
-            log::warn!(
-                "[modules] eager module '{}' did not load: {reason}",
-                record.id
-            );
         }
     }
 

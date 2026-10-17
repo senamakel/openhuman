@@ -41,7 +41,7 @@
 //! - [`ops`] — the adapter over `tinybus::module::Resolver` and `ModuleClient`:
 //!   builds them from [`Config`](crate::config::Config) and the registry.
 //! - [`report`] — the Sentry sink for terminal module outcomes.
-//! - [`client`] — a `tinybus::module::ModuleClient`, with or without the loader.
+//! - [`client`] — the constructor for a `tinybus::module::ModuleClient`, with or without the loader.
 //! - [`schemas`] — the `modules` RPC surface.
 //! - [`boot`] — what happens at startup.
 
@@ -358,18 +358,10 @@ pub async fn import_legacy_tinybox(
 pub(crate) fn expiring_blob_module_scopes(
     ctx: &crate::core::runtime::DispatchCtx,
 ) -> Vec<crate::storage::Scope> {
-    #[cfg(feature = "modules")]
-    {
-        [storage_grant_tinyjuice::MODULE_ID]
-            .into_iter()
-            .filter_map(|id| storage_host::current_module_scope(ctx, id).ok())
-            .collect()
-    }
-    // Without the loader no module holds blobs.
-    #[cfg(not(feature = "modules"))]
-    {
-        Vec::new()
-    }
+    [storage_grant_tinyjuice::MODULE_ID]
+        .into_iter()
+        .filter_map(|id| storage_host::current_module_scope(ctx, id).ok())
+        .collect()
 }
 
 /// [`expiring_blob_module_scopes`] for SaaS profile `profile`, whose acting

@@ -254,7 +254,7 @@ async fn public_capabilities_observes_and_preserves_sticky_compatibility() {
             .filter(|(member, _)| member == CAPABILITIES)
             .count(),
         2,
-        "the sticky failure must avoid a second capabilities call"
+        "the sticky failure must avoid a third capabilities call"
     );
 }
 

@@ -156,7 +156,7 @@ fn a_chrome_path_the_module_refuses_says_where_the_user_fixes_it() {
         "{error}"
     );
     assert!(
-        error.ends_with(crate::modules::desktop::browser::CHROME_PATH_HINT),
+        error.ends_with(crate::desktop::browser::CHROME_PATH_HINT),
         "{error}"
     );
 }

@@ -260,7 +260,7 @@ fn tinycomputers_own_words_for_a_missing_or_unusable_chrome_get_the_users_fix() 
 async fn a_session_without_a_persistent_profile_claims_nothing() {
     let mut options = SessionOptions::default();
     let config = Config::default();
-    assert_eq!(claim_profile(&config, &mut options, 50).await, None);
+    assert_eq!(claim_session_profile(&config, &mut options, 50).await, None);
     assert!(options.user_data_dir.is_none());
 }
 

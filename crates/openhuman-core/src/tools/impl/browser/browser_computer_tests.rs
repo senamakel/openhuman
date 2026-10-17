@@ -439,7 +439,7 @@ fn a_task_that_found_no_chrome_tells_the_agent_to_ask_for_its_path() {
     let hint = host_hint(&failed("browser unavailable: Chrome not found. Checked: …"));
     assert_eq!(
         hint,
-        Some(crate::modules::desktop::browser::CHROME_NOT_FOUND_HINT)
+        Some(crate::desktop::browser::CHROME_NOT_FOUND_HINT)
     );
     assert_eq!(
         host_hint(&failed("the last three actions changed nothing")),
@@ -451,13 +451,13 @@ fn a_task_that_found_no_chrome_tells_the_agent_to_ask_for_its_path() {
         host_hint(&failed(
             "https://www.amazon.in could not be opened: BROWSER_UNAVAILABLE (browser unavailable: no Chrome or Chromium was found on this machine; give the path of the browser to use)"
         )),
-        Some(crate::modules::desktop::browser::CHROME_NOT_FOUND_HINT)
+        Some(crate::desktop::browser::CHROME_NOT_FOUND_HINT)
     );
     assert_eq!(
         host_hint(&failed(
             "https://www.amazon.in could not be opened: BROWSER_UNAVAILABLE (browser unavailable: the browser binary given could not be started (Chrome exited before providing DevTools URL); check that its path names Chrome or Chromium)"
         )),
-        Some(crate::modules::desktop::browser::CHROME_PATH_HINT)
+        Some(crate::desktop::browser::CHROME_PATH_HINT)
     );
 }
 

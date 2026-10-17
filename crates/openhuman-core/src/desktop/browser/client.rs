@@ -132,7 +132,7 @@ impl BrowserClient {
         } else {
             None
         };
-        let claimed = claim_profile(
+        let claimed = claim_session_profile(
             &self.config,
             &mut options,
             crate::modules::profile_claim::SESSION_WAIT_MS,
@@ -260,6 +260,25 @@ impl BrowserClient {
             .await
             .map_err(BrowserCallError::from_bus)?;
         decode_response(member, response)
+    }
+}
+
+/// Claims the configured persistent profile for this browser session.
+async fn claim_session_profile(
+    config: &Config,
+    options: &mut SessionOptions,
+    wait_ms: u64,
+) -> Option<String> {
+    let profile = options.user_data_dir.clone()?;
+    match crate::modules::profile_claim::claim(config, &profile, wait_ms).await {
+        crate::modules::profile_claim::Claim::Claimed(path) => Some(path),
+        crate::modules::profile_claim::Claim::Fresh => {
+            tracing::warn!(
+                "[browser] another browser holds the persistent profile; this session uses a fresh profile"
+            );
+            options.user_data_dir = None;
+            None
+        }
     }
 }
 

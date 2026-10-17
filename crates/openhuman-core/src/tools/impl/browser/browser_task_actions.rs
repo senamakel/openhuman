@@ -16,8 +16,8 @@ use tinycomputer_bus::browser::Action;
 pub(super) fn host_hint(view: &TaskView) -> Option<&'static str> {
     match &view.status {
         TaskStatus::Failed { reason, hint, .. } => {
-            crate::modules::desktop::browser::chrome_hint(reason)
-                .or_else(|| crate::modules::desktop::browser::chrome_hint(hint))
+            crate::desktop::browser::chrome_hint(reason)
+                .or_else(|| crate::desktop::browser::chrome_hint(hint))
         }
         _ => None,
     }

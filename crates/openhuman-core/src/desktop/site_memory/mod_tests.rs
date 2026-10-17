@@ -195,6 +195,9 @@ async fn scheduled_sweep_removes_only_site_files_unchanged_for_thirty_days() {
         .set_modified(aged)
         .unwrap();
 
+    load(&config, "new.example").await;
+    assert!(old.exists(), "a Load must not trigger garbage collection");
+
     sweep_workspace_at(&config.workspace_dir, now).await;
     assert!(!old.exists());
     assert!(sites_dir(dir.path()).join("new.example.json").exists());

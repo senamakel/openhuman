@@ -383,18 +383,18 @@ pub(super) fn start_sweeper(runtime: &tinybus::module::ModuleRuntime) {
         loop {
             timer.tick().await;
             match config().await {
-                Ok(config) => sweep_workspace(&config.workspace_dir).await,
+                Ok(config) => sweep_workspace_at(&config.workspace_dir, now_secs()).await,
                 Err(error) => tracing::warn!(%error, "[site-memory-host] could not load workspace for sweep"),
             }
         }
     });
 }
 
-async fn sweep_workspace(workspace: &Path) {
+async fn sweep_workspace_at(workspace: &Path, now: u64) {
     // Serialize with load/save/forget so a concurrent forget cannot race the
     // cleanup operation and its epoch remains authoritative.
     let _epochs = guard().lock().await;
-    sweep_at(&sites_dir(workspace), now_secs()).await;
+    sweep_at(&sites_dir(workspace), now).await;
 }
 
 fn now_secs() -> u64 {

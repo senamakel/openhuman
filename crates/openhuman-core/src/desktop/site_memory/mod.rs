@@ -373,5 +373,5 @@ pub(super) async fn install(connection: &tinybus::Connection) -> tinybus::Result
 }
 
 #[cfg(test)]
-#[path = "site_memory_host_tests.rs"]
+#[path = "mod_tests.rs"]
 mod tests;

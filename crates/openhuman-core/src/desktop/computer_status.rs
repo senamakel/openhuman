@@ -5,7 +5,7 @@
 use serde::Serialize;
 use tinycomputer_bus::agent::{Capabilities, SurfaceAvailability};
 
-use super::types::{ModuleState, ModuleStatus};
+use crate::modules::types::{ModuleState, ModuleStatus};
 use crate::config::Config;
 
 /// What the module reports about itself.
@@ -106,5 +106,5 @@ pub async fn status(config: &Config, load: bool) -> ComputerStatus {
 }
 
 #[cfg(test)]
-#[path = "computer_tests.rs"]
+#[path = "computer_status_tests.rs"]
 mod tests;

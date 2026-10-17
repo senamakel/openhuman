@@ -30,7 +30,7 @@
 //! - `documents` (with the `documents` feature) — the host half of the `tinydocs`
 //!   module's three operations.
 //! - [`browser`] and [`browser_task`] — TinyComputer browser members and tasks
-//!   without linking the browser engine into the core; `site_memory_host` serves
+//!   without linking the browser engine into the core; `desktop::site_memory` serves
 //!   where the module keeps what finished tasks learned about each site, and
 //!   `profile_claim` asks the module to claim the persistent Chrome profile for
 //!   a browser about to start.
@@ -56,10 +56,6 @@ pub(crate) mod channel_health;
 #[cfg(all(feature = "channels", feature = "modules"))]
 pub(crate) mod channel_runtime;
 #[cfg(feature = "modules")]
-pub mod computer;
-#[cfg(feature = "modules")]
-pub mod computer_config;
-#[cfg(feature = "modules")]
 pub mod connectors;
 #[cfg(feature = "modules")]
 pub mod desktop;
@@ -81,8 +77,6 @@ pub mod runtime;
 pub mod schemas;
 #[cfg(feature = "modules")]
 pub mod search;
-#[cfg(feature = "modules")]
-pub(crate) mod site_memory_host;
 mod source;
 #[cfg(feature = "modules")]
 mod storage_grant_tinybox;

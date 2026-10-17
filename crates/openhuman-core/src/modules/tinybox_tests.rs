@@ -205,6 +205,34 @@ async fn an_incompatible_contract_result_is_sticky_for_the_cached_client() {
 }
 
 #[tokio::test]
+async fn public_capabilities_observes_and_preserves_sticky_compatibility() {
+    let (_service, client, calls) = mock_client().await;
+    let cache = CompatibilityCache::new(None);
+
+    capabilities_with_client(&client, &cache)
+        .await
+        .expect("compatible capabilities are returned");
+    let bad = (1, contract::CONTRACT_VERSION.1.saturating_sub(1));
+    validate_observed(&cache, bad)
+        .await
+        .expect_err("a newly observed old contract poisons compatibility");
+    capabilities_with_client(&client, &cache)
+        .await
+        .expect_err("a cached incompatibility is returned before another RPC");
+
+    assert_eq!(
+        calls
+            .lock()
+            .expect("call log lock")
+            .iter()
+            .filter(|(member, _)| member == CAPABILITIES)
+            .count(),
+        1,
+        "the sticky failure must avoid a second capabilities call"
+    );
+}
+
+#[tokio::test]
 async fn provider_failure_does_not_echo_paths_or_request_values() {
     let (_service, client, calls) = mock_client().await;
     let secret_path = "/home/user/token";

@@ -88,23 +88,26 @@ pub async fn describe(config: &Config) -> Result<String, String> {
 
 /// Read module capabilities after enforcing contract compatibility.
 pub async fn capabilities(config: &Config) -> Result<contract::ModuleCapabilities, String> {
-    let cache = compatibility_cache();
-    let mut compatibility = cache.lock().await;
-    if let Some(Err(error)) = compatibility.as_ref() {
-        return Err(error.clone());
+    capabilities_with_client(&module_client(config), compatibility_cache()).await
+}
+
+async fn capabilities_with_client(
+    client: &ModuleClient,
+    cache: &CompatibilityCache,
+) -> Result<contract::ModuleCapabilities, String> {
+    let cached_error = cache
+        .lock()
+        .await
+        .as_ref()
+        .and_then(|result| result.as_ref().err().cloned());
+    if let Some(error) = cached_error {
+        return Err(error);
     }
-    let client = module_client(config);
     let capabilities: contract::ModuleCapabilities = client
         .call(MODULE_ID, CAPABILITIES, ())
         .await
         .map_err(message)?;
-    let result = require_compatible(capabilities.contract_version).map_err(message);
-    if let Err(error) = &result {
-        *compatibility = Some(Err(error.clone()));
-    } else if compatibility.is_none() {
-        *compatibility = Some(Ok(()));
-    }
-    result?;
+    validate_observed(cache, capabilities.contract_version).await?;
     Ok(capabilities)
 }
 

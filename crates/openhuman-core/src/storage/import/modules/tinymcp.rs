@@ -30,7 +30,6 @@
 //! 0.18, the release that ships its storage contract.
 
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::{json, Value};

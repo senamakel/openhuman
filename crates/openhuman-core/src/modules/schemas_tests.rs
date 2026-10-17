@@ -1,6 +1,4 @@
-use super::{
-    all_controller_schemas, all_registered_controllers, controller_value, schemas, string_param,
-};
+use super::{all_controller_schemas, all_registered_controllers, schemas, string_param};
 
 use serde_json::{Map, Value};
 
@@ -42,13 +40,4 @@ fn a_blank_or_missing_id_is_not_a_parameter() {
     assert_eq!(string_param(&params, "id"), None);
     params.insert("id".to_string(), Value::String(" tinydocs ".to_string()));
     assert_eq!(string_param(&params, "id"), Some("tinydocs".to_string()));
-}
-
-#[test]
-fn controller_value_reports_serialization_errors() {
-    let invalid_object_key = std::collections::HashMap::from([(vec![1, 2], true)]);
-
-    let error = controller_value(invalid_object_key).unwrap_err();
-
-    assert!(error.contains("key must be a string"));
 }

@@ -81,3 +81,12 @@ async fn a_blank_or_unreadable_site_forgets_nothing() {
         assert!(error.contains("must name a site"), "{error}");
     }
 }
+
+#[test]
+fn controller_value_reports_serialization_errors() {
+    let invalid_object_key = std::collections::HashMap::from([(vec![1, 2], true)]);
+
+    let error = controller_value(invalid_object_key).unwrap_err();
+
+    assert!(error.contains("key must be a string"));
+}

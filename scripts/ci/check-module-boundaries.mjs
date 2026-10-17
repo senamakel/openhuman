@@ -159,6 +159,9 @@ export function validatePolicy(policy) {
     if (!client.name?.endsWith('-client') || !client.manifest || !client.owner || names.has(client.name)) {
       throw new Error(`invalid or duplicate client ${client.name}`);
     }
+    if (isImplementation(client.name, policy)) {
+      throw new Error(`client ${client.name} is also listed as an implementation package`);
+    }
     names.add(client.name);
   }
   const seen = new Set();

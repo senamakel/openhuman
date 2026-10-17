@@ -40,7 +40,7 @@ async fn boot_skips_disabled_components() {
 }
 
 #[tokio::test]
-async fn boot_filters_disabled_search_path_artifacts_and_keeps_enabled_ones() {
+async fn boot_passes_only_disabled_component_stems_to_search_loader() {
     use super::load_search_path_modules;
     let mut config = Config::default();
     assert!(config.components.set("computer", false));

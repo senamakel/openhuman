@@ -13,7 +13,7 @@ use crate::{
 /// one agent's in-memory config, its keys exist nowhere else, and a reload of
 /// the shared `config_path` would drop them. Any other config is reloaded so a
 /// settings or login change is honoured on the next call.
-pub(super) async fn current_config(
+pub(crate) async fn current_config(
     ctx: &DispatchCtx,
     config: &Config,
 ) -> Result<Config, String> {
@@ -36,7 +36,7 @@ pub(super) async fn current_config(
 }
 
 /// Keep only tools admitted by the caller's profile after `ListTools` returns.
-pub(super) fn filter_profile_tools(
+pub(crate) fn filter_profile_tools(
     ctx: &DispatchCtx,
     config: &Config,
     tools: &mut Vec<tinysearch_bus::ToolSpec>,
@@ -54,7 +54,7 @@ pub(super) fn filter_profile_tools(
 }
 
 /// Enforce the profile's advertised tool, route, role and argument boundary.
-pub(super) fn canonical_request(
+pub(crate) fn canonical_request(
     ctx: &DispatchCtx,
     config: &Config,
     mut request: ExecuteToolRequest,

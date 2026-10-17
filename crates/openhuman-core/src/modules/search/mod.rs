@@ -17,5 +17,8 @@ pub(crate) fn record_load_configuration(configuration: &serde_json::Value) {
 
 /// Load-time configuration for the generic module host.
 pub(crate) fn load_configuration(config: &crate::config::Config) -> serde_json::Value {
-    crate::search::module::load_configuration(config)
+    let configuration = serde_json::to_value(crate::search::module::module_config(config))
+        .expect("TinySearch config serializes");
+    record_load_configuration(&configuration);
+    configuration
 }

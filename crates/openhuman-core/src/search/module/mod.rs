@@ -19,16 +19,6 @@ use tinysearch_bus::ROLES;
 
 pub(crate) mod policy;
 
-/// [`module_config`] as the JSON the module is loaded with, recorded as the
-/// configuration the module holds so the first call knows whether to
-/// reconfigure it.
-pub(crate) fn load_configuration(config: &Config) -> serde_json::Value {
-    let configuration =
-        serde_json::to_value(module_config(config)).expect("TinySearch config serializes");
-    crate::modules::search::record_load_configuration(&configuration);
-    configuration
-}
-
 /// Private direct-route settings for one provider: key, base URL, limits.
 fn direct_settings(config: &Config, provider: &str) -> ProviderConfig {
     let search = &config.search;

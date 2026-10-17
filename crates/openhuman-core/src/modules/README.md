@@ -272,7 +272,7 @@ that configuration, never in an ordinary method call or an RPC reply.
 (`registry_contract_tests` covers every record). `ops::ensure_loaded*` refuses
 a record whose component is off with `LoadError::Disabled` before any claim,
 download or `dlopen`; `modules.list` reports `ModuleState::Disabled`; boot skips
-the module and `search_path::load_enabled` leaves its search-path artifact
+the module and TinyBus's `ModuleHost::load_search_paths_except` leaves its search-path artifact
 unopened. See [components](../../../../docs/gitbooks/en/developing/components.md).
 
 ### Boot
@@ -280,7 +280,7 @@ unopened. See [components](../../../../docs/gitbooks/en/developing/components.md
 `boot::load_declared_modules` runs as a background bootstrap job
 (`core/runtime/services.rs`, gated on `ServiceSet::integrations`). It does two
 things. It loads enabled artifacts on the module search path through
-`search_path::load_enabled`, so an operator-placed artifact can serve before
+`ModuleHost::load_search_paths_except`, so an operator-placed artifact can serve before
 a release download. It then starts connector catalog warm-up in the
 background when Composio and the connector component are enabled. That
 warm-up may load or download TinyConnectors; a failure does not fail boot.

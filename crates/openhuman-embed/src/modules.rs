@@ -6,13 +6,13 @@
 #[cfg(feature = "modules")]
 pub use openhuman_core::modules::ops::set_bundled_releases_dir;
 
+#[cfg(feature = "modules")]
+pub use openhuman_core::modules::linked::LinkedFactory;
 /// Register the in-process factory for a module linked into the host
 /// executable. Local-development builds only: `openhuman-modules-linked` calls
 /// this for each module it links; no shipped host does.
 #[cfg(feature = "modules")]
-pub use openhuman_core::modules::linked::{
-    is_registered as is_linked_registered, register_linked, LinkedFactory,
-};
+pub use openhuman_core::modules::linked::{is_registered as is_linked_registered, register_linked};
 
 /// The browser-control module.
 #[cfg(feature = "modules")]

@@ -39,6 +39,28 @@ async fn boot_skips_disabled_components() {
     }
 }
 
+#[tokio::test]
+async fn boot_passes_only_disabled_component_stems_to_search_loader() {
+    use super::load_search_path_modules;
+    let mut config = Config::default();
+    assert!(config.components.set("computer", false));
+    assert!(crate::modules::ops::disabled_component(&config, "tinysearch").is_none());
+
+    let mut observed = Vec::new();
+    let outcomes = load_search_path_modules(&config, |skip| {
+        observed.extend_from_slice(skip);
+        Vec::new()
+    });
+
+    assert!(outcomes.is_empty());
+    assert!(observed.iter().any(|stem| stem == "tinycomputer_module"));
+    assert!(observed.iter().any(|stem| stem == "libtinycomputer_module"));
+    assert!(observed.iter().any(|stem| stem == "tinycomputer"));
+    assert!(observed.iter().any(|stem| stem == "libtinycomputer"));
+    assert!(!observed.iter().any(|stem| stem == "tinysearch_module"));
+    assert!(!observed.iter().any(|stem| stem == "libtinysearch_module"));
+}
+
 #[test]
 fn the_catalog_warm_up_runs_only_while_connectors_are_on() {
     use super::should_warm_connector_catalogs;

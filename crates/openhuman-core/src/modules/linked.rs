@@ -5,7 +5,8 @@
 //! downloaded `cdylib`. The core cannot link module implementation crates, so
 //! the code that does (`openhuman-modules-linked`, reachable only from the CLI
 //! in local-development builds) hands the core a *factory* per module id with
-//! [`register_linked`]. The factory returns tinybus' [`LinkedModule`]; the
+//! [`register_linked`]. The factory returns a
+//! [`tinybus::module::LinkedModule`]; the
 //! resolver attaches it through `ModuleHost::attach_linked_with_config` with
 //! the same private configuration a released module gets, so reinitialization
 //! and config behave identically.
@@ -24,11 +25,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, MutexGuard};
 
-use tinybus::module::LinkedModule;
-
-/// Builds the linked module for one id. A plain `fn` so a registration carries
-/// no state: the module crate's generated `linked_module` fits directly.
-pub type LinkedFactory = fn() -> tinybus::Result<LinkedModule>;
+pub use tinybus::module::LinkedFactory;
 
 static FACTORIES: Mutex<BTreeMap<&'static str, LinkedFactory>> = Mutex::new(BTreeMap::new());
 
@@ -61,12 +58,6 @@ pub fn is_registered(id: &str) -> bool {
 #[must_use]
 pub(super) fn factory_for(id: &str) -> Option<LinkedFactory> {
     factories().get(id).copied()
-}
-
-/// Ids with a registered factory, for diagnostics.
-#[must_use]
-pub fn registered_ids() -> Vec<&'static str> {
-    factories().keys().copied().collect()
 }
 
 #[cfg(test)]

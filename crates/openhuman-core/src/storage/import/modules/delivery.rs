@@ -66,7 +66,7 @@ pub(crate) enum Outcome {
 
 /// Import the legacy delivery file under `workspace` into the module's scope of
 /// the installed storage backend.
-pub(super) async fn import_legacy_delivery(
+pub(crate) async fn import_legacy_delivery(
     ctx: &crate::core::runtime::DispatchCtx,
     workspace: &Path,
 ) -> anyhow::Result<Outcome> {
@@ -113,7 +113,7 @@ async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow:
             .map_err(|error| anyhow::anyhow!("declare {name}: {:?}", error.kind()))?;
     }
 
-    let now = now_unix_ms();
+    let now = crate::storage::fence::system_now_ms();
     let ttl_ms = DELIVERY_RESULT_TTL_SECONDS.saturating_mul(1000);
     let mut records: Vec<(&str, String, Value)> = Vec::new();
     for (id, entry) in legacy.pending {

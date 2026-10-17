@@ -245,6 +245,39 @@ async fn web3_permit_is_consumed_after_a_mismatched_intent() {
     );
 }
 
+#[tokio::test]
+async fn web3_permit_approves_the_exact_confirmed_intent_once() {
+    let quote = web3_quote("web3-matching-intent-approves");
+    let _permit = ApprovalPermit::new(
+        ApprovalKind::Web3,
+        &quote.quote_id,
+        None,
+        Some(quote.clone()),
+    );
+    let request = AuthorizeWeb3ExecutionRequest {
+        quote_id: quote.quote_id.clone(),
+        operation: "dapp_call".into(),
+        transaction: Web3ExecutionIntent::Evm {
+            network: "polygon_mainnet".into(),
+            to: "0x1111111111111111111111111111111111111111".into(),
+            data: Some("0xabcd".into()),
+            value: "5".into(),
+            nonce: 4,
+            gas_limit: 30_000,
+            gas_price_wei: "7".into(),
+            chain_id: 137,
+        },
+    };
+
+    let HostResponse::Authorization(result) =
+        WalletHost.authorize_web3_execution(request).await.unwrap()
+    else {
+        panic!("expected authorization response");
+    };
+    assert!(result.approved);
+    assert!(!consume_approval(ApprovalKind::Web3, &quote.quote_id));
+}
+
 #[test]
 fn module_selected_rpc_endpoints_are_public_http_urls_without_credentials() {
     assert_eq!(

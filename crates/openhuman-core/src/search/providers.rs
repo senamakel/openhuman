@@ -4,7 +4,7 @@
 //! This is the host's policy view of `[search]`: it combines the user's
 //! selection and routes with what the process can actually reach — a backend
 //! credential for managed routes, a stored key (or SearXNG base URL) for direct
-//! ones. The settings RPC renders it; `modules::search::module_config` turns it
+//! ones. The settings RPC renders it; `search::module::module_config` turns it
 //! into the TinySearch module configuration. Provider execution is not here.
 
 use serde::Serialize;

@@ -130,7 +130,7 @@ fn private_module_configuration_preserves_direct_urls_and_never_resolves_managed
     let mut config = crate::config::Config::default();
     config.api_key = Some("ambient-managed-key-must-not-be-read".into());
     settings.bind(&mut config);
-    let module = crate::modules::search::module_config(&config);
+    let module = crate::search::module::module_config(&config);
     assert_eq!(
         module
             .providers
@@ -161,7 +161,7 @@ fn private_module_configuration_preserves_direct_urls_and_never_resolves_managed
     assert_eq!(module.presentation.roles[&Role::Answer], ["gemini"]);
     assert_eq!(module.presentation.roles[&Role::Contents], ["exa"]);
     assert_eq!(
-        crate::modules::search::configured_tool_specs(&config)
+        crate::search::module::configured_tool_specs(&config)
             .iter()
             .map(|spec| spec.name.as_str())
             .collect::<Vec<_>>(),
@@ -181,10 +181,10 @@ fn blank_search_keys_remove_tools_instead_of_inheriting_managed_defaults() {
         let settings = ProfileProviderSettings::from_saas(&deployment(exa, gemini)).unwrap();
         let mut config = crate::config::Config::default();
         settings.bind(&mut config);
-        let module = crate::modules::search::module_config(&config);
+        let module = crate::search::module::module_config(&config);
         assert_eq!(module.enabled, !expected.is_empty());
         assert_eq!(
-            crate::modules::search::configured_tool_specs(&config)
+            crate::search::module::configured_tool_specs(&config)
                 .iter()
                 .map(|spec| spec.name.as_str())
                 .collect::<Vec<_>>(),

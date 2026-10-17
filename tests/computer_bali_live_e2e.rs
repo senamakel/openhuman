@@ -9,7 +9,7 @@
 //! 2. the host hands it its private configuration — the decision model
 //!    (`[computer] decision_model`, Jev over OpenRouter here), and the planner
 //!    and rescue route (`modules::computer_config`);
-//! 3. `modules::browser_task` starts the task with `StartTask` (browser only,
+//! 3. `desktop::browser` starts the task with `StartTask` (browser only,
 //!    confined to the allowed websites, never allowed to pay), follows it with
 //!    `AwaitTask`, answers `needs_input` from the facts, approves ordinary
 //!    booking steps, and refuses any approval that would pay.
@@ -36,7 +36,7 @@ use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use openhuman_core::config::{Config, DecisionModel};
-use openhuman_core::modules::browser_task::{self, BrowserTask};
+use openhuman_core::desktop::browser::{self, BrowserTask};
 use tinycomputer_bus::agent::{ContinueTaskRequest, TaskStatus, TaskView};
 
 const TASK: &str = include_str!("fixtures/computer/bali/task.md");

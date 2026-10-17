@@ -27,20 +27,22 @@
 //! # Layout
 //!
 //! - [`registry`] — the compiled-in set of loadable modules and their digests.
-//! - [`documents`] — the host half of the `tinydocs` module's three operations.
+//! - `documents` (with the `documents` feature) — the host half of the `tinydocs`
+//!   module's three operations.
 //! - [`browser`] and [`browser_task`] — TinyComputer browser members and tasks
-//!   without linking the browser engine into the core; [`site_memory_host`] serves
+//!   without linking the browser engine into the core; `site_memory_host` serves
 //!   where the module keeps what finished tasks learned about each site, and
-//!   [`profile_claim`] asks the module to claim the persistent Chrome profile
-//!   for a browser about to start.
-//! - [`wallet`] — the host half of the `tinywallet` module, which builds and
-//!   assembles transactions while the signing key stays in this process.
+//!   `profile_claim` asks the module to claim the persistent Chrome profile for
+//!   a browser about to start.
+//! - `wallet` (with the `web3` feature) — the host half of the `tinywallet`
+//!   module, which builds and assembles transactions while the signing key
+//!   stays in this process.
 //! - [`linked`] — the registry of modules linked into the executable (local development).
 //! - [`runtime`] — the process-wide `tinybus::module::ModuleRuntime` and the host
 //!   callbacks served on its bus.
 //! - [`ops`] — the adapter over `tinybus::module::Resolver` and `ModuleClient`:
 //!   builds them from [`Config`](crate::config::Config) and the registry.
-//! - [`report`] — the Sentry sink for terminal module outcomes.
+//! - `report` — the Sentry sink for terminal module outcomes.
 //! - [`client`] — the constructor for a `tinybus::module::ModuleClient`, with or without the loader.
 //! - [`schemas`] — the `modules` RPC surface.
 //! - [`boot`] — what happens at startup.

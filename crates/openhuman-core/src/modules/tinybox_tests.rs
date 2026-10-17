@@ -180,13 +180,7 @@ async fn command_facts_use_contract_member_and_positional_arguments() {
     let cache = CompatibilityCache::new(None);
     for _ in 0..2 {
         let facts: contract::CommandAnalysis =
-            call_with_client_cached(
-                &client,
-                ANALYZE_COMMAND,
-                (command.clone(),),
-                false,
-                &cache,
-            )
+            call_with_client_cached(&client, ANALYZE_COMMAND, (command.clone(),), false, &cache)
                 .await
                 .expect("typed command facts");
         assert_eq!(facts.literal_words, ["printf", "hello"]);
@@ -745,4 +739,3 @@ async fn no_workspace_docker_refusal_is_not_retried_as_an_ordinary_call() {
     assert_eq!(calls.len(), 1, "only the public capabilities probe ran");
     assert_eq!(calls[0].0, CAPABILITIES);
 }
-

@@ -1,7 +1,7 @@
 //! Focused Docker transport and deadline tests for TinyBox.
 
-use super::*;
 use super::tests::{mock_client, mock_client_with_docker_control_delay};
+use super::*;
 use serde_json::json;
 
 #[test]

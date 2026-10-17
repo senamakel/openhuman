@@ -4,8 +4,8 @@
 //! and response types come from `tinybox-bus`; isolation, process ownership,
 //! file access, forwarding, and output collection stay in TinyBox.
 
-use std::time::Duration;
 use std::sync::OnceLock;
+use std::time::Duration;
 
 use serde::{de::DeserializeOwned, Serialize};
 pub use tinybox_bus as contract;
@@ -59,11 +59,11 @@ const VALIDATE_DOCKER_POLICY: &str = contract::names::VALIDATE_DOCKER_POLICY;
 const DOCKER_CALL_GRACE: Duration = Duration::from_secs(5);
 
 #[cfg(test)]
-#[path = "tinybox_tests.rs"]
-mod tests;
-#[cfg(test)]
 #[path = "tinybox_docker_tests.rs"]
 mod docker_tests;
+#[cfg(test)]
+#[path = "tinybox_tests.rs"]
+mod tests;
 
 /// Resolve TinyBox, require the bus contract supported by this host, and
 /// return its proxy.
@@ -305,7 +305,8 @@ async fn call_docker_status_with_grace(
     request: contract::DockerStatusRequest,
     grace: Duration,
 ) -> Result<contract::DockerStatus, String> {
-    call_docker_status_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None)).await
+    call_docker_status_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None))
+        .await
 }
 
 async fn call_docker_status_with_grace_and_cache(
@@ -340,7 +341,8 @@ async fn call_cleanup_docker_with_grace(
     request: contract::CleanupDockerRequest,
     grace: Duration,
 ) -> Result<contract::CleanupDockerOutput, String> {
-    call_cleanup_docker_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None)).await
+    call_cleanup_docker_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None))
+        .await
 }
 
 async fn call_cleanup_docker_with_grace_and_cache(
@@ -382,7 +384,14 @@ async fn call_run_docker_without_workspace_cached(
     request: contract::DockerRunRequest,
     cache: &CompatibilityCache,
 ) -> Result<contract::DockerRunOutput, String> {
-    call_with_client_cached(client, RUN_DOCKER_WITHOUT_WORKSPACE, (request,), true, cache).await
+    call_with_client_cached(
+        client,
+        RUN_DOCKER_WITHOUT_WORKSPACE,
+        (request,),
+        true,
+        cache,
+    )
+    .await
 }
 
 /// Read a bounded output batch from a live or completed process.
@@ -598,10 +607,7 @@ async fn require_compatible_once(
     result
 }
 
-async fn validate_observed(
-    cache: &CompatibilityCache,
-    version: (u32, u32),
-) -> Result<(), String> {
+async fn validate_observed(cache: &CompatibilityCache, version: (u32, u32)) -> Result<(), String> {
     let mut compatibility = cache.lock().await;
     if let Some(Err(error)) = compatibility.as_ref() {
         return Err(error.clone());

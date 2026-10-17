@@ -349,10 +349,7 @@ pub fn list(config: &Config) -> Vec<ModuleStatus> {
     list_with(config, resolver)
 }
 
-fn list_with(
-    config: &Config,
-    make_resolver: impl Fn(&Config) -> Resolver,
-) -> Vec<ModuleStatus> {
+fn list_with(config: &Config, make_resolver: impl Fn(&Config) -> Resolver) -> Vec<ModuleStatus> {
     let resolver = make_resolver(config);
     registry::ALL
         .iter()

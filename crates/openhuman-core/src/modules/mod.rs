@@ -196,14 +196,7 @@ async fn import_legacy_mcp_with<F, T>(
     F: std::future::Future<Output = anyhow::Result<T>>,
     T: std::fmt::Debug + Settled,
 {
-    import_once(
-        ctx,
-        "mcp",
-        storage_grant_tinymcp::MODULE_ID,
-        data_dir,
-        run,
-    )
-    .await;
+    import_once(ctx, "mcp", storage_grant_tinymcp::MODULE_ID, data_dir, run).await;
 }
 
 /// What an importer's outcome says about whether it may be skipped next time.

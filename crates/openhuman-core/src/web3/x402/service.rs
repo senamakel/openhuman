@@ -361,5 +361,5 @@ fn budget_from(get: impl Fn(&str) -> Option<String>) -> (u64, u64, u64) {
 }
 
 #[cfg(test)]
-#[path = "x402_service_tests.rs"]
+#[path = "service_tests.rs"]
 mod tests;

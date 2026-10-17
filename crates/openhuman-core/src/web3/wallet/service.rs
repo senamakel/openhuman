@@ -441,5 +441,5 @@ pub(super) fn native_wallet_config_request() -> NativeWalletConfigRequest {
 }
 
 #[cfg(test)]
-#[path = "wallet_service_tests.rs"]
+#[path = "service_tests.rs"]
 mod tests;

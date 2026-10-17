@@ -125,7 +125,7 @@ where
 }
 
 #[cfg(test)]
-#[path = "web3_service_tests.rs"]
+#[path = "service_tests.rs"]
 mod tests;
 
 /// The quote owner of a turn whose chat routing is `chat`: quotes are bound to

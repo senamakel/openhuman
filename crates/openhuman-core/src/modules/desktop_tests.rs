@@ -62,7 +62,8 @@ fn jev_readiness_uses_configured_model_without_resolving_credentials() {
     let dir = tempfile::tempdir().expect("tempdir");
     let config = config_in(dir.path());
     crate::desktop::computer_config::reset_private_config_credential_lookups();
-    let _fake_credentials = crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
+    let _fake_credentials =
+        crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
 
     assert!(jev_ready(&config));
     assert_eq!(
@@ -200,7 +201,8 @@ async fn bus_client_preserves_envelopes_and_names_transport_failures() {
     let mut config = config_in(dir.path());
     config.computer.trace = true;
     crate::desktop::computer_config::reset_private_config_credential_lookups();
-    let _fake_credentials = crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
+    let _fake_credentials =
+        crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
     let status_proxy = super::proxy_from_connection(&client).expect("read-only status proxy");
     let capabilities = crate::desktop::computer_status::describe_proxy(status_proxy)
         .await

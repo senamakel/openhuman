@@ -187,8 +187,7 @@ async fn scheduled_sweep_removes_only_site_files_unchanged_for_thirty_days() {
     assert!(save(&config, "new.example", epoch).await);
     let old = sites_dir(dir.path()).join("old.example.json");
     let now = 2 * KEEP_SECS + 100;
-    let aged = std::time::UNIX_EPOCH
-        + std::time::Duration::from_secs(now - KEEP_SECS - 1);
+    let aged = std::time::UNIX_EPOCH + std::time::Duration::from_secs(now - KEEP_SECS - 1);
     std::fs::File::options()
         .write(true)
         .open(&old)

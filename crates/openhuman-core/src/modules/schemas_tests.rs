@@ -50,11 +50,3 @@ fn controller_value_reports_serialization_errors() {
 
     assert!(error.contains("key must be a string"));
 }
-
-
-
-
-
-
-
-

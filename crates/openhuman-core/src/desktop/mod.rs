@@ -28,8 +28,8 @@ pub mod browser;
 #[cfg(feature = "modules")]
 pub mod computer_config;
 #[cfg(feature = "modules")]
-pub mod computer_status;
-#[cfg(feature = "modules")]
 pub mod computer_rpc;
+#[cfg(feature = "modules")]
+pub mod computer_status;
 #[cfg(feature = "modules")]
 pub(crate) mod site_memory;

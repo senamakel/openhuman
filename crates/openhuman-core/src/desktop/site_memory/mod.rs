@@ -385,7 +385,9 @@ pub(super) fn start_sweeper(runtime: &tinybus::module::ModuleRuntime) {
             timer.tick().await;
             match config().await {
                 Ok(config) => sweep_workspace_at(&config.workspace_dir, now_secs()).await,
-                Err(error) => tracing::warn!(%error, "[site-memory-host] could not load workspace for sweep"),
+                Err(error) => {
+                    tracing::warn!(%error, "[site-memory-host] could not load workspace for sweep")
+                }
             }
         }
     });

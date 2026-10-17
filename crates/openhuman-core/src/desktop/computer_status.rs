@@ -5,8 +5,8 @@
 use serde::Serialize;
 use tinycomputer_bus::agent::{Capabilities, SurfaceAvailability};
 
-use crate::modules::types::{ModuleState, ModuleStatus};
 use crate::config::Config;
+use crate::modules::types::{ModuleState, ModuleStatus};
 
 /// What the module reports about itself.
 #[derive(Debug, Clone, Serialize)]

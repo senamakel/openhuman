@@ -66,7 +66,10 @@ pub(crate) fn handle_browser_check_readiness(
     })
 }
 
-pub(crate) fn handle_browser_forget_sites(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+pub(crate) fn handle_browser_forget_sites(
+    ctx: DispatchCtx,
+    params: Map<String, Value>,
+) -> ControllerFuture {
     Box::pin(async move {
         // A blank or non-text site must not read as "every site".
         let site = match params.get("site") {
@@ -93,7 +96,10 @@ pub(crate) fn handle_browser_forget_sites(ctx: DispatchCtx, params: Map<String, 
     })
 }
 
-pub(crate) fn handle_computer_status(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+pub(crate) fn handle_computer_status(
+    ctx: DispatchCtx,
+    params: Map<String, Value>,
+) -> ControllerFuture {
     Box::pin(async move {
         let load = params.get("load").and_then(Value::as_bool).unwrap_or(false);
         let config = ctx.load_config().await?;
@@ -105,7 +111,6 @@ pub(crate) fn handle_computer_status(ctx: DispatchCtx, params: Map<String, Value
 fn controller_value(value: impl serde::Serialize) -> Result<Value, String> {
     serde_json::to_value(value).map_err(|error| error.to_string())
 }
-
 
 #[cfg(test)]
 #[path = "computer_rpc_tests.rs"]

@@ -26,7 +26,8 @@ async fn status_does_not_build_private_config_or_touch_credentials_and_trace_dir
     config.secrets.encrypt = false;
     config.computer.trace = true;
     crate::desktop::computer_config::reset_private_config_credential_lookups();
-    let _fake_credentials = crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
+    let _fake_credentials =
+        crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
 
     let _status = status(&config, false).await;
     let observations = (

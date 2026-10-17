@@ -413,6 +413,10 @@ loadable:
   `tinysearch`, `tinyconnectors`, `tinyjuice`, `tinymcp`, `tinybox`,
   `tinychannels`, `tinyhosts`). This folder holds only the host half of each
   call and the host's policy around it.
+- Hosts may depend on a component's `*-bus` contract and typed `*-client`
+  caller. They must never depend on the component's implementation crates,
+  directly or through a wrapper or transitive dependency. The implementation
+  runs inside the compiled TinyBus module.
 - Each module has a `*-bus` contract crate with its interface names, method
   constants, request and response types, and contract version:
 
@@ -427,6 +431,12 @@ loadable:
   | `tinycomputer-bus` | desktop, browser and task members |
   | `tinychannels-bus` | channel vocabulary |
   | `tinyconnectors-bus` | connector names and the Composio types |
+
+  Typed client crates are `tinydocs-client`, `tinyvoice-client`,
+  `tinywallet-client`, `tinybox-client`, `tinycomputer-client`, and
+  `tinychannels-client`. The host dependency audit admits these named callers
+  while continuing to walk their resolved dependency graphs for component
+  implementation crates.
 
   Never redeclare a contract type here, and call members through the
   contract's constants rather than string literals. Contract crates stay

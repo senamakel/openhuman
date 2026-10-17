@@ -8,7 +8,7 @@
 //! directories. Registry load policy remains available for a future eager module;
 //! all current records are lazy.
 //!
-//! What does not happen is downloading every registry entry. A [`LoadPolicy::Lazy`]
+//! What does not happen is downloading every registry entry. A [`crate::modules::LoadPolicy::Lazy`]
 //! module stays unloaded until something asks for it, so a user who never
 //! produces a document never pays a download, a `dlopen`, or the resident cost of
 //! a library that is never unloaded. Boot is also the worst moment to spend

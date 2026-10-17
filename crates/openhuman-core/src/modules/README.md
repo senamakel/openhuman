@@ -64,8 +64,8 @@ dedicated thread (`openhuman-module-bus`) with its own multi-threaded tokio
 runtime, creates a `MemoryBus` transport and a `Broker`, spawns the broker,
 wraps it in a tinybus `ModuleHost`, and connects the host's own `Connection`.
 Before returning it installs the host callbacks on that connection: storage,
-site memory, and the enabled summary, memes and wallet callbacks. The result is stored in a `OnceLock` as a `ModuleRuntime` and
-lives until the process exits; there is no shutdown path because there is
+site memory, and the enabled summary, memes and wallet callbacks. The result
+is stored in a `OnceLock` as a `ModuleRuntime` and lives until the process exits; there is no shutdown path because there is
 nothing a shutdown could reclaim.
 
 Modules get their own broker because `core::bus::BUS` (a `OnceBus`) builds
@@ -288,7 +288,7 @@ extension point; boot does not load records by `LoadPolicy::Eager`.
 | [`registry.rs`](registry.rs) | The compiled-in `ALL` table and `find(id)`. Records live in [`registry/`](registry/README.md), one `records_*.rs` file per module family. |
 | [`types.rs`](types.rs) | `ModuleRecord`, `PlatformAsset`, `LoadPolicy`, `ModuleSource`, `ModuleState`, `ModuleStatus`. |
 | [`runtime.rs`](runtime.rs) | The module bus: the dedicated runtime, `ModuleRuntime`, `runtime()`, `is_started()`. |
-| [`ops.rs`](ops.rs) | Resolution (`ensure_loaded*`, `resolve`, `load_cached`, `load_local`), per-module configuration, overrides, the bundled and install directories, and status reporting (`list`, `state_of`). |
+| [`ops.rs`](ops.rs) | The tinybus resolver and client (`resolver`, `client`, `ensure_loaded*`), per-module configuration, sources, the bundled and install directories, and status reporting (`list`, `state_of`). |
 | [`boot.rs`](boot.rs) | Startup loading: enabled search-path artifacts, then background connector catalog warm-up. |
 | [`schemas.rs`](schemas.rs) | The `modules` RPC namespace and its handlers. |
 

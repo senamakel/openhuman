@@ -459,7 +459,6 @@ fn session_ref(session: &SessionId) -> SessionRef {
     }
 }
 
-
 #[cfg(test)]
 #[path = "client_tests.rs"]
 mod tests;

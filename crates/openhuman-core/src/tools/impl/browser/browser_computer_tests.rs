@@ -437,7 +437,10 @@ fn a_task_that_found_no_chrome_tells_the_agent_to_ask_for_its_path() {
         .unwrap()
     };
     let hint = host_hint(&failed("browser unavailable: Chrome not found. Checked: …"));
-    assert_eq!(hint, Some(crate::modules::desktop::browser::CHROME_NOT_FOUND_HINT));
+    assert_eq!(
+        hint,
+        Some(crate::modules::desktop::browser::CHROME_NOT_FOUND_HINT)
+    );
     assert_eq!(
         host_hint(&failed("the last three actions changed nothing")),
         None

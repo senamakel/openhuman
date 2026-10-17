@@ -103,7 +103,12 @@ pub async fn start(config: &Config, task: &BrowserTask) -> Result<TaskView, Stri
         return Err("a browser task needs at least one allowed origin".to_owned());
     }
     let mut request = start_request(config, task);
-    let claimed = claim_profile(config, &mut request, crate::modules::profile_claim::TASK_WAIT_MS).await;
+    let claimed = claim_profile(
+        config,
+        &mut request,
+        crate::modules::profile_claim::TASK_WAIT_MS,
+    )
+    .await;
     tracing::debug!(
         origins = task.origins.len(),
         max_actions = task.max_actions,

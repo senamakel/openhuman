@@ -112,9 +112,9 @@ async fn readonly_acting_tools_carry_policy_blocked_marker() {
         (
             Box::new(BrowserOpenTool::new(
                 sec.clone(),
-                Arc::new(crate::modules::desktop::browser::BrowserClient::new(Arc::new(
-                    crate::config::Config::default(),
-                ))),
+                Arc::new(crate::modules::desktop::browser::BrowserClient::new(
+                    Arc::new(crate::config::Config::default()),
+                )),
             )),
             serde_json::json!({ "url": "https://example.com" }),
         ),

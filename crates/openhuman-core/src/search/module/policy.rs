@@ -2,10 +2,7 @@
 
 use tinysearch_bus::ExecuteToolRequest;
 
-use crate::{
-    config::Config,
-    core::runtime::DispatchCtx,
-};
+use crate::{config::Config, core::runtime::DispatchCtx};
 
 /// The config a search call runs under.
 ///
@@ -13,10 +10,7 @@ use crate::{
 /// one agent's in-memory config, its keys exist nowhere else, and a reload of
 /// the shared `config_path` would drop them. Any other config is reloaded so a
 /// settings or login change is honoured on the next call.
-pub(crate) async fn current_config(
-    ctx: &DispatchCtx,
-    config: &Config,
-) -> Result<Config, String> {
+pub(crate) async fn current_config(ctx: &DispatchCtx, config: &Config) -> Result<Config, String> {
     if config.profile_providers.is_some() {
         let context = ctx
             .core()
@@ -29,7 +23,9 @@ pub(crate) async fn current_config(
         return Ok(current.clone());
     }
     if config.search.is_host_pinned() {
-        tracing::debug!("[search][module] host-pinned search credentials; using the agent's config");
+        tracing::debug!(
+            "[search][module] host-pinned search credentials; using the agent's config"
+        );
         return Ok(config.clone());
     }
     crate::config::ops::reload_config_from_paths(&config.config_path, &config.workspace_dir).await

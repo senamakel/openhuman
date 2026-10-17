@@ -95,7 +95,7 @@ impl WalletModuleTool {
                     crate::web3::wallet::prepare_transfer(
                         ctx,
                         params,
-                        crate::modules::web3_service::owner_of(chat),
+                        crate::web3::service::owner_of(chat),
                     )
                     .await,
                 )

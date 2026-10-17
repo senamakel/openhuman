@@ -46,6 +46,7 @@ is mounted as a submodule of [`load/dirs.rs`](./load/dirs.rs) via `#[path]`.
 | `[tokenjuice]` | [`tokenjuice.rs`](./tokenjuice.rs) | `TokenjuiceConfig` |
 | tool-related sections (see below) | `tools/` | (multiple structs) |
 | `[update]` | [`update.rs`](./update.rs) | `UpdateConfig`, `UpdateRestartStrategy` |
+| `[x402]` | [`x402.rs`](./x402.rs) | `X402Config`: per-request, daily, and monthly spending limits (legacy `OPENHUMAN_X402_*_MAX` variables override them) |
 | `[voice_server]` | [`voice_server.rs`](./voice_server.rs) | `VoiceServerConfig`, `SttEngine`, `VoiceActivationMode` |
 | `[[voice_providers]]`, `stt_provider` / `tts_provider` | [`voice_providers.rs`](./voice_providers.rs) | `VoiceProviderCreds`, `BuiltinVoiceProvider`, `BUILTIN_VOICE_PROVIDERS` |
 | top-level `Config` and its scalar keys | `types.rs` (+ `types/config.rs`, `types/model_ids.rs`) | `Config`, `ModelRegistryEntry`, `MODEL_*` / `DEFAULT_MODEL` constants |

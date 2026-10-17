@@ -7,6 +7,8 @@
 
 #[cfg(feature = "web3")]
 mod schemas;
+#[cfg(feature = "web3")]
+pub(crate) mod service;
 
 #[cfg(feature = "web3")]
 pub use schemas::all_controller_schemas as all_x402_controller_schemas;

@@ -483,7 +483,7 @@ where
 {
     // Direct helper callers are test seams; production operations enter via
     // `call`, which supplies the process-wide compatibility cache.
-    let cache = CompatibilityCache::new();
+    let cache = CompatibilityCache::new(None);
     call_with_client_cached(client, member, request, confidential, &cache).await
 }
 

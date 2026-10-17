@@ -157,7 +157,7 @@ fn host_and_module_contract_versions_must_cover_the_full_host_surface() {
 async fn command_facts_use_contract_member_and_positional_arguments() {
     let (_service, client, calls) = mock_client().await;
     let command = "printf 'hello'".to_owned();
-    let cache = CompatibilityCache::new();
+    let cache = CompatibilityCache::new(None);
     for _ in 0..2 {
         let facts: contract::CommandAnalysis =
             call_with_client_cached(
@@ -185,7 +185,7 @@ async fn command_facts_use_contract_member_and_positional_arguments() {
 #[tokio::test]
 async fn an_incompatible_contract_result_is_sticky_for_the_cached_client() {
     let (_service, client, calls) = mock_client().await;
-    let cache = CompatibilityCache::new();
+    let cache = CompatibilityCache::new(None);
     let incompatible = (1, contract::CONTRACT_VERSION.1.saturating_sub(1));
     let first = validate_observed(&cache, incompatible)
         .await

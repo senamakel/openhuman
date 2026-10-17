@@ -239,7 +239,7 @@ async fn scheduled_sweeps_expire_backing_files_and_stop_with_the_host() {
     sweeps.recv().await.unwrap();
     assert!(!boundary.exists());
 
-    host.send(true).unwrap();
+    drop(host);
     task.await.unwrap();
 }
 

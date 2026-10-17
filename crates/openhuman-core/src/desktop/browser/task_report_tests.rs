@@ -266,7 +266,7 @@ async fn a_stopped_task_is_logged_once_with_counts_and_no_step_text() {
         assert!(!text.contains(page_text), "step text leaked: {text}");
     }
     assert!(
-        !super::super::computer_config::trace_dir(&config).exists(),
+        !crate::modules::computer_config::trace_dir(&config).exists(),
         "an untraced stop writes no report"
     );
 }
@@ -335,7 +335,7 @@ async fn a_traced_task_that_settled_writes_its_traced_report() {
         *asked_for_trace.lock().unwrap(),
         Some((TaskId("t-rec-traced".to_owned()), true))
     );
-    let tasks = super::super::computer_config::trace_dir(&config).join("tasks");
+    let tasks = crate::modules::computer_config::trace_dir(&config).join("tasks");
     assert_eq!(std::fs::read_dir(&tasks).unwrap().count(), 1);
 }
 
@@ -405,7 +405,7 @@ async fn a_traced_report_is_written_whole_into_the_workspace() {
     let view = view("t-write", failed(), 0.33);
     let report = report(&view);
     write(&config, &report).await;
-    let tasks = super::super::computer_config::trace_dir(&config).join("tasks");
+    let tasks = crate::modules::computer_config::trace_dir(&config).join("tasks");
     let written = std::fs::read_dir(&tasks)
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -427,7 +427,7 @@ async fn a_report_and_its_directory_are_readable_by_their_owner_alone() {
     use std::os::unix::fs::PermissionsExt;
     let dir = tempfile::tempdir().unwrap();
     let config = workspace_config(&dir);
-    let tasks = super::super::computer_config::trace_dir(&config).join("tasks");
+    let tasks = crate::modules::computer_config::trace_dir(&config).join("tasks");
     // A directory left open by an earlier run is narrowed too.
     std::fs::create_dir_all(&tasks).unwrap();
     std::fs::set_permissions(&tasks, std::fs::Permissions::from_mode(0o755)).unwrap();

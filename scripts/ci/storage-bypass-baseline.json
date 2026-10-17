@@ -246,7 +246,7 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/modules/browser_task_report.rs",
+    "path": "crates/openhuman-core/src/desktop/browser/task_report.rs",
     "line": 304,
     "text": "let mut options = tokio::fs::OpenOptions::new();",
     "occurrence": 1

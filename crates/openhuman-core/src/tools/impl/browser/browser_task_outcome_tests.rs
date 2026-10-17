@@ -59,7 +59,7 @@ async fn a_planning_failure_keeps_the_host_hint() {
     );
     let text = tool().report(failed).await.unwrap_err().to_string();
     assert!(
-        text.contains(crate::modules::browser::CHROME_NOT_FOUND_HINT),
+        text.contains(crate::desktop::browser::chrome_hints::CHROME_NOT_FOUND_HINT),
         "{text}"
     );
     assert!(text.contains("before any step ran"), "{text}");

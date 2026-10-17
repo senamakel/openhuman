@@ -291,7 +291,7 @@ pub fn all_tools_with_runtime(
     if browser_config.enabled && config.components.computer {
         // BrowserClient enforces the shared `http_request.allowed_domains`
         // policy for both browser tools.
-        let browser_client = Arc::new(crate::modules::browser::BrowserClient::new(config.clone()));
+        let browser_client = Arc::new(crate::desktop::browser::BrowserClient::new(config.clone()));
         tools.push(Box::new(BrowserOpenTool::new(
             security.clone(),
             browser_client.clone(),

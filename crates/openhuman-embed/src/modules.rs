@@ -18,7 +18,7 @@ pub use openhuman_core::modules::linked::{is_registered as is_linked_registered,
 #[cfg(feature = "modules")]
 pub mod browser {
     /// Its registry id, for a host that checks whether it is installed.
-    pub use openhuman_core::modules::browser::MODULE_ID;
+    pub use openhuman_core::desktop::browser::MODULE_ID;
 }
 
 /// Pre-core calls through the process-wide loader, with explicit runtime

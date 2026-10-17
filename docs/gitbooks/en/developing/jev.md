@@ -46,7 +46,7 @@ If the process has no usable embedding provider, `TinyHumansJevRanker` declines 
 
 ### Browser control
 
-`crates/openhuman-core/src/modules/browser_task.rs` hands browser tasks to TinyComputer's task members (`StartTask`, then `AwaitTask` until the task pauses or finishes). Tasks stay on the browser surface and the allowed websites.
+`crates/openhuman-core/src/desktop/browser/task.rs` hands browser tasks to TinyComputer's task members (`StartTask`, then `AwaitTask` until the task pauses or finishes). Tasks stay on the browser surface and the allowed websites.
 
 The decision model is set in `[computer] decision_model`: Jev (through the hosted proxy when signed in, or your OpenRouter key), OpenJev or Sage. A failed step goes to the rescue model (`[computer] rescue_model`, up to `max_rescues` times) before the task fails. An irreversible step pauses as `needs_approval`. The browser tool holds it behind a one-use token, and only `confirm_pending`, through the host approval gate, answers `ContinueTask`.
 
@@ -113,7 +113,7 @@ cargo run --manifest-path profile/Cargo.toml --bin tool-search-bench -- --dump-c
 - `vendor/tinyagents/vendor/tinytools/crates/tinytools-jev/`: the transport-neutral `ToolRanker` implementation, its retrieval strategies and the `JevRankerConfig` / `JevRanking` types.
 - `crates/openhuman-tinyhumans/src/jev/`: the TinyHumans evaluator (`TinyJevEvaluator`, over `tinyjevclient`) and the process-installed ranker (`TinyHumansJevRanker`).
 - `crates/openhuman-core/src/agent/tinyagents/discovery/`: the host slot that holds the installed ranker and turns `[agent.tool_search]` into the policy a turn runs with.
-- `crates/openhuman-core/src/modules/browser_task.rs`: the browser-task entry point that runs `JevController`.
+- `crates/openhuman-core/src/desktop/browser/task.rs`: the browser-task entry point that runs `JevController`.
 - [`docs/plans/jev-tool-search-baseline.md`](https://github.com/tinyhumansai/openhuman/blob/main/docs/plans/jev-tool-search-baseline.md): the full benchmark writeup.
 
 See also [Performance](performance.md) for the wider cost and density picture, [Pluggable engines](engines.md) for the other swappable pieces, and [Embedding OpenHuman](embedding.md) for running an agent as a library.

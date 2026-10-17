@@ -1,6 +1,6 @@
 //! Shared browser sessions across turns in one conversation.
 
-use crate::modules::browser::BrowserClient;
+use crate::desktop::browser::BrowserClient;
 use serde_json::json;
 use sha2::{Digest, Sha256};
 use std::{

@@ -93,9 +93,9 @@ fn the_module_is_told_the_site_only_while_learning_is_on() {
         Some("shop.test")
     );
     // A switch in Browser settings outranks the config a tool was built with.
-    super::super::site_memory_host::note_switch(workspace.path(), false);
+    crate::modules::site_memory_host::note_switch(workspace.path(), false);
     assert_eq!(start_request(&config, &on_a_site).site, None);
-    super::super::site_memory_host::note_switch(workspace.path(), true);
+    crate::modules::site_memory_host::note_switch(workspace.path(), true);
     assert_eq!(
         start_request(&config, &on_a_site).site.as_deref(),
         Some("shop.test")
@@ -156,7 +156,7 @@ fn a_chrome_path_the_module_refuses_says_where_the_user_fixes_it() {
         "{error}"
     );
     assert!(
-        error.ends_with(crate::modules::browser::CHROME_PATH_HINT),
+        error.ends_with(crate::desktop::browser::chrome_hints::CHROME_PATH_HINT),
         "{error}"
     );
 }

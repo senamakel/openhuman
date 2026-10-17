@@ -185,11 +185,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
 /// where to fix a missing Chrome or a Chrome path that names no Chrome, or
 /// else the module's own reason.
 fn readiness_error(detail: &str) -> String {
-    if super::browser::chrome_not_found(detail) {
+    if crate::desktop::browser::chrome_hints::chrome_not_found(detail) {
         "Chrome was not found. Set Chrome path below to the Chrome program (for example \
          /Applications/Google Chrome.app/Contents/MacOS/Google Chrome), save, and test again."
             .to_owned()
-    } else if super::browser::chrome_path_unusable(detail) {
+    } else if crate::desktop::browser::chrome_hints::chrome_path_unusable(detail) {
         "Chrome could not be started from Chrome path. Set it to the Chrome program itself \
          (for example /Applications/Google Chrome.app/Contents/MacOS/Google Chrome), save, and \
          test again."
@@ -209,7 +209,7 @@ fn handle_browser_check_readiness(
         // The probe never navigates. Give its disposable session a non-routable
         // origin so an empty website allowlist does not prevent a Chrome check.
         config.http_request.allowed_domains = vec!["example.invalid".into()];
-        let client = super::browser::BrowserClient::new(Arc::new(config));
+        let client = crate::desktop::browser::BrowserClient::new(Arc::new(config));
         if client.ensure_ready().await.is_err() {
             return Ok(
                 serde_json::json!({"module_ready": false, "chrome_ready": false, "error": "TinyComputer module is unavailable; configure a local module override"}),

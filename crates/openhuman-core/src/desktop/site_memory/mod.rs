@@ -367,7 +367,9 @@ fn method_error(error: impl std::fmt::Display) -> tinybus::Error {
     }
 }
 
-pub(crate) async fn install(runtime: &'static tinybus::module::ModuleRuntime) -> tinybus::Result<()> {
+pub(crate) async fn install(
+    runtime: &'static tinybus::module::ModuleRuntime,
+) -> tinybus::Result<()> {
     let connection = runtime.connection();
     let (lifecycle, timer_lifecycle) = tokio::sync::watch::channel(false);
     connection

@@ -61,7 +61,7 @@ impl TriggerHistory {
             .ok_or_else(|| "trigger archive requires a UTF-8 state directory".to_owned())?;
         // The archive opens on the module's storage: bring yesterday's JSONL
         // files across first (once per state directory, best effort).
-        crate::modules::import_legacy_connectors(ctx, &config.workspace_dir.join("state")).await;
+        crate::storage::import::modules::import_legacy_connectors(ctx, &config.workspace_dir.join("state")).await;
         let handle = client
             .call(
                 "tinyconnectors",

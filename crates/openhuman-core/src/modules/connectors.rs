@@ -283,7 +283,7 @@ async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
     // Preferences and trigger history from before the storage contract move
     // into the module's storage before it first serves a call. Once per state
     // directory, best effort: a failure is retried on the next call.
-    super::import_legacy_connectors(
+    crate::storage::import::modules::import_legacy_connectors(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config.workspace_dir.join("state"),
     )

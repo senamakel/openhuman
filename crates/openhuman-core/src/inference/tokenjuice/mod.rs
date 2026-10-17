@@ -150,7 +150,7 @@ pub async fn install_from_config(config: &crate::config::Config) -> Result<(), S
     // The module keeps the durable tier on its blob storage; originals the old
     // disk tier wrote move across first (once per directory, best effort).
     if let Some(root) = request.disk_tier_root.as_deref() {
-        crate::modules::import_legacy_tinyjuice(
+        crate::storage::import::modules::import_legacy_tinyjuice(
             &crate::core::runtime::DispatchCtx::ambient(),
             std::path::Path::new(root),
             request.ccr_ttl_secs.map(std::time::Duration::from_secs),

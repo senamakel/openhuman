@@ -1,5 +1,4 @@
 use super::*;
-use sha2::Digest;
 use tinystoragedrivers::secrets::DerivedKeys;
 use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
 use zeroize::Zeroizing;

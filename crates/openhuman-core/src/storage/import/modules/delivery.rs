@@ -22,6 +22,7 @@ use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::storage::fence::system_now_ms as now_unix_ms;
 use serde_json::{json, Value};
 use tinychannels_bus::module_delivery::{
     DeliveryQueueEntry, DeliveryTerminalResult, DELIVERY_PENDING_CAPACITY, DELIVERY_RECORD_BYTES,
@@ -113,7 +114,7 @@ async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow:
             .map_err(|error| anyhow::anyhow!("declare {name}: {:?}", error.kind()))?;
     }
 
-    let now = crate::storage::fence::system_now_ms();
+    let now = now_unix_ms();
     let ttl_ms = DELIVERY_RESULT_TTL_SECONDS.saturating_mul(1000);
     let mut records: Vec<(&str, String, Value)> = Vec::new();
     for (id, entry) in legacy.pending {

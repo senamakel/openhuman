@@ -203,50 +203,6 @@ pub async fn import_legacy_tinybox(
     let _ = (ctx, workspace_dir);
 }
 
-/// Scopes, under the current tenant, that hold expiring blobs written by
-/// modules (today TinyJuice's CCR originals), for the blob sweeper. A module
-/// whose scope cannot be resolved here is skipped. Without the `modules`
-/// feature no module writes blobs, so there is nothing to sweep.
-#[cfg(feature = "modules")]
-pub(crate) fn expiring_blob_module_scopes(
-    ctx: &crate::core::runtime::DispatchCtx,
-) -> Vec<crate::storage::Scope> {
-    crate::modules::storage_grants::blob_module_ids()
-        .into_iter()
-        .filter_map(|id| storage_host::current_module_scope(ctx, id).ok())
-        .collect()
-}
-
-/// [`expiring_blob_module_scopes`] for SaaS profile `profile`, whose acting
-/// scope is `base`, from outside that profile's task scope.
-#[cfg(feature = "modules")]
-pub(crate) fn expiring_blob_module_scopes_for(
-    profile: &str,
-    base: &crate::storage::Scope,
-) -> Vec<crate::storage::Scope> {
-    crate::modules::storage_grants::blob_module_ids()
-        .into_iter()
-        .filter_map(|id| storage_host::module_scope(Some(profile), base, id).ok())
-        .collect()
-}
-
-/// See the `modules` build: with the feature off no module writes blobs.
-#[cfg(not(feature = "modules"))]
-pub(crate) fn expiring_blob_module_scopes_for(
-    _profile: &str,
-    _base: &crate::storage::Scope,
-) -> Vec<crate::storage::Scope> {
-    Vec::new()
-}
-
-/// See the `modules` build: with the feature off no module writes blobs.
-#[cfg(not(feature = "modules"))]
-pub(crate) fn expiring_blob_module_scopes(
-    _ctx: &crate::core::runtime::DispatchCtx,
-) -> Vec<crate::storage::Scope> {
-    Vec::new()
-}
-
 /// Imports the legacy on-disk CCR tier under `root` into the tinyjuice
 /// module's blob storage, once per directory. `ttl` is the configured original
 /// lifetime. Never fails the caller: an error is logged and the import is

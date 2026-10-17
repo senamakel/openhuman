@@ -83,7 +83,7 @@ pub(crate) async fn sweep_profiles(backend: &dyn StorageBackend, profile_ids: &[
     for id in profile_ids {
         let scope = super::scope_for_profile(id);
         removed += sweep_scope(backend, &scope).await;
-        for module_scope in crate::storage::import::modules::expiring_blob_module_scopes_for(id, &scope) {
+        for module_scope in crate::storage::blob_sweep::expiring_blob_module_scopes_for(id, &scope) {
             if module_scope != scope {
                 removed += sweep_scope(backend, &module_scope).await;
             }
@@ -108,7 +108,7 @@ pub async fn sweep_all(backend: Arc<dyn StorageBackend>) -> u64 {
                     // Modules keep their expiring blobs in their own scopes
                     // derived from the acting scope (TinyJuice's CCR TTL).
                     let mut removed = sweep_scope(backend.as_ref(), &scope).await;
-                    for module_scope in crate::storage::import::modules::expiring_blob_module_scopes(&ctx) {
+                    for module_scope in crate::storage::blob_sweep::expiring_blob_module_scopes(&ctx) {
                         if module_scope != scope {
                             removed += sweep_scope(backend.as_ref(), &module_scope).await;
                         }

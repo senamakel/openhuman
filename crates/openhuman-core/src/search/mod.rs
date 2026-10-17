@@ -10,6 +10,8 @@ pub mod providers;
 pub mod render;
 
 #[cfg(feature = "modules")]
+pub mod module;
+#[cfg(feature = "modules")]
 pub mod bus;
 #[cfg(feature = "modules")]
 pub mod tools;

@@ -40,6 +40,7 @@
 //! with `tinyflows-import`; see [`tinyflows`].
 
 pub mod sessions;
+pub(crate) mod modules;
 mod snapshot;
 pub mod tinyflows;
 
@@ -266,6 +267,22 @@ pub fn run_with(
 fn marker_id(domain: &str, workspace: &Path) -> String {
     let digest = sha2::Sha256::digest(workspace.as_os_str().as_encoded_bytes());
     format!("{domain}@{}", &hex::encode(digest)[..16])
+}
+
+/// Writes `doc` only when `id` is absent; returns whether it was written.
+pub(super) async fn put_absent(
+    docs: &Arc<dyn tinystoragedrivers::DocumentStore>,
+    collection: &str,
+    id: &str,
+    doc: Value,
+) -> Result<bool> {
+    match docs.put(collection, id, doc, Precondition::Absent).await {
+        Ok(_) => Ok(true),
+        Err(error) if matches!(error.kind(), ErrorKind::Conflict | ErrorKind::AlreadyExists) => {
+            Ok(false)
+        }
+        Err(error) => Err(anyhow!("write {collection}: {:?}", error.kind())),
+    }
 }
 
 fn marker_spec() -> Vec<CollectionSpec> {

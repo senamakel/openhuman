@@ -32,6 +32,8 @@ pub mod dapp;
 #[cfg(feature = "web3")]
 mod module_tools;
 #[cfg(feature = "web3")]
+pub(crate) mod service;
+#[cfg(feature = "web3")]
 pub mod swap;
 // Ungated family members: `wallet` and `x402` are facades in their own right —
 // each keeps its own `stub.rs` and gates its real submodules on the same

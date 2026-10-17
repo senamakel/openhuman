@@ -37,13 +37,13 @@
 #[cfg(feature = "web3")]
 pub(crate) mod endpoints;
 #[cfg(feature = "web3")]
-pub(crate) mod service;
-#[cfg(feature = "web3")]
 mod execution;
 #[cfg(feature = "web3")]
 mod ops;
 #[cfg(feature = "web3")]
 pub(crate) mod rpc;
+#[cfg(feature = "web3")]
+pub(crate) mod service;
 
 #[cfg(feature = "web3")]
 mod schemas;

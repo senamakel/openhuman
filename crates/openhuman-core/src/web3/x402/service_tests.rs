@@ -48,4 +48,3 @@ async fn stale_x402_close_failure_still_opens_and_installs_replacement() {
     assert_eq!(open_calls.load(Ordering::SeqCst), 1);
     assert_eq!(active.as_ref().unwrap().handle.handle, "replacement");
 }
-

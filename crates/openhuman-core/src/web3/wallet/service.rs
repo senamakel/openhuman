@@ -85,7 +85,9 @@ async fn ensure_native_wallet(
                 wallet::call::<_, ()>(config, methods::NATIVE_WALLET_CLOSE, request).await
             },
             |service| {
-                crate::modules::wallet_host::clear_endpoint_references(&service.response.service.handle)
+                crate::modules::wallet_host::clear_endpoint_references(
+                    &service.response.service.handle,
+                )
             },
             || async {
                 let response: NativeWalletConfigResponse = wallet::call(

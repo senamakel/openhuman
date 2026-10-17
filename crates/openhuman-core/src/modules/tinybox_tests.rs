@@ -746,8 +746,3 @@ async fn no_workspace_docker_refusal_is_not_retried_as_an_ordinary_call() {
     assert_eq!(calls[0].0, CAPABILITIES);
 }
 
-#[test]
-fn resolve_local_grants_is_a_member_of_the_canonical_contract() {
-    assert_eq!(RESOLVE_LOCAL_GRANTS, "ResolveLocalGrants");
-    assert!(contract::METHODS.contains(&RESOLVE_LOCAL_GRANTS));
-}

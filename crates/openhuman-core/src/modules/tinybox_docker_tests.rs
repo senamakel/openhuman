@@ -4,6 +4,12 @@ use super::*;
 use super::tests::{mock_client, mock_client_with_docker_control_delay};
 use serde_json::json;
 
+#[test]
+fn resolve_local_grants_is_a_member_of_the_canonical_contract() {
+    assert_eq!(RESOLVE_LOCAL_GRANTS, "ResolveLocalGrants");
+    assert!(contract::METHODS.contains(&RESOLVE_LOCAL_GRANTS));
+}
+
 #[tokio::test]
 async fn docker_controls_use_typed_calls_with_validated_contract_capability(
 ) -> Result<(), Box<dyn std::error::Error>> {

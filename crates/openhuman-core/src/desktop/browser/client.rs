@@ -153,7 +153,7 @@ impl BrowserClient {
 
     /// Open a session bound to the host tree of an explicit destination.
     pub async fn open_session_for_url(&self, url: &str) -> Result<SessionInfo, BrowserCallError> {
-        let origin = super::policy::explicit_origin(self, url)?;
+        let origin = self.explicit_origin(url)?;
         self.open_session_with_origin(SessionOptions::default(), origin)
             .await
     }

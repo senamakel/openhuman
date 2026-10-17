@@ -25,16 +25,16 @@ fn non_global_ip_literals_stay_blocked() {
         "[2001:db8::1]",
     ] {
         assert!(
-            super::policy::private_or_local(host.trim_matches(['[', ']'])),
+            super::super::policy::private_or_local(host.trim_matches(['[', ']'])),
             "{host} must be blocked"
         );
     }
-    assert!(!super::policy::private_or_local("93.184.216.34"));
+    assert!(!super::super::policy::private_or_local("93.184.216.34"));
 }
 
 #[test]
 fn module_origin_list_requires_https_for_allowed_host_tree() {
-    if super::policy::browser_allow_all() {
+    if super::super::policy::browser_allow_all() {
         return;
     }
     let mut config = Config::default();
@@ -273,7 +273,7 @@ fn fresh_profile_is_the_default() {
 
 #[test]
 fn allow_all_lets_the_browser_open_any_public_site() {
-    if super::policy::browser_allow_all() {
+    if super::super::policy::browser_allow_all() {
         return;
     }
     // "Allow all" is the shared list's `*`, as a fresh config has it; the
@@ -308,7 +308,7 @@ fn allow_all_lets_the_browser_open_any_public_site() {
 
 #[test]
 fn a_custom_list_still_keeps_the_browser_to_its_sites() {
-    if super::policy::browser_allow_all() {
+    if super::super::policy::browser_allow_all() {
         return;
     }
     let mut config = Config::default();

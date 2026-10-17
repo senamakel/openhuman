@@ -137,29 +137,10 @@ pub(super) async fn run_job_command_with_timeout(
     job: &CronJob,
     timeout: Duration,
 ) -> (bool, String) {
-    if !security.can_act() {
-        return (
-            false,
-            "blocked by security policy: autonomy is read-only".to_string(),
-        );
-    }
-
-    if security.is_rate_limited() {
-        return (
-            false,
-            "blocked by security policy: rate limit exceeded".to_string(),
-        );
-    }
-
+    // The module's Execute-stage check owns the autonomy tier and the hourly
+    // action budget; an allowed command spends one action there.
     if let Err(reason) = admit_shell_command(security, &job.command).await {
         return (false, reason);
-    }
-
-    if !security.record_action() {
-        return (
-            false,
-            "blocked by security policy: action budget exhausted".to_string(),
-        );
     }
 
     // A scheduled command is text typed into a schedule, so it runs under the

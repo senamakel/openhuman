@@ -74,22 +74,3 @@ pub(super) fn python_utf8_env(
         })
         .collect()
 }
-
-/// The host environment a Docker container receives: the sandbox allowlist from
-/// the parent plus the Python encoding defaults. `None` when a value is not UTF-8.
-#[cfg(feature = "modules")]
-pub(super) fn container_environment() -> Option<std::collections::BTreeMap<String, String>> {
-    let mut env = std::collections::BTreeMap::new();
-    let inherited = crate::sandbox::ops::SANDBOX_ENV_PASSTHROUGH
-        .iter()
-        .filter_map(|name| {
-            tinytools_std::timeout::CommandEnvironment::var_os(name).map(|value| (*name, value))
-        })
-        .chain(python_utf8_env(
-            tinytools_std::timeout::CommandEnvironment::var_os,
-        ));
-    for (name, value) in inherited {
-        env.insert(name.to_owned(), value.into_string().ok()?);
-    }
-    Some(env)
-}

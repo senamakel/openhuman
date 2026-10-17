@@ -6,8 +6,6 @@
 
 use super::*;
 use crate::agent::host_runtime::{host_shell_flavor, ShellFlavor};
-#[cfg(feature = "modules")]
-use crate::tools::system::shell_support::PYTHON_UTF8_DEFAULTS;
 use std::collections::HashMap;
 use std::ffi::OsString;
 
@@ -87,33 +85,6 @@ fn a_users_own_python_encoding_settings_win() {
         env.get("PYTHONIOENCODING").map(String::as_str),
         Some("latin-1")
     );
-}
-
-/// A Docker container gets the sandbox allowlist from the turn's environment
-/// plus the Python defaults, and never the rest of it.
-#[cfg(feature = "modules")]
-#[tokio::test]
-async fn the_container_environment_forwards_only_the_allowlist_plus_python_defaults() {
-    let scoped = tinytools_std::timeout::CommandEnvironment::new([
-        ("PATH".to_owned(), "/bin".to_owned()),
-        ("OPENAI_API_KEY".to_owned(), "sk-secret".to_owned()),
-        ("AWS_SECRET_ACCESS_KEY".to_owned(), "secret".to_owned()),
-    ]);
-    let env = scoped
-        .scope(async { container_environment() })
-        .await
-        .unwrap();
-    assert_eq!(env.get("PATH").map(String::as_str), Some("/bin"));
-    assert_eq!(env.get("PYTHONUTF8").map(String::as_str), Some("1"));
-    assert!(!env.contains_key("OPENAI_API_KEY"));
-    assert!(!env.contains_key("AWS_SECRET_ACCESS_KEY"));
-    for key in env.keys() {
-        assert!(
-            crate::sandbox::ops::SANDBOX_ENV_PASSTHROUGH.contains(&key.as_str())
-                || PYTHON_UTF8_DEFAULTS.iter().any(|(k, _)| k == key),
-            "unexpected {key}"
-        );
-    }
 }
 
 #[test]

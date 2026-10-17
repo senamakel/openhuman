@@ -68,7 +68,7 @@ pub async fn command_requires_sandbox(
     Ok(matches!(
         config.sandbox.backend,
         SandboxBackend::Landlock | SandboxBackend::Docker
-    ))
+    ) || config.runtime.kind == "docker")
 }
 
 /// Resolve the policy for a command tool before building its command line.
@@ -246,34 +246,20 @@ pub(crate) fn local_status_for_jail(
     }
 }
 
-/// The refusal every untrusted spawner reports when the jail cannot meet the
-/// isolation floor. A typed error so callers can tell a deterministic policy
-/// refusal (never retried) from a transient failure.
+/// The refusal every spawner reports when the security module planned the spawn
+/// and refused it (the isolation floor, a denied grant, a human approval it
+/// cannot get). A typed error so callers can tell a deterministic policy
+/// refusal (never retried) from a transient failure such as a module fault.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct IsolationFloor;
 
 impl std::fmt::Display for IsolationFloor {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.write_str("the sandbox cannot meet the isolation floor for untrusted code")
+        f.write_str("the security module refused to plan this sandboxed spawn")
     }
 }
 
 impl std::error::Error for IsolationFloor {}
-
-/// Fail-closed gate for every spawn that runs untrusted code: a jail that is
-/// missing, inactive (Noop) or not suitable for untrusted code is a denial,
-/// never a silent downgrade to unsandboxed execution.
-#[cfg(any(feature = "modules", test))]
-pub(crate) fn require_untrusted_isolation(
-    available: bool,
-    suitable_for_untrusted_code: bool,
-) -> Result<(), IsolationFloor> {
-    if available && suitable_for_untrusted_code {
-        Ok(())
-    } else {
-        Err(IsolationFloor)
-    }
-}
 
 pub async fn create_sandbox_backend(
     ctx: &DispatchCtx,
@@ -377,26 +363,22 @@ pub(crate) async fn execute_in_sandbox_metered(
         effective_policy.backend = SandboxBackendKind::None;
     }
     let mut module_config = None;
-    let explicitly_requested = if crate::core::runtime::is_saas() || sandbox_disabled_by_host(ctx) {
-        false
-    } else {
+    if !(crate::core::runtime::is_saas() || sandbox_disabled_by_host(ctx)) {
         let config = ctx
             .load_config()
             .await
             .map_err(|e| anyhow::anyhow!("Cannot read sandbox configuration: {e}"))?;
         module_config = Some(config.clone());
-        if config_disables_sandbox(&config) {
-            false
-        } else {
+        if !config_disables_sandbox(&config) {
             apply_requested_backend(
                 &mut effective_policy,
                 &config.sandbox,
                 &config.runtime,
                 &config,
             )
-            .await?
+            .await?;
         }
-    };
+    }
     let policy = &effective_policy;
     // SaaS never runs a command unisolated: a caller that resolved a policy with
     // no backend (an agent mode of `None`, a stale default) is refused here, at
@@ -446,16 +428,16 @@ pub(crate) async fn execute_in_sandbox_metered(
                 })?,
             };
             let policy = super::local_grants::with_resolved_grants(&config, policy).await?;
-            let policy =
+            let admitted =
                 admit_spawn(&config, &policy, command, working_dir, &extra_env, host_off).await?;
             super::native_jail::execute(
                 &config,
-                &policy,
+                &admitted.policy,
                 command,
                 working_dir,
                 &extra_env,
                 timeout,
-                explicitly_requested,
+                admitted.jail,
                 false,
                 meter,
             )
@@ -475,7 +457,7 @@ pub(crate) async fn execute_in_sandbox_metered(
                     anyhow::anyhow!("Cannot read module configuration: {error}")
                 })?,
             };
-            let policy = admit_spawn(
+            let admitted = admit_spawn(
                 &config,
                 policy,
                 command,
@@ -484,15 +466,25 @@ pub(crate) async fn execute_in_sandbox_metered(
                 host_off,
             )
             .await?;
-            docker::docker_exec(&config, &policy, &request).await
+            docker::docker_exec(&config, &admitted.policy, &request).await
         }
     }
 }
 
+/// One spawn the TinySecurity module planned and admitted: the policy narrowed to
+/// the plan, and the jail the plan describes for TinyBox.
+#[derive(Debug)]
+pub(crate) struct Admitted {
+    /// The caller's policy with mounts, network and container bounds from the plan.
+    pub(crate) policy: SandboxPolicy,
+    /// The native jail the plan maps to; the Local backend runs exactly this.
+    pub(crate) jail: super::native_jail::PlannedJail,
+}
+
 /// Have the TinySecurity module plan and admit one sandboxed spawn, and return the
-/// policy it must run under. The module's plan, not the resolved policy, bounds the
-/// mounts, the network and the container limits; a refusal or a module fault is an
-/// error and the command does not run.
+/// policy and jail it must run under. The module's plan, not the resolved policy,
+/// bounds the mounts, the network and the container limits; a refusal or a module
+/// fault is an error and the command does not run.
 #[cfg(feature = "security-module")]
 async fn admit_spawn(
     config: &crate::config::Config,
@@ -501,7 +493,7 @@ async fn admit_spawn(
     working_dir: &Path,
     env: &HashMap<OsString, OsString>,
     host_off: bool,
-) -> anyhow::Result<SandboxPolicy> {
+) -> anyhow::Result<Admitted> {
     let env = env
         .iter()
         .map(|(name, value)| match (name.to_str(), value.to_str()) {
@@ -516,7 +508,7 @@ async fn admit_spawn(
         stdin: None,
         preserve_pipeline_status: false,
     };
-    super::spawn_plan::admit(super::spawn_plan::SpawnRequest {
+    admit_planned(super::spawn_plan::SpawnRequest {
         config,
         policy,
         source: super::spawn_plan::SpawnSource::Agent,
@@ -525,20 +517,41 @@ async fn admit_spawn(
         module: super::spawn_plan::ModuleSource::Production,
     })
     .await
-    .map_err(anyhow::Error::new)
 }
 
-/// Without the module there is no plan to ask for, so the resolved policy stands.
+/// Plan, reserve and map one spawn. A module refusal is the typed
+/// [`IsolationFloor`] (deterministic, never retried); a fault stays a plain error.
+#[cfg(feature = "security-module")]
+pub(super) async fn admit_planned(
+    request: super::spawn_plan::SpawnRequest<'_>,
+) -> anyhow::Result<Admitted> {
+    use super::spawn_plan::PlanError;
+    let result = async {
+        let planned = super::spawn_plan::plan(request).await?;
+        super::spawn_plan::consume(&planned).await?;
+        Ok::<_, PlanError>(Admitted {
+            policy: planned.apply(request.policy),
+            jail: planned.plan.jail,
+        })
+    }
+    .await;
+    result.map_err(|error| match error {
+        PlanError::Refused(_) => anyhow::Error::new(IsolationFloor).context(error.to_string()),
+        PlanError::Unavailable(_) => anyhow::Error::new(error),
+    })
+}
+
+/// Without the module there is no plan to ask for, and nothing runs unplanned.
 #[cfg(not(feature = "security-module"))]
 async fn admit_spawn(
     _config: &crate::config::Config,
-    policy: &SandboxPolicy,
+    _policy: &SandboxPolicy,
     _command: &str,
     _working_dir: &Path,
     _env: &HashMap<OsString, OsString>,
     _host_off: bool,
-) -> anyhow::Result<SandboxPolicy> {
-    Ok(policy.clone())
+) -> anyhow::Result<Admitted> {
+    anyhow::bail!("the security module is disabled; sandboxed spawns are refused")
 }
 
 /// Apply an operator-selected backend. Auto retains the caller's existing
@@ -548,11 +561,21 @@ pub(crate) async fn apply_requested_backend(
     sandbox: &SandboxConfig,
     runtime: &RuntimeConfig,
     config: &crate::config::Config,
-) -> anyhow::Result<bool> {
+) -> anyhow::Result<()> {
+    // `[runtime] kind = "docker"` is the legacy spelling of an operator-required
+    // container; it selects the same module-planned Docker spawn.
+    let docker_runtime = runtime.kind == "docker";
     match &sandbox.backend {
-        SandboxBackend::Auto => Ok(false),
-        SandboxBackend::None => Ok(false),
-        SandboxBackend::Docker => {
+        SandboxBackend::Auto if !docker_runtime => Ok(()),
+        SandboxBackend::None => Ok(()),
+        SandboxBackend::Auto | SandboxBackend::Docker => {
+            if docker_runtime && !runtime.docker.mount_workspace {
+                // The module's plan always grants the workspace; honouring a
+                // workspace-less container would need a plan the host cannot ask for.
+                anyhow::bail!(
+                    "[runtime.docker] mount_workspace = false is not supported: sandboxed spawns always grant the workspace"
+                );
+            }
             if policy.backend == SandboxBackendKind::Local {
                 policy.read_only_mounts.clear();
                 policy.read_write_mounts.clear();
@@ -567,13 +590,13 @@ pub(crate) async fn apply_requested_backend(
                 read_only_rootfs: Some(dc.read_only_rootfs),
                 extra_caps_drop: vec![],
             });
-            Ok(true)
+            Ok(())
         }
         SandboxBackend::Landlock => {
             super::native_jail::require_backend(config, "landlock").await?;
             policy.backend = SandboxBackendKind::Local;
             policy.docker_overrides = None;
-            Ok(true)
+            Ok(())
         }
     }
 }

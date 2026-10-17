@@ -110,13 +110,6 @@ pub(crate) async fn run(spawn: UntrustedShell<'_>) -> anyhow::Result<SandboxExec
     let mut policy = super::ops::resolve_command_policy_with_config(&ctx, config, cwd, state_dir)
         .await
         .map_err(|error| anyhow::anyhow!(error))?;
-    // Landlock named explicitly in the config must really be the backend.
-    let explicitly_requested = !saas
-        && matches!(
-            config.sandbox.backend,
-            crate::config::SandboxBackend::Landlock
-        )
-        && policy.backend == SandboxBackendKind::Local;
     match policy.backend {
         SandboxBackendKind::Local => {
             crate::config::ensure_usable_cwd(cwd)?;
@@ -125,7 +118,7 @@ pub(crate) async fn run(spawn: UntrustedShell<'_>) -> anyhow::Result<SandboxExec
                 .iter()
                 .map(|(name, value)| (name.into(), value.into()))
                 .collect();
-            policy = admit(
+            let admitted = admit(
                 config,
                 &policy,
                 &SpawnText {
@@ -140,12 +133,12 @@ pub(crate) async fn run(spawn: UntrustedShell<'_>) -> anyhow::Result<SandboxExec
             tracing::debug!("[sandbox:untrusted] running under the native jail");
             super::native_jail::execute_with_stdin(
                 config,
-                &policy,
+                &admitted.policy,
                 command,
                 cwd,
                 &extra_env,
                 timeout,
-                explicitly_requested,
+                admitted.jail,
                 preserve_pipeline_status,
                 None,
                 stdin.map(<[u8]>::to_vec),
@@ -159,7 +152,7 @@ pub(crate) async fn run(spawn: UntrustedShell<'_>) -> anyhow::Result<SandboxExec
                 Some(stdin) => with_inline_stdin(command, stdin)?,
                 None => command.to_owned(),
             };
-            let policy = admit(
+            let admitted = admit(
                 config,
                 &policy,
                 &SpawnText {
@@ -180,7 +173,7 @@ pub(crate) async fn run(spawn: UntrustedShell<'_>) -> anyhow::Result<SandboxExec
                     .collect(),
                 timeout,
             };
-            super::docker::docker_exec(config, &policy, &request).await
+            super::docker::docker_exec(config, &admitted.policy, &request).await
         }
         SandboxBackendKind::None => {
             anyhow::bail!("an untrusted spawn resolved to no sandbox backend")
@@ -204,7 +197,7 @@ async fn admit(
     config: &Config,
     policy: &super::types::SandboxPolicy,
     spawn: &SpawnText<'_>,
-) -> anyhow::Result<super::types::SandboxPolicy> {
+) -> anyhow::Result<super::ops::Admitted> {
     let operation = super::spawn_plan::SpawnOperation {
         command: spawn.command,
         cwd: spawn.cwd,
@@ -216,7 +209,7 @@ async fn admit(
         stdin: spawn.stdin,
         preserve_pipeline_status: spawn.preserve_pipeline_status,
     };
-    super::spawn_plan::admit(super::spawn_plan::SpawnRequest {
+    super::ops::admit_planned(super::spawn_plan::SpawnRequest {
         config,
         policy,
         source: super::spawn_plan::SpawnSource::Untrusted,
@@ -225,17 +218,16 @@ async fn admit(
         module: super::spawn_plan::ModuleSource::Production,
     })
     .await
-    .map_err(anyhow::Error::new)
 }
 
-/// Without the module there is no plan to ask for, so the resolved policy stands.
+/// Without the module there is no plan to ask for, and nothing runs unplanned.
 #[cfg(not(feature = "security-module"))]
 async fn admit(
     _config: &Config,
-    policy: &super::types::SandboxPolicy,
+    _policy: &super::types::SandboxPolicy,
     _spawn: &SpawnText<'_>,
-) -> anyhow::Result<super::types::SandboxPolicy> {
-    Ok(policy.clone())
+) -> anyhow::Result<super::ops::Admitted> {
+    anyhow::bail!("the security module is disabled; untrusted spawns are refused")
 }
 
 #[cfg(test)]

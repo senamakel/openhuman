@@ -11,6 +11,15 @@ use crate::config::Config;
 #[cfg(feature = "modules")]
 use crate::modules::tinybox::{self, contract};
 
+/// The jail the module planned for one spawn, in TinyBox's vocabulary. The host
+/// never derives grants, network or enforcement of its own.
+#[cfg(feature = "modules")]
+pub(crate) type PlannedJail = contract::NativeJailConfig;
+/// Without the module there is no plan to carry.
+#[cfg(not(feature = "modules"))]
+#[derive(Debug)]
+pub(crate) struct PlannedJail;
+
 /// TinyBox's macOS backend: `sandbox-exec` with a write-deny profile.
 #[cfg(any(feature = "modules", test))]
 const SEATBELT: &str = "seatbelt";
@@ -97,7 +106,7 @@ pub(crate) async fn execute(
     working_dir: &Path,
     extra_env: &HashMap<OsString, OsString>,
     timeout: Duration,
-    explicitly_requested: bool,
+    jail: PlannedJail,
     preserve_pipeline_status: bool,
     meter: Option<super::shell_progress::ShellOutputMeter>,
 ) -> anyhow::Result<SandboxExecResult> {
@@ -108,7 +117,7 @@ pub(crate) async fn execute(
         working_dir,
         extra_env,
         timeout,
-        explicitly_requested,
+        jail,
         preserve_pipeline_status,
         meter,
         None,
@@ -124,7 +133,7 @@ pub(crate) async fn execute_with_stdin(
     working_dir: &Path,
     extra_env: &HashMap<OsString, OsString>,
     timeout: Duration,
-    explicitly_requested: bool,
+    jail: PlannedJail,
     preserve_pipeline_status: bool,
     meter: Option<super::shell_progress::ShellOutputMeter>,
     stdin: Option<Vec<u8>>,
@@ -145,7 +154,7 @@ pub(crate) async fn execute_with_stdin(
                 &working_dir,
                 &extra_env,
                 timeout,
-                explicitly_requested,
+                jail,
                 preserve_pipeline_status,
                 meter,
                 stdin,
@@ -164,7 +173,7 @@ pub(crate) async fn execute_with_stdin(
             working_dir,
             extra_env,
             timeout,
-            explicitly_requested,
+            jail,
             preserve_pipeline_status,
             meter,
             stdin,
@@ -181,33 +190,15 @@ async fn execute_owned(
     working_dir: &Path,
     extra_env: &HashMap<OsString, OsString>,
     timeout: Duration,
-    explicitly_requested: bool,
+    jail: PlannedJail,
     preserve_pipeline_status: bool,
     meter: Option<super::shell_progress::ShellOutputMeter>,
     stdin: Option<Vec<u8>>,
 ) -> anyhow::Result<SandboxExecResult> {
-    let status = tinybox::jail_status(config)
-        .await
-        .map_err(|_| anyhow::anyhow!("TinyBox native jail status is unavailable"))?;
-    let untrusted = explicitly_requested || crate::core::runtime::is_saas();
-    let Some(isolation) = jail_isolation(
-        &status.backend,
-        status.available,
-        status.suitable_for_untrusted_code,
-        untrusted,
-    ) else {
-        // Typed so callers can tell a deterministic policy refusal from a
-        // transient failure (`ops::IsolationFloor`).
-        return Err(anyhow::Error::new(super::ops::IsolationFloor)
-            .context("TinyBox native jail cannot meet the required isolation floor"));
-    };
-    if explicitly_requested && status.backend != "landlock" {
-        anyhow::bail!("requested Landlock sandbox is unavailable");
-    }
     tracing::debug!(
-        backend = %status.backend,
-        ?isolation,
-        "[sandbox:local] running in the native jail"
+        allow_net = jail.allow_net,
+        require_process_isolation = jail.require_process_isolation,
+        "[sandbox:local] running in the native jail the module planned"
     );
 
     let mut run =
@@ -216,13 +207,15 @@ async fn execute_owned(
     run.env = approved_environment(extra_env)?;
     // The jail's `allow_net` is what confines the command; keep the resource's
     // declared policy in step with it.
-    run.isolate_network = !policy.allow_network;
+    run.isolate_network = !jail.allow_net;
     run.preserve_pipeline_status = preserve_pipeline_status;
     run.meter = meter;
     run.stdin = stdin;
     // TinyBox adds its own per-call scratch directory to the writable grants and
-    // points TMPDIR, TMP and TEMP at it unless the caller overrides them.
-    run.jail = Some(jail_request(policy, isolation)?);
+    // points TMPDIR, TMP and TEMP at it unless the caller overrides them. The
+    // grants, network, subprocess rule and isolation requirement are the
+    // module's plan, mapped by `sandbox::plan`, not derived here.
+    run.jail = Some(jail);
     super::shell_exec::run(config, run).await
 }
 
@@ -244,60 +237,6 @@ fn approved_environment(
         })
         .collect()
 }
-
-#[cfg(feature = "modules")]
-fn jail_request(
-    policy: &SandboxPolicy,
-    isolation: SandboxIsolation,
-) -> anyhow::Result<contract::NativeJailConfig> {
-    // A tenant never reaches the operator's home, so SaaS names no host paths.
-    let home = super::local_grants::grant_home(crate::core::runtime::is_saas(), dirs::home_dir);
-    jail_request_for_home(policy, isolation, home.as_deref())
-}
-
-/// [`jail_request`] for an explicit operator home (`None`: no host credential
-/// stores to name).
-#[cfg(feature = "modules")]
-pub(crate) fn jail_request_for_home(
-    policy: &SandboxPolicy,
-    isolation: SandboxIsolation,
-    home: Option<&Path>,
-) -> anyhow::Result<contract::NativeJailConfig> {
-    let isolated = isolation == SandboxIsolation::Isolated;
-    Ok(contract::NativeJailConfig {
-        read_only: policy
-            .read_only_mounts
-            .iter()
-            .map(|path| path_string(path, "read-only grant"))
-            .collect::<anyhow::Result<Vec<_>>>()?,
-        read_write: policy
-            .read_write_mounts
-            .iter()
-            .map(|path| path_string(path, "read-write grant"))
-            .collect::<anyhow::Result<Vec<_>>>()?,
-        allow_net: policy.allow_network,
-        allow_subprocess: true,
-        // Seatbelt enforces its profile best-effort; TinyBox still refuses a
-        // constraint it cannot apply at all.
-        enforcement: if isolated {
-            contract::JailEnforcement::Enforced
-        } else {
-            contract::JailEnforcement::Declared
-        },
-        require_process_isolation: isolated,
-        // Allow-list jails (Landlock, AppContainer) already deny paths outside
-        // their grants. Seatbelt reads are allow-by-default, so it is the one
-        // that needs the host's credential-store floor spelled out.
-        deny_read: if isolated {
-            Vec::new()
-        } else {
-            super::local_grants::credential_store_paths(home)
-        },
-    })
-}
-
-#[cfg(feature = "modules")]
-use super::shell_exec::path_string;
 
 #[cfg(test)]
 #[path = "native_jail_tests.rs"]

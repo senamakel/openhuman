@@ -82,28 +82,19 @@ the `modules` feature the run is refused.
 
 `native_jail.rs` asks the pinned TinyBox module for `JailStatus`, creates a
 module-owned `passthrough` resource rooted at `policy.workspace_root`, and
-starts the shell through `StartNativeShellExec` with a jail. The request carries only the
-resolved read-only/read-write grants, network policy, and the posture
-`native_jail::jail_isolation` picked from `JailStatus`:
+starts the shell through `StartNativeShellExec` with a jail. The jail is the
+module's plan, not a host derivation: `ops::admit_planned` plans and reserves the
+spawn and hands `BoxPlan.jail` (grants, `allow_net`, subprocess rule, enforcement,
+`deny_read`, `require_process_isolation`) to `native_jail::execute` unchanged.
+The host no longer picks a posture or rebuilds the request; TinyBox refuses an
+executor that cannot meet the plan's isolation requirement, and a module refusal
+is the typed `IsolationFloor` (never retried). `native_jail::jail_isolation` only
+feeds the status report (`sandbox.status`, `require_backend`).
 
-| Posture | Backend | Accepted for | Request |
-| --- | --- | --- | --- |
-| `isolated` | Kernel isolation or stronger (Landlock + namespaces) | every caller | `Enforced`, `require_process_isolation` |
-| `folder_confined` | Seatbelt (macOS), no process isolation | the local desktop sandbox only | `Declared`, no process-isolation floor |
-
-An explicitly requested Landlock jail and a SaaS tenant (untrusted code) still
-need `isolated`; Seatbelt is refused for them. Folder confinement means the
-child can write only inside `policy.workspace_root` (the selected folder), its
-read-write grants, TinyBox's scratch directory, `/private/tmp` and `/dev/null`.
-Network follows `policy.allow_network` (on for a local session, off for a
-remote one), which the jail's `allow_net` enforces.
-
-**Credential reads (`folder_confined`).** Seatbelt's profile is allow-default for
-reads, so the host sends the credential-store floor as `deny_read` (TinyBox
-contract 1.20, `local_grants::credential_store_paths`) for a folder-confined jail;
-allow-list jails already deny those paths. The module still refuses a Seatbelt
-jail as an executor (see the plan section below), so on macOS the local sandbox is
-refused until tinysecurity#27 lands.
+| Posture reported | Backend | Meaning |
+| --- | --- | --- |
+| `isolated` | Kernel isolation or stronger (Landlock + namespaces) | process isolation |
+| `folder_confined` | Seatbelt (macOS), no process isolation | writes confined to the folder |
 
 TinyBox owns the jail provider, child process, pipe capture,
 and kill/reap acknowledgement; OpenHuman reads bounded output batches and
@@ -163,7 +154,8 @@ execution refuses to run without the required provider.
 
 Text the host did not author reaches a shell through exactly one gate,
 `untrusted::run`: it resolves the jail policy, refuses a jail that is missing,
-inactive (Noop) or not suitable for untrusted code (`IsolationFloor`), and runs
+inactive (Noop) or not suitable for untrusted code (the module's plan refusal,
+surfaced as `IsolationFloor`), and runs
 the command in the native jail or the Docker container. The only unjailed path is
 the operator's own opt-out (`OPENHUMAN_SANDBOX=off`, `[sandbox] enabled = false`,
 `[components] sandbox = false`), which SaaS never honours: `execute_in_sandbox`

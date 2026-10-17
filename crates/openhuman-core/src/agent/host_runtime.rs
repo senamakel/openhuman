@@ -1,8 +1,6 @@
 //! Native and Docker shell runtime adapters (`RuntimeAdapter` implementations).
 
 use crate::config::RuntimeConfig;
-#[cfg(feature = "modules")]
-use std::path::Path;
 use std::path::PathBuf;
 pub use tinybox_bus::ShellFlavor;
 
@@ -42,18 +40,6 @@ pub trait RuntimeAdapter: Send + Sync {
     /// (`[shell] hide_window`). Passed to TinyBox on the native shell request.
     fn hide_window(&self) -> bool {
         false
-    }
-
-    /// Build a module-owned Docker request when this runtime does not execute
-    /// through a host child process. The shell tool supplies its filtered
-    /// environment and deadline before dispatching the request.
-    #[cfg(feature = "modules")]
-    fn build_docker_request(
-        &self,
-        _command: &str,
-        _workspace_dir: &Path,
-    ) -> Option<(crate::modules::tinybox::contract::DockerRunRequest, bool)> {
-        None
     }
 }
 
@@ -154,41 +140,6 @@ impl RuntimeAdapter for DockerRuntime {
     /// including Windows, so the model must be told POSIX, not cmd.exe.
     fn shell_flavor(&self) -> ShellFlavor {
         ShellFlavor::Posix
-    }
-
-    #[cfg(feature = "modules")]
-    fn build_docker_request(
-        &self,
-        command: &str,
-        workspace_dir: &Path,
-    ) -> Option<(crate::modules::tinybox::contract::DockerRunRequest, bool)> {
-        let workspace = if self.config.mount_workspace {
-            workspace_dir
-                .canonicalize()
-                .unwrap_or_else(|_| workspace_dir.to_path_buf())
-                .to_string_lossy()
-                .into_owned()
-        } else {
-            String::new()
-        };
-        Some((
-            crate::modules::tinybox::contract::DockerRunRequest {
-                workspace,
-                image: Some(self.config.image.clone()),
-                command: command.to_owned(),
-                login_shell: true,
-                network: Some(self.config.network.clone()),
-                memory_limit_mb: self.config.memory_limit_mb,
-                cpus: self.config.cpu_limit,
-                read_only_rootfs: Some(self.config.read_only_rootfs),
-                read_only_mounts: Vec::new(),
-                extra_cap_drops: Vec::new(),
-                env: Default::default(),
-                label: Some("openhuman.runtime=true".to_owned()),
-                timeout_ms: crate::modules::tinybox::contract::MAX_DOCKER_RUN_TIMEOUT_MS,
-            },
-            self.config.mount_workspace,
-        ))
     }
 }
 

@@ -535,14 +535,6 @@ async fn saas_ignores_the_host_off_switch_when_resolving_a_policy() {
     );
 }
 
-#[test]
-fn untrusted_isolation_denies_noop_and_unsuitable_jails() {
-    assert!(require_untrusted_isolation(true, true).is_ok());
-    assert!(require_untrusted_isolation(true, false).is_err());
-    assert!(require_untrusted_isolation(false, true).is_err());
-    assert!(require_untrusted_isolation(false, false).is_err());
-}
-
 #[cfg(feature = "security-module")]
 fn local_policy(workspace: &Path) -> SandboxPolicy {
     SandboxPolicy {

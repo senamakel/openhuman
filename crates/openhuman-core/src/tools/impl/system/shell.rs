@@ -1,6 +1,4 @@
 use super::shell_description::{command_param_description, shell_description};
-#[cfg(feature = "modules")]
-use super::shell_support::{command_failure, container_environment, tool_timeout_message};
 use super::shell_support::{exec_result, python_utf8_env};
 use crate::agent::host_runtime::RuntimeAdapter;
 use crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool;
@@ -18,46 +16,6 @@ use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolTimeout}
 
 /// Maximum output size in bytes (1MB).
 const MAX_OUTPUT_BYTES: usize = 1_048_576;
-#[cfg(feature = "modules")]
-fn docker_module_result(
-    output: crate::modules::tinybox::contract::DockerRunOutput,
-    explicit_timeout: Option<Duration>,
-) -> ToolResult {
-    let mut stdout = output.stdout;
-    let mut stderr = output.stderr;
-    if stdout.len() > MAX_OUTPUT_BYTES {
-        stdout.truncate(crate::util::floor_char_boundary(&stdout, MAX_OUTPUT_BYTES));
-        stdout.push_str("\n... [output truncated at 1MB]");
-    }
-    if stderr.len() > MAX_OUTPUT_BYTES {
-        stderr.truncate(crate::util::floor_char_boundary(&stderr, MAX_OUTPUT_BYTES));
-        stderr.push_str("\n... [stderr truncated at 1MB]");
-    }
-
-    if output.timed_out {
-        let secs = explicit_timeout
-            .map(|duration| duration.as_secs())
-            .unwrap_or(0);
-        let mut message = tool_timeout_message(secs);
-        if !stdout.is_empty() {
-            message.push_str("\n[stdout]\n");
-            message.push_str(&stdout);
-        }
-        if !stderr.is_empty() {
-            message.push_str("\n[stderr]\n");
-            message.push_str(&stderr);
-        }
-        ToolResult::error(message)
-    } else if output.exit_code == 0 {
-        if stderr.is_empty() {
-            ToolResult::success(stdout)
-        } else {
-            ToolResult::success(format!("{stdout}\n[stderr]\n{stderr}"))
-        }
-    } else {
-        command_failure(Some(output.exit_code), &stdout, &stderr)
-    }
-}
 
 /// Shell command execution tool with sandboxing
 pub struct ShellTool {
@@ -343,25 +301,6 @@ impl ShellTool {
 
         let _cwd = self.effective_action_dir_for_context(context);
 
-        // Two budgets apply to a run, by design. The module's hourly command
-        // budget was spent by the Execute-stage check above; it is keyed by the
-        // policy value, so every session with identical settings shares it. The
-        // host `ActionTracker` below is this policy instance's count across all
-        // acting tools (shell, writes, network) and is not replaced by it.
-        if self.security.is_rate_limited() {
-            return (
-                false,
-                ToolResult::error("Rate limit exceeded: too many actions in the last hour"),
-            );
-        }
-
-        if !self.security.record_action() {
-            return (
-                false,
-                ToolResult::error("Rate limit exceeded: action budget exhausted"),
-            );
-        }
-
         // SaaS: every command runs in the user's container, whatever the
         // agent's sandbox mode says, and never on the host.
         let saas_action_dir = self.effective_action_dir_for_context(context);
@@ -413,82 +352,6 @@ impl ShellTool {
         // Clear the environment to prevent leaking API keys and other secrets
         // (CWE-200), then re-add only safe, functional variables.
         let action_dir = self.effective_action_dir_for_context(context);
-        #[cfg(feature = "modules")]
-        if let Some((mut request, mount_workspace)) =
-            self.runtime.build_docker_request(command, &action_dir)
-        {
-            let Some(config) = self.module_config.as_deref() else {
-                return (
-                    false,
-                    ToolResult::error("Docker module execution is unavailable."),
-                );
-            };
-
-            let explicit_timeout = self.explicit_timeout(requested_timeout);
-            if let Some(timeout) = explicit_timeout {
-                let timeout_ms = timeout
-                    .as_nanos()
-                    .saturating_add(999_999)
-                    .checked_div(1_000_000)
-                    .unwrap_or(0)
-                    .max(1);
-                let Ok(timeout_ms) = u64::try_from(timeout_ms) else {
-                    return (
-                        false,
-                        ToolResult::error("Docker timeout exceeds the supported limit."),
-                    );
-                };
-                if timeout_ms > crate::modules::tinybox::contract::MAX_DOCKER_RUN_TIMEOUT_MS {
-                    return (
-                        false,
-                        ToolResult::error("Docker timeout exceeds the supported limit."),
-                    );
-                }
-                request.timeout_ms = timeout_ms;
-            }
-
-            let Some(mut env) = container_environment() else {
-                return (
-                    false,
-                    ToolResult::error("Docker environment contains a non-UTF-8 value."),
-                );
-            };
-            for (name, value) in tinytools_std::filesystem::shell_git_env() {
-                let (Ok(name), Ok(value)) = (name.into_string(), value.into_string()) else {
-                    return (
-                        false,
-                        ToolResult::error("Docker environment contains a non-UTF-8 value."),
-                    );
-                };
-                env.insert(name, value);
-            }
-
-            let scratch_dir = crate::security::openhuman_scratch_dir();
-            if scratch_dir.is_dir() {
-                let Some(scratch_dir) = scratch_dir.to_str() else {
-                    return (
-                        false,
-                        ToolResult::error("Docker scratch directory is not valid UTF-8."),
-                    );
-                };
-                for name in ["TMPDIR", "TMP", "TEMP"] {
-                    env.insert(name.to_owned(), scratch_dir.to_owned());
-                }
-            }
-            request.env = env;
-
-            let result = if mount_workspace {
-                crate::modules::tinybox::run_docker(config, request).await
-            } else {
-                crate::modules::tinybox::run_docker_without_workspace(config, request).await
-            };
-            let result = match result {
-                Ok(output) => docker_module_result(output, explicit_timeout),
-                Err(_) => ToolResult::error("Docker module execution failed."),
-            };
-            return (true, result);
-        }
-
         // The module spawns the shell: it selects cmd or bash, starts from its
         // own safe environment (no API keys or other secrets, CWE-200) and owns
         // the per-call scratch directory. The host adds only what it approves.

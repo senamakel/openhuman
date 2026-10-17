@@ -57,84 +57,6 @@ fn an_unavailable_or_unconfining_jail_is_refused() {
 
 #[cfg(feature = "modules")]
 #[test]
-fn native_jail_request_preserves_grants_and_requires_enforcement() -> anyhow::Result<()> {
-    let root = tempfile::tempdir()?;
-    let readonly = tempfile::tempdir()?;
-    let readwrite = tempfile::tempdir()?;
-    let policy = SandboxPolicy {
-        backend: super::super::types::SandboxBackendKind::Local,
-        workspace_root: root.path().to_path_buf(),
-        state_dir: root.path().to_path_buf(),
-        read_only_mounts: vec![readonly.path().to_path_buf()],
-        read_write_mounts: vec![readwrite.path().to_path_buf()],
-        allow_network: false,
-        env_passthrough: Vec::new(),
-        docker_overrides: None,
-    };
-    let request = jail_request(&policy, SandboxIsolation::Isolated)?;
-
-    assert_eq!(request.read_only, [readonly.path().to_str().unwrap()]);
-    // TinyBox appends its own per-call scratch directory to the writable grants.
-    assert_eq!(request.read_write, [readwrite.path().to_str().unwrap()]);
-    assert!(!request.allow_net);
-    assert!(request.allow_subprocess);
-    assert_eq!(request.enforcement, contract::JailEnforcement::Enforced);
-    assert!(request.require_process_isolation);
-
-    // Folder confinement keeps the grants and the network decision, and asks
-    // TinyBox for what Seatbelt can give: declared constraints, no process
-    // isolation.
-    let confined = jail_request(&policy, SandboxIsolation::FolderConfined)?;
-    assert_eq!(confined.read_only, request.read_only);
-    assert_eq!(confined.read_write, request.read_write);
-    assert!(!confined.allow_net);
-    assert_eq!(confined.enforcement, contract::JailEnforcement::Declared);
-    assert!(!confined.require_process_isolation);
-    Ok(())
-}
-
-#[cfg(feature = "modules")]
-fn local_policy(root: &Path) -> SandboxPolicy {
-    SandboxPolicy {
-        backend: super::super::types::SandboxBackendKind::Local,
-        workspace_root: root.to_path_buf(),
-        state_dir: root.to_path_buf(),
-        read_only_mounts: Vec::new(),
-        read_write_mounts: Vec::new(),
-        allow_network: false,
-        env_passthrough: Vec::new(),
-        docker_overrides: None,
-    }
-}
-
-/// The credential-store floor travels with a folder-confined (Seatbelt) jail,
-/// whose reads are allow-by-default; allow-list jails already deny those paths
-/// and TinyBox refuses a denial that lies inside a grant it cannot carve out.
-#[cfg(feature = "modules")]
-#[test]
-fn folder_confined_jail_denies_reads_of_credential_stores() -> anyhow::Result<()> {
-    let root = tempfile::tempdir()?;
-    let home = tempfile::tempdir()?;
-    let policy = local_policy(root.path());
-
-    let confined =
-        jail_request_for_home(&policy, SandboxIsolation::FolderConfined, Some(home.path()))?;
-    for dir in [".ssh", ".gnupg", ".aws", ".azure", ".kube"] {
-        let expected = home.path().join(dir).display().to_string();
-        assert!(confined.deny_read.contains(&expected), "{expected} missing");
-    }
-
-    let isolated = jail_request_for_home(&policy, SandboxIsolation::Isolated, Some(home.path()))?;
-    assert!(isolated.deny_read.is_empty());
-
-    // No operator home (SaaS tenants), no host credential paths to name.
-    let tenant = jail_request_for_home(&policy, SandboxIsolation::FolderConfined, None)?;
-    assert!(tenant.deny_read.is_empty());
-    Ok(())
-}
-
-#[cfg(feature = "modules")]
-#[test]
 fn approved_environment_carries_only_the_callers_overrides() -> anyhow::Result<()> {
     let extra = HashMap::from([(OsString::from("CUSTOM_SAFE"), OsString::from("value"))]);
     let env = approved_environment(&extra)?;
@@ -157,6 +79,20 @@ fn approved_environment_refuses_values_the_bus_cannot_carry() {
         OsString::from_vec(b"before-\xff-after".to_vec()),
     )]);
     assert!(approved_environment(&extra).is_err());
+}
+
+/// A jail with no extra grants, standing in for the module's plan.
+#[cfg(feature = "modules")]
+fn open_jail() -> contract::NativeJailConfig {
+    contract::NativeJailConfig {
+        read_only: Vec::new(),
+        read_write: Vec::new(),
+        allow_net: true,
+        allow_subprocess: true,
+        enforcement: contract::JailEnforcement::Enforced,
+        require_process_isolation: true,
+        deny_read: Vec::new(),
+    }
 }
 
 #[cfg(feature = "modules")]
@@ -185,7 +121,7 @@ async fn disabled_tinybox_module_never_falls_back_to_host_execution() -> anyhow:
         workspace.path(),
         &HashMap::new(),
         Duration::from_secs(5),
-        false,
+        open_jail(),
         false,
         None,
     )
@@ -298,7 +234,7 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
         workspace.path(),
         &HashMap::new(),
         Duration::from_secs(10),
-        false,
+        open_jail(),
         false,
         None,
     )
@@ -314,7 +250,7 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
         workspace.path(),
         &HashMap::new(),
         Duration::from_secs(10),
-        false,
+        open_jail(),
         false,
         None,
     )

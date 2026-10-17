@@ -177,12 +177,26 @@ pub async fn import_legacy_mcp(
     data_dir: &std::path::Path,
 ) {
     #[cfg(feature = "modules")]
-    match storage_import_tinymcp::import_legacy(ctx, data_dir).await {
-        Ok(outcome) => log::debug!("[mcp] legacy storage import: {outcome:?}"),
-        Err(error) => log::warn!("[mcp] legacy storage import failed, will retry: {error:#}"),
-    }
+    import_legacy_mcp_with(
+        ctx,
+        data_dir,
+        storage_import_tinymcp::import_legacy(ctx, data_dir),
+    )
+    .await;
     #[cfg(not(feature = "modules"))]
     let _ = (ctx, data_dir);
+}
+
+#[cfg(feature = "modules")]
+async fn import_legacy_mcp_with<F, T>(
+    ctx: &crate::core::runtime::DispatchCtx,
+    data_dir: &std::path::Path,
+    run: F,
+) where
+    F: std::future::Future<Output = anyhow::Result<T>>,
+    T: std::fmt::Debug + Settled,
+{
+    import_once(ctx, "mcp", storage_grant_tinymcp::MODULE_ID, data_dir, run).await;
 }
 
 /// What an importer's outcome says about whether it may be skipped next time.
@@ -206,6 +220,7 @@ macro_rules! settled_outcome {
 
 #[cfg(feature = "modules")]
 settled_outcome!(
+    storage_import_tinymcp,
     storage_import_tinyconnectors,
     storage_import_tinybox,
     storage_import_tinyjuice

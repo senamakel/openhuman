@@ -346,14 +346,19 @@ pub fn install_dir(config: &Config) -> Option<PathBuf> {
 /// Status of every module this build knows about.
 #[must_use]
 pub fn list(config: &Config) -> Vec<ModuleStatus> {
+    list_with(config, resolver)
+}
+
+fn list_with(config: &Config, make_resolver: impl Fn(&Config) -> Resolver) -> Vec<ModuleStatus> {
+    let resolver = make_resolver(config);
     registry::ALL
         .iter()
-        .map(|record| status_of(config, record))
+        .map(|record| status_of(config, record, &resolver))
         .collect()
 }
 
 /// Status of one module.
-fn status_of(config: &Config, record: &ModuleRecord) -> ModuleStatus {
+fn status_of(config: &Config, record: &ModuleRecord, resolver: &Resolver) -> ModuleStatus {
     // Configuration is authoritative for the current core instance. A module
     // may remain loaded in this process after a prior request, but callers
     // whose configuration disables modules must still be told it is unusable.
@@ -365,7 +370,7 @@ fn status_of(config: &Config, record: &ModuleRecord) -> ModuleStatus {
             )),
         ),
         None => {
-            let (availability, detail) = resolver(config).status_of(&record.release());
+            let (availability, detail) = resolver.status_of(&record.release());
             (
                 match availability {
                     Availability::Available => ModuleState::Available,

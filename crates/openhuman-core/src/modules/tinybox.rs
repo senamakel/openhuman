@@ -4,6 +4,7 @@
 //! and response types come from `tinybox-bus`; isolation, process ownership,
 //! file access, forwarding, and output collection stay in TinyBox.
 
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use serde::{de::DeserializeOwned, Serialize};
@@ -58,6 +59,9 @@ const VALIDATE_DOCKER_POLICY: &str = contract::names::VALIDATE_DOCKER_POLICY;
 const DOCKER_CALL_GRACE: Duration = Duration::from_secs(5);
 
 #[cfg(test)]
+#[path = "tinybox_docker_tests.rs"]
+mod docker_tests;
+#[cfg(test)]
 #[path = "tinybox_tests.rs"]
 mod tests;
 
@@ -87,12 +91,26 @@ pub async fn describe(config: &Config) -> Result<String, String> {
 
 /// Read module capabilities after enforcing contract compatibility.
 pub async fn capabilities(config: &Config) -> Result<contract::ModuleCapabilities, String> {
-    let client = module_client(config);
+    capabilities_with_client(&module_client(config), compatibility_cache()).await
+}
+
+async fn capabilities_with_client(
+    client: &ModuleClient,
+    cache: &CompatibilityCache,
+) -> Result<contract::ModuleCapabilities, String> {
+    let cached_error = cache
+        .lock()
+        .await
+        .as_ref()
+        .and_then(|result| result.as_ref().err().cloned());
+    if let Some(error) = cached_error {
+        return Err(error);
+    }
     let capabilities: contract::ModuleCapabilities = client
         .call(MODULE_ID, CAPABILITIES, ())
         .await
         .map_err(message)?;
-    require_compatible(capabilities.contract_version).map_err(message)?;
+    validate_observed(cache, capabilities.contract_version).await?;
     Ok(capabilities)
 }
 
@@ -222,7 +240,7 @@ pub async fn run_docker(
 ) -> Result<contract::DockerRunOutput, String> {
     let timeout = Duration::from_millis(request.timeout_ms).saturating_add(DOCKER_CALL_GRACE);
     let client = crate::modules::client(config.clone()).with_timeout(timeout);
-    call_run_docker_with_client(&client, request).await
+    call_run_docker_cached(&client, request, compatibility_cache()).await
 }
 
 /// Run one bounded Docker-isolated command without mounting a workspace.
@@ -235,7 +253,7 @@ pub async fn run_docker_without_workspace(
 ) -> Result<contract::DockerRunOutput, String> {
     let timeout = Duration::from_millis(request.timeout_ms).saturating_add(DOCKER_CALL_GRACE);
     let client = crate::modules::client(config.clone()).with_timeout(timeout);
-    call_run_docker_without_workspace_with_client(&client, request).await
+    call_run_docker_without_workspace_cached(&client, request, compatibility_cache()).await
 }
 
 /// Probe the Docker daemon owned by the TinyBox module host.
@@ -243,7 +261,7 @@ pub async fn docker_status(
     config: &Config,
     request: contract::DockerStatusRequest,
 ) -> Result<contract::DockerStatus, String> {
-    call_docker_status_with_client(&module_client(config), request).await
+    call_docker_status_cached(&module_client(config), request, compatibility_cache()).await
 }
 
 /// Stop TinyBox-owned containers matching the supplied label.
@@ -251,7 +269,7 @@ pub async fn cleanup_docker(
     config: &Config,
     request: contract::CleanupDockerRequest,
 ) -> Result<contract::CleanupDockerOutput, String> {
-    call_cleanup_docker_with_client(&module_client(config), request).await
+    call_cleanup_docker_cached(&module_client(config), request, compatibility_cache()).await
 }
 
 fn docker_control_deadline(timeout_ms: u64, grace: Duration) -> Duration {
@@ -265,50 +283,115 @@ fn docker_control_client(client: &ModuleClient, timeout_ms: u64, grace: Duration
         .with_timeout(docker_control_deadline(timeout_ms, grace))
 }
 
+async fn call_docker_status_cached(
+    client: &ModuleClient,
+    request: contract::DockerStatusRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerStatus, String> {
+    call_docker_status_with_grace_and_cache(client, request, DOCKER_CALL_GRACE, cache).await
+}
+
+#[cfg(test)]
 async fn call_docker_status_with_client(
     client: &ModuleClient,
     request: contract::DockerStatusRequest,
 ) -> Result<contract::DockerStatus, String> {
-    call_docker_status_with_grace(client, request, DOCKER_CALL_GRACE).await
+    call_docker_status_cached(client, request, &CompatibilityCache::new(None)).await
 }
 
+#[cfg(test)]
 async fn call_docker_status_with_grace(
     client: &ModuleClient,
     request: contract::DockerStatusRequest,
     grace: Duration,
 ) -> Result<contract::DockerStatus, String> {
-    let client = docker_control_client(client, request.timeout_ms, grace);
-    call_with_client(&client, DOCKER_STATUS, (request,), false).await
+    call_docker_status_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None))
+        .await
 }
 
+async fn call_docker_status_with_grace_and_cache(
+    client: &ModuleClient,
+    request: contract::DockerStatusRequest,
+    grace: Duration,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerStatus, String> {
+    let client = docker_control_client(client, request.timeout_ms, grace);
+    call_with_client_cached(&client, DOCKER_STATUS, (request,), false, cache).await
+}
+
+async fn call_cleanup_docker_cached(
+    client: &ModuleClient,
+    request: contract::CleanupDockerRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::CleanupDockerOutput, String> {
+    call_cleanup_docker_with_grace_and_cache(client, request, DOCKER_CALL_GRACE, cache).await
+}
+
+#[cfg(test)]
 async fn call_cleanup_docker_with_client(
     client: &ModuleClient,
     request: contract::CleanupDockerRequest,
 ) -> Result<contract::CleanupDockerOutput, String> {
-    call_cleanup_docker_with_grace(client, request, DOCKER_CALL_GRACE).await
+    call_cleanup_docker_cached(client, request, &CompatibilityCache::new(None)).await
 }
 
+#[cfg(test)]
 async fn call_cleanup_docker_with_grace(
     client: &ModuleClient,
     request: contract::CleanupDockerRequest,
     grace: Duration,
 ) -> Result<contract::CleanupDockerOutput, String> {
-    let client = docker_control_client(client, request.timeout_ms, grace);
-    call_with_client(&client, CLEANUP_DOCKER, (request,), false).await
+    call_cleanup_docker_with_grace_and_cache(client, request, grace, &CompatibilityCache::new(None))
+        .await
 }
 
+async fn call_cleanup_docker_with_grace_and_cache(
+    client: &ModuleClient,
+    request: contract::CleanupDockerRequest,
+    grace: Duration,
+    cache: &CompatibilityCache,
+) -> Result<contract::CleanupDockerOutput, String> {
+    let client = docker_control_client(client, request.timeout_ms, grace);
+    call_with_client_cached(&client, CLEANUP_DOCKER, (request,), false, cache).await
+}
+
+#[cfg(test)]
 async fn call_run_docker_with_client(
     client: &ModuleClient,
     request: contract::DockerRunRequest,
 ) -> Result<contract::DockerRunOutput, String> {
-    call_with_client(client, RUN_DOCKER, (request,), true).await
+    call_run_docker_cached(client, request, &CompatibilityCache::new(None)).await
 }
 
+async fn call_run_docker_cached(
+    client: &ModuleClient,
+    request: contract::DockerRunRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerRunOutput, String> {
+    call_with_client_cached(client, RUN_DOCKER, (request,), true, cache).await
+}
+
+#[cfg(test)]
 async fn call_run_docker_without_workspace_with_client(
     client: &ModuleClient,
     request: contract::DockerRunRequest,
 ) -> Result<contract::DockerRunOutput, String> {
-    call_with_client(client, RUN_DOCKER_WITHOUT_WORKSPACE, (request,), true).await
+    call_run_docker_without_workspace_cached(client, request, &CompatibilityCache::new(None)).await
+}
+
+async fn call_run_docker_without_workspace_cached(
+    client: &ModuleClient,
+    request: contract::DockerRunRequest,
+    cache: &CompatibilityCache,
+) -> Result<contract::DockerRunOutput, String> {
+    call_with_client_cached(
+        client,
+        RUN_DOCKER_WITHOUT_WORKSPACE,
+        (request,),
+        true,
+        cache,
+    )
+    .await
 }
 
 /// Read a bounded output batch from a live or completed process.
@@ -440,7 +523,14 @@ where
         &config.workspace_dir,
     )
     .await;
-    call_with_client(&module_client(config), member, request, confidential).await
+    call_with_client_cached(
+        &module_client(config),
+        member,
+        request,
+        confidential,
+        compatibility_cache(),
+    )
+    .await
 }
 
 fn module_client(config: &Config) -> ModuleClient {
@@ -451,6 +541,7 @@ fn message(error: ModuleCallError) -> String {
     error.to_string()
 }
 
+#[cfg(test)]
 async fn call_with_client<Request, Reply>(
     client: &ModuleClient,
     member: &'static str,
@@ -461,11 +552,24 @@ where
     Request: Serialize + Send,
     Reply: DeserializeOwned,
 {
-    let capabilities: contract::ModuleCapabilities = client
-        .call(MODULE_ID, CAPABILITIES, ())
-        .await
-        .map_err(message)?;
-    require_compatible(capabilities.contract_version).map_err(message)?;
+    // Direct helper callers are test seams; production operations enter via
+    // `call`, which supplies the process-wide compatibility cache.
+    let cache = CompatibilityCache::new(None);
+    call_with_client_cached(client, member, request, confidential, &cache).await
+}
+
+async fn call_with_client_cached<Request, Reply>(
+    client: &ModuleClient,
+    member: &'static str,
+    request: Request,
+    confidential: bool,
+    cache: &CompatibilityCache,
+) -> Result<Reply, String>
+where
+    Request: Serialize + Send,
+    Reply: DeserializeOwned,
+{
+    require_compatible_once(client, cache).await?;
     if confidential {
         client
             .call_confidential(MODULE_ID, member, request)
@@ -477,4 +581,42 @@ where
             .await
             .map_err(message)
     }
+}
+
+type CompatibilityCache = tokio::sync::Mutex<Option<Result<(), String>>>;
+
+fn compatibility_cache() -> &'static CompatibilityCache {
+    static CACHE: OnceLock<CompatibilityCache> = OnceLock::new();
+    CACHE.get_or_init(|| CompatibilityCache::new(None))
+}
+
+async fn require_compatible_once(
+    client: &ModuleClient,
+    cache: &CompatibilityCache,
+) -> Result<(), String> {
+    let mut compatibility = cache.lock().await;
+    if let Some(result) = compatibility.as_ref() {
+        return result.clone();
+    }
+    let capabilities: contract::ModuleCapabilities = client
+        .call(MODULE_ID, CAPABILITIES, ())
+        .await
+        .map_err(message)?;
+    let result = require_compatible(capabilities.contract_version).map_err(message);
+    *compatibility = Some(result.clone());
+    result
+}
+
+async fn validate_observed(cache: &CompatibilityCache, version: (u32, u32)) -> Result<(), String> {
+    let mut compatibility = cache.lock().await;
+    if let Some(Err(error)) = compatibility.as_ref() {
+        return Err(error.clone());
+    }
+    let result = require_compatible(version).map_err(message);
+    if let Err(error) = &result {
+        *compatibility = Some(Err(error.clone()));
+    } else if compatibility.is_none() {
+        *compatibility = Some(Ok(()));
+    }
+    result
 }

@@ -1,6 +1,7 @@
 //! The module configuration follows `[computer]` and the stored credentials.
 
 use super::*;
+
 use crate::security::credentials::{api_key, AuthService};
 
 fn config_in(dir: &std::path::Path) -> Config {

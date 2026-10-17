@@ -63,7 +63,7 @@ async fn describe(config: &Config, load: bool) -> Result<Capabilities, String> {
     describe_proxy(proxy).await
 }
 
-pub(super) async fn describe_proxy(proxy: tinybus::Proxy) -> Result<Capabilities, String> {
+pub(crate) async fn describe_proxy(proxy: tinybus::Proxy) -> Result<Capabilities, String> {
     proxy
         .call(tinycomputer_bus::agent::names::methods::DESCRIBE, ())
         .await

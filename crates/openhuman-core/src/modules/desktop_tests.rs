@@ -202,7 +202,7 @@ async fn bus_client_preserves_envelopes_and_names_transport_failures() {
     crate::desktop::computer_config::reset_private_config_credential_lookups();
     let _fake_credentials = crate::desktop::computer_config::FakePrivateConfigCredentialsGuard::new();
     let status_proxy = super::proxy_from_connection(&client).expect("read-only status proxy");
-    let capabilities = super::super::computer::describe_proxy(status_proxy)
+    let capabilities = crate::desktop::computer_status::describe_proxy(status_proxy)
         .await
         .expect("Describe through existing proxy");
     let observations = (

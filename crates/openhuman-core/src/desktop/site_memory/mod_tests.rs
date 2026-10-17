@@ -233,8 +233,8 @@ async fn scheduled_sweeps_expire_backing_files_and_stop_with_the_host() {
         .unwrap()
         .set_modified(just_fresh)
         .unwrap();
-    tokio::time::advance(std::time::Duration::from_secs(24 * 60 * 60)).await;
     clock.fetch_add(24 * 60 * 60, Ordering::SeqCst);
+    tokio::time::advance(std::time::Duration::from_secs(24 * 60 * 60)).await;
 
     sweeps.recv().await.unwrap();
     assert!(!boundary.exists());

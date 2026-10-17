@@ -48,9 +48,22 @@ async fn boot_filters_disabled_search_path_artifacts_and_keeps_enabled_ones() {
     static MODULE_PATH_LOCK: Mutex<()> = Mutex::new(());
     let _lock = MODULE_PATH_LOCK.lock().unwrap();
     let dir = tempfile::tempdir().unwrap();
-    let disabled = dir.path().join("libtinycomputer_module.so");
-    let enabled = dir.path().join("libtinysearch_module.so");
-    std::fs::write(&disabled, b"not a real shared library").unwrap();
+    let extension = if cfg!(windows) {
+        "dll"
+    } else if cfg!(target_os = "macos") {
+        "dylib"
+    } else {
+        "so"
+    };
+    let disabled = [
+        dir.path().join(format!("libtinycomputer_module.{extension}")),
+        dir.path().join(format!("tinycomputer.{extension}")),
+        dir.path().join(format!("libtinycomputer.{extension}")),
+    ];
+    let enabled = dir.path().join(format!("libtinysearch_module.{extension}"));
+    for artifact in &disabled {
+        std::fs::write(artifact, b"not a real shared library").unwrap();
+    }
     std::fs::write(&enabled, b"not a real shared library").unwrap();
 
     let previous = std::env::var_os("OPENHUMAN_MODULE_PATH");
@@ -80,6 +93,9 @@ async fn boot_filters_disabled_search_path_artifacts_and_keeps_enabled_ones() {
     assert!(crate::modules::ops::disabled_lib_stems(&config)
         .iter()
         .any(|stem| stem == "libtinycomputer_module"));
+    let stems = crate::modules::ops::disabled_lib_stems(&config);
+    assert!(stems.iter().any(|stem| stem == "tinycomputer"));
+    assert!(stems.iter().any(|stem| stem == "libtinycomputer"));
     assert!(crate::modules::ops::disabled_component(&config, "tinysearch").is_none());
 
     load_declared_modules(&config).await;

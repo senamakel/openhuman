@@ -178,14 +178,17 @@ async fn nothing_is_kept_while_learning_is_off_and_a_settings_switch_outranks_th
     assert!(!save(&off, "off.example", epoch).await);
 }
 
-#[tokio::test]
-async fn scheduled_sweep_removes_only_site_files_unchanged_for_thirty_days() {
+#[tokio::test(start_paused = true)]
+async fn scheduled_sweeps_expire_backing_files_and_stop_with_the_host() {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
     let dir = tempfile::tempdir().unwrap();
     let config = workspace_config(&dir, true);
     let epoch = load(&config, "old.example").await.epoch;
     assert!(save(&config, "old.example", epoch).await);
-    assert!(save(&config, "new.example", epoch).await);
-    let old = sites_dir(dir.path()).join("old.example.json");
+    assert!(save(&config, "fresh.example", epoch).await);
+    let sites = sites_dir(dir.path());
+    let old = sites.join("old.example.json");
     let now = 2 * KEEP_SECS + 100;
     let aged = std::time::UNIX_EPOCH + std::time::Duration::from_secs(now - KEEP_SECS - 1);
     std::fs::File::options()
@@ -195,12 +198,49 @@ async fn scheduled_sweep_removes_only_site_files_unchanged_for_thirty_days() {
         .set_modified(aged)
         .unwrap();
 
-    load(&config, "new.example").await;
+    load(&config, "fresh.example").await;
     assert!(old.exists(), "a Load must not trigger garbage collection");
 
-    sweep_workspace_at(&config.workspace_dir, now).await;
+    let clock = std::sync::Arc::new(AtomicU64::new(now));
+    let sweep_clock = std::sync::Arc::clone(&clock);
+    let workspace = config.workspace_dir.clone();
+    let (observed, mut sweeps) = tokio::sync::mpsc::unbounded_channel();
+    let (host, lifecycle) = tokio::sync::watch::channel(false);
+    let task = tokio::spawn(run_sweeper(
+        tokio::time::interval(std::time::Duration::from_secs(24 * 60 * 60)),
+        lifecycle,
+        move || {
+            let workspace = workspace.clone();
+            let now = sweep_clock.load(Ordering::SeqCst);
+            let observed = observed.clone();
+            async move {
+                sweep_workspace_at(&workspace, now).await;
+                observed.send(()).unwrap();
+            }
+        },
+    ));
+
+    sweeps.recv().await.unwrap();
     assert!(!old.exists());
-    assert!(sites_dir(dir.path()).join("new.example.json").exists());
+    assert!(sites.join("fresh.example.json").exists());
+
+    let boundary = sites.join("boundary.example.json");
+    std::fs::write(&boundary, b"{}").unwrap();
+    let just_fresh = std::time::UNIX_EPOCH + std::time::Duration::from_secs(now - KEEP_SECS + 1);
+    std::fs::File::options()
+        .write(true)
+        .open(&boundary)
+        .unwrap()
+        .set_modified(just_fresh)
+        .unwrap();
+    tokio::time::advance(std::time::Duration::from_secs(24 * 60 * 60)).await;
+    clock.fetch_add(24 * 60 * 60, Ordering::SeqCst);
+
+    sweeps.recv().await.unwrap();
+    assert!(!boundary.exists());
+
+    host.send(true).unwrap();
+    task.await.unwrap();
 }
 
 #[test]

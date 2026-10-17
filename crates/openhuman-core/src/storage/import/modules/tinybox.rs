@@ -19,7 +19,8 @@
 //!   before this release, so there is no file to read. The `tinybox` command
 //!   line keeps its own `boxes.json` and is not the host's to migrate.
 
-//! Removal criterion: delete after the minimum supported tinybox version is at least 0.1.29, the release that ships its storage contract.
+//! Removal criterion: delete after the minimum supported tinybox version is at least
+//! 0.1.29, the release that ships its storage contract.
 
 use std::path::Path;
 

@@ -1,4 +1,4 @@
-//! What the one-time legacy importers (`storage_import_*`) share.
+//! What the one-time module legacy importers share.
 //!
 //! Each importer moves a module's pre-storage files into the module's own
 //! scope of the installed backend, once per source directory, never touching

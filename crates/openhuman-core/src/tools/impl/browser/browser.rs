@@ -10,7 +10,7 @@ mod task_actions;
 #[path = "browser_unattended.rs"]
 mod unattended;
 use crate::agent::turn_origin::AgentTurnOrigin;
-use crate::modules::browser::BrowserClient;
+use crate::modules::desktop::browser::BrowserClient;
 use crate::security::approval::{ApprovalGate, GateOutcome};
 use crate::security::SecurityPolicy;
 use async_trait::async_trait;
@@ -275,7 +275,7 @@ impl BrowserTool {
             ),
             None => None,
         };
-        let task = crate::modules::browser_task::BrowserTask {
+        let task = crate::modules::desktop::browser::BrowserTask {
             goal,
             facts,
             origins,
@@ -293,7 +293,7 @@ impl BrowserTool {
                 );
             }
         }
-        let view = crate::modules::browser_task::start(self.client.config(), &task)
+        let view = crate::modules::desktop::browser::start(self.client.config(), &task)
             .await
             .map_err(anyhow::Error::msg)?;
         self.report(view).await
@@ -306,9 +306,9 @@ impl BrowserTool {
         let inputs = task_inputs(args)?;
         let answer = args["answer"].as_str().map(str::to_owned);
         let view = if inputs.is_empty() && answer.is_none() {
-            crate::modules::browser_task::wait(self.client.config(), id).await
+            crate::modules::desktop::browser::wait(self.client.config(), id).await
         } else {
-            crate::modules::browser_task::resume(
+            crate::modules::desktop::browser::resume(
                 self.client.config(),
                 ContinueTaskRequest {
                     id,
@@ -326,7 +326,7 @@ impl BrowserTool {
     async fn task_cancel(&self, args: &Value) -> anyhow::Result<Value> {
         let id = TaskId::new(required(args, "task_id")?);
         *self.pending.lock().await = None;
-        let view = crate::modules::browser_task::cancel(self.client.config(), id)
+        let view = crate::modules::desktop::browser::cancel(self.client.config(), id)
             .await
             .map_err(anyhow::Error::msg)?;
         Ok(serde_json::to_value(view)?)
@@ -377,7 +377,7 @@ impl BrowserTool {
         let pending = slot.take().expect("pending checked above");
         drop(slot);
         let approved = approve_task_action(&pending, &self.client.config().browser, origin).await?;
-        let view = crate::modules::browser_task::resume(
+        let view = crate::modules::desktop::browser::resume(
             self.client.config(),
             ContinueTaskRequest {
                 id: pending.task,

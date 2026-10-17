@@ -21,7 +21,7 @@ use tinycomputer_bus::agent::{
 use crate::config::Config;
 
 #[cfg(test)]
-#[path = "browser_task_tests.rs"]
+#[path = "task_tests.rs"]
 mod tests;
 
 /// The longest one `AwaitTask` long-poll asks for. The module caps it at 60s.
@@ -45,7 +45,7 @@ pub struct BrowserTask {
     /// as a plan saved from an earlier run. `goal` then explains it.
     pub flow: Option<tinycomputer_bus::Flow>,
     /// The site the task starts on, from its starting address
-    /// (`super::site_memory_host::site_of`): the module keeps what it learns
+    /// (`crate::modules::site_memory_host::site_of`): the module keeps what it learns
     /// under it, through the host's `SiteMemoryHost`, and hands the task what
     /// earlier tasks there learned.
     pub site: Option<String>,
@@ -59,7 +59,7 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
     let site = task
         .site
         .clone()
-        .filter(|_| super::site_memory_host::learning(config));
+        .filter(|_| crate::modules::site_memory_host::learning(config));
     StartTaskRequest {
         task: Some(task.goal.clone()),
         site,
@@ -85,7 +85,7 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
             max_rescues: config.computer.max_rescues,
             ..TaskBudget::default()
         },
-        trace: super::computer_config::tracing_enabled(config),
+        trace: crate::modules::computer_config::tracing_enabled(config),
         ..StartTaskRequest::default()
     }
 }
@@ -103,7 +103,7 @@ pub async fn start(config: &Config, task: &BrowserTask) -> Result<TaskView, Stri
         return Err("a browser task needs at least one allowed origin".to_owned());
     }
     let mut request = start_request(config, task);
-    let claimed = claim_profile(config, &mut request, super::profile_claim::TASK_WAIT_MS).await;
+    let claimed = claim_profile(config, &mut request, crate::modules::profile_claim::TASK_WAIT_MS).await;
     tracing::debug!(
         origins = task.origins.len(),
         max_actions = task.max_actions,
@@ -116,7 +116,7 @@ pub async fn start(config: &Config, task: &BrowserTask) -> Result<TaskView, Stri
         Err(error) => {
             // A task that did not start starts no browser on the profile.
             if let Some(profile) = claimed {
-                super::profile_claim::release(config, &profile).await;
+                crate::modules::profile_claim::release(config, &profile).await;
             }
             return Err(error);
         }
@@ -200,7 +200,7 @@ pub(crate) async fn report_with(
 /// how it stopped (see [`super::browser_task_report`]).
 async fn settle(config: &Config, view: TaskView) -> Result<TaskView, String> {
     let view = follow(config, view).await?;
-    super::browser_task_report::record(config, &view).await;
+    super::task_report::record(config, &view).await;
     Ok(view)
 }
 
@@ -236,7 +236,7 @@ async fn call<Request: Serialize + Send, Reply: DeserializeOwned>(
     request: Request,
     confidential: bool,
 ) -> Result<Reply, String> {
-    let proxy = super::desktop::proxy(config)
+    let proxy = crate::modules::desktop::proxy(config)
         .await?
         .with_timeout(CALL_TIMEOUT);
     let response: AgentResponse<Reply> = if confidential {
@@ -260,9 +260,9 @@ async fn claim_profile(
     wait_ms: u64,
 ) -> Option<String> {
     let profile = request.constraints.browser_profile.clone()?;
-    match super::profile_claim::claim(config, &profile, wait_ms).await {
-        super::profile_claim::Claim::Claimed(path) => Some(path),
-        super::profile_claim::Claim::Fresh => {
+    match crate::modules::profile_claim::claim(config, &profile, wait_ms).await {
+        crate::modules::profile_claim::Claim::Claimed(path) => Some(path),
+        crate::modules::profile_claim::Claim::Fresh => {
             tracing::warn!(
                 "[browser-task] another browser holds the persistent profile; this task runs in a fresh profile"
             );
@@ -274,12 +274,12 @@ async fn claim_profile(
 
 /// A module reply as its data, or as the error the tool reports: its code,
 /// message and hint, and where the user fixes a Chrome the module was not
-/// given or could not start ([`super::browser::chrome_hint`]).
+/// given or could not start ([`super::chrome_hints::chrome_hint`]).
 fn unwrap_response<Reply>(member: &str, response: AgentResponse<Reply>) -> Result<Reply, String> {
-    match super::envelope::decode(None, None, response.ok, response.data, response.error) {
+    match crate::modules::envelope::decode(None, None, response.ok, response.data, response.error) {
         Ok(data) => Ok(data),
-        Err(super::envelope::EnvelopeError::Operation(error)) => {
-            let host = super::browser::chrome_hint(&error.message).unwrap_or_default();
+        Err(crate::modules::envelope::EnvelopeError::Operation(error)) => {
+            let host = super::chrome_hints::chrome_hint(&error.message).unwrap_or_default();
             let said = [error.message.as_str(), error.hint.as_str(), host]
                 .into_iter()
                 .map(str::trim)
@@ -291,7 +291,7 @@ fn unwrap_response<Reply>(member: &str, response: AgentResponse<Reply>) -> Resul
                 error.code
             ))
         }
-        Err(super::envelope::EnvelopeError::Malformed) => {
+        Err(crate::modules::envelope::EnvelopeError::Malformed) => {
             Err(format!("browser task {member} returned no result"))
         }
     }

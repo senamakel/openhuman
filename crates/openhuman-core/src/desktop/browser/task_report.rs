@@ -24,7 +24,7 @@ use tokio::io::AsyncWriteExt;
 use crate::config::Config;
 
 #[cfg(test)]
-#[path = "browser_task_report_tests.rs"]
+#[path = "task_report_tests.rs"]
 mod tests;
 
 /// How many stopped tasks are remembered, so a view followed again does not
@@ -41,9 +41,9 @@ type ReportFetch<'a> = Pin<Box<dyn Future<Output = Result<TaskReport, String>> +
 /// Never fails the caller; a report that cannot be fetched is only logged,
 /// and the next settle of the same state tries again.
 pub(crate) async fn record(config: &Config, view: &TaskView) {
-    let traced = super::computer_config::tracing_enabled(config);
+    let traced = crate::modules::computer_config::tracing_enabled(config);
     record_with(config, view, traced, |id, trace| {
-        Box::pin(super::browser_task::report_with(config, id, trace))
+        Box::pin(super::task::report_with(config, id, trace))
     })
     .await;
 }
@@ -248,7 +248,7 @@ fn report_path(config: &Config, id: &str, millis: u128) -> PathBuf {
         .chars()
         .filter(|character| character.is_ascii_alphanumeric() || matches!(character, '-' | '_'))
         .collect();
-    super::computer_config::trace_dir(config)
+    crate::modules::computer_config::trace_dir(config)
         .join("tasks")
         .join(format!("{millis}-{id}.json"))
 }

@@ -1,5 +1,5 @@
 //! Simple TinyComputer entry point for opening a permitted page.
-use crate::modules::browser::BrowserClient;
+use crate::modules::desktop::browser::BrowserClient;
 use crate::security::SecurityPolicy;
 use async_trait::async_trait;
 use serde_json::json;

@@ -25,16 +25,16 @@ fn non_global_ip_literals_stay_blocked() {
         "[2001:db8::1]",
     ] {
         assert!(
-            private_or_local(host.trim_matches(['[', ']'])),
+            super::policy::private_or_local(host.trim_matches(['[', ']'])),
             "{host} must be blocked"
         );
     }
-    assert!(!private_or_local("93.184.216.34"));
+    assert!(!super::policy::private_or_local("93.184.216.34"));
 }
 
 #[test]
 fn module_origin_list_requires_https_for_allowed_host_tree() {
-    if browser_allow_all() {
+    if super::policy::browser_allow_all() {
         return;
     }
     let mut config = Config::default();
@@ -273,7 +273,7 @@ fn fresh_profile_is_the_default() {
 
 #[test]
 fn allow_all_lets_the_browser_open_any_public_site() {
-    if browser_allow_all() {
+    if super::policy::browser_allow_all() {
         return;
     }
     // "Allow all" is the shared list's `*`, as a fresh config has it; the
@@ -308,7 +308,7 @@ fn allow_all_lets_the_browser_open_any_public_site() {
 
 #[test]
 fn a_custom_list_still_keeps_the_browser_to_its_sites() {
-    if browser_allow_all() {
+    if super::policy::browser_allow_all() {
         return;
     }
     let mut config = Config::default();
@@ -343,4 +343,23 @@ fn navigation_rejects_non_global_ip_literal_urls() {
         let error = client.check_url(url).expect_err(url).to_string();
         assert!(error.contains("is blocked"), "{url}: {error}");
     }
+}
+
+#[test]
+fn browser_policy_blocks_local_hosts_with_multiple_trailing_dots() {
+    for raw in ["https://localhost../", "https://host.local../"] {
+        let url = url::Url::parse(raw).unwrap();
+        let host = url.host_str().unwrap();
+        assert!(host.ends_with(".."), "{raw} parsed host was {host}");
+        let client = BrowserClient::new(Arc::new(Config::default()));
+        assert!(client.check_url(raw).is_err(), "{raw} must be blocked");
+    }
+}
+
+#[test]
+fn browser_policy_blocks_bracketed_ipv6_loopback() {
+    let url = url::Url::parse("https://[::1]/").unwrap();
+    assert_eq!(url.host_str(), Some("[::1]"));
+    let client = BrowserClient::new(Arc::new(Config::default()));
+    assert!(client.check_url(url.as_str()).is_err());
 }

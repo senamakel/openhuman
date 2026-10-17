@@ -21,3 +21,6 @@ pub mod dashboard;
 pub mod notifications;
 pub mod overlay;
 pub mod provider_surfaces;
+
+#[cfg(feature = "modules")]
+pub mod browser;

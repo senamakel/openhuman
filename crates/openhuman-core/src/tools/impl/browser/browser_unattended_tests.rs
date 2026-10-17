@@ -3,7 +3,7 @@ use super::super::session_pool::{browser_session_fingerprint, thread_sessions, T
 use super::super::{approve_browser_action, task_actions::approve_task_action, BrowserTool};
 use super::*;
 use crate::core::runtime::{CoreContext, DomainSet};
-use crate::modules::browser::BrowserClient;
+use crate::modules::desktop::browser::BrowserClient;
 use crate::security::SecurityPolicy;
 use serde_json::json;
 use std::sync::Arc;

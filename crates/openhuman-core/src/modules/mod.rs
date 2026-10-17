@@ -50,12 +50,6 @@
 pub mod accessibility;
 #[cfg(feature = "modules")]
 pub mod boot;
-#[cfg(feature = "modules")]
-pub mod browser;
-#[cfg(feature = "modules")]
-pub mod browser_task;
-#[cfg(feature = "modules")]
-mod browser_task_report;
 #[cfg(feature = "channels")]
 pub(crate) mod channel_controller;
 pub(crate) mod channel_health;

@@ -178,14 +178,16 @@ async fn nothing_is_kept_while_learning_is_off_and_a_settings_switch_outranks_th
 }
 
 #[tokio::test]
-async fn a_load_sweeps_site_files_nothing_changed_for_thirty_days() {
+async fn scheduled_sweep_removes_only_site_files_unchanged_for_thirty_days() {
     let dir = tempfile::tempdir().unwrap();
     let config = workspace_config(&dir, true);
     let epoch = load(&config, "old.example").await.epoch;
     assert!(save(&config, "old.example", epoch).await);
     assert!(save(&config, "new.example", epoch).await);
     let old = sites_dir(dir.path()).join("old.example.json");
-    let aged = std::time::SystemTime::now() - std::time::Duration::from_secs(KEEP_SECS + 60);
+    let now = 2 * KEEP_SECS + 100;
+    let aged = std::time::UNIX_EPOCH
+        + std::time::Duration::from_secs(now - KEEP_SECS - 1);
     std::fs::File::options()
         .write(true)
         .open(&old)
@@ -193,7 +195,7 @@ async fn a_load_sweeps_site_files_nothing_changed_for_thirty_days() {
         .set_modified(aged)
         .unwrap();
 
-    load(&config, "new.example").await;
+    sweep_workspace_at(&config.workspace_dir, now).await;
     assert!(!old.exists());
     assert!(sites_dir(dir.path()).join("new.example.json").exists());
 }

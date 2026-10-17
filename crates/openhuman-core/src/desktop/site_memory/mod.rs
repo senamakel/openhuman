@@ -262,12 +262,14 @@ pub async fn forget(config: &crate::config::Config, site: Option<&str>) -> std::
     Ok(usize::try_from(forgotten).unwrap_or(usize::MAX))
 }
 
-/// Removes the site files nothing changed for [`KEEP_SECS`]: every entry in
-/// them has expired, as has a copy set aside or a write left behind.
-async fn sweep(dir: &Path) {
-    let now = std::time::SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs());
+/// Removes site files whose filesystem metadata has not changed for
+/// [`KEEP_SECS`], along with expired corrupt copies and abandoned writes.
+/// Per-entry plan and hint expiry remains TinyComputer's responsibility.
+fn file_expired(changed: u64, now: u64) -> bool {
+    changed.saturating_add(KEEP_SECS) <= now
+}
+
+async fn sweep_at(dir: &Path, now: u64) {
     let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
         return;
     };
@@ -280,7 +282,7 @@ async fn sweep(dir: &Path) {
             .ok()
             .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
             .map_or(now, |since| since.as_secs());
-        if metadata.is_file() && changed.saturating_add(KEEP_SECS) <= now {
+        if metadata.is_file() && file_expired(changed, now) {
             match remove(&entry.path()).await {
                 Ok(_) => {
                     tracing::debug!("[site-memory-host] removed a site file unchanged for 30 days");
@@ -301,7 +303,6 @@ async fn load_site(
     let epochs = guard().lock().await;
     let epoch = epochs.get(&config.workspace_dir).copied().unwrap_or(0);
     let dir = sites_dir(&config.workspace_dir);
-    sweep(&dir).await;
     let memory = SiteStore::new(dir).load(&request.site).await?;
     Ok(LoadSiteResponse { memory, epoch })
 }
@@ -370,6 +371,36 @@ pub(super) async fn install(connection: &tinybus::Connection) -> tinybus::Result
     connection.request_name(INTERFACE).await?;
     tracing::debug!(interface = INTERFACE, "[site-memory-host] served");
     Ok(())
+}
+
+/// Start process-lifetime garbage collection for unchanged backing files.
+/// The task retains no workspace, store, or scope; it reads the current
+/// workspace for each daily sweep and the module runtime owns its lifetime.
+pub(super) fn start_sweeper(runtime: &tinybus::module::ModuleRuntime) {
+    runtime.spawn(async {
+        let mut timer = tokio::time::interval(std::time::Duration::from_secs(24 * 60 * 60));
+        timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+        loop {
+            timer.tick().await;
+            match config().await {
+                Ok(config) => sweep_workspace(&config.workspace_dir).await,
+                Err(error) => tracing::warn!(%error, "[site-memory-host] could not load workspace for sweep"),
+            }
+        }
+    });
+}
+
+async fn sweep_workspace(workspace: &Path) {
+    // Serialize with load/save/forget so a concurrent forget cannot race the
+    // cleanup operation and its epoch remains authoritative.
+    let _epochs = guard().lock().await;
+    sweep_at(&sites_dir(workspace), now_secs()).await;
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs())
 }
 
 #[cfg(test)]

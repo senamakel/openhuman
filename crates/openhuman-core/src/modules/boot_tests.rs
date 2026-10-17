@@ -56,7 +56,8 @@ async fn boot_filters_disabled_search_path_artifacts_and_keeps_enabled_ones() {
         "so"
     };
     let disabled = [
-        dir.path().join(format!("libtinycomputer_module.{extension}")),
+        dir.path()
+            .join(format!("libtinycomputer_module.{extension}")),
         dir.path().join(format!("tinycomputer.{extension}")),
         dir.path().join(format!("libtinycomputer.{extension}")),
     ];
@@ -109,7 +110,10 @@ async fn boot_filters_disabled_search_path_artifacts_and_keeps_enabled_ones() {
         1,
         "the disabled artifact should be ignored while the enabled artifact is attempted"
     );
-    assert!(outcomes[0].is_err(), "the enabled fake library should be rejected");
+    assert!(
+        outcomes[0].is_err(),
+        "the enabled fake library should be rejected"
+    );
     assert!(runtime.host().list().is_empty());
 }
 

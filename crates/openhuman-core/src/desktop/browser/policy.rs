@@ -93,7 +93,7 @@ impl BrowserClient {
         Ok(())
     }
 
-    fn check_returned_url(&self, raw: &str) -> Result<(), BrowserCallError> {
+    pub(super) fn check_returned_url(&self, raw: &str) -> Result<(), BrowserCallError> {
         // A fresh session starts at about:blank. It is internal to Chrome and
         // does not make a network request; reporting it lets the agent see it
         // needs to navigate before inspecting page content.
@@ -130,7 +130,7 @@ impl BrowserClient {
     /// `https://.host` spelling. Empty when none are allowed, which a task
     /// refuses, since an empty list means any origin, private ones included,
     /// to the module.
-    pub(super) fn task_origins(&self) -> Vec<String> {
+    pub(crate) fn task_origins(&self) -> Vec<String> {
         self.browser_origins()
     }
 

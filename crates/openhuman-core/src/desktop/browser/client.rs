@@ -163,14 +163,14 @@ impl BrowserClient {
         session: &SessionId,
         request: NavigateRequest,
     ) -> Result<PageState, BrowserCallError> {
-        check_url(self, &request.url)?;
+        self.check_url(&request.url)?;
         let page: PageState = self
             .call(
                 names::methods::NAVIGATE,
                 SessionRequest::new(session.clone(), request),
             )
             .await?;
-        check_returned_url(self, &page.url)?;
+        self.check_returned_url(&page.url)?;
         Ok(page)
     }
 
@@ -185,7 +185,7 @@ impl BrowserClient {
                 SessionRequest::new(session.clone(), request),
             )
             .await?;
-        check_returned_url(self, &snapshot.url)?;
+        self.check_returned_url(&snapshot.url)?;
         Ok(snapshot)
     }
 
@@ -200,7 +200,7 @@ impl BrowserClient {
                 SessionRequest::new(session.clone(), action),
             )
             .await?;
-        check_returned_url(self, &outcome.page.url)?;
+        self.check_returned_url(&outcome.page.url)?;
         Ok(outcome)
     }
 
@@ -215,7 +215,7 @@ impl BrowserClient {
                 SessionRequest::new(session.clone(), request),
             )
             .await?;
-        check_returned_url(self, &page.url)?;
+        self.check_returned_url(&page.url)?;
         Ok(page)
     }
 

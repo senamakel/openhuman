@@ -121,6 +121,29 @@ fn env_overlay_x402_budget_preserves_defaults_and_legacy_invalid_value_behavior(
 }
 
 #[test]
+fn env_overlay_x402_budget_accepts_zero_and_u64_max_and_preserves_custom_values() {
+    let mut cfg = Config::default();
+    cfg.x402.per_request_max_atomic = 123;
+    cfg.x402.daily_max_atomic = 456;
+    cfg.x402.monthly_max_atomic = 789;
+
+    cfg.apply_env_overlay_with(&HashMapEnv::new());
+    assert_eq!(cfg.x402.per_request_max_atomic, 123);
+    assert_eq!(cfg.x402.daily_max_atomic, 456);
+    assert_eq!(cfg.x402.monthly_max_atomic, 789);
+
+    cfg.apply_env_overlay_with(
+        &HashMapEnv::new()
+            .with("OPENHUMAN_X402_PER_REQUEST_MAX", "0")
+            .with("OPENHUMAN_X402_DAILY_MAX", &u64::MAX.to_string())
+            .with("OPENHUMAN_X402_MONTHLY_MAX", "18446744073709551616"),
+    );
+    assert_eq!(cfg.x402.per_request_max_atomic, 0);
+    assert_eq!(cfg.x402.daily_max_atomic, u64::MAX);
+    assert_eq!(cfg.x402.monthly_max_atomic, 789);
+}
+
+#[test]
 fn env_overlay_output_language_accepts_non_empty_value() {
     let mut cfg = Config::default();
     assert!(cfg.output_language.is_none());

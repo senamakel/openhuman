@@ -20,6 +20,11 @@
 //!   expire blobs leaves the module on its in-memory cache (it refuses a TTL
 //!   it cannot honour), so nothing is written for it to find.
 
+//! # Removal criterion
+//!
+//! Delete after the minimum supported tinyjuice version is at least
+//! 0.10, the release that ships its storage contract.
+
 use std::path::Path;
 use std::time::{Duration, SystemTime};
 
@@ -27,8 +32,9 @@ use anyhow::{anyhow, Context, Result};
 use serde_json::json;
 use tinystoragedrivers::{Capability, ScopedStorage};
 
-use super::storage_grant_tinyjuice::{CCR_BLOB_PREFIX, MODULE_ID};
-use super::storage_import_support as support;
+const MODULE_ID: &str = "tinyjuice";
+const CCR_BLOB_PREFIX: &str = "tinyjuice_ccr/";
+use super::support;
 use crate::core::runtime::DispatchCtx;
 
 const LOG_PREFIX: &str = "[tinyjuice-import]";
@@ -236,5 +242,5 @@ fn read_originals(root: &Path, now: SystemTime) -> Result<(Vec<LegacyOriginal>, 
 }
 
 #[cfg(test)]
-#[path = "storage_import_tinyjuice_tests.rs"]
+#[path = "tinyjuice_tests.rs"]
 mod tests;

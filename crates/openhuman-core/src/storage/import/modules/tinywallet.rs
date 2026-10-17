@@ -20,14 +20,20 @@
 //!   reservations only in memory, so there is nothing on disk to import; the
 //!   `x402_budget` document starts empty.
 
+//! # Removal criterion
+//!
+//! Delete after the minimum supported tinywallet version is at least
+//! 0.22, the release that ships its storage contract.
+
 use std::path::Path;
 
 use anyhow::{anyhow, Context, Result};
 use serde_json::json;
 use tinystoragedrivers::ScopedStorage;
 
-use super::storage_grant_tinywallet::{MODULE_ID, PAYMENTS_STREAM};
-use super::storage_import_support as support;
+const MODULE_ID: &str = "tinywallet";
+const PAYMENTS_STREAM: &str = "x402.payments";
+use super::support;
 use crate::core::runtime::DispatchCtx;
 
 const LOG_PREFIX: &str = "[x402-import]";
@@ -95,5 +101,5 @@ async fn import_into(
 }
 
 #[cfg(test)]
-#[path = "storage_import_tinywallet_tests.rs"]
+#[path = "tinywallet_tests.rs"]
 mod tests;

@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 use tinystoragedrivers::secrets::DerivedKeys;
 use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
 use zeroize::Zeroizing;
@@ -285,7 +286,10 @@ async fn an_unreadable_file_writes_no_marker_so_the_next_start_retries() {
     let marker = rig
         .scoped
         .documents()
-        .get(MARKER_COLLECTION, &marker_id(dir.path()))
+        .get(
+            MARKER_COLLECTION,
+            &super::super::super::marker_id("mcp", dir.path()),
+        )
         .await
         .unwrap();
     assert!(marker.is_none());

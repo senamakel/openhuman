@@ -406,6 +406,25 @@ fn only_modules_with_a_declared_grant_have_storage() {
 }
 
 #[test]
+fn blob_sweeper_module_ids_follow_declared_blob_grants() {
+    let mut expected = crate::modules::registry::ALL
+        .iter()
+        .filter_map(|record| {
+            declared(record.id)
+                .filter(|grant| !grant.blob_prefixes.is_empty())
+                .map(|_| record.id)
+        })
+        .collect::<Vec<_>>();
+    let mut actual = crate::modules::storage_grants::blob_module_ids();
+    expected.sort_unstable();
+    actual.sort_unstable();
+
+    assert_eq!(actual, expected);
+    assert!(actual.contains(&"tinyjuice"));
+    assert!(!actual.contains(&"tinymcp"));
+}
+
+#[test]
 fn only_mutating_selectors_ask_for_the_write_fence() {
     let g = grant();
     let write_flag =

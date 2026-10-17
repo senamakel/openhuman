@@ -83,7 +83,7 @@ async fn sweeping_through_the_fenced_backend_reaches_the_driver() {
 #[tokio::test]
 async fn module_blob_scopes_are_swept_alongside_the_acting_scope() {
     let (now, backend) = backend_with_clock();
-    let module_scopes = crate::modules::expiring_blob_module_scopes(
+    let module_scopes = crate::storage::blob_sweep::expiring_blob_module_scopes(
         &crate::core::runtime::DispatchCtx::host_default(),
     );
     assert!(!module_scopes.is_empty(), "TinyJuice owns expiring blobs");
@@ -95,7 +95,7 @@ async fn module_blob_scopes_are_swept_alongside_the_acting_scope() {
 #[cfg(not(feature = "modules"))]
 #[test]
 fn no_module_blob_scopes_without_the_modules_feature() {
-    assert!(crate::modules::expiring_blob_module_scopes(
+    assert!(crate::storage::blob_sweep::expiring_blob_module_scopes(
         &crate::core::runtime::DispatchCtx::host_default()
     )
     .is_empty());
@@ -137,7 +137,7 @@ async fn sweep_profiles_skips_profiles_not_listed() {
 async fn sweep_profiles_reaches_the_modules_scopes_for_that_profile() {
     let (now, backend) = backend_with_clock();
     let base = crate::storage::scope_for_profile("acme");
-    let module_scopes = crate::modules::expiring_blob_module_scopes_for("acme", &base);
+    let module_scopes = crate::storage::blob_sweep::expiring_blob_module_scopes_for("acme", &base);
     assert!(!module_scopes.is_empty(), "TinyJuice owns expiring blobs");
     put_expiring(&backend, &module_scopes[0], "tinyjuice_ccr/t", 10).await;
     now.store(2_000, Ordering::SeqCst);
@@ -209,8 +209,8 @@ fn module_blob_scopes_follow_the_handed_context_and_never_cross_tenants() {
             ),
         )
     };
-    let alice = crate::modules::expiring_blob_module_scopes(&profile("blob-alice"));
-    let bob = crate::modules::expiring_blob_module_scopes(&profile("blob-bob"));
+    let alice = crate::storage::blob_sweep::expiring_blob_module_scopes(&profile("blob-alice"));
+    let bob = crate::storage::blob_sweep::expiring_blob_module_scopes(&profile("blob-bob"));
     assert!(!alice.is_empty() && !bob.is_empty());
     assert!(alice.iter().all(|s| s.as_str().contains("blob-alice")));
     assert!(bob.iter().all(|s| s.as_str().contains("blob-bob")));

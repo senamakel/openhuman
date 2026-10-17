@@ -97,7 +97,7 @@ export const ALLOW = new Map(
       LEGACY_READER,
     ],
     [
-      "modules/storage_import_tinymcp.rs",
+      "storage/import/modules/tinymcp.rs",
       "sqlite-open",
       "Connection::open_with_flags(&copy, OpenFlags::SQLITE_OPEN_READ_WRITE)",
       LEGACY_READER,

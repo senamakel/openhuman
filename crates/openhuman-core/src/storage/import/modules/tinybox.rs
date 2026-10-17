@@ -19,14 +19,20 @@
 //!   before this release, so there is no file to read. The `tinybox` command
 //!   line keeps its own `boxes.json` and is not the host's to migrate.
 
+//! # Removal criterion
+//!
+//! Delete after the minimum supported tinybox version is at least
+//! 0.1.29, the release that ships its storage contract.
+
 use std::path::Path;
 
 use anyhow::{Context, Result};
 use serde_json::{json, Value};
 use tinystoragedrivers::{CollectionSpec, ScopedStorage};
 
-use super::storage_grant_tinybox::{JAIL_INDEX_COLLECTION, MODULE_ID};
-use super::storage_import_support as support;
+const MODULE_ID: &str = "tinybox";
+const JAIL_INDEX_COLLECTION: &str = "tinybox_jail_index";
+use super::support;
 use crate::core::runtime::DispatchCtx;
 
 const LOG_PREFIX: &str = "[tinybox-import]";
@@ -86,7 +92,7 @@ async fn import_into(scoped: &ScopedStorage, base: &Path) -> Result<Outcome> {
                 .map_err(|error| {
                     anyhow::anyhow!("declare {JAIL_INDEX_COLLECTION}: {:?}", error.kind())
                 })?;
-            written = support::put_absent(docs, JAIL_INDEX_COLLECTION, &registry, doc).await?;
+            written = super::super::put_absent(docs, JAIL_INDEX_COLLECTION, &registry, doc).await?;
         }
         _ => tracing::warn!("{LOG_PREFIX} skipped an index file that is not a JSON object"),
     }
@@ -103,5 +109,5 @@ async fn import_into(scoped: &ScopedStorage, base: &Path) -> Result<Outcome> {
 }
 
 #[cfg(test)]
-#[path = "storage_import_tinybox_tests.rs"]
+#[path = "tinybox_tests.rs"]
 mod tests;

@@ -464,7 +464,7 @@ impl McpConfiguredClient {
                     // Servers and audit rows from before the storage contract
                     // move into the module's storage before it reads them.
                     // Best effort: a failure is retried at the next open.
-                    crate::modules::import_legacy_mcp(
+                    crate::storage::import::modules::import_legacy_mcp(
                         &crate::core::runtime::DispatchCtx::ambient(),
                         std::path::Path::new(&self.data_dir),
                     )

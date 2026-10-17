@@ -411,14 +411,14 @@ async fn host_documents(backend: &dyn StorageBackend) -> usize {
 }
 
 async fn import_modules(workspace: &Path) {
-    use openhuman_core::modules;
+    use openhuman_core::storage::import::modules as module_imports;
     let ctx = openhuman_core::core::runtime::DispatchCtx::process_default();
-    modules::import_legacy_mcp(&ctx, workspace).await;
-    modules::import_legacy_connectors(&ctx, workspace).await;
+    module_imports::import_legacy_mcp(&ctx, workspace).await;
+    module_imports::import_legacy_connectors(&ctx, workspace).await;
     #[cfg(feature = "web3")]
-    assert!(modules::import_legacy_x402(&ctx, workspace).await);
-    modules::import_legacy_tinybox(&ctx, workspace).await;
-    modules::import_legacy_tinyjuice(
+    assert!(module_imports::import_legacy_x402(&ctx, workspace).await);
+    module_imports::import_legacy_tinybox(&ctx, workspace).await;
+    module_imports::import_legacy_tinyjuice(
         &ctx,
         &workspace.join("ccr"),
         Some(Duration::from_secs(3600)),

@@ -1,4 +1,4 @@
-//! What the one-time legacy importers (`storage_import_*`) share.
+//! What the one-time module legacy importers share.
 //!
 //! Each importer moves a module's pre-storage files into the module's own
 //! scope of the installed backend, once per source directory, never touching
@@ -11,7 +11,6 @@ use std::sync::Arc;
 
 use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
-use sha2::Digest;
 use tinystoragedrivers::{CollectionSpec, DocumentStore, ErrorKind, Precondition, ScopedStorage};
 
 /// The module's scope of the installed backend, or `None` when the process
@@ -23,7 +22,7 @@ pub(super) fn module_scope(
     let Some(backend) = crate::storage::installed() else {
         return Ok(None);
     };
-    let scope = super::storage_host::current_module_scope(ctx, module_id)
+    let scope = crate::modules::storage_host::current_module_scope(ctx, module_id)
         .map_err(|error| anyhow!("resolve the module scope: {:?}", error.kind()))?;
     let scoped = backend
         .for_scope(&scope)
@@ -33,8 +32,7 @@ pub(super) fn module_scope(
 
 /// A stable marker id for one source path: `<prefix>@<16 hex of sha256(path)>`.
 pub(super) fn marker_id(prefix: &str, source: &Path) -> String {
-    let digest = sha2::Sha256::digest(source.as_os_str().as_encoded_bytes());
-    format!("{prefix}@{}", &hex::encode(digest)[..16])
+    super::super::marker_id(prefix, source)
 }
 
 /// Declares `collection` (host-only: not in any module's grant) and reports
@@ -62,7 +60,7 @@ pub(super) async fn mark_imported(
     id: &str,
     mut summary: Value,
 ) -> Result<()> {
-    summary["at"] = json!(now_ms());
+    summary["at"] = json!(crate::storage::fence::system_now_ms());
     match docs
         .put(collection, id, summary, Precondition::Absent)
         .await
@@ -73,31 +71,6 @@ pub(super) async fn mark_imported(
         }
         Err(error) => Err(anyhow!("write the marker: {:?}", error.kind())),
     }
-}
-
-/// Writes `doc` only when `id` is absent; `true` when it was written.
-pub(super) async fn put_absent(
-    docs: &Arc<dyn DocumentStore>,
-    collection: &str,
-    id: &str,
-    doc: Value,
-) -> Result<bool> {
-    match docs.put(collection, id, doc, Precondition::Absent).await {
-        Ok(_) => Ok(true),
-        Err(error) if matches!(error.kind(), ErrorKind::Conflict | ErrorKind::AlreadyExists) => {
-            Ok(false)
-        }
-        Err(error) => Err(anyhow!("write {collection}: {:?}", error.kind())),
-    }
-}
-
-/// Wall clock in milliseconds since the Unix epoch.
-pub(super) fn now_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .min(u128::from(u64::MAX)) as u64
 }
 
 /// Parses the non-empty lines of a JSONL file; a line that does not parse is

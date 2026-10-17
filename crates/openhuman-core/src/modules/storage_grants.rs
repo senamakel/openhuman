@@ -187,7 +187,23 @@ type Declaration = (&'static str, fn() -> StorageGrant);
 /// (v0.10.0: CCR blobs).
 #[must_use]
 pub fn declared(module_id: &str) -> Option<StorageGrant> {
-    let table: &[Declaration] = &[
+    declarations()
+        .iter()
+        .find(|(id, _)| *id == module_id)
+        .map(|(_, grant)| grant())
+}
+
+/// Module ids whose declared grant owns at least one blob prefix.
+#[must_use]
+pub(crate) fn blob_module_ids() -> Vec<&'static str> {
+    declarations()
+        .iter()
+        .filter_map(|(id, make)| (!make().blob_prefixes.is_empty()).then_some(*id))
+        .collect()
+}
+
+fn declarations() -> &'static [Declaration] {
+    &[
         (
             super::storage_grant_tinychannels::MODULE_ID,
             super::storage_grant_tinychannels::grant,
@@ -212,11 +228,7 @@ pub fn declared(module_id: &str) -> Option<StorageGrant> {
             super::storage_grant_tinyjuice::MODULE_ID,
             super::storage_grant_tinyjuice::grant,
         ),
-    ];
-    table
-        .iter()
-        .find(|(id, _)| *id == module_id)
-        .map(|(_, grant)| grant())
+    ]
 }
 
 fn text<'a>(request: &'a Value, field: &str) -> Result<&'a str, Denied> {

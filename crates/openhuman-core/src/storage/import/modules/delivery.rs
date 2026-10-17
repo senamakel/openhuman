@@ -14,13 +14,18 @@
 //! not include) makes the import run once: a delivery completed afterwards is
 //! not resurrected from the untouched file. An unreadable file writes no marker
 //! and is retried at the next start.
+//!
+//! # Removal criterion
+//!
+//! Delete after every supported tinychannels module
+//! implements storage contract v21 and reads the delivery collections.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 use std::sync::Arc;
 
+use crate::storage::fence::system_now_ms as now_unix_ms;
 use serde_json::{json, Value};
-use sha2::Digest;
 use tinychannels_bus::module_delivery::{
     DeliveryQueueEntry, DeliveryTerminalResult, DELIVERY_PENDING_CAPACITY, DELIVERY_RECORD_BYTES,
     DELIVERY_RESULT_CAPACITY, DELIVERY_RESULT_TTL_SECONDS,
@@ -51,7 +56,7 @@ struct LegacyState {
 
 /// How one import attempt ended.
 #[derive(Debug, PartialEq, Eq)]
-pub(super) enum Outcome {
+pub(crate) enum Outcome {
     /// No storage backend is installed; nothing to write to.
     NoBackend,
     /// The marker says the import already finished.
@@ -64,7 +69,7 @@ pub(super) enum Outcome {
 
 /// Import the legacy delivery file under `workspace` into the module's scope of
 /// the installed storage backend.
-pub(super) async fn import_legacy_delivery(
+pub(crate) async fn import_legacy_delivery(
     ctx: &crate::core::runtime::DispatchCtx,
     workspace: &Path,
 ) -> anyhow::Result<Outcome> {
@@ -81,7 +86,7 @@ pub(super) async fn import_legacy_delivery(
 
 async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow::Result<Outcome> {
     let path = workspace.join(LEGACY_FILE);
-    let marker = marker_id(workspace);
+    let marker = super::super::marker_id("delivery", workspace);
     docs.ensure_collection(&CollectionSpec::new(MARKER_COLLECTION))
         .await
         .map_err(|error| anyhow::anyhow!("declare the marker collection: {:?}", error.kind()))?;
@@ -165,19 +170,6 @@ async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow:
     Ok(Outcome::Imported { found, written })
 }
 
-fn marker_id(workspace: &Path) -> String {
-    let digest = sha2::Sha256::digest(workspace.as_os_str().as_encoded_bytes());
-    format!("delivery@{}", &hex::encode(digest)[..16])
-}
-
-fn now_unix_ms() -> u64 {
-    std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_millis()
-        .min(u128::from(u64::MAX)) as u64
-}
-
 #[cfg(test)]
-#[path = "delivery_import_tests.rs"]
+#[path = "delivery_tests.rs"]
 mod tests;

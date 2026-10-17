@@ -65,8 +65,7 @@ mod docker_tests;
 #[path = "tinybox_tests.rs"]
 mod tests;
 
-/// Resolve TinyBox, require the bus contract supported by this host, and
-/// return its proxy.
+/// Check whether an advertised TinyBox bus contract is supported by this host.
 ///
 /// The capability check is deliberate: the registry artifact may be older
 /// than this compiled host while a release is being rolled out. A package
@@ -74,8 +73,9 @@ mod tests;
 ///
 /// # Errors
 ///
-/// Returns a safe loading, transport, or contract-version error. It does not
-/// include request arguments or filesystem paths.
+/// Reports an incompatible contract through the shared module reporter and
+/// returns `ModuleCallError::IncompatibleContract` when the version is unsupported.
+/// The error carries no request arguments or filesystem paths.
 fn require_compatible(version: (u32, u32)) -> Result<(), ModuleCallError> {
     if contract::is_compatible(version) {
         return Ok(());

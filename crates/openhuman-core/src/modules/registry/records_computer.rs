@@ -11,8 +11,8 @@ pub(crate) const TINYCOMPUTER: ModuleRecord = ModuleRecord {
     version: "0.14.0",
     release_url: "https://github.com/tinyhumansai/tinycomputer/releases/tag/v0.14.0",
     // All seventeen published archives were checked against checksum.toml
-    // and GitHub asset digests before pinning. Linux permission probes are
-    // part of the shipped voice surface alongside macOS and Windows.
+    // and GitHub asset digests before pinning. TinyComputer serves permission-aware
+    // desktop observation and control, browser control, and browser tasks.
     assets: &[
         PlatformAsset {
             host_key: "archlinux-arm64",

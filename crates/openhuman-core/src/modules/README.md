@@ -11,7 +11,7 @@ it like any other bus service. Domains reach a module through the per-module
 host files here ([`documents.rs`](./documents.rs), [`wallet.rs`](./wallet.rs), [`voice.rs`](./voice.rs), [`accessibility.rs`](./accessibility.rs), ...) rather than
 talking to tinybus themselves.
 
-The `//!` comments in [`mod.rs`](mod.rs), [`host.rs`](host.rs) and
+The `//!` comments in [`mod.rs`](mod.rs), [`runtime.rs`](runtime.rs) and
 [`ops.rs`](ops.rs) carry the full argument for this design. This README is
 the map over them.
 
@@ -50,7 +50,7 @@ caches failures instead of retrying them.
         |                         v
         |                  tinybus::module::resolution (one slot per id)
         v
-  host::runtime()  -> ModuleRuntime { ModuleHost, Connection, tokio handle }
+  runtime::runtime()  -> ModuleRuntime { ModuleHost, Connection, tokio handle }
         |                 |
         |                 +-- private Broker on a MemoryBus
         v
@@ -59,12 +59,12 @@ caches failures instead of retrying them.
 
 ### The module bus
 
-`host::runtime()` builds the module bus once per process. It starts a
+`runtime::runtime()` builds the module bus once per process. It starts a
 dedicated thread (`openhuman-module-bus`) with its own multi-threaded tokio
 runtime, creates a `MemoryBus` transport and a `Broker`, spawns the broker,
 wraps it in a tinybus `ModuleHost`, and connects the host's own `Connection`.
-Before returning it installs the `tokenjuice_host` callback on that
-connection. The result is stored in a `OnceLock` as a `ModuleRuntime` and
+Before returning it installs the host callbacks on that connection: storage,
+site memory, and the enabled summary, memes and wallet callbacks. The result is stored in a `OnceLock` as a `ModuleRuntime` and
 lives until the process exits; there is no shutdown path because there is
 nothing a shutdown could reclaim.
 
@@ -270,13 +270,13 @@ unopened. See [components](../../../../docs/gitbooks/en/developing/components.md
 
 `boot::load_declared_modules` runs as a background bootstrap job
 (`core/runtime/services.rs`, gated on `ServiceSet::integrations`). It does two
-things. It loads every artifact on the module search path through
-`ModuleHost::load_search_paths`, so an operator-placed artifact wins over a
-download. Then it calls `ensure_loaded` for each `LoadPolicy::Eager` record.
-Every record in the registry is currently `LoadPolicy::Lazy`, so the second
-step does nothing today. Boot never fails because of a module, and it never
-downloads lazy modules: a user who never touches a feature never pays for its
-download, its `dlopen`, or its resident memory.
+things. It loads enabled artifacts on the module search path through
+`search_path::load_enabled`, so an operator-placed artifact can serve before
+a release download. It then starts connector catalog warm-up in the
+background when Composio and the connector component are enabled. That
+warm-up may load or download TinyConnectors; a failure does not fail boot.
+Every registry record is currently `LoadPolicy::Lazy`. The policy remains an
+extension point; boot does not load records by `LoadPolicy::Eager`.
 
 ## Layout
 
@@ -287,9 +287,9 @@ download, its `dlopen`, or its resident memory.
 | [`mod.rs`](mod.rs) | Design rustdoc for the whole loading model; re-exports `ensure_loaded`, `ensure_loaded_within`, `state_of`, `LoadError`, the controller lists and the public types. |
 | [`registry.rs`](registry.rs) | The compiled-in `ALL` table and `find(id)`. Records live in [`registry/`](registry/README.md), one `records_*.rs` file per module family. |
 | [`types.rs`](types.rs) | `ModuleRecord`, `PlatformAsset`, `LoadPolicy`, `ModuleSource`, `ModuleState`, `ModuleStatus`. |
-| [`host.rs`](host.rs) | The module bus: the dedicated runtime, `ModuleRuntime`, `runtime()`, `is_started()`. |
+| [`runtime.rs`](runtime.rs) | The module bus: the dedicated runtime, `ModuleRuntime`, `runtime()`, `is_started()`. |
 | [`ops.rs`](ops.rs) | Resolution (`ensure_loaded*`, `resolve`, `load_cached`, `load_local`), per-module configuration, overrides, the bundled and install directories, and status reporting (`list`, `state_of`). |
-| [`boot.rs`](boot.rs) | Startup loading: search-path artifacts, then eager records. |
+| [`boot.rs`](boot.rs) | Startup loading: enabled search-path artifacts, then background connector catalog warm-up. |
 | [`schemas.rs`](schemas.rs) | The `modules` RPC namespace and its handlers. |
 
 ### Per-module host files
@@ -330,7 +330,8 @@ migrated; their dependency exceptions remain explicit.
 - `PlatformAsset` (`types.rs`) is one published archive: the host key (for
   example `ubuntu-24.04-x86_64`), the archive name, and its lowercase hex
   SHA-256 from the release's `checksum.toml`.
-- `LoadPolicy` (`types.rs`) is `Lazy` (first use) or `Eager` (at boot).
+- `LoadPolicy` (`types.rs`) is an extension point. Every record is `Lazy`;
+  `Eager` is reserved and has no boot dispatch.
 - `ModuleState` (`types.rs`) is the coarse state reported over RPC:
   `Available`, `Loading`, `Ready`, `Failed`, `Unsupported`. `ModuleStatus`
   wraps it with id, version, bus name and a `detail` that never carries a
@@ -340,8 +341,8 @@ migrated; their dependency exceptions remain explicit.
   process) from `StillLoading`.
 - `ops::state_of` and `ops::list` (`ops.rs`) report state without loading
   anything.
-- `host::runtime()` (`host.rs`) returns the `ModuleRuntime`; its `proxy`
-  method is how host files reach a loaded module. `host::is_started` lets
+- `runtime::runtime()` (`runtime.rs`) returns the `ModuleRuntime`; its `proxy`
+  method is how host files reach a loaded module. `runtime::is_started` lets
   status code answer without starting a broker.
 - `ops::set_bundled_releases_dir` (`ops.rs`) is called by the desktop host
   before the core starts.

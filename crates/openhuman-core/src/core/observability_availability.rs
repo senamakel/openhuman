@@ -38,8 +38,8 @@ pub fn is_backend_unavailable_message(msg: &str) -> bool {
 /// tinybus never unloads a library, so `modules::ops` caches a load failure for
 /// the life of the process and returns it instantly to every later caller; only
 /// a restart changes the outcome. The failure is reported **once**, at
-/// resolution (`modules::ops::report_resolution_failure`, tagged with the
-/// module id). Every per-call re-report after that — composio ops, the `/rpc`
+/// resolution through the shared `modules::report::reporter()` passed to the
+/// tinybus resolver, tagged with the module id. Every per-call re-report after that — composio ops, the `/rpc`
 /// boundary, memory calls — was a few hundred broken installs producing ~1M
 /// events (TAURI-RUST-117K / -118J / -117Y / -113J / -113T / -113D / -113N /
 /// -113Q / -113X).

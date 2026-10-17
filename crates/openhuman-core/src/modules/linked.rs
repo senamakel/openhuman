@@ -17,7 +17,7 @@
 //! # Process-global on purpose
 //!
 //! tinybus never unloads a module, and the module host itself is a process
-//! singleton ([`super::host`]), so a process serves a given id from exactly one
+//! singleton (see `super::runtime`), so a process serves a given id from exactly one
 //! source. The registry is likewise process-wide: it records what this binary
 //! *can* link, not what any one configuration asked for.
 

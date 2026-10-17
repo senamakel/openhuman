@@ -8,6 +8,9 @@
 //! tinywallet 0.22, tinybox 0.1.29, and tinyjuice 0.10.
 
 #[cfg(feature = "modules")]
+use crate::modules::storage_host;
+
+#[cfg(feature = "modules")]
 mod support;
 #[cfg(feature = "modules")]
 mod tinymcp;

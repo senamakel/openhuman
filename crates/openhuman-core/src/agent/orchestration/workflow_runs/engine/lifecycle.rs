@@ -12,7 +12,7 @@ use crate::agent::orchestration::parent_context::with_root_parent;
 use crate::config::Config;
 use tinyagents_session::run_ledger::{WorkflowRun, WorkflowRunStatus, WorkflowRunUpsert};
 
-use super::crate::modules::ops::{
+use super::super::ops::{
     compare_and_swap_workflow_run_lifecycle, definition_by_id, get_workflow_run, workflow_store,
 };
 use super::cancel::{

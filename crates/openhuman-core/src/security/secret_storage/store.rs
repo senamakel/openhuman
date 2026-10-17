@@ -62,7 +62,7 @@ pub(super) fn backend() -> Arc<dyn SecretBackend> {
 /// vanished at the end of that test — silently resetting the store to empty and
 /// making unrelated tests read back `None`. See `store_tests.rs`.
 ///
-/// [`crate::modules::ops::force_backend_for_test`] still pins [`BACKEND`] process-wide
+/// [`super::ops::force_backend_for_test`] still pins [`BACKEND`] process-wide
 /// and is honoured first.
 #[cfg(test)]
 pub(super) fn backend() -> Arc<dyn SecretBackend> {

@@ -16,7 +16,7 @@ fn record_save_prompt(id: &str) {
 
 #[tokio::test]
 async fn confirmation_requires_trusted_one_use_decision_for_same_goal() {
-    let _loopback = super::crate::modules::ops::test_loopback_guard();
+    let _loopback = super::super::ops::test_loopback_guard();
     let id = uuid::Uuid::new_v4().to_string();
     record_save_prompt(&id);
     assert!(take_approved(&id, Some("thread-a")).is_err());
@@ -48,7 +48,7 @@ async fn confirmation_requires_trusted_one_use_decision_for_same_goal() {
 
 #[test]
 fn unnamed_target_cannot_be_approved() {
-    let _loopback = super::crate::modules::ops::test_loopback_guard();
+    let _loopback = super::super::ops::test_loopback_guard();
     let id = uuid::Uuid::new_v4().to_string();
     record(
         "TextEdit",
@@ -64,7 +64,7 @@ fn unnamed_target_cannot_be_approved() {
 
 #[tokio::test]
 async fn failed_denial_keeps_the_handle_retryable_until_module_confirms_cancellation() {
-    let _loopback = super::crate::modules::ops::test_loopback_guard();
+    let _loopback = super::super::ops::test_loopback_guard();
     let id = uuid::Uuid::new_v4().to_string();
     record_save_prompt(&id);
     confirm_with(&id, true, |_app, _goal, _handle| async {
@@ -123,7 +123,7 @@ async fn failed_denial_keeps_the_handle_retryable_until_module_confirms_cancella
 
 #[tokio::test]
 async fn denial_in_flight_cannot_be_approved_or_sent_twice() {
-    let _loopback = super::crate::modules::ops::test_loopback_guard();
+    let _loopback = super::super::ops::test_loopback_guard();
     let id = uuid::Uuid::new_v4().to_string();
     record_save_prompt(&id);
     let (started_tx, started_rx) = tokio::sync::oneshot::channel();

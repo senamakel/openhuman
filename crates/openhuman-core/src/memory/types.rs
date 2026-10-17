@@ -116,7 +116,7 @@ pub struct RefersTo {
 #[derive(Debug, Clone, Serialize)]
 pub struct RecallView {
     /// The synthesised answer; in evidence mode
-    /// ([`crate::modules::ops::recall_with`]), the recalled evidence as text.
+    /// ([`super::ops::recall_with`]), the recalled evidence as text.
     pub answer: String,
     /// The items it rests on.
     pub citations: Vec<Citation>,

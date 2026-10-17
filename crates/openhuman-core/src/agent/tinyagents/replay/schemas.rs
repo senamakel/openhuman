@@ -39,7 +39,7 @@ use tinyagents_harness::observability::AgentObservation;
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
-use crate::modules::ops::{list_active_runs, read_run_events_page, read_run_status};
+use super::ops::{list_active_runs, read_run_events_page, read_run_status};
 use tinyagents_harness::observability::replay::{DEFAULT_EVENTS_LIMIT, MAX_EVENTS_LIMIT};
 
 const NAMESPACE: &str = "agent";

@@ -37,7 +37,7 @@ pub const WALLET_NOT_CONFIGURED_MESSAGE: &str = "wallet is not configured; run w
 // WalletStatus, status, secret_material}`)
 // ---------------------------------------------------------------------------
 
-/// The four wallet chains. Mirrors [`crate::modules::ops::WalletChain`] (real build).
+/// The four wallet chains. Mirrors [`super::ops::WalletChain`] (real build).
 /// Callers pattern-match on `Evm` / `Solana`; the full set is kept for parity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "snake_case")]

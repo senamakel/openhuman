@@ -176,7 +176,7 @@ pub(super) fn enqueue(
             let mut params: LearnParams = serde_json::from_value(args.clone())
                 .map_err(|_| MemoryError::invalid("invalid learning arguments"))?;
             params.meta = None;
-            let mut item = crate::modules::ops::learning_item(params, Some(facts.learn_meta()))?;
+            let mut item = super::ops::learning_item(params, Some(facts.learn_meta()))?;
             if let Some(root) = confinement {
                 super::user_scope::clamp_item(&mut item, &root);
             }
@@ -547,7 +547,7 @@ impl WriteExecutor for Executor<'_> {
                 WriteOperation::Learn { item } => {
                     let bound = super::engine::resolve(config).engine()?;
                     let receipt =
-                        crate::modules::ops::store_on_with(&bound, item.clone(), WriteOptions::accepted())
+                        super::ops::store_on_with(&bound, item.clone(), WriteOptions::accepted())
                             .await?;
                     let category = match item {
                         StoreItem::Learning { kind, .. } => kind.as_str(),
@@ -563,7 +563,7 @@ impl WriteExecutor for Executor<'_> {
                     });
                     Ok(())
                 }
-                WriteOperation::Forget { ids, reach } => crate::modules::ops::forget(
+                WriteOperation::Forget { ids, reach } => super::ops::forget(
                     config,
                     ForgetParams {
                         ids: ids.clone(),

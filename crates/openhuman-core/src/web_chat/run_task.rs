@@ -9,7 +9,7 @@ use tinyagents_harness::run_queue::RunQueue;
 
 use crate::agent::progress::AgentProgress;
 
-use crate::modules::ops::BudgetCorrelation;
+use super::ops::BudgetCorrelation;
 use super::progress_bridge::spawn_progress_bridge;
 use super::session::{
     checkin_session_agent, checkout_session_agent, normalize_model_override, CheckedOutSession,
@@ -22,7 +22,7 @@ use super::web_errors::{
 use tinyinference_llm::failure::is_empty_provider_response_text;
 
 #[cfg(any(test, debug_assertions))]
-use crate::modules::ops::TEST_FORCED_RUN_CHAT_TASK_ERROR;
+use super::ops::TEST_FORCED_RUN_CHAT_TASK_ERROR;
 
 pub(crate) async fn run_chat_task(
     ctx: &crate::core::runtime::DispatchCtx,
@@ -74,7 +74,7 @@ pub(crate) async fn run_chat_task(
     #[cfg(any(test, debug_assertions))]
     {
         let block = {
-            let slot = crate::modules::ops::TEST_RUN_CHAT_TASK_BLOCK.lock().await;
+            let slot = super::ops::TEST_RUN_CHAT_TASK_BLOCK.lock().await;
             slot.clone()
         };
         if let Some(block) = block {
@@ -214,7 +214,7 @@ pub(crate) async fn run_chat_task(
             // A successful turn proves the thread's balance is usable, so drop
             // any stale budget-exhausted signal before it could mislabel a
             // later genuine empty response. See #3386.
-            crate::modules::ops::clear_budget_signal(ctx, thread_id).await;
+            super::ops::clear_budget_signal(ctx, thread_id).await;
             let citations = crate::memory::tools::take_turn_citations(ctx, thread_id);
             let usage = agent.take_last_turn_usage_totals();
             Ok(WebChatTaskResult {
@@ -232,18 +232,18 @@ pub(crate) async fn run_chat_task(
             // Only consult the cross-turn signal for an empty response that is
             // not already a budget error — avoids taking the lock on every turn.
             let has_fresh_signal = if !is_budget && is_empty {
-                crate::modules::ops::has_fresh_budget_signal(ctx, thread_id, &current_fp.provider_binding)
+                super::ops::has_fresh_budget_signal(ctx, thread_id, &current_fp.provider_binding)
                     .await
             } else {
                 false
             };
-            match crate::modules::ops::classify_budget_correlation(is_budget, is_empty, has_fresh_signal) {
+            match super::ops::classify_budget_correlation(is_budget, is_empty, has_fresh_signal) {
                 BudgetCorrelation::BudgetExhausted => {
                     // Remember the exhaustion (scoped to this provider binding)
                     // so a follow-up empty 200 on this thread+provider (managed
                     // route closes the SSE clean under credit exhaustion, no
                     // inline marker) reclassifies as budget. #3386.
-                    crate::modules::ops::record_budget_signal(ctx, thread_id, &current_fp.provider_binding)
+                    super::ops::record_budget_signal(ctx, thread_id, &current_fp.provider_binding)
                         .await;
                     log::warn!(
                         "[web-channel] inference budget exhausted for client={} thread={} request_id={} error_category=budget_exhausted",
@@ -348,7 +348,7 @@ pub(crate) async fn run_chat_task(
 
     // Test hook: wedge the turn after its run, as a stuck save would.
     #[cfg(any(test, debug_assertions))]
-    if crate::modules::ops::TEST_PARK_AFTER_RUN.load(std::sync::atomic::Ordering::SeqCst) {
+    if super::ops::TEST_PARK_AFTER_RUN.load(std::sync::atomic::Ordering::SeqCst) {
         log::debug!(
             "[web-channel][test] parking run_chat_task after the run request_id={request_id}"
         );

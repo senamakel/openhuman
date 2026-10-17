@@ -16,7 +16,7 @@ use tracing::{debug, warn};
 use crate::core::Outcome;
 use crate::platform::socket::manager::global_socket_manager;
 
-use crate::modules::ops::is_port_in_use;
+use super::ops::is_port_in_use;
 
 const DEFAULT_CORE_PORT: u16 = 7788;
 const DEFAULT_FALLBACK_START: u16 = 7789;

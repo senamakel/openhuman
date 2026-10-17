@@ -253,7 +253,7 @@ async fn connect_with_config(config: &Config, p: ConnectParams) -> Result<Value,
         .parse()
         .map_err(|error: String| format!("invalid authMode: {error}"))?;
     let creds = p.credentials.unwrap_or(Value::Object(Map::new()));
-    let outcome = crate::modules::ops::connect_channel(config, channel, mode, creds).await?;
+    let outcome = super::ops::connect_channel(config, channel, mode, creds).await?;
     let logs = connect_logs(channel, mode, outcome.value.auth_action.is_some());
     to_json(Outcome::new(outcome.value, logs))
 }
@@ -308,14 +308,14 @@ fn handle_set_default(ctx: DispatchCtx, params: Map<String, Value>) -> Controlle
     Box::pin(async move {
         let mut config = ctx.load_config().await?;
         let p = deserialize_params::<SetDefaultParams>(params)?;
-        to_json(crate::modules::ops::set_default_channel(&mut config, p.channel.trim()).await?)
+        to_json(super::ops::set_default_channel(&mut config, p.channel.trim()).await?)
     })
 }
 
 fn handle_get_default(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::modules::ops::get_default_channel(&config)?)
+        to_json(super::ops::get_default_channel(&config)?)
     })
 }
 
@@ -333,14 +333,14 @@ async fn test_with_config(config: &Config, params: TestParams) -> Result<Value, 
         .parse()
         .map_err(|e: String| format!("invalid authMode: {e}"))?;
     to_json(
-        crate::modules::ops::test_channel(config, params.channel.trim(), mode, params.credentials).await?,
+        super::ops::test_channel(config, params.channel.trim(), mode, params.credentials).await?,
     )
 }
 
 fn handle_discord_list_guilds(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::modules::ops::discord_list_guilds(&config).await?)
+        to_json(super::ops::discord_list_guilds(&config).await?)
     })
 }
 
@@ -348,7 +348,7 @@ fn handle_discord_list_channels(ctx: DispatchCtx, params: Map<String, Value>) ->
     Box::pin(async move {
         let config = ctx.load_config().await?;
         let p = deserialize_params::<DiscordListChannelsParams>(params)?;
-        to_json(crate::modules::ops::discord_list_channels(&config, p.guild_id.trim()).await?)
+        to_json(super::ops::discord_list_channels(&config, p.guild_id.trim()).await?)
     })
 }
 
@@ -360,7 +360,7 @@ fn handle_discord_check_permissions(
         let config = ctx.load_config().await?;
         let p = deserialize_params::<DiscordCheckPermissionsParams>(params)?;
         to_json(
-            crate::modules::ops::discord_check_permissions(&config, p.guild_id.trim(), p.channel_id.trim())
+            super::ops::discord_check_permissions(&config, p.guild_id.trim(), p.channel_id.trim())
                 .await?,
         )
     })

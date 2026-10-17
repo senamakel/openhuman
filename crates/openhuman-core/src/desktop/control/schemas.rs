@@ -83,7 +83,7 @@ fn status(ctx: DispatchCtx, _: Map<String, Value>) -> ControllerFuture {
             .await
             .map_err(|error| format!("config unavailable: {error}"))?;
         crate::core::runtime::components::require_config(&config, "computer")?;
-        serde_json::to_value(crate::modules::ops::status(&config).await).map_err(|error| error.to_string())
+        serde_json::to_value(super::ops::status(&config).await).map_err(|error| error.to_string())
     })
 }
 
@@ -98,7 +98,7 @@ fn set_enabled(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture
             .await
             .map_err(|error| format!("config unavailable: {error}"))?;
         crate::core::runtime::components::require_config(&config, "computer")?;
-        let result = crate::modules::ops::set_enabled(&config, value).await?;
+        let result = super::ops::set_enabled(&config, value).await?;
         serde_json::to_value(result).map_err(|error| error.to_string())
     })
 }
@@ -110,7 +110,7 @@ fn probe(ctx: DispatchCtx, _: Map<String, Value>) -> ControllerFuture {
             .await
             .map_err(|error| format!("config unavailable: {error}"))?;
         crate::core::runtime::components::require_config(&config, "computer")?;
-        serde_json::to_value(crate::modules::ops::probe(&config).await).map_err(|error| error.to_string())
+        serde_json::to_value(super::ops::probe(&config).await).map_err(|error| error.to_string())
     })
 }
 

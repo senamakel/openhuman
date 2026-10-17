@@ -130,7 +130,7 @@ async fn a_credential_install_waits_for_an_archive_in_flight_and_then_fails() {
     // A deprovision of this profile is in flight: it holds the profile's
     // lifecycle lock across clearing the credential and archiving.
     let archiving = host.lifecycle.lock(&id).await;
-    let install = super::crate::modules::ops::set_credential_on(
+    let install = super::super::ops::set_credential_on(
         &host,
         id.as_str(),
         UserCredentialKind::Session,

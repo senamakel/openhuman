@@ -10,7 +10,7 @@ use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 /// Refuse with the typed `COMPONENT_DISABLED:sandbox` error while `[components]
 /// sandbox` is off for the context the call runs under; with none, it is on.
 fn gate(ctx: &DispatchCtx) -> Result<(), String> {
-    if crate::modules::ops::sandbox_component_off(ctx) {
+    if super::ops::sandbox_component_off(ctx) {
         return Err(crate::core::runtime::components::component_disabled("sandbox").encode());
     }
     Ok(())
@@ -202,7 +202,7 @@ fn handle_status(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
             }
         };
 
-        let mut policy = crate::modules::ops::resolve_sandbox_policy(
+        let mut policy = super::ops::resolve_sandbox_policy(
             &ctx,
             mode,
             &config.workspace_dir,
@@ -211,7 +211,7 @@ fn handle_status(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
             is_remote,
         );
         if !crate::core::runtime::is_saas() {
-            crate::modules::ops::apply_requested_backend(
+            super::ops::apply_requested_backend(
                 &mut policy,
                 &config.sandbox,
                 &config.runtime,
@@ -220,7 +220,7 @@ fn handle_status(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
             .await
             .map_err(|e| e.to_string())?;
         }
-        let handle = crate::modules::ops::create_sandbox_backend_with_config(&policy, &config).await?;
+        let handle = super::ops::create_sandbox_backend_with_config(&policy, &config).await?;
         to_json(Outcome::new(handle, vec![]))
     })
 }
@@ -263,7 +263,7 @@ fn handle_resolve_policy(ctx: DispatchCtx, params: Map<String, Value>) -> Contro
         // embedder-supplied config carries whatever `CoreBuilder::action_dir(..)`
         // set directly. Re-deriving it here from `action_dir_override` alone
         // would silently ignore an embedder's programmatic `action_dir` (#6081).
-        let mut policy = crate::modules::ops::resolve_sandbox_policy(
+        let mut policy = super::ops::resolve_sandbox_policy(
             &ctx,
             mode,
             &config.action_dir,
@@ -272,7 +272,7 @@ fn handle_resolve_policy(ctx: DispatchCtx, params: Map<String, Value>) -> Contro
             is_remote,
         );
         if !crate::core::runtime::is_saas() {
-            crate::modules::ops::apply_requested_backend(
+            super::ops::apply_requested_backend(
                 &mut policy,
                 &config.sandbox,
                 &config.runtime,

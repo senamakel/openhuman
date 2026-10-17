@@ -18,7 +18,7 @@ use tinyagents_definition::SandboxMode;
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolResult, ToolRunContext};
 
 use super::super::contract::{toolkit_from_slug, ToolScope};
-use super::crate::modules::ops::load_user_scope_pref;
+use super::super::ops::load_user_scope_pref;
 use super::scope_gate::{
     action_mutates_external_state, evaluate_tool_visibility, resolve_action_scope,
     scope_error_message, ToolDecision,

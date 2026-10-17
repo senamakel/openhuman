@@ -112,7 +112,7 @@ impl Tool for DesktopTool {
         let thread_id = context
             .and_then(ToolRunContext::thread_id)
             .filter(|thread_id| !thread_id.is_empty());
-        if !crate::modules::ops::listener_is_loopback() || !crate::modules::ops::enabled(&self.config) {
+        if !super::ops::listener_is_loopback() || !super::ops::enabled(&self.config) {
             return Ok(ToolResult::error(
                 "Desktop control is disabled in Connections.",
             ));
@@ -138,7 +138,7 @@ impl Tool for DesktopTool {
             .and_then(Value::as_str)
             .unwrap_or("unknown");
         let accessibility =
-            crate::modules::ops::normalize_permission_for_platform(accessibility_raw, std::env::consts::OS);
+            super::ops::normalize_permission_for_platform(accessibility_raw, std::env::consts::OS);
         if accessibility != "granted"
             && accessibility != "not_required"
             && self.kind.declared().needs_accessibility()

@@ -6,7 +6,7 @@ use serde_json::{Map, Value};
 use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
-use crate::modules::ops::StoredAppStatePatch;
+use super::ops::StoredAppStatePatch;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -14,7 +14,7 @@ struct UpdateLocalStateParams {
     #[serde(default, deserialize_with = "deserialize_nullable_patch")]
     encryption_key: Option<Option<String>>,
     #[serde(default, deserialize_with = "deserialize_nullable_patch")]
-    onboarding_tasks: Option<Option<crate::modules::ops::StoredOnboardingTasks>>,
+    onboarding_tasks: Option<Option<super::ops::StoredOnboardingTasks>>,
     #[serde(default, deserialize_with = "deserialize_nullable_patch")]
     keyring_consent: Option<Option<crate::security::keyring_consent::ConsentPreference>>,
 }

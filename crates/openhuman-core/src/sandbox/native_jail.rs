@@ -54,7 +54,7 @@ pub(crate) async fn status(
     );
     Ok((
         status.backend,
-        crate::modules::ops::local_status_for_jail(isolation),
+        super::ops::local_status_for_jail(isolation),
         isolation,
     ))
 }

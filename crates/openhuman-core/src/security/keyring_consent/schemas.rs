@@ -91,7 +91,7 @@ fn keyring_consent_schema(function: &str) -> ControllerSchema {
 
 fn handle_status(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        crate::modules::ops::keyring_status()
+        super::ops::keyring_status()
             .await?
             .into_cli_compatible_json()
     })
@@ -104,7 +104,7 @@ fn handle_decide(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
             .and_then(|v| v.as_str())
             .ok_or("missing required param 'mode'")?
             .to_string();
-        crate::modules::ops::keyring_consent_decide(&ctx, mode)
+        super::ops::keyring_consent_decide(&ctx, mode)
             .await?
             .into_cli_compatible_json()
     })
@@ -112,7 +112,7 @@ fn handle_decide(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
 
 fn handle_retry_probe(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        crate::modules::ops::keyring_retry_probe()
+        super::ops::keyring_retry_probe()
             .await?
             .into_cli_compatible_json()
     })

@@ -117,6 +117,37 @@ test("the helper never computes a digest", () => {
   }
 });
 
+test("repin reads nested ReleaseRecord assets and only uses published library digests", () => {
+  const record = `pub(crate) const TINYX: ModuleRecord = ModuleRecord {
+    release: ReleaseRecord {
+        id: "tinyx",
+        bus_name: "ai.tinyhumans.tinyx",
+        object_path: "/ai/tinyhumans/tinyx",
+        version: "0.2.0",
+        release_url: "https://github.com/tinyhumansai/tinyx/releases/tag/v0.2.0",
+        assets: &[ReleaseAsset {
+            host_key: "ubuntu-24.04-x86_64",
+            archive: "tinyx-module-0.2.0-ubuntu-24.04-x86_64.tar.gz",
+            sha256: "${OLD}",
+            library_sha256: None,
+        }],
+    },
+    description: "test module",
+    load: LoadPolicy::Lazy,
+    source: SourceSpec { submodule: "tinyx", manifest: "Cargo.toml", package: "tinyx-module", lib_name: "tinyx_module", features: &[] },
+};`;
+  const publishedLibrary = "4".repeat(64);
+  const sums = parseChecksumToml(`[sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${SHA_X}"\n\n[library_sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${publishedLibrary}"\n`);
+  const updated = rewriteRecord(record, "tinyx", "0.3.0", sums);
+  assert.equal(updated.changed, true);
+  assert.match(updated.src, new RegExp(`sha256: "${SHA_X}"`));
+  assert.match(updated.src, new RegExp(`library_sha256: Some\\("${publishedLibrary}"\\)`));
+
+  const archiveOnly = parseChecksumToml(`[sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${SHA_X}"\n`);
+  const withoutPublishedLibrary = rewriteRecord(record, "tinyx", "0.3.0", archiveOnly);
+  assert.match(withoutPublishedLibrary.src, /library_sha256: None/);
+});
+
 test("bumpVersion and parseArgs", () => {
   assert.equal(bumpVersion("0.2.9", "patch"), "0.2.10");
   assert.equal(bumpVersion("0.2.9", "minor"), "0.3.0");

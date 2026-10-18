@@ -130,9 +130,16 @@ test("search source release matches the loaded search artifact", () => {
     (record) => record.id === "tinysearch",
   );
   assert.ok(record, "search adapter requires a registered module");
-  const source = readFileSync(join(REPO_ROOT, "vendor/tinysearch/Cargo.toml"), "utf8");
+  const source = readFileSync(
+    join(REPO_ROOT, "vendor/tinysearch/Cargo.toml"),
+    "utf8",
+  );
   const version = source.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
-  assert.equal(version, record.version, "search source must match its loaded artifact");
+  assert.equal(
+    version,
+    record.version,
+    "search source must match its loaded artifact",
+  );
 });
 
 test("wallet source release matches the loaded wallet artifact", () => {
@@ -140,9 +147,16 @@ test("wallet source release matches the loaded wallet artifact", () => {
     (record) => record.id === "tinywallet",
   );
   assert.ok(record, "wallet adapter requires a registered module");
-  const source = readFileSync(join(REPO_ROOT, "vendor/tinywallet/Cargo.toml"), "utf8");
+  const source = readFileSync(
+    join(REPO_ROOT, "vendor/tinywallet/Cargo.toml"),
+    "utf8",
+  );
   const version = source.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
-  assert.equal(version, record.version, "wallet source must match its loaded artifact");
+  assert.equal(
+    version,
+    record.version,
+    "wallet source must match its loaded artifact",
+  );
 });
 
 // ── Registry parsing ──────────────────────────────────────────────────────────
@@ -194,7 +208,8 @@ test("parses a crate-visible record definition", () => {
 });
 
 test("parses pinned assets from a nested SDK ReleaseRecord", () => {
-  const records = parseRecords(`pub(crate) const TINYTEST: ModuleRecord = ModuleRecord {
+  const records =
+    parseRecords(`pub(crate) const TINYTEST: ModuleRecord = ModuleRecord {
   release: ReleaseRecord {
     id: "tinytest",
     bus_name: "ai.tinyhumans.tinytest",
@@ -223,7 +238,10 @@ test("parses pinned assets from a nested SDK ReleaseRecord", () => {
   const record = records.get("TINYTEST");
   assert.equal(record.id, "tinytest");
   assert.equal(record.version, "1.2.3");
-  assert.equal(record.releaseUrl, "https://github.com/acme/tinytest/releases/tag/v1.2.3");
+  assert.equal(
+    record.releaseUrl,
+    "https://github.com/acme/tinytest/releases/tag/v1.2.3",
+  );
   assert.deepEqual(record.assets, [
     {
       hostKey: "ubuntu-24.04-x86_64",

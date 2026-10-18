@@ -68,7 +68,8 @@ function releaseBody(body) {
 export function rewriteRecord(src, id, newVersion, checksums) {
   let changed = false;
   const out = src.replace(RECORD_RE, (whole, head, body, tail) => {
-    if (!new RegExp(`^\\s*id: "${id}",`, "m").test(releaseBody(body))) return whole;
+    if (!new RegExp(`^\\s*id: "${id}",`, "m").test(releaseBody(body)))
+      return whole;
     const oldVersion = releaseBody(body).match(/^\s*version: "([^"]+)"/m)?.[1];
     if (!oldVersion) throw new Error(`${id}: record has no version`);
     changed = true;
@@ -80,22 +81,20 @@ export function rewriteRecord(src, id, newVersion, checksums) {
         (_, a, url, c) =>
           `${a}${url.replace(/\/tag\/v[^/]+$/, `/tag/v${newVersion}`)}${c}`,
       );
-    next = next.replace(
-      ASSET_RE,
-      (asset, kind, hostKey, archive) => {
-        const renamed = archive.replace(oldVersion, newVersion);
-        const sha = checksums.get(renamed);
-        if (!sha) {
-          missing.push(renamed);
-          return asset;
-        }
-        const librarySha = checksums.librarySha256?.get(renamed);
-        const libraryField = kind === "ReleaseAsset"
+    next = next.replace(ASSET_RE, (asset, kind, hostKey, archive) => {
+      const renamed = archive.replace(oldVersion, newVersion);
+      const sha = checksums.get(renamed);
+      if (!sha) {
+        missing.push(renamed);
+        return asset;
+      }
+      const librarySha = checksums.librarySha256?.get(renamed);
+      const libraryField =
+        kind === "ReleaseAsset"
           ? `\n            library_sha256: ${librarySha ? `Some("${librarySha}")` : "None"},`
           : "";
-        return `${kind} {\n            host_key: "${hostKey}",\n            archive: "${renamed}",\n            sha256: "${sha}",${libraryField}\n        }`;
-      },
-    );
+      return `${kind} {\n            host_key: "${hostKey}",\n            archive: "${renamed}",\n            sha256: "${sha}",${libraryField}\n        }`;
+    });
     if (missing.length > 0) {
       throw new Error(
         `${id}: v${newVersion} checksum.toml has no entry for ${missing.join(", ")}`,

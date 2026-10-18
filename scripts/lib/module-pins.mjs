@@ -65,14 +65,21 @@ export function parseRecords(src) {
   for (const m of src.matchAll(re)) {
     const [, name, body] = m;
     const field = (f) => {
-      const hit = body.match(new RegExp(`^\\s*${f}: "([^"]*)"`, "m"));
+      const hit = releaseBody.match(new RegExp(`^\\s*${f}: "([^"]*)"`, "m"));
       return hit ? hit[1] : null;
     };
+    const releaseBody =
+      body.match(/release:\s*ReleaseRecord\s*\{([\s\S]*?)\n\s*\},/)?.[1] ?? body;
     const assets = [];
     const assetRe =
-      /PlatformAsset \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*\}/g;
-    for (const a of body.matchAll(assetRe)) {
-      assets.push({ hostKey: a[1], archive: a[2], sha256: a[3] });
+      /(?:PlatformAsset|ReleaseAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256: (?:Some\("([^"]+)"\)|None),\s*)?\}/g;
+    for (const a of releaseBody.matchAll(assetRe)) {
+      assets.push({
+        hostKey: a[1],
+        archive: a[2],
+        sha256: a[3],
+        librarySha256: a[4] ?? null,
+      });
     }
     records.set(name, {
       name,

@@ -193,6 +193,39 @@ test("parses a crate-visible record definition", () => {
   assert.equal(records.get("TINYTEST")?.id, "tinytest");
 });
 
+test("parses pinned assets from a nested SDK ReleaseRecord", () => {
+  const records = parseRecords(`pub(crate) const TINYTEST: ModuleRecord = ModuleRecord {
+  release: ReleaseRecord {
+    id: "tinytest",
+    bus_name: "ai.tinyhumans.tinytest",
+    object_path: "/ai/tinyhumans/tinytest",
+    version: "1.2.3",
+    release_url: "https://github.com/acme/tinytest/releases/tag/v1.2.3",
+    assets: &[ReleaseAsset {
+      host_key: "ubuntu-24.04-x86_64",
+      archive: "tinytest-v1.2.3-linux.tar.gz",
+      sha256: "${"a".repeat(64)}",
+      library_sha256: Some("${"b".repeat(64)}"),
+    }],
+  },
+  description: "test module",
+  load: LoadPolicy::Lazy,
+  source: SourceSpec { submodule: "tinytest", manifest: "Cargo.toml", package: "tinytest", lib_name: "tinytest", features: &[] },
+};`);
+  const record = records.get("TINYTEST");
+  assert.equal(record.id, "tinytest");
+  assert.equal(record.version, "1.2.3");
+  assert.equal(record.releaseUrl, "https://github.com/acme/tinytest/releases/tag/v1.2.3");
+  assert.deepEqual(record.assets, [
+    {
+      hostKey: "ubuntu-24.04-x86_64",
+      archive: "tinytest-v1.2.3-linux.tar.gz",
+      sha256: "a".repeat(64),
+      librarySha256: "b".repeat(64),
+    },
+  ]);
+});
+
 // ── Provider records ──────────────────────────────────────────────────────────
 
 const SHA_A = "a".repeat(40);

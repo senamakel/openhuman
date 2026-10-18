@@ -52,8 +52,14 @@ async fn memory_activity_carries_the_calling_turns_chat() {
     let expected_unrouted_hits = serde_json::from_str::<Value>(&text(&unrouted)).unwrap()["items"]
         .as_u64()
         .unwrap();
-    assert!(expected_routed_hits > 0, "the seeded memory must be recalled");
-    assert!(expected_unrouted_hits > 0, "the seeded memory must be recalled");
+    assert!(
+        expected_routed_hits > 0,
+        "the seeded memory must be recalled"
+    );
+    assert!(
+        expected_unrouted_hits > 0,
+        "the seeded memory must be recalled"
+    );
 
     // The bus is process-wide: match our own events by the question text.
     let mut seen = std::collections::HashMap::new();

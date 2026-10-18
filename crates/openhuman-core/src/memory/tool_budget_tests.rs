@@ -13,9 +13,15 @@ async fn a_slow_memory_call_returns_and_disables_memory_only_for_its_turn() {
         .await;
     assert!(result.is_error);
     assert!(result.text().contains("Continue answering"));
-    assert!(!is_budget_refusal(&result), "a timeout is an ordinary tool error");
+    assert!(
+        !is_budget_refusal(&result),
+        "a timeout is an ordinary tool error"
+    );
     assert_ne!(
-        result.metadata.as_ref().and_then(|metadata| metadata.get("openhuman.memory_budget")),
+        result
+            .metadata
+            .as_ref()
+            .and_then(|metadata| metadata.get("openhuman.memory_budget")),
         Some(&serde_json::json!("refused")),
         "timeouts must not carry the budget-refusal marker"
     );

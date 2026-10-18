@@ -417,10 +417,12 @@ async fn learnings_are_shared_under_a_root_and_a_team_root_is_kept_apart() {
         "{}",
         forgot.text()
     );
-    assert!(stored(&engine, MetaFilter::default())
-        .await
-        .iter()
-        .all(|hit| hit.meta.namespace != Namespace::agent("nobody")));
+    assert!(
+        stored(&engine, MetaFilter::default())
+            .await
+            .iter()
+            .all(|hit| hit.meta.namespace != Namespace::agent("nobody"))
+    );
 }
 
 /// The reference engine, recording how far each single store waited.

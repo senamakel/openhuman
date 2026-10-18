@@ -1,6 +1,14 @@
 use super::*;
 use crate::memory::test_fixtures::config_in;
 
+struct LiveImportReservation(std::path::PathBuf);
+
+impl Drop for LiveImportReservation {
+    fn drop(&mut self) {
+        release(&self.0);
+    }
+}
+
 #[test]
 fn the_state_file_round_trips_through_the_atomic_store() {
     let tmp = tempfile::tempdir().unwrap();
@@ -125,6 +133,81 @@ async fn a_paused_scheduler_leaves_an_interrupted_import_for_later() {
         read_file(&config.workspace_dir).state.phase,
         ImportPhase::Running
     );
+}
+
+#[tokio::test]
+async fn a_live_import_blocks_migration_and_does_not_make_a_stale_migration_look_live() {
+    use crate::memory::layout_migration::{self, state, test_host::FakeHost, Phase, Trigger};
+
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let host = Arc::new(FakeHost::with(2, &config).await);
+    let workspace = config.workspace_dir.clone();
+    let inserted = RUNNING
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .insert(workspace.clone());
+    assert!(inserted, "the test owns a live import reservation");
+    let _reservation = LiveImportReservation(workspace.clone());
+
+    let mut stale = state::load(&workspace).unwrap();
+    stale.phase = Phase::Copying;
+    state::save(&workspace, &stale).unwrap();
+
+    let migration_status = layout_migration::status(&config).unwrap();
+    assert!(!migration_status.running);
+    assert!(migration_status.interrupted);
+    assert!(
+        !layout_migration::start(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            config.clone(),
+            host,
+            Trigger::Auto,
+            Arc::new(|| false),
+        ),
+        "an active import prevents migration from reserving the workspace"
+    );
+    assert!(!layout_migration::service::is_running(&config));
+
+}
+
+#[tokio::test]
+async fn a_credit_paused_import_waits_for_billing_and_records_a_resume_failure() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let mut file = ImportFile::default();
+    file.state.phase = ImportPhase::Error;
+    file.paused_for_credits = true;
+    FileCheckpointStore::new(&config.workspace_dir)
+        .save(&file)
+        .unwrap();
+
+    assert!(
+        !resume_interrupted_with(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            &config,
+            Arc::new(|| false),
+            Arc::new(|_: &Config| false),
+        )
+        .await
+    );
+    assert_eq!(read_file(&config.workspace_dir), file);
+
+    assert!(
+        !resume_interrupted_with(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            &config,
+            Arc::new(|| false),
+            Arc::new(|_: &Config| true),
+        )
+        .await,
+        "a permitted resume still reports failure when no engine can be bound"
+    );
+    let stopped = read_file(&config.workspace_dir);
+    assert_eq!(stopped.state.phase, ImportPhase::Error);
+    assert!(stopped.state.error.as_deref().unwrap().contains("could not resume"));
+    assert!(!stopped.paused_for_credits);
+    assert!(!running(&config.workspace_dir));
 }
 
 #[test]

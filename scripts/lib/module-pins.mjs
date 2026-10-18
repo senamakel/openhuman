@@ -75,7 +75,7 @@ export function parseRecords(src) {
       rustStructBodyAfter(body, "release: ReleaseRecord") ?? body;
     const assets = [];
     const assetRe =
-      /(?:PlatformAsset|ReleaseAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256: (?:Some\("([^"]+)"\)|None),\s*)?\}/g;
+      /(?:PlatformAsset|ReleaseAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256:\s*(?:Some\(\s*"([^"]+)"\s*,?\s*\)|None),\s*)?\}/g;
     for (const a of releaseBody.matchAll(assetRe)) {
       assets.push({
         hostKey: a[1],

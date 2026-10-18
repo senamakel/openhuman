@@ -51,7 +51,7 @@ export function bumpVersion(version, bump) {
 const RECORD_RE =
   /(const [A-Z0-9_]+: ModuleRecord = ModuleRecord \{)([\s\S]*?)(\n\};)/g;
 const ASSET_RE =
-  /(ReleaseAsset|PlatformAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256: (?:Some\("[^"]*"\)|None),\s*)?\}/g;
+  /(ReleaseAsset|PlatformAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256:\s*(?:Some\(\s*"[^"]*"\s*,?\s*\)|None),\s*)?\}/g;
 
 function releaseBody(body) {
   return rustStructBodyAfter(body, "release: ReleaseRecord") ?? body;

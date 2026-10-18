@@ -75,14 +75,8 @@ fn proactive_event() -> DomainEvent {
         source: "cron:test".into(),
         message: "Hello!".into(),
         job_name: Some("test".into()),
+        tenant: None,
     }
-}
-
-#[tokio::test]
-async fn web_only_does_not_panic() {
-    let sub = ProactiveMessageSubscriber::web_only();
-    // Should publish to web channel and not panic.
-    sub.handle(&proactive_event()).await;
 }
 
 #[tokio::test]
@@ -101,6 +95,29 @@ async fn routes_to_active_external_channel() {
 
     assert_eq!(send_count.load(Ordering::SeqCst), 1);
     assert_eq!(outbound_intent_count.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn web_and_external_proactive_subscribers_deliver_each_destination_once() {
+    let send_count = Arc::new(AtomicUsize::new(0));
+    let ch: Arc<dyn Channel> = Arc::new(MockChannel::new("telegram", Arc::clone(&send_count)));
+    let map: HashMap<String, Arc<dyn Channel>> = [("telegram".into(), ch)].into();
+    let external = ProactiveMessageSubscriber::new(Arc::new(map), Some("telegram".into()));
+    let web = crate::web_chat::proactive::WebProactiveSubscriber;
+    let mut web_events = crate::web_chat::subscribe_web_channel_events();
+    let event = proactive_event();
+
+    web.handle(&event).await;
+    external.handle(&event).await;
+
+    let delivered = web_events.recv().await.expect("web event");
+    assert_eq!(delivered.event, "proactive_message");
+    assert_eq!(delivered.full_response.as_deref(), Some("Hello!"));
+    assert!(
+        web_events.try_recv().is_err(),
+        "web event must not be duplicated"
+    );
+    assert_eq!(send_count.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

@@ -169,7 +169,7 @@ alerts tab and run history.
 | Mode | What happens |
 | --- | --- |
 | `none` | Silent. Output lives in the job's `last_output` only. This is `DeliveryConfig::default()`. |
-| `proactive` | Publishes `ProactiveMessageRequested`. `channels::proactive::ProactiveMessageSubscriber` pushes to the in-app web stream and mirrors to `channels_config.active_channel` when set. Used for briefings and other desktop-first output. |
+| `proactive` | Publishes `ProactiveMessageRequested` with the originating tenant. `web_chat::proactive::WebProactiveSubscriber` publishes to that tenant's in-app web stream; when configured, `channels::proactive::ProactiveMessageSubscriber` also sends to `channels_config.active_channel`. Used for briefings and other user-facing proactive output. |
 | `announce` | Requires `channel` and `to`. Publishes `CronDeliveryRequested`; `cron::bus::CronDeliverySubscriber` (`cron::delivery`) sends it through the named `tinychannels_bus::Channel`. The `cron_add` tool checks `to` against the channel's `allowed_users`. |
 | `origin` | Sends the reply back into the conversation that created the job ([`scheduler/origin_delivery.rs`](./scheduler/origin_delivery.rs)). Requires `CronJob.origin`. |
 
@@ -375,8 +375,9 @@ Cron publishes, through [`core/bus.rs`](../core/bus.rs), these `DomainEvent` var
 - `SystemStartup` and `HealthChanged` for component `scheduler`.
 - `CronJobTriggered` and `CronJobCompleted` around each scheduled execution
   (output truncated to 512 characters).
-- `ProactiveMessageRequested` (`proactive` delivery), consumed by
-  `channels::proactive`.
+- `ProactiveMessageRequested` (`proactive` delivery), consumed by the
+  always-registered `web_chat::proactive` subscriber and, when the channels
+  runtime is enabled, `channels::proactive` for external delivery.
 - `CronDeliveryRequested` (`announce` delivery), consumed by
   `cron::bus::CronDeliverySubscriber`.
 - `CronSystemJobDue`, consumed by `memory::bus`.

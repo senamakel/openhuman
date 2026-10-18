@@ -194,9 +194,10 @@ pub(super) async fn deliver_run(
             }
         }
 
-        // Proactive delivery — the channels module decides where to send.
-        // Used by morning briefings, welcome messages, and other
-        // user-facing proactive agents.
+        // Proactive delivery — independent web and optional external-channel
+        // subscribers deliver the message to the tenant that ran this job.
+        // Used by morning briefings, welcome messages, and other user-facing
+        // proactive agents.
         "proactive" => {
             if deliver_to_chat {
                 let source = format!("cron:{}", job.id);
@@ -209,6 +210,7 @@ pub(super) async fn deliver_run(
                     source,
                     message: output.to_string(),
                     job_name: job.name.clone(),
+                    tenant: ctx.event_tenant(),
                 });
                 status = DeliveryStatus::Delivered;
             }

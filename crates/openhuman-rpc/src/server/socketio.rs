@@ -293,8 +293,8 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
             // receives broadcast-style events that aren't tied to a
             // specific chat thread. Today this covers proactive messages
             // (welcome agent, morning briefing, cron-driven announcements)
-            // which `channels::proactive::ProactiveMessageSubscriber`
-            // emits with `client_id = "system"` — see `emit_web_channel_event`.
+            // which `web_chat::proactive::WebProactiveSubscriber` emits with
+            // `client_id = "system"` — see `emit_web_channel_event`.
             // If this join fails the welcome message silently disappears,
             // so we log both success and failure for diagnosability.
             let _ = join_room_logged(&socket, "system", &client_id);

@@ -219,10 +219,10 @@ fn all_variants_have_correct_domain() {
                 source: "cron:morning_briefing".into(),
                 message: "Good morning!".into(),
                 job_name: Some("morning_briefing".into()),
+                tenant: None,
             },
             "cron",
         ),
-        // Workflow
         (
             DomainEvent::WorkflowLoaded {
                 skill_id: "s".into(),

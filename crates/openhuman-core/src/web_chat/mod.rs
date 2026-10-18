@@ -32,6 +32,7 @@ mod event_bus;
 mod event_bus_channel;
 mod journal_shadow;
 mod ops;
+pub(crate) mod proactive;
 // Response delivery/segmentation for the web surface (folded in from the former
 // standalone `presentation` provider — it is the web channel's delivery formatter).
 pub mod presentation;

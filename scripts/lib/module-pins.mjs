@@ -5,6 +5,7 @@
 // See scripts/ci/check-module-pins.mjs for what the gate is for.
 
 import { posix } from "node:path";
+import { rustStructBodyAfter } from "./rust-struct-body.mjs";
 
 /**
  * Read a Rust module and the source fragments it brings in with `include!`.
@@ -69,7 +70,7 @@ export function parseRecords(src) {
       return hit ? hit[1] : null;
     };
     const releaseBody =
-      body.match(/release:\s*ReleaseRecord\s*\{([\s\S]*?)\n\s*\},/)?.[1] ?? body;
+      rustStructBodyAfter(body, "release: ReleaseRecord") ?? body;
     const assets = [];
     const assetRe =
       /(?:PlatformAsset|ReleaseAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256: (?:Some\("([^"]+)"\)|None),\s*)?\}/g;

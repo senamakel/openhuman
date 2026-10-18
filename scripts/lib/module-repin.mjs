@@ -5,6 +5,7 @@
 // checksum.toml. Nothing in this file hashes anything: a digest computed from a
 // local build agrees with itself no matter what was served, which defeats the
 // pin. A test pins that by scanning this file for any hashing import.
+import { rustStructBodyAfter } from "./rust-struct-body.mjs";
 
 /** `[sha256]` table of `"archive" = "hex"` pairs -> Map(archive -> hex). */
 export function parseChecksumToml(text) {
@@ -53,13 +54,7 @@ const ASSET_RE =
   /(ReleaseAsset|PlatformAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256: (?:Some\("[^"]*"\)|None),\s*)?\}/g;
 
 function releaseBody(body) {
-  return body.match(/(^\s*release:\s*ReleaseRecord\s*\{)([\s\S]*?)(\n\s*\},)/m)?.[2] ?? body;
-}
-
-function mapReleaseBody(body, update) {
-  const match = body.match(/(^\s*release:\s*ReleaseRecord\s*\{)([\s\S]*?)(\n\s*\},)/m);
-  if (!match) return update(body);
-  return body.replace(match[0], `${match[1]}${update(match[2])}${match[3]}`);
+  return rustStructBodyAfter(body, "release: ReleaseRecord") ?? body;
 }
 
 /**

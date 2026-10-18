@@ -5,17 +5,21 @@
 // checksum.toml. Nothing in this file hashes anything: a digest computed from a
 // local build agrees with itself no matter what was served, which defeats the
 // pin. A test pins that by scanning this file for any hashing import.
+import { rustStructBodyAfter } from "./rust-struct-body.mjs";
 
 /** `[sha256]` table of `"archive" = "hex"` pairs -> Map(archive -> hex). */
 export function parseChecksumToml(text) {
   const sums = new Map();
+  sums.librarySha256 = new Map();
   let inTable = false;
+  let tableName = "";
   for (const raw of String(text).split("\n")) {
     const line = raw.replace(/#.*$/, "").trim();
     if (!line) continue;
     const table = line.match(/^\[([^\]]+)\]$/);
     if (table) {
-      inTable = table[1].trim() === "sha256";
+      tableName = table[1].trim();
+      inTable = tableName === "sha256" || tableName === "library_sha256";
       continue;
     }
     if (!inTable) continue;
@@ -23,10 +27,10 @@ export function parseChecksumToml(text) {
     if (!pair) throw new Error(`checksum.toml: cannot parse line: ${line}`);
     if (!/^[0-9a-f]{64}$/.test(pair[2])) {
       throw new Error(
-        `checksum.toml: ${pair[1]} is not a 64-hex lowercase sha256`,
+        `checksum.toml: ${pair[1]} in [${tableName}] is not a 64-hex lowercase sha256`,
       );
     }
-    sums.set(pair[1], pair[2]);
+    (tableName === "sha256" ? sums : sums.librarySha256).set(pair[1], pair[2]);
   }
   if (sums.size === 0) throw new Error("checksum.toml: no [sha256] entries");
   return sums;
@@ -47,7 +51,11 @@ export function bumpVersion(version, bump) {
 const RECORD_RE =
   /(const [A-Z0-9_]+: ModuleRecord = ModuleRecord \{)([\s\S]*?)(\n\};)/g;
 const ASSET_RE =
-  /(PlatformAsset \{\s*host_key: ")([^"]+)(",\s*archive: ")([^"]+)(",\s*sha256: ")([^"]+)(",\s*\})/g;
+  /(ReleaseAsset|PlatformAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256:\s*(?:Some\(\s*"[^"]*"\s*,?\s*\)|None),\s*)?\}/g;
+
+function releaseBody(body) {
+  return rustStructBodyAfter(body, "release: ReleaseRecord") ?? body;
+}
 
 /**
  * Rewrite one record in a records_*.rs source to release `newVersion`.
@@ -60,8 +68,9 @@ const ASSET_RE =
 export function rewriteRecord(src, id, newVersion, checksums) {
   let changed = false;
   const out = src.replace(RECORD_RE, (whole, head, body, tail) => {
-    if (!new RegExp(`^\\s*id: "${id}",`, "m").test(body)) return whole;
-    const oldVersion = body.match(/^\s*version: "([^"]+)"/m)?.[1];
+    if (!new RegExp(`^\\s*id: "${id}",`, "m").test(releaseBody(body)))
+      return whole;
+    const oldVersion = releaseBody(body).match(/^\s*version: "([^"]+)"/m)?.[1];
     if (!oldVersion) throw new Error(`${id}: record has no version`);
     changed = true;
     const missing = [];
@@ -72,18 +81,20 @@ export function rewriteRecord(src, id, newVersion, checksums) {
         (_, a, url, c) =>
           `${a}${url.replace(/\/tag\/v[^/]+$/, `/tag/v${newVersion}`)}${c}`,
       );
-    next = next.replace(
-      ASSET_RE,
-      (_, a, hostKey, b, archive, c, _oldSha, d) => {
-        const renamed = archive.replace(oldVersion, newVersion);
-        const sha = checksums.get(renamed);
-        if (!sha) {
-          missing.push(renamed);
-          return _;
-        }
-        return `${a}${hostKey}${b}${renamed}${c}${sha}${d}`;
-      },
-    );
+    next = next.replace(ASSET_RE, (asset, kind, hostKey, archive) => {
+      const renamed = archive.replace(oldVersion, newVersion);
+      const sha = checksums.get(renamed);
+      if (!sha) {
+        missing.push(renamed);
+        return asset;
+      }
+      const librarySha = checksums.librarySha256?.get(renamed);
+      const libraryField =
+        kind === "ReleaseAsset"
+          ? `\n            library_sha256: ${librarySha ? `Some("${librarySha}")` : "None"},`
+          : "";
+      return `${kind} {\n            host_key: "${hostKey}",\n            archive: "${renamed}",\n            sha256: "${sha}",${libraryField}\n        }`;
+    });
     if (missing.length > 0) {
       throw new Error(
         `${id}: v${newVersion} checksum.toml has no entry for ${missing.join(", ")}`,
@@ -98,8 +109,9 @@ export function rewriteRecord(src, id, newVersion, checksums) {
 export function unusedChecksums(src, id, checksums) {
   const used = new Set();
   for (const record of src.matchAll(RECORD_RE)) {
-    if (!new RegExp(`^\\s*id: "${id}",`, "m").test(record[2])) continue;
-    for (const a of record[2].matchAll(ASSET_RE)) used.add(a[4]);
+    const release = releaseBody(record[2]);
+    if (!new RegExp(`^\\s*id: "${id}",`, "m").test(release)) continue;
+    for (const a of release.matchAll(ASSET_RE)) used.add(a[3]);
   }
   return [...checksums.keys()].filter((name) => !used.has(name));
 }

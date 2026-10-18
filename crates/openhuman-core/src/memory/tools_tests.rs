@@ -194,7 +194,8 @@ async fn recall_fetch_and_forget_round_trip_and_recall_records_citations() {
     .await;
     assert!(!recalled.is_error, "{}", text(&recalled));
     let cites = crate::web_chat::citations::take_turn_citations(&ambient(), "thread-citations");
-    assert!(cites.iter().any(|c| c.id == id), "{cites:?}");
+    assert_eq!(cites.len(), 1, "{cites:?}");
+    assert_eq!(cites[0].id, id, "citation ids stay available to the host");
     assert!(
         crate::web_chat::citations::take_turn_citations(&ambient(), "thread-citations").is_empty(),
         "draining empties the thread's citations"
@@ -681,6 +682,15 @@ async fn memory_activity_carries_the_calling_turns_chat() {
     let _engine = bind_reference(&config);
     let tool = MemoryTool::new(Arc::new(config.clone()));
 
+    for memory_text in ["routed marker question", "unrouted marker question"] {
+        let learned = tool
+            .execute(json!({"action": "learn", "text": memory_text}))
+            .await
+            .unwrap();
+        assert!(!learned.is_error, "{}", text(&learned));
+    }
+    super::super::tool_writes::drain(&config).await;
+
     let context = crate::agent::tinyagents::host::run_context::tool_context_with_approval(
         crate::security::approval::ApprovalTurnContext::chat(
             crate::security::approval::ApprovalChatContext {
@@ -704,6 +714,14 @@ async fn memory_activity_carries_the_calling_turns_chat() {
         .await
         .unwrap();
     assert!(!unrouted.is_error, "{}", text(&unrouted));
+    let expected_routed_hits = serde_json::from_str::<Value>(&text(&routed)).unwrap()["items"]
+        .as_u64()
+        .unwrap();
+    let expected_unrouted_hits = serde_json::from_str::<Value>(&text(&unrouted)).unwrap()["items"]
+        .as_u64()
+        .unwrap();
+    assert!(expected_routed_hits > 0, "the seeded memory must be recalled");
+    assert!(expected_unrouted_hits > 0, "the seeded memory must be recalled");
 
     // The bus is process-wide: match our own events by the question text.
     let mut seen = std::collections::HashMap::new();
@@ -713,9 +731,9 @@ async fn memory_activity_carries_the_calling_turns_chat() {
                 query,
                 thread_id,
                 client_id,
-                ..
+                hit_count,
             })) if query.contains("marker question") => {
-                seen.insert(query, (thread_id, client_id));
+                seen.insert(query, (thread_id, client_id, hit_count));
             }
             Ok(Some(_)) => continue,
             other => panic!("expected both MemoryRecalled events, got {other:?}"),
@@ -725,8 +743,12 @@ async fn memory_activity_carries_the_calling_turns_chat() {
         seen["routed marker question"],
         (
             Some("thread-activity".into()),
-            Some("client-activity".into())
+            Some("client-activity".into()),
+            expected_routed_hits as usize,
         )
     );
-    assert_eq!(seen["unrouted marker question"], (None, None));
+    assert_eq!(
+        seen["unrouted marker question"],
+        (None, None, expected_unrouted_hits as usize)
+    );
 }

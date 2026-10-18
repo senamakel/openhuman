@@ -165,7 +165,9 @@ test("repin reads nested ReleaseRecord assets and only uses published library di
             host_key: "ubuntu-24.04-x86_64",
             archive: "tinyx-module-0.2.0-ubuntu-24.04-x86_64.tar.gz",
             sha256: "${OLD}",
-            library_sha256: None,
+            library_sha256: Some(
+                "${"5".repeat(64)}",
+            ),
           },
           ReleaseAsset {
             host_key: "macos-15-arm64",
@@ -190,6 +192,7 @@ test("repin reads nested ReleaseRecord assets and only uses published library di
     updated.src,
     new RegExp(`library_sha256: Some\\("${publishedLibrary}"\\)`),
   );
+  assert.doesNotMatch(updated.src, new RegExp("5".repeat(64)));
   assert.deepEqual(unusedChecksums(updated.src, "tinyx", sums), []);
 
   const archiveOnly = parseChecksumToml(

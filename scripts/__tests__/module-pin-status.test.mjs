@@ -87,10 +87,25 @@ const git = (cwd, ...args) =>
 function record(name, id, version, sub) {
   return `
 pub(crate) const ${name}: ModuleRecord = ModuleRecord {
-    id: "${id}",
-    version: "${version}",
-    release_url: "https://github.com/tinyhumansai/${sub}/releases/tag/v${version}",
-    assets: &[],
+    release: ReleaseRecord {
+        id: "${id}",
+        bus_name: "ai.tinyhumans.${id}",
+        object_path: "/ai/tinyhumans/${id}",
+        version: "${version}",
+        release_url: "https://github.com/tinyhumansai/${sub}/releases/tag/v${version}",
+        assets: &[
+            ReleaseAsset {
+                host_key: "ubuntu-24.04-x86_64",
+                archive: "${sub}-module-${version}.tar.gz",
+                sha256: "${"a".repeat(64)}",
+                library_sha256: Some(
+                    "${"b".repeat(64)}",
+                ),
+            },
+        ],
+    },
+    description: "${id} fixture",
+    load: LoadPolicy::Lazy,
     source: SourceSpec {
         submodule: "${sub}",
         manifest: "Cargo.toml",

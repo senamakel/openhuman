@@ -221,7 +221,9 @@ test("parses pinned assets from a nested SDK ReleaseRecord", () => {
         host_key: "ubuntu-24.04-x86_64",
         archive: "tinytest-v1.2.3-linux.tar.gz",
         sha256: "${"a".repeat(64)}",
-        library_sha256: Some("${"b".repeat(64)}"),
+        library_sha256: Some(
+          "${"b".repeat(64)}",
+        ),
       },
       ReleaseAsset {
         host_key: "macos-15-arm64",

@@ -201,17 +201,20 @@ test("parses pinned assets from a nested SDK ReleaseRecord", () => {
     object_path: "/ai/tinyhumans/tinytest",
     version: "1.2.3",
     release_url: "https://github.com/acme/tinytest/releases/tag/v1.2.3",
-    assets: &[ReleaseAsset {
-      host_key: "ubuntu-24.04-x86_64",
-      archive: "tinytest-v1.2.3-linux.tar.gz",
-      sha256: "${"a".repeat(64)}",
-      library_sha256: Some("${"b".repeat(64)}"),
-    }, ReleaseAsset {
-      host_key: "macos-15-arm64",
-      archive: "tinytest-v1.2.3-macos.tar.gz",
-      sha256: "${"c".repeat(64)}",
-      library_sha256: None,
-    }],
+    assets: &[
+      ReleaseAsset {
+        host_key: "ubuntu-24.04-x86_64",
+        archive: "tinytest-v1.2.3-linux.tar.gz",
+        sha256: "${"a".repeat(64)}",
+        library_sha256: Some("${"b".repeat(64)}"),
+      },
+      ReleaseAsset {
+        host_key: "macos-15-arm64",
+        archive: "tinytest-v1.2.3-macos.tar.gz",
+        sha256: "${"c".repeat(64)}",
+        library_sha256: None,
+      },
+    ],
   },
   description: "test module",
   load: LoadPolicy::Lazy,

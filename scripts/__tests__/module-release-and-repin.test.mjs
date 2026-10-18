@@ -125,17 +125,20 @@ test("repin reads nested ReleaseRecord assets and only uses published library di
         object_path: "/ai/tinyhumans/tinyx",
         version: "0.2.0",
         release_url: "https://github.com/tinyhumansai/tinyx/releases/tag/v0.2.0",
-        assets: &[ReleaseAsset {
+        assets: &[
+          ReleaseAsset {
             host_key: "ubuntu-24.04-x86_64",
             archive: "tinyx-module-0.2.0-ubuntu-24.04-x86_64.tar.gz",
             sha256: "${OLD}",
             library_sha256: None,
-        }, ReleaseAsset {
+          },
+          ReleaseAsset {
             host_key: "macos-15-arm64",
             archive: "tinyx-module-0.2.0-macos-15-arm64.tar.gz",
             sha256: "${OLD}",
             library_sha256: None,
-        }],
+          },
+        ],
     },
     description: "test module",
     load: LoadPolicy::Lazy,

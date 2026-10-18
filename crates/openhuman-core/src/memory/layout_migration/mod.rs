@@ -19,7 +19,7 @@ pub mod service;
 pub mod state;
 
 #[cfg(test)]
-mod test_host;
+pub(crate) mod test_host;
 
 pub use app_host::AppHost;
 pub use service::{retry, scan, start, status, tick, StartParams};

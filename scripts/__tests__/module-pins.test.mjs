@@ -206,6 +206,11 @@ test("parses pinned assets from a nested SDK ReleaseRecord", () => {
       archive: "tinytest-v1.2.3-linux.tar.gz",
       sha256: "${"a".repeat(64)}",
       library_sha256: Some("${"b".repeat(64)}"),
+    }, ReleaseAsset {
+      host_key: "macos-15-arm64",
+      archive: "tinytest-v1.2.3-macos.tar.gz",
+      sha256: "${"c".repeat(64)}",
+      library_sha256: None,
     }],
   },
   description: "test module",
@@ -222,6 +227,12 @@ test("parses pinned assets from a nested SDK ReleaseRecord", () => {
       archive: "tinytest-v1.2.3-linux.tar.gz",
       sha256: "a".repeat(64),
       librarySha256: "b".repeat(64),
+    },
+    {
+      hostKey: "macos-15-arm64",
+      archive: "tinytest-v1.2.3-macos.tar.gz",
+      sha256: "c".repeat(64),
+      librarySha256: null,
     },
   ]);
 });

@@ -130,6 +130,11 @@ test("repin reads nested ReleaseRecord assets and only uses published library di
             archive: "tinyx-module-0.2.0-ubuntu-24.04-x86_64.tar.gz",
             sha256: "${OLD}",
             library_sha256: None,
+        }, ReleaseAsset {
+            host_key: "macos-15-arm64",
+            archive: "tinyx-module-0.2.0-macos-15-arm64.tar.gz",
+            sha256: "${OLD}",
+            library_sha256: None,
         }],
     },
     description: "test module",
@@ -137,13 +142,14 @@ test("repin reads nested ReleaseRecord assets and only uses published library di
     source: SourceSpec { submodule: "tinyx", manifest: "Cargo.toml", package: "tinyx-module", lib_name: "tinyx_module", features: &[] },
 };`;
   const publishedLibrary = "4".repeat(64);
-  const sums = parseChecksumToml(`[sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${SHA_X}"\n\n[library_sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${publishedLibrary}"\n`);
+  const sums = parseChecksumToml(`[sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${SHA_X}"\n"tinyx-module-0.3.0-macos-15-arm64.tar.gz" = "${SHA_A}"\n\n[library_sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${publishedLibrary}"\n`);
   const updated = rewriteRecord(record, "tinyx", "0.3.0", sums);
   assert.equal(updated.changed, true);
   assert.match(updated.src, new RegExp(`sha256: "${SHA_X}"`));
   assert.match(updated.src, new RegExp(`library_sha256: Some\\("${publishedLibrary}"\\)`));
+  assert.deepEqual(unusedChecksums(updated.src, "tinyx", sums), []);
 
-  const archiveOnly = parseChecksumToml(`[sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${SHA_X}"\n`);
+  const archiveOnly = parseChecksumToml(`[sha256]\n"tinyx-module-0.3.0-ubuntu-24.04-x86_64.tar.gz" = "${SHA_X}"\n"tinyx-module-0.3.0-macos-15-arm64.tar.gz" = "${SHA_A}"\n`);
   const withoutPublishedLibrary = rewriteRecord(record, "tinyx", "0.3.0", archiveOnly);
   assert.match(withoutPublishedLibrary.src, /library_sha256: None/);
 });

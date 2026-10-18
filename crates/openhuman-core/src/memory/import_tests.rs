@@ -137,7 +137,7 @@ async fn a_paused_scheduler_leaves_an_interrupted_import_for_later() {
 
 #[tokio::test]
 async fn a_live_import_blocks_migration_and_does_not_make_a_stale_migration_look_live() {
-    use crate::memory::layout_migration::{self, state, test_host::FakeHost, Phase, Trigger};
+    use crate::memory::layout_migration::{self, Phase, Trigger, state, test_host::FakeHost};
 
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
@@ -168,7 +168,6 @@ async fn a_live_import_blocks_migration_and_does_not_make_a_stale_migration_look
         "an active import prevents migration from reserving the workspace"
     );
     assert!(!layout_migration::service::is_running(&config));
-
 }
 
 #[tokio::test]
@@ -205,7 +204,14 @@ async fn a_credit_paused_import_waits_for_billing_and_records_a_resume_failure()
     );
     let stopped = read_file(&config.workspace_dir);
     assert_eq!(stopped.state.phase, ImportPhase::Error);
-    assert!(stopped.state.error.as_deref().unwrap().contains("could not resume"));
+    assert!(
+        stopped
+            .state
+            .error
+            .as_deref()
+            .unwrap()
+            .contains("could not resume")
+    );
     assert!(!stopped.paused_for_credits);
     assert!(!running(&config.workspace_dir));
 }

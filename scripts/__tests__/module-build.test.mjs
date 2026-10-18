@@ -91,6 +91,29 @@ test("every registry record carries a SourceSpec whose manifest exists in its su
   }
 });
 
+test("source build specs remain discoverable when identity moves under ReleaseRecord", () => {
+  const specs = parseSourceSpecs(`const TINYTEST: ModuleRecord = ModuleRecord {
+  release: ReleaseRecord { id: "tinytest", version: "1.2.3", assets: &[] },
+  description: "test module",
+  load: LoadPolicy::Lazy,
+  source: SourceSpec {
+    submodule: "tinytest",
+    manifest: "Cargo.toml",
+    package: "tinytest",
+    lib_name: "tinytest",
+    features: &[],
+  },
+};`);
+  assert.deepEqual(specs.get("tinytest"), {
+    id: "tinytest",
+    submodule: "tinytest",
+    manifest: "Cargo.toml",
+    package: "tinytest",
+    lib_name: "tinytest",
+    features: [],
+  });
+});
+
 test("an unknown module id is refused with the known ids named", () => {
   assert.throws(
     () => main(["no-such-module"]),

@@ -62,7 +62,11 @@ test("the cache key is stable and changes with every input it names", () => {
     { spec: { ...SPEC, package: "other" } },
     { spec: { ...SPEC, manifest: "Cargo.toml" } },
   ]) {
-    assert.notEqual(cacheKey({ ...BASE, ...change }), key, JSON.stringify(change));
+    assert.notEqual(
+      cacheKey({ ...BASE, ...change }),
+      key,
+      JSON.stringify(change),
+    );
   }
 });
 
@@ -83,7 +87,12 @@ test("every registry record carries a SourceSpec whose manifest exists in its su
   assert.equal(specs.size, 13);
   for (const spec of specs.values()) {
     assert.equal(spec.submodule, spec.id);
-    const manifest = join(DEFAULT_ROOT, "vendor", spec.submodule, spec.manifest);
+    const manifest = join(
+      DEFAULT_ROOT,
+      "vendor",
+      spec.submodule,
+      spec.manifest,
+    );
     // An uninitialised submodule is the environment's fault, not the spec's.
     if (!existsSync(join(DEFAULT_ROOT, "vendor", spec.submodule, "Cargo.toml")))
       continue;
@@ -138,7 +147,10 @@ function fakeRepo() {
   const root = mkdtempSync(join(tmpdir(), "module-build-"));
   const modules = join(root, "crates/openhuman-core/src/modules");
   mkdirSync(join(modules, "registry"), { recursive: true });
-  writeFileSync(join(modules, "registry.rs"), "pub const ALL: &[ModuleRecord] = &[TINYX];\n");
+  writeFileSync(
+    join(modules, "registry.rs"),
+    "pub const ALL: &[ModuleRecord] = &[TINYX];\n",
+  );
   writeFileSync(
     join(modules, "registry/records_x.rs"),
     `pub(crate) const TINYX: ModuleRecord = ModuleRecord {
@@ -157,9 +169,13 @@ function fakeRepo() {
   mkdirSync(sub, { recursive: true });
   writeFileSync(join(sub, "Cargo.toml"), "# fixture\n");
   const git = (...args) =>
-    spawnSync("git", ["-C", sub, "-c", "user.name=t", "-c", "user.email=t@t", ...args], {
-      encoding: "utf8",
-    });
+    spawnSync(
+      "git",
+      ["-C", sub, "-c", "user.name=t", "-c", "user.email=t@t", ...args],
+      {
+        encoding: "utf8",
+      },
+    );
   git("init", "-q");
   git("add", ".");
   git("commit", "-q", "-m", "fixture");
@@ -184,21 +200,41 @@ test("a build stages the artifact with its digest, and the second run is a cache
   const { root, log, cargo } = fakeRepo();
   try {
     const out = join(root, "out");
-    const env = { ...process.env, CARGO: cargo, CI_CACHE_DIR: "", OPENHUMAN_MODULE_PATH: "" };
+    const env = {
+      ...process.env,
+      CARGO: cargo,
+      CI_CACHE_DIR: "",
+      OPENHUMAN_MODULE_PATH: "",
+    };
     const first = main(["tinyx", "--out", out], env, root);
     const name = artifactFilename(SPEC);
-    assert.equal(readFileSync(join(out, "tinyx", name), "utf8"), "native bytes");
+    assert.equal(
+      readFileSync(join(out, "tinyx", name), "utf8"),
+      "native bytes",
+    );
     assert.equal(
       readFileSync(join(out, "tinyx", "modules.toml"), "utf8"),
       `"${name}" = "${sha256Hex(Buffer.from("native bytes"))}"\n`,
     );
-    assert.match(first, new RegExp(`^OPENHUMAN_MODULE_SOURCE_DIR=${out}$`, "m"));
+    assert.match(
+      first,
+      new RegExp(`^OPENHUMAN_MODULE_SOURCE_DIR=${out}$`, "m"),
+    );
     assert.match(first, /^OPENHUMAN_MODULE_SOURCE_TINYX=source$/m);
-    assert.match(first, new RegExp(`^OPENHUMAN_MODULE_PATH=${join(out, "tinyx")}$`, "m"));
+    assert.match(
+      first,
+      new RegExp(`^OPENHUMAN_MODULE_PATH=${join(out, "tinyx")}$`, "m"),
+    );
     const cargoRuns = () => readFileSync(log, "utf8").trim().split("\n");
     assert.equal(cargoRuns().length, 1);
-    assert.match(cargoRuns()[0], /-p tinyx-module .*--release --features extra/);
-    assert.match(cargoRuns()[0], /--manifest-path .*vendor\/tinyx\/crates\/tinyx-module\/Cargo\.toml/);
+    assert.match(
+      cargoRuns()[0],
+      /-p tinyx-module .*--release --features extra/,
+    );
+    assert.match(
+      cargoRuns()[0],
+      /--manifest-path .*vendor\/tinyx\/crates\/tinyx-module\/Cargo\.toml/,
+    );
     assert.doesNotMatch(cargoRuns()[0], /--target-dir/);
 
     // Same inputs: served from the blob cache, cargo is not invoked again.

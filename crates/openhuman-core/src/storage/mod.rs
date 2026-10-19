@@ -68,8 +68,8 @@ use std::sync::{Arc, LazyLock, Mutex, OnceLock, RwLock};
 /// consumers are still present, so it stays.
 pub use tinystoragedrivers::sqlite::rusqlite;
 pub use tinystoragedrivers::{
-    Blocking, CollectionSpec, DocumentStore, DocumentStoreExt, MemoryStorage, Precondition, Query,
-    Scope, ScopedStorage, StorageBackend, StorageConfig as StorageUrl, StorageError,
+    Blocking, CollectionSpec, DocumentStore, DocumentStoreExt, MemoryStorage, Precondition, Scope,
+    ScopedStorage, StorageBackend, StorageConfig as StorageUrl, StorageError,
 };
 
 use crate::config::schema::storage::redact_url;

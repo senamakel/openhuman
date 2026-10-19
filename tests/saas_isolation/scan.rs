@@ -6,6 +6,7 @@ use std::path::Path;
 use super::mock_llm::Recorded;
 use super::world::{owners_in, USERS};
 use openhuman_core::storage::{DocumentStoreExt, Scope, StorageBackend};
+use tinystoragedrivers_core::Query;
 
 /// Every file under `dir`, recursively.
 /// Directories or entries that cannot be read are recorded in `errors`: an
@@ -162,7 +163,7 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
         {
             let docs = scoped
                 .documents()
-                .query_all(&collection, &openhuman_core::storage::Query::all())
+                .query_all(&collection, &Query::all())
                 .await
                 .map_err(|error| format!("read {collection} in {}: {error}", scope.as_str()))?;
             for doc in docs {

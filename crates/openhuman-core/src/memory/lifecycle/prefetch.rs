@@ -4,11 +4,11 @@
 
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use std::sync::{Arc, LazyLock, Mutex, PoisonError, Weak};
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use futures::future::BoxFuture;
-use tinymemory_tools::prefetch::{Limits, PrefetchRuntime, Prefetcher, WorkerPool};
+use tinymemory_tools::prefetch::{Limits, PrefetchRuntime, TurnCache, TurnCacheRegistry, WorkerPool};
 
 use crate::config::Config;
 use crate::core::runtime::{slot_for, DispatchCtx};
@@ -18,7 +18,7 @@ use super::hooks::{self, TurnPack};
 
 const MAX_PACK_BYTES: usize = 64 * 1024;
 static WORKERS: LazyLock<WorkerPool> = LazyLock::new(|| WorkerPool::new(8));
-static CACHES: LazyLock<Mutex<Vec<Weak<Cache>>>> = LazyLock::new(Mutex::default);
+static CACHES: LazyLock<TurnCacheRegistry<Key>> = LazyLock::new(TurnCacheRegistry::default);
 
 type Work = BoxFuture<'static, Option<TurnPack>>;
 
@@ -104,29 +104,23 @@ fn memory_config_fingerprint(config: &Config) -> u64 {
     fingerprint.finish()
 }
 
-struct Cache(Prefetcher<Key, TurnPack>);
+/// `slot_for` constructs a per-context default, while the actual cache and
+/// cross-context weak registry policy belong to TinyMemory.
+struct Cache(Arc<TurnCache<Key>>);
 
 impl Default for Cache {
     fn default() -> Self {
-        Self(
-            Prefetcher::new(Arc::new(HostRuntime))
+        Self(Arc::new(
+            TurnCache::new(Arc::new(HostRuntime))
                 .with_limits(Limits::default())
-                .with_workers(WORKERS.clone())
-                .with_filter(pack_fits),
-        )
+                .with_workers(WORKERS.clone()),
+        ))
     }
 }
 
 fn cache(ctx: &DispatchCtx) -> Arc<Cache> {
     let cache = slot_for::<Cache>(ctx);
-    let mut caches = CACHES.lock().unwrap_or_else(PoisonError::into_inner);
-    caches.retain(|known| known.strong_count() > 0);
-    if !caches
-        .iter()
-        .any(|known| known.ptr_eq(&Arc::downgrade(&cache)))
-    {
-        caches.push(Arc::downgrade(&cache));
-    }
+    CACHES.register(&cache.0);
     cache
 }
 
@@ -135,29 +129,13 @@ fn cache(ctx: &DispatchCtx) -> Arc<Cache> {
 /// cannot republish after invalidation. Call after
 /// successful memory writes and erasure; no engine work runs here.
 pub(crate) fn invalidate(config: &Config) {
-    let mut caches = CACHES.lock().unwrap_or_else(PoisonError::into_inner);
-    caches.retain(|known| {
-        let Some(cache) = known.upgrade() else {
-            return false;
-        };
-        cache
-            .0
-            .invalidate_where(|key| key.workspace == config.workspace_dir);
-        true
-    });
+    CACHES.invalidate_where(|key| key.workspace == config.workspace_dir);
 }
 
 /// Clears all automatic packs after engine or credential invalidation. Old
 /// in-flight completions cannot recreate entries they no longer own.
 pub(crate) fn invalidate_all() {
-    let mut caches = CACHES.lock().unwrap_or_else(PoisonError::into_inner);
-    caches.retain(|known| {
-        let Some(cache) = known.upgrade() else {
-            return false;
-        };
-        cache.0.invalidate_all();
-        true
-    });
+    CACHES.invalidate_all();
 }
 
 fn completed(cache: &Cache, key: &Key) -> Option<TurnPack> {
@@ -225,19 +203,12 @@ pub(crate) fn pre_turn(
             })),
         ),
     );
-    pack.map(cached_notice)
+    pack
 }
 
 fn guard_turn_work(config: &Config, work: Work) -> Work {
     let mutation = crate::memory::tool_writes::automatic_mutation(config);
     Box::pin(async move { mutation.run(work).await.flatten() })
-}
-
-fn cached_notice(mut pack: TurnPack) -> TurnPack {
-    let notice = "This is cached memory from a completed background lookup for an earlier turn. It may be incomplete or unrelated to the current question; use explicit memory recall or fetch when you need a current answer.\n\n";
-    pack.markdown.insert_str(0, notice);
-    pack.tokens += tinymemory_tools::recall::estimate_tokens(notice);
-    pack
 }
 
 /// Uses only completed context while queuing recall of the folded span. The
@@ -269,7 +240,7 @@ pub(crate) fn compaction(
             hooks::compaction_work(&dispatch, &config, &identity, &thread, dropped).await
         })),
     );
-    pack.map(cached_notice)
+    pack
 }
 
 #[cfg(test)]

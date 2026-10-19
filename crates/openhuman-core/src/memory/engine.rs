@@ -5,7 +5,7 @@
 //!
 //! | Engine | Endpoint | Credential | Off when |
 //! | --- | --- | --- | --- |
-//! | `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else [`crate::backend::base_url`] | the host's backend credential, resolved per request through [`resolve_backend_credential`] | signed out, or no backend transport |
+//! | `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else [`crate::backend::base_url`] | the host's backend credential, resolved per request through [`resolve_backend_credential`] | signed out, or no default backend transport |
 //! | `cortexdb` | `[memory.engines.cortexdb] endpoint`, else CortexDB's managed API | the API key stored as [`MEMORY_CORTEXDB_KEY_NAME`] | no key stored |
 //!
 //! Built engines are cached per config fingerprint (engine id, endpoint,
@@ -33,7 +33,6 @@
 //! from the host's credential seam on every request, so a refreshed session is
 //! used at once and signing out turns memory off.
 
-#[cfg(test)]
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 #[cfg(test)]
@@ -353,43 +352,6 @@ fn off(engine: Option<&str>, endpoint: Option<String>, reason: &str) -> Binding 
 /// on CortexDB's own API it is the root, owned by the actor `user:<id>`.
 /// With `legacy_read`, the earlier `user:<id>` root is still read and
 /// forgotten (never written).
-fn rooted(
-    settings: EngineSettings,
-    root: Option<&str>,
-    tenant: bool,
-    legacy_read: bool,
-) -> (EngineSettings, String) {
-    let Some(root) = root else {
-        return (settings, "|root=legacy".to_string());
-    };
-    let actor = tinymemory_tools::layout::identity::actor_of_root(root);
-    let retired = legacy_read.then(|| actor.clone());
-    let fingerprint = format!(
-        "|root={root}|tenant={tenant}|retired={}",
-        retired.as_deref().unwrap_or("-")
-    );
-    let settings = if tenant {
-        EngineSettings {
-            tenant_root: true,
-            retired_scope_root: retired,
-            ..settings
-        }
-    } else {
-        EngineSettings {
-            scope_root: Some(root.to_string()),
-            scope_owner: Some(actor),
-            retired_scope_root: retired,
-            ..settings
-        }
-    };
-    tracing::debug!(
-        tenant,
-        legacy_read,
-        "[memory:engine] binding layout v3 below the person's org root"
-    );
-    (settings, fingerprint)
-}
-
 fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
     let endpoint = match config.memory.endpoint_for(TINYHUMANS_ENGINE) {
         Some(endpoint) => endpoint,
@@ -421,7 +383,7 @@ fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
         config.config_path.display()
     );
     let source = backend_bearer_source(Arc::new(config.clone()));
-    let (settings, layout) = rooted(
+    let (settings, layout) = EngineBinder::rooted(
         EngineSettings {
             endpoint: Some(endpoint),
             headers,
@@ -506,7 +468,7 @@ fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
         key_digest(&key)
     );
     // A third-party endpoint: no TinyHumans attribution headers.
-    let (settings, layout) = rooted(
+    let (settings, layout) = EngineBinder::rooted(
         EngineSettings {
             endpoint: Some(endpoint),
             observed_actor,

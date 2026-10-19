@@ -65,11 +65,10 @@ fn a_saas_core_refuses_to_boot_without_a_storage_url() {
                 .block_on(openhuman_rpc::server::run_server_saas(None, None, &config))
                 .expect_err("SaaS server must refuse boot without storage")
                 .to_string();
-            let boot_error = runtime
-                .block_on(build(loaded, None, None))
-                .err()
-                .expect("SaaS boot without storage must fail")
-                .to_string();
+            let boot_error = match runtime.block_on(build(loaded, None, None)) {
+                Err(error) => error.to_string(),
+                Ok(_) => panic!("SaaS boot without storage must fail"),
+            };
 
             std::fs::write(
                 &config,
@@ -88,10 +87,10 @@ fn a_saas_core_refuses_to_boot_without_a_storage_url() {
                 .expect("a configured SaaS storage backend permits boot");
             openhuman_core::storage::clear();
             let fallback_error =
-                openhuman_core::storage::local::backend_for(&root.join("profiles/alice/workspace"))
-                    .err()
-                    .expect("SaaS must refuse workspace-local storage fallback")
-                    .to_string();
+                match openhuman_core::storage::local::backend_for(&root.join("profiles/alice/workspace")) {
+                    Err(error) => error.to_string(),
+                    Ok(_) => panic!("SaaS must refuse workspace-local storage fallback"),
+                };
             drop(core);
             (server_error, boot_error, fallback_error)
         })

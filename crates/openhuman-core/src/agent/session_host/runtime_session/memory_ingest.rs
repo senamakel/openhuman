@@ -190,7 +190,7 @@ impl OpenHumanTurnPrelude {
             identity,
             thread_id,
             pack,
-            in_prompt_from: Arc::new(crate::memory::lifecycle::window::InPromptFrom::new(
+            in_prompt_from: Arc::new(tinymemory_tools::lifecycle::window::InPromptFrom::new(
                 in_prompt_from,
                 user_index,
             )),
@@ -248,7 +248,9 @@ impl OpenHumanTurnPrelude {
             let Some(config) = prelude.memory_config().await else {
                 return;
             };
+            let dispatch = prelude.dispatch_ctx();
             hooks::post_turn(
+                &dispatch,
                 &config,
                 &pending.identity,
                 thread_id,

@@ -168,10 +168,11 @@ A few details hang off the turn. For a message that arrived on a channel,
 normalized provider channel from the turn origin. Disconnect uses that
 metadata and the canonical channel thread IDs prepared by the TinyChannels
 module to forget only that channel's conversations. With
-`[memory.recall] date_hint` on, `lifecycle::date_hint::extract` makes one
-small model call to work out which days the user means; a late or bad
-answer just leaves the pack in its normal order. The pack's citations are
-recorded by the web chat citation sink and drained for the chat's memory chips.
+`[memory.recall] date_hint` on, TinyMemory's turn hook asks the host callback
+in `lifecycle::date_hint` for one small model call to work out which days the
+user means; a late or bad answer just leaves the pack in its normal order.
+The web chat citation sink records citations only when a cached pack is
+returned to the turn and drained for the chat's memory chips.
 
 ### Background work
 

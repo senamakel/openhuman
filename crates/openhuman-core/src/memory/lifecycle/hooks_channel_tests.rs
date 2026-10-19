@@ -23,6 +23,7 @@ async fn a_channel_reply_is_stamped_with_channel_metadata() {
         .resolve(&crate::memory::scope::identity_pins(&config));
 
     post_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         &identity,
         "channel-thread".into(),

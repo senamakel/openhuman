@@ -199,7 +199,7 @@ pub(crate) fn pre_turn(
     let pack = identity.recall.then(|| completed(&cache, &key)).flatten();
     tracing::debug!(thread_id = %key.thread, agent_id = %key.identity.agent_id, cache_hit = pack.is_some(), "[memory:prefetch] pre_turn cache");
     if let Some(pack) = &pack {
-        crate::web_chat::citations::record_pack_citations(ctx, &thread_id, pack.citations.clone());
+        hooks::deliver_citations(ctx, &config, &identity, &thread_id, pack);
     }
     let dispatch = ctx.clone();
     enqueue(
@@ -261,11 +261,12 @@ pub(crate) fn compaction(
             &Key::with_fingerprint(&config, fingerprint, &identity, &thread, false),
         )
     });
+    let dispatch = ctx.clone();
     enqueue(
         cache,
         key,
         Box::pin(ctx.enter(async move {
-            hooks::compaction_work(&config, &identity, &thread, dropped).await
+            hooks::compaction_work(&dispatch, &config, &identity, &thread, dropped).await
         })),
     );
     pack.map(cached_notice)

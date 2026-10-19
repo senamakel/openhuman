@@ -79,6 +79,19 @@ fn the_policy_round_trips_and_refuses_out_of_range_values() {
     apply_policy_set(
         &mut config,
         &PolicySetParams {
+            team_limit: Some(0),
+            build_beliefs_every: Some(0),
+            ..PolicySetParams::default()
+        },
+    )
+    .unwrap();
+    let zero_limits = policy_view(&config);
+    assert_eq!(zero_limits.recall.team_limit, 0);
+    assert_eq!(zero_limits.recall.build_beliefs_every, 0);
+
+    apply_policy_set(
+        &mut config,
+        &PolicySetParams {
             date_hint: Some(true),
             compaction_timeout_ms: Some(12_000),
             build_delay_secs: Some(900),

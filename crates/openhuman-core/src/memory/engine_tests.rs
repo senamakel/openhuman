@@ -4,11 +4,164 @@ use crate::security::credentials::api_key::store_api_key;
 
 use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 
+struct ClearInstalledHostEngine;
+
+impl Drop for ClearInstalledHostEngine {
+    fn drop(&mut self) {
+        clear_host_engine();
+    }
+}
+
+struct RemoveTestEngine(std::path::PathBuf);
+
+impl Drop for RemoveTestEngine {
+    fn drop(&mut self) {
+        remove_test_engine(&self.0);
+    }
+}
+
 fn off_reason(binding: Binding) -> String {
     match binding {
         Binding::Off { reason, .. } => reason,
         Binding::On(bound) => panic!("expected off, bound {}", bound.id),
     }
+}
+
+async fn assert_host_scrubbing(
+    bound: BoundEngine,
+    reference: &tinymemory_api::conformance::ReferenceEngine,
+) {
+    const SECRET: &str = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const PHONE: &str = "+15551234567";
+    const BARE_NUMBER: &str = "79927398713";
+
+    bound
+        .engine
+        .store(tinymemory_api::StoreItem::document(
+            format!("contact {PHONE}; key={SECRET}; reference {BARE_NUMBER}"),
+            tinymemory_api::MemoryMeta::default(),
+        ))
+        .await
+        .expect("the bound engine accepts the test item");
+
+    let saved = reference
+        .list(tinymemory_api::ListRequest::new(
+            tinymemory_api::MetaFilter::default(),
+            5,
+        ))
+        .await
+        .expect("reference engine lists the saved item");
+    let text = saved
+        .items
+        .iter()
+        .find(|hit| hit.text.contains(BARE_NUMBER))
+        .map(|hit| hit.text.as_str())
+        .expect("the corroborated host policy preserves an unqualified number");
+
+    assert!(
+        !text.contains(SECRET),
+        "credentials are scrubbed before store"
+    );
+    assert!(
+        !text.contains(PHONE),
+        "phone numbers are scrubbed before store"
+    );
+}
+
+#[tokio::test]
+async fn installed_host_engine_binding_uses_the_host_scrub_policy() {
+    const CHILD_FLAG: &str = "OPENHUMAN_MEMORY_HOST_POLICY_CHILD";
+    const CHILD_MARKER: &str = "HOST_ENGINE_POLICY_CHILD_EXECUTED";
+
+    if std::env::var_os(CHILD_FLAG).as_deref() != Some(std::ffi::OsStr::new("1")) {
+        let exact_test =
+            "memory::engine::tests::installed_host_engine_binding_uses_the_host_scrub_policy";
+        let child = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg(exact_test)
+            .arg("--nocapture")
+            .env(CHILD_FLAG, "1")
+            .output()
+            .expect("test child starts");
+        let stdout = String::from_utf8_lossy(&child.stdout);
+        let stderr = String::from_utf8_lossy(&child.stderr);
+        assert!(
+            child.status.success(),
+            "host-engine child failed: stdout={stdout}\nstderr={stderr}"
+        );
+        assert_eq!(
+            stdout.matches(CHILD_MARKER).count(),
+            1,
+            "the exact child test must execute once: stdout={stdout}\nstderr={stderr}"
+        );
+        return;
+    }
+
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let reference = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+
+    clear_host_engine();
+    let _cleanup = ClearInstalledHostEngine;
+    install_host_engine(reference.clone());
+    let bound = resolve(&config)
+        .engine()
+        .expect("installed host engine binds");
+    assert_host_scrubbing(bound, &reference).await;
+    println!("{CHILD_MARKER}");
+}
+
+#[tokio::test]
+async fn test_engine_binding_uses_the_host_scrub_policy() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let reference = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+
+    let _cleanup = RemoveTestEngine(config.workspace_dir.clone());
+    install_test_engine(&config.workspace_dir, reference.clone());
+    let bound = resolve(&config).engine().expect("test engine binds");
+    assert_host_scrubbing(bound, &reference).await;
+}
+
+#[tokio::test]
+async fn profile_engine_binding_uses_the_host_scrub_policy() {
+    let tmp = tempfile::tempdir().unwrap();
+    let profile_id = "6512ab0f6512ab0f6512ab0f";
+    let mut config = config_in(&tmp);
+    config.memory.agent_id = Some(profile_id.to_string());
+    config.memory.root = Some(format!("user:{profile_id}"));
+    let reference = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+    let capabilities = Arc::new(crate::profiles::capabilities::ProfileCapabilities::new(
+        None,
+        None,
+        None,
+        Default::default(),
+        Vec::new(),
+        Some(reference.clone()),
+    ));
+    let mut overrides = crate::agent::host_overrides::HostOverrides::default();
+    overrides.profile_capabilities = Some(capabilities);
+    let parent = crate::core::runtime::CoreContext::for_test(
+        crate::core::runtime::DomainSet::full(),
+        Some(config.workspace_dir.clone()),
+    );
+    let profile = parent.derive_with(
+        crate::core::runtime::ContextOverlay::new(
+            config.clone(),
+            crate::core::runtime::DomainSet::full(),
+            crate::tools::toolpacks::ToolGroups::none(),
+        )
+        .profile(profile_id)
+        .host_overrides(Arc::new(overrides)),
+    );
+
+    crate::core::runtime::CoreContext::scope(profile, async {
+        let bound = resolve(&config)
+            .engine()
+            .expect("profile engine binds with its forced root");
+        assert_host_scrubbing(bound, &reference).await;
+    })
+    .await;
 }
 
 #[test]
@@ -183,9 +336,7 @@ fn the_cache_fingerprint_never_contains_the_key() {
 async fn host_bearer_reads_the_credential_per_request() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
-    let source = HostBearer {
-        config: Arc::new(config.clone()),
-    };
+    let source = backend_bearer_source(Arc::new(config.clone()));
     let error = source.bearer().await.unwrap_err();
     assert!(matches!(error, tinymemory_api::Error::Unauthorized(_)));
 
@@ -206,9 +357,7 @@ async fn host_bearer_rejects_a_local_session_token() {
             true,
         )
         .unwrap();
-    let source = HostBearer {
-        config: Arc::new(config),
-    };
+    let source = backend_bearer_source(Arc::new(config));
 
     let error = source.bearer().await.unwrap_err();
 
@@ -305,13 +454,14 @@ fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
 #[test]
 fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
     // CortexDB's own API: `org:<id>` is the root, owned by the actor.
-    let (settings, key) = rooted(EngineSettings::default(), Some("org:42"), false, false);
+    let (settings, key) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), false, false);
     assert_eq!(settings.scope_root.as_deref(), Some("org:42"));
     assert_eq!(settings.scope_owner.as_deref(), Some("user:42"));
     assert!(!settings.tenant_root);
     assert_eq!(settings.retired_scope_root, None);
     assert_eq!(key, "|root=org:42|tenant=false|retired=-");
-    let (settings, key) = rooted(EngineSettings::default(), None, false, true);
+    let (settings, key) = EngineBinder::rooted(EngineSettings::default(), None, false, true);
     assert_eq!(settings.scope_root, None);
     assert_eq!(settings.retired_scope_root, None);
     assert_eq!(key, "|root=legacy");
@@ -320,16 +470,19 @@ fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
 #[test]
 fn the_hosted_wire_sends_no_root_and_legacy_read_names_the_user_segment() {
     // TinyHumans: the backend pins `org:<id>`; no root, no `user:` segment.
-    let (settings, key) = rooted(EngineSettings::default(), Some("org:42"), true, false);
+    let (settings, key) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), true, false);
     assert!(settings.tenant_root);
     assert_eq!(settings.scope_root, None);
     assert_eq!(settings.scope_owner, None);
     assert_eq!(settings.retired_scope_root, None);
     // During the move, the earlier `user:<id>` root is read and forgotten.
-    let (settings, read_too) = rooted(EngineSettings::default(), Some("org:42"), true, true);
+    let (settings, read_too) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), true, true);
     assert_eq!(settings.retired_scope_root.as_deref(), Some("user:42"));
     assert_ne!(key, read_too, "the flag rebuilds the engine");
-    let (settings, _) = rooted(EngineSettings::default(), Some("org:42"), false, true);
+    let (settings, _) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), false, true);
     assert_eq!(settings.retired_scope_root.as_deref(), Some("user:42"));
 }
 

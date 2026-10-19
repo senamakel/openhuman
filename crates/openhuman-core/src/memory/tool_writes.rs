@@ -184,7 +184,11 @@ pub(super) fn enqueue(
                 ));
             }
             WriteOperation::Learn {
-                item: super::guard::scrub(item),
+                item: tinymemory_integrations::safety::scrub_item_with(
+                    item,
+                    crate::security::scrub::host_policy(),
+                )
+                .value,
             }
         }
         Some("forget") => {

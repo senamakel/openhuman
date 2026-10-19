@@ -16,11 +16,11 @@ use tinymemory_integrations::sources::sync::{
     Syncer,
 };
 use tinymemory_integrations::sources::SourceKind;
+use tinymemory_integrations::sources::SourceStatus;
 
 use crate::config::schema::{MemorySourceConfig, MemorySourceKind};
 use crate::config::Config;
 use crate::memory::engine;
-use crate::memory::types::SourceStatus;
 use tinymemory_api::{Error, Result};
 
 use super::state;
@@ -152,9 +152,8 @@ async fn run(config: &Config, source: &MemorySourceConfig) -> std::result::Resul
     .await
 }
 
-/// Files `items` into `layout`'s brain, each under the brain source it
-/// belongs to (`memory::brain::brain_node`), stores them through the module,
-/// and queues one belief build per node touched. Returns how many were stored.
+/// Uses the module to file `items` into `layout`'s brain, and queues its
+/// belief-build jobs. Returns how many were stored.
 pub(crate) async fn place_and_store(
     config: &Config,
     bound: &engine::BoundEngine,
@@ -163,30 +162,12 @@ pub(crate) async fn place_and_store(
     layout: &tinymemory_tools::MemoryLayout,
 ) -> std::result::Result<u64, SyncError> {
     let brain_source = crate::memory::brain::brain_source(kind);
-    // Placing an item under its brain node is pure, so every one is placed up
-    // front: the module stores `(node, item)` pairs and reports the nodes hit.
-    let mut placed = Vec::with_capacity(items.len());
-    for item in items {
-        let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)
-            .map_err(|error| SyncError::Invalid(error.to_string()))?;
-        let item = tinymemory_tools::layout::placement::file_into(node.clone(), item);
-        placed.push((node, item));
-    }
-    let stored = module::store_all(bound.engine.as_ref(), source_id, placed).await?;
-    // An engine that rebuilds beliefs on its own needs no build job.
-    let automatic =
-        bound.engine.descriptor().consolidation == tinymemory_api::Consolidation::Automatic;
-    let jobs = stored
-        .touched
-        .into_iter()
-        .filter(|_| !automatic)
-        .map(|node| tinymemory_tools::BackgroundJob::BuildBeliefs {
-            request: tinymemory_api::ConsolidateRequest::new(tinymemory_api::Reach::exact(node))
-                .kinds([tinymemory_api::ItemKind::Document]),
-        })
-        .collect();
-    crate::memory::lifecycle::jobs::enqueue(config, layout.root(), jobs).await;
-    Ok(stored.stored)
+    let placed = module::store_placed(bound.engine.as_ref(), source_id, items, |item| {
+        crate::memory::brain::brain_node(config, layout, &brain_source, item)
+    })
+    .await?;
+    crate::memory::lifecycle::jobs::enqueue(config, layout.root(), placed.jobs).await;
+    Ok(placed.stored.stored)
 }
 
 /// `memory_sources_sync`: starts a background sync of source `id`, or of

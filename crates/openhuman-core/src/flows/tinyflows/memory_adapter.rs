@@ -437,10 +437,7 @@ impl MemoryProvider for OpenHumanMemory {
         let audit_id = self.tier_gate_write("forget", &action).await?;
 
         let flow_id = self.trusted_flow_id()?;
-        let filter = MetaFilter {
-            tags_any: vec![flow_key_tag(&flow_id, key)],
-            ..MetaFilter::default()
-        };
+        let filter = MetaFilter::tags_any([flow_key_tag(&flow_id, key)]);
         let forget_result = forget_matching(&self.config, filter)
             .await
             .map_err(|e| capability_error("forget", &e));

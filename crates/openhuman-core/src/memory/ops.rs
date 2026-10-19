@@ -4,7 +4,7 @@
 //! Every operation takes the [`Config`] it runs against, so the RPC handlers
 //! (which load config per call) and the agent tool (which carries its
 //! session's config) share one implementation. Every write is
-//! scrubbed of secrets and PII by the bound engine itself ([`super::guard`]).
+//! scrubbed of secrets and PII by TinyMemory's native engine binder.
 
 #[cfg(feature = "channels")]
 use std::collections::{BTreeMap, BTreeSet};
@@ -374,6 +374,27 @@ pub async fn forget(config: &Config, params: ForgetParams) -> Result<ForgetView>
     Ok(ForgetView {
         forgotten: report.forgotten,
     })
+}
+
+/// Forgets every item matching a non-empty metadata filter through the bound
+/// engine, applying the host-selected confinement.
+///
+/// # Errors
+///
+/// Returns an error if memory is unavailable, the filter is invalid, or the
+/// engine cannot complete the deletion.
+pub async fn forget_filter(config: &Config, filter: MetaFilter) -> Result<usize> {
+    let bound = bound(config)?;
+    let report = memory_ops(config)?
+        .forget_filter(bound.engine.as_ref(), filter)
+        .await?;
+    tracing::debug!(
+        engine = %bound.id,
+        forgotten = report.forgotten,
+        "[memory:ops] filtered forget"
+    );
+    super::lifecycle::prefetch::invalidate(config);
+    Ok(report.forgotten)
 }
 
 /// Forgets conversation memory owned by an external channel on disconnect.

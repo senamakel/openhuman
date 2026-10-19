@@ -9583,6 +9583,7 @@ dependencies = [
  "tinyredact",
  "tokio",
  "tracing",
+ "url",
  "walkdir",
 ]
 
@@ -9595,6 +9596,7 @@ dependencies = [
  "chrono",
  "futures",
  "log",
+ "schemars",
  "serde",
  "serde_json",
  "sha2 0.11.0",

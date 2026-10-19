@@ -263,7 +263,15 @@ pub(crate) async fn resume_interrupted_with(
                 importer(config, engine, true, None).record_resume_failure(&error.to_string());
             } else {
                 let store = StateKvCheckpointStore::new(&config.workspace_dir);
-                let mut file = store.load();
+                let mut file =
+                    match super::state_store::load::<ImportFile>(&config.workspace_dir, STATE) {
+                        Ok(Some(file)) => file,
+                        Ok(None) => ImportFile::default(),
+                        Err(error) => {
+                            tracing::warn!(%error, "[memory:import] reading the checkpoint failed");
+                            return false;
+                        }
+                    };
                 file.state.phase = ImportPhase::Error;
                 file.state.error = Some(format!("the import could not resume: {error}"));
                 file.paused_for_credits = false;

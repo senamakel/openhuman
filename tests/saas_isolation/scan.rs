@@ -295,9 +295,6 @@ fn record_scope_content(
     }
 }
 
-#[path = "scan_tests.rs"]
-mod tests;
-
 /// Keyring entries holding a user's canary outside that user's namespace.
 fn keychain_violations(path: &Path, text: &str) -> Vec<String> {
     let mut out = Vec::new();
@@ -365,3 +362,7 @@ pub fn audit_backend(requests: &[Recorded]) -> (Vec<String>, [usize; 3]) {
 fn redact(auth: &str) -> String {
     auth.chars().take(12).collect::<String>() + "…"
 }
+
+#[cfg(test)]
+#[path = "scan_tests.rs"]
+mod tests;

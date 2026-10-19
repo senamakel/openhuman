@@ -94,7 +94,10 @@ build_delay_secs = 456
         "compaction_timeout_ms",
         "build_delay_secs",
     ] {
-        assert!(saved.contains(&format!("{key} = ")), "missing {key}: {saved}");
+        assert!(
+            saved.contains(&format!("{key} = ")),
+            "missing {key}: {saved}"
+        );
     }
     let restored: MemoryConfig = toml::from_str(&saved).expect("saved settings reload");
     assert_eq!(restored.recall, config.recall);

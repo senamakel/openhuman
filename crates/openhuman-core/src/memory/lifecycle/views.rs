@@ -173,7 +173,11 @@ pub async fn pack_preview(
         PreviewMode::Turn => "turn",
         PreviewMode::Session => "session",
     };
-    tracing::debug!(mode, tokens = preview.pack.tokens, "[memory:views] pack preview");
+    tracing::debug!(
+        mode,
+        tokens = preview.pack.tokens,
+        "[memory:views] pack preview"
+    );
     Ok(PackPreviewView {
         root: identity.root().to_string(),
         agent_id: identity.agent_id,

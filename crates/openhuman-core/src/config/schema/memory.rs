@@ -61,8 +61,8 @@ use std::fmt;
 
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
-pub use tinymemory_tools::RecallSettings;
 pub use tinymemory_integrations::sources::{MemorySourceConfig, MemorySourceKind};
+pub use tinymemory_tools::RecallSettings;
 
 /// Keychain entry name of the CortexDB API key.
 pub const MEMORY_CORTEXDB_KEY_NAME: &str = "memory-cortexdb";

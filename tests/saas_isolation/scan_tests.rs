@@ -1,3 +1,4 @@
+use super::super::world::canary;
 use super::*;
 use openhuman_core::storage::{MemoryStorage, Precondition};
 use serde_json::json;

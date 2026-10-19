@@ -232,6 +232,29 @@ async fn forget_items_with_memory_off_is_not_an_error() {
     );
 }
 
+#[tokio::test]
+async fn forget_items_queues_a_failed_source_deletion_and_returns_the_engine_error() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    crate::memory::test_fixtures::RefusingEngine::with(tinymemory_api::Error::Engine(
+        "source forget failed".into(),
+    ))
+    .bind(&config);
+
+    let error = forget_items(&config, "src-a")
+        .await
+        .expect_err("a reachable engine failure remains visible to the caller");
+    assert_eq!(error.code(), "ENGINE");
+    assert!(error.to_string().contains("source forget failed"));
+    assert_eq!(
+        crate::memory::deletion::pending(&config.workspace_dir),
+        vec![crate::memory::deletion::PendingDeletion::Source {
+            source_id: "src-a".into()
+        }],
+        "the deletion stays queued for a later retry"
+    );
+}
+
 #[test]
 fn a_source_can_store_at_an_agent_node() {
     let mut config = Config::default();

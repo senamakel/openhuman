@@ -6,8 +6,9 @@ use std::sync::{
 };
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
-    EngineDescriptor, FetchRequest, ForgetReport, ForgetTarget, ListRequest, MemoryEngine,
-    MemoryMeta, MetaFilter, Reach, RecallRequest, StoreItem, StoreReceipt,
+    DocumentBody, EngineDescriptor, FetchRequest, ForgetReport, ForgetTarget, ItemKind,
+    ListRequest, MemoryEngine, MemoryMeta, MetaFilter, Reach, RecallRequest, Role, SourceKind,
+    SourceRef, StoreItem, StoreReceipt, Turn,
 };
 
 fn learn_params(text: &str) -> LearnParams {
@@ -181,9 +182,75 @@ fn valid_saas_identity_clamps_memory_operations_in_an_isolated_process() {
                 .id
                 .0;
 
+            for (namespace, text, repo) in [
+                ("team:acme", "explore acme item", "org/alpha"),
+                ("team:acme", "explore acme sibling", "org/beta"),
+                ("team:other", "explore foreign item", "org/foreign"),
+            ] {
+                engine
+                    .store(StoreItem::learning(
+                        text,
+                        tinymemory_api::LearningKind::Fact,
+                        0.9,
+                        MemoryMeta {
+                            namespace: namespace.parse().unwrap(),
+                            repo: Some(repo.into()),
+                            tags: vec!["selected".into()],
+                            ..MemoryMeta::default()
+                        },
+                    ))
+                    .await
+                    .unwrap();
+            }
+            engine
+                .store(StoreItem::document(
+                    "selected document",
+                    MemoryMeta {
+                        namespace: "team:acme".parse().unwrap(),
+                        repo: Some("org/document".into()),
+                        tags: vec!["selected".into()],
+                        ..MemoryMeta::default()
+                    },
+                ))
+                .await
+                .unwrap();
+
+            let explore_params = |scan_limit| crate::memory::explore::ExploreParams {
+                facet: tinymemory_api::Facet::Repo,
+                path: vec![crate::memory::explore::PathStep {
+                    facet: tinymemory_api::Facet::Kind,
+                    value: "learning".into(),
+                }],
+                filter: Some(MetaFilter {
+                    tags_any: vec!["selected".into()],
+                    ..MetaFilter::default()
+                }),
+                limit: Some(5),
+                scan_limit,
+            };
+            let explored = crate::memory::explore::explore(&config, explore_params(Some(100)))
+                .await
+                .unwrap();
+            assert_eq!(explored.total, 2);
+            assert!(!explored.truncated);
+            assert_eq!(
+                explored
+                    .buckets
+                    .iter()
+                    .map(|bucket| bucket.value.as_str())
+                    .collect::<Vec<_>>(),
+                ["org/alpha", "org/beta"]
+            );
+            let limited = crate::memory::explore::explore(&config, explore_params(Some(1)))
+                .await
+                .unwrap();
+            assert_eq!(limited.total, 1);
+            assert!(limited.truncated);
+
             let listed = items_list(&config, Default::default()).await.unwrap();
-            assert_eq!(listed.items.len(), 1);
-            assert_eq!(listed.items[0].id.0, own);
+            assert_eq!(listed.items.len(), 4);
+            assert!(listed.items.iter().any(|item| item.id.0 == own));
+            assert!(!listed.items.iter().any(|item| item.id.0 == foreign));
 
             let fetched = fetch(
                 &config,
@@ -280,6 +347,85 @@ fn valid_saas_identity_clamps_memory_operations_in_an_isolated_process() {
                 .unwrap()
                 .items;
             assert!(foreign_items.iter().any(|item| item.id.0 == foreign));
+
+            let service_namespace: tinymemory_api::Namespace =
+                "team:acme/service:newsletter".parse().unwrap();
+            let source_id = "src-profile-cleanup";
+            for namespace in ["team:acme", "team:other", "team:acme/service:newsletter"] {
+                engine
+                    .store(StoreItem::Document {
+                        title: Some("source cleanup fixture".into()),
+                        body: DocumentBody::Text("source cleanup fixture".into()),
+                        mime: None,
+                        meta: MemoryMeta {
+                            namespace: namespace.parse().unwrap(),
+                            source: SourceRef {
+                                kind: SourceKind::Folder,
+                                id: Some(source_id.into()),
+                            },
+                            ..MemoryMeta::default()
+                        },
+                    })
+                    .await
+                    .unwrap();
+            }
+            assert_eq!(
+                crate::memory::sources::forget_items(&config, source_id)
+                    .await
+                    .unwrap(),
+                2
+            );
+            let service_source_items = engine
+                .list(ListRequest {
+                    filter: MetaFilter {
+                        reach: Some(Reach::exact(service_namespace.clone())),
+                        source_id: Some(source_id.into()),
+                        ..MetaFilter::default()
+                    },
+                    limit: 20,
+                    cursor: None,
+                })
+                .await
+                .unwrap()
+                .items;
+            // No explicit reach uses the engine's ordinary root subtree,
+            // which leaves the service sandbox intact.
+            assert_eq!(service_source_items.len(), 1);
+
+            let thread_id = "thread-profile-cleanup";
+            for namespace in ["team:acme", "team:other", "team:acme/service:newsletter"] {
+                engine
+                    .store(StoreItem::Conversation {
+                        turns: vec![Turn::new(Role::User, "thread cleanup fixture")],
+                        meta: MemoryMeta {
+                            namespace: namespace.parse().unwrap(),
+                            thread_id: Some(thread_id.into()),
+                            ..MemoryMeta::default()
+                        },
+                    })
+                    .await
+                    .unwrap();
+            }
+            assert_eq!(
+                crate::memory::deletion::forget_thread(&config, thread_id).await,
+                2
+            );
+            let service_thread_items = engine
+                .list(ListRequest {
+                    filter: MetaFilter {
+                        reach: Some(Reach::exact(service_namespace)),
+                        thread_id: Some(thread_id.into()),
+                        kinds: vec![ItemKind::Conversation],
+                        ..MetaFilter::default()
+                    },
+                    limit: 20,
+                    cursor: None,
+                })
+                .await
+                .unwrap()
+                .items;
+            // Thread cleanup retains the same root-subtree boundary.
+            assert_eq!(service_thread_items.len(), 1);
         });
     println!("SAAS_MEMORY_CLAMP_CHILD_PASSED");
 }

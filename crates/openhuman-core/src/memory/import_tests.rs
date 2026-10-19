@@ -126,6 +126,41 @@ async fn a_paused_scheduler_leaves_an_interrupted_import_for_later() {
     );
 }
 
+#[tokio::test]
+async fn a_failed_checkpoint_read_does_not_overwrite_the_stored_value() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let mut file = ImportFile::default();
+    file.state.phase = ImportPhase::Running;
+    StateKvCheckpointStore::new(&config.workspace_dir)
+        .save(&file)
+        .unwrap();
+
+    let sentinel = serde_json::json!({"unreadable_checkpoint": "preserve"});
+    let resumed = resume_interrupted_with(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        Arc::new({
+            let workspace_dir = config.workspace_dir.clone();
+            move || {
+                // Simulate a state value that became unreadable after the
+                // initial resumability check but before fallback persistence.
+                super::state_store::save(&workspace_dir, STATE, &sentinel).unwrap();
+                false
+            }
+        }),
+        Arc::new(|_: &Config| true),
+    )
+    .await;
+
+    assert!(!resumed);
+    assert_eq!(
+        super::state_store::load::<serde_json::Value>(&config.workspace_dir, STATE).unwrap(),
+        Some(sentinel),
+        "a failed typed checkpoint read must not replace the stored value with a default"
+    );
+}
+
 #[test]
 fn a_store_with_no_legacy_files_counts_nothing() {
     let tmp = tempfile::tempdir().unwrap();

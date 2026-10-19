@@ -136,7 +136,8 @@ async fn a_failed_checkpoint_read_does_not_overwrite_the_stored_value() {
         .save(&file)
         .unwrap();
 
-    let sentinel = serde_json::json!({"unreadable_checkpoint": "preserve"});
+    let sentinel = serde_json::json!("unreadable checkpoint");
+    let expected = sentinel.clone();
     let resumed = resume_interrupted_with(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
@@ -156,7 +157,7 @@ async fn a_failed_checkpoint_read_does_not_overwrite_the_stored_value() {
     assert!(!resumed);
     assert_eq!(
         super::state_store::load::<serde_json::Value>(&config.workspace_dir, STATE).unwrap(),
-        Some(sentinel),
+        Some(expected),
         "a failed typed checkpoint read must not replace the stored value with a default"
     );
 }

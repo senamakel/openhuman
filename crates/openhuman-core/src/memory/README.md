@@ -22,21 +22,23 @@ the `[memory]` config into either `Binding::On(BoundEngine)` or
 
 | Engine | Endpoint | Credential | Off when |
 | --- | --- | --- | --- |
-| `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else `backend::base_url` | the host's backend credential, resolved per request | signed out, or no backend transport installed |
+| `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else `backend::base_url` | the host's backend credential, resolved per request | signed out, or no default backend transport installed |
 | `cortexdb` | `[memory.engines.cortexdb] endpoint`, else CortexDB's managed API | the API key stored in the keyring as `memory-cortexdb` | no key stored |
 
 The core never keeps a TinyHumans credential of its own. The bearer is
-fetched from the host's credential seam (`resolve_backend_credential`) on
-every request, so a refreshed session takes effect at once and signing out
-turns memory off. The hosted engine does not go through the core's
-`BackendTransport`: [`engine.rs`](./engine.rs) hands TinyMemory's CortexDB client an
-`EngineSettings` with the endpoint, the attribution headers from
-`backend::attribution_headers` and an `EngineCredential::Dynamic(HostBearer)`,
-and TinyMemory's own HTTP client calls the backend's `/memory/*` routes. The
+resolved on every request, so a refreshed session takes effect at once and
+signing out turns memory off. A host `BackendTransport` may provide a
+`memory_bearer_source` adapter; standalone core builds use the same safe
+`resolve_backend_credential` resolver directly, preserving a configured
+memory endpoint without an installed SDK transport. The hosted engine does
+not send memory HTTP through `BackendTransport`: [`engine.rs`](./engine.rs)
+hands TinyMemory's CortexDB client the endpoint, attribution headers and an
+`EngineCredential::Dynamic` backed by the native `CallbackBearerSource`, and
+TinyMemory's HTTP client calls the backend's `/memory/*` routes. The
 `cortexdb` engine calls CortexDB directly with the stored key
-(`EngineCredential::Static`). Built engines are cached per config fingerprint (engine
-id, endpoint, credential identity, layout), so a config change, a sign-in or
-a new key rebuilds the engine on the next call without any event plumbing.
+(`EngineCredential::Static`). TinyMemory's native binder caches by settings,
+credential identity and layout, so changes rebuild the engine without event
+plumbing.
 
 An embedding host can install its own engine with `install_host_engine`.
 It wins over the configured one for every config in the process, so a host

@@ -20,11 +20,16 @@ const NEEDLES: [&str; 3] = ["carol-0042", "dave.example", "tenant@example.com"];
 /// Start a SaaS core with hashed profile ids and every log level captured
 /// to `<tmp>/<name>.log`.
 fn start_hashed(d: &Deployment, name: &str) -> (Server, String, PathBuf) {
+    let storage_url = format!(
+        "sqlite:{}",
+        d.tmp.path().join("hashed-storage.db").display()
+    );
     std::fs::write(
         &d.config,
         format!(
-            "root = {:?}\nprofile_ids = \"hashed\"\n",
-            d.root.display().to_string()
+            "root = {:?}\nstorage_url = {:?}\nprofile_ids = \"hashed\"\n",
+            d.root.display().to_string(),
+            storage_url
         ),
     )
     .unwrap();

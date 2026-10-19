@@ -51,7 +51,7 @@ fn an_unsafe_tool_allowlist_is_refused_before_it_binds() {
     std::fs::write(
         &d.config,
         format!(
-            "root = {:?}\ntool_allowlist = [\"coding\", \"host_shell\"]\n\n[sandbox]\nnetwork = \"host\"\n",
+            "root = {:?}\nstorage_url = \"memory\"\ntool_allowlist = [\"coding\", \"host_shell\"]\n\n[sandbox]\nnetwork = \"host\"\n",
             d.root.display().to_string()
         ),
     )

@@ -146,7 +146,7 @@ async fn a_failed_checkpoint_read_does_not_overwrite_the_stored_value() {
             move || {
                 // Simulate a state value that became unreadable after the
                 // initial resumability check but before fallback persistence.
-                super::state_store::save(&workspace_dir, STATE, &sentinel).unwrap();
+                crate::memory::state_store::save(&workspace_dir, STATE, &sentinel).unwrap();
                 false
             }
         }),
@@ -156,7 +156,7 @@ async fn a_failed_checkpoint_read_does_not_overwrite_the_stored_value() {
 
     assert!(!resumed);
     assert_eq!(
-        super::state_store::load::<serde_json::Value>(&config.workspace_dir, STATE).unwrap(),
+        crate::memory::state_store::load::<serde_json::Value>(&config.workspace_dir, STATE).unwrap(),
         Some(expected),
         "a failed typed checkpoint read must not replace the stored value with a default"
     );

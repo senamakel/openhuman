@@ -62,6 +62,9 @@ pub fn backend_for(workspace_dir: &Path) -> Result<Arc<dyn StorageBackend>> {
     if let Some(backend) = installed() {
         return Ok(backend);
     }
+    if crate::core::runtime::mode::is_saas() {
+        anyhow::bail!("[storage] SaaS mode requires a configured storage backend");
+    }
     let mut opened = WORKSPACES.lock().unwrap_or_else(PoisonError::into_inner);
     if let Some(backend) = opened.get(workspace_dir) {
         return Ok(Arc::clone(backend));

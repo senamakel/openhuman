@@ -77,15 +77,16 @@ pub async fn run_server_saas(
 ) -> anyhow::Result<()> {
     let config = crate::core_host::core::runtime::SaasConfig::load(saas_config)?;
     let storage_url = config.resolved_storage_url();
+    let Some(storage_url) = storage_url else {
+        anyhow::bail!(
+            "[saas] a storage URL must be configured with OPENHUMAN_STORAGE_URL or storage_url"
+        );
+    };
     log::info!(
         "[rpc:saas] session store: {}",
-        if storage_url.is_some() {
-            "storage backend"
-        } else {
-            "one database per profile workspace"
-        }
+        "storage backend"
     );
-    crate::session_store::install_for_saas(storage_url).await?;
+    crate::session_store::install_for_saas(Some(storage_url)).await?;
     let runtime =
         crate::core_host::core::runtime::saas::build(config, host.map(str::to_owned), port).await?;
     let served = super::serve::serve(&runtime, None, None).await;

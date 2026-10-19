@@ -2,8 +2,6 @@ use super::*;
 use openhuman_core::storage::{MemoryStorage, Precondition};
 use serde_json::json;
 
-use crate::canary;
-
 #[test]
 fn scoped_record_audit_counts_own_data_and_rejects_foreign_canaries() {
     let alice = openhuman_core::storage::scope_for_profile("alice");
@@ -47,10 +45,10 @@ fn storage_audit_enumerates_scopes_records_identifiers_and_paged_streams() {
                 (
                     "CANARY-bob-document-id",
                     "CANARY-carol-collection",
-                    canary(index, "own"),
+                    crate::canary(index, "own"),
                 )
             } else {
-                ("own", "canaries", canary(index, "own"))
+                ("own", "canaries", crate::canary(index, "own"))
             };
             scoped
                 .documents()
@@ -71,7 +69,7 @@ fn storage_audit_enumerates_scopes_records_identifiers_and_paged_streams() {
                 .streams()
                 .append(
                     "events",
-                    json!({"value": if index == 128 { canary(1, "late-stream") } else { format!("entry-{index}") }}),
+                    json!({"value": if index == 128 { crate::canary(1, "late-stream") } else { format!("entry-{index}") }}),
                 )
                 .await
                 .unwrap();
@@ -91,7 +89,7 @@ fn storage_audit_enumerates_scopes_records_identifiers_and_paged_streams() {
             .put(
                 "operator-data",
                 "canary",
-                json!({"value": canary(2, "operator")}),
+                json!({"value": crate::canary(2, "operator")}),
                 Precondition::None,
             )
             .await

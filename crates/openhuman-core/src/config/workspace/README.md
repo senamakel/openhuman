@@ -1,10 +1,10 @@
 # workspace
 
-Owns workspace layout bootstrap and the editable "Persona Pack" prompt files (`SOUL.md`, `IDENTITY.md`) that drive the agent's personality. Two concerns live here: (1) `init_workspace`, the one-shot setup that creates the default directory tree and copies the bundled prompt/skills files into a fresh workspace (backs CLI `init`-style entrypoints); and (2) read/edit/reset RPCs over a tightly allowlisted set of persona files, so the settings UI can round-trip those prompts without ever exposing an arbitrary path under the workspace. It also carries an unrelated file-watcher state store (see [`state.rs`](./state.rs) below).
+Owns workspace layout bootstrap and the editable "Persona Pack" prompt files (`SOUL.md`, `IDENTITY.md`) that drive the agent's personality. Two concerns live here: (1) `init_workspace`, the one-shot setup that creates the default directory tree and copies the bundled prompt files into a fresh workspace (backs CLI `init`-style entrypoints); and (2) read/edit/reset RPCs over a tightly allowlisted set of persona files, so the settings UI can round-trip those prompts without ever exposing an arbitrary path under the workspace. It also carries an unrelated file-watcher state store (see [`state.rs`](./state.rs) below).
 
 ## Responsibilities
 
-- Initialize a fresh workspace: create the `memory`, `sessions`, `state`, `cron` directories, write bundled `SOUL.md` / `IDENTITY.md`, and seed the skills dir README, reporting created/overwritten/existing entries.
+- Initialize a fresh workspace: create the `memory`, `sessions`, `state`, `cron` directories and write bundled `SOUL.md` / `IDENTITY.md`, reporting created/overwritten/existing entries.
 - Define the single source of truth for which workspace files are editable (the `BOOTSTRAP_FILES` allowlist via `bundled_default_contents`).
 - Read an editable persona file, falling back to the bundled default (with `is_default = true`) when the on-disk copy is missing.
 - Overwrite an editable persona file with user-supplied contents (size-capped, allowlist-enforced).
@@ -49,14 +49,13 @@ Handlers resolve `workspace_dir` from config (`config_rpc::load_config_with_time
 No dedicated `store.rs`. State is plain files under the configured `workspace_dir`:
 
 - Directories: `memory/`, `sessions/`, `state/`, `cron/`.
-- Files: `SOUL.md`, `IDENTITY.md` (bundled-prompt copies), [`skills/README.md`](../../skills/README.md).
+- Files: `SOUL.md`, `IDENTITY.md` (bundled-prompt copies).
 
 The editable surface is restricted to the `BOOTSTRAP_FILES` allowlist (`SOUL.md`, `IDENTITY.md`); the workspace dir is created on demand by write/reset.
 
 ## Dependencies
 
 - `crate::config::rpc`: loads `Config` (timeout-bounded) to resolve `workspace_dir` and `config_path` in both `ops.rs` and `schemas.rs`.
-- `crate::skills::init_skills_dir`: seeds the `skills/` directory README during `init_workspace`.
 - `crate::core::all` (`ControllerFuture`, `RegisteredController`) and `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller registry types.
 - `crate::core::Outcome`: uniform RPC return type.
 - Bundled prompt assets via `include_str!("../../agent/prompts/SOUL.md" | "IDENTITY.md")`.

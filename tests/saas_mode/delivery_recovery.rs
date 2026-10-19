@@ -88,7 +88,7 @@ fn seed_thread(node: &Node, user: &str) {
 
 /// The pending record a core killed before delivery leaves in `user`'s
 /// completion queue.
-fn leave_undelivered_result(root: &std::path::Path, user: &str, url: &str) {
+fn leave_undelivered_result(user: &str, url: &str) {
     let id = ProfileId::for_user(user, ProfileIdMode::Raw).unwrap();
     // The configured process database uses the same profile scope that the
     // running core uses for its completion queue.
@@ -129,7 +129,7 @@ fn an_undelivered_subagent_result_reaches_its_own_profile_after_a_restart() {
 
     // The core dies with ann's sub-agent result recorded but undelivered.
     node.kill();
-    leave_undelivered_result(&d.root, OWNER, &storage_url);
+    leave_undelivered_result(OWNER, &storage_url);
 
     // Restart. Opening bob, whose thread has the same id, delivers nothing.
     let node = node_logging(&d, llm.port, &storage_url);

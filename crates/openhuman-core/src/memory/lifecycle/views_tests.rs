@@ -1,7 +1,7 @@
 use super::*;
 
 use chrono::Utc;
-use tinymemory_api::{LearningKind, MemoryEngine, MemoryMeta, StoreItem};
+use tinymemory_api::{Error, LearningKind, MemoryEngine, MemoryMeta, StoreItem};
 
 use crate::memory::lifecycle::hooks::pre_turn_work;
 use crate::memory::test_fixtures::{bind_reference, config_in};

@@ -211,7 +211,7 @@ impl StorageBackend for ObservingStorage {
 
     fn for_scope(&self, scope: &Scope) -> Result<ScopedStorage> {
         let scoped = self.inner.for_scope(scope)?;
-        let peer = Arc::clone(scoped.blobs());
+        let peer = Arc::clone(self.inner.for_scope(scope)?.blobs());
         Ok(ScopedStorage::new(
             scope.clone(),
             scoped.driver(),

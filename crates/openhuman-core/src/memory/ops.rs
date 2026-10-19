@@ -4,7 +4,7 @@
 //! Every operation takes the [`Config`] it runs against, so the RPC handlers
 //! (which load config per call) and the agent tool (which carries its
 //! session's config) share one implementation. Every write is
-//! scrubbed of secrets and PII by the bound engine itself ([`super::guard`]).
+//! scrubbed of secrets and PII by TinyMemory's native engine binder.
 
 #[cfg(feature = "channels")]
 use std::collections::{BTreeMap, BTreeSet};

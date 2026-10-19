@@ -22,35 +22,36 @@ the `[memory]` config into either `Binding::On(BoundEngine)` or
 
 | Engine | Endpoint | Credential | Off when |
 | --- | --- | --- | --- |
-| `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else `backend::base_url` | the host's backend credential, resolved per request | signed out, or no backend transport installed |
+| `tinyhumans` | `[memory.engines.tinyhumans] endpoint`, else `backend::base_url` | the host's backend credential, resolved per request | signed out, or no default backend transport installed |
 | `cortexdb` | `[memory.engines.cortexdb] endpoint`, else CortexDB's managed API | the API key stored in the keyring as `memory-cortexdb` | no key stored |
 
 The core never keeps a TinyHumans credential of its own. The bearer is
-fetched from the host's credential seam (`resolve_backend_credential`) on
-every request, so a refreshed session takes effect at once and signing out
-turns memory off. The hosted engine does not go through the core's
-`BackendTransport`: [`engine.rs`](./engine.rs) hands TinyMemory's CortexDB client an
-`EngineSettings` with the endpoint, the attribution headers from
-`backend::attribution_headers` and an `EngineCredential::Dynamic(HostBearer)`,
-and TinyMemory's own HTTP client calls the backend's `/memory/*` routes. The
+resolved on every request, so a refreshed session takes effect at once and
+signing out turns memory off. A host `BackendTransport` may provide a
+`memory_bearer_source` adapter; standalone core builds use the same safe
+`resolve_backend_credential` resolver directly, preserving a configured
+memory endpoint without an installed SDK transport. The hosted engine does
+not send memory HTTP through `BackendTransport`: [`engine.rs`](./engine.rs)
+hands TinyMemory's CortexDB client the endpoint, attribution headers and an
+`EngineCredential::Dynamic` backed by the native `CallbackBearerSource`, and
+TinyMemory's HTTP client calls the backend's `/memory/*` routes. The
 `cortexdb` engine calls CortexDB directly with the stored key
-(`EngineCredential::Static`). Built engines are cached per config fingerprint (engine
-id, endpoint, credential identity, layout), so a config change, a sign-in or
-a new key rebuilds the engine on the next call without any event plumbing.
+(`EngineCredential::Static`). TinyMemory's native binder caches by settings,
+credential identity and layout, so changes rebuild the engine without event
+plumbing.
 
 An embedding host can install its own engine with `install_host_engine`.
 It wins over the configured one for every config in the process, so a host
 with its own store (or a test binary with an in-memory engine) runs the
 whole lifecycle without a TinyHumans session or a CortexDB key.
 
-Whatever engine is bound, it is wrapped in `guard::ScrubbingEngine`. Every
-text a `StoreItem` carries is scrubbed of secrets and PII under
-`security::scrub::host_policy` before the engine sees it. Wrapping the
-engine, instead of scrubbing at call sites, also covers the writes
-TinyMemory makes through its own types (`AgentMemory::pre_turn`,
-`Brain::ingest`, background ingests). The same wrapper logs one
-`[memory:timing]` debug line per engine call with the op, engine, elapsed
-time and outcome, never user content.
+Whatever engine is bound, TinyMemory's native `EngineBinder` wraps it in a
+scrubbing decorator using `security::scrub::host_policy` and a timing
+decorator. Every text a `StoreItem` carries is scrubbed before the engine sees
+it. This also covers writes TinyMemory makes through its own types
+(`AgentMemory::pre_turn`, `Brain::ingest`, background ingests). The timing
+decorator logs one `[memory:timing]` debug line per engine call with the op,
+engine, elapsed time and outcome, never user content.
 
 When memory is off, the `memory` tool is not registered, the turn hooks do
 nothing, and the RPCs answer with the `MEMORY_OFF` error code.
@@ -285,8 +286,8 @@ trusted call facts; queued writes retain that call's narrower reach.
 | Path | What it does |
 | --- | --- |
 | [`mod.rs`](./mod.rs) | Module declarations and re-exports (`memory_is_on`, `MemoryTool`, the controller aggregators, `register_memory_subscribers`). |
-| [`engine.rs`](./engine.rs) | `resolve` binds the configured engine or says why memory is off; per-fingerprint cache; host engine install; CortexDB key storage. |
-| [`guard.rs`](./guard.rs) | `ScrubbingEngine`: scrubs every write and times every engine call. |
+| [`engine.rs`](./engine.rs) | `resolve` maps host configuration and credentials into TinyMemory's native `EngineBinder`; CortexDB key storage. |
+| `tinymemory_integrations::registry::binder` | Strong per-fingerprint cache, host-engine slot, invalidation, endpoint selection, scrubbing and timing. |
 | [`scope.rs`](./scope.rs) | Config-to-`IdentityPins` adapter, account root and layout migration switch. |
 | [`local_root.rs`](./local_root.rs) | The persistent install-id root of a signed-out session. |
 | [`lifecycle/mod.rs`](./lifecycle/mod.rs) | Builds `AgentMemory` for an identity under the `[memory.recall]` policy. |

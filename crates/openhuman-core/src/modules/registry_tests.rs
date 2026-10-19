@@ -8,7 +8,7 @@ fn tinycomputer_registry_matches_bus_contract_and_published_release() {
     assert_eq!(desktop.object_path, tinycomputer_bus::names::OBJECT_PATH);
     assert_eq!(desktop.version, "0.14.0");
     assert_eq!(desktop.assets.len(), 17);
-    assert_eq!(tinycomputer_bus::CONTRACT_VERSION, (2, 19));
+    assert_eq!(tinycomputer_bus::CONTRACT_VERSION, (2, 20));
     assert_eq!(
         desktop.asset_for("ubuntu-24.04-x86_64").unwrap().sha256,
         "fe79e93bf45d1ba3cd4212d04872530462a99d3d220da182070d54817e8291c6"

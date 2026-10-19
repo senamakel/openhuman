@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinyagents_harness::media::{GenerateImageTool, GenerateVideoTool, MediaOutput};
 use tinyagents_harness::tinyinference_image::ImageGenerator;
 use tinyagents_harness::tinyinference_video::{VideoGenerator, WaitPolicy};
@@ -104,12 +104,24 @@ fn media_tools_from_with_allowlist(
 ) -> Vec<Box<dyn Tool>> {
     let files = files_dir.into();
     let generators = Arc::new(generators);
-    let output = MediaOutput::new(action_dir).with_reference_policy(reference_policy(
-        action_dir,
-        workspace_dir,
-        Arc::clone(&allowed_artifacts),
-    ));
-    let output_blobs = Arc::clone(&output.blobs);
+    let list_models: Box<dyn Tool> = Box::new(MediaListModelsTool {
+        image: Arc::clone(&generators.image),
+        video: Arc::clone(&generators.video),
+    });
+    let Some(output_blobs) = crate::storage::sessions::artifact_blobs_for(workspace_dir) else {
+        tracing::warn!(
+            target: "media_generation",
+            "[media_generation] scoped artifact storage unavailable; generation tools disabled"
+        );
+        return vec![list_models];
+    };
+    let output = MediaOutput::new(action_dir)
+        .with_blobs(Arc::clone(&output_blobs))
+        .with_reference_policy(reference_policy(
+            action_dir,
+            workspace_dir,
+            Arc::clone(&allowed_artifacts),
+        ));
     let image_tool = |image: &Arc<dyn ImageGenerator>| {
         GenerateImageTool::new(Arc::clone(image), output.clone())
             .with_name(IMAGE_TOOL_NAME)
@@ -164,10 +176,7 @@ fn media_tools_from_with_allowlist(
                 }
             }),
         ),
-        Box::new(MediaListModelsTool {
-            image: Arc::clone(&generators.image),
-            video: Arc::clone(&generators.video),
-        }),
+        list_models,
     ];
     tracing::debug!("[media_generation] registered {} media tools", tools.len());
     tools
@@ -288,7 +297,7 @@ impl Tool for MediaListModelsTool {
                 Err(error) => {
                     return Ok(ToolResult::error(format!(
                         "Listing image models failed: {error}"
-                    )))
+                    )));
                 }
             }
         }
@@ -308,7 +317,7 @@ impl Tool for MediaListModelsTool {
                 Err(error) => {
                     return Ok(ToolResult::error(format!(
                         "Listing video models failed: {error}"
-                    )))
+                    )));
                 }
             }
         }

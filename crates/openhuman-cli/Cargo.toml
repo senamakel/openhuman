@@ -321,6 +321,12 @@ path = "../../tests/media_generation_e2e.rs"
 required-features = ["media"]
 
 [[test]]
+# Installs a process-wide storage backend to observe generated-media staging.
+name = "media_staging_storage_e2e"
+path = "../../tests/media_staging_storage_e2e.rs"
+required-features = ["media"]
+
+[[test]]
 name = "observability_wallet_expected_e2e"
 path = "../../tests/observability_wallet_expected_e2e.rs"
 

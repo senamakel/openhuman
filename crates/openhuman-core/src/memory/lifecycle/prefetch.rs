@@ -16,7 +16,6 @@ use tinymemory_tools::layout::identity::ResolvedIdentity;
 
 use super::hooks::{self, TurnPack};
 
-const MAX_PACK_BYTES: usize = 64 * 1024;
 static WORKERS: LazyLock<WorkerPool> = LazyLock::new(|| WorkerPool::new(8));
 static CACHES: LazyLock<TurnCacheRegistry<Key>> = LazyLock::new(TurnCacheRegistry::default);
 
@@ -34,15 +33,6 @@ impl PrefetchRuntime for HostRuntime {
     fn sleep(&self, duration: Duration) -> BoxFuture<'static, ()> {
         Box::pin(tokio::time::sleep(duration))
     }
-}
-
-fn pack_fits(pack: &TurnPack) -> bool {
-    serde_json::to_vec(pack)
-        .ok()
-        .zip(serde_json::to_vec(&pack.citations).ok())
-        .is_some_and(|(pack, citations)| {
-            pack.len().saturating_add(citations.len()) <= MAX_PACK_BYTES
-        })
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]

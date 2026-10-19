@@ -13,11 +13,11 @@ use tinymemory_tools::layout_migration::{
 use tinymemory_tools::MemoryLayout;
 
 use super::claim::ClaimKey;
-use super::state::FileStateStore;
+use super::state::StateKvMigrationStore;
 use crate::config::Config;
 
 /// Two in-memory engines and the switches a real host keeps, with the real
-/// file-backed state of the config's workspace.
+/// state KV value of the config's workspace.
 pub(crate) struct FakeHost {
     pub(crate) legacy: Arc<ReferenceEngine>,
     pub(crate) tree: Arc<ReferenceEngine>,
@@ -29,7 +29,7 @@ pub(crate) struct FakeHost {
     pub(crate) free_for: AtomicUsize,
     /// Written to the legacy tree as the switch happens (a turn racing it).
     pub(crate) racing_write: Mutex<Option<StoreItem>>,
-    store: FileStateStore,
+    store: StateKvMigrationStore,
     workspace: std::path::PathBuf,
 }
 
@@ -47,7 +47,7 @@ impl FakeHost {
             claim: None,
             free_for: AtomicUsize::new(usize::MAX),
             racing_write: Mutex::new(None),
-            store: FileStateStore::new(&config.workspace_dir),
+            store: StateKvMigrationStore::new(&config.workspace_dir),
             workspace: config.workspace_dir.clone(),
         }
     }

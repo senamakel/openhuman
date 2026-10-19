@@ -429,7 +429,10 @@ pub async fn mcp_clients_registry_settings_set(
     apply(&mut auth.mcp_official_base, mcp_official_base.clone());
     apply(&mut auth.mcp_official_token, mcp_official_token.clone());
 
-    config.save().await.map_err(|error| error.to_string())?;
+    config
+        .save()
+        .await
+        .map_err(crate::config::ops::config_save_error)?;
 
     let settings: tinymcp_bus::RegistrySettings = module_call_confidential(
         config,

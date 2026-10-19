@@ -1,16 +1,6 @@
 use super::*;
 
 #[test]
-fn init_skills_dir_creates_dir_and_readme() {
-    let dir = tempfile::tempdir().unwrap();
-    init_workflows_dir(dir.path()).unwrap();
-    let skills_dir = dir.path().join("skills");
-    assert!(skills_dir.is_dir());
-    let readme = skills_dir.join("README.md");
-    assert!(readme.exists());
-}
-
-#[test]
 fn project_skills_skipped_when_not_trusted() {
     let dir = tempfile::tempdir().unwrap();
     let ws = dir.path();

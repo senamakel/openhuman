@@ -4,7 +4,7 @@
 //! service) lives in `tinymemory_tools::layout_migration`; this module is the
 //! OpenHuman host adapter over its two ports:
 //!
-//! - [`state`]: the file-backed [`MigrationStateStore`] under the workspace.
+//! - [`state`]: the [`MigrationStateStore`] backed by the memory state KV port.
 //! - [`app_host`]: the [`LayoutHost`] for one account (engine binding,
 //!   placement, the layout switch, the free period), with [`claim`] naming the
 //!   account that takes a legacy tree several accounts share.
@@ -23,7 +23,9 @@ mod test_host;
 
 pub use app_host::AppHost;
 pub use service::{retry, scan, start, status, tick, StartParams};
+#[allow(deprecated)]
 pub use state::FileStateStore;
+pub use state::StateKvMigrationStore;
 pub use tinymemory_tools::layout_migration::{
     LayoutHost, MigrationState, MigrationStateStore, MigrationStatus, Outcome, Phase, ScanView,
     Trigger,

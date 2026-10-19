@@ -32,6 +32,7 @@ impl CoreContext {
             tool_groups: self.tool_groups.clone(),
             components: self.components,
             embedder_config: self.embedder_config.clone(),
+            latest_embedder_config: self.latest_embedder_config.as_ref().map(Arc::clone),
             user_skill_roots: self.user_skill_roots,
             extensions: self.extensions.clone(),
             turn_origin: self.turn_origin.clone(),

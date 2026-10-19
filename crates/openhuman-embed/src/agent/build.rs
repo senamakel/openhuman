@@ -320,7 +320,10 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         approvals_disabled: !access.approval_gate_enabled(),
         definitions,
     };
-    let ctx = runtime.core_runtime().context().derive_with(overlay);
+    let ctx = runtime
+        .core_runtime()
+        .context()
+        .derive_with_parent_config(base, overlay);
     let approval_subscription = parts.approval_handler.map(|handler| {
         super::approval_handler::ApprovalSubscription::new(
             &id,

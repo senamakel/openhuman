@@ -33,31 +33,6 @@ pub(crate) fn invalidate_workflow_metadata_cache() {
     }
 }
 
-/// Initialize the legacy skills directory in the specified workspace.
-///
-/// Creates `<workspace>/skills/` and a placeholder `README.md` so the folder
-/// is visible to the user. New-style skills should live under
-/// `<workspace>/.openhuman/skills/` instead, but this directory is kept for
-/// backward compatibility.
-pub fn init_workflows_dir(workspace_dir: &Path) -> Result<(), String> {
-    let skills_dir = workspace_dir.join("skills");
-    std::fs::create_dir_all(&skills_dir).map_err(|e| {
-        format!(
-            "failed to create skills directory {}: {e}",
-            skills_dir.display()
-        )
-    })?;
-
-    let readme_path = skills_dir.join("README.md");
-    if !readme_path.exists() {
-        let content = "# Skills\n\nPut one skill per directory under this folder.\n";
-        std::fs::write(&readme_path, content)
-            .map_err(|e| format!("failed to write {}: {e}", readme_path.display()))?;
-    }
-
-    Ok(())
-}
-
 /// The home directory skill discovery scans for user-scope roots
 /// (`~/.openhuman/skills/`, `~/.agents/skills/`, `~/.openhuman/workflows/`).
 ///

@@ -69,7 +69,7 @@ pub async fn apply_privacy_settings(
         config.privacy.mode = mode;
     }
 
-    config.save().await.map_err(|e| e.to_string())?;
+    config.save().await.map_err(super::config_save_error)?;
 
     // Hot-swap the live policy so enforcement takes effect without a restart.
     // `Err` here just means no session runtime is installed yet (e.g. CLI) — the

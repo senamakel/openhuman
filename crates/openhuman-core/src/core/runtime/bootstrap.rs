@@ -141,9 +141,8 @@ pub(crate) async fn bootstrap_core_runtime(
         }
 
         // --- Detached sub-agent TaskStore reconciliation -------------------
-        // The durable orchestration TaskStore (`<workspace>/.openhuman/
-        // orchestration_tasks.jsonl`) can hold non-terminal sub-agent records left
-        // by a previous process — their detached executor (abort handle +
+        // The durable orchestration TaskStore can hold non-terminal sub-agent
+        // records left by a previous process — their detached executor (abort handle +
         // cooperative CancellationToken) died with that process, so they cannot be
         // re-attached. Reconcile each orphan to a terminal state and emit the typed
         // terminal lifecycle event so the run ledger finalizes. Best-effort and
@@ -161,7 +160,7 @@ pub(crate) async fn bootstrap_core_runtime(
         // --- Undelivered background completions ----------------------------
         // A detached sub-agent that finished in a previous process but whose
         // result never reached its chat thread is still pending in the durable
-        // completion log (`<workspace>/.openhuman/background_completions.jsonl`).
+        // completion store.
         // Schedule its delivery turn through the normal idle-gated path.
         let redelivering =
             crate::agent::orchestration::background_delivery::recover_on_boot(ctx, &workspace_dir);
@@ -370,9 +369,6 @@ pub(crate) async fn bootstrap_core_runtime(
     // the web channel's `memory_activity` event (C5) — same unconditional
     // placement rationale as the bridges above. Idempotent (OnceLock-guarded).
     crate::web_chat::register_memory_activity_surface_subscriber();
-
-    // --- Workspace migrations --------------------------------------------
-    crate::platform::startup::run_workspace_migrations(ctx, &workspace_dir);
 
     // --- Socket manager bootstrap ---
     let socket_mgr = Arc::new(SocketManager::new());

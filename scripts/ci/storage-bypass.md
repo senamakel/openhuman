@@ -15,13 +15,12 @@ scanning only the core directory.
 
 ## Exact inventories
 
-`storage-bypass-baseline.json` retains **57** original core rule identities,
-byte-for-byte identical to canonical main. This PR does not increase or replace
-that baseline. Regeneration requires an existing baseline, refuses new findings,
-and can only remove fixed sites. Canonical merge-base validation also rejects
-baseline growth.
+`storage-bypass-baseline.json` contains **53** remaining original core rule
+identities after deleting stale and retired entries. Regeneration requires an
+existing baseline, refuses new findings, and can only remove fixed sites.
+Canonical merge-base validation also rejects baseline growth.
 
-`storage-bypass-extension.json` establishes **67** reviewed identities for the
+`storage-bypass-extension.json` contains **60** reviewed identities for the
 broader coverage. Each records its rule, path, source line, occurrence,
 classification, reason, and owning issue. These are identities, not independent
 stores or completed migrations. The initial extension must already exist at the

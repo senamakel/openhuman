@@ -54,6 +54,60 @@ pub(crate) struct ConfigRead {
     /// including the file a document source falls back to when the scope has
     /// no document yet: that text keeps the file's corruption recovery.
     pub from_document: bool,
+    pub document_version: Option<tinystoragedrivers::Version>,
+    pub source_anchor: ConfigSourceAnchor,
+}
+
+/// A retained identity for the document backend that owns a snapshot.
+#[derive(Clone)]
+pub(crate) enum DocumentBackendIdentity {
+    Installed(std::sync::Arc<dyn crate::storage::StorageBackend>),
+    Test(std::sync::Arc<()>),
+}
+
+impl std::fmt::Debug for DocumentBackendIdentity {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("DocumentBackendIdentity(..)")
+    }
+}
+
+impl PartialEq for DocumentBackendIdentity {
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::Installed(left), Self::Installed(right)) => std::sync::Arc::ptr_eq(left, right),
+            (Self::Test(left), Self::Test(right)) => std::sync::Arc::ptr_eq(left, right),
+            _ => false,
+        }
+    }
+}
+
+impl Eq for DocumentBackendIdentity {}
+
+/// Identity of the exact persistence target a config snapshot was read from.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) enum ConfigSourceAnchor {
+    File(std::path::PathBuf),
+    Document {
+        backend: DocumentBackendIdentity,
+        scope: String,
+        id: String,
+    },
+}
+
+pub(crate) fn normalized_path(path: &Path) -> std::path::PathBuf {
+    let mut normalized = std::path::PathBuf::new();
+    for component in path.components() {
+        match component {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir => {
+                if !normalized.pop() {
+                    normalized.push(component.as_os_str());
+                }
+            }
+            other => normalized.push(other.as_os_str()),
+        }
+    }
+    normalized
 }
 
 /// A place a config's TOML text is read from and written to.
@@ -61,6 +115,7 @@ pub(crate) struct ConfigRead {
 pub(crate) trait ConfigSource: Send + Sync {
     /// A short, stable name for logs: `file` or `document`.
     fn label(&self) -> &'static str;
+    fn anchor(&self) -> ConfigSourceAnchor;
 
     /// Whether the source holds a config at all.
     ///
@@ -80,9 +135,27 @@ pub(crate) trait ConfigSource: Send + Sync {
     /// Read the config text, recovering from corruption where the source can.
     async fn read(&self) -> Result<ConfigRead>;
 
-    /// Replace the config text. Returns `Err` only while the previous config is
-    /// still the live one, so callers may roll back in-memory state on `Err`.
+    /// Replace the config text.
+    ///
+    /// On a document source, this uses the handle's last successfully observed
+    /// revision; a handle that has not observed a document (or observed its
+    /// absence) is create-only. This is a last-observation rule for the source
+    /// handle, not a snapshot lease for every read. Callers saving a loaded
+    /// config snapshot use [`Self::write_versioned`] with that snapshot's
+    /// captured revision instead.
     async fn write(&self, toml: &str) -> Result<()>;
+
+    /// Persist a config snapshot against the revision it was loaded from.
+    /// Document sources use `None` for a create-only write; file sources have
+    /// no revisions and use this default implementation.
+    async fn write_versioned(
+        &self,
+        toml: &str,
+        _expected: Option<tinystoragedrivers::Version>,
+    ) -> Result<Option<tinystoragedrivers::Version>> {
+        self.write(toml).await?;
+        Ok(None)
+    }
 }
 
 /// The source for the config at `config_path`.
@@ -106,17 +179,20 @@ pub(crate) fn for_config(config_path: &Path) -> Result<Box<dyn ConfigSource>> {
             forced.scope,
             forced.keys,
             file,
+            DocumentBackendIdentity::Test(forced.identity),
         )));
     }
     if !crate::storage::installed_is_shared() {
         return Ok(Box::new(file));
     }
-    let resolved = crate::storage::current_scoped().and_then(|scoped| {
-        let scope = crate::storage::current_scope()?;
-        Ok(scoped.map(|scoped| (scoped, scope)))
+    let resolved = crate::storage::current_scope().map(|scope| {
+        crate::storage::installed().map(|backend| {
+            let scoped = backend.for_scope(&scope);
+            scoped.map(|scoped| (scoped, scope, backend))
+        })
     });
     match resolved {
-        Ok(Some((scoped, scope))) => {
+        Ok(Some(Ok((scoped, scope, backend)))) => {
             let keys = crate::storage::secrets::keys()
                 .map_err(|error| anyhow::anyhow!("config document key: {error}"))?;
             Ok(Box::new(DocumentConfigSource::new(
@@ -124,9 +200,11 @@ pub(crate) fn for_config(config_path: &Path) -> Result<Box<dyn ConfigSource>> {
                 scope,
                 keys,
                 file,
+                DocumentBackendIdentity::Installed(backend),
             )))
         }
         Ok(None) => Ok(Box::new(file)),
+        Ok(Some(Err(error))) => Err(error.into()),
         Err(error) => {
             tracing::debug!(
                 error = %error,

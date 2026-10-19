@@ -3,7 +3,7 @@
 //! The driver (batching, checkpoints, backoff, failed-item list, retry) is
 //! `tinymemory_integrations::import::Importer`. This file is the host
 //! adapter around it: the consent gate, the one-run-per-workspace registry,
-//! the atomic state file `<workspace>/memory/import_state.json`, the tokio
+//! the durable state value `import_state`, the tokio
 //! clock, the scheduler pause, the credits resume policy, and what follows a
 //! finished import (organizing the tree).
 
@@ -52,16 +52,16 @@ fn release(workspace_dir: &Path) {
         .remove(workspace_dir);
 }
 
-/// The state file, written atomically (staged, synced, renamed): a crash
-/// mid-write leaves the previous state, never a torn file that reads back as
-/// a fresh start and re-sends everything.
-pub(crate) struct FileCheckpointStore {
+/// The `import_state` value in the memory state KV store. The first read
+/// imports a legacy workspace file; later reads and writes use the storage
+/// port, so a crash cannot turn a partial file write into a fresh start.
+pub(crate) struct StateKvCheckpointStore {
     workspace_dir: PathBuf,
 }
 
 const STATE: &str = "import_state";
 
-impl FileCheckpointStore {
+impl StateKvCheckpointStore {
     pub(crate) fn new(workspace_dir: &Path) -> Self {
         Self {
             workspace_dir: workspace_dir.to_path_buf(),
@@ -69,7 +69,7 @@ impl FileCheckpointStore {
     }
 }
 
-impl CheckpointStore for FileCheckpointStore {
+impl CheckpointStore for StateKvCheckpointStore {
     fn load(&self) -> ImportFile {
         super::state_store::load(&self.workspace_dir, STATE)
             .unwrap_or_else(|error| {
@@ -96,7 +96,7 @@ impl Pacer for TokioPacer {
 }
 
 fn read_file(workspace_dir: &Path) -> ImportFile {
-    FileCheckpointStore::new(workspace_dir).load()
+    StateKvCheckpointStore::new(workspace_dir).load()
 }
 
 /// Whether the last import ended with its last batch not confirmed listed:
@@ -119,7 +119,7 @@ fn importer(
     let mut importer = Importer::new(
         config.workspace_dir.clone(),
         engine,
-        Arc::new(FileCheckpointStore::new(&config.workspace_dir)),
+        Arc::new(StateKvCheckpointStore::new(&config.workspace_dir)),
         Arc::new(TokioPacer),
         Arc::new(move || consent),
     )
@@ -262,7 +262,7 @@ pub(crate) async fn resume_interrupted_with(
             if let Ok(engine) = engine {
                 importer(config, engine, true, None).record_resume_failure(&error.to_string());
             } else {
-                let store = FileCheckpointStore::new(&config.workspace_dir);
+                let store = StateKvCheckpointStore::new(&config.workspace_dir);
                 let mut file = store.load();
                 file.state.phase = ImportPhase::Error;
                 file.state.error = Some(format!("the import could not resume: {error}"));

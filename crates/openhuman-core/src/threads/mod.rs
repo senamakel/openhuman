@@ -14,7 +14,6 @@ pub mod store;
 #[cfg(test)]
 mod transcript_host_tests;
 pub mod turn_state;
-pub mod welcome_migration;
 pub(crate) mod worker_mirror;
 pub(crate) mod worker_thread;
 
@@ -26,7 +25,6 @@ pub use schemas::{
     all_controller_schemas as all_threads_controller_schemas,
     all_registered_controllers as all_threads_registered_controllers,
 };
-pub use welcome_migration::{migrate_welcome_agent_artifacts, WelcomeMigrationResult};
 
 /// Log prefix for thread-title generation (grep-friendly).
 pub(crate) const THREAD_TITLE_LOG_PREFIX: &str = "[threads:title]";

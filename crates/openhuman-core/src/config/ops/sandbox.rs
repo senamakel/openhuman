@@ -105,7 +105,7 @@ pub async fn apply_sandbox_settings(
         );
     }
 
-    config.save().await.map_err(|e| e.to_string())?;
+    config.save().await.map_err(super::config_save_error)?;
 
     log::debug!(
         "[config][sandbox] sandbox settings saved to {}",

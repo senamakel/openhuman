@@ -292,7 +292,7 @@ pub async fn apply_search_settings(
     update: SearchSettingsPatch,
 ) -> Result<Outcome<Value>, String> {
     apply_search_patch(config, update)?;
-    config.save().await.map_err(|e| e.to_string())?;
+    config.save().await.map_err(super::config_save_error)?;
     #[cfg(feature = "modules")]
     crate::modules::search::refresh_loaded(ctx, config).await?;
     tracing::debug!(

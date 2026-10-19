@@ -113,10 +113,13 @@ pub(crate) async fn persist_prepared_connection(
                     persisted.channels_config.yuanbao = Some(*value);
                 }
             }
-            persisted
-                .save()
-                .await
-                .map_err(|error| format!("failed to persist {channel_id} config.toml: {error}"))?;
+            persisted.save().await.map_err(|error| {
+                crate::config::ops::config_save_error_with_context(
+                    error,
+                    &format!("failed to persist {channel_id} config.toml"),
+                    false,
+                )
+            })?;
         }
     }
     let log = if local_only {

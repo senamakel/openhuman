@@ -405,7 +405,10 @@ pub async fn update_settings(
         }
     }
 
-    config.save().await.map_err(|e| e.to_string())?;
+    config
+        .save()
+        .await
+        .map_err(crate::config::ops::config_save_error)?;
 
     tracing::info!(
         provider = config.memory.embedding_provider.as_str(),

@@ -17,12 +17,11 @@
 //!
 //! # Content files
 //!
-//! Only the records move. An artifact's bytes are a file in the visible files
-//! folder (`ArtifactMeta::file`), which the user opens, edits and deletes
-//! outside OpenHuman; the port has no blob store for that, so the file stays
-//! where it is on every backend and the record names it. A shared database
-//! therefore shares the list, the status and the regenerate arguments, not the
-//! bytes.
+//! Only the records move. An artifact's bytes remain a file in the visible
+//! files folder (`ArtifactMeta::file`), which the user opens, edits and deletes
+//! outside OpenHuman. The storage ports include a blob store, but artifact
+//! bytes have not moved to it yet; a shared database therefore shares the
+//! list, status and regenerate arguments, not the bytes.
 //!
 //! The first document-mode call of a process imports the workspace's legacy
 //! `meta.json` / `args.json` files into the acting backend and scope

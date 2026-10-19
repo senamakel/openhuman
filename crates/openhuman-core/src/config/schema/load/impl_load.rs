@@ -1,10 +1,11 @@
 use super::super::Config;
-use super::branches::{default_config_boxed, pre_login_config_boxed};
+use super::branches::pre_login_config_boxed;
+use super::context_refresh::is_document_conflict;
 use super::dirs::{
     default_action_dir, default_config_and_workspace_dirs, resolve_action_dir,
     resolve_config_dirs_ignoring_env, resolve_runtime_config_dirs_with, ConfigResolutionSource,
 };
-use super::env::{EnvLookup, ProcessEnv, ProcessEnvWithoutWorkspace};
+use super::env::{EnvLookup, NoEnv, ProcessEnv, ProcessEnvWithoutWorkspace};
 use super::migrate::{
     migrate_cloud_provider_slugs, migrate_components, migrate_legacy_inference_url,
     migrate_legacy_memory_backend, migrate_search_settings,
@@ -16,6 +17,13 @@ use anyhow::{Context, Result};
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};
 use tokio::fs;
+
+pub(crate) use super::config_file_read::parse_config_with_recovery;
+pub(crate) use super::config_file_read::CONFIG_OWNER_MISMATCH_MARKER;
+pub(super) use super::config_file_read::{
+    describe_config_ownership, migration_source, parse_config_boxed, parse_toml_off_worker,
+};
+pub(super) use super::parse_source::parse_source_contents;
 
 /// Guards the "corrupted config read, resetting to defaults" warning so it
 /// fires at most once per process lifetime. Without this, a permanently
@@ -54,11 +62,6 @@ pub(super) async fn read_config_with_recovery_or_default(
     match result {
         Ok(contents) => Ok((contents, false)),
         Err(e) => {
-            // Check if this is a content-corruption error (non-UTF-8).
-            // Only in that case do we auto-recover by renaming the file
-            // and falling back to backup/defaults. Other errors (permission
-            // denied, file not found after retries, etc.) are propagated
-            // so the caller surfaces them to the user.
             let is_content_corruption = e.chain().any(|cause| {
                 cause
                     .downcast_ref::<std::io::Error>()
@@ -74,10 +77,6 @@ pub(super) async fn read_config_with_recovery_or_default(
                 return Err(e);
             }
 
-            // Rate-limit the warning to once per process lifetime.  The
-            // MutexGuard *must* be scoped in its own block so it is dropped
-            // before any `.await` below -- holding a non-Send guard across
-            // an await would poison the future's Send bound (#5167).
             {
                 let warned = WARNED_CONFIG_READ_FAILURE.get_or_init(|| Mutex::new(false));
                 let mut guard = warned.lock().unwrap_or_else(|e| e.into_inner());
@@ -92,8 +91,6 @@ pub(super) async fn read_config_with_recovery_or_default(
                 }
             }
 
-            // Rename the corrupted file with a UNIX-timestamp suffix so it's
-            // recoverable by the user but does not block future config loads.
             let ts = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_secs())
@@ -114,7 +111,6 @@ pub(super) async fn read_config_with_recovery_or_default(
                 );
             }
 
-            // Try the backup.
             let backup_path = config_path.with_extension("toml.bak");
             match fs::read_to_string(&backup_path).await {
                 Ok(bak_contents) => {
@@ -138,182 +134,6 @@ pub(super) async fn read_config_with_recovery_or_default(
             }
         }
     }
-}
-
-/// Parse the text a [`ConfigSource`](super::source::ConfigSource) returned.
-///
-/// A file keeps its recovery: a body that does not parse falls back to the
-/// `.bak` next to it, then to defaults. A document is parsed strictly and a
-/// body that does not parse is an error: the file recovery would consume the
-/// node-local bootstrap `config.toml.bak`, rename the bootstrap file, and save
-/// stale defaults over the shared document.
-pub(super) async fn parse_source_contents(
-    read: &super::source::ConfigRead,
-    config_path: &Path,
-) -> Result<(Box<Config>, bool)> {
-    let contents = read.contents.as_str();
-    let read_was_recovered = read.recovered;
-    // By the text's origin, not the source's kind: a document source that
-    // fell back to the file (no document for the scope yet) returns file text,
-    // which keeps the file's `.bak` recovery.
-    if read.from_document {
-        let config = parse_toml_off_worker(contents.to_string())
-            .await
-            .map_err(|error| {
-                anyhow::anyhow!("the config document for this scope could not be parsed: {error}")
-            })?;
-        return Ok((config, false));
-    }
-    if read_was_recovered && contents.is_empty() {
-        return Ok((super::branches::default_config_boxed(), true));
-    }
-    Ok(Box::pin(parse_config_boxed(config_path, contents)).await)
-}
-
-pub(crate) async fn parse_config_with_recovery(
-    config_path: &Path,
-    contents: &str,
-) -> (Config, bool) {
-    let (config, recovered) = Box::pin(parse_config_boxed(config_path, contents)).await;
-    (*config, recovered)
-}
-
-/// [`parse_config_with_recovery`] with the config kept behind a `Box`, so the
-/// async chain that threads it through (load, recover, migrate, save) moves a
-/// pointer instead of an ~8 KB value per hop.
-pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (Box<Config>, bool) {
-    let parse_err = match parse_toml_off_worker(contents.to_string()).await {
-        Ok(config) => {
-            tracing::debug!(
-                path = %config_path.display(),
-                "[config] Config parsed successfully"
-            );
-            return (config, false);
-        }
-        Err(parse_err) => parse_err,
-    };
-
-    let backup_path = config_path.with_extension("toml.bak");
-    if tokio::fs::try_exists(&backup_path).await.unwrap_or(false) {
-        tracing::warn!(
-            path = %config_path.display(),
-            backup = %backup_path.display(),
-            error = %parse_err,
-            "[config] Config file is corrupted — attempting recovery from backup"
-        );
-        match fs::read_to_string(&backup_path).await {
-            Ok(bak_contents) => match parse_toml_off_worker(bak_contents).await {
-                Ok(bak_config) => {
-                    tracing::info!(
-                        path = %config_path.display(),
-                        backup = %backup_path.display(),
-                        "[config] Recovered config from backup"
-                    );
-                    return (bak_config, true);
-                }
-                Err(bak_err) => {
-                    tracing::warn!(
-                        path = %config_path.display(),
-                        backup = %backup_path.display(),
-                        error = %bak_err,
-                        "[config] Backup is also corrupted; resetting to defaults"
-                    );
-                }
-            },
-            Err(read_err) => {
-                tracing::warn!(
-                    path = %config_path.display(),
-                    backup = %backup_path.display(),
-                    error = %read_err,
-                    "[config] Failed to read backup; resetting to defaults"
-                );
-            }
-        }
-    } else {
-        tracing::warn!(
-            path = %config_path.display(),
-            error = %parse_err,
-            "[config] Config file is corrupted (no backup found); resetting to defaults"
-        );
-    }
-
-    (default_config_boxed(), true)
-}
-
-/// Return the source text that should be inspected by migrations. A readable
-/// backup may be the source used to build the config when the primary TOML is
-/// malformed.
-pub(super) async fn migration_source(config_path: &Path, contents: &str) -> String {
-    if parse_toml_off_worker(contents.to_owned()).await.is_ok() {
-        return contents.to_owned();
-    }
-    let backup_path = config_path.with_extension("toml.bak");
-    match fs::read_to_string(backup_path).await {
-        Ok(backup) if parse_toml_off_worker(backup.clone()).await.is_ok() => backup,
-        _ => contents.to_owned(),
-    }
-}
-
-pub(super) async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {
-    match tokio::task::spawn_blocking(move || {
-        super::parse::config_from_toml_str(&contents).map(Box::new)
-    })
-    .await
-    {
-        Ok(Ok(config)) => Ok(config),
-        Ok(Err(parse_err)) => Err(parse_err.to_string()),
-        Err(join_err) => Err(format!("blocking-pool parse join failed: {join_err}")),
-    }
-}
-
-/// Marker appended to a config-read failure when the file is owned by a
-/// different uid than the process trying to read it.
-///
-/// `core::observability::expected_error_kind` keys on this to keep the failure
-/// paging instead of demoting it as an unpreventable user-environment denial:
-/// a uid mismatch on a file *we* created with mode 0600 is an OpenHuman defect
-/// (typically a container whose entrypoint chowned only the workspace
-/// directory, leaving a stale-uid `config.toml` inside it), not an ACL the user
-/// has to fix for us.
-pub(crate) const CONFIG_OWNER_MISMATCH_MARKER: &str = "[config owner mismatch]";
-
-/// Numeric ownership/permission facts about the config file, appended to the
-/// read-failure context.
-///
-/// An `EACCES` on a file whose `exists()` check just succeeded is fully
-/// explained by four numbers we can always obtain: the file's uid/gid, its
-/// mode, and the process's effective uid/gid. Without them the operator sees
-/// only "Permission denied (os error 13)" and cannot tell a foreign-owner
-/// container volume (our bug) from a genuine ACL / antivirus denial (theirs).
-///
-/// Numeric ids and mode bits are not PII, so this is safe both in the local log
-/// and in the error chain that reaches the client.
-#[cfg(unix)]
-async fn describe_config_ownership(path: &Path) -> String {
-    use std::os::unix::fs::{MetadataExt, PermissionsExt};
-
-    let Ok(meta) = fs::metadata(path).await else {
-        return String::new();
-    };
-    // SAFETY: `geteuid`/`getegid` take no arguments, mutate no process state,
-    // and are documented as always succeeding.
-    let (euid, egid) = unsafe { (libc::geteuid(), libc::getegid()) };
-    let mismatch = if meta.uid() == euid {
-        String::new()
-    } else {
-        format!("{CONFIG_OWNER_MISMATCH_MARKER} ")
-    };
-    format!(
-        " {mismatch}(file uid={} gid={} mode={:04o}; process euid={euid} egid={egid})",
-        meta.uid(),
-        meta.gid(),
-        meta.permissions().mode() & 0o777,
-    )
-}
-
-#[cfg(not(unix))]
-async fn describe_config_ownership(_path: &Path) -> String {
-    String::new()
 }
 
 impl Config {
@@ -467,14 +287,30 @@ impl Config {
     /// streams with unrelated tests or runtime tasks that temporarily
     /// repoint it. Other process env overrides still apply.
     pub async fn load_from_config_path(config_path: &Path, workspace_dir: &Path) -> Result<Self> {
-        Self::load_from_config_path_unenriched(config_path, workspace_dir)
+        Self::load_from_config_path_with_env(
+            config_path,
+            workspace_dir,
+            &ProcessEnvWithoutWorkspace,
+        )
+        .await
+        .map(crate::config::enrichers::enriched)
+    }
+
+    /// Reloads the resolved config source and its revision without applying
+    /// process environment overrides.
+    pub(crate) async fn load_from_config_path_without_env(
+        config_path: &Path,
+        workspace_dir: &Path,
+    ) -> Result<Self> {
+        Self::load_from_config_path_with_env(config_path, workspace_dir, &NoEnv)
             .await
             .map(crate::config::enrichers::enriched)
     }
 
-    async fn load_from_config_path_unenriched(
+    async fn load_from_config_path_with_env(
         config_path: &Path,
         workspace_dir: &Path,
+        env: &(dyn EnvLookup + Send + Sync),
     ) -> Result<Self> {
         let config_path = config_path.to_path_buf();
         let workspace_dir = workspace_dir.to_path_buf();
@@ -491,7 +327,7 @@ impl Config {
                 action_dir: default_action_dir(),
                 ..Default::default()
             };
-            config.apply_env_overrides_from(&ProcessEnvWithoutWorkspace);
+            config.apply_env_overrides_from(env);
             return Ok(config);
         }
 
@@ -524,7 +360,7 @@ impl Config {
         migrate_components(&mut config, &migration_raw);
         migrate_cloud_provider_slugs(&mut config);
         migrate_search_settings(&mut config);
-        config.apply_env_overrides_from(&ProcessEnvWithoutWorkspace);
+        config.apply_env_overrides_from(env);
 
         if config_was_corrupted {
             tracing::warn!(
@@ -556,6 +392,44 @@ impl Config {
     /// Save into `source`. The loader also uses it to rewrite the local
     /// bootstrap file when a document-backed load recovered it.
     pub(super) async fn save_to(&self, source: &dyn super::source::ConfigSource) -> Result<()> {
+        self.save_to_inner(source, true).await
+    }
+
+    /// Persist a recovered local bootstrap file without changing the
+    /// document-backed snapshot that was just recovered and saved.
+    pub(super) async fn save_file_export(
+        &self,
+        source: &dyn super::source::ConfigSource,
+    ) -> Result<()> {
+        self.save_to_inner(source, false).await
+    }
+
+    async fn save_to_inner(
+        &self,
+        source: &dyn super::source::ConfigSource,
+        update_snapshot: bool,
+    ) -> Result<()> {
+        let source_anchor = source.anchor();
+        let expected_snapshot = self.runtime_state.document_snapshot.lock().unwrap().clone();
+        let initial_file_import = matches!(
+            (&expected_snapshot.anchor, &source_anchor),
+            (
+                Some(super::source::ConfigSourceAnchor::File(path)),
+                super::source::ConfigSourceAnchor::Document { .. }
+            ) if path == &super::source::normalized_path(&self.config_path)
+                && expected_snapshot.version.is_none()
+        );
+        if update_snapshot
+            && expected_snapshot
+                .anchor
+                .as_ref()
+                .is_some_and(|anchor| anchor != &source_anchor && !initial_file_import)
+        {
+            return Err(tinystoragedrivers::StorageError::conflict(
+                "config snapshot belongs to a different persistence source",
+            )
+            .into());
+        }
         let mut config_to_save = self.clone();
         super::super::cli_overrides::restore_persisted_inference_fields(&mut config_to_save);
         // A document source seals the whole body under the scope's data key;
@@ -579,7 +453,53 @@ impl Config {
             toml::to_string_pretty(&config_to_save).context("Failed to serialize config")?;
 
         tracing::debug!(source = source.label(), "[config] saving config");
-        source.write(&toml_str).await?;
+        let expected = if update_snapshot {
+            expected_snapshot.version
+        } else {
+            None
+        };
+        let version = match source.write_versioned(&toml_str, expected).await {
+            Ok(version) => version,
+            Err(error) => {
+                if is_document_conflict(&error) {
+                    self.refresh_context_after_conflict(&expected_snapshot)
+                        .await;
+                }
+                return Err(error);
+            }
+        };
+        if !update_snapshot {
+            return Ok(());
+        }
+        *self.runtime_state.document_snapshot.lock().unwrap() =
+            super::super::ConfigDocumentSnapshot {
+                version,
+                anchor: Some(source_anchor.clone()),
+            };
+
+        if let Some(snapshot) = self
+            .runtime_state
+            .context_snapshot
+            .as_ref()
+            .and_then(std::sync::Weak::upgrade)
+        {
+            let mut current = snapshot.lock().unwrap();
+            let current_state = current
+                .runtime_state
+                .document_snapshot
+                .lock()
+                .unwrap()
+                .clone();
+            if current_state == expected_snapshot {
+                let published = self.clone();
+                *published.runtime_state.document_snapshot.lock().unwrap() =
+                    super::super::ConfigDocumentSnapshot {
+                        version,
+                        anchor: Some(source_anchor),
+                    };
+                *current = published;
+            }
+        }
 
         Ok(())
     }

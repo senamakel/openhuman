@@ -14,5 +14,4 @@ pub mod proc_metrics;
 pub(crate) mod resource_admission;
 pub mod service;
 pub mod socket;
-pub mod startup;
 pub mod update;

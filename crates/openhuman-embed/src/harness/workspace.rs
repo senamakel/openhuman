@@ -1,10 +1,9 @@
 //! Where the harness keeps its state.
 //!
-//! By default session history, memory, attachments and skills all live
-//! beneath one directory, and `tinyagents::session` keys its SQLite database on
-//! it (`{workspace}/session_db/sessions.db`), which is why the workspace is a
-//! first-class builder input rather than something discovered from the
-//! environment.
+//! By default local session history, memory, attachments and skills live
+//! beneath one directory. The runtime resolves durable session storage from
+//! its configured storage backend; the workspace remains a first-class
+//! builder input for local files and scratch data.
 //!
 //! A host that keeps conversations in its own database instead gives the
 //! runtime a session store

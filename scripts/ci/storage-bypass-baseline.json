@@ -162,20 +162,6 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/integrations/file_storage/tools/download.rs",
-    "line": 89,
-    "text": "if let Err(e) = tokio::fs::write(&path, &body).await {",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
-    "path": "crates/openhuman-core/src/memory/files.rs",
-    "line": 61,
-    "text": "let mut options = std::fs::OpenOptions::new();",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
     "path": "crates/openhuman-core/src/memory/layout_migration/claim.rs",
     "line": 106,
     "text": "let temp = tempfile::NamedTempFile::new_in(key.marker.parent().unwrap_or(Path::new(\".\")))?;",
@@ -358,30 +344,9 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/skills/ops_discover/api.rs",
-    "line": 54,
-    "text": "std::fs::write(&readme_path, content)",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
     "path": "crates/openhuman-core/src/skills/webhooks/router.rs",
     "line": 537,
     "text": "if let Err(e) = std::fs::write(&path, json) {",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
-    "path": "crates/openhuman-core/src/threads/welcome_migration.rs",
-    "line": 302,
-    "text": "fs::write(path, rewritten).map_err(|e| {",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
-    "path": "crates/openhuman-core/src/threads/welcome_migration.rs",
-    "line": 393,
-    "text": "fs::write(marker, b\"done\\n\").map_err(|e| {",
     "occurrence": 1
   },
   {

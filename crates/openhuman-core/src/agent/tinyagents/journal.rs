@@ -241,7 +241,7 @@ pub(crate) async fn attach_turn_journal(
         }
     };
 
-    // Event journal: crate StoreEventJournal over the 04-sessions JsonlAppendStore
+    // Event journal: crate StoreEventJournal over the session event stream
     // (stream key = run id). Wrapped in a JournalSink (stamps run lineage) and a
     // RedactingSink (masks process credentials) before persisting. Because
     // `events` was seeded with `with_stream_id(run_id)`, every persisted

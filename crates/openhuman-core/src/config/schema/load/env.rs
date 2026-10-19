@@ -58,6 +58,20 @@ impl EnvLookup for ProcessEnvWithoutWorkspace {
     }
 }
 
+/// Environment lookup for callers that must preserve the persisted config
+/// exactly while still loading it through the revision-aware source path.
+pub(crate) struct NoEnv;
+
+impl EnvLookup for NoEnv {
+    fn get(&self, _key: &str) -> Option<String> {
+        None
+    }
+
+    fn contains(&self, _key: &str) -> bool {
+        false
+    }
+}
+
 /// Parse a boolean env-var value. Accepts the usual truthy/falsy tokens
 /// (`1/true/yes/on` and `0/false/no/off`, case-insensitive). Returns `None`
 /// on unrecognised values and logs a warning so silent mis-spellings don't

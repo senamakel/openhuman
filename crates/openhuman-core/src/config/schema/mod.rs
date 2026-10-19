@@ -35,7 +35,7 @@ pub use storage::StorageConfig;
 pub mod profile_layout;
 pub use profile_layout::{users_dir, ProfileLayout};
 mod identity_cost;
-mod load;
+pub(crate) mod load;
 pub(crate) use load::config_from_toml_str;
 pub(crate) use load::source::storage_schema::storage_schema as config_storage_schema;
 pub use load::{
@@ -62,7 +62,7 @@ pub mod claude_agent_sdk;
 pub use claude_agent_sdk::ClaudeAgentSdkConfig;
 mod local_ai;
 mod memes;
-mod memory;
+pub(crate) mod memory;
 mod modules;
 mod observability;
 mod privacy;
@@ -147,4 +147,5 @@ pub use voice_providers::{
     VoiceProviderCreds, BUILTIN_VOICE_PROVIDERS,
 };
 mod types;
+pub(crate) use types::ConfigDocumentSnapshot;
 pub use types::*;

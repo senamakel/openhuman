@@ -77,13 +77,6 @@
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7430"
   },
   {
-    "path": "crates/openhuman-core/src/agent/harness/artifact_offload/mod.rs",
-    "rule": "json-write",
-    "site": "tokio::fs::write(&target, body)",
-    "reason": "a derived view of a blob-stored artifact, placed in the action dir so file_read can open the path a pointer hands back; the tenant's blob store stays the source of truth",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7425"
-  },
-  {
     "path": "crates/openhuman-core/src/agent/harness/tool_result_artifacts/mod.rs",
     "rule": "json-write",
     "site": "tokio::fs::write(&target, body).await?;",

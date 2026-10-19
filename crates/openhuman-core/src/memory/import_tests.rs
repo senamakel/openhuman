@@ -4,7 +4,7 @@ use crate::memory::test_fixtures::config_in;
 #[test]
 fn the_state_round_trips_through_the_store() {
     let tmp = tempfile::tempdir().unwrap();
-    let store = FileCheckpointStore::new(tmp.path());
+    let store = StateKvCheckpointStore::new(tmp.path());
     assert_eq!(
         store.load(),
         ImportFile::default(),
@@ -34,7 +34,7 @@ fn a_running_state_with_no_live_run_reports_interrupted() {
     let config = config_in(&tmp);
     let mut file = ImportFile::default();
     file.state.phase = ImportPhase::Running;
-    FileCheckpointStore::new(&config.workspace_dir)
+    StateKvCheckpointStore::new(&config.workspace_dir)
         .save(&file)
         .unwrap();
     let state = status(&config);
@@ -53,7 +53,7 @@ fn a_credits_pause_blocks_organizing_until_resumed() {
     let mut file = ImportFile::default();
     file.state.phase = ImportPhase::Error;
     file.paused_for_credits = true;
-    FileCheckpointStore::new(&config.workspace_dir)
+    StateKvCheckpointStore::new(&config.workspace_dir)
         .save(&file)
         .unwrap();
     assert!(in_progress(&config));
@@ -109,7 +109,7 @@ async fn a_paused_scheduler_leaves_an_interrupted_import_for_later() {
     let config = config_in(&tmp);
     let mut file = ImportFile::default();
     file.state.phase = ImportPhase::Running;
-    FileCheckpointStore::new(&config.workspace_dir)
+    StateKvCheckpointStore::new(&config.workspace_dir)
         .save(&file)
         .unwrap();
     let resumed = resume_interrupted_with(

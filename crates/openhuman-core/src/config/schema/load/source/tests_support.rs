@@ -13,6 +13,7 @@ pub(crate) struct Forced {
     pub scoped: ScopedStorage,
     pub scope: Scope,
     pub keys: Arc<dyn KeyProvider>,
+    pub identity: Arc<()>,
 }
 
 thread_local! {
@@ -36,6 +37,7 @@ impl ForcedDocumentSource {
                 scoped,
                 scope,
                 keys,
+                identity: Arc::new(()),
             })
         });
         Self { previous }

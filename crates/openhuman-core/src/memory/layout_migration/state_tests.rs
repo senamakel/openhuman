@@ -43,13 +43,13 @@ fn a_damaged_legacy_file_is_an_error_not_a_fresh_start() {
     assert!(exists(tmp.path()), "a state that cannot be read was begun");
     assert!(load(tmp.path()).is_err());
     // Through the port the host hands the module, too.
-    assert!(FileStateStore::new(tmp.path()).load().is_err());
+    assert!(StateKvMigrationStore::new(tmp.path()).load().is_err());
 }
 
 #[test]
 fn the_port_saves_where_the_status_reads() {
     let tmp = tempfile::tempdir().unwrap();
-    let store = FileStateStore::new(tmp.path());
+    let store = StateKvMigrationStore::new(tmp.path());
     let state = MigrationState {
         phase: Phase::Copying,
         copied: 3,

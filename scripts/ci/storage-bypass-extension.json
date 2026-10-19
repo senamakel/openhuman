@@ -260,46 +260,6 @@
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7425"
   },
   {
-    "rule": "file-store-new",
-    "path": "crates/openhuman-core/src/memory/import.rs",
-    "line": 99,
-    "text": "FileCheckpointStore::new(workspace_dir).load()",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Legacy memory import checkpoint adapter reads and saves resume, error and credit-pause bookkeeping through the existing host state store; this constructor is not proof of native migration authority.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
-  },
-  {
-    "rule": "file-store-new",
-    "path": "crates/openhuman-core/src/memory/import.rs",
-    "line": 122,
-    "text": "Arc::new(FileCheckpointStore::new(&config.workspace_dir)),",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Legacy memory import checkpoint adapter reads and saves resume, error and credit-pause bookkeeping through the existing host state store; this constructor is not proof of native migration authority.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
-  },
-  {
-    "rule": "file-store-new",
-    "path": "crates/openhuman-core/src/memory/import.rs",
-    "line": 265,
-    "text": "let store = FileCheckpointStore::new(&config.workspace_dir);",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Legacy memory import checkpoint adapter reads and saves resume, error and credit-pause bookkeeping through the existing host state store; this constructor is not proof of native migration authority.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
-  },
-  {
-    "rule": "file-store-new",
-    "path": "crates/openhuman-core/src/memory/layout_migration/app_host.rs",
-    "line": 28,
-    "text": "let store = FileStateStore::new(&config.workspace_dir);",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Legacy memory layout migration host retains its checkpoint and claim state through the existing file-state adapter; engine migration and checkpoint routing are separate obligations.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
-  },
-  {
     "rule": "file-mutation",
     "path": "crates/openhuman-core/src/memory/layout_migration/claim.rs",
     "line": 111,
@@ -317,16 +277,6 @@
     "occurrence": 1,
     "classification": "classic",
     "reason": "Legacy memory layout migration claim/state marker publication; historical source capture and native migration admission remain separate.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
-  },
-  {
-    "rule": "file-store-new",
-    "path": "crates/openhuman-core/src/memory/layout_migration/test_host.rs",
-    "line": 50,
-    "text": "store: FileStateStore::new(&config.workspace_dir),",
-    "occurrence": 1,
-    "classification": "scratch",
-    "reason": "Test-only layout migration host, wired under cfg(test), instantiates the file-state fixture for migration controls; it is not a product storage route.",
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
   },
   {
@@ -518,26 +468,6 @@
     "classification": "classic",
     "reason": "Owner-only atomic encrypted-secret/bootstrap file helper; native SecretStore and machine master-key policy have separate admission.",
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7421"
-  },
-  {
-    "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/threads/welcome_migration.rs",
-    "line": 310,
-    "text": "fs::rename(path, destination).map_err(|e| {",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Explicit legacy welcome-thread file relocation; native thread metadata/streams do not grant historical import ownership.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7424"
-  },
-  {
-    "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/threads/welcome_migration.rs",
-    "line": 366,
-    "text": "if let Err(err) = fs::rename(&old_path, &new_path) {",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Explicit legacy welcome-thread file relocation; native thread metadata/streams do not grant historical import ownership.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7424"
   },
   {
     "rule": "file-mutation",

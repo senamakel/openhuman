@@ -9,7 +9,7 @@ use tinymemory_tools::layout_migration as lm;
 use tinymemory_tools::layout_migration::{Engines, FlowPlacement, LegacyClaim, Placement};
 
 use super::claim::ClaimKey;
-use super::state::FileStateStore;
+use super::state::StateKvMigrationStore;
 use crate::config::{Config, MemoryLayoutMode};
 use crate::memory::engine::{self, CORTEXDB_ENGINE};
 use crate::memory::error::{MemoryError, MemoryResult};
@@ -18,14 +18,14 @@ use crate::memory::scope::{self, MemoryIdentity};
 /// The app's [`lm::LayoutHost`], bound to one account's config.
 pub struct AppHost {
     config: Config,
-    store: FileStateStore,
+    store: StateKvMigrationStore,
 }
 
 impl AppHost {
     /// The host that migrates `config`'s account.
     #[must_use]
     pub fn new(config: Config) -> Self {
-        let store = FileStateStore::new(&config.workspace_dir);
+        let store = StateKvMigrationStore::new(&config.workspace_dir);
         Self { config, store }
     }
 }
@@ -49,6 +49,7 @@ pub(super) fn to_module(error: MemoryError) -> lm::Error {
         MemoryError::InsufficientCredits(message) | MemoryError::Engine(message) => {
             EngineError::Engine(message).into()
         }
+        MemoryError::ConfigConflict(error) => EngineError::Engine(error.message).into(),
     }
 }
 

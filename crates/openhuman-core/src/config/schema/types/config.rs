@@ -8,6 +8,38 @@ use std::path::PathBuf;
 
 use crate::config::schema::*;
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub(crate) struct ConfigDocumentSnapshot {
+    pub version: Option<tinystoragedrivers::Version>,
+    pub anchor: Option<super::super::load::source::ConfigSourceAnchor>,
+}
+
+/// Opaque runtime bookkeeping that accompanies a [`Config`] snapshot.
+///
+/// Public only to preserve `Config { ..Default::default() }` construction in
+/// downstream crates; its fields remain private to this crate.
+#[doc(hidden)]
+#[derive(Debug, Default)]
+pub struct ConfigRuntimeState {
+    pub(crate) document_snapshot: std::sync::Mutex<ConfigDocumentSnapshot>,
+    pub(crate) context_snapshot: Option<std::sync::Weak<std::sync::Mutex<Config>>>,
+    pub(crate) context_overlay: std::sync::Mutex<
+        Option<std::sync::Arc<super::super::load::context_overlay::ConfigContextOverlay>>,
+    >,
+}
+
+impl Clone for ConfigRuntimeState {
+    fn clone(&self) -> Self {
+        Self {
+            document_snapshot: std::sync::Mutex::new(
+                self.document_snapshot.lock().unwrap().clone(),
+            ),
+            context_snapshot: self.context_snapshot.clone(),
+            context_overlay: std::sync::Mutex::new(self.context_overlay.lock().unwrap().clone()),
+        }
+    }
+}
+
 #[derive(Debug, Clone, Default, Serialize, Deserialize, JsonSchema)]
 pub struct ModelRegistryEntry {
     pub id: String,
@@ -54,6 +86,11 @@ pub struct CustomEmbeddingsConfig {
 /// `Clone` is implemented by hand in `config_clone.rs` so it is emitted once.
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 pub struct Config {
+    /// Non-serialized persistence and context bookkeeping.
+    #[serde(skip)]
+    #[schemars(skip)]
+    #[doc(hidden)]
+    pub runtime_state: ConfigRuntimeState,
     /// Immutable operator provider binding, absent from the user wire format.
     #[serde(skip)]
     #[schemars(skip)]

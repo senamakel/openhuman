@@ -1,9 +1,9 @@
 //! The memory RPC error taxonomy.
 //!
-//! Every `openhuman.memory_*` failure carries one of seven stable codes in its
+//! Every `openhuman.memory_*` failure carries a stable code in its
 //! structured error `data.code` (and `data.kind`): `MEMORY_OFF`,
 //! `UNSUPPORTED`, `INVALID_REQUEST`, `UNAUTHORIZED`, `INSUFFICIENT_CREDITS`,
-//! `UNAVAILABLE` or `ENGINE`. The two account-wide refusals are split out of
+//! `UNAVAILABLE`, `ENGINE` or `CONFIG_CONFLICT`. The two account-wide refusals are split out of
 //! `ENGINE` so a caller can tell "top up" and "try again later" apart from an
 //! engine fault, and neither from an empty memory (#6718). Messages never
 //! carry a credential: engine errors are already sanitised by TinyMemory, and
@@ -27,6 +27,8 @@ pub const INSUFFICIENT_CREDITS: &str = "INSUFFICIENT_CREDITS";
 pub const UNAVAILABLE: &str = "UNAVAILABLE";
 /// `data.code` for the engine's own failure.
 pub const ENGINE: &str = "ENGINE";
+/// `data.code` when a shared config changed after memory settings were read.
+pub const CONFIG_CONFLICT: &str = "CONFIG_CONFLICT";
 
 /// A memory operation failure.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
@@ -52,6 +54,9 @@ pub enum MemoryError {
     /// The engine (or the host around it) failed.
     #[error("engine error: {0}")]
     Engine(String),
+    /// The shared config changed after this request loaded its snapshot.
+    #[error("configuration changed on another instance")]
+    ConfigConflict(StructuredRpcError),
 }
 
 impl MemoryError {
@@ -66,6 +71,7 @@ impl MemoryError {
             Self::InsufficientCredits(_) => INSUFFICIENT_CREDITS,
             Self::Unavailable(_) => UNAVAILABLE,
             Self::Engine(_) => ENGINE,
+            Self::ConfigConflict(_) => CONFIG_CONFLICT,
         }
     }
 
@@ -93,6 +99,9 @@ impl MemoryError {
     /// an expected user-visible state, so the boundary does not report it.
     #[must_use]
     pub fn to_structured(&self) -> StructuredRpcError {
+        if let Self::ConfigConflict(error) = self {
+            return error.clone();
+        }
         StructuredRpcError {
             message: self.to_string(),
             data: Some(json!({ "kind": self.code(), "code": self.code() })),

@@ -46,13 +46,6 @@ pub fn install_bundled_skills(_workspace_dir: &Path) {
     log::debug!("[skills-stub] install_bundled_skills skipped (skills disabled)");
 }
 
-/// No-op success: with skills compiled out there is no skills directory to
-/// provision, and workspace bootstrap must not fail because of it.
-pub fn init_workflows_dir(_workspace_dir: &Path) -> Result<(), String> {
-    log::debug!("[skills-stub] init_workflows_dir skipped (skills disabled)");
-    Ok(())
-}
-
 // ---------------------------------------------------------------------------
 // Controller aggregators — empty so `crates/openhuman-core/src/core/all.rs` needs no `#[cfg]`.
 // ---------------------------------------------------------------------------

@@ -9,10 +9,8 @@
 //! Call the store directly (`tinyagents_session::run_ledger::…`) rather
 //! than through this module; it deliberately re-exports no storage API.
 //!
-//! Every store entry point takes the workspace root, so handlers pass
-//! `config.workspace_dir`. The database path is
-//! `{workspace}/session_db/sessions.db` — unchanged, so existing installs keep
-//! their run-ledger history.
+//! Handlers resolve the configured session store through the runtime's storage
+//! ports, preserving run-ledger history across local and shared backends.
 //!
 //! The `run_ledger` RPC namespace is unchanged. The six read-only `session_db`
 //! controllers were removed in #6082: they queried a session index that nothing

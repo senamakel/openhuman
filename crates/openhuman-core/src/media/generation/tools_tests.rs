@@ -183,6 +183,20 @@ async fn media_factory_files_mock_generated_output_from_its_staging_store() {
     );
 }
 
+#[tokio::test]
+async fn media_factory_omits_generation_without_a_scoped_blob_store() {
+    let dir = tempfile::tempdir().unwrap();
+    let context =
+        crate::core::runtime::CoreContext::for_test(crate::core::runtime::DomainSet::saas(), None);
+
+    crate::core::runtime::CoreContext::scope(context, async {
+        let tools = tools(dir.path());
+        let names: Vec<&str> = tools.iter().map(|tool| tool.name()).collect();
+        assert_eq!(names, vec![LIST_MODELS_TOOL_NAME]);
+    })
+    .await;
+}
+
 struct ObservingStorageGuard(Option<Arc<dyn StorageBackend>>);
 
 impl Drop for ObservingStorageGuard {

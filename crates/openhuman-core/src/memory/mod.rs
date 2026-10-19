@@ -3,8 +3,8 @@
 //!
 //! | Module | Role |
 //! | --- | --- |
-//! | [`engine`] | Binds the `[memory]` engine (`tinyhumans` over the host's backend credential, or `cortexdb` with a stored key); memory is **off** without one |
-//! | [`guard`] | Scrubs secrets and PII from every write, whichever path it takes |
+//! | [`engine`] | Maps `[memory]` configuration and host credentials into TinyMemory's native engine binder |
+//! | native engine binder | Scrubs writes under the host policy and times every operation |
 //! | [`scope`] | Config-to-identity pins and the account layout migration hooks |
 //! | [`lifecycle`] | The turn hooks (pre-turn pack, post-turn log, compaction recall) and the background job queue |
 //! | [`ops`] | Engine selection, recall, fetch, learn, forget, list, the pack preview |
@@ -27,7 +27,32 @@ pub mod engine;
 pub mod error;
 pub mod explore;
 pub(crate) mod files;
-pub mod guard;
+#[cfg(test)]
+mod guard {
+    use std::sync::Arc;
+
+    use tinymemory_api::{MemoryEngine, StoreItem};
+    use tinymemory_integrations::safety::{Policy, scrub_item_with};
+    use tinymemory_integrations::EngineBinder;
+
+    fn wrap(engine: Arc<dyn MemoryEngine>) -> Arc<dyn MemoryEngine> {
+        EngineBinder::default()
+            .bind_external(engine, "test://engine", Policy::corroborated())
+            .engine
+    }
+
+    fn scrub(item: StoreItem) -> StoreItem {
+        scrub_item_with(item, Policy::corroborated()).value
+    }
+
+    mod tests {
+        use super::*;
+        use async_trait::async_trait;
+        use tinymemory_api::*;
+
+        include!("guard_tests.rs");
+    }
+}
 pub mod import;
 pub mod layout_migration;
 pub mod lifecycle;

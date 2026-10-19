@@ -23,7 +23,7 @@ async fn texts(engine: &ReferenceEngine) -> Vec<String> {
 #[tokio::test]
 async fn every_write_path_is_scrubbed() {
     let reference = Arc::new(ReferenceEngine::new());
-    let guarded = ScrubbingEngine::wrap(reference.clone());
+    let guarded = wrap(reference.clone());
     let item =
         |text: &str| StoreItem::document(format!("{text} key={SECRET}"), MemoryMeta::default());
 
@@ -50,17 +50,10 @@ async fn every_write_path_is_scrubbed() {
     assert_eq!(guarded.descriptor().id, reference.descriptor().id);
 }
 
-#[test]
-fn a_timed_call_reports_ok_or_the_error_code() {
-    assert_eq!(outcome(&Ok::<(), _>(())), "ok");
-    let refused: Result<()> = Err(tinymemory_api::Error::Unauthorized("bad key".into()));
-    assert_eq!(outcome(&refused), "UNAUTHORIZED");
-}
-
 #[tokio::test]
 async fn every_read_passes_through_the_timer_unchanged() {
     let reference = Arc::new(ReferenceEngine::new());
-    let guarded = ScrubbingEngine::wrap(reference.clone());
+    let guarded = wrap(reference.clone());
     let id = guarded
         .store(StoreItem::document("oolong tea", MemoryMeta::default()))
         .await
@@ -140,7 +133,7 @@ fn scrubbing_keeps_the_page_breaks_a_document_is_chunked_by() {
 #[tokio::test]
 async fn export_and_erase_reach_the_wrapped_engine() {
     let reference = Arc::new(ReferenceEngine::new());
-    let guarded = ScrubbingEngine::wrap(reference.clone());
+    let guarded = wrap(reference.clone());
     let namespace: tinymemory_api::Namespace = "agent:a".parse().unwrap();
     guarded
         .store(StoreItem::document(
@@ -217,7 +210,7 @@ impl MemoryEngine for Recording {
 #[tokio::test]
 async fn forget_within_reaches_the_wrapped_engine_with_its_reach() {
     let recording = Arc::new(Recording::default());
-    let guarded = ScrubbingEngine::wrap(recording.clone());
+    let guarded = wrap(recording.clone());
     let reach = Reach::subtree("agent:ann".parse::<tinymemory_api::Namespace>().unwrap());
     guarded
         .forget_within(vec![ItemId::new("a")], reach.clone())
@@ -233,7 +226,7 @@ async fn forget_within_reaches_the_wrapped_engine_with_its_reach() {
 #[tokio::test]
 async fn a_bulk_store_keeps_its_wait_through_the_guard() {
     let recording = Arc::new(Recording::default());
-    let guarded = ScrubbingEngine::wrap(recording.clone());
+    let guarded = wrap(recording.clone());
     let items = || vec![StoreItem::document("tea", MemoryMeta::default())];
     guarded
         .store_many_with(items(), WriteOptions::accepted())
@@ -288,7 +281,7 @@ impl MemoryEngine for MarkedPreview {
 
 #[tokio::test]
 async fn a_preview_listing_reaches_the_wrapped_engine() {
-    let guarded = ScrubbingEngine::wrap(Arc::new(MarkedPreview(ReferenceEngine::new())));
+    let guarded = wrap(Arc::new(MarkedPreview(ReferenceEngine::new())));
     guarded
         .store(StoreItem::document("oolong tea", MemoryMeta::default()))
         .await

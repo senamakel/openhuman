@@ -26,8 +26,8 @@
 //! it then wins over the configured one for every config in the process — one
 //! OpenHuman runtime per process — so a host with its own store, or a test
 //! binary with an in-memory engine, runs the whole lifecycle without a
-//! TinyHumans credential or a CortexDB key. It is wrapped in the same
-//! scrubber as a configured engine.
+//! TinyHumans credential or a CortexDB key. It is wrapped by TinyMemory's
+//! native binder under the same host scrub policy as a configured engine.
 //!
 //! The core never holds a TinyHumans credential of its own: the bearer comes
 //! from the host's credential seam on every request, so a refreshed session is

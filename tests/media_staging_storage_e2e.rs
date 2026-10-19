@@ -15,7 +15,7 @@ use tinyagents_harness::tinyinference_image::MockImageGenerator;
 use tinyagents_harness::tinyinference_video::{MockVideoGenerator, MockVideoScript, WaitPolicy};
 use tinystoragedrivers_core::{
     Blob, BlobMeta, BlobStore, Capabilities, MemoryStorage, Result, Scope, ScopedStorage,
-    StorageBackend, async_trait,
+    StorageBackend, StorageError, async_trait,
 };
 use tinytools::{Tool, ToolContent};
 
@@ -27,55 +27,90 @@ async fn media_factory_stages_generated_output_in_the_scoped_blob_store() {
     let workspace = root.path().join("workspace");
     let files = root.path().join("Files");
     let observed = Arc::new(Mutex::new(Vec::new()));
+    {
+        let _storage = ObservingStorageGuard(openhuman_core::storage::install(Arc::new(
+            ObservingStorage {
+                inner: MemoryStorage::new(),
+                observed: Arc::clone(&observed),
+            },
+        )));
+        let tools = factory(root.path(), &workspace, &files);
+
+        let result = tools
+            .iter()
+            .find(|tool| tool.name() == "media_generate_image")
+            .expect("image generation is available for a scoped caller")
+            .execute(json!({ "prompt": "a test image" }))
+            .await
+            .unwrap();
+        assert!(!result.is_error, "{result:?}");
+        let payload = result
+            .content
+            .iter()
+            .find_map(|block| match block {
+                ToolContent::Json { data } => Some(data),
+                _ => None,
+            })
+            .expect("generated media result");
+        let artifact = &payload["artifacts"][0];
+        assert!(artifact["artifact_id"].is_string(), "{artifact}");
+        let output_path = Path::new(artifact["path"].as_str().unwrap());
+        assert!(output_path.starts_with(&files));
+        let output_bytes = std::fs::read(output_path).unwrap();
+        let observed = observed.lock().unwrap();
+        assert!(
+            observed
+                .iter()
+                .any(|(_, written, read_back)| written == &output_bytes
+                    && read_back == &output_bytes),
+            "staged media must be written into the scoped backend and readable through a second handle; observed {} writes",
+            observed.len()
+        );
+    }
+
+    // Refusal must remove generation capabilities rather than silently
+    // falling back to the harness's private in-memory staging store.
     let _storage = ObservingStorageGuard(openhuman_core::storage::install(Arc::new(
-        ObservingStorage {
-            inner: MemoryStorage::new(),
-            observed: Arc::clone(&observed),
-        },
+        RefusingStorage::default(),
     )));
-    let tools = media_tools_from(
+    let tools = factory(root.path(), &workspace, &files);
+    let names: Vec<&str> = tools.iter().map(|tool| tool.name()).collect();
+    assert_eq!(names, ["media_list_models"]);
+}
+
+fn factory(action_dir: &Path, workspace: &Path, files: &Path) -> Vec<Box<dyn Tool>> {
+    media_tools_from(
         MediaGenerators::new(
             Arc::new(MockImageGenerator::new()),
             Arc::new(MockVideoGenerator::new(MockVideoScript::delivers())),
         ),
-        root.path(),
-        &workspace,
-        &files,
+        action_dir,
+        workspace,
+        files,
         WaitPolicy::new(
             std::time::Duration::from_millis(1),
             std::time::Duration::from_secs(5),
         ),
-    );
+    )
+}
 
-    let result = tools
-        .iter()
-        .find(|tool| tool.name() == "media_generate_image")
-        .expect("image generation is available for a scoped caller")
-        .execute(json!({ "prompt": "a test image" }))
-        .await
-        .unwrap();
-    assert!(!result.is_error, "{result:?}");
-    let payload = result
-        .content
-        .iter()
-        .find_map(|block| match block {
-            ToolContent::Json { data } => Some(data),
-            _ => None,
-        })
-        .expect("generated media result");
-    let artifact = &payload["artifacts"][0];
-    assert!(artifact["artifact_id"].is_string(), "{artifact}");
-    let output_path = Path::new(artifact["path"].as_str().unwrap());
-    assert!(output_path.starts_with(&files));
-    let output_bytes = std::fs::read(output_path).unwrap();
-    let observed = observed.lock().unwrap();
-    assert!(
-        observed
-            .iter()
-            .any(|(_, written, read_back)| written == &output_bytes && read_back == &output_bytes),
-        "staged media must be written into the scoped backend and readable through a second handle; observed {} writes",
-        observed.len()
-    );
+#[derive(Debug, Default)]
+struct RefusingStorage {
+    inner: MemoryStorage,
+}
+
+impl StorageBackend for RefusingStorage {
+    fn driver(&self) -> &'static str {
+        self.inner.driver()
+    }
+
+    fn capabilities(&self) -> Capabilities {
+        self.inner.capabilities()
+    }
+
+    fn for_scope(&self, _scope: &Scope) -> Result<ScopedStorage> {
+        Err(StorageError::unavailable("test backend refuses this scope"))
+    }
 }
 
 struct ObservingStorageGuard(Option<Arc<dyn StorageBackend>>);
@@ -92,7 +127,7 @@ impl Drop for ObservingStorageGuard {
 #[derive(Debug)]
 struct ObservingStorage {
     inner: MemoryStorage,
-    observed: Arc<Mutex<Vec<(String, Vec<u8>, Vec<u8>)>>>,
+    observed: ObservedWrites,
 }
 
 impl StorageBackend for ObservingStorage {
@@ -125,8 +160,10 @@ impl StorageBackend for ObservingStorage {
 struct ObservingBlobs {
     inner: Arc<dyn BlobStore>,
     peer: Arc<dyn BlobStore>,
-    observed: Arc<Mutex<Vec<(String, Vec<u8>, Vec<u8>)>>>,
+    observed: ObservedWrites,
 }
+
+type ObservedWrites = Arc<Mutex<Vec<(String, Vec<u8>, Vec<u8>)>>>;
 
 #[async_trait]
 impl BlobStore for ObservingBlobs {

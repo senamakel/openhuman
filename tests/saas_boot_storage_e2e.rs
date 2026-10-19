@@ -86,11 +86,12 @@ fn a_saas_core_refuses_to_boot_without_a_storage_url() {
                 .block_on(build(configured, None, None))
                 .expect("a configured SaaS storage backend permits boot");
             openhuman_core::storage::clear();
-            let fallback_error =
-                match openhuman_core::storage::local::backend_for(&root.join("profiles/alice/workspace")) {
-                    Err(error) => error.to_string(),
-                    Ok(_) => panic!("SaaS must refuse workspace-local storage fallback"),
-                };
+            let fallback_error = match openhuman_core::storage::local::backend_for(
+                &root.join("profiles/alice/workspace"),
+            ) {
+                Err(error) => error.to_string(),
+                Ok(_) => panic!("SaaS must refuse workspace-local storage fallback"),
+            };
             drop(core);
             (server_error, boot_error, fallback_error)
         })

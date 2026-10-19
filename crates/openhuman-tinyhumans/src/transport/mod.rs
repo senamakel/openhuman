@@ -6,7 +6,11 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use openhuman_embed::__host::security::credentials::session_support::BackendCredential;
+use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::memory::{BearerSource, CallbackBearerSource, MemoryError};
+use openhuman_embed::__host::security::credentials::session_support::{
+    resolve_backend_credential, BackendCredential,
+};
 use openhuman_embed::{
     BackendRequest, BackendTransport, BackendTransportError, BaseUrlPurpose, TransportProfile,
 };
@@ -112,6 +116,25 @@ impl BackendTransport for SdkBackendTransport {
             .post_multipart(req.path, form)
             .await
             .map_err(|error| map_sdk_error(error, &Method::POST, req.path))
+    }
+
+    fn memory_bearer_source(
+        &self,
+        config: Arc<Config>,
+    ) -> Option<Arc<dyn BearerSource>> {
+        Some(Arc::new(CallbackBearerSource::new(move || {
+            let config = Arc::clone(&config);
+            async move {
+                resolve_backend_credential(&config)
+                    .map(BackendCredential::into_secret)
+                    .map_err(|error| {
+                        log::debug!("[tinyhumans-transport] memory bearer unavailable: {error}");
+                        MemoryError::Unauthorized(
+                            "the backend credential is unavailable".to_string(),
+                        )
+                    })
+            }
+        })))
     }
 
     fn http_client(&self, profile: TransportProfile) -> reqwest::Client {

@@ -33,13 +33,19 @@
 //! from the host's credential seam on every request, so a refreshed session is
 //! used at once and signing out turns memory off.
 
+#[cfg(test)]
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock, RwLock};
+use std::sync::{Arc, LazyLock};
+#[cfg(test)]
+use std::sync::RwLock;
 
-use async_trait::async_trait;
 use sha2::{Digest, Sha256};
 use tinymemory_api::MemoryEngine;
-use tinymemory_integrations::{BearerSource, EngineCredential, EngineSettings};
+use tinymemory_integrations::{EngineCredential, EngineSettings};
+
+pub use tinymemory_api::Error as MemoryError;
+pub use tinymemory_integrations::cortex::CallbackBearerSource;
+pub use tinymemory_integrations::{BearerSource, Binding, BoundEngine, EngineBinder};
 
 use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
 use crate::config::Config;
@@ -49,70 +55,17 @@ use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use tinymemory_api::{Error, Result};
 
 /// Engine id of CortexDB behind the TinyHumans backend.
-pub const TINYHUMANS_ENGINE: &str = tinymemory_integrations::cortex::TINYHUMANS_ENGINE_ID;
+pub use tinymemory_integrations::cortex::TINYHUMANS_ENGINE_ID as TINYHUMANS_ENGINE;
 
 /// Engine id of CortexDB reached directly.
-pub const CORTEXDB_ENGINE: &str = tinymemory_integrations::cortex::CORTEXDB_ENGINE_ID;
+pub use tinymemory_integrations::cortex::CORTEXDB_ENGINE_ID as CORTEXDB_ENGINE;
 
 /// Pseudo-engine id for memory turned off on purpose: nothing is bound, so
 /// nothing is stored or recalled until another engine is selected.
 pub const DISABLED_ENGINE: &str = "none";
 
-/// A bound engine. Its writes are scrubbed ([`super::guard`]).
-#[derive(Clone)]
-pub struct BoundEngine {
-    /// The engine.
-    pub engine: Arc<dyn MemoryEngine>,
-    /// Its id.
-    pub id: String,
-    /// The endpoint it talks to.
-    pub endpoint: String,
-}
-
-impl std::fmt::Debug for BoundEngine {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("BoundEngine")
-            .field("id", &self.id)
-            .field("endpoint", &self.endpoint)
-            .finish_non_exhaustive()
-    }
-}
-
-/// Whether memory is on, and with what.
-#[derive(Debug, Clone)]
-pub enum Binding {
-    /// An engine is bound.
-    On(BoundEngine),
-    /// Memory is off.
-    Off {
-        /// The configured engine id, when it names a known engine.
-        engine: Option<String>,
-        /// The configured endpoint, when known.
-        endpoint: Option<String>,
-        /// Why memory is off (no credential detail).
-        reason: String,
-    },
-}
-
-impl Binding {
-    /// The bound engine, or [`Error::Off`].
-    pub fn engine(self) -> Result<BoundEngine> {
-        match self {
-            Self::On(bound) => Ok(bound),
-            Self::Off { reason, .. } => Err(Error::Off(reason)),
-        }
-    }
-
-    /// Whether an engine is bound.
-    #[must_use]
-    pub fn is_on(&self) -> bool {
-        matches!(self, Self::On(_))
-    }
-}
-
-/// Built engines, keyed by fingerprint.
-static CACHE: LazyLock<RwLock<HashMap<String, BoundEngine>>> =
-    LazyLock::new(|| RwLock::new(HashMap::new()));
+/// The process-wide native binder owns engine caching and safety composition.
+static ENGINE_BINDER: LazyLock<EngineBinder> = LazyLock::new(EngineBinder::default);
 
 /// Test engines, keyed by workspace directory, so concurrent tests that each
 /// own a temp workspace never see one another's engine.
@@ -163,43 +116,37 @@ pub(crate) fn install_test_engine_for_root(
         .insert((workspace.to_path_buf(), root.map(str::to_string)), engine);
 }
 
-/// The engine an embedding host installed, if any ([`install_host_engine`]).
-static HOST_ENGINE: LazyLock<RwLock<Option<BoundEngine>>> = LazyLock::new(|| RwLock::new(None));
-
 /// Endpoint reported for a host-installed engine.
-pub const HOST_ENGINE_ENDPOINT: &str = "host://engine";
+pub use tinymemory_integrations::HOST_ENGINE_ENDPOINT;
 
 /// Binds `engine` for every config in this process, ahead of the configured
 /// one. For an embedding host that owns its memory store; the engine's writes
 /// are scrubbed like any other's ([`super::guard`]). A later call replaces the
-/// earlier engine.
+/// earlier engine. Writes are scrubbed under the host policy and operations
+/// are timed by TinyMemory's native binder.
 pub fn install_host_engine(engine: Arc<dyn MemoryEngine>) {
     let id = engine.descriptor().id.to_string();
     tracing::info!(engine = %id, "[memory:engine] host engine installed");
-    *HOST_ENGINE
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(BoundEngine {
-        id,
-        endpoint: HOST_ENGINE_ENDPOINT.to_string(),
-        engine: super::guard::ScrubbingEngine::wrap(engine),
-    });
+    ENGINE_BINDER.install_host_engine(engine, crate::security::scrub::host_policy());
 }
 
 /// Removes a host-installed engine; the configured engine applies again.
 /// Returns whether one was installed.
 pub fn clear_host_engine() -> bool {
-    HOST_ENGINE
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .take()
-        .is_some()
+    ENGINE_BINDER.clear_host_engine()
 }
 
 fn host_engine() -> Option<BoundEngine> {
-    HOST_ENGINE
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
+    match ENGINE_BINDER.bind(
+        "__openhuman_host_engine_probe__",
+        EngineSettings::default(),
+        "host-engine-probe",
+        EngineCredential::None,
+        crate::security::scrub::host_policy(),
+    ) {
+        Binding::On(bound) => Some(bound),
+        Binding::Off { .. } => None,
+    }
 }
 
 /// Resolves the configured engine.
@@ -228,11 +175,11 @@ pub fn resolve(config: &Config) -> Binding {
                     "profile memory binding requires its forced namespace",
                 );
             }
-            return Binding::On(BoundEngine {
-                id: engine.descriptor().id.to_string(),
-                endpoint: HOST_ENGINE_ENDPOINT.to_string(),
-                engine: super::guard::ScrubbingEngine::wrap(Arc::clone(engine)),
-            });
+            return Binding::On(ENGINE_BINDER.bind_external(
+                Arc::clone(engine),
+                HOST_ENGINE_ENDPOINT,
+                crate::security::scrub::host_policy(),
+            ));
         }
     }
     #[cfg(test)]
@@ -243,11 +190,11 @@ pub fn resolve(config: &Config) -> Binding {
             .get(&config.workspace_dir)
             .cloned();
         if let Some(engine) = installed {
-            return Binding::On(BoundEngine {
-                id: engine.descriptor().id.to_string(),
-                endpoint: "test://engine".to_string(),
-                engine: super::guard::ScrubbingEngine::wrap(engine),
-            });
+            return Binding::On(ENGINE_BINDER.bind_external(
+                engine,
+                "test://engine",
+                crate::security::scrub::host_policy(),
+            ));
         }
     }
     if let Some(bound) = host_engine() {
@@ -292,11 +239,11 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> Result<BoundEngine
             .get(&(config.workspace_dir.clone(), root.map(str::to_string)))
             .cloned();
         if let Some(engine) = installed {
-            return Ok(BoundEngine {
-                id: engine.descriptor().id.to_string(),
-                endpoint: "test://engine".to_string(),
-                engine: super::guard::ScrubbingEngine::wrap(engine),
-            });
+            return Ok(ENGINE_BINDER.bind_external(
+                engine,
+                "test://engine",
+                crate::security::scrub::host_policy(),
+            ));
         }
         let one_engine = TEST_ENGINES
             .read()
@@ -473,9 +420,7 @@ fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
         "{TINYHUMANS_ENGINE}|{endpoint}|{}|{headers:?}",
         config.config_path.display()
     );
-    let source: Arc<dyn BearerSource> = Arc::new(HostBearer {
-        config: Arc::new(config.clone()),
-    });
+    let source = backend_bearer_source(Arc::new(config.clone()));
     let (settings, layout) = rooted(
         EngineSettings {
             endpoint: Some(endpoint),
@@ -507,6 +452,29 @@ fn attribution_headers() -> std::collections::BTreeMap<String, String> {
             }
         })
         .collect()
+}
+
+/// Resolve the backend credential on every memory request. An installed host
+/// transport can supply its own adapter; standalone core builds retain the
+/// explicit-endpoint path through the shared safe credential resolver.
+fn backend_bearer_source(config: Arc<Config>) -> Arc<dyn BearerSource> {
+    if let Ok(transport) = crate::backend::resolve_backend_transport() {
+        if let Some(source) = transport.memory_bearer_source(Arc::clone(&config)) {
+            return source;
+        }
+    }
+
+    Arc::new(CallbackBearerSource::new(move || {
+        let config = Arc::clone(&config);
+        async move {
+            resolve_backend_credential(&config)
+                .map(crate::security::credentials::session_support::BackendCredential::into_secret)
+                .map_err(|error| {
+                    tracing::debug!(error = %error, "[memory:engine] backend credential unavailable");
+                    MemoryError::Unauthorized("the backend credential is unavailable".to_string())
+                })
+        }
+    }))
 }
 
 fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
@@ -563,33 +531,21 @@ fn build_cached(
     credential: EngineCredential,
 ) -> Binding {
     let endpoint = settings.endpoint.clone().unwrap_or_default();
-    if let Some(bound) = CACHE
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .get(&fingerprint)
-        .cloned()
-    {
-        return Binding::On(bound);
-    }
-    match tinymemory_integrations::build_engine(id, &settings, credential) {
-        Ok(engine) => {
-            tracing::info!(engine = %id, "[memory:engine] engine bound");
-            let bound = BoundEngine {
-                engine: super::guard::ScrubbingEngine::wrap(engine),
-                id: id.to_string(),
-                endpoint: endpoint.to_string(),
-            };
-            CACHE
-                .write()
-                .unwrap_or_else(std::sync::PoisonError::into_inner)
-                .insert(fingerprint, bound.clone());
-            Binding::On(bound)
-        }
-        Err(error) => {
-            tracing::warn!(engine = %id, error = %error, "[memory:engine] engine build refused");
-            off(Some(id), Some(endpoint.to_string()), &error.to_string())
+    let binding = ENGINE_BINDER.bind_configured(
+        id,
+        settings,
+        &fingerprint,
+        credential,
+        crate::security::scrub::host_policy(),
+    );
+    match &binding {
+        Binding::On(_) => tracing::info!(engine = %id, "[memory:engine] engine bound"),
+        Binding::Off { reason, .. } => {
+            tracing::warn!(engine = %id, error = %reason, "[memory:engine] engine build refused");
         }
     }
+    let _ = endpoint;
+    binding
 }
 
 /// A short, non-reversible identity of a key for the cache fingerprint.
@@ -614,10 +570,7 @@ pub fn invalidate() {
     let _stable = CACHE_STABLE
         .read()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
-    CACHE
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clear();
+    ENGINE_BINDER.invalidate();
     super::lifecycle::prefetch::invalidate_all();
 }
 
@@ -659,26 +612,6 @@ pub fn has_key(config: &Config, id: &str) -> bool {
         TINYHUMANS_ENGINE => resolve_backend_credential(config).is_ok(),
         CORTEXDB_ENGINE => matches!(read_cortexdb_key(config), Ok(Some(_))),
         _ => false,
-    }
-}
-
-/// The host's backend credential as a per-request bearer.
-struct HostBearer {
-    config: Arc<Config>,
-}
-
-#[async_trait]
-impl BearerSource for HostBearer {
-    async fn bearer(&self) -> tinymemory_api::Result<String> {
-        match resolve_backend_credential(&self.config) {
-            Ok(credential) => Ok(credential.into_secret()),
-            Err(error) => {
-                tracing::debug!(error = %error, "[memory:engine] backend credential unavailable");
-                Err(tinymemory_api::Error::Unauthorized(
-                    "the backend credential is unavailable".to_string(),
-                ))
-            }
-        }
     }
 }
 

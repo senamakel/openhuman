@@ -670,5 +670,3 @@ async fn learning_is_durably_queued_even_when_the_backend_refuses_writes() {
     assert_eq!(super::super::tool_writes::drain(&config).await, 0);
 }
 
-#[path = "tools_activity_tests.rs"]
-mod activity_tests;

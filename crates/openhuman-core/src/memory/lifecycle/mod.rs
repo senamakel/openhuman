@@ -27,7 +27,7 @@ use std::sync::Arc;
 use tinymemory_api::MemoryEngine;
 use tinymemory_tools::{AgentMemory, RecallPolicy};
 
-use crate::config::schema::MemoryRecallConfig;
+use crate::config::schema::RecallSettings;
 use crate::config::Config;
 
 use super::engine;
@@ -36,16 +36,8 @@ use tinymemory_tools::layout::identity::ResolvedIdentity;
 
 /// TinyMemory's recall policy from `[memory.recall]`.
 #[must_use]
-pub fn policy(recall: &MemoryRecallConfig) -> RecallPolicy {
-    let limit = |value: u32| usize::try_from(value).unwrap_or(usize::MAX);
-    RecallPolicy {
-        budget_tokens: limit(recall.budget_tokens).max(1),
-        learnings_limit: limit(recall.learnings_limit),
-        brain_limit: limit(recall.brain_limit),
-        history_limit: limit(recall.history_limit),
-        team_limit: limit(recall.team_limit),
-        build_beliefs_every: (recall.build_beliefs_every > 0).then_some(recall.build_beliefs_every),
-    }
+pub fn policy(recall: &RecallSettings) -> RecallPolicy {
+    recall.into()
 }
 
 /// `identity`'s memory on `engine` under `config`'s policy.

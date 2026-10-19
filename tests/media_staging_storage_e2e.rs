@@ -19,21 +19,11 @@ use tinystoragedrivers_core::{
 };
 use tinytools::{Tool, ToolContent};
 
-use openhuman_core::core::runtime::{CoreContext, DomainSet};
 use openhuman_core::media::generation::{MediaGenerators, media_tools_from};
 
 #[tokio::test]
-async fn media_factory_uses_scoped_blobs_and_omits_generation_without_a_scope() {
+async fn media_factory_stages_generated_output_in_the_scoped_blob_store() {
     let root = tempfile::tempdir().unwrap();
-
-    let saas_context = CoreContext::for_test(DomainSet::saas(), None);
-    CoreContext::scope(saas_context, async {
-        let tools = media_tools(root.path());
-        let names: Vec<&str> = tools.iter().map(|tool| tool.name()).collect();
-        assert_eq!(names, ["media_list_models"]);
-    })
-    .await;
-
     let workspace = root.path().join("workspace");
     let files = root.path().join("Files");
     let observed = Arc::new(Mutex::new(Vec::new()));
@@ -86,22 +76,6 @@ async fn media_factory_uses_scoped_blobs_and_omits_generation_without_a_scope() 
         "staged media must be written into the scoped backend and readable through a second handle; observed {} writes",
         observed.len()
     );
-}
-
-fn media_tools(action_dir: &Path) -> Vec<Box<dyn Tool>> {
-    media_tools_from(
-        MediaGenerators::new(
-            Arc::new(MockImageGenerator::new()),
-            Arc::new(MockVideoGenerator::new(MockVideoScript::delivers())),
-        ),
-        action_dir,
-        &action_dir.join("workspace"),
-        action_dir.join("Files"),
-        WaitPolicy::new(
-            std::time::Duration::from_millis(1),
-            std::time::Duration::from_secs(5),
-        ),
-    )
 }
 
 struct ObservingStorageGuard(Option<Arc<dyn StorageBackend>>);

@@ -5,6 +5,7 @@ use tinymemory_tools::lifecycle::turn::TurnPack as NativeTurnPack;
 
 const MAX_PENDING: usize = 16;
 const MAX_PACK_BYTES: usize = 64 * 1024;
+const CACHED_NOTICE: &str = "This is cached memory from a completed background lookup for an earlier turn. It may be incomplete or unrelated to the current question; use explicit memory recall or fetch when you need a current answer.\n\n";
 
 static TEST_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
@@ -32,8 +33,9 @@ async fn drain(cache: &Cache, key: &Key) {
 fn cached_markdown(cache: &Cache, key: &Key) -> Option<String> {
     completed(cache, key).map(|pack| {
         pack.markdown
-            .split_once("\n\n")
-            .map_or(pack.markdown.clone(), |(_, body)| body.to_owned())
+            .strip_prefix(CACHED_NOTICE)
+            .expect("native cache notice is present and unchanged")
+            .to_owned()
     })
 }
 

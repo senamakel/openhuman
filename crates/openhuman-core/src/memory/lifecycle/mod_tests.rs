@@ -4,7 +4,7 @@ use crate::memory::test_fixtures::{bind_reference, config_in};
 
 #[test]
 fn the_policy_mirrors_the_recall_config() {
-    let mut recall = MemoryRecallConfig::default();
+    let mut recall = RecallSettings::default();
     let default = policy(&recall);
     assert_eq!(
         default,

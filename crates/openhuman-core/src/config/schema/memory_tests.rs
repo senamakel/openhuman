@@ -4,6 +4,7 @@ use serde_json::json;
 #[test]
 fn defaults_select_tinyhumans_with_logging_and_recall_on() {
     let config = MemoryConfig::default();
+    assert_eq!(config.recall, RecallSettings::default());
     assert_eq!(config.engine, DEFAULT_MEMORY_ENGINE);
     assert!(config.engines.is_empty());
     assert!(config.sources.is_empty());
@@ -103,7 +104,7 @@ build_delay_secs = 456
 fn memory_config_and_recall_settings_keep_their_hash_contract() {
     fn assert_hash<T: std::hash::Hash>() {}
 
-    assert_hash::<MemoryRecallConfig>();
+    assert_hash::<RecallSettings>();
     assert_hash::<MemoryConfig>();
 }
 

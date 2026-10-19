@@ -210,7 +210,6 @@ pub async fn agents_list(
         .agents()
         .await?
         .into_iter()
-        .into_iter()
         .map(|agent| AgentCount {
             agent_id: agent.agent_id,
             turns: agent.turns,

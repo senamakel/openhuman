@@ -1,7 +1,8 @@
-use super::super::world::canary;
 use super::*;
 use openhuman_core::storage::{MemoryStorage, Precondition};
 use serde_json::json;
+
+use crate::canary;
 
 #[test]
 fn scoped_record_audit_counts_own_data_and_rejects_foreign_canaries() {

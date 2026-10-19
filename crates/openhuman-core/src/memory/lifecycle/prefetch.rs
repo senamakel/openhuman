@@ -8,7 +8,9 @@ use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use futures::future::BoxFuture;
-use tinymemory_tools::prefetch::{Limits, PrefetchRuntime, TurnCache, TurnCacheRegistry, WorkerPool};
+use tinymemory_tools::prefetch::{
+    Limits, PrefetchRuntime, TurnCache, TurnCacheRegistry, WorkerPool,
+};
 
 use crate::config::Config;
 use crate::core::runtime::{slot_for, DispatchCtx};
@@ -134,7 +136,10 @@ fn completed(cache: &Cache, key: &Key) -> Option<TurnPack> {
 
 fn enqueue(cache: Arc<Cache>, key: Key, work: Work) {
     tracing::debug!(thread_id = %key.thread, agent_id = %key.identity.agent_id, compaction = key.compaction, "[memory:prefetch] enqueue refresh");
-    cache.0.enqueue(key, Box::pin(async move { work.await.map(|pack| pack.native) }));
+    cache.0.enqueue(
+        key,
+        Box::pin(async move { work.await.map(|pack| pack.native) }),
+    );
 }
 
 /// Returns the last completed pack immediately, then logs this user turn and

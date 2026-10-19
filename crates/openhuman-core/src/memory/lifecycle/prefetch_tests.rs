@@ -64,7 +64,16 @@ async fn held_refresh_returns_immediately_and_later_turn_reads_completed_context
     );
     release.notify_one();
     drain(&cache, &key).await;
-    assert_eq!(cached_markdown(&cache, &key).as_deref(), Some("later result"));
+    let cached = completed(&cache, &key).expect("completed background pack");
+    assert_eq!(cached.markdown.matches(CACHED_NOTICE).count(), 1);
+    assert_eq!(
+        cached.tokens,
+        pack("later result").tokens + tinymemory_tools::recall::estimate_tokens(CACHED_NOTICE)
+    );
+    assert_eq!(
+        cached_markdown(&cache, &key).as_deref(),
+        Some("later result")
+    );
 }
 
 #[tokio::test]
@@ -291,7 +300,10 @@ async fn credential_invalidation_removes_ready_and_rejects_late_inflight_results
     drain(&cache, &key).await;
     release.notify_one();
     tokio::task::yield_now().await;
-    assert_eq!(cached_markdown(&cache, &key).as_deref(), Some("new credentials"));
+    assert_eq!(
+        cached_markdown(&cache, &key).as_deref(),
+        Some("new credentials")
+    );
 }
 
 struct HeldEngine {

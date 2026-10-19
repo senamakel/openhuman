@@ -7,7 +7,7 @@
 use std::process::{Command, Stdio};
 use std::time::{Duration, Instant};
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 #[path = "saas_mode/support.rs"]
 mod support;
@@ -132,12 +132,13 @@ fn a_safe_deployment_serves_core_and_the_operator_plane_behind_the_gateway_beare
         "a user id outside the raw charset maps to its deterministic hash"
     );
     assert!(!body.to_string().contains("alice"), "{body}");
-    assert!(d
-        .root
-        .join("users")
-        .join(&profile_id)
-        .join("workspace")
-        .is_dir());
+    assert!(
+        d.root
+            .join("users")
+            .join(&profile_id)
+            .join("workspace")
+            .is_dir()
+    );
 
     let (_, body) = rpc(&client, &base, Some(BEARER), "openhuman.profiles_list");
     assert!(body.to_string().contains(&profile_id), "{body}");
@@ -245,6 +246,29 @@ fn gateway_requests_run_under_the_named_users_profile() {
         "operator methods are not a user's: {body}"
     );
 
+    // These host-local and import operations must remain absent from the
+    // actual per-profile RPC dispatch surface as well.
+    for method in [
+        "openhuman.http_host_start",
+        "openhuman.session_import_run",
+        "openhuman.config_get_data_paths",
+        "openhuman.config_get_agent_paths",
+        "openhuman.config_update_agent_paths",
+    ] {
+        let (_, body) = user_rpc(&client, &base, BEARER, "alice", None, method);
+        assert!(
+            body.get("error").is_some(),
+            "{method} must be unavailable to a signed SaaS profile: {body}"
+        );
+        assert!(
+            body["error"]["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("unknown method"),
+            "{method} should be indistinguishable from an absent method: {body}"
+        );
+    }
+
     // Refusals: bad bearer first, then signatures, then provisioning.
     let (status, body) = user_rpc(&client, &base, "wrong-bearer", "alice", None, "core.ping");
     assert_eq!(status, 401, "{body}");
@@ -269,7 +293,7 @@ fn gateway_requests_run_under_the_named_users_profile() {
     assert_eq!(status, 403, "bob is not provisioned: {body}");
     // A repeated signature header is refused, not resolved to the first value.
     {
-        use openhuman_core::profiles::gateway::{sign, USER_HEADER, USER_SIG_HEADER};
+        use openhuman_core::profiles::gateway::{USER_HEADER, USER_SIG_HEADER, sign};
         let response = client
             .post(format!("{base}/rpc"))
             .bearer_auth(BEARER)

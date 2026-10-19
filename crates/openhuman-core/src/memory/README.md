@@ -43,14 +43,13 @@ It wins over the configured one for every config in the process, so a host
 with its own store (or a test binary with an in-memory engine) runs the
 whole lifecycle without a TinyHumans session or a CortexDB key.
 
-Whatever engine is bound, it is wrapped in `guard::ScrubbingEngine`. Every
-text a `StoreItem` carries is scrubbed of secrets and PII under
-`security::scrub::host_policy` before the engine sees it. Wrapping the
-engine, instead of scrubbing at call sites, also covers the writes
-TinyMemory makes through its own types (`AgentMemory::pre_turn`,
-`Brain::ingest`, background ingests). The same wrapper logs one
-`[memory:timing]` debug line per engine call with the op, engine, elapsed
-time and outcome, never user content.
+Whatever engine is bound, TinyMemory's native `EngineBinder` wraps it in a
+scrubbing decorator using `security::scrub::host_policy` and a timing
+decorator. Every text a `StoreItem` carries is scrubbed before the engine sees
+it. This also covers writes TinyMemory makes through its own types
+(`AgentMemory::pre_turn`, `Brain::ingest`, background ingests). The timing
+decorator logs one `[memory:timing]` debug line per engine call with the op,
+engine, elapsed time and outcome, never user content.
 
 When memory is off, the `memory` tool is not registered, the turn hooks do
 nothing, and the RPCs answer with the `MEMORY_OFF` error code.
@@ -285,8 +284,8 @@ trusted call facts; queued writes retain that call's narrower reach.
 | Path | What it does |
 | --- | --- |
 | [`mod.rs`](./mod.rs) | Module declarations and re-exports (`memory_is_on`, `MemoryTool`, the controller aggregators, `register_memory_subscribers`). |
-| [`engine.rs`](./engine.rs) | `resolve` binds the configured engine or says why memory is off; per-fingerprint cache; host engine install; CortexDB key storage. |
-| [`guard.rs`](./guard.rs) | `ScrubbingEngine`: scrubs every write and times every engine call. |
+| [`engine.rs`](./engine.rs) | `resolve` maps host configuration and credentials into TinyMemory's native `EngineBinder`; CortexDB key storage. |
+| `tinymemory_integrations::registry::binder` | Strong per-fingerprint cache, host-engine slot, invalidation, endpoint selection, scrubbing and timing. |
 | [`scope.rs`](./scope.rs) | Config-to-`IdentityPins` adapter, account root and layout migration switch. |
 | [`local_root.rs`](./local_root.rs) | The persistent install-id root of a signed-out session. |
 | [`lifecycle/mod.rs`](./lifecycle/mod.rs) | Builds `AgentMemory` for an identity under the `[memory.recall]` policy. |

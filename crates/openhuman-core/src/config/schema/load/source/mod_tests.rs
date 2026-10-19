@@ -29,6 +29,7 @@ fn document_source_keyed(
         Scope::new(scope).unwrap(),
         keys,
         FileConfigSource::new(file),
+        super::DocumentBackendIdentity::Test(Arc::new(())),
     )
 }
 
@@ -283,6 +284,60 @@ async fn config_save_and_reload_use_the_document_on_a_shared_backend() {
         .unwrap();
     assert_eq!(reloaded.default_model.as_deref(), Some("doc-model"));
     assert_eq!(reloaded.storage.url.as_deref(), Some("sqlite:/bootstrap"));
+}
+
+#[tokio::test]
+async fn stale_document_config_snapshot_returns_conflict_instead_of_overwriting() {
+    let tmp = tempfile::tempdir().unwrap();
+    let storage = MemoryStorage::new();
+    let _forced = ForcedDocumentSource::new(
+        scoped(&storage, "tenant-a"),
+        Scope::new("tenant-a").unwrap(),
+        keys(3),
+    );
+    let path = tmp.path().join("config.toml");
+    let initial = config_at(tmp.path(), "initial");
+    initial.save().await.unwrap();
+    let mut first = Config::load_from_config_path(&path, &tmp.path().join("workspace"))
+        .await
+        .unwrap();
+    let mut stale = Config::load_from_config_path(&path, &tmp.path().join("workspace"))
+        .await
+        .unwrap();
+    first.default_model = Some("first".into());
+    stale.output_language = Some("fr".into());
+    first.save().await.unwrap();
+    first.default_temperature = 0.25;
+    first.save().await.unwrap();
+
+    let error = stale.save().await.unwrap_err();
+    let storage_error = error
+        .chain()
+        .find_map(|cause| cause.downcast_ref::<tinystoragedrivers::StorageError>())
+        .expect("CAS failure retains the typed storage error");
+    assert_eq!(
+        storage_error.kind(),
+        tinystoragedrivers::ErrorKind::Conflict
+    );
+    let _ = error;
+    let rpc_error = crate::config::ops::apply_autonomy_settings(
+        &mut stale,
+        crate::config::ops::AutonomySettingsPatch {
+            enabled: Some(true),
+            ..Default::default()
+        },
+    )
+    .await
+    .unwrap_err();
+    let rpc_error = crate::core::StructuredRpcError::decode(&rpc_error)
+        .expect("config RPC boundary exposes a structured conflict");
+    assert_eq!(rpc_error.data.unwrap()["kind"], "ConfigConflict");
+    let loaded = Config::load_from_config_path(&path, &tmp.path().join("workspace"))
+        .await
+        .unwrap();
+    assert_eq!(loaded.default_model.as_deref(), Some("first"));
+    assert_eq!(loaded.default_temperature, 0.25);
+    assert_ne!(loaded.output_language.as_deref(), Some("fr"));
 }
 
 #[tokio::test]
@@ -557,4 +612,11 @@ async fn a_recovered_file_fallback_rewrites_the_bootstrap_file_too() {
     let body = source.read().await.unwrap();
     assert!(body.from_document);
     assert!(body.contents.contains("recovered"));
+
+    // The auxiliary bootstrap-file export must not erase the document
+    // revision captured by the first successful save.
+    config.save().await.unwrap();
 }
+
+#[path = "concurrency_tests.rs"]
+mod concurrency_tests;

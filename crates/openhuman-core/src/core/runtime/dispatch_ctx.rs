@@ -112,7 +112,7 @@ impl DispatchCtx {
     /// under, if any. See [`CoreContext::embedder_config`].
     pub fn embedder_config(&self) -> Option<crate::config::Config> {
         self.resolved()
-            .and_then(|core| core.embedder_config().cloned())
+            .and_then(|core| core.latest_embedder_config())
     }
 
     /// Loads the config this call runs against: the bound context's embedder

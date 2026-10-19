@@ -12,6 +12,7 @@ impl Clone for Config {
     #[inline(never)]
     fn clone(&self) -> Self {
         Self {
+            runtime_state: self.runtime_state.clone(),
             profile_providers: self.profile_providers.clone(),
             workspace_dir: self.workspace_dir.clone(),
             action_dir: self.action_dir.clone(),

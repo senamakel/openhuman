@@ -92,7 +92,10 @@ pub async fn live_settings_set(
     patch: LiveSettingsPatch,
 ) -> Result<Outcome<LiveVoiceConfig>, String> {
     apply_patch(config, patch)?;
-    config.save().await.map_err(|e| e.to_string())?;
+    config
+        .save()
+        .await
+        .map_err(crate::config::ops::config_save_error)?;
     tracing::debug!(
         default_provider = %config.voice_live.default_provider,
         "[voice-live] settings saved"

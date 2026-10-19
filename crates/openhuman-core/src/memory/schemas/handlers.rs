@@ -39,10 +39,17 @@ async fn load(ctx: &DispatchCtx) -> Result<Config, String> {
 }
 
 async fn save(config: &Config) -> MemoryResult<()> {
-    config
-        .save()
-        .await
-        .map_err(|error| MemoryError::Engine(format!("saving config failed: {error:#}")))
+    match config.save().await {
+        Ok(()) => Ok(()),
+        Err(error) => {
+            if let Some(conflict) = crate::config::ops::config_save_conflict(&error, false) {
+                return Err(MemoryError::ConfigConflict(conflict));
+            }
+            Err(MemoryError::Engine(format!(
+                "saving config failed: {error:#}"
+            )))
+        }
+    }
 }
 
 pub(super) fn engines_list(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {

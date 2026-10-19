@@ -82,7 +82,7 @@ pub async fn apply_computer_settings(
         max_rescues = ?config.computer.max_rescues,
         "[config] computer settings updated"
     );
-    config.save().await.map_err(|e| e.to_string())?;
+    config.save().await.map_err(super::config_save_error)?;
     let snapshot = snapshot_config_json(config)?;
     Ok(Outcome::new(
         snapshot,

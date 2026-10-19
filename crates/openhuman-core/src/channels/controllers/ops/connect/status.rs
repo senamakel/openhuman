@@ -90,10 +90,13 @@ pub async fn set_default_channel(
     }
 
     config.channels_config.active_channel = Some(canonical.clone());
-    config
-        .save()
-        .await
-        .map_err(|e| format!("failed to persist default channel: {e}"))?;
+    config.save().await.map_err(|error| {
+        crate::config::ops::config_save_error_with_context(
+            error,
+            "failed to persist default channel",
+            true,
+        )
+    })?;
 
     // Apply live so proactive routing follows the new default immediately.
     crate::channels::proactive::set_runtime_active_channel(Some(canonical.clone()));

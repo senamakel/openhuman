@@ -1,6 +1,6 @@
 //! [`DocumentConfigSource`]: the config as the `config/{scope}` document.
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use anyhow::{anyhow, Context, Result};
 use async_trait::async_trait;
@@ -8,7 +8,10 @@ use serde_json::json;
 use tinystoragedrivers::secrets::{crypto, KeyProvider};
 use tinystoragedrivers::{CollectionSpec, DocumentStore, Precondition};
 
-use super::{apply_bootstrap, strip_bootstrap, ConfigRead, ConfigSource, FileConfigSource};
+use super::{
+    apply_bootstrap, strip_bootstrap, ConfigRead, ConfigSource, ConfigSourceAnchor,
+    DocumentBackendIdentity, FileConfigSource,
+};
 use crate::storage::Scope;
 
 use super::storage_schema::document_id;
@@ -36,6 +39,8 @@ pub(crate) struct DocumentConfigSource {
     scope: Scope,
     keys: Arc<dyn KeyProvider>,
     file: FileConfigSource,
+    observed_version: Mutex<Option<tinystoragedrivers::Version>>,
+    backend_identity: DocumentBackendIdentity,
 }
 
 impl DocumentConfigSource {
@@ -44,12 +49,15 @@ impl DocumentConfigSource {
         scope: Scope,
         keys: Arc<dyn KeyProvider>,
         file: FileConfigSource,
+        backend_identity: DocumentBackendIdentity,
     ) -> Self {
         Self {
             docs,
             scope,
             keys,
             file,
+            observed_version: Mutex::new(None),
+            backend_identity,
         }
     }
 
@@ -94,7 +102,9 @@ impl DocumentConfigSource {
     }
 
     /// The decrypted stored body, or `None` when the scope has no document.
-    async fn stored_body(&self) -> Result<Option<zeroize::Zeroizing<String>>> {
+    async fn stored_body(
+        &self,
+    ) -> Result<Option<(zeroize::Zeroizing<String>, tinystoragedrivers::Version)>> {
         self.docs
             .ensure_collection(&CollectionSpec::new(CONFIG_COLLECTION))
             .await
@@ -121,7 +131,7 @@ impl DocumentConfigSource {
             .map_err(|error| anyhow!("the config document does not decrypt: {error}"))?;
         let body = String::from_utf8(plain.to_vec())
             .map_err(|_| anyhow!("the config document is not UTF-8"))?;
-        Ok(Some(zeroize::Zeroizing::new(body)))
+        Ok(Some((zeroize::Zeroizing::new(body), versioned.version)))
     }
 }
 
@@ -129,6 +139,14 @@ impl DocumentConfigSource {
 impl ConfigSource for DocumentConfigSource {
     fn label(&self) -> &'static str {
         "document"
+    }
+
+    fn anchor(&self) -> ConfigSourceAnchor {
+        ConfigSourceAnchor::Document {
+            backend: self.backend_identity.clone(),
+            scope: self.scope.as_str().to_owned(),
+            id: document_id(self.scope.as_str()).expect("validated scope has a document id"),
+        }
     }
 
     fn encrypts_body(&self) -> bool {
@@ -154,9 +172,14 @@ impl ConfigSource for DocumentConfigSource {
     }
 
     async fn read(&self) -> Result<ConfigRead> {
-        let Some(body) = self.stored_body().await? else {
+        let Some((body, document_version)) = self.stored_body().await? else {
             tracing::debug!(scope = %self.scope.as_str(), "[config] no config document; reading the file");
-            return self.file.read().await;
+            let read = self.file.read().await?;
+            *self.observed_version.lock().unwrap() = None;
+            return Ok(ConfigRead {
+                source_anchor: self.anchor(),
+                ..read
+            });
         };
         // Bootstrap tables come from the file, whatever the document says.
         // Through the file source, so its corruption recovery (a `.bak`, a
@@ -173,14 +196,28 @@ impl ConfigSource for DocumentConfigSource {
         // here: the loader's file-corruption branch would rename the local
         // `config.toml` aside and save only to the document, losing the
         // bootstrap tables on the next boot.
-        Ok(ConfigRead {
+        let read = ConfigRead {
             contents,
             recovered: false,
             from_document: true,
-        })
+            document_version: Some(document_version),
+            source_anchor: self.anchor(),
+        };
+        *self.observed_version.lock().unwrap() = Some(document_version);
+        Ok(read)
     }
 
     async fn write(&self, toml: &str) -> Result<()> {
+        let expected = *self.observed_version.lock().unwrap();
+        self.write_versioned(toml, expected).await?;
+        Ok(())
+    }
+
+    async fn write_versioned(
+        &self,
+        toml: &str,
+        expected: Option<tinystoragedrivers::Version>,
+    ) -> Result<Option<tinystoragedrivers::Version>> {
         let body = zeroize::Zeroizing::new(
             strip_bootstrap(toml).context("strip bootstrap tables from the config")?,
         );
@@ -191,16 +228,20 @@ impl ConfigSource for DocumentConfigSource {
             .ensure_collection(&CollectionSpec::new(CONFIG_COLLECTION))
             .await
             .context("declare the config collection")?;
-        self.docs
+        let id = document_id(self.scope.as_str())?;
+        let precondition = expected.map_or(Precondition::Absent, Precondition::Version);
+        let version = self
+            .docs
             .put(
                 CONFIG_COLLECTION,
-                &document_id(self.scope.as_str())?,
+                &id,
                 json!({ BODY_FIELD: sealed }),
-                Precondition::None,
+                precondition,
             )
             .await
             .context("write the config document")?;
+        *self.observed_version.lock().unwrap() = Some(version);
         tracing::debug!(scope = %self.scope.as_str(), "[config] wrote the config document");
-        Ok(())
+        Ok(Some(version))
     }
 }

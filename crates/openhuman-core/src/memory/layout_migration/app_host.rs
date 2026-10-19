@@ -49,6 +49,7 @@ pub(super) fn to_module(error: MemoryError) -> lm::Error {
         MemoryError::InsufficientCredits(message) | MemoryError::Engine(message) => {
             EngineError::Engine(message).into()
         }
+        MemoryError::ConfigConflict(error) => EngineError::Engine(error.message).into(),
     }
 }
 

@@ -542,5 +542,9 @@ mod schema_tests;
 mod budget_tests;
 
 #[cfg(test)]
+#[path = "tools_activity_tests.rs"]
+mod activity_tests;
+
+#[cfg(test)]
 #[path = "tools_read_tests.rs"]
 mod read_tests;

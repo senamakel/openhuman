@@ -3,8 +3,8 @@
 //!
 //! | Module | Role |
 //! | --- | --- |
-//! | [`engine`] | Binds the `[memory]` engine (`tinyhumans` over the host's backend credential, or `cortexdb` with a stored key); memory is **off** without one |
-//! | [`guard`] | Scrubs secrets and PII from every write, whichever path it takes |
+//! | [`engine`] | Maps `[memory]` configuration and host credentials into TinyMemory's native engine binder |
+//! | native engine binder | Scrubs writes under the host policy and times every operation |
 //! | [`scope`] | Config-to-identity pins and the account layout migration hooks |
 //! | [`lifecycle`] | The turn hooks (pre-turn pack, post-turn log, compaction recall) and the background job queue |
 //! | [`ops`] | Engine selection, recall, fetch, learn, forget, list, the pack preview |
@@ -27,7 +27,9 @@ pub mod engine;
 pub mod error;
 pub mod explore;
 pub(crate) mod files;
-pub mod guard;
+#[cfg(test)]
+#[path = "guard_tests.rs"]
+mod guard;
 pub mod import;
 pub mod layout_migration;
 pub mod lifecycle;

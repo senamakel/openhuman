@@ -4,6 +4,8 @@ use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use tinymemory_tools::lifecycle::turn::TurnPack as NativeTurnPack;
 
 const MAX_PENDING: usize = 16;
+const MAX_PACK_BYTES: usize = 64 * 1024;
+const CACHED_NOTICE: &str = "This is cached memory from a completed background lookup for an earlier turn. It may be incomplete or unrelated to the current question; use explicit memory recall or fetch when you need a current answer.\n\n";
 
 static TEST_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
@@ -26,6 +28,15 @@ async fn drain(cache: &Cache, key: &Key) {
     })
     .await
     .expect("worker completed");
+}
+
+fn cached_markdown(cache: &Cache, key: &Key) -> Option<String> {
+    completed(cache, key).map(|pack| {
+        pack.markdown
+            .strip_prefix(CACHED_NOTICE)
+            .expect("native cache notice is present and unchanged")
+            .to_owned()
+    })
 }
 
 #[tokio::test]
@@ -53,7 +64,16 @@ async fn held_refresh_returns_immediately_and_later_turn_reads_completed_context
     );
     release.notify_one();
     drain(&cache, &key).await;
-    assert_eq!(completed(&cache, &key).unwrap().markdown, "later result");
+    let cached = completed(&cache, &key).expect("completed background pack");
+    assert_eq!(cached.markdown.matches(CACHED_NOTICE).count(), 1);
+    assert_eq!(
+        cached.tokens,
+        pack("later result").tokens + tinymemory_tools::recall::estimate_tokens(CACHED_NOTICE)
+    );
+    assert_eq!(
+        cached_markdown(&cache, &key).as_deref(),
+        Some("later result")
+    );
 }
 
 #[tokio::test]
@@ -170,7 +190,7 @@ async fn invalidation_rejects_late_results_and_preserves_bounded_pending_logs() 
         .resolve(&crate::memory::scope::identity_pins(&config));
     let key = Key::new(&config, &identity, "t", false);
     let cache = Arc::new(Cache::default());
-    CACHES.lock().unwrap().push(Arc::downgrade(&cache));
+    CACHES.register(&cache.0);
     let release = Arc::new(tokio::sync::Notify::new());
     let started = Arc::new(tokio::sync::Notify::new());
     let held = release.clone();
@@ -208,7 +228,7 @@ async fn invalidation_rejects_late_results_and_preserves_bounded_pending_logs() 
         Box::pin(async { Some(pack("fresh")) }),
     );
     drain(&cache, &key).await;
-    assert_eq!(completed(&cache, &key).unwrap().markdown, "fresh");
+    assert_eq!(cached_markdown(&cache, &key).as_deref(), Some("fresh"));
 }
 
 #[tokio::test]
@@ -226,7 +246,7 @@ async fn expiration_failure_and_oversized_packs_are_not_reused() {
         Box::pin(async { Some(pack("good")) }),
     );
     drain(&cache, &key).await;
-    assert_eq!(completed(&cache, &key).unwrap().markdown, "good");
+    assert_eq!(cached_markdown(&cache, &key).as_deref(), Some("good"));
     enqueue(
         cache.clone(),
         key.clone(),
@@ -248,7 +268,7 @@ async fn credential_invalidation_removes_ready_and_rejects_late_inflight_results
         .resolve(&crate::memory::scope::identity_pins(&config));
     let key = Key::new(&config, &identity, "t", false);
     let cache = Arc::new(Cache::default());
-    CACHES.lock().unwrap().push(Arc::downgrade(&cache));
+    CACHES.register(&cache.0);
     enqueue(
         cache.clone(),
         key.clone(),
@@ -269,7 +289,7 @@ async fn credential_invalidation_removes_ready_and_rejects_late_inflight_results
         }),
     );
     started.notified().await;
-    assert_eq!(completed(&cache, &key).unwrap().markdown, "private");
+    assert_eq!(cached_markdown(&cache, &key).as_deref(), Some("private"));
     invalidate_all();
     assert!(completed(&cache, &key).is_none());
     enqueue(
@@ -280,7 +300,10 @@ async fn credential_invalidation_removes_ready_and_rejects_late_inflight_results
     drain(&cache, &key).await;
     release.notify_one();
     tokio::task::yield_now().await;
-    assert_eq!(completed(&cache, &key).unwrap().markdown, "new credentials");
+    assert_eq!(
+        cached_markdown(&cache, &key).as_deref(),
+        Some("new credentials")
+    );
 }
 
 struct HeldEngine {
@@ -472,7 +495,7 @@ async fn queued_work_keeps_the_callers_core_context() {
             ),
         );
         drain(&cache, &key).await;
-        assert_eq!(completed(&cache, &key).unwrap().markdown, "scoped");
+        assert_eq!(cached_markdown(&cache, &key).as_deref(), Some("scoped"));
     })
     .await;
 }
@@ -513,7 +536,7 @@ fn runtime_shutdown_releases_worker_and_pending_work() {
             Box::pin(async { Some(pack("later")) }),
         );
         drain(&cache, &key).await;
-        assert_eq!(completed(&cache, &key).unwrap().markdown, "later");
+        assert_eq!(cached_markdown(&cache, &key).as_deref(), Some("later"));
     });
 }
 

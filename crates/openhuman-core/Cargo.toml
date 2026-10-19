@@ -217,7 +217,7 @@ tinytools-std = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinyto
 #   network readers), secret/PII scrubbing and the read-only v1 importer.
 # `memory::` is the only module that names the engine side.
 tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["local-safety"] }
-tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
+tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools", features = ["schema"] }
 tinyredact = { path = "../../vendor/tinymemory/crates/tinyredact" }
 tinymemory-integrations = { path = "../../vendor/tinymemory/crates/tinymemory-integrations", default-features = false, features = ["cortex", "brain", "sources-network", "safety", "legacy-import", "schema"] }
 # tinyconnectors-bus — the OAuth connector wire contract

@@ -1,4 +1,5 @@
 use super::*;
+use crate::memory::test_fixtures::RecordingEngine;
 use crate::memory::types::ItemsListParams;
 use tempfile::TempDir;
 use tinymemory_api::conformance::ReferenceEngine;
@@ -38,6 +39,27 @@ async fn list(config: &Config, filter: MetaFilter) -> Vec<tinymemory_api::Hit> {
     .await
     .unwrap()
     .items
+}
+
+async fn seed_keyed(config: &Config, key: &str, content: &str) -> String {
+    let key_tag = flow_key_tag("f1", key);
+    crate::memory::ops::learn(
+        config,
+        LearnParams {
+            text: content.to_string(),
+            kind: Some(LearningKind::Fact),
+            confidence: None,
+            meta: None,
+        },
+        Some({
+            let mut meta = flow_meta("f1", &[key_tag]);
+            meta.derive = Some(false);
+            meta
+        }),
+    )
+    .await
+    .unwrap()
+    .id
 }
 
 // ── tags ────────────────────────────────────────────────────────
@@ -94,6 +116,88 @@ async fn remember_keyed_replaces_the_previous_value() {
         Some(false),
         "nothing derived from flow state"
     );
+}
+
+#[tokio::test]
+async fn failed_replacement_keeps_the_previous_value() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = tmp.path().to_path_buf();
+    let engine = Arc::new(RecordingEngine::new());
+    RecordingEngine::bind(&engine, &config);
+    let old_id = remember_keyed(&config, "f1", "k", "first", LearningKind::Fact)
+        .await
+        .unwrap();
+
+    engine.fail_next_store();
+    let error = remember_keyed(&config, "f1", "k", "second", LearningKind::Fact)
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("injected store failure"));
+    let items = list(&config, flow_filter("f1")).await;
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0].id.0, old_id);
+    assert!(items[0].text.contains("first"));
+}
+
+#[tokio::test]
+async fn remember_keyed_preserves_a_write_after_its_snapshot() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = tmp.path().to_path_buf();
+    let engine = Arc::new(RecordingEngine::new());
+    RecordingEngine::bind(&engine, &config);
+    let old_id = remember_keyed(&config, "f1", "k", "old", LearningKind::Fact)
+        .await
+        .unwrap();
+    engine.pause_next_store();
+
+    let replacement_config = config.clone();
+    let replacement = tokio::spawn(async move {
+        remember_keyed(
+            &replacement_config,
+            "f1",
+            "k",
+            "replacement",
+            LearningKind::Fact,
+        )
+        .await
+    });
+    engine.wait_for_paused_store().await;
+    let concurrent_id = seed_keyed(&config, "k", "concurrent").await;
+    engine.release_paused_store();
+    let replacement_id = replacement.await.unwrap().unwrap();
+
+    let items = list(&config, flow_filter("f1")).await;
+    assert_eq!(items.len(), 2);
+    let ids: Vec<&str> = items.iter().map(|item| item.id.0.as_str()).collect();
+    assert!(!ids.contains(&old_id.as_str()));
+    assert!(ids.contains(&concurrent_id.as_str()));
+    assert!(ids.contains(&replacement_id.as_str()));
+}
+
+#[tokio::test]
+async fn cleanup_failure_keeps_the_new_value() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = Config::default();
+    config.workspace_dir = tmp.path().to_path_buf();
+    let engine = Arc::new(RecordingEngine::new());
+    RecordingEngine::bind(&engine, &config);
+    remember_keyed(&config, "f1", "k", "old", LearningKind::Fact)
+        .await
+        .unwrap();
+    engine.fail_next_forget();
+
+    let error = remember_keyed(&config, "f1", "k", "new", LearningKind::Fact)
+        .await
+        .unwrap_err();
+
+    assert!(error.to_string().contains("injected forget failure"));
+    let items = list(&config, flow_filter("f1")).await;
+    assert_eq!(items.len(), 2);
+    assert!(items.iter().any(|item| item.text.contains("old")));
+    assert!(items.iter().any(|item| item.text.contains("new")));
 }
 
 #[tokio::test]

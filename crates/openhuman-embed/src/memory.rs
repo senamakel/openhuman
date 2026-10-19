@@ -43,8 +43,7 @@ use tinymemory_api::{
 use tinymemory_tools::MemoryLayout;
 
 pub use openhuman_core::memory::brain::{
-    BrainForgetView, BrainIngestParams, BrainIngestView, BrainSearchView, BrainSourceCount,
-    BrainSourcesView,
+    BrainForgetView, BrainIngestParams, BrainIngestView, BrainSearchView,
 };
 pub use openhuman_core::memory::engine::{clear_host_engine, install_host_engine};
 pub use openhuman_core::memory::lifecycle::views::{AgentCount, AgentsView};
@@ -52,6 +51,7 @@ pub use openhuman_core::memory::types::{
     FetchView, ForgetView, ItemsListView, LearnParams, LearnView, RecallView,
 };
 use tinymemory_api::{Error, Result};
+pub use tinymemory_tools::{BrainSourceCount, BrainSourcesView};
 
 /// The TinyMemory engine contract, for a host that implements or installs an
 /// engine ([`install_host_engine`]) or reads the items this facade returns.

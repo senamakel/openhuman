@@ -229,7 +229,7 @@ pub fn resolve(config: &Config) -> Binding {
 /// bound below a scope root.
 pub fn bind_with_root(config: &Config, root: Option<&str>) -> Result<BoundEngine> {
     if !config.components.memory {
-        return Err(Error::Off(COMPONENT_OFF_REASON.to_string()));
+        return Err(MemoryError::Off(COMPONENT_OFF_REASON.to_string()));
     }
     #[cfg(test)]
     {
@@ -530,7 +530,6 @@ fn build_cached(
     fingerprint: String,
     credential: EngineCredential,
 ) -> Binding {
-    let endpoint = settings.endpoint.clone().unwrap_or_default();
     let binding = ENGINE_BINDER.bind_configured(
         id,
         settings,
@@ -544,7 +543,6 @@ fn build_cached(
             tracing::warn!(engine = %id, error = %reason, "[memory:engine] engine build refused");
         }
     }
-    let _ = endpoint;
     binding
 }
 

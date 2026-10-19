@@ -1,4 +1,9 @@
 use super::*;
+use crate::memory::test_fixtures::{bind_reference, config_in};
+
+fn text(result: &ToolResult) -> String {
+    result.text()
+}
 
 /// The memory activity a tool call raises reaches the chat its own turn is in:
 /// the `MemoryRecalled` event carries the turn's thread and client, taken from

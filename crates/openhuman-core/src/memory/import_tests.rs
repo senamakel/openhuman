@@ -156,7 +156,8 @@ async fn a_failed_checkpoint_read_does_not_overwrite_the_stored_value() {
 
     assert!(!resumed);
     assert_eq!(
-        crate::memory::state_store::load::<serde_json::Value>(&config.workspace_dir, STATE).unwrap(),
+        crate::memory::state_store::load::<serde_json::Value>(&config.workspace_dir, STATE)
+            .unwrap(),
         Some(expected),
         "a failed typed checkpoint read must not replace the stored value with a default"
     );

@@ -59,10 +59,10 @@ async fn media_factory_stages_generated_output_in_the_scoped_blob_store() {
         let output_bytes = std::fs::read(output_path).unwrap();
         let observed = observed.lock().unwrap();
         assert!(
-            observed
-                .iter()
-                .any(|(_, written, read_back)| written == &output_bytes
-                    && read_back == &output_bytes),
+            observed.iter().any(|(key, written, read_back)| key
+                .starts_with("harness/generated_media/")
+                && written == &output_bytes
+                && read_back == &output_bytes),
             "staged media must be written into the scoped backend and readable through a second handle; observed {} writes",
             observed.len()
         );

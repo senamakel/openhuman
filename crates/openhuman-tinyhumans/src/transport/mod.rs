@@ -122,10 +122,7 @@ impl BackendTransport for SdkBackendTransport {
             .map_err(|error| map_sdk_error(error, &Method::POST, req.path))
     }
 
-    fn memory_bearer_source(
-        &self,
-        config: Arc<Config>,
-    ) -> Option<Arc<dyn BearerSource>> {
+    fn memory_bearer_source(&self, config: Arc<Config>) -> Option<Arc<dyn BearerSource>> {
         Some(Arc::new(CallbackBearerSource::new(move || {
             let config = Arc::clone(&config);
             async move {

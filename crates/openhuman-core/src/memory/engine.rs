@@ -34,9 +34,9 @@
 //! used at once and signing out turns memory off.
 
 use std::collections::HashMap;
-use std::sync::{Arc, LazyLock};
 #[cfg(test)]
 use std::sync::RwLock;
+use std::sync::{Arc, LazyLock};
 
 use sha2::{Digest, Sha256};
 use tinymemory_api::MemoryEngine;

@@ -58,8 +58,14 @@ async fn assert_host_scrubbing(
         .map(|hit| hit.text.as_str())
         .expect("the corroborated host policy preserves an unqualified number");
 
-    assert!(!text.contains(SECRET), "credentials are scrubbed before store");
-    assert!(!text.contains(PHONE), "phone numbers are scrubbed before store");
+    assert!(
+        !text.contains(SECRET),
+        "credentials are scrubbed before store"
+    );
+    assert!(
+        !text.contains(PHONE),
+        "phone numbers are scrubbed before store"
+    );
 }
 
 #[tokio::test]
@@ -98,7 +104,9 @@ async fn installed_host_engine_binding_uses_the_host_scrub_policy() {
     clear_host_engine();
     let _cleanup = ClearInstalledHostEngine;
     install_host_engine(reference.clone());
-    let bound = resolve(&config).engine().expect("installed host engine binds");
+    let bound = resolve(&config)
+        .engine()
+        .expect("installed host engine binds");
     assert_host_scrubbing(bound, &reference).await;
     println!("{CHILD_MARKER}");
 }
@@ -446,7 +454,8 @@ fn an_installed_engine_has_one_layout_unless_one_is_installed_per_root() {
 #[test]
 fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
     // CortexDB's own API: `org:<id>` is the root, owned by the actor.
-    let (settings, key) = EngineBinder::rooted(EngineSettings::default(), Some("org:42"), false, false);
+    let (settings, key) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), false, false);
     assert_eq!(settings.scope_root.as_deref(), Some("org:42"));
     assert_eq!(settings.scope_owner.as_deref(), Some("user:42"));
     assert!(!settings.tenant_root);
@@ -461,16 +470,19 @@ fn a_root_sets_the_scope_root_its_owner_and_the_cache_key() {
 #[test]
 fn the_hosted_wire_sends_no_root_and_legacy_read_names_the_user_segment() {
     // TinyHumans: the backend pins `org:<id>`; no root, no `user:` segment.
-    let (settings, key) = EngineBinder::rooted(EngineSettings::default(), Some("org:42"), true, false);
+    let (settings, key) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), true, false);
     assert!(settings.tenant_root);
     assert_eq!(settings.scope_root, None);
     assert_eq!(settings.scope_owner, None);
     assert_eq!(settings.retired_scope_root, None);
     // During the move, the earlier `user:<id>` root is read and forgotten.
-    let (settings, read_too) = EngineBinder::rooted(EngineSettings::default(), Some("org:42"), true, true);
+    let (settings, read_too) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), true, true);
     assert_eq!(settings.retired_scope_root.as_deref(), Some("user:42"));
     assert_ne!(key, read_too, "the flag rebuilds the engine");
-    let (settings, _) = EngineBinder::rooted(EngineSettings::default(), Some("org:42"), false, true);
+    let (settings, _) =
+        EngineBinder::rooted(EngineSettings::default(), Some("org:42"), false, true);
     assert_eq!(settings.retired_scope_root.as_deref(), Some("user:42"));
 }
 

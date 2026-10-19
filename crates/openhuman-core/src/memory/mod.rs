@@ -32,7 +32,7 @@ mod guard {
     use std::sync::Arc;
 
     use tinymemory_api::{MemoryEngine, StoreItem};
-    use tinymemory_integrations::safety::{Policy, scrub_item_with};
+    use tinymemory_integrations::safety::{scrub_item_with, Policy};
     use tinymemory_integrations::EngineBinder;
 
     fn wrap(engine: Arc<dyn MemoryEngine>) -> Arc<dyn MemoryEngine> {

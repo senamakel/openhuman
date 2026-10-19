@@ -43,6 +43,8 @@ async fn memory_bearer_rejects_the_host_local_session() {
 
     assert!(matches!(
         source.bearer().await,
-        Err(openhuman_embed::__host::memory::MemoryError::Unauthorized(_))
+        Err(openhuman_embed::__host::memory::MemoryError::Unauthorized(
+            _
+        ))
     ));
 }

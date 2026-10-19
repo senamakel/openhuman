@@ -12,14 +12,34 @@ fn the_policy_mirrors_the_recall_config() {
         "the defaults agree with TinyMemory's"
     );
 
+    recall.budget_tokens = 1700;
+    recall.learnings_limit = 9;
+    recall.brain_limit = 5;
+    recall.history_limit = 4;
+    recall.team_limit = 2;
+    recall.build_beliefs_every = 7;
+    let tuned = policy(&recall);
+    assert_eq!(
+        (
+            tuned.budget_tokens,
+            tuned.learnings_limit,
+            tuned.brain_limit,
+            tuned.history_limit,
+            tuned.team_limit,
+            tuned.build_beliefs_every,
+        ),
+        (1700, 9, 5, 4, 2, Some(7)),
+        "every policy field follows the configured recall setting"
+    );
+
     recall.build_beliefs_every = 0;
     recall.team_limit = 0;
     recall.budget_tokens = 0;
-    let tuned = policy(&recall);
-    assert_eq!(tuned.build_beliefs_every, None);
-    assert_eq!(tuned.team_limit, 0);
+    let zeroed = policy(&recall);
+    assert_eq!(zeroed.build_beliefs_every, None);
+    assert_eq!(zeroed.team_limit, 0);
     assert_eq!(
-        tuned.budget_tokens, 1,
+        zeroed.budget_tokens, 1,
         "a zero budget is clamped, never refused"
     );
 

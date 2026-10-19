@@ -68,10 +68,8 @@ async fn installed_host_engine_binding_uses_the_host_scrub_policy() {
     const CHILD_MARKER: &str = "HOST_ENGINE_POLICY_CHILD_EXECUTED";
 
     if std::env::var_os(CHILD_FLAG).as_deref() != Some(std::ffi::OsStr::new("1")) {
-        let exact_test = format!(
-            "{}::installed_host_engine_binding_uses_the_host_scrub_policy",
-            module_path!()
-        );
+        let exact_test =
+            "memory::engine::tests::installed_host_engine_binding_uses_the_host_scrub_policy";
         let child = std::process::Command::new(std::env::current_exe().unwrap())
             .arg("--exact")
             .arg(exact_test)

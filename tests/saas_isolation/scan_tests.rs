@@ -98,7 +98,11 @@ fn storage_audit_enumerates_scopes_records_identifiers_and_paged_streams() {
         scan_storage(&backend).await.unwrap()
     });
 
-    assert!(report.own.iter().all(|count| *count > 0), "{:?}", report.own);
+    assert!(
+        report.own.iter().all(|count| *count > 0),
+        "{:?}",
+        report.own
+    );
     let findings = report.violations.join("\n");
     assert!(findings.contains("bob's canary"), "{findings}");
     assert!(findings.contains("carol's canary"), "{findings}");
@@ -114,8 +118,17 @@ fn storage_audit_enumerates_scopes_records_identifiers_and_paged_streams() {
 fn storage_database_exclusion_matches_only_exact_database_and_sidecars() {
     let db = Path::new("profile-store.sqlite");
     assert!(is_storage_db_file(db, db));
-    assert!(is_storage_db_file(Path::new("profile-store.sqlite-wal"), db));
-    assert!(is_storage_db_file(Path::new("profile-store.sqlite-shm"), db));
-    assert!(!is_storage_db_file(Path::new("profile-store.sqlite.backup"), db));
+    assert!(is_storage_db_file(
+        Path::new("profile-store.sqlite-wal"),
+        db
+    ));
+    assert!(is_storage_db_file(
+        Path::new("profile-store.sqlite-shm"),
+        db
+    ));
+    assert!(!is_storage_db_file(
+        Path::new("profile-store.sqlite.backup"),
+        db
+    ));
     assert!(!is_storage_db_file(Path::new("other.sqlite-wal"), db));
 }

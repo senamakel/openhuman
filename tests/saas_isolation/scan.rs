@@ -170,13 +170,7 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<StorageScan, S
             .await
             .map_err(|error| format!("list collections in {}: {error}", scope.as_str()))?
         {
-            record_scope_content(
-                &scope,
-                owner,
-                &collection,
-                &mut own,
-                &mut violations,
-            );
+            record_scope_content(&scope, owner, &collection, &mut own, &mut violations);
             let docs = scoped
                 .documents()
                 .query_all(&collection, &Query::all())

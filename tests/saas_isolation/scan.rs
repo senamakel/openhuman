@@ -2,6 +2,7 @@
 //! carried which user's content to the backend.
 
 use std::path::Path;
+use std::path::PathBuf;
 
 use super::mock_llm::Recorded;
 use super::world::{owners_in, USERS};
@@ -130,13 +131,24 @@ pub fn scan_files(root: &Path, home: &Path, storage_db: &Path) -> (Vec<String>, 
 }
 
 fn is_storage_db_file(path: &Path, db: &Path) -> bool {
-    path == db || path == db.with_extension("db-wal") || path == db.with_extension("db-shm")
+    path == db || path == with_suffix(db, "-wal") || path == with_suffix(db, "-shm")
+}
+
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(suffix);
+    PathBuf::from(value)
 }
 
 /// Audit the backend by its actual scope and record enumeration APIs. This
 /// keeps the SaaS isolation check meaningful when a configured backend stores
 /// every tenant in one database file.
-pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], String> {
+pub struct StorageScan {
+    pub own: [usize; 3],
+    pub violations: Vec<String>,
+}
+
+pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<StorageScan, String> {
     let mut violations = Vec::new();
     let mut own = [0usize; 3];
     let scopes = backend
@@ -158,6 +170,13 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
             .await
             .map_err(|error| format!("list collections in {}: {error}", scope.as_str()))?
         {
+            record_scope_content(
+                &scope,
+                owner,
+                &collection,
+                &mut own,
+                &mut violations,
+            );
             let docs = scoped
                 .documents()
                 .query_all(&collection, &Query::all())
@@ -172,7 +191,13 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
                         scope.as_str()
                     ));
                 }
-                record_scope_content(&scope, owner, &text, &mut own, &mut violations);
+                record_scope_content(
+                    &scope,
+                    owner,
+                    &format!("{} {text}", doc.id),
+                    &mut own,
+                    &mut violations,
+                );
             }
         }
 
@@ -182,6 +207,7 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
             .await
             .map_err(|error| format!("list streams in {}: {error}", scope.as_str()))?
         {
+            record_scope_content(&scope, owner, &stream, &mut own, &mut violations);
             let mut offset = 0;
             let mut total = 0_u64;
             loop {
@@ -203,7 +229,13 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
                             scope.as_str()
                         ));
                     }
-                    record_scope_content(&scope, owner, &text, &mut own, &mut violations);
+                    record_scope_content(
+                        &scope,
+                        owner,
+                        &format!("{stream} {text}"),
+                        &mut own,
+                        &mut violations,
+                    );
                     offset = entry.offset.saturating_add(1);
                 }
             }
@@ -235,13 +267,16 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
                     )
                 })?;
             let text = String::from_utf8_lossy(&blob.bytes);
-            record_scope_content(&scope, owner, &text, &mut own, &mut violations);
+            record_scope_content(
+                &scope,
+                owner,
+                &format!("{} {text}", meta.key),
+                &mut own,
+                &mut violations,
+            );
         }
     }
-    if !violations.is_empty() {
-        return Err(violations.join("\n"));
-    }
-    Ok(own)
+    Ok(StorageScan { own, violations })
 }
 
 fn record_scope_content(

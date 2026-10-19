@@ -388,7 +388,7 @@ fn random_cross_profile_calls_never_leak() {
     let backend = storage_backend
         .block_on(openhuman_core::storage::open(&storage_url))
         .expect("open configured storage for isolation audit");
-    let storage_own = storage_backend
+    let storage_scan = storage_backend
         .block_on(scan::scan_storage(backend.as_ref()))
         .unwrap_or_else(|error| panic!("configured storage audit failed: {error}"));
     let (violations, _) =
@@ -399,9 +399,16 @@ fn random_cross_profile_calls_never_leak() {
             violations.join("\n")
         ));
     }
+    if !storage_scan.violations.is_empty() {
+        w.fail(&format!(
+            "storage records crossed profiles:\n{}",
+            storage_scan.violations.join("\n")
+        ));
+    }
     assert!(
-        storage_own.iter().all(|&n| n > 0),
-        "every user's storage scopes hold their own data: {storage_own:?}"
+        storage_scan.own.iter().all(|&n| n > 0),
+        "every user's storage scopes hold their own data: {:?}",
+        storage_scan.own
     );
 
     let summary: Vec<String> = w
@@ -414,7 +421,8 @@ fn random_cross_profile_calls_never_leak() {
         .collect();
     eprintln!(
         "[isolation] seed {seed}: {steps} steps; boot+seed {:.1}s, drive {:.1}s, total {:.1}s; \
-         inference per user {per_user:?}; own storage records {storage_own:?}\n{}",
+         inference per user {per_user:?}; own storage records {:?}\n{}",
+        storage_scan.own,
         booted.as_secs_f64(),
         (driven - booted).as_secs_f64(),
         started.elapsed().as_secs_f64(),

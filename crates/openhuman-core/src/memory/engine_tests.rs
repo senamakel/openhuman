@@ -64,6 +64,35 @@ async fn assert_host_scrubbing(
 
 #[tokio::test]
 async fn installed_host_engine_binding_uses_the_host_scrub_policy() {
+    const CHILD_FLAG: &str = "OPENHUMAN_MEMORY_HOST_POLICY_CHILD";
+    const CHILD_MARKER: &str = "HOST_ENGINE_POLICY_CHILD_EXECUTED";
+
+    if std::env::var_os(CHILD_FLAG).as_deref() != Some(std::ffi::OsStr::new("1")) {
+        let exact_test = format!(
+            "{}::installed_host_engine_binding_uses_the_host_scrub_policy",
+            module_path!()
+        );
+        let child = std::process::Command::new(std::env::current_exe().unwrap())
+            .arg("--exact")
+            .arg(exact_test)
+            .arg("--nocapture")
+            .env(CHILD_FLAG, "1")
+            .output()
+            .expect("test child starts");
+        let stdout = String::from_utf8_lossy(&child.stdout);
+        let stderr = String::from_utf8_lossy(&child.stderr);
+        assert!(
+            child.status.success(),
+            "host-engine child failed: stdout={stdout}\nstderr={stderr}"
+        );
+        assert_eq!(
+            stdout.matches(CHILD_MARKER).count(),
+            1,
+            "the exact child test must execute once: stdout={stdout}\nstderr={stderr}"
+        );
+        return;
+    }
+
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
     let reference = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
@@ -73,6 +102,7 @@ async fn installed_host_engine_binding_uses_the_host_scrub_policy() {
     install_host_engine(reference.clone());
     let bound = resolve(&config).engine().expect("installed host engine binds");
     assert_host_scrubbing(bound, &reference).await;
+    println!("{CHILD_MARKER}");
 }
 
 #[tokio::test]

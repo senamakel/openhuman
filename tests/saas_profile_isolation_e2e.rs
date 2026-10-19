@@ -350,11 +350,12 @@ fn random_cross_profile_calls_never_leak() {
     let (seed, steps) = (seed_from_env(), steps_from_env());
     eprintln!("[isolation] seed {seed} steps {steps} (OH_FUZZ_SEED / OH_FUZZ_STEPS)");
     let d = deployment(true);
+    let storage_url = format!("sqlite:{}", d.tmp.path().join("isolation.db").display());
     let llm = mock_llm::mock_llm();
     let node = start_node(
         &d,
         "1",
-        Some("memory"),
+        Some(&storage_url),
         "max_profiles_open = 3\nidle_evict_secs = 2\n",
         Some(llm.port),
     );

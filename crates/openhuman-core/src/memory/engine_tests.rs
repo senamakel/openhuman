@@ -4,11 +4,128 @@ use crate::security::credentials::api_key::store_api_key;
 
 use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 
+struct ClearInstalledHostEngine;
+
+impl Drop for ClearInstalledHostEngine {
+    fn drop(&mut self) {
+        clear_host_engine();
+    }
+}
+
+struct RemoveTestEngine(std::path::PathBuf);
+
+impl Drop for RemoveTestEngine {
+    fn drop(&mut self) {
+        remove_test_engine(&self.0);
+    }
+}
+
 fn off_reason(binding: Binding) -> String {
     match binding {
         Binding::Off { reason, .. } => reason,
         Binding::On(bound) => panic!("expected off, bound {}", bound.id),
     }
+}
+
+async fn assert_host_scrubbing(
+    bound: BoundEngine,
+    reference: &tinymemory_api::conformance::ReferenceEngine,
+) {
+    const SECRET: &str = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
+    const EMAIL: &str = "memory.person@example.com";
+    const BARE_NUMBER: &str = "79927398713";
+
+    bound
+        .engine
+        .store(tinymemory_api::StoreItem::document(
+            format!("contact {EMAIL}; key={SECRET}; reference {BARE_NUMBER}"),
+            tinymemory_api::MemoryMeta::default(),
+        ))
+        .await
+        .expect("the bound engine accepts the test item");
+
+    let saved = reference
+        .list(tinymemory_api::ListRequest::new(
+            tinymemory_api::MetaFilter::default(),
+            5,
+        ))
+        .await
+        .expect("reference engine lists the saved item");
+    let text = saved
+        .items
+        .iter()
+        .find(|hit| hit.text.contains(BARE_NUMBER))
+        .map(|hit| hit.text.as_str())
+        .expect("the corroborated host policy preserves an unqualified number");
+
+    assert!(!text.contains(SECRET), "credentials are scrubbed before store");
+    assert!(!text.contains(EMAIL), "personal contact data is scrubbed before store");
+}
+
+#[tokio::test]
+async fn installed_host_engine_binding_uses_the_host_scrub_policy() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let reference = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+
+    clear_host_engine();
+    let _cleanup = ClearInstalledHostEngine;
+    install_host_engine(reference.clone());
+    let bound = resolve(&config).engine().expect("installed host engine binds");
+    assert_host_scrubbing(bound, &reference).await;
+}
+
+#[tokio::test]
+async fn test_engine_binding_uses_the_host_scrub_policy() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let reference = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+
+    let _cleanup = RemoveTestEngine(config.workspace_dir.clone());
+    install_test_engine(&config.workspace_dir, reference.clone());
+    let bound = resolve(&config).engine().expect("test engine binds");
+    assert_host_scrubbing(bound, &reference).await;
+}
+
+#[tokio::test]
+async fn profile_engine_binding_uses_the_host_scrub_policy() {
+    let tmp = tempfile::tempdir().unwrap();
+    let profile_id = "6512ab0f6512ab0f6512ab0f";
+    let mut config = config_in(&tmp);
+    config.memory.agent_id = Some(profile_id.to_string());
+    config.memory.root = Some(format!("user:{profile_id}"));
+    let reference = Arc::new(tinymemory_api::conformance::ReferenceEngine::new());
+    let capabilities = Arc::new(crate::profiles::capabilities::ProfileCapabilities::new(
+        None,
+        None,
+        None,
+        Default::default(),
+        Vec::new(),
+        Some(reference.clone()),
+    ));
+    let mut overrides = crate::agent::host_overrides::HostOverrides::default();
+    overrides.profile_capabilities = Some(capabilities);
+    let parent = crate::core::runtime::CoreContext::for_test(
+        crate::core::runtime::DomainSet::full(),
+        Some(config.workspace_dir.clone()),
+    );
+    let profile = parent.derive_with(
+        crate::core::runtime::ContextOverlay::new(
+            config.clone(),
+            crate::core::runtime::DomainSet::full(),
+            crate::tools::toolpacks::ToolGroups::none(),
+        )
+        .profile(profile_id)
+        .host_overrides(Arc::new(overrides)),
+    );
+
+    crate::core::runtime::CoreContext::scope(profile, async {
+        let bound = resolve(&config)
+            .engine()
+            .expect("profile engine binds with its forced root");
+        assert_host_scrubbing(bound, &reference).await;
+    })
+    .await;
 }
 
 #[test]

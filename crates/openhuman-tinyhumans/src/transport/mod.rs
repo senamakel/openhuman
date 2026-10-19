@@ -20,6 +20,10 @@ use tinyhumans_sdk::TinyHumansClient;
 
 mod error;
 
+#[cfg(test)]
+#[path = "memory_bearer_tests.rs"]
+mod memory_bearer_tests;
+
 pub use error::map_sdk_error;
 
 /// One `reqwest::Client` per [`TransportProfile`], each built from

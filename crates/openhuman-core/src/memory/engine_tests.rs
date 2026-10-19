@@ -328,9 +328,7 @@ fn the_cache_fingerprint_never_contains_the_key() {
 async fn host_bearer_reads_the_credential_per_request() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
-    let source = HostBearer {
-        config: Arc::new(config.clone()),
-    };
+    let source = backend_bearer_source(Arc::new(config.clone()));
     let error = source.bearer().await.unwrap_err();
     assert!(matches!(error, tinymemory_api::Error::Unauthorized(_)));
 
@@ -351,9 +349,7 @@ async fn host_bearer_rejects_a_local_session_token() {
             true,
         )
         .unwrap();
-    let source = HostBearer {
-        config: Arc::new(config),
-    };
+    let source = backend_bearer_source(Arc::new(config));
 
     let error = source.bearer().await.unwrap_err();
 

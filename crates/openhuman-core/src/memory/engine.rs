@@ -121,7 +121,7 @@ pub use tinymemory_integrations::HOST_ENGINE_ENDPOINT;
 
 /// Binds `engine` for every config in this process, ahead of the configured
 /// one. For an embedding host that owns its memory store; the engine's writes
-/// are scrubbed like any other's ([`super::guard`]). A later call replaces the
+/// are scrubbed by the native binder like any other's. A later call replaces the
 /// earlier engine. Writes are scrubbed under the host policy and operations
 /// are timed by TinyMemory's native binder.
 pub fn install_host_engine(engine: Arc<dyn MemoryEngine>) {

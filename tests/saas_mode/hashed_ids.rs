@@ -27,7 +27,7 @@ fn start_hashed(d: &Deployment, name: &str) -> (Server, String, PathBuf) {
     std::fs::write(
         &d.config,
         format!(
-            "root = {:?}\nstorage_url = {:?}\nprofile_ids = \"hashed\"\n",
+            "root = {:?}\nstorage_url = {:?}\nprofile_ids = \"hashed\"\nlease_ttl_secs = 3\n",
             d.root.display().to_string(),
             storage_url
         ),
@@ -57,6 +57,29 @@ fn start_hashed(d: &Deployment, name: &str) -> (Server, String, PathBuf) {
         std::thread::sleep(Duration::from_millis(250));
     }
     (server, base, log)
+}
+
+fn wait_for_profile_lease(
+    client: &reqwest::blocking::Client,
+    base: &str,
+    user: &str,
+) -> (u16, Value) {
+    let deadline = Instant::now() + Duration::from_secs(10);
+    loop {
+        let response = user_rpc_with(
+            client,
+            base,
+            BEARER,
+            user,
+            None,
+            "openhuman.threads_list",
+            json!({}),
+        );
+        if response.0 != 409 || Instant::now() >= deadline {
+            return response;
+        }
+        std::thread::sleep(Duration::from_millis(100));
+    }
 }
 
 fn client_for_tests() -> reqwest::blocking::Client {
@@ -212,15 +235,9 @@ fn hashed_profile_ids_keep_user_ids_off_disk_out_of_responses_and_logs() {
         for (user, profile) in USERS.iter().zip(&expected) {
             let (id, created) = provision_hashed(&client, &base, user, &mut seen);
             assert_eq!((&id, created), (profile, false));
-            let (status, body) = user_rpc_with(
-                &client,
-                &base,
-                BEARER,
-                user,
-                None,
-                "openhuman.threads_list",
-                json!({}),
-            );
+            // The killed process leaves a lease in SQLite until its TTL
+            // expires; wait for the restarted node to acquire it.
+            let (status, body) = wait_for_profile_lease(&client, &base, user);
             assert_eq!(status, 200, "{body}");
             assert_eq!(
                 thread_ids(&body),

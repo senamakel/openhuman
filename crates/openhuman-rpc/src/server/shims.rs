@@ -60,13 +60,11 @@ pub async fn run_server_headless(host: Option<&str>, port: Option<u16>) -> anyho
 /// Runs a SaaS core: many users behind a trusted gateway, booted from the
 /// operator's config file and refused unless its boot guard passes.
 ///
-/// The session store is installed before boot. With no storage URL every
-/// profile keeps its sessions, transcripts and turn states in the default
-/// database of its own workspace (the store resolves the workspace of the
-/// context each call runs under). With one (`OPENHUMAN_STORAGE_URL`, else the operator's
-/// `storage_url`) the backend is opened and installed — the profile registry
-/// and leases live there too — and its session store never recovers on open:
-/// recovery follows the profile lease instead.
+/// A storage URL (`OPENHUMAN_STORAGE_URL`, else the operator's `storage_url`)
+/// is required. The backend is opened and installed before boot — the profile
+/// registry, leases, sessions, transcripts and turn states all use it — and
+/// its session store never recovers on open: recovery follows the profile
+/// lease instead.
 ///
 /// On shutdown the leases of profiles nothing is using are released, so
 /// another node can take them at once.
@@ -77,15 +75,13 @@ pub async fn run_server_saas(
 ) -> anyhow::Result<()> {
     let config = crate::core_host::core::runtime::SaasConfig::load(saas_config)?;
     let storage_url = config.resolved_storage_url();
-    log::info!(
-        "[rpc:saas] session store: {}",
-        if storage_url.is_some() {
-            "storage backend"
-        } else {
-            "one database per profile workspace"
-        }
-    );
-    crate::session_store::install_for_saas(storage_url).await?;
+    let Some(storage_url) = storage_url else {
+        anyhow::bail!(
+            "[saas] a storage URL must be configured with OPENHUMAN_STORAGE_URL or storage_url"
+        );
+    };
+    log::info!("[rpc:saas] session store: storage backend");
+    crate::session_store::install_for_saas(Some(storage_url)).await?;
     let runtime =
         crate::core_host::core::runtime::saas::build(config, host.map(str::to_owned), port).await?;
     let served = super::serve::serve(&runtime, None, None).await;

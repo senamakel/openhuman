@@ -51,7 +51,7 @@ fn an_unsafe_tool_allowlist_is_refused_before_it_binds() {
     std::fs::write(
         &d.config,
         format!(
-            "root = {:?}\ntool_allowlist = [\"coding\", \"host_shell\"]\n\n[sandbox]\nnetwork = \"host\"\n",
+            "root = {:?}\nstorage_url = \"memory\"\ntool_allowlist = [\"coding\", \"host_shell\"]\n\n[sandbox]\nnetwork = \"host\"\n",
             d.root.display().to_string()
         ),
     )
@@ -245,6 +245,29 @@ fn gateway_requests_run_under_the_named_users_profile() {
         "operator methods are not a user's: {body}"
     );
 
+    // These host-local and import operations must remain absent from the
+    // actual per-profile RPC dispatch surface as well.
+    for method in [
+        "openhuman.http_host_start",
+        "openhuman.session_import_run",
+        "openhuman.config_get_data_paths",
+        "openhuman.config_get_agent_paths",
+        "openhuman.config_update_agent_paths",
+    ] {
+        let (_, body) = user_rpc(&client, &base, BEARER, "alice", None, method);
+        assert!(
+            body.get("error").is_some(),
+            "{method} must be unavailable to a signed SaaS profile: {body}"
+        );
+        assert!(
+            body["error"]["message"]
+                .as_str()
+                .unwrap_or_default()
+                .contains("unknown method"),
+            "{method} should be indistinguishable from an absent method: {body}"
+        );
+    }
+
     // Refusals: bad bearer first, then signatures, then provisioning.
     let (status, body) = user_rpc(&client, &base, "wrong-bearer", "alice", None, "core.ping");
     assert_eq!(status, 401, "{body}");
@@ -298,7 +321,8 @@ fn gateway_requests_run_under_the_named_users_profile() {
         assert_eq!(status, 404, "{path}");
     }
 
-    // The credential lives in alice's own directory.
+    // A configured storage backend keeps auth profiles and their secrets in
+    // alice's profile scope instead of writing an auth file to disk.
     let profile_dir = d.root.join("users").join(alice.as_str());
     let stored: Vec<_> = std::fs::read_dir(&profile_dir)
         .unwrap()
@@ -306,8 +330,8 @@ fn gateway_requests_run_under_the_named_users_profile() {
         .map(|e| e.file_name().to_string_lossy().into_owned())
         .collect();
     assert!(
-        stored.iter().any(|name| name.contains("auth")),
-        "credential store beside alice's config: {stored:?}"
+        stored.iter().all(|name| !name.contains("auth")),
+        "auth profiles must stay in alice's configured storage scope: {stored:?}"
     );
     drop(server);
 }

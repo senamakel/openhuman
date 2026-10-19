@@ -17,7 +17,8 @@
 //!
 //! With nothing installed (a unit test, an embedder that skipped the host
 //! boot) a domain falls back to the same default for its own workspace,
-//! opened lazily ([`local`]); a SaaS process never does and refuses instead.
+//! opened lazily ([`local`]). SaaS boot requires an explicit storage URL, and
+//! a SaaS process with no installed backend refuses this workspace fallback.
 //!
 //! Drivers are Cargo features of this crate: `storage-sqlite`,
 //! `storage-mongodb`, `storage-file` (memory is always available). A URL for a

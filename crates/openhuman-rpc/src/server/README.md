@@ -118,8 +118,8 @@ The bearer is the per-launch RPC token the core owns
 `run_server_saas` (`--mode saas --saas-config <file>`) boots the operator's
 config instead of a builder. Before boot it installs the session store for
 the operator's storage URL (`OPENHUMAN_STORAGE_URL`, else `storage_url`)
-through `session_store::install_for_saas`: one default database per profile
-workspace with no URL, else `DriverSessionStores` over that backend with
+through `session_store::install_for_saas`: `DriverSessionStores` over the
+required configured backend with
 `recover_on_open(false)`,
 because a profile's turns are recovered when its lease is taken over, not
 when its stores open. On shutdown it releases the leases of idle profiles.

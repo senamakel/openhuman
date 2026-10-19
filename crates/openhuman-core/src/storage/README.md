@@ -21,10 +21,11 @@ and the process slot at it together, then runs the importers over the new
 workspace. An explicit URL names one backend for every user and is never
 replaced; a failed reopen is an error and leaves the previous backend in place.
 
-With no backend installed (a unit test, an embedder that skipped the host
-boot, a SaaS core with no URL) a store opens the **same default** for its own
-workspace on first use (`local::backend_for`), once per workspace for the life
-of the process, so no store has a file-shaped implementation of its own.
+With no backend installed (a unit test or an embedder that skipped host boot)
+a store opens the **same default** for its own workspace on first use
+(`local::backend_for`), once per workspace for the life of the process, so no
+store has a file-shaped implementation of its own. SaaS boot requires a
+configured storage URL and SaaS storage calls refuse this fallback.
 
 | URL | Driver | Cargo feature |
 | --- | --- | --- |

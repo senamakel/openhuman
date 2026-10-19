@@ -51,9 +51,14 @@ pub fn deployment(write_token: bool) -> Deployment {
         set_mode(&token, 0o600);
     }
     let config = tmp.path().join("operator.toml");
+    let storage_url = "memory".to_string();
     std::fs::write(
         &config,
-        format!("root = {:?}\n", root.display().to_string()),
+        format!(
+            "root = {:?}\nstorage_url = {:?}\n",
+            root.display().to_string(),
+            storage_url
+        ),
     )
     .unwrap();
     Deployment { tmp, root, config }

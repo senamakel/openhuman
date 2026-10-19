@@ -41,8 +41,8 @@ fn hanging_backend() -> u16 {
     port
 }
 
-/// The lease scenario on one storage configuration: `storage_url` shared by
-/// both cores (cluster leases), or `None` (file locks on the shared root).
+/// The lease scenario with a local SQLite URL by default, or a supplied URL
+/// that also advertises this node for cluster lease handoff.
 fn one_core_at_a_time(storage_url: Option<&str>) {
     let d = deployment(true);
     let storage_url =
@@ -106,8 +106,8 @@ fn one_core_at_a_time(storage_url: Option<&str>) {
     );
     two.kill();
 
-    // Core 1 takes alice over once the lease lapses (at once for a file
-    // lock, which dies with its process), and the turn reads interrupted.
+    // Core 1 takes alice over once the lease lapses, and the turn reads
+    // interrupted.
     wait_until(
         "core 1 to take alice over",
         &one,

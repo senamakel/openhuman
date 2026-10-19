@@ -96,8 +96,8 @@ pub fn start_node_logging(
     let config_path = d.tmp.path().join(format!("operator-{name}.toml"));
     let (server, base) = spawn_core_with(
         |port| {
-            // The operator file names the port (`advertise_url`), so it is
-            // written again for each port tried.
+            // Clustered operator files name the chosen port, so they are
+            // rewritten for every port tried.
             let base = format!("http://127.0.0.1:{port}");
             let mut config = format!(
                 "root = {:?}\nnode_id = \"core-{name}\"\noperator_dir = {:?}\nlease_ttl_secs = 3\n",
@@ -108,10 +108,16 @@ pub fn start_node_logging(
                     .display()
                     .to_string(),
             );
-            if let Some(url) = storage_url {
-                config.push_str(&format!(
-                    "storage_url = {url:?}\nadvertise_url = {base:?}\n"
-                ));
+            let clustered =
+                storage_url.is_some_and(|url| !url.trim().eq_ignore_ascii_case("memory"));
+            let storage_url = storage_url
+                .map(|url| url.replace("{tmp}", &d.tmp.path().display().to_string()))
+                .unwrap_or_else(|| {
+                    format!("sqlite:{}", d.tmp.path().join("node-storage.db").display())
+                });
+            config.push_str(&format!("storage_url = {storage_url:?}\n"));
+            if clustered {
+                config.push_str(&format!("advertise_url = {base:?}\n"));
             }
             config.push_str(extra);
             std::fs::write(&config_path, config).unwrap();

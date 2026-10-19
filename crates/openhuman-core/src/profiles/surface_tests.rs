@@ -75,6 +75,22 @@ fn chat_is_open_but_other_channel_methods_are_not() {
 }
 
 #[test]
+fn operator_and_local_storage_surfaces_are_not_available_to_saas_users() {
+    for method in [
+        "openhuman.http_host_start",
+        "openhuman.session_import_run",
+        "openhuman.config_get_data_paths",
+        "openhuman.config_get_agent_paths",
+        "openhuman.config_update_agent_paths",
+    ] {
+        assert!(
+            !visible_in(true, Scope::User, method, false),
+            "{method} must stay off the SaaS user dispatch surface"
+        );
+    }
+}
+
+#[test]
 fn every_listed_method_is_registered() {
     let registered: std::collections::HashSet<String> =
         crate::core::all::all_registered_controllers()

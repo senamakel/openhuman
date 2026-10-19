@@ -11,6 +11,7 @@ use tinymemory_api::{
     Citation, EngineDescriptor, FetchMode, Hit, LearningKind, MemoryMeta, MetaFilter,
 };
 use tinymemory_integrations::import::ImportState;
+use tinymemory_integrations::sources::SourceStatus;
 
 use crate::config::schema::MemorySourceKind;
 
@@ -245,19 +246,6 @@ pub struct ItemsListView {
     /// Cursor of the next page.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub next_cursor: Option<String>,
-}
-
-/// A source's sync status.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "snake_case")]
-pub enum SourceStatus {
-    /// Not syncing.
-    #[default]
-    Idle,
-    /// A sync is running.
-    Syncing,
-    /// The last sync failed.
-    Error,
 }
 
 /// One document source, as the UI sees it.

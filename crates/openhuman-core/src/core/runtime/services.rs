@@ -412,7 +412,6 @@ pub fn start_bootstrap_jobs(services: ServiceSet, config: &Config) {
     // jobs (idempotent) and mark sources a killed process left `syncing` idle.
     if plan.memory_jobs {
         crate::memory::sources::state::reset_interrupted(&config.workspace_dir);
-        crate::memory::sources::state::remove_orphaned_connector_files(&config.workspace_dir);
         if let Err(error) = crate::cron::system_jobs::ensure_memory_jobs(config) {
             log::warn!("[runtime.bootstrap] seeding memory cron jobs failed: {error}");
         }
@@ -509,8 +508,8 @@ pub fn spawn_socket_auto_connect(
                     Ok(Some(t)) => t,
                     Ok(None) => {
                         log::info!(
-                        "[socket] No session token stored — skipping auto-connect (will connect after login)"
-                    );
+                            "[socket] No session token stored — skipping auto-connect (will connect after login)"
+                        );
                         return;
                     }
                     Err(e) => {

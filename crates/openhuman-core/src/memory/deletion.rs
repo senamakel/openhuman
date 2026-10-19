@@ -16,16 +16,16 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex};
 
 use async_trait::async_trait;
-use tinymemory_api::{ForgetTarget, ItemKind, MetaFilter};
 use tinymemory_tools::deletion::{Backoff, DeletionExecutor, DeletionQueue, Drain};
 use tinymemory_tools::list_store::{ListStore, StoreError};
+use tinymemory_tools::ops::MemoryOps;
 
 pub use tinymemory_tools::deletion::PendingDeletion;
 
 use crate::config::Config;
 
 use super::engine;
-use tinymemory_api::{Error, Result};
+use tinymemory_api::Error;
 
 fn path(workspace_dir: &Path) -> PathBuf {
     workspace_dir.join("memory").join("pending_deletions.json")
@@ -123,15 +123,18 @@ impl DeletionExecutor for Executor<'_> {
     }
 
     async fn run(&self, deletion: &PendingDeletion) -> std::result::Result<usize, String> {
-        let result = match deletion {
-            PendingDeletion::Thread { thread_id } => {
-                forget_thread_now(self.config, thread_id).await
-            }
-            PendingDeletion::Source { source_id } => {
-                super::sources::forget_items(self.config, source_id).await
-            }
-        };
-        result.map_err(|error| error.code().to_string())
+        let bound = engine::resolve(self.config)
+            .engine()
+            .map_err(|error| error.code().to_string())?;
+        // Pending source/thread filters keep TinyMemory's ordinary root-tree
+        // default: all ordinary scopes, but never a service sandbox. Do not
+        // narrow them to one authenticated profile root.
+        let ops = MemoryOps::unconfined();
+        ops.forget_or_enqueue(Some(bound.engine.as_ref()), deletion.clone(), |deletion| {
+            enqueue(&self.config.workspace_dir, deletion);
+        })
+        .await
+        .map_err(|error| error.code().to_string())
     }
 }
 
@@ -151,21 +154,6 @@ pub async fn drain_due(config: &Config) -> usize {
         .await
 }
 
-/// Forgets every conversation item of `thread_id` now.
-async fn forget_thread_now(config: &Config, thread_id: &str) -> Result<usize> {
-    let bound = engine::resolve(config).engine()?;
-    let filter = MetaFilter {
-        thread_id: Some(thread_id.to_string()),
-        ..MetaFilter::kinds([ItemKind::Conversation])
-    };
-    let report = bound.engine.forget(ForgetTarget::Filter(filter)).await?;
-    tracing::debug!(
-        forgotten = report.forgotten,
-        "[memory:deletion] thread conversation memory forgotten"
-    );
-    Ok(report.forgotten)
-}
-
 /// Forgets a deleted thread's conversation memory, for good. Memory off or
 /// a failed forget queues the deletion for the next [`drain`] rather than
 /// failing the caller: the thread itself is already gone. Returns how many
@@ -174,21 +162,39 @@ pub async fn forget_thread(config: &Config, thread_id: &str) -> usize {
     if thread_id.trim().is_empty() {
         return 0;
     }
-    let deletion = PendingDeletion::Thread {
-        thread_id: thread_id.to_string(),
-    };
-    match forget_thread_now(config, thread_id).await {
-        Ok(forgotten) => forgotten,
-        Err(Error::Off(_)) => {
-            enqueue(&config.workspace_dir, deletion);
-            0
-        }
+    let bound = match engine::resolve(config).engine() {
+        Ok(bound) => Some(bound),
+        Err(Error::Off(_)) => None,
         Err(error) => {
             tracing::warn!(
                 code = error.code(),
                 "[memory:deletion] forgetting a deleted thread failed; queued"
             );
+            enqueue(
+                &config.workspace_dir,
+                PendingDeletion::Thread {
+                    thread_id: thread_id.to_string(),
+                },
+            );
+            return 0;
+        }
+    };
+    // Match queued deletion's ordinary root-tree filter, including when the
+    // profile root sits above other ordinary namespaces.
+    let ops = MemoryOps::unconfined();
+    let engine = bound.as_ref().map(|bound| bound.engine.as_ref());
+    match ops
+        .forget_thread(engine, thread_id, |deletion| {
             enqueue(&config.workspace_dir, deletion);
+        })
+        .await
+    {
+        Ok(forgotten) => forgotten,
+        Err(error) => {
+            tracing::warn!(
+                code = error.code(),
+                "[memory:deletion] forgetting a deleted thread failed; queued"
+            );
             0
         }
     }

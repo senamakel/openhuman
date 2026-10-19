@@ -18,6 +18,8 @@ use async_trait::async_trait;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use reqwest::Method;
 use serde_json::Value;
+use std::sync::Arc;
+use tinymemory_integrations::BearerSource;
 
 use crate::security::credentials::session_support::BackendCredential;
 
@@ -112,6 +114,20 @@ pub trait BackendTransport: Send + Sync + 'static {
         req: BackendRequest<'_>,
         form: reqwest::multipart::Form,
     ) -> Result<Value, BackendTransportError>;
+
+    /// Optional memory bearer source backed by this host's credential domain.
+    ///
+    /// Hosts that own authenticated backend sessions may adapt that existing
+    /// credential resolver into TinyMemory's per-request bearer interface.
+    /// The default keeps transports without memory support source-compatible;
+    /// OpenHuman core falls back to its safe backend-credential resolver when
+    /// this returns `None`.
+    fn memory_bearer_source(
+        &self,
+        _config: Arc<crate::config::Config>,
+    ) -> Option<Arc<dyn BearerSource>> {
+        None
+    }
 
     /// The configured `reqwest::Client` for `profile`, for callers that drive a
     /// non-JSON request shape themselves (multipart STT upload). Carries the

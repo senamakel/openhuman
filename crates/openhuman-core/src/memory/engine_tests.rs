@@ -32,13 +32,13 @@ async fn assert_host_scrubbing(
     reference: &tinymemory_api::conformance::ReferenceEngine,
 ) {
     const SECRET: &str = "sk-ant-api03-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA";
-    const EMAIL: &str = "memory.person@example.com";
+    const PHONE: &str = "+15551234567";
     const BARE_NUMBER: &str = "79927398713";
 
     bound
         .engine
         .store(tinymemory_api::StoreItem::document(
-            format!("contact {EMAIL}; key={SECRET}; reference {BARE_NUMBER}"),
+            format!("contact {PHONE}; key={SECRET}; reference {BARE_NUMBER}"),
             tinymemory_api::MemoryMeta::default(),
         ))
         .await
@@ -59,7 +59,7 @@ async fn assert_host_scrubbing(
         .expect("the corroborated host policy preserves an unqualified number");
 
     assert!(!text.contains(SECRET), "credentials are scrubbed before store");
-    assert!(!text.contains(EMAIL), "personal contact data is scrubbed before store");
+    assert!(!text.contains(PHONE), "phone numbers are scrubbed before store");
 }
 
 #[tokio::test]

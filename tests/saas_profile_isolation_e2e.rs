@@ -354,7 +354,7 @@ fn random_cross_profile_calls_never_leak() {
     let node = start_node(
         &d,
         "1",
-        None,
+        Some("memory"),
         "max_profiles_open = 3\nidle_evict_secs = 2\n",
         Some(llm.port),
     );

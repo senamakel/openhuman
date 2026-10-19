@@ -40,6 +40,7 @@ fn a_saas_core_refuses_to_boot_without_a_storage_url() {
         "OPENHUMAN_BACKEND_SESSION_TOKEN",
         "OPENHUMAN_BACKEND_API_KEY",
         "OPENHUMAN_CORE_TOKEN",
+        "OPENHUMAN_KEYRING_MASTER_KEY_FILE",
         "OPENHUMAN_APPROVAL_GATE",
         "OPENHUMAN_SANDBOX",
         "OPENHUMAN_STORAGE_URL",
@@ -53,24 +54,54 @@ fn a_saas_core_refuses_to_boot_without_a_storage_url() {
     let loaded = SaasConfig::load(&config).expect("operator config");
     assert_eq!(loaded.resolved_storage_url(), None);
 
-    let error = std::thread::Builder::new()
+    let (boot_error, local_fallback_error) = std::thread::Builder::new()
         .stack_size(64 * 1024 * 1024)
         .spawn(move || {
-            tokio::runtime::Builder::new_current_thread()
+            let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .unwrap()
+                .unwrap();
+            let boot_error = runtime
                 .block_on(build(loaded, None, None))
-                .map(|_| panic!("SaaS boot without storage must fail"))
-                .unwrap_or_else(|error| error.to_string())
+                .err()
+                .expect("SaaS boot without storage must fail")
+                .to_string();
+
+            std::fs::write(
+                &config,
+                format!(
+                    "root = {:?}\nstorage_url = \"memory\"\n",
+                    root.display().to_string()
+                ),
+            )
+            .unwrap();
+            let configured = SaasConfig::load(&config).expect("configured operator config");
+            openhuman_core::storage::install(std::sync::Arc::new(
+                openhuman_core::storage::MemoryStorage::new(),
+            ));
+            let core = runtime
+                .block_on(build(configured, None, None))
+                .expect("a configured SaaS storage backend permits boot");
+            openhuman_core::storage::clear();
+            let fallback_error =
+                openhuman_core::storage::local::backend_for(&root.join("profiles/alice/workspace"))
+                    .err()
+                    .expect("SaaS must refuse workspace-local storage fallback")
+                    .to_string();
+            drop(core);
+            (boot_error, fallback_error)
         })
         .expect("spawn boot thread")
         .join()
         .expect("boot thread should not panic");
 
     assert!(
-        error.contains("storage URL"),
-        "clear storage error expected: {error}"
+        boot_error.contains("storage URL"),
+        "clear storage error expected: {boot_error}"
+    );
+    assert!(
+        local_fallback_error.contains("SaaS"),
+        "clear local-fallback error expected: {local_fallback_error}"
     );
 }
 

@@ -1,10 +1,12 @@
 use super::*;
 
+use crate::memory::lifecycle::jobs;
 use tinymemory_api::{
-    Error as MemoryApiError, ItemKind, LearningKind, MemoryEngine, MemoryMeta, MetaFilter, Role,
-    StoreItem, Turn,
+    ItemKind, LearningKind, MemoryEngine, MemoryMeta, MetaFilter, Role, StoreItem, Turn,
 };
-use tinymemory_tools::recall::SkipReason;
+
+#[path = "adapter_tests.rs"]
+mod adapter_tests;
 
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 
@@ -69,40 +71,24 @@ async fn run_post_turn(
     identity: &tinymemory_tools::layout::identity::ResolvedIdentity,
     (thread, index, text, calls, at): PostTurnArgs,
 ) {
-    post_turn(config, identity, thread, index, text, calls, at, None).await;
+    post_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        config,
+        identity,
+        thread,
+        index,
+        text,
+        calls,
+        at,
+        None,
+    )
+    .await;
 }
 
 #[test]
 fn turn_indices_follow_the_committed_transcript() {
     assert_eq!(user_turn_index(0), 0);
     assert_eq!(user_turn_index(3), 6);
-}
-
-#[test]
-fn typed_skip_reasons_expose_only_account_wide_errors() {
-    let account_wide = [
-        MemoryApiError::Off("disabled".into()),
-        MemoryApiError::Unauthorized("bad key".into()),
-        MemoryApiError::InsufficientCredits("top up".into()),
-        MemoryApiError::Unavailable("connection refused".into()),
-    ];
-    for error in &account_wide {
-        assert_eq!(
-            account_wide_skip_reason(&SkipReason::Engine(error.clone())),
-            Some(error)
-        );
-    }
-
-    let local = [
-        MemoryApiError::InvalidRequest("bad scope".into()),
-        MemoryApiError::NotFound("item".into()),
-        MemoryApiError::Conflict("duplicate".into()),
-        MemoryApiError::Engine("corrupt index".into()),
-    ];
-    for error in local {
-        assert_eq!(account_wide_skip_reason(&SkipReason::Engine(error)), None);
-    }
-    assert_eq!(account_wide_skip_reason(&SkipReason::Empty), None);
 }
 
 #[path = "hooks_channel_tests.rs"]
@@ -318,11 +304,24 @@ async fn compaction_recalls_from_the_dropped_turns() {
         Turn::new(Role::User, "the project codename is Heron"),
         Turn::new(Role::Assistant, "Noted: Heron."),
     ];
-    let pack = compaction_work(&config, &identity, "t", dropped).await;
+    let pack = compaction_work(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &identity,
+        "t",
+        dropped,
+    )
+    .await;
     assert!(pack.expect("a pack").markdown.contains("Heron"));
-    assert!(compaction_work(&config, &identity, "t", Vec::new())
-        .await
-        .is_none());
+    assert!(compaction_work(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &identity,
+        "t",
+        Vec::new()
+    )
+    .await
+    .is_none());
 }
 
 #[tokio::test]
@@ -400,41 +399,6 @@ async fn an_engine_fault_that_is_not_account_wide_injects_nothing() {
     )
     .await
     .is_none());
-}
-
-#[test]
-fn a_refusal_is_read_back_from_a_skipped_section() {
-    let outcomes = vec![Ok(ContextPack {
-        markdown: String::new(),
-        tokens: 0,
-        refs: Vec::new(),
-        sections: Vec::new(),
-        skipped: vec![
-            tinymemory_tools::recall::SkippedSection {
-                heading: "Learnings".into(),
-                reason: SkipReason::Empty,
-            },
-            tinymemory_tools::recall::SkippedSection {
-                heading: "History".into(),
-                reason: SkipReason::Engine(MemoryApiError::Unauthorized(
-                    "memory API fetch (HTTP 401)".into(),
-                )),
-            },
-        ],
-        engine: "tinyhumans".into(),
-    })];
-    let refusal = refusal_of(&outcomes).expect("refusal");
-    assert_eq!(refusal.code(), "UNAUTHORIZED");
-
-    let quiet = vec![Ok(ContextPack {
-        markdown: String::new(),
-        tokens: 0,
-        refs: Vec::new(),
-        sections: Vec::new(),
-        skipped: Vec::new(),
-        engine: "tinyhumans".into(),
-    })];
-    assert!(refusal_of(&quiet).is_none());
 }
 
 // ── the pack's token budget against a large store (#6718, #7023) ────────────

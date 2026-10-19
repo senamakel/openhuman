@@ -9,6 +9,7 @@ use tinyagents_harness::context::RunConfig;
 use tinyinference_llm::message::Message;
 
 use crate::memory::lifecycle::hooks::{MemoryTurn, TurnPack, OPEN_TAG};
+use tinymemory_tools::lifecycle::turn::TurnPack as NativeTurnPack;
 
 fn context(pack: Option<TurnPack>) -> RunContext<OpenHumanRunContext> {
     let config = crate::config::Config::default();
@@ -19,21 +20,21 @@ fn context(pack: Option<TurnPack>) -> RunContext<OpenHumanRunContext> {
         config: Arc::new(config),
         thread_id: "t".into(),
         pack,
-        in_prompt_from: Arc::new(crate::memory::lifecycle::window::InPromptFrom::new(0, 0)),
+        in_prompt_from: Arc::new(tinymemory_tools::lifecycle::window::InPromptFrom::new(0, 0)),
         core: None,
     }));
     RunContext::new(RunConfig::new("memory-pack-test"), data)
 }
 
 fn pack() -> TurnPack {
-    TurnPack {
+    TurnPack::from_native(NativeTurnPack {
         markdown: "# Memory\n\n## Learnings\n- The user prefers metric units".into(),
         tokens: 14,
         refs: vec!["id-1".into()],
         engine: "reference".into(),
         citations: Vec::new(),
         refusal: None,
-    }
+    })
 }
 
 #[tokio::test]
@@ -82,10 +83,9 @@ async fn a_turn_without_a_pack_is_left_alone() {
 // next turn's history.
 
 fn pack_saying(fact: &str) -> TurnPack {
-    TurnPack {
-        markdown: format!("# Memory\n\n## Learnings\n- {fact}"),
-        ..pack()
-    }
+    let mut pack = pack();
+    pack.native.markdown = format!("# Memory\n\n## Learnings\n- {fact}");
+    pack
 }
 
 async fn request_for(

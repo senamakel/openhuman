@@ -126,6 +126,48 @@ async fn list_models_reports_both_catalogs_and_defaults() {
     );
 }
 
+#[tokio::test]
+async fn media_factory_files_mock_generated_output_from_its_staging_store() {
+    let dir = tempfile::tempdir().unwrap();
+    let workspace = dir.path().join("workspace");
+    let files = dir.path().join("Files");
+    let tools = media_tools_from(
+        MediaGenerators::new(
+            Arc::new(MockImageGenerator::new()),
+            Arc::new(MockVideoGenerator::new(MockVideoScript::delivers())),
+        ),
+        dir.path(),
+        &workspace,
+        &files,
+        tinyagents_harness::tinyinference_video::WaitPolicy::new(
+            std::time::Duration::from_millis(1),
+            std::time::Duration::from_secs(5),
+        ),
+    );
+
+    let result = by_name(&tools, IMAGE_TOOL_NAME)
+        .execute(json!({ "prompt": "a test image" }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{result:?}");
+    let payload = result
+        .content
+        .iter()
+        .find_map(|block| match block {
+            tinytools::ToolContent::Json { data } => Some(data),
+            _ => None,
+        })
+        .expect("generated media result");
+    let artifact = &payload["artifacts"][0];
+    assert!(artifact["artifact_id"].is_string(), "{artifact}");
+    let output_path = std::path::Path::new(artifact["path"].as_str().unwrap());
+    assert!(output_path.starts_with(&files));
+    assert_eq!(
+        std::fs::read(output_path).unwrap(),
+        tinyagents_harness::media::test_support::TINY_PNG
+    );
+}
+
 #[test]
 fn reference_policy_admits_workspace_files_only() {
     let action = Path::new("/home/user/OpenHuman/projects");

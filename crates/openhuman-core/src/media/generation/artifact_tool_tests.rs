@@ -299,28 +299,6 @@ async fn files_a_blob_backed_generated_artifact() {
 }
 
 #[tokio::test]
-async fn staged_media_is_readable_through_the_workspace_artifact_store() {
-    let root = tempfile::tempdir().unwrap();
-    let workspace = root.path().join("workspace");
-    let output = MediaOutput::new(root.path());
-    let key = "generated-media/restart-check.png";
-    output
-        .blobs
-        .put(key, b"staged media".to_vec(), Some("image/png"))
-        .await
-        .unwrap();
-
-    let reopened = crate::storage::sessions::artifact_blobs_for(&workspace)
-        .expect("workspace artifact store");
-    let staged = reopened
-        .get(key)
-        .await
-        .unwrap()
-        .expect("staged media survives reopening the store");
-    assert_eq!(staged.bytes, b"staged media");
-}
-
-#[tokio::test]
 async fn removes_partial_destination_when_blob_read_fails() {
     let root = tempfile::tempdir().unwrap();
     let dest = root.path().join("partial.png");

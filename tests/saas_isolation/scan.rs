@@ -291,10 +291,11 @@ fn record_scope_content(
             own[user] += 1;
         } else {
             violations.push(format!(
-                "scope {} holds {}'s canary (owner: {})",
+                "scope {} holds {}'s canary (owner: {}): {}",
                 scope.as_str(),
                 USERS[user],
                 owner.map(|index| USERS[index]).unwrap_or("nobody"),
+                text.chars().take(160).collect::<String>(),
             ));
         }
     }

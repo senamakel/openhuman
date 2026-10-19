@@ -422,10 +422,10 @@ fn random_cross_profile_calls_never_leak() {
     eprintln!(
         "[isolation] seed {seed}: {steps} steps; boot+seed {:.1}s, drive {:.1}s, total {:.1}s; \
          inference per user {per_user:?}; own storage records {:?}\n{}",
-        storage_scan.own,
         booted.as_secs_f64(),
         (driven - booted).as_secs_f64(),
         started.elapsed().as_secs_f64(),
+        storage_scan.own,
         summary.join("\n")
     );
 }

@@ -12,7 +12,7 @@ use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinyagents_harness::media::{GenerateImageTool, GenerateVideoTool, MediaOutput};
 use tinyagents_harness::tinyinference_image::ImageGenerator;
 use tinyagents_harness::tinyinference_video::{VideoGenerator, WaitPolicy};
@@ -297,7 +297,7 @@ impl Tool for MediaListModelsTool {
                 Err(error) => {
                     return Ok(ToolResult::error(format!(
                         "Listing image models failed: {error}"
-                    )))
+                    )));
                 }
             }
         }
@@ -317,7 +317,7 @@ impl Tool for MediaListModelsTool {
                 Err(error) => {
                     return Ok(ToolResult::error(format!(
                         "Listing video models failed: {error}"
-                    )))
+                    )));
                 }
             }
         }

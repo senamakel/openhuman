@@ -53,11 +53,7 @@ fn owner_of(root: &Path, path: &Path) -> Option<usize> {
 /// tree, any user's outside every user's tree (the operator plane, shared
 /// state, the child's `$HOME`). Returns the violations and, per user, how
 /// many of their own files carry their canaries (proof the scan saw data).
-pub fn scan_files(
-    root: &Path,
-    home: &Path,
-    storage_db: &Path,
-) -> (Vec<String>, [usize; 3]) {
+pub fn scan_files(root: &Path, home: &Path, storage_db: &Path) -> (Vec<String>, [usize; 3]) {
     let mut violations = Vec::new();
     let mut own = [0usize; 3];
     for base in [root, home] {
@@ -134,9 +130,7 @@ pub fn scan_files(
 }
 
 fn is_storage_db_file(path: &Path, db: &Path) -> bool {
-    path == db
-        || path == db.with_extension("db-wal")
-        || path == db.with_extension("db-shm")
+    path == db || path == db.with_extension("db-wal") || path == db.with_extension("db-shm")
 }
 
 /// Audit the backend by its actual scope and record enumeration APIs. This
@@ -145,7 +139,10 @@ fn is_storage_db_file(path: &Path, db: &Path) -> bool {
 pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], String> {
     let mut violations = Vec::new();
     let mut own = [0usize; 3];
-    let scopes = backend.scopes("").await.map_err(|error| error.to_string())?;
+    let scopes = backend
+        .scopes("")
+        .await
+        .map_err(|error| error.to_string())?;
     for scope in scopes {
         let owner = USERS.iter().position(|user| {
             let tenant = openhuman_core::storage::scope_for_profile(user);
@@ -201,7 +198,10 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
                         .map_err(|error| format!("serialize stream {stream}: {error}"))?;
                     total = total.saturating_add(text.len() as u64);
                     if total > MAX_AUDITED_BYTES {
-                        return Err(format!("stream {stream} in {} exceeds audit size limit", scope.as_str()));
+                        return Err(format!(
+                            "stream {stream} in {} exceeds audit size limit",
+                            scope.as_str()
+                        ));
                     }
                     record_scope_content(&scope, owner, &text, &mut own, &mut violations);
                     offset = entry.offset.saturating_add(1);
@@ -216,14 +216,24 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
             .map_err(|error| format!("list blobs in {}: {error}", scope.as_str()))?;
         for meta in blobs {
             if meta.len > MAX_AUDITED_BYTES {
-                return Err(format!("blob {} in {} exceeds audit size limit", meta.key, scope.as_str()));
+                return Err(format!(
+                    "blob {} in {} exceeds audit size limit",
+                    meta.key,
+                    scope.as_str()
+                ));
             }
             let blob = scoped
                 .blobs()
                 .get(&meta.key)
                 .await
                 .map_err(|error| format!("read blob {} in {}: {error}", meta.key, scope.as_str()))?
-                .ok_or_else(|| format!("blob {} in {} disappeared during audit", meta.key, scope.as_str()))?;
+                .ok_or_else(|| {
+                    format!(
+                        "blob {} in {} disappeared during audit",
+                        meta.key,
+                        scope.as_str()
+                    )
+                })?;
             let text = String::from_utf8_lossy(&blob.bytes);
             record_scope_content(&scope, owner, &text, &mut own, &mut violations);
         }

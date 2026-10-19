@@ -368,6 +368,7 @@ fn random_cross_profile_calls_never_leak() {
     settle(&llm, Duration::from_secs(2), Duration::from_secs(30));
     verify_victims(&mut w);
     verify_frames(&w);
+    w.node.kill();
 
     let (violations, per_user) = scan::audit_backend(&llm.recorded());
     if !violations.is_empty() {
@@ -380,7 +381,18 @@ fn random_cross_profile_calls_never_leak() {
         per_user.iter().all(|&n| n > 0),
         "every user reached inference: {per_user:?}"
     );
-    let (violations, own) = scan::scan_files(&d.root, d.tmp.path());
+    let storage_backend = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .expect("storage audit runtime");
+    let backend = storage_backend
+        .block_on(openhuman_core::storage::open(&storage_url))
+        .expect("open configured storage for isolation audit");
+    let storage_own = storage_backend
+        .block_on(scan::scan_storage(backend.as_ref()))
+        .unwrap_or_else(|error| panic!("configured storage audit failed: {error}"));
+    let (violations, _) =
+        scan::scan_files(&d.root, d.tmp.path(), &d.tmp.path().join("isolation.db"));
     if !violations.is_empty() {
         w.fail(&format!(
             "files hold other profiles' canaries:\n{}",
@@ -388,8 +400,8 @@ fn random_cross_profile_calls_never_leak() {
         ));
     }
     assert!(
-        own.iter().all(|&n| n > 0),
-        "every user's tree holds their own data: {own:?}"
+        storage_own.iter().all(|&n| n > 0),
+        "every user's storage scopes hold their own data: {storage_own:?}"
     );
 
     let summary: Vec<String> = w
@@ -402,7 +414,7 @@ fn random_cross_profile_calls_never_leak() {
         .collect();
     eprintln!(
         "[isolation] seed {seed}: {steps} steps; boot+seed {:.1}s, drive {:.1}s, total {:.1}s; \
-         inference per user {per_user:?}; own files {own:?}\n{}",
+         inference per user {per_user:?}; own storage records {storage_own:?}\n{}",
         booted.as_secs_f64(),
         (driven - booted).as_secs_f64(),
         started.elapsed().as_secs_f64(),

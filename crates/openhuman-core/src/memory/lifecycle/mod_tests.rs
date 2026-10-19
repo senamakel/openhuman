@@ -23,7 +23,7 @@ fn the_policy_mirrors_the_recall_config() {
         "a zero budget is clamped, never refused"
     );
 
-    let quiet = log_only(default.clone());
+    let quiet = default.log_only();
     assert_eq!(
         (
             quiet.learnings_limit,

@@ -21,7 +21,6 @@ pub mod jobs;
 pub(crate) mod prefetch;
 pub mod sender;
 pub mod views;
-pub mod window;
 
 use std::sync::Arc;
 
@@ -46,18 +45,6 @@ pub fn policy(recall: &MemoryRecallConfig) -> RecallPolicy {
         history_limit: limit(recall.history_limit),
         team_limit: limit(recall.team_limit),
         build_beliefs_every: (recall.build_beliefs_every > 0).then_some(recall.build_beliefs_every),
-    }
-}
-
-/// A policy that recalls nothing: the turn is logged, no section is read.
-#[must_use]
-pub fn log_only(policy: RecallPolicy) -> RecallPolicy {
-    RecallPolicy {
-        learnings_limit: 0,
-        brain_limit: 0,
-        history_limit: 0,
-        team_limit: 0,
-        ..policy
     }
 }
 

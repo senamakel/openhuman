@@ -1,20 +1,21 @@
 use super::*;
 
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
+use tinymemory_tools::lifecycle::turn::TurnPack as NativeTurnPack;
 
 const MAX_PENDING: usize = 16;
 
 static TEST_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 
 fn pack(text: &str) -> TurnPack {
-    TurnPack {
+    TurnPack::from_native(NativeTurnPack {
         markdown: text.into(),
         tokens: 1,
         refs: vec![],
         engine: "test".into(),
         citations: vec![],
         refusal: None,
-    }
+    })
 }
 
 async fn drain(cache: &Cache, key: &Key) {

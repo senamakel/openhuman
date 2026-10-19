@@ -376,6 +376,27 @@ pub async fn forget(config: &Config, params: ForgetParams) -> Result<ForgetView>
     })
 }
 
+/// Forgets every item matching a non-empty metadata filter through the bound
+/// engine, applying the host-selected confinement.
+///
+/// # Errors
+///
+/// Returns an error if memory is unavailable, the filter is invalid, or the
+/// engine cannot complete the deletion.
+pub async fn forget_filter(config: &Config, filter: MetaFilter) -> Result<usize> {
+    let bound = bound(config)?;
+    let report = memory_ops(config)?
+        .forget_filter(bound.engine.as_ref(), filter)
+        .await?;
+    tracing::debug!(
+        engine = %bound.id,
+        forgotten = report.forgotten,
+        "[memory:ops] filtered forget"
+    );
+    super::lifecycle::prefetch::invalidate(config);
+    Ok(report.forgotten)
+}
+
 /// Forgets conversation memory owned by an external channel on disconnect.
 ///
 /// The engine filter removes stamped turns in one operation. A bounded

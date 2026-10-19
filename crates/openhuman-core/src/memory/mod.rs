@@ -28,30 +28,8 @@ pub mod error;
 pub mod explore;
 pub(crate) mod files;
 #[cfg(test)]
-mod guard {
-    use std::sync::Arc;
-
-    use tinymemory_api::{MemoryEngine, StoreItem};
-    use tinymemory_integrations::safety::{scrub_item_with, Policy};
-    use tinymemory_integrations::EngineBinder;
-
-    fn wrap(engine: Arc<dyn MemoryEngine>) -> Arc<dyn MemoryEngine> {
-        EngineBinder::default()
-            .bind_external(engine, "test://engine", Policy::corroborated())
-            .engine
-    }
-
-    fn scrub(item: StoreItem) -> StoreItem {
-        scrub_item_with(item, Policy::corroborated()).value
-    }
-
-    mod tests {
-        use async_trait::async_trait;
-        use tinymemory_api::*;
-
-        include!("guard_tests.rs");
-    }
-}
+#[path = "guard_tests.rs"]
+mod guard;
 pub mod import;
 pub mod layout_migration;
 pub mod lifecycle;

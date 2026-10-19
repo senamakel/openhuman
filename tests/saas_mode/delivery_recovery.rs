@@ -4,7 +4,7 @@
 //! The state under test is what a core leaves when it dies between a
 //! sub-agent finishing and its result being delivered: a pending record in
 //! the profile's completion queue (the `orchestration_completions` documents
-//! of its scope in `<workspace>/storage`), addressed by thread id. The SaaS user
+//! of its profile scope in the configured storage backend), addressed by thread id. The SaaS user
 //! surface does not offer `spawn_async_subagent` (the `agent` domain is off
 //! for profiles), so the record is written here, through the harness's own
 //! store, while the core is down, exactly as `record_completion` would have
@@ -18,7 +18,7 @@
 
 use std::sync::Arc;
 
-use openhuman_core::profiles::{ProfileId, ProfileIdMode, ProfileLayout};
+use openhuman_core::profiles::{ProfileId, ProfileIdMode};
 use tinyagents_tasks::{
     CompletionRecord, CompletionResult, CompletionStatus, CompletionStore, DriverCompletionStore,
     NotifyMode,
@@ -33,11 +33,11 @@ const THREAD: &str = "shared-thread";
 /// lands.
 const RESULT: &str = "subagent result delivery-ann-7c1e";
 
-fn node_logging(d: &Deployment, backend: u16) -> Node {
+fn node_logging(d: &Deployment, backend: u16, storage_url: &str) -> Node {
     start_node_logging(
         d,
         "1",
-        None,
+        Some(storage_url),
         "",
         Some(backend),
         "info,openhuman_core::agent::orchestration=debug",
@@ -88,13 +88,11 @@ fn seed_thread(node: &Node, user: &str) {
 
 /// The pending record a core killed before delivery leaves in `user`'s
 /// completion queue.
-fn leave_undelivered_result(root: &std::path::Path, user: &str) {
+fn leave_undelivered_result(user: &str, url: &str) {
     let id = ProfileId::for_user(user, ProfileIdMode::Raw).unwrap();
-    let workspace = ProfileLayout::new(root, &id).workspace_dir;
-    // The profile's default database, in the profile's own scope: where the
-    // running core keeps (and looks for) its completion queue.
-    let url = openhuman_core::storage::config::default_url(&workspace);
-    std::fs::create_dir_all(workspace.join(openhuman_core::storage::config::DEFAULT_DIR)).unwrap();
+    // The configured process database uses the same profile scope that the
+    // running core uses for its completion queue.
+    let url = url.to_string();
     let backend = openhuman_core::storage::block_on_anyhow(async move {
         Ok(openhuman_core::storage::open(&url).await?)
     })
@@ -120,8 +118,9 @@ fn leave_undelivered_result(root: &std::path::Path, user: &str) {
 #[test]
 fn an_undelivered_subagent_result_reaches_its_own_profile_after_a_restart() {
     let d = deployment(true);
+    let storage_url = format!("sqlite:{}", d.tmp.path().join("delivery.db").display());
     let llm = mock_llm::mock_llm();
-    let mut node = node_logging(&d, llm.port);
+    let mut node = node_logging(&d, llm.port, &storage_url);
     provision_with_credential(&node, OWNER);
     provision_with_credential(&node, OTHER);
     seed_thread(&node, OWNER);
@@ -130,10 +129,10 @@ fn an_undelivered_subagent_result_reaches_its_own_profile_after_a_restart() {
 
     // The core dies with ann's sub-agent result recorded but undelivered.
     node.kill();
-    leave_undelivered_result(&d.root, OWNER);
+    leave_undelivered_result(OWNER, &storage_url);
 
     // Restart. Opening bob, whose thread has the same id, delivers nothing.
-    let node = node_logging(&d, llm.port);
+    let node = node_logging(&d, llm.port, &storage_url);
     let bob_before = messages(&node, OTHER);
     assert!(bob_before.contains("bob's own words"), "{bob_before}");
     assert!(!bob_before.contains(RESULT), "{bob_before}");

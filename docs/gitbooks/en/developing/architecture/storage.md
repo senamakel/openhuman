@@ -9,7 +9,7 @@ icon: database
 
 OpenHuman keeps durable state on the ports of [`tinystoragedrivers`](https://github.com/tinyhumansai/tinystoragedrivers), vendored at `vendor/tinystoragedrivers` (v1.0.0). The host and every module declare it by git tag, and the root and app `[patch."https://github.com/tinyhumansai/tinystoragedrivers"]` tables redirect each of them onto that one checkout, so the build holds one copy. The vendored commit must stay semver-compatible with the tag modules declare; `scripts/ci/check-storage-owner.mjs` fails when any `tinystoragedrivers*` package resolves outside `vendor/tinystoragedrivers/`. One URL picks the backend for the whole process. The host adapter is `crates/openhuman-core/src/storage/`. It resolves the URL, opens the backend, holds it in a process slot and decides which scope a call runs in. The ports, the drivers and their conformance suites belong to `tinystoragedrivers`, and the typed records stay with the domain that owns them.
 
-With no URL configured, which is the desktop default, the host opens `sqlite:<workspace>/storage` and installs it. The URL decides where the whole process keeps its state, and there is no second layout: older installs' per-domain databases, transcripts and turn-state files are imported once, read-only, when the backend is installed. The files that remain outside the ports are listed under "What is not on the ports yet" below.
+With no URL configured, which is the single-user desktop default, the host opens `sqlite:<workspace>/storage` and installs it. SaaS mode requires an explicit `OPENHUMAN_STORAGE_URL` or `[storage] url`; it refuses to boot without one, and storage calls in SaaS mode cannot fall back to workspace-local databases. The URL decides where the whole process keeps its state, and there is no second layout: older installs' per-domain databases, transcripts and turn-state files are imported once, read-only, when the backend is installed. The files that remain outside the ports are listed under "What is not on the ports yet" below.
 
 ## The ports
 
@@ -128,7 +128,7 @@ Under v2 `Config.workspace_dir` is `users/<id>/files`, so the call sites that jo
 
 The default URL is rooted at the workspace, so a different workspace is a different database. The desktop rebinds its workspace when a different user signs in. `storage::rebind` then re-resolves the URL for the new workspace, opens its backend, points the session store (`ReboundSessionStores`) and the process slot at it together, and runs the legacy importers over it. This happens before any other store is rebound, and a failed reopen is an error that leaves the previous backend installed rather than continuing on it. An explicit URL names one backend for every user and is never replaced.
 
-A SaaS core with no URL keeps one default database per profile workspace, and its profiles never share a scope.
+A SaaS core requires a configured URL and keeps the profile registry, leases, user records and sessions on that installed backend. Configuring `memory` is supported for isolated nonpersistent deployments; distributed profiles should use a backend whose concurrency guarantees fit the deployment.
 
 ### What is not on the ports yet
 

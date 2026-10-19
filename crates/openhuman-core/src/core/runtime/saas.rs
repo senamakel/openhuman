@@ -415,6 +415,11 @@ pub async fn build_with_profile_capabilities(
     port: Option<u16>,
     capabilities: Option<Arc<crate::profiles::capabilities::ProfileCapabilities>>,
 ) -> anyhow::Result<CoreRuntime> {
+    if config.resolved_storage_url().is_none() {
+        anyhow::bail!(
+            "[saas] a storage URL must be configured with OPENHUMAN_STORAGE_URL or storage_url"
+        );
+    }
     crate::profiles::provider_settings::ProfileProviderSettings::from_saas(&config)?;
     if CoreContext::default_context().is_some() {
         anyhow::bail!(

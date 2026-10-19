@@ -2,9 +2,12 @@
 //! carried which user's content to the backend.
 
 use std::path::Path;
+use std::path::PathBuf;
 
 use super::mock_llm::Recorded;
 use super::world::{owners_in, USERS};
+use openhuman_core::storage::{DocumentStoreExt, Scope, StorageBackend};
+use tinystoragedrivers_core::Query;
 
 /// Every file under `dir`, recursively.
 /// Directories or entries that cannot be read are recorded in `errors`: an
@@ -51,13 +54,16 @@ fn owner_of(root: &Path, path: &Path) -> Option<usize> {
 /// tree, any user's outside every user's tree (the operator plane, shared
 /// state, the child's `$HOME`). Returns the violations and, per user, how
 /// many of their own files carry their canaries (proof the scan saw data).
-pub fn scan_files(root: &Path, home: &Path) -> (Vec<String>, [usize; 3]) {
+pub fn scan_files(root: &Path, home: &Path, storage_db: &Path) -> (Vec<String>, [usize; 3]) {
     let mut violations = Vec::new();
     let mut own = [0usize; 3];
     for base in [root, home] {
         let mut all = Vec::new();
         files(base, &mut all, &mut violations);
         for path in all {
+            if is_storage_db_file(&path, storage_db) {
+                continue;
+            }
             if base == home && path.starts_with(root) {
                 continue;
             }
@@ -122,6 +128,171 @@ pub fn scan_files(root: &Path, home: &Path) -> (Vec<String>, [usize; 3]) {
         }
     }
     (violations, own)
+}
+
+fn is_storage_db_file(path: &Path, db: &Path) -> bool {
+    path == db || path == with_suffix(db, "-wal") || path == with_suffix(db, "-shm")
+}
+
+fn with_suffix(path: &Path, suffix: &str) -> PathBuf {
+    let mut value = path.as_os_str().to_os_string();
+    value.push(suffix);
+    PathBuf::from(value)
+}
+
+/// Audit the backend by its actual scope and record enumeration APIs. This
+/// keeps the SaaS isolation check meaningful when a configured backend stores
+/// every tenant in one database file.
+pub struct StorageScan {
+    pub own: [usize; 3],
+    pub violations: Vec<String>,
+}
+
+pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<StorageScan, String> {
+    let mut violations = Vec::new();
+    let mut own = [0usize; 3];
+    let scopes = backend
+        .scopes("")
+        .await
+        .map_err(|error| error.to_string())?;
+    for scope in scopes {
+        let owner = USERS.iter().position(|user| {
+            let tenant = openhuman_core::storage::scope_for_profile(user);
+            scope == tenant || scope.as_str().starts_with(&format!("{}/", tenant.as_str()))
+        });
+        let scoped = backend
+            .for_scope(&scope)
+            .map_err(|error| format!("open scope {}: {error}", scope.as_str()))?;
+
+        for collection in scoped
+            .documents()
+            .collections("")
+            .await
+            .map_err(|error| format!("list collections in {}: {error}", scope.as_str()))?
+        {
+            record_scope_content(&scope, owner, &collection, &mut own, &mut violations);
+            let docs = scoped
+                .documents()
+                .query_all(&collection, &Query::all())
+                .await
+                .map_err(|error| format!("read {collection} in {}: {error}", scope.as_str()))?;
+            for doc in docs {
+                let text = serde_json::to_string(&doc.doc)
+                    .map_err(|error| format!("serialize {collection}: {error}"))?;
+                if text.len() as u64 > MAX_AUDITED_BYTES {
+                    return Err(format!(
+                        "document in {collection} at {} exceeds audit size limit",
+                        scope.as_str()
+                    ));
+                }
+                record_scope_content(
+                    &scope,
+                    owner,
+                    &format!("{} {text}", doc.id),
+                    &mut own,
+                    &mut violations,
+                );
+            }
+        }
+
+        for stream in scoped
+            .streams()
+            .streams("")
+            .await
+            .map_err(|error| format!("list streams in {}: {error}", scope.as_str()))?
+        {
+            record_scope_content(&scope, owner, &stream, &mut own, &mut violations);
+            let mut offset = 0;
+            let mut total = 0_u64;
+            loop {
+                let entries = scoped
+                    .streams()
+                    .read_window(&stream, offset, 128)
+                    .await
+                    .map_err(|error| format!("read {stream} in {}: {error}", scope.as_str()))?;
+                if entries.is_empty() {
+                    break;
+                }
+                for entry in entries {
+                    let text = serde_json::to_string(&entry.value)
+                        .map_err(|error| format!("serialize stream {stream}: {error}"))?;
+                    total = total.saturating_add(text.len() as u64);
+                    if total > MAX_AUDITED_BYTES {
+                        return Err(format!(
+                            "stream {stream} in {} exceeds audit size limit",
+                            scope.as_str()
+                        ));
+                    }
+                    record_scope_content(
+                        &scope,
+                        owner,
+                        &format!("{stream} {text}"),
+                        &mut own,
+                        &mut violations,
+                    );
+                    offset = entry.offset.saturating_add(1);
+                }
+            }
+        }
+
+        let blobs = scoped
+            .blobs()
+            .list("")
+            .await
+            .map_err(|error| format!("list blobs in {}: {error}", scope.as_str()))?;
+        for meta in blobs {
+            if meta.len > MAX_AUDITED_BYTES {
+                return Err(format!(
+                    "blob {} in {} exceeds audit size limit",
+                    meta.key,
+                    scope.as_str()
+                ));
+            }
+            let blob = scoped
+                .blobs()
+                .get(&meta.key)
+                .await
+                .map_err(|error| format!("read blob {} in {}: {error}", meta.key, scope.as_str()))?
+                .ok_or_else(|| {
+                    format!(
+                        "blob {} in {} disappeared during audit",
+                        meta.key,
+                        scope.as_str()
+                    )
+                })?;
+            let text = String::from_utf8_lossy(&blob.bytes);
+            record_scope_content(
+                &scope,
+                owner,
+                &format!("{} {text}", meta.key),
+                &mut own,
+                &mut violations,
+            );
+        }
+    }
+    Ok(StorageScan { own, violations })
+}
+
+fn record_scope_content(
+    scope: &Scope,
+    owner: Option<usize>,
+    text: &str,
+    own: &mut [usize; 3],
+    violations: &mut Vec<String>,
+) {
+    for user in owners_in(text) {
+        if Some(user) == owner {
+            own[user] += 1;
+        } else {
+            violations.push(format!(
+                "scope {} holds {}'s canary (owner: {}): {}",
+                scope.as_str(),
+                USERS[user],
+                owner.map(|index| USERS[index]).unwrap_or("nobody"),
+                text.chars().take(160).collect::<String>(),
+            ));
+        }
+    }
 }
 
 /// Keyring entries holding a user's canary outside that user's namespace.
@@ -191,3 +362,7 @@ pub fn audit_backend(requests: &[Recorded]) -> (Vec<String>, [usize; 3]) {
 fn redact(auth: &str) -> String {
     auth.chars().take(12).collect::<String>() + "…"
 }
+
+#[cfg(test)]
+#[path = "scan_tests.rs"]
+mod tests;

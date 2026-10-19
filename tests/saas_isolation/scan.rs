@@ -6,7 +6,6 @@ use std::path::Path;
 use super::mock_llm::Recorded;
 use super::world::{owners_in, USERS};
 use openhuman_core::storage::{DocumentStoreExt, Scope, StorageBackend};
-use serde_json::Value;
 
 /// Every file under `dir`, recursively.
 /// Directories or entries that cannot be read are recorded in `errors`: an
@@ -169,6 +168,12 @@ pub async fn scan_storage(backend: &dyn StorageBackend) -> Result<[usize; 3], St
             for doc in docs {
                 let text = serde_json::to_string(&doc.doc)
                     .map_err(|error| format!("serialize {collection}: {error}"))?;
+                if text.len() as u64 > MAX_AUDITED_BYTES {
+                    return Err(format!(
+                        "document in {collection} at {} exceeds audit size limit",
+                        scope.as_str()
+                    ));
+                }
                 record_scope_content(&scope, owner, &text, &mut own, &mut violations);
             }
         }

@@ -1,8 +1,9 @@
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
-use crate::memory::types::SourceStatus;
 use chrono::Utc;
 use tinymemory_api::{DocumentBody, MemoryMeta, SourceKind, SourceRef, StoreItem};
+use tinymemory_integrations::sources::sync::MIN_SCHEDULE_MINS;
+use tinymemory_integrations::sources::{SourceState, SourceStatus};
 
 fn add_params(kind: &str, target: &str) -> SourcesAddParams {
     SourcesAddParams {
@@ -55,20 +56,39 @@ fn normalize_target_accepts_each_kinds_shape() {
 
 #[test]
 fn normalize_target_rejects_malformed_targets() {
-    for (kind, target) in [
-        (MemorySourceKind::Folder, "   "),
-        (MemorySourceKind::Github, "just-one-part"),
-        (MemorySourceKind::Github, "a/b/c"),
-        (MemorySourceKind::Github, "/repo"),
-        (MemorySourceKind::Link, "not a url"),
-        (MemorySourceKind::Link, "ftp://example.com/x"),
-        (MemorySourceKind::Rss, "file:///etc/passwd"),
+    for (kind, target, expected) in [
+        (MemorySourceKind::Folder, "   ", "target must not be empty"),
+        (
+            MemorySourceKind::Github,
+            "just-one-part",
+            "a GitHub target is `owner/repo` or a repository URL",
+        ),
+        (
+            MemorySourceKind::Github,
+            "a/b/c",
+            "a GitHub target is `owner/repo` or a repository URL",
+        ),
+        (
+            MemorySourceKind::Github,
+            "/repo",
+            "a GitHub target is `owner/repo` or a repository URL",
+        ),
+        (MemorySourceKind::Link, "not a url", "target is not a URL"),
+        (
+            MemorySourceKind::Link,
+            "ftp://example.com/x",
+            "target must be an http(s) URL",
+        ),
+        (
+            MemorySourceKind::Rss,
+            "file:///etc/passwd",
+            "target must be an http(s) URL",
+        ),
     ] {
-        assert_eq!(
-            normalize_target(kind, target).unwrap_err().code(),
-            "INVALID_REQUEST",
-            "{kind:?} {target}"
-        );
+        match normalize_target(kind, target).unwrap_err() {
+            tinymemory_api::Error::InvalidRequest(message) => assert_eq!(message, expected),
+            error => panic!("{kind:?} {target} returned unexpected error: {error:?}"),
+        }
     }
 }
 
@@ -107,7 +127,12 @@ fn add_list_and_remove_round_trip_through_config() {
 
     // The same kind and target cannot be added twice.
     let duplicate = apply_add(&mut config, &add_params("folder", "/home/me/notes")).unwrap_err();
-    assert_eq!(duplicate.code(), "INVALID_REQUEST");
+    match duplicate {
+        tinymemory_api::Error::InvalidRequest(message) => {
+            assert_eq!(message, "that source is already added")
+        }
+        error => panic!("duplicate source returned unexpected error: {error:?}"),
+    }
 
     let removed = apply_remove(&mut config, &added.id).expect("removed");
     assert_eq!(removed.id, added.id);
@@ -125,25 +150,43 @@ fn add_validates_kind_schedule_and_target() {
             .code(),
         "INVALID_REQUEST"
     );
-    assert_eq!(
-        apply_add(
-            &mut config,
-            &SourcesAddParams {
-                schedule_mins: Some(MIN_SCHEDULE_MINS - 1),
-                namespace: None,
-                ..add_params("folder", "/p")
-            }
-        )
-        .unwrap_err()
-        .code(),
-        "INVALID_REQUEST"
-    );
-    assert_eq!(
-        apply_add(&mut config, &add_params("link", "nope"))
-            .unwrap_err()
-            .code(),
-        "INVALID_REQUEST"
-    );
+    let schedule_error = apply_add(
+        &mut config,
+        &SourcesAddParams {
+            schedule_mins: Some(MIN_SCHEDULE_MINS - 1),
+            namespace: None,
+            ..add_params("folder", "/p")
+        },
+    )
+    .unwrap_err();
+    match schedule_error {
+        tinymemory_api::Error::InvalidRequest(message) => assert_eq!(
+            message,
+            format!("schedule_mins must be at least {MIN_SCHEDULE_MINS}")
+        ),
+        error => panic!("invalid schedule returned unexpected error: {error:?}"),
+    }
+
+    let target_error = apply_add(&mut config, &add_params("link", "nope")).unwrap_err();
+    match target_error {
+        tinymemory_api::Error::InvalidRequest(message) => {
+            assert_eq!(message, "target is not a URL")
+        }
+        error => panic!("invalid target returned unexpected error: {error:?}"),
+    }
+
+    let mut namespace_params = add_params("folder", "/p");
+    namespace_params.namespace = Some("bogus:root".into());
+    let namespace_error = apply_add(&mut config, &namespace_params).unwrap_err();
+    match namespace_error {
+        tinymemory_api::Error::InvalidRequest(message) => {
+            assert_eq!(
+                message,
+                "invalid request: `bogus` is not a namespace segment kind"
+            )
+        }
+        error => panic!("invalid namespace returned unexpected error: {error:?}"),
+    }
     assert!(
         config.memory.sources.is_empty(),
         "a refused add changes nothing"
@@ -174,7 +217,7 @@ fn the_removed_composio_kind_is_rejected_and_every_other_kind_is_accepted() {
 #[test]
 fn view_overlays_the_sync_state() {
     let src = source("src-1", Some(30));
-    let state = state::SourceState {
+    let state = SourceState {
         last_sync_at: Some(Utc::now()),
         status: SourceStatus::Error,
         error: Some("boom".into()),

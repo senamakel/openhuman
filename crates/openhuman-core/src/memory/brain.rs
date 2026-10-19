@@ -11,31 +11,25 @@
 //! the identity in scope (the default root outside an agent).
 
 use serde::{Deserialize, Serialize};
-use tinymemory_api::{ExploreRequest, Facet, Hit, Namespace, StoreItem, WriteOptions};
+use tinymemory_api::{Error, Hit, Namespace, StoreItem, WriteOptions};
+use tinymemory_integrations::brain::MAX_INGEST_BYTES;
 use tinymemory_integrations::documents::RawDocument;
 use tinymemory_tools::layout::placement::{brain_node_with, files_source};
-use tinymemory_tools::{Brain, BrainSource, MemoryLayout};
+use tinymemory_tools::{Brain, BrainSource, BrainSourcesView, MemoryLayout};
 
 use crate::config::schema::MemorySourceKind;
 use crate::config::Config;
 
 use super::engine;
 use super::lifecycle::jobs;
-use tinymemory_api::{Error, Result};
-
-/// Largest file `memory_brain_ingest` reads, in bytes.
-pub const MAX_INGEST_BYTES: u64 = 25 * 1024 * 1024;
+use tinymemory_api::Result;
 
 /// The brain source a synced item belongs to: the connector it came from,
 /// so removing it erases one source. GitHub to `github`, links and feeds to
 /// `web`, and local files, whatever their format, to `files`.
 #[must_use]
 pub fn brain_source(kind: MemorySourceKind) -> BrainSource {
-    match kind {
-        MemorySourceKind::Github => BrainSource::Github,
-        MemorySourceKind::Link | MemorySourceKind::Rss => BrainSource::Web,
-        MemorySourceKind::Folder | MemorySourceKind::File => files_source(),
-    }
+    tinymemory_integrations::brain::brain_source(kind.source_kind())
 }
 
 /// The node `item` of `source` is filed at: the source's node, or, for
@@ -69,28 +63,12 @@ fn brain(
 }
 
 fn parse_source(raw: &str) -> Result<BrainSource> {
-    raw.parse()
-        .map_err(|error: tinymemory_api::Error| Error::InvalidRequest(error.to_string()))
-}
-
-/// One brain source and how many documents it holds.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct BrainSourceCount {
-    /// The source id (`pdf`, `notion`, …).
-    pub source: String,
-    /// Documents stored under it.
-    pub documents: u64,
-}
-
-/// `memory_brain_sources` result.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct BrainSourcesView {
-    /// The layout root the brain lives under.
-    pub root: String,
-    /// Each source with documents, most first.
-    pub sources: Vec<BrainSourceCount>,
-    /// Documents outside any source node (stored before the brain layout).
-    pub unfiled: u64,
+    tinymemory_integrations::brain::parse_source(raw).map_err(|error| match error {
+        tinymemory_integrations::documents::Error::Invalid(message) => {
+            Error::InvalidRequest(message)
+        }
+        error => Error::InvalidRequest(error.to_string()),
+    })
 }
 
 /// `memory_brain_sources`: the brain's sources and their sizes.
@@ -98,42 +76,7 @@ pub async fn sources(
     config: &Config,
     identity: &tinymemory_tools::layout::identity::Identity,
 ) -> Result<BrainSourcesView> {
-    let bound = engine::resolve(config).engine()?;
-    let layout = layout(config, identity);
-    let page = bound
-        .engine
-        .explore(ExploreRequest {
-            facet: Facet::Namespace,
-            filter: layout.brain_filter(None),
-            limit: 200,
-            scan_limit: 20_000,
-        })
-        .await?;
-    // A source's collections (`source:github/project:…`) count as the
-    // source's own documents.
-    let source_of = |node: &str| -> Option<String> {
-        let node: Namespace = node.parse().ok()?;
-        let segment = node.segments().get(layout.root().depth())?;
-        (segment.kind() == tinymemory_api::SegmentKind::Source).then(|| segment.id().to_string())
-    };
-    let mut counts = std::collections::BTreeMap::<String, u64>::new();
-    let mut unfiled = 0;
-    for bucket in page.buckets {
-        match source_of(&bucket.value) {
-            Some(source) => *counts.entry(source).or_default() += bucket.count,
-            None => unfiled += bucket.count,
-        }
-    }
-    let mut sources: Vec<BrainSourceCount> = counts
-        .into_iter()
-        .map(|(source, documents)| BrainSourceCount { source, documents })
-        .collect();
-    sources.sort_by(|a, b| b.documents.cmp(&a.documents).then(a.source.cmp(&b.source)));
-    Ok(BrainSourcesView {
-        root: layout.root().to_string(),
-        sources,
-        unfiled: unfiled + page.missing,
-    })
+    brain(config, identity)?.sources().await
 }
 
 /// `memory_brain_search` params.
@@ -239,11 +182,16 @@ pub async fn ingest(
             let size = std::fs::metadata(path)
                 .map_err(|error| Error::InvalidRequest(format!("cannot read the file: {error}")))?
                 .len();
-            if size > MAX_INGEST_BYTES {
-                return Err(Error::InvalidRequest(format!(
-                    "the file is {size} bytes; the limit is {MAX_INGEST_BYTES}"
-                )));
-            }
+            tinymemory_integrations::brain::check_ingest_size(size).map_err(
+                |error| match error {
+                    tinymemory_integrations::documents::Error::TooLarge { .. } => {
+                        Error::InvalidRequest(format!(
+                            "the file is {size} bytes; the limit is {MAX_INGEST_BYTES}"
+                        ))
+                    }
+                    error => Error::InvalidRequest(error.to_string()),
+                },
+            )?;
             let bytes = tokio::fs::read(path)
                 .await
                 .map_err(|error| Error::InvalidRequest(format!("cannot read the file: {error}")))?;
@@ -268,7 +216,7 @@ pub async fn ingest(
         _ => {
             return Err(Error::InvalidRequest(
                 ("pass exactly one of `path` or `text`").into(),
-            ))
+            ));
         }
     };
     if let Some(title) = params.title.filter(|title| !title.trim().is_empty()) {

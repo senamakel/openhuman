@@ -219,7 +219,7 @@ tinytools-std = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinyto
 tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["local-safety"] }
 tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
 tinyredact = { path = "../../vendor/tinymemory/crates/tinyredact" }
-tinymemory-integrations = { path = "../../vendor/tinymemory/crates/tinymemory-integrations", default-features = false, features = ["cortex", "brain", "sources-network", "safety", "legacy-import"] }
+tinymemory-integrations = { path = "../../vendor/tinymemory/crates/tinymemory-integrations", default-features = false, features = ["cortex", "brain", "sources-network", "safety", "legacy-import", "schema"] }
 # tinyconnectors-bus — the OAuth connector wire contract
 # (https://github.com/tinyhumansai/tinyconnectors). Payload types and member
 # names for the connector surface, with no transport and no behaviour: this

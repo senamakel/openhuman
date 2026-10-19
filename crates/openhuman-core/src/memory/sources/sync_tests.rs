@@ -2,6 +2,7 @@ use super::*;
 use crate::memory::sources::state;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use tinymemory_api::{ItemKind, MetaFilter};
+use tinymemory_integrations::sources::{SourceState, SourceStatus};
 
 fn folder_source(id: &str, dir: &std::path::Path, mins: Option<u32>) -> MemorySourceConfig {
     MemorySourceConfig {
@@ -28,7 +29,7 @@ fn notes(config: &Config, n: usize) -> PathBuf {
     dir
 }
 
-async fn wait_for_idle(config: &Config, id: &str) -> state::SourceState {
+async fn wait_for_idle(config: &Config, id: &str) -> SourceState {
     for _ in 0..400 {
         if let Some(state) = state::load(&config.workspace_dir).get(id) {
             if state.status != SourceStatus::Syncing {
@@ -392,22 +393,4 @@ async fn github_files_per_repository_only_when_switched_on() {
         3,
         "one belief build per node written"
     );
-}
-
-#[test]
-fn orphaned_connector_files_are_removed_and_missing_ones_ignored() {
-    let tmp = tempfile::tempdir().unwrap();
-    let dir = tmp.path().join("memory");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("connector_items.json"), "{}").unwrap();
-    std::fs::write(dir.join("connection_roots.json"), "{}").unwrap();
-    std::fs::write(dir.join("sources_state.json"), "{}").unwrap();
-    state::remove_orphaned_connector_files(tmp.path());
-    assert!(!dir.join("connector_items.json").exists());
-    assert!(!dir.join("connection_roots.json").exists());
-    assert!(
-        dir.join("sources_state.json").exists(),
-        "live state is kept"
-    );
-    state::remove_orphaned_connector_files(tmp.path());
 }

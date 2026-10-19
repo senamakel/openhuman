@@ -4,6 +4,7 @@ use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use tinymemory_tools::lifecycle::turn::TurnPack as NativeTurnPack;
 
 const MAX_PENDING: usize = 16;
+const MAX_PACK_BYTES: usize = 64 * 1024;
 
 static TEST_LOCK: LazyLock<tokio::sync::Mutex<()>> = LazyLock::new(|| tokio::sync::Mutex::new(()));
 

@@ -129,12 +129,12 @@ pub(crate) fn invalidate_all() {
 }
 
 fn completed(cache: &Cache, key: &Key) -> Option<TurnPack> {
-    cache.0.completed(key)
+    cache.0.completed(key).map(TurnPack::from_native)
 }
 
 fn enqueue(cache: Arc<Cache>, key: Key, work: Work) {
     tracing::debug!(thread_id = %key.thread, agent_id = %key.identity.agent_id, compaction = key.compaction, "[memory:prefetch] enqueue refresh");
-    cache.0.enqueue(key, work);
+    cache.0.enqueue(key, Box::pin(async move { work.await.map(|pack| pack.native) }));
 }
 
 /// Returns the last completed pack immediately, then logs this user turn and

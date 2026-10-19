@@ -135,19 +135,6 @@ pub fn clear_host_engine() -> bool {
     ENGINE_BINDER.clear_host_engine()
 }
 
-fn host_engine() -> Option<BoundEngine> {
-    match ENGINE_BINDER.bind(
-        "__openhuman_host_engine_probe__",
-        EngineSettings::default(),
-        "host-engine-probe",
-        EngineCredential::None,
-        crate::security::scrub::host_policy(),
-    ) {
-        Binding::On(bound) => Some(bound),
-        Binding::Off { .. } => None,
-    }
-}
-
 /// Resolves the configured engine.
 #[must_use]
 pub fn resolve(config: &Config) -> Binding {
@@ -196,7 +183,7 @@ pub fn resolve(config: &Config) -> Binding {
             ));
         }
     }
-    if let Some(bound) = host_engine() {
+    if let Some(bound) = ENGINE_BINDER.host_engine() {
         // A host engine is one store for the whole process: in SaaS it would
         // put every user in one engine, so it is ignored there.
         if admits_host_engine_with(crate::core::runtime::is_saas()) {
@@ -259,7 +246,11 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> Result<BoundEngine
     }
     // As in `resolve`: a SaaS process never hands out the process-wide host
     // engine, which every user would share.
-    if let Some(bound) = host_binding_with(crate::core::runtime::is_saas(), host_engine(), root)? {
+    if let Some(bound) = host_binding_with(
+        crate::core::runtime::is_saas(),
+        ENGINE_BINDER.host_engine(),
+        root,
+    )? {
         return Ok(bound);
     }
     resolve_configured(config, root).engine()
@@ -345,13 +336,10 @@ fn off(engine: Option<&str>, endpoint: Option<String>, reason: &str) -> Binding 
     }
 }
 
-/// The engine settings' layout for the person's root `root` (`org:<id>`,
-/// `None` the legacy tree), and the fingerprint suffix that keeps each
-/// layout's engine apart in the cache. On the TinyHumans wire (`tenant`)
-/// the root is the tenant's own, pinned by the backend, so none is sent;
-/// on CortexDB's own API it is the root, owned by the actor `user:<id>`.
-/// With `legacy_read`, the earlier `user:<id>` root is still read and
-/// forgotten (never written).
+/// Builds TinyHumans settings for the selected memory layout and fingerprints
+/// the layout separately in the engine cache. The backend owns the TinyHumans
+/// tenant root, so no person-specific root is sent. With `legacy_read`, the
+/// earlier `user:<id>` root is also read and forgotten, never written.
 fn resolve_tinyhumans(config: &Config, root: Option<&str>) -> Binding {
     let endpoint = match config.memory.endpoint_for(TINYHUMANS_ENGINE) {
         Some(endpoint) => endpoint,

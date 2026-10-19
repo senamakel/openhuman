@@ -3,7 +3,7 @@
 //! This is a separate integration-test process because building a SaaS core
 //! locks the process-wide runtime mode for its lifetime.
 
-use openhuman_core::core::runtime::saas::{SaasConfig, build};
+use openhuman_core::core::runtime::saas::{build, SaasConfig};
 
 #[path = "support/env_guard.rs"]
 mod env_guard;
@@ -54,13 +54,17 @@ fn a_saas_core_refuses_to_boot_without_a_storage_url() {
     let loaded = SaasConfig::load(&config).expect("operator config");
     assert_eq!(loaded.resolved_storage_url(), None);
 
-    let (boot_error, local_fallback_error) = std::thread::Builder::new()
+    let (server_error, boot_error, local_fallback_error) = std::thread::Builder::new()
         .stack_size(64 * 1024 * 1024)
         .spawn(move || {
             let runtime = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
                 .unwrap();
+            let server_error = runtime
+                .block_on(openhuman_rpc::server::run_server_saas(None, None, &config))
+                .expect_err("SaaS server must refuse boot without storage")
+                .to_string();
             let boot_error = runtime
                 .block_on(build(loaded, None, None))
                 .err()
@@ -89,12 +93,16 @@ fn a_saas_core_refuses_to_boot_without_a_storage_url() {
                     .expect("SaaS must refuse workspace-local storage fallback")
                     .to_string();
             drop(core);
-            (boot_error, fallback_error)
+            (server_error, boot_error, fallback_error)
         })
         .expect("spawn boot thread")
         .join()
         .expect("boot thread should not panic");
 
+    assert!(
+        server_error.contains("storage URL"),
+        "clear RPC server storage error expected: {server_error}"
+    );
     assert!(
         boot_error.contains("storage URL"),
         "clear storage error expected: {boot_error}"

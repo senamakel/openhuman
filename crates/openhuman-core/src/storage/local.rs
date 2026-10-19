@@ -9,8 +9,9 @@
 //! process. A different workspace is a different database, which is also what
 //! isolates tests that use a temp directory each.
 //!
-//! A SaaS core with no storage URL lands here too: each profile's workspace is
-//! its own database, so nothing is shared between tenants.
+//! A SaaS core must have an installed backend; it refuses this fallback so
+//! missing deployment configuration cannot silently split tenant state into
+//! workspace-local databases.
 //!
 //! The fallback imports nothing. The legacy per-domain files are read by
 //! [`super::import`] when a backend is installed at boot (and again when the

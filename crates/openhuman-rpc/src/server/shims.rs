@@ -60,13 +60,11 @@ pub async fn run_server_headless(host: Option<&str>, port: Option<u16>) -> anyho
 /// Runs a SaaS core: many users behind a trusted gateway, booted from the
 /// operator's config file and refused unless its boot guard passes.
 ///
-/// The session store is installed before boot. With no storage URL every
-/// profile keeps its sessions, transcripts and turn states in the default
-/// database of its own workspace (the store resolves the workspace of the
-/// context each call runs under). With one (`OPENHUMAN_STORAGE_URL`, else the operator's
-/// `storage_url`) the backend is opened and installed — the profile registry
-/// and leases live there too — and its session store never recovers on open:
-/// recovery follows the profile lease instead.
+/// A storage URL (`OPENHUMAN_STORAGE_URL`, else the operator's `storage_url`)
+/// is required. The backend is opened and installed before boot — the profile
+/// registry, leases, sessions, transcripts and turn states all use it — and
+/// its session store never recovers on open: recovery follows the profile
+/// lease instead.
 ///
 /// On shutdown the leases of profiles nothing is using are released, so
 /// another node can take them at once.
@@ -82,10 +80,7 @@ pub async fn run_server_saas(
             "[saas] a storage URL must be configured with OPENHUMAN_STORAGE_URL or storage_url"
         );
     };
-    log::info!(
-        "[rpc:saas] session store: {}",
-        "storage backend"
-    );
+    log::info!("[rpc:saas] session store: storage backend");
     crate::session_store::install_for_saas(Some(storage_url)).await?;
     let runtime =
         crate::core_host::core::runtime::saas::build(config, host.map(str::to_owned), port).await?;

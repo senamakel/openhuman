@@ -8,6 +8,9 @@
 //! 3. the default ([`default_url`]): `sqlite:<user dir>/storage.db` for a
 //!    layout-v2 profile, `sqlite:<workspace_dir>/storage` for a v1 one.
 //!
+//! SaaS hosts require an explicit URL and refuse to boot without one; only
+//! single-user hosts use the workspace default.
+//!
 //! Every host opens the resolved URL once at startup and installs it
 //! ([`super::install`]); every domain then reaches storage through it, and the
 //! session store follows (`DriverSessionStores`). There is no second layout:

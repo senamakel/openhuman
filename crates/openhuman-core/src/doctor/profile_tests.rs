@@ -1,7 +1,6 @@
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsString;
 use std::path::Path;
-use std::sync::Arc;
 
 use tempfile::TempDir;
 
@@ -48,6 +47,14 @@ impl Drop for WorkspaceOverrideGuard {
         } else {
             std::env::remove_var("OPENHUMAN_WORKSPACE");
         }
+    }
+}
+
+struct SecretBackendOverrideGuard;
+
+impl Drop for SecretBackendOverrideGuard {
+    fn drop(&mut self) {
+        crate::security::secret_storage::clear_secret_backend();
     }
 }
 
@@ -189,7 +196,8 @@ async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profi
             r#"{"token":"account-b-session"}"#,
         )
         .unwrap();
-    crate::security::secret_storage::install_secret_backend(Arc::new(account_a_backend));
+    let _backend_override = SecretBackendOverrideGuard;
+    crate::security::secret_storage::install_secret_backend(std::sync::Arc::new(account_a_backend));
 
     let selected = load_desktop_profile(root, "account-b").await.unwrap();
     let before = snapshot_tree(&account_b.dir);

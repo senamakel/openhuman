@@ -155,7 +155,7 @@ pub(crate) fn clear_endpoint_references(service: &str) {
 }
 
 #[cfg(test)]
-pub(super) fn has_endpoint_reference_for_test(reference: &str) -> bool {
+pub(crate) fn has_endpoint_reference_for_test(reference: &str) -> bool {
     endpoint_references()
         .lock()
         .is_ok_and(|references| references.contains_key(reference))

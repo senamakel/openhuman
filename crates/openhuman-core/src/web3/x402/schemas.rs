@@ -115,7 +115,7 @@ fn handle_get_summary(ctx: DispatchCtx, _params: Map<String, Value>) -> Controll
             .load_config()
             .await
             .map_err(|error| format!("x402 get_summary: {error}"))?;
-        let summary = crate::modules::x402_service::summary(&ctx, &config)
+        let summary = crate::web3::x402::service::summary(&ctx, &config)
             .await
             .map_err(|error| format!("x402 get_summary: {error}"))?;
         Ok(summary_value(summary))
@@ -139,7 +139,7 @@ fn handle_list_payments(ctx: DispatchCtx, params: Map<String, Value>) -> Control
             .await
             .map_err(|error| format!("x402 list_payments: {error}"))?;
         let limit = p.limit.unwrap_or(50).min(500);
-        let response = crate::modules::x402_service::list_payments(&ctx, &config, limit)
+        let response = crate::web3::x402::service::list_payments(&ctx, &config, limit)
             .await
             .map_err(|error| format!("x402 list_payments: {error}"))?;
         Ok(payments_value(response.payments))
@@ -170,7 +170,7 @@ fn handle_update_budget(ctx: DispatchCtx, params: Map<String, Value>) -> Control
             .load_config()
             .await
             .map_err(|error| format!("x402 update_budget: {error}"))?;
-        let summary = crate::modules::x402_service::update_budget(
+        let summary = crate::web3::x402::service::update_budget(
             &ctx,
             &config,
             p.per_request_max,

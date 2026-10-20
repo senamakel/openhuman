@@ -30,6 +30,20 @@ fn an_empty_document_matches_direct_toml() {
 }
 
 #[test]
+fn x402_policy_defaults_for_legacy_config_and_round_trips_when_configured() {
+    let legacy = config_from_toml_str("").expect("legacy config parses");
+    assert_eq!(legacy.x402, crate::config::schema::X402Config::default());
+
+    let configured = config_from_toml_str(
+        "[x402]\nper_request_max_atomic = 42\ndaily_max_atomic = 43\nmonthly_max_atomic = 44",
+    )
+    .expect("x402 policy parses");
+    let saved = toml::to_string(&configured).expect("config serializes");
+    let loaded = config_from_toml_str(&saved).expect("serialized config reloads");
+    assert_eq!(loaded.x402, configured.x402);
+}
+
+#[test]
 fn legacy_configuration_with_retired_sections_still_parses() {
     let legacy = format!(
         r#"

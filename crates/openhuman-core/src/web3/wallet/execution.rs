@@ -2,9 +2,10 @@
 //! This host supplies configuration, custody, transport and approvals; wallet
 //! algorithms and user-scoped service state remain in the compiled module.
 
+use super::service as wallet_service;
 use crate::core::runtime::DispatchCtx;
 use crate::core::Outcome;
-use crate::modules::{wallet as wallet_module, wallet_service};
+use crate::modules::wallet as wallet_module;
 use tinywallet_bus::names::methods;
 use tinywallet_bus::wire::{NativeWalletServiceRequest, NativeWalletTransactionRequest};
 

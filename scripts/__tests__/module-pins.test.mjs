@@ -130,9 +130,16 @@ test("search source release matches the loaded search artifact", () => {
     (record) => record.id === "tinysearch",
   );
   assert.ok(record, "search adapter requires a registered module");
-  const source = readFileSync(join(REPO_ROOT, "vendor/tinysearch/Cargo.toml"), "utf8");
+  const source = readFileSync(
+    join(REPO_ROOT, "vendor/tinysearch/Cargo.toml"),
+    "utf8",
+  );
   const version = source.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
-  assert.equal(version, record.version, "search source must match its loaded artifact");
+  assert.equal(
+    version,
+    record.version,
+    "search source must match its loaded artifact",
+  );
 });
 
 test("wallet source release matches the loaded wallet artifact", () => {
@@ -140,9 +147,16 @@ test("wallet source release matches the loaded wallet artifact", () => {
     (record) => record.id === "tinywallet",
   );
   assert.ok(record, "wallet adapter requires a registered module");
-  const source = readFileSync(join(REPO_ROOT, "vendor/tinywallet/Cargo.toml"), "utf8");
+  const source = readFileSync(
+    join(REPO_ROOT, "vendor/tinywallet/Cargo.toml"),
+    "utf8",
+  );
   const version = source.match(/^version\s*=\s*"([^"]+)"/m)?.[1];
-  assert.equal(version, record.version, "wallet source must match its loaded artifact");
+  assert.equal(
+    version,
+    record.version,
+    "wallet source must match its loaded artifact",
+  );
 });
 
 // ── Registry parsing ──────────────────────────────────────────────────────────
@@ -191,6 +205,59 @@ test("parses a crate-visible record definition", () => {
     'pub(crate) const TINYTEST: ModuleRecord = ModuleRecord {\n  id: "tinytest",\n  version: "1.2.3",\n  assets: &[],\n};',
   );
   assert.equal(records.get("TINYTEST")?.id, "tinytest");
+});
+
+test("parses pinned assets from a nested SDK ReleaseRecord", () => {
+  const records =
+    parseRecords(`pub(crate) const TINYTEST: ModuleRecord = ModuleRecord {
+  release: ReleaseRecord {
+    id: "tinytest",
+    bus_name: "ai.tinyhumans.tinytest",
+    object_path: "/ai/tinyhumans/tinytest",
+    version: "1.2.3",
+    release_url: "https://github.com/acme/tinytest/releases/tag/v1.2.3",
+    assets: &[
+      ReleaseAsset {
+        host_key: "ubuntu-24.04-x86_64",
+        archive: "tinytest-v1.2.3-linux.tar.gz",
+        sha256: "${"a".repeat(64)}",
+        library_sha256: Some(
+          "${"b".repeat(64)}",
+        ),
+      },
+      ReleaseAsset {
+        host_key: "macos-15-arm64",
+        archive: "tinytest-v1.2.3-macos.tar.gz",
+        sha256: "${"c".repeat(64)}",
+        library_sha256: None,
+      },
+    ],
+  },
+  description: "test module",
+  load: LoadPolicy::Lazy,
+  source: SourceSpec { submodule: "tinytest", manifest: "Cargo.toml", package: "tinytest", lib_name: "tinytest", features: &[] },
+};`);
+  const record = records.get("TINYTEST");
+  assert.equal(record.id, "tinytest");
+  assert.equal(record.version, "1.2.3");
+  assert.equal(
+    record.releaseUrl,
+    "https://github.com/acme/tinytest/releases/tag/v1.2.3",
+  );
+  assert.deepEqual(record.assets, [
+    {
+      hostKey: "ubuntu-24.04-x86_64",
+      archive: "tinytest-v1.2.3-linux.tar.gz",
+      sha256: "a".repeat(64),
+      librarySha256: "b".repeat(64),
+    },
+    {
+      hostKey: "macos-15-arm64",
+      archive: "tinytest-v1.2.3-macos.tar.gz",
+      sha256: "c".repeat(64),
+      librarySha256: null,
+    },
+  ]);
 });
 
 // ── Provider records ──────────────────────────────────────────────────────────

@@ -73,6 +73,8 @@ mod tokenjuice;
 mod tools;
 mod update;
 mod web_chat_config;
+mod x402;
+pub use x402::X402Config;
 
 pub use agent::{
     AgentConfig, DelegateAgentConfig, OrchestratorModelConfig, RequiredOutputContract,

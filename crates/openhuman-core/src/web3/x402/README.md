@@ -29,7 +29,7 @@ product enables `web3` through `scripts/ci/product-features.txt`.
 | [`mod.rs`](./mod.rs) | Facade, payment record vocabulary re-exports, and disabled stub. |
 | [`schemas.rs`](./schemas.rs) | Stable `openhuman.x402_*` controller names and RPC projections. |
 | [`schemas_tests.rs`](./schemas_tests.rs) | Pins payment history output, amount display, and UTC timestamp representation. |
-| [`../../modules/x402_service.rs`](../../modules/x402_service.rs) | User-scoped module configuration, confidential payment calls, history and budget calls, and close/reconfigure cleanup. |
+| [`service.rs`](service.rs) | User-scoped module configuration, confidential payment calls, history and budget calls, and close/reconfigure cleanup. |
 | [`../../tools/impl/network/host.rs`](../../tools/impl/network/host.rs) | Generic HTTP payment hook; sends the challenge and returns the module-produced payment header. |
 
 ## RPC surface

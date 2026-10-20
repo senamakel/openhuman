@@ -34,7 +34,7 @@ changing the facade.
   shapes.
 - `tools.rs` adapts the static tool declarations from `tinywallet-bus` to
   OpenHuman's `tinytools::Tool` interface.
-- `modules::wallet_service` manages the native wallet service handle and
+- [`service.rs`](service.rs) manages the native wallet service handle and
   closes it on replacement, sign-out, and shutdown.
 
 ## RPC surface

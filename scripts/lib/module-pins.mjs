@@ -5,6 +5,7 @@
 // See scripts/ci/check-module-pins.mjs for what the gate is for.
 
 import { posix } from "node:path";
+import { rustStructBodyAfter } from "./rust-struct-body.mjs";
 
 /**
  * Read a Rust module and the source fragments it brings in with `include!`.
@@ -47,14 +48,16 @@ export function parseAllList(src) {
     /pub const ALL: &\[ModuleRecord\] = &\[([\s\S]*?)\];/,
   );
   if (!block) throw new Error("registry.rs: could not find `pub const ALL`");
-  return block[1]
-    .replace(/\/\/[^\n]*/g, "")
-    // `#[cfg(feature = "…")]` on an element: the record is still in `ALL` for
-    // the builds that carry its optional contract crate, so it is still pinned.
-    .replace(/#\[[^\]]*\]/g, "")
-    .split(",")
-    .map((s) => s.trim())
-    .filter((s) => s.length > 0);
+  return (
+    block[1]
+      .replace(/\/\/[^\n]*/g, "")
+      // `#[cfg(feature = "…")]` on an element: the record is still in `ALL` for
+      // the builds that carry its optional contract crate, so it is still pinned.
+      .replace(/#\[[^\]]*\]/g, "")
+      .split(",")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0)
+  );
 }
 
 /** Every `const NAME: ModuleRecord = ModuleRecord { … };`, keyed by NAME. */
@@ -65,14 +68,21 @@ export function parseRecords(src) {
   for (const m of src.matchAll(re)) {
     const [, name, body] = m;
     const field = (f) => {
-      const hit = body.match(new RegExp(`^\\s*${f}: "([^"]*)"`, "m"));
+      const hit = releaseBody.match(new RegExp(`^\\s*${f}: "([^"]*)"`, "m"));
       return hit ? hit[1] : null;
     };
+    const releaseBody =
+      rustStructBodyAfter(body, "release: ReleaseRecord") ?? body;
     const assets = [];
     const assetRe =
-      /PlatformAsset \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*\}/g;
-    for (const a of body.matchAll(assetRe)) {
-      assets.push({ hostKey: a[1], archive: a[2], sha256: a[3] });
+      /(?:PlatformAsset|ReleaseAsset) \{\s*host_key: "([^"]+)",\s*archive: "([^"]+)",\s*sha256: "([^"]+)",\s*(?:library_sha256:\s*(?:Some\(\s*"([^"]+)"\s*,?\s*\)|None),\s*)?\}/g;
+    for (const a of releaseBody.matchAll(assetRe)) {
+      assets.push({
+        hostKey: a[1],
+        archive: a[2],
+        sha256: a[3],
+        librarySha256: a[4] ?? null,
+      });
     }
     records.set(name, {
       name,

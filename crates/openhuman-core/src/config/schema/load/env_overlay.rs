@@ -12,6 +12,7 @@ mod proxy;
 mod runtime;
 mod search;
 mod update;
+mod x402;
 
 use super::super::proxy::{set_runtime_proxy_config, ProxyScope};
 use super::super::Config;
@@ -251,6 +252,7 @@ impl Config {
         self.apply_embedding_env(env);
         self.apply_update_env(env);
         self.apply_modules_env(env);
+        self.apply_x402_env(env);
         self.apply_components_env(env);
         self.apply_dictation_env(env);
         self.apply_context_env(env);

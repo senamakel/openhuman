@@ -77,7 +77,7 @@ second x402 ledger or parse payment protocol payloads.
 | [`x402/`](x402/README.md) | x402 controller projection over the module-owned ledger. |
 | [`../modules/wallet.rs`](../modules/wallet.rs) | TinyBus identity, attestation, and typed calls. |
 | [`../modules/wallet_host.rs`](../modules/wallet_host.rs) | Host callbacks for custody, transport, and exact-intent approval. |
-| [`../modules/web3_service.rs`](../modules/web3_service.rs) and [`../modules/x402_service.rs`](../modules/x402_service.rs) | User-scoped module service setup and cleanup. |
+| [`service.rs`](service.rs), [`wallet/service.rs`](wallet/service.rs), and [`x402/service.rs`](x402/service.rs) | User-scoped module service setup and cleanup. |
 
 ## RPC and agent tools
 

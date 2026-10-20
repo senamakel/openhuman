@@ -19,7 +19,8 @@ export const CONTRACT_CLOSURE = new Set([
 export function isImplementation(name, policy) {
   return policy.implementationPackages.includes(name) ||
     policy.implementationPrefixes.some(prefix => (name === prefix.replace(/-$/, '') || name.startsWith(prefix)) &&
-      !policy.contracts.some(contract => contract.name === name));
+      !policy.contracts.some(contract => contract.name === name) &&
+      !(policy.clients ?? []).some(client => client.name === name));
 }
 
 /** Fail closed on unresolved metadata; retain package IDs (including versions). */
@@ -131,7 +132,7 @@ export function bridgeReach(metadata, roots, policy) {
 }
 
 export function validatePolicy(policy) {
-  for (const key of ['implementationPackages', 'implementationPrefixes', 'contracts', 'pendingContracts', 'exceptions']) {
+  for (const key of ['implementationPackages', 'implementationPrefixes', 'contracts', 'clients', 'pendingContracts', 'exceptions']) {
     if (!Array.isArray(policy[key])) throw new Error(`policy.${key} must be an array`);
   }
   if (!policy.contracts.length || !policy.implementationPackages.length || !policy.implementationPrefixes.length) {
@@ -153,6 +154,15 @@ export function validatePolicy(policy) {
       throw new Error(`pending contract ${contract.name} needs a reason`);
     }
     names.add(contract.name);
+  }
+  for (const client of policy.clients) {
+    if (!client.name?.endsWith('-client') || !client.manifest || !client.owner || names.has(client.name)) {
+      throw new Error(`invalid or duplicate client ${client.name}`);
+    }
+    if (isImplementation(client.name, policy)) {
+      throw new Error(`client ${client.name} is also listed as an implementation package`);
+    }
+    names.add(client.name);
   }
   const seen = new Set();
   for (const item of policy.exceptions) {
@@ -194,7 +204,7 @@ function contractMetadata(root, contract, allFeatures) {
 export function run(root, strict = false) {
   const policy = JSON.parse(readFileSync(join(root, 'scripts/ci/module-boundaries.json'), 'utf8'));
   validatePolicy(policy);
-  policy.contractManifests = Object.fromEntries(policy.contracts.map(contract =>
+  policy.contractManifests = Object.fromEntries([...policy.contracts, ...policy.clients].map(contract =>
     [contract.name, resolve(root, contract.manifest)]));
   for (const contract of policy.pendingContracts) {
     if (existsSync(join(root, contract.manifest))) {

@@ -55,7 +55,7 @@ is on, the provider is enabled, and its chosen route is reachable.
 `role_order` returns the configured order for a role, or TinySearch's default
 (`default_role_providers`), filtered to providers that can serve the role.
 `effective_role_providers` intersects that with the usable set.
-`modules::search::module_config` turns the same view into the configuration
+`search::module::module_config` turns the same view into the configuration
 the module receives.
 
 ### A tool call
@@ -63,7 +63,7 @@ the module receives.
 ```text
  tools/ops.rs
    build_search_tools(config)
-     modules::search::configured_tool_specs(config)  (sync, from config)
+     search::module::configured_tool_specs(config)  (sync, from config)
      -> one TinySearchTool per ToolSpec
                  |
                  v  (agent calls e.g. web_search_tool)
@@ -130,6 +130,7 @@ as a direct-only provider, and a keyless managed-Parallel selection is dropped.
 | [`render.rs`](./render.rs) | `render`, `subject`, `provider_label`, and the text, markdown, and metadata builders. |
 | [`tools.rs`](./tools.rs) | `TinySearchTool` (the `tinytools::Tool` bridge), `build_search_tools`, `user_facing_error`, the exhaustion latch, and the egress check. `modules` feature only. |
 | [`bus.rs`](./bus.rs) | `CredentialRefreshSubscriber` (`search::credential_refresh`). `modules` feature only. |
+| [`module/`](./module/) | TinySearch host configuration and profile/request policy, including profile-filtered tools. `modules` feature only. |
 
 ## Key types and entry points
 
@@ -196,8 +197,8 @@ read and written through `config/ops/search.rs`.
 ## Tests
 
 Tests sit beside each file ([`providers_tests.rs`](./providers_tests.rs), [`render_tests.rs`](./render_tests.rs),
-[`tools_tests.rs`](./tools_tests.rs), [`bus_tests.rs`](./bus_tests.rs)). Module config tests are in
-`modules/search/config_tests.rs`.
+[`tools_tests.rs`](./tools_tests.rs), [`bus_tests.rs`](./bus_tests.rs)). TinySearch configuration and profile-policy tests are in
+[`module/config_tests.rs`](./module/config_tests.rs) and [`module/policy_tests.rs`](./module/policy_tests.rs).
 
 ```bash
 cargo test -p openhuman search::

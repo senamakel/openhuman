@@ -6,7 +6,7 @@
 //! [`SearchHostCredential`] lives only on that agent's [`SearchConfig`]: it is
 //! never serialized, it redacts itself in `Debug`, and while any is pinned the
 //! search proxy runs that agent's calls under the agent's own config instead
-//! of reloading `config_path` (see `modules::search::proxy`).
+//! of reloading `config_path` (see `search::module::policy`).
 
 use super::{SearchConfig, SearchProviderSettings};
 

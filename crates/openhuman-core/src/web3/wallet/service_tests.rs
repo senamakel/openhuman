@@ -116,7 +116,7 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
             reference: "old-user-endpoint".into(),
         }],
     };
-    super::super::wallet_host::bind_endpoint_references(
+    crate::modules::wallet_host::bind_endpoint_references(
         &configured.service.handle,
         &configured.endpoint_references,
     )
@@ -140,7 +140,7 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
         "failed close must retain the service quote state"
     );
     assert!(
-        super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
+        crate::modules::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
         "failed close must retain aliases needed for retry"
     );
 
@@ -156,7 +156,7 @@ async fn explicit_close_retains_state_for_retry_then_releases_user_state_once() 
     assert_eq!(close_calls.load(Ordering::SeqCst), 2);
     assert!(active.is_none(), "the cached quote set must be released");
     assert!(
-        !super::super::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
+        !crate::modules::wallet_host::has_endpoint_reference_for_test("old-user-endpoint"),
         "endpoint aliases from the signed-out user must be removed"
     );
 

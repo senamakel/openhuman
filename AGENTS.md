@@ -524,7 +524,15 @@ builds after changing a gate. Use `scripts/assert-shed.sh` or
 
 ## Loadable modules and bus contracts
 
-Hosts must interface with loadable components through their minimal `*-bus` contracts. Never import, re-export, link, or call their implementation libraries directly, including through wrapper crates or indirect dependencies. Execute component behavior through the compiled TinyBus module. If the required types or operations are missing, extend the contract and implementation in the owning repository and raise a PR against its canonical upstream first; then consume the released module and update OpenHuman’s gitlink and adapter. Do not introduce a host-side implementation workaround.
+Hosts may depend on a loadable component’s minimal `*-bus` contract and its
+typed `*-client` crate, which provides callers for that contract. Never import,
+re-export, link, or call component implementation libraries directly, including
+through wrapper crates or indirect dependencies. Execute component behavior
+through the compiled TinyBus module. If the required types or operations are
+missing, extend the contract and implementation in the owning repository and
+raise a PR against its canonical upstream first; then consume the released
+module and update OpenHuman’s gitlink and adapter. Do not introduce a host-side
+implementation workaround.
 
 ### Submodule ownership
 
@@ -589,7 +597,10 @@ defines that behavior; OpenHuman changes should be limited to the host-side
 composition and policy described above.
 
 Each loadable module has a small `*-bus` contract crate for interface names,
-method constants, request and response types, and its contract version.
+method constants, request and response types, and its contract version. A
+module may also provide a typed `*-client` crate for host callers. Hosts may
+depend on these bus and client crates; neither grants access to the module’s
+implementation crates.
 
 | Contract | Feature or role |
 | --- | --- |

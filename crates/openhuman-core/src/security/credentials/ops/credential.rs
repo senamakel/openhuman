@@ -515,17 +515,17 @@ async fn clear_session_credential(
     let mut logs = Vec::new();
     crate::platform::llm_gate::set_signed_out(true);
     #[cfg(feature = "web3")]
-    if let Err(error) = crate::modules::web3_service::close_service(config).await {
+    if let Err(error) = crate::web3::service::close_service(config).await {
         tracing::warn!(%error, "{LOG_PREFIX} failed to close Web3 service during sign-out");
         logs.push("Web3 service cleanup will retry on replacement or shutdown".into());
     }
     #[cfg(feature = "web3")]
-    if let Err(error) = crate::modules::x402_service::close_service(config).await {
+    if let Err(error) = crate::web3::x402::service::close_service(config).await {
         tracing::warn!(%error, "{LOG_PREFIX} failed to close x402 service during sign-out");
         logs.push("x402 service cleanup will retry on replacement or shutdown".into());
     }
     #[cfg(feature = "web3")]
-    if let Err(error) = crate::modules::wallet_service::close_native_wallet_service().await {
+    if let Err(error) = crate::web3::wallet::service::close_native_wallet_service().await {
         tracing::warn!(%error, "{LOG_PREFIX} failed to close native wallet service during sign-out");
         logs.push("native wallet service cleanup will retry on replacement or shutdown".into());
     }

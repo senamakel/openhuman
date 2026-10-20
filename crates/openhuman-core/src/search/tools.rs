@@ -1,6 +1,6 @@
 //! Agent tools backed by the TinySearch module.
 //!
-//! Declarations come from `modules::search::configured_tool_specs`, which is
+//! Declarations come from `search::module::configured_tool_specs`, which is
 //! computed synchronously from config so a turn's tool list is stable and
 //! needs no module round-trip. Each call re-reads the live config and goes
 //! through `modules::search::execute_tool`, so a provider or login change is
@@ -347,7 +347,7 @@ pub(crate) fn local_only_search_block(tool_name: &str) -> Option<String> {
 /// Build the agent's search tools from config. Empty when search is off or no
 /// provider is usable.
 pub fn build_search_tools(config: &Config) -> Vec<Box<dyn Tool>> {
-    let specs = crate::modules::search::configured_tool_specs(config);
+    let specs = crate::search::module::configured_tool_specs(config);
     tracing::debug!(
         tools = ?specs.iter().map(|s| s.name.as_str()).collect::<Vec<_>>(),
         "[search][tool] registered search tools"

@@ -104,6 +104,21 @@ test('each layer may name only the layer directly below it', () => {
   );
 });
 
+test('typed component clients are external host contracts, not OpenHuman chain layers', () => {
+  assert.deepEqual(
+    checkManifestEdges({
+      crate: 'openhuman-app',
+      deps: [
+        { key: 'openhuman-rpc', package: 'openhuman-rpc', workspace: false },
+        { key: 'tinydocs-client', package: 'tinydocs-client', workspace: false },
+        { key: 'tinyvoice-client', package: 'tinyvoice-client', workspace: false },
+        { key: 'tinycomputer-client', package: 'tinycomputer-client', workspace: false },
+      ],
+    }),
+    [],
+  );
+});
+
 test('a host depending on the core is a violation, even through a workspace alias', () => {
   const workspaceDeps = new Map([['openhuman-core', 'openhuman']]);
   const violations = checkManifestEdges({

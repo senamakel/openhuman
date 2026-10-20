@@ -102,6 +102,7 @@ impl Clone for Config {
             integrations: self.integrations.clone(),
             update: self.update.clone(),
             dictation: self.dictation.clone(),
+            x402: self.x402.clone(),
             onboarding_completed: self.onboarding_completed,
             chat_onboarding_completed: self.chat_onboarding_completed,
             model_registry: self.model_registry.clone(),

@@ -125,6 +125,10 @@ fn finding(
     finding
 }
 
+fn explicitly_configured(config: &Config, path: &str) -> bool {
+    config.load_provenance().has_explicit_under(path)
+}
+
 fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     let mut references = Vec::new();
     let memory = &config.memory;
@@ -132,7 +136,8 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     let default_memory_engine = crate::config::schema::memory::DEFAULT_MEMORY_ENGINE;
     if !memory_engine.is_empty()
         && !memory_engine.eq_ignore_ascii_case("none")
-        && !memory_engine.eq_ignore_ascii_case(default_memory_engine)
+        && (!memory_engine.eq_ignore_ascii_case(default_memory_engine)
+            || explicitly_configured(config, "memory.engine"))
     {
         references.push(("memory", "memory.engine"));
     }
@@ -151,13 +156,19 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     if !memory.agents.is_empty() {
         references.push(("memory", "memory.agents"));
     }
-    if memory.embedding_provider != crate::config::schema::memory::DEFAULT_EMBEDDING_PROVIDER {
+    if memory.embedding_provider != crate::config::schema::memory::DEFAULT_EMBEDDING_PROVIDER
+        || explicitly_configured(config, "memory.embedding_provider")
+    {
         references.push(("memory", "memory.embedding_provider"));
     }
-    if memory.embedding_model != crate::config::schema::memory::DEFAULT_EMBEDDING_MODEL {
+    if memory.embedding_model != crate::config::schema::memory::DEFAULT_EMBEDDING_MODEL
+        || explicitly_configured(config, "memory.embedding_model")
+    {
         references.push(("memory", "memory.embedding_model"));
     }
-    if memory.embedding_dimensions != crate::config::schema::memory::DEFAULT_EMBEDDING_DIMENSIONS {
+    if memory.embedding_dimensions != crate::config::schema::memory::DEFAULT_EMBEDDING_DIMENSIONS
+        || explicitly_configured(config, "memory.embedding_dimensions")
+    {
         references.push(("memory", "memory.embedding_dimensions"));
     }
 
@@ -196,7 +207,9 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     if config.tts_provider.as_deref().is_some_and(non_empty) {
         references.push(("voice", "tts_provider"));
     }
-    if config.voice_server.stt_engine != crate::config::schema::SttEngine::default() {
+    if config.voice_server.stt_engine != crate::config::schema::SttEngine::default()
+        || explicitly_configured(config, "voice_server.stt_engine")
+    {
         references.push(("voice", "voice_server.stt_engine"));
     }
 
@@ -211,6 +224,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     }
 
     if config.search != crate::config::schema::SearchConfig::default()
+        || explicitly_configured(config, "search")
         || config.seltz.enabled
         || config.searxng.enabled
     {
@@ -218,6 +232,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     }
 
     if config.computer != crate::config::ComputerConfig::default()
+        || explicitly_configured(config, "computer")
         || config.browser.enabled
         || !config.browser.allowed_domains.is_empty()
         || config
@@ -237,6 +252,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
 
     if config.sandbox.enabled == Some(true)
         || !matches!(&config.sandbox.backend, crate::config::SandboxBackend::Auto)
+        || explicitly_configured(config, "sandbox.backend")
         || !config.sandbox.firejail_args.is_empty()
     {
         references.push(("sandbox", "sandbox"));
@@ -245,11 +261,14 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     if config.hosting.has_api_key()
         || config.hosting.team().is_some()
         || config.hosting.provider != crate::config::schema::HostingConfig::default().provider
+        || explicitly_configured(config, "hosting.provider")
     {
         references.push(("hosting", "hosting"));
     }
 
-    if config.memes != crate::config::schema::MemesConfig::default() {
+    if config.memes != crate::config::schema::MemesConfig::default()
+        || explicitly_configured(config, "memes")
+    {
         references.push(("memes", "memes"));
     }
 
@@ -264,6 +283,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
         || config.composio.api_key.is_some()
         || !config.composio.offered_toolkits_allow.is_empty()
         || !config.composio.offered_toolkits_deny.is_empty()
+        || explicitly_configured(config, "composio")
     {
         references.push(("connectors", "composio"));
     }
@@ -273,6 +293,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
         || config.inbound.queue_url.as_deref().is_some_and(non_empty)
         || config.inbound.triage_timeout_ms
             != crate::config::schema::inbound::DEFAULT_TRIAGE_TIMEOUT_MS
+        || explicitly_configured(config, "inbound.triage_timeout_ms")
     {
         references.push(("eventqueues", "inbound"));
     }
@@ -295,7 +316,8 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
 fn tokenjuice_is_custom(config: &Config) -> bool {
     let current = &config.tokenjuice;
     let default = crate::config::schema::TokenjuiceConfig::default();
-    current.router_enabled != default.router_enabled
+    explicitly_configured(config, "tokenjuice")
+        || current.router_enabled != default.router_enabled
         || current.ccr_enabled != default.ccr_enabled
         || current.repl_handle_enabled != default.repl_handle_enabled
         || current.repl_save_enabled != default.repl_save_enabled

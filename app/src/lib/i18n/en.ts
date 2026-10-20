@@ -730,7 +730,8 @@ const en: TranslationMap = {
   'devOptions.titleDiagnostics': 'Developer & Diagnostics',
   'devOptions.doctor.run': 'Run doctor',
   'devOptions.doctor.runLive': 'Run live checks',
-  'devOptions.doctor.liveWarning': 'Live checks may spend tokens on model or embedding calls. Continue?',
+  'devOptions.doctor.liveWarning':
+    'Live checks may spend tokens on model or embedding calls. Continue?',
   'devOptions.doctor.severity.pass': 'Pass',
   'devOptions.doctor.severity.info': 'Info',
   'devOptions.doctor.severity.warn': 'Warning',

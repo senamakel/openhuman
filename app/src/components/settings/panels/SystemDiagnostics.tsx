@@ -12,16 +12,16 @@ import { useNavigate } from 'react-router-dom';
 import { useT } from '../../../lib/i18n/I18nContext';
 import { triggerSentryTestEvent } from '../../../services/analytics';
 import { APP_ENVIRONMENT } from '../../../utils/config';
+// `safeInvoke` (aliased to `invoke`) turns the CEF synchronous IPC throw into a
+// rejected Promise so the `.catch(...)` handlers see a normal failure.
+import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/common';
 import {
-  openhumanDoctorReport,
   type DoctorFinding,
   type DoctorReport,
   type DoctorSeverity,
   type DoctorTier,
+  openhumanDoctorReport,
 } from '../../../utils/tauriCommands/core';
-// `safeInvoke` (aliased to `invoke`) turns the CEF synchronous IPC throw into a
-// rejected Promise so the `.catch(...)` handlers see a normal failure.
-import { safeInvoke as invoke, isTauri } from '../../../utils/tauriCommands/common';
 import Alert from '../../ui/Alert';
 import Badge from '../../ui/Badge';
 import Button from '../../ui/Button';
@@ -161,13 +161,10 @@ type DoctorState =
   | { kind: 'ready'; report: DoctorReport }
   | { kind: 'error' };
 
-const severityBadge: Record<DoctorSeverity, 'success' | 'primary' | 'warning' | 'danger' | 'neutral'> = {
-  pass: 'success',
-  info: 'primary',
-  warn: 'warning',
-  error: 'danger',
-  skipped: 'neutral',
-};
+const severityBadge: Record<
+  DoctorSeverity,
+  'success' | 'primary' | 'warning' | 'danger' | 'neutral'
+> = { pass: 'success', info: 'primary', warn: 'warning', error: 'danger', skipped: 'neutral' };
 
 function groupFindings(findings: DoctorFinding[]): [string, DoctorFinding[]][] {
   const groups = new Map<string, DoctorFinding[]>();
@@ -247,9 +244,7 @@ const DoctorRow = () => {
                       <Badge variant={severityBadge[finding.severity]}>
                         {t(`${textKey}.severity.${finding.severity}`)}
                       </Badge>
-                      <span className="min-w-0 flex-1 text-sm text-content">
-                        {finding.message}
-                      </span>
+                      <span className="min-w-0 flex-1 text-sm text-content">{finding.message}</span>
                     </div>
                     <p className="mt-2 text-xs leading-relaxed text-content-muted">
                       {finding.fix_hint}

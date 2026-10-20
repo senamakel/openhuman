@@ -630,7 +630,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'Geliştirici ve tanılama',
   'devOptions.doctor.run': 'Tanılamayı çalıştır',
   'devOptions.doctor.runLive': 'Canlı denetimleri çalıştır',
-  'devOptions.doctor.liveWarning': 'Canlı denetimler model veya gömme çağrılarında token harcayabilir. Devam edilsin mi?',
+  'devOptions.doctor.liveWarning':
+    'Canlı denetimler model veya gömme çağrılarında token harcayabilir. Devam edilsin mi?',
   'devOptions.doctor.severity.pass': 'Başarılı',
   'devOptions.doctor.severity.info': 'Bilgi',
   'devOptions.doctor.severity.warn': 'Uyarı',

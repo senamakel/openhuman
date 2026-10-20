@@ -660,7 +660,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'ডেভেলপার ও ডায়াগনস্টিক্স',
   'devOptions.doctor.run': 'ডায়াগনস্টিক চালান',
   'devOptions.doctor.runLive': 'লাইভ পরীক্ষা চালান',
-  'devOptions.doctor.liveWarning': 'লাইভ পরীক্ষায় মডেল বা এমবেডিং কলের জন্য টোকেন খরচ হতে পারে। চালিয়ে যাবেন?',
+  'devOptions.doctor.liveWarning':
+    'লাইভ পরীক্ষায় মডেল বা এমবেডিং কলের জন্য টোকেন খরচ হতে পারে। চালিয়ে যাবেন?',
   'devOptions.doctor.severity.pass': 'সফল',
   'devOptions.doctor.severity.info': 'তথ্য',
   'devOptions.doctor.severity.warn': 'সতর্কতা',

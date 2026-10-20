@@ -681,7 +681,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'Sviluppatore e Diagnostica',
   'devOptions.doctor.run': 'Esegui diagnostica',
   'devOptions.doctor.runLive': 'Esegui controlli dal vivo',
-  'devOptions.doctor.liveWarning': 'I controlli dal vivo possono consumare token per le chiamate a modelli o embedding. Continuare?',
+  'devOptions.doctor.liveWarning':
+    'I controlli dal vivo possono consumare token per le chiamate a modelli o embedding. Continuare?',
   'devOptions.doctor.severity.pass': 'Superato',
   'devOptions.doctor.severity.info': 'Info',
   'devOptions.doctor.severity.warn': 'Avviso',

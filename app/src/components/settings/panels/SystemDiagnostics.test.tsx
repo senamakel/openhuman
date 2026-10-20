@@ -5,7 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import SystemDiagnostics from './SystemDiagnostics';
 
 const callCoreRpc = vi.fn();
-vi.mock('../../../services/coreRpcClient', () => ({ callCoreRpc: (...args: unknown[]) => callCoreRpc(...args) }));
+vi.mock('../../../services/coreRpcClient', () => ({
+  callCoreRpc: (...args: unknown[]) => callCoreRpc(...args),
+}));
 
 const report = {
   schema_version: 2,
@@ -59,7 +61,9 @@ describe('<SystemDiagnostics /> doctor report', () => {
     expect(await screen.findByText('config')).toBeInTheDocument();
     expect(screen.getByText('runtime')).toBeInTheDocument();
     expect(screen.getByText('The config file was recovered from its backup.')).toBeInTheDocument();
-    expect(screen.getByText('Review the backup and restore a valid config file.')).toBeInTheDocument();
+    expect(
+      screen.getByText('Review the backup and restore a valid config file.')
+    ).toBeInTheDocument();
     expect(screen.getByText('The core is ready.')).toBeInTheDocument();
   });
 
@@ -76,10 +80,7 @@ describe('<SystemDiagnostics /> doctor report', () => {
 
     await waitFor(() => {
       expect(callCoreRpc).toHaveBeenCalledWith(
-        expect.objectContaining({
-          method: 'openhuman.doctor_report',
-          params: { tier: 'live' },
-        })
+        expect.objectContaining({ method: 'openhuman.doctor_report', params: { tier: 'live' } })
       );
     });
   });

@@ -713,7 +713,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': '開発者向けと診断',
   'devOptions.doctor.run': '診断を実行',
   'devOptions.doctor.runLive': 'ライブチェックを実行',
-  'devOptions.doctor.liveWarning': 'ライブチェックではモデルまたは埋め込みの呼び出しにトークンを消費する場合があります。続行しますか？',
+  'devOptions.doctor.liveWarning':
+    'ライブチェックではモデルまたは埋め込みの呼び出しにトークンを消費する場合があります。続行しますか？',
   'devOptions.doctor.severity.pass': '合格',
   'devOptions.doctor.severity.info': '情報',
   'devOptions.doctor.severity.warn': '警告',

@@ -673,7 +673,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'Разработчик и Диагностика',
   'devOptions.doctor.run': 'Запустить диагностику',
   'devOptions.doctor.runLive': 'Запустить проверки в реальном времени',
-  'devOptions.doctor.liveWarning': 'Проверки в реальном времени могут расходовать токены при вызовах модели или эмбеддингов. Продолжить?',
+  'devOptions.doctor.liveWarning':
+    'Проверки в реальном времени могут расходовать токены при вызовах модели или эмбеддингов. Продолжить?',
   'devOptions.doctor.severity.pass': 'Пройдено',
   'devOptions.doctor.severity.info': 'Информация',
   'devOptions.doctor.severity.warn': 'Предупреждение',

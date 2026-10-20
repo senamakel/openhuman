@@ -650,7 +650,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'المطور والتشخيص',
   'devOptions.doctor.run': 'تشغيل الفحص',
   'devOptions.doctor.runLive': 'تشغيل الفحوصات المباشرة',
-  'devOptions.doctor.liveWarning': 'قد تستهلك الفحوصات المباشرة رموزًا عند اختبار استدعاءات النماذج أو التضمين. هل تريد المتابعة؟',
+  'devOptions.doctor.liveWarning':
+    'قد تستهلك الفحوصات المباشرة رموزًا عند اختبار استدعاءات النماذج أو التضمين. هل تريد المتابعة؟',
   'devOptions.doctor.severity.pass': 'ناجح',
   'devOptions.doctor.severity.info': 'معلومات',
   'devOptions.doctor.severity.warn': 'تحذير',

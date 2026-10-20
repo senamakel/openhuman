@@ -677,7 +677,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'Deweloper i Diagnostyka',
   'devOptions.doctor.run': 'Uruchom diagnostykę',
   'devOptions.doctor.runLive': 'Uruchom testy na żywo',
-  'devOptions.doctor.liveWarning': 'Testy na żywo mogą zużywać tokeny podczas wywołań modeli lub embeddingów. Kontynuować?',
+  'devOptions.doctor.liveWarning':
+    'Testy na żywo mogą zużywać tokeny podczas wywołań modeli lub embeddingów. Kontynuować?',
   'devOptions.doctor.severity.pass': 'Zaliczone',
   'devOptions.doctor.severity.info': 'Informacje',
   'devOptions.doctor.severity.warn': 'Ostrzeżenie',

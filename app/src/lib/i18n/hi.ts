@@ -665,7 +665,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'डेवलपर और डायग्नोस्टिक्स',
   'devOptions.doctor.run': 'डायग्नोस्टिक्स चलाएँ',
   'devOptions.doctor.runLive': 'लाइव जाँच चलाएँ',
-  'devOptions.doctor.liveWarning': 'लाइव जाँच मॉडल या एम्बेडिंग कॉल पर टोकन खर्च कर सकती है। जारी रखें?',
+  'devOptions.doctor.liveWarning':
+    'लाइव जाँच मॉडल या एम्बेडिंग कॉल पर टोकन खर्च कर सकती है। जारी रखें?',
   'devOptions.doctor.severity.pass': 'पास',
   'devOptions.doctor.severity.info': 'जानकारी',
   'devOptions.doctor.severity.warn': 'चेतावनी',

@@ -674,7 +674,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'Developer & Diagnostik',
   'devOptions.doctor.run': 'Jalankan diagnosis',
   'devOptions.doctor.runLive': 'Jalankan pemeriksaan langsung',
-  'devOptions.doctor.liveWarning': 'Pemeriksaan langsung dapat menggunakan token untuk panggilan model atau embedding. Lanjutkan?',
+  'devOptions.doctor.liveWarning':
+    'Pemeriksaan langsung dapat menggunakan token untuk panggilan model atau embedding. Lanjutkan?',
   'devOptions.doctor.severity.pass': 'Lulus',
   'devOptions.doctor.severity.info': 'Info',
   'devOptions.doctor.severity.warn': 'Peringatan',

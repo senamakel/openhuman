@@ -656,7 +656,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': '개발자 및 진단',
   'devOptions.doctor.run': '진단 실행',
   'devOptions.doctor.runLive': '라이브 검사 실행',
-  'devOptions.doctor.liveWarning': '라이브 검사는 모델 또는 임베딩 호출에 토큰을 사용할 수 있습니다. 계속할까요?',
+  'devOptions.doctor.liveWarning':
+    '라이브 검사는 모델 또는 임베딩 호출에 토큰을 사용할 수 있습니다. 계속할까요?',
   'devOptions.doctor.severity.pass': '통과',
   'devOptions.doctor.severity.info': '정보',
   'devOptions.doctor.severity.warn': '경고',

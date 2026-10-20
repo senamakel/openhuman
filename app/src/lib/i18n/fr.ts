@@ -686,7 +686,8 @@ const messages: TranslationMap = {
   'devOptions.titleDiagnostics': 'Développeur et Diagnostics',
   'devOptions.doctor.run': 'Lancer le diagnostic',
   'devOptions.doctor.runLive': 'Lancer les vérifications en direct',
-  'devOptions.doctor.liveWarning': 'Les vérifications en direct peuvent consommer des jetons lors des appels de modèle ou d’intégration. Continuer ?',
+  'devOptions.doctor.liveWarning':
+    'Les vérifications en direct peuvent consommer des jetons lors des appels de modèle ou d’intégration. Continuer ?',
   'devOptions.doctor.severity.pass': 'Réussi',
   'devOptions.doctor.severity.info': 'Info',
   'devOptions.doctor.severity.warn': 'Avertissement',

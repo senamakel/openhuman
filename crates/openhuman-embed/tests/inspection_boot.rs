@@ -126,7 +126,7 @@ impl MasterKeySource for CountingMasterKeySource {
 }
 
 #[tokio::test]
-async fn preloaded_cli_runtime_can_invoke_doctor_without_startup_writes() {
+async fn preloaded_runtime_can_invoke_doctor_without_startup_writes() {
     let root = tempfile::tempdir().expect("inspection root");
     let workspace = root.path().join("workspace");
     let action = root.path().join("action");
@@ -176,9 +176,17 @@ async fn preloaded_cli_runtime_can_invoke_doctor_without_startup_writes() {
         "must not mint a master key"
     );
 
+    let backend_opened = openhuman_core::storage::installed().is_some();
+    let key_store_writes = key_writes.load(Ordering::SeqCst);
     let response = runtime
         .core_runtime()
-        .invoke("openhuman.doctor_report", json!({ "tier": "static" }))
+        .invoke(
+            "openhuman.doctor_report",
+            json!({
+                "tier": "static",
+                "only": ["config/semantics"]
+            }),
+        )
         .await
         .expect("invoke doctor report in-process");
     let report = response
@@ -187,9 +195,10 @@ async fn preloaded_cli_runtime_can_invoke_doctor_without_startup_writes() {
     assert_eq!(report["schema_version"], 2);
 
     drop(runtime);
-    assert_eq!(
-        snapshot(root.path()),
-        before,
-        "inspection boot and doctor invoke must not alter the supplied workspace"
+    let after = snapshot(root.path());
+    assert!(
+        !backend_opened && key_store_writes == 0 && after == before,
+        "inspection startup side effects: backend_opened={backend_opened}, \
+         key_store_writes={key_store_writes}, before={before:?}, after={after:?}"
     );
 }

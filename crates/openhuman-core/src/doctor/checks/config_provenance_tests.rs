@@ -72,6 +72,12 @@ async fn environment_override_warns_when_the_file_explicitly_sets_the_field() {
 #[test]
 fn context_value_source_maps_logical_paths_without_labeling_filesystem_paths() {
     let mut config = Config::default();
+    let document = toml::from_str::<toml::Value>(r#"default_model = "file-model-secret""#)
+        .expect("test config document parses");
+    config.load_provenance_mut().record_file_keys(&document);
+    config
+        .load_provenance_mut()
+        .record_cli_override("chat_provider");
     config.load_provenance_mut().record_env_override(
         "modules.overrides[].source",
         "OPENHUMAN_MODULE_SOURCE",
@@ -85,6 +91,14 @@ fn context_value_source_maps_logical_paths_without_labeling_filesystem_paths() {
     );
     assert_eq!(
         ctx.value_source_for("default_model"),
+        Some(ValueSource::File)
+    );
+    assert_eq!(
+        ctx.value_source_for("chat_provider"),
+        Some(ValueSource::Cli)
+    );
+    assert_eq!(
+        ctx.value_source_for("output_language"),
         Some(ValueSource::Default)
     );
     assert_eq!(ctx.value_source_for("/var/lib/openhuman/config.toml"), None);

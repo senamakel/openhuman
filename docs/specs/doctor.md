@@ -46,9 +46,9 @@ DoctorCheck {
 ```
 
 Ids are lowercase ASCII segments separated by `/`, with at least an area and
-name (`area/name`). Each segment starts with a lowercase letter or digit and
-continues with lowercase letters, digits, `_`, or `-`. Additional segments are
-allowed for checks scoped to a role or provider, such as
+name (`area/name`). Each segment is nonempty and contains only lowercase ASCII
+letters, digits, `_`, or `-`. Additional segments are allowed for checks
+scoped to a role or provider, such as
 `inference/live/chat`. They are API identifiers used by `--only`, `--skip`, the
 RPC filters, and downstream consumers. Once released, an id is never renamed
 or reused for different behavior; a replacement gets a new id and the old one

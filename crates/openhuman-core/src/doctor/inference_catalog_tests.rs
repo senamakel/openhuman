@@ -665,7 +665,7 @@ async fn doctor_models_classifies_provider_401_as_auth_or_access() {
 
 #[tokio::test]
 async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
-    let (endpoint, _server) =
+    let (endpoint, server) =
         spawn_catalog_server(StatusCode::OK, catalog_body(&["present-model"]), true).await;
     let (_temp, mut config) =
         config_for_catalog(endpoint, "p_doctor_497_missing", "doctor-497-missing");
@@ -674,17 +674,40 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
         hint: "coding".into(),
         model: "doctor-497-missing:missing-route-model".into(),
     });
-
-    let report = doctor_report_with_options(
-        &config,
-        DoctorOptions {
-            only: vec!["inference/model-in-catalog".into()],
-            ..DoctorOptions::default()
-        },
-    )
+    let extensions = crate::core::slots::Extensions::new();
+    let catalog_calls = register_test_inspection_catalog(
+        &extensions,
+        "doctor-497-missing",
+        format!("{}/models", config.cloud_providers[0].endpoint),
+    );
+    let context = profile_context_with_extensions(
+        config.clone(),
+        "doctor-profile-b",
+        extensions,
+    );
+    let (catalog, report) = crate::core::runtime::CoreContext::scope(context, async {
+        let catalog = doctor_models(&config, true).await?;
+        let report = doctor_report_with_options(
+            &config,
+            DoctorOptions {
+                only: vec!["inference/model-in-catalog".into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await?;
+        Ok::<_, String>((catalog, report))
+    })
     .await
-    .expect("model catalog findings should be returned as doctor findings");
+    .expect("selected profile scope")
+    .expect("model catalog and v2 check results");
 
+    assert_eq!(catalog.value.entries[0].outcome, ModelProbeOutcome::Ok);
+    assert_eq!(report.value.profile.as_deref(), Some("doctor-profile-b"));
+    assert!(report
+        .value
+        .checks_run
+        .iter()
+        .any(|id| id == "inference/model-in-catalog"));
     let missing_default = report.value.findings.iter().find(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Warn
@@ -702,23 +725,29 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
         !finding.message.contains("missing-default")
             && !finding.message.contains("missing-route-model")
     }));
+    assert_eq!(catalog_calls.load(Ordering::SeqCst), 1);
+    assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
 async fn recorded_provider_auth_errors_are_reported_as_errors() {
     let provider = "doctor-497-auth-error-fixture";
     crate::inference::auth_error_registry::clear(provider);
-    crate::inference::auth_error_registry::record(provider, 401);
     let (_temp, config) = temporary_config();
-    let report = doctor_report_with_options(
+    crate::core::runtime::CoreContext::scope(
+        profile_context(config.clone(), "doctor-auth-error-profile"),
+        async { crate::inference::auth_error_registry::record(provider, 401) },
+    )
+    .await;
+    let report = report_for_profile(
         &config,
+        "doctor-auth-error-profile",
         DoctorOptions {
             only: vec!["inference/auth-errors".into()],
             ..DoctorOptions::default()
         },
     )
-    .await
-    .expect("the auth-error check should return a doctor finding");
+    .await;
     crate::inference::auth_error_registry::clear(provider);
 
     assert!(report.value.findings.iter().any(|finding| {

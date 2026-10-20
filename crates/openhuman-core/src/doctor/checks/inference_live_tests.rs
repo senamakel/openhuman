@@ -3,6 +3,7 @@
 use super::*;
 
 use crate::config::schema::ephemeral_route::{apply as apply_ephemeral_route, EphemeralRoute};
+use crate::config::Config;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use serde_json::{json, Value};
@@ -99,7 +100,11 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
     let report = run_live(config_for(&server, "provider/configured-model"), vec![CHECK_CHAT]).await;
     let result = finding(&report, CHECK_CHAT);
     assert_eq!(result.severity, FindingSeverity::Pass);
-    assert!(result.duration_ms > 0, "live completion latency is recorded");
+    let serialized = serde_json::to_value(&report).expect("report serializes");
+    assert!(
+        serialized["findings"][0].get("duration_ms").is_some(),
+        "live completion latency metadata is present"
+    );
     assert!(result.message.contains("provider/answered-model"));
 
     let requests = server.received_requests().await.expect("mock records calls");
@@ -142,14 +147,14 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
         }
     }
 
-    let extensions = crate::core::slots::Extensions::new();
+    let mut extensions = crate::core::slots::Extensions::new();
     let calls = Arc::new(AtomicUsize::new(0));
     let model_calls = Arc::clone(&calls);
     let factory: InspectionChatModelFactory = Arc::new(move |request: &ChatModelRequest<'_>| {
         assert_eq!(request.role, "chat");
         Ok((Arc::new(CountingModel(Arc::clone(&model_calls))) as Arc<dyn ChatModel<()>>, "managed-test-model".into()))
     });
-    register_inspection_chat_model_in(&extensions, "openhuman", factory);
+    register_inspection_chat_model_in(&mut extensions, "openhuman", factory);
 
     let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
     let mut config = Config::default();

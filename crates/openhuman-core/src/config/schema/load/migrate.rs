@@ -1,5 +1,16 @@
 use super::super::Config;
 
+/// Applies the in-memory migrations that normalize a parsed config before
+/// environment overlays and persistent schema migrations. This helper does
+/// not read config files or persist any of its changes.
+pub(crate) fn apply_loaded_config_migrations(config: &mut Config, raw: &str) {
+    migrate_legacy_inference_url(config);
+    migrate_legacy_memory_backend(config, raw);
+    migrate_components(config, raw);
+    migrate_cloud_provider_slugs(config);
+    migrate_search_settings(config);
+}
+
 pub(crate) fn migrate_legacy_inference_url(config: &mut Config) {
     if config.inference_url.is_some() {
         return;

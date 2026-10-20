@@ -4,6 +4,7 @@ mod contract;
 mod core;
 mod legacy;
 pub mod ops;
+pub mod profile;
 pub mod registry;
 mod runner;
 mod schemas;

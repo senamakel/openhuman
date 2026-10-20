@@ -222,3 +222,7 @@ impl DoctorCheckSource for ProfileDoctorCheckSource {
 pub(crate) fn register_check_source(host: Arc<ProfileHost>) {
     crate::doctor::register_check_source(ProfileDoctorCheckSource { host });
 }
+
+#[cfg(test)]
+#[path = "doctor_tests.rs"]
+mod tests;

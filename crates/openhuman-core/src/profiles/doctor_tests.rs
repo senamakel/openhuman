@@ -1,8 +1,9 @@
 //! SaaS doctor selection fixtures. This module is included by
 //! `profiles::doctor` when the tenant resolver lands.
 
-use super::{resolve_with_loader, DoctorCaller};
-use super::{profile_provisioned_finding, TenantProfileState};
+use super::{
+    profile_provisioned_finding, resolve_with_loader, DoctorCaller, DoctorProfileState,
+};
 use crate::config::Config;
 use crate::core::runtime::ComponentSet;
 use crate::doctor::{DoctorConfigSource, DoctorCtx};
@@ -227,7 +228,7 @@ async fn malformed_profile_ids_are_rejected_before_tenant_reads() {
 
 #[test]
 fn an_unprovisioned_profile_is_a_safe_profile_provisioned_error() {
-    let finding = profile_provisioned_finding(TenantProfileState::Unprovisioned);
+    let finding = profile_provisioned_finding(DoctorProfileState::Unprovisioned);
 
     assert_eq!(finding.check_id, "profile/provisioned");
     assert_eq!(finding.severity, FindingSeverity::Error);
@@ -238,7 +239,7 @@ fn an_unprovisioned_profile_is_a_safe_profile_provisioned_error() {
 
 #[test]
 fn a_profile_held_by_another_node_is_reported_without_holder_details() {
-    let finding = profile_provisioned_finding(TenantProfileState::HeldElsewhere);
+    let finding = profile_provisioned_finding(DoctorProfileState::HeldElsewhere);
 
     assert_eq!(finding.check_id, "profile/provisioned");
     assert_eq!(finding.severity, FindingSeverity::Error);

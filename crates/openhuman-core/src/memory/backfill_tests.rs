@@ -54,7 +54,7 @@ async fn seed_thread(workspace: &Path, thread_id: &str, messages: &[(&str, &str)
 async fn wait_done(config: &Config) -> BackfillView {
     for _ in 0..200 {
         let view = status(&DispatchCtx::ambient(), config).await.unwrap();
-        if view.state.phase != ImportPhase::Running {
+        if view.state.phase != BackfillPhase::Running {
             return view;
         }
         tokio::time::sleep(Duration::from_millis(20)).await;
@@ -132,7 +132,7 @@ async fn stores_past_chats_once_and_skips_what_live_logging_took() {
     .await;
 
     let before = status(&DispatchCtx::ambient(), &config).await.unwrap();
-    assert_eq!(before.state.phase, ImportPhase::Idle);
+    assert_eq!(before.state.phase, BackfillPhase::Idle);
     assert_eq!((before.pending_threads, before.pending_turns), (2, 3));
 
     let started = start(
@@ -144,7 +144,7 @@ async fn stores_past_chats_once_and_skips_what_live_logging_took() {
     .unwrap();
     assert_eq!(started.state.threads_total, 2);
     let done = wait_done(&config).await;
-    assert_eq!(done.state.phase, ImportPhase::Done, "{:?}", done.state);
+    assert_eq!(done.state.phase, BackfillPhase::Done, "{:?}", done.state);
     assert_eq!(done.state.turns_stored, 3);
     assert_eq!(done.state.items_stored, 6);
     assert!(done.state.finished_at.is_some());
@@ -267,7 +267,7 @@ async fn batches_are_stored_accepted_and_the_last_one_visible() {
     .await
     .unwrap();
     let done = wait_done(&config).await;
-    assert_eq!(done.state.phase, ImportPhase::Done, "{:?}", done.state);
+    assert_eq!(done.state.phase, BackfillPhase::Done, "{:?}", done.state);
     assert_eq!(done.state.items_stored, 6);
 
     let waits = engine.waits.lock().unwrap().clone();

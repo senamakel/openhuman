@@ -1,14 +1,6 @@
 use super::*;
 use crate::memory::test_fixtures::config_in;
 
-struct LiveImportReservation(std::path::PathBuf);
-
-impl Drop for LiveImportReservation {
-    fn drop(&mut self) {
-        release(&self.0);
-    }
-}
-
 #[test]
 fn the_state_file_round_trips_through_the_atomic_store() {
     let tmp = tempfile::tempdir().unwrap();
@@ -50,8 +42,8 @@ fn a_running_state_with_no_live_run_reports_interrupted() {
     assert_eq!(state.phase, ImportPhase::Error);
     assert!(state.error.unwrap().contains("interrupted"));
     assert!(
-        in_progress(&config),
-        "an interrupted import still blocks organizing"
+        !in_progress(&config),
+        "a stale persisted Running phase is not a live import task"
     );
 }
 
@@ -143,9 +135,12 @@ async fn a_live_import_blocks_migration_and_does_not_make_a_stale_migration_look
     let config = config_in(&tmp);
     let host = Arc::new(FakeHost::with(2, &config).await);
     let workspace = config.workspace_dir.clone();
-    let _reservation = crate::memory::run_slots::IMPORT
-        .try_acquire(workspace.clone())
-        .expect("the test owns a live import slot");
+    let _reservation = crate::memory::run_slots::reserve(
+        &crate::memory::run_slots::IMPORT,
+        &workspace,
+        &[&crate::memory::run_slots::BACKFILL, &crate::memory::run_slots::MIGRATION],
+    )
+    .expect("the test owns a live import slot");
 
     let mut stale = state::load(&workspace).unwrap();
     stale.phase = Phase::Copying;
@@ -164,7 +159,7 @@ async fn a_live_import_blocks_migration_and_does_not_make_a_stale_migration_look
         ),
         "an active import prevents migration from reserving the workspace"
     );
-    assert!(!layout_migration::service::is_running(&config));
+    assert!(!layout_migration::ops::is_running(&config));
 }
 
 #[tokio::test]

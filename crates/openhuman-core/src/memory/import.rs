@@ -159,11 +159,15 @@ pub(crate) fn scheduler_paused() -> bool {
 /// Resumes an import the app quit in the middle of, if there is one, under
 /// the scheduler's pause and current billing policy.
 pub async fn resume_interrupted(ctx: &crate::core::runtime::DispatchCtx, config: &Config) -> bool {
+    let file = read_file(&config.workspace_dir);
+    let free = file.state.phase == ImportPhase::Error
+        && file.paused_for_credits
+        && super::billing::free_period_active(config).await;
     resume_interrupted_with(
         ctx,
         config,
         Arc::new(scheduler_paused),
-        Arc::new(|config| futures::executor::block_on(super::billing::free_period_active(config))),
+        Arc::new(move |_: &Config| free),
     )
     .await
 }

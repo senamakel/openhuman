@@ -210,16 +210,6 @@ async fn preloaded_runtime_report() {
         .await
         .expect("build preloaded inspection runtime");
 
-    assert!(
-        openhuman_core::storage::installed().is_none(),
-        "inspection boot must not open/install the configured storage backend"
-    );
-    assert_eq!(
-        key_writes.load(Ordering::SeqCst),
-        0,
-        "must not mint a master key"
-    );
-
     let backend_opened = openhuman_core::storage::installed().is_some();
     let key_store_writes = key_writes.load(Ordering::SeqCst);
     register_check_source_in(

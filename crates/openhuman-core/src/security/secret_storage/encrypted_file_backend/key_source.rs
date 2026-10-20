@@ -2,6 +2,15 @@
 
 use super::*;
 
+/// Whether an environment source is configured according to the same
+/// whitespace handling used before key parsing. Invalid Unicode is present
+/// and must remain an error, so it counts as configured here.
+pub(crate) fn env_source_is_configured(value: &std::ffi::OsStr) -> bool {
+    value
+        .to_str()
+        .map_or(true, |value| !value.trim().is_empty())
+}
+
 /// Only `NotPresent` means unset. Invalid Unicode must not fall through to the
 /// next source, where a new key could orphan the encrypted secrets.
 pub(super) fn env_value(
@@ -25,8 +34,12 @@ pub(super) fn master_key_from_env(
     file: Option<&str>,
     read_file: impl FnOnce(&Path) -> Result<String, String>,
 ) -> Result<Option<([u8; KEY_LEN], String)>, String> {
-    let inline = inline.map(str::trim).filter(|value| !value.is_empty());
-    let file = file.map(str::trim).filter(|value| !value.is_empty());
+    let inline = inline
+        .filter(|value| env_source_is_configured(std::ffi::OsStr::new(value)))
+        .map(str::trim);
+    let file = file
+        .filter(|value| env_source_is_configured(std::ffi::OsStr::new(value)))
+        .map(str::trim);
     match (inline, file) {
         (None, None) => Ok(None),
         (Some(_), Some(_)) => Err(format!(

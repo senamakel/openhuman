@@ -24,6 +24,23 @@ fn no_unwritten_daemon_state_check_is_registered() {
     );
 }
 
+#[test]
+fn live_embedding_and_memory_roundtrip_checks_are_registered_as_live() {
+    let checks = super::registry::registered_checks().expect("built-in checks are valid");
+
+    for id in ["embeddings/live", "memory/roundtrip"] {
+        let check = checks
+            .iter()
+            .find(|check| check.id() == id)
+            .unwrap_or_else(|| panic!("the live doctor check {id} must be registered"));
+        assert_eq!(
+            check.tier(),
+            DoctorTier::Live,
+            "{id} may run only when the doctor live tier is requested"
+        );
+    }
+}
+
 struct BlockingProbe {
     id: String,
     timeout: Duration,

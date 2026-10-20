@@ -345,7 +345,10 @@ pub fn load_dotenv_for_cli() -> Result<()> {
                 )
             })?;
             dotenvy::from_path(&path).map_err(|e| {
-                anyhow::anyhow!("failed to load dotenv from OPENHUMAN_DOTENV_PATH={path}: {e}")
+                anyhow::anyhow!(
+                    "failed to load dotenv from OPENHUMAN_DOTENV_PATH={}: {e}",
+                    path.display()
+                )
             })?;
             set_current_dotenv_load(Some(DotenvLoadProvenance::from_variables(
                 path,

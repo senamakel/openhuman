@@ -94,6 +94,18 @@ fn write_api_key_profile(root: &std::path::Path) {
     .expect("write fake API key profile");
 }
 
+fn drain_session_expiry(
+    receiver: &mut tinybus::EventReceiver<crate::core::events::DomainEvent>,
+) -> bool {
+    loop {
+        match receiver.try_recv() {
+            Ok(crate::core::events::DomainEvent::SessionExpired { .. }) => return true,
+            Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
+            Err(_) => return false,
+        }
+    }
+}
+
 #[tokio::test]
 async fn needs_key_is_a_warning_with_the_provider_config_key_in_its_hint() {
     let ambient = tempfile::tempdir().expect("create ambient config fixture");
@@ -209,6 +221,8 @@ async fn a_live_selected_b_session_enables_managed_search_without_refreshing_it(
         std::fs::read(&ambient_profile_path).unwrap(),
         ambient_profile_before
     );
+    assert!(!selected.path().join("auth-profiles.lock").exists());
+    assert!(!ambient.path().join("auth-profiles.lock").exists());
     assert!(!config_b.workspace_dir.exists());
 }
 
@@ -223,6 +237,13 @@ async fn an_expired_or_wrong_backend_session_does_not_make_managed_search_ready(
         .insert("exa".into(), SearchProviderSettings::managed());
     let profile_path = scratch.path().join("auth-profiles.json");
     let check = SearchProviderCheck::new("exa");
+    crate::core::bus::init()
+        .await
+        .expect("initialize event bus to observe forbidden expiry publication");
+    let mut events = crate::core::bus::BUS
+        .get()
+        .expect("event bus initialized")
+        .receiver();
     let missing = check
         .detect(&DoctorCtx::from_config(config.clone()))
         .await
@@ -248,13 +269,19 @@ async fn an_expired_or_wrong_backend_session_does_not_make_managed_search_ready(
     assert!(!expired.message.contains("doctor-fake-session-token"));
     assert!(!expired.fix_hint.trim().is_empty());
     assert_eq!(std::fs::read(&profile_path).unwrap(), expired_before);
+    assert!(!scratch.path().join("auth-profiles.lock").exists());
     assert!(!config.workspace_dir.exists());
+    assert!(
+        !drain_session_expiry(&mut events),
+        "doctor checks expiry without publishing a session-expired event"
+    );
 
     write_session_profile(
         scratch.path(),
         &(now + chrono::Duration::hours(1)).to_rfc3339(),
         "https://backend-a.example",
     );
+    let mismatch_before = std::fs::read(&profile_path).unwrap();
     let mismatched = check
         .detect(&DoctorCtx::from_config(config))
         .await
@@ -263,6 +290,7 @@ async fn an_expired_or_wrong_backend_session_does_not_make_managed_search_ready(
         .expect("wrong-backend session produces an advisory finding");
     assert_ne!(mismatched.severity, FindingSeverity::Pass);
     assert!(!mismatched.message.contains("doctor-fake-session-token"));
+    assert_eq!(std::fs::read(&profile_path).unwrap(), mismatch_before);
 }
 
 #[tokio::test]
@@ -285,6 +313,7 @@ async fn a_selected_api_key_is_a_valid_managed_credential() {
     assert_eq!(finding.severity, FindingSeverity::Pass);
     assert!(!finding.message.contains("doctor-fake-managed-api-key"));
     assert_eq!(std::fs::read(&profile_path).unwrap(), bytes_before);
+    assert!(!scratch.path().join("auth-profiles.lock").exists());
     assert!(!config.workspace_dir.exists());
 }
 

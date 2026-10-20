@@ -294,8 +294,8 @@ impl DoctorCtx {
     }
 
     /// Creates a context from a config and explicit component set without
-    /// consulting the ambient [`CoreContext`]. Use this for a selected
-    /// desktop profile whose config is already loaded by the caller.
+    /// consulting the ambient [`CoreContext`]. Use this when the caller has
+    /// already selected and loaded the profile context.
     pub fn from_config_with_components(config: Config, components: ComponentSet) -> Self {
         Self {
             config: Arc::new(config),

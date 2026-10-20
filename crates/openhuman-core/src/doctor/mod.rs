@@ -14,13 +14,13 @@ pub use contract::{
     DoctorSummary, DoctorTier, Finding, FindingSeverity, ValueSource,
 };
 pub use core::{
-    run, DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome, ModelProbeReport,
-    ModelProbeSummary, Severity,
+    DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome, ModelProbeReport,
+    ModelProbeSummary, Severity, run,
 };
 pub use core::{DoctorReport as LegacyDoctorReport, DoctorSummary as LegacyDoctorSummary};
 pub use ops as rpc;
 pub use ops::*;
-pub use registry::{register_check_source, register_check_source_in, DoctorCheckSource};
+pub use registry::{DoctorCheckSource, register_check_source, register_check_source_in};
 pub use schemas::{
     all_controller_schemas as all_doctor_controller_schemas,
     all_registered_controllers as all_doctor_registered_controllers,

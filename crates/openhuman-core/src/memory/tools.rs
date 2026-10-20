@@ -333,6 +333,9 @@ mod schema_tests;
 #[path = "tools_budget_tests.rs"]
 mod budget_tests;
 #[cfg(test)]
+#[path = "tool_budget_tests.rs"]
+mod native_budget_tests;
+#[cfg(test)]
 #[path = "tools_activity_tests.rs"]
 mod activity_tests;
 #[cfg(test)]

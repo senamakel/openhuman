@@ -7,6 +7,7 @@ use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
+use crate::config::schema::load::ProvenanceSource;
 use crate::core::runtime::{ComponentSet, CoreContext};
 
 use super::core::MemoryEngineCheck;
@@ -292,6 +293,23 @@ impl DoctorCtx {
         &self.config
     }
 
+    /// Returns the non-secret source for a logical config field path.
+    ///
+    /// Array indexes are normalized to the loader's `[]` notation. Filesystem
+    /// paths are rejected because they identify a source location, not a
+    /// resolved config value.
+    pub(crate) fn value_source_for(&self, logical_path: &str) -> Option<ValueSource> {
+        let path = normalize_logical_config_path(logical_path)?;
+        let source = self.config.load_provenance().field(&path).source;
+        Some(match source {
+            ProvenanceSource::Cli => ValueSource::Cli,
+            ProvenanceSource::Env => ValueSource::Env,
+            ProvenanceSource::Dotenv => ValueSource::Dotenv,
+            ProvenanceSource::File => ValueSource::File,
+            ProvenanceSource::Default => ValueSource::Default,
+        })
+    }
+
     /// The component switches for this run.
     pub fn components(&self) -> ComponentSet {
         self.components
@@ -309,6 +327,52 @@ impl DoctorCtx {
     pub(crate) fn memory_engine(&self) -> Option<&MemoryEngineCheck> {
         self.memory_engine.as_ref()
     }
+}
+
+fn normalize_logical_config_path(path: &str) -> Option<String> {
+    if path.is_empty()
+        || path.starts_with('.')
+        || path.contains('/')
+        || path.contains('\\')
+        || path.ends_with(".toml")
+        || path.ends_with(".env")
+    {
+        return None;
+    }
+
+    let mut normalized = String::with_capacity(path.len());
+    let mut chars = path.chars().peekable();
+    while let Some(character) = chars.next() {
+        match character {
+            '[' => {
+                let mut index = String::new();
+                loop {
+                    match chars.next()? {
+                        ']' => break,
+                        digit if digit.is_ascii_digit() => index.push(digit),
+                        _ => return None,
+                    }
+                }
+                normalized.push_str("[]");
+            }
+            ']' => return None,
+            character
+                if character.is_ascii_alphanumeric()
+                    || matches!(character, '_' | '-' | '.') =>
+            {
+                normalized.push(character);
+            }
+            _ => return None,
+        }
+    }
+
+    if normalized.starts_with('.')
+        || normalized.ends_with('.')
+        || normalized.contains("..")
+    {
+        return None;
+    }
+    Some(normalized)
 }
 
 /// Exact-id and tier filters for one report run.

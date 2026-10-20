@@ -4,9 +4,7 @@ use async_trait::async_trait;
 
 use crate::config::schema::load::ProvenanceSource;
 
-use super::super::contract::{
-    DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity, ValueSource,
-};
+use super::super::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 
 const CATEGORY: &str = "configuration";
 
@@ -31,13 +29,13 @@ impl DoctorCheck for EnvironmentOverrideCheck {
             .load_provenance()
             .fields()
             .filter_map(|(path, provenance)| {
-                let source = match provenance.source {
-                    ProvenanceSource::Env => ValueSource::Env,
-                    ProvenanceSource::Dotenv => ValueSource::Dotenv,
-                    ProvenanceSource::Cli | ProvenanceSource::File | ProvenanceSource::Default => {
-                        return None;
-                    }
-                };
+                if !matches!(
+                    provenance.source,
+                    ProvenanceSource::Env | ProvenanceSource::Dotenv
+                ) {
+                    return None;
+                }
+                let source = ctx.value_source_for(path)?;
                 let env_var = provenance.env_var.as_deref()?;
                 let severity = if provenance.file_also_set {
                     FindingSeverity::Warn

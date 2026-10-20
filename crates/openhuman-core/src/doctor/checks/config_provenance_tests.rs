@@ -1,7 +1,9 @@
 use crate::config::Config;
 use crate::config::schema::load::{DotenvLoadProvenance, ProvenanceSource};
 
-use super::contract::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
+use super::contract::{
+    DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity, ValueSource,
+};
 use super::runner;
 
 const ENV_OVERRIDE: &str = "config/env-override";
@@ -55,10 +57,30 @@ async fn environment_override_warns_when_the_file_explicitly_sets_the_field() {
     );
     assert_eq!(matching[0].severity, FindingSeverity::Warn);
     assert_eq!(matching[0].config_path.as_deref(), Some("default_model"));
+    assert_eq!(matching[0].value_source, Some(ValueSource::Env));
     assert!(matching[0].message.contains("OPENHUMAN_DEFAULT_MODEL"));
     let serialized = serde_json::to_string(&matching).expect("finding serializes");
     assert!(!serialized.contains("resolved-model-secret"));
     assert!(!serialized.contains("file-model-secret"));
+}
+
+#[test]
+fn context_value_source_maps_logical_paths_without_labeling_filesystem_paths() {
+    let mut config = Config::default();
+    config.load_provenance_mut().record_env_override(
+        "modules.overrides[].source",
+        "OPENHUMAN_MODULE_SOURCE",
+        ProvenanceSource::Dotenv,
+    );
+    let ctx = DoctorCtx::from_config(config);
+
+    assert_eq!(
+        ctx.value_source_for("modules.overrides[2].source"),
+        Some(ValueSource::Dotenv)
+    );
+    assert_eq!(ctx.value_source_for("default_model"), Some(ValueSource::Default));
+    assert_eq!(ctx.value_source_for("/var/lib/openhuman/config.toml"), None);
+    assert_eq!(ctx.value_source_for("config.toml"), None);
 }
 
 #[tokio::test]

@@ -12,7 +12,7 @@ pub mod tools;
 
 pub use contract::{
     ComponentId, DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport,
-    DoctorProfileStatus, DoctorSummary, DoctorTier, Finding, FindingSeverity, ValueSource,
+    DoctorSummary, DoctorTier, Finding, FindingSeverity, ValueSource,
 };
 pub use core::{
     run, run_models, DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome,

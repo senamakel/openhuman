@@ -6,9 +6,10 @@
 use crate::config::Config;
 use crate::core::{Outcome, runtime::{ComponentSet, CoreContext, DispatchCtx}};
 use crate::doctor::{
-    self, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorProfileStatus, DoctorReport,
+    self, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport,
     DoctorSummary, DoctorTier, Finding, MemoryEngineCheck, ModelProbeReport,
 };
+use super::contract::DoctorProfileStatus;
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
     doctor_report_with_options(config, DoctorOptions::default()).await
@@ -128,9 +129,7 @@ fn profile_error_outcome(
 }
 
 fn safe_profile_id(profile_id: &str) -> Option<String> {
-    (!profile_id.is_empty()
-        && !profile_id.chars().any(char::is_control)
-        && !profile_id.contains(['/', '\\']))
+    super::profile::is_profile_path_segment(profile_id)
     .then(|| profile_id.to_owned())
 }
 

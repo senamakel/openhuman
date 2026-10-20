@@ -33,15 +33,6 @@ pub(crate) enum DesktopProfileError {
 }
 
 impl DesktopProfileError {
-    pub(crate) fn status(self) -> DoctorProfileStatus {
-        match self {
-            Self::InvalidId => DoctorProfileStatus::InvalidConfig,
-            Self::Missing => DoctorProfileStatus::Missing,
-            Self::UnknownLayoutMarker => DoctorProfileStatus::UnknownLayoutMarker,
-            Self::InvalidConfig => DoctorProfileStatus::InvalidConfig,
-        }
-    }
-
     pub(crate) fn message(self) -> &'static str {
         match self {
             Self::InvalidId => "The selected profile id is invalid.",
@@ -65,12 +56,16 @@ pub(crate) async fn load_desktop_profile(
     }
 
     let dir = ProfileLayout::new(root, id).dir;
-    let metadata = tokio::fs::metadata(&dir)
-        .await
-        .map_err(|error| match error.kind() {
-            std::io::ErrorKind::NotFound => DesktopProfileError::Missing,
-            _ => DesktopProfileError::Missing,
-        })?;
+    let metadata = tokio::fs::metadata(&dir).await.map_err(|error| {
+        if matches!(
+            error.kind(),
+            std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
+        ) {
+            DesktopProfileError::Missing
+        } else {
+            DesktopProfileError::InvalidConfig
+        }
+    })?;
     if !metadata.is_dir() {
         return Err(DesktopProfileError::Missing);
     }
@@ -116,7 +111,7 @@ pub(crate) fn id_for_config(config: &Config) -> Option<String> {
     is_profile_path_segment(id).then(|| id.to_owned())
 }
 
-fn is_profile_path_segment(id: &str) -> bool {
+pub(crate) fn is_profile_path_segment(id: &str) -> bool {
     if id.is_empty() || id.chars().any(char::is_control) || id.contains(['/', '\\']) {
         return false;
     }

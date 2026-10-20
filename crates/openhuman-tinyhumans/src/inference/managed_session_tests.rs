@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn the_offline_local_session_cannot_authenticate_managed_inference() {
     use openhuman_embed::__host::security::credentials::session_support::{
-        SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+        LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SessionTokenCheck,
     };
 
     let error = managed_bearer(SessionTokenCheck::Live("header.payload.local".to_string()))
@@ -103,7 +103,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     use openhuman_embed::__host::core::events::DomainEvent;
     use openhuman_embed::__host::inference_registry::ChatModelRequest;
     use openhuman_embed::__host::security::credentials::{
-        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+        APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
     };
     use openhuman_embed::__host::security::egress::EgressLedger;
     use tinyinference_llm::message::Message;
@@ -160,7 +160,10 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
         .invoke(&(), ModelRequest::new(vec![Message::user("probe")]))
         .await
         .expect_err("mock 401 should surface as a provider failure");
-    assert!(matches!(invoke_error, tinyinference_llm::Error::Provider(_)));
+    assert!(matches!(
+        invoke_error,
+        tinyinference_llm::Error::Provider(_)
+    ));
     assert_eq!(
         std::fs::read(&auth_profile_path).expect("read auth profile after invoke"),
         profile_before,
@@ -178,7 +181,10 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     assert!(
         items.iter().any(|item| matches!(
             item,
-            ModelStreamItem::ProviderFailed(ProviderError { status: Some(401), .. })
+            ModelStreamItem::ProviderFailed(ProviderError {
+                status: Some(401),
+                ..
+            })
         )),
         "mock SSE should produce an in-band 401: {items:#?}"
     );
@@ -217,7 +223,9 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
             }),
         );
         tokio::spawn(async move {
-            axum::serve(listener, app).await.expect("serve loopback mock");
+            axum::serve(listener, app)
+                .await
+                .expect("serve loopback mock");
         });
         addr.to_string()
     }
@@ -231,9 +239,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
         }
     }
 
-    fn assert_no_session_expired(
-        receiver: &mut tinybus::events::EventReceiver<DomainEvent>,
-    ) {
+    fn assert_no_session_expired(receiver: &mut tinybus::events::EventReceiver<DomainEvent>) {
         loop {
             match receiver.try_recv() {
                 Ok(DomainEvent::SessionExpired { source, reason }) => {

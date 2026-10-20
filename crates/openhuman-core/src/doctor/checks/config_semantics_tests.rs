@@ -42,6 +42,13 @@ fn workspace_entries(root: &std::path::Path) -> Vec<std::path::PathBuf> {
     entries
 }
 
+fn record_file_provenance(config: &mut Config, source: &str) {
+    let document = source.parse::<toml::Value>().expect("valid TOML fixture");
+    config
+        .load_provenance_mut()
+        .record_file_keys(&document);
+}
+
 #[tokio::test]
 async fn disabled_memory_component_warns_when_an_engine_is_configured() {
     let mut config = Config::default();
@@ -53,6 +60,52 @@ async fn disabled_memory_component_warns_when_an_engine_is_configured() {
     let warning = finding(&findings, FindingSeverity::Warn);
     assert_eq!(warning.config_path.as_deref(), Some("memory.engine"));
     assert!(!warning.message.contains("cortexdb"));
+}
+
+#[tokio::test]
+async fn disabled_memory_component_warns_when_the_default_engine_was_explicitly_set() {
+    let mut config = Config::default();
+    config.components.memory = false;
+    config.memory.engine = crate::config::schema::memory::DEFAULT_MEMORY_ENGINE.into();
+    record_file_provenance(
+        &mut config,
+        "[components]\nmemory = false\n[memory]\nengine = \"tinyhumans\"",
+    );
+
+    let findings = run_check(config, "components/referenced-but-disabled").await;
+
+    let warning = finding(&findings, FindingSeverity::Warn);
+    assert_eq!(warning.config_path.as_deref(), Some("memory.engine"));
+}
+
+#[tokio::test]
+async fn disabled_memory_component_ignores_an_implicit_default_engine() {
+    let mut config = Config::default();
+    config.components.memory = false;
+    record_file_provenance(&mut config, "[components]\nmemory = false");
+
+    let findings = run_check(config, "components/referenced-but-disabled").await;
+
+    assert!(!findings
+        .iter()
+        .any(|finding| finding.severity == FindingSeverity::Warn));
+}
+
+#[tokio::test]
+async fn disabled_memory_component_does_not_warn_for_explicit_none_engine() {
+    let mut config = Config::default();
+    config.components.memory = false;
+    config.memory.engine = "none".into();
+    record_file_provenance(
+        &mut config,
+        "[components]\nmemory = false\n[memory]\nengine = \"none\"",
+    );
+
+    let findings = run_check(config, "components/referenced-but-disabled").await;
+
+    assert!(!findings
+        .iter()
+        .any(|finding| finding.severity == FindingSeverity::Warn));
 }
 
 #[tokio::test]
@@ -125,6 +178,20 @@ async fn missing_storage_driver_is_reported_without_opening_the_backend() {
     }
     #[cfg(feature = "storage-mongodb")]
     assert!(findings.iter().any(|finding| finding.severity == FindingSeverity::Pass));
+}
+
+#[cfg(not(feature = "storage-sqlite"))]
+#[tokio::test]
+async fn sqlite_is_not_reported_missing_when_only_the_core_marker_is_off() {
+    let _environment = EnvVarGuard::locked_unset_async(crate::storage::STORAGE_URL_VAR).await;
+    let mut config = Config::default();
+    config.storage.url = Some("sqlite:/doctor-check-only/storage".into());
+
+    let findings = run_check(config, "storage/url").await;
+
+    assert!(findings
+        .iter()
+        .any(|finding| finding.severity == FindingSeverity::Pass));
 }
 
 #[tokio::test]
@@ -202,6 +269,24 @@ async fn both_master_key_environment_sources_are_reported_without_initializing_k
     assert_eq!(workspace_entries(workspace.path()), entries_before);
     assert!(!supplied_key_file.exists());
     assert!(!workspace.path().join("keyring/master.key").exists());
+}
+
+#[tokio::test]
+async fn empty_master_key_environment_sources_are_treated_as_unset() {
+    use crate::security::secret_storage::encrypted_file_backend::{
+        MASTER_KEY_ENV, MASTER_KEY_FILE_ENV,
+    };
+
+    let _environment = EnvVarGuard::locked_unset_many_async(&[MASTER_KEY_ENV, MASTER_KEY_FILE_ENV])
+        .await
+        .with(MASTER_KEY_ENV, " \t ")
+        .with(MASTER_KEY_FILE_ENV, "\r\n ");
+
+    let findings = run_check(Config::default(), "secrets/master-key-env").await;
+
+    assert!(findings
+        .iter()
+        .any(|finding| finding.severity == FindingSeverity::Pass));
 }
 
 #[tokio::test]

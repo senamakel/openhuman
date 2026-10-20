@@ -461,9 +461,9 @@ fn storage_driver_error(check_id: &str, feature: &'static str) -> Finding {
 fn missing_storage_feature(config: &StorageConfig) -> Option<&'static str> {
     match config {
         StorageConfig::Memory | StorageConfig::File { .. } => None,
-        StorageConfig::Sqlite { .. } => {
-            (!cfg!(feature = "storage-sqlite")).then_some("storage-sqlite")
-        }
+        // The dependency enables SQLite unconditionally, so this core marker
+        // does not represent whether the normal opener can use the driver.
+        StorageConfig::Sqlite { .. } => None,
         StorageConfig::MongoDb { .. } => {
             (!cfg!(feature = "storage-mongodb")).then_some("storage-mongodb")
         }
@@ -507,8 +507,17 @@ fn master_key_env() -> Vec<Finding> {
         MASTER_KEY_ENV, MASTER_KEY_FILE_ENV,
     };
 
-    if std::env::var_os(MASTER_KEY_ENV).is_some() && std::env::var_os(MASTER_KEY_FILE_ENV).is_some()
-    {
+    let inline_is_configured = std::env::var_os(MASTER_KEY_ENV)
+        .as_deref()
+        .is_some_and(
+            crate::security::secret_storage::encrypted_file_backend::key_source::env_source_is_configured,
+        );
+    let file_is_configured = std::env::var_os(MASTER_KEY_FILE_ENV)
+        .as_deref()
+        .is_some_and(
+            crate::security::secret_storage::encrypted_file_backend::key_source::env_source_is_configured,
+        );
+    if inline_is_configured && file_is_configured {
         return vec![finding(
             MASTER_KEY_ENV_ID,
             FindingSeverity::Error,

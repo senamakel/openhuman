@@ -2,11 +2,11 @@
 //! reasoning and thread extensions, usage projection and failure observation.
 
 use async_trait::async_trait;
+use tinyinference_llm::Error as TiError;
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
     ProviderError,
 };
-use tinyinference_llm::Error as TiError;
 
 use super::managed_model::OpenHumanBackendModel;
 use super::managed_reasoning::{apply_reasoning_hint, with_thread_id};
@@ -52,9 +52,15 @@ pub(super) fn log_managed_provider_error(pe: &ProviderError, operation: &str) {
 /// Gives a failure reported inside a stream the same handling as a failed
 /// `stream()` call: logged, and an expired session starts re-authentication.
 pub(super) fn observe_in_band_failure(item: &ModelStreamItem) {
+    observe_in_band_failure_with_session_publish(item, true);
+}
+
+fn observe_in_band_failure_with_session_publish(item: &ModelStreamItem, publish: bool) {
     if let ModelStreamItem::ProviderFailed(pe) = item {
         log_managed_provider_error(pe, "stream (in-band)");
-        maybe_publish_provider_session_expired(pe, "stream");
+        if publish {
+            maybe_publish_provider_session_expired(pe, "stream");
+        }
     }
 }
 
@@ -102,6 +108,7 @@ impl ChatModel<()> for OpenHumanBackendModel {
         state: &(),
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelResponse> {
+        let publish_session_expiry = !self.is_inspection_safe();
         let model = self.build_wire_model()?;
         let response = match model
             .invoke(
@@ -113,7 +120,9 @@ impl ChatModel<()> for OpenHumanBackendModel {
             Ok(response) => response,
             Err(e) => {
                 log_managed_dispatch_error(&e, "invoke");
-                maybe_publish_session_expired(&e, "invoke");
+                if publish_session_expiry {
+                    maybe_publish_session_expired(&e, "invoke");
+                }
                 return Err(e);
             }
         };
@@ -125,6 +134,7 @@ impl ChatModel<()> for OpenHumanBackendModel {
         state: &(),
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelStream> {
+        let publish_session_expiry = !self.is_inspection_safe();
         let model = self.build_wire_model()?;
         // The backend sends its charge on an `openhuman-metadata` frame before
         // `[DONE]`; the crate's SSE parser keeps that envelope on the terminal
@@ -139,8 +149,8 @@ impl ChatModel<()> for OpenHumanBackendModel {
         {
             // A failure can also arrive *inside* an HTTP 200 stream as an SSE
             // `{"error":…}` payload; it never reaches the `Err` arm (#6724).
-            Ok(stream) => Ok(stream.map_items(|item| {
-                observe_in_band_failure(&item);
+            Ok(stream) => Ok(stream.map_items(move |item| {
+                observe_in_band_failure_with_session_publish(&item, publish_session_expiry);
                 match item {
                     tinyinference_llm::model::ModelStreamItem::Completed(response) => {
                         tinyinference_llm::model::ModelStreamItem::Completed(project_managed_usage(
@@ -152,7 +162,9 @@ impl ChatModel<()> for OpenHumanBackendModel {
             })),
             Err(e) => {
                 log_managed_dispatch_error(&e, "stream");
-                maybe_publish_session_expired(&e, "stream");
+                if publish_session_expiry {
+                    maybe_publish_session_expired(&e, "stream");
+                }
                 Err(e)
             }
         }

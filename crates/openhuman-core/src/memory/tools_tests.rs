@@ -435,12 +435,10 @@ async fn learnings_are_shared_under_a_root_and_a_team_root_is_kept_apart() {
         "{}",
         forgot.text()
     );
-    assert!(
-        stored(&engine, MetaFilter::default())
-            .await
-            .iter()
-            .all(|hit| hit.meta.namespace != Namespace::agent("nobody"))
-    );
+    assert!(stored(&engine, MetaFilter::default())
+        .await
+        .iter()
+        .all(|hit| hit.meta.namespace != Namespace::agent("nobody")));
 }
 
 /// The reference engine, recording how far each single store waited.
@@ -687,4 +685,3 @@ async fn learning_is_durably_queued_even_when_the_backend_refuses_writes() {
     assert_eq!(value["status"], "queued; not yet saved to memory");
     assert_eq!(super::super::tool_writes::drain(&config).await, 0);
 }
-

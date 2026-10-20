@@ -21,7 +21,10 @@ async fn a_slow_memory_call_returns_and_disables_memory_only_for_its_turn() {
         budget.run(Some("turn-one"), async { "must not run" }).await,
         Err(Refusal::Denied(DenialReason::CircuitOpen))
     );
-    assert_eq!(budget.run(Some("turn-two"), async { "healthy" }).await, Ok("healthy"));
+    assert_eq!(
+        budget.run(Some("turn-two"), async { "healthy" }).await,
+        Ok("healthy")
+    );
 }
 
 #[tokio::test]
@@ -42,7 +45,10 @@ async fn successful_memory_churn_is_bounded_without_blocking_the_next_turn() {
         }
     }
     assert_eq!(calls.load(Ordering::SeqCst), 8);
-    assert_eq!(budget.run(Some("turn-two"), async { "healthy" }).await, Ok("healthy"));
+    assert_eq!(
+        budget.run(Some("turn-two"), async { "healthy" }).await,
+        Ok("healthy")
+    );
 }
 
 #[tokio::test(start_paused = true)]
@@ -133,7 +139,10 @@ async fn parallel_memory_reads_reserve_from_the_same_time_budget() {
 async fn completed_run_tracking_is_bounded() {
     let budget = budget();
     for i in 0..200 {
-        assert!(budget.run(Some(&format!("turn-{i}")), async { "ok" }).await.is_ok());
+        assert!(budget
+            .run(Some(&format!("turn-{i}")), async { "ok" })
+            .await
+            .is_ok());
     }
     // The first idle record was evicted, so it receives a fresh call allowance.
     for _ in 0..8 {
@@ -148,15 +157,20 @@ async fn completed_run_tracking_is_bounded() {
 #[tokio::test(start_paused = true)]
 async fn an_outstanding_memory_call_survives_other_runs_and_keeps_its_timeout_circuit() {
     let budget = budget();
-    let call = budget.run(Some("active"), std::future::pending::<()>()) ;
+    let call = budget.run(Some("active"), std::future::pending::<()>());
     tokio::pin!(call);
     assert!(futures::poll!(call.as_mut()).is_pending());
     for i in 0..128 {
-        assert!(budget.run(Some(&format!("other-{i}")), async { "ok" }).await.is_ok());
+        assert!(budget
+            .run(Some(&format!("other-{i}")), async { "ok" })
+            .await
+            .is_ok());
     }
     assert_eq!(call.await, Err(Refusal::TimedOut));
     assert_eq!(
-        budget.run(Some("active"), async { "must not execute" }).await,
+        budget
+            .run(Some("active"), async { "must not execute" })
+            .await,
         Err(Refusal::Denied(DenialReason::CircuitOpen))
     );
 }
@@ -166,7 +180,8 @@ async fn full_tracking_refuses_new_work_until_an_active_reservation_is_released(
     let budget = budget();
     let mut pending = Vec::new();
     for i in 0..128 {
-        let mut call = Box::pin(budget.run(Some(&format!("active-{i}")), std::future::pending::<()>())) ;
+        let mut call =
+            Box::pin(budget.run(Some(&format!("active-{i}")), std::future::pending::<()>()));
         assert!(futures::poll!(call.as_mut()).is_pending());
         pending.push(call);
     }
@@ -175,13 +190,16 @@ async fn full_tracking_refuses_new_work_until_an_active_reservation_is_released(
         Err(Refusal::Denied(DenialReason::TrackingFull))
     );
     drop(pending);
-    assert_eq!(budget.run(Some("new"), async { "healthy" }).await, Ok("healthy"));
+    assert_eq!(
+        budget.run(Some("new"), async { "healthy" }).await,
+        Ok("healthy")
+    );
 }
 
 #[tokio::test(start_paused = true)]
 async fn cancelling_a_call_returns_its_unused_time_reservation() {
     let budget = budget();
-    let mut call = Box::pin(budget.run(Some("cancelled"), std::future::pending::<()>())) ;
+    let mut call = Box::pin(budget.run(Some("cancelled"), std::future::pending::<()>()));
     assert!(futures::poll!(call.as_mut()).is_pending());
     drop(call);
     for _ in 0..2 {

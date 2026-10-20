@@ -8,11 +8,11 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde_json::{json, Value};
 use tinymemory_api::{Namespace, Reach, ThreadWindow, ToolCallRef};
-use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 use tinymemory_tools::{
-    CallContext, ConcurrencyClass, MemoryTools, PermissionClass, Refusal, RunBudget, SingleTool,
-    ToolScope, concurrency_for, is_write_action, permission_for,
+    concurrency_for, is_write_action, permission_for, CallContext, ConcurrencyClass, MemoryTools,
+    PermissionClass, Refusal, RunBudget, SingleTool, ToolScope,
 };
+use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 use crate::config::Config;
 use crate::core::bus::BUS;
@@ -55,20 +55,29 @@ impl CallFacts {
             .and_then(ToolRunContext::workspace_root)
             .map(std::path::Path::to_path_buf)
             .unwrap_or_else(|| config.action_dir.clone());
-        let identity = crate::agent::tinyagents::host::run_context::memory_identity_for_tool(context)
-            .unwrap_or_else(|| {
-                crate::agent::tinyagents::host::run_context::parent_agent_id_for_tool(context)
-                    .map_or_else(
-                        tinymemory_tools::layout::identity::Identity::root,
-                        |parent_agent_id| tinymemory_tools::layout::identity::Identity::agent(&parent_agent_id),
-                    )
-            });
+        let identity =
+            crate::agent::tinyagents::host::run_context::memory_identity_for_tool(context)
+                .unwrap_or_else(|| {
+                    crate::agent::tinyagents::host::run_context::parent_agent_id_for_tool(context)
+                        .map_or_else(
+                            tinymemory_tools::layout::identity::Identity::root,
+                            |parent_agent_id| {
+                                tinymemory_tools::layout::identity::Identity::agent(
+                                    &parent_agent_id,
+                                )
+                            },
+                        )
+                });
         Self {
             workspace: Some(workspace.display().to_string()),
-            thread_id: context.and_then(ToolRunContext::thread_id).map(str::to_string),
+            thread_id: context
+                .and_then(ToolRunContext::thread_id)
+                .map(str::to_string),
             tool_call_id: crate::tools::host_extensions::tool_call_id(context),
             chat: crate::agent::tinyagents::host::run_context::approval_for_tool(context).chat,
-            in_prompt: crate::agent::tinyagents::host::run_context::memory_in_prompt_for_tool(context),
+            in_prompt: crate::agent::tinyagents::host::run_context::memory_in_prompt_for_tool(
+                context,
+            ),
             ..Self::of(config, &identity)
         }
     }
@@ -100,7 +109,6 @@ impl CallFacts {
             }),
         }
     }
-
 }
 
 /// OpenHuman's monotonic Tokio clock for TinyMemory's runtime-neutral budget.
@@ -186,11 +194,7 @@ impl MemoryTool {
                 });
             }
             if is_write_action(&args) {
-                super::tool_writes::schedule(
-                    &dispatch,
-                    self.config.clone(),
-                    &facts.reach.at,
-                );
+                super::tool_writes::schedule(&dispatch, self.config.clone(), &facts.reach.at);
             }
             ToolResult::success(outcome.value.to_string())
         };
@@ -252,7 +256,9 @@ impl Tool for MemoryTool {
             .and_then(ToolRunContext::host_extension)
             .and_then(|any| any.downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>())
             .map(|ctx| ctx.run_id.as_str().to_string());
-        Ok(self.call_with_facts(args, dispatch, facts, run_id.as_deref()).await)
+        Ok(self
+            .call_with_facts(args, dispatch, facts, run_id.as_deref())
+            .await)
     }
 }
 
@@ -287,14 +293,11 @@ pub fn is_budget_refusal(result: &ToolResult) -> bool {
 }
 
 #[cfg(test)]
-#[path = "tools_tests.rs"]
-mod tests;
+#[path = "tools_activity_tests.rs"]
+mod activity_tests;
 #[cfg(test)]
 #[path = "tools_agent_tests.rs"]
 mod agent_tests;
-#[cfg(test)]
-#[path = "tools_schema_tests.rs"]
-mod schema_tests;
 #[cfg(test)]
 #[path = "tools_budget_tests.rs"]
 mod budget_tests;
@@ -302,13 +305,16 @@ mod budget_tests;
 #[path = "tool_budget_tests.rs"]
 mod native_budget_tests;
 #[cfg(test)]
-#[path = "tools_activity_tests.rs"]
-mod activity_tests;
-#[cfg(test)]
 #[path = "tools_read_tests.rs"]
 mod read_tests;
 #[cfg(test)]
+#[path = "tools_schema_tests.rs"]
+mod schema_tests;
+#[cfg(test)]
 #[path = "tools_test_support.rs"]
 mod test_support;
+#[cfg(test)]
+#[path = "tools_tests.rs"]
+mod tests;
 #[cfg(test)]
 use test_support::run_action;

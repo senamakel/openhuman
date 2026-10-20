@@ -1,6 +1,6 @@
 //! Shared test adapters for the memory tool's native facade.
 
-use super::{CallFacts, MemoryTool, is_write_action};
+use super::{is_write_action, CallFacts, MemoryTool};
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use serde_json::Value;

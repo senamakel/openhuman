@@ -51,7 +51,11 @@ fn capped_evidence(evidence: &str) -> String {
     }
     let left = entries.len() - whole - usize::from(cut_short);
     if left > 0 || cut_short {
-        let shortened = if cut_short { ", the last one shortened," } else { "" };
+        let shortened = if cut_short {
+            ", the last one shortened,"
+        } else {
+            ""
+        };
         out.push_str(&format!(
             "\n\n({left} more memory entries left out{shortened} to keep this under about \
              {TOKENS} tokens; search again with more specific words to see others.)"

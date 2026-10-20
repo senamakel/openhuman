@@ -38,9 +38,9 @@ pub(crate) fn enqueue(
                     scope,
                 );
                 let single = SingleTool::new(crate::memory::tools::MEMORY_TOOL_NAME, tools)
-                    .with_write_sink(std::sync::Arc::new(
-                        super::HostWriteSink::new(std::sync::Arc::new(config)),
-                    ));
+                    .with_write_sink(std::sync::Arc::new(super::HostWriteSink::new(
+                        std::sync::Arc::new(config),
+                    )));
                 let outcome = single
                     .call_with_details(args, CallContext::default())
                     .await

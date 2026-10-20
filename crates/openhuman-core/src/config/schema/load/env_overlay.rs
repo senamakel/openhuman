@@ -114,16 +114,18 @@ impl Config {
         // asset-tag env vars (e.g. Dell OptiPlex sets `MODEL=7080`), which
         // silently clobbered the LLM model and 400'd every backend call
         // (Sentry OPENHUMAN-TAURI-J8).
-        if let Some(model) = env.get_any(&["OPENHUMAN_DEFAULT_MODEL", "OPENHUMAN_MODEL"]) {
-            let trimmed = model.trim();
-            if !trimmed.is_empty() {
-                self.default_model = Some(trimmed.to_string());
-                self.record_env_override(
-                    env,
-                    "default_model",
-                    &["OPENHUMAN_DEFAULT_MODEL", "OPENHUMAN_MODEL"],
-                );
-            }
+        let model = env
+            .get("OPENHUMAN_DEFAULT_MODEL")
+            .map(|value| ("OPENHUMAN_DEFAULT_MODEL", value))
+            .filter(|(_, value)| !value.trim().is_empty())
+            .or_else(|| {
+                env.get("OPENHUMAN_MODEL")
+                    .map(|value| ("OPENHUMAN_MODEL", value))
+                    .filter(|(_, value)| !value.trim().is_empty())
+            });
+        if let Some((env_var, model)) = model {
+            self.default_model = Some(model.trim().to_string());
+            self.record_env_override_var(env, "default_model", env_var);
         }
 
         // One-launch override for the tool-call dialect experiment

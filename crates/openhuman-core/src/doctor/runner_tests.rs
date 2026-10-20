@@ -437,7 +437,7 @@ async fn mcp_server_check_ids_come_from_the_selected_config() {
 #[tokio::test]
 async fn malformed_skill_discovery_reports_a_warning_with_its_path() {
     let workspace = tempfile::tempdir().expect("create isolated skill fixture");
-    let mut config = isolated_config(workspace.path());
+    let config = isolated_config(workspace.path());
     let skill_dir = config.workspace_dir.join("skills").join("broken-skill");
     std::fs::create_dir_all(&skill_dir).expect("create skill fixture directory");
     let skill_path = skill_dir.join("SKILL.md");

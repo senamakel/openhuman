@@ -6,7 +6,7 @@
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::platform::doctor::{self, DoctorReport, MemoryEngineCheck, ModelProbeReport};
+use crate::doctor::{self, DoctorReport, MemoryEngineCheck, ModelProbeReport};
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
     // Awaited before the blocking hop, not inside it: `doctor::run` may not

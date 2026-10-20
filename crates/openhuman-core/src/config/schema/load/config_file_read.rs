@@ -4,6 +4,7 @@ use tokio::fs;
 
 use super::super::Config;
 use super::branches::default_config_boxed;
+use super::{ConfigLoadFallback, ConfigParseError};
 
 pub(crate) async fn parse_config_with_recovery(
     config_path: &Path,
@@ -18,7 +19,8 @@ pub(crate) async fn parse_config_with_recovery(
 /// pointer instead of an ~8 KB value per hop.
 pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (Box<Config>, bool) {
     let parse_err = match parse_toml_off_worker(contents.to_string()).await {
-        Ok(config) => {
+        Ok(mut config) => {
+            config.load_diagnostics_mut().warn_unknown_keys_once();
             tracing::debug!(
                 path = %config_path.display(),
                 "[config] Config parsed successfully"
@@ -26,6 +28,10 @@ pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (B
             return (config, false);
         }
         Err(parse_err) => parse_err,
+    };
+    let parse_error = ConfigParseError {
+        path: config_path.to_path_buf(),
+        message: parse_err.clone(),
     };
 
     let backup_path = config_path.with_extension("toml.bak");
@@ -44,7 +50,12 @@ pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (B
                         backup = %backup_path.display(),
                         "[config] Recovered config from backup"
                     );
-                    return (bak_config, true);
+                    let mut config = *bak_config;
+                    let diagnostics = config.load_diagnostics_mut();
+                    diagnostics.parse_error = Some(parse_error);
+                    diagnostics.fallback = ConfigLoadFallback::Backup;
+                    diagnostics.warn_unknown_keys_once();
+                    return (Box::new(config), true);
                 }
                 Err(bak_err) => {
                     tracing::warn!(
@@ -72,7 +83,11 @@ pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (B
         );
     }
 
-    (default_config_boxed(), true)
+    let mut config = default_config_boxed();
+    let diagnostics = config.load_diagnostics_mut();
+    diagnostics.parse_error = Some(parse_error);
+    diagnostics.fallback = ConfigLoadFallback::Defaults;
+    (config, true)
 }
 
 /// Return the source text that should be inspected by migrations. A readable

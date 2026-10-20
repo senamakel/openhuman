@@ -41,5 +41,4 @@ impl CoreContext {
             bare: false,
         })
     }
-
 }

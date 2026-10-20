@@ -339,4 +339,3 @@ impl DoctorCheckSource for SelectedProfileContextSource {
         })]
     }
 }
-

@@ -13,6 +13,23 @@ struct ReadOnlyFixture {
     delay: std::time::Duration,
 }
 
+struct FixtureReadyRuntime {
+    proxy: tinybus::Proxy,
+    proxy_requests: Arc<std::sync::atomic::AtomicUsize>,
+}
+
+impl ExistingRuntimeAccess for FixtureReadyRuntime {
+    fn is_ready(&self) -> bool {
+        true
+    }
+
+    fn proxy(&self) -> Result<tinybus::Proxy, ExistingCallError> {
+        self.proxy_requests
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(self.proxy.clone())
+    }
+}
+
 #[async_trait::async_trait]
 impl Interface for ReadOnlyFixture {
     fn name(&self) -> tinybus::InterfaceName {
@@ -169,13 +186,18 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
         .await
         .unwrap();
     let proxy = client.proxy(DESTINATION, OBJECT_PATH, INTERFACE).unwrap();
+    let proxy_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let runtime = FixtureReadyRuntime {
+        proxy,
+        proxy_requests: Arc::clone(&proxy_requests),
+    };
 
     let request = serde_json::json!({ "mode": "backend" });
-    let response = call_bound_proxy::<_, serde_json::Value>(
+    let response = call_existing_readonly_with_runtime::<_, serde_json::Value, _>(
         &config,
-        &proxy,
         "ListConnectedIntegrations",
         request.clone(),
+        &runtime,
     )
     .await
     .expect("read-only fixture responds")
@@ -184,11 +206,11 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     assert_eq!(response, reply);
     let mut other_workspace = config.clone();
     other_workspace.workspace_dir = scratch.path().join("workspace-b");
-    assert!(call_bound_proxy::<_, serde_json::Value>(
+    assert!(call_existing_readonly_with_runtime::<_, serde_json::Value, _>(
         &other_workspace,
-        &proxy,
         "ListConnectedIntegrations",
         request.clone(),
+        &runtime,
     )
     .await
     .expect("mismatched binding is unavailable")
@@ -197,6 +219,7 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].0, "ListConnectedIntegrations");
     assert_eq!(calls[0].1, serde_json::json!([request]));
+    assert_eq!(proxy_requests.load(std::sync::atomic::Ordering::SeqCst), 1);
     drop(calls);
     *configured_binding()
         .lock()

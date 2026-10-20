@@ -37,6 +37,29 @@ pub(crate) enum ExistingCallError {
     Failed,
 }
 
+trait ExistingRuntimeAccess {
+    fn is_ready(&self) -> bool;
+    fn proxy(&self) -> Result<tinybus::Proxy, ExistingCallError>;
+}
+
+struct ProcessRuntimeAccess;
+
+impl ExistingRuntimeAccess for ProcessRuntimeAccess {
+    fn is_ready(&self) -> bool {
+        super::ops::state_of(super::MODULE_ID) == ModuleState::Ready
+            && super::super::runtime::existing_runtime().is_some()
+    }
+
+    fn proxy(&self) -> Result<tinybus::Proxy, ExistingCallError> {
+        let runtime = super::super::runtime::existing_runtime()
+            .ok_or(ExistingCallError::Unavailable)?;
+        let record = super::registry::find(super::MODULE_ID).ok_or(ExistingCallError::Unavailable)?;
+        runtime
+            .proxy(record.bus_name, record.object_path)
+            .map_err(|_| ExistingCallError::Unavailable)
+    }
+}
+
 fn route_gate() -> &'static tokio::sync::Mutex<()> {
     static GATE: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
     &GATE
@@ -124,10 +147,21 @@ where
     Reply: DeserializeOwned,
 {
     let _route_guard = route_gate().lock().await;
-    if !config.modules.enabled
-        || !config.components.connectors
-        || super::ops::state_of(super::MODULE_ID) != ModuleState::Ready
-    {
+    call_existing_readonly_with_runtime(config, member, request, &ProcessRuntimeAccess).await
+}
+
+async fn call_existing_readonly_with_runtime<Request, Reply, Runtime>(
+    config: &Config,
+    member: &str,
+    request: Request,
+    runtime: &Runtime,
+) -> Result<Option<Reply>, ExistingCallError>
+where
+    Request: Serialize + Send,
+    Reply: DeserializeOwned,
+    Runtime: ExistingRuntimeAccess,
+{
+    if !config.modules.enabled || !config.components.connectors || !runtime.is_ready() {
         return Ok(None);
     }
     let Some(expected) = binding_for_config(config) else {
@@ -140,21 +174,7 @@ where
     {
         return Ok(None);
     }
-    let Some(runtime) = super::super::runtime::existing_runtime() else {
-        return Ok(None);
-    };
-    let record = super::registry::find(super::MODULE_ID).ok_or(ExistingCallError::Unavailable)?;
-    let proxy = runtime
-        .proxy(record.bus_name, record.object_path)
-        .map_err(|_| ExistingCallError::Unavailable)?
-        .with_timeout(INSPECTION_TIMEOUT);
-    if *configured_binding()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        != Some(expected)
-    {
-        return Ok(None);
-    }
+    let proxy = runtime.proxy()?.with_timeout(INSPECTION_TIMEOUT);
     call_bound_proxy(config, &proxy, member, request).await
 }
 

@@ -223,7 +223,10 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
 
     let load = crate::config::schema::load::current_dotenv_load()
         .expect("successful dotenv load should record its provenance");
-    assert_eq!(load.path, env_path);
+    assert_eq!(
+        std::fs::canonicalize(&load.path).expect("recorded dotenv path exists"),
+        std::fs::canonicalize(&env_path).expect("loaded dotenv path exists")
+    );
     assert_eq!(load.loaded_vars, ["BACKEND_URL"]);
     assert_eq!(load.skipped_vars, ["OPENHUMAN_APP_ENV"]);
 }

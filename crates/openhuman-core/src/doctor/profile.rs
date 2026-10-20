@@ -54,7 +54,7 @@ pub(crate) async fn load_desktop_profile(
     }
 
     let dir = ProfileLayout::new(root, id).dir;
-    let metadata = tokio::fs::metadata(&dir).await.map_err(|error| {
+    let metadata = tokio::fs::symlink_metadata(&dir).await.map_err(|error| {
         if matches!(
             error.kind(),
             std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
@@ -64,12 +64,18 @@ pub(crate) async fn load_desktop_profile(
             DesktopProfileError::InvalidConfig
         }
     })?;
-    if !metadata.is_dir() {
+    if !metadata.file_type().is_dir() {
         return Err(DesktopProfileError::Missing);
     }
 
     let version = read_layout_version(&dir).await?;
     let layout = ProfileLayout::with_version(dir, version);
+    let config_metadata = tokio::fs::symlink_metadata(&layout.config_path)
+        .await
+        .map_err(|_| DesktopProfileError::InvalidConfig)?;
+    if !config_metadata.file_type().is_file() {
+        return Err(DesktopProfileError::InvalidConfig);
+    }
     let config_text = tokio::fs::read_to_string(&layout.config_path)
         .await
         .map_err(|_| DesktopProfileError::InvalidConfig)?;

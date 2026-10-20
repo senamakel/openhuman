@@ -57,14 +57,9 @@ pub(crate) async fn check_existing(
             .proxy(record.bus_name, record.object_path)
             .map_err(|_| ExistingHealthError::Unavailable)?
             .with_timeout(timeout);
-        return proxy
-            .call_confidential(
-                tinychannels_bus::methods::CHECK_CHANNEL_HEALTH,
-                (channels, proxy_policy, timeout.as_millis() as u64),
-            )
+        return call_existing_proxy(&proxy, channels, proxy_policy, timeout)
             .await
-            .map(Some)
-            .map_err(|_| ExistingHealthError::Failed);
+            .map(Some);
     }
 
     #[cfg(not(feature = "modules"))]
@@ -72,6 +67,31 @@ pub(crate) async fn check_existing(
         let _ = (config, channels, proxy_policy, timeout);
         Ok(None)
     }
+}
+
+async fn call_existing_proxy(
+    proxy: &tinybus::Proxy,
+    channels: ChannelsConfig,
+    proxy_policy: HttpProxyPolicy,
+    timeout: Duration,
+) -> Result<Vec<ChannelHealthReport>, ExistingHealthError> {
+    tokio::time::timeout(
+        timeout,
+        proxy
+            .clone()
+            .with_timeout(timeout)
+            .call_confidential(
+                tinychannels_bus::methods::CHECK_CHANNEL_HEALTH,
+                (
+                    channels,
+                    proxy_policy,
+                    timeout.as_millis().min(u64::MAX as u128) as u64,
+                ),
+            ),
+    )
+    .await
+    .map_err(|_| ExistingHealthError::Failed)?
+    .map_err(|_| ExistingHealthError::Failed)
 }
 
 #[cfg(all(test, feature = "modules"))]

@@ -3,6 +3,141 @@
 
 use super::*;
 
+/// Credential behavior used by shared model construction. Runtime callers keep
+/// the established mutable auth-profile store path; doctor inspection uses the
+/// selected profile's read-only snapshot and never refreshes credentials.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(super) enum CredentialAccess {
+    Runtime,
+    Inspection,
+}
+
+impl CredentialAccess {
+    pub(super) fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
+        match self {
+            Self::Runtime => lookup_key_for_slug(slug, config),
+            Self::Inspection => lookup_key_for_slug_read_only(slug, config).map(|(key, _)| key),
+        }
+    }
+
+    pub(super) fn openai_bearer_is_oauth(self, config: &Config) -> bool {
+        match self {
+            Self::Runtime => openai_bearer_is_oauth(config),
+            Self::Inspection => lookup_key_for_slug_read_only("openai", config)
+                .map(|(_, is_oauth)| is_oauth)
+                .unwrap_or(false),
+        }
+    }
+}
+
+fn lookup_key_for_slug_read_only(slug: &str, config: &Config) -> anyhow::Result<(String, bool)> {
+    if slug == crate::config::schema::EPHEMERAL_ROUTE_SLUG {
+        if let Some(route) = config.ephemeral_route.as_ref() {
+            return Ok((route.api_key.trim().to_string(), false));
+        }
+    }
+
+    let auth_profile_key = auth_key_for_slug(slug);
+    for provider in [auth_profile_key.as_str(), slug] {
+        if let Some((key, is_oauth, expires_at)) =
+            read_only_profile_credential(config, provider, None)?
+        {
+            if slug == "openai"
+                && is_oauth
+                && expires_at.is_some_and(|expires_at| {
+                    expires_at <= chrono::Utc::now() + chrono::Duration::minutes(2)
+                })
+            {
+                anyhow::bail!("OpenAI OAuth credential requires refresh");
+            }
+            if !key.trim().is_empty() {
+                return Ok((key, is_oauth));
+            }
+        }
+    }
+
+    // The OAuth login is stored under a named profile rather than the
+    // provider's active API-key profile. Its runtime lookup can refresh and
+    // persist the token; doctor only reports when that refresh would be needed.
+    if slug == "openai" {
+        match read_only_profile_credential(
+            config,
+            crate::security::credentials::openai_oauth::OPENAI_PROVIDER_KEY,
+            Some(crate::security::credentials::openai_oauth::OPENAI_OAUTH_PROFILE_NAME),
+        )? {
+            Some((key, true, expires_at)) if !key.trim().is_empty() => {
+                if expires_at.is_some_and(|expires_at| {
+                    expires_at <= chrono::Utc::now() + chrono::Duration::minutes(2)
+                }) {
+                    anyhow::bail!("OpenAI OAuth credential requires refresh");
+                }
+                return Ok((key, true));
+            }
+            _ => {}
+        }
+    }
+
+    // Preserve the narrowly scoped legacy config.toml fallback without
+    // consulting the mutable auth-profile store.
+    if legacy_inference_slug(config) == Some(slug) {
+        if let Some(config_key) = config
+            .api_key
+            .as_deref()
+            .map(str::trim)
+            .filter(|key| !key.is_empty())
+        {
+            return Ok((config_key.to_string(), false));
+        }
+    }
+
+    Ok((String::new(), false))
+}
+
+fn read_only_profile_credential(
+    config: &Config,
+    provider: &str,
+    profile_override: Option<&str>,
+) -> anyhow::Result<Option<(String, bool, Option<chrono::DateTime<chrono::Utc>>)>> {
+    let Some(profile) = crate::security::credentials::AuthService::get_profile_read_only(
+        config,
+        provider,
+        profile_override,
+    )
+    .map_err(read_only_profile_error)?
+    else {
+        return Ok(None);
+    };
+
+    let (token, is_oauth, expires_at) = match profile.kind {
+        crate::security::credentials::profiles::AuthProfileKind::Token => {
+            (profile.token.unwrap_or_default(), false, None)
+        }
+        crate::security::credentials::profiles::AuthProfileKind::OAuth => (
+            profile
+                .token_set
+                .as_ref()
+                .map(|tokens| tokens.access_token.clone())
+                .unwrap_or_default(),
+            true,
+            profile.token_set.and_then(|tokens| tokens.expires_at),
+        ),
+    };
+    Ok(Some((token, is_oauth, expires_at)))
+}
+
+fn read_only_profile_error(
+    error: crate::security::credentials::profiles::ReadOnlyAuthProfileError,
+) -> anyhow::Error {
+    match error {
+        crate::security::credentials::profiles::ReadOnlyAuthProfileError::Unavailable => {
+            anyhow::anyhow!("read-only credential profile is unavailable")
+        }
+        crate::security::credentials::profiles::ReadOnlyAuthProfileError::InvalidStore => {
+            anyhow::anyhow!("read-only credential profile store is invalid")
+        }
+    }
+}
+
 /// Auth-profile storage key for a slug-keyed provider.
 ///
 /// New writes use `"provider:<slug>"`. Lookups also try the bare `<slug>`

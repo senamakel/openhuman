@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::core::slots::{Extensions, HookSlot};
 
-use super::contract::DoctorCheck;
+use super::contract::{DoctorCheck, DoctorCtx};
 use super::legacy::LegacyV1CheckSource;
 
 /// A host-owned group of checks. The core stores the source without knowing
@@ -15,6 +15,14 @@ pub trait DoctorCheckSource: Send + Sync {
     fn id(&self) -> &str;
     /// Checks contributed by this source.
     fn checks(&self) -> Vec<Arc<dyn DoctorCheck>>;
+    /// Checks contributed for the selected doctor configuration.
+    ///
+    /// Existing host sources remain context-free by default. Sources whose
+    /// identifiers or check set depends on the effective configuration can
+    /// override this method and must use `ctx`, not ambient process state.
+    fn checks_for(&self, _ctx: &DoctorCtx) -> Vec<Arc<dyn DoctorCheck>> {
+        self.checks()
+    }
 }
 
 static CHECK_SOURCES: HookSlot<Arc<dyn DoctorCheckSource>> =
@@ -45,10 +53,29 @@ pub fn unregister_check_source(id: &str) -> bool {
 pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
     let mut checks = LegacyV1CheckSource.checks();
     checks.extend(super::profile::built_in_checks());
+    checks.extend(super::checks::builtins());
     for (_, source) in CHECK_SOURCES.entries() {
         checks.extend(source.checks());
     }
 
+    validate_checks(checks)
+}
+
+/// The checks available for the selected doctor context, with duplicate and
+/// malformed ids rejected before a report starts.
+pub fn registered_checks_for(ctx: &DoctorCtx) -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
+    let mut checks = LegacyV1CheckSource.checks();
+    checks.extend(super::profile::built_in_checks());
+    checks.extend(super::checks::builtins());
+    checks.extend(super::checks::for_context(ctx));
+    for (_, source) in CHECK_SOURCES.entries() {
+        checks.extend(source.checks_for(ctx));
+    }
+
+    validate_checks(checks)
+}
+
+fn validate_checks(checks: Vec<Arc<dyn DoctorCheck>>) -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
     let mut ids = HashSet::with_capacity(checks.len());
     for check in &checks {
         let id = check.id();

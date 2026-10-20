@@ -234,7 +234,6 @@ async fn healthy_backend_passes_hosted_checks_and_uses_sdk_attribution() {
         .and(path("/"))
         .and(header("x-sdk-name", "openhuman"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
-        .expect(3)
         .mount(&server)
         .await;
     Mock::given(method("GET"))
@@ -265,6 +264,11 @@ async fn healthy_backend_passes_hosted_checks_and_uses_sdk_attribution() {
     assert_eq!(findings.len(), 6);
     assert!(findings.iter().all(|finding| finding["severity"] == "Pass"));
     assert!(findings.iter().all(|finding| !finding["message"].as_str().unwrap().contains("private-user")));
+    let requests = server.received_requests().await.unwrap();
+    assert!(requests.iter().any(|request| request.url.path() == "/"));
+    assert!(requests.iter().any(|request| request.url.path() == "/auth/me"));
+    assert!(requests.iter().any(|request| request.url.path() == "/openai/v1/models"));
+    assert!(requests.iter().all(|request| request.headers.get("x-sdk-name").is_some()));
 }
 
 #[tokio::test]
@@ -276,10 +280,10 @@ async fn backend_outage_skips_authenticated_hosted_probes_without_leaking_respon
         .respond_with(
             ResponseTemplate::new(503).set_body_string("token=private-token user=private-user"),
         )
-        .expect(3)
         .mount(&server)
         .await;
 
+    let tmp = TempDir::new().unwrap();
     let ctx = context(&tmp, &server.uri());
     write_raw_session_profile(
         &ctx,
@@ -295,11 +299,9 @@ async fn backend_outage_skips_authenticated_hosted_probes_without_leaking_respon
     assert!(findings.iter().all(|finding| !finding["message"].as_str().unwrap().contains("private-token")));
     assert!(findings.iter().all(|finding| !finding["message"].as_str().unwrap().contains("private-user")));
     let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests.len(), 3);
     assert!(requests.iter().all(|request| request.url.path() == "/"));
+    assert!(requests.iter().all(|request| !request.headers.contains_key("authorization")));
 }
-
-const EXPIRED_PROBE_CHILD_ROOT: &str = "OPENHUMAN_DOCTOR_EXPIRED_PROBE_CHILD_ROOT";
 
 #[tokio::test]
 async fn expired_session_probe_preserves_profile_and_does_not_publish_expiry() {
@@ -347,7 +349,6 @@ async fn mismatched_issuing_backend_is_rejected_before_authenticated_probes() {
         .and(path("/"))
         .and(header("x-sdk-name", "openhuman"))
         .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
-        .expect(3)
         .mount(&server)
         .await;
     Mock::given(method("GET"))

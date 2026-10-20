@@ -390,7 +390,9 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-    use crate::inference::registry::{ChatModelEntry, register_chat_model};
+    use crate::inference::registry::{
+        InspectionChatModelFactory, register_inspection_chat_model,
+    };
 
     struct ManagedModel {
         generations: Arc<AtomicUsize>,
@@ -421,21 +423,16 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let generations = Arc::new(AtomicUsize::new(0));
     let build_constructions = Arc::clone(&constructions);
     let model_generations = Arc::clone(&generations);
-    register_chat_model(
-        PROVIDER_OPENHUMAN,
-        ChatModelEntry {
-            build: Arc::new(move |_| {
-                build_constructions.fetch_add(1, Ordering::SeqCst);
-                Ok((
-                    Arc::new(ManagedModel {
-                        generations: Arc::clone(&model_generations),
-                    }) as Arc<dyn ChatModel<()>>,
-                    "managed-test-model".to_owned(),
-                ))
-            }),
-            probe: None,
-        },
-    );
+    let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| {
+        build_constructions.fetch_add(1, Ordering::SeqCst);
+        Ok((
+            Arc::new(ManagedModel {
+                generations: Arc::clone(&model_generations),
+            }) as Arc<dyn ChatModel<()>>,
+            "managed-test-model".to_owned(),
+        ))
+    });
+    register_inspection_chat_model(PROVIDER_OPENHUMAN, inspection_factory);
     let _registered_model = RegisterManagedModel;
 
     let mut config = isolated_config(temp.path());
@@ -479,10 +476,37 @@ struct RegisterManagedModel;
 
 impl Drop for RegisterManagedModel {
     fn drop(&mut self) {
-        crate::inference::registry::unregister_chat_model(
+        crate::inference::registry::unregister_inspection_chat_model(
             crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         );
     }
+}
+
+#[tokio::test]
+async fn embedding_only_configuration_does_not_construct_a_chat_model_for_embeddings() {
+    use crate::inference::registry::{InspectionChatModelFactory, register_inspection_chat_model};
+
+    let roles = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let seen_roles = Arc::clone(&roles);
+    let factory: InspectionChatModelFactory = Arc::new(move |request| {
+        seen_roles.lock().unwrap().push(request.role.to_owned());
+        anyhow::bail!("test construction marker")
+    });
+    register_inspection_chat_model(
+        crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+        factory,
+    );
+    let _registered_model = RegisterManagedModel;
+
+    let mut config = Config::default();
+    config.embeddings_provider = Some("custom".to_owned());
+    config.primary_cloud = Some("openhuman".to_owned());
+    let _ = super::construct(&config);
+
+    assert!(
+        !roles.lock().unwrap().iter().any(|role| role == "embeddings"),
+        "embedding-only configuration must use embedding validation, never chat construction"
+    );
 }
 
 #[tokio::test]

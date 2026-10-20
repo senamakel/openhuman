@@ -1,20 +1,20 @@
 use super::{
-    ops::{doctor_models, doctor_report_with_options},
     DoctorOptions, FindingSeverity, ModelProbeOutcome,
+    ops::{doctor_models, doctor_report_with_options},
 };
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ModelRouteConfig;
 use crate::config::Config;
+use crate::config::schema::ModelRouteConfig;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use axum::{
+    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
-    Json, Router,
 };
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 
 #[derive(Clone)]
@@ -101,12 +101,8 @@ fn catalog_body(ids: &[&str]) -> serde_json::Value {
 
 #[tokio::test]
 async fn doctor_models_lists_configured_catalogs_and_honors_use_cache() {
-    let (endpoint, server) = spawn_catalog_server(
-        StatusCode::OK,
-        catalog_body(&["present-model"]),
-        true,
-    )
-    .await;
+    let (endpoint, server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["present-model"]), true).await;
     let (_temp, config) = config_for_catalog(endpoint, "p_doctor_497_cache", "doctor-497-cache");
 
     let first = doctor_models(&config, true)
@@ -129,18 +125,10 @@ async fn doctor_models_lists_configured_catalogs_and_honors_use_cache() {
 
 #[tokio::test]
 async fn doctor_models_does_not_reuse_a_catalog_for_another_selected_config() {
-    let (endpoint_a, server_a) = spawn_catalog_server(
-        StatusCode::OK,
-        catalog_body(&["account-a-model"]),
-        true,
-    )
-    .await;
-    let (endpoint_b, server_b) = spawn_catalog_server(
-        StatusCode::OK,
-        catalog_body(&["account-b-model"]),
-        true,
-    )
-    .await;
+    let (endpoint_a, server_a) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["account-a-model"]), true).await;
+    let (endpoint_b, server_b) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["account-b-model"]), true).await;
     let (_temp_a, config_a) =
         config_for_catalog(endpoint_a, "p_doctor_497_selected", "doctor-497-selected");
     let (_temp_b, config_b) =
@@ -162,12 +150,7 @@ async fn doctor_models_does_not_reuse_a_catalog_for_another_selected_config() {
 
 #[tokio::test]
 async fn doctor_models_skips_a_provider_without_a_models_route() {
-    let (endpoint, server) = spawn_catalog_server(
-        StatusCode::OK,
-        catalog_body(&[]),
-        false,
-    )
-    .await;
+    let (endpoint, server) = spawn_catalog_server(StatusCode::OK, catalog_body(&[]), false).await;
     let (_temp, config) =
         config_for_catalog(endpoint, "p_doctor_497_no_models", "doctor-497-no-models");
 
@@ -178,10 +161,12 @@ async fn doctor_models_skips_a_provider_without_a_models_route() {
     assert_eq!(report.value.summary.skipped, 1);
     assert_eq!(report.value.summary.errors, 0);
     assert_eq!(report.value.entries[0].outcome, ModelProbeOutcome::Skipped);
-    assert!(report.value.entries[0]
-        .message
-        .as_deref()
-        .is_some_and(|message| message.to_ascii_lowercase().contains("models")));
+    assert!(
+        report.value.entries[0]
+            .message
+            .as_deref()
+            .is_some_and(|message| message.to_ascii_lowercase().contains("models"))
+    );
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 
@@ -205,18 +190,17 @@ async fn doctor_models_classifies_provider_401_as_auth_or_access() {
 
     assert_eq!(report.value.summary.auth_or_access, 1);
     assert_eq!(report.value.summary.errors, 0);
-    assert_eq!(report.value.entries[0].outcome, ModelProbeOutcome::AuthOrAccess);
+    assert_eq!(
+        report.value.entries[0].outcome,
+        ModelProbeOutcome::AuthOrAccess
+    );
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]
 async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
-    let (endpoint, _server) = spawn_catalog_server(
-        StatusCode::OK,
-        catalog_body(&["present-model"]),
-        true,
-    )
-    .await;
+    let (endpoint, _server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["present-model"]), true).await;
     let (_temp, mut config) =
         config_for_catalog(endpoint, "p_doctor_497_missing", "doctor-497-missing");
     config.default_model = Some("doctor-497-missing:missing-default".into());

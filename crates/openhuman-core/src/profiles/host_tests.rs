@@ -1,6 +1,6 @@
 use super::*;
 use crate::core::runtime::DispatchCtx;
-use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
+use crate::storage::{CollectionSpec, DocumentStore, MemoryStorage, Scope, StorageBackend};
 
 #[tokio::test]
 async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
@@ -19,12 +19,13 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
     let registry_spec = CollectionSpec::new(crate::profiles::registry::REGISTRY_COLLECTION);
     let lease_spec = CollectionSpec::new(crate::storage::lease::LEASE_COLLECTION);
     let docs = cluster.documents();
+    let id = profile("alice");
+    let layout = host.layout_of(&id);
+    let default_context = CoreContext::default_context();
 
     assert!(docs.validate_collection_spec(&registry_spec).await.is_err());
     assert!(docs.validate_collection_spec(&lease_spec).await.is_err());
-    let id = profile("alice");
     let snapshot = host.inspect_for_doctor(&id).await.unwrap();
-    let layout = host.layout_of(&id);
     assert!(!snapshot.provisioned);
     assert_eq!(snapshot.profile_id, id);
     assert_eq!(snapshot.lease_record, None);
@@ -32,6 +33,22 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
     assert_eq!(snapshot.config.config_path, layout.config_path);
     assert_eq!(host.open_count(), 0, "inspection must not open or lease it");
     assert!(!layout.dir.exists(), "inspection must not create profile dirs");
+    let default_context_after = CoreContext::default_context();
+    match (default_context.as_ref(), default_context_after.as_ref()) {
+        (None, None) => {}
+        (Some(before), Some(after)) => assert!(Arc::ptr_eq(before, after)),
+        _ => panic!("doctor inspection must not publish a process default context"),
+    }
+    let lease_key = tinystoragedrivers::Key::of([
+        crate::storage::lease::LEASE_OWNER,
+        id.as_str(),
+    ])
+    .unwrap();
+    assert!(docs
+        .get(crate::storage::lease::LEASE_COLLECTION, lease_key.as_str())
+        .await
+        .unwrap()
+        .is_none(), "inspection must not claim a lease");
 
     assert!(
         docs.validate_collection_spec(&registry_spec).await.is_err(),
@@ -71,21 +88,19 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     .unwrap();
 
     let a_observed = CoreContext::scope(Arc::clone(&target_a.context), async {
-        {
-            let config = CoreContext::current()
-                .expect("selected profile context")
-                .embedder_config()
-                .expect("selected profile config");
-            (
-                config.config_path,
-                crate::storage::current_scope().unwrap(),
-                crate::profiles::credentials::has(&config),
-                crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
-                    &DispatchCtx::ambient(),
-                )
-                .is_some(),
+        let config = CoreContext::current()
+            .expect("selected profile context")
+            .embedder_config()
+            .expect("selected profile config");
+        (
+            config.config_path,
+            crate::storage::current_scope().unwrap(),
+            crate::profiles::credentials::has(&config),
+            crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
+                &DispatchCtx::ambient(),
             )
-        }
+            .is_some(),
+        )
     })
     .await;
     let b_observed = CoreContext::scope(Arc::clone(&target_b.context), async {

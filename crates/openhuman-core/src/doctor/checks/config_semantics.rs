@@ -175,8 +175,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     if !config.voice_providers.is_empty()
         || config.stt_provider.as_deref().is_some_and(non_empty)
         || config.tts_provider.as_deref().is_some_and(non_empty)
-        || config.voice_server.stt_engine
-            != crate::config::schema::SttEngine::default()
+        || config.voice_server.stt_engine != crate::config::schema::SttEngine::default()
     {
         references.push(("voice", "voice_providers"));
     }
@@ -195,9 +194,17 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     if config.computer != crate::config::ComputerConfig::default()
         || config.browser.enabled
         || !config.browser.allowed_domains.is_empty()
-        || config.browser.session_name.as_deref().is_some_and(non_empty)
+        || config
+            .browser
+            .session_name
+            .as_deref()
+            .is_some_and(non_empty)
         || config.browser.chrome_path.as_deref().is_some_and(non_empty)
-        || config.browser.profile_path.as_deref().is_some_and(non_empty)
+        || config
+            .browser
+            .profile_path
+            .as_deref()
+            .is_some_and(non_empty)
     {
         references.push(("computer", "computer"));
     }
@@ -250,9 +257,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
                 COMPONENTS_ID,
                 FindingSeverity::Warn,
                 format!("Configuration references the disabled {component} component."),
-                format!(
-                    "Enable the {component} component or remove the dependent configuration."
-                ),
+                format!("Enable the {component} component or remove the dependent configuration."),
                 Some(path.to_owned()),
             )
         })
@@ -282,31 +287,67 @@ fn non_empty(value: &str) -> bool {
 }
 
 fn module_source_fallback(config: &Config) -> Vec<Finding> {
-    const SOURCE_FALLBACK: &str = "no source-built artifact is available; serving the release";
-    const LINKED_FALLBACK: &str =
-        "no linked factory is registered in this binary; serving the release";
-
-    crate::modules::list(config)
+    module_statuses(config)
         .into_iter()
         .filter_map(|status| {
-            let detail = status.detail.as_deref()?;
-            let source = match detail {
-                SOURCE_FALLBACK => "source",
-                LINKED_FALLBACK => "linked",
-                _ => return None,
+            if status.source != Some(crate::modules::ModuleSource::Release) {
+                return None;
+            }
+            let requested = requested_module_source(config, &status.id)?;
+            let detail = match requested {
+                crate::config::schema::ModuleSourceMode::Source => {
+                    "no source-built artifact is available; the release will be served"
+                }
+                crate::config::schema::ModuleSourceMode::Linked => {
+                    "no linked factory is registered in this binary; the release will be served"
+                }
+                crate::config::schema::ModuleSourceMode::Release => return None,
             };
             Some(finding(
                 MODULE_FALLBACK_ID,
                 FindingSeverity::Warn,
                 format!(
-                    "Module `{}` requested {source} mode, but {detail}.",
-                    status.id
+                    "Module `{}` requested {} mode, but {detail}.",
+                    status.id,
+                    requested.as_str()
                 ),
                 "Build or install the requested module source, or set modules.source to release.",
                 Some("modules.source".into()),
             ))
         })
         .collect()
+}
+
+fn module_statuses(config: &Config) -> Vec<crate::modules::ModuleStatus> {
+    #[cfg(feature = "modules")]
+    {
+        crate::modules::ops::list(config)
+    }
+    #[cfg(not(feature = "modules"))]
+    {
+        let _ = config;
+        Vec::new()
+    }
+}
+
+fn requested_module_source(
+    config: &Config,
+    id: &str,
+) -> Option<crate::config::schema::ModuleSourceMode> {
+    if let Some(override_) = config
+        .modules
+        .overrides
+        .iter()
+        .find(|override_| override_.id == id && override_.validate().is_ok())
+    {
+        if override_.path.is_some() {
+            return None;
+        }
+        if let Some(source) = override_.source {
+            return Some(source);
+        }
+    }
+    Some(config.modules.source)
 }
 
 fn invalid_module_overrides(config: &Config) -> Vec<Finding> {
@@ -359,7 +400,9 @@ fn storage_driver_error(check_id: &str, feature: &'static str) -> Finding {
     finding(
         check_id,
         FindingSeverity::Error,
-        format!("The configured storage driver is unavailable because this build omits `{feature}`."),
+        format!(
+            "The configured storage driver is unavailable because this build omits `{feature}`."
+        ),
         format!("Use another storage scheme or enable the `{feature}` build feature."),
         Some("storage.url".into()),
     )
@@ -414,8 +457,7 @@ fn master_key_env() -> Vec<Finding> {
         MASTER_KEY_ENV, MASTER_KEY_FILE_ENV,
     };
 
-    if std::env::var_os(MASTER_KEY_ENV).is_some()
-        && std::env::var_os(MASTER_KEY_FILE_ENV).is_some()
+    if std::env::var_os(MASTER_KEY_ENV).is_some() && std::env::var_os(MASTER_KEY_FILE_ENV).is_some()
     {
         return vec![finding(
             MASTER_KEY_ENV_ID,
@@ -456,4 +498,3 @@ fn memory_root(config: &Config) -> Vec<Finding> {
         Some("memory.root".into()),
     )]
 }
-

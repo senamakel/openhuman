@@ -156,6 +156,9 @@ async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_aut
 async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profile_files() {
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let _workspace_override = WorkspaceOverrideGuard::clear();
+    #[cfg(target_os = "macos")]
+    let temp = TempDir::new_in("/private/tmp").unwrap();
+    #[cfg(not(target_os = "macos"))]
     let temp = TempDir::new().unwrap();
     let root = temp.path();
     let account_a = ProfileLayout::new(root, "account-a");

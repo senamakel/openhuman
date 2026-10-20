@@ -63,7 +63,10 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
 #[tokio::test]
 async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_binding_per_profile() {
     let tmp = tempfile::tempdir().unwrap();
-    let host = host(&tmp, 4, 60);
+    let mut saas = SaasConfig::new(tmp.path());
+    saas.max_tool_iterations = Some(7);
+    saas.cron.min_interval_secs = 900;
+    let host = ProfileHost::new(saas, CoreContext::for_test(DomainSet::full(), None));
     let a = ProfileId::for_user(
         &format!("doctor-a-{}", uuid::Uuid::new_v4().simple()),
         crate::profiles::ProfileIdMode::Raw,
@@ -128,6 +131,11 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     assert!(!a_observed.2, "A must not observe B's credential");
     assert!(b_observed.2, "B's own context sees its credential");
     assert!(a_observed.3 && b_observed.3, "each forced config resolves provider settings");
+    assert_eq!(target_a.config.agent.max_tool_iterations_override, Some(7));
+    assert_eq!(target_b.config.cron.min_interval_secs, 900);
+    let storage = MemoryStorage::new();
+    assert!(storage.for_scope(&a_observed.1).is_ok());
+    assert!(storage.for_scope(&b_observed.1).is_ok());
     assert_eq!(host.open_count(), 0, "doctor inspection does not open profiles");
 
     crate::profiles::credentials::clear(&target_b.config).unwrap();

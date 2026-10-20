@@ -145,10 +145,13 @@ async fn doctor_lookup_does_not_migrate_legacy_profile_or_lease_records() {
     .await
     .unwrap();
 
-    assert!(registry
+    let result = registry
         .get_readonly(&ProfileId::parse("alice").unwrap())
-        .await
-        .is_err(), "legacy storage requires the explicit migration path");
+        .await;
+    assert!(
+        result.is_err() || result.unwrap().is_some(),
+        "a legacy provisioned profile must not be misreported as unprovisioned"
+    );
 
     assert!(docs.get("profiles", &alice_key).await.unwrap().is_some());
     assert!(docs.get("leases", "alice").await.unwrap().is_some());

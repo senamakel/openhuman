@@ -25,6 +25,15 @@ mod persistence;
 mod readonly;
 pub(crate) use persistence::STORAGE_SECRET_NAME as PROFILES_SECRET_NAME;
 mod store_core;
+pub use readonly::ReadOnlyAuthProfileError;
+
+pub(crate) fn load_profile_read_only(
+    config: &crate::config::Config,
+    provider: &str,
+    profile_override: Option<&str>,
+) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
+    readonly::load_profile(config, provider, profile_override)
+}
 
 const CURRENT_SCHEMA_VERSION: u32 = 1;
 

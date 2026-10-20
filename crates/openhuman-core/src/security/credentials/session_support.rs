@@ -264,7 +264,10 @@ pub fn normalize_session_backend(raw: &str) -> Result<String, String> {
     Ok(parsed.as_str().trim_end_matches('/').to_string())
 }
 
-fn check_session_backend(config: &Config, profile: Option<&AuthProfile>) -> Result<(), String> {
+pub(crate) fn check_session_backend(
+    config: &Config,
+    profile: Option<&AuthProfile>,
+) -> Result<(), String> {
     let Some(profile) = profile else {
         return Ok(());
     };
@@ -559,6 +562,14 @@ pub fn load_app_session_profile(config: &Config) -> Result<Option<AuthProfile>, 
     auth_service
         .get_profile(APP_SESSION_PROVIDER, None)
         .map_err(|e| e.to_string())
+}
+
+/// Reads the selected app-session profile for doctor checks without opening
+/// the ordinary mutable auth-profile store.
+pub fn load_app_session_profile_read_only(
+    config: &Config,
+) -> Result<Option<AuthProfile>, super::profiles::ReadOnlyAuthProfileError> {
+    AuthService::get_profile_read_only(config, APP_SESSION_PROVIDER, None)
 }
 
 pub fn session_state_from_profile(profile: Option<&AuthProfile>) -> AuthStateResponse {

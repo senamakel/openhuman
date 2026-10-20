@@ -62,11 +62,14 @@ fn checks_for_servers(
     servers: &[McpServerConfig],
     probe: Arc<dyn McpStatusProbe>,
 ) -> Vec<McpServerCheck> {
-    let mut seen = std::collections::HashSet::new();
-    let mut checks = Vec::new();
+    let mut indexes = std::collections::HashMap::<String, usize>::new();
+    let mut checks: Vec<McpServerCheck> = Vec::new();
     for server in servers {
         let check = McpServerCheck::configured(server, Arc::clone(&probe));
-        if seen.insert(check.id.clone()) {
+        if let Some(index) = indexes.get(&check.id).copied() {
+            checks[index].duplicate_definitions = true;
+        } else {
+            indexes.insert(check.id.clone(), checks.len());
             checks.push(check);
         }
     }
@@ -77,6 +80,7 @@ struct McpServerCheck {
     id: String,
     server_id: String,
     enabled: bool,
+    duplicate_definitions: bool,
     probe: Arc<dyn McpStatusProbe>,
 }
 
@@ -86,6 +90,7 @@ impl McpServerCheck {
             id: format!("mcp/{}", canonical_segment(&server.name)),
             server_id: server.name.clone(),
             enabled: server.enabled,
+            duplicate_definitions: false,
             probe,
         }
     }
@@ -96,6 +101,7 @@ impl McpServerCheck {
             id: format!("mcp/{}", canonical_segment(&server.name)),
             server_id: server.name.clone(),
             enabled: server.enabled,
+            duplicate_definitions: false,
             probe,
         }
     }
@@ -109,6 +115,13 @@ impl McpServerCheck {
                 &self.id,
                 "MCP is disabled in the selected configuration.",
                 "Enable MCP in the selected configuration to check server connections.",
+            );
+        }
+        if self.duplicate_definitions {
+            return Finding::error(
+                &self.id,
+                "Multiple configured MCP servers share this identifier; their connection state is ambiguous.",
+                "Remove or rename duplicate entries in mcp_client.servers so each server name is unique.",
             );
         }
         if !self.enabled {
@@ -191,7 +204,11 @@ impl DoctorCheck for McpServerCheck {
     }
 
     fn tier(&self) -> DoctorTier {
-        DoctorTier::Connect
+        if self.duplicate_definitions {
+            DoctorTier::Static
+        } else {
+            DoctorTier::Connect
+        }
     }
 
     fn component_gate(&self) -> Option<ComponentId> {

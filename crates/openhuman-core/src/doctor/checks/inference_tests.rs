@@ -152,7 +152,9 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let _env_guard = EnvVarGuard::locked_async()
         .await
         .with("HOME", temp.path())
-        .with("OPENHUMAN_WORKSPACE", temp.path());
+        .with("OPENHUMAN_WORKSPACE", temp.path())
+        .without("OPENAI_API_KEY")
+        .without("OPENHUMAN_CORE_TOKEN");
     let constructions = Arc::new(AtomicUsize::new(0));
     let generations = Arc::new(AtomicUsize::new(0));
     let build_constructions = Arc::clone(&constructions);
@@ -202,6 +204,9 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         "the managed provider factory must be consulted"
     );
     assert_eq!(generations.load(Ordering::SeqCst), 0);
+    assert!(findings
+        .iter()
+        .all(|result| !result.message.contains("doctor-test-session-token")));
     assert!(!temp.path().join("auth-profiles.json").exists());
     assert!(!temp.path().join("auth-profiles.lock").exists());
 }

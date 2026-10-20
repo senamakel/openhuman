@@ -164,10 +164,43 @@ impl CoreContext {
     pub async fn init_with_config(
         host_kind: HostKind,
         token: &TokenSource,
+        domains: crate::core::runtime::DomainSet,
+        tool_groups: crate::tools::toolpacks::ToolGroups,
+        preloaded_config: Option<crate::config::Config>,
+    ) -> anyhow::Result<(Arc<CoreContext>, bool, Option<crate::config::Config>)> {
+        Self::init_with_boot_mode(
+            host_kind,
+            token,
+            domains,
+            tool_groups,
+            preloaded_config,
+            crate::core::runtime::CoreBootMode::Normal,
+        )
+        .await
+    }
+
+    /// [`init_with_config`](Self::init_with_config) with an explicit startup
+    /// policy. Inspection mode uses the supplied config but skips every
+    /// persistent workspace/bootstrap effect while retaining a real dispatch
+    /// context.
+    pub(crate) async fn init_with_boot_mode(
+        host_kind: HostKind,
+        token: &TokenSource,
         mut domains: crate::core::runtime::DomainSet,
         mut tool_groups: crate::tools::toolpacks::ToolGroups,
         preloaded_config: Option<crate::config::Config>,
+        boot_mode: crate::core::runtime::CoreBootMode,
     ) -> anyhow::Result<(Arc<CoreContext>, bool, Option<crate::config::Config>)> {
+        if boot_mode == crate::core::runtime::CoreBootMode::Inspection {
+            anyhow::ensure!(
+                preloaded_config.is_some(),
+                "inspection boot requires a caller-supplied config"
+            );
+            anyhow::ensure!(
+                matches!(token, TokenSource::Fixed(_)),
+                "inspection boot requires a process-local fixed RPC bearer"
+            );
+        }
         log::debug!(
             "[core-context] init: host_kind={host_kind:?} domains={domains:?} \
              tool_groups={tool_groups:?}"
@@ -183,7 +216,9 @@ impl CoreContext {
         if let Some(config) = &preloaded_config {
             crate::security::secret_storage::init_workspace(&config.workspace_dir);
         }
-        crate::security::secret_storage::init_master_key().map_err(anyhow::Error::msg)?;
+        if boot_mode == crate::core::runtime::CoreBootMode::Normal {
+            crate::security::secret_storage::init_master_key().map_err(anyhow::Error::msg)?;
+        }
 
         // 4. Seed the per-process RPC bearer. `Fixed` seeds the in-memory value
         //    directly (never touches the env); `EnvOrFile` reads
@@ -257,7 +292,9 @@ impl CoreContext {
         log::debug!("[core-context] init: components={components:?} effective domains={domains:?}");
         let config = match loaded {
             Ok(cfg) => {
-                init_stores(&cfg, domains).await;
+                if boot_mode == crate::core::runtime::CoreBootMode::Normal {
+                    init_stores(&cfg, domains).await;
+                }
                 Some(cfg)
             }
             Err(e) => {
@@ -304,13 +341,15 @@ impl CoreContext {
         //    background jobs start later, from CoreRuntime::start_services(), after a transport binds
         //    succeeds.
         let runtime_config = config.clone();
-        super::bootstrap::bootstrap_core_runtime(
-            host_kind,
-            config,
-            domains,
-            &super::DispatchCtx::new(ctx.clone()),
-        )
-        .await;
+        if boot_mode == crate::core::runtime::CoreBootMode::Normal {
+            super::bootstrap::bootstrap_core_runtime(
+                host_kind,
+                config,
+                domains,
+                &super::DispatchCtx::new(ctx.clone()),
+            )
+            .await;
+        }
 
         Ok((ctx, has_operator_token, runtime_config))
     }

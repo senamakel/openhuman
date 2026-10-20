@@ -211,7 +211,13 @@ async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
     let before = filesystem_snapshot(temp.path());
     let findings = run_only(config, CONSTRUCT).await;
     assert_eq!(filesystem_snapshot(temp.path()), before);
-    let result = finding(&findings, CONSTRUCT);
+    let result = findings
+        .iter()
+        .find(|finding| {
+            finding.check_id == CONSTRUCT
+                && finding.config_path.as_deref() == Some("vision_provider")
+        })
+        .expect("the configured vision fallback should report its own config path");
 
     assert_eq!(result.severity, FindingSeverity::Error);
     assert_eq!(result.config_path.as_deref(), Some("vision_provider"));

@@ -31,6 +31,41 @@ fn isolated_config(root: &std::path::Path) -> Config {
     config
 }
 
+fn filesystem_snapshot(root: &std::path::Path) -> Vec<(std::path::PathBuf, bool, Vec<u8>)> {
+    fn visit(
+        root: &std::path::Path,
+        dir: &std::path::Path,
+        snapshot: &mut Vec<(std::path::PathBuf, bool, Vec<u8>)>,
+    ) {
+        for entry in std::fs::read_dir(dir).expect("read temporary config fixture") {
+            let entry = entry.expect("read fixture entry");
+            let path = entry.path();
+            let metadata = entry.metadata().expect("read fixture metadata");
+            let is_dir = metadata.is_dir();
+            let contents = if is_dir {
+                Vec::new()
+            } else {
+                std::fs::read(&path).expect("read fixture file")
+            };
+            snapshot.push((
+                path.strip_prefix(root)
+                    .expect("fixture path is under root")
+                    .to_path_buf(),
+                is_dir,
+                contents,
+            ));
+            if is_dir {
+                visit(root, &path, snapshot);
+            }
+        }
+    }
+
+    let mut snapshot = Vec::new();
+    visit(root, root, &mut snapshot);
+    snapshot.sort_by(|left, right| left.0.cmp(&right.0));
+    snapshot
+}
+
 fn finding<'a>(findings: &'a [Finding], check_id: &str) -> &'a Finding {
     findings
         .iter()
@@ -60,7 +95,9 @@ async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
     let _env_guard = EnvVarGuard::locked_async()
         .await
         .with("HOME", temp.path())
-        .with("OPENHUMAN_WORKSPACE", temp.path());
+        .with("OPENHUMAN_WORKSPACE", temp.path())
+        .without("OPENAI_API_KEY")
+        .without("OPENHUMAN_CORE_TOKEN");
 
     let mut config = isolated_config(temp.path());
     config.chat_provider = Some("ollama:qwen2.5".to_owned());
@@ -73,12 +110,15 @@ async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
         auth_style: AuthStyle::Bearer,
         default_model: Some("test-model".to_owned()),
     }];
+    config.vision_provider = Some("cloud".to_owned());
 
+    let before = filesystem_snapshot(temp.path());
     let findings = run_only(config, CONSTRUCT).await;
+    assert_eq!(filesystem_snapshot(temp.path()), before);
     let result = finding(&findings, CONSTRUCT);
 
     assert_eq!(result.severity, FindingSeverity::Error);
-    assert_eq!(result.config_path.as_deref(), Some("primary_cloud"));
+    assert_eq!(result.config_path.as_deref(), Some("vision_provider"));
     assert!(result.message.to_ascii_lowercase().contains("credential"));
     assert!(!temp.path().join("auth-profiles.json").exists());
     assert!(!temp.path().join("auth-profiles.lock").exists());
@@ -86,10 +126,10 @@ async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
 
 #[tokio::test]
 async fn a_fully_configured_managed_default_constructs_cleanly() {
+    use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;
-    use crate::inference::registry::{register_chat_model, unregister_chat_model, ChatModelEntry};
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-    use tinyinference_llm::error::Error as ModelError;
+    use crate::inference::registry::{register_chat_model, ChatModelEntry};
 
     struct ManagedModel {
         generations: Arc<AtomicUsize>,
@@ -103,7 +143,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
             _request: ModelRequest,
         ) -> tinyinference_llm::Result<ModelResponse> {
             self.generations.fetch_add(1, Ordering::SeqCst);
-            Err(ModelError::Model("doctor test model must not run".to_owned()))
+            panic!("doctor's construction check must not generate a model response")
         }
     }
 
@@ -134,7 +174,21 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     );
     let _registered_model = RegisterManagedModel;
 
-    let findings = run_only(isolated_config(temp.path()), CONSTRUCT).await;
+    let mut config = isolated_config(temp.path());
+    config.api_url = Some("https://api.openhuman.invalid".to_owned());
+    config.api_key = Some("doctor-test-session-token".to_owned());
+    config.primary_cloud = Some("provider-openhuman".to_owned());
+    config.cloud_providers = vec![CloudProviderCreds {
+        id: "provider-openhuman".to_owned(),
+        slug: "openhuman".to_owned(),
+        label: "OpenHuman".to_owned(),
+        endpoint: "https://api.openhuman.invalid/v1".to_owned(),
+        auth_style: AuthStyle::OpenhumanJwt,
+        default_model: Some("managed-test-model".to_owned()),
+    }];
+    let before = filesystem_snapshot(temp.path());
+    let findings = run_only(config, CONSTRUCT).await;
+    assert_eq!(filesystem_snapshot(temp.path()), before);
 
     assert!(
         !findings.is_empty()

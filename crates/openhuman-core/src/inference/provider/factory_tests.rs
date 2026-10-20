@@ -1,6 +1,6 @@
 use super::*;
-use crate::config::Config;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+use crate::config::Config;
 use crate::security::credentials::AuthService;
 use tempfile::TempDir;
 
@@ -153,7 +153,7 @@ fn deepseek_entry(id: &str) -> CloudProviderCreds {
 /// A config carrying a resolved model, as `agent_chat` leaves it after applying
 /// `model_override` and before building the agent.
 fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
-    use crate::config::schema::ephemeral_route::{EphemeralRoute, apply};
+    use crate::config::schema::ephemeral_route::{apply, EphemeralRoute};
     let mut config = Config {
         default_model: Some(model.to_string()),
         ..Config::default()

@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::config::schema::load::{DotenvLoadProvenance, ProvenanceSource};
+use crate::config::Config;
 
 use super::contract::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use super::runner;

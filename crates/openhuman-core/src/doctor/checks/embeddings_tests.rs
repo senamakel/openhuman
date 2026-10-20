@@ -62,12 +62,10 @@ async fn missing_embedding_model_and_dimensions_are_reported() {
         paths.contains(&"memory.embedding_dimensions"),
         "missing dimensions path in findings: {findings:#?}"
     );
-    assert!(
-        findings
-            .iter()
-            .filter(|result| result.check_id == EMBEDDINGS_CONFIG)
-            .all(|result| result.severity == FindingSeverity::Error)
-    );
+    assert!(findings
+        .iter()
+        .filter(|result| result.check_id == EMBEDDINGS_CONFIG)
+        .all(|result| result.severity == FindingSeverity::Error));
 }
 
 #[tokio::test]

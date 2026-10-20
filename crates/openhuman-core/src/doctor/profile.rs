@@ -195,6 +195,22 @@ async fn profile_paths_for_resolved_dirs(
             Some(layout.version),
         ));
     }
+    if workspace_dir
+        .file_name()
+        .is_some_and(|name| name == crate::config::schema::profile_layout::PROFILE_FILES_DIR)
+    {
+        if let Some(profile_dir) = workspace_dir.parent() {
+            if let Some(profile_id) = profile_id_for_dir(profile_dir)? {
+                let layout = read_profile_layout(profile_dir.to_path_buf()).await?;
+                return Ok((
+                    layout.dir.clone(),
+                    layout.workspace_dir.clone(),
+                    Some(profile_id),
+                    Some(layout.version),
+                ));
+            }
+        }
+    }
     if let Some(layout) = ProfileLayout::of_workspace(&workspace_dir) {
         let id = profile_id_for_dir(&layout.dir)?;
         return Ok((

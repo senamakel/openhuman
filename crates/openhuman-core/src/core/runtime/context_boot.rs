@@ -183,29 +183,41 @@ impl CoreContext {
         };
         let workspace_dir = config.as_ref().map(|cfg| cfg.workspace_dir.clone());
 
-        // Construct and publish the context before bootstrap. Host-installed
-        // session providers may resolve their cold-boot recovery workspace via
-        // CoreContext, which does not exist until this point.
-        let ctx = Arc::new(CoreContext {
-            host_kind,
-            workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
-                workspace_dir: workspace_dir.clone(),
-            }))),
-            domains,
-            tool_groups,
-            components,
-            embedder_config,
-            latest_embedder_config,
-            user_skill_roots: true,
-            extensions: Default::default(),
-            turn_origin: None,
-            channel_thread: None,
-            session_agent: None,
-            profile: None,
-            agent: Default::default(),
-            bare: false,
-        });
-        let _ = DEFAULT_CONTEXT.set(ctx.clone());
+        // Construct the runtime context before bootstrap. Inspection contexts
+        // stay local and no-store; normal hosts still publish the process
+        // default before their session provider can request it.
+        let ctx = if boot_mode == crate::core::runtime::CoreBootMode::Inspection {
+            super::CoreContext::for_runtime_inspection(
+                config
+                    .clone()
+                    .expect("inspection boot validated its preloaded config"),
+                host_kind,
+                domains,
+                tool_groups,
+            )
+        } else {
+            let context = Arc::new(CoreContext {
+                host_kind,
+                workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
+                    workspace_dir: workspace_dir.clone(),
+                }))),
+                domains,
+                tool_groups,
+                components,
+                embedder_config,
+                latest_embedder_config,
+                user_skill_roots: true,
+                extensions: Default::default(),
+                turn_origin: None,
+                channel_thread: None,
+                session_agent: None,
+                profile: None,
+                agent: Default::default(),
+                bare: false,
+            });
+            let _ = DEFAULT_CONTEXT.set(context.clone());
+            context
+        };
 
         // 6. Long-lived runtime infrastructure: event bus, domain subscribers,
         //    ledgers, agent-definition registry, live security policy, approval

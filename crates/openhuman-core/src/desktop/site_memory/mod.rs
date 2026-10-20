@@ -31,6 +31,12 @@ const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 /// How long a site file is kept without a change.
 const KEEP_SECS: u64 = 30 * 24 * 60 * 60;
 
+const DAILY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
+
+fn daily_sweep_interval() -> tokio::time::Interval {
+    tokio::time::interval(DAILY_SWEEP_INTERVAL)
+}
+
 /// The directory site files live in.
 pub(super) fn sites_dir(workspace: &Path) -> PathBuf {
     workspace.join("state").join("computer").join("sites")
@@ -383,7 +389,7 @@ pub(crate) async fn install(
     // The module reaches the host by this name (`optional` in its manifest).
     connection.request_name(INTERFACE).await?;
     runtime.spawn(run_sweeper(
-        tokio::time::interval(std::time::Duration::from_secs(24 * 60 * 60)),
+        daily_sweep_interval(),
         timer_lifecycle,
         || async {
             match config().await {

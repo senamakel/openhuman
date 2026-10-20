@@ -245,7 +245,7 @@ async fn scheduled_sweeps_expire_backing_files_and_stop_with_the_host() {
     let (observed, mut sweeps) = tokio::sync::mpsc::unbounded_channel();
     let (host, lifecycle) = tokio::sync::watch::channel(false);
     let task = tokio::spawn(run_sweeper(
-        tokio::time::interval(std::time::Duration::from_secs(24 * 60 * 60)),
+        daily_sweep_interval(),
         lifecycle,
         move || {
             let workspace = workspace.clone();

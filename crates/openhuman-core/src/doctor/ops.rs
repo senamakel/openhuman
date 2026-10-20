@@ -25,6 +25,11 @@ pub async fn doctor_report_with_options(
     config: &Config,
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
+    if options.profile.is_none()
+        && let Some(outcome) = unusable_default_config_outcome(config, options.tier)
+    {
+        return Ok(outcome);
+    }
     if let Some(profile_id) = options.profile.take() {
         if crate::core::runtime::is_saas() {
             return Ok(profile_error_outcome(
@@ -127,6 +132,9 @@ pub async fn doctor_report_for_desktop_selection(
     selection: DesktopProfileSelection,
     options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
+    if let Some(outcome) = unusable_default_config_outcome(&selection.config, options.tier) {
+        return Ok(outcome);
+    }
     let components = ComponentSet::from_config(&selection.config.components);
     let mut ctx = DoctorCtx::from_config_with_components(selection.config.clone(), components)
         .with_profile_metadata(selection.layout_version, Some(selection.resolution_source));
@@ -141,6 +149,44 @@ pub async fn doctor_report_for_desktop_selection(
         report_with_context(&selection.config, options, ctx),
     )
     .await
+}
+
+/// Shared safe diagnostic for a config parse failure. Keeps parser output and
+/// source values out of the doctor report while preserving a typed field path
+/// or TOML line when the parser supplied one.
+pub(crate) fn config_parse_finding(config: &Config) -> Option<Finding> {
+    let error = config.load_diagnostics().parse_error.as_ref()?;
+    let mut finding = Finding::error(
+        "config/parse",
+        error.safe_summary(),
+        "Correct the reported config syntax or field type and rerun doctor.",
+    );
+    finding.config_path = error.field_path.clone();
+    Some(finding)
+}
+
+fn unusable_default_config_outcome(
+    config: &Config,
+    tier: DoctorTier,
+) -> Option<Outcome<DoctorReport>> {
+    if config.load_diagnostics().fallback != crate::config::schema::load::ConfigLoadFallback::Defaults
+    {
+        return None;
+    }
+    let finding = config_parse_finding(config)?;
+    let findings = vec![finding];
+    let report = DoctorReport {
+        schema_version: 2,
+        profile: super::profile::id_for_config(config),
+        config_source: DoctorConfigSource::Profile,
+        tier,
+        checks_run: vec!["config/parse".into()],
+        checks_skipped: Vec::new(),
+        summary: DoctorSummary::from_findings(&findings),
+        findings,
+        ok: false,
+    };
+    Some(Outcome::single_log(report, "doctor config parse failed"))
 }
 
 async fn report_with_context(

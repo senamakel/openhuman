@@ -35,13 +35,21 @@ pub(crate) struct ConfigParseError {
 
 impl ConfigParseError {
     pub(crate) fn new(path: PathBuf, message: String) -> Self {
-        let field_path = safe_field_path(&message);
-        let line = syntax_error_line(&message);
         Self {
             path,
             message,
-            field_path,
-            line,
+            field_path: None,
+            line: None,
+        }
+    }
+
+    pub(crate) fn from_error(path: PathBuf, error: &anyhow::Error) -> Self {
+        let typed = error.downcast_ref::<super::parse::ConfigParseFailure>();
+        Self {
+            path,
+            message: error.to_string(),
+            field_path: typed.and_then(|failure| failure.field_path.clone()),
+            line: typed.and_then(|failure| failure.line),
         }
     }
 
@@ -55,30 +63,6 @@ impl ConfigParseError {
             "The config file is invalid.".into()
         }
     }
-}
-
-fn safe_field_path(message: &str) -> Option<String> {
-    let (path, detail) = message.split_once(": ")?;
-    if !detail.starts_with("invalid type:")
-        && !detail.starts_with("missing field ")
-        && !detail.starts_with("unknown variant ")
-    {
-        return None;
-    }
-    if path.is_empty()
-        || !path
-            .chars()
-            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '[' | ']'))
-    {
-        return None;
-    }
-    Some(path.to_owned())
-}
-
-fn syntax_error_line(message: &str) -> Option<usize> {
-    let rest = message.strip_prefix("TOML parse error at line ")?;
-    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
-    (!digits.is_empty()).then(|| digits.parse().ok()).flatten()
 }
 
 /// Non-persisted information collected as a config is loaded.
@@ -124,11 +108,9 @@ pub(super) fn record_non_utf8_recovery(
     if diagnostics.fallback != ConfigLoadFallback::None {
         return;
     }
-    diagnostics.parse_error = Some(ConfigParseError {
-        path: path.to_path_buf(),
-        message: "config file could not be decoded as UTF-8".to_string(),
-        field_path: None,
-        line: None,
-    });
+    diagnostics.parse_error = Some(ConfigParseError::new(
+        path.to_path_buf(),
+        "config file could not be decoded as UTF-8".to_string(),
+    ));
     diagnostics.fallback = fallback;
 }

@@ -291,7 +291,7 @@ async fn malformed_default_profile_returns_only_a_safe_config_parse_error() {
         .unwrap();
     let layout = ProfileLayout::new(root, "account-b");
     tokio::fs::create_dir_all(&layout.dir).await.unwrap();
-    let invalid_contents = b"default_model = \"private-value\"\ninvalid = [\n";
+    let invalid_contents = b"default_temperature = \"private-value\"\n";
     tokio::fs::write(&layout.config_path, invalid_contents)
         .await
         .unwrap();
@@ -313,6 +313,10 @@ async fn malformed_default_profile_returns_only_a_safe_config_parse_error() {
     assert_eq!(outcome.value.findings.len(), 1);
     assert_eq!(outcome.value.findings[0].check_id, "config/parse");
     assert_eq!(outcome.value.findings[0].severity, FindingSeverity::Error);
+    assert_eq!(
+        outcome.value.findings[0].config_path.as_deref(),
+        Some("default_temperature")
+    );
     assert!(!outcome.value.findings[0].message.contains("private-value"));
     assert_eq!(before, snapshot_tree(root));
 }

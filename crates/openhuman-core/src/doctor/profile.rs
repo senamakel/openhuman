@@ -169,31 +169,41 @@ async fn load_config_read_only(
     let mut config = match config_text.as_deref() {
         Some(contents) => match crate::config::schema::config_from_toml_str(contents) {
             Ok(config) => config,
-            Err(_) => invalid_config_snapshot(config_path, workspace_dir),
+            Err(error) => invalid_config_snapshot(
+                config_path,
+                workspace_dir,
+                crate::config::schema::load::ConfigParseError::from_error(
+                    config_path.to_path_buf(),
+                    &error,
+                ),
+            ),
         },
         None => Config::default(),
     };
     config.config_path = config_path.to_path_buf();
     config.workspace_dir = workspace_dir.to_path_buf();
     config.action_dir = crate::config::resolve_action_dir(&config.action_dir_override);
-    if let Some(contents) = config_text.as_deref() {
+    if let Some(contents) = config_text.as_deref()
+        && config.load_diagnostics().parse_error.is_none()
+    {
         crate::config::schema::load::apply_loaded_config_migrations(&mut config, contents);
     }
     config.apply_profile_env_overrides();
     Ok((config, config_text.is_some()))
 }
 
-fn invalid_config_snapshot(config_path: &Path, workspace_dir: &Path) -> Config {
+fn invalid_config_snapshot(
+    config_path: &Path,
+    workspace_dir: &Path,
+    parse_error: crate::config::schema::load::ConfigParseError,
+) -> Config {
     let mut config = Config {
         config_path: config_path.to_path_buf(),
         workspace_dir: workspace_dir.to_path_buf(),
         ..Config::default()
     };
     let diagnostics = config.load_diagnostics_mut();
-    diagnostics.parse_error = Some(crate::config::schema::load::ConfigParseError {
-        path: config_path.to_path_buf(),
-        message: "selected config is invalid".into(),
-    });
+    diagnostics.parse_error = Some(parse_error);
     diagnostics.fallback = crate::config::schema::load::ConfigLoadFallback::Defaults;
     config
 }

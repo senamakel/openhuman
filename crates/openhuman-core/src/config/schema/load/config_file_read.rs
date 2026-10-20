@@ -29,10 +29,7 @@ pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (B
         }
         Err(parse_err) => parse_err,
     };
-    let parse_error = ConfigParseError {
-        path: config_path.to_path_buf(),
-        message: parse_err.clone(),
-    };
+    let parse_error = ConfigParseError::from_error(config_path.to_path_buf(), &parse_err);
 
     let backup_path = config_path.with_extension("toml.bak");
     if tokio::fs::try_exists(&backup_path).await.unwrap_or(false) {
@@ -104,15 +101,16 @@ pub(super) async fn migration_source(config_path: &Path, contents: &str) -> Stri
     }
 }
 
-pub(super) async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>, String> {
+pub(super) async fn parse_toml_off_worker(contents: String) -> Result<Box<Config>> {
     match tokio::task::spawn_blocking(move || {
         super::parse::config_from_toml_str(&contents).map(Box::new)
     })
     .await
     {
         Ok(Ok(config)) => Ok(config),
-        Ok(Err(parse_err)) => Err(parse_err.to_string()),
-        Err(join_err) => Err(format!("blocking-pool parse join failed: {join_err}")),
+        Ok(Err(parse_error)) => Err(parse_error),
+        Err(join_error) => Err(anyhow::Error::new(join_error)
+            .context("blocking-pool config parser failed")),
     }
 }
 

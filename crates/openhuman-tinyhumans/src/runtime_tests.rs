@@ -79,6 +79,7 @@ fn product_identity_is_set_on_connect() {
             .hosted_controllers(false)
             .tool_ranker(false)
             .product_identity(crate::ProductIdentity::default()),
+        &Extensions::new(),
     )
     .expect("restore");
     assert_eq!(

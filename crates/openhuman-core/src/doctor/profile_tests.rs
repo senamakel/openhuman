@@ -159,6 +159,38 @@ async fn selected_profile_context_pins_id_layout_source_and_components() {
 }
 
 #[tokio::test]
+async fn selected_profile_applies_in_memory_legacy_migrations_without_saving_them() {
+    let temp = TempDir::new().unwrap();
+    let layout = ProfileLayout::new(temp.path(), "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    let contents = "api_url = \"https://custom.example/v1/chat/completions\"\n";
+    tokio::fs::write(&layout.config_path, contents)
+        .await
+        .unwrap();
+
+    let selected = load_desktop_profile(temp.path(), "account-b")
+        .await
+        .unwrap();
+
+    assert_eq!(selected.config.api_url, None);
+    assert_eq!(
+        selected.config.inference_url.as_deref(),
+        Some("https://custom.example/v1/chat/completions")
+    );
+    assert!(selected
+        .config
+        .load_diagnostics()
+        .migrated_keys
+        .contains(&"api_url".to_string()));
+    assert_eq!(
+        tokio::fs::read_to_string(&layout.config_path)
+            .await
+            .unwrap(),
+        contents
+    );
+}
+
+#[tokio::test]
 async fn missing_profile_is_reported_without_creating_or_switching_a_profile() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();

@@ -3,6 +3,8 @@
 //! Resolve async inputs for the temporary v1 adapters, then run the v2 check
 //! registry and report assembler.
 
+use std::path::Path;
+
 use super::contract::DoctorProfileStatus;
 use crate::config::Config;
 use crate::core::{
@@ -39,26 +41,7 @@ pub async fn doctor_report_with_options(
                 super::profile::DesktopProfileError::Missing,
             ));
         };
-        let selected = match super::profile::load_desktop_profile(&root, &profile_id).await {
-            Ok(selected) => selected,
-            Err(error) => {
-                return Ok(profile_error_outcome(
-                    safe_profile_id(&profile_id),
-                    options.tier,
-                    error,
-                ));
-            }
-        };
-        let components = ComponentSet::from_config(&selected.config.components);
-        let ctx = DoctorCtx::from_config_with_components(selected.config.clone(), components)
-            .with_profile(selected.id, DoctorConfigSource::Profile)
-            .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
-            .with_profile_status(DoctorProfileStatus::Valid);
-        return CoreContext::scope(
-            CoreContext::bare(),
-            report_with_context(&selected.config, options, ctx),
-        )
-        .await;
+        return doctor_report_for_desktop_profile(&root, &profile_id, options).await;
     }
 
     let mut ctx = DoctorCtx::from_config(config.clone());
@@ -76,18 +59,58 @@ pub async fn doctor_report_for_dispatch(
     dispatch: &DispatchCtx,
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
-    if let Some(profile_id) = options.profile.as_deref() {
+    if let Some(profile_id) = options.profile.take() {
         if crate::core::runtime::is_saas() {
             return Ok(profile_error_outcome(
-                safe_profile_id(profile_id),
+                safe_profile_id(&profile_id),
                 options.tier,
                 super::profile::DesktopProfileError::Unavailable,
             ));
         }
+        let root = dispatch
+            .embedder_config()
+            .as_ref()
+            .and_then(super::profile::root_for_config)
+            .or_else(|| crate::config::default_root_openhuman_dir().ok());
+        let Some(root) = root else {
+            return Ok(profile_error_outcome(
+                safe_profile_id(&profile_id),
+                options.tier,
+                super::profile::DesktopProfileError::Missing,
+            ));
+        };
+        return doctor_report_for_desktop_profile(&root, &profile_id, options).await;
     }
 
     let config = dispatch.load_config().await?;
     doctor_report_with_options(&config, options).await
+}
+
+async fn doctor_report_for_desktop_profile(
+    root: &Path,
+    profile_id: &str,
+    options: DoctorOptions,
+) -> Result<Outcome<DoctorReport>, String> {
+    let selected = match super::profile::load_desktop_profile(root, profile_id).await {
+        Ok(selected) => selected,
+        Err(error) => {
+            return Ok(profile_error_outcome(
+                safe_profile_id(profile_id),
+                options.tier,
+                error,
+            ));
+        }
+    };
+    let components = ComponentSet::from_config(&selected.config.components);
+    let ctx = DoctorCtx::from_config_with_components(selected.config.clone(), components)
+        .with_profile(selected.id, DoctorConfigSource::Profile)
+        .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
+        .with_profile_status(DoctorProfileStatus::Valid);
+    CoreContext::scope(
+        CoreContext::bare(),
+        report_with_context(&selected.config, options, ctx),
+    )
+    .await
 }
 
 async fn report_with_context(

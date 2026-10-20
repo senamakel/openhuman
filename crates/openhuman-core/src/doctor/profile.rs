@@ -42,9 +42,11 @@ impl DesktopProfileError {
 }
 
 /// Loads one profile beneath `root` without changing active-user state,
-/// creating directories, writing a layout marker, applying migrations, or
-/// recovering from a backup. Process environment config overrides still
-/// apply after the selected profile file is parsed.
+/// creating directories, writing a layout marker, or recovering from a
+/// backup. It applies the same in-memory load transforms as the regular
+/// snapshot loader but does not run persistent schema migrations. Process
+/// environment config overrides still apply after the selected profile file
+/// is parsed.
 pub(crate) async fn load_desktop_profile(
     root: &Path,
     id: &str,

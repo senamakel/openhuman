@@ -2,7 +2,6 @@ use super::*;
 use crate::session::test_support::{EXPIRED_JWT, LIVE_JWT};
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::runtime::CoreContext;
-use openhuman_embed::__host::core::slots::Extensions;
 use openhuman_embed::__host::doctor::{DoctorCheck, registered_checks};
 use openhuman_embed::{CoreBuilder, DomainSet, HostKind, ServiceSet};
 use serde_json::json;
@@ -256,20 +255,15 @@ async fn hosted_probe_child() {
             })
         }
         "scoped-context" => {
-            let mut extensions = Extensions::new();
-            crate::register::register_all(
-                &crate::InstallOptions::default(),
-                crate::register::DoctorRegistration::Context(&extensions),
-            );
-            let config = config_at(&workspace, &workspace, &api_url);
-            let hosted = CoreBuilder::new(HostKind::Library)
-                .services(ServiceSet::none())
-                .domains(DomainSet::none())
+            let config = config_at(&root, &workspace, &api_url);
+            let hosted = crate::RuntimeBuilder::new()
+                .workspace(crate::embed::Workspace::Dir(workspace.clone()))
+                .services(crate::embed::ServiceSet::none())
+                .domains(crate::embed::DomainSet::none())
                 .config(config.clone())
-                .extensions(extensions)
                 .build()
                 .await
-                .expect("TinyHumans context");
+                .expect("TinyHumans runtime context");
             let core_only = CoreBuilder::new(HostKind::Library)
                 .services(ServiceSet::none())
                 .domains(DomainSet::none())
@@ -278,7 +272,7 @@ async fn hosted_probe_child() {
                 .await
                 .expect("plain core context");
             json!({
-                "hosted_ids": registered_ids(&hosted).await,
+                "hosted_ids": registered_ids(hosted.core_runtime()).await,
                 "core_ids": registered_ids(&core_only).await,
             })
         }
@@ -580,7 +574,7 @@ fn backend_credential_check_runs_in_the_connect_tier() {
 }
 
 #[tokio::test]
-async fn hosted_checks_are_scoped_to_the_runtime_that_installed_tinyhumans() {
+async fn tinyhumans_runtime_registration_is_context_scoped() {
     let tmp = TempDir::new().unwrap();
     let api_url = "https://scope-test.example";
     let report = run_isolated_probe("scoped-context", tmp.path(), api_url).await;

@@ -5,14 +5,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::doctor::{
-    register_check_source, register_check_source_in, DoctorCheck, DoctorCheckSource,
-    DoctorCtx, DoctorTier, Finding, FindingSeverity,
+    DoctorCheck, DoctorCheckSource, DoctorCtx, DoctorTier, Finding, FindingSeverity,
+    register_check_source, register_check_source_in,
 };
-use openhuman_embed::__host::platform::socket::{global_socket_manager, ConnectionStatus};
+use openhuman_embed::__host::platform::socket::{ConnectionStatus, global_socket_manager};
 use openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only;
 use openhuman_embed::__host::security::credentials::session_support::{
-    classify_session_token, is_local_session_token, load_app_session_profile_read_only,
-    session_token_for_config, BackendCredential, SessionTokenCheck,
+    BackendCredential, SessionTokenCheck, classify_session_token, is_local_session_token,
+    load_app_session_profile_read_only, session_token_for_config,
 };
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
 
@@ -320,8 +320,13 @@ impl DoctorCheck for BackendApiUrl {
 
         let resolved = effective_backend_api_url(&ctx.config().api_url);
         match url::Url::parse(&resolved) {
-            Ok(parsed) if matches!(parsed.scheme(), "http" | "https") && parsed.host_str().is_some() => {
-                vec![Finding::pass(self.id(), "The hosted backend API URL is valid.")]
+            Ok(parsed)
+                if matches!(parsed.scheme(), "http" | "https") && parsed.host_str().is_some() =>
+            {
+                vec![Finding::pass(
+                    self.id(),
+                    "The hosted backend API URL is valid.",
+                )]
             }
             _ => vec![Finding::error(
                 self.id(),
@@ -439,11 +444,7 @@ fn auth_finding(id: &str, kind: CredentialKind, error: SdkError, fix_hint: &str)
             format!("The hosted request returned HTTP {status}."),
             fix_hint,
         ),
-        _ => Finding::error(
-            id,
-            "The hosted request could not complete.",
-            fix_hint,
-        ),
+        _ => Finding::error(id, "The hosted request could not complete.", fix_hint),
     }
 }
 

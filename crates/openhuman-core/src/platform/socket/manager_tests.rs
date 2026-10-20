@@ -55,7 +55,10 @@ fn status_for_preserves_owner_status_but_rejects_foreign_and_retired_identities(
     ] {
         *manager.shared.status.write() = status;
         assert_eq!(manager.status_for(url, token), Some(status));
-        assert_eq!(manager.status_for("https://backend-a.example/socket.io", token), None);
+        assert_eq!(
+            manager.status_for("https://backend-a.example/socket.io", token),
+            None
+        );
         assert_eq!(manager.status_for(url, "session-a"), None);
     }
 

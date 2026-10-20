@@ -11,8 +11,8 @@
 
 use std::collections::HashMap;
 use std::sync::{
-    atomic::{AtomicBool, AtomicU64, Ordering},
     Arc, OnceLock,
+    atomic::{AtomicBool, AtomicU64, Ordering},
 };
 
 use parking_lot::{Mutex, RwLock};
@@ -23,7 +23,7 @@ use tokio::time::Duration;
 use crate::platform::socket::models::{ConnectionStatus, SocketState};
 use crate::skills::webhooks::WebhookRouter;
 
-use super::token_provider::{static_token_provider, TokenProvider};
+use super::token_provider::{TokenProvider, static_token_provider};
 use super::ws_loop::ws_loop;
 
 // ---------------------------------------------------------------------------

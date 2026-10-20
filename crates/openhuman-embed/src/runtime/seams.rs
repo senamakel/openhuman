@@ -32,9 +32,9 @@ use openhuman_core::agent::hooks::{
 use openhuman_core::agent::tinyagents::discovery::{
     clear_tool_ranker, install_tool_ranker, installed_tool_ranker,
 };
-use openhuman_core::core::all::{register_controller_extension, ControllerExtension};
+use openhuman_core::core::all::{ControllerExtension, register_controller_extension};
+use openhuman_core::core::server_launcher::{ServerLauncher, install_server_launcher};
 use openhuman_core::core::slots::Extensions;
-use openhuman_core::core::server_launcher::{install_server_launcher, ServerLauncher};
 use openhuman_core::security::SecurityPolicy;
 use openhuman_core::storage::StorageBackend;
 use tinytools::ToolRanker;
@@ -415,10 +415,7 @@ impl RuntimeBuilder {
     /// runtime's `CoreContext`; registrations remain isolated from other core
     /// contexts in the process. This is intended for layered host crates.
     #[doc(hidden)]
-    pub fn configure_core_extensions(
-        self,
-        configure: impl FnOnce(&Extensions),
-    ) -> Self {
+    pub fn configure_core_extensions(self, configure: impl FnOnce(&Extensions)) -> Self {
         configure(&self.seams.core_extensions);
         self
     }

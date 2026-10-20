@@ -23,13 +23,15 @@ static CHECK_SOURCES: HookSlot<Arc<dyn DoctorCheckSource>> =
 /// Registers a check source for the whole process.
 pub fn register_check_source(source: impl DoctorCheckSource + 'static) {
     let source: Arc<dyn DoctorCheckSource> = Arc::new(source);
-    CHECK_SOURCES.register(source.id(), source);
+    let id = source.id().to_owned();
+    CHECK_SOURCES.register(id, source);
 }
 
 /// Registers a check source for the context built from `extensions`.
 pub fn register_check_source_in(extensions: &Extensions, source: impl DoctorCheckSource + 'static) {
     let source: Arc<dyn DoctorCheckSource> = Arc::new(source);
-    CHECK_SOURCES.register_in(extensions, source.id(), source);
+    let id = source.id().to_owned();
+    CHECK_SOURCES.register_in(extensions, id, source);
 }
 
 /// Removes a process-wide source, primarily for isolated tests and hosts that

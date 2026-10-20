@@ -29,7 +29,7 @@ memory, unless the caller opts into the `live` tier.
 
 ## Check contract
 
-The Rust API uses snake case; serialized JSON uses camel case. A check is
+The Rust API and serialized JSON use snake case. A check is
 registered with a stable id, category, cost tier, and optional component gate.
 Its detector is asynchronous and returns findings for that check:
 

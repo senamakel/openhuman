@@ -245,7 +245,7 @@ pub struct DoctorCtx {
     config: Arc<Config>,
     components: ComponentSet,
     profile: Option<String>,
-    config_source: Option<DoctorConfigSource>,
+    config_source: DoctorConfigSource,
     // Transitional input for the v1 adapter. #506 removes it when the old
     // aggregate checks have been ported to `DoctorCheck` implementations.
     memory_engine: Option<MemoryEngineCheck>,

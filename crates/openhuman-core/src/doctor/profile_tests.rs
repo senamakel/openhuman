@@ -483,6 +483,52 @@ async fn selected_profile_context_pins_id_layout_source_and_components() {
 }
 
 #[tokio::test]
+async fn report_serializes_active_profile_layout_and_resolution_source() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let _workspace_override = WorkspaceOverrideGuard::clear();
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    let active_user = root.join("active_user.toml");
+    tokio::fs::write(&active_user, "user_id = \"account-b\"\n")
+        .await
+        .unwrap();
+    let layout = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(layout.dir.join(".layout"), "2\n")
+        .await
+        .unwrap();
+    tokio::fs::write(&layout.config_path, "[components]\nmemory = false\n")
+        .await
+        .unwrap();
+
+    let selection = resolve_desktop_profile_for_doctor(root, None)
+        .await
+        .unwrap();
+    let outcome = crate::doctor::ops::doctor_report_for_desktop_selection(
+        selection,
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["profile/exists".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .unwrap();
+    let json = serde_json::to_value(outcome.value).unwrap();
+
+    assert_eq!(
+        json.get("profile_layout_version")
+            .and_then(serde_json::Value::as_u64),
+        Some(2)
+    );
+    assert_eq!(
+        json.get("config_resolution_source")
+            .and_then(serde_json::Value::as_str),
+        Some("active_user.toml")
+    );
+}
+
+#[tokio::test]
 async fn selected_profile_applies_in_memory_legacy_migrations_without_saving_them() {
     let temp = TempDir::new().unwrap();
     let layout = ProfileLayout::new(temp.path(), "account-b");

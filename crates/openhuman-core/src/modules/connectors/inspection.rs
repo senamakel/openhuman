@@ -99,7 +99,30 @@ where
         .proxy(record.bus_name, record.object_path)
         .map_err(|_| ExistingCallError::Unavailable)?
         .with_timeout(INSPECTION_TIMEOUT);
-    call_proxy_readonly(&proxy, member, request).await.map(Some)
+    if *configured_binding()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        != Some(expected)
+    {
+        return Ok(None);
+    }
+    call_bound_proxy(config, &proxy, member, request).await
+}
+
+async fn call_bound_proxy<Request, Reply>(
+    config: &Config,
+    proxy: &tinybus::Proxy,
+    member: &str,
+    request: Request,
+) -> Result<Option<Reply>, ExistingCallError>
+where
+    Request: Serialize + Send,
+    Reply: DeserializeOwned,
+{
+    if !binding_matches_config(config) {
+        return Ok(None);
+    }
+    call_proxy_readonly(proxy, member, request).await.map(Some)
 }
 
 async fn call_proxy_readonly<Request, Reply>(
@@ -188,7 +211,6 @@ fn binding_for_selected(config: &Config, selected: &(String, String)) -> Option<
     })
 }
 
-#[cfg(test)]
 fn binding_matches_config(config: &Config) -> bool {
     let Some(expected) = binding_for_config(config) else {
         return false;

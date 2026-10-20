@@ -39,7 +39,7 @@ impl Interface for ReadOnlyFixture {
 async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential() {
     let _guard = route_lock().lock().await;
     let scratch = tempfile::tempdir().expect("create isolated binding fixture");
-    let mut selected = Config {
+    let selected = Config {
         config_path: scratch.path().join("config.toml"),
         workspace_dir: scratch.path().join("workspace-a"),
         ..Config::default()
@@ -76,11 +76,26 @@ async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential(
     *configured_binding()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
-    selected.composio.api_key = None;
 }
 
 #[tokio::test]
 async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound() {
+    let _route_guard = route_lock().lock().await;
+    let scratch = tempfile::tempdir().expect("create selected connector workspace");
+    let mut config = Config::default();
+    config.config_path = scratch.path().join("config.toml");
+    config.workspace_dir = scratch.path().join("workspace");
+    config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_owned();
+    config.composio.api_key = Some("doctor-boundary-fixture-key".to_owned());
+    let accepted_route = serde_json::json!({
+        "route": "direct",
+        "api_key": "doctor-boundary-fixture-key",
+        "entity_id": "default",
+        "state_dir": config.workspace_dir.join("state"),
+        "offered_toolkits": super::super::offered_toolkits(&config),
+    });
+    record_configured_route(&config, &accepted_route);
+
     let bus = MemoryBus::new();
     tinybus::broker::Broker::new().spawn(bus.clone());
     let service = tinybus::Connection::connect(bus.connect().await.unwrap())
@@ -105,19 +120,36 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     let proxy = client.proxy(DESTINATION, OBJECT_PATH, INTERFACE).unwrap();
 
     let request = serde_json::json!({ "mode": "backend" });
-    let response = call_proxy_readonly::<_, serde_json::Value>(
+    let response = call_bound_proxy::<_, serde_json::Value>(
+        &config,
         &proxy,
         "ListConnectedIntegrations",
         request.clone(),
     )
     .await
-    .expect("read-only fixture responds");
+    .expect("read-only fixture responds")
+    .expect("the exactly matching ready binding is probeable");
 
     assert_eq!(response, reply);
+    let mut other_workspace = config.clone();
+    other_workspace.workspace_dir = scratch.path().join("workspace-b");
+    assert!(call_bound_proxy::<_, serde_json::Value>(
+        &other_workspace,
+        &proxy,
+        "ListConnectedIntegrations",
+        request,
+    )
+    .await
+    .expect("mismatched binding is unavailable")
+    .is_none());
     let calls = calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].0, "ListConnectedIntegrations");
     assert_eq!(calls[0].1, serde_json::json!([request]));
+    drop(calls);
+    *configured_binding()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
 }
 
 #[tokio::test]

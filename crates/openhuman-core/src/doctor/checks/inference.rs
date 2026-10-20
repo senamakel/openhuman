@@ -299,7 +299,10 @@ fn effective_stt_provider(config: &Config) -> (String, &'static str) {
         return (provider.to_owned(), "stt_provider");
     }
     if !is_voice_deferred(&config.local_ai.stt_provider) {
-        return (config.local_ai.stt_provider.trim().to_owned(), "local_ai.stt_provider");
+        return (
+            config.local_ai.stt_provider.trim().to_owned(),
+            "local_ai.stt_provider",
+        );
     }
     (
         config.voice_server.stt_engine.provider_string().to_owned(),

@@ -88,7 +88,7 @@ async fn known_model_with_unsupported_dimensions_reports_the_dimension_path() {
 }
 
 #[tokio::test]
-async fn active_embedding_route_must_match_memory_provider_and_dimensions() {
+async fn active_embedding_route_dimensions_must_match_its_model() {
     use crate::config::EmbeddingRouteConfig;
 
     let mut config = Config::default();

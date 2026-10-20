@@ -2,8 +2,8 @@
 //! and fetch leave the calling thread out.
 
 use super::*;
-use crate::memory::test_fixtures::{bind_reference, config_in};
 use crate::memory::ops;
+use crate::memory::test_fixtures::{bind_reference, config_in};
 use crate::memory::types::RecallParams;
 use tinymemory_api::MemoryEngine;
 

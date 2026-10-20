@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 use std::time::Instant;
 
-use futures::stream::{self, StreamExt};
+use futures::stream::{FuturesUnordered, StreamExt};
 use tokio::sync::Semaphore;
 
 use super::contract::{
@@ -75,55 +75,19 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
     }
 
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CHECKS));
-    let mut outcomes = stream::iter(runnable)
-        .map(|(index, check): (usize, Arc<dyn DoctorCheck>)| {
-            let semaphore = Arc::clone(&semaphore);
-            let ctx = ctx.clone();
-            async move {
-                let permit = semaphore
-                    .acquire_owned()
-                    .await
-                    .expect("doctor semaphore is never closed");
-                let id = check.id().to_owned();
-                let timeout = check.timeout();
-                let started = Instant::now();
-                let detection = detect(Arc::clone(&check), ctx);
-                let result = tokio::time::timeout(timeout, detection).await;
-                drop(permit);
-                let duration_ms = elapsed_ms(started.elapsed());
-                let findings = match result {
-                    Ok(Ok(mut findings)) => {
-                        if findings.is_empty() {
-                            findings
-                                .push(Finding::pass(&id, "The check completed without findings."));
-                        }
-                        findings
-                    }
-                    Ok(Err(_)) => vec![Finding::error(
-                        &id,
-                        "The check worker failed.",
-                        "Review the check's local dependencies and rerun doctor.",
-                    )],
-                    Err(_) => vec![Finding::error(
-                        &id,
-                        format!("The check timed out after {} ms.", timeout.as_millis()),
-                        "Review the check's dependencies and rerun doctor.",
-                    )],
-                };
-                let mut findings = findings;
-                for finding in &mut findings {
-                    finding.check_id.clone_from(&id);
-                    finding.duration_ms = duration_ms;
-                    if finding.fix_hint.trim().is_empty() {
-                        finding.fix_hint = "Review the check result and rerun doctor.".into();
-                    }
-                }
-                (index, id, findings, false)
-            }
-        })
-        .buffer_unordered(MAX_CONCURRENT_CHECKS)
-        .collect::<Vec<_>>()
-        .await;
+    let mut tasks = FuturesUnordered::new();
+    for (index, check) in runnable {
+        tasks.push(execute_one(
+            index,
+            check,
+            Arc::clone(&semaphore),
+            ctx.clone(),
+        ));
+    }
+    let mut outcomes = Vec::new();
+    while let Some(outcome) = tasks.next().await {
+        outcomes.push(outcome);
+    }
     evaluated.append(&mut outcomes);
     evaluated.sort_by_key(|(index, _, _, _)| *index);
 
@@ -160,6 +124,51 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
         summary,
         ok,
     })
+}
+
+async fn execute_one(
+    index: usize,
+    check: Arc<dyn DoctorCheck>,
+    semaphore: Arc<Semaphore>,
+    ctx: DoctorCtx,
+) -> (usize, String, Vec<Finding>, bool) {
+    let permit = semaphore
+        .acquire_owned()
+        .await
+        .expect("doctor semaphore is never closed");
+    let id = check.id().to_owned();
+    let timeout = check.timeout();
+    let started = Instant::now();
+    let detection = detect(check, ctx);
+    let result = tokio::time::timeout(timeout, detection).await;
+    drop(permit);
+    let duration_ms = elapsed_ms(started.elapsed());
+    let mut findings = match result {
+        Ok(Ok(mut findings)) => {
+            if findings.is_empty() {
+                findings.push(Finding::pass(&id, "The check completed without findings."));
+            }
+            findings
+        }
+        Ok(Err(_)) => vec![Finding::error(
+            &id,
+            "The check worker failed.",
+            "Review the check's local dependencies and rerun doctor.",
+        )],
+        Err(_) => vec![Finding::error(
+            &id,
+            format!("The check timed out after {} ms.", timeout.as_millis()),
+            "Review the check's dependencies and rerun doctor.",
+        )],
+    };
+    for finding in &mut findings {
+        finding.check_id.clone_from(&id);
+        finding.duration_ms = duration_ms;
+        if finding.fix_hint.trim().is_empty() {
+            finding.fix_hint = "Review the check result and rerun doctor.".into();
+        }
+    }
+    (index, id, findings, false)
 }
 
 async fn detect(check: Arc<dyn DoctorCheck>, ctx: DoctorCtx) -> Result<Vec<Finding>, ()> {

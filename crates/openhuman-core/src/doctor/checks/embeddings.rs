@@ -146,15 +146,18 @@ fn config(config: &Config) -> Vec<Finding> {
             "The selected embedding model has no usable vector dimensions.",
             "Choose a model with known dimensions or configure a positive vector width.",
         ));
-    } else if let Some(preset) =
-        tinyinference_embeddings::catalog::find_model(provider_slug, model.trim())
-        && !preset.allowed_dimensions.contains(&dimensions)
-    {
-        findings.push(invalid(
-            &dimensions_path,
-            "The configured vector dimensions do not match the selected embedding model.",
-            "Set a dimension supported by the selected embedding model and rerun doctor.",
-        ));
+    } else {
+        if let Some(preset) =
+            tinyinference_embeddings::catalog::find_model(provider_slug, model.trim())
+        {
+            if !preset.allowed_dimensions.contains(&dimensions) {
+                findings.push(invalid(
+                    &dimensions_path,
+                    "The configured vector dimensions do not match the selected embedding model.",
+                    "Set a dimension supported by the selected embedding model and rerun doctor.",
+                ));
+            }
+        }
     }
 
     if provider_slug == "custom" && !custom_endpoint_is_configured(config, &provider) {
@@ -213,14 +216,14 @@ fn config(config: &Config) -> Vec<Finding> {
         }
         if let Some(preset) =
             tinyinference_embeddings::catalog::find_model(route_provider, route.model.trim())
-            && route_dimensions > 0
-            && !preset.allowed_dimensions.contains(&route_dimensions)
         {
-            findings.push(invalid(
-                &format!("{path}.dimensions"),
-                "An embedding route's dimensions do not match its model.",
-                "Set a dimension supported by the embedding route's model.",
-            ));
+            if route_dimensions > 0 && !preset.allowed_dimensions.contains(&route_dimensions) {
+                findings.push(invalid(
+                    &format!("{path}.dimensions"),
+                    "An embedding route's dimensions do not match its model.",
+                    "Set a dimension supported by the embedding route's model.",
+                ));
+            }
         }
     }
 

@@ -125,10 +125,10 @@ fn provider_ref(config: &Config) -> Vec<Finding> {
     }
 
     for (index, route) in config.model_routes.iter().enumerate() {
-        if let Some(provider) = provider_slug_from_model_route(&route.model)
-            && !chat_provider_slug_resolves(config, provider)
-        {
-            findings.push(unresolved_provider(&format!("model_routes[{index}].model")));
+        if let Some(provider) = provider_slug_from_model_route(&route.model) {
+            if !chat_provider_slug_resolves(config, provider) {
+                findings.push(unresolved_provider(&format!("model_routes[{index}].model")));
+            }
         }
     }
 
@@ -144,10 +144,10 @@ fn provider_ref(config: &Config) -> Vec<Finding> {
         (config.stt_provider.as_deref(), "stt_provider"),
         (config.tts_provider.as_deref(), "tts_provider"),
     ] {
-        if let Some(provider) = provider.map(str::trim).filter(|value| !value.is_empty())
-            && !voice_provider_resolves(config, provider, path == "tts_provider")
-        {
-            findings.push(unresolved_provider(path));
+        if let Some(provider) = provider.map(str::trim).filter(|value| !value.is_empty()) {
+            if !voice_provider_resolves(config, provider, path == "tts_provider") {
+                findings.push(unresolved_provider(path));
+            }
         }
     }
 
@@ -455,10 +455,10 @@ fn temperature(config: &Config) -> Vec<Finding> {
         }
     }
 
-    if let Some(default_model) = config.default_model.as_deref()
-        && let Some(temperature) = route_temperature(default_model)
-    {
-        add_temperature_finding(&mut findings, "default_model", temperature);
+    if let Some(default_model) = config.default_model.as_deref() {
+        if let Some(temperature) = route_temperature(default_model) {
+            add_temperature_finding(&mut findings, "default_model", temperature);
+        }
     }
 
     for (index, route) in config.model_routes.iter().enumerate() {

@@ -278,12 +278,13 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
         resolved = resolve_primary_cloud_provider_string(config);
     }
-    try_create_cloud_slug_chat_model_from_string_with_native_tools(
+    try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         role,
         &resolved,
         config,
         native_tool_calling,
         egress,
+        credential_access,
     )
 }
 
@@ -304,6 +305,24 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     config: &Config,
     native_tool_calling: bool,
     egress: &EgressLedger,
+) -> OptionalChatModelResult {
+    try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+        role,
+        provider,
+        config,
+        native_tool_calling,
+        egress,
+        CredentialAccess::Runtime,
+    )
+}
+
+fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+    role: &str,
+    provider: &str,
+    config: &Config,
+    native_tool_calling: bool,
+    egress: &EgressLedger,
+    credential_access: CredentialAccess,
 ) -> OptionalChatModelResult {
     let p = provider.trim().to_string();
 

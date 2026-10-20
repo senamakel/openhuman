@@ -8,7 +8,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tinymemory_tools::layout_migration as lm;
-use tinymemory_tools::run_slots::{MigrationSpawner, MigrationTask};
+use tinymemory_tools::layout_migration::{MigrationSpawner, MigrationTask};
 
 use super::app_host::{from_module, AppHost};
 use super::{LayoutHost, MigrationState, MigrationStatus, ScanView, Trigger};

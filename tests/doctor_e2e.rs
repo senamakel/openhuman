@@ -187,6 +187,10 @@ fn expired_mock_token() -> String {
     format!("{MOCK_TOKEN_HEADER}.{EXPIRED_TOKEN_PAYLOAD}.e2e")
 }
 
+fn expired_mock_token() -> String {
+    format!("{MOCK_TOKEN_HEADER}.{EXPIRED_TOKEN_PAYLOAD}.e2e")
+}
+
 async fn is_shared_mock(origin: &str) -> bool {
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(1))
@@ -456,6 +460,52 @@ fn write_profile(home: &Path, backend_url: &str, config: &str) {
     .expect("write synthetic auth profile");
 }
 
+fn write_expired_session(home: &Path) {
+    let path = home
+        .join(".openhuman/users")
+        .join(MOCK_USER_ID)
+        .join("auth-profiles.json");
+    let mut profiles: Value =
+        serde_json::from_slice(&fs::read(&path).expect("read synthetic auth profile"))
+            .expect("synthetic auth profile is JSON");
+    profiles["profiles"]["app-session:default"]["token"] = json!(expired_mock_token());
+    profiles["profiles"]["app-session:default"]["metadata"]["session_expires_at"] =
+        json!("2000-01-01T00:00:00Z");
+    fs::write(
+        path,
+        serde_json::to_vec(&profiles).expect("serialize expired auth profile"),
+    )
+    .expect("write expired synthetic auth profile");
+}
+
+async fn assert_expired_session_is_seeded(home: &Path) {
+    let before = snapshot_tree(home);
+    let config = openhuman_core::config::load_config_with_timeout()
+        .await
+        .expect("load isolated doctor config");
+    let profile = openhuman_core::security::credentials::session_support::load_app_session_profile_read_only(&config)
+        .expect("read session profile without mutation")
+        .expect("synthetic session profile exists");
+    let token = openhuman_core::security::credentials::session_support::session_token_from_profile(Some(&profile))
+        .expect("session profile carries a token");
+    let now = chrono::Utc::now();
+    assert!(
+        openhuman_core::security::credentials::jwt::decode_jwt_exp(&token)
+            .expect("synthetic JWT has an expiration")
+            < now,
+        "fixture JWT itself is expired"
+    );
+    assert_eq!(
+        openhuman_core::security::credentials::session_support::classify_session_token(
+            Some(&profile),
+            now,
+        ),
+        openhuman_core::security::credentials::session_support::SessionTokenCheck::Expired,
+        "the read-only session classifier sees an expired profile before doctor runs"
+    );
+    assert_unchanged(&before, &snapshot_tree(home));
+}
+
 fn snapshot_tree(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
     fn visit(root: &Path, current: &Path, snapshot: &mut BTreeMap<PathBuf, Vec<u8>>) {
         let Ok(entries) = fs::read_dir(current) else {
@@ -627,12 +677,10 @@ async fn unavailable_backend_reports_reachability_failure() {
 }
 
 #[tokio::test]
-async fn expired_backend_session_reports_credential_failure() {
+async fn expired_jwt_reports_credential_failure() {
     let fixture = fixture_named("healthy").await;
-    fixture
-        .mock
-        .set_behavior(json!({"session": "revoked"}), false)
-        .await;
+    write_expired_session(fixture._home.path());
+    assert_expired_session_is_seeded(fixture._home.path()).await;
     let report = fixture
         .report(json!({"tier": "connect", "only": ["backend/credential"]}))
         .await;

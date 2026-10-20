@@ -32,6 +32,7 @@ pub struct DesktopProfileSelection {
     pub layout_version: Option<LayoutVersion>,
     /// Source that chose the config directory, or `--profile` for an explicit id.
     pub resolution_source: String,
+    pub(crate) profile_status: Option<DoctorProfileStatus>,
 }
 
 /// Safe failure categories for a selected desktop profile.
@@ -70,14 +71,23 @@ pub async fn resolve_desktop_profile_for_doctor(
             profile_id: Some(selected.id),
             layout_version: Some(selected.layout.version),
             resolution_source: "--profile".into(),
+            profile_status: Some(DoctorProfileStatus::Valid),
         });
     }
 
     let (config_dir, workspace_dir, source, profile_id, layout_version) =
         resolve_desktop_config_dirs_read_only(root).await?;
-    let config = load_config_read_only(&config_dir.join("config.toml"), &workspace_dir).await?;
+    let (config, config_exists) =
+        load_config_read_only(&config_dir.join("config.toml"), &workspace_dir).await?;
     Ok(DesktopProfileSelection {
         config,
+        profile_status: profile_id.as_ref().map(|_| {
+            if config_exists {
+                DoctorProfileStatus::Valid
+            } else {
+                DoctorProfileStatus::InvalidConfig
+            }
+        }),
         profile_id,
         layout_version,
         resolution_source: source.as_str().into(),
@@ -121,7 +131,11 @@ pub(crate) async fn load_desktop_profile(
     if !config_metadata.file_type().is_file() {
         return Err(DesktopProfileError::InvalidConfig);
     }
-    let config = load_config_read_only(&layout.config_path, &layout.workspace_dir).await?;
+    let (config, config_exists) =
+        load_config_read_only(&layout.config_path, &layout.workspace_dir).await?;
+    if !config_exists {
+        return Err(DesktopProfileError::InvalidConfig);
+    }
 
     Ok(DesktopProfile {
         id: id.to_owned(),
@@ -133,7 +147,7 @@ pub(crate) async fn load_desktop_profile(
 async fn load_config_read_only(
     config_path: &Path,
     workspace_dir: &Path,
-) -> Result<Config, DesktopProfileError> {
+) -> Result<(Config, bool), DesktopProfileError> {
     let config_text = match tokio::fs::symlink_metadata(config_path).await {
         Ok(metadata) if metadata.file_type().is_file() => Some(
             tokio::fs::read_to_string(config_path)
@@ -157,7 +171,7 @@ async fn load_config_read_only(
         crate::config::schema::load::apply_loaded_config_migrations(&mut config, contents);
     }
     config.apply_env_overrides();
-    Ok(config)
+    Ok((config, config_text.is_some()))
 }
 
 async fn resolve_desktop_config_dirs_read_only(

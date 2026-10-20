@@ -647,6 +647,26 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
 
 #[tokio::test]
 async fn selected_profile_is_ambient_for_process_sources_without_a_parent_context() {
+    const CHILD_MARKER: &str = "OPENHUMAN_DOCTOR_NO_PARENT_CHILD";
+    if std::env::var_os(CHILD_MARKER).is_none() {
+        let output = std::process::Command::new(std::env::current_exe().unwrap())
+            .args([
+                "--exact",
+                "doctor::profile::tests::selected_profile_is_ambient_for_process_sources_without_a_parent_context",
+                "--nocapture",
+            ])
+            .env(CHILD_MARKER, "1")
+            .output()
+            .unwrap();
+        assert!(
+            output.status.success(),
+            "isolated child failed: stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let _workspace_override = WorkspaceOverrideGuard::clear();
     assert!(crate::core::runtime::CoreContext::current().is_none());
@@ -664,7 +684,11 @@ async fn selected_profile_is_ambient_for_process_sources_without_a_parent_contex
     let outcome = crate::doctor::ops::doctor_report_for_selected_profile(
         temp.path(),
         "account-b",
-        selected_profile_context_options(),
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["hosted/process-selected-profile-context".into()],
+            ..DoctorOptions::default()
+        },
     )
     .await;
     crate::doctor::registry::unregister_check_source(source_id);

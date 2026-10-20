@@ -172,3 +172,7 @@ pub async fn start(
 pub(crate) fn is_running(workspace_dir: &Path) -> bool {
     BACKFILL.is_running(&workspace_dir.to_path_buf())
 }
+
+#[cfg(test)]
+#[path = "backfill_tests.rs"]
+mod tests;

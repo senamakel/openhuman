@@ -82,6 +82,10 @@ async fn refuses_without_consent_and_with_memory_off() {
     .await
     .unwrap_err();
     assert_eq!(error.code(), "MEMORY_OFF");
+
+    let status = status(&DispatchCtx::ambient(), &config).await.unwrap();
+    assert_eq!(status.state.phase, BackfillPhase::Idle);
+    assert_eq!((status.pending_threads, status.pending_turns), (0, 0));
 }
 
 #[tokio::test]

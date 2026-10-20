@@ -674,7 +674,10 @@ async fn selected_profile_is_ambient_for_process_sources_without_a_parent_contex
         report
             .checks_run
             .iter()
-            .any(|id| id == "hosted/process-selected-profile-context")
+            .any(|id| id == "hosted/process-selected-profile-context"),
+        "checks_run={:?}, findings={:?}",
+        report.checks_run,
+        report.findings
     );
     let observations = observed.lock().unwrap();
     assert_eq!(observations.len(), 1);

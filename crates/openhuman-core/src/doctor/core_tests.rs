@@ -9,6 +9,29 @@ fn test_config_in(tmp: &TempDir) -> Config {
 }
 
 #[test]
+fn run_does_not_report_missing_unwritten_daemon_state_as_an_error() {
+    let tmp = TempDir::new().expect("tempdir");
+    let mut cfg = test_config_in(&tmp);
+    cfg.config_path = tmp.path().join("config.toml");
+    cfg.memory.embedding_provider = "openai".into();
+
+    let report = run(
+        &cfg,
+        MemoryEngineCheck {
+            engine: None,
+            status: "off".into(),
+            reason: None,
+        },
+    )
+    .expect("doctor report");
+
+    assert!(
+        report.items.iter().all(|item| item.category != "daemon"),
+        "the doctor must not report health from a daemon state file that no service writes: {report:?}"
+    );
+}
+
+#[test]
 fn config_validation_warns_no_channels() {
     let config = Config::default();
     let mut items = vec![];

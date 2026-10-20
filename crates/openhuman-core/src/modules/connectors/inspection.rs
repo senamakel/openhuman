@@ -219,6 +219,7 @@ where
     match tokio::time::timeout(
         timeout,
         proxy
+            .clone()
             .with_timeout(timeout)
             .call_confidential::<Reply>(member, (request,)),
     )
@@ -313,10 +314,10 @@ fn binding_for_selected(config: &Config, selected: &(String, String)) -> Option<
     })
 }
 
-/// The state/workspace/policy identity the module actually received when it
-/// was loaded. A later CONFIGURE may change credentials, but it cannot move the
-/// module's load-time state directory or offered-toolkit policy.
-pub(super) fn note_load_resolution_candidate(config: &Config) {
+/// Capture the scope the resolver passed to the module's load configuration.
+/// Search-path modules do not invoke this provider and therefore remain
+/// unscoped for inspection rather than inheriting the first caller's config.
+pub(super) fn note_module_config_for_load(config: &Config) {
     *pending_load_scope()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = load_scope_fingerprint(config);

@@ -283,12 +283,20 @@ async fn checks_above_the_requested_tier_are_skipped() {
 
 #[tokio::test]
 async fn native_checks_use_the_selected_config_and_respect_its_component_gates() {
+    let ambient_workspace = tempfile::tempdir().expect("ambient config workspace");
     let mut ambient_config = Config::default();
+    ambient_config.workspace_dir = ambient_workspace.path().join("workspace");
+    ambient_config.action_dir = ambient_workspace.path().join("projects");
+    ambient_config.config_path = ambient_workspace.path().join("config.toml");
     ambient_config.channels_config.imessage = Some(tinychannels_bus::config::IMessageConfig {
         allowed_contacts: vec![],
     });
 
+    let selected_workspace = tempfile::tempdir().expect("selected config workspace");
     let mut selected_config = Config::default();
+    selected_config.workspace_dir = selected_workspace.path().join("workspace");
+    selected_config.action_dir = selected_workspace.path().join("projects");
+    selected_config.config_path = selected_workspace.path().join("config.toml");
     selected_config.channels_config.telegram = Some(tinychannels_bus::config::TelegramConfig {
         bot_token: "doctor-test-token".into(),
         chat_id: None,
@@ -307,7 +315,8 @@ async fn native_checks_use_the_selected_config_and_respect_its_component_gates()
     let ambient = CoreContext::for_test_with_config(DomainSet::full(), ambient_config);
     let selected_components = ComponentSet::from_config(&selected_config.components);
     let report = CoreContext::scope(ambient, async {
-        let selected = DoctorCtx::from_config(selected_config).with_components(selected_components);
+        let selected =
+            DoctorCtx::from_config(selected_config).with_components(selected_components);
         runner::run(
             &selected,
             DoctorOptions {

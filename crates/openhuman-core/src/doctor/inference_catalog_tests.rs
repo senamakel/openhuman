@@ -17,17 +17,22 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
+use std::time::Duration;
 
 #[derive(Clone)]
 struct CatalogServerState {
     status: StatusCode,
     body: serde_json::Value,
+    delay: Duration,
     requests: Arc<AtomicUsize>,
     authorizations: Arc<std::sync::Mutex<Vec<Option<String>>>>,
 }
 
 async fn catalog_handler(State(state): State<CatalogServerState>, headers: HeaderMap) -> Response {
     state.requests.fetch_add(1, Ordering::SeqCst);
+    if !state.delay.is_zero() {
+        tokio::time::sleep(state.delay).await;
+    }
     state
         .authorizations
         .lock()
@@ -51,9 +56,19 @@ async fn spawn_catalog_server(
     body: serde_json::Value,
     has_models_route: bool,
 ) -> (String, CatalogServerState) {
+    spawn_catalog_server_with_delay(status, body, has_models_route, Duration::ZERO).await
+}
+
+async fn spawn_catalog_server_with_delay(
+    status: StatusCode,
+    body: serde_json::Value,
+    has_models_route: bool,
+    delay: Duration,
+) -> (String, CatalogServerState) {
     let state = CatalogServerState {
         status,
         body,
+        delay,
         requests: Arc::new(AtomicUsize::new(0)),
         authorizations: Arc::new(std::sync::Mutex::new(Vec::new())),
     };
@@ -204,6 +219,64 @@ async fn doctor_models_does_not_reuse_a_catalog_for_another_profiles_credential(
         std::fs::read(auth_profiles_path(&config_b)).unwrap(),
         auth_file_b_before
     );
+}
+
+#[tokio::test]
+async fn a_slow_provider_times_out_without_blocking_the_other_catalog() {
+    let per_provider_budget = Duration::from_secs(10);
+    let (slow_endpoint, slow_server) = spawn_catalog_server_with_delay(
+        StatusCode::OK,
+        catalog_body(&["slow-model"]),
+        true,
+        per_provider_budget + Duration::from_secs(2),
+    )
+    .await;
+    let (fast_endpoint, fast_server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["fast-model"]), true).await;
+    let (_temp, mut config) = temporary_config();
+    config.cloud_providers = vec![
+        CloudProviderCreds {
+            id: "p_doctor_497_slow".into(),
+            slug: "doctor-497-slow".into(),
+            label: "Slow catalog fixture".into(),
+            endpoint: slow_endpoint,
+            auth_style: AuthStyle::None,
+            default_model: None,
+        },
+        CloudProviderCreds {
+            id: "p_doctor_497_fast".into(),
+            slug: "doctor-497-fast".into(),
+            label: "Fast catalog fixture".into(),
+            endpoint: fast_endpoint,
+            auth_style: AuthStyle::None,
+            default_model: None,
+        },
+    ];
+
+    let report = tokio::time::timeout(
+        per_provider_budget + Duration::from_secs(2),
+        doctor_models(&config, false),
+    )
+    .await
+    .expect("the per-provider timeout must bound the doctor request")
+    .expect("a timed-out provider should be represented in the report");
+
+    let slow = report
+        .value
+        .entries
+        .iter()
+        .find(|entry| entry.provider == "doctor-497-slow")
+        .expect("slow provider result");
+    let fast = report
+        .value
+        .entries
+        .iter()
+        .find(|entry| entry.provider == "doctor-497-fast")
+        .expect("fast provider result");
+    assert_eq!(slow.outcome, ModelProbeOutcome::Error);
+    assert_eq!(fast.outcome, ModelProbeOutcome::Ok);
+    assert_eq!(slow_server.requests.load(Ordering::SeqCst), 1);
+    assert_eq!(fast_server.requests.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

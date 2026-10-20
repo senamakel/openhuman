@@ -174,11 +174,7 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
     );
 
     let serialized = serde_json::to_string(&report).expect("report serializes");
-    for secret in [
-        TEST_BEARER,
-        ENDPOINT_SECRET,
-        RESPONSE_SECRET,
-    ] {
+    for secret in [TEST_BEARER, ENDPOINT_SECRET, RESPONSE_SECRET] {
         assert!(!serialized.contains(secret), "report leaked {secret}");
     }
 }

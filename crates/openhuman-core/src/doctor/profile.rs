@@ -117,7 +117,7 @@ pub(crate) async fn load_desktop_profile(
     }
 
     let dir = ProfileLayout::new(root, id).dir;
-    let metadata = tokio::fs::symlink_metadata(&dir).await.map_err(|error| {
+    let metadata = tokio::fs::metadata(&dir).await.map_err(|error| {
         if matches!(
             error.kind(),
             std::io::ErrorKind::NotFound | std::io::ErrorKind::NotADirectory
@@ -127,18 +127,12 @@ pub(crate) async fn load_desktop_profile(
             DesktopProfileError::InvalidConfig
         }
     })?;
-    if !metadata.file_type().is_dir() {
+    if !metadata.is_dir() {
         return Err(DesktopProfileError::Missing);
     }
 
     let version = read_layout_version(&dir).await?;
     let layout = ProfileLayout::with_version(dir, version);
-    let config_metadata = tokio::fs::symlink_metadata(&layout.config_path)
-        .await
-        .map_err(|_| DesktopProfileError::InvalidConfig)?;
-    if !config_metadata.file_type().is_file() {
-        return Err(DesktopProfileError::InvalidConfig);
-    }
     let (config, config_exists) =
         load_config_read_only(&layout.config_path, &layout.workspace_dir).await?;
     if !config_exists {
@@ -156,8 +150,8 @@ async fn load_config_read_only(
     config_path: &Path,
     workspace_dir: &Path,
 ) -> Result<(Config, bool), DesktopProfileError> {
-    let config_text = match tokio::fs::symlink_metadata(config_path).await {
-        Ok(metadata) if metadata.file_type().is_file() => Some(
+    let config_text = match tokio::fs::metadata(config_path).await {
+        Ok(metadata) if metadata.is_file() => Some(
             tokio::fs::read_to_string(config_path)
                 .await
                 .map_err(|_| DesktopProfileError::InvalidConfig)?,
@@ -297,8 +291,8 @@ async fn resolve_desktop_config_dirs_read_only(
 }
 
 async fn read_profile_layout(dir: PathBuf) -> Result<ProfileLayout, DesktopProfileError> {
-    match tokio::fs::symlink_metadata(&dir).await {
-        Ok(metadata) if metadata.file_type().is_dir() => {}
+    match tokio::fs::metadata(&dir).await {
+        Ok(metadata) if metadata.is_dir() => {}
         Ok(_) => return Err(DesktopProfileError::Missing),
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
         Err(_) => return Err(DesktopProfileError::InvalidConfig),

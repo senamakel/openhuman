@@ -350,7 +350,10 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
         &ctx,
         DoctorOptions {
             tier: DoctorTier::Connect,
-            only: vec!["embeddings/live".to_owned()],
+            only: vec![
+                "embeddings/live".to_owned(),
+                "memory/roundtrip".to_owned(),
+            ],
             ..DoctorOptions::default()
         },
     )
@@ -358,7 +361,12 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
     .expect("connect-only report");
 
     assert_eq!(calls.load(Ordering::SeqCst), 0, "live embedding was not invoked");
-    assert_eq!(report.checks_skipped, vec!["embeddings/live".to_owned()]);
+    assert!(report
+        .checks_skipped
+        .contains(&"embeddings/live".to_owned()));
+    assert!(report
+        .checks_skipped
+        .contains(&"memory/roundtrip".to_owned()));
 }
 
 #[tokio::test]

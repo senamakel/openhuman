@@ -1,4 +1,4 @@
-use super::memory_live::MemoryRoundtripCheck;
+use super::MemoryRoundtripCheck;
 use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, FindingSeverity};
 use crate::memory::engine;
@@ -8,7 +8,7 @@ use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
-    EngineDescriptor, EngineHealth, Error as MemoryApiError, ExportPage, FetchPage, FetchRequest,
+    EngineDescriptor, EngineHealth, Error as MemoryApiError, FetchPage, FetchRequest,
     ForgetReport, ForgetTarget, ItemId, ListPage, ListRequest, MemoryEngine, MemoryMeta,
     MetaFilter, Namespace, Reach, RecallAnswer, RecallRequest, StoreItem, StoreReceipt,
 };
@@ -43,8 +43,17 @@ impl ProbeEngine {
         }
     }
 
-    fn bind(self: &Arc<Self>, config: &Config) {
+    fn bind(self: &Arc<Self>, config: &Config) -> EngineBinding {
         engine::install_test_engine(&config.workspace_dir, self.clone());
+        EngineBinding(config.workspace_dir.clone())
+    }
+}
+
+struct EngineBinding(std::path::PathBuf);
+
+impl Drop for EngineBinding {
+    fn drop(&mut self) {
+        engine::remove_test_engine(&self.0);
     }
 }
 
@@ -64,7 +73,7 @@ impl MemoryEngine for ProbeEngine {
 
     async fn fetch(&self, request: FetchRequest) -> tinymemory_api::Result<FetchPage> {
         self.calls.lock().unwrap().steps.push("fetch");
-        if matches!(self.failure, Failure::Fetch) {
+        if matches!(&self.failure, Failure::Fetch) {
             return Err(MemoryApiError::Unavailable("mock fetch failure".into()));
         }
         self.inner.fetch(request).await
@@ -107,9 +116,6 @@ impl MemoryEngine for ProbeEngine {
         self.inner.list(request).await
     }
 
-    async fn export(&self, request: ListRequest) -> tinymemory_api::Result<ExportPage> {
-        self.inner.export(request).await
-    }
 }
 
 fn config_in(tmp: &TempDir) -> Config {
@@ -132,8 +138,22 @@ async fn seed_real_memory(engine: &ProbeEngine) -> ItemId {
 
 async fn run_check(engine: &Arc<ProbeEngine>, tmp: &TempDir) -> Vec<crate::doctor::contract::Finding> {
     let config = config_in(tmp);
-    engine.bind(&config);
+    let _binding = engine.bind(&config);
     MemoryRoundtripCheck.detect(&DoctorCtx::from_config(config)).await
+}
+
+async fn assert_scratch_namespaces_are_empty(engine: &ProbeEngine, namespaces: &[Namespace]) {
+    for namespace in namespaces {
+        let items = stored(
+            &engine.inner,
+            MetaFilter {
+                reach: Some(Reach::subtree(namespace.clone())),
+                ..MetaFilter::default()
+            },
+        )
+        .await;
+        assert!(items.is_empty(), "scratch item remained in {namespace}");
+    }
 }
 
 fn only_error(findings: &[crate::doctor::contract::Finding]) -> &crate::doctor::contract::Finding {
@@ -149,7 +169,7 @@ async fn fetch_failure_still_cleans_the_unique_service_scoped_item() {
     let config = config_in(&tmp);
     let engine = Arc::new(ProbeEngine::new(Failure::Fetch));
     let real_id = seed_real_memory(&engine).await;
-    engine.bind(&config);
+    let _binding = engine.bind(&config);
 
     let findings = MemoryRoundtripCheck
         .detect(&DoctorCtx::from_config(config))
@@ -168,8 +188,14 @@ async fn fetch_failure_still_cleans_the_unique_service_scoped_item() {
     assert_eq!(calls.scoped_forgets.len(), 1);
     assert_eq!(calls.scoped_forgets[0].0, vec![scratch_id.clone()]);
     assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
+    let namespaces = calls
+        .stored
+        .iter()
+        .map(|(_, namespace)| namespace.clone())
+        .collect::<Vec<_>>();
     drop(calls);
 
+    assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
     assert_eq!(remaining.len(), 1, "only the pre-existing user memory remains");
     assert_eq!(remaining[0].id, real_id);
@@ -185,7 +211,7 @@ async fn ambiguous_store_failure_attempts_scoped_cleanup_and_reports_a_billing_h
         ),
     )));
     let real_id = seed_real_memory(&engine).await;
-    engine.bind(&config);
+    let _binding = engine.bind(&config);
 
     let findings = MemoryRoundtripCheck
         .detect(&DoctorCtx::from_config(config))
@@ -203,8 +229,14 @@ async fn ambiguous_store_failure_attempts_scoped_cleanup_and_reports_a_billing_h
     assert_eq!(calls.unscoped_forgets, 0);
     assert_eq!(calls.scoped_forgets.len(), 1);
     assert_eq!(calls.scoped_forgets[0].0, vec![calls.stored[0].0.clone()]);
+    let namespaces = calls
+        .stored
+        .iter()
+        .map(|(_, namespace)| namespace.clone())
+        .collect::<Vec<_>>();
     drop(calls);
 
+    assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
     assert_eq!(remaining.len(), 1, "cleanup removes a possibly accepted write");
     assert_eq!(remaining[0].id, real_id);
@@ -236,6 +268,8 @@ async fn unauthorized_and_unavailable_errors_have_safe_recovery_hints() {
         );
         assert!(!finding.message.contains("secret token"));
         assert!(!finding.message.contains("private endpoint"));
+        assert!(!finding.fix_hint.contains("secret token"));
+        assert!(!finding.fix_hint.contains("private endpoint"));
         assert_eq!(engine.calls.lock().unwrap().unscoped_forgets, 0);
     }
 }
@@ -246,7 +280,7 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
     let config = config_in(&tmp);
     let engine = Arc::new(ProbeEngine::new(Failure::None));
     let real_id = seed_real_memory(&engine).await;
-    engine.bind(&config);
+    let _binding = engine.bind(&config);
     let ctx = DoctorCtx::from_config(config);
 
     for _ in 0..2 {
@@ -260,6 +294,7 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
     }
 
     let calls = engine.calls.lock().unwrap();
+    assert_eq!(calls.steps, ["store", "fetch", "forget_within", "store", "fetch", "forget_within"]);
     assert_eq!(calls.stored.len(), 2);
     assert_ne!(calls.stored[0].0, calls.stored[1].0, "probe IDs are unique per run");
     assert_ne!(calls.stored[0].1, calls.stored[1].1, "probe namespaces are unique per run");
@@ -269,8 +304,14 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
     }));
     assert_eq!(calls.unscoped_forgets, 0);
     assert_eq!(calls.scoped_forgets.len(), 2);
+    let namespaces = calls
+        .stored
+        .iter()
+        .map(|(_, namespace)| namespace.clone())
+        .collect::<Vec<_>>();
     drop(calls);
 
+    assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
     assert_eq!(remaining.len(), 1, "the scratch probes are gone");
     assert_eq!(remaining[0].id, real_id, "unrelated memory is preserved");

@@ -1,4 +1,4 @@
-use super::embeddings_live::EmbeddingsLiveCheck;
+use super::EmbeddingsLiveCheck;
 use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, FindingSeverity};
 use axum::{extract::State, routing::post, Json, Router};

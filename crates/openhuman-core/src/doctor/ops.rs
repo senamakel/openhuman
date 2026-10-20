@@ -114,15 +114,13 @@ pub async fn doctor_report_for_selected_profile(
         }
     };
     let components = ComponentSet::from_config(&selected.config.components);
+    let inspection_profile_id = selected.id.clone();
     let ctx = DoctorCtx::from_config_with_components(selected.config.clone(), components)
-        .with_profile(selected.id, DoctorConfigSource::Profile)
+        .with_profile(inspection_profile_id.clone(), DoctorConfigSource::Profile)
         .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
         .with_profile_status(DoctorProfileStatus::Valid);
-    CoreContext::scope(
-        CoreContext::bare(),
-        report_with_context(&selected.config, options, ctx),
-    )
-    .await
+    let inspection_context = profile_inspection_context(&selected.config, Some(&inspection_profile_id));
+    CoreContext::scope(inspection_context, report_with_context(&selected.config, options, ctx)).await
 }
 
 /// Runs a report from the effective desktop selection without consulting the
@@ -136,19 +134,36 @@ pub async fn doctor_report_for_desktop_selection(
         return Ok(outcome);
     }
     let components = ComponentSet::from_config(&selection.config.components);
+    let inspection_profile_id = selection.profile_id.clone();
     let mut ctx = DoctorCtx::from_config_with_components(selection.config.clone(), components)
         .with_profile_metadata(selection.layout_version, Some(selection.resolution_source));
-    if let Some(profile_id) = selection.profile_id {
+    if let Some(profile_id) = inspection_profile_id.clone() {
         ctx = ctx.with_profile(profile_id, DoctorConfigSource::Profile);
     }
     if let Some(status) = selection.profile_status {
         ctx = ctx.with_profile_status(status);
     }
-    CoreContext::scope(
-        CoreContext::bare(),
-        report_with_context(&selection.config, options, ctx),
-    )
-    .await
+    let inspection_context =
+        profile_inspection_context(&selection.config, inspection_profile_id.as_deref());
+    CoreContext::scope(inspection_context, report_with_context(&selection.config, options, ctx)).await
+}
+
+fn profile_inspection_context(config: &Config, profile_id: Option<&str>) -> std::sync::Arc<CoreContext> {
+    let Some(parent) = CoreContext::current() else {
+        return CoreContext::bare();
+    };
+    let mut overlay = crate::core::runtime::ContextOverlay::new(
+        config.clone(),
+        parent.domains(),
+        parent.tool_groups(),
+    );
+    if let Some(profile_id) = profile_id {
+        overlay = overlay.profile(profile_id);
+    }
+    if !parent.user_skill_roots() {
+        overlay = overlay.without_user_skill_roots();
+    }
+    parent.derive_with(overlay)
 }
 
 /// Shared safe diagnostic for a config parse failure. Keeps parser output and

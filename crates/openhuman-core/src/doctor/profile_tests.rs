@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::ffi::OsString;
 
 use tempfile::TempDir;
 
@@ -22,8 +23,29 @@ fn config_for(layout: &ProfileLayout) -> Config {
     }
 }
 
+struct WorkspaceOverrideGuard(Option<OsString>);
+
+impl WorkspaceOverrideGuard {
+    fn set(path: &std::path::Path) -> Self {
+        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+        std::env::set_var("OPENHUMAN_WORKSPACE", path);
+        Self(previous)
+    }
+}
+
+impl Drop for WorkspaceOverrideGuard {
+    fn drop(&mut self) {
+        if let Some(previous) = self.0.take() {
+            std::env::set_var("OPENHUMAN_WORKSPACE", previous);
+        } else {
+            std::env::remove_var("OPENHUMAN_WORKSPACE");
+        }
+    }
+}
+
 #[tokio::test]
 async fn explicit_profile_reads_its_own_session_without_switching_active_user() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let temp = TempDir::new().unwrap();
     let root = temp.path();
     tokio::fs::create_dir_all(root).await.unwrap();
@@ -60,6 +82,7 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
     .unwrap();
 
     let active_user_before = tokio::fs::read(&active_user_path).await.unwrap();
+    let _workspace_override = WorkspaceOverrideGuard::set(&account_a.workspace_dir);
     let selected = load_desktop_profile(root, "account-b").await.unwrap();
 
     assert_eq!(selected.config.config_path, account_b.config_path);

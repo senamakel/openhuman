@@ -23,6 +23,7 @@ use tokio::sync::MutexGuard;
 
 const MOCK_TOKEN_HEADER: &str = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0";
 const MOCK_TOKEN_PAYLOAD: &str = "eyJzdWIiOiJ1c2VyLTEyMyIsInVzZXJJZCI6InVzZXItMTIzIiwidGdVc2VySWQiOiJ1c2VyLTEyMyIsImV4cCI6NDEwMjQ0NDgwMH0";
+const EXPIRED_TOKEN_PAYLOAD: &str = "eyJzdWIiOiJ1c2VyLTEyMyIsInVzZXJJZCI6InVzZXItMTIzIiwidGdVc2VySWQiOiJ1c2VyLTEyMyIsImV4cCI6MX0";
 const MOCK_USER_ID: &str = "user-123";
 const RPC_TOKEN: &str = "doctor-e2e-in-process-rpc-token";
 const MOCK_BACKEND_PLACEHOLDER: &str = "__MOCK_BACKEND_URL__";
@@ -65,7 +66,7 @@ impl MockBackend {
             .stderr(Stdio::null())
             .spawn()
             .expect("start the shared Node mock (node must be on PATH)");
-        let mock = Self {
+        let mut mock = Self {
             origin: format!("http://127.0.0.1:{port}"),
             child: Some(child),
         };
@@ -76,7 +77,7 @@ impl MockBackend {
             }
             if mock
                 .child
-                .as_ref()
+                .as_mut()
                 .and_then(|process| process.try_wait().ok())
                 .flatten()
                 .is_some()
@@ -182,8 +183,23 @@ fn mock_token() -> String {
     format!("{MOCK_TOKEN_HEADER}.{MOCK_TOKEN_PAYLOAD}.e2e")
 }
 
+fn expired_mock_token() -> String {
+    format!("{MOCK_TOKEN_HEADER}.{EXPIRED_TOKEN_PAYLOAD}.e2e")
+}
+
 async fn is_shared_mock(origin: &str) -> bool {
-    let Ok(response) = reqwest::get(format!("{origin}/__admin/health")).await else {
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(1))
+        .build()
+    {
+        Ok(client) => client,
+        Err(_) => return false,
+    };
+    let Ok(response) = client
+        .get(format!("{origin}/__admin/health"))
+        .send()
+        .await
+    else {
         return false;
     };
     if !response.status().is_success() {
@@ -205,16 +221,7 @@ struct IsolatedEnvironment {
 impl IsolatedEnvironment {
     fn install(home: &Path, action_dir: &Path, backend_url: &str) -> Self {
         let mut previous = Vec::new();
-        let mut managed = Vec::new();
-        for (key, value) in std::env::vars_os() {
-            if is_isolated_environment_key(&key) {
-                managed.push(key.clone());
-                previous.push((key.clone(), value));
-                std::env::remove_var(key);
-            }
-        }
-
-        for key in [
+        let mut managed = [
             "HOME",
             "USERPROFILE",
             "XDG_CONFIG_HOME",
@@ -227,25 +234,40 @@ impl IsolatedEnvironment {
             "VITE_BACKEND_URL",
             "OPENHUMAN_ACTION_DIR",
             "OPENHUMAN_KEYRING_BACKEND",
-        ] {
-            let key = OsString::from(key);
-            if !managed.contains(&key) {
-                managed.push(key.clone());
+        ]
+        .into_iter()
+        .map(OsString::from)
+        .collect::<Vec<_>>();
+        let inherited = std::env::vars_os().collect::<Vec<_>>();
+        for (key, value) in inherited {
+            if is_isolated_environment_key(&key) || managed.contains(&key) {
+                if !managed.contains(&key) {
+                    managed.push(key.clone());
+                }
+                previous.push((key.clone(), value));
+                // SAFETY: Fixture holds ENV_LOCK from setup through Drop and
+                // all test functions use Tokio's current-thread runtime. No
+                // peer test task can read or mutate this process environment
+                // during the mutation; the CLI child receives its own env.
+                unsafe { std::env::remove_var(key) };
             }
         }
 
-        std::env::set_var("HOME", home);
-        std::env::set_var("USERPROFILE", home);
-        std::env::set_var("XDG_CONFIG_HOME", home.join(".config"));
-        std::env::set_var("XDG_DATA_HOME", home.join(".local/share"));
-        std::env::set_var("XDG_CACHE_HOME", home.join(".cache"));
-        std::env::set_var("XDG_STATE_HOME", home.join(".local/state"));
-        std::env::set_var("APPDATA", home.join("AppData/Roaming"));
-        std::env::set_var("LOCALAPPDATA", home.join("AppData/Local"));
-        std::env::set_var("BACKEND_URL", backend_url);
-        std::env::set_var("VITE_BACKEND_URL", backend_url);
-        std::env::set_var("OPENHUMAN_ACTION_DIR", action_dir);
-        std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+        // SAFETY: same serialized, current-thread fixture guarantee as above.
+        unsafe {
+            std::env::set_var("HOME", home);
+            std::env::set_var("USERPROFILE", home);
+            std::env::set_var("XDG_CONFIG_HOME", home.join(".config"));
+            std::env::set_var("XDG_DATA_HOME", home.join(".local/share"));
+            std::env::set_var("XDG_CACHE_HOME", home.join(".cache"));
+            std::env::set_var("XDG_STATE_HOME", home.join(".local/state"));
+            std::env::set_var("APPDATA", home.join("AppData/Roaming"));
+            std::env::set_var("LOCALAPPDATA", home.join("AppData/Local"));
+            std::env::set_var("BACKEND_URL", backend_url);
+            std::env::set_var("VITE_BACKEND_URL", backend_url);
+            std::env::set_var("OPENHUMAN_ACTION_DIR", action_dir);
+            std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
+        }
         Self { previous, managed }
     }
 }
@@ -257,18 +279,19 @@ fn is_isolated_environment_key(key: &OsStr) -> bool {
         || key.starts_with("OPENHUMAN_")
         || key.starts_with("BACKEND_")
         || key == "VITE_BACKEND_URL"
-        || key.starts_with("XDG_")
-        || key == "APPDATA"
-        || key == "LOCALAPPDATA"
 }
 
 impl Drop for IsolatedEnvironment {
     fn drop(&mut self) {
-        for key in &self.managed {
-            std::env::remove_var(key);
-        }
-        for (key, value) in &self.previous {
-            std::env::set_var(key, value);
+        // SAFETY: Fixture still owns ENV_LOCK while this guard is dropped, so
+        // no concurrent test task reads or mutates the process environment.
+        unsafe {
+            for key in &self.managed {
+                std::env::remove_var(key);
+            }
+            for (key, value) in &self.previous {
+                std::env::set_var(key, value);
+            }
         }
     }
 }

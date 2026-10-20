@@ -1,6 +1,7 @@
 //! Reusable fake checks and sources for doctor framework tests.
 
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -15,6 +16,7 @@ pub(crate) struct FakeCheck {
     delay: Duration,
     timeout: Option<Duration>,
     tier: DoctorTier,
+    calls: Option<Arc<AtomicUsize>>,
 }
 
 impl FakeCheck {
@@ -26,6 +28,7 @@ impl FakeCheck {
             delay: Duration::ZERO,
             timeout: None,
             tier: DoctorTier::Connect,
+            calls: None,
         }
     }
 
@@ -41,6 +44,11 @@ impl FakeCheck {
 
     pub(crate) fn with_tier(mut self, tier: DoctorTier) -> Self {
         self.tier = tier;
+        self
+    }
+
+    pub(crate) fn with_call_counter(mut self, calls: Arc<AtomicUsize>) -> Self {
+        self.calls = Some(calls);
         self
     }
 }
@@ -64,6 +72,9 @@ impl DoctorCheck for FakeCheck {
     }
 
     async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
+        if let Some(calls) = &self.calls {
+            calls.fetch_add(1, Ordering::SeqCst);
+        }
         if !self.delay.is_zero() {
             tokio::time::sleep(self.delay).await;
         }

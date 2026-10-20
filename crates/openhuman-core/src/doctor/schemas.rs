@@ -29,7 +29,38 @@ pub fn schemas(function: &str) -> ControllerSchema {
             namespace: "doctor",
             function: "report",
             description: "Run diagnostics for workspace and runtime configuration.",
-            inputs: vec![],
+            inputs: vec![
+                FieldSchema {
+                    name: "tier",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Enum {
+                        variants: vec!["static", "connect", "live"],
+                    })),
+                    comment: "Maximum doctor check tier to run.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "only",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
+                        TypeSchema::String,
+                    )))),
+                    comment: "Exact check ids to include.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "skip",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::Array(Box::new(
+                        TypeSchema::String,
+                    )))),
+                    comment: "Exact check ids to exclude.",
+                    required: false,
+                },
+                FieldSchema {
+                    name: "profile",
+                    ty: TypeSchema::Option(Box::new(TypeSchema::String)),
+                    comment: "Profile id, resolved by the host when supported.",
+                    required: false,
+                },
+            ],
             outputs: vec![FieldSchema {
                 name: "report",
                 ty: TypeSchema::Ref("DoctorReport"),
@@ -69,10 +100,17 @@ pub fn schemas(function: &str) -> ControllerSchema {
     }
 }
 
-fn handle_report(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
+fn handle_report(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::doctor::rpc::doctor_report(&config).await?)
+        let options = crate::doctor::DoctorOptions {
+            tier: read_optional::<crate::doctor::DoctorTier>(&params, "tier")?
+                .unwrap_or(crate::doctor::DoctorTier::Connect),
+            only: read_optional::<Vec<String>>(&params, "only")?.unwrap_or_default(),
+            skip: read_optional::<Vec<String>>(&params, "skip")?.unwrap_or_default(),
+            profile: read_optional::<String>(&params, "profile")?,
+        };
+        to_json(crate::doctor::ops::doctor_report_with_options(&config, options).await?)
     })
 }
 

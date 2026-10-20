@@ -1,0 +1,364 @@
+//! Public types for doctor checks and their versioned report.
+
+use std::sync::Arc;
+use std::time::Duration;
+
+use async_trait::async_trait;
+use serde::{Deserialize, Serialize};
+
+use crate::config::Config;
+use crate::core::runtime::{ComponentSet, CoreContext};
+
+use super::core::MemoryEngineCheck;
+
+/// The maximum cost a caller permits for a doctor run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DoctorTier {
+    /// Local configuration and filesystem inspection.
+    Static,
+    /// Bounded, read-only connectivity checks. This is the default tier.
+    Connect,
+    /// Opt-in checks that can incur a cost or write disposable test data.
+    Live,
+}
+
+impl DoctorTier {
+    pub(crate) const fn timeout(self) -> Duration {
+        match self {
+            Self::Static => Duration::from_secs(5),
+            Self::Connect => Duration::from_secs(10),
+            Self::Live => Duration::from_secs(60),
+        }
+    }
+
+    pub(crate) const fn includes(self, check_tier: Self) -> bool {
+        match self {
+            Self::Static => matches!(check_tier, Self::Static),
+            Self::Connect => matches!(check_tier, Self::Static | Self::Connect),
+            Self::Live => true,
+        }
+    }
+}
+
+/// A component whose disabled state prevents a check from running.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ComponentId {
+    Flows,
+    Tinyflows,
+    Memes,
+    Documents,
+    Search,
+    Mcp,
+    Connectors,
+    Hosting,
+    Juice,
+    Memory,
+    Wallet,
+    Computer,
+    Sandbox,
+    Channels,
+    Skills,
+    Voice,
+    Eventqueues,
+}
+
+impl ComponentId {
+    pub(crate) fn enabled(self, components: &ComponentSet) -> bool {
+        match self {
+            Self::Flows => components.flows,
+            Self::Tinyflows => components.tinyflows,
+            Self::Memes => components.memes,
+            Self::Documents => components.documents,
+            Self::Search => components.search,
+            Self::Mcp => components.mcp,
+            Self::Connectors => components.connectors,
+            Self::Hosting => components.hosting,
+            Self::Juice => components.juice,
+            Self::Memory => components.memory,
+            Self::Wallet => components.wallet,
+            Self::Computer => components.computer,
+            Self::Sandbox => components.sandbox,
+            Self::Channels => components.channels,
+            Self::Skills => components.skills,
+            Self::Voice => components.voice,
+            Self::Eventqueues => components.eventqueues,
+        }
+    }
+
+    pub(crate) const fn as_str(self) -> &'static str {
+        match self {
+            Self::Flows => "flows",
+            Self::Tinyflows => "tinyflows",
+            Self::Memes => "memes",
+            Self::Documents => "documents",
+            Self::Search => "search",
+            Self::Mcp => "mcp",
+            Self::Connectors => "connectors",
+            Self::Hosting => "hosting",
+            Self::Juice => "juice",
+            Self::Memory => "memory",
+            Self::Wallet => "wallet",
+            Self::Computer => "computer",
+            Self::Sandbox => "sandbox",
+            Self::Channels => "channels",
+            Self::Skills => "skills",
+            Self::Voice => "voice",
+            Self::Eventqueues => "eventqueues",
+        }
+    }
+}
+
+/// Finding severity in the v2 wire contract.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum FindingSeverity {
+    Pass,
+    Info,
+    Warn,
+    Error,
+    Skipped,
+}
+
+/// The non-secret origin of a resolved configuration value.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValueSource {
+    Cli,
+    Env,
+    Dotenv,
+    File,
+    Default,
+}
+
+/// The redacted source kind for the effective configuration.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum DoctorConfigSource {
+    Profile,
+    Tenant,
+}
+
+/// One operator-facing result from a check.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Finding {
+    pub check_id: String,
+    pub severity: FindingSeverity,
+    pub message: String,
+    pub fix_hint: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub config_path: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub value_source: Option<ValueSource>,
+    pub duration_ms: u64,
+    pub affects: Vec<String>,
+}
+
+impl Finding {
+    pub fn new(
+        check_id: impl Into<String>,
+        severity: FindingSeverity,
+        message: impl Into<String>,
+        fix_hint: impl Into<String>,
+    ) -> Self {
+        Self {
+            check_id: check_id.into(),
+            severity,
+            message: message.into(),
+            fix_hint: fix_hint.into(),
+            config_path: None,
+            value_source: None,
+            duration_ms: 0,
+            affects: Vec::new(),
+        }
+    }
+
+    pub fn pass(check_id: impl Into<String>, message: impl Into<String>) -> Self {
+        Self::new(
+            check_id,
+            FindingSeverity::Pass,
+            message,
+            "No action required.",
+        )
+    }
+
+    pub fn skipped(
+        check_id: impl Into<String>,
+        message: impl Into<String>,
+        fix_hint: impl Into<String>,
+    ) -> Self {
+        Self::new(check_id, FindingSeverity::Skipped, message, fix_hint)
+    }
+
+    pub fn error(
+        check_id: impl Into<String>,
+        message: impl Into<String>,
+        fix_hint: impl Into<String>,
+    ) -> Self {
+        Self::new(check_id, FindingSeverity::Error, message, fix_hint)
+    }
+}
+
+/// Counts findings by v2 severity.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DoctorSummary {
+    pub pass: usize,
+    pub info: usize,
+    pub warn: usize,
+    pub error: usize,
+    pub skipped: usize,
+}
+
+impl DoctorSummary {
+    pub(crate) fn from_findings(findings: &[Finding]) -> Self {
+        let mut summary = Self::default();
+        for finding in findings {
+            match finding.severity {
+                FindingSeverity::Pass => summary.pass += 1,
+                FindingSeverity::Info => summary.info += 1,
+                FindingSeverity::Warn => summary.warn += 1,
+                FindingSeverity::Error => summary.error += 1,
+                FindingSeverity::Skipped => summary.skipped += 1,
+            }
+        }
+        summary
+    }
+}
+
+/// Versioned, ordered report shared by RPC and every host surface.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DoctorReport {
+    pub schema_version: u8,
+    pub profile: Option<String>,
+    pub config_source: DoctorConfigSource,
+    pub tier: DoctorTier,
+    pub checks_run: Vec<String>,
+    pub checks_skipped: Vec<String>,
+    pub findings: Vec<Finding>,
+    pub summary: DoctorSummary,
+    pub ok: bool,
+}
+
+/// Inputs shared by selected checks in one doctor run.
+#[derive(Debug, Clone)]
+pub struct DoctorCtx {
+    config: Arc<Config>,
+    components: ComponentSet,
+    profile: Option<String>,
+    config_source: DoctorConfigSource,
+    // Transitional input for the v1 adapter. #506 removes it when the old
+    // aggregate checks have been ported to `DoctorCheck` implementations.
+    memory_engine: Option<MemoryEngineCheck>,
+}
+
+impl DoctorCtx {
+    /// Creates a check context from the effective config and active core
+    /// context. An unscoped local configuration reports `profile` as its
+    /// source; a scoped SaaS context reports `tenant`.
+    pub fn from_config(config: Config) -> Self {
+        let core = CoreContext::current();
+        let profile = core
+            .as_ref()
+            .and_then(|context| context.profile().map(str::to_owned));
+        let config_source = if profile.is_some() {
+            DoctorConfigSource::Tenant
+        } else {
+            DoctorConfigSource::Profile
+        };
+        let components = core
+            .as_ref()
+            .map_or_else(ComponentSet::all, |context| context.components());
+        Self {
+            config: Arc::new(config),
+            components,
+            profile,
+            config_source,
+            memory_engine: None,
+        }
+    }
+
+    pub fn with_components(mut self, components: ComponentSet) -> Self {
+        self.components = components;
+        self
+    }
+
+    pub fn with_memory_engine(mut self, memory_engine: MemoryEngineCheck) -> Self {
+        self.memory_engine = Some(memory_engine);
+        self
+    }
+
+    /// The effective configuration inspected by this run.
+    pub fn config(&self) -> &Config {
+        &self.config
+    }
+
+    /// The component switches for this run.
+    pub fn components(&self) -> ComponentSet {
+        self.components
+    }
+
+    /// The effective profile or tenant id, when the active context has one.
+    pub fn profile(&self) -> Option<&str> {
+        self.profile.as_deref()
+    }
+
+    pub(crate) fn config_source(&self) -> DoctorConfigSource {
+        self.config_source
+    }
+
+    pub(crate) fn memory_engine(&self) -> Option<&MemoryEngineCheck> {
+        self.memory_engine.as_ref()
+    }
+}
+
+/// Exact-id and tier filters for one report run.
+#[derive(Debug, Clone)]
+pub struct DoctorOptions {
+    pub tier: DoctorTier,
+    pub only: Vec<String>,
+    pub skip: Vec<String>,
+    /// Reserved for the profile loaders in #490/#491. The framework accepts
+    /// the wire input; the host must resolve it before constructing `DoctorCtx`.
+    pub profile: Option<String>,
+}
+
+impl Default for DoctorOptions {
+    fn default() -> Self {
+        Self {
+            tier: DoctorTier::Connect,
+            only: Vec::new(),
+            skip: Vec::new(),
+            profile: None,
+        }
+    }
+}
+
+/// A single registered doctor check.
+#[async_trait]
+pub trait DoctorCheck: Send + Sync {
+    /// Stable lowercase `area/name` identifier.
+    fn id(&self) -> &str;
+    /// Display category for grouping in human-facing surfaces.
+    fn category(&self) -> &str;
+    /// Cost tier of this detector.
+    fn tier(&self) -> DoctorTier;
+    /// Component that must be enabled before detection can run.
+    fn component_gate(&self) -> Option<ComponentId> {
+        None
+    }
+    /// Per-check timeout. Defaults to the tier budget.
+    fn timeout(&self) -> Duration {
+        self.tier().timeout()
+    }
+    /// Whether this detector has a synchronous body that belongs on the
+    /// blocking pool. Implement `detect_blocking` when this returns true.
+    fn is_blocking(&self) -> bool {
+        false
+    }
+    /// Run an asynchronous check.
+    async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding>;
+    /// Run a blocking check on a Tokio blocking worker.
+    fn detect_blocking(&self, _ctx: &DoctorCtx) -> Option<Vec<Finding>> {
+        None
+    }
+}

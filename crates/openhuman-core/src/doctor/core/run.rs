@@ -64,6 +64,27 @@ pub fn run(config: &Config, memory: MemoryEngineCheck) -> Result<DoctorReport> {
     })
 }
 
+/// Run one legacy probe for the v1-to-v2 adapter. This is temporary until
+/// #506 ports the probes as native `DoctorCheck` implementations.
+pub(in crate::doctor) fn run_check(
+    id: &str,
+    config: &Config,
+    memory: &MemoryEngineCheck,
+) -> Vec<DiagnosticItem> {
+    let mut items = Vec::new();
+    match id {
+        "config/semantics" => check_config_semantics(config, &mut items),
+        "workspace/layout" => check_workspace(config, &mut items),
+        "runtime/daemon" => check_daemon_state(config, &mut items),
+        "runtime/environment" => check_environment(&mut items),
+        "memory/engine" => check_memory_engine(memory, &mut items),
+        "memory/embedding-model" => check_embedding_model_health(config, &mut items),
+        "agent/claude-sdk" => check_claude_agent_sdk(config, &mut items),
+        _ => return items,
+    }
+    items
+}
+
 fn doctor_model_targets() -> Vec<String> {
     crate::inference::provider::list_providers()
         .into_iter()

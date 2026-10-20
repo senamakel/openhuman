@@ -1,39 +1,39 @@
 # doctor
 
-Diagnostic / self-check domain for OpenHuman. Runs a synchronous battery of probes against the live `Config`, the workspace directory, the daemon state file, the local environment, the embedding provider (Ollama), and the Claude Agent SDK binary, then aggregates the findings into a severity-tagged `DoctorReport`. Exposed to CLI and JSON-RPC as `doctor.report` and `doctor.models`. This is what powers `openhuman doctor` / the Settings health surface.
+Diagnostic and self-check domain for OpenHuman. The v2 framework registers stable-id checks, runs them asynchronously with tier budgets, bounded concurrency, and component gates, then returns the versioned `DoctorReport`. Existing v1 probes run through per-check blocking adapters until #506 ports them. The report is exposed through `doctor.report`; provider model probes remain on `doctor.models`.
 
 ## Responsibilities
 
-- Validate config semantics: config file presence, `api_url` (with fallback resolution), app session JWT / sign-in state, `default_model`, temperature range (0.0 to 2.0), legacy `reliability.fallback_providers`, model & embedding route entries (empty hints/models, invalid embedding providers, `dimensions=0`), `memory.embedding_model` `hint:` cross-reference, at least one channel configured, and delegate-agent models.
-- Check workspace integrity: directory existence, write probe (create/write/delete a temp probe file), `memory/` dir, `SYSTEM.md` prompt, and best-effort free disk space (warns under 512 MB; uses `df -m` on Unix, PowerShell `Get-PSDrive` on Windows).
-- Inspect daemon state file: presence, JSON validity, heartbeat freshness (stale > 30s = error), scheduler component health (stale > 120s), and per-channel component freshness (stale > 300s).
-- Probe environment commands: `git --version`, `curl --version`, `$SHELL`, and `$HOME`/`$USERPROFILE`.
-- Probe the memory engine (`memory_agent_checks::check_memory_engine`): report `ok`, `degraded`, `down` or `off` (memory is off with no usable engine) from the `MemoryEngineCheck` the async caller takes from the memory domain's status before the blocking hop.
-- Probe embedding-model health: if provider is `ollama`, do a 3s blocking HTTP GET to `<base_url>/api/tags` and verify the configured model is installed; non-ollama providers report OK without a local probe.
-- Probe the Claude Agent SDK: if enabled, run `<binary> --version`.
-- Probe provider model availability via `run_models` (currently a stub: see Notes).
+- Define the check/report v2 contract, generic process and per-context check-source registrations, and a bounded asynchronous runner.
+- Filter selected checks by exact id and tier; report disabled-component and above-tier checks as skipped.
+- Keep the existing config, workspace, daemon, environment, memory, embeddings, and SDK probes working through a temporary v1 adapter.
+- Preserve the `doctor.models` controller and the `doctor_health` / `doctor_models` tool names.
 
 ## Key files
 
 | File | Role |
 | --- | --- |
-| `crates/openhuman-core/src/doctor/mod.rs` | Module docstring + exports. Declares [`core`](./core), `ops`, `schemas`; re-exports `core::*`, `ops::*` (also aliased `pub use ops as rpc`), and the schema controller pair. |
-| `crates/openhuman-core/src/doctor/core.rs` | All diagnostic logic + types. `run()` entry point and every `check_*` probe; `run_models()`; severity helpers; OS-specific disk/command helpers. |
-| `crates/openhuman-core/src/doctor/ops.rs` | Async JSON-RPC/CLI controller surface (`doctor_report`, `doctor_models`) wrapping the sync `core` logic in `spawn_blocking` and returning `Outcome<T>`. |
-| `crates/openhuman-core/src/doctor/schemas.rs` | Controller schemas + registry (`all_controller_schemas`, `all_registered_controllers`, `handle_report`/`handle_models`). |
+| `crates/openhuman-core/src/doctor/contract.rs` | Check trait, tier/component types, v2 findings, context, options, and report. |
+| `crates/openhuman-core/src/doctor/registry.rs` | Built-in and host check sources; process and `CoreContext` registrations; id validation. |
+| `crates/openhuman-core/src/doctor/runner.rs` | Exact-id filters, component/tier skips, timeouts, bounded concurrency, and v2 report assembly. |
+| `crates/openhuman-core/src/doctor/legacy.rs` | Per-check adapter for the moved v1 probes until #506. |
+| `crates/openhuman-core/src/doctor/ops.rs` | Async JSON-RPC surface; resolves async memory status and invokes the v2 runner. |
+| `crates/openhuman-core/src/doctor/schemas.rs` | Controller schemas and handlers for `doctor.report` and `doctor.models`. |
+| `crates/openhuman-core/src/doctor/runner_tests.rs` | Runner acceptance tests and `FakeCheck` usage. |
 | `crates/openhuman-core/src/doctor/core_tests.rs` | Test suite for [`core.rs`](./core.rs) (via `#[path = "core_tests.rs"] mod tests`). |
 
 ## Public surface
 
-From [`mod.rs`](./mod.rs) re-exports (`core::*`):
+From [`mod.rs`](./mod.rs):
 
-- Types: `Severity` (`Ok`/`Warn`/`Error`), `DiagnosticItem`, `DoctorSummary`, `DoctorReport`, `ModelProbeOutcome`, `ModelProbeEntry`, `ModelProbeSummary`, `ModelProbeReport`.
-- Functions: `run(&Config, MemoryChunkCount) -> Result<DoctorReport>` (blocking-only: keep no `.await` inside; async probes are resolved by the caller and passed in), `run_models(&Config, use_cache) -> Result<ModelProbeReport>`.
-- Type alias: `MemoryChunkCount = Result<u64, String>`: the hoisted chunk-count probe.
+- V2 types: `DoctorCheck`, `DoctorCheckSource`, `DoctorCtx`, `DoctorOptions`, `DoctorTier`, `Finding`, `FindingSeverity`, and `DoctorReport`.
+- Registration: `register_check_source(source)` for the process or `register_check_source_in(&extensions, source)` for a `CoreContext` built with `CoreBuilder::extensions`.
+- Legacy types remain available as `LegacyDoctorReport` / `LegacyDoctorSummary` while `run_models` and its report types stay unchanged.
 
 From `ops` (also re-exported as `doctor::rpc`):
 
-- `doctor_report(&Config) -> Result<Outcome<DoctorReport>, String>`
+- `doctor_report(&Config) -> Result<Outcome<DoctorReport>, String>` (v2 report)
+- `doctor_report_with_options(&Config, DoctorOptions) -> Result<Outcome<DoctorReport>, String>`
 - `doctor_models(&Config, use_cache: bool) -> Result<Outcome<ModelProbeReport>, String>`
 
 Schema pair re-exported as `all_doctor_controller_schemas` / `all_doctor_registered_controllers`.
@@ -44,14 +44,14 @@ Namespace `doctor`, two functions:
 
 | Method | Inputs | Output |
 | --- | --- | --- |
-| `doctor.report` | none | `DoctorReport` ("Run diagnostics for workspace and runtime configuration.") |
+| `doctor.report` | optional `tier`, exact-id `only` / `skip`, and `profile` | v2 `DoctorReport` ("Run diagnostics for workspace and runtime configuration.") |
 | `doctor.models` | `use_cache: Option<bool>` (default `true`) | `ModelProbeReport` ("Probe provider model availability and auth status.") |
 
-Both handlers load config via `config_rpc::load_config_with_timeout()` and return `Outcome::single_log(...)`. Wired into the global registry in `crates/openhuman-core/src/core/all.rs` (controllers, schemas, and the namespace description "Run diagnostics for workspace and runtime health.").
+Both handlers load config through `DispatchCtx` and return `Outcome::single_log(...)`. The profile field is reserved for the host profile loaders in #490/#491. Controllers remain wired in `crates/openhuman-core/src/core/all.rs`.
 
 ## Agent tools
 
-None. This domain owns no agent tools (no [`tools.rs`](./tools.rs)).
+The `doctor_health` and `doctor_models` tools remain in [`tools.rs`](./tools.rs); their names and JSON-RPC method names stay stable.
 
 ## Events
 
@@ -79,8 +79,10 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 
 ## Notes / gotchas
 
-- `run()` is **strictly blocking** by contract (file system, sqlite, blocking HTTP). `reqwest::blocking::Client` panics inside a tokio runtime, so `ops::doctor_report` runs the whole thing in `tokio::task::spawn_blocking`. Do not add `.await` inside `core::run`.
-- An async probe therefore arrives as an **argument**, resolved in `ops` before the blocking hop: `MemoryEngineCheck` is the first of them. Do not reach for `Handle::block_on` inside [`core`](./core): it panics on a current-thread runtime and deadlocks the multi-thread one whose worker it is already occupying.
+- The framework runs at most eight checks at once. A blocking adapter runs on a dedicated `spawn_blocking` worker; an async check stays on the runtime.
+- Each detector has a tier-derived timeout (5 seconds static, 10 seconds connect, 60 seconds live). Timeout or worker failures are error findings and do not stop sibling checks.
+- The legacy memory engine status remains an async input resolved by `ops` before the per-check blocking adapter. Do not call `Handle::block_on` from a check.
+- The v1 adapter maps status and ids to v2 but does not forward unstructured legacy messages, which may contain resolved configuration values. Native v2 checks should provide safe, specific findings.
 - An engine that is down is reported as an error and memory being off as a warning, so the doctor names what is wrong instead of showing an empty store.
 - `run_models` / `doctor.models` is effectively a **stub**: it enumerates providers from `inference::provider::list_providers` but marks every entry `Skipped` with message "model catalog refresh removed" (catalog refresh was removed). It never actually probes auth/availability despite the schema description.
 - The embedding probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-ollama providers short-circuit to OK.

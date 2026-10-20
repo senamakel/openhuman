@@ -7,6 +7,7 @@ use async_trait::async_trait;
 
 use crate::config::schema::profile_layout::LayoutVersion;
 use crate::config::Config;
+use crate::config::schema::load::ConfigResolutionSource;
 use crate::core::runtime::ComponentSet;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding};
 use crate::profiles::ProfileLayout;
@@ -19,9 +20,23 @@ pub(crate) struct DesktopProfile {
     pub config: Config,
 }
 
+/// The effective desktop config and provenance resolved without initializing
+/// or repairing a profile.
+#[derive(Debug, Clone)]
+pub struct DesktopProfileSelection {
+    /// Effective config loaded for the selected profile or current desktop.
+    pub config: Config,
+    /// Profile id when the selected config lives under `users/<id>`.
+    pub profile_id: Option<String>,
+    /// Profile layout when the config belongs to a desktop profile.
+    pub layout_version: Option<LayoutVersion>,
+    /// Source that chose the config directory, or `--profile` for an explicit id.
+    pub resolution_source: String,
+}
+
 /// Safe failure categories for a selected desktop profile.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum DesktopProfileError {
+pub enum DesktopProfileError {
     InvalidId,
     Missing,
     UnknownLayoutMarker,
@@ -30,7 +45,7 @@ pub(crate) enum DesktopProfileError {
 }
 
 impl DesktopProfileError {
-    pub(crate) fn message(self) -> &'static str {
+    pub fn message(self) -> &'static str {
         match self {
             Self::InvalidId => "The selected profile id is invalid.",
             Self::Missing => "The selected profile does not exist.",
@@ -39,6 +54,34 @@ impl DesktopProfileError {
             Self::Unavailable => "Profile selection is unavailable for this host.",
         }
     }
+}
+
+/// Resolves either an explicit desktop profile or the effective desktop
+/// config using the normal directory precedence, without running
+/// `ProfileLayout::resolve`, `Config::load_or_init`, or persistent migrations.
+pub async fn resolve_desktop_profile_for_doctor(
+    root: &Path,
+    requested_profile: Option<&str>,
+) -> Result<DesktopProfileSelection, DesktopProfileError> {
+    if let Some(id) = requested_profile {
+        let selected = load_desktop_profile(root, id).await?;
+        return Ok(DesktopProfileSelection {
+            config: selected.config,
+            profile_id: Some(selected.id),
+            layout_version: Some(selected.layout.version),
+            resolution_source: "--profile".into(),
+        });
+    }
+
+    let (config_dir, workspace_dir, source, profile_id, layout_version) =
+        resolve_desktop_config_dirs_read_only(root).await?;
+    let config = load_config_read_only(&config_dir.join("config.toml"), &workspace_dir).await?;
+    Ok(DesktopProfileSelection {
+        config,
+        profile_id,
+        layout_version,
+        resolution_source: source.as_str().into(),
+    })
 }
 
 /// Loads one profile beneath `root` without changing active-user state,
@@ -78,22 +121,154 @@ pub(crate) async fn load_desktop_profile(
     if !config_metadata.file_type().is_file() {
         return Err(DesktopProfileError::InvalidConfig);
     }
-    let config_text = tokio::fs::read_to_string(&layout.config_path)
-        .await
-        .map_err(|_| DesktopProfileError::InvalidConfig)?;
-    let mut config = crate::config::config_from_toml_str(&config_text)
-        .map_err(|_| DesktopProfileError::InvalidConfig)?;
-    config.config_path = layout.config_path.clone();
-    config.workspace_dir = layout.workspace_dir.clone();
-    config.action_dir = crate::config::resolve_action_dir(&config.action_dir_override);
-    crate::config::schema::load::apply_loaded_config_migrations(&mut config, &config_text);
-    config.apply_env_overrides();
+    let config = load_config_read_only(&layout.config_path, &layout.workspace_dir).await?;
 
     Ok(DesktopProfile {
         id: id.to_owned(),
         layout,
         config,
     })
+}
+
+async fn load_config_read_only(
+    config_path: &Path,
+    workspace_dir: &Path,
+) -> Result<Config, DesktopProfileError> {
+    let config_text = match tokio::fs::symlink_metadata(config_path).await {
+        Ok(metadata) if metadata.file_type().is_file() => Some(
+            tokio::fs::read_to_string(config_path)
+                .await
+                .map_err(|_| DesktopProfileError::InvalidConfig)?,
+        ),
+        Ok(_) => return Err(DesktopProfileError::InvalidConfig),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+        Err(_) => return Err(DesktopProfileError::InvalidConfig),
+    };
+
+    let mut config = match config_text.as_deref() {
+        Some(contents) => crate::config::config_from_toml_str(contents)
+            .map_err(|_| DesktopProfileError::InvalidConfig)?,
+        None => Config::default(),
+    };
+    config.config_path = config_path.to_path_buf();
+    config.workspace_dir = workspace_dir.to_path_buf();
+    config.action_dir = crate::config::resolve_action_dir(&config.action_dir_override);
+    if let Some(contents) = config_text.as_deref() {
+        crate::config::schema::load::apply_loaded_config_migrations(&mut config, contents);
+    }
+    config.apply_env_overrides();
+    Ok(config)
+}
+
+async fn resolve_desktop_config_dirs_read_only(
+    root: &Path,
+) -> Result<
+    (
+        PathBuf,
+        PathBuf,
+        ConfigResolutionSource,
+        Option<String>,
+        Option<LayoutVersion>,
+    ),
+    DesktopProfileError,
+> {
+    if let Some(workspace) = std::env::var_os("OPENHUMAN_WORKSPACE")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+    {
+        let (config_dir, workspace_dir) = crate::config::resolve_config_dir_for_workspace(&workspace);
+        let (config_dir, workspace_dir, profile_id, layout_version) =
+            profile_paths_for_resolved_dirs(config_dir, workspace_dir).await?;
+        return Ok((
+            config_dir,
+            workspace_dir,
+            ConfigResolutionSource::EnvWorkspace,
+            profile_id,
+            layout_version,
+        ));
+    }
+
+    if let Some(profile_id) = crate::config::schema::load::read_active_user_id_checked_async(root)
+        .await
+        .map_err(|_| DesktopProfileError::InvalidConfig)?
+    {
+        if !is_profile_path_segment(&profile_id) {
+            return Err(DesktopProfileError::InvalidId);
+        }
+        let dir = ProfileLayout::new(root, &profile_id).dir;
+        let layout = read_profile_layout(dir).await?;
+        return Ok((
+            layout.dir.clone(),
+            layout.workspace_dir.clone(),
+            ConfigResolutionSource::ActiveUser,
+            Some(profile_id),
+            Some(layout.version),
+        ));
+    }
+
+    if let Some((config_dir, workspace_dir)) =
+        crate::config::schema::load::load_persisted_workspace_dirs(root)
+            .await
+            .map_err(|_| DesktopProfileError::InvalidConfig)?
+    {
+        let (config_dir, workspace_dir, profile_id, layout_version) =
+            profile_paths_for_resolved_dirs(config_dir, workspace_dir).await?;
+        return Ok((
+            config_dir,
+            workspace_dir,
+            ConfigResolutionSource::ActiveWorkspaceMarker,
+            profile_id,
+            layout_version,
+        ));
+    }
+
+    let layout = read_profile_layout(crate::config::pre_login_user_dir(root)).await?;
+    Ok((
+        layout.dir.clone(),
+        layout.workspace_dir.clone(),
+        ConfigResolutionSource::DefaultConfigDir,
+        Some(crate::config::PRE_LOGIN_USER_ID.to_string()),
+        Some(layout.version),
+    ))
+}
+
+async fn profile_paths_for_resolved_dirs(
+    config_dir: PathBuf,
+    workspace_dir: PathBuf,
+) -> Result<(PathBuf, PathBuf, Option<String>, Option<LayoutVersion>), DesktopProfileError> {
+    if let Some(profile_id) = profile_id_for_dir(&config_dir) {
+        let layout = read_profile_layout(config_dir).await?;
+        return Ok((
+            layout.dir.clone(),
+            layout.workspace_dir.clone(),
+            Some(profile_id),
+            Some(layout.version),
+        ));
+    }
+    if let Some(layout) = ProfileLayout::of_workspace(&workspace_dir) {
+        let id = profile_id_for_dir(&layout.dir);
+        return Ok((
+            layout.dir.clone(),
+            layout.workspace_dir.clone(),
+            id,
+            Some(layout.version),
+        ));
+    }
+    Ok((config_dir, workspace_dir, None, None))
+}
+
+async fn read_profile_layout(dir: PathBuf) -> Result<ProfileLayout, DesktopProfileError> {
+    let version = read_layout_version(&dir).await?;
+    Ok(ProfileLayout::with_version(dir, version))
+}
+
+fn profile_id_for_dir(dir: &Path) -> Option<String> {
+    let users_dir = dir.parent()?;
+    if !users_dir.file_name().is_some_and(|name| name == "users") {
+        return None;
+    }
+    let id = dir.file_name()?.to_str()?;
+    is_profile_path_segment(id).then(|| id.to_owned())
 }
 
 /// Derives a selected profile's root from an already-resolved config path.

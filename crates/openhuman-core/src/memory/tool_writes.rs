@@ -26,9 +26,10 @@ use tinymemory_tools::pending::{
     Ack, Binding, Entry, Epoch, FenceToken, Limits, PendingError, PendingWrites, WriteExecutor,
     WriteGate, WriteOperation,
 };
+use tinymemory_tools::ToolScope;
+use tinymemory_tools::WriteSink;
 
-use super::tools::CallFacts;
-use super::types::{ForgetParams, LearnParams};
+use super::types::ForgetParams;
 use crate::config::Config;
 use tinymemory_api::{Error, Result};
 
@@ -152,35 +153,52 @@ fn unavailable() -> Error {
     Error::Unavailable("memory write queue unavailable; durable queueing was not confirmed".into())
 }
 
-/// Accepts a validated, scrubbed write locally. The acknowledgement means only
-/// that it is durable in the local outbox, not accepted by the remote engine.
-pub(super) fn enqueue(
-    config: &Config,
-    args: &serde_json::Value,
-    facts: &CallFacts,
-) -> Result<serde_json::Value> {
+/// The host policy and queue adapter used by TinyMemory's single tool.
+pub(super) struct HostWriteSink {
+    config: Arc<Config>,
+}
+
+impl HostWriteSink {
+    pub(super) fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+impl WriteSink for HostWriteSink {
+    fn preflight(&self, _scope: &ToolScope) -> Result<()> {
+        if super::engine::switched_off(&self.config) {
+            return Err(Error::Off("memory is disabled".into()));
+        }
+        super::ops::saas_confinement(&self.config, Policy::Clamp)?;
+        Ok(())
+    }
+
+    fn enqueue(&self, operation: WriteOperation, scope: &ToolScope) -> Result<Ack> {
+        enqueue_operation(&self.config, operation, scope)
+    }
+}
+
+fn enqueue_operation(config: &Config, operation: WriteOperation, scope: &ToolScope) -> Result<Ack> {
     if super::engine::switched_off(config) {
         return Err(Error::Off("memory is disabled".into()));
     }
     let confinement = super::ops::saas_confinement(config, Policy::Clamp)?;
-    let reach = match confinement {
-        Some(ref confinement) => confinement.reach(Some(facts.reach.clone()))?,
-        None => facts.reach.clone(),
-    };
+    let mut reach = scope
+        .reach
+        .clone()
+        .unwrap_or_else(|| Reach::subtree(scope.place.clone()));
+    if let Some(confinement) = &confinement {
+        reach = confinement.reach(Some(reach))?;
+    }
     let scope_root = reach.at.clone();
-    let file = queue_path(config, &scope_root);
-    let operation = match args.get("action").and_then(serde_json::Value::as_str) {
-        Some("learn") => {
-            let mut params: LearnParams = serde_json::from_value(args.clone())
-                .map_err(|_| Error::InvalidRequest("invalid learning arguments".into()))?;
-            params.meta = None;
-            let mut item = super::ops::learning_item(params, Some(facts.learn_meta()))?;
-            if let Some(ref confinement) = confinement {
+    let operation = match operation {
+        WriteOperation::Learn { mut item } => {
+            if let Some(confinement) = &confinement {
                 confinement.item(&mut item)?;
             }
-            if !Reach::subtree(reach.at.clone()).admits(&item.meta().namespace) || reach.inherit {
+            if reach.inherit || !Reach::subtree(reach.at.clone()).admits(&item.meta().namespace) {
                 return Err(Error::InvalidRequest(
-                    ("learning namespace is outside the trusted reach").into(),
+                    "learning namespace is outside the trusted reach".into(),
                 ));
             }
             WriteOperation::Learn {
@@ -191,26 +209,9 @@ pub(super) fn enqueue(
                 .value,
             }
         }
-        Some("forget") => {
-            let params: ForgetParams = serde_json::from_value(args.clone())
-                .map_err(|_| Error::InvalidRequest("invalid forgetting arguments".into()))?;
-            let mut ids: Vec<_> = params
-                .ids
-                .into_iter()
-                .map(|id| id.trim().to_string())
-                .filter(|id| !id.is_empty())
-                .collect();
-            ids.sort();
-            ids.dedup();
-            if ids.is_empty() {
-                return Err(Error::InvalidRequest(
-                    ("forget needs at least one id").into(),
-                ));
-            }
-            WriteOperation::Forget { ids, reach }
-        }
-        _ => return Err(Error::InvalidRequest("expected a memory write".into())),
+        WriteOperation::Forget { ids, .. } => WriteOperation::Forget { ids, reach },
     };
+    let file = queue_path(config, &scope_root);
     let _guard = LOCK
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner);
@@ -220,15 +221,9 @@ pub(super) fn enqueue(
         ));
     }
     let owner = owner_state(config);
-    let ack = queue(&file)
+    queue(&file)
         .enqueue(operation, scope_root, binding(config), &owner.gate)
-        .map_err(map_pending)?;
-    Ok(match ack {
-        Ack::Learned { id } => serde_json::json!({"id":id, "status":QUEUED}),
-        Ack::Forgotten { queued } => {
-            serde_json::json!({"queued":queued, "status":"queued; not yet removed from memory"})
-        }
-    })
+        .map_err(map_pending)
 }
 
 /// A [`ListStore`] over one queue file: owner-only, written through a
@@ -642,4 +637,4 @@ async fn drain_locked(config: &Config, file: &Path, state: &OwnerState, generati
 
 #[cfg(test)]
 #[path = "tool_writes_tests.rs"]
-mod tests;
+pub(crate) mod tests;

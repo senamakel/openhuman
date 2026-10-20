@@ -39,7 +39,6 @@ pub mod schemas;
 pub mod scope;
 pub mod sources;
 pub mod status;
-mod tool_budget;
 pub(crate) mod tool_writes;
 pub mod tools;
 pub mod types;

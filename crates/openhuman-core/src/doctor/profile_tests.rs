@@ -207,18 +207,24 @@ async fn selected_profile_context_pins_id_layout_source_and_components() {
     tokio::fs::write(&layout.config_path, "[components]\nmemory = false\n")
         .await
         .unwrap();
-    let selected = load_desktop_profile(temp.path(), "account-b")
+    let selected = resolve_desktop_profile_for_doctor(temp.path(), Some("account-b"))
         .await
         .unwrap();
     let components = crate::core::runtime::ComponentSet::from_config(&selected.config.components);
-    let ctx = DoctorCtx::from_config_with_components(selected.config, components)
-        .with_profile("account-b", DoctorConfigSource::Profile)
-        .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
-        .with_profile_status(crate::doctor::contract::DoctorProfileStatus::Valid);
+    let version = selected.layout_version;
+    let profile_id = selected.profile_id.clone().unwrap();
+    let resolution_source = selected.resolution_source.clone();
+    let status = selected.profile_status;
+    let mut ctx = DoctorCtx::from_config_with_components(selected.config, components)
+        .with_profile_metadata(version, Some(resolution_source));
+    ctx = ctx.with_profile(profile_id, DoctorConfigSource::Profile);
+    if let Some(status) = status {
+        ctx = ctx.with_profile_status(status);
+    }
 
     assert_eq!(ctx.profile(), Some("account-b"));
     assert_eq!(ctx.config_source(), DoctorConfigSource::Profile);
-    assert_eq!(ctx.profile_layout_version(), Some(selected.layout.version));
+    assert_eq!(ctx.profile_layout_version(), version);
     assert_eq!(ctx.profile_resolution_source(), Some("--profile"));
     assert!(!ctx.components().memory);
 

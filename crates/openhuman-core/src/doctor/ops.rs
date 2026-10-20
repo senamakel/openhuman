@@ -6,6 +6,7 @@
 use std::path::Path;
 
 use super::contract::DoctorProfileStatus;
+use super::profile::DesktopProfileSelection;
 use crate::config::Config;
 use crate::core::{
     runtime::{ComponentSet, CoreContext, DispatchCtx},
@@ -115,6 +116,32 @@ pub async fn doctor_report_for_selected_profile(
     CoreContext::scope(
         CoreContext::bare(),
         report_with_context(&selected.config, options, ctx),
+    )
+    .await
+}
+
+/// Runs a report from the effective desktop selection without consulting the
+/// ambient core context. Hosts can resolve the config before boot and pass it
+/// here to preserve profile identity and directory provenance.
+pub async fn doctor_report_for_desktop_selection(
+    selection: DesktopProfileSelection,
+    options: DoctorOptions,
+) -> Result<Outcome<DoctorReport>, String> {
+    let components = ComponentSet::from_config(&selection.config.components);
+    let mut ctx = DoctorCtx::from_config_with_components(selection.config.clone(), components)
+        .with_profile_metadata(
+            selection.layout_version,
+            Some(selection.resolution_source),
+        );
+    if let Some(profile_id) = selection.profile_id {
+        ctx = ctx.with_profile(profile_id, DoctorConfigSource::Profile);
+    }
+    if let Some(status) = selection.profile_status {
+        ctx = ctx.with_profile_status(status);
+    }
+    CoreContext::scope(
+        CoreContext::bare(),
+        report_with_context(&selection.config, options, ctx),
     )
     .await
 }

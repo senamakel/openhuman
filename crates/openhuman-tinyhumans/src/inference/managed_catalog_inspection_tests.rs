@@ -229,6 +229,61 @@ async fn managed_inspection_catalog_classifies_a_401_without_mutating_credential
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn a_prepared_managed_fetch_uses_the_frozen_session_after_rotation() {
+    let _registry = crate::registry_test_lock_async().await;
+    let _env_lock = crate::backend::url::backend_env_test_lock();
+    let (base, server) = spawn_managed_backend(StatusCode::OK).await;
+    let _env = BackendEnvSnapshot::set(&base);
+    let (_temp, config) = temporary_config(&base);
+    store_session(
+        &config,
+        "fixture-session-before-rotation",
+        &base,
+        chrono::Utc::now() + chrono::Duration::hours(1),
+    );
+
+    let prepared_a = prepare_managed_catalog(config.clone())
+        .await
+        .expect("read-only prepare should capture session A");
+    store_session(
+        &config,
+        "fixture-session-after-rotation",
+        &base,
+        chrono::Utc::now() + chrono::Duration::hours(1),
+    );
+    let auth_file_after_rotation =
+        std::fs::read(auth_profiles_path(&config)).expect("rotated session fixture");
+
+    prepared_a
+        .fetch()
+        .await
+        .expect("the prepared request must use its captured session");
+    let prepared_b = prepare_managed_catalog(config.clone())
+        .await
+        .expect("a new prepare should see session B");
+    prepared_b
+        .fetch()
+        .await
+        .expect("the second prepared request should use session B");
+
+    assert_eq!(server.requests.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        *server
+            .authorization
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()),
+        vec![
+            Some("Bearer fixture-session-before-rotation".to_owned()),
+            Some("Bearer fixture-session-after-rotation".to_owned())
+        ]
+    );
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config)).unwrap(),
+        auth_file_after_rotation
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn a_session_from_another_backend_is_never_sent_to_the_managed_catalog() {
     let _registry = crate::registry_test_lock_async().await;
     let _env_lock = crate::backend::url::backend_env_test_lock();

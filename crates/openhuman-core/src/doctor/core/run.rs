@@ -75,6 +75,7 @@ pub(in crate::doctor) fn run_check(
     match id {
         "config/semantics" => check_config_semantics(config, &mut items),
         "workspace/layout" => check_workspace(config, &mut items),
+        "runtime/daemon" => check_daemon_state(config, &mut items),
         "runtime/environment" => check_environment(&mut items),
         "memory/engine" => check_memory_engine(memory, &mut items),
         "memory/embedding-model" => check_embedding_model_health(config, &mut items),

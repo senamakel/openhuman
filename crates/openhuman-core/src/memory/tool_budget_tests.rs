@@ -31,14 +31,14 @@ async fn a_slow_memory_call_returns_and_disables_memory_only_for_its_turn() {
 async fn successful_memory_churn_is_bounded_without_blocking_the_next_turn() {
     let budget = budget();
     let calls = AtomicUsize::new(0);
-    for _ in 0..20 {
+    for i in 0..20 {
         let result = budget
             .run(Some("turn-one"), async {
                 calls.fetch_add(1, Ordering::SeqCst);
                 "saved"
             })
             .await;
-        if calls.load(Ordering::SeqCst) <= 8 {
+        if i < 8 {
             assert!(result.is_ok());
         } else {
             assert_eq!(result, Err(Refusal::Denied(DenialReason::CallLimit)));

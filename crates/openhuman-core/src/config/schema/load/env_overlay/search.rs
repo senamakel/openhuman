@@ -244,14 +244,13 @@ impl Config {
         let mut routes: Vec<(String, String, &str)> = Vec::new();
         if let Some(value) = env.get_any(&["OPENHUMAN_SEARCH_ROUTES"]) {
             routes.extend(value.split(',').filter_map(|pair| {
-                pair.split_once('=')
-                    .map(|(p, r)| {
-                        (
-                            p.trim().to_ascii_lowercase(),
-                            r.trim().to_string(),
-                            "OPENHUMAN_SEARCH_ROUTES",
-                        )
-                    })
+                pair.split_once('=').map(|(p, r)| {
+                    (
+                        p.trim().to_ascii_lowercase(),
+                        r.trim().to_string(),
+                        "OPENHUMAN_SEARCH_ROUTES",
+                    )
+                })
             }));
         }
         if let Some(value) = env.get_any(&["OPENHUMAN_GEMINI_ROUTE"]) {

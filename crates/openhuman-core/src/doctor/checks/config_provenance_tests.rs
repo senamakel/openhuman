@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::config::schema::load::{DotenvLoadProvenance, ProvenanceSource};
+use crate::config::Config;
 
 use super::contract::{
     DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity, ValueSource,
@@ -37,10 +37,7 @@ async fn run_config_check(config: Config, check_id: &str) -> Vec<Finding> {
         .findings
 }
 
-async fn run_context_check(
-    ctx: DoctorCtx,
-    check_id: &str,
-) -> crate::doctor::DoctorReport {
+async fn run_context_check(ctx: DoctorCtx, check_id: &str) -> crate::doctor::DoctorReport {
     runner::run(
         &ctx,
         DoctorOptions {
@@ -86,7 +83,10 @@ fn context_value_source_maps_logical_paths_without_labeling_filesystem_paths() {
         ctx.value_source_for("modules.overrides[2].source"),
         Some(ValueSource::Dotenv)
     );
-    assert_eq!(ctx.value_source_for("default_model"), Some(ValueSource::Default));
+    assert_eq!(
+        ctx.value_source_for("default_model"),
+        Some(ValueSource::Default)
+    );
     assert_eq!(ctx.value_source_for("/var/lib/openhuman/config.toml"), None);
     assert_eq!(ctx.value_source_for("config.toml"), None);
 }
@@ -103,10 +103,10 @@ async fn config_source_reports_the_active_user_directory_resolution_source() {
         Some("active_user.toml")
     );
     assert_eq!(report.profile_layout_version, Some(2));
-    assert!(matching
-        .iter()
-        .any(|finding| finding.message.contains("config_resolution_source: active_user.toml")
-            && finding.message.contains("profile_layout_version: 2")));
+    assert!(matching.iter().any(|finding| finding
+        .message
+        .contains("config_resolution_source: active_user.toml")
+        && finding.message.contains("profile_layout_version: 2")));
 }
 
 #[tokio::test]

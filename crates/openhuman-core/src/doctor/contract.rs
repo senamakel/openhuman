@@ -6,8 +6,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
 use crate::config::schema::load::ProvenanceSource;
+use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext};
 
 use super::core::MemoryEngineCheck;
@@ -355,8 +355,7 @@ fn normalize_logical_config_path(path: &str) -> Option<String> {
             }
             ']' => return None,
             character
-                if character.is_ascii_alphanumeric()
-                    || matches!(character, '_' | '-' | '.') =>
+                if character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.') =>
             {
                 normalized.push(character);
             }
@@ -364,10 +363,7 @@ fn normalize_logical_config_path(path: &str) -> Option<String> {
         }
     }
 
-    if normalized.starts_with('.')
-        || normalized.ends_with('.')
-        || normalized.contains("..")
-    {
+    if normalized.starts_with('.') || normalized.ends_with('.') || normalized.contains("..") {
         return None;
     }
     Some(normalized)

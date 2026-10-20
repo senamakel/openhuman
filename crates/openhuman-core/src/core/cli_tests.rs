@@ -209,10 +209,12 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
 
     let loaded_backend = std::env::var("BACKEND_URL").ok();
     let loaded_app_env = std::env::var("OPENHUMAN_APP_ENV").ok();
+    let second_result = load_dotenv_for_cli();
 
     std::env::set_current_dir(&original_dir).expect("restore current dir");
 
     result.expect("dotenv load should succeed");
+    second_result.expect("repeated dotenv load should succeed");
     assert_eq!(
         loaded_backend.as_deref(),
         Some("https://staging-api.example.test")

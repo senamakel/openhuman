@@ -324,3 +324,150 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     assert_eq!(report.summary.error, 1);
     assert!(!report.ok);
 }
+
+#[tokio::test]
+async fn module_status_checks_are_registered_with_their_native_id() {
+    let report = runner::run(
+        &DoctorCtx::from_config(Config::default()),
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["modules/tinymcp".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("module check is part of the doctor report");
+
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"),
+        "module check ids are exact registered ids, not unknown selectors: {:?}",
+        report.findings
+    );
+    assert!(report.checks_run.iter().any(|id| id == "modules/tinymcp"));
+    assert!(report
+        .findings
+        .iter()
+        .any(|finding| finding.check_id == "modules/tinymcp"));
+}
+
+#[tokio::test]
+async fn mcp_server_check_ids_come_from_the_selected_config() {
+    let mut config_b = Config::default();
+    let mut server_b = crate::config::McpServerConfig::default();
+    server_b.name = "server-b".into();
+    config_b.mcp_client.servers.push(server_b);
+
+    // The ambient context represents configuration A. The selected doctor
+    // input is B, so its dynamic check id must be used for exact selection.
+    let extensions_a = Extensions::new();
+    register_check_source_in(
+        &extensions_a,
+        FakeCheckSource::new(
+            "doctor-mcp-config-a",
+            vec![FakeCheck::pass("mcp/server-a")],
+        ),
+    );
+    let context_a =
+        CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions_a);
+    let report = CoreContext::scope(context_a, async {
+        runner::run(
+            &DoctorCtx::from_config(config_b),
+            DoctorOptions {
+                // Static ceiling proves the id is registered without probing
+                // or starting any MCP server.
+                tier: DoctorTier::Static,
+                only: vec!["mcp/server-b".into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("configured MCP check is represented in the report");
+
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"),
+        "the selected config's id must be registered: {:?}",
+        report.findings
+    );
+    assert_eq!(report.checks_skipped, vec!["mcp/server-b".to_owned()]);
+    assert!(report.checks_run.is_empty());
+    assert!(report
+        .findings
+        .iter()
+        .any(|finding| finding.check_id == "mcp/server-b"
+            && finding.severity == FindingSeverity::Skipped));
+    assert!(!report
+        .findings
+        .iter()
+        .any(|finding| finding.check_id == "mcp/server-a"));
+}
+
+#[tokio::test]
+async fn malformed_skill_discovery_reports_a_warning_with_its_path() {
+    let workspace = tempfile::tempdir().expect("create isolated skill fixture");
+    let skill_dir = workspace.path().join("skills").join("broken-skill");
+    std::fs::create_dir_all(&skill_dir).expect("create skill fixture directory");
+    let skill_path = skill_dir.join("SKILL.md");
+    std::fs::write(&skill_path, "---\nname: [unterminated\n---\nA test skill.\n")
+        .expect("write malformed skill manifest");
+
+    let mut config = Config::default();
+    config.workspace_dir = workspace.path().to_path_buf();
+    let report = runner::run(
+        &DoctorCtx::from_config(config),
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["skills/discovery".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("skill discovery check is part of the doctor report");
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "skills/discovery")
+        .expect("malformed skill produces a discovery finding");
+    assert_eq!(finding.severity, FindingSeverity::Warn);
+    assert_eq!(finding.config_path.as_deref(), Some(skill_path.to_string_lossy().as_ref()));
+    assert!(finding.message.to_ascii_lowercase().contains("manifest"));
+}
+
+#[tokio::test]
+async fn sandbox_backend_check_is_registered_without_running_above_static_tier() {
+    let mut config = Config::default();
+    config.sandbox.backend = crate::config::SandboxBackend::Docker;
+    let mut components = ComponentSet::all();
+    components.sandbox = false;
+    let report = runner::run(
+        &DoctorCtx::from_config(config).with_components(components),
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["sandbox/backend".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("sandbox check is represented without invoking Docker");
+
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"),
+        "sandbox check id must be registered: {:?}",
+        report.findings
+    );
+    assert_eq!(report.checks_skipped, vec!["sandbox/backend".to_owned()]);
+    assert!(report.findings.iter().any(|finding| {
+        finding.check_id == "sandbox/backend" && finding.severity == FindingSeverity::Skipped
+    }));
+}

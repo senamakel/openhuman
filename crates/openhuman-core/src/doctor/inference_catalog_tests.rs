@@ -825,14 +825,17 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
 
 #[tokio::test]
 async fn recorded_provider_auth_errors_are_reported_as_errors() {
-    let provider = "doctor-497-auth-error-fixture";
-    crate::inference::auth_error_registry::clear(provider);
+    let providers = ["doctor-497-auth-error-one", "doctor-497-auth-error-two"];
+    for provider in providers {
+        crate::inference::auth_error_registry::clear(provider);
+    }
     let (_temp, config) = temporary_config();
-    crate::core::runtime::CoreContext::scope(
+    let recorded = crate::core::runtime::CoreContext::scope(
         profile_context(config.clone(), "doctor-auth-error-profile"),
-        async { crate::inference::auth_error_registry::record(provider, 401) },
+        async { providers.map(|provider| crate::inference::auth_error_registry::record(provider, 401)) },
     )
     .await;
+    assert_eq!(recorded, [true, true]);
     let report = report_for_profile(
         &config,
         "doctor-auth-error-profile",
@@ -842,12 +845,14 @@ async fn recorded_provider_auth_errors_are_reported_as_errors() {
         },
     )
     .await;
-    crate::inference::auth_error_registry::clear(provider);
 
-    assert!(report.value.findings.iter().any(|finding| {
-        finding.check_id == "inference/auth-errors"
-            && finding.severity == FindingSeverity::Error
-            && finding.message.contains(provider)
-            && !finding.message.contains("credentials rejected")
-    }));
+    for provider in providers {
+        assert!(report.value.findings.iter().any(|finding| {
+            finding.check_id == "inference/auth-errors"
+                && finding.severity == FindingSeverity::Error
+                && finding.message.contains(provider)
+                && !finding.message.contains("credentials rejected")
+        }));
+        crate::inference::auth_error_registry::clear(provider);
+    }
 }

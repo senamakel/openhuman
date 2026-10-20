@@ -309,6 +309,59 @@ async fn checks_above_the_requested_tier_are_skipped() {
 }
 
 #[tokio::test]
+async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
+    use axum::{extract::State, routing::post, Json, Router};
+    use std::sync::atomic::AtomicUsize;
+    use tempfile::TempDir;
+
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace directory");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app = Router::new()
+        .route(
+            "/api/embed",
+            post(
+                |State(calls): State<Arc<AtomicUsize>>, Json(_body): Json<serde_json::Value>| async move {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    Json(serde_json::json!({ "embeddings": [[0.1_f32; 768]] }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&calls));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind local embedding mock");
+    let endpoint = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let mut config = Config {
+        workspace_dir: workspace.clone(),
+        action_dir: workspace,
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.memory.embedding_provider = "ollama".to_owned();
+    config.memory.embedding_model = "nomic-embed-text".to_owned();
+    config.local_ai.base_url = Some(endpoint);
+    let ctx = DoctorCtx::from_config(config);
+
+    let report = runner::run(
+        &ctx,
+        DoctorOptions {
+            tier: DoctorTier::Connect,
+            only: vec!["embeddings/live".to_owned()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("connect-only report");
+
+    assert_eq!(calls.load(Ordering::SeqCst), 0, "live embedding was not invoked");
+    assert_eq!(report.checks_skipped, vec!["embeddings/live".to_owned()]);
+}
+
+#[tokio::test]
 async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     let extensions = Extensions::new();
     register_check_source_in(

@@ -25,51 +25,6 @@ pub(crate) async fn check(
         .await
 }
 
-/// Ask the TinyChannels module only when its runtime and module are already
-/// available. This path never constructs a lazy `ModuleClient`, starts the
-/// module runtime, or downloads an artifact.
-pub(crate) async fn check_existing(
-    config: &crate::config::Config,
-    channels: ChannelsConfig,
-    proxy_policy: HttpProxyPolicy,
-    timeout: std::time::Duration,
-) -> Result<Option<Vec<ChannelHealthReport>>, ExistingHealthError> {
-    #[cfg(feature = "modules")]
-    {
-        use crate::modules::types::ModuleState;
-
-        if !config.modules.enabled
-            || crate::modules::ops::state_of("tinychannels") != ModuleState::Ready
-        {
-            return Ok(None);
-        }
-        let Some(runtime) = crate::modules::runtime::existing_runtime() else {
-            return Ok(None);
-        };
-        let Some(record) = crate::modules::registry::find("tinychannels") else {
-            return Err(ExistingHealthError::Unavailable);
-        };
-        let proxy = runtime
-            .proxy(record.bus_name, record.object_path)
-            .map_err(|_| ExistingHealthError::Unavailable)?
-            .with_timeout(timeout);
-        return proxy
-            .call_confidential(
-                tinychannels_bus::methods::CHECK_CHANNEL_HEALTH,
-                (channels, proxy_policy, timeout.as_millis().min(u64::MAX as u128) as u64),
-            )
-            .await
-            .map(Some)
-            .map_err(|_| ExistingHealthError::Failed);
-    }
-
-    #[cfg(not(feature = "modules"))]
-    {
-        let _ = (config, channels, proxy_policy, timeout);
-        Ok(None)
-    }
-}
-
 /// Ask an already-serving TinyChannels module to inspect the supplied config.
 ///
 /// This path never constructs a `ModuleClient`, resolves an artifact, starts

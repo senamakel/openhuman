@@ -19,7 +19,7 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use axum::http::header::AUTHORIZATION;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tempfile::TempDir;
 use tokio::sync::MutexGuard;
 
@@ -80,7 +80,12 @@ impl MockBackend {
                 return mock;
             }
             if let Ok(mut child) = mock.child.lock() {
-                if child.as_mut().and_then(|process| process.try_wait().ok()).flatten().is_some() {
+                if child
+                    .as_mut()
+                    .and_then(|process| process.try_wait().ok())
+                    .flatten()
+                    .is_some()
+                {
                     panic!("the shared mock server exited before becoming healthy");
                 }
             }
@@ -129,11 +134,7 @@ impl MockBackend {
             .filter_map(|row| {
                 Some((
                     row["method"].as_str()?.to_owned(),
-                    row["url"]
-                        .as_str()?
-                        .split('?')
-                        .next()?
-                        .to_owned(),
+                    row["url"].as_str()?.split('?').next()?.to_owned(),
                 ))
             })
             .collect()
@@ -146,7 +147,10 @@ impl MockBackend {
             .send()
             .await
             .expect("inspect mock memory after doctor cleanup");
-        assert!(response.status().is_success(), "mock memory scopes succeeded");
+        assert!(
+            response.status().is_success(),
+            "mock memory scopes succeeded"
+        );
         let body: Value = response.json().await.expect("mock memory scopes are JSON");
         body.pointer("/data/items")
             .and_then(Value::as_array)
@@ -293,8 +297,7 @@ impl Fixture {
         let home = tempfile::tempdir().expect("fixture home");
         let action_dir = home.path().join("action");
         fs::create_dir_all(&action_dir).expect("create fixture action directory");
-        let environment =
-            IsolatedEnvironment::install(home.path(), &action_dir, &mock.origin);
+        let environment = IsolatedEnvironment::install(home.path(), &action_dir, &mock.origin);
         write_profile(home.path(), &mock.origin, config);
 
         tinyhumans_boot::boot();
@@ -333,7 +336,10 @@ impl Fixture {
             .send()
             .await
             .expect("call doctor JSON-RPC");
-        assert!(response.status().is_success(), "doctor RPC transport status");
+        assert!(
+            response.status().is_success(),
+            "doctor RPC transport status"
+        );
         let envelope: Value = response.json().await.expect("doctor RPC JSON");
         assert!(envelope.get("error").is_none(), "doctor RPC succeeded");
         let result = envelope
@@ -403,8 +409,11 @@ fn write_profile(home: &Path, backend_url: &str, config: &str) {
     let sandbox_dir = profile_dir.join("sandbox");
     fs::create_dir_all(&files_dir).expect("create profile files directory");
     fs::create_dir_all(&sandbox_dir).expect("create profile sandbox directory");
-    fs::write(root.join("active_user.toml"), format!("user_id = \"{MOCK_USER_ID}\"\n"))
-        .expect("write active user fixture");
+    fs::write(
+        root.join("active_user.toml"),
+        format!("user_id = \"{MOCK_USER_ID}\"\n"),
+    )
+    .expect("write active user fixture");
     fs::write(profile_dir.join(".layout"), "2\n").expect("mark profile layout v2");
 
     let content = config.replace(MOCK_BACKEND_PLACEHOLDER, backend_url);
@@ -441,16 +450,24 @@ fn snapshot_tree(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
             .collect::<Vec<_>>();
         entries.sort();
         for path in entries {
-            let relative = path.strip_prefix(root).expect("path remains under fixture root");
+            let relative = path
+                .strip_prefix(root)
+                .expect("path remains under fixture root");
             let metadata = fs::symlink_metadata(&path).expect("fixture path metadata");
             if metadata.file_type().is_symlink() {
                 let target = fs::read_link(&path).expect("read fixture symlink");
-                snapshot.insert(relative.to_path_buf(), target.as_os_str().as_encoded_bytes().to_vec());
+                snapshot.insert(
+                    relative.to_path_buf(),
+                    target.as_os_str().as_encoded_bytes().to_vec(),
+                );
             } else if metadata.is_dir() {
                 snapshot.insert(relative.to_path_buf(), b"directory".to_vec());
                 visit(root, &path, snapshot);
             } else {
-                snapshot.insert(relative.to_path_buf(), fs::read(path).expect("read fixture file"));
+                snapshot.insert(
+                    relative.to_path_buf(),
+                    fs::read(path).expect("read fixture file"),
+                );
             }
         }
     }
@@ -484,7 +501,11 @@ fn finding<'a>(report: &'a Value, check_id: &str) -> &'a Value {
 }
 
 fn assert_finding(report: &Value, check_id: &str, severity: &str) {
-    assert_eq!(finding(report, check_id)["severity"], severity, "{check_id}");
+    assert_eq!(
+        finding(report, check_id)["severity"],
+        severity,
+        "{check_id}"
+    );
 }
 
 fn fixture(name: &str) -> &'static str {
@@ -518,9 +539,13 @@ fn assert_cli_report(output: &Output, expected_code: i32, check_id: Option<&str>
         .unwrap_or_else(|error| panic!("doctor CLI stdout is JSON ({error})"));
     assert_eq!(report["schema_version"], 2);
     if let Some(check_id) = check_id {
-        assert!(report["findings"].as_array().unwrap().iter().any(|item| {
-            item["check_id"] == check_id
-        }));
+        assert!(
+            report["findings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| { item["check_id"] == check_id })
+        );
     }
     report
 }
@@ -627,10 +652,7 @@ async fn mongodb_storage_url_reports_the_unavailable_driver() {
 #[tokio::test]
 async fn missing_profile_is_a_reported_rpc_finding_without_creating_it() {
     let fixture = fixture_named("healthy").await;
-    let missing = fixture
-        ._home
-        .path()
-        .join(".openhuman/users/doctor-missing");
+    let missing = fixture._home.path().join(".openhuman/users/doctor-missing");
     let report = fixture
         .report(json!({
             "tier": "static",
@@ -640,18 +662,17 @@ async fn missing_profile_is_a_reported_rpc_finding_without_creating_it() {
         .await;
 
     assert_finding(&report, "profile/exists", "error");
-    assert!(!missing.exists(), "profile inspection does not create a profile");
+    assert!(
+        !missing.exists(),
+        "profile inspection does not create a profile"
+    );
 }
 
 #[tokio::test]
 async fn connect_tier_skips_billable_live_probes() {
     let fixture = fixture_named("healthy").await;
     let report = fixture.report(json!({"tier": "connect"})).await;
-    for check_id in [
-        "inference/live/chat",
-        "embeddings/live",
-        "memory/roundtrip",
-    ] {
+    for check_id in ["inference/live/chat", "embeddings/live", "memory/roundtrip"] {
         assert_finding(&report, check_id, "skipped");
     }
 
@@ -672,7 +693,10 @@ async fn connect_tier_skips_billable_live_probes() {
                 )
         })
         .collect::<Vec<_>>();
-    assert!(billable.is_empty(), "connect tier made no billable requests");
+    assert!(
+        billable.is_empty(),
+        "connect tier made no billable requests"
+    );
 }
 
 #[tokio::test]
@@ -693,11 +717,7 @@ async fn live_completion_embedding_and_memory_roundtrip_pass_and_clean_up() {
         }))
         .await;
 
-    for check_id in [
-        "inference/live/chat",
-        "embeddings/live",
-        "memory/roundtrip",
-    ] {
+    for check_id in ["inference/live/chat", "embeddings/live", "memory/roundtrip"] {
         assert_finding(&report, check_id, "pass");
     }
     let paths = fixture.mock.request_paths().await;
@@ -708,24 +728,24 @@ async fn live_completion_embedding_and_memory_roundtrip_pass_and_clean_up() {
         ("GET", "/memory/events"),
         ("POST", "/memory/forget"),
     ] {
-        assert!(paths.iter().any(|(method, path)| {
-            method == expected.0 && path == expected.1
-        }), "live doctor made the expected local mock request");
+        assert!(
+            paths
+                .iter()
+                .any(|(method, path)| { method == expected.0 && path == expected.1 }),
+            "live doctor made the expected local mock request"
+        );
     }
-    assert!(fixture.mock.memory_scopes().await.is_empty(), "live memory probe leaves no scratch scope");
+    assert!(
+        fixture.mock.memory_scopes().await.is_empty(),
+        "live memory probe leaves no scratch scope"
+    );
 }
 
 #[tokio::test]
 async fn cli_lint_uses_report_threshold_and_argument_error_exit_codes() {
     let fixture = fixture_named("healthy").await;
     let before = snapshot_tree(fixture._home.path());
-    let healthy = fixture.run_cli(&[
-        "doctor",
-        "--lint",
-        "--json",
-        "--only",
-        "config/parse",
-    ]);
+    let healthy = fixture.run_cli(&["doctor", "--lint", "--json", "--only", "config/parse"]);
     let report = assert_cli_report(&healthy, 0, Some("config/parse"));
     assert_eq!(report["ok"], true);
 
@@ -748,12 +768,7 @@ async fn cli_lint_uses_report_threshold_and_argument_error_exit_codes() {
         "CLI profile inspection does not create a profile"
     );
 
-    let invalid_arguments = fixture.run_cli(&[
-        "doctor",
-        "--lint",
-        "--severity-min",
-        "pass",
-    ]);
+    let invalid_arguments = fixture.run_cli(&["doctor", "--lint", "--severity-min", "pass"]);
     assert_eq!(invalid_arguments.status.code(), Some(2));
     assert!(
         String::from_utf8_lossy(&invalid_arguments.stderr)

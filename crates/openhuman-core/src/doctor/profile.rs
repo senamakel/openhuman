@@ -79,7 +79,9 @@ pub async fn resolve_desktop_profile_for_doctor(
     let (config, config_exists) =
         load_config_read_only(&config_dir.join("config.toml"), &workspace_dir).await?;
     let profile_status = if profile_id.is_some() {
-        if config_exists {
+        if config.load_diagnostics().parse_error.is_some() {
+            Some(DoctorProfileStatus::InvalidConfig)
+        } else if config_exists {
             Some(DoctorProfileStatus::Valid)
         } else {
             match tokio::fs::symlink_metadata(&config_dir).await {
@@ -138,6 +140,9 @@ pub(crate) async fn load_desktop_profile(
     if !config_exists {
         return Err(DesktopProfileError::InvalidConfig);
     }
+    if config.load_diagnostics().parse_error.is_some() {
+        return Err(DesktopProfileError::InvalidConfig);
+    }
 
     Ok(DesktopProfile {
         id: id.to_owned(),
@@ -162,8 +167,10 @@ async fn load_config_read_only(
     };
 
     let mut config = match config_text.as_deref() {
-        Some(contents) => crate::config::schema::config_from_toml_str(contents)
-            .map_err(|_| DesktopProfileError::InvalidConfig)?,
+        Some(contents) => match crate::config::schema::config_from_toml_str(contents) {
+            Ok(config) => config,
+            Err(_) => invalid_config_snapshot(config_path, workspace_dir),
+        },
         None => Config::default(),
     };
     config.config_path = config_path.to_path_buf();
@@ -174,6 +181,21 @@ async fn load_config_read_only(
     }
     config.apply_profile_env_overrides();
     Ok((config, config_text.is_some()))
+}
+
+fn invalid_config_snapshot(config_path: &Path, workspace_dir: &Path) -> Config {
+    let mut config = Config {
+        config_path: config_path.to_path_buf(),
+        workspace_dir: workspace_dir.to_path_buf(),
+        ..Config::default()
+    };
+    let diagnostics = config.load_diagnostics_mut();
+    diagnostics.parse_error = Some(crate::config::schema::load::ConfigParseError {
+        path: config_path.to_path_buf(),
+        message: "selected config is invalid".into(),
+    });
+    diagnostics.fallback = crate::config::schema::load::ConfigLoadFallback::Defaults;
+    config
 }
 
 async fn profile_paths_for_resolved_dirs(

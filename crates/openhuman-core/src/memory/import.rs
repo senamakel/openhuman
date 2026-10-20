@@ -181,6 +181,9 @@ pub(crate) async fn resume_interrupted_with(
     paused: PauseCheck,
     billing: BillingCheck,
 ) -> bool {
+    if is_running(&config.workspace_dir) {
+        return false;
+    }
     let store = FileCheckpointStore::new(&config.workspace_dir);
     let file = store.load();
     let plan = Importer::resume_plan(&file, billing(config), paused());
@@ -191,13 +194,15 @@ pub(crate) async fn resume_interrupted_with(
     };
     let paused_for_batches = Some(paused);
     match launch(ctx, config, mode, true, paused_for_batches).await {
-        Ok(state) => {
-            tracing::info!(
-                imported = state.imported,
-                total = state.total,
-                "[memory:import] resuming an interrupted import"
-            );
-            true
+        Ok(outcome) => {
+            if outcome.started {
+                tracing::info!(
+                    imported = outcome.state.imported,
+                    total = outcome.state.total,
+                    "[memory:import] resuming an interrupted import"
+                );
+            }
+            outcome.started
         }
         Err(error) => {
             tracing::warn!(
@@ -216,7 +221,9 @@ pub async fn start(
     config: &Config,
     consent: bool,
 ) -> Result<ImportState> {
-    launch(ctx, config, Mode::Import, consent, None).await
+    launch(ctx, config, Mode::Import, consent, None)
+        .await
+        .map(|outcome| outcome.state)
 }
 
 /// `memory_import_retry_failed`: stores again the items a finished import
@@ -225,7 +232,9 @@ pub async fn retry_failed(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
 ) -> Result<ImportState> {
-    launch(ctx, config, Mode::Retry, true, None).await
+    launch(ctx, config, Mode::Retry, true, None)
+        .await
+        .map(|outcome| outcome.state)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -233,6 +242,11 @@ enum Mode {
     Import,
     Retry,
     ResumeRetry,
+}
+
+struct LaunchOutcome {
+    state: ImportState,
+    started: bool,
 }
 
 /// Claims the workspace, begins the Native run and transfers its slot guard
@@ -243,7 +257,7 @@ async fn launch(
     mode: Mode,
     consent: bool,
     paused: Option<PauseCheck>,
-) -> Result<ImportState> {
+) -> Result<LaunchOutcome> {
     if mode == Mode::Import && !consent {
         return Err(import_error(&ImportError::ConsentRequired));
     }
@@ -311,7 +325,10 @@ async fn launch(
             tracing::info!(started, "[memory:import] import done; organizing next");
         }
     });
-    Ok(state)
+    Ok(LaunchOutcome {
+        state,
+        started: true,
+    })
 }
 
 #[cfg(test)]

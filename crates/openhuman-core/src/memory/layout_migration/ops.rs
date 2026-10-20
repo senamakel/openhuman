@@ -75,7 +75,10 @@ pub fn start(
     service(ctx).start(
         config.workspace_dir.clone(),
         host,
-        || IMPORT.is_running(&config.workspace_dir) || BACKFILL.is_running(&config.workspace_dir),
+        || {
+            crate::memory::import::in_progress(&config)
+                || BACKFILL.is_running(&config.workspace_dir)
+        },
         trigger,
         move || paused(),
     )
@@ -97,7 +100,10 @@ pub fn tick(
     service(ctx).tick(
         config.workspace_dir.clone(),
         host,
-        || IMPORT.is_running(&config.workspace_dir) || BACKFILL.is_running(&config.workspace_dir),
+        || {
+            crate::memory::import::in_progress(&config)
+                || BACKFILL.is_running(&config.workspace_dir)
+        },
         move || paused(),
     )
 }

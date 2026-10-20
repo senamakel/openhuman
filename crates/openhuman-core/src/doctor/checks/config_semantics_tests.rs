@@ -54,6 +54,34 @@ async fn disabled_mcp_component_warns_when_servers_are_configured() {
 }
 
 #[tokio::test]
+async fn disabled_channels_component_warns_when_a_provider_is_configured() {
+    let mut config = Config::default();
+    config.components.channels = false;
+    config.channels_config.slack = Some(Default::default());
+
+    let findings = run_check(config, "components/referenced-but-disabled").await;
+
+    assert_eq!(
+        finding(&findings, FindingSeverity::Warn).config_path.as_deref(),
+        Some("channels_config")
+    );
+}
+
+#[tokio::test]
+async fn disabled_voice_component_warns_when_a_provider_is_configured() {
+    let mut config = Config::default();
+    config.components.voice = false;
+    config.voice_providers.push(Default::default());
+
+    let findings = run_check(config, "components/referenced-but-disabled").await;
+
+    assert_eq!(
+        finding(&findings, FindingSeverity::Warn).config_path.as_deref(),
+        Some("voice_providers")
+    );
+}
+
+#[tokio::test]
 async fn missing_storage_driver_is_reported_without_opening_the_backend() {
     let _environment = EnvVarGuard::locked_unset_async(crate::storage::STORAGE_URL_VAR).await;
     let mut config = Config::default();

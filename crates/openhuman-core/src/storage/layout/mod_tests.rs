@@ -24,3 +24,16 @@ fn a_config_outside_users_has_no_layout() {
     };
     assert!(Target::from_config(&config).is_none());
 }
+
+#[tokio::test]
+async fn status_does_not_change_the_existing_storage_tree() {
+    let fixture = test_fixtures::v1_profile();
+    let before = test_fixtures::tree(fixture.root());
+
+    status(&fixture.target, &fixture.config, None)
+        .await
+        .expect("layout status should be readable");
+
+    let after = test_fixtures::tree(fixture.root());
+    assert_eq!(before, after, "status must not write to storage or sidecars");
+}

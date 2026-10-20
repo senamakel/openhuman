@@ -50,14 +50,23 @@ impl Config {
         env_vars: &[&str],
     ) {
         if let Some(env_var) = env_vars.iter().copied().find(|name| env.contains(name)) {
-            let source = if env.is_from_dotenv(env_var) {
-                super::ProvenanceSource::Dotenv
-            } else {
-                super::ProvenanceSource::Env
-            };
-            self.load_provenance_mut()
-                .record_env_override(field_path, env_var, source);
+            self.record_env_override_var(env, field_path, env_var);
         }
+    }
+
+    pub(crate) fn record_env_override_var<E: super::env::EnvLookup + ?Sized>(
+        &mut self,
+        env: &E,
+        field_path: &str,
+        env_var: &str,
+    ) {
+        let source = if env.is_from_dotenv(env_var) {
+            super::ProvenanceSource::Dotenv
+        } else {
+            super::ProvenanceSource::Env
+        };
+        self.load_provenance_mut()
+            .record_env_override(field_path, env_var, source);
     }
 
     pub fn apply_env_overrides(&mut self) {

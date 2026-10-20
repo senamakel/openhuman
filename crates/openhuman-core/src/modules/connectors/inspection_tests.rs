@@ -10,6 +10,7 @@ const INTERFACE: &str = "ai.tinyhumans.openhuman.DoctorConnectorFixture";
 struct ReadOnlyFixture {
     calls: Arc<Mutex<Vec<(String, serde_json::Value)>>>,
     reply: serde_json::Value,
+    delay: std::time::Duration,
 }
 
 #[async_trait::async_trait]
@@ -27,6 +28,7 @@ impl Interface for ReadOnlyFixture {
         member: &tinybus::MemberName,
         args: serde_json::Value,
     ) -> tinybus::Result<serde_json::Value> {
+        tokio::time::sleep(self.delay).await;
         self.calls
             .lock()
             .unwrap()
@@ -113,6 +115,7 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
             ReadOnlyFixture {
                 calls: Arc::clone(&calls),
                 reply: reply.clone(),
+                delay: std::time::Duration::ZERO,
             },
         )
         .await
@@ -150,6 +153,55 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     *configured_binding()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+}
+
+#[tokio::test]
+async fn existing_proxy_failures_are_sanitized_and_time_bounded() {
+    let bus = MemoryBus::new();
+    tinybus::broker::Broker::new().spawn(bus.clone());
+    let service = tinybus::Connection::connect(bus.connect().await.unwrap())
+        .await
+        .unwrap();
+    let client = tinybus::Connection::connect(bus.connect().await.unwrap())
+        .await
+        .unwrap();
+    service.request_name(DESTINATION).await.unwrap();
+    let calls = Arc::new(Mutex::new(Vec::new()));
+    service
+        .serve_at(
+            tinybus::ObjectPath::new(OBJECT_PATH).unwrap(),
+            ReadOnlyFixture {
+                calls,
+                reply: serde_json::json!({ "private": "raw connector error fixture" }),
+                delay: std::time::Duration::from_millis(40),
+            },
+        )
+        .await
+        .unwrap();
+    let proxy = client.proxy(DESTINATION, OBJECT_PATH, INTERFACE).unwrap();
+
+    let error = call_proxy_readonly_with_timeout::<_, String>(
+        &proxy,
+        "ListConnectedIntegrations",
+        (),
+        std::time::Duration::from_millis(1),
+    )
+    .await
+    .expect_err("a slow connector status call must time out");
+
+    assert_eq!(error, ExistingCallError::Failed);
+    assert!(!format!("{error:?}").contains("raw connector error fixture"));
+
+    let malformed = call_proxy_readonly_with_timeout::<_, String>(
+        &proxy,
+        "ListConnectedIntegrations",
+        (),
+        std::time::Duration::from_secs(1),
+    )
+    .await
+    .expect_err("a malformed response must be surfaced as a safe failure");
+    assert_eq!(malformed, ExistingCallError::Failed);
+    assert!(!format!("{malformed:?}").contains("raw connector error fixture"));
 }
 
 #[tokio::test]

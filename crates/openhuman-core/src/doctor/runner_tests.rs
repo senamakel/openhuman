@@ -23,7 +23,10 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     let report = CoreContext::scope(context, async {
         runner::run(
             &DoctorCtx::from_config(Config::default()),
-            DoctorOptions::default(),
+            DoctorOptions {
+                only: vec!["hosted/ready".into()],
+                ..DoctorOptions::default()
+            },
         )
         .await
     })

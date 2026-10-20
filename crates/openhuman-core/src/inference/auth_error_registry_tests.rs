@@ -47,3 +47,39 @@ fn snapshot_is_sorted_and_carries_actionable_message() {
     assert!(snap[1].message.contains("Connections → API keys → LLM"));
     reset_for_tests();
 }
+
+#[tokio::test]
+async fn a_workspace_only_origin_is_not_assigned_to_a_different_config_root() {
+    let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    reset_for_tests();
+    let workspace = tempfile::tempdir().expect("shared workspace");
+    let config_root_a = tempfile::tempdir().expect("config root A");
+    let config_root_b = tempfile::tempdir().expect("config root B");
+    let config_path_b = config_root_b.path().join("config.toml");
+    let context = crate::core::runtime::CoreContext::for_test(
+        crate::core::runtime::DomainSet::full(),
+        Some(workspace.path().to_path_buf()),
+    );
+
+    crate::core::runtime::CoreContext::scope(context, async {
+        assert!(crate::core::runtime::CoreContext::current_embedder_config().is_none());
+        assert!(record("workspace-only-provider", 401));
+    })
+    .await;
+
+    let (selected_errors, has_unattributed_error) =
+        snapshot_for_scope(workspace.path(), &config_path_b, None);
+    assert!(
+        selected_errors.is_empty(),
+        "a workspace-only observation cannot be assigned to config root B"
+    );
+    assert!(
+        has_unattributed_error,
+        "the existing process error remains visible as unattributed"
+    );
+
+    // Keep both roots live through the assertion; their distinct paths are
+    // the ambiguity this regression protects.
+    assert_ne!(config_root_a.path(), config_root_b.path());
+    reset_for_tests();
+}

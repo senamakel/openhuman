@@ -6,9 +6,10 @@ use super::*;
 /// whitespace handling used before key parsing. Invalid Unicode is present
 /// and must remain an error, so it counts as configured here.
 pub(crate) fn env_source_is_configured(value: &std::ffi::OsStr) -> bool {
-    value
-        .to_str()
-        .map_or(true, |value| !value.trim().is_empty())
+    match value.to_str() {
+        Some(value) => !value.trim().is_empty(),
+        None => true,
+    }
 }
 
 /// Only `NotPresent` means unset. Invalid Unicode must not fall through to the

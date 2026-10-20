@@ -161,6 +161,16 @@ fn profile_context(config: Config, profile_id: &str) -> std::sync::Arc<crate::co
     )
 }
 
+fn workspace_context(config: Config) -> std::sync::Arc<crate::core::runtime::CoreContext> {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+
+    CoreContext::for_test(DomainSet::full(), None).derive_with(ContextOverlay::new(
+        config,
+        DomainSet::full(),
+        crate::tools::toolpacks::ToolGroups::default(),
+    ))
+}
+
 fn profile_context_with_extensions(
     config: Config,
     profile_id: &str,
@@ -231,8 +241,16 @@ async fn report_for_profile(
     profile_id: &str,
     options: DoctorOptions,
 ) -> crate::core::Outcome<super::DoctorReport> {
+    report_for_context(config, profile_context(config.clone(), profile_id), options).await
+}
+
+async fn report_for_context(
+    config: &Config,
+    context: std::sync::Arc<crate::core::runtime::CoreContext>,
+    options: DoctorOptions,
+) -> crate::core::Outcome<super::DoctorReport> {
     crate::core::runtime::CoreContext::scope(
-        profile_context(config.clone(), profile_id),
+        context,
         async { doctor_report_with_options(config, options).await },
     )
     .await

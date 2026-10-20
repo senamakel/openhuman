@@ -68,12 +68,19 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
                 SessionTokenCheck::Absent | SessionTokenCheck::Expired => None,
             };
             let provider_key = request.provider_key.trim();
+            let api_key = if provider_key.is_empty() {
+                openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(
+                    &config,
+                )
+                .map_err(|_| InspectionCatalogError::Unavailable)?
+            } else {
+                Some(provider_key.to_owned())
+            };
             let credential = session
                 .filter(|_| is_safe_endpoint_for_managed_bearer(&catalog_url(&config)))
                 .or_else(|| {
-                    (!provider_key.is_empty()
-                        && is_managed_endpoint_for_api_key(&catalog_url(&config)))
-                    .then(|| provider_key.to_owned())
+                    api_key
+                        .filter(|_| is_managed_endpoint_for_api_key(&catalog_url(&config)))
                 });
             let url = catalog_url(&config);
             if credential.is_none() {

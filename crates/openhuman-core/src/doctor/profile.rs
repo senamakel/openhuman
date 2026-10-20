@@ -189,6 +189,9 @@ async fn load_config_read_only(
         }
     }
     config.apply_profile_env_overrides();
+    if config.load_diagnostics().parse_error.is_none() {
+        crate::config::enrichers::run_enrichers(&mut config);
+    }
     Ok((config, config_text.is_some()))
 }
 

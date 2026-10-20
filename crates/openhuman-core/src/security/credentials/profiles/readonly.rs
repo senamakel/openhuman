@@ -7,9 +7,8 @@ use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
 
 use super::{
     AuthProfile, AuthProfileKind, CURRENT_SCHEMA_VERSION, KeychainSecrets, PROFILES_FILENAME,
-    PersistedAuthProfile, PersistedAuthProfiles, TokenSet,
-    normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
-    parse_profile_kind, profile_id,
+    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, normalize_profile_id_provider,
+    parse_datetime_with_fallback, parse_optional_datetime, parse_profile_kind, profile_id,
 };
 use crate::security::credentials::default_profile_id;
 
@@ -56,7 +55,8 @@ pub(super) fn load_profile(
         .ok_or(ReadOnlyAuthProfileError::InvalidStore)?;
 
     let user_id = super::user_id_from_state_dir(state_dir);
-    let profile_secret = read_profile_secret(config, &user_id, &id);
+    let profile_secret =
+        read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id));
     let secrets = match profile_secret {
         Ok(Some(payload)) => Some(
             serde_json::from_str::<KeychainSecrets>(&payload)

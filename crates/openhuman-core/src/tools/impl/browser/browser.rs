@@ -256,7 +256,7 @@ impl BrowserTool {
         let mut goal = required(args, "goal")?.to_owned();
         let site = args["url"]
             .as_str()
-            .and_then(crate::modules::site_memory_host::site_of);
+            .and_then(crate::desktop::site_memory::site_of);
         let origins = match args["url"].as_str().filter(|url| !url.trim().is_empty()) {
             Some(url) => {
                 self.client.check_url(url)?;

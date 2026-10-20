@@ -1,17 +1,18 @@
 //! Host side of `ai.tinyhumans.tinycomputer.SiteMemoryHost`: where the
 //! TinyComputer module keeps what finished browser tasks learned about a site.
 //!
-//! The module owns the rules (reuse, fact-value filtering, expiry, size
-//! limits); the host owns only the bytes: one file per site in
+//! The module owns reuse, fact-value filtering, per-entry expiry, and size
+//! limits. The host stores one file per site in
 //! `<workspace>/state/computer/sites/<site>.json`, readable by its owner
 //! alone. Site memory goes to the module and nowhere else: this file never
 //! publishes it to the event bus, the agent's memory or a prompt.
 //!
-//! The host also owns three policies the module cannot know: whether tasks
-//! learn at all (`browser.learn_from_tasks`, switched live from Browser
-//! settings), the 30-day sweep of site files nothing has changed, and the
-//! forget epoch that stops a task running when its site was forgotten from
-//! writing it back.
+//! The host owns policies the module cannot know: whether tasks learn at all
+//! (`browser.learn_from_tasks`, switched live from Browser settings), a daily
+//! sweep of backing files whose filesystem metadata is unchanged for 30 days,
+//! and the forget epoch that stops a task running when its site was forgotten
+//! from writing it back. The sweep only bounds stale file retention; the
+//! module expires individual plans and hints when it loads the site's memory.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -29,6 +30,15 @@ const MAX_FILE_BYTES: u64 = 2 * 1024 * 1024;
 
 /// How long a site file is kept without a change.
 const KEEP_SECS: u64 = 30 * 24 * 60 * 60;
+
+const DAILY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
+
+fn daily_sweep_interval() -> tokio::time::Interval {
+    tokio::time::interval_at(
+        tokio::time::Instant::now() + DAILY_SWEEP_INTERVAL,
+        DAILY_SWEEP_INTERVAL,
+    )
+}
 
 /// The directory site files live in.
 pub(super) fn sites_dir(workspace: &Path) -> PathBuf {
@@ -173,8 +183,11 @@ async fn write_private(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     tokio::fs::rename(&staged, path).await
 }
 
-#[derive(Clone)]
-struct SiteMemoryHost;
+struct SiteMemoryHost {
+    // The interface owns the timer lifetime. Dropping the served object closes
+    // this sender and lets the timer task finish without retaining its owner.
+    _sweeper_lifecycle: tokio::sync::watch::Sender<bool>,
+}
 
 async fn config() -> tinybus::Result<crate::config::Config> {
     crate::core::runtime::DispatchCtx::host_default()
@@ -262,12 +275,14 @@ pub async fn forget(config: &crate::config::Config, site: Option<&str>) -> std::
     Ok(usize::try_from(forgotten).unwrap_or(usize::MAX))
 }
 
-/// Removes the site files nothing changed for [`KEEP_SECS`]: every entry in
-/// them has expired, as has a copy set aside or a write left behind.
-async fn sweep(dir: &Path) {
-    let now = std::time::SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .map_or(0, |elapsed| elapsed.as_secs());
+/// Removes site files whose filesystem metadata has not changed for
+/// [`KEEP_SECS`], along with expired corrupt copies and abandoned writes.
+/// Per-entry plan and hint expiry remains TinyComputer's responsibility.
+fn file_expired(changed: u64, now: u64) -> bool {
+    changed.saturating_add(KEEP_SECS) <= now
+}
+
+async fn sweep_at(dir: &Path, now: u64) {
     let Ok(mut entries) = tokio::fs::read_dir(dir).await else {
         return;
     };
@@ -280,7 +295,7 @@ async fn sweep(dir: &Path) {
             .ok()
             .and_then(|at| at.duration_since(UNIX_EPOCH).ok())
             .map_or(now, |since| since.as_secs());
-        if metadata.is_file() && changed.saturating_add(KEEP_SECS) <= now {
+        if metadata.is_file() && file_expired(changed, now) {
             match remove(&entry.path()).await {
                 Ok(_) => {
                     tracing::debug!("[site-memory-host] removed a site file unchanged for 30 days");
@@ -301,7 +316,6 @@ async fn load_site(
     let epochs = guard().lock().await;
     let epoch = epochs.get(&config.workspace_dir).copied().unwrap_or(0);
     let dir = sites_dir(&config.workspace_dir);
-    sweep(&dir).await;
     let memory = SiteStore::new(dir).load(&request.site).await?;
     Ok(LoadSiteResponse { memory, epoch })
 }
@@ -362,16 +376,74 @@ fn method_error(error: impl std::fmt::Display) -> tinybus::Error {
     }
 }
 
-pub(super) async fn install(connection: &tinybus::Connection) -> tinybus::Result<()> {
+pub(crate) async fn install(
+    runtime: &'static tinybus::module::ModuleRuntime,
+) -> tinybus::Result<()> {
+    let connection = runtime.connection();
+    let (lifecycle, timer_lifecycle) = tokio::sync::watch::channel(false);
     connection
-        .serve_at(ObjectPath::new(OBJECT_PATH)?, SiteMemoryHost)
+        .serve_at(
+            ObjectPath::new(OBJECT_PATH)?,
+            SiteMemoryHost {
+                _sweeper_lifecycle: lifecycle,
+            },
+        )
         .await?;
     // The module reaches the host by this name (`optional` in its manifest).
     connection.request_name(INTERFACE).await?;
+    runtime.spawn(run_sweeper(
+        daily_sweep_interval(),
+        timer_lifecycle,
+        || async {
+            match config().await {
+                Ok(config) => sweep_workspace_at(&config.workspace_dir, now_secs()).await,
+                Err(error) => {
+                    tracing::warn!(%error, "[site-memory-host] could not load workspace for sweep")
+                }
+            }
+        },
+    ));
     tracing::debug!(interface = INTERFACE, "[site-memory-host] served");
     Ok(())
 }
 
+/// Run daily garbage collection until the served host object drops. This task
+/// captures only a watch receiver and callback; each tick resolves fresh host
+/// configuration, so no workspace, store, or scope outlives a sweep.
+async fn run_sweeper<F, Fut>(
+    mut timer: tokio::time::Interval,
+    mut lifecycle: tokio::sync::watch::Receiver<bool>,
+    mut sweep: F,
+) where
+    F: FnMut() -> Fut,
+    Fut: std::future::Future<Output = ()>,
+{
+    timer.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        tokio::select! {
+            changed = lifecycle.changed() => {
+                if changed.is_err() || *lifecycle.borrow() {
+                    return;
+                }
+            }
+            _ = timer.tick() => sweep().await,
+        }
+    }
+}
+
+async fn sweep_workspace_at(workspace: &Path, now: u64) {
+    // Serialize with load/save/forget so a concurrent forget cannot race the
+    // cleanup operation and its epoch remains authoritative.
+    let _epochs = guard().lock().await;
+    sweep_at(&sites_dir(workspace), now).await;
+}
+
+fn now_secs() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .map_or(0, |elapsed| elapsed.as_secs())
+}
+
 #[cfg(test)]
-#[path = "site_memory_host_tests.rs"]
+#[path = "mod_tests.rs"]
 mod tests;

@@ -16,10 +16,10 @@ mod tests;
 
 pub const MODULE_ID: &str = "tinycomputer";
 
-pub use super::computer_config::{billing_route, module_config};
+pub use crate::desktop::computer_config::{billing_route, module_config};
 
 pub fn jev_ready(config: &Config) -> bool {
-    !super::computer_config::configured_routes(config)
+    !crate::desktop::computer_config::configured_routes(config)
         .decision
         .is_empty()
 }

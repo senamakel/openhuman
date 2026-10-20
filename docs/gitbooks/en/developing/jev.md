@@ -50,7 +50,7 @@ If the process has no usable embedding provider, `TinyHumansJevRanker` declines 
 
 The decision model is set in `[computer] decision_model`: Jev (through the hosted proxy when signed in, or your OpenRouter key), OpenJev or Sage. A failed step goes to the rescue model (`[computer] rescue_model`, up to `max_rescues` times) before the task fails. An irreversible step pauses as `needs_approval`. The browser tool holds it behind a one-use token, and only `confirm_pending`, through the host approval gate, answers `ContinueTask`.
 
-The TinyComputer module keeps what finished browser tasks learned, per site, through the host's `SiteMemoryHost` interface (`crates/openhuman-core/src/modules/site_memory_host.rs` stores it in `<workspace>/state/computer/sites/`). `StartTask.site` makes the module load that and hand it to the task on the same site:
+The TinyComputer module keeps what finished browser tasks learned, per site, through the host's `SiteMemoryHost` interface (`crates/openhuman-core/src/desktop/site_memory/mod.rs` stores it in `<workspace>/state/computer/sites/`). `StartTask.site` makes the module load that and hand it to the task on the same site:
 
 - The plan a run finished with goes in as the task's flow for the same goal and facts, so no planning is needed.
 - The elements it found go in as its grounding hints. A remembered element costs one yes/no instead of a search.

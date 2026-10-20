@@ -45,7 +45,7 @@ pub struct BrowserTask {
     /// as a plan saved from an earlier run. `goal` then explains it.
     pub flow: Option<tinycomputer_bus::Flow>,
     /// The site the task starts on, from its starting address
-    /// (`crate::modules::site_memory_host::site_of`): the module keeps what it learns
+    /// (`crate::desktop::site_memory::site_of`): the module keeps what it learns
     /// under it, through the host's `SiteMemoryHost`, and hands the task what
     /// earlier tasks there learned.
     pub site: Option<String>,
@@ -59,7 +59,7 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
     let site = task
         .site
         .clone()
-        .filter(|_| crate::modules::site_memory_host::learning(config));
+        .filter(|_| crate::desktop::site_memory::learning(config));
     StartTaskRequest {
         task: Some(task.goal.clone()),
         site,
@@ -85,7 +85,7 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
             max_rescues: config.computer.max_rescues,
             ..TaskBudget::default()
         },
-        trace: crate::modules::computer_config::tracing_enabled(config),
+        trace: crate::desktop::computer_config::tracing_enabled(config),
         ..StartTaskRequest::default()
     }
 }
@@ -93,7 +93,7 @@ pub fn start_request(config: &Config, task: &BrowserTask) -> StartTaskRequest {
 /// Start a browser task and follow it until it pauses, finishes, or the host
 /// deadline passes (then the view still says `running`). The module hands the
 /// task what earlier tasks on its site left, and keeps what it learns, through
-/// the host's `SiteMemoryHost` (see `crate::modules::site_memory_host`).
+/// the host's `SiteMemoryHost` (see `crate::desktop::site_memory`).
 ///
 /// # Errors
 ///

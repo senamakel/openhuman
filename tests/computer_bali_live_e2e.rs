@@ -8,7 +8,7 @@
 //!    loaded through the module registry (`modules::desktop::proxy`);
 //! 2. the host hands it its private configuration — the decision model
 //!    (`[computer] decision_model`, Jev over OpenRouter here), and the planner
-//!    and rescue route (`modules::computer_config`);
+//!    and rescue route (`desktop::computer_config`);
 //! 3. `desktop::browser` starts the task with `StartTask` (browser only,
 //!    confined to the allowed websites, never allowed to pay), follows it with
 //!    `AwaitTask`, answers `needs_input` from the facts, approves ordinary
@@ -134,7 +134,7 @@ async fn books_a_bali_flight_up_to_the_payment_page() {
     let plan_text = read("COMPUTER_E2E_FLOW_FILE", PLAN);
     let facts: BTreeMap<String, String> = serde_json::from_str(&facts_text).expect("facts");
 
-    let status = openhuman_core::modules::computer::status(&config, true).await;
+    let status = openhuman_core::desktop::computer_status::status(&config, true).await;
     println!(
         "module: {:?} v{} decision={} ({}) planner={}",
         status.module.as_ref().map(|m| &m.state),

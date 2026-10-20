@@ -61,7 +61,7 @@ fn tinyhumans_bearer(config: &Config) -> Option<String> {
 }
 
 #[cfg(test)]
-pub(super) fn reset_private_config_credential_lookups() {
+pub(crate) fn reset_private_config_credential_lookups() {
     PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(|count| count.set(0));
 }
 
@@ -71,11 +71,11 @@ pub(super) fn fake_private_config_credentials(enabled: bool) {
 }
 
 #[cfg(test)]
-pub(super) struct FakePrivateConfigCredentialsGuard;
+pub(crate) struct FakePrivateConfigCredentialsGuard;
 
 #[cfg(test)]
 impl FakePrivateConfigCredentialsGuard {
-    pub(super) fn new() -> Self {
+    pub(crate) fn new() -> Self {
         fake_private_config_credentials(true);
         Self
     }
@@ -89,7 +89,7 @@ impl Drop for FakePrivateConfigCredentialsGuard {
 }
 
 #[cfg(test)]
-pub(super) fn private_config_credential_lookups() -> usize {
+pub(crate) fn private_config_credential_lookups() -> usize {
     PRIVATE_CONFIG_CREDENTIAL_LOOKUPS.with(std::cell::Cell::get)
 }
 

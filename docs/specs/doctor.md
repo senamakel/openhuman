@@ -120,9 +120,26 @@ method and `doctor_health` / `doctor_models` tool names also remain stable.
   "profile": "desktop-default",
   "config_source": "profile",
   "tier": "connect",
-  "checks_run": ["config/file-integrity", "backend/reachable"],
+  "checks_run": ["config/file-integrity"],
   "checks_skipped": ["inference/role-completion"],
-  "findings": [],
+  "findings": [
+    {
+      "check_id": "config/file-integrity",
+      "severity": "pass",
+      "message": "The config file is valid.",
+      "fix_hint": "No action required.",
+      "duration_ms": 4,
+      "affects": []
+    },
+    {
+      "check_id": "inference/role-completion",
+      "severity": "skipped",
+      "message": "This live check was not requested.",
+      "fix_hint": "Rerun doctor with --live to run this check.",
+      "duration_ms": 0,
+      "affects": []
+    }
+  ],
   "summary": { "pass": 1, "info": 0, "warn": 0, "error": 0, "skipped": 1 },
   "ok": true
 }

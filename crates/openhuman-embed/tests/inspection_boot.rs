@@ -161,8 +161,14 @@ impl MasterKeySource for CountingMasterKeySource {
     }
 }
 
-#[tokio::test]
-async fn preloaded_runtime_can_invoke_doctor_without_startup_writes() {
+#[test]
+fn preloaded_runtime_can_invoke_doctor_without_startup_writes() {
+    openhuman_embed::process::tokio_runtime()
+        .expect("tuned Tokio runtime")
+        .block_on(preloaded_runtime_report());
+}
+
+async fn preloaded_runtime_report() {
     let root = tempfile::tempdir().expect("inspection root");
     let workspace = root.path().join("workspace");
     let action = root.path().join("action");

@@ -161,6 +161,71 @@ fn profile_context(config: Config, profile_id: &str) -> std::sync::Arc<crate::co
     )
 }
 
+fn profile_context_with_extensions(
+    config: Config,
+    profile_id: &str,
+    extensions: crate::core::slots::Extensions,
+) -> std::sync::Arc<crate::core::runtime::CoreContext> {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+
+    CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions).derive_with(
+        ContextOverlay::new(
+            config,
+            DomainSet::full(),
+            crate::tools::toolpacks::ToolGroups::default(),
+        )
+        .profile(profile_id),
+    )
+}
+
+fn register_test_inspection_catalog(
+    extensions: &crate::core::slots::Extensions,
+    provider: &str,
+    endpoint: String,
+) -> Arc<AtomicUsize> {
+    use crate::core::Outcome;
+    use crate::inference::registry::{
+        InspectionCatalogError, InspectionCatalogListing, register_inspection_catalog_in,
+    };
+
+    let requests = Arc::new(AtomicUsize::new(0));
+    let request_count = Arc::clone(&requests);
+    let listing: InspectionCatalogListing = Arc::new(move |_config, request| {
+        let endpoint = endpoint.clone();
+        let request_count = Arc::clone(&request_count);
+        Box::pin(async move {
+            request_count.fetch_add(1, Ordering::SeqCst);
+            let response = request
+                .client
+                .get(endpoint)
+                .send()
+                .await
+                .map_err(|_| InspectionCatalogError::Unavailable)?;
+            let status = response.status();
+            if status == StatusCode::NOT_FOUND {
+                return Err(InspectionCatalogError::NoCatalog);
+            }
+            if matches!(status, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+                return Err(InspectionCatalogError::AuthOrAccess);
+            }
+            if !status.is_success() {
+                return Err(InspectionCatalogError::Failure);
+            }
+            let body = response
+                .json::<serde_json::Value>()
+                .await
+                .map_err(|_| InspectionCatalogError::Failure)?;
+            let models = body.get("data").cloned().unwrap_or_else(|| serde_json::json!([]));
+            Ok(Outcome::new(
+                serde_json::json!({ "models": models }),
+                Vec::new(),
+            ))
+        })
+    });
+    register_inspection_catalog_in(extensions, provider, listing);
+    requests
+}
+
 async fn report_for_profile(
     config: &Config,
     profile_id: &str,
@@ -469,6 +534,41 @@ async fn process_auth_error_is_not_attributed_to_another_selected_profile() {
 }
 
 #[tokio::test]
+async fn inference_connect_checks_are_registered_but_skipped_in_static_tier() {
+    let (endpoint, server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["present-model"]), true).await;
+    let (_temp, config) =
+        config_for_catalog(endpoint, "p_doctor_497_static", "doctor-497-static");
+    let provider = "doctor-497-static";
+    crate::inference::auth_error_registry::clear(provider);
+    crate::inference::auth_error_registry::record(provider, 401);
+
+    let report = report_for_profile(
+        &config,
+        "doctor-497-static-profile",
+        DoctorOptions {
+            tier: super::DoctorTier::Static,
+            only: vec![
+                "inference/model-in-catalog".into(),
+                "inference/auth-errors".into(),
+            ],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    crate::inference::auth_error_registry::clear(provider);
+
+    for check_id in ["inference/model-in-catalog", "inference/auth-errors"] {
+        assert!(report.value.checks_skipped.iter().any(|id| id == check_id));
+        assert!(report.value.findings.iter().any(|finding| {
+            finding.check_id == check_id && finding.severity == FindingSeverity::Skipped
+        }));
+    }
+    assert!(report.value.ok);
+    assert_eq!(server.requests.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
 async fn doctor_models_skips_a_provider_without_a_models_route() {
     let (endpoint, server) = spawn_catalog_server(StatusCode::OK, catalog_body(&[]), false).await;
     let (_temp, config) =
@@ -491,6 +591,48 @@ async fn doctor_models_skips_a_provider_without_a_models_route() {
         .message
         .as_deref()
         .is_some_and(|message| message.to_ascii_lowercase().contains("models")));
+    assert_eq!(server.requests.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn model_in_catalog_check_skips_a_provider_without_a_models_route() {
+    let (endpoint, server) = spawn_catalog_server(StatusCode::OK, catalog_body(&[]), false).await;
+    let (_temp, config) =
+        config_for_catalog(endpoint.clone(), "p_doctor_497_route_missing", "doctor-497-route-missing");
+    let extensions = crate::core::slots::Extensions::new();
+    register_test_inspection_catalog(
+        &extensions,
+        "doctor-497-route-missing",
+        format!("{endpoint}/models"),
+    );
+    let context = profile_context_with_extensions(
+        config.clone(),
+        "doctor-497-route-profile",
+        extensions,
+    );
+
+    let report = crate::core::runtime::CoreContext::scope(context, async {
+        doctor_report_with_options(
+            &config,
+            DoctorOptions {
+                only: vec!["inference/model-in-catalog".into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("scoped doctor report")
+    .expect("missing catalogs are check findings, not transport failures");
+
+    assert!(report.value.checks_run.iter().any(|id| id == "inference/model-in-catalog"));
+    assert!(report.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/model-in-catalog"
+            && finding.severity == FindingSeverity::Skipped
+            && (finding.message.to_ascii_lowercase().contains("models")
+                || finding.message.to_ascii_lowercase().contains("catalog"))
+    }));
+    assert_eq!(report.value.summary.error, 0);
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 

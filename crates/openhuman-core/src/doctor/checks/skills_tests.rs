@@ -119,6 +119,66 @@ async fn required_github_preflight_uses_fake_probes_and_redacts_error_details() 
 }
 
 #[tokio::test]
+async fn production_github_preflight_skips_expired_profile_without_mutating_credentials_or_loading_connectors(
+) {
+    let scratch = tempfile::tempdir().expect("create isolated preflight fixture");
+    let config = config_in(scratch.path());
+    let _env = crate::config::test_env::EnvVarGuard::locked_async()
+        .await
+        .with("HOME", scratch.path())
+        .with("OPENHUMAN_WORKSPACE", config.workspace_dir.as_os_str())
+        .without("OPENHUMAN_ACTION_DIR")
+        .without("COMPOSIO_API_KEY");
+
+    let skill_dir = config.workspace_dir.join("skills/required-skill");
+    std::fs::create_dir_all(&skill_dir).expect("create isolated skill directory");
+    let manifest = skill_dir.join("workflow.toml");
+    std::fs::write(
+        &manifest,
+        "id = \"required-skill\"\nwhen_to_use = \"Use GitHub\"\n\
+         [github]\nrequired = true\nidentity_match = \"none\"\n",
+    )
+    .expect("write required GitHub manifest");
+    let profiles = scratch.path().join("auth-profiles.json");
+    let raw_profile = serde_json::json!({
+        "schema_version": 1,
+        "active_profiles": {},
+        "profiles": {
+            "app-session:default": {
+                "provider": "app-session",
+                "profile_name": "default",
+                "kind": "token",
+                "token": "expired-doctor-test-secret",
+                "metadata": { "session_expires_at": "2000-01-01T00:00:00Z" }
+            }
+        }
+    })
+    .to_string();
+    std::fs::write(&profiles, &raw_profile).expect("seed isolated expired profile");
+
+    let context = scoped(config.clone());
+    let findings = CoreContext::scope(context, async {
+        let required = required_github_preflight(&config).expect("manifest requires GitHub");
+        GithubPreflightCheck {
+            required: required.config,
+            manifest_path: required.path,
+            probes: None,
+        }
+        .detect(&DoctorCtx::from_config(config.clone()))
+        .await
+    })
+    .await;
+
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, FindingSeverity::Skipped);
+    assert!(findings[0].message.contains("unavailable"));
+    assert_eq!(std::fs::read_to_string(&profiles).unwrap(), raw_profile);
+    assert!(!scratch.path().join("auth-profiles.lock").exists());
+    assert!(!scratch.path().join("modules").exists());
+    assert!(!findings[0].message.contains("expired-doctor-test-secret"));
+}
+
+#[tokio::test]
 async fn malformed_skill_manifest_reports_only_a_warning_and_its_path() {
     let scratch = tempfile::tempdir().expect("create isolated skill fixture");
     let config = config_in(scratch.path());

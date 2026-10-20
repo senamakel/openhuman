@@ -192,17 +192,24 @@ impl DoctorCheck for GithubPreflightCheck {
         let result = if let Some(probes) = &self.probes {
             crate::skills::preflight::run_github_preflight(Some(&self.required), probes.as_ref()).await
         } else {
-            let probes = crate::skills::preflight::LivePreflightProbes::new(ctx.config());
+            let probes = ExistingConnectorPreflightProbes { config: ctx.config() };
             crate::skills::preflight::run_github_preflight(Some(&self.required), &probes).await
         };
         #[cfg(not(test))]
         let result = {
-            let probes = crate::skills::preflight::LivePreflightProbes::new(ctx.config());
+            let probes = ExistingConnectorPreflightProbes { config: ctx.config() };
             crate::skills::preflight::run_github_preflight(Some(&self.required), &probes).await
         };
 
         let mut finding = match result {
             Ok(()) => Finding::pass(self.id(), "The required GitHub skill preflight is ready."),
+            Err(crate::skills::preflight::GithubGateError::ComposioProbeUnavailable) => {
+                Finding::skipped(
+                    self.id(),
+                    "The selected connector is not already available for read-only inspection.",
+                    "Open the selected Composio connection in Connections, then rerun doctor.",
+                )
+            }
             Err(error) => Finding::error(
                 self.id(),
                 github_error_message(&error),
@@ -211,6 +218,119 @@ impl DoctorCheck for GithubPreflightCheck {
         };
         finding.config_path = Some(self.manifest_path.to_string_lossy().into_owned());
         vec![finding]
+    }
+}
+
+#[cfg(feature = "skills")]
+struct ExistingConnectorPreflightProbes<'a> {
+    config: &'a crate::config::Config,
+}
+
+#[cfg(feature = "skills")]
+#[async_trait]
+impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightProbes<'_> {
+    async fn composio_toolkit_active(&self, _toolkit: &str) -> bool {
+        false
+    }
+
+    async fn composio_identity(&self, _toolkit: &str) -> Option<String> {
+        None
+    }
+
+    async fn composio_toolkit_status(
+        &self,
+        toolkit: &str,
+    ) -> crate::skills::preflight::PreflightProbeStatus<bool> {
+        use crate::skills::preflight::PreflightProbeStatus;
+        use tinyconnectors_bus::{
+            ComposioConnectedIntegrationsMode as Mode,
+            ComposioConnectedIntegrationsResponse,
+            ComposioListConnectedIntegrationsRequest,
+        };
+
+        let mode = match self.config.composio.mode.trim() {
+            "" | crate::config::schema::COMPOSIO_MODE_BACKEND
+                if self.config.composio.host_credential.is_none() => Mode::Backend,
+            crate::config::schema::COMPOSIO_MODE_DIRECT => Mode::Direct,
+            _ => return PreflightProbeStatus::Unavailable,
+        };
+        match crate::modules::connectors::call_existing_readonly::<
+            _,
+            ComposioConnectedIntegrationsResponse,
+        >(
+            self.config,
+            crate::modules::connectors::methods::LIST_CONNECTED_INTEGRATIONS,
+            ComposioListConnectedIntegrationsRequest { mode },
+        )
+        .await
+        {
+            Ok(Some(response)) => PreflightProbeStatus::Available(response.integrations.iter().any(
+                |integration| {
+                    integration.connected && integration.toolkit.eq_ignore_ascii_case(toolkit)
+                },
+            )),
+            Ok(None) => PreflightProbeStatus::Unavailable,
+            Err(crate::modules::connectors::ExistingCallError::Unavailable) => {
+                PreflightProbeStatus::Unavailable
+            }
+            Err(crate::modules::connectors::ExistingCallError::Failed) => {
+                PreflightProbeStatus::Failed
+            }
+        }
+    }
+
+    async fn composio_identity_status(
+        &self,
+        toolkit: &str,
+    ) -> crate::skills::preflight::PreflightProbeStatus<Option<String>> {
+        use crate::skills::preflight::PreflightProbeStatus;
+        use crate::integrations::composio::ComposioUserProfileRequest;
+        use crate::integrations::composio::ComposioUserProfile;
+
+        match crate::modules::connectors::call_existing_readonly::<_, ComposioUserProfile>(
+            self.config,
+            crate::modules::connectors::methods::GET_USER_PROFILE,
+            ComposioUserProfileRequest {
+                toolkit: toolkit.to_ascii_lowercase(),
+                connection_id: None,
+            },
+        )
+        .await
+        {
+            Ok(Some(profile)) => {
+                let identity = profile
+                    .username
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|name| !name.is_empty())
+                    .map(str::to_owned);
+                PreflightProbeStatus::Available(identity)
+            }
+            Ok(None) | Err(crate::modules::connectors::ExistingCallError::Unavailable) => {
+                PreflightProbeStatus::Unavailable
+            }
+            Err(crate::modules::connectors::ExistingCallError::Failed) => {
+                PreflightProbeStatus::Failed
+            }
+        }
+    }
+
+    async fn git_version(&self) -> Result<(), String> {
+        crate::skills::preflight::LivePreflightProbes::new(self.config)
+            .git_version()
+            .await
+    }
+
+    async fn git_user_name(&self) -> String {
+        crate::skills::preflight::LivePreflightProbes::new(self.config)
+            .git_user_name()
+            .await
+    }
+
+    async fn git_user_email(&self) -> String {
+        crate::skills::preflight::LivePreflightProbes::new(self.config)
+            .git_user_email()
+            .await
     }
 }
 

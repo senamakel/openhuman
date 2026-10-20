@@ -197,6 +197,156 @@ async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
 }
 
 #[tokio::test]
+async fn inspection_reports_refresh_required_without_refreshing_or_publishing_session_expiry() {
+    use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+    use crate::config::test_env::EnvVarGuard;
+    use crate::core::events::DomainEvent;
+    use crate::core::runtime::DispatchCtx;
+    use crate::inference::provider::factory::create_chat_model_with_model_id_in_for_inspection;
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    struct LocalProxyTrap {
+        stop: Arc<AtomicBool>,
+        thread: Option<std::thread::JoinHandle<()>>,
+    }
+
+    impl Drop for LocalProxyTrap {
+        fn drop(&mut self) {
+            self.stop.store(true, Ordering::SeqCst);
+            if let Some(thread) = self.thread.take() {
+                let _ = thread.join();
+            }
+        }
+    }
+
+    fn no_session_expiry_event(
+        receiver: &mut tinybus::EventReceiver<DomainEvent>,
+    ) -> bool {
+        loop {
+            match receiver.try_recv() {
+                Ok(DomainEvent::SessionExpired { .. }) => return false,
+                Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
+                Err(_) => return true,
+            }
+        }
+    }
+
+    let _inference_guard = crate::inference::inference_test_guard_async().await;
+    let temp = tempfile::tempdir().expect("temporary configuration directory");
+    let proxy = TcpListener::bind(("127.0.0.1", 0)).expect("local proxy trap listener");
+    proxy.set_nonblocking(true).expect("nonblocking proxy listener");
+    let proxy_url = format!("http://{}", proxy.local_addr().unwrap());
+    let proxy_requests = Arc::new(AtomicUsize::new(0));
+    let server_requests = Arc::clone(&proxy_requests);
+    let stop = Arc::new(AtomicBool::new(false));
+    let server_stop = Arc::clone(&stop);
+    let proxy_thread = std::thread::spawn(move || {
+        while !server_stop.load(Ordering::SeqCst) {
+            match proxy.accept() {
+                Ok((mut stream, _)) => {
+                    server_requests.fetch_add(1, Ordering::SeqCst);
+                    let mut request = [0_u8; 512];
+                    let _ = stream.read(&mut request);
+                    let _ = stream.write_all(
+                        b"HTTP/1.1 502 Bad Gateway\r\nContent-Length: 0\r\nConnection: close\r\n\r\n",
+                    );
+                }
+                Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                }
+                Err(_) => break,
+            }
+        }
+    });
+    let _proxy_trap = LocalProxyTrap {
+        stop,
+        thread: Some(proxy_thread),
+    };
+    let _env_guard = EnvVarGuard::locked_async()
+        .await
+        .with("HOME", temp.path())
+        .with("OPENHUMAN_WORKSPACE", temp.path())
+        .with("HTTPS_PROXY", &proxy_url)
+        .with("https_proxy", &proxy_url)
+        .with("NO_PROXY", "")
+        .with("no_proxy", "")
+        .without("OPENAI_API_KEY")
+        .without("OPENHUMAN_CORE_TOKEN");
+
+    let mut config = isolated_config(temp.path());
+    config.secrets.encrypt = false;
+    config.chat_provider = Some("ollama:qwen2.5".to_owned());
+    config.vision_provider = Some("openai:gpt-4o".to_owned());
+    config.primary_cloud = Some("provider-openai".to_owned());
+    config.cloud_providers = vec![CloudProviderCreds {
+        id: "provider-openai".to_owned(),
+        slug: "openai".to_owned(),
+        label: "OpenAI".to_owned(),
+        endpoint: "https://api.openai.invalid/v1".to_owned(),
+        auth_style: AuthStyle::Bearer,
+        default_model: Some("gpt-4o".to_owned()),
+    }];
+    config.resolved_endpoints.control_plane_url = Some("https://api.openhuman.invalid".to_owned());
+
+    let profile_path = temp.path().join("auth-profiles.json");
+    std::fs::write(
+        &profile_path,
+        serde_json::json!({
+            "schema_version": 1,
+            "active_profiles": {},
+            "profiles": {
+                "provider:openai:oauth": {
+                    "provider": "provider:openai",
+                    "profile_name": "oauth",
+                    "kind": "oauth",
+                    "access_token": "expired-openai-access-token",
+                    "refresh_token": "refresh-trap-token",
+                    "expires_at": "2000-01-01T00:00:00Z",
+                    "metadata": {}
+                },
+                "app-session:default": {
+                    "provider": "app-session",
+                    "profile_name": "default",
+                    "kind": "token",
+                    "token": "expired-app-session-token",
+                    "metadata": { "session_expires_at": "2000-01-01T00:00:00Z" }
+                }
+            }
+        })
+        .to_string(),
+    )
+    .expect("write isolated read-only credential fixture");
+    let before = filesystem_snapshot(temp.path());
+
+    crate::core::bus::init().await.expect("event bus init");
+    let mut events = crate::core::bus::BUS
+        .get()
+        .expect("event bus initialized")
+        .receiver();
+    let error = create_chat_model_with_model_id_in_for_inspection(
+        &DispatchCtx::unbound(),
+        "vision",
+        &config,
+        config.default_temperature,
+    )
+    .expect_err("an expired OAuth credential requiring refresh is unsafe for static inspection");
+    let message = error.to_string();
+
+    assert!(
+        message.contains("OpenAI OAuth credential requires refresh"),
+        "inspection should report the safe refresh classification: {message}"
+    );
+    assert!(!message.contains("expired-openai-access-token"));
+    assert!(!message.contains("refresh-trap-token"));
+    assert_eq!(proxy_requests.load(Ordering::SeqCst), 0);
+    assert!(no_session_expiry_event(&mut events));
+    assert_eq!(filesystem_snapshot(temp.path()), before);
+    assert!(!temp.path().join("auth-profiles.lock").exists());
+}
+
+#[tokio::test]
 async fn a_fully_configured_managed_default_constructs_cleanly() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;

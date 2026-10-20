@@ -143,12 +143,9 @@ async fn a_live_import_blocks_migration_and_does_not_make_a_stale_migration_look
     let config = config_in(&tmp);
     let host = Arc::new(FakeHost::with(2, &config).await);
     let workspace = config.workspace_dir.clone();
-    let inserted = RUNNING
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .insert(workspace.clone());
-    assert!(inserted, "the test owns a live import reservation");
-    let _reservation = LiveImportReservation(workspace.clone());
+    let _reservation = crate::memory::run_slots::IMPORT
+        .try_acquire(workspace.clone())
+        .expect("the test owns a live import slot");
 
     let mut stale = state::load(&workspace).unwrap();
     stale.phase = Phase::Copying;

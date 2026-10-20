@@ -71,11 +71,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "models" => ControllerSchema {
             namespace: "doctor",
             function: "models",
-            description: "Probe provider model availability and auth status.",
+            description: "Model catalog probing is not available yet.",
             inputs: vec![FieldSchema {
                 name: "use_cache",
                 ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-                comment: "Reuse cached provider metadata when available.",
+                comment: "Reserved for model catalog probes when they become available.",
                 required: false,
             }],
             outputs: vec![FieldSchema {
@@ -102,7 +102,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
 
 fn handle_report(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let config = ctx.load_config().await?;
         let options = crate::doctor::DoctorOptions {
             tier: read_optional::<crate::doctor::DoctorTier>(&params, "tier")?
                 .unwrap_or(crate::doctor::DoctorTier::Connect),
@@ -110,7 +109,7 @@ fn handle_report(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
             skip: read_optional::<Vec<String>>(&params, "skip")?.unwrap_or_default(),
             profile: read_optional::<String>(&params, "profile")?,
         };
-        to_json(crate::doctor::ops::doctor_report_with_options(&config, options).await?)
+        to_json(crate::doctor::ops::doctor_report_for_dispatch(&ctx, options).await?)
     })
 }
 

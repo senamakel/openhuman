@@ -44,6 +44,7 @@ pub fn unregister_check_source(id: &str) -> bool {
 /// ids rejected before a report starts.
 pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
     let mut checks = LegacyV1CheckSource.checks();
+    checks.extend(super::profile::built_in_checks());
     for (_, source) in CHECK_SOURCES.entries() {
         checks.extend(source.checks());
     }

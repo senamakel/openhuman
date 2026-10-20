@@ -4,7 +4,9 @@ use std::ffi::OsString;
 use tempfile::TempDir;
 
 use crate::config::Config;
-use crate::doctor::profile::{load_desktop_profile, DesktopProfileError};
+use crate::doctor::profile::{
+    load_desktop_profile, resolve_desktop_profile_for_doctor, DesktopProfileError,
+};
 use crate::doctor::{
     DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity,
 };
@@ -250,6 +252,71 @@ async fn selected_profile_applies_in_memory_legacy_migrations_without_saving_the
             .unwrap(),
         contents
     );
+}
+
+#[tokio::test]
+async fn default_profile_resolution_reads_active_marker_without_initializing_layout() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    let marker = root.join("active_user.toml");
+    tokio::fs::create_dir_all(root).await.unwrap();
+    tokio::fs::write(&marker, "user_id = \"account-a\"\n")
+        .await
+        .unwrap();
+    let layout = ProfileLayout::new(root, "account-a");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(&layout.config_path, "default_model = \"account-a-model\"\n")
+        .await
+        .unwrap();
+    let marker_before = tokio::fs::read(&marker).await.unwrap();
+
+    let selected = resolve_desktop_profile_for_doctor(root, None)
+        .await
+        .unwrap();
+
+    assert_eq!(selected.profile_id.as_deref(), Some("account-a"));
+    assert_eq!(selected.layout_version, Some(layout.version));
+    assert_eq!(selected.resolution_source, "active_user.toml");
+    assert_eq!(
+        selected.config.default_model.as_deref(),
+        Some("account-a-model")
+    );
+    assert!(!layout.dir.join(".layout").exists());
+    assert_eq!(tokio::fs::read(&marker).await.unwrap(), marker_before);
+}
+
+#[tokio::test]
+async fn default_profile_resolution_prefers_workspace_override_without_switching_user() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    tokio::fs::create_dir_all(root).await.unwrap();
+    let active_user = root.join("active_user.toml");
+    tokio::fs::write(&active_user, "user_id = \"account-a\"\n")
+        .await
+        .unwrap();
+    let account_b = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&account_b.dir).await.unwrap();
+    tokio::fs::write(account_b.dir.join(".layout"), "2\n")
+        .await
+        .unwrap();
+    tokio::fs::write(&account_b.config_path, "default_model = \"account-b-model\"\n")
+        .await
+        .unwrap();
+    let marker_before = tokio::fs::read(&active_user).await.unwrap();
+    let _workspace_override = WorkspaceOverrideGuard::set(&account_b.files_dir);
+
+    let selected = resolve_desktop_profile_for_doctor(root, None)
+        .await
+        .unwrap();
+
+    assert_eq!(selected.profile_id.as_deref(), Some("account-b"));
+    assert_eq!(selected.layout_version, Some(crate::config::schema::profile_layout::LayoutVersion::V2));
+    assert_eq!(selected.resolution_source, "OPENHUMAN_WORKSPACE");
+    assert_eq!(selected.config.workspace_dir, account_b.files_dir);
+    assert_eq!(selected.config.default_model.as_deref(), Some("account-b-model"));
+    assert_eq!(tokio::fs::read(&active_user).await.unwrap(), marker_before);
+    assert_eq!(tokio::fs::read_to_string(account_b.dir.join(".layout")).await.unwrap(), "2\n");
 }
 
 #[tokio::test]

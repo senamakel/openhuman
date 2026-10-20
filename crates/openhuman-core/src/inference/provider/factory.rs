@@ -59,6 +59,7 @@ pub use chat_model::{
     create_chat_model_from_string, create_chat_model_from_string_with_model_id,
     create_chat_model_in, create_chat_model_with_model_id_in, probe_inference_readiness,
 };
+pub(crate) use chat_model::create_chat_model_with_model_id_in_for_inspection;
 pub(crate) use credentials::openai_bearer_is_oauth;
 pub use credentials::{auth_key_for_slug, lookup_key_for_slug, redact_endpoint};
 pub(crate) use discovery::model_limits_request;
@@ -79,12 +80,15 @@ pub(crate) use turn_model::{
 // Factory-internal helpers shared across the submodules (and their tests)
 // through `use super::*`.
 use access_gates::{emit_inference_egress, enforce_local_only_inference};
-use chat_model::{unresolved_chat_model_error, with_default_temperature};
+use chat_model::{
+    unresolved_chat_model_error, unresolved_chat_model_error_with_access, with_default_temperature,
+};
 use cloud_slug::{
-    resolve_cloud_slug, try_create_cloud_slug_chat_model,
-    try_create_cloud_slug_chat_model_from_string,
+    resolve_cloud_slug, resolve_cloud_slug_with_access, try_create_cloud_slug_chat_model,
+    try_create_cloud_slug_chat_model_for_inspection, try_create_cloud_slug_chat_model_from_string,
     try_create_cloud_slug_chat_model_with_native_tools,
 };
+use credentials::CredentialAccess;
 use local_runtime::{
     try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_from_string,
     OptionalChatModelResult,

@@ -31,4 +31,8 @@ pub use schemas::{
 mod runner_tests;
 
 #[cfg(test)]
+#[path = "profile_tests.rs"]
+mod profile_tests;
+
+#[cfg(test)]
 pub(crate) mod test_support;

@@ -143,7 +143,7 @@ impl ConfigProvenance {
     }
 
     /// Return source metadata for a field, defaulting to the schema default.
-    pub(crate) fn field(&self, path: &str) -> ValueProvenance {
+    pub(crate) fn field(&self, path: &str) -> super::ValueProvenance {
         self.fields.get(path).cloned().unwrap_or_default()
     }
 

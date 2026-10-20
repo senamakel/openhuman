@@ -241,20 +241,26 @@ impl Config {
             }
         }
         // `exa=direct,gemini=managed` — changes routes of listed providers.
-        let mut routes: Vec<(String, String)> = Vec::new();
+        let mut routes: Vec<(String, String, &str)> = Vec::new();
         if let Some(value) = env.get_any(&["OPENHUMAN_SEARCH_ROUTES"]) {
             routes.extend(value.split(',').filter_map(|pair| {
                 pair.split_once('=')
-                    .map(|(p, r)| (p.trim().to_ascii_lowercase(), r.trim().to_string()))
+                    .map(|(p, r)| {
+                        (
+                            p.trim().to_ascii_lowercase(),
+                            r.trim().to_string(),
+                            "OPENHUMAN_SEARCH_ROUTES",
+                        )
+                    })
             }));
         }
         if let Some(value) = env.get_any(&["OPENHUMAN_GEMINI_ROUTE"]) {
             log::warn!(
                 "[config][search] OPENHUMAN_GEMINI_ROUTE is deprecated; use OPENHUMAN_SEARCH_ROUTES=gemini=<route>"
             );
-            routes.push(("gemini".into(), value));
+            routes.push(("gemini".into(), value, "OPENHUMAN_GEMINI_ROUTE"));
         }
-        for (provider, route) in routes {
+        for (provider, route, env_var) in routes {
             match ProviderRoute::parse(&route) {
                 Some(route)
                     if SEARCH_PROVIDERS.contains(&provider.as_str())
@@ -268,7 +274,7 @@ impl Config {
                     self.record_env_override_var(
                         env,
                         &format!("search.providers.{provider}.route"),
-                        "OPENHUMAN_SEARCH_ROUTES",
+                        env_var,
                     );
                 }
                 _ => log::warn!("[config][search] ignoring route '{provider}={route}'"),

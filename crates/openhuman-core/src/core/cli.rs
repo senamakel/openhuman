@@ -338,7 +338,12 @@ pub fn load_dotenv_for_cli() -> Result<()> {
     match std::env::var("OPENHUMAN_DOTENV_PATH") {
         Ok(path) if !path.trim().is_empty() => {
             let path = PathBuf::from(&path);
-            let variables = dotenv_variable_names(&path)?;
+            let variables = dotenv_variable_names(&path).map_err(|error| {
+                anyhow::anyhow!(
+                    "failed to load dotenv from OPENHUMAN_DOTENV_PATH={}: {error}",
+                    path.display()
+                )
+            })?;
             dotenvy::from_path(&path).map_err(|e| {
                 anyhow::anyhow!("failed to load dotenv from OPENHUMAN_DOTENV_PATH={path}: {e}")
             })?;

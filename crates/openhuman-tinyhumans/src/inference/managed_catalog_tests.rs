@@ -1,5 +1,9 @@
 use super::*;
 
+#[cfg(test)]
+#[path = "managed_catalog_inspection_tests.rs"]
+mod inspection_tests;
+
 #[test]
 fn a_managed_401_on_an_attached_session_reads_as_signed_out() {
     assert!(managed_401_means_signed_out(401, true));
@@ -93,3 +97,7 @@ fn with_neither_credential_the_catalog_is_empty() {
         ListingAuth::Empty("session expired")
     );
 }
+
+#[cfg(test)]
+#[path = "managed_catalog_inspection_tests.rs"]
+mod inspection_tests;

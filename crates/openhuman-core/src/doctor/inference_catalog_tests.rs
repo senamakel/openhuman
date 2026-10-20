@@ -1,21 +1,21 @@
 use super::{
-    DoctorOptions, FindingSeverity, ModelProbeOutcome,
     ops::{doctor_models, doctor_report_with_options},
+    DoctorOptions, FindingSeverity, ModelProbeOutcome,
 };
-use crate::config::Config;
-use crate::config::schema::ModelRouteConfig;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+use crate::config::schema::ModelRouteConfig;
+use crate::config::Config;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{
-    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
+    Json, Router,
 };
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 #[derive(Clone)]
@@ -161,8 +161,11 @@ async fn doctor_models_lists_configured_catalogs_and_honors_use_cache() {
 async fn doctor_models_does_not_reuse_a_catalog_for_another_profiles_credential() {
     let (endpoint, server) =
         spawn_catalog_server(StatusCode::OK, catalog_body(&["configured-model"]), true).await;
-    let (_temp_a, mut config_a) =
-        config_for_catalog(endpoint.clone(), "p_doctor_497_selected", "doctor-497-selected");
+    let (_temp_a, mut config_a) = config_for_catalog(
+        endpoint.clone(),
+        "p_doctor_497_selected",
+        "doctor-497-selected",
+    );
     let (_temp_b, mut config_b) =
         config_for_catalog(endpoint, "p_doctor_497_selected", "doctor-497-selected");
     config_a.cloud_providers[0].auth_style = AuthStyle::Bearer;
@@ -204,6 +207,52 @@ async fn doctor_models_does_not_reuse_a_catalog_for_another_profiles_credential(
 }
 
 #[tokio::test]
+async fn doctor_models_never_falls_back_to_an_ordinary_mutable_catalog() {
+    use crate::core::runtime::{CoreContext, DomainSet};
+    use crate::core::slots::Extensions;
+    use crate::core::Outcome;
+    use crate::inference::registry::{register_catalog_in, CatalogEntry, CatalogListing};
+
+    let (endpoint, _server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["must-not-be-used"]), true).await;
+    let (_temp, config) = config_for_catalog(
+        endpoint,
+        "p_doctor_497_no_safe_hook",
+        "doctor-497-no-safe-hook",
+    );
+    let normal_calls = Arc::new(AtomicUsize::new(0));
+    let call_counter = Arc::clone(&normal_calls);
+    let ordinary_listing: CatalogListing = Arc::new(move |_, _| {
+        let call_counter = Arc::clone(&call_counter);
+        Box::pin(async move {
+            call_counter.fetch_add(1, Ordering::SeqCst);
+            Ok(Outcome::new(
+                serde_json::json!({ "models": [{ "id": "must-not-be-used" }] }),
+                Vec::new(),
+            ))
+        })
+    });
+    let extensions = Extensions::new();
+    register_catalog_in(
+        &extensions,
+        "doctor-497-no-safe-hook",
+        CatalogEntry {
+            list: ordinary_listing,
+            limits: None,
+        },
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+
+    let result = CoreContext::scope(context, async { doctor_models(&config, false).await }).await;
+
+    assert_eq!(normal_calls.load(Ordering::SeqCst), 0);
+    match result {
+        Ok(report) => assert_ne!(report.value.entries[0].outcome, ModelProbeOutcome::Ok),
+        Err(_) => {}
+    }
+}
+
+#[tokio::test]
 async fn doctor_models_skips_a_provider_without_a_models_route() {
     let (endpoint, server) = spawn_catalog_server(StatusCode::OK, catalog_body(&[]), false).await;
     let (_temp, config) =
@@ -222,12 +271,10 @@ async fn doctor_models_skips_a_provider_without_a_models_route() {
     assert_eq!(report.value.summary.skipped, 1);
     assert_eq!(report.value.summary.errors, 0);
     assert_eq!(report.value.entries[0].outcome, ModelProbeOutcome::Skipped);
-    assert!(
-        report.value.entries[0]
-            .message
-            .as_deref()
-            .is_some_and(|message| message.to_ascii_lowercase().contains("models"))
-    );
+    assert!(report.value.entries[0]
+        .message
+        .as_deref()
+        .is_some_and(|message| message.to_ascii_lowercase().contains("models")));
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 

@@ -8,7 +8,7 @@ use futures::stream::{self, StreamExt};
 use tokio::sync::Semaphore;
 
 use super::contract::{
-    DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, Finding, FindingSeverity,
+    DoctorCheck, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, Finding,
 };
 use super::registry;
 
@@ -76,7 +76,7 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
 
     let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CHECKS));
     let mut outcomes = stream::iter(runnable)
-        .map(|(index, check)| {
+        .map(|(index, check): (usize, Arc<dyn DoctorCheck>)| {
             let semaphore = Arc::clone(&semaphore);
             let ctx = ctx.clone();
             async move {
@@ -162,10 +162,7 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
     })
 }
 
-async fn detect(
-    check: Arc<dyn super::contract::DoctorCheck>,
-    ctx: DoctorCtx,
-) -> Result<Vec<Finding>, ()> {
+async fn detect(check: Arc<dyn DoctorCheck>, ctx: DoctorCtx) -> Result<Vec<Finding>, ()> {
     if check.is_blocking() {
         tokio::task::spawn_blocking(move || check.detect_blocking(&ctx).ok_or(()))
             .await

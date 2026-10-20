@@ -66,7 +66,7 @@ pub fn run(config: &Config, memory: MemoryEngineCheck) -> Result<DoctorReport> {
 
 /// Run one legacy probe for the v1-to-v2 adapter. This is temporary until
 /// #506 ports the probes as native `DoctorCheck` implementations.
-pub(super) fn run_check(
+pub(in crate::doctor) fn run_check(
     id: &str,
     config: &Config,
     memory: &MemoryEngineCheck,

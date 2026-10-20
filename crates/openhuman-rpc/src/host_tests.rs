@@ -26,10 +26,10 @@ fn doctor_builder_is_preloaded_inspection_with_no_services_or_storage() {
     let config = doctor_fallback_config(root.path());
     let summary = doctor_builder(config).into_embed().summary();
 
-    assert_eq!(
+    assert!(matches!(
         summary.workspace,
         openhuman_tinyhumans::embed::Workspace::Inherit
-    );
+    ));
     assert_eq!(
         summary.config_source,
         openhuman_tinyhumans::embed::ConfigSource::Resolved

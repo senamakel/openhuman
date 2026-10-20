@@ -1,5 +1,5 @@
-use crate::config::schema::load::{DotenvLoadProvenance, ProvenanceSource};
 use crate::config::Config;
+use crate::config::schema::load::{DotenvLoadProvenance, ProvenanceSource};
 
 use super::contract::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use super::runner;
@@ -13,9 +13,7 @@ fn config_with_file_env_override() -> Config {
     config.config_path = "/diagnostics/config.toml".into();
     let document = toml::from_str::<toml::Value>(r#"default_model = "file-model-secret""#)
         .expect("test config document parses");
-    config
-        .load_provenance_mut()
-        .record_file_keys(&document);
+    config.load_provenance_mut().record_file_keys(&document);
     config.load_provenance_mut().record_env_override(
         "default_model",
         "OPENHUMAN_DEFAULT_MODEL",
@@ -50,7 +48,11 @@ async fn environment_override_warns_when_the_file_explicitly_sets_the_field() {
     let findings = run_config_check(config_with_file_env_override(), ENV_OVERRIDE).await;
     let matching = selected_findings(&findings, ENV_OVERRIDE);
 
-    assert_eq!(matching.len(), 1, "one finding identifies the overridden field");
+    assert_eq!(
+        matching.len(),
+        1,
+        "one finding identifies the overridden field"
+    );
     assert_eq!(matching[0].severity, FindingSeverity::Warn);
     assert_eq!(matching[0].config_path.as_deref(), Some("default_model"));
     assert!(matching[0].message.contains("OPENHUMAN_DEFAULT_MODEL"));
@@ -95,7 +97,10 @@ async fn environment_override_check_enumerates_multiple_unrelated_fields() {
         .iter()
         .map(|finding| {
             (
-                finding.config_path.as_deref().expect("field path is reported"),
+                finding
+                    .config_path
+                    .as_deref()
+                    .expect("field path is reported"),
                 finding.severity,
             )
         })
@@ -109,13 +114,13 @@ async fn environment_override_check_enumerates_multiple_unrelated_fields() {
 #[tokio::test]
 async fn dotenv_shadowing_and_paths_are_reported_without_values() {
     let mut config = config_with_file_env_override();
-    config.load_provenance_mut().set_dotenv(Some(
-        DotenvLoadProvenance::from_variables(
+    config
+        .load_provenance_mut()
+        .set_dotenv(Some(DotenvLoadProvenance::from_variables(
             "/diagnostics/.env".into(),
             ["OPENHUMAN_DEFAULT_MODEL", "OPENHUMAN_OUTPUT_LANGUAGE"],
             ["OPENHUMAN_DEFAULT_MODEL"],
-        ),
-    ));
+        )));
 
     let findings = run_config_check(config, CONFIG_SOURCE).await;
     let matching = selected_findings(&findings, CONFIG_SOURCE);

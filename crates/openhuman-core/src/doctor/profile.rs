@@ -65,8 +65,13 @@ pub async fn resolve_desktop_profile_for_doctor(
 ) -> Result<DesktopProfileSelection, DesktopProfileError> {
     if let Some(id) = requested_profile {
         let selected = load_desktop_profile(root, id).await?;
+        let mut config = selected.config;
+        config.set_doctor_profile_metadata(
+            Some(selected.layout.version),
+            Some("--profile".into()),
+        );
         return Ok(DesktopProfileSelection {
-            config: selected.config,
+            config,
             profile_id: Some(selected.id),
             layout_version: Some(selected.layout.version),
             resolution_source: "--profile".into(),
@@ -76,8 +81,9 @@ pub async fn resolve_desktop_profile_for_doctor(
 
     let (config_dir, workspace_dir, source, profile_id, layout_version) =
         resolve_desktop_config_dirs_read_only(root).await?;
-    let (config, config_exists) =
+    let (mut config, config_exists) =
         load_config_read_only(&config_dir.join("config.toml"), &workspace_dir).await?;
+    config.set_doctor_profile_metadata(layout_version, Some(source.as_str().into()));
     let profile_status = if profile_id.is_some() {
         if config.load_diagnostics().parse_error.is_some() {
             Some(DoctorProfileStatus::InvalidConfig)

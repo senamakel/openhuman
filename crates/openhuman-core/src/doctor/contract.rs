@@ -241,6 +241,12 @@ pub struct DoctorReport {
     pub schema_version: u8,
     pub profile: Option<String>,
     pub config_source: DoctorConfigSource,
+    /// On-disk desktop profile layout, when the selected context has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_layout_version: Option<u8>,
+    /// Stable source label that selected the config directory, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_resolution_source: Option<String>,
     pub tier: DoctorTier,
     pub checks_run: Vec<String>,
     pub checks_skipped: Vec<String>,
@@ -269,6 +275,8 @@ impl DoctorCtx {
     /// context. An unscoped local configuration reports `profile` as its
     /// source; a scoped SaaS context reports `tenant`.
     pub fn from_config(config: Config) -> Self {
+        let (profile_layout_version, profile_resolution_source) =
+            config.doctor_profile_metadata();
         let core = CoreContext::current();
         let profile = core
             .as_ref()
@@ -286,8 +294,8 @@ impl DoctorCtx {
             components,
             profile,
             config_source,
-            profile_layout_version: None,
-            profile_resolution_source: None,
+            profile_layout_version,
+            profile_resolution_source,
             profile_status: None,
             memory_engine: None,
         }
@@ -297,13 +305,15 @@ impl DoctorCtx {
     /// consulting the ambient [`CoreContext`]. Use this when the caller has
     /// already selected and loaded the profile context.
     pub fn from_config_with_components(config: Config, components: ComponentSet) -> Self {
+        let (profile_layout_version, profile_resolution_source) =
+            config.doctor_profile_metadata();
         Self {
             config: Arc::new(config),
             components,
             profile: None,
             config_source: DoctorConfigSource::Profile,
-            profile_layout_version: None,
-            profile_resolution_source: None,
+            profile_layout_version,
+            profile_resolution_source,
             profile_status: None,
             memory_engine: None,
         }

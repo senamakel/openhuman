@@ -563,6 +563,29 @@ pub struct Config {
 }
 
 impl Config {
+    /// Pins read-only doctor selection metadata to this in-memory snapshot.
+    pub(crate) fn set_doctor_profile_metadata(
+        &mut self,
+        layout_version: Option<crate::config::schema::profile_layout::LayoutVersion>,
+        resolution_source: Option<String>,
+    ) {
+        self.runtime_state.doctor_profile_layout_version = layout_version;
+        self.runtime_state.doctor_profile_resolution_source = resolution_source;
+    }
+
+    /// Metadata recorded when this snapshot was selected for doctor inspection.
+    pub(crate) fn doctor_profile_metadata(
+        &self,
+    ) -> (
+        Option<crate::config::schema::profile_layout::LayoutVersion>,
+        Option<String>,
+    ) {
+        (
+            self.runtime_state.doctor_profile_layout_version,
+            self.runtime_state.doctor_profile_resolution_source.clone(),
+        )
+    }
+
     /// Diagnostics captured while the loader parsed or migrated this snapshot.
     pub(crate) fn load_diagnostics(&self) -> &super::super::load::LoadDiagnostics {
         &self.runtime_state.load_diagnostics

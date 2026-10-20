@@ -112,7 +112,8 @@ pub(super) fn managed_chat_model_for_inspection(
     model_override: Option<&str>,
 ) -> anyhow::Result<ManagedChatModel> {
     enforce_local_only_inference(role, PROVIDER_OPENHUMAN)?;
-    let Some(factory) = crate::inference::registry::inspection_chat_model(PROVIDER_OPENHUMAN) else {
+    let Some(factory) = crate::inference::registry::inspection_chat_model(PROVIDER_OPENHUMAN)
+    else {
         return Err(managed_unavailable_error());
     };
     let model = resolve_managed_model(role, config, model_override);

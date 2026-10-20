@@ -390,9 +390,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-    use crate::inference::registry::{
-        InspectionChatModelFactory, register_inspection_chat_model,
-    };
+    use crate::inference::registry::{InspectionChatModelFactory, register_inspection_chat_model};
 
     struct ManagedModel {
         generations: Arc<AtomicUsize>,
@@ -504,7 +502,11 @@ async fn embedding_only_configuration_does_not_construct_a_chat_model_for_embedd
     let _ = super::construct(&config);
 
     assert!(
-        !roles.lock().unwrap().iter().any(|role| role == "embeddings"),
+        !roles
+            .lock()
+            .unwrap()
+            .iter()
+            .any(|role| role == "embeddings"),
         "embedding-only configuration must use embedding validation, never chat construction"
     );
 }

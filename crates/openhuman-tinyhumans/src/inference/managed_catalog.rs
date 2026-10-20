@@ -13,8 +13,8 @@ use openhuman_embed::__host::inference_registry::{
     BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest,
 };
 use openhuman_embed::__host::security::credentials::session_support::{
-    classify_session_token, load_app_session_profile, publish_local_session_expiry,
-    resolve_backend_credential, BackendCredential, SessionTokenCheck,
+    BackendCredential, SessionTokenCheck, classify_session_token, load_app_session_profile,
+    publish_local_session_expiry, resolve_backend_credential,
 };
 use openhuman_embed::__host::util::url::join_url;
 use std::sync::Arc;

@@ -101,6 +101,13 @@ impl DoctorCheck for ConfigSourceCheck {
             message.push_str(" No .env file was loaded.");
         }
 
+        if let Some(source) = ctx.profile_resolution_source() {
+            message.push_str(&format!(" config_resolution_source: {source}."));
+        }
+        if let Some(version) = ctx.profile_layout_version() {
+            message.push_str(&format!(" profile_layout_version: {version}."));
+        }
+
         let cli_override_active = provenance
             .fields()
             .any(|(_, field)| field.source == ProvenanceSource::Cli);

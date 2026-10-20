@@ -32,8 +32,17 @@ fn selected_findings<'a>(findings: &'a [Finding], check_id: &str) -> Vec<&'a Fin
 }
 
 async fn run_config_check(config: Config, check_id: &str) -> Vec<Finding> {
+    run_context_check(DoctorCtx::from_config(config), check_id)
+        .await
+        .findings
+}
+
+async fn run_context_check(
+    ctx: DoctorCtx,
+    check_id: &str,
+) -> crate::doctor::DoctorReport {
     runner::run(
-        &DoctorCtx::from_config(config),
+        &ctx,
         DoctorOptions {
             tier: DoctorTier::Static,
             only: vec![check_id.to_owned()],
@@ -42,7 +51,6 @@ async fn run_config_check(config: Config, check_id: &str) -> Vec<Finding> {
     )
     .await
     .expect("selected config doctor check runs")
-    .findings
 }
 
 #[tokio::test]
@@ -81,6 +89,24 @@ fn context_value_source_maps_logical_paths_without_labeling_filesystem_paths() {
     assert_eq!(ctx.value_source_for("default_model"), Some(ValueSource::Default));
     assert_eq!(ctx.value_source_for("/var/lib/openhuman/config.toml"), None);
     assert_eq!(ctx.value_source_for("config.toml"), None);
+}
+
+#[tokio::test]
+async fn config_source_reports_the_active_user_directory_resolution_source() {
+    let ctx = DoctorCtx::from_config(Config::default())
+        .with_profile_metadata(Some(2), Some("active_user.toml".to_owned()));
+    let report = run_context_check(ctx, CONFIG_SOURCE).await;
+    let matching = selected_findings(&report.findings, CONFIG_SOURCE);
+
+    assert_eq!(
+        report.config_resolution_source.as_deref(),
+        Some("active_user.toml")
+    );
+    assert_eq!(report.profile_layout_version, Some(2));
+    assert!(matching
+        .iter()
+        .any(|finding| finding.message.contains("config_resolution_source: active_user.toml")
+            && finding.message.contains("profile_layout_version: 2")));
 }
 
 #[tokio::test]

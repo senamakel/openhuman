@@ -345,13 +345,11 @@ fn normalize_logical_config_path(path: &str) -> Option<String> {
     while let Some(character) = chars.next() {
         match character {
             '[' => {
-                let mut index = String::new();
-                loop {
-                    match chars.next()? {
-                        ']' => break,
-                        digit if digit.is_ascii_digit() => index.push(digit),
-                        _ => return None,
-                    }
+                while chars.peek().is_some_and(char::is_ascii_digit) {
+                    chars.next();
+                }
+                if chars.next()? != ']' {
+                    return None;
                 }
                 normalized.push_str("[]");
             }

@@ -58,6 +58,11 @@ describe('<SystemDiagnostics /> doctor report', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Run doctor' }));
 
+    await waitFor(() => {
+      expect(callCoreRpc).toHaveBeenCalledWith(
+        expect.objectContaining({ method: 'openhuman.doctor_report', params: { tier: 'connect' } })
+      );
+    });
     expect(await screen.findByText('config')).toBeInTheDocument();
     expect(screen.getByText('runtime')).toBeInTheDocument();
     expect(screen.getByText('The config file was recovered from its backup.')).toBeInTheDocument();

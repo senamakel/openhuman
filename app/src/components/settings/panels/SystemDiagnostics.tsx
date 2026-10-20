@@ -220,18 +220,21 @@ const DoctorRow = () => {
         </Button>
       </div>
 
-      <Alert variant="warning" density="compact">
+      <Alert variant="warning" density="compact" role={undefined}>
         <p>{t(`${textKey}.liveWarning`)}</p>
       </Alert>
 
       {state.kind === 'error' && (
         <Alert variant="destructive" density="compact" role="status" aria-live="polite">
-          {t('common.error')}: {t('common.retry')}
+          {t('misc.somethingWentWrong')}. {t('common.retry')}
         </Alert>
       )}
 
       {state.kind === 'ready' && (
         <div className="space-y-3" aria-live="polite">
+          {groups.length === 0 && (
+            <p className="text-sm text-content-muted">{t('common.noResults')}</p>
+          )}
           {groups.map(([category, findings]) => (
             <section key={category} aria-label={category} className="space-y-2">
               <h4 className="text-sm font-semibold capitalize text-content">{category}</h4>

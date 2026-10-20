@@ -159,23 +159,20 @@ pub async fn doctor_report_for_desktop_selection(
 
 fn profile_inspection_context(
     config: &Config,
-    profile_id: Option<&str>,
+    _profile_id: Option<&str>,
 ) -> std::sync::Arc<CoreContext> {
     let Some(parent) = CoreContext::current() else {
-        return CoreContext::bare();
+        return CoreContext::for_inspection(config.clone());
     };
     let mut overlay = crate::core::runtime::ContextOverlay::new(
         config.clone(),
         parent.domains(),
         parent.tool_groups(),
     );
-    if let Some(profile_id) = profile_id {
-        overlay = overlay.profile(profile_id);
-    }
     if !parent.user_skill_roots() {
         overlay = overlay.without_user_skill_roots();
     }
-    parent.derive_with(overlay)
+    parent.derive_for_inspection(overlay)
 }
 
 /// Shared safe diagnostic for a config parse failure. Keeps parser output and

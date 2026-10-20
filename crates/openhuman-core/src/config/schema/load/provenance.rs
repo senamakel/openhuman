@@ -192,6 +192,13 @@ impl ConfigProvenance {
         self.fields.get(path).cloned().unwrap_or_default()
     }
 
+    /// Iterate over recorded fields without exposing or retaining config values.
+    pub(crate) fn fields(&self) -> impl Iterator<Item = (&str, &ValueProvenance)> {
+        self.fields
+            .iter()
+            .map(|(path, provenance)| (path.as_str(), provenance))
+    }
+
     pub(crate) fn set_dotenv(&mut self, dotenv: Option<DotenvLoadProvenance>) {
         self.dotenv = dotenv;
     }

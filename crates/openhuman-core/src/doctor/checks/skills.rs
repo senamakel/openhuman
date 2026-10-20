@@ -211,7 +211,7 @@ impl DoctorCheck for GithubPreflightCheck {
             Err(crate::skills::preflight::GithubGateError::ComposioProbeUnavailable) => {
                 Finding::skipped(
                     self.id(),
-                    "The selected connector is not already available for read-only inspection.",
+                    "The selected connector is unavailable for read-only inspection.",
                     "Open the selected Composio connection in Connections, then rerun doctor.",
                 )
             }

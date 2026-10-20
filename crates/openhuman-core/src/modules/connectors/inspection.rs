@@ -134,9 +134,22 @@ where
     Request: Serialize + Send,
     Reply: DeserializeOwned,
 {
+    call_proxy_readonly_with_timeout(proxy, member, request, INSPECTION_TIMEOUT).await
+}
+
+async fn call_proxy_readonly_with_timeout<Request, Reply>(
+    proxy: &tinybus::Proxy,
+    member: &str,
+    request: Request,
+    timeout: Duration,
+) -> Result<Reply, ExistingCallError>
+where
+    Request: Serialize + Send,
+    Reply: DeserializeOwned,
+{
     match tokio::time::timeout(
-        INSPECTION_TIMEOUT,
-        proxy.call_confidential::<Reply>(member, (request,)),
+        timeout,
+        proxy.with_timeout(timeout).call_confidential::<Reply>(member, (request,)),
     )
     .await
     {

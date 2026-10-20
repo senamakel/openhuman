@@ -23,6 +23,13 @@ pub async fn doctor_report_with_options(
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
     if let Some(profile_id) = options.profile.take() {
+        if crate::core::runtime::is_saas() {
+            return Ok(profile_error_outcome(
+                safe_profile_id(&profile_id),
+                options.tier,
+                super::profile::DesktopProfileError::Unavailable,
+            ));
+        }
         let Some(root) = super::profile::root_for_config(config)
             .or_else(|| crate::config::default_root_openhuman_dir().ok())
         else {
@@ -69,16 +76,14 @@ pub async fn doctor_report_for_dispatch(
     dispatch: &DispatchCtx,
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
-    let target =
-        crate::profiles::doctor::resolve_target(dispatch, options.profile.as_deref()).await?;
-    if let Some(target) = target {
-        let config = target.config.clone();
-        let ctx =
-            DoctorCtx::from_config_with_components(config.clone(), target.context.components())
-                .with_profile(target.profile_id.to_string(), DoctorConfigSource::Tenant);
-        options.profile = None;
-        return CoreContext::scope(target.context, report_with_context(&config, options, ctx))
-            .await;
+    if let Some(profile_id) = options.profile.as_deref() {
+        if crate::core::runtime::is_saas() {
+            return Ok(profile_error_outcome(
+                safe_profile_id(profile_id),
+                options.tier,
+                super::profile::DesktopProfileError::Unavailable,
+            ));
+        }
     }
 
     let config = dispatch.load_config().await?;

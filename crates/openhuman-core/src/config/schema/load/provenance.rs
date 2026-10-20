@@ -46,11 +46,7 @@ pub(crate) struct DotenvLoadProvenance {
 
 impl DotenvLoadProvenance {
     /// Build dotenv metadata from variable names only; values are discarded.
-    pub(crate) fn from_variables<I, K, P, PK>(
-        path: PathBuf,
-        variables: I,
-        process_vars: P,
-    ) -> Self
+    pub(crate) fn from_variables<I, K, P, PK>(path: PathBuf, variables: I, process_vars: P) -> Self
     where
         I: IntoIterator<Item = K>,
         K: AsRef<str>,
@@ -113,7 +109,10 @@ impl ConfigProvenance {
         env_var: &str,
         source: ProvenanceSource,
     ) {
-        debug_assert!(matches!(source, ProvenanceSource::Env | ProvenanceSource::Dotenv));
+        debug_assert!(matches!(
+            source,
+            ProvenanceSource::Env | ProvenanceSource::Dotenv
+        ));
         let file_also_set = self
             .fields
             .get(path)
@@ -160,6 +159,16 @@ fn record_toml_paths(
 ) {
     match value {
         toml::Value::Table(table) if !table.is_empty() => {
+            if !path.is_empty() {
+                fields.insert(
+                    path.clone(),
+                    ValueProvenance {
+                        source: ProvenanceSource::File,
+                        env_var: None,
+                        file_also_set: false,
+                    },
+                );
+            }
             for (key, child) in table {
                 let original_len = path.len();
                 if !path.is_empty() {
@@ -171,6 +180,16 @@ fn record_toml_paths(
             }
         }
         toml::Value::Array(values) if values.iter().any(toml::Value::is_table) => {
+            if !path.is_empty() {
+                fields.insert(
+                    path.clone(),
+                    ValueProvenance {
+                        source: ProvenanceSource::File,
+                        env_var: None,
+                        file_also_set: false,
+                    },
+                );
+            }
             for child in values.iter().filter(|child| child.is_table()) {
                 let original_len = path.len();
                 path.push_str("[]");

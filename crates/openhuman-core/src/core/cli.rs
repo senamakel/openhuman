@@ -9,13 +9,11 @@ use anyhow::Result;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
+use crate::config::schema::load::{set_current_dotenv_load, DotenvLoadProvenance};
 use crate::core::all;
 use crate::core::invoke::{default_state, invoke_method};
 use crate::core::params::parse_json_params;
 use crate::core::{ControllerSchema, TypeSchema};
-use crate::config::schema::load::{
-    set_current_dotenv_load, DotenvLoadProvenance,
-};
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
@@ -345,7 +343,9 @@ pub fn load_dotenv_for_cli() -> Result<()> {
                 anyhow::anyhow!("failed to load dotenv from OPENHUMAN_DOTENV_PATH={path}: {e}")
             })?;
             set_current_dotenv_load(Some(DotenvLoadProvenance::from_variables(
-                path, variables, process_vars,
+                path,
+                variables,
+                process_vars,
             )));
         }
         _ => {

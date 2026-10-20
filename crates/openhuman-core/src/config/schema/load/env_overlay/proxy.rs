@@ -21,17 +21,29 @@ impl Config {
         let mut proxy_url_overridden = false;
         if let Some(proxy_url) = env.get_any(&["OPENHUMAN_HTTP_PROXY", "HTTP_PROXY"]) {
             self.proxy.http_proxy = normalize_proxy_url_option(Some(&proxy_url));
-            self.record_env_override(env, "proxy.http_proxy", &["OPENHUMAN_HTTP_PROXY", "HTTP_PROXY"]);
+            self.record_env_override(
+                env,
+                "proxy.http_proxy",
+                &["OPENHUMAN_HTTP_PROXY", "HTTP_PROXY"],
+            );
             proxy_url_overridden = true;
         }
         if let Some(proxy_url) = env.get_any(&["OPENHUMAN_HTTPS_PROXY", "HTTPS_PROXY"]) {
             self.proxy.https_proxy = normalize_proxy_url_option(Some(&proxy_url));
-            self.record_env_override(env, "proxy.https_proxy", &["OPENHUMAN_HTTPS_PROXY", "HTTPS_PROXY"]);
+            self.record_env_override(
+                env,
+                "proxy.https_proxy",
+                &["OPENHUMAN_HTTPS_PROXY", "HTTPS_PROXY"],
+            );
             proxy_url_overridden = true;
         }
         if let Some(proxy_url) = env.get_any(&["OPENHUMAN_ALL_PROXY", "ALL_PROXY"]) {
             self.proxy.all_proxy = normalize_proxy_url_option(Some(&proxy_url));
-            self.record_env_override(env, "proxy.all_proxy", &["OPENHUMAN_ALL_PROXY", "ALL_PROXY"]);
+            self.record_env_override(
+                env,
+                "proxy.all_proxy",
+                &["OPENHUMAN_ALL_PROXY", "ALL_PROXY"],
+            );
             proxy_url_overridden = true;
         }
         if let Some(no_proxy) = env.get_any(&["OPENHUMAN_NO_PROXY", "NO_PROXY"]) {

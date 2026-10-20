@@ -31,14 +31,61 @@ tool_dispatcher = "native"
     .unwrap();
     let provenance = ConfigProvenance::from_file_document(&document);
 
-    assert_eq!(provenance.field("default_model").source, ProvenanceSource::File);
+    assert_eq!(
+        provenance.field("default_model").source,
+        ProvenanceSource::File
+    );
     assert_eq!(
         provenance.field("agent.tool_dispatcher").source,
         ProvenanceSource::File
     );
-    assert_eq!(provenance.field("output_language").source, ProvenanceSource::Default);
+    assert_eq!(
+        provenance.field("output_language").source,
+        ProvenanceSource::Default
+    );
     assert!(!format!("{provenance:?}").contains("file-model"));
     assert!(!format!("{provenance:?}").contains("native"));
+}
+
+#[test]
+fn every_serialized_config_field_has_file_or_default_source_when_no_env_is_applied() {
+    let config = super::config_from_toml_str(
+        r#"
+default_model = "file-model"
+[agent]
+tool_dispatcher = "native"
+"#,
+    )
+    .unwrap();
+    let serialized = serde_json::to_value(&config).unwrap();
+    assert_config_sources(&serialized, "", config.load_provenance());
+}
+
+fn assert_config_sources(value: &serde_json::Value, path: &str, provenance: &ConfigProvenance) {
+    match value {
+        serde_json::Value::Object(object) => {
+            for (key, child) in object {
+                let child_path = if path.is_empty() {
+                    key.clone()
+                } else {
+                    format!("{path}.{key}")
+                };
+                assert_config_sources(child, &child_path, provenance);
+            }
+        }
+        serde_json::Value::Array(items) if items.iter().any(serde_json::Value::is_object) => {
+            for item in items {
+                assert_config_sources(item, &format!("{path}[]"), provenance);
+            }
+        }
+        _ => {
+            let source = provenance.field(path).source;
+            assert!(
+                matches!(source, ProvenanceSource::File | ProvenanceSource::Default),
+                "{path} reported unexpected source {source:?}"
+            );
+        }
+    }
 }
 
 #[test]

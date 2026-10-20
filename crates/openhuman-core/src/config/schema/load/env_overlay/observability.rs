@@ -27,11 +27,19 @@ impl Config {
             match normalized.as_str() {
                 "1" | "true" | "yes" | "on" => {
                     self.observability.analytics_enabled = true;
-                    self.record_env_override(env, "observability.analytics_enabled", &["OPENHUMAN_ANALYTICS_ENABLED"]);
+                    self.record_env_override(
+                        env,
+                        "observability.analytics_enabled",
+                        &["OPENHUMAN_ANALYTICS_ENABLED"],
+                    );
                 }
                 "0" | "false" | "no" | "off" => {
                     self.observability.analytics_enabled = false;
-                    self.record_env_override(env, "observability.analytics_enabled", &["OPENHUMAN_ANALYTICS_ENABLED"]);
+                    self.record_env_override(
+                        env,
+                        "observability.analytics_enabled",
+                        &["OPENHUMAN_ANALYTICS_ENABLED"],
+                    );
                 }
                 _ => {}
             }
@@ -44,11 +52,19 @@ impl Config {
             match normalized.as_str() {
                 "1" | "true" | "yes" | "on" => {
                     self.observability.agent_tracing.capture_content = true;
-                    self.record_env_override(env, "observability.agent_tracing.capture_content", &["OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT"]);
+                    self.record_env_override(
+                        env,
+                        "observability.agent_tracing.capture_content",
+                        &["OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT"],
+                    );
                 }
                 "0" | "false" | "no" | "off" => {
                     self.observability.agent_tracing.capture_content = false;
-                    self.record_env_override(env, "observability.agent_tracing.capture_content", &["OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT"]);
+                    self.record_env_override(
+                        env,
+                        "observability.agent_tracing.capture_content",
+                        &["OPENHUMAN_AGENT_TRACING_CAPTURE_CONTENT"],
+                    );
                 }
                 _ => {}
             }

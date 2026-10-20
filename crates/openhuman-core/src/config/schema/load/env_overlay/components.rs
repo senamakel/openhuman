@@ -26,7 +26,11 @@ impl Config {
                 "[components] OPENHUMAN_DISABLE_CHANNEL_LISTENERS folds to channels=false"
             );
             self.components.set("channels", false);
-            self.record_env_override(env, "components.channels", &["OPENHUMAN_DISABLE_CHANNEL_LISTENERS"]);
+            self.record_env_override(
+                env,
+                "components.channels",
+                &["OPENHUMAN_DISABLE_CHANNEL_LISTENERS"],
+            );
         }
         for name in COMPONENT_NAMES {
             let key = format!("OPENHUMAN_COMPONENT_{}", name.to_ascii_uppercase());

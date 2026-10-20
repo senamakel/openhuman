@@ -149,7 +149,11 @@ impl Config {
                     "OPENHUMAN_TOOL_DISPATCHER overrides agent.tool_dispatcher"
                 );
                 self.agent.tool_dispatcher = trimmed.to_string();
-                self.record_env_override(env, "agent.tool_dispatcher", &["OPENHUMAN_TOOL_DISPATCHER"]);
+                self.record_env_override(
+                    env,
+                    "agent.tool_dispatcher",
+                    &["OPENHUMAN_TOOL_DISPATCHER"],
+                );
             }
         }
 
@@ -207,7 +211,11 @@ impl Config {
                     "OPENHUMAN_JEV_ROUTE overrides agent.tool_search.jev_route"
                 );
                 self.agent.tool_search.jev_route = trimmed.to_ascii_lowercase();
-                self.record_env_override(env, "agent.tool_search.jev_route", &["OPENHUMAN_JEV_ROUTE"]);
+                self.record_env_override(
+                    env,
+                    "agent.tool_search.jev_route",
+                    &["OPENHUMAN_JEV_ROUTE"],
+                );
             }
         }
         if let Some(raw) = env.get("OPENHUMAN_JEV_BASE_URL") {
@@ -215,7 +223,11 @@ impl Config {
             if !trimmed.is_empty() {
                 tracing::debug!("OPENHUMAN_JEV_BASE_URL overrides agent.tool_search.jev_base_url");
                 self.agent.tool_search.jev_base_url = Some(trimmed.to_string());
-                self.record_env_override(env, "agent.tool_search.jev_base_url", &["OPENHUMAN_JEV_BASE_URL"]);
+                self.record_env_override(
+                    env,
+                    "agent.tool_search.jev_base_url",
+                    &["OPENHUMAN_JEV_BASE_URL"],
+                );
             }
         }
 
@@ -240,7 +252,11 @@ impl Config {
             if let Ok(temp) = temp_str.parse::<f64>() {
                 if (0.0..=2.0).contains(&temp) {
                     self.default_temperature = temp;
-                    self.record_env_override(env, "default_temperature", &["OPENHUMAN_TEMPERATURE"]);
+                    self.record_env_override(
+                        env,
+                        "default_temperature",
+                        &["OPENHUMAN_TEMPERATURE"],
+                    );
                 }
             }
         }
@@ -251,7 +267,11 @@ impl Config {
                 match trimmed.parse::<u32>() {
                     Ok(limit) => {
                         self.autonomy.max_actions_per_hour = limit;
-                        self.record_env_override(env, "autonomy.max_actions_per_hour", &["OPENHUMAN_MAX_ACTIONS_PER_HOUR"]);
+                        self.record_env_override(
+                            env,
+                            "autonomy.max_actions_per_hour",
+                            &["OPENHUMAN_MAX_ACTIONS_PER_HOUR"],
+                        );
                     }
                     Err(_) => tracing::warn!(
                         value = %raw,

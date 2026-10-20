@@ -230,7 +230,7 @@ impl DoctorSummary {
 pub struct DoctorReport {
     pub schema_version: u8,
     pub profile: Option<String>,
-    pub config_source: Option<DoctorConfigSource>,
+    pub config_source: DoctorConfigSource,
     pub tier: DoctorTier,
     pub checks_run: Vec<String>,
     pub checks_skipped: Vec<String>,
@@ -257,15 +257,11 @@ impl DoctorCtx {
         let profile = core
             .as_ref()
             .and_then(|context| context.profile().map(str::to_owned));
-        let config_source = core.as_ref().and_then(|context| {
-            if profile.is_some() {
-                Some(DoctorConfigSource::Tenant)
-            } else if context.host_kind().is_desktop_shell() {
-                Some(DoctorConfigSource::Profile)
-            } else {
-                None
-            }
-        });
+        let config_source = if profile.is_some() {
+            DoctorConfigSource::Tenant
+        } else {
+            DoctorConfigSource::Profile
+        };
         let components = core
             .as_ref()
             .map_or_else(ComponentSet::all, |context| context.components());
@@ -296,11 +292,11 @@ impl DoctorCtx {
         self.components
     }
 
-    pub(crate) fn profile(&self) -> Option<&str> {
+    pub fn profile(&self) -> Option<&str> {
         self.profile.as_deref()
     }
 
-    pub(crate) fn config_source(&self) -> Option<DoctorConfigSource> {
+    pub(crate) fn config_source(&self) -> DoctorConfigSource {
         self.config_source
     }
 

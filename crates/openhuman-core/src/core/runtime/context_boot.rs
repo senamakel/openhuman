@@ -226,11 +226,11 @@ impl CoreContext {
         //    succeeds.
         let runtime_config = config.clone();
         if boot_mode == crate::core::runtime::CoreBootMode::Normal {
-            super::bootstrap::bootstrap_core_runtime(
+            crate::core::runtime::bootstrap::bootstrap_core_runtime(
                 host_kind,
                 config,
                 domains,
-                &super::DispatchCtx::new(ctx.clone()),
+                &crate::core::runtime::DispatchCtx::new(ctx.clone()),
             )
             .await;
         }

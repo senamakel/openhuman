@@ -18,7 +18,7 @@ fn context(tmp: &TempDir, api_url: &str) -> DoctorCtx {
     context_at(&state_dir, &state_dir, api_url)
 }
 
-fn context_at(state_dir: &Path, workspace_dir: &Path, api_url: &str) -> DoctorCtx {
+fn config_at(state_dir: &Path, workspace_dir: &Path, api_url: &str) -> Config {
     let mut config = Config {
         workspace_dir: workspace_dir.to_path_buf(),
         action_dir: workspace_dir.to_path_buf(),
@@ -27,7 +27,11 @@ fn context_at(state_dir: &Path, workspace_dir: &Path, api_url: &str) -> DoctorCt
         ..Config::default()
     };
     config.resolved_endpoints.control_plane_url = Some(api_url.to_owned());
-    DoctorCtx::from_config(config)
+    config
+}
+
+fn context_at(state_dir: &Path, workspace_dir: &Path, api_url: &str) -> DoctorCtx {
+    DoctorCtx::from_config(config_at(state_dir, workspace_dir, api_url))
 }
 
 fn write_raw_session_profile(
@@ -86,6 +90,17 @@ fn workspace_snapshot(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
         visit(root, root, &mut snapshot);
     }
     snapshot
+}
+
+async fn registered_ids(runtime: &openhuman_embed::CoreRuntime) -> Vec<String> {
+    CoreContext::scope(runtime.context().clone(), async {
+        registered_checks()
+            .expect("registered checks")
+            .iter()
+            .map(|check| check.id().to_owned())
+            .collect::<Vec<_>>()
+    })
+    .await
 }
 
 fn check(source: &HostedDoctorCheckSource, id: &str) -> Arc<dyn DoctorCheck> {
@@ -200,6 +215,33 @@ async fn hosted_probe_child() {
                     "severity": format!("{:?}", finding.severity),
                     "message": finding.message,
                 })).collect::<Vec<_>>(),
+            })
+        }
+        "scoped-context" => {
+            let mut extensions = Extensions::new();
+            crate::register::register_all(
+                &crate::InstallOptions::default(),
+                crate::register::DoctorRegistration::Context(&extensions),
+            );
+            let config = config_at(&workspace, &workspace, &api_url);
+            let hosted = CoreBuilder::new(HostKind::Library)
+                .services(ServiceSet::none())
+                .domains(DomainSet::none())
+                .config(config.clone())
+                .extensions(extensions)
+                .build()
+                .await
+                .expect("TinyHumans context");
+            let core_only = CoreBuilder::new(HostKind::Library)
+                .services(ServiceSet::none())
+                .domains(DomainSet::none())
+                .config(config)
+                .build()
+                .await
+                .expect("plain core context");
+            json!({
+                "hosted_ids": registered_ids(&hosted).await,
+                "core_ids": registered_ids(&core_only).await,
             })
         }
         "expired" => {
@@ -342,6 +384,17 @@ async fn unattributed_global_socket_status_is_skipped_for_selected_profile() {
 }
 
 #[tokio::test]
+async fn socket_error_for_selected_profile_remains_an_error() {
+    let tmp = TempDir::new().unwrap();
+    let ctx = context(&tmp, "https://selected-b.example");
+    let source = HostedDoctorCheckSource::with_socket_state_reader(|| Some(ConnectionStatus::Error));
+
+    let finding = check(&source, "backend/socket").detect(&ctx).await;
+
+    assert_eq!(finding[0].severity, FindingSeverity::Error);
+}
+
+#[tokio::test]
 async fn mismatched_issuing_backend_is_rejected_before_authenticated_probes() {
     let _registry = crate::registry_test_lock_async().await;
     let server = MockServer::start().await;
@@ -404,45 +457,11 @@ fn backend_credential_check_runs_in_the_connect_tier() {
 
 #[tokio::test]
 async fn hosted_checks_are_scoped_to_the_runtime_that_installed_tinyhumans() {
-    let _registry = crate::registry_test_lock_async().await;
-    let mut extensions = Extensions::new();
-    crate::register::register_all(
-        &crate::InstallOptions::default(),
-        crate::register::DoctorRegistration::Context(&extensions),
-    );
-    let config = Config::default();
-    let hosted = CoreBuilder::new(HostKind::Library)
-        .services(ServiceSet::none())
-        .domains(DomainSet::none())
-        .config(config.clone())
-        .extensions(extensions)
-        .build()
-        .await
-        .expect("hosted context");
-    let core_only = CoreBuilder::new(HostKind::Library)
-        .services(ServiceSet::none())
-        .domains(DomainSet::none())
-        .config(config)
-        .build()
-        .await
-        .expect("plain core context");
-
-    let hosted_ids = CoreContext::scope(hosted.context().clone(), async {
-        registered_checks()
-            .expect("registered hosted checks")
-            .iter()
-            .map(|check| check.id().to_owned())
-            .collect::<Vec<_>>()
-    })
-    .await;
-    let core_ids = CoreContext::scope(core_only.context().clone(), async {
-        registered_checks()
-            .expect("registered core checks")
-            .iter()
-            .map(|check| check.id().to_owned())
-            .collect::<Vec<_>>()
-    })
-    .await;
+    let tmp = TempDir::new().unwrap();
+    let api_url = "https://scope-test.example";
+    let report = run_isolated_probe("scoped-context", tmp.path(), api_url).await;
+    let hosted_ids = report["hosted_ids"].as_array().unwrap();
+    let core_ids = report["core_ids"].as_array().unwrap();
 
     for id in [
         "backend/reachable",

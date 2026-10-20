@@ -56,7 +56,7 @@ fn the_schema_composes_under_its_owner() {
 
 #[tokio::test]
 async fn migrate_cluster_moves_v1_leases_into_tsd_leases_and_keeps_their_epoch() {
-    use crate::storage::lease::{DocumentLeases, LeaseStore, LEASE_OWNER};
+    use crate::storage::lease::{DocumentLeases, LEASE_OWNER, LeaseStore};
     let backend = MemoryStorage::new();
     let scoped = backend.for_scope(&Scope::cluster()).unwrap();
     let docs = scoped.documents();

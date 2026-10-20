@@ -18,10 +18,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::config::Config;
 use crate::security::credentials::session_support::{
-    has_backend_credential, SESSION_EXPIRES_AT_META,
+    SESSION_EXPIRES_AT_META, has_backend_credential,
 };
 use crate::security::credentials::{
-    api_key, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME, api_key,
 };
 
 /// The kind of credential the gateway installs.

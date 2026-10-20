@@ -1,8 +1,8 @@
 use super::*;
 use crate::core::runtime::{CoreContext, DomainSet, SaasConfig};
-use crate::profiles::lease::{now_ms, renew_once};
 use crate::profiles::ProfileHost;
-use crate::storage::fence::{fence_error, FenceError, FenceRegistry};
+use crate::profiles::lease::{now_ms, renew_once};
+use crate::storage::fence::{FenceError, FenceRegistry, fence_error};
 use crate::storage::fenced_backend::FencedBackend;
 use crate::storage::lease::DocumentLeases;
 use crate::storage::{MemoryStorage, Scope, StorageBackend};

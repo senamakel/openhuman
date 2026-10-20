@@ -117,9 +117,7 @@ pub fn visible_in(saas: bool, scope: Scope, method: &str, operator_plane: bool) 
         (false, _) => true,
         (true, Scope::None) => false,
         (true, Scope::Operator) => operator_plane || shared,
-        (true, Scope::User) => {
-            !operator_plane && (USER_METHODS.contains(&method) || shared)
-        }
+        (true, Scope::User) => !operator_plane && (USER_METHODS.contains(&method) || shared),
     }
 }
 

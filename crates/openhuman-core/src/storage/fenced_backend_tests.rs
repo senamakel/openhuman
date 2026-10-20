@@ -2,9 +2,9 @@
 //! view of the shared backend are refused while B's succeed.
 
 use super::*;
-use crate::storage::fence::{fence_error, FenceError, LeaseFence, ScopeMatch};
-use crate::storage::lease::{DocumentLeases, LeaseGrant, LeaseStore, LocalLeases};
 use crate::storage::MemoryStorage;
+use crate::storage::fence::{FenceError, LeaseFence, ScopeMatch, fence_error};
+use crate::storage::lease::{DocumentLeases, LeaseGrant, LeaseStore, LocalLeases};
 use serde_json::json;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
@@ -109,18 +109,22 @@ async fn a_node_that_lost_the_lease_cannot_write_and_the_new_holder_can() {
     let session = a.scoped("alice~default");
     assert!(session.streams().append("log", json!(1)).await.is_err());
     assert!(session.blobs().put("k", b"x".to_vec(), None).await.is_err());
-    assert!(session
-        .documents()
-        .delete("notes", "n1", Precondition::None)
-        .await
-        .is_err());
+    assert!(
+        session
+            .documents()
+            .delete("notes", "n1", Precondition::None)
+            .await
+            .is_err()
+    );
     // Reads are not.
-    assert!(session
-        .documents()
-        .get("notes", "n1")
-        .await
-        .unwrap()
-        .is_some());
+    assert!(
+        session
+            .documents()
+            .get("notes", "n1")
+            .await
+            .unwrap()
+            .is_some()
+    );
     // Other profiles' scopes are untouched.
     a.put("profile:bob", "n1").await.unwrap();
 
@@ -490,19 +494,23 @@ async fn expiring_blob_writes_are_fenced() {
     a.set_clock(1_000);
 
     let session = a.scoped("alice~default");
-    assert!(session
-        .blobs()
-        .put_expiring("k", b"x".to_vec(), None, Duration::from_secs(60))
-        .await
-        .is_err());
-    assert!(backend
-        .for_scope(&Scope::new("alice~default").unwrap())
-        .unwrap()
-        .blobs()
-        .get("k")
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        session
+            .blobs()
+            .put_expiring("k", b"x".to_vec(), None, Duration::from_secs(60))
+            .await
+            .is_err()
+    );
+    assert!(
+        backend
+            .for_scope(&Scope::new("alice~default").unwrap())
+            .unwrap()
+            .blobs()
+            .get("k")
+            .await
+            .unwrap()
+            .is_none()
+    );
 }
 
 /// The wrapper must pass a conditional append through to a driver that has it:

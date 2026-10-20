@@ -28,7 +28,7 @@
 use std::path::Path;
 
 use crate::core::runtime::saas::SaasSandboxConfig;
-use crate::core::runtime::{is_saas, DispatchCtx};
+use crate::core::runtime::{DispatchCtx, is_saas};
 use crate::sandbox::{DockerOverrides, SandboxBackendKind, SandboxPolicy};
 
 /// A group of host tools an operator can opt users into.

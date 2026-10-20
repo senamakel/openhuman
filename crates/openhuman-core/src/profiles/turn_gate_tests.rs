@@ -27,7 +27,9 @@ async fn other_profiles_are_not_held_up() {
 
 #[tokio::test]
 async fn work_without_a_profile_is_not_gated() {
-    assert!(acquire(&crate::core::runtime::DispatchCtx::ambient())
-        .await
-        .is_none());
+    assert!(
+        acquire(&crate::core::runtime::DispatchCtx::ambient())
+            .await
+            .is_none()
+    );
 }

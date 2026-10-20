@@ -231,6 +231,40 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
     assert_eq!(load.skipped_vars, ["OPENHUMAN_APP_ENV"]);
 }
 
+#[test]
+fn load_dotenv_for_cli_keeps_valid_prefix_variables_when_later_line_is_malformed() {
+    let _guard = env_lock();
+    let tmp = tempdir().expect("tempdir");
+    let env_path = tmp.path().join(".env");
+    std::fs::write(
+        &env_path,
+        concat!(
+            "OPENHUMAN_DOTENV_PREFIX_TEST=fake-prefix\n",
+            "OPENHUMAN_DOTENV_PREEXISTING_TEST=file-value\n",
+            "BROKEN=\"unterminated\n"
+        ),
+    )
+    .expect("write malformed dotenv file");
+    let _vars = EnvVarGuard::unset("OPENHUMAN_DOTENV_PREFIX_TEST")
+        .with("OPENHUMAN_DOTENV_PREEXISTING_TEST", "process-value")
+        .with("OPENHUMAN_DOTENV_PATH", env_path.as_os_str());
+
+    let result = load_dotenv_for_cli();
+
+    assert!(
+        result.is_err(),
+        "malformed dotenv should still return an error"
+    );
+    assert_eq!(
+        std::env::var("OPENHUMAN_DOTENV_PREFIX_TEST").as_deref(),
+        Ok("fake-prefix")
+    );
+    assert_eq!(
+        std::env::var("OPENHUMAN_DOTENV_PREEXISTING_TEST").as_deref(),
+        Ok("process-value")
+    );
+}
+
 // --- `mcp` compile-time gate (#4799) ------------------------------------
 
 /// With the `mcp` feature compiled out, `openhuman mcp` must fail with a

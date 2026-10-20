@@ -7,7 +7,9 @@ use axum::{
     Json, Router,
 };
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::inference_registry::{CatalogRequest, InspectionCatalogError};
+use openhuman_embed::__host::inference_registry::{
+    CatalogRequest, InspectionCatalogError, PreparedInspectionCatalog,
+};
 use openhuman_embed::__host::security::credentials::session_support::{
     SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META,
 };
@@ -145,9 +147,9 @@ fn auth_profiles_path(config: &Config) -> std::path::PathBuf {
         .join("auth-profiles.json")
 }
 
-async fn inspect_managed_catalog(
+async fn prepare_managed_catalog(
     config: Config,
-) -> Result<openhuman_embed::__host::core::Outcome<serde_json::Value>, InspectionCatalogError> {
+) -> Result<PreparedInspectionCatalog, InspectionCatalogError> {
     let inspect = inspection_entry();
     inspect(
         config,
@@ -157,6 +159,12 @@ async fn inspect_managed_catalog(
         },
     )
     .await
+}
+
+async fn inspect_managed_catalog(
+    config: Config,
+) -> Result<openhuman_embed::__host::core::Outcome<serde_json::Value>, InspectionCatalogError> {
+    prepare_managed_catalog(config).await?.fetch().await
 }
 
 #[tokio::test(flavor = "current_thread")]

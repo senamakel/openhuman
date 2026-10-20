@@ -637,4 +637,4 @@ async fn drain_locked(config: &Config, file: &Path, state: &OwnerState, generati
 
 #[cfg(test)]
 #[path = "tool_writes_tests.rs"]
-mod tests;
+pub(crate) mod tests;

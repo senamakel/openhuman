@@ -1,8 +1,61 @@
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored, RefusingEngine};
 use serde_json::json;
-use tinymemory_api::Reach;
-use tinymemory_api::{MetaFilter, Namespace};
+use tinymemory_api::{MetaFilter, Namespace, Reach};
+use tinymemory_tools::{CallContext, MemoryTools, SingleTool, ToolScope};
+
+/// Exercises the production native single-tool parser and the host write sink.
+pub(crate) fn enqueue(
+    config: &Config,
+    args: &serde_json::Value,
+    facts: &CallFacts,
+) -> tinymemory_api::Result<serde_json::Value> {
+    let config = config.clone();
+    let args = args.clone();
+    let facts = facts.clone();
+    let invoke = move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime")
+            .block_on(async move {
+                let scope = ToolScope {
+                    place: facts.namespace.clone(),
+                    reach: Some(facts.reach.clone()),
+                    writes: true,
+                    zone: Some(config.time_zone()),
+                    workspace: facts.workspace.clone(),
+                    thread_id: facts.thread_id.clone(),
+                    agent_id: facts.agent_id.clone(),
+                    tool_call: Some(tinymemory_api::ToolCallRef {
+                        name: crate::memory::tools::MEMORY_TOOL_NAME.to_string(),
+                        id: facts.tool_call_id.clone(),
+                    }),
+                };
+                let tools = MemoryTools::with_scope(
+                    std::sync::Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
+                    scope,
+                );
+                let single = SingleTool::new(crate::memory::tools::MEMORY_TOOL_NAME, tools)
+                    .with_write_sink(std::sync::Arc::new(
+                        super::HostWriteSink::new(std::sync::Arc::new(config)),
+                    ));
+                let outcome = single
+                    .call_with_details(args, CallContext::default())
+                    .await
+                    .map_err(|error| tinymemory_api::Error::InvalidRequest(error.to_string()))?;
+                serde_json::from_value(outcome.value)
+                    .map_err(|error| tinymemory_api::Error::InvalidRequest(error.to_string()))
+            })
+    };
+    if tokio::runtime::Handle::try_current().is_ok() {
+        std::thread::spawn(invoke)
+            .join()
+            .map_err(|_| tinymemory_api::Error::Unavailable("native test call panicked".into()))?
+    } else {
+        invoke()
+    }
+}
 
 fn facts(config: &Config) -> CallFacts {
     CallFacts::of(

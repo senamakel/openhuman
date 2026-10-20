@@ -81,7 +81,7 @@ pub(crate) use turn_model::{
 // through `use super::*`.
 use access_gates::{emit_inference_egress, enforce_local_only_inference};
 use chat_model::{
-    unresolved_chat_model_error, unresolved_chat_model_error_with_access, with_default_temperature,
+    unresolved_chat_model_error, with_default_temperature,
 };
 use cloud_slug::{
     resolve_cloud_slug, resolve_cloud_slug_with_access, try_create_cloud_slug_chat_model,

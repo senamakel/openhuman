@@ -174,6 +174,31 @@ async fn load_config_read_only(
     Ok((config, config_text.is_some()))
 }
 
+async fn profile_paths_for_resolved_dirs(
+    config_dir: PathBuf,
+    workspace_dir: PathBuf,
+) -> Result<(PathBuf, PathBuf, Option<String>, Option<LayoutVersion>), DesktopProfileError> {
+    if let Some(profile_id) = profile_id_for_dir(&config_dir)? {
+        let layout = read_profile_layout(config_dir).await?;
+        return Ok((
+            layout.dir.clone(),
+            layout.workspace_dir.clone(),
+            Some(profile_id),
+            Some(layout.version),
+        ));
+    }
+    if let Some(layout) = ProfileLayout::of_workspace(&workspace_dir) {
+        let id = profile_id_for_dir(&layout.dir)?;
+        return Ok((
+            layout.dir.clone(),
+            layout.workspace_dir.clone(),
+            id,
+            Some(layout.version),
+        ));
+    }
+    Ok((config_dir, workspace_dir, None, None))
+}
+
 async fn resolve_desktop_config_dirs_read_only(
     root: &Path,
 ) -> Result<

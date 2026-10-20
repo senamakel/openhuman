@@ -257,7 +257,15 @@ impl DoctorCtx {
         let profile = core
             .as_ref()
             .and_then(|context| context.profile().map(str::to_owned));
-        let config_source = profile.as_ref().map(|_| DoctorConfigSource::Tenant);
+        let config_source = core.as_ref().and_then(|context| {
+            if profile.is_some() {
+                Some(DoctorConfigSource::Tenant)
+            } else if context.host_kind().is_desktop_shell() {
+                Some(DoctorConfigSource::Profile)
+            } else {
+                None
+            }
+        });
         let components = core
             .as_ref()
             .map_or_else(ComponentSet::all, |context| context.components());

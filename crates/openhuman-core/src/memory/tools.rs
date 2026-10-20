@@ -101,24 +101,6 @@ impl CallFacts {
         }
     }
 
-    #[cfg(test)]
-    fn learn_meta(&self) -> tinymemory_api::MemoryMeta {
-        tinymemory_api::MemoryMeta {
-            namespace: self.namespace.clone(),
-            workspace: self.workspace.clone(),
-            thread_id: self.thread_id.clone(),
-            agent_id: self.agent_id.clone(),
-            tool_call: Some(ToolCallRef {
-                name: MEMORY_TOOL_NAME.to_string(),
-                id: self.tool_call_id.clone(),
-            }),
-            source: tinymemory_api::SourceRef {
-                kind: tinymemory_api::SourceKind::Agent,
-                id: None,
-            },
-            ..tinymemory_api::MemoryMeta::default()
-        }
-    }
 }
 
 /// OpenHuman's monotonic Tokio clock for TinyMemory's runtime-neutral budget.
@@ -305,22 +287,6 @@ pub fn is_budget_refusal(result: &ToolResult) -> bool {
 }
 
 #[cfg(test)]
-async fn run_action(
-    ctx: &DispatchCtx,
-    config: &Config,
-    args: &Value,
-    facts: &CallFacts,
-) -> ToolResult {
-    let result = MemoryTool::new(Arc::new(config.clone()))
-        .call_with_facts(args.clone(), ctx.clone(), facts.clone(), None)
-        .await;
-    if is_write_action(args) && !result.is_error {
-        super::tool_writes::drain(config).await;
-    }
-    result
-}
-
-#[cfg(test)]
 #[path = "tools_tests.rs"]
 mod tests;
 #[cfg(test)]
@@ -341,3 +307,8 @@ mod activity_tests;
 #[cfg(test)]
 #[path = "tools_read_tests.rs"]
 mod read_tests;
+#[cfg(test)]
+#[path = "tools_test_support.rs"]
+mod test_support;
+#[cfg(test)]
+use test_support::run_action;

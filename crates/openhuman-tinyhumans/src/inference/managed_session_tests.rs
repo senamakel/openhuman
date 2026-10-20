@@ -98,6 +98,27 @@ async fn an_in_band_401_publishes_session_expired() {
 
 #[tokio::test]
 async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_expiry() {
+    const CHILD_MARKER: &str = "OPENHUMAN_INSPECTION_401_ISOLATED_CHILD";
+    if std::env::var_os(CHILD_MARKER).is_none() {
+        let exact = "inference::managed_session::tests::inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_expiry";
+        let output = std::process::Command::new(
+            std::env::current_exe().expect("resolve current test executable"),
+        )
+        .args(["--exact", exact, "--nocapture", "--test-threads=1"])
+        .env(CHILD_MARKER, "1")
+        .stdin(std::process::Stdio::null())
+        .output()
+        .expect("run inspection 401 test in an isolated process");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        assert!(
+            output.status.success()
+                && stdout.contains("test result: ok. 1 passed; 0 failed; 0 ignored"),
+            "isolated inspection 401 test must run exactly once and pass (status {})",
+            output.status
+        );
+        return;
+    }
+
     use axum::response::IntoResponse;
     use openhuman_embed::__host::config::Config;
     use openhuman_embed::__host::core::events::DomainEvent;

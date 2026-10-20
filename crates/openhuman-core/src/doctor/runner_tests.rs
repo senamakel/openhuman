@@ -65,6 +65,37 @@ impl tinymemory_api::MemoryEngine for DownMemoryEngine {
     }
 }
 
+fn snapshot_test_tree(
+    root: &std::path::Path,
+) -> std::collections::BTreeMap<std::path::PathBuf, Option<Vec<u8>>> {
+    fn walk(
+        current: &std::path::Path,
+        root: &std::path::Path,
+        snapshot: &mut std::collections::BTreeMap<std::path::PathBuf, Option<Vec<u8>>>,
+    ) {
+        for entry in std::fs::read_dir(current).expect("read fixture directory") {
+            let path = entry.expect("fixture entry").path();
+            let relative = path
+                .strip_prefix(root)
+                .expect("fixture path is inside its root")
+                .to_path_buf();
+            if path.is_dir() {
+                snapshot.insert(relative, None);
+                walk(&path, root, snapshot);
+            } else {
+                snapshot.insert(
+                    relative,
+                    Some(std::fs::read(path).expect("read fixture file")),
+                );
+            }
+        }
+    }
+
+    let mut snapshot = std::collections::BTreeMap::new();
+    walk(root, root, &mut snapshot);
+    snapshot
+}
+
 struct BlockingProbe {
     id: String,
     timeout: Duration,
@@ -334,38 +365,6 @@ async fn memory_health_check_reports_the_engine_down_reason() {
 
 #[tokio::test]
 async fn storage_connect_check_does_not_change_the_selected_sqlite_tree() {
-    use std::collections::BTreeMap;
-    use std::path::Path;
-
-    fn snapshot_tree(root: &Path) -> BTreeMap<std::path::PathBuf, Option<Vec<u8>>> {
-        fn walk(
-            current: &Path,
-            root: &Path,
-            snapshot: &mut BTreeMap<std::path::PathBuf, Option<Vec<u8>>>,
-        ) {
-            for entry in std::fs::read_dir(current).expect("read fixture directory") {
-                let path = entry.expect("fixture entry").path();
-                let relative = path
-                    .strip_prefix(root)
-                    .expect("fixture path is inside its root")
-                    .to_path_buf();
-                if path.is_dir() {
-                    snapshot.insert(relative, None);
-                    walk(&path, root, snapshot);
-                } else {
-                    snapshot.insert(
-                        relative,
-                        Some(std::fs::read(path).expect("read fixture file")),
-                    );
-                }
-            }
-        }
-
-        let mut snapshot = BTreeMap::new();
-        walk(root, root, &mut snapshot);
-        snapshot
-    }
-
     let temp = tempfile::tempdir().expect("temp directory");
     let workspace = temp.path().join("workspace");
     std::fs::create_dir_all(&workspace).expect("create workspace");
@@ -375,7 +374,7 @@ async fn storage_connect_check_does_not_change_the_selected_sqlite_tree() {
         .await
         .expect("create a local SQLite fixture using the normal setup path");
     drop(backend);
-    let before = snapshot_tree(temp.path());
+    let before = snapshot_test_tree(temp.path());
     let config = Config {
         action_dir: workspace.clone(),
         workspace_dir: workspace,
@@ -400,29 +399,79 @@ async fn storage_connect_check_does_not_change_the_selected_sqlite_tree() {
         .iter()
         .find(|finding| finding.check_id == "storage/connect")
         .expect("the selected storage check returns its own finding");
-    assert_eq!(finding.severity, FindingSeverity::Skipped);
-    assert_eq!(before, snapshot_tree(temp.path()));
+    assert_eq!(finding.severity, FindingSeverity::Pass);
+    assert_eq!(before, snapshot_test_tree(temp.path()));
+}
+
+#[tokio::test]
+async fn storage_connect_check_reports_corrupt_sqlite_without_changing_it() {
+    let temp = tempfile::tempdir().expect("temp directory");
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    let file = temp.path().join("corrupt.db");
+    std::fs::write(&file, b"not a sqlite database").expect("write corrupt database fixture");
+    let before = snapshot_test_tree(temp.path());
+    let config = Config {
+        action_dir: workspace.clone(),
+        workspace_dir: workspace,
+        storage: crate::config::StorageConfig {
+            url: Some(format!("sqlite:{}", file.display())),
+            ..crate::config::StorageConfig::default()
+        },
+        ..Config::default()
+    };
+
+    let report = runner::run(
+        &DoctorCtx::from_config(config),
+        DoctorOptions {
+            only: vec!["storage/connect".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("storage failure is represented in the report");
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "storage/connect")
+        .expect("the selected storage check returns its own finding");
+
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(!finding.message.contains(file.to_string_lossy().as_ref()));
+    assert_eq!(before, snapshot_test_tree(temp.path()));
 }
 
 #[tokio::test]
 async fn storage_layout_check_warns_when_a_migration_is_pending() {
     let temp = tempfile::tempdir().expect("temp directory");
     let target = crate::storage::layout::Target::new(temp.path(), "u1");
-    std::fs::create_dir_all(&target.profile_dir).expect("create profile directory");
-    let state_path = target
-        .profile_dir
-        .join(crate::storage::layout::state::STATE_FILE);
-    crate::storage::layout::state::LayoutState::new("u1", 1_792_488_000_000)
-        .save(&target.profile_dir)
-        .expect("write pending migration state");
-    let before = std::fs::read(&state_path).expect("read migration state");
     let workspace = target.workspace();
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    std::fs::create_dir_all(&target.profile_dir).expect("create profile directory");
     let config = Config {
         action_dir: workspace.clone(),
         config_path: target.profile_dir.join("config.toml"),
         workspace_dir: workspace,
         ..Config::default()
     };
+    let state_path = target
+        .profile_dir
+        .join(crate::storage::layout::state::STATE_FILE);
+    let error = crate::storage::layout::migrate(
+        &target,
+        &config,
+        &crate::storage::layout::Options {
+            crash_after: Some(crate::storage::layout::Step::Import),
+            ..crate::storage::layout::Options::default()
+        },
+    )
+    .await
+    .expect_err("the fixture migration should stop after its import step");
+    assert!(matches!(
+        error,
+        crate::storage::layout::LayoutError::InjectedCrash(crate::storage::layout::Step::Import)
+    ));
+    let before = std::fs::read(&state_path).expect("read migration state");
 
     let report = runner::run(
         &DoctorCtx::from_config(config),

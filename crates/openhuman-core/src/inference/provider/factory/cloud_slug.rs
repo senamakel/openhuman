@@ -165,7 +165,9 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     } else {
         let key = credential_access
             .lookup_key_for_slug(slug, config)
-            .map_err(|error| anyhow::anyhow!("{} (underlying error: {error})", missing_credentials()))?;
+            .map_err(|error| {
+                anyhow::anyhow!("{} (underlying error: {error})", missing_credentials())
+            })?;
         let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth(config);
         (key, is_oauth)
     };

@@ -129,11 +129,9 @@ fn create_chat_model_with_model_id_inner_and_access(
             CredentialAccess::Runtime => {
                 try_create_cloud_slug_chat_model(role, config, &EgressLedger::none())
             }
-            CredentialAccess::Inspection => try_create_cloud_slug_chat_model_for_inspection(
-                role,
-                config,
-                &EgressLedger::none(),
-            ),
+            CredentialAccess::Inspection => {
+                try_create_cloud_slug_chat_model_for_inspection(role, config, &EgressLedger::none())
+            }
         };
         if let Some(result) = cloud_slug {
             return result;
@@ -398,7 +396,13 @@ pub(super) fn unresolved_chat_model_error(
     config: &Config,
     egress: &EgressLedger,
 ) -> anyhow::Error {
-    unresolved_chat_model_error_with_access(role, provider, config, egress, CredentialAccess::Runtime)
+    unresolved_chat_model_error_with_access(
+        role,
+        provider,
+        config,
+        egress,
+        CredentialAccess::Runtime,
+    )
 }
 
 pub(super) fn unresolved_chat_model_error_with_access(

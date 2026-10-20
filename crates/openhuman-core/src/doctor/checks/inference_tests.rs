@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::doctor::runner;
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 const PROVIDER_REF: &str = "inference/provider-ref";
@@ -86,6 +86,78 @@ async fn an_unregistered_chat_provider_reports_its_config_path() {
 }
 
 #[tokio::test]
+async fn invalid_role_primary_cloud_and_route_references_report_each_path() {
+    let mut config = Config::default();
+    config.reasoning_provider = Some("missing-chat-provider:model".to_owned());
+    config.primary_cloud = Some("missing-primary-id".to_owned());
+    config.model_routes = vec![crate::config::ModelRouteConfig {
+        hint: "reasoning".to_owned(),
+        model: "missing-route-provider:model".to_owned(),
+    }];
+    config.embedding_routes = vec![crate::config::EmbeddingRouteConfig {
+        hint: "recall".to_owned(),
+        provider: "missing-embedding-provider".to_owned(),
+        model: "embedding-model".to_owned(),
+        dimensions: Some(768),
+    }];
+
+    let findings = run_only(config, PROVIDER_REF).await;
+    let paths = findings
+        .iter()
+        .filter(|result| result.check_id == PROVIDER_REF)
+        .filter_map(|result| result.config_path.as_deref())
+        .collect::<Vec<_>>();
+
+    for expected in [
+        "reasoning_provider",
+        "primary_cloud",
+        "model_routes[0].model",
+        "embedding_routes[0].provider",
+    ] {
+        assert!(
+            paths.contains(&expected),
+            "missing {expected} provider-reference finding: {findings:#?}"
+        );
+    }
+}
+
+#[cfg(feature = "voice")]
+#[tokio::test]
+async fn registered_voice_provider_ids_resolve_without_calling_the_factory() {
+    let _registered = RegisterVoiceProviders;
+    crate::voice::factory::registry::register_stt_provider("doctor-fake-stt", |_, _| {
+        panic!("provider-reference checks must not invoke STT constructors")
+    });
+    crate::voice::factory::registry::register_tts_provider("doctor-fake-tts", |_, _| {
+        panic!("provider-reference checks must not invoke TTS constructors")
+    });
+
+    let mut config = Config::default();
+    config.stt_provider = Some("doctor-fake-stt:small".to_owned());
+    config.tts_provider = Some("doctor-fake-tts:voice".to_owned());
+
+    let findings = run_only(config, PROVIDER_REF).await;
+
+    assert!(
+        findings
+            .iter()
+            .all(|result| result.check_id != PROVIDER_REF),
+        "registered STT/TTS providers should resolve without constructing them: {findings:#?}"
+    );
+}
+
+#[cfg(feature = "voice")]
+struct RegisterVoiceProviders;
+
+#[cfg(feature = "voice")]
+impl Drop for RegisterVoiceProviders {
+    fn drop(&mut self) {
+        crate::voice::factory::registry::unregister_stt_provider("doctor-fake-stt");
+        crate::voice::factory::registry::unregister_tts_provider("doctor-fake-tts");
+    }
+}
+
+#[tokio::test]
 async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;
@@ -129,7 +201,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-    use crate::inference::registry::{register_chat_model, ChatModelEntry};
+    use crate::inference::registry::{ChatModelEntry, register_chat_model};
 
     struct ManagedModel {
         generations: Arc<AtomicUsize>,
@@ -204,9 +276,11 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         "the managed provider factory must be consulted"
     );
     assert_eq!(generations.load(Ordering::SeqCst), 0);
-    assert!(findings
-        .iter()
-        .all(|result| !result.message.contains("doctor-test-session-token")));
+    assert!(
+        findings
+            .iter()
+            .all(|result| !result.message.contains("doctor-test-session-token"))
+    );
     assert!(!temp.path().join("auth-profiles.json").exists());
     assert!(!temp.path().join("auth-profiles.lock").exists());
 }
@@ -231,4 +305,41 @@ async fn an_out_of_range_temperature_reports_the_role_setting() {
 
     assert_eq!(result.severity, FindingSeverity::Error);
     assert_eq!(result.config_path.as_deref(), Some("default_temperature"));
+}
+
+#[tokio::test]
+async fn invalid_role_and_agent_temperatures_report_their_config_paths() {
+    let mut config = Config::default();
+    config.chat_provider = Some("openai:gpt-4o@-0.1".to_owned());
+    config.model_routes = vec![crate::config::ModelRouteConfig {
+        hint: "reasoning".to_owned(),
+        model: "openai:o3@2.5".to_owned(),
+    }];
+    config.agents.insert(
+        "delegate-test".to_owned(),
+        crate::config::DelegateAgentConfig {
+            model: "openrouter/example".to_owned(),
+            system_prompt: None,
+            temperature: Some(f64::NAN),
+            max_depth: 3,
+        },
+    );
+
+    let findings = run_only(config, TEMPERATURE).await;
+    let paths = findings
+        .iter()
+        .filter(|result| result.check_id == TEMPERATURE)
+        .filter_map(|result| result.config_path.as_deref())
+        .collect::<Vec<_>>();
+
+    for expected in [
+        "chat_provider",
+        "model_routes[0].model",
+        "agents[0].temperature",
+    ] {
+        assert!(
+            paths.contains(&expected),
+            "missing {expected} temperature finding: {findings:#?}"
+        );
+    }
 }

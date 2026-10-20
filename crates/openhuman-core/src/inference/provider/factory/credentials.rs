@@ -13,11 +13,7 @@ pub(super) enum CredentialAccess {
 }
 
 impl CredentialAccess {
-    pub(super) fn lookup_key_for_slug(
-        self,
-        slug: &str,
-        config: &Config,
-    ) -> anyhow::Result<String> {
+    pub(super) fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
         match self {
             Self::Runtime => lookup_key_for_slug(slug, config),
             Self::Inspection => lookup_key_for_slug_read_only(slug, config).map(|(key, _)| key),

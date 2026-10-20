@@ -79,7 +79,7 @@ where
 {
     let _route_guard = route_gate().lock().await;
     if !config.modules.enabled
-        || !config.components.composio
+        || !config.components.connectors
         || super::ops::state_of(super::MODULE_ID) != ModuleState::Ready
     {
         return Ok(None);

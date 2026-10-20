@@ -193,42 +193,63 @@ fn register_test_inspection_catalog(
     provider: &str,
     endpoint: String,
 ) -> Arc<AtomicUsize> {
-    use crate::core::Outcome;
     use crate::inference::registry::{
-        InspectionCatalogError, InspectionCatalogListing, register_inspection_catalog_in,
+        InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
+        register_inspection_catalog_in,
     };
 
     let requests = Arc::new(AtomicUsize::new(0));
     let request_count = Arc::clone(&requests);
-    let listing: InspectionCatalogListing = Arc::new(move |_config, request| {
+    let provider_id = provider.to_owned();
+    let listing: InspectionCatalogListing = Arc::new(move |config, request| {
         let endpoint = endpoint.clone();
+        let provider_id = provider_id.clone();
         let request_count = Arc::clone(&request_count);
         Box::pin(async move {
-            request_count.fetch_add(1, Ordering::SeqCst);
-            let response = request
-                .client
-                .get(endpoint)
-                .send()
-                .await
-                .map_err(|_| InspectionCatalogError::Unavailable)?;
-            let status = response.status();
-            if status == StatusCode::NOT_FOUND {
-                return Err(InspectionCatalogError::NoCatalog);
-            }
-            if matches!(status, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
-                return Err(InspectionCatalogError::AuthOrAccess);
-            }
-            if !status.is_success() {
-                return Err(InspectionCatalogError::Failure);
-            }
-            let body = response
-                .json::<serde_json::Value>()
-                .await
-                .map_err(|_| InspectionCatalogError::Failure)?;
-            let models = body.get("data").cloned().unwrap_or_else(|| serde_json::json!([]));
-            Ok(Outcome::new(
-                serde_json::json!({ "models": models }),
-                Vec::new(),
+            let credential = config.api_key.clone();
+            let cache_endpoint = endpoint.clone();
+            let client = request.client.clone();
+            let fetch_endpoint = endpoint.clone();
+            let fetch_credential = credential.clone();
+            let fetch_count = Arc::clone(&request_count);
+            let fetch = Box::pin(async move {
+                fetch_count.fetch_add(1, Ordering::SeqCst);
+                let mut get = client.get(fetch_endpoint);
+                if let Some(credential) = fetch_credential.as_deref() {
+                    get = get.bearer_auth(credential);
+                }
+                let response = get
+                    .send()
+                    .await
+                    .map_err(|_| InspectionCatalogError::Unavailable)?;
+                let status = response.status();
+                if status == StatusCode::NOT_FOUND {
+                    return Err(InspectionCatalogError::NoCatalog);
+                }
+                if matches!(status, StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN) {
+                    return Err(InspectionCatalogError::AuthOrAccess);
+                }
+                if !status.is_success() {
+                    return Err(InspectionCatalogError::Failure);
+                }
+                let body = response
+                    .json::<serde_json::Value>()
+                    .await
+                    .map_err(|_| InspectionCatalogError::Failure)?;
+                let models = body
+                    .get("data")
+                    .cloned()
+                    .unwrap_or_else(|| serde_json::json!([]));
+                Ok(crate::core::Outcome::new(
+                    serde_json::json!({ "models": models }),
+                    Vec::new(),
+                ))
+            });
+            Ok(PreparedInspectionCatalog::new(
+                &provider_id,
+                &cache_endpoint,
+                credential.as_deref(),
+                fetch,
             ))
         })
     });
@@ -327,6 +348,57 @@ async fn doctor_models_does_not_reuse_a_catalog_for_another_profiles_credential(
     assert_eq!(
         std::fs::read(auth_profiles_path(&config_b)).unwrap(),
         auth_file_b_before
+    );
+}
+
+#[tokio::test]
+async fn prepared_catalog_identity_changes_when_managed_credential_rotates_in_place() {
+    let (endpoint, server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["managed-model"]), true).await;
+    let (_temp, mut config_a) = temporary_config();
+    config_a.api_key = Some("fixture-managed-credential-a".into());
+    config_a.cloud_providers = vec![CloudProviderCreds {
+        id: "openhuman".into(),
+        slug: "openhuman".into(),
+        label: "Managed catalog fixture".into(),
+        endpoint: endpoint.clone(),
+        auth_style: AuthStyle::OpenhumanJwt,
+        default_model: None,
+    }];
+    let mut config_b = config_a.clone();
+    config_b.api_key = Some("fixture-managed-credential-b".into());
+    let extensions = crate::core::slots::Extensions::new();
+    let prepared_fetches = register_test_inspection_catalog(
+        &extensions,
+        "openhuman",
+        format!("{endpoint}/models"),
+    );
+    let context = profile_context_with_extensions(config_b.clone(), "tenant-b", extensions);
+
+    let (first, second, third) = crate::core::runtime::CoreContext::scope(context, async {
+        let first = doctor_models(&config_a, true).await?;
+        let second = doctor_models(&config_b, true).await?;
+        let third = doctor_models(&config_b, true).await?;
+        Ok::<_, String>((first, second, third))
+    })
+    .await
+    .expect("selected profile scope")
+    .expect("managed model catalog results");
+
+    assert_eq!(first.value.entries[0].outcome, ModelProbeOutcome::Ok);
+    assert_eq!(second.value.entries[0].outcome, ModelProbeOutcome::Ok);
+    assert_eq!(third.value.entries[0].outcome, ModelProbeOutcome::Ok);
+    assert_eq!(server.requests.load(Ordering::SeqCst), 2);
+    assert_eq!(prepared_fetches.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        *server
+            .authorizations
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()),
+        vec![
+            Some("Bearer fixture-managed-credential-a".to_owned()),
+            Some("Bearer fixture-managed-credential-b".to_owned())
+        ]
     );
 }
 

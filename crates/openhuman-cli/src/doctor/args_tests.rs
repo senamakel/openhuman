@@ -1,6 +1,6 @@
 use serde_json::{json, Value};
 
-use super::{exit_code, parse_args, DoctorArgs};
+use super::{exit_code, is_doctor_command, parse_args, DoctorArgs};
 
 fn args(values: &[&str]) -> DoctorArgs {
     let values = values
@@ -22,6 +22,28 @@ fn report(findings: Value) -> Value {
         "summary": { "pass": 0, "info": 0, "warn": 0, "error": 0, "skipped": 0 },
         "ok": true
     })
+}
+
+#[test]
+fn defaults_to_connect_tier_and_error_lint_threshold() {
+    let options = args(&[]);
+
+    assert_eq!(options.tier, "connect");
+    assert_eq!(options.severity_min, "error");
+    assert!(!options.json);
+    assert!(!options.lint);
+    assert!(options.only.is_empty());
+    assert!(options.skip.is_empty());
+    assert!(options.profile.is_none());
+}
+
+#[test]
+fn invalid_severity_and_unknown_flags_are_parse_errors() {
+    let invalid_severity = ["--severity-min", "pass"].map(str::to_owned);
+    let unknown_flag = ["--force"].map(str::to_owned);
+
+    assert!(parse_args(&invalid_severity).is_err());
+    assert!(parse_args(&unknown_flag).is_err());
 }
 
 #[test]
@@ -148,4 +170,12 @@ fn live_profile_and_repeatable_selectors_map_to_rpc_options() {
             "skip": ["config/provenance"]
         })
     );
+}
+
+#[test]
+fn legacy_doctor_namespace_commands_stay_with_the_core_dispatcher() {
+    for command in ["report", "models"] {
+        let invocation = vec!["doctor".to_owned(), command.to_owned()];
+        assert!(!is_doctor_command(&invocation));
+    }
 }

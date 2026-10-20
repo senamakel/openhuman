@@ -158,8 +158,11 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
         .as_u64()
         .is_some_and(|value| (1..=5).contains(&value)));
     assert_eq!(
-        requests[0].headers.get("authorization").unwrap(),
-        &"Bearer dummy-doctor-bearer"
+        requests[0]
+            .headers
+            .get("authorization")
+            .map(|value| value.to_str().unwrap()),
+        Some("Bearer dummy-doctor-bearer")
     );
 
     let serialized = serde_json::to_string(&report).expect("report serializes");
@@ -315,20 +318,16 @@ async fn same_endpoint_and_credential_with_distinct_models_get_distinct_completi
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/openai/chat/completions"))
-        .respond_with(ResponseTemplate::new(200).set_body_json(completion_response(
-            "provider/answered-model",
-            "OK",
-        )))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(completion_response("provider/answered-model", "OK")),
+        )
         .mount(&server)
         .await;
     let mut fixture = config_for(&server, "provider/chat-model");
     fixture.config.reasoning_provider = Some("ephemeral-route:reasoning-model".into());
 
-    let report = run_live(
-        fixture,
-        vec![CHECK_CHAT, "inference/live/reasoning"],
-    )
-    .await;
+    let report = run_live(fixture, vec![CHECK_CHAT, "inference/live/reasoning"]).await;
     assert_eq!(finding(&report, CHECK_CHAT).severity, FindingSeverity::Pass);
     assert_eq!(
         finding(&report, "inference/live/reasoning").severity,

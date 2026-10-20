@@ -77,6 +77,10 @@ fn profile_read_only_secret_lookup_uses_only_the_selected_store() {
 
 #[test]
 fn profile_read_only_secret_lookup_does_not_create_a_missing_key() {
+    let _env = crate::config::test_env::EnvVarGuard::locked_unset_many(&[
+        MASTER_KEY_ENV,
+        MASTER_KEY_FILE_ENV,
+    ]);
     let workspace = secrets_tempdir();
     let backend = EncryptedFileBackend::new(workspace.path());
 
@@ -102,13 +106,15 @@ fn profile_read_only_secret_lookup_preserves_corrupt_store_bytes() {
         std::fs::read(&backend.path).unwrap(),
         b"corrupt encrypted store"
     );
-    assert!(!std::fs::read_dir(workspace.path())
-        .unwrap()
-        .flatten()
-        .any(|entry| entry
-            .file_name()
-            .to_string_lossy()
-            .starts_with("secrets.enc.corrupt.")));
+    assert!(
+        !std::fs::read_dir(workspace.path())
+            .unwrap()
+            .flatten()
+            .any(|entry| entry
+                .file_name()
+                .to_string_lossy()
+                .starts_with("secrets.enc.corrupt."))
+    );
 }
 
 #[test]
@@ -135,9 +141,11 @@ fn invalid_legacy_plaintext_is_preserved_for_recovery() {
     std::fs::write(&legacy_path, b"invalid JSON").unwrap();
 
     let backend = EncryptedFileBackend::new(dir.path());
-    assert!(backend
-        .get_with_key(&[0x42; KEY_LEN], "user:token")
-        .is_err());
+    assert!(
+        backend
+            .get_with_key(&[0x42; KEY_LEN], "user:token")
+            .is_err()
+    );
     assert_eq!(std::fs::read(&legacy_path).unwrap(), b"invalid JSON");
     assert!(!backend.path.exists());
 }
@@ -342,9 +350,11 @@ fn malformed_env_key_is_rejected_without_leaking_the_value() {
 
 #[test]
 fn empty_env_values_fall_through_to_the_keychain() {
-    assert!(master_key_from_env(None, None, file_must_not_be_read)
-        .expect("nothing set is fine")
-        .is_none());
+    assert!(
+        master_key_from_env(None, None, file_must_not_be_read)
+            .expect("nothing set is fine")
+            .is_none()
+    );
     assert!(
         master_key_from_env(Some(""), Some("   "), file_must_not_be_read)
             .expect("empty values count as unset")

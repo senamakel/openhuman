@@ -13,8 +13,9 @@ struct FixedManagedResolver {
     calls: Arc<AtomicUsize>,
 }
 
+#[async_trait::async_trait]
 impl SearchProviderResolver for FixedManagedResolver {
-    fn resolve(
+    async fn resolve(
         &self,
         config: &crate::config::Config,
     ) -> Vec<crate::search::providers::ResolvedProvider> {

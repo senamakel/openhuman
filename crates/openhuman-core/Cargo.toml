@@ -207,10 +207,9 @@ tinytools-std = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinyto
 # TinyMemory (https://github.com/tinyhumansai/tinymemory), three crates:
 # - `tinymemory-api`: the engine contract (`MemoryEngine`: recall / fetch /
 #   store / forget / list / consolidate) and its types. No I/O.
-# - `tinymemory-tools`: the agent surface over any engine — the lifecycle this
-#   host drives around every turn (`AgentMemory`: start_session, pre_turn,
-#   post_turn, recall_for_compaction), the standard `MemoryLayout`, the shared
-#   `Brain`, holistic recall (`ContextPack`) and `BackgroundJob`s.
+# - `tinymemory-tools`: the agent surface over any engine, the memory lifecycle,
+#   `MemoryLayout`, shared `Brain`, backfill driver, layout migration service,
+#   run-slot interlock, and optional filesystem legacy-tree claim.
 # - `tinymemory-integrations`: everything that touches the outside world — the
 #   CortexDB engines (`cortexdb` direct, `tinyhumans` hosted), document
 #   conversion and the brain filer, source readers (with the SSRF-guarded

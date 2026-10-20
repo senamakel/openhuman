@@ -8,11 +8,10 @@ use tinymemory_api::{
     LearningKind, ListRequest, MemoryEngine, MemoryMeta, MetaFilter, Namespace, StoreItem,
 };
 use tinymemory_tools::layout_migration::{
-    Engines, FlowPlacement, LayoutHost, LegacyClaim, MigrationStateStore, Placement, Result,
+    Engines, FlowPlacement, FsLegacyClaim, LayoutHost, LegacyClaim, MigrationStateStore, Placement, Result,
 };
 use tinymemory_tools::MemoryLayout;
 
-use super::claim::ClaimKey;
 use super::state::FileStateStore;
 use crate::config::Config;
 
@@ -24,7 +23,7 @@ pub(crate) struct FakeHost {
     pub(crate) switched: AtomicBool,
     pub(crate) free: AtomicBool,
     /// The claim when the legacy tree is shared.
-    pub(crate) claim: Option<ClaimKey>,
+    pub(crate) claim: Option<FsLegacyClaim>,
     /// Asks for free_now: after this many, moving stops being free.
     pub(crate) free_for: AtomicUsize,
     /// Written to the legacy tree as the switch happens (a turn racing it).

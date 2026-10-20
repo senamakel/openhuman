@@ -6,9 +6,8 @@
 use async_trait::async_trait;
 use tinymemory_api::Error as EngineError;
 use tinymemory_tools::layout_migration as lm;
-use tinymemory_tools::layout_migration::{Engines, FlowPlacement, LegacyClaim, Placement};
+use tinymemory_tools::layout_migration::{Engines, FlowPlacement, FsLegacyClaim, LegacyClaim, Placement};
 
-use super::claim::ClaimKey;
 use super::state::FileStateStore;
 use crate::config::{Config, MemoryLayoutMode};
 use crate::memory::engine::{self, CORTEXDB_ENGINE};
@@ -111,8 +110,8 @@ impl lm::LayoutHost for AppHost {
     }
 
     fn legacy_claim(&self) -> lm::Result<Option<Box<dyn LegacyClaim>>> {
-        claim_key(&self.config)
-            .map(|key| key.map(|key| Box::new(key) as Box<dyn LegacyClaim>))
+        claim(&self.config)
+            .map(|claim| claim.map(|claim| Box::new(claim) as Box<dyn LegacyClaim>))
             .map_err(to_module)
     }
 
@@ -127,7 +126,7 @@ impl lm::LayoutHost for AppHost {
 
 /// The claim on the legacy tree `config`'s account would move, if it is
 /// shared by every account on the machine.
-pub(super) fn claim_key(config: &Config) -> Result<Option<ClaimKey>> {
+pub(super) fn claim(config: &Config) -> Result<Option<FsLegacyClaim>> {
     // A self-hosted key is the operator's: every local account using it
     // shares one legacy tree. The hosted engine is one tenant per person.
     if config.memory.engine.trim() != CORTEXDB_ENGINE {
@@ -144,7 +143,7 @@ pub(super) fn claim_key(config: &Config) -> Result<Option<ClaimKey>> {
         .and_then(std::path::Path::parent)
         .ok_or_else(signed_out)?;
     let endpoint = engine::bind_with_root(config, None)?.endpoint;
-    Ok(Some(ClaimKey::new(app_dir, &endpoint, &owner)))
+    Ok(Some(FsLegacyClaim::new(app_dir, &endpoint, &owner)))
 }
 
 fn signed_in_root(config: &Config) -> Result<String> {

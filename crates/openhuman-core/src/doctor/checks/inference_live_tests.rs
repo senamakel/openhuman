@@ -15,6 +15,10 @@ const TEST_BEARER: &str = "dummy-doctor-bearer";
 const RESPONSE_SECRET: &str = "provider-response-must-not-leak";
 const ENDPOINT_SECRET: &str = "endpoint-query-secret";
 
+fn completion_path() -> String {
+    format!("/openai/{ENDPOINT_SECRET}/chat/completions")
+}
+
 struct Fixture {
     config: Config,
     _temp: tempfile::TempDir,
@@ -116,7 +120,7 @@ fn finding<'a>(report: &'a crate::doctor::DoctorReport, id: &str) -> &'a Finding
 async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/openai/chat/completions"))
+        .and(path(completion_path()))
         .respond_with(
             ResponseTemplate::new(200).set_body_json(completion_response(
                 "provider/answered-model",
@@ -255,7 +259,7 @@ async fn live_chat_maps_auth_quota_and_unavailable_errors_without_provider_text(
     for (status, classification) in cases {
         let server = MockServer::start().await;
         Mock::given(method("POST"))
-            .and(path("/openai/chat/completions"))
+            .and(path(completion_path()))
             .respond_with(ResponseTemplate::new(status).set_body_json(json!({
                 "error": {"message": RESPONSE_SECRET, "code": "secret-provider-code"}
             })))
@@ -293,7 +297,7 @@ async fn live_chat_maps_auth_quota_and_unavailable_errors_without_provider_text(
 async fn identical_role_routes_share_one_completion_but_keep_each_role_finding() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/openai/chat/completions"))
+        .and(path(completion_path()))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(completion_response("provider/shared-model", "OK")),
@@ -324,7 +328,7 @@ async fn identical_role_routes_share_one_completion_but_keep_each_role_finding()
 async fn same_endpoint_and_credential_with_distinct_models_get_distinct_completions() {
     let server = MockServer::start().await;
     Mock::given(method("POST"))
-        .and(path("/openai/chat/completions"))
+        .and(path(completion_path()))
         .respond_with(
             ResponseTemplate::new(200)
                 .set_body_json(completion_response("provider/answered-model", "OK")),

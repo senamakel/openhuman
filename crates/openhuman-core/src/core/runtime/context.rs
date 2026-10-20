@@ -213,10 +213,10 @@ impl CoreContext {
         // 2. Load the master encryption key before any config/credential op that
         //    needs to decrypt secrets. No-op if already called (e.g. from
         //    run_core_from_args for the CLI).
-        if let Some(config) = &preloaded_config {
-            crate::security::secret_storage::init_workspace(&config.workspace_dir);
-        }
         if boot_mode == crate::core::runtime::CoreBootMode::Normal {
+            if let Some(config) = &preloaded_config {
+                crate::security::secret_storage::init_workspace(&config.workspace_dir);
+            }
             crate::security::secret_storage::init_master_key().map_err(anyhow::Error::msg)?;
         }
 

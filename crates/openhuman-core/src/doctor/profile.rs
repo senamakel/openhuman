@@ -66,10 +66,7 @@ pub async fn resolve_desktop_profile_for_doctor(
     if let Some(id) = requested_profile {
         let selected = load_desktop_profile(root, id).await?;
         let mut config = selected.config;
-        config.set_doctor_profile_metadata(
-            Some(selected.layout.version),
-            Some("--profile".into()),
-        );
+        config.set_doctor_profile_metadata(Some(selected.layout.version), Some("--profile".into()));
         return Ok(DesktopProfileSelection {
             config,
             profile_id: Some(selected.id),

@@ -13,8 +13,8 @@ use crate::core::{
     runtime::{ComponentSet, CoreContext, DispatchCtx},
 };
 use crate::doctor::{
-    DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier,
-    Finding, MemoryEngineCheck, ModelProbeReport,
+    DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier, Finding,
+    MemoryEngineCheck, ModelProbeReport,
 };
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {

@@ -126,6 +126,8 @@ method and `doctor_health` / `doctor_models` tool names also remain stable.
   "schema_version": 2,
   "profile": "desktop-default",
   "config_source": "profile",
+  "profile_layout_version": 2,
+  "config_resolution_source": "active_user.toml",
   "tier": "connect",
   "checks_run": ["config/parse"],
   "checks_skipped": ["inference/live/chat"],
@@ -162,7 +164,12 @@ separate from this field.
 
 `profile` is the effective profile id, when the host has one, and `null`
 otherwise. `config_source` is always the source kind (`profile` or `tenant`),
-not a tenant credential or filesystem path. The `config/source` info finding
+not a tenant credential or filesystem path. `profile_layout_version` is `1`
+or `2` when a desktop profile layout was selected; `config_resolution_source`
+is the stable directory-selection label, such as `OPENHUMAN_WORKSPACE`,
+`active_workspace.toml`, `active_user.toml`, `default`, or `--profile`. These
+optional fields are omitted when unknown and for SaaS tenant contexts. The
+`config/source` info finding
 reports the loaded config and `.env` paths, directory resolution source,
 profile layout version when applicable, and whether CLI `--model` or
 `--provider` overrides are active. It does not report config values or

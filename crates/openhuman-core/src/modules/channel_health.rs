@@ -78,17 +78,14 @@ async fn call_existing_proxy(
 ) -> Result<Vec<ChannelHealthReport>, ExistingHealthError> {
     tokio::time::timeout(
         timeout,
-        proxy
-            .clone()
-            .with_timeout(timeout)
-            .call_confidential(
-                tinychannels_bus::methods::CHECK_CHANNEL_HEALTH,
-                (
-                    channels,
-                    proxy_policy,
-                    timeout.as_millis().min(u64::MAX as u128) as u64,
-                ),
+        proxy.clone().with_timeout(timeout).call_confidential(
+            tinychannels_bus::methods::CHECK_CHANNEL_HEALTH,
+            (
+                channels,
+                proxy_policy,
+                timeout.as_millis().min(u64::MAX as u128) as u64,
             ),
+        ),
     )
     .await
     .map_err(|_| ExistingHealthError::Failed)?

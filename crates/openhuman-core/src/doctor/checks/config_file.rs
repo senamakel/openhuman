@@ -7,9 +7,7 @@ use serde_json::Value;
 
 use crate::config::schema::load::ConfigLoadFallback;
 use crate::config::Config;
-use crate::doctor::contract::{
-    DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity, ValueSource,
-};
+use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 
 const CATEGORY: &str = "configuration";
 
@@ -152,7 +150,6 @@ fn unknown_key_finding(path: &str, schema: Option<&Value>) -> Finding {
         fix_hint,
     );
     finding.config_path = Some(path.to_owned());
-    finding.value_source = Some(ValueSource::File);
     finding
 }
 

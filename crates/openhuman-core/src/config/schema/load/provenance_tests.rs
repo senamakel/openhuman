@@ -49,10 +49,8 @@ tool_dispatcher = "native"
 
 #[test]
 fn explicit_subtree_lookup_matches_exact_and_descendant_paths_only() {
-    let document: toml::Value = toml::from_str(
-        "[memory]\nengine = \"tinyhumans\"\n[search]\nenabled = true\n",
-    )
-    .unwrap();
+    let document: toml::Value =
+        toml::from_str("[memory]\nengine = \"tinyhumans\"\n[search]\nenabled = true\n").unwrap();
     let provenance = ConfigProvenance::from_file_document(&document);
 
     assert!(provenance.has_explicit_under("memory"));

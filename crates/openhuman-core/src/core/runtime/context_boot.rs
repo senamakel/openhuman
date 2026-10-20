@@ -237,5 +237,4 @@ impl CoreContext {
 
         Ok((ctx, has_operator_token, runtime_config))
     }
-
 }

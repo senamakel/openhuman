@@ -6,7 +6,7 @@
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::doctor::{
-    self, DoctorCtx, DoctorOptions, DoctorReport, DoctorTier, MemoryEngineCheck, ModelProbeReport,
+    DoctorCtx, DoctorOptions, DoctorReport, DoctorTier, MemoryEngineCheck, ModelProbeReport,
 };
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
@@ -51,9 +51,8 @@ async fn memory_engine_check(config: &Config) -> MemoryEngineCheck {
 }
 
 pub async fn doctor_models(
-    config: &Config,
-    use_cache: bool,
+    _config: &Config,
+    _use_cache: bool,
 ) -> Result<Outcome<ModelProbeReport>, String> {
-    let report = doctor::run_models(config, use_cache).map_err(|e| e.to_string())?;
-    Ok(Outcome::single_log(report, "model probes completed"))
+    Err("Model catalog probing is not available yet.".to_owned())
 }

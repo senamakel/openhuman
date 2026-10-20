@@ -742,6 +742,38 @@ async fn process_auth_error_is_not_attributed_across_config_roots_sharing_a_work
 }
 
 #[tokio::test]
+async fn normal_boot_workspace_without_embedder_config_keeps_auth_error_attribution() {
+    let provider = "doctor-497-normal-boot-auth-fixture";
+    crate::inference::auth_error_registry::clear(provider);
+    let (_temp, config) = temporary_config();
+    let context = crate::core::runtime::CoreContext::for_test(
+        crate::core::runtime::DomainSet::full(),
+        Some(config.workspace_dir.clone()),
+    );
+    assert!(
+        crate::core::runtime::CoreContext::scope(context, async {
+            assert!(crate::core::runtime::CoreContext::current_embedder_config().is_none());
+            crate::inference::auth_error_registry::record(provider, 401)
+        })
+        .await
+    );
+
+    let report = report_for_context(
+        &config,
+        workspace_context(config.clone()),
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
+    }));
+    crate::inference::auth_error_registry::clear(provider);
+}
+
+#[tokio::test]
 async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
     let provider = "doctor-497-saas-auth-fixture";
     crate::inference::auth_error_registry::clear(provider);

@@ -124,6 +124,16 @@ async fn nothing_starts_while_an_import_is_unfinished() {
         r#"{"state":{"phase":"running","total":3,"imported":1}}"#,
     )
     .unwrap();
+    assert!(
+        !crate::memory::import::in_progress(&config),
+        "persisted Running state is interrupted, not a live task"
+    );
+    let import_guard = crate::memory::run_slots::reserve(
+        &crate::memory::run_slots::IMPORT,
+        &config.workspace_dir,
+        &[&crate::memory::run_slots::BACKFILL, &crate::memory::run_slots::MIGRATION],
+    )
+    .expect("the import owns its separate live slot");
     assert!(crate::memory::import::in_progress(&config));
     assert!(!start(
         &crate::core::runtime::DispatchCtx::ambient(),
@@ -140,11 +150,7 @@ async fn nothing_starts_while_an_import_is_unfinished() {
     ));
     assert_eq!(count(host.tree.as_ref()).await, 0);
 
-    std::fs::write(
-        &path,
-        r#"{"state":{"phase":"done","total":3,"imported":3}}"#,
-    )
-    .unwrap();
+    drop(import_guard);
     assert!(start(
         &crate::core::runtime::DispatchCtx::ambient(),
         config.clone(),
@@ -155,7 +161,6 @@ async fn nothing_starts_while_an_import_is_unfinished() {
     settle(&config).await;
     assert_eq!(count(host.tree.as_ref()).await, 3);
 }
-
 #[tokio::test]
 async fn a_tick_starts_nothing_while_background_work_is_paused() {
     let tmp = tempfile::tempdir().unwrap();

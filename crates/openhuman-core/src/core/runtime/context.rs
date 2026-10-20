@@ -355,7 +355,7 @@ impl CoreContext {
     /// process default; scoped readers observe its config and policy.
     pub fn derive_with(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
         let parent_config = self.latest_embedder_config();
-        self.derive_with_parent_config_inner(parent_config.as_ref(), overlay)
+        self.derive_with_parent_config_inner(parent_config.as_ref(), overlay, false)
     }
 
     /// Derive a child using the exact parent configuration it was built from.
@@ -369,13 +369,49 @@ impl CoreContext {
         parent_config: &crate::config::Config,
         overlay: ContextOverlay,
     ) -> Arc<CoreContext> {
-        self.derive_with_parent_config_inner(Some(parent_config), overlay)
+        self.derive_with_parent_config_inner(Some(parent_config), overlay, false)
+    }
+
+    /// Derive a no-store context for read-only inspection under a selected
+    /// config. It inherits host registrations and policies while owning fresh
+    /// agent state slots; the parent's tenant and agent identities are retained.
+    pub fn derive_for_inspection(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
+        let parent_config = self.latest_embedder_config();
+        self.derive_with_parent_config_inner(parent_config.as_ref(), overlay, true)
+    }
+
+    /// Construct a no-store inspection context before runtime boot. It carries
+    /// the supplied config only for the scoped inspection and does not publish
+    /// a process-default context or initialize stores.
+    pub fn for_inspection(config: crate::config::Config) -> Arc<CoreContext> {
+        let components = crate::core::runtime::ComponentSet::from_config(&config.components);
+        let latest_embedder_config = Some(Arc::new(std::sync::Mutex::new(config.clone())));
+        Arc::new(CoreContext {
+            host_kind: HostKind::Cli,
+            workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
+                workspace_dir: Some(config.workspace_dir.clone()),
+            }))),
+            domains: crate::core::runtime::DomainSet::full(),
+            tool_groups: Default::default(),
+            components,
+            embedder_config: Some(config),
+            latest_embedder_config,
+            user_skill_roots: true,
+            extensions: Default::default(),
+            turn_origin: None,
+            channel_thread: None,
+            session_agent: None,
+            profile: None,
+            agent: Default::default(),
+            bare: false,
+        })
     }
 
     fn derive_with_parent_config_inner(
         &self,
         parent_config: Option<&crate::config::Config>,
         mut overlay: ContextOverlay,
+        fresh_state: bool,
     ) -> Arc<CoreContext> {
         // Clamped to what this context can already dispatch. A derived
         // overlay may only narrow: callers outside this crate (embed's
@@ -423,7 +459,7 @@ impl CoreContext {
                 })),
             }
         };
-        let agent = self.agent.derive(&mut overlay);
+        let agent = self.agent.derive(&mut overlay, fresh_state);
         config_access::record_context_config_overlay(self.profile(), parent_config, &mut overlay);
         overlay.config.runtime_state.context_snapshot = None;
         let latest_embedder_config = Some(Arc::new(std::sync::Mutex::new(overlay.config.clone())));

@@ -1,5 +1,5 @@
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use crate::config::Config;
@@ -10,7 +10,7 @@ use async_trait::async_trait;
 use super::contract::{
     DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity,
 };
-use super::registry::{DoctorCheckSource, register_check_source_in};
+use super::registry::{register_check_source_in, DoctorCheckSource};
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
 
@@ -108,12 +108,10 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     let config_source: DoctorConfigSource = report.config_source;
     assert_eq!(config_source, DoctorConfigSource::Profile);
     assert!(report.checks_run.iter().any(|id| id == "hosted/ready"));
-    assert!(
-        report
-            .findings
-            .iter()
-            .any(|finding| finding.check_id == "hosted/ready")
-    );
+    assert!(report
+        .findings
+        .iter()
+        .any(|finding| finding.check_id == "hosted/ready"));
 }
 
 #[tokio::test]
@@ -142,12 +140,10 @@ async fn hierarchical_check_ids_are_registered_and_selected_exactly() {
     .expect("hierarchical id is valid and selected as one exact id");
 
     assert_eq!(report.checks_run, vec!["inference/live/role".to_owned()]);
-    assert!(
-        report
-            .findings
-            .iter()
-            .any(|finding| finding.check_id == "inference/live/role")
-    );
+    assert!(report
+        .findings
+        .iter()
+        .any(|finding| finding.check_id == "inference/live/role"));
 }
 
 #[tokio::test]
@@ -328,13 +324,11 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     .expect("unknown selection is a report finding");
 
     assert_eq!(report.checks_run, vec!["config/temperature".to_owned()]);
-    assert!(
-        report
-            .findings
-            .iter()
-            .any(|finding| finding.check_id == "doctor/selection"
-                && finding.severity == FindingSeverity::Error)
-    );
+    assert!(report
+        .findings
+        .iter()
+        .any(|finding| finding.check_id == "doctor/selection"
+            && finding.severity == FindingSeverity::Error));
     assert_eq!(report.schema_version, 2);
     assert_eq!(report.summary.pass, 1);
     assert_eq!(report.summary.error, 1);

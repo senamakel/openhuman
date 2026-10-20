@@ -318,10 +318,17 @@ fn binding_for_selected(config: &Config, selected: &(String, String)) -> Option<
 /// Capture the scope the resolver passed to the module's load configuration.
 /// Search-path modules do not invoke this provider and therefore remain
 /// unscoped for inspection rather than inheriting the first caller's config.
-pub(super) fn note_module_config_for_load(config: &Config) {
+pub(super) fn note_module_config_for_load(config: &Config, module_config: &serde_json::Value) {
+    let expected_state_dir = serde_json::to_value(config.workspace_dir.join("state")).ok();
+    let expected_policy = super::offered_toolkits(config);
+    let captures_selected_scope = module_config.get("state_dir") == expected_state_dir.as_ref()
+        && module_config.get("offered_toolkits") == Some(&expected_policy);
+    let candidate = captures_selected_scope
+        .then(|| load_scope_fingerprint(config))
+        .flatten();
     *pending_load_scope()
         .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = load_scope_fingerprint(config);
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = candidate;
 }
 
 /// Promote the resolver's captured candidate only after ensure_loaded returned

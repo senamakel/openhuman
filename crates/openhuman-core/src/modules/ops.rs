@@ -162,7 +162,7 @@ pub fn resolver(config: &Config) -> Resolver {
         module_config: Arc::new(move |id| {
             let value = module_config(&module_config_source, id);
             if id == super::connectors::MODULE_ID {
-                super::connectors::note_module_config_for_load(&module_config_source);
+                super::connectors::note_module_config_for_load(&module_config_source, &value);
             }
             value
         }),

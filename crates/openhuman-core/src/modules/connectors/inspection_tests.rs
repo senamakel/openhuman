@@ -145,6 +145,35 @@ async fn a_session_from_another_issuer_is_not_a_matching_connector_credential() 
 }
 
 #[tokio::test]
+async fn load_scope_is_captured_only_when_the_module_receives_selected_paths_and_policy() {
+    let _guard = route_lock().lock().await;
+    let scratch = tempfile::tempdir().expect("create isolated load-scope fixture");
+    let mut config = Config::default();
+    config.config_path = scratch.path().join("config.toml");
+    config.workspace_dir = scratch.path().join("workspace-a");
+    config.composio.offered_toolkits_allow = vec!["github".to_owned()];
+    let policy = super::super::offered_toolkits(&config);
+
+    note_module_config_for_load(&config, &serde_json::json!({ "offered_toolkits": policy }));
+    assert!(
+        pending_load_scope().lock().unwrap().is_none(),
+        "capability-only fallback does not attest a workspace"
+    );
+
+    let module_config = serde_json::json!({
+        "route": "proxy",
+        "state_dir": config.workspace_dir.join("state"),
+        "offered_toolkits": super::super::offered_toolkits(&config),
+    });
+    note_module_config_for_load(&config, &module_config);
+    assert_eq!(
+        *pending_load_scope().lock().unwrap(),
+        load_scope_fingerprint(&config)
+    );
+    *pending_load_scope().lock().unwrap() = None;
+}
+
+#[tokio::test]
 async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound() {
     let _route_guard = route_lock().lock().await;
     let scratch = tempfile::tempdir().expect("create selected connector workspace");

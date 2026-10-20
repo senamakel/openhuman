@@ -5610,8 +5610,8 @@ dependencies = [
  "tracing-subscriber",
  "url",
  "uuid",
- "zeroize",
  "wiremock",
+ "zeroize",
 ]
 
 [[package]]

@@ -100,7 +100,12 @@ fn create_chat_model_with_model_id_inner_and_access(
     };
     if !test_override_active {
         if resolves_to_managed_backend(role, config) {
-            return make_openhuman_backend_model(role, config);
+            return match credential_access {
+                CredentialAccess::Runtime => make_openhuman_backend_model(role, config),
+                CredentialAccess::Inspection => {
+                    super::managed_backend::managed_chat_model_for_inspection(role, config, None)
+                }
+            };
         }
         if let Some(result) =
             try_create_claude_agent_sdk_chat_model(role, config, &EgressLedger::none())

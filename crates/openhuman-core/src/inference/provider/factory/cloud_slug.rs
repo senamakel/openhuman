@@ -394,15 +394,24 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
             }
             let model_override =
                 (!effective_model.trim().is_empty()).then_some(effective_model.as_str());
-            return Some(managed_chat_model(
-                role,
-                config,
-                model_override,
-                None,
-                native_tool_calling,
-                None,
-                egress,
-            ));
+            return Some(match credential_access {
+                CredentialAccess::Runtime => managed_chat_model(
+                    role,
+                    config,
+                    model_override,
+                    None,
+                    native_tool_calling,
+                    None,
+                    egress,
+                ),
+                CredentialAccess::Inspection => {
+                    super::managed_backend::managed_chat_model_for_inspection(
+                        role,
+                        config,
+                        model_override,
+                    )
+                }
+            });
         }
         AuthStyle::Bearer => {
             // The codex routing may re-target the endpoint (OAuth backend).

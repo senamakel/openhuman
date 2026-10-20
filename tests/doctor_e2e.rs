@@ -74,7 +74,6 @@ impl MockBackend {
             origin: format!("http://127.0.0.1:{port}"),
             child: std::sync::Mutex::new(Some(child)),
         };
-        let client = reqwest::Client::new();
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             if is_shared_mock(&mock.origin).await {

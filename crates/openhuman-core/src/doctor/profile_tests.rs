@@ -33,6 +33,12 @@ impl WorkspaceOverrideGuard {
         std::env::set_var("OPENHUMAN_WORKSPACE", path);
         Self(previous)
     }
+
+    fn clear() -> Self {
+        let previous = std::env::var_os("OPENHUMAN_WORKSPACE");
+        std::env::remove_var("OPENHUMAN_WORKSPACE");
+        Self(previous)
+    }
 }
 
 impl Drop for WorkspaceOverrideGuard {
@@ -256,6 +262,8 @@ async fn selected_profile_applies_in_memory_legacy_migrations_without_saving_the
 
 #[tokio::test]
 async fn default_profile_resolution_reads_active_marker_without_initializing_layout() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let _workspace_override = WorkspaceOverrideGuard::clear();
     let temp = TempDir::new().unwrap();
     let root = temp.path();
     let marker = root.join("active_user.toml");

@@ -6,9 +6,11 @@ semantics before the legacy `platform/doctor` code moves. The core owns checks,
 the registry, runner, and RPC surface; `openhuman-cli` owns command parsing,
 rendering, and process exit codes; `openhuman-tinyhumans` owns hosted checks.
 
-The intended user outcome is a read-only report that says whether the selected
+The intended user outcome is a report that says whether the selected
 configuration is ready to run, what was inspected, and what an operator can do
-about each finding. This contract borrows OpenClaw's stable check identifiers,
+about each finding. Doctor does not persist configuration or application-state
+changes; local filesystem write probes use temporary files and clean them up.
+This contract borrows OpenClaw's stable check identifiers,
 structured findings, advisory JSON mode, and threshold-based lint behavior.
 Wire fields remain snake case to match the existing RPC contract. This contract
 does not adopt OpenClaw's repair operation: this epic adds no repair command.
@@ -29,13 +31,13 @@ memory, unless the caller opts into the `live` tier.
 
 ## Check contract
 
-The Rust API and serialized JSON use snake case. A check is
-registered with a stable id, category, cost tier, and optional component gate.
-Its detector is asynchronous and returns findings for that check:
+The Rust API and serialized JSON use snake case. A check is registered with a
+stable id, category, cost tier, and optional component gate. Its detector is
+asynchronous and returns findings for that check:
 
 ```rust
 DoctorCheck {
-    id: "<area>/<name>",
+    id: "<area>/<name>[/<qualifier>...]",
     category: "<display category>",
     tier: DoctorTier::Static | DoctorTier::Connect | DoctorTier::Live,
     component_gate: Option<ComponentId>,
@@ -43,19 +45,24 @@ DoctorCheck {
 }
 ```
 
-Ids are lowercase ASCII `area/name` strings. They are API identifiers used by
-`--only`, `--skip`, the RPC filters, and downstream consumers. Once released,
-an id is never renamed or reused for different behavior; a replacement gets a
-new id and the old one remains recognizable for at least one schema lifetime.
-IDs are matched exactly. Prefixes, globs, and category names are not selectors.
+Ids are lowercase ASCII segments separated by `/`, with at least an area and
+name (`area/name`). Each segment is nonempty and contains only lowercase ASCII
+letters, digits, `_`, or `-`. Additional segments are allowed for checks
+scoped to a role or provider, such as
+`inference/live/chat`. They are API identifiers used by `--only`, `--skip`, the
+RPC filters, and downstream consumers. Once released, an id is never renamed
+or reused for different behavior; a replacement gets a new id and the old one
+remains recognizable for at least one schema lifetime. IDs are matched
+exactly. Prefixes, globs, and category names are not selectors.
 
-`static` checks may read configuration and the local filesystem, but do not
-open network connections or write files. `connect` checks may make bounded,
-read-only network requests and are the default. `live` checks may make
-billable model or embedding calls and may write disposable scratch memory; they
-run only when explicitly requested. A requested tier is a ceiling: `static`
-runs static checks, `connect` runs static and connect checks, and `live` runs
-all three tiers.
+`static` checks may read and probe the local filesystem, but do not open network
+connections. Temporary local write probes must be cleaned up. `connect` checks
+may make bounded, read-only network requests and are the default; they do not
+make billable calls or persist state. `live` checks may make billable model or
+embedding calls and may write disposable scratch memory; they run only when
+explicitly requested. A requested tier is a ceiling: `static` runs static
+checks, `connect` runs static and connect checks, and `live` runs all three
+tiers.
 
 The runner applies the active `ComponentSet` gate before calling a detector.
 A gated-off component produces a `skipped` finding and is listed in
@@ -69,37 +76,37 @@ the report regardless of completion order. Timeout and detector failures are
 finishing. A timed-out detector is cancelled where the async operation supports
 cancellation.
 
-Every registered check emits at least one finding. A successful check emits a
-`pass` finding. If a check finds multiple conditions, it emits one finding for
-each condition; if it finds none, it emits one pass. This makes `checks_run`
-and severity totals meaningful without treating an empty vector as an
-unobserved check.
+Detectors may return an empty vector when the check is clean. The runner turns
+an empty result into one `pass` finding so `checks_run` and severity totals
+still distinguish a successful check from an unobserved one. Detectors that
+find multiple conditions emit one finding for each condition. This permits a
+clean config check to return no findings, as required by the config leaves.
 
 ### Finding
 
 ```json
 {
-  "check_id": "config/file-integrity",
+  "check_id": "config/unknown-key",
   "severity": "warn",
-  "message": "The config file was recovered from its backup.",
-  "fix_hint": "Review the backup and restore a valid config file.",
-  "config_path": "config.toml",
+  "message": "Unknown config key `memroy`; did you mean `memory`?",
+  "fix_hint": "Rename the key to `memory` and rerun doctor.",
+  "config_path": "memroy",
   "value_source": "file",
   "duration_ms": 4,
-  "affects": ["settings.configuration"]
+  "affects": ["settings.configure_ai"]
 }
 ```
 
-| Field          | Contract                                                                                                               |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| `check_id`     | Required stable id of the check that produced the finding.                                                             |
-| `severity`     | `pass`, `info`, `warn`, `error`, or `skipped`.                                                                         |
-| `message`      | Short operator-facing result, with no secret or config value.                                                          |
-| `fix_hint`     | Required next step. Use “No action required.” for `pass`; explain how to rerun or enable a skipped check.              |
-| `config_path`  | Optional logical config path, never a resolved home-directory path.                                                    |
-| `value_source` | Optional `cli`, `env`, `dotenv`, `file`, or `default`, when a finding concerns a resolved value.                       |
-| `duration_ms`  | Elapsed detector time, repeated consistently on findings from one check. A check skipped before execution reports `0`. |
-| `affects`      | Zero or more stable `about_app` capability ids, such as `channels.connect_platform` or `local_ai.configure_provider`.  |
+| Field          | Contract                                                                                                                                                        |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `check_id`     | Required stable id of the check that produced the finding.                                                                                                      |
+| `severity`     | `pass`, `info`, `warn`, `error`, or `skipped`.                                                                                                                  |
+| `message`      | Short operator-facing result, with no secret or config value.                                                                                                   |
+| `fix_hint`     | Required next step. Use “No action required.” for `pass`; explain how to rerun or enable a skipped check.                                                       |
+| `config_path`  | Optional config key path or source file path. `config/source` may name the loaded config and `.env` paths; other checks normally use a logical config key path. |
+| `value_source` | Optional `cli`, `env`, `dotenv`, `file`, or `default`, when a finding concerns a resolved value.                                                                |
+| `duration_ms`  | Elapsed detector time, repeated consistently on findings from one check. A check skipped before execution reports `0`.                                          |
+| `affects`      | Zero or more stable `about_app` capability ids, such as `channels.connect_platform` or `local_ai.configure_provider`.                                           |
 
 The report must not contain credentials, tokens, secret material, raw config
 values, request or response bodies, or user-authored content. Redact endpoint
@@ -120,19 +127,19 @@ method and `doctor_health` / `doctor_models` tool names also remain stable.
   "profile": "desktop-default",
   "config_source": "profile",
   "tier": "connect",
-  "checks_run": ["config/file-integrity"],
-  "checks_skipped": ["inference/role-completion"],
+  "checks_run": ["config/parse"],
+  "checks_skipped": ["inference/live/chat"],
   "findings": [
     {
-      "check_id": "config/file-integrity",
+      "check_id": "config/parse",
       "severity": "pass",
-      "message": "The config file is valid.",
+      "message": "The config file parsed successfully.",
       "fix_hint": "No action required.",
       "duration_ms": 4,
       "affects": []
     },
     {
-      "check_id": "inference/role-completion",
+      "check_id": "inference/live/chat",
       "severity": "skipped",
       "message": "This live check was not requested.",
       "fix_hint": "Rerun doctor with --live to run this check.",
@@ -154,10 +161,13 @@ does not by itself make the report unhealthy. The CLI's lint threshold is
 separate from this field.
 
 `profile` is the effective profile id, when the host has one, and `null`
-otherwise. `config_source` is the redacted source kind (`profile` or `tenant`),
-not a filesystem path or tenant credential. The report describes the effective
-configuration used for this run. It does not reveal a config path, except for
-logical paths in individual findings.
+otherwise. `config_source` is always the source kind (`profile` or `tenant`),
+not a tenant credential or filesystem path. The `config/source` info finding
+reports the loaded config and `.env` paths, directory resolution source,
+profile layout version when applicable, and whether CLI `--model` or
+`--provider` overrides are active. It does not report config values or
+credentials. It also reports `.env` variables shadowed by existing process
+environment values without including their values.
 
 The selection validator is a reserved runner check, `doctor/selection`. An
 unknown id supplied to either `only` or `skip` adds an `error` finding under
@@ -196,9 +206,11 @@ no CLI parser or renderer. It calls `openhuman.doctor_report` through the
 The threshold controls both printed findings and the lint result. `pass` and
 `skipped` never meet it. `--only <id>` and `--skip <id>` may be repeated;
 `--live` selects the live tier, and `--profile <id>` selects the effective
-profile where the host permits it. In a SaaS tenant, the tenant's forced
-configuration always wins; a client cannot use `--profile` to inspect another
-tenant or switch the active tenant. Argument syntax errors exit `2` before
+profile where the host permits it. In SaaS, an authenticated tenant always uses
+its forced config and storage scope. An operator may use `--profile <id>` to
+target another tenant; a tenant caller may target only itself. The host checks
+that permission before doctor reads config or credentials. Argument syntax
+errors exit `2` before
 the RPC call.
 
 The CLI does not add fields to the RPC report. Human output is a rendering of
@@ -213,23 +225,27 @@ changing the active profile, writing profile state, or changing process-wide
 configuration. With no explicit id, it uses the currently selected profile.
 The report's `profile` is the effective id and `config_source` is `profile`.
 
-In SaaS, doctor runs against the authenticated tenant's forced configuration.
-The host supplies that context to `DoctorCtx`; a client-supplied profile cannot
-override it. The report uses `config_source: "tenant"` and includes no tenant
-secret or private config path. Profile-scoped credential and config access must
-use the context provided for the run rather than process-global lookup helpers.
+In SaaS, doctor runs against a forced tenant configuration and storage scope.
+Without `profile`, the context is the authenticated tenant. An operator may
+select another tenant by id; an ordinary tenant caller may select only itself.
+The host authorizes this before doctor reads any config or credential. The
+report uses `config_source: "tenant"` and includes no tenant secret.
+Profile-scoped reads use the selected context rather than process-global
+lookup helpers.
 
 ## Check registration and hosted checks
 
-Built-in checks register in the core registry. The core also exposes the
-generic `register_check_source` seam so a host can register a source of checks
-without adding a dependency from core to that host. `openhuman-tinyhumans`
-registers its backend, identity, socket, API URL, and managed-inference checks
-through this seam. Sources register against the active core context, not a
-process-global mutable singleton, so profiles and tests do not share state.
-Duplicate ids fail registration with a startup error; hosted ids follow the
-same stable `area/name` format and are unique across sources. A source may
-register zero checks when its host capability is absent.
+Built-in checks register in the core registry. The core exposes both
+process-default `register_check_source(source)` and per-`CoreContext`
+`register_check_source_in` registration through `CoreBuilder::extensions`, so a
+host can supply checks without a dependency from core back to that host.
+`openhuman-tinyhumans` registers its backend, identity, socket, API URL, and
+managed-inference checks through this seam. Profile-aware or tenant-aware
+sources use context-scoped registration; context-independent sources may use
+the process-default registration. At report start, malformed or duplicate ids
+are rejected before any selected detector executes. Hosted ids use the same
+lowercase slash-separated segment grammar and are unique across sources. A
+source may register zero checks when its host capability is absent.
 
 The doctor stays in the existing `DomainGroup::Platform` registration group.
 Moving its Rust module from `platform/doctor` to the top-level `doctor` domain
@@ -242,54 +258,92 @@ not reuse `SubsystemStatus` as a finding.
 ## Check inventory
 
 The paths below are the implementation-owned probe locations under
-`crates/openhuman-core/src/doctor/checks/` (and `crates/openhuman-tinyhumans`
-for hosted checks). The function names are stable implementation targets; line
-numbers are intentionally left to each implementing leaf so this pre-code
-contract does not publish stale line references. Each leaf must keep its check
-id and function together and link the final function line in its implementation
-PR. All findings use the fix hint shown here as a minimum, and may provide a
-more specific safe action.
+`crates/openhuman-core/src/doctor/` (and `crates/openhuman-tinyhumans/src/doctor/`
+for hosted checks). Function names are stable implementation targets. The
+implementation leaves add final source-line links when their functions land;
+this contract is written before those files exist. IDs and any severity/status
+called out by a leaf's Scope or Acceptance criteria are normative. Where a leaf
+does not specify a severity, its implementation must choose one consistent with
+the finding and cover it in that leaf's tests.
 
-| Check id                                  | Tier    | Probe function                                       | Owning leaf | Minimum fix hint                                                                   |
-| ----------------------------------------- | ------- | ---------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- |
-| `config/file-integrity`                   | static  | `checks/config.rs::file_integrity`                   | #492        | Restore or repair the config file; review any recovered backup.                    |
-| `config/provenance`                       | static  | `checks/config.rs::provenance`                       | #493        | Set the intended source explicitly and rerun doctor.                               |
-| `config/inference-references`             | static  | `checks/config.rs::inference_references`             | #494        | Select a configured provider and model reference.                                  |
-| `config/components-storage-paths-secrets` | static  | `checks/config.rs::components_storage_paths_secrets` | #495        | Correct the named component, storage scheme, path, or secret-source configuration. |
-| `workspace/layout`                        | static  | `checks/workspace.rs::layout`                        | #506        | Create or repair the required workspace path and permissions.                      |
-| `runtime/environment`                     | static  | `checks/runtime.rs::environment`                     | #506        | Install or configure the named local runtime prerequisite.                         |
-| `runtime/agent-sdk`                       | connect | `checks/runtime.rs::agent_sdk`                       | #506        | Install or configure the agent SDK binary, then rerun doctor.                      |
-| `memory/store`                            | connect | `checks/memory.rs::store`                            | #498        | Restore the configured memory driver's availability and rerun doctor.              |
-| `embeddings/configured-model`             | connect | `checks/embeddings.rs::configured_model`             | #509        | Start the configured embedding service or correct its base URL and model.          |
-| `inference/provider-models`               | connect | `checks/inference.rs::provider_models`               | #497        | Configure an available provider/model or resolve the reported access issue.        |
-| `storage/connectivity`                    | connect | `checks/storage.rs::connectivity`                    | #498        | Make the configured storage driver reachable and retry the check.                  |
-| `keyring/connectivity`                    | connect | `checks/keyring.rs::connectivity`                    | #498        | Unlock or configure the selected system keyring.                                   |
-| `modules/readiness`                       | connect | `checks/modules.rs::readiness`                       | #499        | Install or enable the configured module source.                                    |
-| `mcp/servers`                             | connect | `checks/mcp.rs::servers`                             | #499        | Start the configured MCP server or correct its safe connection settings.           |
-| `skills/readiness`                        | static  | `checks/skills.rs::readiness`                        | #499        | Repair the named skill source or its metadata.                                     |
-| `sandbox/readiness`                       | connect | `checks/sandbox.rs::readiness`                       | #499        | Install or enable the selected sandbox backend.                                    |
-| `channels/readiness`                      | connect | `checks/channels.rs::readiness`                      | #500        | Reconnect or correct the named channel configuration.                              |
-| `integrations/composio`                   | connect | `checks/integrations.rs::composio`                   | #500        | Reconnect the Composio integration or correct its endpoint configuration.          |
-| `voice/readiness`                         | connect | `checks/voice.rs::readiness`                         | #500        | Configure an available voice provider or disable the unused voice feature.         |
-| `search/readiness`                        | connect | `checks/search.rs::readiness`                        | #500        | Make the configured search provider reachable or correct its configuration.        |
-| `wallet/readiness`                        | connect | `checks/wallet.rs::readiness`                        | #500        | Configure the required wallet safely or disable the wallet feature.                |
-| `backend/reachable`                       | connect | `doctor/backend.rs::reachable`                       | #496        | Check the configured backend URL and network access.                               |
-| `identity/session`                        | connect | `doctor/identity.rs::session`                        | #496        | Sign in again or refresh the session through the supported auth flow.              |
-| `socket/reachable`                        | connect | `doctor/socket.rs::reachable`                        | #496        | Check backend socket availability and network policy.                              |
-| `api/url`                                 | static  | `doctor/api.rs::url`                                 | #496        | Set a valid backend API URL for this profile.                                      |
-| `inference/managed-catalog`               | connect | `doctor/inference.rs::managed_catalog`               | #496        | Check the managed inference catalog service and tenant access.                     |
-| `inference/role-completion`               | live    | `checks/inference_live.rs::role_completion`          | #501        | Check the selected role's provider access and model configuration.                 |
-| `embeddings/live-roundtrip`               | live    | `checks/embeddings_live.rs::roundtrip`               | #502        | Check embedding access and configured vector dimensions.                           |
-| `memory/live-roundtrip`                   | live    | `checks/memory_live.rs::roundtrip`                   | #502        | Check the memory driver's write, fetch, and delete capabilities.                   |
+| Check id                             | Tier    | Probe function                                                  | Owning leaf | Required severity or status                                                                     | Minimum fix hint                                                              |
+| ------------------------------------ | ------- | --------------------------------------------------------------- | ----------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `config/parse`                       | static  | `doctor/checks/config.rs::parse`                                | #492        | `error` on parse failure or corruption recovery, including `.bak` fallback.                     | Repair `config.toml`; review and restore a valid backup if recovery occurred. |
+| `config/unknown-key`                 | static  | `doctor/checks/config.rs::unknown_key`                          | #492        | `warn` per ignored key, with a did-you-mean suggestion where available.                         | Rename the key to the suggested supported field.                              |
+| `config/legacy-key`                  | static  | `doctor/checks/config.rs::legacy_key`                           | #492        | `info` per migrated legacy key.                                                                 | Update the config to the current key name.                                    |
+| `config/env-override`                | static  | `doctor/checks/config.rs::env_override`                         | #493        | `warn` if env overrides an explicit file value; otherwise `info`.                               | Set the intended value in one source and remove the shadowed override.        |
+| `config/source`                      | static  | `doctor/checks/config.rs::source`                               | #493        | `info`.                                                                                         | No action required; use the reported source when diagnosing precedence.       |
+| `inference/provider-ref`             | static  | `doctor/checks/inference.rs::provider_ref`                      | #494        | `error` for unresolved provider references.                                                     | Select a registered provider and fix the reported config path.                |
+| `inference/construct`                | static  | `doctor/checks/inference.rs::construct`                         | #494        | `error` when a configured role cannot be constructed, including missing BYOK credentials.       | Correct provider settings and configure its required credential.              |
+| `inference/temperature`              | static  | `doctor/checks/inference.rs::temperature`                       | #494        | Finding for invalid settings; severity is not specified by the leaf.                            | Set a supported temperature for the configured role.                          |
+| `embeddings/config`                  | static  | `doctor/checks/embeddings.rs::config`                           | #494        | Finding for invalid or inconsistent settings; severity is not specified by the leaf.            | Configure a provider, model, and dimension that agree.                        |
+| `components/referenced-but-disabled` | static  | `doctor/checks/components.rs::referenced_but_disabled`          | #495        | `warn` when config references a disabled component.                                             | Enable the component or remove dependent configuration.                       |
+| `modules/source-fallback`            | static  | `doctor/checks/modules.rs::source_fallback`                     | #495        | Leaf-defined; include the source fallback detail.                                               | Configure the intended module source explicitly.                              |
+| `modules/override-invalid`           | static  | `doctor/checks/modules.rs::override_invalid`                    | #495        | Leaf-defined for an invalid override.                                                           | Correct or remove the invalid module override.                                |
+| `storage/url`                        | static  | `doctor/checks/storage.rs::url`                                 | #495        | `error` when the storage scheme's driver is unavailable in this build.                          | Use a supported URL scheme and enable its driver.                             |
+| `workspace/action-dir`               | static  | `doctor/checks/workspace.rs::action_dir`                        | #495        | `error` when the configured action directory is not writable.                                   | Create the directory or grant the process write access.                       |
+| `secrets/master-key-env`             | static  | `doctor/checks/secrets.rs::master_key_env`                      | #495        | `error` when both master-key environment variables are set.                                     | Keep only the intended master-key source configured.                          |
+| `network/proxy`                      | static  | `doctor/checks/network.rs::proxy`                               | #495        | Leaf-defined by the existing proxy validator.                                                   | Correct the proxy configuration reported by the validator.                    |
+| `memory/root`                        | static  | `doctor/checks/memory.rs::root`                                 | #495        | Leaf-defined by the existing memory-root validator.                                             | Correct the memory root path reported by the validator.                       |
+| `profile/exists`                     | static  | `doctor/profile.rs::exists`                                     | #490        | `error` for a missing profile, unknown layout marker, or invalid profile config.                | Select an existing profile with a supported layout and valid config.          |
+| `profile/provisioned`                | connect | `doctor/profile.rs::provisioned`                                | #491        | `error` for an unprovisioned tenant profile.                                                    | Provision the tenant profile before running doctor.                           |
+| `workspace/writable`                 | static  | `doctor/checks/workspace.rs::writable`                          | #506        | `error` when the workspace write probe fails.                                                   | Grant write access to the workspace directory.                                |
+| `workspace/layout`                   | static  | `doctor/checks/workspace.rs::layout`                            | #506        | Leaf-defined for missing `memory/`, `SYSTEM.md`, or low disk space.                             | Create or repair the reported workspace entry or free disk space.             |
+| `runtime/environment`                | static  | `doctor/checks/runtime.rs::environment`                         | #506        | Leaf-defined for git, curl, shell, or home environment checks.                                  | Install or configure the named local prerequisite.                            |
+| `runtime/agent-sdk`                  | connect | `doctor/checks/runtime.rs::agent_sdk`                           | #506        | Leaf-defined for the Claude Agent SDK version probe.                                            | Install or configure the agent SDK binary, then rerun doctor.                 |
+| `memory/binding`                     | static  | `doctor/checks/memory.rs::binding`                              | #498        | Leaf-defined for the selected memory binding.                                                   | Select an available memory driver.                                            |
+| `memory/health`                      | connect | `doctor/checks/memory.rs::health`                               | #498        | `error` when the bound engine is down.                                                          | Restore the memory driver's availability and rerun doctor.                    |
+| `storage/connect`                    | connect | `doctor/checks/storage.rs::connect`                             | #498        | `error` when the read-only open fails; never migrate.                                           | Make the configured storage reachable and retry the check.                    |
+| `storage/layout`                     | connect | `doctor/checks/storage.rs::layout`                              | #498        | `warn` when a storage layout migration is pending.                                              | Apply the documented migration using the normal storage upgrade path.         |
+| `secrets/keyring`                    | connect | `doctor/checks/secrets.rs::keyring`                             | #498        | `skipped` for a non-interactive macOS keychain probe.                                           | Run interactively or configure an available keyring backend.                  |
+| `embeddings/configured-model`        | connect | `doctor/checks/embeddings.rs::configured_model`                 | #509        | Non-Ollama providers are `skipped`; probe the configured Ollama URL.                            | Start the configured service or correct its base URL and model.               |
+| `modules/<id>`                       | connect | `doctor/checks/modules.rs::module_status`                       | #499        | Failed/Unsupported=`error`; Disabled=`skipped`; Available/Ready=`pass`.                         | Repair or enable the named module source and verify its digest pin.           |
+| `mcp/<server>`                       | connect | `doctor/checks/mcp.rs::server_status`                           | #499        | `error` when a configured server fails to connect; `skipped` when `components.mcp` is disabled. | Start the server or correct its connection settings.                          |
+| `skills/discovery`                   | static  | `doctor/checks/skills.rs::discovery`                            | #499        | `warn` for a malformed skill manifest.                                                          | Repair the manifest at the reported path.                                     |
+| `skills/github-preflight`            | connect | `doctor/checks/skills.rs::github_preflight`                     | #499        | Runs only when a skill requires it; failure severity is leaf-defined.                           | Resolve the reported GitHub access or repository issue.                       |
+| `sandbox/backend`                    | connect | `doctor/checks/sandbox.rs::backend`                             | #499        | `error` when the configured Docker backend is unavailable.                                      | Install or start Docker, or select an available sandbox backend.              |
+| `channels/<provider>`                | connect | `doctor/checks/channels.rs::provider_health`                    | #500        | `error` on provider health timeout; `skipped` when its component is disabled.                   | Restore the channel provider connection and retry.                            |
+| `integrations/composio`              | connect | `doctor/checks/integrations.rs::composio`                       | #500        | `skipped` when its component is disabled; otherwise leaf-defined.                               | Reconnect Composio or correct its endpoint configuration.                     |
+| `voice/stt`                          | connect | `doctor/checks/voice.rs::stt`                                   | #500        | `skipped` when `components.voice` is disabled; otherwise leaf-defined.                          | Enable voice or configure an available speech-to-text provider.               |
+| `voice/tts`                          | connect | `doctor/checks/voice.rs::tts`                                   | #500        | `skipped` when `components.voice` is disabled; otherwise leaf-defined.                          | Enable voice or configure an available text-to-speech provider.               |
+| `search/<provider>`                  | connect | `doctor/checks/search.rs::provider_status`                      | #500        | `warn` when provider status is `NeedsKey`; `skipped` when its component is disabled.            | Configure the provider key named in the finding.                              |
+| `wallet/status`                      | connect | `doctor/checks/wallet.rs::status`                               | #500        | `skipped` when its component is disabled; otherwise leaf-defined.                               | Configure the wallet safely or disable the unused wallet feature.             |
+| `backend/reachable`                  | connect | `openhuman-tinyhumans/src/doctor/backend.rs::reachable`         | #496        | `error` when backend is down; dependent hosted checks are `skipped`.                            | Check the configured backend URL and network access.                          |
+| `backend/credential`                 | connect | `openhuman-tinyhumans/src/doctor/backend.rs::credential`        | #496        | `error` for an expired JWT (`SESSION_EXPIRED`).                                                 | Sign in again through the supported auth flow.                                |
+| `backend/identity`                   | connect | `openhuman-tinyhumans/src/doctor/backend.rs::identity`          | #496        | Healthy result passes; failure severity is leaf-defined.                                        | Check tenant identity and access through the supported auth flow.             |
+| `backend/socket`                     | connect | `openhuman-tinyhumans/src/doctor/backend.rs::socket`            | #496        | Healthy result passes; failure severity is leaf-defined.                                        | Check backend socket availability and network policy.                         |
+| `backend/api-url`                    | static  | `openhuman-tinyhumans/src/doctor/backend.rs::api_url`           | #496        | Healthy result passes; failure severity is leaf-defined.                                        | Set a valid backend API URL for this profile.                                 |
+| `inference/managed-catalog`          | connect | `openhuman-tinyhumans/src/doctor/inference.rs::managed_catalog` | #496        | Healthy result passes; failure severity is leaf-defined.                                        | Check the managed inference catalog and tenant access.                        |
+| `inference/model-in-catalog`         | connect | `doctor/checks/inference.rs::model_in_catalog`                  | #497        | `warn` when a configured model is absent; `skipped` if provider has no `/models` route.         | Select a listed model or verify provider catalog support.                     |
+| `inference/auth-errors`              | connect | `doctor/checks/inference.rs::auth_errors`                       | #497        | `error` per provider in the auth error snapshot.                                                | Resolve provider authentication or access.                                    |
+| `inference/live/<role>`              | live    | `doctor/checks/inference_live.rs::role_completion`              | #501        | `error` for a provider 401; other failures are categorized as auth/quota/unavailable.           | Check the role's provider access and model configuration.                     |
+| `embeddings/live`                    | live    | `doctor/checks/embeddings_live.rs::embed`                       | #502        | `error` on embed failure or configured/actual dimension mismatch.                               | Check embedding access and configured vector dimensions.                      |
+| `memory/roundtrip`                   | live    | `doctor/checks/memory_live.rs::roundtrip`                       | #502        | `error` on roundtrip failure, including insufficient credits.                                   | Check memory-driver write/fetch/delete access and billing.                    |
 
-`memory/live-roundtrip` uses disposable, uniquely scoped test content and must
-delete it in a `finally`/drop path even when a later step fails. If cleanup
-fails, the report names the cleanup failure without including test content.
-No check may perform a write as part of `static` or `connect`.
+The IDs above are normative names from the leaves' Scope and Acceptance
+criteria. Dynamic segments use the canonical identifier supplied by their
+owner; they are safe single path segments, never arbitrary display text.
+`config/temperature` appears only in #488's selector test and is a `FakeCheck`
+fixture id, not a built-in inventory entry. The former daemon-state check has
+no v2 id: #325 deletes it because its state file is never written.
+
+For #491 tenant checks, `profile/provisioned` covers provision and lease
+readiness, while `backend/credential`, `inference/provider-ref`, and
+`storage/connect` report credential, provider-settings, and storage-scope
+readiness within the forced tenant context. A tenant caller cannot use
+`profile` to inspect another tenant; an authorized operator may select one.
+Authorization is checked before doctor reads config or credentials.
+
+`memory/roundtrip` uses doctor-scoped disposable content and must always forget
+it, including after a fetch failure. If cleanup fails, the report names the
+cleanup failure without including test content. Static checks may use bounded
+temporary local write probes, but must not persist configuration or repair
+application state. Connect checks may add read-only network probes but do not
+make billable calls or write remote state.
 
 ## Implementation references
 
-- Existing doctor being replaced: `crates/openhuman-core/src/platform/doctor/`
+- Existing doctor being replaced: `crates/openhuman-core/src/doctor/`
 - Existing subsystem status projection: `crates/openhuman-core/src/core/subsystem/status.rs`
 - Capability ids: `crates/openhuman-core/src/platform/about_app/`
 - OpenClaw reference: [structured health-check contract](https://github.com/openclaw/openclaw/blob/main/docs/cli/doctor/health-contract.md), [lint mode and selectors](https://github.com/openclaw/openclaw/blob/main/docs/cli/doctor/lint.md), and [running doctor](https://github.com/openclaw/openclaw/blob/main/docs/cli/doctor/running.md)

@@ -70,6 +70,21 @@ fn lint_warning_exits_one_when_warn_is_the_minimum() {
 }
 
 #[test]
+fn lint_json_still_uses_the_requested_severity_threshold() {
+    let options = args(&["--lint", "--json", "--severity-min", "warn"]);
+    let warnings = report(json!([{
+        "check_id": "config/provenance",
+        "severity": "warn",
+        "message": "The setting came from an implicit source.",
+        "fix_hint": "Set the intended source explicitly.",
+        "duration_ms": 1,
+        "affects": []
+    }]));
+
+    assert_eq!(exit_code(&options, Ok(&warnings)), 1);
+}
+
+#[test]
 fn runtime_failure_exits_two_before_a_report_exists() {
     let options = args(&["--lint"]);
 
@@ -124,4 +139,13 @@ fn live_profile_and_repeatable_selectors_map_to_rpc_options() {
     assert_eq!(options.profile.as_deref(), Some("desktop-default"));
     assert_eq!(options.only, ["config/provenance", "workspace/layout"]);
     assert_eq!(options.skip, ["config/provenance"]);
+    assert_eq!(
+        options.rpc_params(),
+        json!({
+            "tier": "live",
+            "profile": "desktop-default",
+            "only": ["config/provenance", "workspace/layout"],
+            "skip": ["config/provenance"]
+        })
+    );
 }

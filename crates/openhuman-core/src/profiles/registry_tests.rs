@@ -1,5 +1,5 @@
 use super::*;
-use crate::storage::{CollectionSpec, DocumentStore, MemoryStorage, Scope, StorageBackend};
+use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
 use tinystoragedrivers::Precondition;
 
 fn meta(id: &str, created_at: u64) -> ProfileMeta {

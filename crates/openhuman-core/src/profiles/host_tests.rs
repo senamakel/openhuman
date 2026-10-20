@@ -1,7 +1,7 @@
 use super::*;
 use crate::core::runtime::DispatchCtx;
 use crate::profiles::doctor::DoctorProfileState;
-use crate::storage::{CollectionSpec, DocumentStore, MemoryStorage, Scope, StorageBackend};
+use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
 use std::collections::BTreeMap;
 
 fn snapshot_tree(root: &std::path::Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {

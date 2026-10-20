@@ -29,6 +29,7 @@ use tinymemory_tools::pending::{
 use tinymemory_tools::single::WriteSink;
 use tinymemory_tools::ToolScope;
 
+#[cfg(test)]
 use super::tools::CallFacts;
 use super::types::{ForgetParams, LearnParams};
 use crate::config::Config;
@@ -156,6 +157,7 @@ fn unavailable() -> Error {
 
 /// Accepts a validated, scrubbed write locally. The acknowledgement means only
 /// that it is durable in the local outbox, not accepted by the remote engine.
+#[cfg(test)]
 pub(super) fn enqueue(
     config: &Config,
     args: &serde_json::Value,

@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tinymemory_api::{MemoryMeta, Namespace, Reach, SourceKind, SourceRef, ThreadWindow, ToolCallRef};
+use tinymemory_api::{Namespace, Reach, ThreadWindow, ToolCallRef};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 use tinymemory_tools::{
     CallContext, ConcurrencyClass, MemoryTools, PermissionClass, Refusal, RunBudget, SingleTool,
@@ -23,6 +23,8 @@ use crate::core::runtime::DispatchCtx;
 pub const MEMORY_TOOL_NAME: &str = "memory";
 const REFUSAL_METADATA_KEY: &str = "openhuman.memory_budget";
 const CONTINUE_WITHOUT_MEMORY: &str = "Continue answering the user's request without memory. Do not retry memory in this run. A timed-out write may already have been accepted; do not claim it failed or repeat it.";
+#[cfg(test)]
+const LEARN_STATUS: &str = "queued; not yet saved to memory";
 
 /// What the host knows about a call that the model does not set.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -96,6 +98,25 @@ impl CallFacts {
                 name: MEMORY_TOOL_NAME.to_string(),
                 id: self.tool_call_id.clone(),
             }),
+        }
+    }
+
+    #[cfg(test)]
+    fn learn_meta(&self) -> tinymemory_api::MemoryMeta {
+        tinymemory_api::MemoryMeta {
+            namespace: self.namespace.clone(),
+            workspace: self.workspace.clone(),
+            thread_id: self.thread_id.clone(),
+            agent_id: self.agent_id.clone(),
+            tool_call: Some(ToolCallRef {
+                name: MEMORY_TOOL_NAME.to_string(),
+                id: self.tool_call_id.clone(),
+            }),
+            source: tinymemory_api::SourceRef {
+                kind: tinymemory_api::SourceKind::Agent,
+                id: None,
+            },
+            ..tinymemory_api::MemoryMeta::default()
         }
     }
 }
@@ -290,9 +311,13 @@ async fn run_action(
     args: &Value,
     facts: &CallFacts,
 ) -> ToolResult {
-    MemoryTool::new(Arc::new(config.clone()))
+    let result = MemoryTool::new(Arc::new(config.clone()))
         .call_with_facts(args.clone(), ctx.clone(), facts.clone(), None)
-        .await
+        .await;
+    if is_write_action(args) && !result.is_error {
+        super::tool_writes::drain(config).await;
+    }
+    result
 }
 
 #[cfg(test)]

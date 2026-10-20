@@ -7,8 +7,8 @@ use futures::FutureExt;
 use tokio::sync::Notify;
 
 use crate::core::runtime::{DomainSet, SaasConfig};
-use crate::profiles::credentials::UserCredentialKind;
 use crate::profiles::OpenError;
+use crate::profiles::credentials::UserCredentialKind;
 use crate::storage::lease::{LeaseRecord, LeaseStore};
 use crate::storage::{MemoryStorage, StorageBackend};
 
@@ -87,6 +87,10 @@ impl LeaseStore for PausingLeases {
 
     async fn holder(&self, key: &str) -> Result<Option<LeaseRecord>, LeaseError> {
         self.inner.holder(key).await
+    }
+
+    async fn holder_readonly(&self, key: &str) -> Result<Option<LeaseRecord>, LeaseError> {
+        self.inner.holder_readonly(key).await
     }
 }
 

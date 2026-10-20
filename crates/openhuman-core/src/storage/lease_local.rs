@@ -25,8 +25,8 @@ use async_trait::async_trait;
 use fs2::FileExt;
 use tinystoragedrivers::Version;
 
-use super::lease::{local_dir, validate_key, LeaseError, LeaseGrant, LeaseRecord, LeaseStore};
 use super::StorageError;
+use super::lease::{LeaseError, LeaseGrant, LeaseRecord, LeaseStore, local_dir, validate_key};
 
 const LOCK_FILE: &str = ".lease";
 const RECORD_FILE: &str = ".lease.json";
@@ -302,6 +302,34 @@ impl LeaseStore for LocalLeases {
             if file.try_lock_exclusive().is_ok() {
                 let _ = FileExt::unlock(&file);
                 record.expires_at_ms = 0;
+            }
+        }
+        Ok(Some(record))
+    }
+
+    async fn holder_readonly(&self, key: &str) -> Result<Option<LeaseRecord>, LeaseError> {
+        validate_key(key)?;
+        if let Some(holding) = self.held().get(key) {
+            return Ok(Some(holding.record.clone()));
+        }
+        let Some(mut record) = self.read_record(key)? else {
+            return Ok(None);
+        };
+        if !record.released {
+            let path = local_dir(&self.root, key).join(LOCK_FILE);
+            match OpenOptions::new().read(true).open(&path) {
+                Ok(file) => match file.try_lock_exclusive() {
+                    Ok(()) => {
+                        let _ = FileExt::unlock(&file);
+                        record.expires_at_ms = 0;
+                    }
+                    Err(error) if is_contended(&error) => {}
+                    Err(error) => return Err(io_error("open", &path, &error).into()),
+                },
+                Err(error) if error.kind() == io::ErrorKind::NotFound => {
+                    record.expires_at_ms = 0;
+                }
+                Err(error) => return Err(io_error("open", &path, &error).into()),
             }
         }
         Ok(Some(record))

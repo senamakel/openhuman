@@ -19,7 +19,7 @@ use tinystoragedrivers::schema::{
 };
 use tinystoragedrivers::{CollectionSpec, Result, ScopedStorage};
 
-use crate::storage::schema_support::{key_of, owner, Body};
+use crate::storage::schema_support::{Body, key_of, owner};
 
 /// The v2 collection: one document per profile.
 pub const REGISTRY_COLLECTION: &str = "profiles.registry";

@@ -27,6 +27,7 @@ pub mod background;
 pub mod capabilities;
 pub mod credentials;
 pub mod cron;
+pub(crate) mod doctor;
 pub mod fence;
 pub mod gateway;
 pub mod host;
@@ -44,7 +45,7 @@ pub mod tools;
 pub mod turn_gate;
 pub mod types;
 
-pub use host::{current, Profile, ProfileHost};
+pub use host::{Profile, ProfileHost, current};
 pub use layout::ProfileLayout;
 pub use lease::OpenError;
 pub use registry::ProfileRegistry;

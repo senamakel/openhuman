@@ -856,8 +856,8 @@ fn every_registered_controller_has_matching_declared_schema() {
 
 // --- DomainSet registration filter (#4796) ------------------------------
 
-use crate::core::runtime::context::CoreContext;
 use crate::core::runtime::DomainSet;
+use crate::core::runtime::context::CoreContext;
 
 /// The [`DomainGroup`] a registered controller (agent-facing OR internal) is
 /// tagged with, looked up by its namespace. Test-only helper over the private

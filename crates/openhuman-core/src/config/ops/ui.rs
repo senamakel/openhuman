@@ -426,7 +426,7 @@ pub async fn load_and_apply_dictation_settings(
             _ => {
                 return Err(format!(
                     "invalid activation_mode: {mode} (valid: toggle, push)"
-                ))
+                ));
             }
         }
     }
@@ -496,7 +496,7 @@ pub async fn load_and_apply_voice_server_settings(
             _ => {
                 return Err(format!(
                     "invalid activation_mode: {mode} (valid: tap, push)"
-                ))
+                ));
             }
         }
     }

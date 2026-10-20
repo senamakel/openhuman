@@ -52,14 +52,18 @@ fn a_task_carries_the_chrome_path_and_the_persistent_profile_from_settings() {
     );
     // A fresh profile is the module's own temporary one.
     config.browser.profile_mode = "fresh".into();
-    assert!(start_request(&config, &task())
-        .constraints
-        .browser_profile
-        .is_none());
-    assert!(start_request(&Config::default(), &task())
-        .constraints
-        .browser_executable
-        .is_none());
+    assert!(
+        start_request(&config, &task())
+            .constraints
+            .browser_profile
+            .is_none()
+    );
+    assert!(
+        start_request(&Config::default(), &task())
+            .constraints
+            .browser_executable
+            .is_none()
+    );
 }
 
 #[test]
@@ -129,9 +133,11 @@ fn unwrap_response_returns_data_or_the_structured_error() {
         data: None,
         error: None,
     };
-    assert!(unwrap_response("AwaitTask", empty)
-        .unwrap_err()
-        .contains("no result"));
+    assert!(
+        unwrap_response("AwaitTask", empty)
+            .unwrap_err()
+            .contains("no result")
+    );
 }
 
 #[test]

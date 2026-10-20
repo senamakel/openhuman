@@ -2,11 +2,11 @@
 //! state (and again when its report could not be fetched), and its full
 //! report is written inside the workspace, readable by its owner alone.
 
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use super::*;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Log lines written on this thread while the guard from [`capture_logs`]
 /// lives.

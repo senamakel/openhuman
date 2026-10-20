@@ -79,7 +79,7 @@ pub(crate) fn handle_browser_forget_sites(
                 return Err(
                     "`site` must name a site (a host or an address); omit it to forget every site"
                         .to_owned(),
-                )
+                );
             }
         };
         let config = ctx.load_config().await?;

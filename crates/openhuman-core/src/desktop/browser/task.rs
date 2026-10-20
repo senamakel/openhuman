@@ -11,11 +11,11 @@
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tinycomputer_bus::agent::{
-    names::methods, AgentResponse, AwaitTaskRequest, ContinueTaskRequest, PaymentMode,
-    StartTaskRequest, SurfaceKind, TaskBudget, TaskConstraints, TaskId, TaskRef, TaskReport,
-    TaskReportRequest, TaskView,
+    AgentResponse, AwaitTaskRequest, ContinueTaskRequest, PaymentMode, StartTaskRequest,
+    SurfaceKind, TaskBudget, TaskConstraints, TaskId, TaskRef, TaskReport, TaskReportRequest,
+    TaskView, names::methods,
 };
 
 use crate::config::Config;

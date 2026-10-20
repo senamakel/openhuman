@@ -22,7 +22,16 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
 
     assert!(docs.validate_collection_spec(&registry_spec).await.is_err());
     assert!(docs.validate_collection_spec(&lease_spec).await.is_err());
-    assert!(host.provisioned_config(&profile("alice")).await.is_err());
+    let id = profile("alice");
+    let snapshot = host.inspect_for_doctor(&id).await.unwrap();
+    let layout = host.layout_of(&id);
+    assert!(!snapshot.provisioned);
+    assert_eq!(snapshot.profile_id, id);
+    assert_eq!(snapshot.lease_record, None);
+    assert_eq!(snapshot.context.profile(), Some(id.as_str()));
+    assert_eq!(snapshot.config.config_path, layout.config_path);
+    assert_eq!(host.open_count(), 0, "inspection must not open or lease it");
+    assert!(!layout.dir.exists(), "inspection must not create profile dirs");
 
     assert!(
         docs.validate_collection_spec(&registry_spec).await.is_err(),
@@ -32,6 +41,81 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
         docs.validate_collection_spec(&lease_spec).await.is_err(),
         "a profile check must not create or migrate the lease schema"
     );
+}
+
+#[tokio::test]
+async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_binding_per_profile() {
+    let tmp = tempfile::tempdir().unwrap();
+    let host = host(&tmp, 4, 60);
+    let a = ProfileId::for_user(
+        &format!("doctor-a-{}", uuid::Uuid::new_v4().simple()),
+        crate::profiles::ProfileIdMode::Raw,
+    )
+    .unwrap();
+    let b = ProfileId::for_user(
+        &format!("doctor-b-{}", uuid::Uuid::new_v4().simple()),
+        crate::profiles::ProfileIdMode::Raw,
+    )
+    .unwrap();
+    host.provision(&a).await.unwrap();
+    host.provision(&b).await.unwrap();
+    let target_a = host.inspect_for_doctor(&a).await.unwrap();
+    let target_b = host.inspect_for_doctor(&b).await.unwrap();
+
+    crate::profiles::credentials::store(
+        &target_b.config,
+        crate::profiles::credentials::UserCredentialKind::ApiKey,
+        "doctor-b-only-test-key",
+        None,
+    )
+    .unwrap();
+
+    let a_observed = CoreContext::scope(Arc::clone(&target_a.context), async {
+        {
+            let config = CoreContext::current()
+                .expect("selected profile context")
+                .embedder_config()
+                .expect("selected profile config");
+            (
+                config.config_path,
+                crate::storage::current_scope().unwrap(),
+                crate::profiles::credentials::has(&config),
+                crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
+                    &DispatchCtx::ambient(),
+                )
+                .is_some(),
+            )
+        }
+    })
+    .await;
+    let b_observed = CoreContext::scope(Arc::clone(&target_b.context), async {
+        let config = CoreContext::current()
+            .expect("selected profile context")
+            .embedder_config()
+            .expect("selected profile config");
+        (
+            config.config_path,
+            crate::storage::current_scope().unwrap(),
+            crate::profiles::credentials::has(&config),
+            crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
+                &DispatchCtx::ambient(),
+            )
+            .is_some(),
+        )
+    })
+    .await;
+
+    assert_eq!(a_observed.0, target_a.config.config_path);
+    assert_eq!(b_observed.0, target_b.config.config_path);
+    assert_ne!(a_observed.0, b_observed.0);
+    assert_eq!(a_observed.1, crate::storage::scope_for_profile(a.as_str()));
+    assert_eq!(b_observed.1, crate::storage::scope_for_profile(b.as_str()));
+    assert!(!a_observed.2, "A must not observe B's credential");
+    assert!(b_observed.2, "B's own context sees its credential");
+    assert!(a_observed.3 && b_observed.3, "each forced config resolves provider settings");
+    assert_eq!(host.open_count(), 0, "doctor inspection does not open profiles");
+
+    crate::profiles::credentials::clear(&target_b.config).unwrap();
 }
 
 fn host(tmp: &tempfile::TempDir, max_open: usize, idle_secs: u64) -> ProfileHost {

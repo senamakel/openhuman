@@ -4,8 +4,6 @@
 //! verified loopback mock was supplied by `scripts/test-rust-with-mock.sh`.
 //! This keeps the same target hermetic under the direct CI Lite coverage runner.
 
-#[path = "support/env_guard.rs"]
-mod env_guard;
 #[path = "support/tinyhumans_boot.rs"]
 mod tinyhumans_boot;
 
@@ -30,26 +28,20 @@ const RPC_TOKEN: &str = "doctor-e2e-in-process-rpc-token";
 const MOCK_BACKEND_PLACEHOLDER: &str = "__MOCK_BACKEND_URL__";
 
 static RPC_AUTH_INIT: OnceLock<()> = OnceLock::new();
-static MOCK_BACKEND: tokio::sync::OnceCell<MockBackend> = tokio::sync::OnceCell::const_new();
+static ENV_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
-/// One process-wide mock server. The TinyHumans transport is installed once,
-/// so every fixture in this test binary keeps the same backend origin.
+/// A loopback server for one serialized fixture.
 struct MockBackend {
     origin: String,
-    child: std::sync::Mutex<Option<Child>>,
+    child: Option<Child>,
 }
 
 impl MockBackend {
-    async fn start() -> Self {
-        let inherited_origin = std::env::var("BACKEND_URL")
-            .ok()
-            .and_then(|value| loopback_origin(&value));
+    async fn start(inherited_backend_url: Option<&str>) -> Self {
+        let inherited_origin = inherited_backend_url.and_then(loopback_origin);
         if let Some(origin) = inherited_origin {
             if is_shared_mock(&origin).await {
-                return Self {
-                    origin,
-                    child: std::sync::Mutex::new(None),
-                };
+                return Self { origin, child: None };
             }
         }
 
@@ -72,22 +64,21 @@ impl MockBackend {
             .expect("start the shared Node mock (node must be on PATH)");
         let mock = Self {
             origin: format!("http://127.0.0.1:{port}"),
-            child: std::sync::Mutex::new(Some(child)),
+            child: Some(child),
         };
         let deadline = Instant::now() + Duration::from_secs(20);
         loop {
             if is_shared_mock(&mock.origin).await {
                 return mock;
             }
-            if let Ok(mut child) = mock.child.lock() {
-                if child
-                    .as_mut()
-                    .and_then(|process| process.try_wait().ok())
-                    .flatten()
-                    .is_some()
-                {
-                    panic!("the shared mock server exited before becoming healthy");
-                }
+            if mock
+                .child
+                .as_ref()
+                .and_then(|process| process.try_wait().ok())
+                .flatten()
+                .is_some()
+            {
+                panic!("the shared mock server exited before becoming healthy");
             }
             assert!(
                 Instant::now() < deadline,
@@ -161,11 +152,9 @@ impl MockBackend {
 
 impl Drop for MockBackend {
     fn drop(&mut self) {
-        if let Ok(mut child) = self.child.lock() {
-            if let Some(mut process) = child.take() {
-                let _ = process.kill();
-                let _ = process.wait();
-            }
+        if let Some(mut process) = self.child.take() {
+            let _ = process.kill();
+            let _ = process.wait();
         }
     }
 }
@@ -283,7 +272,7 @@ impl Drop for IsolatedEnvironment {
 
 struct Fixture {
     _home: TempDir,
-    mock: &'static MockBackend,
+    mock: MockBackend,
     rpc_base: String,
     rpc_task: tokio::task::JoinHandle<Result<(), std::io::Error>>,
     _environment: IsolatedEnvironment,
@@ -292,8 +281,9 @@ struct Fixture {
 
 impl Fixture {
     async fn new(config: &str) -> Self {
-        let environment_lock = env_guard::env_lock_async().await;
-        let mock = MOCK_BACKEND.get_or_init(MockBackend::start).await;
+        let environment_lock = ENV_LOCK.lock().await;
+        let inherited_backend_url = std::env::var("BACKEND_URL").ok();
+        let mock = MockBackend::start(inherited_backend_url.as_deref()).await;
         let home = tempfile::tempdir().expect("fixture home");
         let action_dir = home.path().join("action");
         fs::create_dir_all(&action_dir).expect("create fixture action directory");

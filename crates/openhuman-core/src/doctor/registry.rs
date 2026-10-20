@@ -67,15 +67,16 @@ pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
 }
 
 fn valid_check_id(id: &str) -> bool {
-    let mut parts = id.split('/');
-    let (Some(area), Some(name), None) = (parts.next(), parts.next(), parts.next()) else {
-        return false;
-    };
-    !area.is_empty()
-        && !name.is_empty()
-        && [area, name].into_iter().all(|part| {
-            part.bytes().all(|byte| {
+    let mut segments = 0;
+    for segment in id.split('/') {
+        if segment.is_empty()
+            || !segment.bytes().all(|byte| {
                 byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
             })
-        })
+        {
+            return false;
+        }
+        segments += 1;
+    }
+    segments >= 2
 }

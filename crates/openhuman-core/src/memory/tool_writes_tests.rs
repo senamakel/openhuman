@@ -58,6 +58,10 @@ pub(crate) fn enqueue(
     }
 }
 
+pub(crate) fn queued_for(config: &Config, facts: &CallFacts) -> tinymemory_api::Result<Vec<Entry>> {
+    super::read_at(&super::queue_path(config, &facts.reach.at))
+}
+
 fn facts(config: &Config) -> CallFacts {
     CallFacts::of(
         config,

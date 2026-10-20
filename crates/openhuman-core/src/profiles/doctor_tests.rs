@@ -252,7 +252,7 @@ async fn dispatch_report_runs_registered_provisioned_check_without_creating_stat
     }
 
     use crate::core::runtime::{CoreContext, DomainSet, Mode, SaasConfig, mode};
-    use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
+    use crate::storage::{CollectionSpec, DocumentStore, MemoryStorage, Scope, StorageBackend};
 
     mode::lock_mode(Mode::Saas).expect("isolated test process uses SaaS mode");
     let temp = tempfile::tempdir().unwrap();

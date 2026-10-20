@@ -148,10 +148,13 @@ async fn prepare(
                 AuthStyle::None | AuthStyle::OpenhumanJwt => request,
             };
         }
-        let response = request
-            .send()
-            .await
-            .map_err(|_| InspectionCatalogError::Unavailable)?;
+        let response = request.send().await.map_err(|error| {
+            if error.is_timeout() {
+                InspectionCatalogError::Failure
+            } else {
+                InspectionCatalogError::Unavailable
+            }
+        })?;
         let status = response.status();
         if status == reqwest::StatusCode::NOT_FOUND {
             return Err(InspectionCatalogError::NoCatalog);

@@ -97,10 +97,13 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
                         get = get.headers(headers);
                     }
                 }
-                let response = get
-                    .send()
-                    .await
-                    .map_err(|_| InspectionCatalogError::Unavailable)?;
+                let response = get.send().await.map_err(|error| {
+                    if error.is_timeout() {
+                        InspectionCatalogError::Failure
+                    } else {
+                        InspectionCatalogError::Unavailable
+                    }
+                })?;
                 let status = response.status();
                 if status == reqwest::StatusCode::NOT_FOUND {
                     return Err(InspectionCatalogError::NoCatalog);

@@ -73,7 +73,7 @@ pub(super) fn stt_factory(slug: &str) -> Option<SttProviderFactory> {
     STT_PROVIDERS.get(slug)
 }
 
-/// Whether an STT provider factory is registered, without constructing a
+/// Whether an STT provider factory is registered without constructing a
 /// provider or invoking its constructor.
 pub(crate) fn has_stt_provider(slug: &str) -> bool {
     STT_PROVIDERS.get(slug).is_some()
@@ -83,7 +83,7 @@ pub(super) fn tts_factory(slug: &str) -> Option<TtsProviderFactory> {
     TTS_PROVIDERS.get(slug)
 }
 
-/// Whether a TTS provider factory is registered, without constructing a
+/// Whether a TTS provider factory is registered without constructing a
 /// provider or invoking its constructor.
 pub(crate) fn has_tts_provider(slug: &str) -> bool {
     TTS_PROVIDERS.get(slug).is_some()

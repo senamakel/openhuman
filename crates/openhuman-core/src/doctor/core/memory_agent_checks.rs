@@ -2,7 +2,7 @@
 
 use crate::config::Config;
 
-use super::daemon_env_checks::{truncate_for_display, COMMAND_VERSION_PREVIEW_CHARS};
+use super::daemon_env_checks::{COMMAND_VERSION_PREVIEW_CHARS, truncate_for_display};
 use super::run::MemoryEngineCheck;
 use super::types::DiagnosticItem;
 

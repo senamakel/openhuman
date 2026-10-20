@@ -80,9 +80,11 @@ fn enforce_local_only_inference_errors_on_external_when_local_only() {
         Err(error) => error,
         Ok(_) => panic!("direct Claude Code model must preserve the privacy gate"),
     };
-    assert!(claude_code_error
-        .to_string()
-        .contains("Local-only privacy mode"));
+    assert!(
+        claude_code_error
+            .to_string()
+            .contains("Local-only privacy mode")
+    );
 
     // Both the default factory and a thread-attached managed picker route must
     // hit the managed resolver's privacy gate before any backend client exists.
@@ -439,9 +441,11 @@ fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
         identity.starts_with("anthropic:https://api.anthropic.com/v1:claude-sonnet-4-6"),
         "expected the native Messages adapter, got identity {identity}"
     );
-    assert!(model
-        .profile()
-        .is_some_and(|p| p.tool_calling && p.streaming));
+    assert!(
+        model
+            .profile()
+            .is_some_and(|p| p.tool_calling && p.streaming)
+    );
 }
 
 /// Text mode (prompt-guided tools) is only implemented on the Chat Completions

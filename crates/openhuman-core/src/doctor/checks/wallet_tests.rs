@@ -102,6 +102,34 @@ async fn a_valid_wallet_snapshot_is_inspected_without_keychain_access_or_rewrite
 
 #[cfg(feature = "web3")]
 #[tokio::test]
+async fn the_default_snapshot_reader_only_reads_selected_workspace_bytes() {
+    let ambient = tempfile::tempdir().expect("create ambient wallet fixture");
+    let selected = tempfile::tempdir().expect("create selected wallet fixture");
+    let config_a = config_in(ambient.path());
+    let config_b = config_in(selected.path());
+    let state_a = config_a.workspace_dir.join("state").join("wallet-state.json");
+    let state_b = config_b.workspace_dir.join("state").join("wallet-state.json");
+    std::fs::create_dir_all(state_a.parent().unwrap()).expect("create ambient state");
+    std::fs::create_dir_all(state_b.parent().unwrap()).expect("create selected state");
+    std::fs::write(&state_a, stored_wallet_json("0xambient-address")).unwrap();
+    let selected_bytes = stored_wallet_json("0xselected-address");
+    std::fs::write(&state_b, &selected_bytes).unwrap();
+    let check = WalletStatusCheck { probe: Arc::new(FileSnapshot) };
+    let ambient_context = crate::core::runtime::CoreContext::for_test_with_config(
+        crate::core::runtime::DomainSet::full(), config_a,
+    );
+    let finding = crate::core::runtime::CoreContext::scope(ambient_context, async {
+        check.detect(&DoctorCtx::from_config(config_b)).await.remove(0)
+    }).await;
+
+    assert_eq!(finding.severity, FindingSeverity::Pass);
+    assert!(!finding.message.contains("0xselected-address"));
+    assert_eq!(std::fs::read_to_string(&state_b).unwrap(), selected_bytes);
+    assert_eq!(std::fs::read_dir(state_b.parent().unwrap()).unwrap().count(), 1);
+}
+
+#[cfg(feature = "web3")]
+#[tokio::test]
 async fn malformed_selected_wallet_state_is_reported_without_quarantine_or_deletion() {
     let scratch = tempfile::tempdir().expect("create isolated wallet fixture");
     let config = config_in(scratch.path());

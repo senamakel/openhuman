@@ -40,7 +40,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
     egress: &EgressLedger,
 ) -> OptionalChatModelResult {
     use tinyinference_local::local_runtime::{
-        resolve_local_runtime, LocalRuntimeAuth, LocalRuntimeInputs,
+        LocalRuntimeAuth, LocalRuntimeInputs, resolve_local_runtime,
     };
 
     // Use the same classifier as privacy and session policy. Canonicalize only

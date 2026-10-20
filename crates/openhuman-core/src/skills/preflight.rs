@@ -238,7 +238,7 @@ async fn git_config_value(key: &str) -> String {
 ///
 /// The gate is a no-op (immediate `Ok(())`) when the `[github]` block
 /// is absent (`cfg: None`) or `required = false`.
-pub async fn run_github_preflight<P: PreflightProbes>(
+pub async fn run_github_preflight<P: PreflightProbes + ?Sized>(
     cfg: Option<&WorkflowGithubConfig>,
     probes: &P,
 ) -> Result<(), GithubGateError> {

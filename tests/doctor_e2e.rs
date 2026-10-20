@@ -612,7 +612,7 @@ fn assert_cli_report(output: &Output, expected_code: i32, check_id: Option<&str>
     report
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn healthy_report_is_v2_and_does_not_write_profile_state() {
     let fixture = fixture_named("healthy").await;
     let report = fixture.report(json!({"tier": "static"})).await;
@@ -623,7 +623,7 @@ async fn healthy_report_is_v2_and_does_not_write_profile_state() {
     assert_eq!(report["tier"], "static");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn unknown_config_key_reports_its_stable_check_id() {
     let fixture = fixture_named("unknown-key").await;
     let report = fixture
@@ -633,7 +633,7 @@ async fn unknown_config_key_reports_its_stable_check_id() {
     assert_finding(&report, "config/unknown-key", "warn");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn unknown_provider_reports_its_stable_check_id() {
     let fixture = fixture_named("unknown-provider").await;
     let report = fixture
@@ -643,7 +643,7 @@ async fn unknown_provider_reports_its_stable_check_id() {
     assert_finding(&report, "inference/provider-ref", "error");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn byok_provider_without_a_key_reports_construction_failure() {
     let fixture = fixture_named("byok-no-key").await;
     let report = fixture
@@ -653,7 +653,7 @@ async fn byok_provider_without_a_key_reports_construction_failure() {
     assert_finding(&report, "inference/construct", "error");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn unavailable_backend_reports_reachability_failure() {
     let fixture = fixture_named("healthy").await;
     fixture
@@ -674,7 +674,7 @@ async fn unavailable_backend_reports_reachability_failure() {
     assert_finding(&report, "backend/reachable", "error");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn expired_jwt_reports_credential_failure() {
     let fixture = fixture_named("healthy").await;
     write_expired_session(fixture._home.path());
@@ -686,7 +686,7 @@ async fn expired_jwt_reports_credential_failure() {
     assert_finding(&report, "backend/credential", "error");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn disabled_memory_with_a_cortexdb_reference_is_reported() {
     let fixture = fixture_named("disabled-component-reference").await;
     let report = fixture
@@ -699,7 +699,7 @@ async fn disabled_memory_with_a_cortexdb_reference_is_reported() {
     assert_finding(&report, "components/referenced-but-disabled", "warn");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn mongodb_storage_url_reports_the_unavailable_driver() {
     let fixture = fixture_named("storage-missing-driver").await;
     let report = fixture
@@ -709,7 +709,7 @@ async fn mongodb_storage_url_reports_the_unavailable_driver() {
     assert_finding(&report, "storage/url", "error");
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn missing_profile_is_a_reported_rpc_finding_without_creating_it() {
     let fixture = fixture_named("healthy").await;
     let missing = fixture._home.path().join(".openhuman/users/doctor-missing");
@@ -728,7 +728,7 @@ async fn missing_profile_is_a_reported_rpc_finding_without_creating_it() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn connect_tier_skips_billable_live_probes() {
     let fixture = fixture_named("healthy").await;
     let report = fixture.report(json!({"tier": "connect"})).await;
@@ -759,7 +759,7 @@ async fn connect_tier_skips_billable_live_probes() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn live_completion_embedding_and_memory_roundtrip_pass_and_clean_up() {
     let fixture = fixture_named("healthy").await;
     fixture
@@ -801,7 +801,7 @@ async fn live_completion_embedding_and_memory_roundtrip_pass_and_clean_up() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "current_thread")]
 async fn cli_lint_uses_report_threshold_and_argument_error_exit_codes() {
     let fixture = fixture_named("healthy").await;
     let before = snapshot_tree(fixture._home.path());

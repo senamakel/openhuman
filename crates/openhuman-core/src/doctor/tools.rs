@@ -1,7 +1,7 @@
 //! LLM-callable wrappers over the `doctor` diagnostics domain.
 //!
 //! Read-only health diagnostics; both tools delegate to
-//! [`crate::platform::doctor::ops`] and ship default-ON.
+//! [`crate::doctor::ops`] and ship default-ON.
 
 use std::sync::Arc;
 

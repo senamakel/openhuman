@@ -95,7 +95,7 @@ Both subscribers are registered idempotently from `crates/openhuman-core/src/cor
 
 - `crates/openhuman-core/src/core/all.rs`: registers the service controllers (`all_service_registered_controllers`).
 - `crates/openhuman-core/src/core/runtime/subscribers.rs`: registers the restart/shutdown event-bus subscribers at startup.
-- `crates/openhuman-core/src/platform/doctor/core.rs`: reads `service::daemon::state_file_path`.
+- `crates/openhuman-core/src/doctor/core.rs`: reads `service::daemon::state_file_path`.
 - `crates/openhuman-core/src/platform/update/ops.rs` (`rpc::service_restart` after a self-replace), `crates/openhuman-core/src/config/ops/loader/runtime_flags.rs` (`mock::mock_agent_running`), `crates/openhuman-core/src/desktop/app_state/ops/{types,runtime_snapshot}.rs` (`ServiceState`/`ServiceStatus`, `status`): call into `crate::platform::service`.
 - `crates/openhuman-core/src/tools/mod.rs`: re-exports `platform::service::tools::*`.
 - `lib.rs`: module wiring.

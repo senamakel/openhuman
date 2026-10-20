@@ -80,3 +80,7 @@ fn init_sentry() -> process::sentry::sdk::ClientInitGuard {
 #[cfg(all(test, feature = "crash-reporting"))]
 #[path = "main_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "doctor/mod.rs"]
+mod doctor;

@@ -1,5 +1,5 @@
 use super::*;
-use crate::memory::test_fixtures::config_in;
+use crate::memory::test_fixtures::{bind_reference, config_in};
 
 #[test]
 fn the_state_file_round_trips_through_the_atomic_store() {
@@ -213,4 +213,36 @@ async fn a_credit_paused_import_waits_for_billing_and_records_a_resume_failure()
 fn a_store_with_no_legacy_files_counts_nothing() {
     let tmp = tempfile::tempdir().unwrap();
     assert!(tinymemory_integrations::import::count_legacy(tmp.path()).is_none());
+}
+
+#[tokio::test]
+async fn resume_with_live_import_slot_does_not_claim_a_new_run() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+    let mut file = ImportFile::default();
+    file.state.phase = ImportPhase::Running;
+    let store = FileCheckpointStore::new(&config.workspace_dir);
+    store.save(&file).unwrap();
+    let guard = crate::memory::run_slots::reserve(
+        &crate::memory::run_slots::IMPORT,
+        &config.workspace_dir,
+        &[
+            &crate::memory::run_slots::BACKFILL,
+            &crate::memory::run_slots::MIGRATION,
+        ],
+    )
+    .expect("the live import owns the slot");
+
+    let resumed = resume_interrupted_with(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        Arc::new(|| false),
+        Arc::new(|_: &Config| true),
+    )
+    .await;
+
+    assert_eq!(store.load(), file, "a live run leaves its checkpoint alone");
+    assert!(!resumed, "no new run was scheduled");
+    drop(guard);
 }

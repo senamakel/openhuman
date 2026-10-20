@@ -267,3 +267,42 @@ async fn run_acts_under_the_handed_context_not_the_active_one() {
         assert!(Arc::ptr_eq(context, &handed));
     }
 }
+
+fn pause_import_for_credits(config: &Config) {
+    use tinymemory_integrations::import::{CheckpointStore, ImportFile, ImportPhase};
+
+    let mut file = ImportFile::default();
+    file.state.phase = ImportPhase::Error;
+    file.paused_for_credits = true;
+    crate::memory::import::FileCheckpointStore::new(&config.workspace_dir)
+        .save(&file)
+        .unwrap();
+}
+
+#[tokio::test]
+async fn a_credit_paused_import_blocks_migration_start_and_tick() {
+    let start_tmp = tempfile::tempdir().unwrap();
+    let start_config = crate::memory::test_fixtures::config_in(&start_tmp);
+    let start_host = Arc::new(FakeHost::with(1, &start_config).await);
+    pause_import_for_credits(&start_config);
+    assert!(crate::memory::import::in_progress(&start_config));
+    assert!(!start(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        start_config.clone(),
+        start_host,
+        Trigger::Auto,
+        never()
+    ));
+
+    let tick_tmp = tempfile::tempdir().unwrap();
+    let tick_config = crate::memory::test_fixtures::config_in(&tick_tmp);
+    let tick_host = Arc::new(FakeHost::with(1, &tick_config).await);
+    pause_import_for_credits(&tick_config);
+    assert!(crate::memory::import::in_progress(&tick_config));
+    assert!(!tick(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &tick_config,
+        tick_host,
+        never()
+    ));
+}

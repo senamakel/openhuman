@@ -171,9 +171,10 @@ pub(super) fn profile_master_key_read_only(
             ));
         }
     }
-    let text = Zeroizing::new(std::fs::read_to_string(&path).map_err(|_| {
-        SecretStorageError::Backend("cannot read profile master key".into())
-    })?);
+    let text = Zeroizing::new(
+        std::fs::read_to_string(&path)
+            .map_err(|_| SecretStorageError::Backend("cannot read profile master key".into()))?,
+    );
     parse_master_key_hex(text.trim())
         .map(Zeroizing::new)
         .map(Some)

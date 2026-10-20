@@ -373,11 +373,12 @@ impl EncryptedFileBackend {
         &self,
         namespaced_key: &str,
     ) -> Result<Option<String>, SecretStorageError> {
-        let key = key_source::profile_master_key_read_only(&self.workspace_dir)?.ok_or_else(|| {
-            SecretStorageError::Backend(
-                "profile master key unavailable for read-only secret lookup".into(),
-            )
-        })?;
+        let key =
+            key_source::profile_master_key_read_only(&self.workspace_dir)?.ok_or_else(|| {
+                SecretStorageError::Backend(
+                    "profile master key unavailable for read-only secret lookup".into(),
+                )
+            })?;
         self.get_with_key_read_only(&key, namespaced_key)
     }
 

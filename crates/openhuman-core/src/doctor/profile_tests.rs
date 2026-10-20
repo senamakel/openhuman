@@ -34,9 +34,12 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
 
     let account_a = ProfileLayout::new(root, "account-a");
     tokio::fs::create_dir_all(&account_a.dir).await.unwrap();
-    tokio::fs::write(&account_a.config_path, "default_model = \"account-a-model\"\n")
-        .await
-        .unwrap();
+    tokio::fs::write(
+        &account_a.config_path,
+        "default_model = \"account-a-model\"\n",
+    )
+    .await
+    .unwrap();
     AuthService::from_config(&config_for(&account_a))
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -49,9 +52,12 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
 
     let account_b = ProfileLayout::new(root, "account-b");
     tokio::fs::create_dir_all(&account_b.dir).await.unwrap();
-    tokio::fs::write(&account_b.config_path, "default_model = \"account-b-model\"\n")
-        .await
-        .unwrap();
+    tokio::fs::write(
+        &account_b.config_path,
+        "default_model = \"account-b-model\"\n",
+    )
+    .await
+    .unwrap();
 
     let active_user_before = tokio::fs::read(&active_user_path).await.unwrap();
     let selected = load_desktop_profile(root, "account-b").await.unwrap();
@@ -59,10 +65,15 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
     assert_eq!(selected.config.config_path, account_b.config_path);
     assert_eq!(selected.config.workspace_dir, account_b.workspace_dir);
     assert_eq!(selected.layout.version, account_b.version);
-    assert_eq!(selected.config.default_model.as_deref(), Some("account-b-model"));
+    assert_eq!(
+        selected.config.default_model.as_deref(),
+        Some("account-b-model")
+    );
     assert_eq!(get_session_token(&selected.config).unwrap(), None);
     assert_eq!(
-        get_session_token(&config_for(&account_a)).unwrap().as_deref(),
+        get_session_token(&config_for(&account_a))
+            .unwrap()
+            .as_deref(),
         Some("account-a-session")
     );
     assert_eq!(
@@ -101,12 +112,18 @@ async fn invalid_explicit_profile_returns_one_safe_profile_exists_error() {
     let report = outcome.value;
 
     assert_eq!(report.profile.as_deref(), Some("account-b"));
-    assert_eq!(report.config_source, crate::doctor::DoctorConfigSource::Profile);
+    assert_eq!(
+        report.config_source,
+        crate::doctor::DoctorConfigSource::Profile
+    );
     assert_eq!(report.checks_run, ["profile/exists"]);
     assert!(report.checks_skipped.is_empty());
     assert_eq!(report.findings.len(), 1);
     assert_eq!(report.findings[0].check_id, "profile/exists");
-    assert_eq!(report.findings[0].severity, crate::doctor::FindingSeverity::Error);
+    assert_eq!(
+        report.findings[0].severity,
+        crate::doctor::FindingSeverity::Error
+    );
     assert!(!report.findings[0].message.contains("private-value"));
     assert_eq!(report.summary.error, 1);
     assert!(!report.ok);
@@ -120,7 +137,9 @@ async fn selected_profile_context_pins_id_layout_source_and_components() {
     tokio::fs::write(&layout.config_path, "[components]\nmemory = false\n")
         .await
         .unwrap();
-    let selected = load_desktop_profile(temp.path(), "account-b").await.unwrap();
+    let selected = load_desktop_profile(temp.path(), "account-b")
+        .await
+        .unwrap();
     let components = crate::core::runtime::ComponentSet::from_config(&selected.config.components);
     let ctx = DoctorCtx::from_config_with_components(selected.config, components)
         .with_profile("account-b", DoctorConfigSource::Profile)
@@ -154,7 +173,10 @@ async fn missing_profile_is_reported_without_creating_or_switching_a_profile() {
 
     assert!(matches!(result, Err(DesktopProfileError::Missing)));
     assert!(!root.join("users/missing").exists());
-    assert_eq!(tokio::fs::read(&active_user_path).await.unwrap(), marker_before);
+    assert_eq!(
+        tokio::fs::read(&active_user_path).await.unwrap(),
+        marker_before
+    );
 }
 
 #[tokio::test]
@@ -176,7 +198,12 @@ async fn unknown_layout_marker_is_rejected_without_repairing_it() {
         result,
         Err(DesktopProfileError::UnknownLayoutMarker)
     ));
-    assert_eq!(tokio::fs::read_to_string(layout.dir.join(".layout")).await.unwrap(), "99\n");
+    assert_eq!(
+        tokio::fs::read_to_string(layout.dir.join(".layout"))
+            .await
+            .unwrap(),
+        "99\n"
+    );
 }
 
 #[tokio::test]
@@ -189,7 +216,9 @@ async fn invalid_profile_config_is_rejected_without_persisting_recovery() {
         .await
         .unwrap();
     let invalid = "default_model = [\"unfinished\"\n";
-    tokio::fs::write(&layout.config_path, invalid).await.unwrap();
+    tokio::fs::write(&layout.config_path, invalid)
+        .await
+        .unwrap();
     tokio::fs::write(layout.config_path.with_extension("toml.bak"), "")
         .await
         .unwrap();
@@ -197,7 +226,12 @@ async fn invalid_profile_config_is_rejected_without_persisting_recovery() {
     let result = load_desktop_profile(root, "account-b").await;
 
     assert!(matches!(result, Err(DesktopProfileError::InvalidConfig)));
-    assert_eq!(tokio::fs::read_to_string(&layout.config_path).await.unwrap(), invalid);
+    assert_eq!(
+        tokio::fs::read_to_string(&layout.config_path)
+            .await
+            .unwrap(),
+        invalid
+    );
     assert_eq!(
         tokio::fs::read_to_string(layout.config_path.with_extension("toml.bak"))
             .await

@@ -8,9 +8,7 @@ use async_trait::async_trait;
 use crate::config::schema::profile_layout::LayoutVersion;
 use crate::config::Config;
 use crate::core::runtime::ComponentSet;
-use crate::doctor::contract::{
-    DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding,
-};
+use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding};
 use crate::profiles::ProfileLayout;
 
 const EXPLICIT_PROFILE_SOURCE: &str = "--profile";
@@ -161,7 +159,10 @@ impl DoctorCheck for ProfileExistsCheck {
         }
         match ctx.profile_status() {
             Some(DoctorProfileStatus::Valid) => {
-                vec![Finding::pass(self.id(), "The selected profile exists and its config is valid.")]
+                vec![Finding::pass(
+                    self.id(),
+                    "The selected profile exists and its config is valid.",
+                )]
             }
             Some(DoctorProfileStatus::Missing) => vec![Finding::error(
                 self.id(),

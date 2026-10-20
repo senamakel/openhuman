@@ -59,9 +59,7 @@ fn profile_read_only_secret_lookup_uses_only_the_selected_store() {
     .unwrap();
 
     assert_eq!(
-        store_b
-            .get_profile_read_only("account:session")
-            .unwrap(),
+        store_b.get_profile_read_only("account:session").unwrap(),
         None
     );
     assert_eq!(
@@ -71,7 +69,10 @@ fn profile_read_only_secret_lookup_uses_only_the_selected_store() {
             .as_deref(),
         Some("account-a-session")
     );
-    assert!(legacy.exists(), "read-only lookup must not import legacy data");
+    assert!(
+        legacy.exists(),
+        "read-only lookup must not import legacy data"
+    );
 }
 
 #[test]
@@ -97,7 +98,10 @@ fn profile_read_only_secret_lookup_preserves_corrupt_store_bytes() {
 
     assert!(backend.get_profile_read_only("user:token").is_err());
 
-    assert_eq!(std::fs::read(&backend.path).unwrap(), b"corrupt encrypted store");
+    assert_eq!(
+        std::fs::read(&backend.path).unwrap(),
+        b"corrupt encrypted store"
+    );
     assert!(!std::fs::read_dir(workspace.path())
         .unwrap()
         .flatten()

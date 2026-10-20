@@ -6,8 +6,8 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
-use crate::config::Config;
 use crate::config::schema::profile_layout::LayoutVersion;
+use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext};
 
 use super::core::MemoryEngineCheck;
@@ -310,11 +310,7 @@ impl DoctorCtx {
     }
 
     /// Pins this run to an explicit profile or tenant id and source.
-    pub fn with_profile(
-        mut self,
-        profile: impl Into<String>,
-        source: DoctorConfigSource,
-    ) -> Self {
+    pub fn with_profile(mut self, profile: impl Into<String>, source: DoctorConfigSource) -> Self {
         self.profile = Some(profile.into());
         self.config_source = source;
         self

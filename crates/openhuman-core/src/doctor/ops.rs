@@ -3,13 +3,16 @@
 //! Resolve async inputs for the temporary v1 adapters, then run the v2 check
 //! registry and report assembler.
 
-use crate::config::Config;
-use crate::core::{Outcome, runtime::{ComponentSet, CoreContext, DispatchCtx}};
-use crate::doctor::{
-    self, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport,
-    DoctorSummary, DoctorTier, Finding, MemoryEngineCheck, ModelProbeReport,
-};
 use super::contract::DoctorProfileStatus;
+use crate::config::Config;
+use crate::core::{
+    runtime::{ComponentSet, CoreContext, DispatchCtx},
+    Outcome,
+};
+use crate::doctor::{
+    self, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier,
+    Finding, MemoryEngineCheck, ModelProbeReport,
+};
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
     doctor_report_with_options(config, DoctorOptions::default()).await
@@ -66,16 +69,16 @@ pub async fn doctor_report_for_dispatch(
     dispatch: &DispatchCtx,
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
-    let target = crate::profiles::doctor::resolve_target(dispatch, options.profile.as_deref()).await?;
+    let target =
+        crate::profiles::doctor::resolve_target(dispatch, options.profile.as_deref()).await?;
     if let Some(target) = target {
         let config = target.config.clone();
-        let ctx = DoctorCtx::from_config_with_components(
-            config.clone(),
-            target.context.components(),
-        )
-        .with_profile(target.profile_id.to_string(), DoctorConfigSource::Tenant);
+        let ctx =
+            DoctorCtx::from_config_with_components(config.clone(), target.context.components())
+                .with_profile(target.profile_id.to_string(), DoctorConfigSource::Tenant);
         options.profile = None;
-        return CoreContext::scope(target.context, report_with_context(&config, options, ctx)).await;
+        return CoreContext::scope(target.context, report_with_context(&config, options, ctx))
+            .await;
     }
 
     let config = dispatch.load_config().await?;
@@ -133,8 +136,7 @@ fn profile_error_outcome(
 }
 
 fn safe_profile_id(profile_id: &str) -> Option<String> {
-    super::profile::is_profile_path_segment(profile_id)
-    .then(|| profile_id.to_owned())
+    super::profile::is_profile_path_segment(profile_id).then(|| profile_id.to_owned())
 }
 
 /// The memory engine's status for the doctor report.

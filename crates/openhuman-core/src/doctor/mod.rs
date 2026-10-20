@@ -4,6 +4,7 @@ mod contract;
 mod core;
 mod legacy;
 pub mod ops;
+pub mod profile;
 pub mod registry;
 mod runner;
 mod schemas;
@@ -11,7 +12,7 @@ pub mod tools;
 
 pub use contract::{
     ComponentId, DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport,
-    DoctorSummary, DoctorTier, Finding, FindingSeverity, ValueSource,
+    DoctorProfileStatus, DoctorSummary, DoctorTier, Finding, FindingSeverity, ValueSource,
 };
 pub use core::{
     run, run_models, DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome,
@@ -29,10 +30,6 @@ pub use schemas::{
 #[cfg(test)]
 #[path = "runner_tests.rs"]
 mod runner_tests;
-
-#[cfg(test)]
-#[path = "profile_tests.rs"]
-mod profile_tests;
 
 #[cfg(test)]
 pub(crate) mod test_support;

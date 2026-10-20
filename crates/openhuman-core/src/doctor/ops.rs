@@ -9,8 +9,8 @@ use super::contract::DoctorProfileStatus;
 use super::profile::DesktopProfileSelection;
 use crate::config::Config;
 use crate::core::{
-    Outcome,
     runtime::{ComponentSet, CoreContext, DispatchCtx},
+    Outcome,
 };
 use crate::doctor::{
     DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier, Finding,

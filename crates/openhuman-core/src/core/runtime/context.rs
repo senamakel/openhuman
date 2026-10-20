@@ -376,7 +376,8 @@ impl CoreContext {
     /// config. It inherits host registrations and policies while owning fresh
     /// agent state slots; the parent's tenant and agent identities are retained.
     pub fn derive_for_inspection(&self, mut overlay: ContextOverlay) -> Arc<CoreContext> {
-        let components = crate::core::runtime::ComponentSet::from_config(&overlay.config.components);
+        let components =
+            crate::core::runtime::ComponentSet::from_config(&overlay.config.components);
         overlay.domains = components.narrow_domains(overlay.domains);
         overlay.tool_groups = components.narrow_tool_groups(overlay.tool_groups);
         let parent_config = self.latest_embedder_config();

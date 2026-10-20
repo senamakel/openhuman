@@ -7,7 +7,7 @@ use tempfile::TempDir;
 
 use crate::config::Config;
 use crate::doctor::profile::{
-    DesktopProfileError, load_desktop_profile, resolve_desktop_profile_for_doctor,
+    load_desktop_profile, resolve_desktop_profile_for_doctor, DesktopProfileError,
 };
 use crate::doctor::{
     DoctorCheck, DoctorCheckSource, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier,
@@ -15,8 +15,8 @@ use crate::doctor::{
 };
 use crate::profiles::ProfileLayout;
 use crate::security::credentials::{
-    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
-    session_support::get_session_token,
+    session_support::get_session_token, AuthService, APP_SESSION_PROVIDER,
+    DEFAULT_AUTH_PROFILE_NAME,
 };
 
 fn config_for(layout: &ProfileLayout) -> Config {
@@ -125,8 +125,8 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
 }
 
 #[tokio::test]
-async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_auth_store()
--> Result<(), String> {
+async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_auth_store(
+) -> Result<(), String> {
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let _workspace_override = WorkspaceOverrideGuard::clear();
     let temp = TempDir::new().unwrap();
@@ -611,18 +611,14 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
     .unwrap();
 
     for report in [explicit_outcome.value, selection_outcome.value] {
-        assert!(
-            !report
-                .findings
-                .iter()
-                .any(|finding| finding.check_id == "doctor/selection")
-        );
-        assert!(
-            report
-                .checks_run
-                .iter()
-                .any(|id| id == "hosted/selected-profile-context")
-        );
+        assert!(!report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"));
+        assert!(report
+            .checks_run
+            .iter()
+            .any(|id| id == "hosted/selected-profile-context"));
         assert_eq!(report.profile.as_deref(), Some("account-b"));
     }
     let observations = observed.lock().unwrap();
@@ -635,14 +631,11 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
             Some("https://account-b.example")
         );
         assert_eq!(observation.ambient_workspace, account_b.workspace_dir);
-        assert_eq!(
-            observation.domains,
-            {
-                let mut domains = crate::core::runtime::DomainSet::kernel();
-                domains.memory = false;
-                domains
-            }
-        );
+        assert_eq!(observation.domains, {
+            let mut domains = crate::core::runtime::DomainSet::kernel();
+            domains.memory = false;
+            domains
+        });
         assert_eq!(
             observation.tool_groups,
             crate::tools::toolpacks::ToolGroups::none()
@@ -689,8 +682,8 @@ async fn selected_profile_is_ambient_for_process_sources_without_a_parent_contex
         &layout.config_path,
         "api_url = \"https://account-b.example\"\n[components]\nmemory = false\n",
     )
-        .await
-        .unwrap();
+    .await
+    .unwrap();
 
     let observed = Arc::new(Mutex::new(Vec::new()));
     let source_id = "doctor-selected-profile-process-context";
@@ -719,7 +712,10 @@ async fn selected_profile_is_ambient_for_process_sources_without_a_parent_contex
     );
     let observations = observed.lock().unwrap();
     assert_eq!(observations.len(), 1);
-    assert_eq!(observations[0].ambient_workspace.as_deref(), Some(layout.workspace_dir.as_path()));
+    assert_eq!(
+        observations[0].ambient_workspace.as_deref(),
+        Some(layout.workspace_dir.as_path())
+    );
     assert_eq!(observations[0].tenant_profile, None);
     assert_eq!(observations[0].ambient_memory_component, Some(false));
 }
@@ -754,8 +750,8 @@ impl DoctorCheck for ProcessSelectedProfileContextCheck {
         let tenant_profile = crate::core::runtime::current_tenant()
             .ok()
             .and_then(|tenant| tenant.profile);
-        let ambient_memory_component = crate::core::runtime::CoreContext::current()
-            .map(|context| context.components().memory);
+        let ambient_memory_component =
+            crate::core::runtime::CoreContext::current().map(|context| context.components().memory);
         self.0
             .lock()
             .unwrap()
@@ -764,7 +760,10 @@ impl DoctorCheck for ProcessSelectedProfileContextCheck {
                 tenant_profile,
                 ambient_memory_component,
             });
-        vec![Finding::pass(self.id(), "The selected profile is ambient to host checks.")]
+        vec![Finding::pass(
+            self.id(),
+            "The selected profile is ambient to host checks.",
+        )]
     }
 }
 
@@ -892,13 +891,11 @@ async fn selected_profile_applies_in_memory_legacy_migrations_without_saving_the
         selected.config.inference_url.as_deref(),
         Some("https://custom.example/v1/chat/completions")
     );
-    assert!(
-        selected
-            .config
-            .load_diagnostics()
-            .migrated_keys
-            .contains(&"api_url".to_string())
-    );
+    assert!(selected
+        .config
+        .load_diagnostics()
+        .migrated_keys
+        .contains(&"api_url".to_string()));
     assert_eq!(
         tokio::fs::read_to_string(&layout.config_path)
             .await

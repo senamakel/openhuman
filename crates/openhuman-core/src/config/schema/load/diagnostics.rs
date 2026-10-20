@@ -27,6 +27,58 @@ pub(crate) struct ConfigParseError {
     /// should report a safe path/line/classification instead of copying this
     /// message verbatim.
     pub(crate) message: String,
+    /// Safe dotted field path from the typed-deserialization error, if any.
+    pub(crate) field_path: Option<String>,
+    /// TOML syntax line, when the parser reports one.
+    pub(crate) line: Option<usize>,
+}
+
+impl ConfigParseError {
+    pub(crate) fn new(path: PathBuf, message: String) -> Self {
+        let field_path = safe_field_path(&message);
+        let line = syntax_error_line(&message);
+        Self {
+            path,
+            message,
+            field_path,
+            line,
+        }
+    }
+
+    /// Operator-facing summary that excludes parser text and source values.
+    pub(crate) fn safe_summary(&self) -> String {
+        if let Some(field_path) = &self.field_path {
+            format!("The config field `{field_path}` has an invalid value.")
+        } else if let Some(line) = self.line {
+            format!("The config file has invalid TOML syntax at line {line}.")
+        } else {
+            "The config file is invalid.".into()
+        }
+    }
+}
+
+fn safe_field_path(message: &str) -> Option<String> {
+    let (path, detail) = message.split_once(": ")?;
+    if !detail.starts_with("invalid type:")
+        && !detail.starts_with("missing field ")
+        && !detail.starts_with("unknown variant ")
+    {
+        return None;
+    }
+    if path.is_empty()
+        || !path
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '_' | '-' | '.' | '[' | ']'))
+    {
+        return None;
+    }
+    Some(path.to_owned())
+}
+
+fn syntax_error_line(message: &str) -> Option<usize> {
+    let rest = message.strip_prefix("TOML parse error at line ")?;
+    let digits: String = rest.chars().take_while(char::is_ascii_digit).collect();
+    (!digits.is_empty()).then(|| digits.parse().ok()).flatten()
 }
 
 /// Non-persisted information collected as a config is loaded.
@@ -75,6 +127,8 @@ pub(super) fn record_non_utf8_recovery(
     diagnostics.parse_error = Some(ConfigParseError {
         path: path.to_path_buf(),
         message: "config file could not be decoded as UTF-8".to_string(),
+        field_path: None,
+        line: None,
     });
     diagnostics.fallback = fallback;
 }

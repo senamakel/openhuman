@@ -53,7 +53,7 @@ fn configured_entries(config: &crate::config::Config) -> Vec<CloudProviderCreds>
     if config
         .default_model
         .as_deref()
-        .is_some_and(|model| model.starts_with("openhuman/"))
+        .is_some_and(|model| model.starts_with("openhuman:"))
         && !entries.iter().any(|entry| entry.slug == "openhuman")
     {
         entries.push(CloudProviderCreds {

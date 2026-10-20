@@ -22,6 +22,7 @@ use std::sync::Arc;
 use tinyinference_llm::catalog::{append_query_param, parse_models_response};
 use tinyinference_llm::model::discover::DiscoveryRequest;
 
+use super::PROVIDER_OPENHUMAN;
 use crate::backend::headers::attribution_headers;
 use crate::backend::url::{effective_api_url, effective_backend_api_url};
 use crate::client::endpoint::{

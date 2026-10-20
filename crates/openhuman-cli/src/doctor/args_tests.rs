@@ -12,12 +12,12 @@ fn args(values: &[&str]) -> DoctorArgs {
 
 fn report(findings: Value) -> Value {
     json!({
-        "schemaVersion": 2,
+        "schema_version": 2,
         "profile": null,
-        "configSource": "profile",
+        "config_source": "profile",
         "tier": "connect",
-        "checksRun": [],
-        "checksSkipped": [],
+        "checks_run": [],
+        "checks_skipped": [],
         "findings": findings,
         "summary": { "pass": 0, "info": 0, "warn": 0, "error": 0, "skipped": 0 },
         "ok": true
@@ -28,11 +28,11 @@ fn report(findings: Value) -> Value {
 fn lint_defaults_to_error_threshold() {
     let options = args(&["--lint"]);
     let warnings = report(json!([{
-        "checkId": "config/provenance",
+        "check_id": "config/provenance",
         "severity": "warn",
         "message": "The setting came from an implicit source.",
-        "fixHint": "Set the intended source explicitly.",
-        "durationMs": 1,
+        "fix_hint": "Set the intended source explicitly.",
+        "duration_ms": 1,
         "affects": []
     }]));
 
@@ -43,11 +43,11 @@ fn lint_defaults_to_error_threshold() {
 fn lint_error_exits_one() {
     let options = args(&["--lint"]);
     let errors = report(json!([{
-        "checkId": "config/file-integrity",
+        "check_id": "config/file-integrity",
         "severity": "error",
         "message": "The config file is invalid.",
-        "fixHint": "Repair the config file.",
-        "durationMs": 1,
+        "fix_hint": "Repair the config file.",
+        "duration_ms": 1,
         "affects": []
     }]));
 
@@ -58,11 +58,11 @@ fn lint_error_exits_one() {
 fn lint_warning_exits_one_when_warn_is_the_minimum() {
     let options = args(&["--lint", "--severity-min", "warn"]);
     let warnings = report(json!([{
-        "checkId": "config/provenance",
+        "check_id": "config/provenance",
         "severity": "warn",
         "message": "The setting came from an implicit source.",
-        "fixHint": "Set the intended source explicitly.",
-        "durationMs": 1,
+        "fix_hint": "Set the intended source explicitly.",
+        "duration_ms": 1,
         "affects": []
     }]));
 
@@ -80,11 +80,11 @@ fn runtime_failure_exits_two_before_a_report_exists() {
 fn unknown_only_selector_error_finding_fails_lint() {
     let options = args(&["--lint", "--only", "unknown/check"]);
     let selection_error = report(json!([{
-        "checkId": "doctor/selection",
+        "check_id": "doctor/selection",
         "severity": "error",
         "message": "A requested check id is not registered.",
-        "fixHint": "Use a registered exact check id.",
-        "durationMs": 0,
+        "fix_hint": "Use a registered exact check id.",
+        "duration_ms": 0,
         "affects": []
     }]));
 
@@ -95,11 +95,11 @@ fn unknown_only_selector_error_finding_fails_lint() {
 fn json_without_lint_is_advisory_even_for_errors() {
     let options = args(&["--json"]);
     let errors = report(json!([{
-        "checkId": "config/file-integrity",
+        "check_id": "config/file-integrity",
         "severity": "error",
         "message": "The config file is invalid.",
-        "fixHint": "Repair the config file.",
-        "durationMs": 1,
+        "fix_hint": "Repair the config file.",
+        "duration_ms": 1,
         "affects": []
     }]));
 

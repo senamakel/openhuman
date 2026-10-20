@@ -7,27 +7,27 @@ fn table_groups_by_check_category_and_renders_fix_hints() {
     let report = json!({
         "findings": [
             {
-                "checkId": "config/provenance",
+                "check_id": "config/provenance",
                 "severity": "warn",
                 "message": "The setting came from an implicit source.",
-                "fixHint": "Set the intended source explicitly.",
-                "durationMs": 1,
+                "fix_hint": "Set the intended source explicitly.",
+                "duration_ms": 1,
                 "affects": []
             },
             {
-                "checkId": "config/file-integrity",
-                "severity": "error",
-                "message": "The config file is invalid.",
-                "fixHint": "Repair the config file.",
-                "durationMs": 1,
-                "affects": []
-            },
-            {
-                "checkId": "workspace/layout",
+                "check_id": "workspace/layout",
                 "severity": "pass",
                 "message": "The workspace layout is valid.",
-                "fixHint": "No action required.",
-                "durationMs": 1,
+                "fix_hint": "No action required.",
+                "duration_ms": 1,
+                "affects": []
+            },
+            {
+                "check_id": "config/file-integrity",
+                "severity": "error",
+                "message": "The config file is invalid.",
+                "fix_hint": "Repair the config file.",
+                "duration_ms": 1,
                 "affects": []
             }
         ],
@@ -44,4 +44,8 @@ fn table_groups_by_check_category_and_renders_fix_hints() {
     assert!(rendered.contains("  fix: Set the intended source explicitly."));
     assert!(rendered.contains("  fix: Repair the config file."));
     assert!(rendered.contains("Summary:"));
+    let first_config = rendered.find("config/provenance").unwrap();
+    let second_config = rendered.find("config/file-integrity").unwrap();
+    let workspace = rendered.find("workspace/layout").unwrap();
+    assert!(first_config < second_config && second_config < workspace);
 }

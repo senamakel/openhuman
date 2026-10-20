@@ -272,7 +272,7 @@ impl RuntimeBuilder {
 
         if !inspection {
             if let Some(engine) = self.memory_engine.clone() {
-            openhuman_core::memory::engine::install_host_engine(engine);
+                openhuman_core::memory::engine::install_host_engine(engine);
             }
         }
         if !inspection {

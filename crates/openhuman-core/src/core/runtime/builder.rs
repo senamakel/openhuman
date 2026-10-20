@@ -372,6 +372,10 @@ impl CoreBuilder {
                 matches!(&self.token, TokenSource::Fixed(_)),
                 "inspection boot requires a process-local fixed RPC bearer"
             );
+            anyhow::ensure!(
+                crate::storage::installed().is_none(),
+                "inspection boot requires no installed storage backend"
+            );
         }
 
         let (ctx, has_operator_token, config) = CoreContext::init_with_boot_mode(

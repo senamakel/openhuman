@@ -30,8 +30,8 @@ use openhuman_embed::seams::{
 use tinytools::ToolRanker;
 
 use openhuman_embed::{
-    Access, ApiKey, ConfigSource, DomainSet, HostKind, Provider, Runtime, RuntimeConfig,
-    ServiceSet, Session, SessionStoreProvider, TokenSource, ToolGroups, Workspace,
+    Access, ApiKey, ConfigSource, CoreBootMode, DomainSet, HostKind, Provider, Runtime,
+    RuntimeConfig, ServiceSet, Session, SessionStoreProvider, TokenSource, ToolGroups, Workspace,
 };
 
 use crate::install::{wiring, InstallError, InstallOptions};
@@ -137,6 +137,10 @@ impl RuntimeBuilder {
     forward!(
         /// See [`openhuman_embed::RuntimeBuilder::config_source`].
         config_source(source: ConfigSource)
+    );
+    forward!(
+        /// See [`openhuman_embed::RuntimeBuilder::boot_mode`].
+        boot_mode(mode: CoreBootMode)
     );
     forward!(
         /// See [`openhuman_embed::RuntimeBuilder::provider`].

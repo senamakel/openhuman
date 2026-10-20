@@ -424,8 +424,7 @@ pub mod desktop {
 pub mod doctor {
     pub mod profile {
         pub use openhuman_core::doctor::profile::{
-            resolve_desktop_profile_for_doctor, DesktopProfileError,
-            DesktopProfileSelection,
+            resolve_desktop_profile_for_doctor, DesktopProfileError, DesktopProfileSelection,
         };
     }
 }

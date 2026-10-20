@@ -94,16 +94,19 @@ pub async fn doctor_runtime(
         Err(error) => anyhow::bail!("doctor profile selection failed: {}", error.message()),
     };
 
+    Ok(doctor_builder(config).build().await?)
+}
+
+#[cfg(feature = "server")]
+fn doctor_builder(config: RuntimeConfig) -> RuntimeBuilder {
     let bearer = Arc::new(uuid::Uuid::new_v4().simple().to_string());
-    Ok(cli_builder()
+    cli_builder()
         .workspace(Workspace::Inherit)
         .config_source(ConfigSource::Resolved)
         .config(config)
         .boot_mode(CoreBootMode::Inspection)
         .services(ServiceSet::none())
         .token(TokenSource::Fixed(bearer))
-        .build()
-        .await?)
 }
 
 #[cfg(feature = "server")]

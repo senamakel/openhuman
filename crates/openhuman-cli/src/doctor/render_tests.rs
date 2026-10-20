@@ -63,7 +63,6 @@ fn table_header_renders_report_profile_provenance_without_inference() {
 
     let rendered = render_table(&report);
 
-    assert!(rendered.starts_with(
-        "Profile: desktop-default | layout v2 | config source: active_user.toml\n"
-    ));
+    assert!(rendered
+        .starts_with("Profile: desktop-default | layout v2 | config source: active_user.toml\n"));
 }

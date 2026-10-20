@@ -88,9 +88,7 @@ fn render_profile_header(report: &Value, output: &mut String) {
     let source = report
         .get("config_resolution_source")
         .and_then(Value::as_str);
-    let layout = report
-        .get("profile_layout_version")
-        .and_then(Value::as_u64);
+    let layout = report.get("profile_layout_version").and_then(Value::as_u64);
     if profile.is_none() && source.is_none() && layout.is_none() {
         return;
     }

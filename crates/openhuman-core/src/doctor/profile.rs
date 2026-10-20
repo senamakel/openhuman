@@ -271,7 +271,86 @@ async fn profile_paths_for_resolved_dirs(
     Ok((config_dir, workspace_dir, None, None))
 }
 
+async fn resolve_desktop_config_dirs_read_only(
+    root: &Path,
+) -> Result<
+    (
+        PathBuf,
+        PathBuf,
+        ConfigResolutionSource,
+        Option<String>,
+        Option<LayoutVersion>,
+    ),
+    DesktopProfileError,
+> {
+    if let Some(workspace) = std::env::var_os("OPENHUMAN_WORKSPACE")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)
+    {
+        let (config_dir, workspace_dir) =
+            crate::config::resolve_config_dir_for_workspace(&workspace);
+        let (config_dir, workspace_dir, profile_id, layout_version) =
+            profile_paths_for_resolved_dirs(config_dir, workspace_dir).await?;
+        return Ok((
+            config_dir,
+            workspace_dir,
+            ConfigResolutionSource::EnvWorkspace,
+            profile_id,
+            layout_version,
+        ));
+    }
+
+    if let Some(profile_id) = crate::config::schema::load::read_active_user_id_checked_async(root)
+        .await
+        .map_err(|_| DesktopProfileError::InvalidConfig)?
+    {
+        if !is_profile_path_segment(&profile_id) {
+            return Err(DesktopProfileError::InvalidId);
+        }
+        let dir = ProfileLayout::new(root, &profile_id).dir;
+        let layout = read_profile_layout(dir).await?;
+        return Ok((
+            layout.dir.clone(),
+            layout.workspace_dir.clone(),
+            ConfigResolutionSource::ActiveUser,
+            Some(profile_id),
+            Some(layout.version),
+        ));
+    }
+
+    if let Some((config_dir, workspace_dir)) =
+        crate::config::schema::load::load_persisted_workspace_dirs(root)
+            .await
+            .map_err(|_| DesktopProfileError::InvalidConfig)?
+    {
+        let (config_dir, workspace_dir, profile_id, layout_version) =
+            profile_paths_for_resolved_dirs(config_dir, workspace_dir).await?;
+        return Ok((
+            config_dir,
+            workspace_dir,
+            ConfigResolutionSource::ActiveWorkspaceMarker,
+            profile_id,
+            layout_version,
+        ));
+    }
+
+    let layout = read_profile_layout(crate::config::pre_login_user_dir(root)).await?;
+    Ok((
+        layout.dir.clone(),
+        layout.workspace_dir.clone(),
+        ConfigResolutionSource::DefaultConfigDir,
+        Some(crate::config::PRE_LOGIN_USER_ID.to_string()),
+        Some(layout.version),
+    ))
+}
+
 async fn read_profile_layout(dir: PathBuf) -> Result<ProfileLayout, DesktopProfileError> {
+    match tokio::fs::symlink_metadata(&dir).await {
+        Ok(metadata) if metadata.file_type().is_dir() => {}
+        Ok(_) => return Err(DesktopProfileError::Missing),
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+        Err(_) => return Err(DesktopProfileError::InvalidConfig),
+    }
     let version = read_layout_version(&dir).await?;
     Ok(ProfileLayout::with_version(dir, version))
 }

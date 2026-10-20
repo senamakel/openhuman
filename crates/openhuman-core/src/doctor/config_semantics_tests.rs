@@ -134,6 +134,8 @@ async fn malformed_storage_url_is_reported_without_echoing_it() {
     assert!(!error.message.contains("secret-value"));
 }
 
+// This fixture relies on POSIX mode bits; Windows readonly attributes do not revoke write ACLs.
+#[cfg(unix)]
 #[tokio::test]
 async fn action_directory_without_write_access_is_an_error() {
     let dir = tempfile::tempdir().expect("temporary action directory");

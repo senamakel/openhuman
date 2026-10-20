@@ -1,8 +1,4 @@
-//! `doctor channels`: health checks for every configured real-time channel.
-//!
-//! OpenHuman hydrates credentials and applies its proxy policy. Provider
-//! construction and bounded health checks execute in the TinyChannels module;
-//! this adapter formats the observations.
+//! Select configured listeners for startup orchestration and native doctor checks.
 
 use crate::config::Config;
 

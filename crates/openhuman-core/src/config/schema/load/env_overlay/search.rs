@@ -1,11 +1,11 @@
 //! Env overrides for web search: provider set, routes, roles, keys, and the
 //! Seltz/SearXNG options.
 
-use crate::config::schema::load::env::EnvLookup;
 use crate::config::schema::load::env::parse_env_bool;
+use crate::config::schema::load::env::EnvLookup;
 use crate::config::schema::{
-    Config, MANAGED_SEARCH_PROVIDERS, PresentationMode, ProviderRoute, SEARCH_PROVIDERS,
-    SEARCH_ROLES, SearchProviderSettings,
+    Config, PresentationMode, ProviderRoute, SearchProviderSettings, MANAGED_SEARCH_PROVIDERS,
+    SEARCH_PROVIDERS, SEARCH_ROLES,
 };
 
 impl Config {

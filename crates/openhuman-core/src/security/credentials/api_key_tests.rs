@@ -1,6 +1,6 @@
 use super::*;
 use crate::security::credentials::session_support::{
-    BackendCredential, resolve_backend_credential,
+    resolve_backend_credential, BackendCredential,
 };
 
 fn config_in(dir: &std::path::Path) -> Config {
@@ -82,7 +82,7 @@ fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
 fn api_key_wins_over_an_expired_session() {
     use crate::security::credentials::session_support::SESSION_EXPIRES_AT_META;
     use crate::security::credentials::{
-        APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };
 
     let dir = tempfile::tempdir().expect("tempdir");

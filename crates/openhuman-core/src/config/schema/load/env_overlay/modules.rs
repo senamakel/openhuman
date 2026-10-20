@@ -6,7 +6,7 @@
 
 use crate::config::schema::load::env::EnvLookup;
 use crate::config::schema::{
-    Config, MODULE_SOURCE_ENV, ModuleOverride, ModuleSourceMode, module_source_env_for,
+    module_source_env_for, Config, ModuleOverride, ModuleSourceMode, MODULE_SOURCE_ENV,
 };
 
 impl Config {

@@ -1,7 +1,7 @@
 //! Env overrides for the embedding settings kept under `[memory]`.
 
-use crate::config::schema::Config;
 use crate::config::schema::load::env::EnvLookup;
+use crate::config::schema::Config;
 
 impl Config {
     /// `OPENHUMAN_MEMORY_EMBED_RATE_LIMIT` — embedding requests per minute.

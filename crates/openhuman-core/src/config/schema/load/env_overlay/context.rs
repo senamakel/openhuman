@@ -1,7 +1,7 @@
 //! Env overrides for the context-management budget.
 
-use crate::config::schema::Config;
 use crate::config::schema::load::env::EnvLookup;
+use crate::config::schema::Config;
 
 impl Config {
     pub(super) fn apply_context_env<E: EnvLookup + ?Sized>(&mut self, env: &E) {

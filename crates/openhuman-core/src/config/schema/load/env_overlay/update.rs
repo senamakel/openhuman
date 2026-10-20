@@ -1,9 +1,9 @@
 //! Env overrides for the auto-updater (`[update]`).
 
+use crate::config::schema::load::env::parse_env_bool;
+use crate::config::schema::load::env::EnvLookup;
 use crate::config::schema::Config;
 use crate::config::schema::UpdateRestartStrategy;
-use crate::config::schema::load::env::EnvLookup;
-use crate::config::schema::load::env::parse_env_bool;
 
 impl Config {
     pub(super) fn apply_update_env<E: EnvLookup + ?Sized>(&mut self, env: &E) {

@@ -1,11 +1,11 @@
 //! Env overrides for the outbound proxy configuration.
 
-use crate::config::schema::Config;
 use crate::config::schema::load::env::EnvLookup;
 use crate::config::schema::proxy::{
     normalize_no_proxy_list, normalize_proxy_url_option, normalize_service_list,
     parse_proxy_enabled, parse_proxy_scope,
 };
+use crate::config::schema::Config;
 
 impl Config {
     pub(super) fn apply_proxy_env<E: EnvLookup + ?Sized>(&mut self, env: &E) {

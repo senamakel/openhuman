@@ -1,7 +1,7 @@
 //! Env overrides for Sentry, analytics, and agent-tracing content capture.
 
-use crate::config::schema::Config;
 use crate::config::schema::load::env::EnvLookup;
+use crate::config::schema::Config;
 
 impl Config {
     pub(super) fn apply_observability_env<E: EnvLookup + ?Sized>(&mut self, env: &E) {

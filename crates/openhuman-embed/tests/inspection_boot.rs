@@ -211,6 +211,10 @@ async fn preloaded_runtime_report() {
         .await
         .expect("build preloaded inspection runtime");
 
+    assert!(
+        openhuman_core::core::runtime::CoreContext::current().is_none(),
+        "inspection runtime must not publish a process-default context"
+    );
     let backend_opened = openhuman_core::storage::installed().is_some();
     let key_store_writes = key_writes.load(Ordering::SeqCst);
     register_check_source_in(
@@ -228,6 +232,10 @@ async fn preloaded_runtime_report() {
         )
         .await
         .expect("invoke doctor report in-process");
+    assert!(
+        openhuman_core::core::runtime::CoreContext::current().is_none(),
+        "in-process inspection dispatch must leave no ambient context behind"
+    );
     let report = response
         .get("result")
         .expect("unwrap the CLI-compatible outcome envelope");

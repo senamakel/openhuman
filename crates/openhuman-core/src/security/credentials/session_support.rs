@@ -3,9 +3,9 @@
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 
+use super::AuthService;
 use super::profiles::{AuthProfile, AuthProfileKind, TokenSet};
 use super::responses::{AuthProfileSummary, AuthStateResponse};
-use super::AuthService;
 
 use super::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 

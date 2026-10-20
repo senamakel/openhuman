@@ -105,11 +105,12 @@ impl SecretStore {
             return Ok(value.to_string());
         };
 
-        let key = decode_key_hex(key.trim())?;
-        let key: [u8; KEY_LEN] = key
+        let key_bytes = decode_key_hex(key.trim())?;
+        let key: [u8; KEY_LEN] = key_bytes
             .as_slice()
             .try_into()
             .map_err(|_| anyhow::anyhow!("invalid secret key length"))?;
+        let key = Zeroizing::new(key);
         let blob = crypto::hex_decode(hex_str).map_err(anyhow::Error::msg)?;
         let plaintext = crypto::chacha20_decrypt(&key, &blob).map_err(anyhow::Error::msg)?;
         String::from_utf8(plaintext).context("decrypted secret is not valid UTF-8")

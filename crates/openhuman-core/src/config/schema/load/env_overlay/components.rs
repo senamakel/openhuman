@@ -1,8 +1,8 @@
 //! Env overrides for `[components]`: `OPENHUMAN_COMPONENT_<NAME>=0|1`.
 
+use crate::config::schema::Config;
 use crate::config::schema::components::COMPONENT_NAMES;
 use crate::config::schema::load::env::EnvLookup;
-use crate::config::schema::Config;
 
 /// Parse a `0|1|true|false|on|off|yes|no` flag; `None` for anything else.
 pub(crate) fn parse_flag(raw: &str) -> Option<bool> {

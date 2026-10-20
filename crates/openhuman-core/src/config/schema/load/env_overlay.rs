@@ -13,8 +13,8 @@ mod runtime;
 mod search;
 mod update;
 
-use super::super::proxy::{set_runtime_proxy_config, ProxyScope};
 use super::super::Config;
+use super::super::proxy::{ProxyScope, set_runtime_proxy_config};
 use std::path::PathBuf;
 
 /// Classification of an `OPENHUMAN_SHELL_HIDE_WINDOW` env value. Split out from

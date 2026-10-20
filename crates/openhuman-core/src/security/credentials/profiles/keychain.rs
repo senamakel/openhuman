@@ -2,7 +2,7 @@
 
 use anyhow::Context;
 
-use super::{AuthProfile, AuthProfilesStore, KeychainSecrets, KEYCHAIN_AUTH_PREFIX};
+use super::{AuthProfile, AuthProfilesStore, KEYCHAIN_AUTH_PREFIX, KeychainSecrets};
 
 impl AuthProfilesStore {
     /// Build a keychain key for an auth profile's combined secret payload.

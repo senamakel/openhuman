@@ -1,18 +1,15 @@
 //! Non-mutating auth-profile snapshots for doctor checks.
 
-use anyhow::Context;
-use chrono::DateTime;
-use std::path::Path;
 use zeroize::Zeroizing;
 
 use crate::config::Config;
-use crate::security::secret_storage::{EncryptedFileBackend, SecretBackend, SecretStore};
+use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
 
 use super::{
-    default_profile_id, normalize_profile_id_provider, parse_datetime_with_fallback,
-    parse_optional_datetime, parse_profile_kind, profile_id, AuthProfile, AuthProfileKind,
-    KeychainSecrets, PersistedAuthProfile, PersistedAuthProfiles, TokenSet,
-    CURRENT_SCHEMA_VERSION, PROFILES_FILENAME,
+    AuthProfile, AuthProfileKind, CURRENT_SCHEMA_VERSION, KeychainSecrets, PROFILES_FILENAME,
+    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, default_profile_id,
+    normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
+    parse_profile_kind, profile_id,
 };
 
 /// Safe failure categories for a read-only auth-profile snapshot.
@@ -65,14 +62,16 @@ pub(super) fn load_profile(
                 .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?,
         ),
         Ok(None) => None,
-        Err(error) if has_json_secret_fields(profile) => None,
+        Err(_) if has_json_secret_fields(profile) => None,
         Err(error) => return Err(error),
     };
 
     let encrypted_json = has_encrypted_json_fields(profile);
     let key = if encrypted_json {
-        Some(read_profile_secret(config, &user_id, "secretstore.master_key")?
-            .ok_or(ReadOnlyAuthProfileError::Unavailable)?)
+        Some(Zeroizing::new(
+            read_profile_secret(config, &user_id, "secretstore.master_key")?
+                .ok_or(ReadOnlyAuthProfileError::Unavailable)?,
+        ))
     } else {
         None
     };
@@ -94,7 +93,8 @@ pub(super) fn load_profile(
             .transpose()
     };
 
-    let kind = parse_profile_kind(&profile.kind).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
+    let kind =
+        parse_profile_kind(&profile.kind).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
     let (access_token, refresh_token, id_token, token) = if let Some(secrets) = secrets {
         (
             secrets.access_token,
@@ -207,8 +207,13 @@ fn has_json_secret_fields(profile: &PersistedAuthProfile) -> bool {
 }
 
 fn has_encrypted_json_fields(profile: &PersistedAuthProfile) -> bool {
-    [&profile.access_token, &profile.refresh_token, &profile.id_token, &profile.token]
-        .into_iter()
-        .flatten()
-        .any(|value| value.starts_with("enc:") || value.starts_with("enc2:"))
+    [
+        &profile.access_token,
+        &profile.refresh_token,
+        &profile.id_token,
+        &profile.token,
+    ]
+    .into_iter()
+    .flatten()
+    .any(|value| value.starts_with("enc:") || value.starts_with("enc2:"))
 }

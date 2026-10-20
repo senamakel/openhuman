@@ -5,11 +5,11 @@ use chrono::Utc;
 use std::path::Path;
 
 #[cfg(test)]
-use std::sync::atomic::{AtomicBool, AtomicUsize};
-#[cfg(test)]
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, AtomicUsize};
 
-use super::{is_lock_create_unwritable_fs, AuthProfile, AuthProfilesData, AuthProfilesStore};
+use super::{AuthProfile, AuthProfilesData, AuthProfilesStore, is_lock_create_unwritable_fs};
 use crate::security::secret_storage::SecretStore;
 
 use super::LOCK_FILENAME;

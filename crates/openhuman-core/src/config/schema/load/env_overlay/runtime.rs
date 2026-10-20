@@ -1,8 +1,8 @@
 //! Environment overrides for token compression and related settings.
 
-use crate::config::schema::load::env::parse_env_bool;
-use crate::config::schema::load::env::EnvLookup;
 use crate::config::schema::Config;
+use crate::config::schema::load::env::EnvLookup;
+use crate::config::schema::load::env::parse_env_bool;
 
 impl Config {
     pub(super) fn apply_runtime_env<E: EnvLookup + ?Sized>(&mut self, env: &E) {

@@ -7,9 +7,9 @@ use chrono::Utc;
 use std::collections::BTreeMap;
 
 use super::{
-    normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
-    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, AuthProfilesData,
-    AuthProfilesStore, PersistedAuthProfile, TokenSet,
+    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, PersistedAuthProfile,
+    TokenSet, normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
+    parse_profile_kind, profile_id,
 };
 
 impl AuthProfilesStore {

@@ -106,6 +106,15 @@ pub mod core {
     }
 }
 
+/// The generic doctor hook for checks contributed by a layered host.
+pub mod doctor {
+    pub use openhuman_core::doctor::{
+        register_check_source, register_check_source_in, DoctorCheck, DoctorCheckSource,
+        DoctorConfigSource, DoctorCtx, DoctorTier, Finding, FindingSeverity,
+    };
+    pub use openhuman_core::doctor::registry::registered_checks;
+}
+
 /// tinyhumans (every hosted controller loads its config) and rpc (server).
 pub mod config {
     pub use openhuman_core::config::{
@@ -441,6 +450,12 @@ pub mod platform {
     }
     pub mod health {
         pub use openhuman_core::platform::health::{snapshot, verdict};
+    }
+
+    /// tinyhumans: read-only view of the live Socket.IO connection state.
+    pub mod socket {
+        pub use openhuman_core::platform::socket::global_socket_manager;
+        pub use openhuman_core::platform::socket::models::ConnectionStatus;
     }
 }
 

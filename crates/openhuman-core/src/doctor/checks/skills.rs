@@ -248,11 +248,14 @@ impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightPro
             ComposioListConnectedIntegrationsRequest,
         };
 
-        let mode = match self.config.composio.mode.trim() {
-            "" | crate::config::schema::COMPOSIO_MODE_BACKEND
-                if self.config.composio.host_credential.is_none() => Mode::Backend,
-            crate::config::schema::COMPOSIO_MODE_DIRECT => Mode::Direct,
-            _ => return PreflightProbeStatus::Unavailable,
+        let mode = if self.config.composio.host_credential.is_some() {
+            Mode::Direct
+        } else {
+            match self.config.composio.mode.trim() {
+                "" | crate::config::schema::COMPOSIO_MODE_BACKEND => Mode::Backend,
+                crate::config::schema::COMPOSIO_MODE_DIRECT => Mode::Direct,
+                _ => return PreflightProbeStatus::Unavailable,
+            }
         };
         match crate::modules::connectors::call_existing_readonly::<
             _,
@@ -284,8 +287,9 @@ impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightPro
         toolkit: &str,
     ) -> crate::skills::preflight::PreflightProbeStatus<Option<String>> {
         use crate::skills::preflight::PreflightProbeStatus;
-        use crate::integrations::composio::ComposioUserProfileRequest;
-        use crate::integrations::composio::ComposioUserProfile;
+        use crate::integrations::composio::types::{
+            ComposioUserProfile, ComposioUserProfileRequest,
+        };
 
         match crate::modules::connectors::call_existing_readonly::<_, ComposioUserProfile>(
             self.config,
@@ -341,6 +345,12 @@ fn github_error_message(error: &crate::skills::preflight::GithubGateError) -> St
     match error {
         GithubGateError::ComposioGithubMissing => {
             "The required GitHub integration is not connected.".to_owned()
+        }
+        GithubGateError::ComposioProbeUnavailable => {
+            "The selected connector is not already available for read-only inspection.".to_owned()
+        }
+        GithubGateError::ComposioProbeFailed => {
+            "The existing connector could not return GitHub connection status.".to_owned()
         }
         GithubGateError::GitBinaryMissing(_) => "Git is not available.".to_owned(),
         GithubGateError::GitUserNameMissing => "Local Git user.name is not configured.".to_owned(),

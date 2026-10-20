@@ -4,9 +4,7 @@ use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext, DomainSet};
 use crate::core::slots::Extensions;
 
-use super::contract::{
-    DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity,
-};
+use super::contract::{DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
 use super::registry::register_check_source_in;
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};

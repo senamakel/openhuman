@@ -357,10 +357,12 @@ pub mod inference_registry {
     pub use openhuman_core::inference::provider::openhuman_backend_model::REASONING_OFF_METADATA_KEY;
     pub use openhuman_core::inference::registry::{
         register_catalog, register_catalog_in, register_chat_model, register_chat_model_in,
-        register_embedding, register_embedding_in, unregister_catalog, unregister_chat_model,
-        unregister_embedding, BoxFuture, CatalogEntry, CatalogLimits, CatalogListing,
-        CatalogRequest, ChatModelEntry, ChatModelFactory, ChatModelRequest, EmbeddingFactory,
-        EmbeddingRequest, ReadinessProbe,
+        register_embedding, register_embedding_in, register_inspection_catalog,
+        register_inspection_catalog_in, unregister_catalog, unregister_chat_model,
+        unregister_embedding, unregister_inspection_catalog, BoxFuture, CatalogEntry,
+        CatalogLimits, CatalogListing, CatalogRequest, ChatModelEntry, ChatModelFactory,
+        ChatModelRequest, EmbeddingFactory, EmbeddingRequest, InspectionCatalogError,
+        InspectionCatalogListing, PreparedInspectionCatalog, ReadinessProbe,
     };
 }
 

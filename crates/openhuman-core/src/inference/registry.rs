@@ -15,8 +15,10 @@
 //! registered every consult point behaves exactly as before.
 
 use std::future::Future;
+use std::hash::{BuildHasher, Hash, Hasher};
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
+use std::collections::hash_map::RandomState;
 
 use tinyinference_embeddings::EmbeddingModel;
 use tinyinference_llm::model::discover::DiscoveryRequest;
@@ -244,6 +246,116 @@ pub fn unregister_catalog(provider_id: &str) -> bool {
 /// The registered catalog, if any.
 pub(crate) fn catalog(provider_id: &str) -> Option<CatalogEntry> {
     CATALOGS.get(provider_id)
+}
+
+/// Safe outcomes from an inspection-only catalog request. Error response
+/// bodies stay at the adapter boundary so Findings can never echo them.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum InspectionCatalogError {
+    /// The selected credential was rejected or lacks catalog access.
+    AuthOrAccess,
+    /// The provider does not expose a model-listing route.
+    NoCatalog,
+    /// The selected profile, endpoint, or read-only credential could not be
+    /// inspected safely.
+    Unavailable,
+    /// The catalog request failed for another bounded, safe-to-summarize
+    /// reason.
+    Failure,
+}
+
+/// A catalog result is prepared before the doctor consults its cache. The
+/// opaque identity captures the exact frozen credential and endpoint; the
+/// lazy future captures those same values and is dropped on a cache hit.
+///
+/// Fields are intentionally private and this type does not implement
+/// `Debug`, `Serialize`, or `Display`, so credential identities cannot leak
+/// through reports or logs.
+pub struct PreparedInspectionCatalog {
+    identity: InspectionCatalogIdentity,
+    fetch: BoxFuture<Result<Outcome<serde_json::Value>, InspectionCatalogError>>,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub(crate) struct InspectionCatalogIdentity(u64);
+
+impl PreparedInspectionCatalog {
+    /// Creates a prepared request using a stable, process-keyed identity over
+    /// the provider, effective listing URL, and credential snapshot. The
+    /// fetch future must use the same credential snapshot passed here.
+    pub fn new(
+        provider_id: &str,
+        effective_listing_url: &str,
+        credential: Option<&str>,
+        fetch: BoxFuture<Result<Outcome<serde_json::Value>, InspectionCatalogError>>,
+    ) -> Self {
+        let normalized_url = reqwest::Url::parse(effective_listing_url)
+            .map(|url| url.to_string())
+            .unwrap_or_else(|_| effective_listing_url.to_owned());
+        let credential = credential
+            .map(str::trim)
+            .filter(|credential| !credential.is_empty());
+        static IDENTITY_HASHER: OnceLock<RandomState> = OnceLock::new();
+        let mut hasher = IDENTITY_HASHER
+            .get_or_init(RandomState::new)
+            .build_hasher();
+        provider_id.hash(&mut hasher);
+        normalized_url.hash(&mut hasher);
+        credential.hash(&mut hasher);
+        Self {
+            identity: InspectionCatalogIdentity(hasher.finish()),
+            fetch,
+        }
+    }
+
+    pub(crate) fn identity(&self) -> InspectionCatalogIdentity {
+        self.identity
+    }
+
+    /// Runs the prepared request. Callers consult their cache before invoking
+    /// this method; dropping the value leaves the network future unpolled.
+    pub fn fetch(self) -> BoxFuture<Result<Outcome<serde_json::Value>, InspectionCatalogError>> {
+        self.fetch
+    }
+}
+
+/// An inspection-safe catalog preparer. It must read credentials without
+/// refreshing, publishing expiry, or modifying profile state, then freeze the
+/// credential into the returned request before the core checks its cache.
+pub type InspectionCatalogListing = Arc<
+    dyn Fn(Config, CatalogRequest) -> BoxFuture<Result<PreparedInspectionCatalog, InspectionCatalogError>>
+        + Send
+        + Sync,
+>;
+
+static INSPECTION_CATALOGS: HookSlot<InspectionCatalogListing> =
+    HookSlot::new("inference::inspection_catalogs");
+
+/// Registers an inspection-safe catalog preparer for the whole process.
+pub fn register_inspection_catalog(
+    provider_id: impl Into<String>,
+    listing: InspectionCatalogListing,
+) {
+    INSPECTION_CATALOGS.register(provider_id, listing);
+}
+
+/// Registers an inspection-safe catalog preparer for a context built from
+/// `extensions`.
+pub fn register_inspection_catalog_in(
+    extensions: &Extensions,
+    provider_id: impl Into<String>,
+    listing: InspectionCatalogListing,
+) {
+    INSPECTION_CATALOGS.register_in(extensions, provider_id, listing);
+}
+
+/// Removes a process-wide inspection-safe catalog preparer.
+pub fn unregister_inspection_catalog(provider_id: &str) -> bool {
+    INSPECTION_CATALOGS.unregister(provider_id)
+}
+
+pub(crate) fn inspection_catalog(provider_id: &str) -> Option<InspectionCatalogListing> {
+    INSPECTION_CATALOGS.get(provider_id)
 }
 
 #[cfg(test)]

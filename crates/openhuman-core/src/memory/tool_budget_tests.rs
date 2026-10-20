@@ -178,8 +178,8 @@ async fn an_outstanding_memory_call_survives_other_runs_and_keeps_its_timeout_ci
 #[tokio::test(start_paused = true)]
 async fn full_tracking_refuses_new_work_until_an_active_reservation_is_released() {
     let budget = budget();
-    let mut pending = Vec::new();
     let run_ids: Vec<String> = (0..128).map(|i| format!("active-{i}")).collect();
+    let mut pending = Vec::new();
     for run_id in &run_ids {
         let mut call = Box::pin(budget.run(Some(run_id), std::future::pending::<()>()));
         assert!(futures::poll!(call.as_mut()).is_pending());

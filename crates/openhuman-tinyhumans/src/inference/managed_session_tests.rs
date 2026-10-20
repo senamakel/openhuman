@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn the_offline_local_session_cannot_authenticate_managed_inference() {
     use openhuman_embed::__host::security::credentials::session_support::{
-        LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SessionTokenCheck,
+        SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
     };
 
     let error = managed_bearer(SessionTokenCheck::Live("header.payload.local".to_string()))
@@ -101,13 +101,13 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     use axum::response::IntoResponse;
     use openhuman_embed::__host::config::Config;
     use openhuman_embed::__host::core::events::DomainEvent;
+    use openhuman_embed::__host::egress::EgressLedger;
     use openhuman_embed::__host::inference_registry::ChatModelRequest;
     use openhuman_embed::__host::security::credentials::{
-        APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };
-    use openhuman_embed::__host::security::egress::EgressLedger;
     use tinyinference_llm::message::Message;
-    use tinyinference_llm::model::{ChatModel, ModelRequest};
+    use tinyinference_llm::model::ModelRequest;
 
     let _lock = SESSION_EXPIRY_EVENT_TEST_LOCK.lock().await;
     let temp = tempfile::tempdir().expect("temporary selected credential workspace");

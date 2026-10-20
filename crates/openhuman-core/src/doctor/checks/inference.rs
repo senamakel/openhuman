@@ -107,6 +107,17 @@ fn provider_ref(config: &Config) -> Vec<Finding> {
         }
     }
 
+    if let Some(provider) = config
+        .embeddings_provider
+        .as_deref()
+        .map(str::trim)
+        .filter(|provider| !provider.is_empty() && *provider != "none")
+    {
+        if !embedding_provider_resolves(config, provider) {
+            findings.push(unresolved_provider("embeddings_provider"));
+        }
+    }
+
     if let Some(primary) = config
         .primary_cloud
         .as_deref()

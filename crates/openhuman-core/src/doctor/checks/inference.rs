@@ -13,14 +13,13 @@ const PROVIDER_REF_ID: &str = "inference/provider-ref";
 const CONSTRUCT_ID: &str = "inference/construct";
 const TEMPERATURE_ID: &str = "inference/temperature";
 
-const ROLE_PROVIDER_FIELDS: [(&str, &str); 7] = [
+const CHAT_ROLE_PROVIDER_FIELDS: [(&str, &str); 6] = [
     ("chat", "chat_provider"),
     ("reasoning", "reasoning_provider"),
     ("agentic", "agentic_provider"),
     ("coding", "coding_provider"),
     ("vision", "vision_provider"),
     ("memory", "memory_provider"),
-    ("embeddings", "embeddings_provider"),
 ];
 
 pub(super) struct ProviderRef;
@@ -95,18 +94,14 @@ pub(super) fn checks() -> Vec<Arc<dyn DoctorCheck>> {
 fn provider_ref(config: &Config) -> Vec<Finding> {
     let mut findings = Vec::new();
 
-    for (role, path) in ROLE_PROVIDER_FIELDS {
+    for (role, path) in CHAT_ROLE_PROVIDER_FIELDS {
         let Some(provider) = role_provider(config, role)
             .map(str::trim)
             .filter(|provider| !provider.is_empty())
         else {
             continue;
         };
-        let resolves = if role == "embeddings" {
-            embedding_provider_resolves(config, provider)
-        } else {
-            chat_provider_resolves(config, provider)
-        };
+        let resolves = chat_provider_resolves(config, provider);
         if !resolves {
             findings.push(unresolved_provider(path));
         }
@@ -378,15 +373,7 @@ fn construct(config: &Config) -> Vec<Finding> {
     let mut findings = Vec::new();
     let dispatch = DispatchCtx::ambient();
 
-    for (role, path) in ROLE_PROVIDER_FIELDS {
-        if role == "embeddings"
-            && config
-                .embeddings_provider
-                .as_deref()
-                .is_some_and(|provider| provider.trim() == "none")
-        {
-            continue;
-        }
+    for (role, path) in CHAT_ROLE_PROVIDER_FIELDS {
         let result = create_chat_model_with_model_id_in_for_inspection(
             &dispatch,
             role,

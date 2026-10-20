@@ -14,7 +14,7 @@ use super::app_host::{from_module, AppHost};
 use super::{LayoutHost, MigrationState, MigrationStatus, ScanView, Trigger};
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
-use crate::memory::run_slots::{self, BACKFILL, IMPORT, MIGRATION};
+use crate::memory::run_slots::{self, BACKFILL, MIGRATION};
 use tinymemory_api::Result;
 
 /// `memory_migration_start` params.

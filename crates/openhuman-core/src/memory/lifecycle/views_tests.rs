@@ -1,19 +1,40 @@
 use super::*;
 
 use chrono::Utc;
-use tinymemory_api::{LearningKind, MemoryEngine, MemoryMeta, StoreItem};
+use tinymemory_api::{Error, LearningKind, MemoryEngine, MemoryMeta, StoreItem};
 
 use crate::memory::lifecycle::hooks::pre_turn_work;
 use crate::memory::test_fixtures::{bind_reference, config_in};
 
 #[test]
 fn policy_set_accepts_fields_reported_by_policy_get() {
-    let _params: PolicySetParams = serde_json::from_value(serde_json::json!({
+    let params: PolicySetParams = serde_json::from_value(serde_json::json!({
+        "log_conversations": false,
+        "recall_enabled": false,
+        "budget_tokens": 800,
+        "learnings_limit": 9,
+        "brain_limit": 5,
+        "history_limit": 4,
+        "team_limit": 3,
+        "build_beliefs_every": 7,
+        "pre_turn_timeout_ms": 5000,
         "date_hint": true,
         "compaction_timeout_ms": 12_000,
         "build_delay_secs": 900,
     }))
     .unwrap();
+    assert_eq!(params.log_conversations, Some(false));
+    assert_eq!(params.recall_enabled, Some(false));
+    assert_eq!(params.budget_tokens, Some(800));
+    assert_eq!(params.learnings_limit, Some(9));
+    assert_eq!(params.brain_limit, Some(5));
+    assert_eq!(params.history_limit, Some(4));
+    assert_eq!(params.team_limit, Some(3));
+    assert_eq!(params.build_beliefs_every, Some(7));
+    assert_eq!(params.pre_turn_timeout_ms, Some(5000));
+    assert_eq!(params.date_hint, Some(true));
+    assert_eq!(params.compaction_timeout_ms, Some(12_000));
+    assert_eq!(params.build_delay_secs, Some(900));
 }
 
 #[test]
@@ -34,8 +55,12 @@ fn the_policy_round_trips_and_refuses_out_of_range_values() {
             log_conversations: Some(false),
             recall_enabled: Some(false),
             budget_tokens: Some(800),
-            team_limit: Some(0),
-            build_beliefs_every: Some(0),
+            learnings_limit: Some(9),
+            brain_limit: Some(5),
+            history_limit: Some(4),
+            team_limit: Some(3),
+            build_beliefs_every: Some(7),
+            pre_turn_timeout_ms: Some(5000),
             ..PolicySetParams::default()
         },
     )
@@ -44,8 +69,25 @@ fn the_policy_round_trips_and_refuses_out_of_range_values() {
     assert!(!view.log_conversations);
     assert!(!view.recall.enabled);
     assert_eq!(view.recall.budget_tokens, 800);
-    assert_eq!(view.recall.team_limit, 0);
-    assert_eq!(view.recall.build_beliefs_every, 0);
+    assert_eq!(view.recall.learnings_limit, 9);
+    assert_eq!(view.recall.brain_limit, 5);
+    assert_eq!(view.recall.history_limit, 4);
+    assert_eq!(view.recall.team_limit, 3);
+    assert_eq!(view.recall.build_beliefs_every, 7);
+    assert_eq!(view.recall.pre_turn_timeout_ms, 5000);
+
+    apply_policy_set(
+        &mut config,
+        &PolicySetParams {
+            team_limit: Some(0),
+            build_beliefs_every: Some(0),
+            ..PolicySetParams::default()
+        },
+    )
+    .unwrap();
+    let zero_limits = policy_view(&config);
+    assert_eq!(zero_limits.recall.team_limit, 0);
+    assert_eq!(zero_limits.recall.build_beliefs_every, 0);
 
     apply_policy_set(
         &mut config,
@@ -68,11 +110,35 @@ fn the_policy_round_trips_and_refuses_out_of_range_values() {
             ..PolicySetParams::default()
         },
         PolicySetParams {
+            budget_tokens: Some(16_001),
+            ..PolicySetParams::default()
+        },
+        PolicySetParams {
+            learnings_limit: Some(51),
+            ..PolicySetParams::default()
+        },
+        PolicySetParams {
             brain_limit: Some(51),
             ..PolicySetParams::default()
         },
         PolicySetParams {
+            history_limit: Some(51),
+            ..PolicySetParams::default()
+        },
+        PolicySetParams {
+            team_limit: Some(51),
+            ..PolicySetParams::default()
+        },
+        PolicySetParams {
+            build_beliefs_every: Some(1001),
+            ..PolicySetParams::default()
+        },
+        PolicySetParams {
             pre_turn_timeout_ms: Some(0),
+            ..PolicySetParams::default()
+        },
+        PolicySetParams {
+            pre_turn_timeout_ms: Some(30_001),
             ..PolicySetParams::default()
         },
         PolicySetParams {

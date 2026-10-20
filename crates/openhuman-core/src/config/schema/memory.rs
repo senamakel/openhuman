@@ -62,6 +62,7 @@ use std::fmt;
 use schemars::JsonSchema;
 use serde::{Deserialize, Deserializer, Serialize};
 pub use tinymemory_integrations::sources::{MemorySourceConfig, MemorySourceKind};
+pub use tinymemory_tools::RecallSettings;
 
 /// Keychain entry name of the CortexDB API key.
 pub const MEMORY_CORTEXDB_KEY_NAME: &str = "memory-cortexdb";
@@ -122,7 +123,7 @@ pub struct MemoryConfig {
     /// Turn logging.
     pub conversations: MemoryConversationsConfig,
     /// The per-turn context pack and the lifecycle's timings.
-    pub recall: MemoryRecallConfig,
+    pub recall: RecallSettings,
     /// Document sources that feed the brain.
     #[serde(
         deserialize_with = "deserialize_sources",
@@ -225,7 +226,7 @@ impl Default for MemoryConfig {
             root: None,
             layout: MemoryLayoutMode::Legacy,
             conversations: MemoryConversationsConfig::default(),
-            recall: MemoryRecallConfig::default(),
+            recall: RecallSettings::default(),
             sources: Vec::new(),
             embedding_provider: DEFAULT_EMBEDDING_PROVIDER.to_string(),
             embedding_model: DEFAULT_EMBEDDING_MODEL.to_string(),
@@ -283,60 +284,6 @@ pub const DEFAULT_PRE_TURN_TIMEOUT_MS: u64 = 10000;
 pub const DEFAULT_COMPACTION_TIMEOUT_MS: u64 = 8000;
 /// Default `[memory.recall] build_delay_secs`.
 pub const DEFAULT_BUILD_DELAY_SECS: u64 = 300;
-
-/// `[memory.recall]`: the context pack injected before every turn, and the
-/// lifecycle's budgets. Mirrors `tinymemory_tools::RecallPolicy`.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema, Hash)]
-#[serde(default)]
-pub struct MemoryRecallConfig {
-    /// Whether a pack is recalled and injected before every turn.
-    pub enabled: bool,
-    /// The pack's size in tokens.
-    pub budget_tokens: u32,
-    /// Learnings and built beliefs, together.
-    pub learnings_limit: u32,
-    /// Brain documents.
-    pub brain_limit: u32,
-    /// This agent's earlier turns.
-    pub history_limit: u32,
-    /// Other agents' turns under the same root; `0` leaves the section out.
-    /// With pooled chats, this reads the shared conversation node while
-    /// excluding this agent's own turns.
-    pub team_limit: u32,
-    /// Turns between belief builds of an agent's conversations; `0` turns
-    /// them off.
-    pub build_beliefs_every: u32,
-    /// How long a turn waits for its pack before running without one.
-    pub pre_turn_timeout_ms: u64,
-    /// Whether a small model call, beside the recall, works out which days
-    /// the turn is about so the pack leads with memories from them. Off by
-    /// default: it costs a model call per turn and often misses the
-    /// pre-turn deadline.
-    pub date_hint: bool,
-    /// How long a compaction waits for its recalled context.
-    pub compaction_timeout_ms: u64,
-    /// How long a queued belief build waits before it runs, so the engine's
-    /// fact extraction can catch up with the writes it builds from.
-    pub build_delay_secs: u64,
-}
-
-impl Default for MemoryRecallConfig {
-    fn default() -> Self {
-        Self {
-            enabled: true,
-            budget_tokens: DEFAULT_RECALL_BUDGET_TOKENS,
-            learnings_limit: 8,
-            brain_limit: 6,
-            history_limit: 6,
-            team_limit: 3,
-            build_beliefs_every: 10,
-            pre_turn_timeout_ms: DEFAULT_PRE_TURN_TIMEOUT_MS,
-            date_hint: false,
-            compaction_timeout_ms: DEFAULT_COMPACTION_TIMEOUT_MS,
-            build_delay_secs: DEFAULT_BUILD_DELAY_SECS,
-        }
-    }
-}
 
 /// Decodes `[[memory.sources]]` one entry at a time, dropping (and logging)
 /// any entry this build cannot read rather than failing the whole config.

@@ -588,7 +588,7 @@ async fn erasing_memory_cancels_queued_learning_so_restart_cannot_restore_it() {
         &config,
         &tinymemory_tools::layout::identity::Identity::agent("orchestrator"),
     );
-    let queued = crate::memory::tool_writes::enqueue(
+    let queued = crate::memory::tool_writes::tests::enqueue(
         &config,
         &serde_json::json!({"action":"learn","text":"Prefers tea"}),
         &facts,

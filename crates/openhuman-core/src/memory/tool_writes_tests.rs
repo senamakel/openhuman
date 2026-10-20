@@ -1,8 +1,71 @@
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored, RefusingEngine};
+use crate::memory::tools::CallFacts;
 use serde_json::json;
-use tinymemory_api::Reach;
-use tinymemory_api::{MetaFilter, Namespace};
+use tinymemory_api::{MetaFilter, Namespace, Reach};
+use tinymemory_tools::{CallContext, SingleTool, ToolScope};
+
+/// Exercises the production native single-tool parser and the host write sink.
+pub(crate) fn enqueue(
+    config: &Config,
+    args: &serde_json::Value,
+    facts: &CallFacts,
+) -> tinymemory_api::Result<serde_json::Value> {
+    let config = config.clone();
+    let args = args.clone();
+    let facts = facts.clone();
+    let invoke = move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .expect("test runtime")
+            .block_on(async move {
+                let scope = ToolScope {
+                    place: facts.namespace.clone(),
+                    reach: Some(facts.reach.clone()),
+                    writes: true,
+                    zone: Some(config.time_zone()),
+                    workspace: facts.workspace.clone(),
+                    thread_id: facts.thread_id.clone(),
+                    agent_id: facts.agent_id.clone(),
+                    tool_call: Some(tinymemory_api::ToolCallRef {
+                        name: crate::memory::tools::MEMORY_TOOL_NAME.to_string(),
+                        id: facts.tool_call_id.clone(),
+                    }),
+                };
+                let single = SingleTool::queued(
+                    crate::memory::tools::MEMORY_TOOL_NAME,
+                    scope,
+                    std::sync::Arc::new(super::HostWriteSink::new(std::sync::Arc::new(config))),
+                );
+                let outcome = single
+                    .call_with_details(args, CallContext::default())
+                    .await?;
+                Ok(outcome.value)
+            })
+    };
+    if tokio::runtime::Handle::try_current().is_ok() {
+        std::thread::spawn(invoke)
+            .join()
+            .map_err(|_| tinymemory_api::Error::Unavailable("native test call panicked".into()))?
+    } else {
+        invoke()
+    }
+}
+
+pub(crate) fn queued_for(config: &Config, facts: &CallFacts) -> tinymemory_api::Result<Vec<Entry>> {
+    super::read_at(&super::queue_path(config, &facts.reach.at))
+}
+
+pub(crate) async fn drain_for(config: &Config, root: &Namespace) -> usize {
+    let file = super::queue_path(config, root);
+    let owner = super::owner_state(config);
+    let _owner = owner.barrier.read().await;
+    let state = super::drain_state(&file);
+    let _draining = state.barrier.lock().await;
+    let generation = owner.gate.generation();
+    super::drain_locked(config, &file, &owner, generation).await
+}
 
 fn facts(config: &Config) -> CallFacts {
     CallFacts::of(
@@ -68,12 +131,7 @@ async fn restart_drains_scrubbed_learnings_and_ordered_forgetting() {
     )
     .unwrap();
     let id = ack["id"].as_str().unwrap();
-    enqueue(
-        &config,
-        &json!({"action":"forget","ids":[id],"reach":{"at":"root"}}),
-        &facts,
-    )
-    .unwrap();
+    enqueue(&config, &json!({"action":"forget","ids":[id]}), &facts).unwrap();
     // A fresh config and engine sees only the durable file from before restart.
     let restarted = config_in(&tmp);
     let engine = bind_reference(&restarted);
@@ -393,16 +451,21 @@ async fn model_supplied_forget_reach_cannot_remove_another_identitys_item() {
     let id = engine.store(item).await.unwrap().id.0;
     // All agents under one identity share their root by design. Choose an
     // unrelated root explicitly to exercise a foreign identity boundary.
-    let mut confined = facts(&config);
-    confined.reach = Reach::subtree("user:isolated".parse().unwrap());
     let mut config = config;
     config.memory.root = Some("user:isolated".into());
-    enqueue(
+    let mut confined = facts(&config);
+    confined.reach = Reach::subtree("user:isolated".parse().unwrap());
+    let rejected = enqueue(
         &config,
         &json!({"action":"forget","ids":[id],"reach":{"at":"","inherit":true,"descendants":true}}),
         &confined,
-    )
-    .unwrap();
+    );
+    assert!(matches!(
+        rejected,
+        Err(tinymemory_api::Error::InvalidRequest(_))
+    ));
+    assert!(read(&config.workspace_dir).unwrap().is_empty());
+    enqueue(&config, &json!({"action":"forget","ids":[id]}), &confined).unwrap();
     assert_eq!(drain(&config).await, 1);
     assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 1);
 }

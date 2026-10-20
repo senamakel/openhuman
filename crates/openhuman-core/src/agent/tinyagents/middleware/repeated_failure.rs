@@ -366,7 +366,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
             return Ok(());
         }
         // The memory budget refusing a call past its cap is the host's own
-        // limit (`memory::tool_budget`), not a failure: a parallel batch of
+        // limit (the native memory run budget), not a failure: a parallel batch of
         // memory calls past the cap must not halt the run (#7717).
         if crate::memory::tools::is_budget_refusal(result) {
             tracing::debug!(

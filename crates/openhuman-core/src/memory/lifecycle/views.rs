@@ -2,12 +2,10 @@
 //! pack a turn would get, the agents with conversations, and the job queue.
 
 use serde::{Deserialize, Serialize};
-use tinymemory_api::{ExploreRequest, Facet};
-use tinymemory_tools::{ContextPack, SessionStart};
+use tinymemory_tools::{ContextPack, PreviewMode, RecallSettings};
 
-use crate::config::schema::MemoryRecallConfig;
 use crate::config::Config;
-use tinymemory_api::{Error, Result};
+use tinymemory_api::Result;
 
 use super::jobs;
 use tinymemory_tools::queue::{JobRun, QueueState, Selection};
@@ -18,7 +16,7 @@ pub struct PolicyView {
     /// Whether every turn is logged.
     pub log_conversations: bool,
     /// The pack and its budgets.
-    pub recall: MemoryRecallConfig,
+    pub recall: RecallSettings,
     /// The layout root work outside an agent resolves to.
     pub root: String,
     /// The memory agent id work outside an agent resolves to.
@@ -84,64 +82,33 @@ pub struct PolicySetParams {
     pub build_delay_secs: Option<u64>,
 }
 
-fn within<T: PartialOrd + std::fmt::Display + Copy>(
-    name: &str,
-    value: Option<T>,
-    min: T,
-    max: T,
-) -> Result<Option<T>> {
-    match value {
-        Some(value) if value < min || value > max => Err(Error::InvalidRequest(format!(
-            "{name} must be between {min} and {max}"
-        ))),
-        other => Ok(other),
-    }
-}
-
 /// Applies `params` to `config`; the caller persists it.
 pub fn apply_policy_set(config: &mut Config, params: &PolicySetParams) -> Result<()> {
-    // Validate every value before changing the config. Callers may use this
-    // function directly, without a persistence layer to discard partial edits.
-    let budget_tokens = within("budget_tokens", params.budget_tokens, 100, 16_000)?;
-    let learnings_limit = within("learnings_limit", params.learnings_limit, 0, 50)?;
-    let brain_limit = within("brain_limit", params.brain_limit, 0, 50)?;
-    let history_limit = within("history_limit", params.history_limit, 0, 50)?;
-    let team_limit = within("team_limit", params.team_limit, 0, 50)?;
-    let build_beliefs_every = within("build_beliefs_every", params.build_beliefs_every, 0, 1000)?;
-    let pre_turn_timeout_ms = within(
-        "pre_turn_timeout_ms",
-        params.pre_turn_timeout_ms,
-        100,
-        30_000,
-    )?;
-    let build_delay_secs = validate_build_delay_secs(params.build_delay_secs)?;
-
-    let recall = &mut config.memory.recall;
-    if let Some(value) = params.log_conversations {
-        config.memory.conversations.enabled = value;
-    }
+    // Apply the complete proposed recall state to a copy, then let TinyMemory
+    // validate it before changing either recall or conversation settings.
+    let mut recall = config.memory.recall.clone();
     if let Some(value) = params.recall_enabled {
         recall.enabled = value;
     }
-    if let Some(value) = budget_tokens {
+    if let Some(value) = params.budget_tokens {
         recall.budget_tokens = value;
     }
-    if let Some(value) = learnings_limit {
+    if let Some(value) = params.learnings_limit {
         recall.learnings_limit = value;
     }
-    if let Some(value) = brain_limit {
+    if let Some(value) = params.brain_limit {
         recall.brain_limit = value;
     }
-    if let Some(value) = history_limit {
+    if let Some(value) = params.history_limit {
         recall.history_limit = value;
     }
-    if let Some(value) = team_limit {
+    if let Some(value) = params.team_limit {
         recall.team_limit = value;
     }
-    if let Some(value) = build_beliefs_every {
+    if let Some(value) = params.build_beliefs_every {
         recall.build_beliefs_every = value;
     }
-    if let Some(value) = pre_turn_timeout_ms {
+    if let Some(value) = params.pre_turn_timeout_ms {
         recall.pre_turn_timeout_ms = value;
     }
     if let Some(value) = params.date_hint {
@@ -150,29 +117,17 @@ pub fn apply_policy_set(config: &mut Config, params: &PolicySetParams) -> Result
     if let Some(value) = params.compaction_timeout_ms {
         recall.compaction_timeout_ms = value;
     }
-    if let Some(value) = build_delay_secs {
+    if let Some(value) = params.build_delay_secs {
         recall.build_delay_secs = value;
     }
+    recall.validate()?;
+
+    if let Some(value) = params.log_conversations {
+        config.memory.conversations.enabled = value;
+    }
+    config.memory.recall = recall;
     tracing::info!("[memory:policy] recall policy updated");
     Ok(())
-}
-
-fn validate_build_delay_secs(value: Option<u64>) -> Result<Option<u64>> {
-    let Some(seconds) = value else {
-        return Ok(None);
-    };
-    let delay = i64::try_from(seconds)
-        .ok()
-        .and_then(chrono::Duration::try_seconds);
-    if delay
-        .and_then(|delay| chrono::Utc::now().checked_sub_signed(delay))
-        .is_none()
-    {
-        return Err(Error::InvalidRequest(
-            ("build_delay_secs must fit within the supported date range").into(),
-        ));
-    }
-    Ok(Some(seconds))
 }
 
 /// `memory_pack_preview` params.
@@ -211,25 +166,23 @@ pub async fn pack_preview(
 ) -> Result<PackPreviewView> {
     let (memory, identity) =
         super::named_agent_memory(config, identity, params.agent_id.as_deref())?;
-    let query = params.query.filter(|query| !query.trim().is_empty());
-    let (mode, pack) = match query {
-        Some(query) => ("turn", memory.recall(&query).await?),
-        None => (
-            "session",
-            memory
-                .start_session(SessionStart {
-                    thread_id: params.thread_id.filter(|id| !id.trim().is_empty()),
-                    focus: None,
-                })
-                .await?,
-        ),
+    let preview = memory
+        .preview(params.query.as_deref(), params.thread_id.as_deref())
+        .await?;
+    let mode = match preview.mode {
+        PreviewMode::Turn => "turn",
+        PreviewMode::Session => "session",
     };
-    tracing::debug!(mode, tokens = pack.tokens, "[memory:views] pack preview");
+    tracing::debug!(
+        mode,
+        tokens = preview.pack.tokens,
+        "[memory:views] pack preview"
+    );
     Ok(PackPreviewView {
         root: identity.root().to_string(),
         agent_id: identity.agent_id,
         mode,
-        pack,
+        pack: preview.pack,
     })
 }
 
@@ -257,21 +210,13 @@ pub async fn agents_list(
     identity: &tinymemory_tools::layout::identity::Identity,
 ) -> Result<AgentsView> {
     let (memory, identity) = super::current_agent_memory(config, identity)?;
-    let page = memory
-        .engine()
-        .explore(ExploreRequest {
-            facet: Facet::Agent,
-            filter: identity.layout.conversations_filter(None),
-            limit: 200,
-            scan_limit: 20_000,
-        })
-        .await?;
-    let agents = page
-        .buckets
+    let agents = memory
+        .agents()
+        .await?
         .into_iter()
-        .map(|bucket| AgentCount {
-            agent_id: bucket.value,
-            turns: bucket.count,
+        .map(|agent| AgentCount {
+            agent_id: agent.agent_id,
+            turns: agent.turns,
         })
         .collect();
     Ok(AgentsView {

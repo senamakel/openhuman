@@ -1,5 +1,6 @@
 //! Diagnostic checks for OpenHuman configuration, workspace health, and daemon state.
 
+mod checks;
 mod contract;
 mod core;
 mod legacy;

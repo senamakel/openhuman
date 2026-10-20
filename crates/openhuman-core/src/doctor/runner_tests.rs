@@ -25,12 +25,8 @@ fn isolated_config(root: &Path) -> Config {
 
 fn scoped_config_context(config: Config, extensions: Extensions) -> Arc<CoreContext> {
     CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions).derive_with(
-        crate::core::runtime::ContextOverlay::new(
-            config,
-            DomainSet::full(),
-            Default::default(),
-        )
-        .without_user_skill_roots(),
+        crate::core::runtime::ContextOverlay::new(config, DomainSet::full(), Default::default())
+            .without_user_skill_roots(),
     )
 }
 
@@ -402,10 +398,7 @@ async fn mcp_server_check_ids_come_from_the_selected_config() {
     let extensions_a = Extensions::new();
     register_check_source_in(
         &extensions_a,
-        FakeCheckSource::new(
-            "doctor-mcp-config-a",
-            vec![FakeCheck::pass("mcp/server-a")],
-        ),
+        FakeCheckSource::new("doctor-mcp-config-a", vec![FakeCheck::pass("mcp/server-a")]),
     );
     let context_a = scoped_config_context(config_a, extensions_a);
     let report = CoreContext::scope(context_a, async {
@@ -432,8 +425,10 @@ async fn mcp_server_check_ids_come_from_the_selected_config() {
         "the selected config's id must be registered: {:?}",
         report.findings
     );
-    assert!(report.checks_skipped.iter().any(|id| id == "mcp/server-b")
-        || report.checks_run.iter().any(|id| id == "mcp/server-b"));
+    assert!(
+        report.checks_skipped.iter().any(|id| id == "mcp/server-b")
+            || report.checks_run.iter().any(|id| id == "mcp/server-b")
+    );
     assert!(report
         .findings
         .iter()
@@ -451,8 +446,11 @@ async fn malformed_skill_discovery_reports_a_warning_with_its_path() {
     let skill_dir = config.workspace_dir.join("skills").join("broken-skill");
     std::fs::create_dir_all(&skill_dir).expect("create skill fixture directory");
     let skill_path = skill_dir.join("SKILL.md");
-    std::fs::write(&skill_path, "---\nname: [unterminated\n---\nA test skill.\n")
-        .expect("write malformed skill manifest");
+    std::fs::write(
+        &skill_path,
+        "---\nname: [unterminated\n---\nA test skill.\n",
+    )
+    .expect("write malformed skill manifest");
 
     std::fs::create_dir_all(&config.workspace_dir).expect("create isolated workspace");
     let context = scoped_config_context(config.clone(), Extensions::new());

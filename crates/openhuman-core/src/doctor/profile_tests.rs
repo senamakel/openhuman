@@ -2,8 +2,9 @@ use std::collections::HashMap;
 
 use tempfile::TempDir;
 
-use crate::config::{Config, ProfileLayout};
+use crate::config::Config;
 use crate::doctor::profile::{load_desktop_profile, DesktopProfileError};
+use crate::profiles::ProfileLayout;
 use crate::security::credentials::{
     session_support::get_session_token, AuthService, APP_SESSION_PROVIDER,
     DEFAULT_AUTH_PROFILE_NAME,
@@ -55,6 +56,7 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
     assert_eq!(selected.config.config_path, account_b.config_path);
     assert_eq!(selected.config.workspace_dir, account_b.workspace_dir);
     assert_eq!(selected.layout.version, account_b.version);
+    assert_eq!(selected.config.default_model.as_deref(), Some("account-b-model"));
     assert_eq!(get_session_token(&selected.config).unwrap(), None);
     assert_eq!(
         get_session_token(&config_for(&account_a)).unwrap().as_deref(),

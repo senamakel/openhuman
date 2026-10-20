@@ -135,7 +135,10 @@ async fn locally_expired_session_is_reported_as_session_expired() {
 async fn hosted_checks_are_scoped_to_the_runtime_that_installed_tinyhumans() {
     let _registry = crate::registry_test_lock_async().await;
     let mut extensions = Extensions::new();
-    register_check_source_in(&extensions, HostedDoctorCheckSource::default());
+    crate::register::register_all(
+        &crate::InstallOptions::default(),
+        crate::register::DoctorRegistration::Context(&extensions),
+    );
     let config = Config::default();
     let hosted = CoreBuilder::new(HostKind::Library)
         .services(ServiceSet::none())

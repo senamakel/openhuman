@@ -278,7 +278,6 @@ async fn existing_toolkit_status(
     use crate::skills::preflight::PreflightProbeStatus;
     #[cfg(feature = "modules")]
     {
-        use crate::skills::preflight::PreflightProbeStatus;
         use tinyconnectors_bus::{
             ComposioConnectedIntegrationsMode as Mode,
             ComposioConnectedIntegrationsResponse,
@@ -333,7 +332,6 @@ async fn existing_identity_status(
     use crate::skills::preflight::PreflightProbeStatus;
     #[cfg(feature = "modules")]
     {
-        use crate::skills::preflight::PreflightProbeStatus;
         use crate::integrations::composio::types::{
             ComposioUserProfile, ComposioUserProfileRequest,
         };

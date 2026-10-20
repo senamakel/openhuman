@@ -129,9 +129,8 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
 
     match config.composio.mode.trim() {
         "" | crate::config::schema::COMPOSIO_MODE_BACKEND => {
-            let api_key = crate::security::credentials::api_key::get_api_key_read_only(config)
-                .ok()??;
-            if !api_key.trim().is_empty() {
+            let api_key = crate::security::credentials::api_key::get_api_key_read_only(config).ok()?;
+            if let Some(api_key) = api_key.filter(|key| !key.trim().is_empty()) {
                 return Some(("backend-api-key".to_owned(), api_key.trim().to_owned()));
             }
             let profile = crate::security::credentials::session_support::load_app_session_profile_read_only(config).ok()?;

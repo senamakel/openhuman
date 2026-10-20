@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::config::schema::load::ConfigResolutionSource;
 use crate::config::schema::profile_layout::LayoutVersion;
 use crate::config::Config;
-use crate::config::schema::load::ConfigResolutionSource;
 use crate::core::runtime::ComponentSet;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding};
 use crate::profiles::ProfileLayout;
@@ -79,15 +79,23 @@ pub async fn resolve_desktop_profile_for_doctor(
         resolve_desktop_config_dirs_read_only(root).await?;
     let (config, config_exists) =
         load_config_read_only(&config_dir.join("config.toml"), &workspace_dir).await?;
+    let profile_status = if profile_id.is_some() {
+        if config_exists {
+            Some(DoctorProfileStatus::Valid)
+        } else {
+            match tokio::fs::symlink_metadata(&config_dir).await {
+                Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                    Some(DoctorProfileStatus::Missing)
+                }
+                _ => Some(DoctorProfileStatus::InvalidConfig),
+            }
+        }
+    } else {
+        None
+    };
     Ok(DesktopProfileSelection {
         config,
-        profile_status: profile_id.as_ref().map(|_| {
-            if config_exists {
-                DoctorProfileStatus::Valid
-            } else {
-                DoctorProfileStatus::InvalidConfig
-            }
-        }),
+        profile_status,
         profile_id,
         layout_version,
         resolution_source: source.as_str().into(),

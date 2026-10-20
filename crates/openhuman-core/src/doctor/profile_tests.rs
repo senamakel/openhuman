@@ -165,12 +165,17 @@ async fn explicit_dispatch_selection_does_not_load_the_ambient_config() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();
     let active_config_path = root.join("users/account-a/config.toml");
-    tokio::fs::create_dir_all(&active_config_path).await.unwrap();
-    let selected = ProfileLayout::new(root, "account-b");
-    tokio::fs::create_dir_all(&selected.dir).await.unwrap();
-    tokio::fs::write(&selected.config_path, "default_model = \"account-b-model\"\n")
+    tokio::fs::create_dir_all(&active_config_path)
         .await
         .unwrap();
+    let selected = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&selected.dir).await.unwrap();
+    tokio::fs::write(
+        &selected.config_path,
+        "default_model = \"account-b-model\"\n",
+    )
+    .await
+    .unwrap();
     let active_config = Config {
         config_path: active_config_path,
         workspace_dir: root.join("users/account-a/workspace"),
@@ -314,9 +319,12 @@ async fn default_profile_resolution_prefers_workspace_override_without_switching
     tokio::fs::write(account_b.dir.join(".layout"), "2\n")
         .await
         .unwrap();
-    tokio::fs::write(&account_b.config_path, "default_model = \"account-b-model\"\n")
-        .await
-        .unwrap();
+    tokio::fs::write(
+        &account_b.config_path,
+        "default_model = \"account-b-model\"\n",
+    )
+    .await
+    .unwrap();
     let marker_before = tokio::fs::read(&active_user).await.unwrap();
     let _workspace_override = WorkspaceOverrideGuard::set(&account_b.files_dir);
 
@@ -325,12 +333,23 @@ async fn default_profile_resolution_prefers_workspace_override_without_switching
         .unwrap();
 
     assert_eq!(selected.profile_id.as_deref(), Some("account-b"));
-    assert_eq!(selected.layout_version, Some(crate::config::schema::profile_layout::LayoutVersion::V2));
+    assert_eq!(
+        selected.layout_version,
+        Some(crate::config::schema::profile_layout::LayoutVersion::V2)
+    );
     assert_eq!(selected.resolution_source, "OPENHUMAN_WORKSPACE");
     assert_eq!(selected.config.workspace_dir, account_b.files_dir);
-    assert_eq!(selected.config.default_model.as_deref(), Some("account-b-model"));
+    assert_eq!(
+        selected.config.default_model.as_deref(),
+        Some("account-b-model")
+    );
     assert_eq!(tokio::fs::read(&active_user).await.unwrap(), marker_before);
-    assert_eq!(tokio::fs::read_to_string(account_b.dir.join(".layout")).await.unwrap(), "2\n");
+    assert_eq!(
+        tokio::fs::read_to_string(account_b.dir.join(".layout"))
+            .await
+            .unwrap(),
+        "2\n"
+    );
 }
 
 #[tokio::test]

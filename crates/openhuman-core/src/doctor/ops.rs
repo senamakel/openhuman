@@ -129,10 +129,7 @@ pub async fn doctor_report_for_desktop_selection(
 ) -> Result<Outcome<DoctorReport>, String> {
     let components = ComponentSet::from_config(&selection.config.components);
     let mut ctx = DoctorCtx::from_config_with_components(selection.config.clone(), components)
-        .with_profile_metadata(
-            selection.layout_version,
-            Some(selection.resolution_source),
-        );
+        .with_profile_metadata(selection.layout_version, Some(selection.resolution_source));
     if let Some(profile_id) = selection.profile_id {
         ctx = ctx.with_profile(profile_id, DoctorConfigSource::Profile);
     }

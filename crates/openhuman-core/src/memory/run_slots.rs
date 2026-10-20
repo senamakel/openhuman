@@ -7,7 +7,7 @@
 use std::path::{Path, PathBuf};
 use std::sync::LazyLock;
 
-use tinymemory_tools::run_slots::{RunGuard, RunSlots, RunStartGate};
+use tinymemory_tools::run_slots::{RunGuard, RunSlots, RunStartGate, StartGate};
 
 pub(crate) static START_GATE: LazyLock<RunStartGate> = LazyLock::new(RunStartGate::new);
 pub(crate) static BACKFILL: LazyLock<RunSlots<PathBuf>> = LazyLock::new(RunSlots::new);

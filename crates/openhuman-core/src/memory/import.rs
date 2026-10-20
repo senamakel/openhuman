@@ -286,7 +286,8 @@ async fn launch(
     );
     let config = config.clone();
     let task_ctx = ctx.clone();
-    task_ctx.spawn(async move {
+    let spawn_ctx = task_ctx.clone();
+    spawn_ctx.spawn(async move {
         {
             let _guard = guard;
             if mode == Mode::Import {

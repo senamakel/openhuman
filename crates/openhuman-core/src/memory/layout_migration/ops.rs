@@ -77,7 +77,7 @@ pub fn start(
         host,
         || IMPORT.is_running(&config.workspace_dir) || BACKFILL.is_running(&config.workspace_dir),
         trigger,
-        paused,
+        move || paused(),
     )
 }
 
@@ -98,7 +98,7 @@ pub fn tick(
         config.workspace_dir.clone(),
         host,
         || IMPORT.is_running(&config.workspace_dir) || BACKFILL.is_running(&config.workspace_dir),
-        paused,
+        move || paused(),
     )
 }
 

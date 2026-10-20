@@ -219,6 +219,11 @@ impl Default for AuthProfilesData {
 /// Full key format (as handled by the keyring module): `"{user_id}:auth:{profile_id}"`.
 const KEYCHAIN_AUTH_PREFIX: &str = "auth:";
 
+/// The logical key used for an auth profile's secret payload.
+pub(crate) fn auth_profile_secret_key(profile_id: &str) -> String {
+    format!("{KEYCHAIN_AUTH_PREFIX}{profile_id}")
+}
+
 /// Derive a stable keychain user-id from a state directory path.
 ///
 /// For a typical path like `/home/alice/.openhuman/users/uid-123` this

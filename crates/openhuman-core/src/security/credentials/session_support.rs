@@ -264,7 +264,9 @@ pub fn normalize_session_backend(raw: &str) -> Result<String, String> {
     Ok(parsed.as_str().trim_end_matches('/').to_string())
 }
 
-pub(crate) fn check_session_backend(
+/// Purely verifies that a stored session belongs to the selected config's
+/// control-plane endpoint. It does not publish expiry events or mutate auth state.
+pub fn check_session_backend(
     config: &Config,
     profile: Option<&AuthProfile>,
 ) -> Result<(), String> {

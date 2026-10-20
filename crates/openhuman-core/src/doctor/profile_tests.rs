@@ -182,7 +182,9 @@ async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profi
         .set(
             &crate::security::secret_storage::ops::namespaced_key(
                 "account-a",
-                "auth:app-session:default",
+                &crate::security::credentials::profiles::auth_profile_secret_key(
+                    "app-session:default",
+                ),
             ),
             r#"{"token":"account-a-session"}"#,
         )
@@ -191,7 +193,9 @@ async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profi
         .set(
             &crate::security::secret_storage::ops::namespaced_key(
                 "account-b",
-                "auth:app-session:default",
+                &crate::security::credentials::profiles::auth_profile_secret_key(
+                    "app-session:default",
+                ),
             ),
             r#"{"token":"account-b-session"}"#,
         )

@@ -29,9 +29,7 @@ use tinymemory_tools::pending::{
 use tinymemory_tools::single::WriteSink;
 use tinymemory_tools::ToolScope;
 
-#[cfg(test)]
-use super::tools::CallFacts;
-use super::types::{ForgetParams, LearnParams};
+use super::types::ForgetParams;
 use crate::config::Config;
 use tinymemory_api::{Error, Result};
 
@@ -153,86 +151,6 @@ fn queue_path(config: &Config, root: &Namespace) -> PathBuf {
 
 fn unavailable() -> Error {
     Error::Unavailable("memory write queue unavailable; durable queueing was not confirmed".into())
-}
-
-/// Accepts a validated, scrubbed write locally. The acknowledgement means only
-/// that it is durable in the local outbox, not accepted by the remote engine.
-#[cfg(test)]
-pub(super) fn enqueue(
-    config: &Config,
-    args: &serde_json::Value,
-    facts: &CallFacts,
-) -> Result<serde_json::Value> {
-    if super::engine::switched_off(config) {
-        return Err(Error::Off("memory is disabled".into()));
-    }
-    let confinement = super::ops::saas_confinement(config, Policy::Clamp)?;
-    let reach = match confinement {
-        Some(ref confinement) => confinement.reach(Some(facts.reach.clone()))?,
-        None => facts.reach.clone(),
-    };
-    let scope_root = reach.at.clone();
-    let file = queue_path(config, &scope_root);
-    let operation = match args.get("action").and_then(serde_json::Value::as_str) {
-        Some("learn") => {
-            let mut params: LearnParams = serde_json::from_value(args.clone())
-                .map_err(|_| Error::InvalidRequest("invalid learning arguments".into()))?;
-            params.meta = None;
-            let mut item = super::ops::learning_item(params, Some(facts.learn_meta()))?;
-            if let Some(ref confinement) = confinement {
-                confinement.item(&mut item)?;
-            }
-            if !Reach::subtree(reach.at.clone()).admits(&item.meta().namespace) || reach.inherit {
-                return Err(Error::InvalidRequest(
-                    ("learning namespace is outside the trusted reach").into(),
-                ));
-            }
-            WriteOperation::Learn {
-                item: tinymemory_integrations::safety::scrub_item_with(
-                    item,
-                    crate::security::scrub::host_policy(),
-                )
-                .value,
-            }
-        }
-        Some("forget") => {
-            let params: ForgetParams = serde_json::from_value(args.clone())
-                .map_err(|_| Error::InvalidRequest("invalid forgetting arguments".into()))?;
-            let mut ids: Vec<_> = params
-                .ids
-                .into_iter()
-                .map(|id| id.trim().to_string())
-                .filter(|id| !id.is_empty())
-                .collect();
-            ids.sort();
-            ids.dedup();
-            if ids.is_empty() {
-                return Err(Error::InvalidRequest(
-                    ("forget needs at least one id").into(),
-                ));
-            }
-            WriteOperation::Forget { ids, reach }
-        }
-        _ => return Err(Error::InvalidRequest("expected a memory write".into())),
-    };
-    let _guard = LOCK
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner);
-    if !file.exists() && partitions(config)?.len() >= MAX_PENDING {
-        return Err(Error::Unavailable(
-            "memory write queue full; nothing was queued".into(),
-        ));
-    }
-    let owner = owner_state(config);
-    let ack = queue(&file)
-        .enqueue(operation, scope_root, binding(config), &owner.gate)
-        .map_err(map_pending)?;
-    Ok(match ack {
-        Ack::Learned { id } => serde_json::json!({"id":id, "status":QUEUED}),
-        Ack::Forgotten { queued } => {
-            serde_json::json!({"queued":queued, "status":"queued; not yet removed from memory"})
-        }
-    })
 }
 
 /// The host policy and queue adapter used by TinyMemory's single tool.

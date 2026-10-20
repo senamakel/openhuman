@@ -226,6 +226,11 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
                     config,
                 )
                 .ok()?;
+            crate::security::credentials::session_support::check_session_backend(
+                config,
+                profile.as_ref(),
+            )
+            .ok()?;
             let token = match crate::security::credentials::session_support::classify_session_token(
                 profile.as_ref(),
                 chrono::Utc::now(),
@@ -264,6 +269,14 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
 }
 
 fn binding_for_config(config: &Config) -> Option<ConfiguredBinding> {
+    let actual_load_scope = loaded_scope()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .as_ref()
+        .copied()?;
+    if Some(actual_load_scope) != load_scope_fingerprint(config) {
+        return None;
+    }
     let selected = selected_credential(config)?;
     binding_for_selected(config, &selected)
 }
@@ -326,6 +339,13 @@ fn load_scope_fingerprint(config: &Config) -> Option<[u8; 32]> {
         "offered_toolkits": super::offered_toolkits(config),
     });
     Some(Sha256::digest(serde_json::to_vec(&scope).ok()?).into())
+}
+
+#[cfg(test)]
+fn seed_loaded_scope_for_test(config: &Config) {
+    *loaded_scope()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = load_scope_fingerprint(config);
 }
 
 fn route_scope_fingerprint(config: &Config) -> Option<[u8; 32]> {

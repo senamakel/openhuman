@@ -1,5 +1,6 @@
 use super::*;
 use crate::doctor::contract::FindingSeverity;
+use std::path::Path;
 
 struct DockerAvailability(bool);
 
@@ -14,17 +15,24 @@ impl SandboxProbe for DockerAvailability {
     }
 }
 
-fn config(backend: SandboxBackend) -> crate::config::Config {
+fn config(root: &Path, backend: SandboxBackend) -> crate::config::Config {
     let mut config = crate::config::Config::default();
+    config.workspace_dir = root.join("workspace");
+    config.action_dir = root.join("actions");
+    config.config_path = root.join("config.toml");
     config.sandbox.backend = backend;
     config
 }
 
 #[tokio::test]
 async fn configured_docker_without_a_daemon_is_an_error() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
     let check = SandboxBackendCheck::with_probe(Arc::new(DockerAvailability(false)));
     let finding = check
-        .detect(&DoctorCtx::from_config(config(SandboxBackend::Docker)))
+        .detect(&DoctorCtx::from_config(config(
+            scratch.path(),
+            SandboxBackend::Docker,
+        )))
         .await
         .remove(0);
 
@@ -35,9 +43,13 @@ async fn configured_docker_without_a_daemon_is_an_error() {
 
 #[tokio::test]
 async fn available_docker_backend_passes() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
     let check = SandboxBackendCheck::with_probe(Arc::new(DockerAvailability(true)));
     let finding = check
-        .detect(&DoctorCtx::from_config(config(SandboxBackend::Docker)))
+        .detect(&DoctorCtx::from_config(config(
+            scratch.path(),
+            SandboxBackend::Docker,
+        )))
         .await
         .remove(0);
 
@@ -46,8 +58,9 @@ async fn available_docker_backend_passes() {
 
 #[tokio::test]
 async fn no_probe_runs_when_sandboxing_is_disabled_in_config() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
     let check = SandboxBackendCheck::with_probe(Arc::new(DockerAvailability(false)));
-    let mut config = config(SandboxBackend::Docker);
+    let mut config = config(scratch.path(), SandboxBackend::Docker);
     config.sandbox.enabled = Some(false);
     let finding = check
         .detect(&DoctorCtx::from_config(config))

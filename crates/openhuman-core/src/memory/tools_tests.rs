@@ -730,3 +730,27 @@ async fn learning_is_durably_queued_even_when_the_backend_refuses_writes() {
     assert_eq!(value["status"], "queued; not yet saved to memory");
     assert_eq!(super::super::tool_writes::drain(&config).await, 0);
 }
+
+#[tokio::test]
+async fn write_queue_filesystem_failure_is_model_visible_through_execute() {
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    bind_reference(&config);
+    std::fs::write(config.workspace_dir.join("memory"), b"not a directory").unwrap();
+
+    let result = run_action(
+        &ambient(),
+        &config,
+        &json!({"action": "learn", "text": "a durable memory fact"}),
+        &facts(),
+    )
+    .await;
+
+    assert!(result.is_error, "{}", text(&result));
+    assert!(
+        text(&result).contains("memory write queue unavailable"),
+        "{}",
+        text(&result)
+    );
+    assert!(text(&result).contains("UNAVAILABLE"), "{}", text(&result));
+}

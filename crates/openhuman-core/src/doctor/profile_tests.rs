@@ -152,7 +152,7 @@ async fn selected_profile_context_pins_id_layout_source_and_components() {
     assert_eq!(ctx.profile_resolution_source(), Some("--profile"));
     assert!(!ctx.components().memory);
 
-    let check = super::profile::built_in_checks().pop().unwrap();
+    let check = super::built_in_checks().pop().unwrap();
     let findings = check.detect(&ctx).await;
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].severity, FindingSeverity::Pass);

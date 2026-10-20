@@ -292,7 +292,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
         || config.inbound.pipeline_path.is_some()
         || config.inbound.queue_url.as_deref().is_some_and(non_empty)
         || config.inbound.triage_timeout_ms
-            != crate::config::schema::inbound::DEFAULT_TRIAGE_TIMEOUT_MS
+            != crate::config::schema::InboundConfig::default().triage_timeout_ms
         || explicitly_configured(config, "inbound.triage_timeout_ms")
     {
         references.push(("eventqueues", "inbound"));
@@ -478,7 +478,6 @@ fn missing_blob_feature(config: &BlobConfig) -> Option<&'static str> {
     match config {
         BlobConfig::S3 { .. } => (!cfg!(feature = "storage-s3")).then_some("storage-s3"),
         BlobConfig::Backend(config) => missing_storage_feature(config),
-        _ => None,
     }
 }
 

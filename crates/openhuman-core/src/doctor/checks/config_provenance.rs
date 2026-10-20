@@ -3,6 +3,7 @@
 use async_trait::async_trait;
 
 use crate::config::schema::load::ProvenanceSource;
+use crate::config::schema::profile_layout::LayoutVersion;
 
 use super::super::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 
@@ -105,6 +106,10 @@ impl DoctorCheck for ConfigSourceCheck {
             message.push_str(&format!(" config_resolution_source: {source}."));
         }
         if let Some(version) = ctx.profile_layout_version() {
+            let version = match version {
+                LayoutVersion::V1 => 1,
+                LayoutVersion::V2 => 2,
+            };
             message.push_str(&format!(" profile_layout_version: {version}."));
         }
 

@@ -20,8 +20,8 @@ fn scoped(config: crate::config::Config) -> Arc<CoreContext> {
     )
 }
 
-#[test]
-fn github_preflight_is_not_registered_when_no_skill_requires_it() {
+#[tokio::test]
+async fn github_preflight_is_not_registered_when_no_skill_requires_it() {
     let scratch = tempfile::tempdir().expect("create isolated skill fixture");
     let config = config_in(scratch.path());
     let skill_dir = config.workspace_dir.join("skills/plain-skill");

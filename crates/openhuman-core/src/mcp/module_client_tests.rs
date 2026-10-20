@@ -334,7 +334,7 @@ async fn doctor_status_reads_only_an_open_client_for_the_exact_config() {
     let mut host_config = Config::default();
     host_config.workspace_dir = scratch.path().to_path_buf();
     let client_config = crate::mcp::host::client_config(&host_config);
-    let mut port = FakePort::default();
+    let port = FakePort::default();
     let opened = Arc::clone(&port.opened);
     let calls = Arc::clone(&port.calls);
     let expected = tinymcp_bus::ConnStatus {
@@ -438,7 +438,7 @@ async fn existing_status_preserves_read_failures_without_reopening_the_client() 
     let mut config = Config::default();
     config.workspace_dir = scratch.path().to_path_buf();
     let client_config = crate::mcp::host::client_config(&config);
-    let mut port = FakePort::default();
+    let port = FakePort::default();
     port.fail_status
         .store(true, std::sync::atomic::Ordering::SeqCst);
     let opened = Arc::clone(&port.opened);

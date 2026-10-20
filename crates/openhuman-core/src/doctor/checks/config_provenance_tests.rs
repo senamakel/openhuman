@@ -108,7 +108,10 @@ fn context_value_source_maps_logical_paths_without_labeling_filesystem_paths() {
 #[tokio::test]
 async fn config_source_reports_the_active_user_directory_resolution_source() {
     let ctx = DoctorCtx::from_config(Config::default())
-        .with_profile_metadata(Some(2), Some("active_user.toml".to_owned()));
+        .with_profile_metadata(
+            Some(crate::config::schema::profile_layout::LayoutVersion::V2),
+            Some("active_user.toml".to_owned()),
+        );
     let report = run_context_check(ctx, CONFIG_SOURCE).await;
     let matching = selected_findings(&report.findings, CONFIG_SOURCE);
 

@@ -20,7 +20,6 @@
 //! way the raw error flooded Sentry.
 
 use std::collections::{HashMap, HashSet};
-use std::hash::{BuildHasher, Hash, Hasher};
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 

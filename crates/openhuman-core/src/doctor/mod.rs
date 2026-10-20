@@ -3,6 +3,7 @@
 mod checks;
 mod contract;
 mod core;
+pub(crate) mod checks;
 mod legacy;
 pub mod ops;
 pub mod profile;

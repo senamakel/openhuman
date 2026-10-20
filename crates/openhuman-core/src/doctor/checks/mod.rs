@@ -1,7 +1,8 @@
-//! Built-in doctor checks for configuration, inference, and embeddings.
+//! Built-in doctor checks for configuration, inference, embeddings, and semantics.
 
 mod config_file;
 mod config_provenance;
+mod config_semantics;
 mod embeddings;
 mod inference;
 
@@ -17,6 +18,10 @@ pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
     checks.push(Arc::new(inference::Construct));
     checks.push(Arc::new(inference::Temperature));
     checks.push(Arc::new(embeddings::EmbeddingConfigCheck));
+    checks.extend(config_semantics::checks());
     checks
 }
-}
+
+#[cfg(test)]
+#[path = "config_semantics_tests.rs"]
+mod config_semantics_tests;

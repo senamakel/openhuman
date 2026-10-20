@@ -48,6 +48,19 @@ tool_dispatcher = "native"
 }
 
 #[test]
+fn explicit_subtree_lookup_matches_exact_and_descendant_paths_only() {
+    let document: toml::Value =
+        toml::from_str("[memory]\nengine = \"tinyhumans\"\n[search]\nenabled = true\n").unwrap();
+    let provenance = ConfigProvenance::from_file_document(&document);
+
+    assert!(provenance.has_explicit_under("memory"));
+    assert!(provenance.has_explicit_under("memory.engine"));
+    assert!(provenance.has_explicit_under("search.enabled"));
+    assert!(!provenance.has_explicit_under("mem"));
+    assert!(!provenance.has_explicit_under("memory_config"));
+}
+
+#[test]
 fn every_serialized_config_field_has_file_or_default_source_when_no_env_is_applied() {
     let config = super::config_from_toml_str(
         r#"

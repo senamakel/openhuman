@@ -23,7 +23,8 @@ use tokio::sync::MutexGuard;
 
 const MOCK_TOKEN_HEADER: &str = "eyJhbGciOiJub25lIiwidHlwIjoiSldUIn0";
 const MOCK_TOKEN_PAYLOAD: &str = "eyJzdWIiOiJ1c2VyLTEyMyIsInVzZXJJZCI6InVzZXItMTIzIiwidGdVc2VySWQiOiJ1c2VyLTEyMyIsImV4cCI6NDEwMjQ0NDgwMH0";
-const EXPIRED_TOKEN_PAYLOAD: &str = "eyJzdWIiOiJ1c2VyLTEyMyIsInVzZXJJZCI6InVzZXItMTIzIiwidGdVc2VySWQiOiJ1c2VyLTEyMyIsImV4cCI6MX0";
+const EXPIRED_TOKEN_PAYLOAD: &str =
+    "eyJzdWIiOiJ1c2VyLTEyMyIsInVzZXJJZCI6InVzZXItMTIzIiwidGdVc2VySWQiOiJ1c2VyLTEyMyIsImV4cCI6MX0";
 const MOCK_USER_ID: &str = "user-123";
 const RPC_TOKEN: &str = "doctor-e2e-in-process-rpc-token";
 const MOCK_BACKEND_PLACEHOLDER: &str = "__MOCK_BACKEND_URL__";
@@ -195,11 +196,7 @@ async fn is_shared_mock(origin: &str) -> bool {
         Ok(client) => client,
         Err(_) => return false,
     };
-    let Ok(response) = client
-        .get(format!("{origin}/__admin/health"))
-        .send()
-        .await
-    else {
+    let Ok(response) = client.get(format!("{origin}/__admin/health")).send().await else {
         return false;
     };
     if !response.status().is_success() {
@@ -479,10 +476,15 @@ async fn assert_expired_session_is_seeded(home: &Path) {
     let config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("load isolated doctor config");
-    let profile = openhuman_core::security::credentials::session_support::load_app_session_profile_read_only(&config)
+    let profile =
+        openhuman_core::security::credentials::session_support::load_app_session_profile_read_only(
+            &config,
+        )
         .expect("read session profile without mutation")
         .expect("synthetic session profile exists");
-    let token = openhuman_core::security::credentials::session_support::session_token_from_profile(Some(&profile))
+    let token = openhuman_core::security::credentials::session_support::session_token_from_profile(
+        Some(&profile),
+    )
         .expect("session profile carries a token");
     let now = chrono::Utc::now();
     assert!(

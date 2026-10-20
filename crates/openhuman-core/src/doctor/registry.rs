@@ -1,0 +1,78 @@
+//! Built-in checks and the generic host check-source registry.
+
+use std::collections::HashSet;
+use std::sync::Arc;
+
+use crate::core::slots::{Extensions, HookSlot};
+
+use super::contract::DoctorCheck;
+use super::legacy::LegacyV1CheckSource;
+
+/// A host-owned group of checks. The core stores the source without knowing
+/// which host or service supplies it.
+pub trait DoctorCheckSource: Send + Sync {
+    /// Stable source id, used for replacement and diagnostics.
+    fn id(&self) -> &str;
+    /// Checks contributed by this source.
+    fn checks(&self) -> Vec<Arc<dyn DoctorCheck>>;
+}
+
+static CHECK_SOURCES: HookSlot<Arc<dyn DoctorCheckSource>> =
+    HookSlot::new("doctor::registry::sources");
+
+/// Registers a check source for the whole process.
+pub fn register_check_source(source: impl DoctorCheckSource + 'static) {
+    let source: Arc<dyn DoctorCheckSource> = Arc::new(source);
+    CHECK_SOURCES.register(source.id(), source);
+}
+
+/// Registers a check source for the context built from `extensions`.
+pub fn register_check_source_in(
+    extensions: &Extensions,
+    source: impl DoctorCheckSource + 'static,
+) {
+    let source: Arc<dyn DoctorCheckSource> = Arc::new(source);
+    CHECK_SOURCES.register_in(extensions, source.id(), source);
+}
+
+/// Removes a process-wide source, primarily for isolated tests and hosts that
+/// explicitly shut down a dynamically loaded check provider.
+pub fn unregister_check_source(id: &str) -> bool {
+    CHECK_SOURCES.unregister(id)
+}
+
+/// The checks available in the active context, with duplicate and malformed
+/// ids rejected before a report starts.
+pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
+    let mut checks = LegacyV1CheckSource.checks();
+    for (_, source) in CHECK_SOURCES.entries() {
+        checks.extend(source.checks());
+    }
+
+    let mut ids = HashSet::with_capacity(checks.len());
+    for check in &checks {
+        let id = check.id();
+        if id == "doctor/selection" {
+            return Err("doctor/selection is reserved by the runner".into());
+        }
+        if !valid_check_id(id) {
+            return Err(format!("doctor check id must use lowercase area/name form: {id}"));
+        }
+        if !ids.insert(id.to_owned()) {
+            return Err(format!("duplicate doctor check id: {id}"));
+        }
+    }
+    Ok(checks)
+}
+
+fn valid_check_id(id: &str) -> bool {
+    let mut parts = id.split('/');
+    let (Some(area), Some(name), None) = (parts.next(), parts.next(), parts.next()) else {
+        return false;
+    };
+    !area.is_empty()
+        && !name.is_empty()
+        && [area, name]
+            .into_iter()
+            .all(|part| part.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')))
+}

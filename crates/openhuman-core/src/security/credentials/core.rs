@@ -19,6 +19,16 @@ pub struct AuthService {
 }
 
 impl AuthService {
+    /// Reads one profile for doctor inspection without constructing the
+    /// mutable auth store or consulting process-global credential storage.
+    pub fn get_profile_read_only(
+        config: &Config,
+        provider: &str,
+        profile_override: Option<&str>,
+    ) -> Result<Option<AuthProfile>, super::profiles::ReadOnlyAuthProfileError> {
+        super::profiles::load_profile_read_only(config, provider, profile_override)
+    }
+
     pub fn from_config(config: &Config) -> Self {
         let state_dir = state_dir_from_config(config);
         Self::new(&state_dir, config.secrets.encrypt)

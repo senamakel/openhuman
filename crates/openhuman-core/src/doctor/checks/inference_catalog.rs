@@ -417,6 +417,7 @@ impl DoctorCheck for AuthErrors {
         let mut findings = Vec::new();
         let (errors, has_unscoped) = crate::inference::auth_error_registry::snapshot_for_scope(
             &ctx.config().workspace_dir,
+            &ctx.config().config_path,
             ctx.profile(),
         );
         for error in errors {

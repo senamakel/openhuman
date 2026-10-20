@@ -96,8 +96,15 @@ pub fn snapshot() -> Vec<ProviderAuthError> {
 
 #[derive(Default)]
 struct ErrorOrigins {
-    scopes: HashSet<u64>,
+    scopes: HashSet<ScopeIdentity>,
     unscoped: bool,
+}
+
+#[derive(Clone, PartialEq, Eq, Hash)]
+struct ScopeIdentity {
+    workspace: std::path::PathBuf,
+    config_path: Option<std::path::PathBuf>,
+    tenant: String,
 }
 
 fn origins() -> &'static Mutex<HashMap<String, ErrorOrigins>> {
@@ -105,21 +112,15 @@ fn origins() -> &'static Mutex<HashMap<String, ErrorOrigins>> {
     ORIGINS.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
-fn current_scope() -> Option<u64> {
+fn current_scope() -> Option<ScopeIdentity> {
     let context = crate::core::runtime::CoreContext::current()?;
     let workspace = context.workspace_dir().ok()?;
-    let tenant = context.profile().unwrap_or_default();
-    Some(scope_identity(&workspace, tenant))
-}
-
-fn scope_identity(workspace: &std::path::Path, tenant: &str) -> u64 {
-    static HASHER: OnceLock<std::collections::hash_map::RandomState> = OnceLock::new();
-    let mut hasher = HASHER
-        .get_or_init(std::collections::hash_map::RandomState::new)
-        .build_hasher();
-    workspace.hash(&mut hasher);
-    tenant.hash(&mut hasher);
-    hasher.finish()
+    Some(ScopeIdentity {
+        workspace,
+        config_path: crate::core::runtime::CoreContext::current_embedder_config()
+            .map(|config| config.config_path),
+        tenant: context.profile().unwrap_or_default().to_owned(),
+    })
 }
 
 /// Auth failures scoped to the current workspace/tenant. Known foreign
@@ -127,20 +128,53 @@ fn scope_identity(workspace: &std::path::Path, tenant: &str) -> u64 {
 /// callers can avoid attributing them to the selected profile.
 pub fn snapshot_for_scope(
     workspace: &std::path::Path,
+    config_path: &std::path::Path,
     tenant: Option<&str>,
 ) -> (Vec<ProviderAuthError>, bool) {
-    let scope = scope_identity(workspace, tenant.unwrap_or_default());
+    let scope = ScopeIdentity {
+        workspace: workspace.to_path_buf(),
+        config_path: Some(config_path.to_path_buf()),
+        tenant: tenant.unwrap_or_default().to_owned(),
+    };
     let origins = origins().lock().unwrap_or_else(|error| error.into_inner());
+    let mut has_unscoped = origins.values().any(|origin| origin.unscoped);
     let errors = registry()
         .snapshot()
         .into_iter()
         .filter(|error| {
-            origins
-                .get(&error.provider)
-                .is_some_and(|origin| origin.scopes.contains(&scope))
+            let Some(origin) = origins.get(&error.provider) else {
+                return false;
+            };
+            if origin.scopes.contains(&scope) {
+                return true;
+            }
+            let partial_match = origin.scopes.iter().any(|recorded| {
+                recorded.config_path.is_none()
+                    && recorded.workspace == scope.workspace
+                    && recorded.tenant == scope.tenant
+            });
+            if !partial_match {
+                return false;
+            }
+            let ambiguous =
+                origins
+                    .values()
+                    .flat_map(|other| other.scopes.iter())
+                    .any(|recorded| {
+                        recorded.config_path.as_ref().is_some_and(|path| {
+                            recorded.workspace == scope.workspace
+                                && recorded.tenant == scope.tenant
+                                && path != &scope.config_path.clone().unwrap_or_default()
+                        })
+                    });
+            if ambiguous {
+                has_unscoped = true;
+                false
+            } else {
+                true
+            }
         })
         .collect();
-    let has_unscoped = origins.values().any(|origin| origin.unscoped);
     (errors, has_unscoped)
 }
 

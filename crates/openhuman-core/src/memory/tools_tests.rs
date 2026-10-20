@@ -501,15 +501,21 @@ async fn learnings_are_shared_under_a_root_and_a_team_root_is_kept_apart() {
         &member(),
     )
     .await;
-    assert!(
-        forgot.text().contains("\"forgotten\":0"),
-        "{}",
-        forgot.text()
+    assert!(!forgot.is_error, "{}", forgot.text());
+    let ack: Value = serde_json::from_str(&forgot.text()).unwrap();
+    assert_eq!(ack["queued"], 1);
+    assert_eq!(ack["status"], "queued; not yet removed from memory");
+    let after_forget = stored(&engine, MetaFilter::default()).await;
+    assert_eq!(
+        after_forget.len(),
+        3,
+        "all identity-scoped learnings remain"
     );
-    assert!(stored(&engine, MetaFilter::default())
-        .await
+    assert!(after_forget.iter().any(|hit| hit.id == main_item.id));
+    assert!(after_forget.iter().any(|hit| hit.text.contains("arxiv")));
+    assert!(after_forget
         .iter()
-        .all(|hit| hit.meta.namespace != Namespace::agent("nobody")));
+        .any(|hit| hit.text.contains("british english")));
 }
 
 /// The reference engine, recording how far each single store waited.

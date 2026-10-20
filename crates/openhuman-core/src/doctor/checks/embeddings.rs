@@ -130,8 +130,7 @@ fn validate(config: &Config) -> Vec<Finding> {
         ));
     }
 
-    if provider_slug == "custom" && !custom_endpoint_is_configured(config, &provider)
-    {
+    if provider_slug == "custom" && !custom_endpoint_is_configured(config, &provider) {
         findings.push(invalid(
             "custom_embeddings.endpoint",
             "The custom embedding provider has no configured endpoint.",
@@ -184,10 +183,9 @@ fn validate(config: &Config) -> Vec<Finding> {
                 "Set a custom endpoint for this embedding route.",
             ));
         }
-        if let Some(preset) = tinyinference_embeddings::catalog::find_model(
-            route_provider,
-            route.model.trim(),
-        ) && route_dimensions > 0
+        if let Some(preset) =
+            tinyinference_embeddings::catalog::find_model(route_provider, route.model.trim())
+            && route_dimensions > 0
             && !preset.allowed_dimensions.contains(&route_dimensions)
         {
             findings.push(invalid(
@@ -196,7 +194,6 @@ fn validate(config: &Config) -> Vec<Finding> {
                 "Set a dimension supported by the embedding route's model.",
             ));
         }
-
     }
 
     if active_route.is_none() {

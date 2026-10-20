@@ -28,6 +28,7 @@ fn isolated_config(root: &std::path::Path) -> Config {
     let mut config = Config::default();
     config.config_path = root.join("config.toml");
     config.workspace_dir = root.join("workspace");
+    config.action_dir = root.join("action");
     config
 }
 
@@ -141,12 +142,18 @@ async fn invalid_role_primary_cloud_and_route_references_report_each_path() {
 #[tokio::test]
 async fn registered_voice_provider_ids_resolve_without_calling_the_factory() {
     let _registered = RegisterVoiceProviders;
-    crate::voice::factory::registry::register_stt_provider("doctor-fake-stt", |_, _| {
-        panic!("provider-reference checks must not invoke STT constructors")
-    });
-    crate::voice::factory::registry::register_tts_provider("doctor-fake-tts", |_, _| {
-        panic!("provider-reference checks must not invoke TTS constructors")
-    });
+    crate::voice::factory::registry::register_stt_provider(
+        "doctor-fake-stt",
+        |_, _| -> anyhow::Result<Box<dyn crate::voice::SttProvider>> {
+            panic!("provider-reference checks must not invoke STT constructors")
+        },
+    );
+    crate::voice::factory::registry::register_tts_provider(
+        "doctor-fake-tts",
+        |_, _| -> anyhow::Result<Box<dyn crate::voice::TtsProvider>> {
+            panic!("provider-reference checks must not invoke TTS constructors")
+        },
+    );
 
     let mut config = Config::default();
     config.stt_provider = Some("doctor-fake-stt:small".to_owned());
@@ -184,6 +191,7 @@ async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
         .await
         .with("HOME", temp.path())
         .with("OPENHUMAN_WORKSPACE", temp.path())
+        .without("OPENHUMAN_ACTION_DIR")
         .without("OPENAI_API_KEY")
         .without("OPENHUMAN_CORE_TOKEN");
 
@@ -237,9 +245,7 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
         }
     }
 
-    fn no_session_expiry_event(
-        receiver: &mut tinybus::EventReceiver<DomainEvent>,
-    ) -> bool {
+    fn no_session_expiry_event(receiver: &mut tinybus::EventReceiver<DomainEvent>) -> bool {
         loop {
             match receiver.try_recv() {
                 Ok(DomainEvent::SessionExpired { .. }) => return false,
@@ -261,7 +267,9 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
     let _inference_guard = crate::inference::inference_test_guard_async().await;
     let temp = tempfile::tempdir().expect("temporary configuration directory");
     let proxy = TcpListener::bind(("127.0.0.1", 0)).expect("local proxy trap listener");
-    proxy.set_nonblocking(true).expect("nonblocking proxy listener");
+    proxy
+        .set_nonblocking(true)
+        .expect("nonblocking proxy listener");
     let proxy_url = format!("http://{}", proxy.local_addr().unwrap());
     let proxy_requests = Arc::new(AtomicUsize::new(0));
     let server_requests = Arc::clone(&proxy_requests);
@@ -293,6 +301,7 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
         .await
         .with("HOME", temp.path())
         .with("OPENHUMAN_WORKSPACE", temp.path())
+        .without("OPENHUMAN_ACTION_DIR")
         .with("HTTPS_PROXY", &proxy_url)
         .with("https_proxy", &proxy_url)
         .with("ALL_PROXY", &proxy_url)
@@ -405,6 +414,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         .await
         .with("HOME", temp.path())
         .with("OPENHUMAN_WORKSPACE", temp.path())
+        .without("OPENHUMAN_ACTION_DIR")
         .without("OPENAI_API_KEY")
         .without("OPENHUMAN_CORE_TOKEN");
     let constructions = Arc::new(AtomicUsize::new(0));

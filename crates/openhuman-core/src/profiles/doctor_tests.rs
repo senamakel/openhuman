@@ -3,6 +3,9 @@
 
 use super::{resolve_with_loader, DoctorCaller};
 use super::{profile_provisioned_finding, TenantProfileState};
+use crate::config::Config;
+use crate::core::runtime::ComponentSet;
+use crate::doctor::{DoctorConfigSource, DoctorCtx};
 use crate::profiles::ProfileId;
 use crate::doctor::FindingSeverity;
 use std::future::Ready;
@@ -48,6 +51,19 @@ fn spy_loader(
 
 fn profile(raw: &str) -> ProfileId {
     ProfileId::parse(raw).unwrap()
+}
+
+#[test]
+fn selected_tenant_context_reports_tenant_source_and_profile() {
+    let id = profile("alice");
+    let ctx = DoctorCtx::from_config_with_components(
+        Config::default(),
+        ComponentSet::all(),
+    )
+    .with_profile(id.as_str(), DoctorConfigSource::Tenant);
+
+    assert_eq!(ctx.profile(), Some(id.as_str()));
+    assert_eq!(ctx.config_source(), DoctorConfigSource::Tenant);
 }
 
 #[tokio::test]

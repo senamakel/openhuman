@@ -4,7 +4,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use openhuman_core::config::Config;
-use openhuman_core::core::runtime::{CoreBootMode, CoreBuilder, TokenSource};
+use openhuman_core::core::runtime::{CoreBootMode, CoreBuilder, ServiceSet, TokenSource};
 use openhuman_core::core::types::HostKind;
 use tinyagents_session::port::SessionStoreProvider;
 

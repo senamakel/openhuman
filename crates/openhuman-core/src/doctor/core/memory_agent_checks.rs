@@ -6,6 +6,10 @@ use super::daemon_env_checks::{truncate_for_display, COMMAND_VERSION_PREVIEW_CHA
 use super::run::MemoryEngineCheck;
 use super::types::DiagnosticItem;
 
+#[cfg(test)]
+#[path = "memory_agent_checks_tests.rs"]
+mod tests;
+
 /// Report the memory engine: which one is bound and whether it answers, or
 /// why memory is off. Off is a warning, not an error: a signed-out user with
 /// no CortexDB key has memory off by design.

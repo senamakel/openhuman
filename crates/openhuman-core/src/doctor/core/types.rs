@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Severity {
     Ok,
+    Skipped,
     Warn,
     Error,
 }
@@ -28,6 +29,13 @@ impl DiagnosticItem {
     pub(crate) fn warn(category: impl Into<String>, msg: impl Into<String>) -> Self {
         Self {
             severity: Severity::Warn,
+            category: category.into(),
+            message: msg.into(),
+        }
+    }
+    pub(crate) fn skipped(category: impl Into<String>, msg: impl Into<String>) -> Self {
+        Self {
+            severity: Severity::Skipped,
             category: category.into(),
             message: msg.into(),
         }

@@ -119,8 +119,13 @@ pub async fn doctor_report_for_selected_profile(
         .with_profile(inspection_profile_id.clone(), DoctorConfigSource::Profile)
         .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
         .with_profile_status(DoctorProfileStatus::Valid);
-    let inspection_context = profile_inspection_context(&selected.config, Some(&inspection_profile_id));
-    CoreContext::scope(inspection_context, report_with_context(&selected.config, options, ctx)).await
+    let inspection_context =
+        profile_inspection_context(&selected.config, Some(&inspection_profile_id));
+    CoreContext::scope(
+        inspection_context,
+        report_with_context(&selected.config, options, ctx),
+    )
+    .await
 }
 
 /// Runs a report from the effective desktop selection without consulting the
@@ -145,10 +150,17 @@ pub async fn doctor_report_for_desktop_selection(
     }
     let inspection_context =
         profile_inspection_context(&selection.config, inspection_profile_id.as_deref());
-    CoreContext::scope(inspection_context, report_with_context(&selection.config, options, ctx)).await
+    CoreContext::scope(
+        inspection_context,
+        report_with_context(&selection.config, options, ctx),
+    )
+    .await
 }
 
-fn profile_inspection_context(config: &Config, profile_id: Option<&str>) -> std::sync::Arc<CoreContext> {
+fn profile_inspection_context(
+    config: &Config,
+    profile_id: Option<&str>,
+) -> std::sync::Arc<CoreContext> {
     let Some(parent) = CoreContext::current() else {
         return CoreContext::bare();
     };

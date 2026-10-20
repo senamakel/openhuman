@@ -26,29 +26,34 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
 
     assert!(docs.validate_collection_spec(&registry_spec).await.is_err());
     assert!(docs.validate_collection_spec(&lease_spec).await.is_err());
-    assert_eq!(host.inspect_for_doctor(&id).await, DoctorProfileState::Unprovisioned);
+    assert_eq!(
+        host.inspect_for_doctor(&id).await,
+        DoctorProfileState::Unprovisioned
+    );
     let target = host.target_for_doctor(&id).unwrap();
     assert_eq!(target.profile_id, id);
     assert_eq!(target.context.profile(), Some(id.as_str()));
     assert_eq!(target.config.config_path, layout.config_path);
     assert_eq!(host.open_count(), 0, "inspection must not open or lease it");
-    assert!(!layout.dir.exists(), "inspection must not create profile dirs");
+    assert!(
+        !layout.dir.exists(),
+        "inspection must not create profile dirs"
+    );
     let default_context_after = CoreContext::default_context();
     match (default_context.as_ref(), default_context_after.as_ref()) {
         (None, None) => {}
         (Some(before), Some(after)) => assert!(Arc::ptr_eq(before, after)),
         _ => panic!("doctor inspection must not publish a process default context"),
     }
-    let lease_key = tinystoragedrivers::Key::of([
-        crate::storage::lease::LEASE_OWNER,
-        id.as_str(),
-    ])
-    .unwrap();
-    assert!(docs
-        .get(crate::storage::lease::LEASE_COLLECTION, lease_key.as_str())
-        .await
-        .unwrap()
-        .is_none(), "inspection must not claim a lease");
+    let lease_key =
+        tinystoragedrivers::Key::of([crate::storage::lease::LEASE_OWNER, id.as_str()]).unwrap();
+    assert!(
+        docs.get(crate::storage::lease::LEASE_COLLECTION, lease_key.as_str())
+            .await
+            .unwrap()
+            .is_none(),
+        "inspection must not claim a lease"
+    );
 
     assert!(
         docs.validate_collection_spec(&registry_spec).await.is_err(),
@@ -61,7 +66,8 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
 }
 
 #[tokio::test]
-async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_binding_per_profile() {
+async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_binding_per_profile()
+{
     let tmp = tempfile::tempdir().unwrap();
     let mut saas = SaasConfig::new(tmp.path());
     saas.max_tool_iterations = Some(7);
@@ -130,13 +136,20 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     assert_eq!(b_observed.1, crate::storage::scope_for_profile(b.as_str()));
     assert!(!a_observed.2, "A must not observe B's credential");
     assert!(b_observed.2, "B's own context sees its credential");
-    assert!(a_observed.3 && b_observed.3, "each forced config resolves provider settings");
+    assert!(
+        a_observed.3 && b_observed.3,
+        "each forced config resolves provider settings"
+    );
     assert_eq!(target_a.config.agent.max_tool_iterations_override, Some(7));
     assert_eq!(target_b.config.cron.min_interval_secs, 900);
     let storage = MemoryStorage::new();
     assert!(storage.for_scope(&a_observed.1).is_ok());
     assert!(storage.for_scope(&b_observed.1).is_ok());
-    assert_eq!(host.open_count(), 0, "doctor inspection does not open profiles");
+    assert_eq!(
+        host.open_count(),
+        0,
+        "doctor inspection does not open profiles"
+    );
 
     crate::profiles::credentials::clear(&target_b.config).unwrap();
 }

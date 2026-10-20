@@ -935,6 +935,11 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
     // The agent's tool returns on accept: nothing follows its one write (the
     // read before it is the engine's replay lookup), and the model is told
     // recall may lag.
+    openhuman_core::core::bus::init().await.expect("bus init");
+    let mut events = openhuman_core::core::bus::BUS
+        .get()
+        .expect("bus initialized")
+        .receiver();
     let before = f.mock.request_rows().await.len();
     let tool = openhuman_core::memory::MemoryTool::new(Arc::new(config.clone()));
     let learned = tool
@@ -949,23 +954,23 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
     let id = view["id"].as_str().expect("learn keeps the receipt id");
     assert_eq!(view["status"], json!("queued; not yet saved to memory"));
 
-    let deadline = Instant::now() + Duration::from_secs(30);
-    let tool_calls = loop {
-        let calls = memory_requests_since(&f, before).await;
-        let writes = calls
-            .iter()
-            .filter(|call| call.as_str() == "POST /memory/experience")
-            .count();
-        if writes == 1 {
-            break calls;
+    tokio::time::timeout(Duration::from_secs(30), async {
+        loop {
+            match events.recv().await {
+                Some(openhuman_core::core::events::DomainEvent::MemoryStored { key, .. })
+                    if key == id =>
+                {
+                    break;
+                }
+                Some(_) => continue,
+                None => panic!("memory event bus closed before the queued write completed"),
+            }
         }
-        assert!(writes == 0, "duplicate experience writes: {calls:?}");
-        assert!(
-            Instant::now() < deadline,
-            "queued write never reached backend: {calls:?}"
-        );
-        tokio::time::sleep(Duration::from_millis(50)).await;
-    };
+    })
+    .await
+    .expect("queued store completed and published MemoryStored");
+
+    let tool_calls = memory_requests_since(&f, before).await;
     assert!(
         after_the_write(&tool_calls).is_empty(),
         "the agent learn must return right after its write, with no visibility reads: {tool_calls:?}"

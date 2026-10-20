@@ -159,11 +159,21 @@ async fn oversized_wallet_snapshot_is_rejected_without_rewriting_it() {
     let original = vec![b' '; 1024 * 1024 + 1];
     std::fs::write(&state_path, &original).unwrap();
 
-    let check = WalletStatusCheck { probe: Arc::new(FileSnapshot) };
-    let finding = check.detect(&DoctorCtx::from_config(config)).await.remove(0);
+    let check = WalletStatusCheck {
+        probe: Arc::new(FileSnapshot),
+    };
+    let finding = check
+        .detect(&DoctorCtx::from_config(config))
+        .await
+        .remove(0);
     assert_eq!(finding.severity, FindingSeverity::Error);
     assert_eq!(std::fs::read(&state_path).unwrap(), original);
-    assert_eq!(std::fs::read_dir(state_path.parent().unwrap()).unwrap().count(), 1);
+    assert_eq!(
+        std::fs::read_dir(state_path.parent().unwrap())
+            .unwrap()
+            .count(),
+        1
+    );
 }
 
 #[cfg(feature = "web3")]

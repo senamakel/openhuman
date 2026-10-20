@@ -88,8 +88,7 @@ impl DoctorCheck for ComposioCheck {
 
     async fn detect(&self, ctx: &crate::doctor::DoctorCtx) -> Vec<Finding> {
         let finding = if ctx.config().composio.host_credential.is_none()
-            && ctx.config().composio.mode.trim()
-                == crate::config::schema::COMPOSIO_MODE_DISABLED
+            && ctx.config().composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DISABLED
         {
             Finding::skipped(
                 self.id(),

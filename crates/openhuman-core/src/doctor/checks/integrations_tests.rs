@@ -100,3 +100,17 @@ async fn an_existing_connector_failure_is_reported_without_raw_module_text() {
     assert_eq!(finding.severity, FindingSeverity::Error);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }
+
+#[cfg(feature = "modules")]
+#[tokio::test]
+async fn the_default_probe_skips_a_disabled_connector_without_starting_the_runtime() {
+    let scratch = tempfile::tempdir().expect("create isolated fixture");
+    let mut config = config_in(scratch.path());
+    config.modules.enabled = false;
+    let started_before = crate::modules::runtime::is_started();
+
+    let result = ExistingConnectorProbe.list_existing(&config).await;
+
+    assert!(matches!(result, Ok(None)));
+    assert_eq!(crate::modules::runtime::is_started(), started_before);
+}

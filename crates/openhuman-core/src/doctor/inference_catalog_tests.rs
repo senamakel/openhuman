@@ -5,6 +5,7 @@ use super::{
 use crate::config::Config;
 use crate::config::schema::ModelRouteConfig;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{
     Json, Router,
     extract::State,
@@ -112,6 +113,26 @@ fn catalog_body(ids: &[&str]) -> serde_json::Value {
     })
 }
 
+fn store_provider_key(config: &Config, slug: &str, token: &str) {
+    AuthService::from_config(config)
+        .store_provider_token(
+            &crate::inference::provider::factory::auth_key_for_slug(slug),
+            DEFAULT_AUTH_PROFILE_NAME,
+            token,
+            std::collections::HashMap::new(),
+            true,
+        )
+        .expect("seed scoped provider credential");
+}
+
+fn auth_profiles_path(config: &Config) -> std::path::PathBuf {
+    config
+        .config_path
+        .parent()
+        .expect("fixture config parent")
+        .join("auth-profiles.json")
+}
+
 #[tokio::test]
 async fn doctor_models_lists_configured_catalogs_and_honors_use_cache() {
     let (endpoint, server) =
@@ -137,28 +158,49 @@ async fn doctor_models_lists_configured_catalogs_and_honors_use_cache() {
 }
 
 #[tokio::test]
-async fn doctor_models_does_not_reuse_a_catalog_for_another_selected_config() {
-    let (endpoint_a, server_a) =
-        spawn_catalog_server(StatusCode::OK, catalog_body(&["account-a-model"]), true).await;
-    let (endpoint_b, server_b) =
-        spawn_catalog_server(StatusCode::OK, catalog_body(&["account-b-model"]), true).await;
-    let (_temp_a, config_a) =
-        config_for_catalog(endpoint_a, "p_doctor_497_selected", "doctor-497-selected");
-    let (_temp_b, config_b) =
-        config_for_catalog(endpoint_b, "p_doctor_497_selected", "doctor-497-selected");
+async fn doctor_models_does_not_reuse_a_catalog_for_another_profiles_credential() {
+    let (endpoint, server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["configured-model"]), true).await;
+    let (_temp_a, mut config_a) =
+        config_for_catalog(endpoint.clone(), "p_doctor_497_selected", "doctor-497-selected");
+    let (_temp_b, mut config_b) =
+        config_for_catalog(endpoint, "p_doctor_497_selected", "doctor-497-selected");
+    config_a.cloud_providers[0].auth_style = AuthStyle::Bearer;
+    config_b.cloud_providers[0].auth_style = AuthStyle::Bearer;
+    store_provider_key(&config_a, "doctor-497-selected", "fixture-token-profile-a");
+    store_provider_key(&config_b, "doctor-497-selected", "fixture-token-profile-b");
+    let auth_file_a_before = std::fs::read(auth_profiles_path(&config_a)).expect("profile A file");
+    let auth_file_b_before = std::fs::read(auth_profiles_path(&config_b)).expect("profile B file");
 
     doctor_models(&config_a, true)
         .await
         .expect("first profile catalog should be available");
     doctor_models(&config_b, true)
         .await
-        .expect("selected profile catalog should use its own endpoint");
+        .expect("selected profile catalog should use its own credential");
     doctor_models(&config_b, true)
         .await
         .expect("the selected profile may reuse its own cached catalog");
 
-    assert_eq!(server_a.requests.load(Ordering::SeqCst), 1);
-    assert_eq!(server_b.requests.load(Ordering::SeqCst), 1);
+    assert_eq!(server.requests.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        *server
+            .authorizations
+            .lock()
+            .unwrap_or_else(|error| error.into_inner()),
+        vec![
+            Some("Bearer fixture-token-profile-a".to_owned()),
+            Some("Bearer fixture-token-profile-b".to_owned())
+        ]
+    );
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config_a)).unwrap(),
+        auth_file_a_before
+    );
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config_b)).unwrap(),
+        auth_file_b_before
+    );
 }
 
 #[tokio::test]

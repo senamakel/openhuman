@@ -5,6 +5,9 @@ use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::runtime::CoreContext;
 use openhuman_embed::__host::core::slots::Extensions;
 use openhuman_embed::__host::doctor::{registered_checks, DoctorCheck};
+use openhuman_embed::__host::security::credentials::{
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+};
 use openhuman_embed::{CoreBuilder, DomainSet, HostKind, ServiceSet};
 use serde_json::json;
 use std::sync::Arc;
@@ -13,13 +16,15 @@ use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn context(tmp: &TempDir, api_url: &str) -> DoctorCtx {
-    DoctorCtx::from_config(Config {
+    let mut config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
         api_url: Some(api_url.to_owned()),
         ..Config::default()
-    })
+    };
+    config.resolved_endpoints.control_plane_url = Some(api_url.to_owned());
+    DoctorCtx::from_config(config)
 }
 
 fn check(source: &HostedDoctorCheckSource, id: &str) -> Arc<dyn DoctorCheck> {
@@ -129,6 +134,78 @@ async fn locally_expired_session_is_reported_as_session_expired() {
     assert!(finding[0].message.contains("SESSION_EXPIRED"));
     assert!(!finding[0].message.contains(&*EXPIRED_JWT));
     assert!(!finding[0].message.contains("user-123"));
+}
+
+#[tokio::test]
+async fn mismatched_issuing_backend_is_rejected_before_authenticated_probes() {
+    let _registry = crate::registry_test_lock_async().await;
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/"))
+        .and(header("x-sdk-name", "openhuman"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .expect(3)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/auth/me"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"user": "private-user"})))
+        .expect(0)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/openai/v1/models"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"data": []})))
+        .expect(0)
+        .mount(&server)
+        .await;
+
+    let tmp = TempDir::new().unwrap();
+    let ctx = context(&tmp, &server.uri());
+    store_session(ctx.config(), &LIVE_JWT);
+    let mut metadata = std::collections::HashMap::new();
+    metadata.insert(
+        "session_issuing_backend".to_owned(),
+        "https://issuer-a.example".to_owned(),
+    );
+    AuthService::from_config(ctx.config())
+        .store_provider_token(
+            APP_SESSION_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            &LIVE_JWT,
+            metadata,
+            true,
+        )
+        .expect("store session bound to its issuing backend");
+    let source = HostedDoctorCheckSource::default();
+
+    let credential = check(&source, "backend/credential").detect(&ctx).await;
+    let identity = check(&source, "backend/identity").detect(&ctx).await;
+    let catalog = check(&source, "inference/managed-catalog").detect(&ctx).await;
+
+    assert_eq!(credential[0].severity, FindingSeverity::Error);
+    assert!(credential[0].message.contains("SESSION_BACKEND_MISMATCH"));
+    assert_eq!(identity[0].severity, FindingSeverity::Skipped);
+    assert_eq!(catalog[0].severity, FindingSeverity::Skipped);
+    for finding in credential.iter().chain(&identity).chain(&catalog) {
+        assert!(!finding.message.contains(&*LIVE_JWT));
+        assert!(!finding.message.contains("issuer-a.example"));
+        assert!(!finding.message.contains("private-user"));
+    }
+
+    let requests = server.received_requests().await.unwrap();
+    assert_eq!(requests.len(), 3);
+    assert!(requests.iter().all(|request| request.url.path() == "/"));
+    assert!(requests.iter().all(|request| !request.headers.contains_key("authorization")));
+    server.verify().await;
+}
+
+#[test]
+fn backend_credential_check_runs_in_the_connect_tier() {
+    assert_eq!(
+        check(&HostedDoctorCheckSource::default(), "backend/credential").tier(),
+        DoctorTier::Connect
+    );
 }
 
 #[tokio::test]

@@ -9,10 +9,13 @@ use anyhow::Result;
 use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
+use crate::config::schema::load::{set_current_dotenv_load, DotenvLoadProvenance};
 use crate::core::all;
 use crate::core::invoke::{default_state, invoke_method};
 use crate::core::params::parse_json_params;
 use crate::core::{ControllerSchema, TypeSchema};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 /// The ASCII banner displayed when the CLI starts.
 const CLI_BANNER: &str = r#"
@@ -328,17 +331,63 @@ fn run_sentry_test_command(_args: &[String]) -> Result<()> {
 /// 2. If `OPENHUMAN_DOTENV_PATH` is set, that file is loaded.
 /// 3. Otherwise, it searches for `.env` in the current working directory.
 pub fn load_dotenv_for_cli() -> Result<()> {
+    let previous_dotenv_load = crate::config::schema::load::current_dotenv_load();
+    let process_vars = std::env::vars_os()
+        .map(|(name, _)| name.to_string_lossy().into_owned())
+        .collect::<HashSet<_>>();
     match std::env::var("OPENHUMAN_DOTENV_PATH") {
         Ok(path) if !path.trim().is_empty() => {
+            let path = PathBuf::from(&path);
             dotenvy::from_path(&path).map_err(|e| {
-                anyhow::anyhow!("failed to load dotenv from OPENHUMAN_DOTENV_PATH={path}: {e}")
+                anyhow::anyhow!(
+                    "failed to load dotenv from OPENHUMAN_DOTENV_PATH={}: {e}",
+                    path.display()
+                )
             })?;
+            if let Ok(variables) = dotenv_variable_names(&path) {
+                record_dotenv_load(
+                    path,
+                    variables,
+                    &process_vars,
+                    previous_dotenv_load.as_ref(),
+                );
+            }
         }
         _ => {
-            let _ = dotenvy::dotenv();
+            if let Ok(path) = dotenvy::dotenv() {
+                if let Ok(variables) = dotenv_variable_names(&path) {
+                    record_dotenv_load(
+                        path,
+                        variables,
+                        &process_vars,
+                        previous_dotenv_load.as_ref(),
+                    );
+                }
+            }
         }
     }
     Ok(())
+}
+
+fn dotenv_variable_names(path: &Path) -> Result<Vec<String>> {
+    dotenvy::from_path_iter(path)?
+        .map(|entry| entry.map(|(name, _)| name).map_err(anyhow::Error::from))
+        .collect()
+}
+
+fn record_dotenv_load(
+    path: PathBuf,
+    variables: Vec<String>,
+    process_vars: &HashSet<String>,
+    previous: Option<&DotenvLoadProvenance>,
+) {
+    let mut load = DotenvLoadProvenance::from_variables(
+        path,
+        variables,
+        process_vars.iter().map(String::as_str),
+    );
+    load.preserve_previous_origin(previous, process_vars);
+    set_current_dotenv_load(Some(load));
 }
 
 /// Handles the `call` subcommand to invoke a JSON-RPC method directly from the CLI.

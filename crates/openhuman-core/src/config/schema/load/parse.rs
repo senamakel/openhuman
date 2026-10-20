@@ -69,6 +69,7 @@ impl std::error::Error for ConfigParseFailure {
 pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
     let mut document: toml::Value =
         toml::from_str(contents).map_err(|error| ConfigParseFailure::syntax(contents, error))?;
+    let provenance_document = document.clone();
     let retired_provider_type = document
         .get("cloud_providers")
         .and_then(toml::Value::as_array)
@@ -100,6 +101,9 @@ pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
         let path = error.path().to_string();
         ConfigParseFailure::typed(path, error.into_inner())
     })?;
+    config
+        .load_provenance_mut()
+        .record_file_keys(&provenance_document);
     unknown_keys.sort();
     unknown_keys.dedup();
     config.load_diagnostics_mut().unknown_keys = unknown_keys;

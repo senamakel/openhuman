@@ -13,6 +13,7 @@ mod impl_load;
 mod migrate;
 mod parse;
 mod parse_source;
+mod provenance;
 mod saas_scope;
 mod secrets;
 pub(crate) mod source;
@@ -44,6 +45,10 @@ pub(super) use migrate::redact_url_for_log;
 // against the real constant rather than a copied literal.
 pub(crate) use impl_load::CONFIG_OWNER_MISMATCH_MARKER;
 pub(crate) use migrate::apply_loaded_config_migrations;
+pub(crate) use provenance::{
+    current_dotenv_load, dotenv_loaded_variable, set_current_dotenv_load, ConfigProvenance,
+    DotenvLoadProvenance, ProvenanceSource, ValueProvenance,
+};
 
 // Items needed by load_tests.rs (loaded as `mod tests` below).
 // Tests are a submodule of `load`, so `super::*` == this module's namespace.
@@ -75,6 +80,10 @@ pub(crate) use migrate::{migrate_cloud_provider_slugs, migrate_legacy_inference_
 pub(crate) use parse::config_from_toml_str;
 #[cfg(test)]
 pub(crate) use std::path::PathBuf;
+
+#[cfg(test)]
+#[path = "provenance_tests.rs"]
+mod provenance_tests;
 
 pub(super) mod atomic_commit;
 

@@ -12,3 +12,7 @@ pub use schemas::{
     all_controller_schemas as all_doctor_controller_schemas,
     all_registered_controllers as all_doctor_registered_controllers,
 };
+
+#[cfg(test)]
+#[path = "runner_tests.rs"]
+mod runner_tests;

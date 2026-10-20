@@ -32,12 +32,30 @@ impl WalletSnapshotProbe for FileSnapshot {
         &self,
         config: &Config,
     ) -> Result<Option<WalletSnapshot>, WalletSnapshotFailure> {
+        use std::io::Read;
+
+        const MAX_SNAPSHOT_BYTES: u64 = 1024 * 1024;
         let path = config.workspace_dir.join("state").join("wallet-state.json");
-        let contents = match std::fs::read(path) {
-            Ok(bytes) => bytes,
+        let metadata = match std::fs::symlink_metadata(&path) {
+            Ok(metadata) => metadata,
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
             Err(_) => return Err(SnapshotFailure::Unavailable),
         };
+        if metadata.file_type().is_symlink() || !metadata.is_file() {
+            return Err(SnapshotFailure::Unavailable);
+        }
+        if metadata.len() > MAX_SNAPSHOT_BYTES {
+            return Err(SnapshotFailure::Malformed);
+        }
+        let mut contents = Vec::with_capacity(metadata.len() as usize);
+        std::fs::File::open(path)
+            .map_err(|_| SnapshotFailure::Unavailable)?
+            .take(MAX_SNAPSHOT_BYTES + 1)
+            .read_to_end(&mut contents)
+            .map_err(|_| SnapshotFailure::Unavailable)?;
+        if contents.len() as u64 > MAX_SNAPSHOT_BYTES {
+            return Err(SnapshotFailure::Malformed);
+        }
         let value: serde_json::Value =
             serde_json::from_slice(&contents).map_err(|_| SnapshotFailure::Malformed)?;
         let configured = value

@@ -5,7 +5,7 @@ use crate::core::runtime::{ComponentSet, CoreContext, DomainSet};
 use crate::core::slots::Extensions;
 
 use super::contract::{DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
-use super::registry::{register_check_source_in, DoctorCheckSource};
+use super::registry::register_check_source_in;
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
 
@@ -14,7 +14,10 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     let extensions = Extensions::new();
     register_check_source_in(
         &extensions,
-        FakeCheckSource::new("doctor-runner-source", vec![FakeCheck::pass("hosted/ready")]),
+        FakeCheckSource::new(
+            "doctor-runner-source",
+            vec![FakeCheck::pass("hosted/ready")],
+        ),
     );
     let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
     let report = CoreContext::scope(context, async {
@@ -28,10 +31,12 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     .expect("registered check source runs");
 
     assert!(report.checks_run.iter().any(|id| id == "hosted/ready"));
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "hosted/ready"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "hosted/ready")
+    );
 }
 
 #[tokio::test]
@@ -100,7 +105,10 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
         &extensions,
         FakeCheckSource::new(
             "doctor-selection-source",
-            vec![FakeCheck::pass("config/temperature"), FakeCheck::pass("test/other")],
+            vec![
+                FakeCheck::pass("config/temperature"),
+                FakeCheck::pass("test/other"),
+            ],
         ),
     );
     let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
@@ -118,11 +126,13 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     .expect("unknown selection is a report finding");
 
     assert_eq!(report.checks_run, ["config/temperature"]);
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "doctor/selection"
-            && finding.severity == FindingSeverity::Error));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"
+                && finding.severity == FindingSeverity::Error)
+    );
     assert_eq!(report.schema_version, 2);
     assert_eq!(report.summary.pass, 1);
     assert_eq!(report.summary.error, 1);

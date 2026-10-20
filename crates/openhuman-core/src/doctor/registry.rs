@@ -27,10 +27,7 @@ pub fn register_check_source(source: impl DoctorCheckSource + 'static) {
 }
 
 /// Registers a check source for the context built from `extensions`.
-pub fn register_check_source_in(
-    extensions: &Extensions,
-    source: impl DoctorCheckSource + 'static,
-) {
+pub fn register_check_source_in(extensions: &Extensions, source: impl DoctorCheckSource + 'static) {
     let source: Arc<dyn DoctorCheckSource> = Arc::new(source);
     CHECK_SOURCES.register_in(extensions, source.id(), source);
 }
@@ -56,7 +53,9 @@ pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
             return Err("doctor/selection is reserved by the runner".into());
         }
         if !valid_check_id(id) {
-            return Err(format!("doctor check id must use lowercase area/name form: {id}"));
+            return Err(format!(
+                "doctor check id must use lowercase area/name form: {id}"
+            ));
         }
         if !ids.insert(id.to_owned()) {
             return Err(format!("duplicate doctor check id: {id}"));
@@ -72,7 +71,9 @@ fn valid_check_id(id: &str) -> bool {
     };
     !area.is_empty()
         && !name.is_empty()
-        && [area, name]
-            .into_iter()
-            .all(|part| part.bytes().all(|byte| byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')))
+        && [area, name].into_iter().all(|part| {
+            part.bytes().all(|byte| {
+                byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'-' | b'_')
+            })
+        })
 }

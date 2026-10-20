@@ -15,12 +15,12 @@ use super::registry;
 const MAX_CONCURRENT_CHECKS: usize = 8;
 
 /// Runs registered checks using exact-id filters and stable report ordering.
-pub(super) async fn run(
-    ctx: &DoctorCtx,
-    options: DoctorOptions,
-) -> Result<DoctorReport, String> {
+pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<DoctorReport, String> {
     let checks = registry::registered_checks()?;
-    let check_ids = checks.iter().map(|check| check.id().to_owned()).collect::<HashSet<_>>();
+    let check_ids = checks
+        .iter()
+        .map(|check| check.id().to_owned())
+        .collect::<HashSet<_>>();
     let only = options.only.into_iter().collect::<HashSet<_>>();
     let skip = options.skip.into_iter().collect::<HashSet<_>>();
     let has_unknown_selector = only
@@ -44,7 +44,10 @@ pub(super) async fn run(
                 id.clone(),
                 vec![Finding::skipped(
                     &id,
-                    format!("The {} check is above the requested tier.", check.category()),
+                    format!(
+                        "The {} check is above the requested tier.",
+                        check.category()
+                    ),
                     "Request a higher doctor tier and rerun the check.",
                 )],
                 true,
@@ -91,13 +94,15 @@ pub(super) async fn run(
                 let findings = match result {
                     Ok(Ok(mut findings)) => {
                         if findings.is_empty() {
-                            findings.push(Finding::pass(&id, "The check completed without findings."));
+                            findings
+                                .push(Finding::pass(&id, "The check completed without findings."));
                         }
                         for finding in &mut findings {
                             finding.check_id.clone_from(&id);
                             finding.duration_ms = duration_ms;
                             if finding.fix_hint.trim().is_empty() {
-                                finding.fix_hint = "Review the check result and rerun doctor.".into();
+                                finding.fix_hint =
+                                    "Review the check result and rerun doctor.".into();
                             }
                         }
                         findings

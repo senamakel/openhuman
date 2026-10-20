@@ -15,8 +15,8 @@ mod run;
 mod types;
 mod workspace_checks;
 
-pub use run::{run, run_models, MemoryEngineCheck};
 pub(super) use run::run_check;
+pub use run::{MemoryEngineCheck, run, run_models};
 pub use types::{
     DiagnosticItem, DoctorReport, DoctorSummary, ModelProbeEntry, ModelProbeOutcome,
     ModelProbeReport, ModelProbeSummary, Severity,

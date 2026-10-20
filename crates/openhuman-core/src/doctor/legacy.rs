@@ -4,10 +4,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use super::contract::{
-    ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity,
-};
-use super::core::{run_check, MemoryEngineCheck, Severity};
+use super::contract::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
+use super::core::{MemoryEngineCheck, Severity, run_check};
 use super::registry::DoctorCheckSource;
 
 /// Source for the checks that still use the moved v1 implementation.
@@ -47,10 +45,20 @@ impl LegacyV1Check {
 
     pub(crate) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
         vec![
-            Self::new("config/semantics", "configuration", DoctorTier::Static, None),
+            Self::new(
+                "config/semantics",
+                "configuration",
+                DoctorTier::Static,
+                None,
+            ),
             Self::new("workspace/layout", "workspace", DoctorTier::Connect, None),
             Self::new("runtime/daemon", "daemon", DoctorTier::Static, None),
-            Self::new("runtime/environment", "environment", DoctorTier::Static, None),
+            Self::new(
+                "runtime/environment",
+                "environment",
+                DoctorTier::Static,
+                None,
+            ),
             Self::new(
                 "memory/engine",
                 "memory engine",
@@ -95,11 +103,14 @@ impl DoctorCheck for LegacyV1Check {
     }
 
     fn detect_blocking(&self, ctx: &DoctorCtx) -> Option<Vec<Finding>> {
-        let memory = ctx.memory_engine().cloned().unwrap_or_else(|| MemoryEngineCheck {
-            engine: None,
-            status: "off".into(),
-            reason: Some("memory status was not supplied to the legacy adapter".into()),
-        });
+        let memory = ctx
+            .memory_engine()
+            .cloned()
+            .unwrap_or_else(|| MemoryEngineCheck {
+                engine: None,
+                status: "off".into(),
+                reason: Some("memory status was not supplied to the legacy adapter".into()),
+            });
         Some(
             run_check(self.id, ctx.config(), &memory)
                 .into_iter()
@@ -135,7 +146,10 @@ impl DoctorCheck for LegacyV1Check {
                     let fix_hint = if severity == FindingSeverity::Pass {
                         "No action required.".to_owned()
                     } else {
-                        format!("Review the {} configuration or runtime and rerun doctor.", self.category)
+                        format!(
+                            "Review the {} configuration or runtime and rerun doctor.",
+                            self.category
+                        )
                     };
                     Finding::new(self.id, severity, message, fix_hint)
                 })

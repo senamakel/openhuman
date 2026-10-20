@@ -6,21 +6,23 @@
 
 use crate::config::Config;
 use crate::core::Outcome;
-use crate::doctor::{self, DoctorReport, MemoryEngineCheck, ModelProbeReport};
+use crate::doctor::{
+    self, DoctorCtx, DoctorOptions, DoctorReport, MemoryEngineCheck, ModelProbeReport,
+};
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
+    doctor_report_with_options(config, DoctorOptions::default()).await
+}
+
+pub async fn doctor_report_with_options(
+    config: &Config,
+    options: DoctorOptions,
+) -> Result<Outcome<DoctorReport>, String> {
     // Awaited before the blocking hop, not inside it: `doctor::run` may not
     // `.await`. See `MemoryEngineCheck`.
     let memory = memory_engine_check(config).await;
-
-    // `doctor::run` calls `check_embedding_model_health` which uses
-    // `reqwest::blocking::Client` — that panics inside a tokio runtime.
-    // Move the entire sync `run()` onto a blocking thread.
-    let config_clone = config.clone();
-    let report = tokio::task::spawn_blocking(move || doctor::run(&config_clone, memory))
-        .await
-        .map_err(|e| format!("doctor task join error: {e}"))?
-        .map_err(|e| e.to_string())?;
+    let ctx = DoctorCtx::from_config(config.clone()).with_memory_engine(memory);
+    let report = super::runner::run(&ctx, options).await?;
     Ok(Outcome::single_log(report, "doctor report generated"))
 }
 

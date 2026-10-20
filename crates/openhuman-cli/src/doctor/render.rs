@@ -43,6 +43,7 @@ fn render(report: &Value, minimum: Option<&str>) -> String {
     }
 
     let mut output = String::new();
+    render_profile_header(report, &mut output);
     for (category, findings) in groups {
         output.push_str(&category);
         output.push_str(":\n");
@@ -80,6 +81,29 @@ fn render(report: &Value, minimum: Option<&str>) -> String {
         count(summary, "skipped"),
     ));
     output
+}
+
+fn render_profile_header(report: &Value, output: &mut String) {
+    let profile = report.get("profile").and_then(Value::as_str);
+    let source = report
+        .get("config_resolution_source")
+        .and_then(Value::as_str);
+    let layout = report
+        .get("profile_layout_version")
+        .and_then(Value::as_u64);
+    if profile.is_none() && source.is_none() && layout.is_none() {
+        return;
+    }
+
+    output.push_str("Profile: ");
+    output.push_str(profile.unwrap_or("(none)"));
+    if let Some(layout) = layout {
+        output.push_str(&format!(" | layout v{layout}"));
+    }
+    if let Some(source) = source {
+        output.push_str(&format!(" | config source: {source}"));
+    }
+    output.push('\n');
 }
 
 fn count(summary: &Value, severity: &str) -> u64 {

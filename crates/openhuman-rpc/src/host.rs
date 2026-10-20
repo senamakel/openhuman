@@ -37,7 +37,9 @@
 use std::sync::Arc;
 
 #[cfg(feature = "server")]
-use openhuman_tinyhumans::embed::{ServiceSet, TokenSource};
+use openhuman_tinyhumans::embed::{
+    ConfigSource, CoreBootMode, RuntimeConfig, ServiceSet, TokenSource, Workspace,
+};
 use openhuman_tinyhumans::RuntimeBuilder;
 #[cfg(feature = "server")]
 use tokio_util::sync::CancellationToken;
@@ -66,6 +68,51 @@ pub fn cli_builder() -> RuntimeBuilder {
 pub fn prepare_cli_host() {
     openhuman_tinyhumans::register_hooks();
     prepare_cli_environment();
+}
+
+/// Build a side-effect-limited runtime for the CLI's one-shot doctor command.
+///
+/// The effective desktop config is selected before the core boots. The normal
+/// doctor RPC then runs through `CoreRuntime::invoke`, preserving the shared
+/// report path and context-scoped TinyHumans checks. An invalid explicit
+/// profile uses a safe in-memory config pinned to the root so the RPC can
+/// return its single `profile/exists` finding without loading ambient config.
+#[cfg(feature = "server")]
+pub async fn doctor_runtime(
+    requested_profile: Option<&str>,
+) -> anyhow::Result<openhuman_tinyhumans::embed::Runtime> {
+    prepare_cli_host();
+    let root = crate::embed::config::default_root_openhuman_dir()?;
+    let config = match crate::core_host::doctor::profile::resolve_desktop_profile_for_doctor(
+        &root,
+        requested_profile,
+    )
+    .await
+    {
+        Ok(selection) => selection.config,
+        Err(_) if requested_profile.is_some() => doctor_fallback_config(&root),
+        Err(error) => anyhow::bail!("doctor profile selection failed: {}", error.message()),
+    };
+
+    let bearer = Arc::new(uuid::Uuid::new_v4().simple().to_string());
+    Ok(cli_builder()
+        .workspace(Workspace::Inherit)
+        .config_source(ConfigSource::Resolved)
+        .config(config)
+        .boot_mode(CoreBootMode::Inspection)
+        .services(ServiceSet::none())
+        .token(TokenSource::Fixed(bearer))
+        .build()
+        .await?)
+}
+
+#[cfg(feature = "server")]
+fn doctor_fallback_config(root: &std::path::Path) -> RuntimeConfig {
+    let mut config = RuntimeConfig::default();
+    config.config_path = root.join("config.toml");
+    config.workspace_dir = root.join("workspace");
+    config.action_dir = root.join("action");
+    config
 }
 
 #[cfg(feature = "server")]

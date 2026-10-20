@@ -10,8 +10,21 @@ impl SandboxProbe for DockerAvailability {
         Ok(self.0)
     }
 
-    fn landlock_available(&self) -> bool {
-        false
+    async fn landlock_status(&self) -> LandlockStatus {
+        LandlockStatus::Unavailable
+    }
+}
+
+struct LandlockAvailability(LandlockStatus);
+
+#[async_trait]
+impl SandboxProbe for LandlockAvailability {
+    async fn docker_available(&self) -> Result<bool, ()> {
+        Ok(false)
+    }
+
+    async fn landlock_status(&self) -> LandlockStatus {
+        self.0
     }
 }
 
@@ -69,4 +82,106 @@ async fn no_probe_runs_when_sandboxing_is_disabled_in_config() {
 
     assert_eq!(finding.severity, FindingSeverity::Skipped);
     assert!(finding.message.contains("disabled"));
+}
+
+#[tokio::test]
+async fn an_existing_tinybox_landlock_status_is_mapped_to_the_configured_backend() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
+    let check =
+        SandboxBackendCheck::with_probe(Arc::new(LandlockAvailability(LandlockStatus::Available)));
+    let finding = check
+        .detect(&DoctorCtx::from_config(config(
+            scratch.path(),
+            SandboxBackend::Landlock,
+        )))
+        .await
+        .remove(0);
+
+    assert_eq!(finding.severity, FindingSeverity::Pass);
+}
+
+#[tokio::test]
+async fn unsupported_and_unavailable_landlock_statuses_are_distinguished() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
+    let unavailable = SandboxBackendCheck::with_probe(Arc::new(LandlockAvailability(
+        LandlockStatus::Unavailable,
+    )))
+    .detect(&DoctorCtx::from_config(config(
+        scratch.path(),
+        SandboxBackend::Landlock,
+    )))
+    .await
+    .remove(0);
+    assert_eq!(unavailable.severity, FindingSeverity::Skipped);
+
+    let unsupported = SandboxBackendCheck::with_probe(Arc::new(LandlockAvailability(
+        LandlockStatus::Unsupported,
+    )))
+    .detect(&DoctorCtx::from_config(config(
+        scratch.path(),
+        SandboxBackend::Landlock,
+    )))
+    .await
+    .remove(0);
+    assert_eq!(unsupported.severity, FindingSeverity::Error);
+}
+
+#[cfg(all(target_os = "linux", feature = "modules"))]
+#[test]
+fn landlock_requires_a_matching_backend_and_the_untrusted_code_isolation_floor() {
+    use crate::modules::tinybox::contract::JailStatus;
+
+    let available_landlock = JailStatus {
+        backend: "landlock".to_owned(),
+        available: true,
+        isolation: "kernel".to_owned(),
+        suitable_for_untrusted_code: true,
+        filesystem: "enforced".to_owned(),
+        network: "enforced".to_owned(),
+        subprocess: "enforced".to_owned(),
+    };
+    assert_eq!(
+        landlock_status_from_module(&available_landlock),
+        LandlockStatus::Available
+    );
+
+    let available_other_backend = JailStatus {
+        backend: "seatbelt".to_owned(),
+        ..available_landlock.clone()
+    };
+    assert_eq!(
+        landlock_status_from_module(&available_other_backend),
+        LandlockStatus::Unsupported,
+        "another available jail does not satisfy an explicit Landlock selection"
+    );
+
+    let insufficient_landlock = JailStatus {
+        suitable_for_untrusted_code: false,
+        ..available_landlock
+    };
+    assert_eq!(
+        landlock_status_from_module(&insufficient_landlock),
+        LandlockStatus::Unsupported
+    );
+}
+
+#[cfg(all(target_os = "linux", feature = "modules"))]
+#[tokio::test]
+async fn missing_tinybox_status_does_not_start_the_module_runtime() {
+    if crate::util::module_test_process::run(
+        module_path!(),
+        "missing_tinybox_status_does_not_start_the_module_runtime",
+    ) {
+        return;
+    }
+    assert!(!crate::modules::runtime::is_started());
+
+    let status = HostSandboxProbe.landlock_status().await;
+
+    assert_eq!(status, LandlockStatus::Unavailable);
+    assert!(!crate::modules::runtime::is_started());
+    assert_eq!(
+        crate::modules::ops::state_of(crate::modules::tinybox::MODULE_ID),
+        crate::modules::types::ModuleState::Available
+    );
 }

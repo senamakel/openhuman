@@ -120,7 +120,7 @@ impl McpServerCheck {
         if self.duplicate_definitions {
             return Finding::error(
                 &self.id,
-                "Multiple configured MCP servers share this identifier; their connection state is ambiguous.",
+                "Multiple MCP server definitions use a duplicate identifier; their connection state is ambiguous.",
                 "Remove or rename duplicate entries in mcp_client.servers so each server name is unique.",
             );
         }

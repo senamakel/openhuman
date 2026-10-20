@@ -128,10 +128,16 @@ async fn production_github_preflight_skips_expired_profile_without_mutating_cred
         .with("HOME", scratch.path())
         .with("OPENHUMAN_WORKSPACE", config.workspace_dir.as_os_str())
         .without("OPENHUMAN_ACTION_DIR")
-        .without("COMPOSIO_API_KEY");
+        .without("COMPOSIO_API_KEY")
+        .with("OPENHUMAN_KEYRING_BACKEND", "file");
 
     let skill_dir = config.workspace_dir.join("skills/required-skill");
     std::fs::create_dir_all(&skill_dir).expect("create isolated skill directory");
+    std::fs::write(
+        skill_dir.join("WORKFLOW.md"),
+        "A required GitHub workflow.\n",
+    )
+    .expect("write valid workflow document");
     let manifest = skill_dir.join("workflow.toml");
     std::fs::write(
         &manifest,
@@ -156,6 +162,18 @@ async fn production_github_preflight_skips_expired_profile_without_mutating_cred
     .to_string();
     std::fs::write(&profiles, &raw_profile).expect("seed isolated expired profile");
 
+    let loaded =
+        crate::security::credentials::session_support::load_app_session_profile_read_only(&config)
+            .expect("read-only profile fixture should parse");
+    assert!(matches!(
+        crate::security::credentials::session_support::classify_session_token(
+            loaded.as_ref(),
+            chrono::Utc::now()
+        ),
+        crate::security::credentials::session_support::SessionTokenCheck::Expired
+    ));
+    let connector_state_before = crate::modules::ops::state_of("tinyconnectors");
+
     let context = scoped(config.clone());
     let findings = CoreContext::scope(context, async {
         let required = required_github_preflight(&config).expect("manifest requires GitHub");
@@ -169,13 +187,76 @@ async fn production_github_preflight_skips_expired_profile_without_mutating_cred
     })
     .await;
 
+    assert_eq!(std::fs::read_to_string(&profiles).unwrap(), raw_profile);
+    assert!(!scratch.path().join("auth-profiles.lock").exists());
+    assert_eq!(
+        crate::modules::ops::state_of("tinyconnectors"),
+        connector_state_before,
+        "doctor must not start or otherwise transition the connector module"
+    );
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].severity, FindingSeverity::Skipped);
     assert!(findings[0].message.contains("unavailable"));
-    assert_eq!(std::fs::read_to_string(&profiles).unwrap(), raw_profile);
-    assert!(!scratch.path().join("auth-profiles.lock").exists());
     assert!(!scratch.path().join("modules").exists());
     assert!(!findings[0].message.contains("expired-doctor-test-secret"));
+}
+
+#[tokio::test]
+async fn production_github_preflight_skips_malformed_profile_without_quarantining_or_loading_connectors(
+) {
+    let scratch = tempfile::tempdir().expect("create isolated preflight fixture");
+    let config = config_in(scratch.path());
+    let _env = crate::config::test_env::EnvVarGuard::locked_async()
+        .await
+        .with("HOME", scratch.path())
+        .with("OPENHUMAN_WORKSPACE", config.workspace_dir.as_os_str())
+        .without("OPENHUMAN_ACTION_DIR")
+        .without("COMPOSIO_API_KEY")
+        .with("OPENHUMAN_KEYRING_BACKEND", "file");
+
+    let skill_dir = config.workspace_dir.join("skills/required-skill");
+    std::fs::create_dir_all(&skill_dir).expect("create isolated skill directory");
+    std::fs::write(
+        skill_dir.join("WORKFLOW.md"),
+        "A required GitHub workflow.\n",
+    )
+    .expect("write workflow document");
+    let manifest = skill_dir.join("workflow.toml");
+    std::fs::write(
+        &manifest,
+        "id = \"required-skill\"\nwhen_to_use = \"Use GitHub\"\n\
+         [github]\nrequired = true\nidentity_match = \"none\"\n",
+    )
+    .expect("write required GitHub manifest");
+    let profiles = scratch.path().join("auth-profiles.json");
+    let malformed = b"{ malformed profile store";
+    std::fs::write(&profiles, malformed).expect("seed malformed isolated profile store");
+
+    let context = scoped(config.clone());
+    let findings = CoreContext::scope(context, async {
+        let required = required_github_preflight(&config).expect("manifest requires GitHub");
+        GithubPreflightCheck {
+            required: required.config,
+            manifest_path: required.path,
+            probes: None,
+        }
+        .detect(&DoctorCtx::from_config(config.clone()))
+        .await
+    })
+    .await;
+
+    assert_eq!(std::fs::read(&profiles).unwrap(), malformed);
+    assert!(!scratch.path().join("auth-profiles.lock").exists());
+    assert!(!scratch
+        .path()
+        .read_dir()
+        .unwrap()
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name().to_string_lossy().contains("corrupt")));
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, FindingSeverity::Skipped);
+    assert!(findings[0].message.contains("unavailable"));
+    assert!(!scratch.path().join("modules").exists());
 }
 
 #[tokio::test]

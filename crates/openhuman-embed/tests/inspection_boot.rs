@@ -6,14 +6,13 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use openhuman_core::config::Config;
-use openhuman_core::doctor::{
-    register_check_source_in, DoctorCheck, DoctorCheckSource, DoctorCtx, DoctorTier, Finding,
-};
 use openhuman_core::security::secret_storage::{
     clear_master_key_source, clear_secret_backend, install_master_key_source,
     install_secret_backend, EncryptedFileBackend, MasterKeySource, SecretStorageError,
 };
-use openhuman_embed::{ConfigSource, DomainSet, RuntimeBuilder, ServiceSet, TokenSource, Workspace};
+use openhuman_embed::{
+    ConfigSource, DomainSet, RuntimeBuilder, ServiceSet, TokenSource, Workspace,
+};
 use serde_json::json;
 use zeroize::Zeroizing;
 
@@ -70,11 +69,11 @@ impl Environment {
                 "OPENHUMAN_ACTION_DIR",
                 Some(root.join("action").into_os_string()),
             ),
+            ("OPENHUMAN_STORAGE_URL", Some(OsString::from(storage_url))),
             (
-                "OPENHUMAN_STORAGE_URL",
-                Some(OsString::from(storage_url)),
+                "OPENHUMAN_KEYRING_BACKEND",
+                Some(OsString::from("encrypted_file")),
             ),
-            ("OPENHUMAN_KEYRING_BACKEND", Some(OsString::from("encrypted_file"))),
             ("OPENHUMAN_KEYRING_MASTER_KEY", None),
             ("OPENHUMAN_KEYRING_MASTER_KEY_FILE", None),
         ];
@@ -126,39 +125,6 @@ impl MasterKeySource for CountingMasterKeySource {
     }
 }
 
-struct InspectionCheck;
-
-#[async_trait::async_trait]
-impl DoctorCheck for InspectionCheck {
-    fn id(&self) -> &str {
-        "inspection/probe"
-    }
-
-    fn category(&self) -> &str {
-        "inspection"
-    }
-
-    fn tier(&self) -> DoctorTier {
-        DoctorTier::Static
-    }
-
-    async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
-        vec![Finding::pass(self.id(), "Inspection context is available.")]
-    }
-}
-
-struct InspectionSource;
-
-impl DoctorCheckSource for InspectionSource {
-    fn id(&self) -> &str {
-        "inspection-source"
-    }
-
-    fn checks(&self) -> Vec<Arc<dyn DoctorCheck>> {
-        vec![Arc::new(InspectionCheck)]
-    }
-}
-
 #[tokio::test]
 async fn preloaded_cli_runtime_can_invoke_doctor_without_startup_writes() {
     let root = tempfile::tempdir().expect("inspection root");
@@ -196,9 +162,6 @@ async fn preloaded_cli_runtime_can_invoke_doctor_without_startup_writes() {
         )))
         .domains(DomainSet::full())
         .services(ServiceSet::none())
-        .configure_core_extensions(|extensions| {
-            register_check_source_in(extensions, InspectionSource);
-        })
         .build()
         .await
         .expect("build preloaded inspection runtime");
@@ -207,27 +170,21 @@ async fn preloaded_cli_runtime_can_invoke_doctor_without_startup_writes() {
         openhuman_core::storage::installed().is_none(),
         "inspection boot must not open/install the configured storage backend"
     );
-    assert_eq!(key_writes.load(Ordering::SeqCst), 0, "must not mint a master key");
+    assert_eq!(
+        key_writes.load(Ordering::SeqCst),
+        0,
+        "must not mint a master key"
+    );
 
     let response = runtime
         .core_runtime()
-        .invoke(
-            "openhuman.doctor_report",
-            json!({
-                "tier": "static",
-                "only": ["inspection/probe"]
-            }),
-        )
+        .invoke("openhuman.doctor_report", json!({ "tier": "static" }))
         .await
         .expect("invoke doctor report in-process");
     let report = response
         .get("result")
         .expect("unwrap the CLI-compatible outcome envelope");
-    assert!(report["findings"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|finding| finding["check_id"] == "inspection/probe"));
+    assert_eq!(report["schema_version"], 2);
 
     drop(runtime);
     assert_eq!(

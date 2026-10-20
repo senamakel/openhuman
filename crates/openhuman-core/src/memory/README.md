@@ -260,11 +260,10 @@ start without explicit consent and resumes after a restart:
   between, then cleans up the legacy copies. State is in
   `layout_migration.json`. A legacy tree other accounts may share (a
   self-hosted CortexDB) moves only with the user's consent, claimed through
-  a marker in the shared app directory (`claim.rs`). The engine itself is
+  a marker in the shared app directory via TinyMemory `FsLegacyClaim`. The engine itself is
   `tinymemory_tools::layout_migration` (tinymemory); this directory is the
   host adapter: `app_host.rs` (engine binding, placement, the switch, the
-  free period), `claim.rs`, `state.rs` (the file-backed state store) and
-  `service.rs` (the background run and its gate on the import).
+  free period), `state.rs` (the file-backed state store), and `ops.rs` (host scheduling and the Native cross-driver run-slot gate).
 
 Automatic runs of the import and the migration start only when
 `billing::free_period_active` says the work costs the user nothing: always
@@ -305,7 +304,7 @@ trusted call facts; queued writes retain that call's narrower reach.
 | [`deletion.rs`](./deletion.rs) | Hard deletes; the file store and executor for the pending-deletion queue (`tinymemory_tools::deletion`, with retry backoff on background ticks). |
 | [`backfill.rs`](./backfill.rs) | Consent-gated, resumable storing of past chats; turns are built by `tinymemory_tools::backfill`. |
 | [`import.rs`](./import.rs) | Host adapter for the consent-gated, resumable v1 import and the retry of refused items; the driver is the module's `Importer`, which skips what v1 synced from Composio connectors. |
-| [`layout_migration/`](./layout_migration/) | Host adapter over `tinymemory_tools::layout_migration` (copy, placement, cleanup and the job live in tinymemory): `app_host.rs` (the real `LayoutHost`), `claim.rs`, `state.rs` (file-backed `MigrationStateStore`), `service.rs` (RPC/tick entry points). |
+| [`layout_migration/`](./layout_migration/) | Host adapter over `tinymemory_tools::layout_migration` (copy, placement, cleanup and the job live in tinymemory): `app_host.rs` (the real `LayoutHost` and host claim inputs), `state.rs` (file-backed `MigrationStateStore`), `ops.rs` (RPC/tick wiring to Native `MigrationService` and `FsLegacyClaim`). |
 | [`billing.rs`](./billing.rs) | Whether background rewrites are free for the user right now. |
 | [`files.rs`](./files.rs) | Owner-only (0600 / 0700 on unix) writes of the local state files. |
 | [`tools.rs`](./tools.rs) | The single `memory` agent tool; citations are collected by `web_chat`. |

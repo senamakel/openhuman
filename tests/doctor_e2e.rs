@@ -41,7 +41,10 @@ impl MockBackend {
         let inherited_origin = inherited_backend_url.and_then(loopback_origin);
         if let Some(origin) = inherited_origin {
             if is_shared_mock(&origin).await {
-                return Self { origin, child: None };
+                return Self {
+                    origin,
+                    child: None,
+                };
             }
         }
 

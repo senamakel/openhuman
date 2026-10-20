@@ -22,7 +22,7 @@ pub use core::{
 pub use core::{DoctorReport as LegacyDoctorReport, DoctorSummary as LegacyDoctorSummary};
 pub use ops as rpc;
 pub use ops::*;
-pub use registry::{register_check_source, register_check_source_in, DoctorCheckSource};
+pub use registry::{register_check_source, register_check_source_in, registered_checks_for, DoctorCheckSource};
 pub use schemas::{
     all_controller_schemas as all_doctor_controller_schemas,
     all_registered_controllers as all_doctor_registered_controllers,

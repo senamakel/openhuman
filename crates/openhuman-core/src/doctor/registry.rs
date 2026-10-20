@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use crate::core::slots::{Extensions, HookSlot};
 
-use super::contract::DoctorCheck;
+use super::contract::{DoctorCheck, DoctorCtx};
 use super::legacy::LegacyV1CheckSource;
 
 /// A host-owned group of checks. The core stores the source without knowing
@@ -15,6 +15,11 @@ pub trait DoctorCheckSource: Send + Sync {
     fn id(&self) -> &str;
     /// Checks contributed by this source.
     fn checks(&self) -> Vec<Arc<dyn DoctorCheck>>;
+    /// Checks contributed for the selected configuration. Existing static
+    /// sources retain their original behavior.
+    fn checks_for(&self, _ctx: &DoctorCtx) -> Vec<Arc<dyn DoctorCheck>> {
+        self.checks()
+    }
 }
 
 static CHECK_SOURCES: HookSlot<Arc<dyn DoctorCheckSource>> =
@@ -49,6 +54,20 @@ pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
         checks.extend(source.checks());
     }
 
+    validate_check_ids(checks)
+}
+
+/// Checks available for a selected inspection context.
+pub fn registered_checks_for(ctx: &DoctorCtx) -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
+    let mut checks = LegacyV1CheckSource.checks();
+    checks.extend(super::profile::built_in_checks());
+    for (_, source) in CHECK_SOURCES.entries() {
+        checks.extend(source.checks_for(ctx));
+    }
+    validate_check_ids(checks)
+}
+
+fn validate_check_ids(checks: Vec<Arc<dyn DoctorCheck>>) -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
     let mut ids = HashSet::with_capacity(checks.len());
     for check in &checks {
         let id = check.id();
@@ -56,9 +75,7 @@ pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
             return Err("doctor/selection is reserved by the runner".into());
         }
         if !valid_check_id(id) {
-            return Err(format!(
-                "doctor check id must use lowercase area/name form: {id}"
-            ));
+            return Err(format!("doctor check id must use lowercase area/name form: {id}"));
         }
         if !ids.insert(id.to_owned()) {
             return Err(format!("duplicate doctor check id: {id}"));

@@ -71,11 +71,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "models" => ControllerSchema {
             namespace: "doctor",
             function: "models",
-            description: "Probe provider model availability and auth status.",
+            description: "Model catalog probing is not available yet.",
             inputs: vec![FieldSchema {
                 name: "use_cache",
                 ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-                comment: "Reuse cached provider metadata when available.",
+                comment: "Reserved for model catalog probes when they become available.",
                 required: false,
             }],
             outputs: vec![FieldSchema {

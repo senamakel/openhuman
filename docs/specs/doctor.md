@@ -31,9 +31,9 @@ memory, unless the caller opts into the `live` tier.
 
 ## Check contract
 
-The Rust API and serialized JSON use snake case. A check is
-registered with a stable id, category, cost tier, and optional component gate.
-Its detector is asynchronous and returns findings for that check:
+The Rust API and serialized JSON use snake case. A check is registered with a
+stable id, category, cost tier, and optional component gate. Its detector is
+asynchronous and returns findings for that check:
 
 ```rust
 DoctorCheck {
@@ -341,7 +341,7 @@ make billable calls or write remote state.
 
 ## Implementation references
 
-- Existing doctor being replaced: `crates/openhuman-core/src/platform/doctor/`
+- Existing doctor being replaced: `crates/openhuman-core/src/doctor/`
 - Existing subsystem status projection: `crates/openhuman-core/src/core/subsystem/status.rs`
 - Capability ids: `crates/openhuman-core/src/platform/about_app/`
 - OpenClaw reference: [structured health-check contract](https://github.com/openclaw/openclaw/blob/main/docs/cli/doctor/health-contract.md), [lint mode and selectors](https://github.com/openclaw/openclaw/blob/main/docs/cli/doctor/lint.md), and [running doctor](https://github.com/openclaw/openclaw/blob/main/docs/cli/doctor/running.md)

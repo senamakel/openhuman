@@ -94,4 +94,3 @@ pub(super) fn truncate_for_display(text: &str, max_len: usize) -> String {
     out.push_str("...");
     out
 }
-

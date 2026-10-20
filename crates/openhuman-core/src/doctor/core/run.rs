@@ -79,4 +79,3 @@ pub(in crate::doctor) fn run_check(
     }
     items
 }
-

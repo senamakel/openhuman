@@ -29,7 +29,7 @@ pub(crate) struct LegacyV1Check {
 }
 
 impl LegacyV1Check {
-    fn new(
+    fn adapter(
         id: &'static str,
         category: &'static str,
         tier: DoctorTier,
@@ -45,33 +45,33 @@ impl LegacyV1Check {
 
     pub(crate) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
         vec![
-            Self::new(
+            Self::adapter(
                 "config/semantics",
                 "configuration",
                 DoctorTier::Static,
                 None,
             ),
-            Self::new("workspace/layout", "workspace", DoctorTier::Connect, None),
-            Self::new("runtime/daemon", "daemon", DoctorTier::Static, None),
-            Self::new(
+            Self::adapter("workspace/layout", "workspace", DoctorTier::Connect, None),
+            Self::adapter("runtime/daemon", "daemon", DoctorTier::Static, None),
+            Self::adapter(
                 "runtime/environment",
                 "environment",
                 DoctorTier::Static,
                 None,
             ),
-            Self::new(
+            Self::adapter(
                 "memory/engine",
                 "memory engine",
                 DoctorTier::Connect,
                 Some(ComponentId::Memory),
             ),
-            Self::new(
+            Self::adapter(
                 "memory/embedding-model",
                 "embedding model",
                 DoctorTier::Connect,
                 Some(ComponentId::Memory),
             ),
-            Self::new("agent/claude-sdk", "agent SDK", DoctorTier::Static, None),
+            Self::adapter("agent/claude-sdk", "agent SDK", DoctorTier::Static, None),
         ]
     }
 }

@@ -117,11 +117,13 @@ async fn action_directory_without_write_access_is_an_error() {
     let dir = tempfile::tempdir().expect("temporary action directory");
     let mut config = Config::default();
     config.action_dir = dir.path().to_owned();
-    let mut permissions = std::fs::metadata(dir.path()).unwrap().permissions();
+    let original_permissions = std::fs::metadata(dir.path()).unwrap().permissions();
+    let mut permissions = original_permissions.clone();
     permissions.set_readonly(true);
     std::fs::set_permissions(dir.path(), permissions).unwrap();
 
     let findings = run_check(config, "workspace/action-dir").await;
+    std::fs::set_permissions(dir.path(), original_permissions).unwrap();
 
     assert_eq!(
         finding(&findings, FindingSeverity::Error).config_path.as_deref(),
@@ -155,17 +157,21 @@ async fn both_master_key_environment_sources_are_reported_without_initializing_k
 
     let _environment = EnvVarGuard::locked_unset_many_async(&[MASTER_KEY_ENV, MASTER_KEY_FILE_ENV])
         .await
-        .with(MASTER_KEY_ENV, "do-not-read-inline")
-        .with(MASTER_KEY_FILE_ENV, "/private/key-file");
+        .with(MASTER_KEY_ENV, "do-not-read-inline");
     let workspace = tempfile::tempdir().expect("temporary workspace");
+    let supplied_key_file = workspace.path().join("nested/operator.key");
+    let _environment = _environment.with(MASTER_KEY_FILE_ENV, &supplied_key_file);
     let mut config = Config::default();
     config.workspace_dir = workspace.path().to_owned();
+    let entries_before = std::fs::read_dir(workspace.path()).unwrap().count();
 
     let findings = run_check(config, "secrets/master-key-env").await;
 
     let error = finding(&findings, FindingSeverity::Error);
     assert!(!error.message.contains("do-not-read-inline"));
-    assert!(!error.message.contains("/private/key-file"));
+    assert!(!error.message.contains(&supplied_key_file.display().to_string()));
+    assert_eq!(std::fs::read_dir(workspace.path()).unwrap().count(), entries_before);
+    assert!(!supplied_key_file.exists());
     assert!(!workspace.path().join("keyring/master.key").exists());
 }
 
@@ -187,18 +193,24 @@ async fn invalid_module_override_is_reported_without_echoing_its_path() {
 }
 
 #[tokio::test]
-async fn linked_source_fallback_is_reported_without_loading_modules() {
+async fn source_fallback_is_reported_without_loading_modules() {
     use crate::config::schema::ModuleSourceMode;
 
-    let _environment = EnvVarGuard::locked_unset_async("OPENHUMAN_MODULE_SOURCE").await;
+    let source_dir = tempfile::tempdir().expect("empty module source directory");
+    let _environment = EnvVarGuard::locked_unset_many_async(&[
+        "OPENHUMAN_MODULE_SOURCE",
+        "OPENHUMAN_MODULE_SOURCE_DIR",
+    ])
+    .await
+    .with("OPENHUMAN_MODULE_SOURCE_DIR", source_dir.path());
     let mut config = Config::default();
-    config.modules.source = ModuleSourceMode::Linked;
+    config.modules.source = ModuleSourceMode::Source;
 
     let findings = run_check(config, "modules/source-fallback").await;
 
     assert!(findings.iter().any(|finding| {
         finding.severity == FindingSeverity::Warn
-            && (finding.message.contains("no linked factory")
+            && (finding.message.contains("no source-built artifact")
                 || finding.message.contains("source fallback"))
     }));
 }

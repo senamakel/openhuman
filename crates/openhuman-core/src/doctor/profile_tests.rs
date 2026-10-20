@@ -712,12 +712,14 @@ async fn selected_profile_is_ambient_for_process_sources_without_a_parent_contex
     let observations = observed.lock().unwrap();
     assert_eq!(observations.len(), 1);
     assert_eq!(observations[0].ambient_workspace.as_deref(), Some(layout.workspace_dir.as_path()));
+    assert_eq!(observations[0].tenant_profile, None);
 }
 
 struct ProcessSelectedProfileContextSource(Arc<Mutex<Vec<ProcessSelectedProfileObservation>>>);
 
 struct ProcessSelectedProfileObservation {
     ambient_workspace: Option<std::path::PathBuf>,
+    tenant_profile: Option<String>,
 }
 
 struct ProcessSelectedProfileContextCheck(Arc<Mutex<Vec<ProcessSelectedProfileObservation>>>);
@@ -739,10 +741,16 @@ impl DoctorCheck for ProcessSelectedProfileContextCheck {
     async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
         let ambient_workspace = crate::core::runtime::CoreContext::current_embedder_config()
             .map(|config| config.workspace_dir);
+        let tenant_profile = crate::core::runtime::current_tenant()
+            .ok()
+            .and_then(|tenant| tenant.profile);
         self.0
             .lock()
             .unwrap()
-            .push(ProcessSelectedProfileObservation { ambient_workspace });
+            .push(ProcessSelectedProfileObservation {
+                ambient_workspace,
+                tenant_profile,
+            });
         vec![Finding::pass(self.id(), "The selected profile is ambient to host checks.")]
     }
 }

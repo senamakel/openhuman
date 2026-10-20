@@ -43,7 +43,7 @@ fn workspace_entries(root: &std::path::Path) -> Vec<std::path::PathBuf> {
 }
 
 fn record_file_provenance(config: &mut Config, source: &str) {
-    let document = source.parse::<toml::Value>().expect("valid TOML fixture");
+    let document = toml::from_str::<toml::Value>(source).expect("valid TOML fixture");
     config.load_provenance_mut().record_file_keys(&document);
 }
 

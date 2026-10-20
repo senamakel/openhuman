@@ -112,6 +112,23 @@ async fn a_tenant_without_a_requested_id_loads_only_its_own_profile() {
 }
 
 #[tokio::test]
+async fn a_tenant_may_explicitly_select_its_own_profile() {
+    let alice = profile("alice");
+    let reads = Arc::new(ReadSpy::default());
+
+    let result = resolve_with_loader(
+        Some(DoctorCaller::Tenant(alice.clone())),
+        Some(alice.as_str()),
+        spy_loader(Arc::clone(&reads)),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result, Some(alice.clone()));
+    assert!(reads.snapshot().iter().all(|(_, id)| id == &alice));
+}
+
+#[tokio::test]
 async fn an_operator_can_select_any_profile_after_scope_is_verified() {
     let bob = profile("bob");
     let reads = Arc::new(ReadSpy::default());
@@ -134,6 +151,29 @@ async fn an_operator_can_select_any_profile_after_scope_is_verified() {
             (ReadKind::Lease, bob),
         ]
     );
+}
+
+#[tokio::test]
+async fn a_valid_but_unprovisioned_operator_target_reaches_the_profile_check() {
+    let id = profile("not-provisioned");
+    let reads = Arc::new(ReadSpy::default());
+
+    let result = resolve_with_loader(
+        Some(DoctorCaller::Operator),
+        Some(id.as_str()),
+        {
+            let reads = Arc::clone(&reads);
+            move |selected| {
+                reads.record_selected_profile(&selected);
+                std::future::ready(Ok(false))
+            }
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result, Some(false), "the selected check reports provision status");
+    assert!(reads.snapshot().iter().all(|(_, selected)| selected == &id));
 }
 
 #[tokio::test]

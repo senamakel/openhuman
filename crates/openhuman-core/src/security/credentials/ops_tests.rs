@@ -1,15 +1,15 @@
 use super::*;
 use crate::config::test_env::EnvVarGuard;
-use crate::config::{default_root_openhuman_dir, user_openhuman_dir, write_active_user_id, Config};
+use crate::config::{Config, default_root_openhuman_dir, user_openhuman_dir, write_active_user_id};
 use crate::security::credentials::session_support::local_session_user_id;
 use crate::security::credentials::{
-    identity, session_support, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME, identity, session_support,
 };
+use axum::Router;
 use axum::http::StatusCode;
 use axum::routing::get;
-use axum::Router;
-use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use base64::Engine;
+use base64::engine::general_purpose::URL_SAFE_NO_PAD;
 use serde_json::json;
 use tempfile::TempDir;
 use tokio::net::TcpListener;

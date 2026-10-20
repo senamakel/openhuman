@@ -2,11 +2,11 @@
 //! reasoning and thread extensions, usage projection and failure observation.
 
 use async_trait::async_trait;
+use tinyinference_llm::Error as TiError;
 use tinyinference_llm::model::{
     ChatModel, ModelProfile, ModelRequest, ModelResponse, ModelStream, ModelStreamItem,
     ProviderError,
 };
-use tinyinference_llm::Error as TiError;
 
 use super::managed_model::OpenHumanBackendModel;
 use super::managed_reasoning::{apply_reasoning_hint, with_thread_id};

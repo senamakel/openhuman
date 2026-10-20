@@ -19,7 +19,9 @@
 //! and an unguarded publish would re-flood the notification center the same
 //! way the raw error flooded Sentry.
 
-use std::sync::OnceLock;
+use std::collections::{HashMap, HashSet};
+use std::hash::{BuildHasher, Hash, Hasher};
+use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tinyinference_providers::auth_registry::ProviderAuthError;
@@ -58,18 +60,31 @@ pub fn auth_error_message(provider: &str, status: u16) -> String {
 /// a 401 that repeats per-retry doesn't re-notify. An existing entry is
 /// refreshed (status / timestamp) and returns `false`.
 pub fn record(provider: &str, status: u16) -> bool {
-    registry().record(ProviderAuthError {
+    let scope = current_scope();
+    let changed = registry().record(ProviderAuthError {
         provider: provider.to_string(),
         status,
         message: auth_error_message(provider, status),
         timestamp_ms: now_ms(),
-    })
+    });
+    let mut origins = origins().lock().unwrap_or_else(|error| error.into_inner());
+    let entry = origins.entry(provider.to_owned()).or_default();
+    if let Some(scope) = scope {
+        entry.scopes.insert(scope);
+    } else {
+        entry.unscoped = true;
+    }
+    changed
 }
 
 /// Clear any recorded auth error for `provider` (the user updated / removed
 /// the key, or a call newly succeeded). Returns `true` if an entry was
 /// removed. Re-arms the [`record`] latch so a fresh failure re-notifies.
 pub fn clear(provider: &str) -> bool {
+    origins()
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .remove(provider);
     registry().clear(provider)
 }
 
@@ -79,11 +94,65 @@ pub fn snapshot() -> Vec<ProviderAuthError> {
     registry().snapshot()
 }
 
+#[derive(Default)]
+struct ErrorOrigins {
+    scopes: HashSet<u64>,
+    unscoped: bool,
+}
+
+fn origins() -> &'static Mutex<HashMap<String, ErrorOrigins>> {
+    static ORIGINS: OnceLock<Mutex<HashMap<String, ErrorOrigins>>> = OnceLock::new();
+    ORIGINS.get_or_init(|| Mutex::new(HashMap::new()))
+}
+
+fn current_scope() -> Option<u64> {
+    let context = crate::core::runtime::CoreContext::current()?;
+    let workspace = context.workspace_dir().ok()?;
+    let tenant = context.profile().unwrap_or_default();
+    Some(scope_identity(&workspace, tenant))
+}
+
+fn scope_identity(workspace: &std::path::Path, tenant: &str) -> u64 {
+    static HASHER: OnceLock<std::collections::hash_map::RandomState> = OnceLock::new();
+    let mut hasher = HASHER
+        .get_or_init(std::collections::hash_map::RandomState::new)
+        .build_hasher();
+    workspace.hash(&mut hasher);
+    tenant.hash(&mut hasher);
+    hasher.finish()
+}
+
+/// Auth failures scoped to the current workspace/tenant. Known foreign
+/// failures are omitted; unscoped legacy failures are reported separately so
+/// callers can avoid attributing them to the selected profile.
+pub fn snapshot_for_scope(
+    workspace: &std::path::Path,
+    tenant: Option<&str>,
+) -> (Vec<ProviderAuthError>, bool) {
+    let scope = scope_identity(workspace, tenant.unwrap_or_default());
+    let origins = origins().lock().unwrap_or_else(|error| error.into_inner());
+    let errors = registry()
+        .snapshot()
+        .into_iter()
+        .filter(|error| {
+            origins
+                .get(&error.provider)
+                .is_some_and(|origin| origin.scopes.contains(&scope))
+        })
+        .collect();
+    let has_unscoped = origins.values().any(|origin| origin.unscoped);
+    (errors, has_unscoped)
+}
+
 /// Test-only: wipe the registry so a test can't be flaked by an entry an
 /// earlier test left behind (the map is process-global).
 #[cfg(any(test, debug_assertions))]
 pub fn reset_for_tests() {
     registry().clear_all();
+    origins()
+        .lock()
+        .unwrap_or_else(|error| error.into_inner())
+        .clear();
 }
 
 #[cfg(test)]

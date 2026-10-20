@@ -14,9 +14,9 @@ use std::thread;
 use std::time::Duration;
 
 #[cfg(test)]
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-#[cfg(test)]
 use std::sync::Arc;
+#[cfg(test)]
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 mod keychain;
 mod lock;

@@ -25,8 +25,8 @@ use std::sync::Arc;
 
 use openhuman_embed::__host::config::{Config, MODEL_MANAGED_DEFAULT};
 use openhuman_embed::__host::inference_registry::{
-    register_catalog, register_chat_model, register_embedding, BoxFuture, ChatModelEntry,
-    ChatModelFactory, ChatModelRequest, ReadinessProbe, PROVIDER_OPENHUMAN,
+    BoxFuture, ChatModelEntry, ChatModelFactory, ChatModelRequest, PROVIDER_OPENHUMAN,
+    ReadinessProbe, register_catalog, register_chat_model, register_embedding,
 };
 use tinyinference_llm::model::ChatModel;
 

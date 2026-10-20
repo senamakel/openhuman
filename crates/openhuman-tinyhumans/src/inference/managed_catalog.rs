@@ -10,12 +10,12 @@
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::Outcome;
 use openhuman_embed::__host::inference_registry::{
-    BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest,
-    InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
+    BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest, InspectionCatalogError,
+    InspectionCatalogListing, PreparedInspectionCatalog,
 };
 use openhuman_embed::__host::security::credentials::session_support::{
-    classify_session_token, load_app_session_profile, publish_local_session_expiry,
-    resolve_backend_credential, BackendCredential, SessionTokenCheck,
+    BackendCredential, SessionTokenCheck, classify_session_token, load_app_session_profile,
+    publish_local_session_expiry, resolve_backend_credential,
 };
 use openhuman_embed::__host::util::url::join_url;
 use std::sync::Arc;
@@ -54,8 +54,8 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
     Arc::new(|config, request| {
         Box::pin(async move {
             use openhuman_embed::__host::security::credentials::session_support::{
-                check_session_backend, classify_session_token, load_app_session_profile_read_only,
-                SessionTokenCheck,
+                SessionTokenCheck, check_session_backend, classify_session_token,
+                load_app_session_profile_read_only,
             };
 
             let profile = load_app_session_profile_read_only(&config)
@@ -89,19 +89,36 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
                         get = get.headers(headers);
                     }
                 }
-                let response = get.send().await.map_err(|_| InspectionCatalogError::Unavailable)?;
+                let response = get
+                    .send()
+                    .await
+                    .map_err(|_| InspectionCatalogError::Unavailable)?;
                 let status = response.status();
                 if status == reqwest::StatusCode::NOT_FOUND {
                     return Err(InspectionCatalogError::NoCatalog);
                 }
-                if matches!(status, reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN) {
+                if matches!(
+                    status,
+                    reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN
+                ) {
                     return Err(InspectionCatalogError::AuthOrAccess);
                 }
-                if !status.is_success() { return Err(InspectionCatalogError::Failure); }
-                let body = response.json::<serde_json::Value>().await.map_err(|_| InspectionCatalogError::Failure)?;
-                if body.get("error").is_some() { return Err(InspectionCatalogError::Failure); }
-                let models = parse_models_response(&body).map_err(|_| InspectionCatalogError::Failure)?;
-                Ok(Outcome::new(serde_json::json!({"models": models}), Vec::new()))
+                if !status.is_success() {
+                    return Err(InspectionCatalogError::Failure);
+                }
+                let body = response
+                    .json::<serde_json::Value>()
+                    .await
+                    .map_err(|_| InspectionCatalogError::Failure)?;
+                if body.get("error").is_some() {
+                    return Err(InspectionCatalogError::Failure);
+                }
+                let models =
+                    parse_models_response(&body).map_err(|_| InspectionCatalogError::Failure)?;
+                Ok(Outcome::new(
+                    serde_json::json!({"models": models}),
+                    Vec::new(),
+                ))
             });
             Ok(PreparedInspectionCatalog::new(
                 PROVIDER_OPENHUMAN,

@@ -14,19 +14,19 @@
 //! The tables know nothing about what a provider talks to. With nothing
 //! registered every consult point behaves exactly as before.
 
+use std::collections::hash_map::RandomState;
 use std::future::Future;
 use std::hash::{BuildHasher, Hash, Hasher};
 use std::pin::Pin;
 use std::sync::{Arc, OnceLock};
-use std::collections::hash_map::RandomState;
 
 use tinyinference_embeddings::EmbeddingModel;
-use tinyinference_llm::model::discover::DiscoveryRequest;
 use tinyinference_llm::model::ChatModel;
+use tinyinference_llm::model::discover::DiscoveryRequest;
 
 use crate::config::Config;
-use crate::core::slots::{Extensions, HookSlot};
 use crate::core::Outcome;
+use crate::core::slots::{Extensions, HookSlot};
 use crate::security::approval::ApprovalChatContext;
 use crate::security::egress::EgressLedger;
 
@@ -296,9 +296,7 @@ impl PreparedInspectionCatalog {
             .map(str::trim)
             .filter(|credential| !credential.is_empty());
         static IDENTITY_HASHER: OnceLock<RandomState> = OnceLock::new();
-        let mut hasher = IDENTITY_HASHER
-            .get_or_init(RandomState::new)
-            .build_hasher();
+        let mut hasher = IDENTITY_HASHER.get_or_init(RandomState::new).build_hasher();
         provider_id.hash(&mut hasher);
         normalized_url.hash(&mut hasher);
         credential.hash(&mut hasher);
@@ -323,7 +321,10 @@ impl PreparedInspectionCatalog {
 /// refreshing, publishing expiry, or modifying profile state, then freeze the
 /// credential into the returned request before the core checks its cache.
 pub type InspectionCatalogListing = Arc<
-    dyn Fn(Config, CatalogRequest) -> BoxFuture<Result<PreparedInspectionCatalog, InspectionCatalogError>>
+    dyn Fn(
+            Config,
+            CatalogRequest,
+        ) -> BoxFuture<Result<PreparedInspectionCatalog, InspectionCatalogError>>
         + Send
         + Sync,
 >;

@@ -18,13 +18,13 @@
 use std::path::PathBuf;
 use std::time::Duration;
 
+use tinyinference_llm::Error as TiError;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::{ChatModel, Modalities, ModelProfile, ModelRequest, ProviderError};
-use tinyinference_llm::providers::openai::OpenAiModel;
 use tinyinference_llm::providers::ProviderRequestOptions;
-use tinyinference_llm::Error as TiError;
+use tinyinference_llm::providers::openai::OpenAiModel;
 
-use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_embed::__host::security::credentials::{APP_SESSION_PROVIDER, AuthService};
 
 use super::managed_session::managed_bearer;
 use crate::backend::url::effective_api_url;

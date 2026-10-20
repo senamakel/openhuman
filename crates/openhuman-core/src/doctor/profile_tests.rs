@@ -7,7 +7,7 @@ use tempfile::TempDir;
 
 use crate::config::Config;
 use crate::doctor::profile::{
-    load_desktop_profile, resolve_desktop_profile_for_doctor, DesktopProfileError,
+    DesktopProfileError, load_desktop_profile, resolve_desktop_profile_for_doctor,
 };
 use crate::doctor::{
     DoctorCheck, DoctorCheckSource, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier,
@@ -15,8 +15,8 @@ use crate::doctor::{
 };
 use crate::profiles::ProfileLayout;
 use crate::security::credentials::{
-    session_support::get_session_token, AuthService, APP_SESSION_PROVIDER,
-    DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+    session_support::get_session_token,
 };
 
 fn config_for(layout: &ProfileLayout) -> Config {
@@ -125,8 +125,8 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
 }
 
 #[tokio::test]
-async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_auth_store(
-) -> Result<(), String> {
+async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_auth_store()
+-> Result<(), String> {
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let _workspace_override = WorkspaceOverrideGuard::clear();
     let temp = TempDir::new().unwrap();
@@ -554,11 +554,13 @@ async fn selected_profile_applies_in_memory_legacy_migrations_without_saving_the
         selected.config.inference_url.as_deref(),
         Some("https://custom.example/v1/chat/completions")
     );
-    assert!(selected
-        .config
-        .load_diagnostics()
-        .migrated_keys
-        .contains(&"api_url".to_string()));
+    assert!(
+        selected
+            .config
+            .load_diagnostics()
+            .migrated_keys
+            .contains(&"api_url".to_string())
+    );
     assert_eq!(
         tokio::fs::read_to_string(&layout.config_path)
             .await

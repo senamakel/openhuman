@@ -8,8 +8,8 @@
 //! obtained — that is the host's business.
 
 use crate::config::{
-    default_root_openhuman_dir, pre_login_user_dir, read_active_user_id, user_openhuman_dir,
-    write_active_user_id, Config,
+    Config, default_root_openhuman_dir, pre_login_user_dir, read_active_user_id,
+    user_openhuman_dir, write_active_user_id,
 };
 use crate::core::runtime::DispatchCtx;
 use crate::threads::store as conversations;

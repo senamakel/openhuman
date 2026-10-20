@@ -24,9 +24,10 @@ pub use http_creds::{
 pub use jwt::user_id_from_profile_payload;
 pub use ops as rpc;
 pub use ops::*;
+pub use profiles::{AuthProfile, AuthProfileKind, TokenSet};
 // Direct-mode (BYO Composio API key) credential helpers.
 pub use ops::{
-    clear_composio_api_key, get_composio_api_key, store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
+    COMPOSIO_DIRECT_PROVIDER, clear_composio_api_key, get_composio_api_key, store_composio_api_key,
 };
 pub use schemas::{
     all_controller_schemas as all_credentials_controller_schemas,

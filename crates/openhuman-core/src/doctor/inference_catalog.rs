@@ -14,11 +14,14 @@ use crate::doctor::{
     core::{ModelProbeEntry, ModelProbeOutcome, ModelProbeReport, ModelProbeSummary},
 };
 use crate::inference::registry::{
-    inspection_catalog, CatalogRequest, InspectionCatalogError, PreparedInspectionCatalog,
+    CatalogRequest, InspectionCatalogError, PreparedInspectionCatalog, inspection_catalog,
 };
 
 const CACHE_TTL: Duration = Duration::from_secs(60);
-type CachedCatalog = (Instant, Result<(serde_json::Value, Vec<String>), InspectionCatalogError>);
+type CachedCatalog = (
+    Instant,
+    Result<(serde_json::Value, Vec<String>), InspectionCatalogError>,
+);
 static CATALOG_CACHE: LazyLock<Mutex<HashMap<u64, CachedCatalog>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 static CACHE_HASHER: LazyLock<std::collections::hash_map::RandomState> =
@@ -36,14 +39,21 @@ fn scope_key(config: &crate::config::Config) -> String {
         .as_ref()
         .and_then(|context| context.workspace_dir().ok())
         .unwrap_or_else(|| config.workspace_dir.clone());
-    format!("{}\u{1f}{}", config.config_path.display(), workspace.display())
+    format!(
+        "{}\u{1f}{}",
+        config.config_path.display(),
+        workspace.display()
+    )
 }
 
 fn configured_entries(config: &crate::config::Config) -> Vec<CloudProviderCreds> {
     let mut entries = config.cloud_providers.clone();
     // The managed route is a configured model source even though it is not a
     // BYOK row in cloud_providers.
-    if config.default_model.as_deref().is_some_and(|model| model.starts_with("openhuman/"))
+    if config
+        .default_model
+        .as_deref()
+        .is_some_and(|model| model.starts_with("openhuman/"))
         && !entries.iter().any(|entry| entry.slug == "openhuman")
     {
         entries.push(CloudProviderCreds {
@@ -58,13 +68,17 @@ fn configured_entries(config: &crate::config::Config) -> Vec<CloudProviderCreds>
     entries
 }
 
-fn readonly_credential(config: &crate::config::Config, entry: &CloudProviderCreds) -> Option<String> {
+fn readonly_credential(
+    config: &crate::config::Config,
+    entry: &CloudProviderCreds,
+) -> Option<String> {
     if entry.auth_style == AuthStyle::None || entry.auth_style == AuthStyle::OpenhumanJwt {
         return None;
     }
     let key = crate::inference::provider::factory::auth_key_for_slug(&entry.slug);
-    let profile = crate::security::credentials::AuthService::get_profile_read_only(config, &key, None)
-        .ok()??;
+    let profile =
+        crate::security::credentials::AuthService::get_profile_read_only(config, &key, None)
+            .ok()??;
     let token = match profile.kind {
         crate::security::credentials::AuthProfileKind::Token => profile.token,
         crate::security::credentials::AuthProfileKind::OAuth => profile.token_set.and_then(|set| {
@@ -74,10 +88,24 @@ fn readonly_credential(config: &crate::config::Config, entry: &CloudProviderCred
     token.filter(|token| !token.trim().is_empty())
 }
 
-async fn prepare(config: &crate::config::Config, entry: &CloudProviderCreds) -> Result<PreparedInspectionCatalog, InspectionCatalogError> {
+async fn prepare(
+    config: &crate::config::Config,
+    entry: &CloudProviderCreds,
+) -> Result<PreparedInspectionCatalog, InspectionCatalogError> {
     if let Some(listing) = inspection_catalog(&entry.slug) {
-        let client = crate::config::build_runtime_proxy_client_with_timeouts("providers.list_models", 30, 10);
-        return listing(config.clone(), CatalogRequest { provider_key: String::new(), client }).await;
+        let client = crate::config::build_runtime_proxy_client_with_timeouts(
+            "providers.list_models",
+            30,
+            10,
+        );
+        return listing(
+            config.clone(),
+            CatalogRequest {
+                provider_key: String::new(),
+                client,
+            },
+        )
+        .await;
     }
     if entry.auth_style == AuthStyle::OpenhumanJwt {
         return Err(InspectionCatalogError::Unavailable);
@@ -90,10 +118,21 @@ async fn prepare(config: &crate::config::Config, entry: &CloudProviderCreds) -> 
         return Err(InspectionCatalogError::NoCatalog);
     }
     let token = readonly_credential(config, entry);
-    let client = match config.cloud_provider_ca_certs.get(entry.slug.trim()).filter(|pem| !pem.is_empty()) {
-        Some(pem) => crate::util::tls::client_with_ca_bundle_with_timeouts(pem, "providers.list_models", 30, 10)
-            .map_err(|_| InspectionCatalogError::Unavailable)?,
-        None => crate::config::build_runtime_proxy_client_with_timeouts("providers.list_models", 30, 10),
+    let client = match config
+        .cloud_provider_ca_certs
+        .get(entry.slug.trim())
+        .filter(|pem| !pem.is_empty())
+    {
+        Some(pem) => crate::util::tls::client_with_ca_bundle_with_timeouts(
+            pem,
+            "providers.list_models",
+            30,
+            10,
+        )
+        .map_err(|_| InspectionCatalogError::Unavailable)?,
+        None => {
+            crate::config::build_runtime_proxy_client_with_timeouts("providers.list_models", 30, 10)
+        }
     };
     let provider = entry.slug.clone();
     let auth_style = entry.auth_style;
@@ -109,32 +148,68 @@ async fn prepare(config: &crate::config::Config, entry: &CloudProviderCreds) -> 
                 AuthStyle::None | AuthStyle::OpenhumanJwt => request,
             };
         }
-        let response = request.send().await.map_err(|_| InspectionCatalogError::Unavailable)?;
+        let response = request
+            .send()
+            .await
+            .map_err(|_| InspectionCatalogError::Unavailable)?;
         let status = response.status();
         if status == reqwest::StatusCode::NOT_FOUND {
             return Err(InspectionCatalogError::NoCatalog);
         }
-        if matches!(status, reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN) {
+        if matches!(
+            status,
+            reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN
+        ) {
             return Err(InspectionCatalogError::AuthOrAccess);
         }
-        if !status.is_success() { return Err(InspectionCatalogError::Failure); }
-        let body = response.json::<serde_json::Value>().await.map_err(|_| InspectionCatalogError::Failure)?;
-        let models = tinyinference_llm::catalog::parse_models_response(&body).map_err(|_| InspectionCatalogError::Failure)?;
-        Ok(Outcome::new(serde_json::json!({"models": models}), Vec::new()))
+        if !status.is_success() {
+            return Err(InspectionCatalogError::Failure);
+        }
+        let body = response
+            .json::<serde_json::Value>()
+            .await
+            .map_err(|_| InspectionCatalogError::Failure)?;
+        let models = tinyinference_llm::catalog::parse_models_response(&body)
+            .map_err(|_| InspectionCatalogError::Failure)?;
+        Ok(Outcome::new(
+            serde_json::json!({"models": models}),
+            Vec::new(),
+        ))
     });
-    Ok(PreparedInspectionCatalog::new(&provider, url.as_str(), token.as_deref(), fetch))
+    Ok(PreparedInspectionCatalog::new(
+        &provider,
+        url.as_str(),
+        token.as_deref(),
+        fetch,
+    ))
 }
 
-async fn catalog_for(config: &crate::config::Config, entry: &CloudProviderCreds, use_cache: bool) -> Result<(serde_json::Value, Vec<String>), InspectionCatalogError> {
+async fn catalog_for(
+    config: &crate::config::Config,
+    entry: &CloudProviderCreds,
+    use_cache: bool,
+) -> Result<(serde_json::Value, Vec<String>), InspectionCatalogError> {
     let prepared = prepare(config, entry).await?;
     let cache_key = hash_key(&(scope_key(config), entry.slug.clone(), prepared.identity()));
     if use_cache {
-        if let Some((at, result)) = CATALOG_CACHE.lock().unwrap_or_else(|e| e.into_inner()).get(&cache_key) {
-            if at.elapsed() < CACHE_TTL { return result.clone(); }
+        if let Some((at, result)) = CATALOG_CACHE
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&cache_key)
+        {
+            if at.elapsed() < CACHE_TTL {
+                return result.clone();
+            }
         }
     }
-    let result = prepared.fetch().await.map(|outcome| (outcome.value, outcome.logs));
-    CATALOG_CACHE.lock().unwrap_or_else(|e| e.into_inner()).insert(cache_key, (Instant::now(), result.clone()));
+    let result = prepared
+        .fetch()
+        .await
+        .map(|outcome| (outcome.value, outcome.logs));
+    CATALOG_CACHE
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(cache_key, (Instant::now(), result.clone()));
     result
 }
 
@@ -143,50 +218,156 @@ pub async fn doctor_models(config: &crate::config::Config, use_cache: bool) -> M
     for provider in configured_entries(config) {
         let (outcome, message) = match catalog_for(config, &provider, use_cache).await {
             Ok((value, _)) => {
-                let models = value.get("models").and_then(serde_json::Value::as_array).cloned().unwrap_or_default();
-                (ModelProbeOutcome::Ok, Some(format!("Catalog returned {} models.", models.len())))
+                let models = value
+                    .get("models")
+                    .and_then(serde_json::Value::as_array)
+                    .cloned()
+                    .unwrap_or_default();
+                (
+                    ModelProbeOutcome::Ok,
+                    Some(format!("Catalog returned {} models.", models.len())),
+                )
             }
-            Err(InspectionCatalogError::AuthOrAccess) => (ModelProbeOutcome::AuthOrAccess, Some("Catalog access was rejected.".into())),
-            Err(InspectionCatalogError::NoCatalog) => (ModelProbeOutcome::Skipped, Some("Provider does not expose a models catalog.".into())),
-            Err(InspectionCatalogError::Unavailable) => (ModelProbeOutcome::Skipped, Some("A safe read-only catalog is unavailable.".into())),
-            Err(InspectionCatalogError::Failure) => (ModelProbeOutcome::Error, Some("Catalog request failed.".into())),
+            Err(InspectionCatalogError::AuthOrAccess) => (
+                ModelProbeOutcome::AuthOrAccess,
+                Some("Catalog access was rejected.".into()),
+            ),
+            Err(InspectionCatalogError::NoCatalog) => (
+                ModelProbeOutcome::Skipped,
+                Some("Provider does not expose a models catalog.".into()),
+            ),
+            Err(InspectionCatalogError::Unavailable) => (
+                ModelProbeOutcome::Skipped,
+                Some("A safe read-only catalog is unavailable.".into()),
+            ),
+            Err(InspectionCatalogError::Failure) => (
+                ModelProbeOutcome::Error,
+                Some("Catalog request failed.".into()),
+            ),
         };
-        entries.push(ModelProbeEntry { provider: provider.slug, outcome, message });
+        entries.push(ModelProbeEntry {
+            provider: provider.slug,
+            outcome,
+            message,
+        });
     }
     ModelProbeReport {
         summary: ModelProbeSummary {
-            ok: entries.iter().filter(|e| e.outcome == ModelProbeOutcome::Ok).count(),
-            skipped: entries.iter().filter(|e| e.outcome == ModelProbeOutcome::Skipped).count(),
-            auth_or_access: entries.iter().filter(|e| e.outcome == ModelProbeOutcome::AuthOrAccess).count(),
-            errors: entries.iter().filter(|e| e.outcome == ModelProbeOutcome::Error).count(),
-        }, entries,
+            ok: entries
+                .iter()
+                .filter(|e| e.outcome == ModelProbeOutcome::Ok)
+                .count(),
+            skipped: entries
+                .iter()
+                .filter(|e| e.outcome == ModelProbeOutcome::Skipped)
+                .count(),
+            auth_or_access: entries
+                .iter()
+                .filter(|e| e.outcome == ModelProbeOutcome::AuthOrAccess)
+                .count(),
+            errors: entries
+                .iter()
+                .filter(|e| e.outcome == ModelProbeOutcome::Error)
+                .count(),
+        },
+        entries,
     }
 }
 
 pub(crate) struct ModelInCatalog;
 #[async_trait]
 impl DoctorCheck for ModelInCatalog {
-    fn id(&self) -> &str { "inference/model-in-catalog" }
-    fn category(&self) -> &str { "inference" }
-    fn tier(&self) -> DoctorTier { DoctorTier::Connect }
-    fn is_blocking(&self) -> bool { false }
+    fn id(&self) -> &str {
+        "inference/model-in-catalog"
+    }
+    fn category(&self) -> &str {
+        "inference"
+    }
+    fn tier(&self) -> DoctorTier {
+        DoctorTier::Connect
+    }
+    fn is_blocking(&self) -> bool {
+        false
+    }
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let entries = configured_entries(ctx.config());
-        if entries.is_empty() { return vec![Finding::skipped(self.id(), "No configured inference catalog is available.", "Configure a model provider and rerun doctor.")]; }
+        if entries.is_empty() {
+            return vec![Finding::skipped(
+                self.id(),
+                "No configured inference catalog is available.",
+                "Configure a model provider and rerun doctor.",
+            )];
+        }
         let mut findings = Vec::new();
         for entry in entries {
             let catalog = match catalog_for(ctx.config(), &entry, true).await {
-                Ok((value, _)) => value.get("models").and_then(serde_json::Value::as_array).cloned().unwrap_or_default(),
-                Err(InspectionCatalogError::NoCatalog) => { findings.push(Finding::skipped(self.id(), "Provider has no model catalog route.", "Choose a provider with a read-only models route.")); continue; }
-                Err(InspectionCatalogError::Unavailable) => { findings.push(Finding::skipped(self.id(), "Safe read-only model catalog is unavailable.", "Reconnect the provider or use doctor.models for details.")); continue; }
-                Err(InspectionCatalogError::AuthOrAccess) => { findings.push(Finding::new(self.id(), FindingSeverity::Warn, "Provider rejected catalog access.", "Check the selected provider credentials.")); continue; }
-                Err(InspectionCatalogError::Failure) => { findings.push(Finding::new(self.id(), FindingSeverity::Warn, "Provider catalog could not be read.", "Check provider availability and rerun doctor.")); continue; }
+                Ok((value, _)) => value
+                    .get("models")
+                    .and_then(serde_json::Value::as_array)
+                    .cloned()
+                    .unwrap_or_default(),
+                Err(InspectionCatalogError::NoCatalog) => {
+                    findings.push(Finding::skipped(
+                        self.id(),
+                        "Provider has no model catalog route.",
+                        "Choose a provider with a read-only models route.",
+                    ));
+                    continue;
+                }
+                Err(InspectionCatalogError::Unavailable) => {
+                    findings.push(Finding::skipped(
+                        self.id(),
+                        "Safe read-only model catalog is unavailable.",
+                        "Reconnect the provider or use doctor.models for details.",
+                    ));
+                    continue;
+                }
+                Err(InspectionCatalogError::AuthOrAccess) => {
+                    findings.push(Finding::new(
+                        self.id(),
+                        FindingSeverity::Warn,
+                        "Provider rejected catalog access.",
+                        "Check the selected provider credentials.",
+                    ));
+                    continue;
+                }
+                Err(InspectionCatalogError::Failure) => {
+                    findings.push(Finding::new(
+                        self.id(),
+                        FindingSeverity::Warn,
+                        "Provider catalog could not be read.",
+                        "Check provider availability and rerun doctor.",
+                    ));
+                    continue;
+                }
             };
-            let ids = catalog.iter().filter_map(|model| model.get("id").and_then(serde_json::Value::as_str)).collect::<Vec<_>>();
+            let ids = catalog
+                .iter()
+                .filter_map(|model| model.get("id").and_then(serde_json::Value::as_str))
+                .collect::<Vec<_>>();
             let selected = selected_models(ctx.config());
-            for (path, model) in selected.iter().filter(|(_, model)| model.starts_with(&format!("{}:", entry.slug))).map(|(path, model)| (path.as_str(), model.split_once(':').map(|(_, model)| model).unwrap_or(model.as_str()))) {
+            for (path, model) in selected
+                .iter()
+                .filter(|(_, model)| model.starts_with(&format!("{}:", entry.slug)))
+                .map(|(path, model)| {
+                    (
+                        path.as_str(),
+                        model
+                            .split_once(':')
+                            .map(|(_, model)| model)
+                            .unwrap_or(model.as_str()),
+                    )
+                })
+            {
                 if !ids.iter().any(|id| *id == model) {
-                    let mut finding = Finding::new(self.id(), FindingSeverity::Warn, format!("Configured model at {path} is not present in the provider catalog."), "Choose a model listed by the provider or update this route.");
+                    let mut finding = Finding::new(
+                        self.id(),
+                        FindingSeverity::Warn,
+                        format!(
+                            "Configured model at {path} is not present in the provider catalog."
+                        ),
+                        "Choose a model listed by the provider or update this route.",
+                    );
                     finding.config_path = Some(path.to_owned());
                     findings.push(finding);
                 }
@@ -198,7 +379,9 @@ impl DoctorCheck for ModelInCatalog {
 
 fn selected_models(config: &crate::config::Config) -> Vec<(String, String)> {
     let mut models = Vec::new();
-    if let Some(model) = &config.default_model { models.push(("default_model", model.clone())); }
+    if let Some(model) = &config.default_model {
+        models.push(("default_model", model.clone()));
+    }
     for (index, route) in config.model_routes.iter().enumerate() {
         models.push((format!("model_routes[{index}].model"), route.model.clone()));
     }
@@ -208,17 +391,47 @@ fn selected_models(config: &crate::config::Config) -> Vec<(String, String)> {
 pub(crate) struct AuthErrors;
 #[async_trait]
 impl DoctorCheck for AuthErrors {
-    fn id(&self) -> &str { "inference/auth-errors" }
-    fn category(&self) -> &str { "inference" }
-    fn tier(&self) -> DoctorTier { DoctorTier::Connect }
-    fn is_blocking(&self) -> bool { false }
-    async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
+    fn id(&self) -> &str {
+        "inference/auth-errors"
+    }
+    fn category(&self) -> &str {
+        "inference"
+    }
+    fn tier(&self) -> DoctorTier {
+        DoctorTier::Connect
+    }
+    fn is_blocking(&self) -> bool {
+        false
+    }
+    async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let mut findings = Vec::new();
-        for error in crate::inference::auth_error_registry::snapshot() {
-            findings.push(Finding::new(self.id(), FindingSeverity::Error, format!("Provider {} has a recorded authentication error.", error.provider), "Update or reconnect this provider's credentials."));
+        let (errors, has_unscoped) = crate::inference::auth_error_registry::snapshot_for_scope(
+            &ctx.config().workspace_dir,
+            ctx.profile(),
+        );
+        for error in errors {
+            findings.push(Finding::new(
+                self.id(),
+                FindingSeverity::Error,
+                format!(
+                    "Provider {} has a recorded authentication error.",
+                    error.provider
+                ),
+                "Update or reconnect this provider's credentials.",
+            ));
+        }
+        if has_unscoped {
+            findings.push(Finding::new(
+                self.id(),
+                FindingSeverity::Info,
+                "A provider authentication error was recorded outside a known inspection scope.",
+                "Rerun doctor after reproducing the issue in the selected profile.",
+            ));
         }
         findings
     }
 }
 
-pub(crate) fn built_in_checks() -> Vec<Arc<dyn DoctorCheck>> { vec![Arc::new(ModelInCatalog), Arc::new(AuthErrors)] }
+pub(crate) fn built_in_checks() -> Vec<Arc<dyn DoctorCheck>> {
+    vec![Arc::new(ModelInCatalog), Arc::new(AuthErrors)]
+}

@@ -67,7 +67,9 @@ pub fn registered_checks_for(ctx: &DoctorCtx) -> Result<Vec<Arc<dyn DoctorCheck>
     validate_check_ids(checks)
 }
 
-fn validate_check_ids(checks: Vec<Arc<dyn DoctorCheck>>) -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
+fn validate_check_ids(
+    checks: Vec<Arc<dyn DoctorCheck>>,
+) -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
     let mut ids = HashSet::with_capacity(checks.len());
     for check in &checks {
         let id = check.id();
@@ -75,7 +77,9 @@ fn validate_check_ids(checks: Vec<Arc<dyn DoctorCheck>>) -> Result<Vec<Arc<dyn D
             return Err("doctor/selection is reserved by the runner".into());
         }
         if !valid_check_id(id) {
-            return Err(format!("doctor check id must use lowercase area/name form: {id}"));
+            return Err(format!(
+                "doctor check id must use lowercase area/name form: {id}"
+            ));
         }
         if !ids.insert(id.to_owned()) {
             return Err(format!("duplicate doctor check id: {id}"));

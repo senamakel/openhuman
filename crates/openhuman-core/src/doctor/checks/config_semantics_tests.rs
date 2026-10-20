@@ -67,9 +67,7 @@ async fn disabled_mcp_component_warns_when_servers_are_configured() {
     let findings = run_check(config, "components/referenced-but-disabled").await;
 
     assert_eq!(
-        finding(&findings, FindingSeverity::Warn)
-            .config_path
-            .as_deref(),
+        finding(&findings, FindingSeverity::Warn).config_path.as_deref(),
         Some("mcp_client.servers")
     );
 }
@@ -88,9 +86,7 @@ async fn disabled_channels_component_warns_when_a_provider_is_configured() {
     let findings = run_check(config, "components/referenced-but-disabled").await;
 
     assert_eq!(
-        finding(&findings, FindingSeverity::Warn)
-            .config_path
-            .as_deref(),
+        finding(&findings, FindingSeverity::Warn).config_path.as_deref(),
         Some("channels_config")
     );
 }
@@ -107,9 +103,7 @@ async fn disabled_voice_component_warns_when_a_provider_is_configured() {
     let findings = run_check(config, "components/referenced-but-disabled").await;
 
     assert_eq!(
-        finding(&findings, FindingSeverity::Warn)
-            .config_path
-            .as_deref(),
+        finding(&findings, FindingSeverity::Warn).config_path.as_deref(),
         Some("voice_providers")
     );
 }
@@ -130,9 +124,7 @@ async fn missing_storage_driver_is_reported_without_opening_the_backend() {
         assert!(!error.message.contains("db.internal"));
     }
     #[cfg(feature = "storage-mongodb")]
-    assert!(findings
-        .iter()
-        .any(|finding| finding.severity == FindingSeverity::Pass));
+    assert!(findings.iter().any(|finding| finding.severity == FindingSeverity::Pass));
 }
 
 #[tokio::test]
@@ -163,9 +155,7 @@ async fn action_directory_without_write_access_is_an_error() {
     std::fs::set_permissions(dir.path(), original_permissions).unwrap();
 
     assert_eq!(
-        finding(&findings, FindingSeverity::Error)
-            .config_path
-            .as_deref(),
+        finding(&findings, FindingSeverity::Error).config_path.as_deref(),
         Some("action_dir")
     );
     #[cfg(unix)]
@@ -182,9 +172,7 @@ async fn missing_action_directory_is_reported_without_creating_it() {
     let findings = run_check(config, "workspace/action-dir").await;
 
     assert_eq!(
-        finding(&findings, FindingSeverity::Error)
-            .config_path
-            .as_deref(),
+        finding(&findings, FindingSeverity::Error).config_path.as_deref(),
         Some("action_dir")
     );
     assert!(!action_dir.exists());
@@ -210,9 +198,7 @@ async fn both_master_key_environment_sources_are_reported_without_initializing_k
 
     let error = finding(&findings, FindingSeverity::Error);
     assert!(!error.message.contains("do-not-read-inline"));
-    assert!(!error
-        .message
-        .contains(&supplied_key_file.display().to_string()));
+    assert!(!error.message.contains(&supplied_key_file.display().to_string()));
     assert_eq!(workspace_entries(workspace.path()), entries_before);
     assert!(!supplied_key_file.exists());
     assert!(!workspace.path().join("keyring/master.key").exists());

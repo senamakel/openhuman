@@ -38,7 +38,7 @@ fn validate(config: &Config) -> Vec<Finding> {
     }
 
     let local_model = config.workload_local_model("embeddings");
-    let active_route = if local_model.is_none() {
+    let active_route_index = if local_model.is_none() {
         config
             .memory
             .embedding_model
@@ -48,11 +48,14 @@ fn validate(config: &Config) -> Vec<Finding> {
                 config
                     .embedding_routes
                     .iter()
-                    .find(|route| route.hint.trim() == hint.trim())
+                    .enumerate()
+                    .find(|(_, route)| route.hint.trim() == hint.trim())
+                    .map(|(index, _)| index)
             })
     } else {
         None
     };
+    let active_route = active_route_index.and_then(|index| config.embedding_routes.get(index));
     let (effective_provider, effective_model, effective_dimensions) =
         tinyinference_embeddings::catalog::effective_embedding_settings(
             &config.memory.embedding_provider,
@@ -62,18 +65,19 @@ fn validate(config: &Config) -> Vec<Finding> {
         );
     let (provider, model, dimensions, provider_path, model_path, dimensions_path) =
         if let Some(route) = active_route {
+            let route_path = format!("embedding_routes[{}]", active_route_index.unwrap());
             (
                 route.provider.clone(),
                 route.model.clone(),
                 route
                     .dimensions
                     .unwrap_or(config.memory.embedding_dimensions),
-                "embedding_routes.active.provider",
-                "embedding_routes.active.model",
+                format!("{route_path}.provider"),
+                format!("{route_path}.model"),
                 if route.dimensions.is_some() {
-                    "embedding_routes.active.dimensions"
+                    format!("{route_path}.dimensions")
                 } else {
-                    "memory.embedding_dimensions"
+                    "memory.embedding_dimensions".to_owned()
                 },
             )
         } else {
@@ -81,12 +85,12 @@ fn validate(config: &Config) -> Vec<Finding> {
                 effective_provider,
                 effective_model,
                 effective_dimensions,
-                "memory.embedding_provider",
-                "memory.embedding_model",
+                "memory.embedding_provider".to_owned(),
+                "memory.embedding_model".to_owned(),
                 if local_model.is_some() {
-                    "embeddings_provider"
+                    "embeddings_provider".to_owned()
                 } else {
-                    "memory.embedding_dimensions"
+                    "memory.embedding_dimensions".to_owned()
                 },
             )
         };
@@ -95,7 +99,7 @@ fn validate(config: &Config) -> Vec<Finding> {
 
     if tinyinference_embeddings::catalog::find_provider(provider_slug).is_none() {
         findings.push(invalid(
-            provider_path,
+            &provider_path,
             "The configured embedding provider is not supported by this build.",
             "Select a supported embedding provider and rerun doctor.",
         ));
@@ -103,7 +107,7 @@ fn validate(config: &Config) -> Vec<Finding> {
 
     if model.trim().is_empty() {
         findings.push(invalid(
-            model_path,
+            &model_path,
             "The configured embedding model is missing.",
             "Set an embedding model for the selected provider and rerun doctor.",
         ));
@@ -111,7 +115,7 @@ fn validate(config: &Config) -> Vec<Finding> {
 
     if dimensions == 0 {
         findings.push(invalid(
-            dimensions_path,
+            &dimensions_path,
             "The selected embedding model has no usable vector dimensions.",
             "Choose a model with known dimensions or configure a positive vector width.",
         ));
@@ -120,18 +124,13 @@ fn validate(config: &Config) -> Vec<Finding> {
         && !preset.allowed_dimensions.contains(&dimensions)
     {
         findings.push(invalid(
-            dimensions_path,
+            &dimensions_path,
             "The configured vector dimensions do not match the selected embedding model.",
             "Set a dimension supported by the selected embedding model and rerun doctor.",
         ));
     }
 
-    if provider_slug == "custom"
-        && !provider.starts_with("custom:")
-        && config
-            .custom_embeddings
-            .as_ref()
-            .is_none_or(|custom| custom.endpoint.trim().is_empty())
+    if provider_slug == "custom" && !custom_endpoint_is_configured(config, &provider)
     {
         findings.push(invalid(
             "custom_embeddings.endpoint",
@@ -178,6 +177,13 @@ fn validate(config: &Config) -> Vec<Finding> {
                 "Select a supported embedding provider for this route.",
             ));
         }
+        if route_provider == "custom" && !custom_endpoint_is_configured(config, &route.provider) {
+            findings.push(invalid(
+                &format!("{path}.provider"),
+                "A custom embedding route has no configured endpoint.",
+                "Set a custom endpoint for this embedding route.",
+            ));
+        }
         if let Some(preset) = tinyinference_embeddings::catalog::find_model(
             route_provider,
             route.model.trim(),
@@ -191,15 +197,6 @@ fn validate(config: &Config) -> Vec<Finding> {
             ));
         }
 
-        if config.memory.embedding_model.trim() == format!("hint:{}", route.hint.trim()) {
-            if route.provider.trim().is_empty() {
-                findings.push(invalid(
-                    &format!("{path}.provider"),
-                    "The active embedding route has no provider.",
-                    "Set a supported provider for the active embedding route.",
-                ));
-            }
-        }
     }
 
     if active_route.is_none() {
@@ -227,6 +224,13 @@ fn validate(config: &Config) -> Vec<Finding> {
         }
     }
 
+    let mut seen_paths = std::collections::HashSet::new();
+    findings.retain(|finding| {
+        finding
+            .config_path
+            .as_ref()
+            .is_none_or(|path| seen_paths.insert(path.clone()))
+    });
     findings
 }
 
@@ -234,8 +238,19 @@ fn normalized_provider_slug(provider: &str) -> &str {
     match provider.trim() {
         "cloud" | "openhuman" => "managed",
         provider if provider.starts_with("custom:") => "custom",
+        provider if provider.starts_with("ollama:") => "ollama",
         other => other,
     }
+}
+
+fn custom_endpoint_is_configured(config: &Config, provider: &str) -> bool {
+    provider
+        .strip_prefix("custom:")
+        .is_some_and(|endpoint| !endpoint.trim().is_empty())
+        || config
+            .custom_embeddings
+            .as_ref()
+            .is_some_and(|custom| !custom.endpoint.trim().is_empty())
 }
 
 fn normalize_provider(provider: &str) -> &str {

@@ -98,7 +98,7 @@ async fn active_embedding_route_must_match_memory_provider_and_dimensions() {
         hint: "recall".to_owned(),
         provider: "openai".to_owned(),
         model: "text-embedding-3-small".to_owned(),
-        dimensions: Some(512),
+        dimensions: Some(1024),
     }];
 
     let findings = run_only(config).await;
@@ -110,10 +110,21 @@ async fn active_embedding_route_must_match_memory_provider_and_dimensions() {
 
     assert!(
         paths.contains(&"embedding_routes[0].dimensions"),
-        "missing active route dimension mismatch: {findings:#?}"
+        "missing unsupported active route dimension finding: {findings:#?}"
     );
-    assert!(
-        paths.contains(&"embedding_routes[0].provider"),
-        "missing active route provider mismatch: {findings:#?}"
-    );
+}
+
+#[tokio::test]
+async fn embedding_workload_model_must_match_memory_model() {
+    let mut config = Config::default();
+    config.memory.embedding_provider = "openai".to_owned();
+    config.memory.embedding_model = "text-embedding-3-large".to_owned();
+    config.memory.embedding_dimensions = 3072;
+    config.embeddings_provider = Some("openai:text-embedding-3-small".to_owned());
+
+    let findings = run_only(config).await;
+    let result = finding(&findings);
+
+    assert_eq!(result.severity, FindingSeverity::Error);
+    assert_eq!(result.config_path.as_deref(), Some("embeddings_provider"));
 }

@@ -71,9 +71,15 @@ async fn typed_parse_error_reports_field_path_and_backup_fallback_safely() {
 
     let error = finding(&findings, FindingSeverity::Error);
     assert_eq!(error.config_path.as_deref(), Some("memory.engine"));
-    assert!(error.message.to_ascii_lowercase().contains("backup"), "{}", error.message);
+    assert!(
+        error.message.to_ascii_lowercase().contains("backup"),
+        "{}",
+        error.message
+    );
     assert!(!error.message.contains("837465"));
-    assert!(!error.message.contains(&directory.path().display().to_string()));
+    assert!(!error
+        .message
+        .contains(&directory.path().display().to_string()));
 }
 
 #[tokio::test]

@@ -69,10 +69,7 @@ impl SearchProviderCheck {
     }
 
     #[cfg(test)]
-    pub(super) fn with_resolver(
-        provider: &str,
-        resolver: Arc<dyn SearchProviderResolver>,
-    ) -> Self {
+    pub(super) fn with_resolver(provider: &str, resolver: Arc<dyn SearchProviderResolver>) -> Self {
         Self::configured(provider, resolver)
     }
 
@@ -99,18 +96,27 @@ impl SearchProviderCheck {
             ProviderStatus::NeedsKey => Finding::new(
                 &self.id,
                 FindingSeverity::Warn,
-                format!("The {} search provider needs a direct API key.", self.provider),
+                format!(
+                    "The {} search provider needs a direct API key.",
+                    self.provider
+                ),
                 format!("Set {} and rerun doctor.", direct_key_path(&self.provider)),
             ),
             ProviderStatus::SignInRequired => Finding::new(
                 &self.id,
                 FindingSeverity::Warn,
-                format!("The managed {} search route needs an active backend credential.", self.provider),
+                format!(
+                    "The managed {} search route needs an active backend credential.",
+                    self.provider
+                ),
                 "Sign in to the selected backend, then rerun doctor.",
             ),
             ProviderStatus::Disabled => Finding::skipped(
                 &self.id,
-                format!("The {} search provider is disabled in the selected config.", self.provider),
+                format!(
+                    "The {} search provider is disabled in the selected config.",
+                    self.provider
+                ),
                 "Enable the provider in Search settings to inspect its readiness.",
             ),
             ProviderStatus::SearchOff => Finding::skipped(
@@ -159,11 +165,12 @@ fn direct_key_path(provider: &str) -> String {
 /// token.
 fn managed_credential_available(config: &Config) -> bool {
     use crate::security::credentials::{
-        AuthService, api_key,
+        api_key,
         session_support::{
-            APP_SESSION_PROVIDER, SessionTokenCheck, check_session_backend,
-            classify_session_token, is_local_session_token,
+            check_session_backend, classify_session_token, is_local_session_token,
+            SessionTokenCheck, APP_SESSION_PROVIDER,
         },
+        AuthService,
     };
 
     if api_key::get_api_key_read_only(config)

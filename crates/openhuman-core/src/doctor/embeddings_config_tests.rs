@@ -1,6 +1,6 @@
 use crate::config::Config;
-use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use crate::doctor::runner;
+use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 
 const EMBEDDINGS_CONFIG: &str = "embeddings/config";
 

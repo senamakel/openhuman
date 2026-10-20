@@ -62,13 +62,10 @@ pub(crate) fn resolve_email_password_read_only(
         "email",
         tinychannels_bus::controllers::ChannelAuthMode::ApiKey,
     );
-    if let Ok(Some(profile)) = crate::security::credentials::AuthService::get_profile_read_only(
-        config,
-        &provider,
-        None,
-    ) {
-        if profile.metadata.get("username").map(String::as_str)
-            == Some(email_cfg.username.as_str())
+    if let Ok(Some(profile)) =
+        crate::security::credentials::AuthService::get_profile_read_only(config, &provider, None)
+    {
+        if profile.metadata.get("username").map(String::as_str) == Some(email_cfg.username.as_str())
         {
             if let Some(password) = profile.metadata.get("password") {
                 email_cfg.password = password.clone();

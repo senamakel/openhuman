@@ -4,8 +4,8 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use tinyconnectors_bus::{
-    ComposioConnectedIntegrationsResponse, ComposioConnectedIntegrationsMode,
-    ComposioListConnectedIntegrationsRequest, names::methods,
+    names::methods, ComposioConnectedIntegrationsMode, ComposioConnectedIntegrationsResponse,
+    ComposioListConnectedIntegrationsRequest,
 };
 
 use crate::config::Config;
@@ -73,14 +73,28 @@ impl ComposioCheck {
 
 #[async_trait]
 impl DoctorCheck for ComposioCheck {
-    fn id(&self) -> &str { "integrations/composio" }
-    fn category(&self) -> &str { "integrations" }
-    fn tier(&self) -> DoctorTier { DoctorTier::Connect }
-    fn component_gate(&self) -> Option<ComponentId> { Some(ComponentId::Connectors) }
+    fn id(&self) -> &str {
+        "integrations/composio"
+    }
+    fn category(&self) -> &str {
+        "integrations"
+    }
+    fn tier(&self) -> DoctorTier {
+        DoctorTier::Connect
+    }
+    fn component_gate(&self) -> Option<ComponentId> {
+        Some(ComponentId::Connectors)
+    }
 
     async fn detect(&self, ctx: &crate::doctor::DoctorCtx) -> Vec<Finding> {
-        let finding = if ctx.config().composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DISABLED {
-            Finding::skipped(self.id(), "Composio is disabled in the selected configuration.", "Enable Composio in Integrations settings to inspect it.")
+        let finding = if ctx.config().composio.mode.trim()
+            == crate::config::schema::COMPOSIO_MODE_DISABLED
+        {
+            Finding::skipped(
+                self.id(),
+                "Composio is disabled in the selected configuration.",
+                "Enable Composio in Integrations settings to inspect it.",
+            )
         } else {
             match self.probe.list_existing(ctx.config()).await {
                 Ok(Some(())) => Finding::pass(self.id(), "The existing Composio connector answered a read-only connection check."),

@@ -25,9 +25,9 @@ use std::sync::Arc;
 
 use openhuman_embed::__host::config::{Config, MODEL_MANAGED_DEFAULT};
 use openhuman_embed::__host::inference_registry::{
-    BoxFuture, ChatModelEntry, ChatModelFactory, ChatModelRequest, PROVIDER_OPENHUMAN,
-    ReadinessProbe, register_catalog, register_chat_model, register_embedding,
-    register_inspection_chat_model,
+    register_catalog, register_chat_model, register_embedding, register_inspection_chat_model,
+    BoxFuture, ChatModelEntry, ChatModelFactory, ChatModelRequest, ReadinessProbe,
+    PROVIDER_OPENHUMAN,
 };
 use tinyinference_llm::model::ChatModel;
 
@@ -84,8 +84,8 @@ fn build_chat_model_for_inspection(
     request: &ChatModelRequest<'_>,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
     use openhuman_embed::__host::security::credentials::session_support::{
-        SessionTokenCheck, check_session_backend, classify_session_token, is_local_session_token,
-        load_app_session_profile_read_only,
+        check_session_backend, classify_session_token, is_local_session_token,
+        load_app_session_profile_read_only, SessionTokenCheck,
     };
 
     let pinned = request

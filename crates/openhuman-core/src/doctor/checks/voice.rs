@@ -91,11 +91,7 @@ impl VoiceCheck {
                 "Voice support is not included in this build.",
                 "Use a build that includes the voice component to inspect speech providers.",
             ),
-            Err(issue) => Finding::error(
-                id,
-                issue_message(issue),
-                issue_hint(issue),
-            ),
+            Err(issue) => Finding::error(id, issue_message(issue), issue_hint(issue)),
         }
     }
 }
@@ -144,7 +140,9 @@ fn stt_readiness(config: &Config) -> Result<(), VoiceIssue> {
     #[cfg(feature = "voice")]
     {
         let provider = crate::voice::effective_stt_provider(config);
-        let slug = provider.split_once(':').map_or(provider.as_str(), |(slug, _)| slug);
+        let slug = provider
+            .split_once(':')
+            .map_or(provider.as_str(), |(slug, _)| slug);
         if is_hosted_slug(slug) {
             return crate::voice::factory::registry::has_stt_provider(slug)
                 .then_some(())
@@ -173,10 +171,13 @@ fn tts_readiness(config: &Config) -> Result<(), VoiceIssue> {
     #[cfg(feature = "voice")]
     {
         let provider = crate::voice::factory::effective_tts_provider(config);
-        let slug = provider.split_once(':').map_or(provider.as_str(), |(slug, _)| slug);
+        let slug = provider
+            .split_once(':')
+            .map_or(provider.as_str(), |(slug, _)| slug);
         if slug == "piper" {
             let runtime = crate::inference::local_runtime_config(config);
-            let binary = tinyinference_local::service::paths::resolve_piper_binary_with_config(&runtime);
+            let binary =
+                tinyinference_local::service::paths::resolve_piper_binary_with_config(&runtime);
             if binary.is_none() {
                 return Err(VoiceIssue::PiperBinaryMissing);
             }
@@ -208,7 +209,7 @@ fn is_hosted_slug(slug: &str) -> bool {
 }
 
 fn provider_credential_present_read_only(config: &Config, slug: &str) -> bool {
-    use crate::security::credentials::{AuthService, profiles::AuthProfileKind};
+    use crate::security::credentials::{profiles::AuthProfileKind, AuthService};
 
     let key = crate::inference::provider::factory::auth_key_for_slug(slug);
     for provider in [key.as_str(), slug] {
@@ -247,8 +248,12 @@ fn provider_credential_present_read_only(config: &Config, slug: &str) -> bool {
 fn issue_message(issue: VoiceIssue) -> &'static str {
     match issue {
         VoiceIssue::BuildDisabled => "Voice support is not included in this build.",
-        VoiceIssue::ProviderNotConfigured => "No usable provider is registered for this voice route.",
-        VoiceIssue::ProviderUnsupported => "The selected voice provider does not support this operation.",
+        VoiceIssue::ProviderNotConfigured => {
+            "No usable provider is registered for this voice route."
+        }
+        VoiceIssue::ProviderUnsupported => {
+            "The selected voice provider does not support this operation."
+        }
         VoiceIssue::CredentialMissing => "The selected voice provider has no saved credential.",
         VoiceIssue::PiperBinaryMissing => "The configured Piper executable was not found.",
         VoiceIssue::VoiceModelMissing => "The configured Piper voice model was not found.",

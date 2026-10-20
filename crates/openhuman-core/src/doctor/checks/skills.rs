@@ -190,7 +190,8 @@ impl DoctorCheck for GithubPreflightCheck {
         }
         #[cfg(test)]
         let result = if let Some(probes) = &self.probes {
-            crate::skills::preflight::run_github_preflight(Some(&self.required), probes.as_ref()).await
+            crate::skills::preflight::run_github_preflight(Some(&self.required), probes.as_ref())
+                .await
         } else {
             let probes = crate::skills::preflight::LivePreflightProbes::new(ctx.config());
             crate::skills::preflight::run_github_preflight(Some(&self.required), &probes).await

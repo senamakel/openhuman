@@ -1,8 +1,8 @@
 use super::*;
 use crate::doctor::contract::{DoctorCtx, FindingSeverity};
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 struct ReadOnlySnapshot {
@@ -59,7 +59,10 @@ async fn feature_off_wallet_facade_reports_no_accounts_without_a_wallet_probe() 
         reads: Arc::clone(&reads),
         keychain_queries: Arc::new(AtomicUsize::new(0)),
     }));
-    let finding = check.detect(&DoctorCtx::from_config(config)).await.remove(0);
+    let finding = check
+        .detect(&DoctorCtx::from_config(config))
+        .await
+        .remove(0);
     assert_eq!(finding.severity, FindingSeverity::Skipped);
     assert_eq!(reads.load(Ordering::SeqCst), 0);
 }
@@ -107,25 +110,43 @@ async fn the_default_snapshot_reader_only_reads_selected_workspace_bytes() {
     let selected = tempfile::tempdir().expect("create selected wallet fixture");
     let config_a = config_in(ambient.path());
     let config_b = config_in(selected.path());
-    let state_a = config_a.workspace_dir.join("state").join("wallet-state.json");
-    let state_b = config_b.workspace_dir.join("state").join("wallet-state.json");
+    let state_a = config_a
+        .workspace_dir
+        .join("state")
+        .join("wallet-state.json");
+    let state_b = config_b
+        .workspace_dir
+        .join("state")
+        .join("wallet-state.json");
     std::fs::create_dir_all(state_a.parent().unwrap()).expect("create ambient state");
     std::fs::create_dir_all(state_b.parent().unwrap()).expect("create selected state");
     std::fs::write(&state_a, stored_wallet_json("0xambient-address")).unwrap();
     let selected_bytes = stored_wallet_json("0xselected-address");
     std::fs::write(&state_b, &selected_bytes).unwrap();
-    let check = WalletStatusCheck { probe: Arc::new(FileSnapshot) };
+    let check = WalletStatusCheck {
+        probe: Arc::new(FileSnapshot),
+    };
     let ambient_context = crate::core::runtime::CoreContext::for_test_with_config(
-        crate::core::runtime::DomainSet::full(), config_a,
+        crate::core::runtime::DomainSet::full(),
+        config_a,
     );
     let finding = crate::core::runtime::CoreContext::scope(ambient_context, async {
-        check.detect(&DoctorCtx::from_config(config_b)).await.remove(0)
-    }).await;
+        check
+            .detect(&DoctorCtx::from_config(config_b))
+            .await
+            .remove(0)
+    })
+    .await;
 
     assert_eq!(finding.severity, FindingSeverity::Pass);
     assert!(!finding.message.contains("0xselected-address"));
     assert_eq!(std::fs::read_to_string(&state_b).unwrap(), selected_bytes);
-    assert_eq!(std::fs::read_dir(state_b.parent().unwrap()).unwrap().count(), 1);
+    assert_eq!(
+        std::fs::read_dir(state_b.parent().unwrap())
+            .unwrap()
+            .count(),
+        1
+    );
 }
 
 #[cfg(feature = "web3")]

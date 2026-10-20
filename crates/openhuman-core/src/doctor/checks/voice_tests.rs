@@ -1,6 +1,9 @@
 use super::*;
 use crate::doctor::contract::{DoctorCtx, FindingSeverity};
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 struct FixedVoiceStatus {
     snapshot: VoiceSnapshot,
@@ -58,22 +61,34 @@ async fn voice_checks_inspect_the_selected_config_without_starting_audio_runtime
     let config_b = config_in(selected.path());
     let calls = Arc::new(AtomicUsize::new(0));
     let probe = Arc::new(FixedVoiceStatus {
-        snapshot: VoiceSnapshot { stt: Ok(()), tts: Ok(()) },
+        snapshot: VoiceSnapshot {
+            stt: Ok(()),
+            tts: Ok(()),
+        },
         calls: Arc::clone(&calls),
         workspace: Default::default(),
     });
     let checks = checks_with_probe(probe.clone());
     let ambient_context = crate::core::runtime::CoreContext::for_test_with_config(
-        crate::core::runtime::DomainSet::full(), config_a,
+        crate::core::runtime::DomainSet::full(),
+        config_a,
     );
     let findings = crate::core::runtime::CoreContext::scope(ambient_context, async {
         let ctx = DoctorCtx::from_config(config_b.clone());
         let mut findings = Vec::new();
-        for check in &checks { findings.extend(check.detect(&ctx).await); }
+        for check in &checks {
+            findings.extend(check.detect(&ctx).await);
+        }
         findings
-    }).await;
+    })
+    .await;
     assert_eq!(findings.len(), 2);
-    assert!(findings.iter().all(|finding| finding.severity == FindingSeverity::Pass));
+    assert!(findings
+        .iter()
+        .all(|finding| finding.severity == FindingSeverity::Pass));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
-    assert_eq!(*probe.workspace.lock().unwrap(), Some(config_b.workspace_dir));
+    assert_eq!(
+        *probe.workspace.lock().unwrap(),
+        Some(config_b.workspace_dir)
+    );
 }

@@ -77,12 +77,10 @@ fn discovery_request_carries_bearer_auth_and_pins_openrouter_sorting() {
     let request =
         cloud_discovery_request(&build(&creds, "m", "sk-or")).expect("openrouter has a listing");
     assert_eq!(request.endpoint, "https://openrouter.ai/api/v1");
-    assert!(
-        request
-            .headers
-            .iter()
-            .any(|(name, value)| name == "Authorization" && value == "Bearer sk-or")
-    );
+    assert!(request
+        .headers
+        .iter()
+        .any(|(name, value)| name == "Authorization" && value == "Bearer sk-or"));
 }
 
 #[test]

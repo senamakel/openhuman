@@ -123,7 +123,9 @@ impl ChannelHealthCheck {
                 "Check the channel configuration and its local module status, then rerun doctor.",
             ),
             Ok(Some(reports)) => {
-                let Some(report) = reports.iter().find(|report| report.channel == self.provider)
+                let Some(report) = reports
+                    .iter()
+                    .find(|report| report.channel == self.provider)
                 else {
                     return Finding::error(
                         &self.id,
@@ -218,20 +220,22 @@ fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
     let mut channels = config.channels_config.clone();
     #[cfg(feature = "channels")]
     {
-    if provider == "email" {
-        if let Some(email) = channels.email.take() {
-            channels.email = Some(crate::channels::credentials::resolve_email_password_read_only(
-                email, config,
-            ));
+        if provider == "email" {
+            if let Some(email) = channels.email.take() {
+                channels.email = Some(
+                    crate::channels::credentials::resolve_email_password_read_only(email, config),
+                );
+            }
         }
-    }
-    if provider == "yuanbao" {
-        if let Some(yuanbao) = channels.yuanbao.take() {
-            channels.yuanbao = Some(
-                crate::channels::credentials::resolve_yuanbao_app_secret_read_only(yuanbao, config),
-            );
+        if provider == "yuanbao" {
+            if let Some(yuanbao) = channels.yuanbao.take() {
+                channels.yuanbao = Some(
+                    crate::channels::credentials::resolve_yuanbao_app_secret_read_only(
+                        yuanbao, config,
+                    ),
+                );
+            }
         }
-    }
     }
 
     channels.cli = false;
@@ -265,7 +269,9 @@ fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
     channels.linq = (provider == "linq")
         .then(|| config.channels_config.linq.clone())
         .flatten();
-    channels.email = (provider == "email").then(|| channels.email.clone()).flatten();
+    channels.email = (provider == "email")
+        .then(|| channels.email.clone())
+        .flatten();
     channels.irc = (provider == "irc")
         .then(|| config.channels_config.irc.clone())
         .flatten();
@@ -278,7 +284,9 @@ fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
     channels.qq = (provider == "qq")
         .then(|| config.channels_config.qq.clone())
         .flatten();
-    channels.yuanbao = (provider == "yuanbao").then(|| channels.yuanbao.clone()).flatten();
+    channels.yuanbao = (provider == "yuanbao")
+        .then(|| channels.yuanbao.clone())
+        .flatten();
     channels
 }
 

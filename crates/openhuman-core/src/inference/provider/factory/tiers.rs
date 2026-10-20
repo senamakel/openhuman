@@ -9,7 +9,7 @@
 //! as aliases of their role so un-migrated callers keep routing.
 
 use super::*;
-use crate::config::{MANAGED_MULTIMODAL_MODELS, MODEL_MANAGED_DEFAULT, legacy_tier_role};
+use crate::config::{legacy_tier_role, MANAGED_MULTIMODAL_MODELS, MODEL_MANAGED_DEFAULT};
 
 /// Whether `model` is a managed alias rather than a concrete model id: a
 /// `hint:*` role marker or a retired tier slug.

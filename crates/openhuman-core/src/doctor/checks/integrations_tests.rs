@@ -1,6 +1,9 @@
 use super::*;
 use crate::doctor::contract::{DoctorCtx, FindingSeverity};
-use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
+use std::sync::{
+    atomic::{AtomicUsize, Ordering},
+    Arc,
+};
 
 struct ExistingList {
     expected_workspace: std::path::PathBuf,
@@ -40,7 +43,10 @@ async fn an_existing_composio_connection_list_passes_without_exposing_credential
         calls: Arc::clone(&calls),
     }));
 
-    let finding = check.detect(&DoctorCtx::from_config(config)).await.remove(0);
+    let finding = check
+        .detect(&DoctorCtx::from_config(config))
+        .await
+        .remove(0);
     assert_eq!(finding.check_id, "integrations/composio");
     assert_eq!(finding.severity, FindingSeverity::Pass);
     assert!(!finding.message.contains("doctor-fake-key"));
@@ -61,11 +67,16 @@ async fn selected_b_does_not_reuse_a_ready_or_cached_a_connection_list() {
         calls: Arc::clone(&calls),
     }));
     let ambient_context = crate::core::runtime::CoreContext::for_test_with_config(
-        crate::core::runtime::DomainSet::full(), config_a,
+        crate::core::runtime::DomainSet::full(),
+        config_a,
     );
     let finding = crate::core::runtime::CoreContext::scope(ambient_context, async {
-        check.detect(&DoctorCtx::from_config(config_b)).await.remove(0)
-    }).await;
+        check
+            .detect(&DoctorCtx::from_config(config_b))
+            .await
+            .remove(0)
+    })
+    .await;
 
     assert_eq!(finding.check_id, "integrations/composio");
     assert_eq!(finding.severity, FindingSeverity::Skipped);
@@ -82,7 +93,10 @@ async fn an_existing_connector_failure_is_reported_without_raw_module_text() {
         result: Err(()),
         calls: Arc::clone(&calls),
     }));
-    let finding = check.detect(&DoctorCtx::from_config(config)).await.remove(0);
+    let finding = check
+        .detect(&DoctorCtx::from_config(config))
+        .await
+        .remove(0);
     assert_eq!(finding.severity, FindingSeverity::Error);
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 }

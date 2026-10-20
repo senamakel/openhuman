@@ -19,12 +19,12 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use tinyinference_embeddings::EmbeddingModel;
-use tinyinference_llm::model::ChatModel;
 use tinyinference_llm::model::discover::DiscoveryRequest;
+use tinyinference_llm::model::ChatModel;
 
 use crate::config::Config;
-use crate::core::Outcome;
 use crate::core::slots::{Extensions, HookSlot};
+use crate::core::Outcome;
 use crate::security::approval::ApprovalChatContext;
 use crate::security::egress::EgressLedger;
 

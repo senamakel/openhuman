@@ -204,9 +204,9 @@ impl ConfigProvenance {
     pub(crate) fn has_explicit_under(&self, path: &str) -> bool {
         self.fields.iter().any(|(candidate, provenance)| {
             let is_field_or_descendant = candidate == path
-                || candidate.strip_prefix(path).is_some_and(|suffix| {
-                    suffix.starts_with('.') || suffix.starts_with("[]")
-                });
+                || candidate
+                    .strip_prefix(path)
+                    .is_some_and(|suffix| suffix.starts_with('.') || suffix.starts_with("[]"));
             is_field_or_descendant && provenance.source != ProvenanceSource::Default
         })
     }

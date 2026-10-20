@@ -1,5 +1,6 @@
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored, RefusingEngine};
+use crate::memory::tools::CallFacts;
 use serde_json::json;
 use tinymemory_api::{MetaFilter, Namespace, Reach};
 use tinymemory_tools::{CallContext, MemoryTools, SingleTool, ToolScope};

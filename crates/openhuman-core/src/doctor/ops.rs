@@ -71,6 +71,7 @@ pub async fn doctor_report_for_dispatch(
             .embedder_config()
             .as_ref()
             .and_then(super::profile::root_for_config)
+            .or_else(super::profile::root_for_workspace_override)
             .or_else(|| crate::config::default_root_openhuman_dir().ok());
         let Some(root) = root else {
             return Ok(profile_error_outcome(

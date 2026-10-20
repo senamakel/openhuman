@@ -107,6 +107,20 @@ pub(crate) fn root_for_config(config: &Config) -> Option<PathBuf> {
     Some(config_dir.to_path_buf())
 }
 
+/// Resolves the profile root implied by `OPENHUMAN_WORKSPACE` without loading
+/// a config or consulting active-profile markers.
+pub(crate) fn root_for_workspace_override() -> Option<PathBuf> {
+    let workspace = std::env::var_os("OPENHUMAN_WORKSPACE")
+        .filter(|value| !value.is_empty())
+        .map(PathBuf::from)?;
+    let (config_dir, _) = crate::config::resolve_config_dir_for_workspace(&workspace);
+    let config = Config {
+        config_path: config_dir.join("config.toml"),
+        ..Config::default()
+    };
+    root_for_config(&config)
+}
+
 /// Profile id represented by a config path, if it is in `<root>/users/<id>`.
 pub(crate) fn id_for_config(config: &Config) -> Option<String> {
     let config_dir = config.config_path.parent()?;

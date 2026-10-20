@@ -1,13 +1,76 @@
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext, DomainSet};
 use crate::core::slots::Extensions;
+use async_trait::async_trait;
 
-use super::contract::{DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
+use super::contract::{
+    DoctorCheck, DoctorCheckSource, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier,
+    Finding, FindingSeverity,
+};
 use super::registry::register_check_source_in;
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
+
+struct BlockingProbe {
+    id: String,
+    timeout: Duration,
+    active: Arc<AtomicUsize>,
+    peak: Arc<AtomicUsize>,
+}
+
+#[async_trait]
+impl DoctorCheck for BlockingProbe {
+    fn id(&self) -> &str {
+        &self.id
+    }
+
+    fn category(&self) -> &str {
+        "test"
+    }
+
+    fn tier(&self) -> DoctorTier {
+        DoctorTier::Connect
+    }
+
+    fn timeout(&self) -> Duration {
+        self.timeout
+    }
+
+    fn is_blocking(&self) -> bool {
+        true
+    }
+
+    async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
+        Vec::new()
+    }
+
+    fn detect_blocking(&self, _ctx: &DoctorCtx) -> Option<Vec<Finding>> {
+        let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
+        self.peak.fetch_max(active, Ordering::SeqCst);
+        std::thread::sleep(Duration::from_millis(250));
+        self.active.fetch_sub(1, Ordering::SeqCst);
+        Some(vec![Finding::pass(
+            &self.id,
+            "The blocking fake check completed.",
+        )])
+    }
+}
+
+struct BlockingProbeSource(Vec<Arc<dyn DoctorCheck>>);
+
+impl DoctorCheckSource for BlockingProbeSource {
+    fn id(&self) -> &str {
+        "doctor-blocking-probes"
+    }
+
+    fn checks(&self) -> Vec<Arc<dyn DoctorCheck>> {
+        self.0.clone()
+    }
+}
 
 #[tokio::test]
 async fn a_context_check_source_is_reported_with_its_check_id() {
@@ -36,10 +99,12 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     let config_source: DoctorConfigSource = report.config_source;
     assert_eq!(config_source, DoctorConfigSource::Profile);
     assert!(report.checks_run.iter().any(|id| id == "hosted/ready"));
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "hosted/ready"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "hosted/ready")
+    );
 }
 
 #[tokio::test]
@@ -77,6 +142,90 @@ async fn a_timed_out_check_is_an_error_without_stopping_other_checks() {
     assert!(report.findings.iter().any(|finding| {
         finding.check_id == "test/fast" && finding.severity == FindingSeverity::Pass
     }));
+}
+
+#[tokio::test]
+async fn timed_out_blocking_checks_keep_the_concurrency_slot_until_the_worker_exits() {
+    let active = Arc::new(AtomicUsize::new(0));
+    let peak = Arc::new(AtomicUsize::new(0));
+    let ids = (0..16)
+        .map(|index| format!("test/blocking-{index}"))
+        .collect::<Vec<_>>();
+    let checks = ids
+        .iter()
+        .map(|id| {
+            Arc::new(BlockingProbe {
+                id: id.clone(),
+                timeout: Duration::from_millis(20),
+                active: Arc::clone(&active),
+                peak: Arc::clone(&peak),
+            }) as Arc<dyn DoctorCheck>
+        })
+        .collect();
+    let extensions = Extensions::new();
+    register_check_source_in(&extensions, BlockingProbeSource(checks));
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(Config::default()),
+            DoctorOptions {
+                only: ids,
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("all blocking checks return timed-out findings");
+
+    tokio::time::timeout(Duration::from_secs(3), async {
+        while active.load(Ordering::SeqCst) != 0 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("blocking workers eventually finish");
+    assert_eq!(report.summary.error, 16);
+    assert!(peak.load(Ordering::SeqCst) <= 8);
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn connect_workspace_check_does_not_require_write_access() {
+    use std::fs;
+    use std::os::unix::fs::PermissionsExt;
+
+    let workspace = tempfile::tempdir().expect("temporary workspace");
+    let original = fs::metadata(workspace.path())
+        .expect("workspace metadata")
+        .permissions();
+    let mut read_only = original.clone();
+    read_only.set_mode(original.mode() & !0o222);
+    fs::set_permissions(workspace.path(), read_only).expect("make workspace read-only");
+
+    let mut config = Config::default();
+    config.workspace_dir = workspace.path().to_path_buf();
+    let report = runner::run(
+        &DoctorCtx::from_config(config),
+        DoctorOptions {
+            tier: DoctorTier::Connect,
+            only: vec!["workspace/layout".into(), "workspace/write-probe".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("read-only workspace check completes");
+
+    fs::set_permissions(workspace.path(), original).expect("restore workspace permissions");
+    assert!(
+        report.ok,
+        "read-only connect checks should not require writes"
+    );
+    assert!(
+        report
+            .checks_skipped
+            .contains(&"workspace/write-probe".to_owned())
+    );
 }
 
 #[tokio::test]
@@ -171,11 +320,13 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     .expect("unknown selection is a report finding");
 
     assert_eq!(report.checks_run, vec!["config/temperature".to_owned()]);
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "doctor/selection"
-            && finding.severity == FindingSeverity::Error));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"
+                && finding.severity == FindingSeverity::Error)
+    );
     assert_eq!(report.schema_version, 2);
     assert_eq!(report.summary.pass, 1);
     assert_eq!(report.summary.error, 1);

@@ -73,11 +73,6 @@ impl VoiceCheck {
         Self { id, kind, probe }
     }
 
-    #[cfg(test)]
-    fn with_probe(kind: VoiceKind, probe: Arc<dyn VoiceStatusProbe>) -> Self {
-        Self::configured(kind, probe)
-    }
-
     async fn finding(&self, config: &Config) -> Finding {
         let snapshot = self.probe.inspect(config).await;
         let (id, result) = match self.kind {

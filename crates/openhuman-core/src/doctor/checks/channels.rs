@@ -9,6 +9,7 @@ use tinychannels_bus::{ChannelHealthReport, ChannelHealthState, ChannelsConfig, 
 use crate::config::Config;
 use crate::doctor::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding};
 
+#[cfg(all(feature = "modules", feature = "channels"))]
 const MODULE_ID: &str = "tinychannels";
 const PROVIDER_TIMEOUT: Duration = Duration::from_secs(10);
 

@@ -66,17 +66,13 @@ fn live_replacement_and_removal_update_builder_hooks_and_restore_predecessors() 
         "seams-live-tool",
         Some(Arc::new(NamedToolHook("different-tool-name"))),
     );
-    assert!(
-        embedder_tool_hooks()
-            .iter()
-            .any(|hook| hook.name() == "seams-live-tool")
-    );
+    assert!(embedder_tool_hooks()
+        .iter()
+        .any(|hook| hook.name() == "seams-live-tool"));
     seams.tool_hook("seams-live-tool", None);
-    assert!(
-        !embedder_tool_hooks()
-            .iter()
-            .any(|hook| hook.name() == "seams-live-tool")
-    );
+    assert!(!embedder_tool_hooks()
+        .iter()
+        .any(|hook| hook.name() == "seams-live-tool"));
     drop(seams);
     assert!(!post_turn_hook_is_registered(&builder_hook));
     assert!(Arc::ptr_eq(

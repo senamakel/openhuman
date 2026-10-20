@@ -5,14 +5,14 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::doctor::{
-    DoctorCheck, DoctorCheckSource, DoctorCtx, DoctorTier, Finding, FindingSeverity,
-    register_check_source, register_check_source_in,
+    register_check_source, register_check_source_in, DoctorCheck, DoctorCheckSource, DoctorCtx,
+    DoctorTier, Finding, FindingSeverity,
 };
-use openhuman_embed::__host::platform::socket::{ConnectionStatus, global_socket_manager};
+use openhuman_embed::__host::platform::socket::{global_socket_manager, ConnectionStatus};
 use openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only;
 use openhuman_embed::__host::security::credentials::session_support::{
-    BackendCredential, SessionTokenCheck, classify_session_token, is_local_session_token,
-    load_app_session_profile_read_only, session_token_for_config,
+    classify_session_token, is_local_session_token, load_app_session_profile_read_only,
+    session_token_for_config, BackendCredential, SessionTokenCheck,
 };
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
 

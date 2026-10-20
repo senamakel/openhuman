@@ -190,6 +190,7 @@ fn enqueue_operation(config: &Config, operation: WriteOperation, scope: &ToolSco
     if let Some(confinement) = &confinement {
         reach = confinement.reach(Some(reach))?;
     }
+    let scope_root = reach.at.clone();
     let operation = match operation {
         WriteOperation::Learn { mut item } => {
             if let Some(confinement) = &confinement {
@@ -210,7 +211,6 @@ fn enqueue_operation(config: &Config, operation: WriteOperation, scope: &ToolSco
         }
         WriteOperation::Forget { ids, .. } => WriteOperation::Forget { ids, reach },
     };
-    let scope_root = reach.at.clone();
     let file = queue_path(config, &scope_root);
     let _guard = LOCK
         .lock()

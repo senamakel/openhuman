@@ -1,13 +1,15 @@
 use std::sync::Arc;
 
-use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::MemoryEngine;
+use tinymemory_api::conformance::ReferenceEngine;
 
 use super::*;
 use crate::memory::engine::install_test_engine_for_root;
 use crate::memory::layout_migration::ops::scan;
 use crate::memory::layout_migration::test_host::{count, fact};
-use tinymemory_tools::layout_migration::{FsLegacyClaim, LayoutHost, LegacyClaim, Outcome, Trigger};
+use tinymemory_tools::layout_migration::{
+    FsLegacyClaim, LayoutHost, LegacyClaim, Outcome, Trigger,
+};
 
 const ACCOUNT: &str = "0123456789abcdef01234567";
 
@@ -90,7 +92,17 @@ fn every_account_on_a_self_hosted_engine_shares_one_claim() {
     let key_a = claim(&a).unwrap().unwrap();
     let key_b = claim(&b).unwrap().unwrap();
     assert_eq!(key_a.marker_path(), key_b.marker_path());
-    assert_eq!(key_a.marker_path().parent().unwrap().parent().unwrap().parent().unwrap(), tmp.path());
+    assert_eq!(
+        key_a
+            .marker_path()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .parent()
+            .unwrap(),
+        tmp.path()
+    );
     assert_eq!(key_a.owner(), format!("user:{ACCOUNT}"));
 
     let hosted = signed_in(&tmp);
@@ -147,12 +159,15 @@ async fn a_shared_tree_reaches_the_module_as_a_claim() {
 
     // Another account on the machine took the tree first.
     let key = claim(&config).unwrap().unwrap();
-    let app_dir = key.marker_path().parent().unwrap().parent().unwrap().parent().unwrap();
-    let other = FsLegacyClaim::new(
-        app_dir,
-        key.endpoint(),
-        "user:fedcba9876543210fedcba98",
-    );
+    let app_dir = key
+        .marker_path()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let other = FsLegacyClaim::new(app_dir, key.endpoint(), "user:fedcba9876543210fedcba98");
     assert!(other.take().unwrap());
     let view = scan(&host).await.unwrap();
     assert!(!view.needed && view.shared, "{view:?}");
@@ -183,14 +198,16 @@ fn errors_keep_their_wire_codes_across_the_module_boundary() {
     assert!(back.is_account_wide());
 }
 
-
 #[test]
 fn one_endpoint_has_one_marker_however_it_is_spelled() {
     let dir = tempfile::tempdir().unwrap();
     let local = "http://127.0.0.1:3141";
     let key = FsLegacyClaim::new(dir.path(), local, "user:a");
     for spelling in ["HTTP://127.0.0.1:3141/", " http://127.0.0.1:3141 "] {
-        assert_eq!(FsLegacyClaim::new(dir.path(), spelling, "user:b").marker_path(), key.marker_path());
+        assert_eq!(
+            FsLegacyClaim::new(dir.path(), spelling, "user:b").marker_path(),
+            key.marker_path()
+        );
     }
     assert_ne!(
         FsLegacyClaim::new(dir.path(), "http://127.0.0.1:3142", "user:a").marker_path(),

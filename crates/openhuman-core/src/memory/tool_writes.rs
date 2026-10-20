@@ -20,14 +20,14 @@ use async_trait::async_trait;
 use serde::Deserialize;
 use sha2::{Digest, Sha256};
 use tinymemory_api::{Namespace, Reach, StoreItem, WriteOptions};
+use tinymemory_tools::ToolScope;
+use tinymemory_tools::WriteSink;
 use tinymemory_tools::confine::Policy;
 use tinymemory_tools::list_store::{ListStore, StoreError};
 use tinymemory_tools::pending::{
     Ack, Binding, Entry, Epoch, FenceToken, Limits, PendingError, PendingWrites, WriteExecutor,
     WriteGate, WriteOperation,
 };
-use tinymemory_tools::ToolScope;
-use tinymemory_tools::WriteSink;
 
 use super::types::ForgetParams;
 use crate::config::Config;

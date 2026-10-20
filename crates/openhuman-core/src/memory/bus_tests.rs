@@ -61,7 +61,7 @@ fn the_deletions_subscriber_listens_on_auth() {
 
 #[tokio::test]
 async fn a_sign_in_drains_the_deletions_queued_while_signed_out() {
-    use crate::memory::deletion::{enqueue, pending, PendingDeletion};
+    use crate::memory::deletion::{PendingDeletion, enqueue, pending};
 
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
@@ -86,7 +86,7 @@ async fn a_sign_in_drains_the_deletions_queued_while_signed_out() {
 
 #[tokio::test]
 async fn the_background_job_retries_pending_deletions() {
-    use crate::memory::deletion::{enqueue, pending, PendingDeletion};
+    use crate::memory::deletion::{PendingDeletion, enqueue, pending};
 
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);

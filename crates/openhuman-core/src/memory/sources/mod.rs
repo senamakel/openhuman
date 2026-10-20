@@ -14,8 +14,8 @@ use tinymemory_integrations::sources::SourceState;
 use tinymemory_integrations::sources::{Error as SourceError, SourceSpec};
 use tinymemory_tools::ops::MemoryOps;
 
-use crate::config::schema::{MemorySourceConfig, MemorySourceKind};
 use crate::config::Config;
+use crate::config::schema::{MemorySourceConfig, MemorySourceKind};
 
 use super::engine;
 use super::types::{SourceView, SourcesAddParams};

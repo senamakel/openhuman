@@ -138,7 +138,10 @@ async fn a_live_import_blocks_migration_and_does_not_make_a_stale_migration_look
     let _reservation = crate::memory::run_slots::reserve(
         &crate::memory::run_slots::IMPORT,
         &workspace,
-        &[&crate::memory::run_slots::BACKFILL, &crate::memory::run_slots::MIGRATION],
+        &[
+            &crate::memory::run_slots::BACKFILL,
+            &crate::memory::run_slots::MIGRATION,
+        ],
     )
     .expect("the test owns a live import slot");
 

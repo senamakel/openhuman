@@ -4,8 +4,8 @@ use crate::config::schema::MemoryAgentConfig;
 use tinymemory_api::{MetaFilter, Namespace, Reach};
 use tinymemory_tools::confine::{Confinement, Policy};
 use tinymemory_tools::layout::identity::{
-    account_root, actor_of_root, chat_node, validate_root, Identity, ResolvedIdentity,
-    DEFAULT_AGENT_ID,
+    DEFAULT_AGENT_ID, Identity, ResolvedIdentity, account_root, actor_of_root, chat_node,
+    validate_root,
 };
 
 fn ns(value: &str) -> Namespace {
@@ -73,12 +73,13 @@ fn upstream_identity_and_confinement_keep_embedded_root_and_rpc_policy() {
         .reach,
         Some(Reach::exact(narrow))
     );
-    assert!(rpc
-        .filter(Some(MetaFilter {
+    assert!(
+        rpc.filter(Some(MetaFilter {
             reach: Some(Reach::subtree(ns("project:embed/team:other"))),
             ..MetaFilter::default()
         }))
-        .is_err());
+        .is_err()
+    );
 
     let saas = Confinement {
         allowed,

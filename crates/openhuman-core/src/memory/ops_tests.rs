@@ -369,9 +369,11 @@ async fn stores_are_scrubbed_of_secrets() {
     .unwrap();
     let items = stored(&engine, MetaFilter::default()).await;
     assert_eq!(items.len(), 1);
-    assert!(!items[0]
-        .text
-        .contains("abcdefghijklmnopqrstuvwxyz0123456789"));
+    assert!(
+        !items[0]
+            .text
+            .contains("abcdefghijklmnopqrstuvwxyz0123456789")
+    );
 }
 
 #[test]

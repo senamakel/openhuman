@@ -6,11 +6,11 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinymemory_api::{Namespace, Reach, ThreadWindow, ToolCallRef};
 use tinymemory_tools::{
-    concurrency_for, is_write_action, permission_for, CallContext, ConcurrencyClass, MemoryTools,
-    PermissionClass, Refusal, RunBudget, SingleTool, ToolScope,
+    CallContext, ConcurrencyClass, MemoryTools, PermissionClass, Refusal, RunBudget, SingleTool,
+    ToolScope, concurrency_for, is_write_action, permission_for,
 };
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
@@ -203,7 +203,7 @@ impl MemoryTool {
                     Err(_) => {
                         return ToolResult::error(render_error(tinymemory_api::Error::Unavailable(
                             "memory write queue unavailable".into(),
-                        )))
+                        )));
                     }
                 }
             } else {
@@ -310,8 +310,7 @@ fn budget_refusal(refusal: Refusal) -> ToolResult {
                 }
                 _ => format!("Memory budget exhausted for this run. {CONTINUE_WITHOUT_MEMORY}"),
             };
-            ToolResult::error(message)
-                .with_metadata(json!({ REFUSAL_METADATA_KEY: "refused" }))
+            ToolResult::error(message).with_metadata(json!({ REFUSAL_METADATA_KEY: "refused" }))
         }
         Refusal::TimedOut => ToolResult::error(format!(
             "Memory did not finish within its latency budget and is unavailable for this run. {CONTINUE_WITHOUT_MEMORY}"

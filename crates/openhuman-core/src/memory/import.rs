@@ -192,11 +192,18 @@ pub(crate) async fn resume_interrupted_with(
     let paused_for_batches = Some(paused);
     match launch(ctx, config, mode, true, paused_for_batches).await {
         Ok(state) => {
-            tracing::info!(imported = state.imported, total = state.total, "[memory:import] resuming an interrupted import");
+            tracing::info!(
+                imported = state.imported,
+                total = state.total,
+                "[memory:import] resuming an interrupted import"
+            );
             true
         }
         Err(error) => {
-            tracing::warn!(code = error.code(), "[memory:import] interrupted import could not resume; stopped");
+            tracing::warn!(
+                code = error.code(),
+                "[memory:import] interrupted import could not resume; stopped"
+            );
             tinymemory_integrations::import::record_resume_failure(&store, &error.to_string());
             false
         }
@@ -272,7 +279,11 @@ async fn launch(
         Err(error) => return Err(Error::Engine(format!("import start failed: {error}"))),
     };
     let state = begun.state.clone();
-    tracing::info!(total = state.total, retry = mode != Mode::Import, "[memory:import] run started");
+    tracing::info!(
+        total = state.total,
+        retry = mode != Mode::Import,
+        "[memory:import] run started"
+    );
     let config = config.clone();
     let task_ctx = ctx.clone();
     task_ctx.spawn(async move {

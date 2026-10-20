@@ -52,20 +52,22 @@ async fn background_prefetch_records_citations_only_when_returning_the_pack() {
         .resolve(&crate::memory::scope::identity_pins(&config));
     let ctx = crate::core::runtime::DispatchCtx::ambient();
 
-    assert!(super::super::super::prefetch::pre_turn(
-        &ctx,
-        config.clone(),
-        identity.clone(),
-        "citation-thread".into(),
-        0,
-        "what colour is preferred?".into(),
-        0,
-        Utc::now(),
-        false,
-        None,
-        None,
-    )
-    .is_none());
+    assert!(
+        super::super::super::prefetch::pre_turn(
+            &ctx,
+            config.clone(),
+            identity.clone(),
+            "citation-thread".into(),
+            0,
+            "what colour is preferred?".into(),
+            0,
+            Utc::now(),
+            false,
+            None,
+            None,
+        )
+        .is_none()
+    );
     assert!(crate::web_chat::citations::take_turn_citations(&ctx, "citation-thread").is_empty());
 
     super::super::super::prefetch::settle_for_test(

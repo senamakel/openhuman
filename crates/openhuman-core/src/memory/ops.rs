@@ -167,12 +167,12 @@ pub fn apply_engine_set(config: &mut Config, params: &EngineSetParams) -> Result
             TINYHUMANS_ENGINE => {
                 return Err(Error::InvalidRequest(
                     ("the tinyhumans engine uses your sign-in, not an API key").into(),
-                ))
+                ));
             }
             _ => {
                 return Err(Error::InvalidRequest(
                     ("this engine takes no API key").into(),
-                ))
+                ));
             }
         }
     }

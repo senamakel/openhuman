@@ -8,18 +8,20 @@
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use async_trait::async_trait;
-use crate::core::runtime::DispatchCtx;
 use crate::config::Config;
+use crate::core::runtime::DispatchCtx;
 use crate::memory::engine;
 use crate::memory::run_slots::{self, BACKFILL, IMPORT, MIGRATION};
 use crate::threads::store::blocking as threads;
+use async_trait::async_trait;
 use tinymemory_api::{Error, Result};
-use tinymemory_tools::backfill::{BackfillFile, Backfiller, CounterStore, ThreadMessage, ThreadSource};
+use tinymemory_tools::backfill::{
+    BackfillFile, Backfiller, CounterStore, ThreadMessage, ThreadSource,
+};
 use tinymemory_tools::layout::identity::Identity;
 
 pub use tinymemory_tools::backfill::{
-    BackfillPhase, BackfillState, BackfillView, BACKFILL_TAG, MAIN_AGENT, PastTurn, pending_range,
+    BACKFILL_TAG, BackfillPhase, BackfillState, BackfillView, MAIN_AGENT, PastTurn, pending_range,
     turns_of,
 };
 
@@ -96,7 +98,8 @@ fn driver(
     config: &Config,
     engine: Arc<dyn tinymemory_api::MemoryEngine>,
 ) -> Result<Backfiller> {
-    let identity = Identity::agent(MAIN_AGENT).resolve(&crate::memory::scope::identity_pins(config));
+    let identity =
+        Identity::agent(MAIN_AGENT).resolve(&crate::memory::scope::identity_pins(config));
     Ok(Backfiller::new(
         engine,
         identity.layout,
@@ -155,7 +158,11 @@ pub async fn start(
         let _guard = guard;
         let state = backfiller.run(run).await;
         if state.phase == BackfillPhase::Done {
-            tracing::info!(items = state.items_stored, turns = state.turns_stored, "[memory:backfill] done");
+            tracing::info!(
+                items = state.items_stored,
+                turns = state.turns_stored,
+                "[memory:backfill] done"
+            );
         }
     });
     Ok(view)

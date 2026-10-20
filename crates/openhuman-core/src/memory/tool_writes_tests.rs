@@ -1,5 +1,5 @@
 use super::*;
-use crate::memory::test_fixtures::{bind_reference, config_in, stored, RefusingEngine};
+use crate::memory::test_fixtures::{RefusingEngine, bind_reference, config_in, stored};
 use crate::memory::tools::CallFacts;
 use serde_json::json;
 use tinymemory_api::{MetaFilter, Namespace, Reach};
@@ -230,12 +230,14 @@ fn private_outbox_is_scrubbed_before_persistence_and_has_a_size_limit() {
         );
     }
     let huge = "x".repeat(MAX_BYTES);
-    assert!(enqueue(
-        &config,
-        &json!({"action":"learn","text":huge}),
-        &facts(&config)
-    )
-    .is_err());
+    assert!(
+        enqueue(
+            &config,
+            &json!({"action":"learn","text":huge}),
+            &facts(&config)
+        )
+        .is_err()
+    );
     assert_eq!(read(&config.workspace_dir).unwrap().len(), 1);
 }
 
@@ -346,12 +348,14 @@ fn corrupt_existing_outbox_is_preserved_and_refuses_new_writes() {
     let config = config_in(&tmp);
     let file = path(&config.workspace_dir);
     super::super::files::write_private(&file, b"corrupt existing state").unwrap();
-    assert!(enqueue(
-        &config,
-        &json!({"action":"learn","text":"Prefers tea"}),
-        &facts(&config)
-    )
-    .is_err());
+    assert!(
+        enqueue(
+            &config,
+            &json!({"action":"learn","text":"Prefers tea"}),
+            &facts(&config)
+        )
+        .is_err()
+    );
     assert_eq!(std::fs::read(&file).unwrap(), b"corrupt existing state");
 }
 
@@ -420,12 +424,14 @@ fn a_full_outbox_keeps_existing_writes_and_refuses_a_new_one() {
     let mut entries = read(&config.workspace_dir).unwrap();
     entries.resize(MAX_PENDING, entries[0].clone());
     write(&config.workspace_dir, &entries).unwrap();
-    assert!(enqueue(
-        &config,
-        &json!({"action":"learn","text":"new"}),
-        &facts(&config)
-    )
-    .is_err());
+    assert!(
+        enqueue(
+            &config,
+            &json!({"action":"learn","text":"new"}),
+            &facts(&config)
+        )
+        .is_err()
+    );
     assert_eq!(read(&config.workspace_dir).unwrap().len(), MAX_PENDING);
 }
 
@@ -654,12 +660,16 @@ async fn erasing_one_owner_fences_pending_writes_from_every_team_root() {
     let fence = fence_and_clear(&crate::core::runtime::DispatchCtx::ambient(), &first)
         .await
         .unwrap();
-    assert!(read_at(&queue_path(&first, &facts(&first).reach.at))
-        .unwrap()
-        .is_empty());
-    assert!(read_at(&queue_path(&second, &facts(&second).reach.at))
-        .unwrap()
-        .is_empty());
+    assert!(
+        read_at(&queue_path(&first, &facts(&first).reach.at))
+            .unwrap()
+            .is_empty()
+    );
+    assert!(
+        read_at(&queue_path(&second, &facts(&second).reach.at))
+            .unwrap()
+            .is_empty()
+    );
     drop(fence);
     let engine = bind_reference(&first);
     assert_eq!(drain(&first).await, 0);

@@ -10,13 +10,12 @@ use std::sync::Arc;
 use tinymemory_tools::layout_migration as lm;
 use tinymemory_tools::run_slots::{MigrationSpawner, MigrationTask};
 
-use super::app_host::{from_module, AppHost};
+use super::app_host::{AppHost, from_module};
 use super::{LayoutHost, MigrationState, MigrationStatus, ScanView, Trigger};
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::memory::run_slots::{self, BACKFILL, IMPORT, MIGRATION};
 use tinymemory_api::Result;
-
 
 /// `memory_migration_start` params.
 #[derive(Debug, Clone, Default, serde::Deserialize)]
@@ -39,7 +38,9 @@ impl MigrationSpawner for ContextSpawner {
     }
 }
 
-fn service(ctx: &DispatchCtx) -> lm::MigrationService<tinymemory_tools::run_slots::RunStartGate, ContextSpawner> {
+fn service(
+    ctx: &DispatchCtx,
+) -> lm::MigrationService<tinymemory_tools::run_slots::RunStartGate, ContextSpawner> {
     lm::MigrationService::new(
         MIGRATION.clone(),
         run_slots::START_GATE.clone(),

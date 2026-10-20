@@ -7,10 +7,11 @@ use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
     LearningKind, ListRequest, MemoryEngine, MemoryMeta, MetaFilter, Namespace, StoreItem,
 };
-use tinymemory_tools::layout_migration::{
-    Engines, FlowPlacement, FsLegacyClaim, LayoutHost, LegacyClaim, MigrationStateStore, Placement, Result,
-};
 use tinymemory_tools::MemoryLayout;
+use tinymemory_tools::layout_migration::{
+    Engines, FlowPlacement, FsLegacyClaim, LayoutHost, LegacyClaim, MigrationStateStore, Placement,
+    Result,
+};
 
 use super::state::FileStateStore;
 use crate::config::Config;

@@ -251,18 +251,22 @@ async fn jobs_run_needs_an_engine_and_names_an_unknown_job() {
     let config = config_in(&tmp);
     assert!(jobs_run(&config, JobsRunParams::default()).await.is_err());
     bind_reference(&config);
-    assert!(jobs_run(&config, JobsRunParams::default())
+    assert!(
+        jobs_run(&config, JobsRunParams::default())
+            .await
+            .unwrap()
+            .runs
+            .is_empty()
+    );
+    assert!(
+        jobs_run(
+            &config,
+            JobsRunParams {
+                id: Some("x".into())
+            }
+        )
         .await
-        .unwrap()
-        .runs
-        .is_empty());
-    assert!(jobs_run(
-        &config,
-        JobsRunParams {
-            id: Some("x".into())
-        }
-    )
-    .await
-    .is_err());
+        .is_err()
+    );
     assert!(jobs_list(&config).await.pending.is_empty());
 }

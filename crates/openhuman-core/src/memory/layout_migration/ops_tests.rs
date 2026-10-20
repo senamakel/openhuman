@@ -1,11 +1,11 @@
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
+use std::sync::atomic::Ordering;
 
 use tinymemory_api::MemoryEngine;
 
 use super::*;
-use crate::memory::layout_migration::test_host::{count, fact, FakeHost};
-use crate::memory::layout_migration::{state, Phase};
+use crate::memory::layout_migration::test_host::{FakeHost, count, fact};
+use crate::memory::layout_migration::{Phase, state};
 
 fn never() -> Arc<dyn Fn() -> bool + Send + Sync> {
     Arc::new(|| false)
@@ -131,7 +131,10 @@ async fn nothing_starts_while_an_import_is_unfinished() {
     let import_guard = crate::memory::run_slots::reserve(
         &crate::memory::run_slots::IMPORT,
         &config.workspace_dir,
-        &[&crate::memory::run_slots::BACKFILL, &crate::memory::run_slots::MIGRATION],
+        &[
+            &crate::memory::run_slots::BACKFILL,
+            &crate::memory::run_slots::MIGRATION,
+        ],
     )
     .expect("the import owns its separate live slot");
     assert!(crate::memory::import::in_progress(&config));

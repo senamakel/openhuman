@@ -24,7 +24,7 @@ fn thread(id: &str) -> PendingDeletion {
 
 #[tokio::test]
 async fn offline_conversation_purge_queues_exact_thread_ids_in_its_workspace() {
-    use crate::threads::store::{ensure_thread, purge_threads, CreateConversationThread};
+    use crate::threads::store::{CreateConversationThread, ensure_thread, purge_threads};
 
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
@@ -102,12 +102,15 @@ async fn offline_conversation_purge_queues_exact_thread_ids_in_its_workspace() {
 
     let left = stored(&engine, MetaFilter::default()).await;
     assert_eq!(left.len(), 3);
-    assert!(left
-        .iter()
-        .any(|item| { item.kind == ItemKind::Learning && item.text == "durable preference" }));
-    assert!(left
-        .iter()
-        .any(|item| { item.kind == ItemKind::Document && item.text == "durable brain document" }));
+    assert!(
+        left.iter()
+            .any(|item| { item.kind == ItemKind::Learning && item.text == "durable preference" })
+    );
+    assert!(
+        left.iter().any(|item| {
+            item.kind == ItemKind::Document && item.text == "durable brain document"
+        })
+    );
     assert!(left.iter().any(|item| {
         item.kind == ItemKind::Conversation
             && item.meta.thread_id.as_deref() == Some("unrelated-thread")

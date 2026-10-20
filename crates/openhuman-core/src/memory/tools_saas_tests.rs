@@ -2,8 +2,8 @@ use super::*;
 use crate::config::schema::MemoryAgentConfig;
 use crate::memory::test_fixtures::config_in;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
@@ -79,8 +79,7 @@ fn isolate(test_name: &str, marker: &str) -> Option<std::process::Output> {
 #[test]
 fn invalid_saas_roots_and_agent_overrides_reject_memory_tool_reads() {
     const MARKER: &str = "OPENHUMAN_TEST_SAAS_MEMORY_TOOL_INVALID_ROOT";
-    const TEST_NAME: &str =
-        "memory::tools::saas_tests::invalid_saas_roots_and_agent_overrides_reject_memory_tool_reads";
+    const TEST_NAME: &str = "memory::tools::saas_tests::invalid_saas_roots_and_agent_overrides_reject_memory_tool_reads";
     if let Some(output) = isolate(TEST_NAME, MARKER) {
         assert!(
             output.status.success()
@@ -159,8 +158,7 @@ fn invalid_saas_roots_and_agent_overrides_reject_memory_tool_reads() {
 #[test]
 fn valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace() {
     const MARKER: &str = "OPENHUMAN_TEST_SAAS_MEMORY_TOOL_VALID_ROOT";
-    const TEST_NAME: &str =
-        "memory::tools::saas_tests::valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace";
+    const TEST_NAME: &str = "memory::tools::saas_tests::valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace";
     if let Some(output) = isolate(TEST_NAME, MARKER) {
         assert!(
             output.status.success()
@@ -227,14 +225,18 @@ fn valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace() {
                 .unwrap();
             assert!(!recall.is_error, "{}", recall.text());
             let evidence: Value = serde_json::from_str(&recall.text()).unwrap();
-            assert!(evidence["evidence"]
-                .as_str()
-                .unwrap()
-                .contains("acme boundary marker"));
-            assert!(!evidence["evidence"]
-                .as_str()
-                .unwrap()
-                .contains("foreign boundary marker"));
+            assert!(
+                evidence["evidence"]
+                    .as_str()
+                    .unwrap()
+                    .contains("acme boundary marker")
+            );
+            assert!(
+                !evidence["evidence"]
+                    .as_str()
+                    .unwrap()
+                    .contains("foreign boundary marker")
+            );
 
             let fetch = tool
                 .execute_with_context(
@@ -246,14 +248,18 @@ fn valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace() {
                 .unwrap();
             assert!(!fetch.is_error, "{}", fetch.text());
             let page: Value = serde_json::from_str(&fetch.text()).unwrap();
-            assert!(page["matches"]
-                .as_str()
-                .unwrap()
-                .contains("acme boundary marker"));
-            assert!(!page["matches"]
-                .as_str()
-                .unwrap()
-                .contains("foreign boundary marker"));
+            assert!(
+                page["matches"]
+                    .as_str()
+                    .unwrap()
+                    .contains("acme boundary marker")
+            );
+            assert!(
+                !page["matches"]
+                    .as_str()
+                    .unwrap()
+                    .contains("foreign boundary marker")
+            );
             assert_eq!(reads.load(Ordering::SeqCst), 2);
         });
     println!("SAAS_MEMORY_TOOL_VALID_ROOT_CHILD_PASSED");

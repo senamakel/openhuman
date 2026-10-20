@@ -6,7 +6,9 @@
 use async_trait::async_trait;
 use tinymemory_api::Error as EngineError;
 use tinymemory_tools::layout_migration as lm;
-use tinymemory_tools::layout_migration::{Engines, FlowPlacement, FsLegacyClaim, LegacyClaim, Placement};
+use tinymemory_tools::layout_migration::{
+    Engines, FlowPlacement, FsLegacyClaim, LegacyClaim, Placement,
+};
 
 use super::state::FileStateStore;
 use crate::config::{Config, MemoryLayoutMode};

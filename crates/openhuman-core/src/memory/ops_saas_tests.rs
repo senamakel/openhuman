@@ -1,8 +1,8 @@
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
@@ -123,8 +123,7 @@ fn invalid_saas_root_is_refused_before_engine_operations() {
 #[test]
 fn valid_saas_identity_clamps_memory_operations_in_an_isolated_process() {
     const CHILD: &str = "OPENHUMAN_TEST_SAAS_MEMORY_CLAMP";
-    const TEST_NAME: &str =
-        "memory::ops::saas_tests::valid_saas_identity_clamps_memory_operations_in_an_isolated_process";
+    const TEST_NAME: &str = "memory::ops::saas_tests::valid_saas_identity_clamps_memory_operations_in_an_isolated_process";
 
     if std::env::var_os(CHILD).is_none() {
         let output = std::process::Command::new(std::env::current_exe().unwrap())
@@ -278,10 +277,12 @@ fn valid_saas_identity_clamps_memory_operations_in_an_isolated_process() {
             )
             .await
             .unwrap();
-            assert!(recalled
-                .citations
-                .iter()
-                .all(|citation| citation.id.0 != foreign));
+            assert!(
+                recalled
+                    .citations
+                    .iter()
+                    .all(|citation| citation.id.0 != foreign)
+            );
 
             let learned = learn(
                 &config,

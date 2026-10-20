@@ -1,10 +1,10 @@
 use super::*;
 use crate::config::Config;
-use crate::core::runtime::context::CoreContext;
 use crate::core::runtime::DispatchCtx;
 use crate::core::runtime::DomainSet;
+use crate::core::runtime::context::CoreContext;
 use crate::memory::test_fixtures::{bind_reference, config_in};
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 use tinymemory_api::MemoryEngine;
 
 /// Every method of the spec's RPC table (`docs/specs/memory-v2.md`), exactly.
@@ -470,10 +470,12 @@ async fn lifecycle_handlers_answer_over_a_bound_engine() {
     .unwrap();
     let preview = preview.get("result").unwrap_or(&preview);
     assert_eq!(preview["mode"], "turn");
-    assert!(preview["pack"]["markdown"]
-        .as_str()
-        .unwrap()
-        .contains("9:30"));
+    assert!(
+        preview["pack"]["markdown"]
+            .as_str()
+            .unwrap()
+            .contains("9:30")
+    );
 
     let ran = call(&config, "jobs_run", json!({})).await.unwrap();
     assert_eq!(
@@ -555,20 +557,22 @@ async fn rpc_learn_invalidates_a_cached_prefetch_pack() {
         let config = Arc::new(config.clone());
         let (thread_id, turn_index, user_text, in_prompt_from, at, resumed, observed_actor) =
             input();
-        assert!(crate::memory::lifecycle::prefetch::pre_turn(
-            &dispatch,
-            config.clone(),
-            identity.clone(),
-            thread_id,
-            turn_index,
-            user_text,
-            in_prompt_from,
-            at,
-            resumed,
-            observed_actor,
-            None,
-        )
-        .is_none());
+        assert!(
+            crate::memory::lifecycle::prefetch::pre_turn(
+                &dispatch,
+                config.clone(),
+                identity.clone(),
+                thread_id,
+                turn_index,
+                user_text,
+                in_prompt_from,
+                at,
+                resumed,
+                observed_actor,
+                None,
+            )
+            .is_none()
+        );
         crate::memory::lifecycle::prefetch::settle_for_test(
             &dispatch, &config, &identity, thread, false,
         )

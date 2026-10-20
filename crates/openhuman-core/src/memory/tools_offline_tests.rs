@@ -40,9 +40,11 @@ async fn queued_writes_work_without_an_available_engine_but_not_when_explicitly_
         &pending[1].operation,
         tinymemory_tools::pending::WriteOperation::Forget { .. }
     ));
-    assert!(pending
-        .iter()
-        .all(|entry| entry.scope_root == facts.reach.at));
+    assert!(
+        pending
+            .iter()
+            .all(|entry| entry.scope_root == facts.reach.at)
+    );
 
     let mut disabled = config.clone();
     disabled.components.memory = false;

@@ -19,7 +19,7 @@ use tinymemory_tools::ops::ExploreOptions;
 use crate::config::Config;
 
 use super::engine;
-pub use tinymemory_tools::ops::{narrowed, PathStep, DEFAULT_BUCKETS, MAX_PATH_STEPS};
+pub use tinymemory_tools::ops::{DEFAULT_BUCKETS, MAX_PATH_STEPS, PathStep, narrowed};
 
 /// `memory_explore` params.
 #[derive(Debug, Clone, Deserialize)]

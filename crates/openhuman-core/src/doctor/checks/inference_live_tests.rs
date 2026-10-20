@@ -4,7 +4,7 @@ use super::*;
 
 use crate::config::schema::ephemeral_route::{apply as apply_ephemeral_route, EphemeralRoute};
 use crate::core::runtime::{CoreContext, DomainSet};
-use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
+use crate::doctor::{DoctorCheck, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use serde_json::{json, Value};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -44,8 +44,9 @@ fn completion_response(model: &str, content: &str) -> Value {
 }
 
 async fn run_live(config: Config, only: Vec<&str>) -> crate::doctor::DoctorReport {
+    let expected_ids = only.iter().map(|id| id.to_string()).collect::<Vec<_>>();
     let context = CoreContext::for_test(DomainSet::full(), None);
-    CoreContext::scope(context, async move {
+    let report = CoreContext::scope(context, async move {
         let doctor_ctx = DoctorCtx::from_config(config);
         crate::doctor::runner::run(
             &doctor_ctx,
@@ -58,7 +59,21 @@ async fn run_live(config: Config, only: Vec<&str>) -> crate::doctor::DoctorRepor
         .await
     })
     .await
-    .expect("doctor report should be returned")
+    .expect("doctor report should be returned");
+    for id in expected_ids {
+        assert!(
+            report.checks_run.contains(&id) || report.checks_skipped.contains(&id),
+            "requested id {id} was not recognized: {:?}",
+            report.findings
+        );
+    }
+    assert!(
+        !report.findings.iter().any(|finding| {
+            finding.check_id == "doctor/selection" && finding.severity == FindingSeverity::Error
+        }),
+        "an unknown check id must never masquerade as a successful selected check"
+    );
+    report
 }
 
 fn finding<'a>(report: &'a crate::doctor::DoctorReport, id: &str) -> &'a Finding {
@@ -237,4 +252,32 @@ async fn connect_tier_skips_live_chat_without_sending_a_completion() {
         result.check_id == CHECK_CHAT && result.severity == FindingSeverity::Skipped
     }));
     assert!(server.received_requests().await.expect("mock records calls").is_empty());
+}
+
+#[test]
+fn configured_role_ids_are_registered_as_live_checks_for_that_config() {
+    use crate::inference::provider::factory::provider_for_role;
+
+    let mut config = Config {
+        default_model: Some("shared-model".into()),
+        ..Config::default()
+    };
+    config.chat_provider = Some("ephemeral-route:shared-model".into());
+    config.reasoning_provider = Some("ephemeral-route:shared-model".into());
+    config.vision_provider = Some("ephemeral-route:vision-model".into());
+    config.memory_provider = Some("ephemeral-route:summary-model".into());
+    let ctx = DoctorCtx::from_config(config.clone());
+    let checks = crate::doctor::registry::registered_checks_for(&ctx)
+        .expect("selected config supplies its own live role checks");
+    let by_id = checks
+        .iter()
+        .map(|check| (check.id().to_owned(), check.tier()))
+        .collect::<std::collections::HashMap<_, _>>();
+
+    for role in ["chat", "reasoning", "vision", "memory"] {
+        let id = format!("inference/live/{role}");
+        assert_eq!(by_id.get(&id), Some(&DoctorTier::Live), "missing {id}");
+        assert!(!provider_for_role(role, &config).is_empty());
+    }
+    assert!(!by_id.contains_key("inference/live/embeddings"));
 }

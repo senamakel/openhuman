@@ -130,20 +130,35 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     let memory = &config.memory;
     let memory_engine = memory.engine.trim();
     let default_memory_engine = crate::config::schema::memory::DEFAULT_MEMORY_ENGINE;
-    if (!memory_engine.is_empty()
+    if !memory_engine.is_empty()
         && !memory_engine.eq_ignore_ascii_case("none")
-        && !memory_engine.eq_ignore_ascii_case(default_memory_engine))
-        || !memory.engines.is_empty()
-        || memory.agent_id.as_deref().is_some_and(non_empty)
-        || memory.root.as_deref().is_some_and(non_empty)
-        || !memory.sources.is_empty()
-        || !memory.agents.is_empty()
-        || memory.embedding_provider != crate::config::schema::memory::DEFAULT_EMBEDDING_PROVIDER
-        || memory.embedding_model != crate::config::schema::memory::DEFAULT_EMBEDDING_MODEL
-        || memory.embedding_dimensions
-            != crate::config::schema::memory::DEFAULT_EMBEDDING_DIMENSIONS
+        && !memory_engine.eq_ignore_ascii_case(default_memory_engine)
     {
         references.push(("memory", "memory.engine"));
+    }
+    if !memory.engines.is_empty() {
+        references.push(("memory", "memory.engines"));
+    }
+    if memory.agent_id.as_deref().is_some_and(non_empty) {
+        references.push(("memory", "memory.agent_id"));
+    }
+    if memory.root.as_deref().is_some_and(non_empty) {
+        references.push(("memory", "memory.root"));
+    }
+    if !memory.sources.is_empty() {
+        references.push(("memory", "memory.sources"));
+    }
+    if !memory.agents.is_empty() {
+        references.push(("memory", "memory.agents"));
+    }
+    if memory.embedding_provider != crate::config::schema::memory::DEFAULT_EMBEDDING_PROVIDER {
+        references.push(("memory", "memory.embedding_provider"));
+    }
+    if memory.embedding_model != crate::config::schema::memory::DEFAULT_EMBEDDING_MODEL {
+        references.push(("memory", "memory.embedding_model"));
+    }
+    if memory.embedding_dimensions != crate::config::schema::memory::DEFAULT_EMBEDDING_DIMENSIONS {
+        references.push(("memory", "memory.embedding_dimensions"));
     }
 
     if !config.mcp_client.servers.is_empty() {
@@ -172,15 +187,26 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
         references.push(("channels", "channels_config"));
     }
 
-    if !config.voice_providers.is_empty()
-        || config.stt_provider.as_deref().is_some_and(non_empty)
-        || config.tts_provider.as_deref().is_some_and(non_empty)
-        || config.voice_server.stt_engine != crate::config::schema::SttEngine::default()
-    {
+    if !config.voice_providers.is_empty() {
         references.push(("voice", "voice_providers"));
     }
+    if config.stt_provider.as_deref().is_some_and(non_empty) {
+        references.push(("voice", "stt_provider"));
+    }
+    if config.tts_provider.as_deref().is_some_and(non_empty) {
+        references.push(("voice", "tts_provider"));
+    }
+    if config.voice_server.stt_engine != crate::config::schema::SttEngine::default() {
+        references.push(("voice", "voice_server.stt_engine"));
+    }
 
-    if !memory.sources.is_empty() {
+    if memory.sources.iter().any(|source| {
+        matches!(
+            source.kind,
+            crate::config::schema::MemorySourceKind::File
+                | crate::config::schema::MemorySourceKind::Folder
+        )
+    }) {
         references.push(("documents", "memory.sources"));
     }
 
@@ -231,13 +257,15 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
         references.push(("juice", "tokenjuice"));
     }
 
-    if !config.capability_providers.is_empty()
-        || config.composio.mode != crate::config::schema::tools::integrations::COMPOSIO_MODE_BACKEND
+    if !config.capability_providers.is_empty() {
+        references.push(("connectors", "capability_providers"));
+    }
+    if config.composio.mode != crate::config::schema::tools::integrations::COMPOSIO_MODE_BACKEND
         || config.composio.api_key.is_some()
         || !config.composio.offered_toolkits_allow.is_empty()
         || !config.composio.offered_toolkits_deny.is_empty()
     {
-        references.push(("connectors", "capability_providers"));
+        references.push(("connectors", "composio"));
     }
 
     if config.inbound.queues_path.is_some()

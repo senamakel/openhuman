@@ -130,7 +130,7 @@ impl DoctorCheck for BackendCredentialCheck {
     }
 
     fn tier(&self) -> DoctorTier {
-        DoctorTier::Static
+        DoctorTier::Connect
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
@@ -148,7 +148,7 @@ impl DoctorCheck for BackendCredentialCheck {
                 "This profile uses a local-only session without hosted backend access.",
                 "Sign in with a TinyHumans account to run hosted checks.",
             ),
-            CredentialState::Absent | CredentialState::Local => Finding::skipped(
+            CredentialState::Absent => Finding::skipped(
                 self.id(),
                 "No usable hosted credential is configured.",
                 "Sign in with a TinyHumans account to run hosted checks.",
@@ -371,6 +371,7 @@ enum CredentialState {
     Expired,
     Local,
     Absent,
+    BackendMismatch,
     Unreadable,
 }
 

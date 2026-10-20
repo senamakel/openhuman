@@ -1,26 +1,23 @@
 //! Importing a v1 memory store into the selected engine.
 //!
-//! The driver (batching, checkpoints, backoff, failed-item list, retry) is
-//! `tinymemory_integrations::import::Importer`. This file is the host
-//! adapter around it: the consent gate, the one-run-per-workspace registry,
-//! the atomic state file `<workspace>/memory/import_state.json`, the tokio
-//! clock, the scheduler pause, the credits resume policy, and what follows a
-//! finished import (organizing the tree).
+//! TinyMemory owns import batching, checkpoints, retry and backoff. This host
+//! adapter keeps consent, the existing atomic checkpoint path, billing and
+//! scheduler policy, executor context, and post-import layout migration.
 
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, LazyLock, Mutex};
+use std::sync::Arc;
 use std::time::Duration;
 
 use tinymemory_integrations::import::{
-    Begun, CheckpointStore, ImportCounts as LegacyImportCounts, ImportError, ImportFile,
-    ImportPhase, ImportState, Importer, Pacer,
+    CheckpointStore, ImportCounts as LegacyImportCounts, ImportError, ImportFile, ImportPhase,
+    ImportState, Importer, Pacer, ResumePlan,
 };
 
 use crate::config::Config;
 use crate::security::secret_storage::file_store::write_atomic;
 
 use super::engine;
+use super::run_slots::{self, BACKFILL, IMPORT, MIGRATION};
 use super::types::{ImportCounts, ImportScanView};
 use tinymemory_api::{Error, Result};
 
@@ -28,31 +25,8 @@ use tinymemory_api::{Error, Result};
 /// before it starts and again before every batch it stores.
 pub(crate) type PauseCheck = Arc<dyn Fn() -> bool + Send + Sync>;
 
-/// Whether memory work that uploads on its own, with no user action (an
-/// automatic import, or resuming one paused for credits), may run now.
+/// Whether memory work that uploads on its own may run now.
 pub(crate) type BillingCheck = Arc<dyn Fn(&Config) -> bool + Send + Sync>;
-
-/// Imports running now, per workspace.
-static RUNNING: LazyLock<Mutex<HashSet<PathBuf>>> = LazyLock::new(|| Mutex::new(HashSet::new()));
-
-/// Held while an import or a layout migration decides to start: each checks
-/// the other is not going, then registers itself, under this one lock, so
-/// neither can slip in between the other's check and its registration.
-pub(crate) static START_GATE: Mutex<()> = Mutex::new(());
-
-fn running(workspace_dir: &Path) -> bool {
-    RUNNING
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .contains(workspace_dir)
-}
-
-fn release(workspace_dir: &Path) {
-    RUNNING
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .remove(workspace_dir);
-}
 
 /// The state file, written atomically (staged, synced, renamed): a crash
 /// mid-write leaves the previous state, never a torn file that reads back as
@@ -83,7 +57,6 @@ impl CheckpointStore for FileCheckpointStore {
     }
 }
 
-/// Backoff sleeps on the tokio clock.
 struct TokioPacer;
 
 #[async_trait::async_trait]
@@ -98,8 +71,7 @@ fn read_file(workspace_dir: &Path) -> ImportFile {
 }
 
 /// Whether the last import ended with its last batch not confirmed listed:
-/// the layout migration then forgets by id, never erasing scopes whole, and
-/// copies again before it finishes. Only an import that confirms clears it.
+/// the layout migration then forgets by id, never erasing scopes whole.
 pub(crate) fn listed_unconfirmed(workspace_dir: &Path) -> bool {
     read_file(workspace_dir).listed_unconfirmed
 }
@@ -147,28 +119,29 @@ pub async fn scan(config: &Config) -> Result<ImportScanView> {
     })
 }
 
-/// Whether an import is unfinished: running now, interrupted (it resumes on
-/// its own), or paused for credits. The layout migration waits for it, so
-/// old local memory lands before the tree is reorganised.
+/// Whether an import blocks layout migration: a live import or one paused for
+/// credits. A persisted `Running` phase without a run slot is interrupted, not
+/// live work; the scheduler can resume it before migration starts.
 #[must_use]
 pub fn in_progress(config: &Config) -> bool {
-    // A live import counts from its reservation, before its first state
-    // write (the scan of the old store comes first).
-    let file = read_file(&config.workspace_dir);
-    running(&config.workspace_dir)
-        || file.state.phase == ImportPhase::Running
-        || file.paused_for_credits
+    IMPORT.is_running(&config.workspace_dir) || read_file(&config.workspace_dir).paused_for_credits
+}
+
+/// Whether this workspace has an import task right now.
+#[must_use]
+pub(crate) fn is_running(workspace_dir: &Path) -> bool {
+    IMPORT.is_running(&workspace_dir.to_path_buf())
 }
 
 /// `memory_import_status`.
 #[must_use]
 pub fn status(config: &Config) -> ImportState {
-    let mut state = read_file(&config.workspace_dir).state;
-    if state.phase == ImportPhase::Running && !running(&config.workspace_dir) {
+    let file = read_file(&config.workspace_dir);
+    let mut state = file.state;
+    if state.phase == ImportPhase::Running && !is_running(&config.workspace_dir) {
         state.phase = ImportPhase::Error;
         state.error = Some(state.error.unwrap_or_else(|| {
-            "the import was interrupted; it resumes on its own within a few minutes, or resume \
-             it now"
+            "the import was interrupted; it resumes on its own within a few minutes, or resume it now"
                 .to_string()
         }));
     }
@@ -184,85 +157,43 @@ pub(crate) fn scheduler_paused() -> bool {
 }
 
 /// Resumes an import the app quit in the middle of, if there is one, under
-/// the scheduler's pause. Called from memory's background job.
+/// the scheduler's pause and current billing policy.
 pub async fn resume_interrupted(ctx: &crate::core::runtime::DispatchCtx, config: &Config) -> bool {
-    // A credits pause resumes on its own only while memory work is free
-    // (`billing::free_period_active`). The backend is asked only when such a
-    // pause is waiting on it.
-    let file = read_file(&config.workspace_dir);
-    let free = file.state.phase == ImportPhase::Error
-        && file.paused_for_credits
-        && super::billing::free_period_active(config).await;
     resume_interrupted_with(
         ctx,
         config,
         Arc::new(scheduler_paused),
-        Arc::new(move |_: &Config| free),
+        Arc::new(|config| futures::executor::block_on(super::billing::free_period_active(config))),
     )
     .await
 }
 
 /// Resumes an interrupted import unless `paused` says background work is
-/// paused.
-///
-/// Only a `Running` state with no live run counts: the user consented when
-/// it started. A paused-for-credits run resumes once `billing` allows. A
-/// resumed run asks `paused` again before every batch. An automatic resume
-/// that cannot start is persisted as stopped, so a failure that would recur
-/// does not loop. Returns whether a run was started.
+/// paused. A failed automatic start is recorded through Native's checkpoint
+/// helper so it cannot loop forever.
 pub(crate) async fn resume_interrupted_with(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     paused: PauseCheck,
     billing: BillingCheck,
 ) -> bool {
-    let file = read_file(&config.workspace_dir);
-    let resumable = match file.state.phase {
-        ImportPhase::Running => true,
-        ImportPhase::Error => file.paused_for_credits && billing(config),
-        _ => false,
+    let store = FileCheckpointStore::new(&config.workspace_dir);
+    let file = store.load();
+    let plan = Importer::resume_plan(&file, billing(config), paused());
+    let mode = match plan {
+        ResumePlan::DoNotResume => return false,
+        ResumePlan::ResumeImport => Mode::Import,
+        ResumePlan::ResumeRetry => Mode::ResumeRetry,
     };
-    if !resumable || running(&config.workspace_dir) {
-        return false;
-    }
-    if paused() {
-        tracing::debug!("[memory:import] background paused; interrupted import left for later");
-        return false;
-    }
-    let retrying = file.state.phase == ImportPhase::Running && file.retrying;
-    let resumed = if retrying {
-        launch(ctx, config, Mode::ResumeRetry, true, Some(paused)).await
-    } else {
-        launch(ctx, config, Mode::Import, true, Some(paused)).await
-    };
-    match resumed {
+    let paused_for_batches = Some(paused);
+    match launch(ctx, config, mode, true, paused_for_batches).await {
         Ok(state) => {
-            tracing::info!(
-                imported = state.imported,
-                total = state.total,
-                "[memory:import] resuming an interrupted import"
-            );
+            tracing::info!(imported = state.imported, total = state.total, "[memory:import] resuming an interrupted import");
             true
         }
         Err(error) => {
-            tracing::warn!(
-                code = error.code(),
-                "[memory:import] interrupted import could not resume; stopped"
-            );
-            let engine = engine::resolve(config).engine().map(|bound| bound.engine);
-            // Without an engine the importer is only used for its store.
-            if let Ok(engine) = engine {
-                importer(config, engine, true, None).record_resume_failure(&error.to_string());
-            } else {
-                let store = FileCheckpointStore::new(&config.workspace_dir);
-                let mut file = store.load();
-                file.state.phase = ImportPhase::Error;
-                file.state.error = Some(format!("the import could not resume: {error}"));
-                file.paused_for_credits = false;
-                if let Err(error) = store.save(&file) {
-                    tracing::warn!(%error, "[memory:import] writing import state failed");
-                }
-            }
+            tracing::warn!(code = error.code(), "[memory:import] interrupted import could not resume; stopped");
+            tinymemory_integrations::import::record_resume_failure(&store, &error.to_string());
             false
         }
     }
@@ -293,7 +224,8 @@ enum Mode {
     ResumeRetry,
 }
 
-/// Claims the workspace, begins the run on the module's driver and spawns it.
+/// Claims the workspace, begins the Native run and transfers its slot guard
+/// into the context-carrying worker future.
 async fn launch(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
@@ -305,34 +237,22 @@ async fn launch(
         return Err(import_error(&ImportError::ConsentRequired));
     }
     let bound = engine::resolve(config).engine()?;
-    let workspace_dir = config.workspace_dir.clone();
-    let claimed = {
-        let _gate = START_GATE
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner);
-        // Items written to the legacy tree while it is being moved would be
-        // left behind there.
-        if super::layout_migration::service::is_running(config) {
-            return Err(Error::InvalidRequest(
-                (if mode == Mode::Import {
-                    "memory is being organized; import once that finishes"
-                } else {
-                    "memory is being organized; retry once that finishes"
-                })
-                .into(),
-            ));
+    let workspace = config.workspace_dir.clone();
+    let Some(guard) = run_slots::reserve(&IMPORT, &workspace, &[&BACKFILL, &MIGRATION]) else {
+        if is_running(&workspace) {
+            return Ok(status(config));
         }
-        RUNNING
-            .lock()
-            .unwrap_or_else(std::sync::PoisonError::into_inner)
-            .insert(workspace_dir.clone())
+        let reason = if MIGRATION.is_running(&workspace) {
+            "memory is being organized; import once that finishes"
+        } else {
+            "a conversation backfill is running; import once it finishes"
+        };
+        return Err(Error::InvalidRequest(reason.into()));
     };
-    if !claimed {
-        return Ok(status(config));
-    }
     let driver = importer(config, bound.engine, consent, paused);
     let begin = {
         let driver = driver.clone();
+        let mode = mode;
         ctx.spawn_blocking(move || match mode {
             Mode::Import => driver.begin(),
             Mode::Retry => driver.begin_retry(),
@@ -340,42 +260,33 @@ async fn launch(
         })
         .await
     };
-    let begun: Begun = match begin {
+    let begun = match begin {
         Ok(Ok(begun)) => begun,
-        Ok(Err(error)) => {
-            release(&workspace_dir);
-            return Err(import_error(&error));
-        }
-        Err(error) => {
-            release(&workspace_dir);
-            return Err(Error::Engine(format!("import start failed: {error}")));
-        }
+        Ok(Err(error)) => return Err(import_error(&error)),
+        Err(error) => return Err(Error::Engine(format!("import start failed: {error}"))),
     };
     let state = begun.state.clone();
-    tracing::info!(
-        total = state.total,
-        retry = mode != Mode::Import,
-        "[memory:import] run started"
-    );
+    tracing::info!(total = state.total, retry = mode != Mode::Import, "[memory:import] run started");
     let config = config.clone();
     let task_ctx = ctx.clone();
-    ctx.spawn(async move {
-        if mode == Mode::Import {
-            driver.run(begun).await;
-        } else {
-            driver.run_retry(begun).await;
+    task_ctx.spawn(async move {
+        {
+            let _guard = guard;
+            if mode == Mode::Import {
+                driver.run(begun).await;
+            } else {
+                driver.run_retry(begun).await;
+            }
         }
-        release(&workspace_dir);
-        // Import first, then organize: the move starts here, on whatever
-        // screen the user is, once the import is done.
+        // Import first, then organize. Migration's peer check sees the import
+        // slot released before it attempts its own atomic reservation.
+        let workspace_dir = config.workspace_dir.clone();
         if mode == Mode::Import && read_file(&workspace_dir).state.phase == ImportPhase::Done {
+            let host = Arc::new(super::layout_migration::AppHost::new(config.clone()));
             let started = super::layout_migration::start(
                 &task_ctx,
-                config.clone(),
-                Arc::new(super::layout_migration::AppHost::new(config)),
-                // Migration is free: organizing follows a finished import
-                // straight away. A shared self-hosted tree still waits for
-                // the takeover consent.
+                config,
+                host,
                 super::layout_migration::Trigger::Manual { takeover: false },
                 Arc::new(scheduler_paused),
             );

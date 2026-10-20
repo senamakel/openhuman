@@ -280,6 +280,44 @@ async fn invalid_explicit_profile_returns_one_safe_profile_exists_error() {
 }
 
 #[tokio::test]
+async fn malformed_default_profile_returns_only_a_safe_config_parse_error() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let _workspace_override = WorkspaceOverrideGuard::clear();
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    let active_user = root.join("active_user.toml");
+    tokio::fs::write(&active_user, "user_id = \"account-b\"\n")
+        .await
+        .unwrap();
+    let layout = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    let invalid_contents = b"default_model = \"private-value\"\ninvalid = [\n";
+    tokio::fs::write(&layout.config_path, invalid_contents)
+        .await
+        .unwrap();
+    let before = snapshot_tree(root);
+
+    let selection = resolve_desktop_profile_for_doctor(root, None)
+        .await
+        .unwrap();
+    let outcome = crate::doctor::ops::doctor_report_for_desktop_selection(
+        selection,
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(outcome.value.findings.len(), 1);
+    assert_eq!(outcome.value.findings[0].check_id, "config/parse");
+    assert_eq!(outcome.value.findings[0].severity, FindingSeverity::Error);
+    assert!(!outcome.value.findings[0].message.contains("private-value"));
+    assert_eq!(before, snapshot_tree(root));
+}
+
+#[tokio::test]
 async fn explicit_dispatch_selection_does_not_load_the_ambient_config() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();

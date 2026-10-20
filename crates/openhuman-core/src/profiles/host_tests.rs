@@ -2,6 +2,33 @@ use super::*;
 use crate::core::runtime::DispatchCtx;
 use crate::profiles::doctor::DoctorProfileState;
 use crate::storage::{CollectionSpec, DocumentStore, MemoryStorage, Scope, StorageBackend};
+use std::collections::BTreeMap;
+
+fn snapshot_tree(root: &std::path::Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {
+    fn visit(
+        root: &std::path::Path,
+        current: &std::path::Path,
+        snapshot: &mut BTreeMap<std::path::PathBuf, Vec<u8>>,
+    ) {
+        let Ok(entries) = std::fs::read_dir(current) else {
+            return;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            let relative = path.strip_prefix(root).unwrap().to_path_buf();
+            if entry.file_type().is_ok_and(|kind| kind.is_dir()) {
+                snapshot.insert(relative.join("."), Vec::new());
+                visit(root, &path, snapshot);
+            } else if let Ok(contents) = std::fs::read(&path) {
+                snapshot.insert(relative, contents);
+            }
+        }
+    }
+
+    let mut snapshot = BTreeMap::new();
+    visit(root, root, &mut snapshot);
+    snapshot
+}
 
 #[tokio::test]
 async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
@@ -96,6 +123,7 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     )
     .unwrap();
 
+    let before_reads = snapshot_tree(tmp.path());
     let a_observed = CoreContext::scope(Arc::clone(&target_a.context), async {
         let config = CoreContext::current()
             .expect("selected profile context")
@@ -104,7 +132,11 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
         (
             config.config_path,
             crate::storage::current_scope().unwrap(),
-            crate::profiles::credentials::has(&config),
+            crate::security::credentials::api_key::get_api_key_read_only(&config).unwrap(),
+            crate::security::credentials::session_support::load_app_session_profile_read_only(
+                &config,
+            )
+            .unwrap(),
             crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
                 &DispatchCtx::ambient(),
             )
@@ -120,7 +152,11 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
         (
             config.config_path,
             crate::storage::current_scope().unwrap(),
-            crate::profiles::credentials::has(&config),
+            crate::security::credentials::api_key::get_api_key_read_only(&config).unwrap(),
+            crate::security::credentials::session_support::load_app_session_profile_read_only(
+                &config,
+            )
+            .unwrap(),
             crate::profiles::provider_settings::ProfileProviderSettings::in_ctx(
                 &DispatchCtx::ambient(),
             )
@@ -134,10 +170,12 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     assert_ne!(a_observed.0, b_observed.0);
     assert_eq!(a_observed.1, crate::storage::scope_for_profile(a.as_str()));
     assert_eq!(b_observed.1, crate::storage::scope_for_profile(b.as_str()));
-    assert!(!a_observed.2, "A must not observe B's credential");
-    assert!(b_observed.2, "B's own context sees its credential");
+    assert!(a_observed.2.is_none(), "A must not observe B's API key");
+    assert!(a_observed.3.is_none(), "A must not observe B's session");
+    assert_eq!(b_observed.2.as_deref(), Some("doctor-b-only-test-key"));
+    assert!(b_observed.3.is_none(), "B has no app-session profile");
     assert!(
-        a_observed.3 && b_observed.3,
+        a_observed.4 && b_observed.4,
         "each forced config resolves provider settings"
     );
     assert_eq!(target_a.config.agent.max_tool_iterations_override, Some(7));
@@ -150,6 +188,7 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
         0,
         "doctor inspection does not open profiles"
     );
+    assert_eq!(before_reads, snapshot_tree(tmp.path()));
 
     crate::profiles::credentials::clear(&target_b.config).unwrap();
 }

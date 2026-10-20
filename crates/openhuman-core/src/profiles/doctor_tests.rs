@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::core::runtime::ComponentSet;
 use crate::doctor::FindingSeverity;
 use crate::doctor::{DoctorConfigSource, DoctorCtx};
+use crate::doctor::{DoctorOptions, DoctorTier};
 use crate::profiles::ProfileId;
 use std::future::Ready;
 use std::sync::{Arc, Mutex};
@@ -227,6 +228,114 @@ fn an_unprovisioned_profile_is_a_safe_profile_provisioned_error() {
     assert!(!finding.message.contains("secret"));
     assert!(!finding.message.contains("token"));
     assert!(!finding.fix_hint.contains("secret"));
+}
+
+#[tokio::test]
+async fn dispatch_report_runs_registered_provisioned_check_without_creating_state() {
+    const CHILD: &str = "OPENHUMAN_SAAS_DOCTOR_UNPROVISIONED_CHILD";
+    let name = "dispatch_report_runs_registered_provisioned_check_without_creating_state";
+    let module = module_path!().split_once("::").expect("crate module").1;
+    let exact = format!("{module}::{name}");
+    if std::env::var(CHILD).as_deref() != Ok(exact.as_str()) {
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args(["--exact", &exact, "--nocapture", "--test-threads=1"])
+            .env(CHILD, &exact)
+            .output()
+            .expect("run isolated SaaS profile doctor test");
+        assert!(
+            output.status.success() && String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+            "isolated test {exact} failed:\n{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+
+    use crate::core::runtime::{CoreContext, DomainSet, Mode, SaasConfig, mode};
+    use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
+
+    mode::lock_mode(Mode::Saas).expect("isolated test process uses SaaS mode");
+    let temp = tempfile::tempdir().unwrap();
+    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let operator = CoreContext::for_test(DomainSet::saas(), None);
+    let host = crate::profiles::ProfileHost::with_backend(
+        SaasConfig::new(temp.path()),
+        Arc::clone(&operator),
+        Some(Arc::clone(&backend)),
+    )
+    .unwrap();
+    let id = ProfileId::parse("not-provisioned").unwrap();
+    let layout = host.layout_of(&id);
+    let cluster = backend
+        .for_scope(&Scope::new(crate::storage::lease::CLUSTER_SCOPE).unwrap())
+        .unwrap();
+    let registry_spec = CollectionSpec::new(crate::profiles::registry::REGISTRY_COLLECTION);
+    let lease_spec = CollectionSpec::new(crate::storage::lease::LEASE_COLLECTION);
+    assert!(
+        cluster
+            .documents()
+            .validate_collection_spec(&registry_spec)
+            .await
+            .is_err()
+    );
+    assert!(
+        cluster
+            .documents()
+            .validate_collection_spec(&lease_spec)
+            .await
+            .is_err()
+    );
+    crate::profiles::host::install(Arc::new(host));
+
+    let options = DoctorOptions {
+        tier: DoctorTier::Connect,
+        only: vec!["profile/provisioned".into()],
+        skip: Vec::new(),
+        profile: Some(id.as_str().into()),
+    };
+    let dispatch = crate::core::runtime::DispatchCtx::new(Arc::clone(&operator));
+    let outcome = CoreContext::scope(operator, async {
+        crate::doctor::ops::doctor_report_for_dispatch(&dispatch, options).await
+    })
+    .await
+    .unwrap()
+    .unwrap();
+
+    assert_eq!(outcome.value.profile.as_deref(), Some(id.as_str()));
+    assert_eq!(outcome.value.config_source, DoctorConfigSource::Tenant);
+    assert!(
+        outcome
+            .value
+            .checks_run
+            .iter()
+            .any(|check| check == "profile/provisioned")
+    );
+    assert!(!outcome.value.ok);
+    let finding = outcome
+        .value
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "profile/provisioned")
+        .expect("registered profile/provisioned check result");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(
+        !layout.dir.exists(),
+        "doctor must not create profile directories"
+    );
+    assert!(
+        cluster
+            .documents()
+            .validate_collection_spec(&registry_spec)
+            .await
+            .is_err()
+    );
+    assert!(
+        cluster
+            .documents()
+            .validate_collection_spec(&lease_spec)
+            .await
+            .is_err()
+    );
 }
 
 #[test]

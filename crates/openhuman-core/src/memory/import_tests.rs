@@ -72,7 +72,7 @@ async fn starting_without_consent_is_refused_before_anything_runs() {
     .await
     .unwrap_err();
     assert!(error.to_string().contains("consent"), "{error}");
-    assert!(!running(&config.workspace_dir));
+    assert!(!is_running(&config.workspace_dir));
     assert_eq!(status(&config).phase, ImportPhase::Idle);
 }
 
@@ -87,7 +87,7 @@ async fn retrying_with_nothing_failed_is_refused_and_releases_the_workspace() {
             .await
             .is_err()
     );
-    assert!(!running(&config.workspace_dir));
+    assert!(!is_running(&config.workspace_dir));
 }
 
 #[tokio::test]
@@ -205,7 +205,7 @@ async fn a_credit_paused_import_waits_for_billing_and_records_a_resume_failure()
             .contains("could not resume")
     );
     assert!(!stopped.paused_for_credits);
-    assert!(!running(&config.workspace_dir));
+    assert!(!is_running(&config.workspace_dir));
 }
 
 #[test]

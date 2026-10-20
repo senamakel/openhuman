@@ -48,12 +48,12 @@ fn scope_key(config: &crate::config::Config) -> String {
 
 fn configured_entries(config: &crate::config::Config) -> Vec<CloudProviderCreds> {
     let mut entries = config.cloud_providers.clone();
+    let selected = selected_models(config);
     // The managed route is a configured model source even though it is not a
     // BYOK row in cloud_providers.
-    if config
-        .default_model
-        .as_deref()
-        .is_some_and(|model| model.starts_with("openhuman:"))
+    if selected.iter().any(|(_, model)| {
+        model.starts_with("openhuman:") || model.starts_with("openrouter/")
+    })
         && !entries.iter().any(|entry| entry.slug == "openhuman")
     {
         entries.push(CloudProviderCreds {
@@ -348,14 +348,21 @@ impl DoctorCheck for ModelInCatalog {
             let selected = selected_models(ctx.config());
             for (path, model) in selected
                 .iter()
-                .filter(|(_, model)| model.starts_with(&format!("{}:", entry.slug)))
+                .filter(|(_, model)| {
+                    model.starts_with(&format!("{}:", entry.slug))
+                        || (entry.slug == "openhuman" && model.starts_with("openrouter/"))
+                })
                 .map(|(path, model)| {
                     (
                         path.as_str(),
-                        model
-                            .split_once(':')
-                            .map(|(_, model)| model)
-                            .unwrap_or(model.as_str()),
+                        if model.starts_with("openrouter/") {
+                            model.as_str()
+                        } else {
+                            model
+                                .split_once(':')
+                                .map(|(_, model)| model)
+                                .unwrap_or(model.as_str())
+                        },
                     )
                 })
             {

@@ -71,11 +71,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "models" => ControllerSchema {
             namespace: "doctor",
             function: "models",
-            description: "Model catalog probing is not available yet.",
+            description: "Read-only inference provider catalog inspection.",
             inputs: vec![FieldSchema {
                 name: "use_cache",
                 ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-                comment: "Reserved for model catalog probes when they become available.",
+                comment: "Reuse a recent catalog result when available.",
                 required: false,
             }],
             outputs: vec![FieldSchema {

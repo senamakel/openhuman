@@ -170,8 +170,31 @@ async fn hosted_probe_child() {
     let workspace = root.join("workspace");
     let api_url = std::env::var("OPENHUMAN_DOCTOR_PROBE_CHILD_API_URL").expect("child api url");
     let ctx = context_at(&workspace, &workspace, &api_url);
-    let source =
-        HostedDoctorCheckSource::with_socket_state_reader(|| Some(ConnectionStatus::Connected));
+    let (active_url, active_token, active_status) = match scenario.as_ref() {
+        "socket-mismatch" => (
+            "https://profile-a.example/socket.io".to_owned(),
+            "session-a".to_owned(),
+            ConnectionStatus::Connected,
+        ),
+        "socket-owner-error" => (
+            api_url.clone(),
+            LIVE_JWT.to_string(),
+            ConnectionStatus::Error,
+        ),
+        "socket-owner-reconnecting" => (
+            api_url.clone(),
+            LIVE_JWT.to_string(),
+            ConnectionStatus::Reconnecting,
+        ),
+        _ => (
+            api_url.clone(),
+            LIVE_JWT.to_string(),
+            ConnectionStatus::Connected,
+        ),
+    };
+    let source = HostedDoctorCheckSource::with_socket_state_reader(move |url, token| {
+        (url == active_url && token == active_token).then_some(active_status)
+    });
     let before = (scenario == "expired").then(|| workspace_snapshot(&workspace));
 
     let report = match scenario.as_ref() {
@@ -223,6 +246,13 @@ async fn hosted_probe_child() {
                     "severity": format!("{:?}", finding.severity),
                     "message": finding.message,
                 })).collect::<Vec<_>>(),
+            })
+        }
+        "socket-mismatch" | "socket-owner-error" | "socket-owner-reconnecting" => {
+            let finding = check(&source, "backend/socket").detect(&ctx).await;
+            json!({
+                "severity": format!("{:?}", finding[0].severity),
+                "message": finding[0].message,
             })
         }
         "scoped-context" => {
@@ -419,30 +449,46 @@ async fn expired_session_probe_preserves_profile_and_does_not_publish_expiry() {
 }
 
 #[tokio::test]
-async fn unattributed_global_socket_status_is_skipped_for_selected_profile() {
+async fn foreign_socket_connection_is_skipped_for_selected_profile() {
     let tmp = TempDir::new().unwrap();
-    let ctx = context(&tmp, "https://selected-b.example");
-    let source = HostedDoctorCheckSource::with_socket_state_reader(|| {
-        // Simulate the process-global manager being connected for a different
-        // profile. A bare status does not establish ownership by selected B.
-        Some(ConnectionStatus::Connected)
-    });
-
-    let finding = check(&source, "backend/socket").detect(&ctx).await;
-
-    assert_eq!(finding[0].severity, FindingSeverity::Skipped);
+    let api_url = "https://selected-b.example";
+    let ctx = context(&tmp, api_url);
+    write_raw_session_profile(
+        &ctx,
+        &LIVE_JWT,
+        metadata([("session_issuing_backend", api_url.to_owned())]),
+    );
+    let report = run_isolated_probe("socket-mismatch", tmp.path(), api_url).await;
+    assert_eq!(report["severity"], "Skipped");
+    assert!(!report["message"].as_str().unwrap().contains(&*LIVE_JWT));
 }
 
 #[tokio::test]
 async fn socket_error_for_selected_profile_remains_an_error() {
     let tmp = TempDir::new().unwrap();
-    let ctx = context(&tmp, "https://selected-b.example");
-    let source =
-        HostedDoctorCheckSource::with_socket_state_reader(|| Some(ConnectionStatus::Error));
+    let api_url = "https://selected-b.example";
+    let ctx = context(&tmp, api_url);
+    write_raw_session_profile(
+        &ctx,
+        &LIVE_JWT,
+        metadata([("session_issuing_backend", api_url.to_owned())]),
+    );
+    let report = run_isolated_probe("socket-owner-error", tmp.path(), api_url).await;
+    assert_eq!(report["severity"], "Error");
+}
 
-    let finding = check(&source, "backend/socket").detect(&ctx).await;
-
-    assert_eq!(finding[0].severity, FindingSeverity::Error);
+#[tokio::test]
+async fn reconnecting_socket_status_is_preserved_for_its_owner() {
+    let tmp = TempDir::new().unwrap();
+    let api_url = "https://selected-b.example";
+    let ctx = context(&tmp, api_url);
+    write_raw_session_profile(
+        &ctx,
+        &LIVE_JWT,
+        metadata([("session_issuing_backend", api_url.to_owned())]),
+    );
+    let report = run_isolated_probe("socket-owner-reconnecting", tmp.path(), api_url).await;
+    assert_eq!(report["severity"], "Warn");
 }
 
 #[tokio::test]

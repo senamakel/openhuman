@@ -235,13 +235,15 @@ lookup helpers.
 
 ## Check registration and hosted checks
 
-Built-in checks register in the core registry. The core also exposes the
-generic `register_check_source` seam so a host can register a source of checks
-without adding a dependency from core to that host. `openhuman-tinyhumans`
-registers its backend, identity, socket, API URL, and managed-inference checks
-through this seam. Sources register against the active core context, not a
-process-global mutable singleton, so profiles and tests do not share state.
-Duplicate ids fail registration with a startup error; hosted ids use the same
+Built-in checks register in the core registry. The core exposes both
+process-default `register_check_source(source)` and per-`CoreContext`
+`register_check_source_in` registration through `CoreBuilder::extensions`, so a
+host can supply checks without a dependency from core back to that host.
+`openhuman-tinyhumans` registers its backend, identity, socket, API URL, and
+managed-inference checks through this seam. Profile-aware or tenant-aware
+sources use context-scoped registration; context-independent sources may use
+the process-default registration. At report start, malformed or duplicate ids
+are rejected before any selected detector executes. Hosted ids use the same
 lowercase slash-separated segment grammar and are unique across sources. A
 source may register zero checks when its host capability is absent.
 

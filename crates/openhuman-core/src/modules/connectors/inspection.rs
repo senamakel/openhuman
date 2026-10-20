@@ -129,11 +129,16 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
 
     match config.composio.mode.trim() {
         "" | crate::config::schema::COMPOSIO_MODE_BACKEND => {
-            let api_key = crate::security::credentials::api_key::get_api_key_read_only(config).ok()?;
+            let api_key =
+                crate::security::credentials::api_key::get_api_key_read_only(config).ok()?;
             if let Some(api_key) = api_key.filter(|key| !key.trim().is_empty()) {
                 return Some(("backend-api-key".to_owned(), api_key.trim().to_owned()));
             }
-            let profile = crate::security::credentials::session_support::load_app_session_profile_read_only(config).ok()?;
+            let profile =
+                crate::security::credentials::session_support::load_app_session_profile_read_only(
+                    config,
+                )
+                .ok()?;
             let token = match crate::security::credentials::session_support::classify_session_token(
                 profile.as_ref(),
                 chrono::Utc::now(),
@@ -141,7 +146,10 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
                 crate::security::credentials::session_support::SessionTokenCheck::Live(token)
                     if !crate::security::credentials::session_support::is_local_session_token(
                         token.trim(),
-                    ) => token,
+                    ) =>
+                {
+                    token
+                }
                 _ => return None,
             };
             Some(("backend-session".to_owned(), token))
@@ -233,4 +241,3 @@ fn credential_fingerprint(kind: &str, secret: &str) -> [u8; 32] {
 #[cfg(test)]
 #[path = "inspection_tests.rs"]
 mod tests;
-

@@ -67,7 +67,10 @@ async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential(
     assert!(!binding_matches_config(&other_credential));
 
     let mut other_policy = selected.clone();
-    other_policy.composio.offered_toolkits_allow.push("slack".to_owned());
+    other_policy
+        .composio
+        .offered_toolkits_allow
+        .push("slack".to_owned());
     assert!(!binding_matches_config(&other_policy));
 
     *configured_binding()
@@ -133,15 +136,15 @@ async fn an_absent_connector_does_not_start_runtime_or_load_the_module() {
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_BACKEND.to_owned();
     let before = crate::modules::ops::state_of(super::super::MODULE_ID);
 
-    let result = call_existing_readonly::<_, serde_json::Value>(
-        &config,
-        "ListConnectedIntegrations",
-        (),
-    )
-    .await
-    .expect("absence is an unavailable observation, not a call error");
+    let result =
+        call_existing_readonly::<_, serde_json::Value>(&config, "ListConnectedIntegrations", ())
+            .await
+            .expect("absence is an unavailable observation, not a call error");
 
     assert!(result.is_none());
-    assert_eq!(crate::modules::ops::state_of(super::super::MODULE_ID), before);
+    assert_eq!(
+        crate::modules::ops::state_of(super::super::MODULE_ID),
+        before
+    );
     assert!(!crate::modules::runtime::is_started());
 }

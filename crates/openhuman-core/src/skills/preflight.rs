@@ -168,7 +168,10 @@ pub trait PreflightProbes: Send + Sync {
 
     /// Detailed identity result for doctor. Legacy workflow probes retain their
     /// established `Option` behavior through this default.
-    async fn composio_identity_status(&self, toolkit: &str) -> PreflightProbeStatus<Option<String>> {
+    async fn composio_identity_status(
+        &self,
+        toolkit: &str,
+    ) -> PreflightProbeStatus<Option<String>> {
         PreflightProbeStatus::Available(self.composio_identity(toolkit).await)
     }
 

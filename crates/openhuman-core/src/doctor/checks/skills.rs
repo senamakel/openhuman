@@ -190,14 +190,19 @@ impl DoctorCheck for GithubPreflightCheck {
         }
         #[cfg(test)]
         let result = if let Some(probes) = &self.probes {
-            crate::skills::preflight::run_github_preflight(Some(&self.required), probes.as_ref()).await
+            crate::skills::preflight::run_github_preflight(Some(&self.required), probes.as_ref())
+                .await
         } else {
-            let probes = ExistingConnectorPreflightProbes { config: ctx.config() };
+            let probes = ExistingConnectorPreflightProbes {
+                config: ctx.config(),
+            };
             crate::skills::preflight::run_github_preflight(Some(&self.required), &probes).await
         };
         #[cfg(not(test))]
         let result = {
-            let probes = ExistingConnectorPreflightProbes { config: ctx.config() };
+            let probes = ExistingConnectorPreflightProbes {
+                config: ctx.config(),
+            };
             crate::skills::preflight::run_github_preflight(Some(&self.required), &probes).await
         };
 
@@ -279,8 +284,7 @@ async fn existing_toolkit_status(
     #[cfg(feature = "modules")]
     {
         use tinyconnectors_bus::{
-            ComposioConnectedIntegrationsMode as Mode,
-            ComposioConnectedIntegrationsResponse,
+            ComposioConnectedIntegrationsMode as Mode, ComposioConnectedIntegrationsResponse,
             ComposioListConnectedIntegrationsRequest,
         };
 
@@ -303,11 +307,11 @@ async fn existing_toolkit_status(
         )
         .await
         {
-            Ok(Some(response)) => PreflightProbeStatus::Available(response.integrations.iter().any(
-                |integration| {
+            Ok(Some(response)) => {
+                PreflightProbeStatus::Available(response.integrations.iter().any(|integration| {
                     integration.connected && integration.toolkit.eq_ignore_ascii_case(toolkit)
-                },
-            )),
+                }))
+            }
             Ok(None) => PreflightProbeStatus::Unavailable,
             Err(crate::modules::connectors::ExistingCallError::Unavailable) => {
                 PreflightProbeStatus::Unavailable

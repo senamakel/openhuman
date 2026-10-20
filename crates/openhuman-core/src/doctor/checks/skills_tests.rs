@@ -216,8 +216,11 @@ async fn production_github_preflight_skips_malformed_profile_without_quarantinin
 
     let skill_dir = config.workspace_dir.join("skills/required-skill");
     std::fs::create_dir_all(&skill_dir).expect("create isolated skill directory");
-    std::fs::write(skill_dir.join("WORKFLOW.md"), "A required GitHub workflow.\n")
-        .expect("write workflow document");
+    std::fs::write(
+        skill_dir.join("WORKFLOW.md"),
+        "A required GitHub workflow.\n",
+    )
+    .expect("write workflow document");
     let manifest = skill_dir.join("workflow.toml");
     std::fs::write(
         &manifest,

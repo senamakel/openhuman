@@ -27,6 +27,10 @@ pub use schemas::{
 };
 
 #[cfg(test)]
+#[path = "checks/config_file_tests.rs"]
+mod config_file_tests;
+
+#[cfg(test)]
 #[path = "runner_tests.rs"]
 mod runner_tests;
 

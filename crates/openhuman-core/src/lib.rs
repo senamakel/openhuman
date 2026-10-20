@@ -107,7 +107,9 @@ pub use config::DaemonConfig;
 /// the Tauri shell, a CLI, a stdio MCP server, or a cloud/team server — via
 /// [`CoreBuilder`] → [`CoreRuntime`]. See `crates/openhuman-embed/README.md`
 /// and [`crate::core::runtime`] for the composition this builds on.
-pub use core::runtime::{CoreBootMode, CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource};
+pub use core::runtime::{
+    CoreBootMode, CoreBuilder, CoreRuntime, DomainSet, ServiceSet, TokenSource,
+};
 pub use core::types::HostKind;
 
 /// Runs the core logic based on the provided command-line arguments.

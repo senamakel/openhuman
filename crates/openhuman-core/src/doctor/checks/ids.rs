@@ -8,7 +8,7 @@
 /// as `__x_i_<hex UTF-8 bytes>`; valid names inside the reserved namespace are
 /// encoded as `__x_v_<hex UTF-8 bytes>`. The separate markers make the mapping
 /// collision-free, including for literal names that look like encoded ids.
-pub(super) fn canonical_segment(value: &str) -> String {
+pub(in crate::doctor) fn canonical_segment(value: &str) -> String {
     let native = !value.is_empty()
         && value.bytes().all(|byte| {
             byte.is_ascii_lowercase() || byte.is_ascii_digit() || matches!(byte, b'_' | b'-')

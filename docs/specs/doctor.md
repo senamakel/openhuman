@@ -35,7 +35,7 @@ Its detector is asynchronous and returns findings for that check:
 
 ```rust
 DoctorCheck {
-    id: "<area>/<name>",
+    id: "<area>/<name>[/<qualifier>...]",
     category: "<display category>",
     tier: DoctorTier::Static | DoctorTier::Connect | DoctorTier::Live,
     component_gate: Option<ComponentId>,
@@ -43,11 +43,14 @@ DoctorCheck {
 }
 ```
 
-Ids are lowercase ASCII `area/name` strings. They are API identifiers used by
-`--only`, `--skip`, the RPC filters, and downstream consumers. Once released,
-an id is never renamed or reused for different behavior; a replacement gets a
-new id and the old one remains recognizable for at least one schema lifetime.
-IDs are matched exactly. Prefixes, globs, and category names are not selectors.
+Ids are lowercase ASCII segments separated by `/`, with at least an area and
+name (`area/name`). Additional segments are allowed for checks scoped to a
+role or provider, such as `inference/live/chat`. They are API identifiers used
+by `--only`, `--skip`, the RPC filters, and downstream consumers. Once
+released, an id is never renamed or reused for different behavior; a
+replacement gets a new id and the old one remains recognizable for at least
+one schema lifetime. IDs are matched exactly. Prefixes, globs, and category
+names are not selectors.
 
 `static` checks may read configuration and the local filesystem, but do not
 open network connections or write files. `connect` checks may make bounded,

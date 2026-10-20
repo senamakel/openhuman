@@ -14,6 +14,7 @@ use crate::config::Config;
 #[inline(never)]
 pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
     let mut document: toml::Value = toml::from_str(contents)?;
+    let provenance_document = document.clone();
     let retired_provider_type = document
         .get("cloud_providers")
         .and_then(toml::Value::as_array)
@@ -45,6 +46,9 @@ pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
         let path = err.path().to_string();
         anyhow::anyhow!("{path}: {}", err.into_inner())
     })?;
+    config
+        .load_provenance_mut()
+        .record_file_keys(&provenance_document);
     unknown_keys.sort();
     unknown_keys.dedup();
     config.load_diagnostics_mut().unknown_keys = unknown_keys;

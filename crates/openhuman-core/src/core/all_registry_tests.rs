@@ -4,6 +4,28 @@ use super::*;
 async fn doctor_report_is_in_both_scoped_saas_dispatch_and_schema_surfaces() {
     use crate::core::runtime::{mode, ContextOverlay, CoreContext, DomainSet, Mode};
 
+    const CHILD: &str = "OPENHUMAN_SAAS_DOCTOR_SURFACE_CHILD";
+    let name = "doctor_report_is_in_both_scoped_saas_dispatch_and_schema_surfaces";
+    let module = module_path!().split_once("::").expect("crate module").1;
+    let exact = format!("{module}::{name}");
+    if std::env::var(CHILD).as_deref() != Ok(exact.as_str()) {
+        let output = std::process::Command::new(
+            std::env::current_exe().expect("test executable path"),
+        )
+        .args(["--exact", &exact, "--nocapture", "--test-threads=1"])
+        .env(CHILD, &exact)
+        .output()
+        .expect("run isolated SaaS doctor-surface test");
+        assert!(
+            output.status.success()
+                && String::from_utf8_lossy(&output.stdout).contains("1 passed"),
+            "isolated test {exact} failed:\n{}\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+
     mode::lock_mode(Mode::Saas).expect("test process uses SaaS mode");
     let doctor = "openhuman.doctor_report";
     let doctor_models = "openhuman.doctor_models";
@@ -17,6 +39,16 @@ async fn doctor_report_is_in_both_scoped_saas_dispatch_and_schema_surfaces() {
         .profile("alice"),
     );
 
+    let (unscoped_methods, unscoped_schemas) = (
+        all_registered_controllers()
+            .iter()
+            .map(RegisteredController::rpc_method_name)
+            .collect::<Vec<_>>(),
+        all_controller_schemas()
+            .iter()
+            .map(rpc_method_name)
+            .collect::<Vec<_>>(),
+    );
     let (operator_methods, operator_schemas) = CoreContext::scope(
         CoreContext::for_test(DomainSet::saas(), None),
         async {
@@ -47,6 +79,8 @@ async fn doctor_report_is_in_both_scoped_saas_dispatch_and_schema_surfaces() {
     })
     .await;
 
+    assert!(!unscoped_methods.iter().any(|method| method == doctor));
+    assert!(!unscoped_schemas.iter().any(|method| method == doctor));
     assert!(operator_methods.iter().any(|method| method == doctor));
     assert!(operator_schemas.iter().any(|method| method == doctor));
     assert!(user_methods.iter().any(|method| method == doctor));

@@ -145,6 +145,61 @@ async fn a_session_from_another_issuer_is_not_a_matching_connector_credential() 
 }
 
 #[tokio::test]
+async fn a_ready_connector_never_probes_after_the_selected_session_expires() {
+    let _route_guard = route_lock().lock().await;
+    let scratch = tempfile::tempdir().expect("create isolated expired-session fixture");
+    let mut config = Config::default();
+    config.config_path = scratch.path().join("config.toml");
+    config.workspace_dir = scratch.path().join("workspace");
+    config.secrets.encrypt = false;
+    let profiles = scratch.path().join("auth-profiles.json");
+    let raw = serde_json::json!({
+        "schema_version": 1,
+        "active_profiles": {},
+        "profiles": {
+            "app-session:default": {
+                "provider": "app-session",
+                "profile_name": "default",
+                "kind": "token",
+                "token": "expired-connector-test-token",
+                "metadata": { "session_expires_at": "2000-01-01T00:00:00Z" }
+            }
+        }
+    })
+    .to_string();
+    std::fs::write(&profiles, &raw).expect("seed isolated expired credential");
+    seed_loaded_scope_for_test(&config);
+
+    let bus = MemoryBus::new();
+    tinybus::broker::Broker::new().spawn(bus.clone());
+    let client = tinybus::Connection::connect(bus.connect().await.unwrap())
+        .await
+        .unwrap();
+    let proxy = client.proxy(DESTINATION, OBJECT_PATH, INTERFACE).unwrap();
+    let proxy_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let runtime = FixtureReadyRuntime {
+        proxy,
+        proxy_requests: Arc::clone(&proxy_requests),
+    };
+
+    let result = call_existing_readonly_with_runtime::<_, serde_json::Value, _>(
+        &config,
+        "ListConnectedIntegrations",
+        (),
+        &runtime,
+    )
+    .await
+    .expect("expired credentials make the inspection unavailable");
+
+    assert!(result.is_none());
+    assert_eq!(proxy_requests.load(std::sync::atomic::Ordering::SeqCst), 0);
+    assert_eq!(std::fs::read_to_string(&profiles).unwrap(), raw);
+    assert!(!scratch.path().join("auth-profiles.lock").exists());
+    *configured_binding().lock().unwrap() = None;
+    *loaded_scope().lock().unwrap() = None;
+}
+
+#[tokio::test]
 async fn load_scope_is_captured_only_when_the_module_receives_selected_paths_and_policy() {
     let _guard = route_lock().lock().await;
     let scratch = tempfile::tempdir().expect("create isolated load-scope fixture");

@@ -164,8 +164,10 @@ separate from this field.
 otherwise. `config_source` is always the source kind (`profile` or `tenant`),
 not a tenant credential or filesystem path. The `config/source` info finding
 reports the loaded config and `.env` paths, directory resolution source,
-profile layout version when applicable, and CLI model/provider overrides. It
-does not report config values or credentials.
+profile layout version when applicable, and whether CLI `--model` or
+`--provider` overrides are active. It does not report config values or
+credentials. It also reports `.env` variables shadowed by existing process
+environment values without including their values.
 
 The selection validator is a reserved runner check, `doctor/selection`. An
 unknown id supplied to either `only` or `skip` adds an `error` finding under
@@ -240,8 +242,8 @@ registers its backend, identity, socket, API URL, and managed-inference checks
 through this seam. Sources register against the active core context, not a
 process-global mutable singleton, so profiles and tests do not share state.
 Duplicate ids fail registration with a startup error; hosted ids use the same
-lowercase slash-separated segment grammar and are unique across sources. A source may
-register zero checks when its host capability is absent.
+lowercase slash-separated segment grammar and are unique across sources. A
+source may register zero checks when its host capability is absent.
 
 The doctor stays in the existing `DomainGroup::Platform` registration group.
 Moving its Rust module from `platform/doctor` to the top-level `doctor` domain
@@ -326,14 +328,16 @@ no v2 id: #325 deletes it because its state file is never written.
 For #491 tenant checks, `profile/provisioned` covers provision and lease
 readiness, while `backend/credential`, `inference/provider-ref`, and
 `storage/connect` report credential, provider-settings, and storage-scope
-readiness within the forced tenant context. A tenant cannot use `profile` to
-inspect another tenant; authorization failure is returned before check
-execution.
+readiness within the forced tenant context. A tenant caller cannot use
+`profile` to inspect another tenant; an authorized operator may select one.
+Authorization is checked before doctor reads config or credentials.
 
 `memory/roundtrip` uses doctor-scoped disposable content and must always forget
 it, including after a fetch failure. If cleanup fails, the report names the
-cleanup failure without including test content. No check may perform a write in
-the `static` or `connect` tiers.
+cleanup failure without including test content. Static checks may use bounded
+temporary local write probes, but must not persist configuration or repair
+application state. Connect checks may add read-only network probes but do not
+make billable calls or write remote state.
 
 ## Implementation references
 

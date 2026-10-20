@@ -12,7 +12,7 @@ use crate::modules::types::ModuleState;
 const INSPECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
-struct ConfiguredBinding {
+pub(super) struct ConfiguredBinding {
     load_scope: [u8; 32],
     route_scope: [u8; 32],
     credential: [u8; 32],

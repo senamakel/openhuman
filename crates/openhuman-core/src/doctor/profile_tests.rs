@@ -241,11 +241,15 @@ async fn selected_profile_runs_its_context_scoped_endpoint_enricher() {
         crate::core::runtime::DomainSet::full(),
         Some(layout.workspace_dir.clone()),
     );
-    crate::config::register_enricher_in(context.extensions(), "doctor-selected-profile", |config| {
-        if let Some(api_url) = &config.api_url {
-            config.resolved_endpoints.control_plane_url = Some(api_url.clone());
-        }
-    });
+    crate::config::register_enricher_in(
+        context.extensions(),
+        "doctor-selected-profile",
+        |config| {
+            if let Some(api_url) = &config.api_url {
+                config.resolved_endpoints.control_plane_url = Some(api_url.clone());
+            }
+        },
+    );
     let selected = crate::core::runtime::CoreContext::scope(context.clone(), async {
         resolve_desktop_profile_for_doctor(root, Some("account-b")).await
     })
@@ -263,14 +267,20 @@ async fn selected_profile_runs_its_context_scoped_endpoint_enricher() {
     );
 
     assert_eq!(
-        selected.config.resolved_endpoints.control_plane_url.as_deref(),
+        selected
+            .config
+            .resolved_endpoints
+            .control_plane_url
+            .as_deref(),
         Some("https://account-b.example")
     );
-    assert!(crate::security::credentials::session_support::check_session_backend(
-        &selected.config,
-        Some(&profile)
-    )
-    .is_ok());
+    assert!(
+        crate::security::credentials::session_support::check_session_backend(
+            &selected.config,
+            Some(&profile)
+        )
+        .is_ok()
+    );
 }
 
 fn snapshot_tree(root: &Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {

@@ -24,11 +24,11 @@ impl DoctorCheck for EmbeddingConfigCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        validate(ctx.config())
+        config(ctx.config())
     }
 }
 
-fn validate(config: &Config) -> Vec<Finding> {
+fn config(config: &Config) -> Vec<Finding> {
     if config
         .embeddings_provider
         .as_deref()

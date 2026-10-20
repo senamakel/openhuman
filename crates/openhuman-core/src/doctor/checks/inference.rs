@@ -42,7 +42,7 @@ impl DoctorCheck for ProviderRef {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        provider_ref_findings(ctx.config())
+        provider_ref(ctx.config())
     }
 }
 
@@ -61,7 +61,7 @@ impl DoctorCheck for Construct {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        construction_findings(ctx.config())
+        construct(ctx.config())
     }
 }
 
@@ -80,7 +80,7 @@ impl DoctorCheck for Temperature {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        temperature_findings(ctx.config())
+        temperature(ctx.config())
     }
 }
 
@@ -92,7 +92,7 @@ pub(super) fn checks() -> Vec<Arc<dyn DoctorCheck>> {
     ]
 }
 
-fn provider_ref_findings(config: &Config) -> Vec<Finding> {
+fn provider_ref(config: &Config) -> Vec<Finding> {
     let mut findings = Vec::new();
 
     for (role, path) in ROLE_PROVIDER_FIELDS {
@@ -177,36 +177,14 @@ fn provider_ref_findings(config: &Config) -> Vec<Finding> {
         }
     }
 
-    let stt_provider = crate::voice::effective_stt_provider(config);
+    let (stt_provider, stt_path) = effective_stt_provider(config);
     if !voice_provider_resolves(config, &stt_provider, false) {
-        let path = if config
-            .stt_provider
-            .as_deref()
-            .is_some_and(|provider| !provider.trim().is_empty() && !is_voice_deferred(provider))
-        {
-            "stt_provider"
-        } else if !is_voice_deferred(&config.local_ai.stt_provider) {
-            "local_ai.stt_provider"
-        } else {
-            "voice_server.stt_engine"
-        };
-        findings.push(unresolved_provider(path));
+        findings.push(unresolved_provider(stt_path));
     }
 
-    let tts_provider = crate::voice::effective_tts_provider(config);
+    let (tts_provider, tts_path) = effective_tts_provider(config);
     if !voice_provider_resolves(config, &tts_provider, true) {
-        let path = if config
-            .tts_provider
-            .as_deref()
-            .is_some_and(|provider| !provider.trim().is_empty())
-        {
-            "tts_provider"
-        } else if !config.local_ai.tts_provider.trim().is_empty() {
-            "local_ai.tts_provider"
-        } else {
-            "tts_provider"
-        };
-        findings.push(unresolved_provider(path));
+        findings.push(unresolved_provider(tts_path));
     }
 
     let mut seen_paths = std::collections::HashSet::new();
@@ -311,6 +289,42 @@ fn is_voice_deferred(provider: &str) -> bool {
     )
 }
 
+fn effective_stt_provider(config: &Config) -> (String, &'static str) {
+    if let Some(provider) = config
+        .stt_provider
+        .as_deref()
+        .map(str::trim)
+        .filter(|provider| !is_voice_deferred(provider))
+    {
+        return (provider.to_owned(), "stt_provider");
+    }
+    if !is_voice_deferred(&config.local_ai.stt_provider) {
+        return (config.local_ai.stt_provider.trim().to_owned(), "local_ai.stt_provider");
+    }
+    (
+        config.voice_server.stt_engine.provider_string().to_owned(),
+        "voice_server.stt_engine",
+    )
+}
+
+fn effective_tts_provider(config: &Config) -> (String, &'static str) {
+    if let Some(provider) = config
+        .tts_provider
+        .as_deref()
+        .map(str::trim)
+        .filter(|provider| !provider.is_empty())
+    {
+        return (provider.to_owned(), "tts_provider");
+    }
+    if !config.local_ai.tts_provider.trim().is_empty() {
+        return (
+            config.local_ai.tts_provider.trim().to_owned(),
+            "local_ai.tts_provider",
+        );
+    }
+    ("cloud".to_owned(), "tts_provider")
+}
+
 fn voice_provider_resolves(config: &Config, provider: &str, is_tts: bool) -> bool {
     let provider = provider.trim();
     if is_voice_deferred(provider) {
@@ -357,7 +371,7 @@ fn unresolved_provider(path: &str) -> Finding {
     finding
 }
 
-fn construction_findings(config: &Config) -> Vec<Finding> {
+fn construct(config: &Config) -> Vec<Finding> {
     let mut findings = Vec::new();
     let dispatch = DispatchCtx::ambient();
 
@@ -427,7 +441,7 @@ fn construction_error_class(error: &str) -> &'static str {
     }
 }
 
-fn temperature_findings(config: &Config) -> Vec<Finding> {
+fn temperature(config: &Config) -> Vec<Finding> {
     let mut findings = Vec::new();
     add_temperature_finding(
         &mut findings,

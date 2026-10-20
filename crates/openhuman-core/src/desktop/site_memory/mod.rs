@@ -34,7 +34,10 @@ const KEEP_SECS: u64 = 30 * 24 * 60 * 60;
 const DAILY_SWEEP_INTERVAL: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
 
 fn daily_sweep_interval() -> tokio::time::Interval {
-    tokio::time::interval(DAILY_SWEEP_INTERVAL)
+    tokio::time::interval_at(
+        tokio::time::Instant::now() + DAILY_SWEEP_INTERVAL,
+        DAILY_SWEEP_INTERVAL,
+    )
 }
 
 /// The directory site files live in.

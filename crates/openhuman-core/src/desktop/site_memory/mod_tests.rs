@@ -103,6 +103,7 @@ async fn first_daily_sweep_waits_until_its_deadline() {
     assert_eq!(calls.load(Ordering::SeqCst), 0);
 
     tokio::time::advance(std::time::Duration::from_secs(1)).await;
+    tokio::time::advance(std::time::Duration::from_secs(24 * 60 * 60)).await;
     sweeps.recv().await.unwrap();
     assert_eq!(calls.load(Ordering::SeqCst), 1);
 

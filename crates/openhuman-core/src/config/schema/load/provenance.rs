@@ -97,6 +97,7 @@ impl ConfigProvenance {
     }
 
     /// Make a source map directly from the persisted TOML tree.
+    #[cfg(test)]
     pub(crate) fn from_file_document(document: &toml::Value) -> Self {
         let mut provenance = Self::default();
         provenance.record_file_keys(document);

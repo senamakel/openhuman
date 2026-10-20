@@ -9,8 +9,8 @@ use super::contract::DoctorProfileStatus;
 use super::profile::DesktopProfileSelection;
 use crate::config::Config;
 use crate::core::{
-    runtime::{ComponentSet, CoreContext, DispatchCtx},
     Outcome,
+    runtime::{ComponentSet, CoreContext, DispatchCtx},
 };
 use crate::doctor::{
     self, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier,
@@ -169,7 +169,8 @@ fn unusable_default_config_outcome(
     config: &Config,
     tier: DoctorTier,
 ) -> Option<Outcome<DoctorReport>> {
-    if config.load_diagnostics().fallback != crate::config::schema::load::ConfigLoadFallback::Defaults
+    if config.load_diagnostics().fallback
+        != crate::config::schema::load::ConfigLoadFallback::Defaults
     {
         return None;
     }

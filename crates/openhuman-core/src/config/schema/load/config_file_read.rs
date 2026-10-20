@@ -109,8 +109,9 @@ pub(super) async fn parse_toml_off_worker(contents: String) -> Result<Box<Config
     {
         Ok(Ok(config)) => Ok(config),
         Ok(Err(parse_error)) => Err(parse_error),
-        Err(join_error) => Err(anyhow::Error::new(join_error)
-            .context("blocking-pool config parser failed")),
+        Err(join_error) => {
+            Err(anyhow::Error::new(join_error).context("blocking-pool config parser failed"))
+        }
     }
 }
 

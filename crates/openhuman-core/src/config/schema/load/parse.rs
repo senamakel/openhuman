@@ -64,8 +64,8 @@ impl std::error::Error for ConfigParseFailure {
 /// Parse a `config.toml` document into a [`Config`].
 #[inline(never)]
 pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
-    let mut document: toml::Value = toml::from_str(contents)
-        .map_err(|error| ConfigParseFailure::syntax(contents, error))?;
+    let mut document: toml::Value =
+        toml::from_str(contents).map_err(|error| ConfigParseFailure::syntax(contents, error))?;
     let retired_provider_type = document
         .get("cloud_providers")
         .and_then(toml::Value::as_array)

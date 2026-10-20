@@ -27,6 +27,18 @@ pub use schemas::{
 };
 
 #[cfg(test)]
+#[path = "config_file_tests.rs"]
+mod config_file_tests;
+
+#[cfg(test)]
+#[path = "config_provenance_tests.rs"]
+mod config_provenance_tests;
+
+#[cfg(test)]
+#[path = "config_semantics_tests.rs"]
+mod config_semantics_tests;
+
+#[cfg(test)]
 #[path = "runner_tests.rs"]
 mod runner_tests;
 

@@ -256,17 +256,19 @@ async fn launch(
     let driver = importer(config, bound.engine, consent, paused);
     let begin = {
         let driver = driver.clone();
-        let mode = mode;
-        ctx.spawn_blocking(move || match mode {
-            Mode::Import => driver.begin(),
-            Mode::Retry => driver.begin_retry(),
-            Mode::ResumeRetry => Ok(driver.begin_retry_resume()),
+        ctx.spawn_blocking(move || {
+            let begun = match mode {
+                Mode::Import => driver.begin(),
+                Mode::Retry => driver.begin_retry(),
+                Mode::ResumeRetry => Ok(driver.begin_retry_resume()),
+            };
+            (guard, begun)
         })
         .await
     };
-    let begun = match begin {
-        Ok(Ok(begun)) => begun,
-        Ok(Err(error)) => return Err(import_error(&error)),
+    let (guard, begun) = match begin {
+        Ok((guard, Ok(begun))) => (guard, begun),
+        Ok((_guard, Err(error))) => return Err(import_error(&error)),
         Err(error) => return Err(Error::Engine(format!("import start failed: {error}"))),
     };
     let state = begun.state.clone();

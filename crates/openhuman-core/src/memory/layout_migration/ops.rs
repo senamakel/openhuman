@@ -30,6 +30,10 @@ struct ContextSpawner(DispatchCtx);
 
 impl MigrationSpawner for ContextSpawner {
     fn spawn(&self, task: MigrationTask) -> std::result::Result<(), String> {
+        if tokio::runtime::Handle::try_current().is_err() {
+            drop(task);
+            return Err("no Tokio runtime is available".to_string());
+        }
         self.0.spawn(task);
         Ok(())
     }

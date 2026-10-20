@@ -136,11 +136,20 @@ pub async fn start(
         return status(ctx, config).await;
     };
     let backfiller = driver(ctx.clone(), config, bound.engine)?;
+    let pending = backfiller.status(false).await?;
     let run = match backfiller.begin().await {
         Ok(run) => run,
         Err(error) => return Err(error),
     };
-    let view = backfiller.status(true).await?;
+    let view = BackfillView {
+        state: BackfillState {
+            phase: BackfillPhase::Running,
+            threads_total: pending.pending_threads,
+            ..BackfillState::default()
+        },
+        pending_threads: pending.pending_threads,
+        pending_turns: pending.pending_turns,
+    };
     let task_ctx = ctx.clone();
     task_ctx.spawn(async move {
         let _guard = guard;

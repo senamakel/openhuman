@@ -52,7 +52,6 @@ impl LegacyV1Check {
                 None,
             ),
             Self::adapter("workspace/layout", "workspace", DoctorTier::Connect, None),
-            Self::adapter("runtime/daemon", "daemon", DoctorTier::Static, None),
             Self::adapter(
                 "runtime/environment",
                 "environment",

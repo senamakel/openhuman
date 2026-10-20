@@ -184,6 +184,7 @@ impl RuntimeBuilder {
             .open_storage()
             .await
             .map_err(RuntimeError::Invalid)?;
+        let core_extensions = host_seams.core_extensions.clone();
         let storage_backend = match &host_seams.storage {
             Some(super::StorageSource::Backend(backend)) => Some(backend.clone()),
             _ => None,
@@ -199,7 +200,6 @@ impl RuntimeBuilder {
             }
         }
         let mut seams = host_seams.install().map_err(RuntimeError::Invalid)?;
-        let core_extensions = host_seams.core_extensions.clone();
 
         // Before `CoreBuilder::build()`: the scheduler gate reads the credential
         // store exactly once, at boot, to decide whether it is signed in.

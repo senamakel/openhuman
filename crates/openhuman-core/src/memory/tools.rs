@@ -344,6 +344,9 @@ mod native_budget_tests;
 #[path = "tools_offline_tests.rs"]
 mod offline_tests;
 #[cfg(test)]
+#[path = "tools_queue_failure_tests.rs"]
+mod queue_failure_tests;
+#[cfg(test)]
 #[path = "tools_read_tests.rs"]
 mod read_tests;
 #[cfg(test)]

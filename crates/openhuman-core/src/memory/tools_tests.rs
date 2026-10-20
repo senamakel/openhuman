@@ -147,6 +147,17 @@ async fn queued_writes_work_without_an_available_engine_but_not_when_explicitly_
         2,
         "both operations must be durable in the outbox"
     );
+    assert!(matches!(
+        &pending[0].operation,
+        tinymemory_tools::pending::WriteOperation::Learn { .. }
+    ));
+    assert!(matches!(
+        &pending[1].operation,
+        tinymemory_tools::pending::WriteOperation::Forget { .. }
+    ));
+    assert!(pending
+        .iter()
+        .all(|entry| entry.scope_root == facts.reach.at));
 
     let mut disabled = config.clone();
     disabled.components.memory = false;
@@ -158,15 +169,12 @@ async fn queued_writes_work_without_an_available_engine_but_not_when_explicitly_
         let result = disabled_tool.execute(args).await.unwrap();
         assert!(result.is_error, "explicit disable must reject the write");
     }
-    assert!(
-        crate::memory::tool_writes::tests::queued_for(
-            &disabled,
-            &CallFacts::gather(&disabled, None)
-        )
-        .unwrap()
-        .is_empty(),
-        "disabled memory must not append to the pending outbox"
-    );
+    let after_disabled = crate::memory::tool_writes::tests::queued_for(
+        &disabled,
+        &CallFacts::gather(&disabled, None),
+    )
+    .unwrap();
+    assert_eq!(after_disabled, pending, "disabled memory must not append");
 }
 
 #[tokio::test]

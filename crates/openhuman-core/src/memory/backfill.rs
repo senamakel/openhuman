@@ -154,10 +154,7 @@ pub async fn start(
     };
     let backfiller = driver(ctx.clone(), config, bound.engine);
     let pending = backfiller.status(false).await?;
-    let run = match backfiller.begin().await {
-        Ok(run) => run,
-        Err(error) => return Err(error),
-    };
+    let run = backfiller.begin().await?;
     let view = BackfillView {
         state: BackfillState {
             phase: BackfillPhase::Running,

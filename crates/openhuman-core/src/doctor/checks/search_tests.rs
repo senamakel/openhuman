@@ -8,53 +8,19 @@ use std::sync::{
     atomic::{AtomicUsize, Ordering},
 };
 
-struct ReadOnlyManagedResolver(Arc<AtomicUsize>);
+struct FixedManagedResolver {
+    managed_available: bool,
+    calls: Arc<AtomicUsize>,
+}
 
-impl SearchProviderResolver for ReadOnlyManagedResolver {
+impl SearchProviderResolver for FixedManagedResolver {
     fn resolve(
         &self,
         config: &crate::config::Config,
     ) -> Vec<crate::search::providers::ResolvedProvider> {
-        self.0.fetch_add(1, Ordering::SeqCst);
-        if config.profile_providers.is_some() {
-            // Preserve direct routes and credentials pinned by this selected
-            // SaaS profile; the binding is already an immutable config input.
-            return crate::search::providers::resolve(config);
-        }
-        crate::search::providers::resolve_with(
-            config,
-            read_only_managed_credential_available(config),
-        )
+        self.calls.fetch_add(1, Ordering::SeqCst);
+        crate::search::providers::resolve_with(config, self.managed_available)
     }
-}
-
-fn read_only_managed_credential_available(config: &crate::config::Config) -> bool {
-    use crate::security::credentials::{
-        AuthService, api_key,
-        session_support::{
-            APP_SESSION_PROVIDER, SessionTokenCheck, check_session_backend, classify_session_token,
-            is_local_session_token,
-        },
-    };
-
-    if api_key::get_api_key_read_only(config)
-        .ok()
-        .flatten()
-        .is_some_and(|key| !key.trim().is_empty())
-    {
-        return true;
-    }
-
-    let profile = AuthService::get_profile_read_only(config, APP_SESSION_PROVIDER, None)
-        .ok()
-        .flatten();
-    if check_session_backend(config, profile.as_ref()).is_err() {
-        return false;
-    }
-    matches!(
-        classify_session_token(profile.as_ref(), chrono::Utc::now()),
-        SessionTokenCheck::Live(token) if !is_local_session_token(&token)
-    )
 }
 
 fn config_in(root: &std::path::Path) -> crate::config::Config {
@@ -128,19 +94,6 @@ fn write_api_key_profile(root: &std::path::Path) {
     .expect("write fake API key profile");
 }
 
-fn status_for(
-    resolver: &ReadOnlyManagedResolver,
-    config: &crate::config::Config,
-    provider: &str,
-) -> crate::search::providers::ProviderStatus {
-    resolver
-        .resolve(config)
-        .into_iter()
-        .find(|resolved| resolved.id == provider)
-        .expect("provider is in the search catalog")
-        .status(crate::search::is_active(config))
-}
-
 #[tokio::test]
 async fn needs_key_is_a_warning_with_the_provider_config_key_in_its_hint() {
     let ambient = tempfile::tempdir().expect("create ambient config fixture");
@@ -151,7 +104,10 @@ async fn needs_key_is_a_warning_with_the_provider_config_key_in_its_hint() {
     let resolver_calls = Arc::new(AtomicUsize::new(0));
     let check = SearchProviderCheck::with_resolver(
         "brave",
-        Arc::new(ReadOnlyManagedResolver(Arc::clone(&resolver_calls))),
+        Arc::new(FixedManagedResolver {
+            managed_available: false,
+            calls: Arc::clone(&resolver_calls),
+        }),
     );
     let ambient_context = crate::core::runtime::CoreContext::for_test_with_config(
         crate::core::runtime::DomainSet::full(),
@@ -182,7 +138,10 @@ async fn a_selected_direct_key_makes_the_provider_ready_without_any_network_call
     let resolver_calls = Arc::new(AtomicUsize::new(0));
     let check = SearchProviderCheck::with_resolver(
         "brave",
-        Arc::new(ReadOnlyManagedResolver(Arc::clone(&resolver_calls))),
+        Arc::new(FixedManagedResolver {
+            managed_available: false,
+            calls: Arc::clone(&resolver_calls),
+        }),
     );
 
     let finding = check
@@ -219,9 +178,11 @@ async fn a_live_selected_b_session_enables_managed_search_without_refreshing_it(
         .search
         .providers
         .insert("exa".into(), SearchProviderSettings::managed());
-    let resolver_calls = Arc::new(AtomicUsize::new(0));
-    let resolver = Arc::new(ReadOnlyManagedResolver(Arc::clone(&resolver_calls)));
-    let check = SearchProviderCheck::with_resolver("exa", resolver.clone());
+    let selected_profile_path = selected.path().join("auth-profiles.json");
+    let selected_profile_before = std::fs::read(&selected_profile_path).unwrap();
+    let ambient_profile_path = ambient.path().join("auth-profiles.json");
+    let ambient_profile_before = std::fs::read(&ambient_profile_path).unwrap();
+    let check = SearchProviderCheck::new("exa");
     let ambient_context = crate::core::runtime::CoreContext::for_test_with_config(
         crate::core::runtime::DomainSet::full(),
         config_a,
@@ -241,10 +202,14 @@ async fn a_live_selected_b_session_enables_managed_search_without_refreshing_it(
     assert_eq!(finding.severity, FindingSeverity::Pass);
     assert!(!finding.message.contains("doctor-fake-session-token"));
     assert_eq!(
-        status_for(&resolver, &config_b, "exa"),
-        crate::search::providers::ProviderStatus::Ready
+        std::fs::read(&selected_profile_path).unwrap(),
+        selected_profile_before
     );
-    assert_eq!(resolver_calls.load(Ordering::SeqCst), 2);
+    assert_eq!(
+        std::fs::read(&ambient_profile_path).unwrap(),
+        ambient_profile_before
+    );
+    assert!(!config_b.workspace_dir.exists());
 }
 
 #[tokio::test]
@@ -256,45 +221,48 @@ async fn an_expired_or_wrong_backend_session_does_not_make_managed_search_ready(
         .search
         .providers
         .insert("exa".into(), SearchProviderSettings::managed());
-    let resolver = ReadOnlyManagedResolver(Arc::new(AtomicUsize::new(0)));
-
-    assert_eq!(
-        status_for(&resolver, &config, "exa"),
-        crate::search::providers::ProviderStatus::SignInRequired
-    );
+    let profile_path = scratch.path().join("auth-profiles.json");
+    let check = SearchProviderCheck::new("exa");
+    let missing = check
+        .detect(&DoctorCtx::from_config(config.clone()))
+        .await
+        .into_iter()
+        .next()
+        .expect("missing managed credential produces an advisory finding");
+    assert_ne!(missing.severity, FindingSeverity::Pass);
+    assert!(!missing.message.contains("doctor-fake"));
 
     write_session_profile(
         scratch.path(),
         &(now - chrono::Duration::hours(1)).to_rfc3339(),
         "https://backend-b.example",
     );
-    assert_eq!(
-        status_for(&resolver, &config, "exa"),
-        crate::search::providers::ProviderStatus::SignInRequired
-    );
-    let check = SearchProviderCheck::with_resolver(
-        "exa",
-        Arc::new(ReadOnlyManagedResolver(Arc::new(AtomicUsize::new(0)))),
-    );
-    let finding = check
+    let expired_before = std::fs::read(&profile_path).unwrap();
+    let expired = check
         .detect(&DoctorCtx::from_config(config.clone()))
         .await
         .into_iter()
         .next()
         .expect("expired managed credential produces an advisory finding");
-    assert_ne!(finding.severity, FindingSeverity::Pass);
-    assert!(!finding.message.contains("doctor-fake-session-token"));
-    assert!(!finding.fix_hint.trim().is_empty());
+    assert_ne!(expired.severity, FindingSeverity::Pass);
+    assert!(!expired.message.contains("doctor-fake-session-token"));
+    assert!(!expired.fix_hint.trim().is_empty());
+    assert_eq!(std::fs::read(&profile_path).unwrap(), expired_before);
+    assert!(!config.workspace_dir.exists());
 
     write_session_profile(
         scratch.path(),
         &(now + chrono::Duration::hours(1)).to_rfc3339(),
         "https://backend-a.example",
     );
-    assert_eq!(
-        status_for(&resolver, &config, "exa"),
-        crate::search::providers::ProviderStatus::SignInRequired
-    );
+    let mismatched = check
+        .detect(&DoctorCtx::from_config(config))
+        .await
+        .into_iter()
+        .next()
+        .expect("wrong-backend session produces an advisory finding");
+    assert_ne!(mismatched.severity, FindingSeverity::Pass);
+    assert!(!mismatched.message.contains("doctor-fake-session-token"));
 }
 
 #[tokio::test]
@@ -306,12 +274,18 @@ async fn a_selected_api_key_is_a_valid_managed_credential() {
         .search
         .providers
         .insert("exa".into(), SearchProviderSettings::managed());
-    let resolver = ReadOnlyManagedResolver(Arc::new(AtomicUsize::new(0)));
-
-    assert_eq!(
-        status_for(&resolver, &config, "exa"),
-        crate::search::providers::ProviderStatus::Ready
-    );
+    let profile_path = scratch.path().join("auth-profiles.json");
+    let bytes_before = std::fs::read(&profile_path).unwrap();
+    let finding = SearchProviderCheck::new("exa")
+        .detect(&DoctorCtx::from_config(config.clone()))
+        .await
+        .into_iter()
+        .next()
+        .expect("selected API key enables managed search");
+    assert_eq!(finding.severity, FindingSeverity::Pass);
+    assert!(!finding.message.contains("doctor-fake-managed-api-key"));
+    assert_eq!(std::fs::read(&profile_path).unwrap(), bytes_before);
+    assert!(!config.workspace_dir.exists());
 }
 
 #[tokio::test]
@@ -346,10 +320,14 @@ async fn profile_search_binding_is_resolved_without_operator_session_credentials
     crate::profiles::provider_settings::ProfileProviderSettings::from_saas(&saas)
         .expect("valid direct profile binding")
         .bind(&mut config);
-    let resolver = ReadOnlyManagedResolver(Arc::new(AtomicUsize::new(0)));
-
-    assert_eq!(
-        status_for(&resolver, &config, "exa"),
-        crate::search::providers::ProviderStatus::Ready
-    );
+    let finding = SearchProviderCheck::new("exa")
+        .detect(&DoctorCtx::from_config(config.clone()))
+        .await
+        .into_iter()
+        .next()
+        .expect("selected profile binding supplies the Exa direct key");
+    assert_eq!(finding.severity, FindingSeverity::Pass);
+    assert!(!finding.message.contains("doctor-profile-exa-key"));
+    assert!(!finding.message.contains("doctor-profile-gemini-key"));
+    assert!(!config.workspace_dir.exists());
 }

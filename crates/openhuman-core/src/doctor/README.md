@@ -45,7 +45,7 @@ Namespace `doctor`, two functions:
 | Method | Inputs | Output |
 | --- | --- | --- |
 | `doctor.report` | optional `tier`, exact-id `only` / `skip`, and `profile` | v2 `DoctorReport` ("Run diagnostics for workspace and runtime configuration.") |
-| `doctor.models` | `use_cache: Option<bool>` (default `true`) | Returns an unavailable error until catalog probing is implemented. |
+| `doctor.models` | `use_cache: Option<bool>` (default `true`) | Returns per-provider results from bounded read-only model catalog requests. |
 
 Both handlers load config through `DispatchCtx` and return `Outcome::single_log(...)`. The profile field is reserved for the host profile loaders in #490/#491. Controllers remain wired in `crates/openhuman-core/src/core/all.rs`.
 
@@ -83,7 +83,7 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 - The legacy memory engine status remains an async input resolved by `ops` before the per-check blocking adapter. Do not call `Handle::block_on` from a check.
 - The v1 adapter maps status and ids to v2 but does not forward unstructured legacy messages, which may contain resolved configuration values. Native v2 checks should provide safe, specific findings.
 - An engine that is down is reported as an error and memory being off as a warning, so the doctor names what is wrong instead of showing an empty store.
-- `doctor.models` reports an explicit unavailable error until the inference catalog integration is implemented in #497; it does not return a fabricated all-skipped report.
+- `doctor.models` uses an inspection-safe catalog hook and never falls back to the ordinary mutable catalog callback.
 - The embedding probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-ollama providers short-circuit to OK.
 - `model_matches` treats `name` vs `name:tag` as a match only when at most one side is tagged; two differently-tagged names are not considered equal.
 - Severity rollup: `DoctorSummary` counts `Ok`/`Warn`/`Error` items; checks are intentionally lenient (missing optional dirs/tools → `Warn`, not `Error`).

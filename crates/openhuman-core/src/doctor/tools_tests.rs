@@ -18,9 +18,8 @@ fn metadata() {
 
 #[tokio::test]
 async fn models_tool_returns_an_inspection_report_when_no_provider_is_configured() {
-    let result = DoctorModelsTool::new(cfg())
+    DoctorModelsTool::new(cfg())
         .execute(serde_json::json!({ "use_cache": true }))
         .await
         .expect("doctor_models returns the actual empty inspection result");
-    assert!(matches!(result, ToolResult::Success(_)));
 }

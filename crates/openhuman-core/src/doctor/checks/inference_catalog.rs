@@ -51,9 +51,9 @@ fn configured_entries(config: &crate::config::Config) -> Vec<CloudProviderCreds>
     let selected = selected_models(config);
     // The managed route is a configured model source even though it is not a
     // BYOK row in cloud_providers.
-    if selected.iter().any(|(_, model)| {
-        model.starts_with("openhuman:") || model.starts_with("openrouter/")
-    })
+    if selected
+        .iter()
+        .any(|(_, model)| model.starts_with("openhuman:") || model.starts_with("openrouter/"))
         && !entries.iter().any(|entry| entry.slug == "openhuman")
     {
         entries.push(CloudProviderCreds {

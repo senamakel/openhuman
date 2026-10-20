@@ -23,10 +23,10 @@ use std::sync::{Arc, OnceLock};
 use std::time::Duration;
 
 use axum::extract::State;
-use axum::http::{header::AUTHORIZATION, HeaderMap, StatusCode};
+use axum::http::{HeaderMap, StatusCode, header::AUTHORIZATION};
 use axum::routing::get;
 use axum::{Json, Router};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tempfile::tempdir;
 
 use openhuman_core::config::rpc::load_config_with_timeout;
@@ -51,7 +51,8 @@ fn platform_e2e_env_lock() -> tokio::sync::MutexGuard<'static, ()> {
 async fn platform_e2e_env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
     ENV_LOCK
         .get_or_init(|| tokio::sync::Mutex::new(()))
-        .lock().await
+        .lock()
+        .await
 }
 
 const TEST_JWT: &str = "e2e-notification-platform-jwt";
@@ -904,8 +905,8 @@ async fn health_snapshot_and_system_info_report_this_process() {
 
 // ── doctor ───────────────────────────────────────────────────────────────────
 
-/// `doctor_report` returns a self-consistent v2 report, and `doctor_models` reports when model
-/// catalog probing is unavailable.
+/// `doctor_report` returns a self-consistent v2 report, and `doctor_models` returns its catalog
+/// inspection result.
 ///
 /// Covers: `openhuman.doctor_report`, `openhuman.doctor_models`.
 #[tokio::test]
@@ -938,21 +939,24 @@ async fn doctor_report_and_models_are_internally_consistent() {
             "every finding carries a v2 severity: {finding}"
         );
         assert!(
-            finding.get("check_id")
+            finding
+                .get("check_id")
                 .and_then(Value::as_str)
                 .map(|id| !id.is_empty())
                 .unwrap_or(false),
             "every finding is attributed to a stable check id: {finding}"
         );
         assert!(
-            finding.get("message")
+            finding
+                .get("message")
                 .and_then(Value::as_str)
                 .map(|m| !m.is_empty())
                 .unwrap_or(false),
             "every finding carries a human-readable message: {finding}"
         );
         assert!(
-            finding.get("fix_hint")
+            finding
+                .get("fix_hint")
                 .and_then(Value::as_str)
                 .map(|hint| !hint.is_empty())
                 .unwrap_or(false),
@@ -962,19 +966,21 @@ async fn doctor_report_and_models_are_internally_consistent() {
     assert!(
         findings
             .iter()
-            .any(|finding| finding.get("check_id").and_then(Value::as_str) == Some("config/semantics")),
+            .any(|finding| finding.get("check_id").and_then(Value::as_str)
+                == Some("config/semantics")),
         "the config check always runs: {result}"
     );
     assert!(
         findings
             .iter()
-            .any(|finding| finding.get("check_id").and_then(Value::as_str) == Some("workspace/layout")),
+            .any(|finding| finding.get("check_id").and_then(Value::as_str)
+                == Some("workspace/layout")),
         "the workspace check always runs: {result}"
     );
     assert!(
-        findings
-            .iter()
-            .all(|finding| finding.get("check_id").and_then(Value::as_str) != Some("runtime/daemon")),
+        findings.iter().all(
+            |finding| finding.get("check_id").and_then(Value::as_str) != Some("runtime/daemon")
+        ),
         "the report must not include a check backed by an unwritten daemon state file: {result}"
     );
 
@@ -1001,7 +1007,7 @@ async fn doctor_report_and_models_are_internally_consistent() {
         "doctor_report.ok must be false exactly when a finding is an error: {result}"
     );
 
-    // ── models: unavailable until the inference catalog integration lands.
+    // ── models: a successful empty report is the honest result when no provider is configured.
     let models = post_json_rpc(
         &h.rpc_base,
         9302,
@@ -1009,10 +1015,19 @@ async fn doctor_report_and_models_are_internally_consistent() {
         json!({ "use_cache": false }),
     )
     .await;
-    let message = jsonrpc_error_message(&models, "doctor_models");
-    assert!(
-        message.to_lowercase().contains("not available"),
-        "doctor_models must report unavailable until it can probe the catalog: {message}"
+    let model_result = assert_no_jsonrpc_error(&models, "doctor_models");
+    assert_eq!(
+        model_result
+            .get("entries")
+            .and_then(Value::as_array)
+            .map(Vec::len),
+        Some(0)
+    );
+    assert_eq!(
+        model_result
+            .pointer("/summary/errors")
+            .and_then(Value::as_u64),
+        Some(0)
     );
 
     // `use_cache` is optional and defaults to true; a non-bool must be rejected, not coerced.

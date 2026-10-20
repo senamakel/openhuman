@@ -187,10 +187,6 @@ fn expired_mock_token() -> String {
     format!("{MOCK_TOKEN_HEADER}.{EXPIRED_TOKEN_PAYLOAD}.e2e")
 }
 
-fn expired_mock_token() -> String {
-    format!("{MOCK_TOKEN_HEADER}.{EXPIRED_TOKEN_PAYLOAD}.e2e")
-}
-
 async fn is_shared_mock(origin: &str) -> bool {
     let client = match reqwest::Client::builder()
         .timeout(Duration::from_secs(1))

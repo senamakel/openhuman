@@ -375,7 +375,10 @@ impl CoreContext {
     /// Derive a no-store context for read-only inspection under a selected
     /// config. It inherits host registrations and policies while owning fresh
     /// agent state slots; the parent's tenant and agent identities are retained.
-    pub fn derive_for_inspection(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
+    pub fn derive_for_inspection(&self, mut overlay: ContextOverlay) -> Arc<CoreContext> {
+        let components = crate::core::runtime::ComponentSet::from_config(&overlay.config.components);
+        overlay.domains = components.narrow_domains(overlay.domains);
+        overlay.tool_groups = components.narrow_tool_groups(overlay.tool_groups);
         let parent_config = self.latest_embedder_config();
         self.derive_with_parent_config_inner(parent_config.as_ref(), overlay, true)
     }
@@ -385,14 +388,16 @@ impl CoreContext {
     /// a process-default context or initialize stores.
     pub fn for_inspection(config: crate::config::Config) -> Arc<CoreContext> {
         let components = crate::core::runtime::ComponentSet::from_config(&config.components);
+        let domains = components.narrow_domains(crate::core::runtime::DomainSet::full());
+        let tool_groups = components.narrow_tool_groups(Default::default());
         let latest_embedder_config = Some(Arc::new(std::sync::Mutex::new(config.clone())));
         Arc::new(CoreContext {
             host_kind: HostKind::Cli,
             workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
                 workspace_dir: Some(config.workspace_dir.clone()),
             }))),
-            domains: crate::core::runtime::DomainSet::full(),
-            tool_groups: Default::default(),
+            domains,
+            tool_groups,
             components,
             embedder_config: Some(config),
             latest_embedder_config,
@@ -421,6 +426,11 @@ impl CoreContext {
         // caller of `derive_with` cannot widen a restricted parent's domains
         // just by omitting that check.
         let domains = self.domains.intersect(&overlay.domains);
+        let components = if fresh_state {
+            crate::core::runtime::ComponentSet::from_config(&overlay.config.components)
+        } else {
+            self.components
+        };
         if domains != overlay.domains {
             log::warn!(
                 "[core-context] derive: overlay requested domains={:?} wider than \
@@ -471,7 +481,7 @@ impl CoreContext {
             workspace_binding: RwLock::new(shared_binding),
             domains,
             tool_groups: overlay.tool_groups,
-            components: self.components,
+            components,
             embedder_config: Some(overlay.config),
             latest_embedder_config,
             user_skill_roots: overlay.user_skill_roots,

@@ -88,8 +88,16 @@ async fn an_unregistered_chat_provider_reports_its_config_path() {
 #[tokio::test]
 async fn invalid_role_primary_cloud_and_route_references_report_each_path() {
     let mut config = Config::default();
+    config.chat_provider = Some("missing-chat-provider:model".to_owned());
     config.reasoning_provider = Some("missing-chat-provider:model".to_owned());
+    config.agentic_provider = Some("missing-agentic-provider:model".to_owned());
+    config.coding_provider = Some("missing-coding-provider:model".to_owned());
+    config.vision_provider = Some("missing-vision-provider:model".to_owned());
+    config.memory_provider = Some("missing-memory-provider:model".to_owned());
+    config.embeddings_provider = Some("missing-embedding-provider".to_owned());
     config.primary_cloud = Some("missing-primary-id".to_owned());
+    config.stt_provider = Some("missing-stt-provider".to_owned());
+    config.tts_provider = Some("missing-tts-provider".to_owned());
     config.model_routes = vec![crate::config::ModelRouteConfig {
         hint: "reasoning".to_owned(),
         model: "missing-route-provider:model".to_owned(),
@@ -109,10 +117,18 @@ async fn invalid_role_primary_cloud_and_route_references_report_each_path() {
         .collect::<Vec<_>>();
 
     for expected in [
+        "chat_provider",
         "reasoning_provider",
+        "agentic_provider",
+        "coding_provider",
+        "vision_provider",
+        "memory_provider",
+        "embeddings_provider",
         "primary_cloud",
         "model_routes[0].model",
         "embedding_routes[0].provider",
+        "stt_provider",
+        "tts_provider",
     ] {
         assert!(
             paths.contains(&expected),
@@ -233,6 +249,15 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
         }
     }
 
+    fn drain_events(receiver: &mut tinybus::EventReceiver<DomainEvent>) {
+        loop {
+            match receiver.try_recv() {
+                Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
+                Err(_) => return,
+            }
+        }
+    }
+
     let _inference_guard = crate::inference::inference_test_guard_async().await;
     let temp = tempfile::tempdir().expect("temporary configuration directory");
     let proxy = TcpListener::bind(("127.0.0.1", 0)).expect("local proxy trap listener");
@@ -270,6 +295,8 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
         .with("OPENHUMAN_WORKSPACE", temp.path())
         .with("HTTPS_PROXY", &proxy_url)
         .with("https_proxy", &proxy_url)
+        .with("ALL_PROXY", &proxy_url)
+        .with("all_proxy", &proxy_url)
         .with("NO_PROXY", "")
         .with("no_proxy", "")
         .without("OPENAI_API_KEY")
@@ -325,13 +352,16 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
         .get()
         .expect("event bus initialized")
         .receiver();
-    let error = create_chat_model_with_model_id_in_for_inspection(
+    drain_events(&mut events);
+    let error = match create_chat_model_with_model_id_in_for_inspection(
         &DispatchCtx::unbound(),
         "vision",
         &config,
         config.default_temperature,
-    )
-    .expect_err("an expired OAuth credential requiring refresh is unsafe for static inspection");
+    ) {
+        Err(error) => error,
+        Ok(_) => panic!("an expired OAuth credential must not pass static inspection"),
+    };
     let message = error.to_string();
 
     assert!(

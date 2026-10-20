@@ -218,6 +218,12 @@ fn load_dotenv_for_cli_reads_cwd_dotenv_without_overwriting_existing_env() {
         Some("https://staging-api.example.test")
     );
     assert_eq!(loaded_app_env.as_deref(), Some("production"));
+
+    let load = crate::config::schema::load::current_dotenv_load()
+        .expect("successful dotenv load should record its provenance");
+    assert_eq!(load.path, env_path);
+    assert_eq!(load.loaded_vars, ["BACKEND_URL"]);
+    assert_eq!(load.skipped_vars, ["OPENHUMAN_APP_ENV"]);
 }
 
 // --- `mcp` compile-time gate (#4799) ------------------------------------

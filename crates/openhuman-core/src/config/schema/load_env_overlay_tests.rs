@@ -1,6 +1,19 @@
 use super::*;
 
 #[test]
+fn default_model_provenance_records_environment_precedence_without_values() {
+    let mut cfg = config_from_toml_str(r#"default_model = "file-model""#).unwrap();
+    cfg.apply_env_overlay_with(&HashMapEnv::new().with("OPENHUMAN_DEFAULT_MODEL", "env-model"));
+
+    let entry = cfg.load_provenance().field("default_model");
+    assert_eq!(entry.source, super::ProvenanceSource::Env);
+    assert_eq!(entry.env_var.as_deref(), Some("OPENHUMAN_DEFAULT_MODEL"));
+    assert!(entry.file_also_set);
+    assert_eq!(cfg.default_model.as_deref(), Some("env-model"));
+    assert!(!format!("{:?}", cfg.load_provenance()).contains("env-model"));
+}
+
+#[test]
 fn env_overlay_model_only_honours_namespaced_var() {
     // Both set → OPENHUMAN_MODEL wins; bare MODEL is ignored even when
     // OPENHUMAN_MODEL is absent.

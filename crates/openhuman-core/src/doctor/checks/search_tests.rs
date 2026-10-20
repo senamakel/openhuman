@@ -272,6 +272,19 @@ async fn an_expired_or_wrong_backend_session_does_not_make_managed_search_ready(
         status_for(&resolver, &config, "exa"),
         crate::search::providers::ProviderStatus::SignInRequired
     );
+    let check = SearchProviderCheck::with_resolver(
+        "exa",
+        Arc::new(ReadOnlyManagedResolver(Arc::new(AtomicUsize::new(0)))),
+    );
+    let finding = check
+        .detect(&DoctorCtx::from_config(config.clone()))
+        .await
+        .into_iter()
+        .next()
+        .expect("expired managed credential produces an advisory finding");
+    assert_ne!(finding.severity, FindingSeverity::Pass);
+    assert!(!finding.message.contains("doctor-fake-session-token"));
+    assert!(!finding.fix_hint.trim().is_empty());
 
     write_session_profile(
         scratch.path(),

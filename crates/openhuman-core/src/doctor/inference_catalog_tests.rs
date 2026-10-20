@@ -40,6 +40,11 @@ async fn catalog_handler(State(state): State<CatalogServerState>, headers: Heade
     (state.status, Json(state.body)).into_response()
 }
 
+async fn missing_catalog_handler(State(state): State<CatalogServerState>) -> Response {
+    state.requests.fetch_add(1, Ordering::SeqCst);
+    StatusCode::NOT_FOUND.into_response()
+}
+
 async fn spawn_catalog_server(
     status: StatusCode,
     body: serde_json::Value,
@@ -55,11 +60,12 @@ async fn spawn_catalog_server(
         .await
         .expect("bind local catalog server");
     let address = listener.local_addr().expect("local server address");
-    let app = Router::new().route("/v1/models", get(catalog_handler));
     let app = if has_models_route {
-        app
+        Router::new().route("/v1/models", get(catalog_handler))
     } else {
-        app.fallback(get(catalog_handler))
+        Router::new()
+            .route("/v1/health", get(catalog_handler))
+            .fallback(get(missing_catalog_handler))
     };
     let app = app.with_state(state.clone());
     tokio::spawn(async move {
@@ -70,11 +76,7 @@ async fn spawn_catalog_server(
     (format!("http://{address}/v1"), state)
 }
 
-fn config_for_catalog(
-    endpoint: String,
-    provider_id: &str,
-    slug: &str,
-) -> (tempfile::TempDir, Config) {
+fn temporary_config() -> (tempfile::TempDir, Config) {
     let root = tempfile::tempdir().expect("temporary doctor fixture");
     let mut config = Config {
         config_path: root.path().join("config.toml"),
@@ -82,15 +84,25 @@ fn config_for_catalog(
         action_dir: root.path().join("workspace"),
         ..Config::default()
     };
+    config.cloud_providers = Vec::new();
+    (root, config)
+}
+
+fn config_for_catalog(
+    endpoint: String,
+    provider_id: &str,
+    slug: &str,
+) -> (tempfile::TempDir, Config) {
+    let (root, mut config) = temporary_config();
     config.secrets.encrypt = false;
-    config.cloud_providers.push(CloudProviderCreds {
+    config.cloud_providers = vec![CloudProviderCreds {
         id: provider_id.to_owned(),
         slug: slug.to_owned(),
         label: "Doctor catalog fixture".to_owned(),
         endpoint,
         auth_style: AuthStyle::None,
         default_model: None,
-    });
+    }];
     (root, config)
 }
 
@@ -154,6 +166,12 @@ async fn doctor_models_skips_a_provider_without_a_models_route() {
     let (endpoint, server) = spawn_catalog_server(StatusCode::OK, catalog_body(&[]), false).await;
     let (_temp, config) =
         config_for_catalog(endpoint, "p_doctor_497_no_models", "doctor-497-no-models");
+
+    let endpoint_status = reqwest::get(format!("{}/models", config.cloud_providers[0].endpoint))
+        .await
+        .expect("mock provider should answer the missing catalog route");
+    assert_eq!(endpoint_status.status(), StatusCode::NOT_FOUND);
+    server.requests.store(0, Ordering::SeqCst);
 
     let report = doctor_models(&config, false)
         .await
@@ -223,14 +241,19 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
     let missing_default = report.value.findings.iter().find(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Warn
+            && finding.config_path.as_deref() == Some("default_model")
             && finding.message.contains("default_model")
-            && finding.message.contains("missing-default")
     });
     assert!(missing_default.is_some(), "{:#?}", report.value.findings);
-    assert!(report.value.findings.iter().any(|finding| {
+    let missing_route = report.value.findings.iter().find(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Warn
-            && finding.message.contains("missing-route-model")
+            && finding.config_path.as_deref() == Some("model_routes[0].model")
+    });
+    assert!(missing_route.is_some(), "{:#?}", report.value.findings);
+    assert!(report.value.findings.iter().all(|finding| {
+        !finding.message.contains("missing-default")
+            && !finding.message.contains("missing-route-model")
     }));
 }
 
@@ -239,8 +262,9 @@ async fn recorded_provider_auth_errors_are_reported_as_errors() {
     let provider = "doctor-497-auth-error-fixture";
     crate::inference::auth_error_registry::clear(provider);
     crate::inference::auth_error_registry::record(provider, 401);
+    let (_temp, config) = temporary_config();
     let report = doctor_report_with_options(
-        &Config::default(),
+        &config,
         DoctorOptions {
             only: vec!["inference/auth-errors".into()],
             ..DoctorOptions::default()

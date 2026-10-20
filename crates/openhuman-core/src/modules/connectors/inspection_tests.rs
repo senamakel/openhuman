@@ -140,7 +140,7 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
         &other_workspace,
         &proxy,
         "ListConnectedIntegrations",
-        request,
+        request.clone(),
     )
     .await
     .expect("mismatched binding is unavailable")

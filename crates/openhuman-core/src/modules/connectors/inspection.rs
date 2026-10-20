@@ -149,7 +149,9 @@ where
 {
     match tokio::time::timeout(
         timeout,
-        proxy.with_timeout(timeout).call_confidential::<Reply>(member, (request,)),
+        proxy
+            .with_timeout(timeout)
+            .call_confidential::<Reply>(member, (request,)),
     )
     .await
     {

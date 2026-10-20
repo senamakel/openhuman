@@ -168,6 +168,15 @@ async fn duplicate_mcp_definitions_report_one_error_without_probing_either_entry
 }
 
 #[test]
+fn duplicate_mcp_definition_errors_are_available_at_the_static_tier() {
+    let servers = [server("server-a"), server("server-a")];
+    let checks = checks_for_servers(&servers, Arc::new(FixedStatuses(Ok(None))));
+
+    assert_eq!(checks.len(), 1);
+    assert_eq!(checks[0].tier(), DoctorTier::Static);
+}
+
+#[test]
 fn arbitrary_server_names_produce_valid_noncolliding_ids() {
     let first =
         McpServerCheck::configured(&server("Server A/α"), Arc::new(FixedStatuses(Ok(None))));

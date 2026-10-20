@@ -355,7 +355,11 @@ async fn fetch_with_an_undeclared_mode_is_unsupported() {
     )
     .await;
     assert!(result.is_error);
-    assert!(text(&result).contains("INVALID_REQUEST"), "{}", text(&result));
+    assert!(
+        text(&result).contains("INVALID_REQUEST"),
+        "{}",
+        text(&result)
+    );
     assert!(text(&result).contains("keyword"), "{}", text(&result));
     assert!(text(&result).contains("hybrid"), "{}", text(&result));
 }
@@ -620,7 +624,11 @@ async fn learn_returns_on_accept_and_says_recall_may_lag() {
 async fn a_failed_learn_is_reported_to_the_model() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
-    std::fs::write(config.workspace_dir.join("memory"), "blocks outbox directory").unwrap();
+    std::fs::write(
+        config.workspace_dir.join("memory"),
+        "blocks outbox directory",
+    )
+    .unwrap();
 
     let learned = run_action(
         &ambient(),

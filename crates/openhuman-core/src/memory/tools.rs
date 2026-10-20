@@ -176,8 +176,7 @@ impl MemoryTool {
                     if let Some(reach) = reach {
                         scope.reach = Some(reach);
                     }
-                })
-                {
+                }) {
                     return ToolResult::error(render_error(error));
                 }
                 let engine = match super::engine::resolve(&self.config).engine() {

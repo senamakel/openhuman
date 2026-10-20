@@ -131,12 +131,7 @@ async fn restart_drains_scrubbed_learnings_and_ordered_forgetting() {
     )
     .unwrap();
     let id = ack["id"].as_str().unwrap();
-    enqueue(
-        &config,
-        &json!({"action":"forget","ids":[id]}),
-        &facts,
-    )
-    .unwrap();
+    enqueue(&config, &json!({"action":"forget","ids":[id]}), &facts).unwrap();
     // A fresh config and engine sees only the durable file from before restart.
     let restarted = config_in(&tmp);
     let engine = bind_reference(&restarted);
@@ -465,7 +460,10 @@ async fn model_supplied_forget_reach_cannot_remove_another_identitys_item() {
         &json!({"action":"forget","ids":[id],"reach":{"at":"","inherit":true,"descendants":true}}),
         &confined,
     );
-    assert!(matches!(rejected, Err(tinymemory_api::Error::InvalidRequest(_))));
+    assert!(matches!(
+        rejected,
+        Err(tinymemory_api::Error::InvalidRequest(_))
+    ));
     assert!(read(&config.workspace_dir).unwrap().is_empty());
     enqueue(&config, &json!({"action":"forget","ids":[id]}), &confined).unwrap();
     assert_eq!(drain(&config).await, 1);

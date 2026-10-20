@@ -13,8 +13,19 @@ const INSPECTION_TIMEOUT: Duration = Duration::from_secs(10);
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 struct ConfiguredBinding {
-    context: [u8; 32],
+    load_scope: [u8; 32],
+    route_scope: [u8; 32],
     credential: [u8; 32],
+}
+
+fn loaded_scope() -> &'static Mutex<Option<[u8; 32]>> {
+    static SCOPE: OnceLock<Mutex<Option<[u8; 32]>>> = OnceLock::new();
+    SCOPE.get_or_init(|| Mutex::new(None))
+}
+
+fn pending_load_scope() -> &'static Mutex<Option<[u8; 32]>> {
+    static SCOPE: OnceLock<Mutex<Option<[u8; 32]>>> = OnceLock::new();
+    SCOPE.get_or_init(|| Mutex::new(None))
 }
 
 /// Safe result boundary for the existing-only connector call.
@@ -44,7 +55,38 @@ pub(super) fn route_lock() -> &'static tokio::sync::Mutex<()> {
 /// The ordinary route fingerprint intentionally omits state_dir and toolkit
 /// policy; this separate identity prevents those omissions from authorizing a
 /// doctor read against a different workspace or configuration.
-pub(super) fn record_configured_route(config: &Config, route: &serde_json::Value) {
+pub(super) fn configured_binding_for_route(
+    config: &Config,
+    route: &serde_json::Value,
+) -> Option<ConfiguredBinding> {
+    let selected = selected_credential(config)?;
+    let accepted_secret = route
+        .get("auth_token")
+        .or_else(|| route.get("api_key"))?
+        .as_str()?;
+    if selected.1 != accepted_secret {
+        return None;
+    }
+    let load_scope = loaded_scope()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .as_ref()
+        .copied()?;
+    Some(ConfiguredBinding {
+        load_scope,
+        route_scope: route_scope_fingerprint(config)?,
+        credential: credential_fingerprint(&selected.0, &selected.1),
+    })
+}
+
+pub(super) fn record_configured_route(binding: Option<ConfiguredBinding>) {
+    *configured_binding()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = binding;
+}
+
+#[cfg(test)]
+pub(super) fn record_configured_route_for_test(config: &Config, route: &serde_json::Value) {
     let binding = (|| {
         let selected = selected_credential(config)?;
         let accepted_secret = route
@@ -54,11 +96,18 @@ pub(super) fn record_configured_route(config: &Config, route: &serde_json::Value
         if selected.1 != accepted_secret {
             return None;
         }
-        binding_for_selected(config, &selected)
+        let load_scope = loaded_scope()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .copied()?;
+        Some(ConfiguredBinding {
+            load_scope,
+            route_scope: route_scope_fingerprint(config)?,
+            credential: credential_fingerprint(&selected.0, &selected.1),
+        })
     })();
-    *configured_binding()
-        .lock()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = binding;
+    record_configured_route(binding);
 }
 
 /// Call a read-only member only when the currently serving module was already
@@ -221,9 +270,40 @@ fn binding_for_config(config: &Config) -> Option<ConfiguredBinding> {
 
 fn binding_for_selected(config: &Config, selected: &(String, String)) -> Option<ConfiguredBinding> {
     Some(ConfiguredBinding {
-        context: context_fingerprint(config)?,
+        load_scope: loaded_scope()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .as_ref()
+            .copied()?,
+        route_scope: route_scope_fingerprint(config)?,
         credential: credential_fingerprint(&selected.0, &selected.1),
     })
+}
+
+/// The state/workspace/policy identity the module actually received when it
+/// was loaded. A later CONFIGURE may change credentials, but it cannot move the
+/// module's load-time state directory or offered-toolkit policy.
+pub(super) fn note_load_resolution_candidate(config: &Config) {
+    *pending_load_scope()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner) = load_scope_fingerprint(config);
+}
+
+/// Promote the resolver's captured candidate only after ensure_loaded returned
+/// success and the process-wide resolution table reports Ready.
+pub(super) fn note_load_resolution_ready() {
+    if super::ops::state_of(super::MODULE_ID) != ModuleState::Ready {
+        return;
+    }
+    let candidate = pending_load_scope()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take();
+    if let Some(candidate) = candidate {
+        *loaded_scope()
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(candidate);
+    }
 }
 
 fn binding_matches_config(config: &Config) -> bool {
@@ -236,7 +316,19 @@ fn binding_matches_config(config: &Config) -> bool {
         == Some(expected)
 }
 
-fn context_fingerprint(config: &Config) -> Option<[u8; 32]> {
+fn load_scope_fingerprint(config: &Config) -> Option<[u8; 32]> {
+    let scope = serde_json::json!({
+        "config_path": config.config_path,
+        "workspace_dir": config.workspace_dir,
+        "state_dir": config.workspace_dir.join("state"),
+        "components_connectors": config.components.connectors,
+        "modules_enabled": config.modules.enabled,
+        "offered_toolkits": super::offered_toolkits(config),
+    });
+    Some(Sha256::digest(serde_json::to_vec(&scope).ok()?).into())
+}
+
+fn route_scope_fingerprint(config: &Config) -> Option<[u8; 32]> {
     let config_json = serde_json::to_value(config).ok()?;
     let env = [
         "BACKEND_URL",

@@ -145,6 +145,7 @@ pub fn resolver(config: &Config) -> Resolver {
         }
     }
     let gate_config = Arc::clone(&shared);
+    let resolved_config = Arc::clone(&shared);
     Resolver::new(ResolverInputs {
         enabled: config.modules.enabled,
         install_dir: install_dir(config),
@@ -154,7 +155,12 @@ pub fn resolver(config: &Config) -> Resolver {
         linked: linked_factories,
         search_skip: disabled_lib_stems(config),
         gate: Some(Arc::new(move |id| disabled_component(&gate_config, id))),
-        on_resolved: Some(Arc::new(on_resolved)),
+        on_resolved: Some(Arc::new(move |id| {
+            on_resolved(id);
+            if id == super::connectors::MODULE_ID {
+                super::connectors::note_load_resolution_candidate(&resolved_config);
+            }
+        })),
         records: registry::release_records(),
         terminal_marker: tinytools::status::MODULE_FAULT_MARKER.to_string(),
         runtime: Arc::new(|| Box::pin(runtime::runtime())),
@@ -269,7 +275,11 @@ pub async fn ensure_loaded_within(
     id: &str,
     within: Option<Duration>,
 ) -> Result<(), LoadError> {
-    resolver(config).ensure_loaded_within(id, within).await
+    let result = resolver(config).ensure_loaded_within(id, within).await;
+    if id == super::connectors::MODULE_ID && result.is_ok() {
+        super::connectors::note_load_resolution_ready();
+    }
+    result
 }
 
 /// The state of `id` as the resolution table reports it, without touching it.

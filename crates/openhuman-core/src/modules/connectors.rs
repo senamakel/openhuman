@@ -73,6 +73,14 @@ mod inspection;
 
 pub(crate) use inspection::{call_existing_readonly, ExistingCallError};
 
+pub(crate) fn note_load_resolution_candidate(config: &Config) {
+    inspection::note_load_resolution_candidate(config);
+}
+
+pub(crate) fn note_load_resolution_ready() {
+    inspection::note_load_resolution_ready();
+}
+
 /// Registers `resolve` as the proxy target for `mode` (`"backend"` is the one
 /// mode the proxy route serves). Nothing registered => the mode has no route.
 pub fn register_proxy_target<F>(mode: impl Into<String>, resolve: F)
@@ -341,6 +349,7 @@ async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
         return Ok(());
     }
 
+    let inspection_binding = inspection::configured_binding_for_route(config, &route);
     proxy
         .call_confidential::<serde_json::Value>(methods::CONFIGURE, (route,))
         .await
@@ -351,7 +360,7 @@ async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
     *last_route()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(current);
-    inspection::record_configured_route(config, &route);
+    inspection::record_configured_route(inspection_binding);
     Ok(())
 }
 

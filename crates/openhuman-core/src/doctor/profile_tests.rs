@@ -645,6 +645,85 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
     assert_eq!(before, snapshot_tree(root));
 }
 
+#[tokio::test]
+async fn selected_profile_is_ambient_for_process_sources_without_a_parent_context() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let _workspace_override = WorkspaceOverrideGuard::clear();
+    assert!(crate::core::runtime::CoreContext::current().is_none());
+
+    let temp = TempDir::new().unwrap();
+    let layout = ProfileLayout::new(temp.path(), "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(&layout.config_path, "api_url = \"https://account-b.example\"\n")
+        .await
+        .unwrap();
+
+    let observed = Arc::new(Mutex::new(Vec::new()));
+    let source_id = "doctor-selected-profile-process-context";
+    crate::doctor::register_check_source(ProcessSelectedProfileContextSource(observed.clone()));
+    let outcome = crate::doctor::ops::doctor_report_for_selected_profile(
+        temp.path(),
+        "account-b",
+        selected_profile_context_options(),
+    )
+    .await;
+    crate::doctor::registry::unregister_check_source(source_id);
+    let report = outcome.unwrap().value;
+
+    assert!(
+        report
+            .checks_run
+            .iter()
+            .any(|id| id == "hosted/process-selected-profile-context")
+    );
+    let observations = observed.lock().unwrap();
+    assert_eq!(observations.len(), 1);
+    assert_eq!(observations[0].ambient_workspace.as_deref(), Some(layout.workspace_dir.as_path()));
+}
+
+struct ProcessSelectedProfileContextSource(Arc<Mutex<Vec<ProcessSelectedProfileObservation>>>);
+
+struct ProcessSelectedProfileObservation {
+    ambient_workspace: Option<std::path::PathBuf>,
+}
+
+struct ProcessSelectedProfileContextCheck(Arc<Mutex<Vec<ProcessSelectedProfileObservation>>>);
+
+#[async_trait::async_trait]
+impl DoctorCheck for ProcessSelectedProfileContextCheck {
+    fn id(&self) -> &str {
+        "hosted/process-selected-profile-context"
+    }
+
+    fn category(&self) -> &str {
+        "hosted"
+    }
+
+    fn tier(&self) -> DoctorTier {
+        DoctorTier::Static
+    }
+
+    async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
+        let ambient_workspace = crate::core::runtime::CoreContext::current_embedder_config()
+            .map(|config| config.workspace_dir);
+        self.0
+            .lock()
+            .unwrap()
+            .push(ProcessSelectedProfileObservation { ambient_workspace });
+        vec![Finding::pass(self.id(), "The selected profile is ambient to host checks.")]
+    }
+}
+
+impl DoctorCheckSource for ProcessSelectedProfileContextSource {
+    fn id(&self) -> &str {
+        "doctor-selected-profile-process-context"
+    }
+
+    fn checks(&self) -> Vec<Arc<dyn DoctorCheck>> {
+        vec![Arc::new(ProcessSelectedProfileContextCheck(self.0.clone()))]
+    }
+}
+
 fn selected_profile_context_options() -> DoctorOptions {
     DoctorOptions {
         tier: DoctorTier::Static,

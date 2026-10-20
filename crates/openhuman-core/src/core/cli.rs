@@ -331,6 +331,7 @@ fn run_sentry_test_command(_args: &[String]) -> Result<()> {
 /// 2. If `OPENHUMAN_DOTENV_PATH` is set, that file is loaded.
 /// 3. Otherwise, it searches for `.env` in the current working directory.
 pub fn load_dotenv_for_cli() -> Result<()> {
+    let previous_dotenv_load = crate::config::schema::load::current_dotenv_load();
     set_current_dotenv_load(None);
     let process_vars = std::env::vars_os()
         .map(|(name, _)| name.to_string_lossy().into_owned())
@@ -350,20 +351,22 @@ pub fn load_dotenv_for_cli() -> Result<()> {
                     path.display()
                 )
             })?;
-            set_current_dotenv_load(Some(DotenvLoadProvenance::from_variables(
+            record_dotenv_load(
                 path,
                 variables,
-                process_vars,
-            )));
+                &process_vars,
+                previous_dotenv_load.as_ref(),
+            );
         }
         _ => {
             if let Ok(path) = dotenvy::dotenv() {
                 if let Ok(variables) = dotenv_variable_names(&path) {
-                    set_current_dotenv_load(Some(DotenvLoadProvenance::from_variables(
+                    record_dotenv_load(
                         path,
                         variables,
-                        process_vars,
-                    )));
+                        &process_vars,
+                        previous_dotenv_load.as_ref(),
+                    );
                 }
             }
         }
@@ -375,6 +378,21 @@ fn dotenv_variable_names(path: &Path) -> Result<Vec<String>> {
     dotenvy::from_path_iter(path)?
         .map(|entry| entry.map(|(name, _)| name).map_err(anyhow::Error::from))
         .collect()
+}
+
+fn record_dotenv_load(
+    path: PathBuf,
+    variables: Vec<String>,
+    process_vars: &HashSet<String>,
+    previous: Option<&DotenvLoadProvenance>,
+) {
+    let mut load = DotenvLoadProvenance::from_variables(
+        path,
+        variables,
+        process_vars.iter().map(String::as_str),
+    );
+    load.preserve_previous_origin(previous, process_vars);
+    set_current_dotenv_load(Some(load));
 }
 
 /// Handles the `call` subcommand to invoke a JSON-RPC method directly from the CLI.

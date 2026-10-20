@@ -79,6 +79,51 @@ impl DotenvLoadProvenance {
             loaded_vars,
         }
     }
+
+    /// Keep the original source classification when the same file is loaded
+    /// again and its previously loaded variables are already in the process.
+    pub(crate) fn preserve_previous_origin(
+        &mut self,
+        previous: Option<&Self>,
+        process_vars: &HashSet<String>,
+    ) {
+        let Some(previous) = previous.filter(|previous| same_file(&self.path, &previous.path))
+        else {
+            return;
+        };
+        let current_vars: HashSet<String> = self
+            .loaded_vars
+            .iter()
+            .chain(&self.skipped_vars)
+            .cloned()
+            .collect();
+
+        for name in &previous.loaded_vars {
+            if process_vars.contains(name) && current_vars.contains(name) {
+                self.skipped_vars.retain(|current| current != name);
+                push_unique(&mut self.loaded_vars, name);
+            }
+        }
+        for name in &previous.skipped_vars {
+            if process_vars.contains(name) && current_vars.contains(name) {
+                self.loaded_vars.retain(|current| current != name);
+                push_unique(&mut self.skipped_vars, name);
+            }
+        }
+    }
+}
+
+fn same_file(left: &std::path::Path, right: &std::path::Path) -> bool {
+    match (left.canonicalize(), right.canonicalize()) {
+        (Ok(left), Ok(right)) => left == right,
+        _ => left == right,
+    }
+}
+
+fn push_unique(values: &mut Vec<String>, value: &str) {
+    if !values.iter().any(|existing| existing == value) {
+        values.push(value.to_owned());
+    }
 }
 
 /// Provenance for a config snapshot. It stores paths and source labels only.

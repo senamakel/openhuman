@@ -134,6 +134,30 @@ async fn inspecting_selected_profile_credentials_does_not_create_auth_store_stat
 }
 
 #[tokio::test]
+async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_auth_store() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let temp = TempDir::new().unwrap();
+    let layout = ProfileLayout::new(temp.path(), "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(&layout.config_path, "secrets.encrypt = false\n")
+        .await
+        .unwrap();
+    let profiles_path = layout.dir.join("auth-profiles.json");
+    let original = b"not valid auth profile json";
+    tokio::fs::write(&profiles_path, original).await.unwrap();
+
+    let selected = load_desktop_profile(temp.path(), "account-b")
+        .await
+        .unwrap();
+    assert_eq!(get_session_token(&selected.config).unwrap(), None);
+    assert_eq!(
+        tokio::fs::read(&profiles_path).await.unwrap(),
+        original,
+        "read-only doctor credential inspection must leave corrupt auth data in place"
+    );
+}
+
+#[tokio::test]
 async fn invalid_explicit_profile_returns_one_safe_profile_exists_error() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();

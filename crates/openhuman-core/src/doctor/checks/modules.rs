@@ -41,7 +41,7 @@ impl ModuleStatusCheck {
             .source
             .map(module_source)
             .unwrap_or("unavailable");
-        let detail = self.status.detail.as_deref();
+        let detail = self.status.detail.as_deref().and_then(safe_module_detail);
         match self.status.state {
             ModuleState::Available | ModuleState::Ready => {
                 let message = match detail {
@@ -75,6 +75,25 @@ impl ModuleStatusCheck {
                 "Rerun doctor after the module finishes loading.",
             ),
         }
+    }
+}
+
+/// Reduce module loader details to messages whose contents are known safe for
+/// a doctor report. Loader failures can include artifact paths, URLs, and
+/// transport diagnostics, so arbitrary detail strings must never reach users.
+fn safe_module_detail(detail: &str) -> Option<&'static str> {
+    let normalized = detail.trim().to_ascii_lowercase();
+    if normalized.contains("digest mismatch") {
+        return Some("artifact digest mismatch");
+    }
+    match normalized.as_str() {
+        "no linked factory is registered in this binary; serving the release" => {
+            Some("no linked factory is registered in this binary; serving the release")
+        }
+        "no source-built artifact is available; serving the release" => {
+            Some("no source-built artifact is available; serving the release")
+        }
+        _ => None,
     }
 }
 

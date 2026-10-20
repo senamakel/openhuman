@@ -6,6 +6,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::config::schema::load::ProvenanceSource;
 use crate::config::schema::profile_layout::LayoutVersion;
 use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext};
@@ -356,6 +357,23 @@ impl DoctorCtx {
         &self.config
     }
 
+    /// Returns the non-secret source for a logical config field path.
+    ///
+    /// Array indexes are normalized to the loader's `[]` notation. Filesystem
+    /// paths are rejected because they identify a source location, not a
+    /// resolved config value.
+    pub(crate) fn value_source_for(&self, logical_path: &str) -> Option<ValueSource> {
+        let path = normalize_logical_config_path(logical_path)?;
+        let source = self.config.load_provenance().field(&path).source;
+        Some(match source {
+            ProvenanceSource::Cli => ValueSource::Cli,
+            ProvenanceSource::Env => ValueSource::Env,
+            ProvenanceSource::Dotenv => ValueSource::Dotenv,
+            ProvenanceSource::File => ValueSource::File,
+            ProvenanceSource::Default => ValueSource::Default,
+        })
+    }
+
     /// The component switches for this run.
     pub fn components(&self) -> ComponentSet {
         self.components
@@ -387,6 +405,46 @@ impl DoctorCtx {
     pub(crate) fn profile_status(&self) -> Option<DoctorProfileStatus> {
         self.profile_status
     }
+}
+
+fn normalize_logical_config_path(path: &str) -> Option<String> {
+    if path.is_empty()
+        || path.starts_with('.')
+        || path.contains('/')
+        || path.contains('\\')
+        || path.ends_with(".toml")
+        || path.ends_with(".env")
+    {
+        return None;
+    }
+
+    let mut normalized = String::with_capacity(path.len());
+    let mut chars = path.chars().peekable();
+    while let Some(character) = chars.next() {
+        match character {
+            '[' => {
+                while chars.peek().is_some_and(char::is_ascii_digit) {
+                    chars.next();
+                }
+                if chars.next()? != ']' {
+                    return None;
+                }
+                normalized.push_str("[]");
+            }
+            ']' => return None,
+            character
+                if character.is_ascii_alphanumeric() || matches!(character, '_' | '-' | '.') =>
+            {
+                normalized.push(character);
+            }
+            _ => return None,
+        }
+    }
+
+    if normalized.starts_with('.') || normalized.ends_with('.') || normalized.contains("..") {
+        return None;
+    }
+    Some(normalized)
 }
 
 /// Exact-id and tier filters for one report run.

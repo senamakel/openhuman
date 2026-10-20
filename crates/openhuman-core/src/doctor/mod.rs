@@ -57,4 +57,8 @@ mod config_file_tests;
 mod runner_tests;
 
 #[cfg(test)]
+#[path = "checks/config_provenance_tests.rs"]
+mod config_provenance_tests;
+
+#[cfg(test)]
 pub(crate) mod test_support;

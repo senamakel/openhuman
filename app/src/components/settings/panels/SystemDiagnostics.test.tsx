@@ -1,116 +1,86 @@
-/**
- * Tests for SystemDiagnostics — the app-logs / staging Sentry-test /
- * restart-tour rows shown on the About page. Mirrors the mock shape used by
- * `__tests__/DeveloperOptionsPanel.test.tsx` for the same underlying rows.
- */
-import { fireEvent, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { renderWithProviders } from '../../../test/test-utils';
+import SystemDiagnostics from './SystemDiagnostics';
 
-const hoisted = vi.hoisted(() => ({
-  trigger: vi.fn(),
-  appEnvironment: 'production' as 'staging' | 'production' | 'development',
-  invoke: vi.fn(),
-  isTauri: vi.fn(() => true),
-  navigate: vi.fn(),
-  resetWalkthrough: vi.fn(),
-}));
+const callCoreRpc = vi.fn();
+vi.mock('../../../services/coreRpcClient', () => ({ callCoreRpc: (...args: unknown[]) => callCoreRpc(...args) }));
 
-vi.mock('../../../utils/tauriCommands/common', () => ({
-  isTauri: hoisted.isTauri,
-  safeInvoke: (...args: unknown[]) => hoisted.invoke(...args),
-}));
+const report = {
+  schema_version: 2,
+  profile: 'desktop-default',
+  config_source: 'profile',
+  tier: 'connect',
+  checks_run: ['config/file-integrity', 'runtime/core-ready'],
+  checks_skipped: [],
+  findings: [
+    {
+      check_id: 'config/file-integrity',
+      severity: 'warn',
+      message: 'The config file was recovered from its backup.',
+      fix_hint: 'Review the backup and restore a valid config file.',
+      duration_ms: 4,
+      affects: ['settings.configuration'],
+    },
+    {
+      check_id: 'runtime/core-ready',
+      severity: 'pass',
+      message: 'The core is ready.',
+      fix_hint: 'No action required.',
+      duration_ms: 1,
+      affects: [],
+    },
+  ],
+  summary: { pass: 1, info: 0, warn: 1, error: 0, skipped: 0 },
+  ok: true,
+};
 
-vi.mock('../../../services/analytics', () => ({ triggerSentryTestEvent: hoisted.trigger }));
-
-vi.mock('../../../utils/config', () => ({
-  APP_BINARY_VERSION: '0.0.0-test',
-  get APP_ENVIRONMENT() {
-    return hoisted.appEnvironment;
-  },
-  APP_VERSION: '0.0.0-test',
-  BUILD_SHA: 'test',
-  CORE_CARGO_VERSION: '0.0.0-test',
-  GA_MEASUREMENT_ID: undefined,
-  IS_DEV: true,
-  OPENPANEL_API_URL: 'https://panel.tinyhumans.ai/api',
-  OPENPANEL_CLIENT_ID: undefined,
-  SENTRY_DSN: undefined,
-  SENTRY_RELEASE: 'openhuman@test',
-  SENTRY_SMOKE_TEST: false,
-  TAURI_CARGO_VERSION: '0.0.0-test',
-  CORE_RPC_URL: 'http://127.0.0.1:7788/rpc',
-  BACKEND_URL: 'http://localhost:5005',
-  E2E_DEFAULT_CORE_MODE: '',
-}));
-
-vi.mock('../../walkthrough/AppWalkthrough', () => ({
-  resetWalkthrough: hoisted.resetWalkthrough,
-  setWalkthroughPending: vi.fn(),
-}));
-
-vi.mock('react-router-dom', async importOriginal => {
-  const actual = await importOriginal<typeof import('react-router-dom')>();
-  return { ...actual, useNavigate: () => hoisted.navigate };
-});
-
-async function importPanel() {
-  const mod = await import('./SystemDiagnostics');
-  return mod.default;
+function renderDiagnostics() {
+  return render(
+    <MemoryRouter>
+      <SystemDiagnostics />
+    </MemoryRouter>
+  );
 }
 
 beforeEach(() => {
-  vi.resetModules();
-  hoisted.invoke.mockReset();
-  hoisted.invoke.mockResolvedValue(null);
-  hoisted.isTauri.mockReset();
-  hoisted.isTauri.mockReturnValue(true);
-  hoisted.trigger.mockReset();
-  hoisted.navigate.mockReset();
-  hoisted.resetWalkthrough.mockReset();
-  hoisted.appEnvironment = 'production';
+  vi.clearAllMocks();
+  callCoreRpc.mockResolvedValue({ result: report, logs: [] });
+  vi.spyOn(window, 'confirm').mockReturnValue(true);
 });
 
-describe('<SystemDiagnostics />', () => {
-  test('does not render the Sentry test row in production builds', async () => {
-    const Panel = await importPanel();
-    renderWithProviders(<Panel />);
+describe('<SystemDiagnostics /> doctor report', () => {
+  it('renders v2 findings grouped by check category with the fix hint', async () => {
+    renderDiagnostics();
 
-    expect(screen.queryByRole('button', { name: /Send test event/i })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Run doctor' }));
+
+    expect(await screen.findByText('config')).toBeInTheDocument();
+    expect(screen.getByText('runtime')).toBeInTheDocument();
+    expect(screen.getByText('The config file was recovered from its backup.')).toBeInTheDocument();
+    expect(screen.getByText('Review the backup and restore a valid config file.')).toBeInTheDocument();
+    expect(screen.getByText('The core is ready.')).toBeInTheDocument();
   });
 
-  test('renders the Sentry test row in staging and fires the helper on click', async () => {
-    hoisted.appEnvironment = 'staging';
-    hoisted.trigger.mockResolvedValue('event-id-xyz');
-    const Panel = await importPanel();
-    renderWithProviders(<Panel />);
+  it('requests the live tier only after the user confirms the token warning', async () => {
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    renderDiagnostics();
 
-    const button = screen.getByRole('button', { name: /Send test event/i });
-    fireEvent.click(button);
+    fireEvent.click(screen.getByRole('button', { name: 'Run live checks' }));
+    expect(window.confirm).toHaveBeenCalled();
+    expect(callCoreRpc).not.toHaveBeenCalled();
 
-    await waitFor(() => expect(hoisted.trigger).toHaveBeenCalledTimes(1));
-    await waitFor(() => expect(screen.getByText(/event-id-xyz/)).toBeInTheDocument());
-  });
+    vi.mocked(window.confirm).mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Run live checks' }));
 
-  test('resets the walkthrough and navigates home from the restart-tour row', async () => {
-    const Panel = await importPanel();
-    renderWithProviders(<Panel />);
-
-    fireEvent.click(screen.getByRole('button', { name: /Restart tour/i }));
-
-    expect(hoisted.resetWalkthrough).toHaveBeenCalledTimes(1);
-    expect(hoisted.navigate).toHaveBeenCalledWith('/home');
-  });
-
-  test('renders the resolved logs folder path under Tauri', async () => {
-    hoisted.invoke.mockImplementation((cmd: string) => {
-      if (cmd === 'logs_folder_path') return Promise.resolve('/tmp/openhuman/logs');
-      return Promise.resolve();
+    await waitFor(() => {
+      expect(callCoreRpc).toHaveBeenCalledWith(
+        expect.objectContaining({
+          method: 'openhuman.doctor_report',
+          params: { tier: 'live' },
+        })
+      );
     });
-    const Panel = await importPanel();
-    renderWithProviders(<Panel />);
-
-    await waitFor(() => expect(screen.getByText('/tmp/openhuman/logs')).toBeInTheDocument());
   });
 });

@@ -26,6 +26,22 @@ fn finding<'a>(findings: &'a [Finding], severity: FindingSeverity) -> &'a Findin
         .expect("expected finding severity")
 }
 
+fn workspace_entries(root: &std::path::Path) -> Vec<std::path::PathBuf> {
+    let mut entries = Vec::new();
+    let mut pending = vec![root.to_owned()];
+    while let Some(directory) = pending.pop() {
+        for entry in std::fs::read_dir(directory).expect("read workspace snapshot") {
+            let path = entry.expect("workspace entry").path();
+            if path.is_dir() {
+                pending.push(path.clone());
+            }
+            entries.push(path.strip_prefix(root).unwrap().to_owned());
+        }
+    }
+    entries.sort();
+    entries
+}
+
 #[tokio::test]
 async fn disabled_memory_component_warns_when_an_engine_is_configured() {
     let mut config = Config::default();
@@ -163,14 +179,14 @@ async fn both_master_key_environment_sources_are_reported_without_initializing_k
     let _environment = _environment.with(MASTER_KEY_FILE_ENV, &supplied_key_file);
     let mut config = Config::default();
     config.workspace_dir = workspace.path().to_owned();
-    let entries_before = std::fs::read_dir(workspace.path()).unwrap().count();
+    let entries_before = workspace_entries(workspace.path());
 
     let findings = run_check(config, "secrets/master-key-env").await;
 
     let error = finding(&findings, FindingSeverity::Error);
     assert!(!error.message.contains("do-not-read-inline"));
     assert!(!error.message.contains(&supplied_key_file.display().to_string()));
-    assert_eq!(std::fs::read_dir(workspace.path()).unwrap().count(), entries_before);
+    assert_eq!(workspace_entries(workspace.path()), entries_before);
     assert!(!supplied_key_file.exists());
     assert!(!workspace.path().join("keyring/master.key").exists());
 }

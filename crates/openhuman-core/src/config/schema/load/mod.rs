@@ -6,6 +6,7 @@ mod config_file_read;
 pub(crate) mod context_overlay;
 mod context_refresh;
 mod dirs;
+mod diagnostics;
 pub(in crate::config::schema) mod env;
 mod env_overlay;
 mod impl_load;
@@ -15,6 +16,12 @@ mod parse_source;
 mod saas_scope;
 mod secrets;
 pub(crate) mod source;
+
+pub(crate) use diagnostics::{ConfigLoadFallback, ConfigParseError, LoadDiagnostics};
+
+#[cfg(test)]
+#[path = "diagnostics_tests.rs"]
+mod diagnostics_tests;
 
 pub use active_workspace::active_workspace_dir_cached;
 pub(crate) use active_workspace::invalidate_active_workspace;

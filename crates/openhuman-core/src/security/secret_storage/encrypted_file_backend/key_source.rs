@@ -126,6 +126,60 @@ pub(super) fn workspace_master_key(
     }
 }
 
+/// Resolves a key for a profile-scoped diagnostic read without creating or
+/// changing key state. Explicit operator key variables retain their normal
+/// precedence; otherwise only an existing key file beneath `workspace` is
+/// considered. Host key sources are excluded because they can prompt or mint.
+pub(super) fn profile_master_key_read_only(
+    workspace: &Path,
+) -> Result<Option<Zeroizing<[u8; 32]>>, SecretStorageError> {
+    let inline = env_value(MASTER_KEY_ENV, std::env::var(MASTER_KEY_ENV))
+        .map_err(SecretStorageError::Backend)?;
+    let file = env_value(MASTER_KEY_FILE_ENV, std::env::var(MASTER_KEY_FILE_ENV))
+        .map_err(SecretStorageError::Backend)?;
+    if let Some((key, _)) = master_key_from_env(
+        inline.as_deref(),
+        file.as_deref(),
+        super::read_master_key_file,
+    )
+    .map_err(SecretStorageError::Backend)?
+    {
+        return Ok(Some(Zeroizing::new(key)));
+    }
+
+    let path = workspace.join("keyring/master.key");
+    let metadata = match std::fs::symlink_metadata(&path) {
+        Ok(metadata) => metadata,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(None),
+        Err(_) => {
+            return Err(SecretStorageError::Backend(
+                "cannot inspect profile master key".into(),
+            ));
+        }
+    };
+    if !metadata.file_type().is_file() {
+        return Err(SecretStorageError::Backend(
+            "profile master key must be a regular file".into(),
+        ));
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if metadata.permissions().mode() & 0o077 != 0 {
+            return Err(SecretStorageError::Backend(
+                "profile master key requires permissions 0600".into(),
+            ));
+        }
+    }
+    let text = Zeroizing::new(std::fs::read_to_string(&path).map_err(|_| {
+        SecretStorageError::Backend("cannot read profile master key".into())
+    })?);
+    parse_master_key_hex(text.trim())
+        .map(Zeroizing::new)
+        .map(Some)
+        .map_err(SecretStorageError::Backend)
+}
+
 #[cfg(test)]
 #[path = "key_source_tests.rs"]
 mod tests;

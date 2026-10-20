@@ -22,6 +22,7 @@ mod keychain;
 mod lock;
 mod migration;
 mod persistence;
+mod readonly;
 pub(crate) use persistence::STORAGE_SECRET_NAME as PROFILES_SECRET_NAME;
 mod store_core;
 

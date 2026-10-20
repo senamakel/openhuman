@@ -260,7 +260,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     if !config.capability_providers.is_empty() {
         references.push(("connectors", "capability_providers"));
     }
-    if config.composio.mode != crate::config::schema::tools::integrations::COMPOSIO_MODE_BACKEND
+    if config.composio.mode != crate::config::schema::COMPOSIO_MODE_BACKEND
         || config.composio.api_key.is_some()
         || !config.composio.offered_toolkits_allow.is_empty()
         || !config.composio.offered_toolkits_deny.is_empty()

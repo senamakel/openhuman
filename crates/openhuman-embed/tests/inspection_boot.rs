@@ -14,7 +14,7 @@ use openhuman_core::security::secret_storage::{
     install_secret_backend, EncryptedFileBackend, MasterKeySource, SecretStorageError,
 };
 use openhuman_embed::{
-    ConfigSource, DomainSet, RuntimeBuilder, ServiceSet, TokenSource, Workspace,
+    ConfigSource, CoreBootMode, DomainSet, RuntimeBuilder, ServiceSet, TokenSource, Workspace,
 };
 use serde_json::json;
 use zeroize::Zeroizing;
@@ -201,6 +201,7 @@ async fn preloaded_runtime_report() {
         .workspace(Workspace::Inherit)
         .config_source(ConfigSource::Resolved)
         .config(config)
+        .boot_mode(CoreBootMode::Inspection)
         .token(TokenSource::Fixed(Arc::new(
             "inspection-test-token".to_owned(),
         )))

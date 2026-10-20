@@ -13,9 +13,8 @@ use openhuman_embed::__host::platform::socket::{global_socket_manager, Connectio
 use openhuman_embed::__host::security::credentials::api_key::get_api_key;
 use openhuman_embed::__host::security::credentials::session_support::{
     classify_session_token, is_local_session_token, load_app_session_profile, BackendCredential,
-    SessionTokenCheck, LOCAL_SESSION_BACKEND_UNAVAILABLE,
+    SessionTokenCheck,
 };
-use reqwest::Method;
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
 
 use crate::backend::product::product_identity_headers;

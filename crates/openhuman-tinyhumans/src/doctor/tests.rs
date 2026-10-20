@@ -6,7 +6,6 @@ use openhuman_embed::__host::core::runtime::CoreContext;
 use openhuman_embed::__host::core::slots::Extensions;
 use openhuman_embed::__host::doctor::{registered_checks, DoctorCheck};
 use openhuman_embed::{CoreBuilder, DomainSet, HostKind, ServiceSet};
-use reqwest::Method;
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::TempDir;

@@ -164,6 +164,30 @@ async fn health_tool_defaults_to_connect_when_tier_is_omitted() {
     assert_eq!(selected_calls.load(Ordering::SeqCst), 1);
 }
 
+#[test]
+fn gitbook_inventory_lists_every_registered_doctor_check_id() {
+    let docs_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+        .join("../../../docs/gitbooks/en/guides/doctor.md");
+    let docs = std::fs::read_to_string(&docs_path).unwrap_or_else(|error| {
+        panic!(
+            "doctor check inventory page should exist at {}: {error}",
+            docs_path.display()
+        )
+    });
+    let checks = crate::doctor::registry::registered_checks()
+        .expect("registered doctor checks should have valid unique ids");
+
+    for check in checks {
+        let documented_id = format!("`{}`", check.id());
+        assert!(
+            docs.contains(&documented_id),
+            "registered doctor check `{}` is missing from {}",
+            check.id(),
+            docs_path.display()
+        );
+    }
+}
+
 #[tokio::test]
 async fn models_tool_reports_unavailable_until_catalog_probes_exist() {
     let error = DoctorModelsTool::new(cfg())

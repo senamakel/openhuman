@@ -1,8 +1,7 @@
 //! Confidential, existing-module-only adapter for TinyChannels health checks.
 use std::time::Duration;
 
-use super::ops::ModuleCallError;
-use tinybus::module::ModuleClient;
+use tinybus::module::{ModuleCallError, ModuleClient};
 use tinychannels_bus::{ChannelHealthReport, ChannelsConfig, HttpProxyPolicy};
 
 /// A safe failure class for one already-serving TinyChannels health probe.

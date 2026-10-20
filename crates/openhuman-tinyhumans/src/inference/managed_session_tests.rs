@@ -116,6 +116,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     let mut config = Config::default();
     config.config_path = temp.path().join("config.toml");
     config.api_url = Some(format!("http://{invoke_addr}"));
+    config.secrets.encrypt = false;
     AuthService::new(temp.path(), false)
         .store_provider_token(
             APP_SESSION_PROVIDER,
@@ -127,6 +128,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
         .expect("seed selected app-session profile");
     let auth_profile_path = temp.path().join("auth-profiles.json");
     let profile_before = std::fs::read(&auth_profile_path).expect("read seeded auth profile");
+    let store_before = credential_store_snapshot(temp.path());
 
     openhuman_embed::__host::core::bus::init()
         .await
@@ -169,6 +171,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
         profile_before,
         "inspection invoke must not clear, rewrite, or quarantine the selected profile"
     );
+    assert_eq!(credential_store_snapshot(temp.path()), store_before);
     assert_no_session_expired(&mut events);
 
     let (_stream_config, stream_model) = build_inspection_model(&stream_addr);
@@ -193,6 +196,7 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
         profile_before,
         "inspection stream must not clear, rewrite, or quarantine the selected profile"
     );
+    assert_eq!(credential_store_snapshot(temp.path()), store_before);
     assert!(!temp.path().join("auth-profiles.lock").exists());
     assert_no_session_expired(&mut events);
 
@@ -249,5 +253,32 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
                 Err(_) => return,
             }
         }
+    }
+
+    fn credential_store_snapshot(root: &std::path::Path) -> Vec<(std::path::PathBuf, Vec<u8>)> {
+        fn visit(
+            root: &std::path::Path,
+            dir: &std::path::Path,
+            out: &mut Vec<(std::path::PathBuf, Vec<u8>)>,
+        ) {
+            for entry in std::fs::read_dir(dir).expect("read credential fixture directory") {
+                let path = entry.expect("read credential fixture entry").path();
+                if path.is_dir() {
+                    visit(root, &path, out);
+                } else {
+                    out.push((
+                        path.strip_prefix(root)
+                            .expect("fixture file under root")
+                            .to_path_buf(),
+                        std::fs::read(&path).expect("read credential fixture bytes"),
+                    ));
+                }
+            }
+        }
+
+        let mut files = Vec::new();
+        visit(root, root, &mut files);
+        files.sort_by(|left, right| left.0.cmp(&right.0));
+        files
     }
 }

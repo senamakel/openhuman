@@ -7,7 +7,7 @@ use super::*;
 use crate::memory::engine::install_test_engine_for_root;
 use crate::memory::layout_migration::ops::scan;
 use crate::memory::layout_migration::test_host::{count, fact};
-use tinymemory_tools::layout_migration::{FsLegacyClaim, LayoutHost, Outcome, Trigger};
+use tinymemory_tools::layout_migration::{FsLegacyClaim, LayoutHost, LegacyClaim, Outcome, Trigger};
 
 const ACCOUNT: &str = "0123456789abcdef01234567";
 
@@ -91,7 +91,7 @@ fn every_account_on_a_self_hosted_engine_shares_one_claim() {
     let key_b = claim(&b).unwrap().unwrap();
     assert_eq!(key_a.marker_path(), key_b.marker_path());
     assert_eq!(key_a.marker_path().parent().unwrap().parent().unwrap().parent().unwrap(), tmp.path());
-    assert_eq!(key_a.owner(), &format!("user:{ACCOUNT}"));
+    assert_eq!(key_a.owner(), format!("user:{ACCOUNT}"));
 
     let hosted = signed_in(&tmp);
     assert!(claim(&hosted).unwrap().is_none());

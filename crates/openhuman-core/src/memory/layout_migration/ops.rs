@@ -4,11 +4,11 @@
 //! This module supplies the host executor, workspace key, cross-driver gate,
 //! billing-independent scheduler pause and wire error mapping.
 
-use std::path::{Path, PathBuf};
-use std::sync::{Arc, LazyLock};
+use std::path::PathBuf;
+use std::sync::Arc;
 
 use tinymemory_tools::layout_migration as lm;
-use tinymemory_tools::run_slots::{MigrationSpawner, MigrationTask, RunSlots};
+use tinymemory_tools::run_slots::{MigrationSpawner, MigrationTask};
 
 use super::app_host::{from_module, AppHost};
 use super::{LayoutHost, MigrationState, MigrationStatus, ScanView, Trigger};
@@ -17,7 +17,6 @@ use crate::core::runtime::DispatchCtx;
 use crate::memory::run_slots::{self, BACKFILL, IMPORT, MIGRATION};
 use tinymemory_api::Result;
 
-static MIGRATION_SLOTS: LazyLock<RunSlots<PathBuf>> = LazyLock::new(RunSlots::new);
 
 /// `memory_migration_start` params.
 #[derive(Debug, Clone, Default, serde::Deserialize)]
@@ -38,7 +37,7 @@ impl MigrationSpawner for ContextSpawner {
 
 fn service(ctx: &DispatchCtx) -> lm::MigrationService<tinymemory_tools::run_slots::RunStartGate, ContextSpawner> {
     lm::MigrationService::new(
-        MIGRATION_SLOTS.clone(),
+        MIGRATION.clone(),
         run_slots::START_GATE.clone(),
         ContextSpawner(ctx.clone()),
     )
@@ -46,7 +45,7 @@ fn service(ctx: &DispatchCtx) -> lm::MigrationService<tinymemory_tools::run_slot
 
 /// Whether this workspace currently owns a migration task.
 pub(crate) fn is_running(config: &Config) -> bool {
-    MIGRATION_SLOTS.is_running(&config.workspace_dir)
+    MIGRATION.is_running(&config.workspace_dir)
 }
 
 /// Whether `host`'s account has legacy memory to move.

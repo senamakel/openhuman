@@ -35,6 +35,7 @@ pub mod layout_migration;
 pub mod lifecycle;
 pub mod local_root;
 pub mod ops;
+pub(crate) mod run_slots;
 pub mod schemas;
 pub mod scope;
 pub mod sources;

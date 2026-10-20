@@ -14,7 +14,10 @@ fn doctor_health_is_advertised_as_an_intelligence_capability() {
 
     assert_eq!(capability.domain, "doctor");
     assert_eq!(capability.category, CapabilityCategory::Intelligence);
-    assert!(capability.description.to_ascii_lowercase().contains("diagnostic"));
+    assert!(capability
+        .description
+        .to_ascii_lowercase()
+        .contains("diagnostic"));
     assert!(capability.how_to.contains("doctor_health"));
 }
 

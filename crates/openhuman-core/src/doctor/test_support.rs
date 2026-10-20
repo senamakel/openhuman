@@ -1,7 +1,7 @@
 //! Reusable fake checks and sources for doctor framework tests.
 
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;

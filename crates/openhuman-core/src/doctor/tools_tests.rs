@@ -3,8 +3,8 @@ use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
 use crate::core::slots::Extensions;
 use crate::tools::toolpacks::ToolGroups;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tinytools::{PermissionLevel, ToolScope};
 use tempfile::TempDir;
+use tinytools::{PermissionLevel, ToolScope};
 
 fn cfg() -> Arc<Config> {
     Arc::new(Config::default())
@@ -31,12 +31,8 @@ fn scoped_context(config: &Config, extensions: Extensions) -> Arc<CoreContext> {
         extensions,
     );
     parent.derive_with(
-        ContextOverlay::new(
-            config.clone(),
-            DomainSet::full(),
-            ToolGroups::none(),
-        )
-        .without_user_skill_roots(),
+        ContextOverlay::new(config.clone(), DomainSet::full(), ToolGroups::none())
+            .without_user_skill_roots(),
     )
 }
 
@@ -64,7 +60,10 @@ fn health_schema_exposes_only_optional_tier_and_exact_id_selection() {
     assert_eq!(schema["properties"]["tier"]["default"], "connect");
     assert_eq!(schema["properties"]["only"]["type"], "array");
     assert_eq!(schema["properties"]["only"]["items"]["type"], "string");
-    assert!(schema["required"].is_null(), "both inputs should be optional");
+    assert!(
+        schema["required"].is_null(),
+        "both inputs should be optional"
+    );
 
     let description = format!(
         "{} {}",

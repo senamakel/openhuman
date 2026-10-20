@@ -355,7 +355,7 @@ impl CoreContext {
     /// process default; scoped readers observe its config and policy.
     pub fn derive_with(&self, overlay: ContextOverlay) -> Arc<CoreContext> {
         let parent_config = self.latest_embedder_config();
-        self.derive_with_parent_config_inner(parent_config.as_ref(), overlay)
+        self.derive_with_parent_config_inner(parent_config.as_ref(), overlay, false)
     }
 
     /// Derive a child using the exact parent configuration it was built from.
@@ -369,13 +369,14 @@ impl CoreContext {
         parent_config: &crate::config::Config,
         overlay: ContextOverlay,
     ) -> Arc<CoreContext> {
-        self.derive_with_parent_config_inner(Some(parent_config), overlay)
+        self.derive_with_parent_config_inner(Some(parent_config), overlay, false)
     }
 
     fn derive_with_parent_config_inner(
         &self,
         parent_config: Option<&crate::config::Config>,
         mut overlay: ContextOverlay,
+        fresh_state: bool,
     ) -> Arc<CoreContext> {
         // Clamped to what this context can already dispatch. A derived
         // overlay may only narrow: callers outside this crate (embed's
@@ -385,6 +386,11 @@ impl CoreContext {
         // caller of `derive_with` cannot widen a restricted parent's domains
         // just by omitting that check.
         let domains = self.domains.intersect(&overlay.domains);
+        let components = if fresh_state {
+            crate::core::runtime::ComponentSet::from_config(&overlay.config.components)
+        } else {
+            self.components
+        };
         if domains != overlay.domains {
             log::warn!(
                 "[core-context] derive: overlay requested domains={:?} wider than \
@@ -423,7 +429,7 @@ impl CoreContext {
                 })),
             }
         };
-        let agent = self.agent.derive(&mut overlay);
+        let agent = self.agent.derive(&mut overlay, fresh_state);
         config_access::record_context_config_overlay(self.profile(), parent_config, &mut overlay);
         overlay.config.runtime_state.context_snapshot = None;
         let latest_embedder_config = Some(Arc::new(std::sync::Mutex::new(overlay.config.clone())));
@@ -435,7 +441,7 @@ impl CoreContext {
             workspace_binding: RwLock::new(shared_binding),
             domains,
             tool_groups: overlay.tool_groups,
-            components: self.components,
+            components,
             embedder_config: Some(overlay.config),
             latest_embedder_config,
             user_skill_roots: overlay.user_skill_roots,
@@ -719,6 +725,9 @@ mod for_agent_scope;
 
 #[path = "context_agent.rs"]
 mod agent_parts;
+
+#[path = "context_inspection.rs"]
+mod inspection;
 
 #[path = "context_overlay.rs"]
 mod overlay;

@@ -19,7 +19,7 @@ use std::sync::OnceLock;
 use std::time::{Duration, Instant};
 
 use axum::http::header::AUTHORIZATION;
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use tempfile::TempDir;
 use tokio::sync::MutexGuard;
 
@@ -770,10 +770,8 @@ async fn cli_lint_uses_report_threshold_and_argument_error_exit_codes() {
 
     let invalid_arguments = fixture.run_cli(&["doctor", "--lint", "--severity-min", "pass"]);
     assert_eq!(invalid_arguments.status.code(), Some(2));
-    assert!(
-        String::from_utf8_lossy(&invalid_arguments.stderr)
-            .contains("invalid value for --severity-min")
-    );
+    assert!(String::from_utf8_lossy(&invalid_arguments.stderr)
+        .contains("invalid value for --severity-min"));
     assert_unchanged(&before, &snapshot_tree(fixture._home.path()));
 }
 

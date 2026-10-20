@@ -102,6 +102,43 @@ async fn memory_checks_are_skipped_when_the_memory_component_is_disabled() {
 }
 
 #[tokio::test]
+async fn checks_above_the_requested_tier_are_skipped() {
+    let extensions = Extensions::new();
+    register_check_source_in(
+        &extensions,
+        FakeCheckSource::new(
+            "doctor-tier-source",
+            vec![FakeCheck::pass("inference/role-completion").with_tier(DoctorTier::Live)],
+        ),
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(Config::default()),
+            DoctorOptions {
+                tier: DoctorTier::Connect,
+                only: vec!["inference/role-completion".into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("above-tier check is represented as skipped");
+
+    assert_eq!(
+        report.checks_skipped,
+        vec!["inference/role-completion".to_owned()]
+    );
+    assert_eq!(report.checks_run, Vec::<String>::new());
+    assert!(report.findings.iter().any(|finding| {
+        finding.check_id == "inference/role-completion"
+            && finding.severity == FindingSeverity::Skipped
+            && finding.duration_ms == 0
+    }));
+}
+
+#[tokio::test]
 async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     let extensions = Extensions::new();
     register_check_source_in(
@@ -119,7 +156,12 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
         runner::run(
             &DoctorCtx::from_config(Config::default()),
             DoctorOptions {
-                only: vec!["config/temperature".into(), "missing/id".into()],
+                only: vec![
+                    "config/temperature".into(),
+                    "test/other".into(),
+                    "missing/id".into(),
+                ],
+                skip: vec!["test/other".into()],
                 ..DoctorOptions::default()
             },
         )

@@ -143,13 +143,15 @@ impl DoctorCheck for LegacyV1Check {
                             format!("The legacy {} check was skipped.", self.category)
                         }
                     };
-                    let fix_hint = if severity == FindingSeverity::Pass {
-                        "No action required.".to_owned()
-                    } else {
-                        format!(
+                    let fix_hint = match severity {
+                        FindingSeverity::Pass => "No action required.".to_owned(),
+                        FindingSeverity::Skipped => {
+                            "No action is needed for this check to be skipped.".to_owned()
+                        }
+                        _ => format!(
                             "Review the {} configuration or runtime and rerun doctor.",
                             self.category
-                        )
+                        ),
                     };
                     Finding::new(self.id, severity, message, fix_hint)
                 })

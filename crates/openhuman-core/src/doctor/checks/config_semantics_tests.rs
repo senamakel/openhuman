@@ -92,6 +92,25 @@ async fn disabled_memory_component_ignores_an_implicit_default_engine() {
 }
 
 #[tokio::test]
+async fn disabled_search_component_warns_for_an_explicit_default_valued_setting() {
+    let mut config = Config::default();
+    config.components.search = false;
+    record_file_provenance(
+        &mut config,
+        "[components]\nsearch = false\n[search]\nenabled = true",
+    );
+
+    let findings = run_check(config, "components/referenced-but-disabled").await;
+
+    assert_eq!(
+        finding(&findings, FindingSeverity::Warn)
+            .config_path
+            .as_deref(),
+        Some("search")
+    );
+}
+
+#[tokio::test]
 async fn disabled_memory_component_does_not_warn_for_explicit_none_engine() {
     let mut config = Config::default();
     config.components.memory = false;

@@ -5,6 +5,62 @@ use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in};
 use tinymemory_api::MemoryEngine;
 
+// Keep the evidence budget contract tests beside the output they inspect;
+// production rendering belongs to TinyMemory's native single tool.
+fn capped_evidence(evidence: &str) -> String {
+    const TOKENS: usize = 2_500;
+    const SEPARATOR: &str = "\n\n---\n\n";
+    const PARTLY_SEARCHED: &str = "\n\n(Memory was only partly searched";
+    let budget = TOKENS * 4;
+    if evidence.len() <= budget {
+        return evidence.to_string();
+    }
+    let (body, closing) = match evidence.rfind(PARTLY_SEARCHED) {
+        Some(at) => (&evidence[..at], &evidence[at..]),
+        None => (evidence, ""),
+    };
+    let entries: Vec<&str> = body.split(SEPARATOR).collect();
+    let mut out = String::new();
+    let mut whole = 0;
+    let mut cut_short = false;
+    for entry in &entries {
+        let joint = if out.is_empty() { "" } else { SEPARATOR };
+        if out.len() + joint.len() + entry.len() <= budget {
+            out.push_str(joint);
+            out.push_str(entry);
+            whole += 1;
+            continue;
+        }
+        let mut lines = 0;
+        for line in entry.split('\n') {
+            let piece = if lines == 0 { joint.len() } else { 1 } + line.len();
+            if out.len() + piece > budget && !out.is_empty() {
+                break;
+            }
+            out.push_str(if lines == 0 { joint } else { "\n" });
+            out.push_str(line);
+            lines += 1;
+        }
+        if lines == entry.split('\n').count() {
+            whole += 1;
+        } else if lines > 0 {
+            out.push_str("\n[…]");
+            cut_short = true;
+        }
+        break;
+    }
+    let left = entries.len() - whole - usize::from(cut_short);
+    if left > 0 || cut_short {
+        let shortened = if cut_short { ", the last one shortened," } else { "" };
+        out.push_str(&format!(
+            "\n\n({left} more memory entries left out{shortened} to keep this under about \
+             {TOKENS} tokens; search again with more specific words to see others.)"
+        ));
+    }
+    out.push_str(closing);
+    out
+}
+
 fn facts() -> CallFacts {
     CallFacts {
         thread_id: Some("thread-tool-1".into()),

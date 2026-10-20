@@ -1,5 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsString;
+use std::path::Path;
+use std::sync::Arc;
 
 use tempfile::TempDir;
 
@@ -112,28 +114,6 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
 }
 
 #[tokio::test]
-async fn inspecting_selected_profile_credentials_does_not_create_auth_store_state() {
-    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
-    let temp = TempDir::new().unwrap();
-    let layout = ProfileLayout::new(temp.path(), "account-b");
-    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
-    tokio::fs::write(&layout.config_path, "secrets.encrypt = false\n")
-        .await
-        .unwrap();
-
-    let selected = load_desktop_profile(temp.path(), "account-b")
-        .await
-        .unwrap();
-    assert_eq!(get_session_token(&selected.config).unwrap(), None);
-    assert!(
-        tokio::fs::metadata(layout.dir.join("auth-profiles.lock"))
-            .await
-            .is_err(),
-        "read-only doctor credential inspection must not create the auth store lock"
-    );
-}
-
-#[tokio::test]
 async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_auth_store() {
     let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
     let temp = TempDir::new().unwrap();
@@ -149,12 +129,95 @@ async fn inspecting_selected_profile_credentials_does_not_quarantine_corrupt_aut
     let selected = load_desktop_profile(temp.path(), "account-b")
         .await
         .unwrap();
-    assert_eq!(get_session_token(&selected.config).unwrap(), None);
-    assert_eq!(
-        tokio::fs::read(&profiles_path).await.unwrap(),
-        original,
-        "read-only doctor credential inspection must leave corrupt auth data in place"
+    let result = crate::security::credentials::session_support::load_app_session_profile_read_only(
+        &selected.config,
     );
+    let after = tokio::fs::read(&profiles_path).await;
+    assert!(result.is_err(), "a corrupt credential store is unavailable");
+    assert_eq!(after.as_deref().ok(), Some(original.as_slice()));
+}
+
+#[tokio::test]
+async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profile_files() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let _workspace_override = WorkspaceOverrideGuard::clear();
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    let account_a = ProfileLayout::new(root, "account-a");
+    let account_b = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&account_a.dir).await.unwrap();
+    tokio::fs::create_dir_all(&account_b.dir).await.unwrap();
+    tokio::fs::write(&account_b.config_path, "secrets.encrypt = true\n")
+        .await
+        .unwrap();
+    let profiles_path = account_b.dir.join("auth-profiles.json");
+    tokio::fs::write(
+        &profiles_path,
+        r#"{"schema_version":1,"active_profiles":{"app-session":"app-session:default"},"profiles":{"app-session:default":{"provider":"app-session","profile_name":"default","kind":"token","metadata":{"user_id":"account-b"}}}}"#,
+    )
+    .await
+    .unwrap();
+
+    let account_a_backend = crate::security::secret_storage::EncryptedFileBackend::new(
+        &account_a.workspace_dir,
+    );
+    let account_b_backend = crate::security::secret_storage::EncryptedFileBackend::new(
+        &account_b.workspace_dir,
+    );
+    use crate::security::secret_storage::SecretBackend;
+    account_a_backend
+        .set(
+            &crate::security::secret_storage::ops::namespaced_key(
+                "account-a",
+                "auth:app-session:default",
+            ),
+            r#"{"token":"account-a-session"}"#,
+        )
+        .unwrap();
+    account_b_backend
+        .set(
+            &crate::security::secret_storage::ops::namespaced_key(
+                "account-b",
+                "auth:app-session:default",
+            ),
+            r#"{"token":"account-b-session"}"#,
+        )
+        .unwrap();
+    crate::security::secret_storage::install_secret_backend(Arc::new(account_a_backend));
+
+    let selected = load_desktop_profile(root, "account-b").await.unwrap();
+    let before = snapshot_tree(&account_b.dir);
+    let profile = crate::security::credentials::session_support::load_app_session_profile_read_only(
+        &selected.config,
+    )
+    .unwrap()
+    .unwrap();
+    let token = crate::security::credentials::session_support::session_token_from_profile(Some(
+        &profile,
+    ));
+    let after = snapshot_tree(&account_b.dir);
+
+    assert_eq!(token.as_deref(), Some("account-b-session"));
+    assert_eq!(before, after, "doctor credential inspection must not mutate the selected profile");
+}
+
+fn snapshot_tree(root: &Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {
+    fn visit(root: &Path, directory: &Path, files: &mut BTreeMap<std::path::PathBuf, Vec<u8>>) {
+        let entries = std::fs::read_dir(directory).unwrap();
+        for entry in entries {
+            let entry = entry.unwrap();
+            let path = entry.path();
+            if entry.file_type().unwrap().is_dir() {
+                visit(root, &path, files);
+            } else {
+                files.insert(path.strip_prefix(root).unwrap().to_path_buf(), std::fs::read(path).unwrap());
+            }
+        }
+    }
+
+    let mut files = BTreeMap::new();
+    visit(root, root, &mut files);
+    files
 }
 
 #[tokio::test]

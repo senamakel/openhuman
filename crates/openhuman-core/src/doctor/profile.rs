@@ -106,7 +106,8 @@ pub async fn resolve_desktop_profile_for_doctor(
 /// backup. It applies the same in-memory load transforms as the regular
 /// snapshot loader but does not run persistent schema migrations. Process
 /// environment config overrides still apply after the selected profile file
-/// is parsed.
+/// is parsed, except that the workspace override cannot replace the selected
+/// profile's workspace.
 pub(crate) async fn load_desktop_profile(
     root: &Path,
     id: &str,
@@ -171,7 +172,7 @@ async fn load_config_read_only(
     if let Some(contents) = config_text.as_deref() {
         crate::config::schema::load::apply_loaded_config_migrations(&mut config, contents);
     }
-    config.apply_env_overrides();
+    config.apply_profile_env_overrides();
     Ok((config, config_text.is_some()))
 }
 

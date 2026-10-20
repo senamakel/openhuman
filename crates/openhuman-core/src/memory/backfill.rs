@@ -97,10 +97,10 @@ fn driver(
     ctx: DispatchCtx,
     config: &Config,
     engine: Arc<dyn tinymemory_api::MemoryEngine>,
-) -> Result<Backfiller> {
+) -> Backfiller {
     let identity =
         Identity::agent(MAIN_AGENT).resolve(&crate::memory::scope::identity_pins(config));
-    Ok(Backfiller::new(
+    Backfiller::new(
         engine,
         identity.layout,
         identity.agent_id,
@@ -111,15 +111,29 @@ fn driver(
         Arc::new(FileCounterStore {
             workspace_dir: config.workspace_dir.clone(),
         }),
-    ))
+    )
 }
 
 /// `memory_conversations_backfill_status`.
 pub async fn status(ctx: &DispatchCtx, config: &Config) -> Result<BackfillView> {
-    let bound = engine::resolve(config).engine()?;
-    driver(ctx.clone(), config, bound.engine)?
-        .status(BACKFILL.is_running(&config.workspace_dir))
-        .await
+    let running = BACKFILL.is_running(&config.workspace_dir);
+    match engine::resolve(config).engine() {
+        Ok(bound) => {
+            driver(ctx.clone(), config, bound.engine)
+                .status(running)
+                .await
+        }
+        Err(_) => {
+            let source = HostThreadSource {
+                ctx: ctx.clone(),
+                workspace_dir: config.workspace_dir.clone(),
+            };
+            let store = FileCounterStore {
+                workspace_dir: config.workspace_dir.clone(),
+            };
+            Backfiller::status_without_engine(&source, &store, running).await
+        }
+    }
 }
 
 /// `memory_conversations_backfill_start`: requires `consent` and memory on.
@@ -138,7 +152,7 @@ pub async fn start(
     let Some(guard) = run_slots::reserve(&BACKFILL, &workspace, &[&IMPORT, &MIGRATION]) else {
         return status(ctx, config).await;
     };
-    let backfiller = driver(ctx.clone(), config, bound.engine)?;
+    let backfiller = driver(ctx.clone(), config, bound.engine);
     let pending = backfiller.status(false).await?;
     let run = match backfiller.begin().await {
         Ok(run) => run,

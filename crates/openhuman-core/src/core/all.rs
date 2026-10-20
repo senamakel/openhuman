@@ -89,10 +89,7 @@ fn active_domain_set() -> Option<crate::core::runtime::DomainSet> {
     crate::core::runtime::context::CoreContext::current().map(|c| c.domains())
 }
 
-/// Whether the given [`DomainGroup`] is enabled under the ambient
-/// [`DomainSet`](crate::core::runtime::DomainSet). No active context ⇒ `true`
-/// (full, no filter) so pre-boot unit tests and non-context callers see every
-/// domain, exactly as before #4796.
+/// Whether the given [`DomainGroup`] is enabled under the ambient [`DomainSet`].
 fn group_allowed(group: DomainGroup) -> bool {
     active_domain_set().map_or(group != DomainGroup::Operator, |s| s.allows(group))
 }

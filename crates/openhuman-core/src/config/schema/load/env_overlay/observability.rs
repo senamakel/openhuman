@@ -14,11 +14,20 @@ impl Config {
             let dsn = dsn.trim();
             if !dsn.is_empty() {
                 self.observability.sentry_dsn = Some(dsn.to_string());
-                self.record_env_override(
-                    env,
-                    "observability.sentry_dsn",
-                    &["OPENHUMAN_CORE_SENTRY_DSN", "OPENHUMAN_SENTRY_DSN"],
-                );
+                let env_var = if env.contains("OPENHUMAN_CORE_SENTRY_DSN") {
+                    Some("OPENHUMAN_CORE_SENTRY_DSN")
+                } else if env.contains("OPENHUMAN_SENTRY_DSN") {
+                    Some("OPENHUMAN_SENTRY_DSN")
+                } else if option_env!("OPENHUMAN_CORE_SENTRY_DSN").is_some() {
+                    Some("OPENHUMAN_CORE_SENTRY_DSN")
+                } else if option_env!("OPENHUMAN_SENTRY_DSN").is_some() {
+                    Some("OPENHUMAN_SENTRY_DSN")
+                } else {
+                    None
+                };
+                if let Some(env_var) = env_var {
+                    self.record_env_override_var(env, "observability.sentry_dsn", env_var);
+                }
             }
         }
 

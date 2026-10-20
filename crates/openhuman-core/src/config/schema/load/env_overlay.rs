@@ -120,8 +120,9 @@ impl Config {
         self.load_provenance_mut()
             .set_dotenv(super::current_dotenv_load());
 
-        // Only namespaced model variables are honoured. The bare `MODEL` env
-        // var used to be accepted as an alias but collides with vendor
+        // `OPENHUMAN_DEFAULT_MODEL` is the explicit spelling; the historical
+        // `OPENHUMAN_MODEL` remains accepted. The bare `MODEL` env var used to
+        // be accepted as an alias but collides with vendor
         // asset-tag env vars (e.g. Dell OptiPlex sets `MODEL=7080`), which
         // silently clobbered the LLM model and 400'd every backend call
         // (Sentry OPENHUMAN-TAURI-J8).

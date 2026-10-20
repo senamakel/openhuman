@@ -23,10 +23,12 @@ async fn saved_memory_loads_back_and_empty_save_removes_the_site() {
     let back = store.load("example.com").await.unwrap();
     assert_eq!(back, memory());
     let _: &SavedHint = &back.hints[0];
-    assert!(store
-        .save("example.com", &SiteMemory::default())
-        .await
-        .unwrap());
+    assert!(
+        store
+            .save("example.com", &SiteMemory::default())
+            .await
+            .unwrap()
+    );
     assert!(store.load("example.com").await.unwrap().is_empty());
 }
 
@@ -81,17 +83,13 @@ async fn first_daily_sweep_waits_until_its_deadline() {
     let sweep_calls = std::sync::Arc::clone(&calls);
     let (observed, mut sweeps) = tokio::sync::mpsc::unbounded_channel();
     let (host, lifecycle) = tokio::sync::watch::channel(false);
-    let task = tokio::spawn(run_sweeper(
-        daily_sweep_interval(),
-        lifecycle,
-        move || {
-            let observed = observed.clone();
-            sweep_calls.fetch_add(1, Ordering::SeqCst);
-            async move {
-                observed.send(()).unwrap();
-            }
-        },
-    ));
+    let task = tokio::spawn(run_sweeper(daily_sweep_interval(), lifecycle, move || {
+        let observed = observed.clone();
+        sweep_calls.fetch_add(1, Ordering::SeqCst);
+        async move {
+            observed.send(()).unwrap();
+        }
+    }));
 
     tokio::task::yield_now().await;
     assert!(
@@ -245,19 +243,15 @@ async fn scheduled_sweeps_expire_backing_files_and_stop_with_the_host() {
     let workspace = config.workspace_dir.clone();
     let (observed, mut sweeps) = tokio::sync::mpsc::unbounded_channel();
     let (host, lifecycle) = tokio::sync::watch::channel(false);
-    let task = tokio::spawn(run_sweeper(
-        daily_sweep_interval(),
-        lifecycle,
-        move || {
-            let workspace = workspace.clone();
-            let now = sweep_clock.load(Ordering::SeqCst);
-            let observed = observed.clone();
-            async move {
-                sweep_workspace_at(&workspace, now).await;
-                observed.send(()).unwrap();
-            }
-        },
-    ));
+    let task = tokio::spawn(run_sweeper(daily_sweep_interval(), lifecycle, move || {
+        let workspace = workspace.clone();
+        let now = sweep_clock.load(Ordering::SeqCst);
+        let observed = observed.clone();
+        async move {
+            sweep_workspace_at(&workspace, now).await;
+            observed.send(()).unwrap();
+        }
+    }));
 
     sweeps.recv().await.unwrap();
     assert!(!old.exists());

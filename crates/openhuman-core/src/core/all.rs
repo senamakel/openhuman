@@ -99,6 +99,7 @@ fn visible(g: &GroupedController) -> bool {
     let doctor_report = g.controller.rpc_method_name() == "openhuman.doctor_report";
     // Only the shared report bypasses its group gate; surface checks still apply.
     let saas_doctor_report = crate::core::runtime::is_saas() && doctor_report;
+    // That surface check denies missing scopes and unrelated Platform methods.
     (group_allowed(g.group) || saas_doctor_report) && on_surface(g)
 }
 

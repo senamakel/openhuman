@@ -163,9 +163,11 @@ impl MasterKeySource for CountingMasterKeySource {
 
 #[test]
 fn preloaded_runtime_can_invoke_doctor_without_startup_writes() {
-    openhuman_embed::process::tokio_runtime()
-        .expect("tuned Tokio runtime")
-        .block_on(preloaded_runtime_report());
+    let runtime = openhuman_embed::process::tokio_runtime().expect("tuned Tokio runtime");
+    let task = runtime.spawn(preloaded_runtime_report());
+    runtime
+        .block_on(task)
+        .expect("inspection test task completes");
 }
 
 async fn preloaded_runtime_report() {

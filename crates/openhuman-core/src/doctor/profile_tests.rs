@@ -222,6 +222,57 @@ async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profi
     );
 }
 
+#[tokio::test]
+async fn selected_profile_runs_its_context_scoped_endpoint_enricher() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let _workspace_override = WorkspaceOverrideGuard::clear();
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    let layout = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(
+        &layout.config_path,
+        "api_url = \"https://account-b.example\"\n",
+    )
+    .await
+    .unwrap();
+
+    let context = crate::core::runtime::CoreContext::for_test(
+        crate::core::runtime::DomainSet::full(),
+        Some(layout.workspace_dir.clone()),
+    );
+    crate::config::register_enricher_in(context.extensions(), "doctor-selected-profile", |config| {
+        if let Some(api_url) = &config.api_url {
+            config.resolved_endpoints.control_plane_url = Some(api_url.clone());
+        }
+    });
+    let selected = crate::core::runtime::CoreContext::scope(context.clone(), async {
+        resolve_desktop_profile_for_doctor(root, Some("account-b")).await
+    })
+    .await
+    .unwrap();
+
+    let mut profile = crate::security::credentials::profiles::AuthProfile::new_token(
+        crate::security::credentials::APP_SESSION_PROVIDER,
+        crate::security::credentials::DEFAULT_AUTH_PROFILE_NAME,
+        "session-token".into(),
+    );
+    profile.metadata.insert(
+        crate::security::credentials::session_support::SESSION_ISSUING_BACKEND_META.into(),
+        "https://account-b.example".into(),
+    );
+
+    assert_eq!(
+        selected.config.resolved_endpoints.control_plane_url.as_deref(),
+        Some("https://account-b.example")
+    );
+    assert!(crate::security::credentials::session_support::check_session_backend(
+        &selected.config,
+        Some(&profile)
+    )
+    .is_ok());
+}
+
 fn snapshot_tree(root: &Path) -> BTreeMap<std::path::PathBuf, Vec<u8>> {
     fn visit(root: &Path, directory: &Path, files: &mut BTreeMap<std::path::PathBuf, Vec<u8>>) {
         let entries = std::fs::read_dir(directory).unwrap();

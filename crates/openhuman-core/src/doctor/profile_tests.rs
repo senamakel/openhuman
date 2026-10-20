@@ -4,7 +4,9 @@ use tempfile::TempDir;
 
 use crate::config::Config;
 use crate::doctor::profile::{load_desktop_profile, DesktopProfileError};
-use crate::doctor::{DoctorOptions, DoctorTier};
+use crate::doctor::{
+    DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity,
+};
 use crate::profiles::ProfileLayout;
 use crate::security::credentials::{
     session_support::get_session_token, AuthService, APP_SESSION_PROVIDER,
@@ -108,6 +110,33 @@ async fn invalid_explicit_profile_returns_one_safe_profile_exists_error() {
     assert!(!report.findings[0].message.contains("private-value"));
     assert_eq!(report.summary.error, 1);
     assert!(!report.ok);
+}
+
+#[tokio::test]
+async fn selected_profile_context_pins_id_layout_source_and_components() {
+    let temp = TempDir::new().unwrap();
+    let layout = ProfileLayout::new(temp.path(), "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(&layout.config_path, "[components]\nmemory = false\n")
+        .await
+        .unwrap();
+    let selected = load_desktop_profile(temp.path(), "account-b").await.unwrap();
+    let components = crate::core::runtime::ComponentSet::from_config(&selected.config.components);
+    let ctx = DoctorCtx::from_config_with_components(selected.config, components)
+        .with_profile("account-b", DoctorConfigSource::Profile)
+        .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
+        .with_profile_status(super::contract::DoctorProfileStatus::Valid);
+
+    assert_eq!(ctx.profile(), Some("account-b"));
+    assert_eq!(ctx.config_source(), DoctorConfigSource::Profile);
+    assert_eq!(ctx.profile_layout_version(), Some(selected.layout.version));
+    assert_eq!(ctx.profile_resolution_source(), Some("--profile"));
+    assert!(!ctx.components().memory);
+
+    let check = super::profile::built_in_checks().pop().unwrap();
+    let findings = check.detect(&ctx).await;
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, FindingSeverity::Pass);
 }
 
 #[tokio::test]

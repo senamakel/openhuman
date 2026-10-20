@@ -416,7 +416,7 @@ impl RuntimeBuilder {
     /// contexts in the process. This is intended for layered host crates.
     #[doc(hidden)]
     pub fn configure_core_extensions(
-        mut self,
+        self,
         configure: impl FnOnce(&Extensions),
     ) -> Self {
         configure(&self.seams.core_extensions);

@@ -4,16 +4,15 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
-use openhuman_embed::__host::core::slots::Extensions;
 use openhuman_embed::__host::doctor::{
     register_check_source, register_check_source_in, DoctorCheck, DoctorCheckSource,
     DoctorCtx, DoctorTier, Finding, FindingSeverity,
 };
 use openhuman_embed::__host::platform::socket::{global_socket_manager, ConnectionStatus};
-use openhuman_embed::__host::security::credentials::api_key::get_api_key;
+use openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only;
 use openhuman_embed::__host::security::credentials::session_support::{
-    classify_session_token, is_local_session_token, load_app_session_profile, BackendCredential,
-    SessionTokenCheck,
+    classify_session_token, is_local_session_token, load_app_session_profile_read_only,
+    session_token_for_config, BackendCredential, SessionTokenCheck,
 };
 use tinyhumans_sdk::{Error as SdkError, TinyHumansClient};
 
@@ -30,7 +29,7 @@ const HEALTH_FIX: &str = "Check the configured backend URL and network access, t
 const AUTH_FIX: &str = "Sign in again through the supported auth flow, then rerun doctor.";
 const CATALOG_FIX: &str = "Check managed inference access for this profile, then rerun doctor.";
 
-type SocketStateReader = Arc<dyn Fn() -> Option<ConnectionStatus> + Send + Sync>;
+type SocketStateReader = Arc<dyn Fn(&str, &str) -> Option<ConnectionStatus> + Send + Sync>;
 
 /// The stateless group of TinyHumans checks registered by this crate.
 pub(crate) struct HostedDoctorCheckSource {
@@ -40,8 +39,8 @@ pub(crate) struct HostedDoctorCheckSource {
 impl Default for HostedDoctorCheckSource {
     fn default() -> Self {
         Self {
-            socket_state: Arc::new(|| {
-                global_socket_manager().map(|manager| manager.get_state().status)
+            socket_state: Arc::new(|url, token| {
+                global_socket_manager().and_then(|manager| manager.status_for(url, token))
             }),
         }
     }
@@ -50,7 +49,7 @@ impl Default for HostedDoctorCheckSource {
 impl HostedDoctorCheckSource {
     #[cfg(test)]
     fn with_socket_state_reader(
-        reader: impl Fn() -> Option<ConnectionStatus> + Send + Sync + 'static,
+        reader: impl Fn(&str, &str) -> Option<ConnectionStatus> + Send + Sync + 'static,
     ) -> Self {
         Self {
             socket_state: Arc::new(reader),
@@ -149,10 +148,20 @@ impl DoctorCheck for BackendCredentialCheck {
                 "This profile uses a local-only session without hosted backend access.",
                 "Sign in with a TinyHumans account to run hosted checks.",
             ),
-            CredentialState::Absent | CredentialState::Unreadable => Finding::skipped(
+            CredentialState::Absent | CredentialState::Local => Finding::skipped(
                 self.id(),
                 "No usable hosted credential is configured.",
                 "Sign in with a TinyHumans account to run hosted checks.",
+            ),
+            CredentialState::BackendMismatch => Finding::error(
+                self.id(),
+                "SESSION_BACKEND_MISMATCH: the stored session belongs to a different backend.",
+                "Restore the backend that issued this session or sign in to the configured backend.",
+            ),
+            CredentialState::Unreadable => Finding::error(
+                self.id(),
+                "The stored hosted credential could not be read safely.",
+                AUTH_FIX,
             ),
         }]
     }
@@ -207,12 +216,28 @@ impl DoctorCheck for BackendSocket {
         DoctorTier::Connect
     }
 
-    async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
-        let Some(status) = (self.0)() else {
+    async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
+        let Some(url) = ctx.config().resolved_endpoints.control_plane_url.as_deref() else {
             return vec![Finding::skipped(
                 self.id(),
-                "The Socket.IO service is not running in this host.",
-                "Enable the socket service before checking its connection.",
+                "The selected profile has no resolved backend socket endpoint.",
+                "Configure the hosted backend before checking its socket connection.",
+            )];
+        };
+        let CredentialState::Usable(BackendCredential::Session(token)) =
+            doctor_credential(ctx.config())
+        else {
+            return vec![Finding::skipped(
+                self.id(),
+                "The selected profile has no usable session for a backend socket check.",
+                "Sign in with a TinyHumans account to run this check.",
+            )];
+        };
+        let Some(status) = (self.0)(url, &token) else {
+            return vec![Finding::skipped(
+                self.id(),
+                "No socket connection is active for the selected profile.",
+                "Enable the socket service for this profile, then rerun doctor.",
             )];
         };
 
@@ -350,21 +375,29 @@ enum CredentialState {
 }
 
 fn doctor_credential(config: &Config) -> CredentialState {
-    match get_api_key(config) {
+    match get_api_key_read_only(config) {
         Ok(Some(key)) => return CredentialState::Usable(BackendCredential::ApiKey(key)),
         Ok(None) => {}
         Err(_) => return CredentialState::Unreadable,
     }
 
-    let profile = match load_app_session_profile(config) {
+    let profile = match load_app_session_profile_read_only(config) {
         Ok(profile) => profile,
+        Err(_) => return CredentialState::Unreadable,
+    };
+    let token = match session_token_for_config(config, profile.as_ref()) {
+        Ok(Some(token)) => token,
+        Ok(None) => return CredentialState::Absent,
+        Err(error) if error.starts_with("SESSION_BACKEND_MISMATCH:") => {
+            return CredentialState::BackendMismatch;
+        }
         Err(_) => return CredentialState::Unreadable,
     };
     match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
         SessionTokenCheck::Absent => CredentialState::Absent,
         SessionTokenCheck::Expired => CredentialState::Expired,
-        SessionTokenCheck::Live(token) if is_local_session_token(&token) => CredentialState::Local,
-        SessionTokenCheck::Live(token) => CredentialState::Usable(BackendCredential::Session(token)),
+        SessionTokenCheck::Live(_) if is_local_session_token(&token) => CredentialState::Local,
+        SessionTokenCheck::Live(_) => CredentialState::Usable(BackendCredential::Session(token)),
     }
 }
 

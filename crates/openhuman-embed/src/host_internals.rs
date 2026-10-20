@@ -239,14 +239,16 @@ pub mod security {
             pub use openhuman_core::security::credentials::session_support::{
                 build_session_state, classify_session_token, current_session_is_local,
                 get_session_token, is_local_session_token, load_app_session_profile,
-                publish_local_session_expiry, resolve_backend_credential, BackendCredential,
+                load_app_session_profile_read_only, publish_local_session_expiry,
+                resolve_backend_credential, session_token_for_config, BackendCredential,
                 SessionTokenCheck, LOCAL_SESSION_BACKEND_UNAVAILABLE,
                 LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SESSION_EXPIRES_AT_META,
             };
         }
         pub mod api_key {
             pub use openhuman_core::security::credentials::api_key::{
-                get_api_key, get_api_key_in, store_api_key, store_api_key_in,
+                get_api_key, get_api_key_in, get_api_key_read_only, store_api_key,
+                store_api_key_in,
             };
         }
     }

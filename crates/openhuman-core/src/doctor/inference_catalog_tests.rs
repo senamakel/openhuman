@@ -148,7 +148,10 @@ fn auth_profiles_path(config: &Config) -> std::path::PathBuf {
         .join("auth-profiles.json")
 }
 
-fn profile_context(config: Config, profile_id: &str) -> std::sync::Arc<crate::core::runtime::CoreContext> {
+fn profile_context(
+    config: Config,
+    profile_id: &str,
+) -> std::sync::Arc<crate::core::runtime::CoreContext> {
     use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
 
     CoreContext::for_test(DomainSet::full(), None).derive_with(
@@ -194,8 +197,8 @@ fn register_test_inspection_catalog(
     endpoint: String,
 ) -> Arc<AtomicUsize> {
     use crate::inference::registry::{
-        InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
-        register_inspection_catalog_in,
+        register_inspection_catalog_in, InspectionCatalogError, InspectionCatalogListing,
+        PreparedInspectionCatalog,
     };
 
     let requests = Arc::new(AtomicUsize::new(0));
@@ -206,6 +209,10 @@ fn register_test_inspection_catalog(
         let provider_id = provider_id.clone();
         let request_count = Arc::clone(&request_count);
         Box::pin(async move {
+            assert!(
+                request.provider_key.is_empty(),
+                "fixture uses the separate config credential identity"
+            );
             let credential = config.api_key.clone();
             let cache_endpoint = endpoint.clone();
             let client = request.client.clone();
@@ -270,10 +277,9 @@ async fn report_for_context(
     context: std::sync::Arc<crate::core::runtime::CoreContext>,
     options: DoctorOptions,
 ) -> crate::core::Outcome<super::DoctorReport> {
-    crate::core::runtime::CoreContext::scope(
-        context,
-        async { doctor_report_with_options(config, options).await },
-    )
+    crate::core::runtime::CoreContext::scope(context, async {
+        doctor_report_with_options(config, options).await
+    })
     .await
     .expect("doctor report for selected profile")
 }
@@ -393,11 +399,8 @@ async fn prepared_catalog_identity_changes_when_managed_credential_rotates_in_pl
     let mut config_b = config_a.clone();
     config_b.api_key = Some("fixture-managed-credential-b".into());
     let extensions = crate::core::slots::Extensions::new();
-    let prepared_fetches = register_test_inspection_catalog(
-        &extensions,
-        "openhuman",
-        format!("{endpoint}/models"),
-    );
+    let prepared_fetches =
+        register_test_inspection_catalog(&extensions, "openhuman", format!("{endpoint}/models"));
     let context = profile_context_with_extensions(config_b.clone(), "tenant-b", extensions);
 
     let (first, second, third) = crate::core::runtime::CoreContext::scope(context, async {
@@ -543,8 +546,7 @@ async fn doctor_models_never_falls_back_to_an_ordinary_mutable_catalog() {
 async fn inference_connect_checks_are_registered_but_skipped_in_static_tier() {
     let (endpoint, server) =
         spawn_catalog_server(StatusCode::OK, catalog_body(&["present-model"]), true).await;
-    let (_temp, config) =
-        config_for_catalog(endpoint, "p_doctor_497_static", "doctor-497-static");
+    let (_temp, config) = config_for_catalog(endpoint, "p_doctor_497_static", "doctor-497-static");
     let provider = "doctor-497-static";
     crate::inference::auth_error_registry::clear(provider);
     crate::inference::auth_error_registry::record(provider, 401);
@@ -581,12 +583,15 @@ async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
     let (_temp_a, config_a) = temporary_config();
     let (_temp_b, config_b) = temporary_config();
 
-    let first_episode = crate::core::runtime::CoreContext::scope(
-        workspace_context(config_a.clone()),
-        async { crate::inference::auth_error_registry::record(provider, 401) },
-    )
-    .await;
-    assert!(first_episode, "workspace A begins the process notification episode");
+    let first_episode =
+        crate::core::runtime::CoreContext::scope(workspace_context(config_a.clone()), async {
+            crate::inference::auth_error_registry::record(provider, 401)
+        })
+        .await;
+    assert!(
+        first_episode,
+        "workspace A begins the process notification episode"
+    );
 
     let report_b_without_failure = report_for_context(
         &config_b,
@@ -602,14 +607,26 @@ async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
         .checks_run
         .iter()
         .any(|id| id == "inference/auth-errors"));
-    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
-        finding.check_id != "inference/auth-errors"
-            || finding.severity != FindingSeverity::Error
-    }));
-    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
-        !finding.message.contains(config_a.workspace_dir.to_string_lossy().as_ref())
-            && !finding.message.contains(config_b.workspace_dir.to_string_lossy().as_ref())
-    }));
+    assert!(report_b_without_failure
+        .value
+        .findings
+        .iter()
+        .all(|finding| {
+            finding.check_id != "inference/auth-errors"
+                || finding.severity != FindingSeverity::Error
+        }));
+    assert!(report_b_without_failure
+        .value
+        .findings
+        .iter()
+        .all(|finding| {
+            !finding
+                .message
+                .contains(config_a.workspace_dir.to_string_lossy().as_ref())
+                && !finding
+                    .message
+                    .contains(config_b.workspace_dir.to_string_lossy().as_ref())
+        }));
 
     let report_a = report_for_context(
         &config_a,
@@ -624,11 +641,11 @@ async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
         finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
     }));
 
-    let second_profile_episode = crate::core::runtime::CoreContext::scope(
-        workspace_context(config_b.clone()),
-        async { crate::inference::auth_error_registry::record(provider, 403) },
-    )
-    .await;
+    let second_profile_episode =
+        crate::core::runtime::CoreContext::scope(workspace_context(config_b.clone()), async {
+            crate::inference::auth_error_registry::record(provider, 403)
+        })
+        .await;
     assert!(
         !second_profile_episode,
         "per-workspace attribution must not re-arm the process notification latch"
@@ -645,6 +662,23 @@ async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
     assert!(report_b_after_failure.value.findings.iter().any(|finding| {
         finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
     }));
+    let report_a_after_b_failure = report_for_context(
+        &config_a,
+        workspace_context(config_a.clone()),
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_a_after_b_failure
+        .value
+        .findings
+        .iter()
+        .any(|finding| {
+            finding.check_id == "inference/auth-errors"
+                && finding.severity == FindingSeverity::Error
+        }));
     assert_eq!(
         crate::inference::auth_error_registry::snapshot()
             .iter()
@@ -683,13 +717,21 @@ async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
         .checks_run
         .iter()
         .any(|id| id == "inference/auth-errors"));
-    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
-        finding.check_id != "inference/auth-errors"
-            || finding.severity != FindingSeverity::Error
-    }));
-    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
-        !finding.message.contains("tenant-a") && !finding.message.contains("tenant-b")
-    }));
+    assert!(report_b_without_failure
+        .value
+        .findings
+        .iter()
+        .all(|finding| {
+            finding.check_id != "inference/auth-errors"
+                || finding.severity != FindingSeverity::Error
+        }));
+    assert!(report_b_without_failure
+        .value
+        .findings
+        .iter()
+        .all(|finding| {
+            !finding.message.contains("tenant-a") && !finding.message.contains("tenant-b")
+        }));
 
     let report_a = report_for_profile(
         &config,
@@ -722,6 +764,23 @@ async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
     assert!(report_b_after_failure.value.findings.iter().any(|finding| {
         finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
     }));
+    let report_a_after_b_failure = report_for_profile(
+        &config,
+        "tenant-a",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_a_after_b_failure
+        .value
+        .findings
+        .iter()
+        .any(|finding| {
+            finding.check_id == "inference/auth-errors"
+                && finding.severity == FindingSeverity::Error
+        }));
     assert_eq!(
         crate::inference::auth_error_registry::snapshot()
             .iter()
@@ -733,11 +792,43 @@ async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
 }
 
 #[tokio::test]
+async fn an_unscoped_legacy_auth_error_is_reported_without_blame_to_profile_b() {
+    let provider = "doctor-497-unscoped-auth-fixture";
+    crate::inference::auth_error_registry::clear(provider);
+    crate::inference::auth_error_registry::record(provider, 401);
+    let (_temp, config) = temporary_config();
+
+    let report = report_for_profile(
+        &config,
+        "tenant-b",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+
+    assert!(report
+        .value
+        .checks_run
+        .iter()
+        .any(|id| id == "inference/auth-errors"));
+    assert!(report.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/auth-errors"
+            && finding.severity == FindingSeverity::Info
+            && !finding.message.contains("tenant-b")
+    }));
+    assert!(report.value.findings.iter().all(|finding| {
+        finding.check_id != "inference/auth-errors" || finding.severity != FindingSeverity::Error
+    }));
+    crate::inference::auth_error_registry::clear(provider);
+}
+
+#[tokio::test]
 async fn inference_connect_checks_are_registered_but_skipped_in_static_tier() {
     let (endpoint, server) =
         spawn_catalog_server(StatusCode::OK, catalog_body(&["present-model"]), true).await;
-    let (_temp, config) =
-        config_for_catalog(endpoint, "p_doctor_497_static", "doctor-497-static");
+    let (_temp, config) = config_for_catalog(endpoint, "p_doctor_497_static", "doctor-497-static");
     let provider = "doctor-497-static";
     crate::inference::auth_error_registry::clear(provider);
     crate::inference::auth_error_registry::record(provider, 401);
@@ -796,19 +887,19 @@ async fn doctor_models_skips_a_provider_without_a_models_route() {
 #[tokio::test]
 async fn model_in_catalog_check_skips_a_provider_without_a_models_route() {
     let (endpoint, server) = spawn_catalog_server(StatusCode::OK, catalog_body(&[]), false).await;
-    let (_temp, config) =
-        config_for_catalog(endpoint.clone(), "p_doctor_497_route_missing", "doctor-497-route-missing");
+    let (_temp, config) = config_for_catalog(
+        endpoint.clone(),
+        "p_doctor_497_route_missing",
+        "doctor-497-route-missing",
+    );
     let extensions = crate::core::slots::Extensions::new();
     register_test_inspection_catalog(
         &extensions,
         "doctor-497-route-missing",
         format!("{endpoint}/models"),
     );
-    let context = profile_context_with_extensions(
-        config.clone(),
-        "doctor-497-route-profile",
-        extensions,
-    );
+    let context =
+        profile_context_with_extensions(config.clone(), "doctor-497-route-profile", extensions);
 
     let report = crate::core::runtime::CoreContext::scope(context, async {
         doctor_report_with_options(
@@ -824,7 +915,11 @@ async fn model_in_catalog_check_skips_a_provider_without_a_models_route() {
     .expect("scoped doctor report")
     .expect("missing catalogs are check findings, not transport failures");
 
-    assert!(report.value.checks_run.iter().any(|id| id == "inference/model-in-catalog"));
+    assert!(report
+        .value
+        .checks_run
+        .iter()
+        .any(|id| id == "inference/model-in-catalog"));
     assert!(report.value.findings.iter().any(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Skipped
@@ -879,11 +974,7 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
         "doctor-497-missing",
         format!("{}/models", config.cloud_providers[0].endpoint),
     );
-    let context = profile_context_with_extensions(
-        config.clone(),
-        "doctor-profile-b",
-        extensions,
-    );
+    let context = profile_context_with_extensions(config.clone(), "doctor-profile-b", extensions);
     let (catalog, report) = crate::core::runtime::CoreContext::scope(context, async {
         let catalog = doctor_models(&config, true).await?;
         let report = doctor_report_with_options(
@@ -937,7 +1028,9 @@ async fn recorded_provider_auth_errors_are_reported_as_errors() {
     let (_temp, config) = temporary_config();
     let recorded = crate::core::runtime::CoreContext::scope(
         profile_context(config.clone(), "doctor-auth-error-profile"),
-        async { providers.map(|provider| crate::inference::auth_error_registry::record(provider, 401)) },
+        async {
+            providers.map(|provider| crate::inference::auth_error_registry::record(provider, 401))
+        },
     )
     .await;
     assert_eq!(recorded, [true, true]);

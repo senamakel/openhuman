@@ -127,6 +127,45 @@ async fn unsupported_and_unavailable_landlock_statuses_are_distinguished() {
 }
 
 #[cfg(all(target_os = "linux", feature = "modules"))]
+#[test]
+fn landlock_requires_a_matching_backend_and_the_untrusted_code_isolation_floor() {
+    use crate::modules::tinybox::contract::JailStatus;
+
+    let available_landlock = JailStatus {
+        backend: "landlock".to_owned(),
+        available: true,
+        isolation: "kernel".to_owned(),
+        suitable_for_untrusted_code: true,
+        filesystem: "enforced".to_owned(),
+        network: "enforced".to_owned(),
+        subprocess: "enforced".to_owned(),
+    };
+    assert_eq!(
+        landlock_status_from_module(&available_landlock),
+        LandlockStatus::Available
+    );
+
+    let available_other_backend = JailStatus {
+        backend: "seatbelt".to_owned(),
+        ..available_landlock.clone()
+    };
+    assert_eq!(
+        landlock_status_from_module(&available_other_backend),
+        LandlockStatus::Unsupported,
+        "another available jail does not satisfy an explicit Landlock selection"
+    );
+
+    let insufficient_landlock = JailStatus {
+        suitable_for_untrusted_code: false,
+        ..available_landlock
+    };
+    assert_eq!(
+        landlock_status_from_module(&insufficient_landlock),
+        LandlockStatus::Unsupported
+    );
+}
+
+#[cfg(all(target_os = "linux", feature = "modules"))]
 #[tokio::test]
 async fn missing_tinybox_status_does_not_start_the_module_runtime() {
     if crate::util::module_test_process::run(

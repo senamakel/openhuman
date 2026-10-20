@@ -56,12 +56,7 @@ impl SandboxProbe for HostSandboxProbe {
             )
             .await
             {
-                Ok(Some(status))
-                    if status.backend.eq_ignore_ascii_case("landlock") && status.available =>
-                {
-                    LandlockStatus::Available
-                }
-                Ok(Some(_)) => LandlockStatus::Unsupported,
+                Ok(Some(status)) => landlock_status_from_module(&status),
                 Ok(None) | Err(ExistingModuleCallError::Unavailable) => LandlockStatus::Unavailable,
                 Err(ExistingModuleCallError::Failed) => LandlockStatus::Failed,
             };
@@ -74,6 +69,17 @@ impl SandboxProbe for HostSandboxProbe {
         {
             LandlockStatus::Unsupported
         }
+    }
+}
+
+#[cfg(all(target_os = "linux", feature = "modules"))]
+fn landlock_status_from_module(
+    status: &crate::modules::tinybox::contract::JailStatus,
+) -> LandlockStatus {
+    if status.backend == "landlock" && status.available && status.suitable_for_untrusted_code {
+        LandlockStatus::Available
+    } else {
+        LandlockStatus::Unsupported
     }
 }
 

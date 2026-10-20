@@ -311,6 +311,41 @@ async fn identical_role_routes_share_one_completion_but_keep_each_role_finding()
 }
 
 #[tokio::test]
+async fn same_endpoint_and_credential_with_distinct_models_get_distinct_completions() {
+    let server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/openai/chat/completions"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(completion_response(
+            "provider/answered-model",
+            "OK",
+        )))
+        .mount(&server)
+        .await;
+    let mut fixture = config_for(&server, "provider/chat-model");
+    fixture.config.reasoning_provider = Some("ephemeral-route:reasoning-model".into());
+
+    let report = run_live(
+        fixture,
+        vec![CHECK_CHAT, "inference/live/reasoning"],
+    )
+    .await;
+    assert_eq!(finding(&report, CHECK_CHAT).severity, FindingSeverity::Pass);
+    assert_eq!(
+        finding(&report, "inference/live/reasoning").severity,
+        FindingSeverity::Pass
+    );
+    assert_eq!(
+        server
+            .received_requests()
+            .await
+            .expect("mock records calls")
+            .len(),
+        2,
+        "a distinct resolved model needs its own completion"
+    );
+}
+
+#[tokio::test]
 async fn connect_tier_skips_live_chat_without_sending_a_completion() {
     let server = MockServer::start().await;
     let context = CoreContext::for_test(DomainSet::full(), None);

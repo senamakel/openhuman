@@ -68,6 +68,8 @@ impl tinymemory_api::MemoryEngine for DownMemoryEngine {
 fn snapshot_test_tree(
     root: &std::path::Path,
 ) -> std::collections::BTreeMap<std::path::PathBuf, Option<Vec<u8>>> {
+    // SQLite read-only opens may update the derived `-shm` index or create
+    // an empty `-wal`; the durable database and committed WAL remain pinned.
     fn walk(
         current: &std::path::Path,
         root: &std::path::Path,
@@ -79,6 +81,16 @@ fn snapshot_test_tree(
                 .strip_prefix(root)
                 .expect("fixture path is inside its root")
                 .to_path_buf();
+            let name = path
+                .file_name()
+                .and_then(|name| name.to_str())
+                .unwrap_or_default();
+            let is_sqlite_bookkeeping = name.ends_with("-shm")
+                || (name.ends_with("-wal")
+                    && std::fs::metadata(&path).expect("fixture metadata").len() == 0);
+            if is_sqlite_bookkeeping {
+                continue;
+            }
             if path.is_dir() {
                 snapshot.insert(relative, None);
                 walk(&path, root, snapshot);

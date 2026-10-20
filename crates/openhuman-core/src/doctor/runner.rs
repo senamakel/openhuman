@@ -97,14 +97,6 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
                             findings
                                 .push(Finding::pass(&id, "The check completed without findings."));
                         }
-                        for finding in &mut findings {
-                            finding.check_id.clone_from(&id);
-                            finding.duration_ms = duration_ms;
-                            if finding.fix_hint.trim().is_empty() {
-                                finding.fix_hint =
-                                    "Review the check result and rerun doctor.".into();
-                            }
-                        }
                         findings
                     }
                     Ok(Err(_)) => vec![Finding::error(
@@ -118,6 +110,14 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
                         "Review the check's dependencies and rerun doctor.",
                     )],
                 };
+                let mut findings = findings;
+                for finding in &mut findings {
+                    finding.check_id.clone_from(&id);
+                    finding.duration_ms = duration_ms;
+                    if finding.fix_hint.trim().is_empty() {
+                        finding.fix_hint = "Review the check result and rerun doctor.".into();
+                    }
+                }
                 (index, id, findings, false)
             }
         })

@@ -92,7 +92,7 @@ async fn memory_checks_are_skipped_when_the_memory_component_is_disabled() {
     .await
     .expect("component-gated check is represented as skipped");
 
-    assert_eq!(report.checks_skipped, ["memory/engine"]);
+    assert_eq!(report.checks_skipped, vec!["memory/engine".to_owned()]);
     assert!(report.findings.iter().any(|finding| {
         finding.check_id == "memory/engine" && finding.severity == FindingSeverity::Skipped
     }));
@@ -125,7 +125,7 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     .await
     .expect("unknown selection is a report finding");
 
-    assert_eq!(report.checks_run, ["config/temperature"]);
+    assert_eq!(report.checks_run, vec!["config/temperature".to_owned()]);
     assert!(
         report
             .findings

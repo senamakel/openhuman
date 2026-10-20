@@ -55,9 +55,6 @@ impl ComposioProbe for ExistingConnectorProbe {
 }
 
 pub(super) fn for_context() -> Vec<Arc<dyn DoctorCheck>> {
-    if !crate::config::Config::default().components.integrations {
-        return Vec::new();
-    }
     vec![Arc::new(ComposioCheck {
         probe: Arc::new(ExistingConnectorProbe),
     })]
@@ -79,7 +76,7 @@ impl DoctorCheck for ComposioCheck {
     fn id(&self) -> &str { "integrations/composio" }
     fn category(&self) -> &str { "integrations" }
     fn tier(&self) -> DoctorTier { DoctorTier::Connect }
-    fn component_gate(&self) -> Option<ComponentId> { Some(ComponentId::Integrations) }
+    fn component_gate(&self) -> Option<ComponentId> { Some(ComponentId::Connectors) }
 
     async fn detect(&self, ctx: &crate::doctor::DoctorCtx) -> Vec<Finding> {
         let finding = if ctx.config().composio.mode.trim() == crate::config::schema::COMPOSIO_MODE_DISABLED {

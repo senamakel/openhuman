@@ -7,19 +7,20 @@ use crate::config::Config;
 use crate::doctor::{ComponentId, DoctorCheck, DoctorTier, Finding};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-enum SnapshotFailure { Malformed, Unavailable }
+enum WalletSnapshotFailure { Malformed, Unavailable }
+type SnapshotFailure = WalletSnapshotFailure;
 
 #[derive(Debug, Clone, Copy)]
 struct WalletSnapshot { configured: bool }
 
 trait WalletSnapshotProbe: Send + Sync {
-    fn read_existing(&self, config: &Config) -> Result<Option<WalletSnapshot>, SnapshotFailure>;
+    fn read_existing(&self, config: &Config) -> Result<Option<WalletSnapshot>, WalletSnapshotFailure>;
 }
 
 struct FileSnapshot;
 
 impl WalletSnapshotProbe for FileSnapshot {
-    fn read_existing(&self, config: &Config) -> Result<Option<WalletSnapshot>, SnapshotFailure> {
+    fn read_existing(&self, config: &Config) -> Result<Option<WalletSnapshot>, WalletSnapshotFailure> {
         let path = config.workspace_dir.join("state").join("wallet-state.json");
         let contents = match std::fs::read(path) {
             Ok(bytes) => bytes,

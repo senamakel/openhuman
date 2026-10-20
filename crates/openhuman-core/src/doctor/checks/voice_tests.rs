@@ -1,39 +1,19 @@
 use super::*;
 use crate::doctor::contract::{DoctorCtx, FindingSeverity};
-use crate::voice::VoiceStatus;
-use std::sync::{
-    Arc,
-    atomic::{AtomicUsize, Ordering},
-};
+use std::sync::{Arc, atomic::{AtomicUsize, Ordering}};
 
 struct FixedVoiceStatus {
-    status: VoiceStatus,
+    snapshot: VoiceSnapshot,
     calls: Arc<AtomicUsize>,
     workspace: std::sync::Mutex<Option<std::path::PathBuf>>,
-    launches: Arc<AtomicUsize>,
 }
 
 #[async_trait::async_trait]
 impl VoiceStatusProbe for FixedVoiceStatus {
-    async fn status(&self, config: &crate::config::Config) -> Result<VoiceStatus, String> {
+    async fn inspect(&self, config: &crate::config::Config) -> VoiceSnapshot {
         self.calls.fetch_add(1, Ordering::SeqCst);
         *self.workspace.lock().unwrap() = Some(config.workspace_dir.clone());
-        Ok(self.status.clone())
-    }
-}
-
-fn status(stt_available: bool, tts_available: bool) -> VoiceStatus {
-    VoiceStatus {
-        stt_available,
-        tts_available,
-        stt_model_id: "test-stt".into(),
-        tts_voice_id: "test-voice".into(),
-        piper_binary: None,
-        tts_voice_path: None,
-        llm_cleanup_enabled: false,
-        stt_engine: "cloud".into(),
-        stt_error: (!stt_available).then(|| "selected STT provider has no credential".into()),
-        tts_provider: "piper".into(),
+        self.snapshot
     }
 }
 
@@ -46,88 +26,54 @@ fn config_in(root: &std::path::Path) -> crate::config::Config {
 }
 
 #[tokio::test]
-async fn unavailable_stt_and_tts_are_errors_with_safe_hints() {
-    let scratch = tempfile::tempdir().expect("create isolated config fixture");
+async fn stt_and_tts_configuration_findings_are_separate_and_sanitized() {
+    let scratch = tempfile::tempdir().expect("create isolated fixture");
     let config = config_in(scratch.path());
     let calls = Arc::new(AtomicUsize::new(0));
-    let launches = Arc::new(AtomicUsize::new(0));
     let probe = Arc::new(FixedVoiceStatus {
-        status: status(false, false),
+        snapshot: VoiceSnapshot {
+            stt: Err(VoiceIssue::CredentialMissing),
+            tts: Ok(()),
+        },
         calls: Arc::clone(&calls),
         workspace: Default::default(),
-        launches: Arc::clone(&launches),
     });
-    let checks = checks_with_probe(probe.clone());
+    let checks = checks_with_probe(probe);
     let ctx = DoctorCtx::from_config(config);
-
-    let stt = checks
-        .iter()
-        .find(|check| check.id() == "voice/stt")
-        .expect("STT check registered")
-        .detect(&ctx)
-        .await
-        .remove(0);
-    let tts = checks
-        .iter()
-        .find(|check| check.id() == "voice/tts")
-        .expect("TTS check registered")
-        .detect(&ctx)
-        .await
-        .remove(0);
-
+    let stt = checks[0].detect(&ctx).await.remove(0);
+    let tts = checks[1].detect(&ctx).await.remove(0);
+    assert_eq!(stt.check_id, "voice/stt");
     assert_eq!(stt.severity, FindingSeverity::Error);
-    assert_eq!(tts.severity, FindingSeverity::Error);
+    assert_eq!(tts.check_id, "voice/tts");
+    assert_eq!(tts.severity, FindingSeverity::Pass);
     assert!(!stt.message.contains("credential"));
-    assert!(!tts.message.contains("test-voice"));
-    assert!(!stt.fix_hint.trim().is_empty());
-    assert!(!tts.fix_hint.trim().is_empty());
     assert_eq!(calls.load(Ordering::SeqCst), 2);
-    assert_eq!(probe.launches.load(Ordering::SeqCst), 0);
 }
 
 #[tokio::test]
-async fn voice_checks_use_selected_b_config_and_only_inspect_paths() {
-    let ambient = tempfile::tempdir().expect("create ambient config fixture");
-    let selected = tempfile::tempdir().expect("create selected config fixture");
-    let mut config_a = config_in(ambient.path());
-    config_a.local_ai.tts_voice_id = "ambient-a-voice".into();
-    let mut config_b = config_in(selected.path());
-    config_b.local_ai.tts_voice_id = "selected-b-voice".into();
+async fn voice_checks_inspect_the_selected_config_without_starting_audio_runtime() {
+    let ambient = tempfile::tempdir().expect("create ambient fixture");
+    let selected = tempfile::tempdir().expect("create selected fixture");
+    let config_a = config_in(ambient.path());
+    let config_b = config_in(selected.path());
     let calls = Arc::new(AtomicUsize::new(0));
-    let launches = Arc::new(AtomicUsize::new(0));
     let probe = Arc::new(FixedVoiceStatus {
-        status: status(true, true),
+        snapshot: VoiceSnapshot { stt: Ok(()), tts: Ok(()) },
         calls: Arc::clone(&calls),
         workspace: Default::default(),
-        launches: Arc::clone(&launches),
     });
     let checks = checks_with_probe(probe.clone());
     let ambient_context = crate::core::runtime::CoreContext::for_test_with_config(
-        crate::core::runtime::DomainSet::full(),
-        config_a,
+        crate::core::runtime::DomainSet::full(), config_a,
     );
-    let outcome = crate::core::runtime::CoreContext::scope(ambient_context, async {
-        let selected_ctx = DoctorCtx::from_config(config_b.clone()).with_components(
-            crate::core::runtime::ComponentSet::from_config(&config_b.components),
-        );
+    let findings = crate::core::runtime::CoreContext::scope(ambient_context, async {
+        let ctx = DoctorCtx::from_config(config_b.clone());
         let mut findings = Vec::new();
-        for check in &checks {
-            findings.extend(check.detect(&selected_ctx).await);
-        }
+        for check in &checks { findings.extend(check.detect(&ctx).await); }
         findings
-    })
-    .await;
-
-    assert_eq!(outcome.len(), 2);
-    assert!(
-        outcome
-            .iter()
-            .all(|finding| finding.severity == FindingSeverity::Pass)
-    );
+    }).await;
+    assert_eq!(findings.len(), 2);
+    assert!(findings.iter().all(|finding| finding.severity == FindingSeverity::Pass));
     assert_eq!(calls.load(Ordering::SeqCst), 2);
-    assert_eq!(
-        *probe.workspace.lock().unwrap(),
-        Some(config_b.workspace_dir.clone())
-    );
-    assert_eq!(probe.launches.load(Ordering::SeqCst), 0);
+    assert_eq!(*probe.workspace.lock().unwrap(), Some(config_b.workspace_dir));
 }

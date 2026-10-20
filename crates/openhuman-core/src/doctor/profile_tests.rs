@@ -144,7 +144,7 @@ async fn selected_profile_context_pins_id_layout_source_and_components() {
     let ctx = DoctorCtx::from_config_with_components(selected.config, components)
         .with_profile("account-b", DoctorConfigSource::Profile)
         .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
-        .with_profile_status(super::contract::DoctorProfileStatus::Valid);
+        .with_profile_status(crate::doctor::contract::DoctorProfileStatus::Valid);
 
     assert_eq!(ctx.profile(), Some("account-b"));
     assert_eq!(ctx.config_source(), DoctorConfigSource::Profile);

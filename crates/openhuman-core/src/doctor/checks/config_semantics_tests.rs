@@ -57,7 +57,7 @@ async fn disabled_mcp_component_warns_when_servers_are_configured() {
 
 #[tokio::test]
 async fn missing_storage_driver_is_reported_without_opening_the_backend() {
-    let _environment = EnvVarGuard::locked_unset(crate::storage::STORAGE_URL_VAR).await;
+    let _environment = EnvVarGuard::locked_unset_async(crate::storage::STORAGE_URL_VAR).await;
     let mut config = Config::default();
     config.storage.url = Some("mongodb://app:private@db.internal/openhuman".into());
 
@@ -76,7 +76,7 @@ async fn missing_storage_driver_is_reported_without_opening_the_backend() {
 
 #[tokio::test]
 async fn malformed_storage_url_is_reported_without_echoing_it() {
-    let _environment = EnvVarGuard::locked_unset(crate::storage::STORAGE_URL_VAR).await;
+    let _environment = EnvVarGuard::locked_unset_async(crate::storage::STORAGE_URL_VAR).await;
     let mut config = Config::default();
     config.storage.url = Some("custom://secret-value".into());
 
@@ -127,7 +127,7 @@ async fn both_master_key_environment_sources_are_reported_without_initializing_k
         MASTER_KEY_ENV, MASTER_KEY_FILE_ENV,
     };
 
-    let _environment = EnvVarGuard::locked_unset_many(&[MASTER_KEY_ENV, MASTER_KEY_FILE_ENV])
+    let _environment = EnvVarGuard::locked_unset_many_async(&[MASTER_KEY_ENV, MASTER_KEY_FILE_ENV])
         .await
         .with(MASTER_KEY_ENV, "do-not-read-inline")
         .with(MASTER_KEY_FILE_ENV, "/private/key-file");
@@ -164,7 +164,7 @@ async fn invalid_module_override_is_reported_without_echoing_its_path() {
 async fn linked_source_fallback_is_reported_without_loading_modules() {
     use crate::config::schema::ModuleSourceMode;
 
-    let _environment = EnvVarGuard::locked_unset("OPENHUMAN_MODULE_SOURCE").await;
+    let _environment = EnvVarGuard::locked_unset_async("OPENHUMAN_MODULE_SOURCE").await;
     let mut config = Config::default();
     config.modules.source = ModuleSourceMode::Linked;
 

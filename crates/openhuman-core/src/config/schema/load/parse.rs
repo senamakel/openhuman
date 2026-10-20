@@ -23,16 +23,23 @@ pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
                     .as_table()
                     .is_some_and(|entry| entry.contains_key("type"))
             })
-        });
+        })
+        && document
+            .get("schema_version")
+            .and_then(toml::Value::as_integer)
+            .unwrap_or(0)
+            < 14;
     crate::config::migrations::retire_cloud_provider_type::rewrite_document(&mut document)?;
     reject_non_finite_floats(&document, &mut String::new())?;
     let json = serde_json::to_string(&document)?;
     let mut unknown_keys = Vec::new();
+    let mut deserializer = serde_json::Deserializer::from_str(&json);
     let parsed = {
-        let deserializer = serde_json::Deserializer::from_str(&json);
-        let deserializer = serde_ignored::Deserializer::new(deserializer, |path| {
+        let mut record_unknown = |path: serde_ignored::Path<'_>| {
             unknown_keys.push(path.to_string());
-        });
+        };
+        let deserializer =
+            serde_ignored::Deserializer::new(&mut deserializer, &mut record_unknown);
         serde_path_to_error::deserialize(deserializer)
     };
     let mut config: Config = parsed.map_err(|err| {
@@ -41,12 +48,6 @@ pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
     })?;
     unknown_keys.sort();
     unknown_keys.dedup();
-    if !unknown_keys.is_empty() {
-        tracing::warn!(
-            keys = %unknown_keys.join(","),
-            "[config:load] unknown config keys ignored"
-        );
-    }
     config.load_diagnostics_mut().unknown_keys = unknown_keys;
     if retired_provider_type {
         config

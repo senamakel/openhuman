@@ -34,9 +34,21 @@ pub(crate) struct LoadDiagnostics {
     pub(crate) fallback: ConfigLoadFallback,
     /// Legacy config paths rewritten by an in-memory migration.
     pub(crate) migrated_keys: Vec<String>,
+    unknown_keys_logged: bool,
 }
 
 impl LoadDiagnostics {
+    pub(crate) fn warn_unknown_keys_once(&mut self) {
+        if self.unknown_keys_logged || self.unknown_keys.is_empty() {
+            return;
+        }
+        tracing::warn!(
+            keys = %self.unknown_keys.join(","),
+            "[config:load] unknown config keys ignored"
+        );
+        self.unknown_keys_logged = true;
+    }
+
     pub(crate) fn record_migrated_key(&mut self, key: impl Into<String>) {
         let key = key.into();
         if !self.migrated_keys.contains(&key) {

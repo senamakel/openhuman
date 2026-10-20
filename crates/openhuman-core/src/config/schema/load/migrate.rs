@@ -213,17 +213,19 @@ pub(crate) fn migrate_cloud_provider_slugs(config: &mut Config) {
             .load_diagnostics_mut()
             .record_migrated_key("cloud_providers[].label");
     }
-    for (key, before, after) in [
+    let changed_routes: Vec<&str> = [
         ("reasoning_provider", &previous_routes[0], &config.reasoning_provider),
         ("agentic_provider", &previous_routes[1], &config.agentic_provider),
         ("coding_provider", &previous_routes[2], &config.coding_provider),
         ("vision_provider", &previous_routes[3], &config.vision_provider),
         ("memory_provider", &previous_routes[4], &config.memory_provider),
         ("embeddings_provider", &previous_routes[5], &config.embeddings_provider),
-    ] {
-        if before != after {
-            config.load_diagnostics_mut().record_migrated_key(key);
-        }
+    ]
+    .into_iter()
+    .filter_map(|(key, before, after)| (before != after).then_some(key))
+    .collect();
+    for key in changed_routes {
+        config.load_diagnostics_mut().record_migrated_key(key);
     }
 
     fn normalize_provider_endpoint(url: &str) -> String {
@@ -259,7 +261,13 @@ pub(crate) fn migrate_search_settings(config: &mut Config) {
 /// legacy list is cleared either way, so it is never written back.
 pub(crate) fn migrate_legacy_memory_sources(config: &mut Config) {
     let legacy = std::mem::take(&mut config.legacy_memory_sources);
-    if legacy.is_empty() || !config.memory.sources.is_empty() {
+    if legacy.is_empty() {
+        return;
+    }
+    config
+        .load_diagnostics_mut()
+        .record_migrated_key("memory_sources");
+    if !config.memory.sources.is_empty() {
         return;
     }
     let migrated: Vec<_> = legacy
@@ -272,9 +280,6 @@ pub(crate) fn migrate_legacy_memory_sources(config: &mut Config) {
         "[config] migrated legacy memory sources"
     );
     config.memory.sources = migrated;
-    config
-        .load_diagnostics_mut()
-        .record_migrated_key("memory_sources");
 }
 
 /// Disables the removed v1 memory backend and records a durable diagnostic.

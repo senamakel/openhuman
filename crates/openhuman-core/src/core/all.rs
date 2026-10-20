@@ -100,7 +100,12 @@ fn group_allowed(group: DomainGroup) -> bool {
 /// Whether `g` is live in the ambient scope: its family is enabled and, for a
 /// SaaS user, the method is on the user surface (`profiles::surface`).
 fn visible(g: &GroupedController) -> bool {
-    group_allowed(g.group) && on_surface(g)
+    let doctor_report = g.controller.rpc_method_name() == "openhuman.doctor_report";
+    // Doctor reports are shared across SaaS planes; the exact RPC is still
+    // filtered by `profiles::surface` below. No other Platform method bypasses
+    // its DomainSet gate.
+    let saas_doctor_report = crate::core::runtime::is_saas() && doctor_report;
+    (group_allowed(g.group) || saas_doctor_report) && on_surface(g)
 }
 
 fn on_surface(g: &GroupedController) -> bool {

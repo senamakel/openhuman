@@ -1,5 +1,6 @@
 use super::*;
 use crate::core::runtime::DispatchCtx;
+use crate::profiles::doctor::DoctorProfileState;
 use crate::storage::{CollectionSpec, DocumentStore, MemoryStorage, Scope, StorageBackend};
 
 #[tokio::test]
@@ -25,12 +26,11 @@ async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
 
     assert!(docs.validate_collection_spec(&registry_spec).await.is_err());
     assert!(docs.validate_collection_spec(&lease_spec).await.is_err());
-    let snapshot = host.inspect_for_doctor(&id).await.unwrap();
-    assert!(!snapshot.provisioned);
-    assert_eq!(snapshot.profile_id, id);
-    assert_eq!(snapshot.lease_record, None);
-    assert_eq!(snapshot.context.profile(), Some(id.as_str()));
-    assert_eq!(snapshot.config.config_path, layout.config_path);
+    assert_eq!(host.inspect_for_doctor(&id).await, DoctorProfileState::Unprovisioned);
+    let target = host.target_for_doctor(&id).unwrap();
+    assert_eq!(target.profile_id, id);
+    assert_eq!(target.context.profile(), Some(id.as_str()));
+    assert_eq!(target.config.config_path, layout.config_path);
     assert_eq!(host.open_count(), 0, "inspection must not open or lease it");
     assert!(!layout.dir.exists(), "inspection must not create profile dirs");
     let default_context_after = CoreContext::default_context();
@@ -79,8 +79,8 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     .unwrap();
     host.provision(&a).await.unwrap();
     host.provision(&b).await.unwrap();
-    let target_a = host.inspect_for_doctor(&a).await.unwrap();
-    let target_b = host.inspect_for_doctor(&b).await.unwrap();
+    let target_a = host.target_for_doctor(&a).unwrap();
+    let target_b = host.target_for_doctor(&b).unwrap();
 
     crate::profiles::credentials::store(
         &target_b.config,
@@ -163,11 +163,9 @@ async fn doctor_inspection_reports_an_existing_lease_without_taking_it() {
     owner.provision(&id).await.unwrap();
     let opened = owner.open(&id).await.unwrap();
 
-    let inspected = inspector.inspect_for_doctor(&id).await.unwrap();
-    assert!(inspected.provisioned);
     assert_eq!(
-        inspected.lease_record.as_ref().map(|record| record.owner.as_str()),
-        Some("node-a")
+        inspector.inspect_for_doctor(&id).await,
+        DoctorProfileState::HeldElsewhere
     );
     assert_eq!(inspector.open_count(), 0);
 

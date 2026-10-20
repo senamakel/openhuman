@@ -162,6 +162,12 @@ async fn selected_profile_auth_snapshot_reads_its_backend_without_mutating_profi
     let account_b = ProfileLayout::new(root, "account-b");
     tokio::fs::create_dir_all(&account_a.dir).await.unwrap();
     tokio::fs::create_dir_all(&account_b.dir).await.unwrap();
+    tokio::fs::create_dir_all(&account_a.workspace_dir)
+        .await
+        .unwrap();
+    tokio::fs::create_dir_all(&account_b.workspace_dir)
+        .await
+        .unwrap();
     tokio::fs::write(&account_b.config_path, "secrets.encrypt = true\n")
         .await
         .unwrap();

@@ -485,7 +485,7 @@ async fn assert_expired_session_is_seeded(home: &Path) {
     let token = openhuman_core::security::credentials::session_support::session_token_from_profile(
         Some(&profile),
     )
-        .expect("session profile carries a token");
+    .expect("session profile carries a token");
     let now = chrono::Utc::now();
     assert!(
         openhuman_core::security::credentials::jwt::decode_jwt_exp(&token)

@@ -995,6 +995,11 @@ async fn doctor_report_and_models_are_internally_consistent() {
             "summary.{severity} must equal the number of matching findings: {result}"
         );
     }
+    assert_eq!(
+        result.get("ok").and_then(Value::as_bool),
+        Some(count_of("error") == 0),
+        "doctor_report.ok must be false exactly when a finding is an error: {result}"
+    );
 
     // ── models: unavailable until the inference catalog integration lands.
     let models = post_json_rpc(

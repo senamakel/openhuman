@@ -159,9 +159,7 @@ impl MemoryTool {
     ) -> ToolResult {
         let call = async {
             let scope = facts.native_scope(&self.config);
-            let write_sink = Arc::new(super::tool_writes::HostWriteSink::new(
-                self.config.clone(),
-            ));
+            let write_sink = Arc::new(super::tool_writes::HostWriteSink::new(self.config.clone()));
             let single = if is_write_action(&args) {
                 SingleTool::queued(MEMORY_TOOL_NAME, scope, write_sink)
             } else {
@@ -169,11 +167,8 @@ impl MemoryTool {
                     Ok(bound) => bound.engine,
                     Err(error) => return ToolResult::error(render_error(error)),
                 };
-                SingleTool::new(
-                    MEMORY_TOOL_NAME,
-                    MemoryTools::with_scope(engine, scope),
-                )
-                .with_write_sink(write_sink)
+                SingleTool::new(MEMORY_TOOL_NAME, MemoryTools::with_scope(engine, scope))
+                    .with_write_sink(write_sink)
             };
             let call_args = args.clone();
             let thread_window = facts.in_prompt.clone();

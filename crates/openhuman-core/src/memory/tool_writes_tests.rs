@@ -3,7 +3,7 @@ use crate::memory::test_fixtures::{bind_reference, config_in, stored, RefusingEn
 use crate::memory::tools::CallFacts;
 use serde_json::json;
 use tinymemory_api::{MetaFilter, Namespace, Reach};
-use tinymemory_tools::{CallContext, MemoryTools, SingleTool, ToolScope};
+use tinymemory_tools::{CallContext, SingleTool, ToolScope};
 
 /// Exercises the production native single-tool parser and the host write sink.
 pub(crate) fn enqueue(
@@ -33,20 +33,15 @@ pub(crate) fn enqueue(
                         id: facts.tool_call_id.clone(),
                     }),
                 };
-                let tools = MemoryTools::with_scope(
-                    std::sync::Arc::new(tinymemory_api::conformance::ReferenceEngine::new()),
+                let single = SingleTool::queued(
+                    crate::memory::tools::MEMORY_TOOL_NAME,
                     scope,
+                    std::sync::Arc::new(super::HostWriteSink::new(std::sync::Arc::new(config))),
                 );
-                let single = SingleTool::new(crate::memory::tools::MEMORY_TOOL_NAME, tools)
-                    .with_write_sink(std::sync::Arc::new(super::HostWriteSink::new(
-                        std::sync::Arc::new(config),
-                    )));
                 let outcome = single
                     .call_with_details(args, CallContext::default())
-                    .await
-                    .map_err(|error| tinymemory_api::Error::InvalidRequest(error.to_string()))?;
-                serde_json::from_value(outcome.value)
-                    .map_err(|error| tinymemory_api::Error::InvalidRequest(error.to_string()))
+                    .await?;
+                Ok(outcome.value)
             })
     };
     if tokio::runtime::Handle::try_current().is_ok() {

@@ -206,15 +206,17 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     assert_eq!(response, reply);
     let mut other_workspace = config.clone();
     other_workspace.workspace_dir = scratch.path().join("workspace-b");
-    assert!(call_existing_readonly_with_runtime::<_, serde_json::Value, _>(
-        &other_workspace,
-        "ListConnectedIntegrations",
-        request.clone(),
-        &runtime,
-    )
-    .await
-    .expect("mismatched binding is unavailable")
-    .is_none());
+    assert!(
+        call_existing_readonly_with_runtime::<_, serde_json::Value, _>(
+            &other_workspace,
+            "ListConnectedIntegrations",
+            request.clone(),
+            &runtime,
+        )
+        .await
+        .expect("mismatched binding is unavailable")
+        .is_none()
+    );
     let calls = calls.lock().unwrap();
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].0, "ListConnectedIntegrations");

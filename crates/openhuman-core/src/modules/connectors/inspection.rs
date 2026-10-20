@@ -51,9 +51,10 @@ impl ExistingRuntimeAccess for ProcessRuntimeAccess {
     }
 
     fn proxy(&self) -> Result<tinybus::Proxy, ExistingCallError> {
-        let runtime = super::super::runtime::existing_runtime()
-            .ok_or(ExistingCallError::Unavailable)?;
-        let record = super::registry::find(super::MODULE_ID).ok_or(ExistingCallError::Unavailable)?;
+        let runtime =
+            super::super::runtime::existing_runtime().ok_or(ExistingCallError::Unavailable)?;
+        let record =
+            super::registry::find(super::MODULE_ID).ok_or(ExistingCallError::Unavailable)?;
         runtime
             .proxy(record.bus_name, record.object_path)
             .map_err(|_| ExistingCallError::Unavailable)

@@ -179,7 +179,12 @@ where
         .proxy(record.bus_name, record.object_path)
         .map_err(|_| ExistingModuleCallError::Unavailable)?
         .with_timeout(timeout);
-    match tokio::time::timeout(timeout, proxy.call_confidential::<Reply>(member, (request,))).await {
+    match tokio::time::timeout(
+        timeout,
+        proxy.call_confidential::<Reply>(member, (request,)),
+    )
+    .await
+    {
         Ok(Ok(reply)) => Ok(Some(reply)),
         Ok(Err(_)) | Err(_) => Err(ExistingModuleCallError::Failed),
     }

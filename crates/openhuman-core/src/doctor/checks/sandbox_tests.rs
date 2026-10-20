@@ -87,9 +87,8 @@ async fn no_probe_runs_when_sandboxing_is_disabled_in_config() {
 #[tokio::test]
 async fn an_existing_tinybox_landlock_status_is_mapped_to_the_configured_backend() {
     let scratch = tempfile::tempdir().expect("create isolated config fixture");
-    let check = SandboxBackendCheck::with_probe(Arc::new(LandlockAvailability(
-        LandlockStatus::Available,
-    )));
+    let check =
+        SandboxBackendCheck::with_probe(Arc::new(LandlockAvailability(LandlockStatus::Available)));
     let finding = check
         .detect(&DoctorCtx::from_config(config(
             scratch.path(),

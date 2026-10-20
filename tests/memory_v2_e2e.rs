@@ -911,14 +911,13 @@ fn after_the_write(calls: &[String]) -> &[String] {
 
 #[tokio::test]
 async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
+    use std::sync::Arc;
+    use tinytools::Tool;
+
     let f = Fixture::new(true).await;
     let config = openhuman_core::config::load_config_with_timeout()
         .await
         .expect("the signed-in config");
-    let facts = openhuman_core::memory::tools::CallFacts::of(
-        &config,
-        &tinymemory_tools::layout::identity::Identity::agent("orchestrator"),
-    );
 
     // Control: `memory_learn` over RPC returns once the write is readable, so
     // the hosted engine reads the store back after its write.
@@ -937,22 +936,40 @@ async fn the_agent_learn_returns_on_accept_and_recall_finds_it() {
     // read before it is the engine's replay lookup), and the model is told
     // recall may lag.
     let before = f.mock.request_rows().await.len();
-    let learned = openhuman_core::memory::tools::run_action(
-        &openhuman_core::core::runtime::DispatchCtx::ambient(),
-        &config,
-        &json!({"action": "learn", "text": "Dave takes his coffee with oat milk"}),
-        &facts,
-    )
-    .await;
+    let tool = openhuman_core::memory::MemoryTool::new(Arc::new(config.clone()));
+    let learned = tool
+        .execute(json!({
+            "action": "learn",
+            "text": "Dave takes his coffee with oat milk"
+        }))
+        .await
+        .expect("memory tool execution");
     assert!(!learned.is_error, "{}", learned.text());
-    let tool_calls = memory_requests_since(&f, before).await;
+    let view: Value = serde_json::from_str(&learned.text()).expect("learn result json");
+    let id = view["id"].as_str().expect("learn keeps the receipt id");
+    assert_eq!(view["status"], json!("queued; not yet saved to memory"));
+
+    let deadline = Instant::now() + Duration::from_secs(30);
+    let tool_calls = loop {
+        let calls = memory_requests_since(&f, before).await;
+        let writes = calls
+            .iter()
+            .filter(|call| call.as_str() == "POST /memory/experience")
+            .count();
+        if writes == 1 {
+            break calls;
+        }
+        assert!(writes == 0, "duplicate experience writes: {calls:?}");
+        assert!(
+            Instant::now() < deadline,
+            "queued write never reached backend: {calls:?}"
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    };
     assert!(
         after_the_write(&tool_calls).is_empty(),
         "the agent learn must return right after its write, with no visibility reads: {tool_calls:?}"
     );
-    let view: Value = serde_json::from_str(&learned.text()).expect("learn result json");
-    let id = view["id"].as_str().expect("learn keeps the receipt id");
-    assert_eq!(view["status"], json!("saved; searchable in recall shortly"));
 
     // Shortly after, the learning is readable like any other.
     let deadline = Instant::now() + Duration::from_secs(30);

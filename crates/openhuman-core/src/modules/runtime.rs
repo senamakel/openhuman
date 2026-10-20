@@ -137,6 +137,15 @@ pub fn is_started() -> bool {
     RUNTIME.get().is_some_and(Result::is_ok)
 }
 
+/// Returns the process module runtime only when another operation already
+/// started it. Unlike [`runtime`], this accessor never creates a broker or
+/// installs host callbacks; read-only doctor probes use it to refuse a cold
+/// module rather than loading one as a diagnostic side effect.
+#[must_use]
+pub(crate) fn existing_runtime() -> Option<&'static ModuleRuntime> {
+    RUNTIME.get().and_then(|runtime| runtime.as_ref().ok())
+}
+
 #[cfg(test)]
 #[path = "runtime_tests.rs"]
 mod tests;

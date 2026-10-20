@@ -40,6 +40,30 @@ fn is_connected_tracks_status_transitions() {
 }
 
 #[test]
+fn status_for_preserves_owner_status_but_rejects_foreign_and_retired_identities() {
+    let manager = SocketManager::new();
+    let url = "https://backend-b.example/socket.io";
+    let token = "session-b";
+    *manager.shared.connection_identity.write() = Some((url.to_owned(), token.to_owned()));
+
+    for status in [
+        ConnectionStatus::Disconnected,
+        ConnectionStatus::Connecting,
+        ConnectionStatus::Connected,
+        ConnectionStatus::Reconnecting,
+        ConnectionStatus::Error,
+    ] {
+        *manager.shared.status.write() = status;
+        assert_eq!(manager.status_for(url, token), Some(status));
+        assert_eq!(manager.status_for("https://backend-a.example/socket.io", token), None);
+        assert_eq!(manager.status_for(url, "session-a"), None);
+    }
+
+    *manager.shared.connection_identity.write() = None;
+    assert_eq!(manager.status_for(url, token), None);
+}
+
+#[test]
 fn get_state_reflects_stored_sid_and_status() {
     let mgr = SocketManager::new();
     *mgr.shared.status.write() = ConnectionStatus::Connected;

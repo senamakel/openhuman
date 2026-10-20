@@ -48,16 +48,6 @@ impl Config {
         self.apply_env_overrides_from(&ProcessEnv);
     }
 
-    /// Apply process overrides for a read-only explicit-profile inspection.
-    /// The active-workspace override is excluded so it cannot redirect the
-    /// selected profile's workspace, and process-wide proxy/rate-limit state
-    /// is left untouched.
-    pub(crate) fn apply_profile_env_overrides(&mut self) {
-        use super::env::ProcessEnvWithoutWorkspace;
-        self.apply_env_overlay_with(&ProcessEnvWithoutWorkspace);
-        super::super::cli_overrides::apply_cli_inference_overrides(self);
-    }
-
     pub(super) fn apply_env_overrides_from(
         &mut self,
         env: &(dyn super::env::EnvLookup + Send + Sync),

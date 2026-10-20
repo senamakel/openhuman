@@ -9,8 +9,9 @@ rendering, and process exit codes; `openhuman-tinyhumans` owns hosted checks.
 The intended user outcome is a read-only report that says whether the selected
 configuration is ready to run, what was inspected, and what an operator can do
 about each finding. This contract borrows OpenClaw's stable check identifiers,
-structured findings, advisory JSON mode, and threshold-based lint behavior. It
-does not adopt OpenClaw's repair contract: this epic has no repair operation.
+structured findings, advisory JSON mode, and threshold-based lint behavior.
+Wire fields remain snake case to match the existing RPC contract. This contract
+does not adopt OpenClaw's repair operation: this epic adds no repair command.
 
 ## Goals and non-goals
 
@@ -78,13 +79,13 @@ unobserved check.
 
 ```json
 {
-  "checkId": "config/file-integrity",
+  "check_id": "config/file-integrity",
   "severity": "warn",
   "message": "The config file was recovered from its backup.",
-  "fixHint": "Review the backup and restore a valid config file.",
-  "configPath": "config.toml",
-  "valueSource": "file",
-  "durationMs": 4,
+  "fix_hint": "Review the backup and restore a valid config file.",
+  "config_path": "config.toml",
+  "value_source": "file",
+  "duration_ms": 4,
   "affects": ["settings.configuration"]
 }
 ```
@@ -115,12 +116,12 @@ method and `doctor_health` / `doctor_models` tool names also remain stable.
 
 ```json
 {
-  "schemaVersion": 2,
+  "schema_version": 2,
   "profile": "desktop-default",
-  "configSource": "profile",
+  "config_source": "profile",
   "tier": "connect",
-  "checksRun": ["config/file-integrity", "backend/reachable"],
-  "checksSkipped": ["inference/role-completion"],
+  "checks_run": ["config/file-integrity", "backend/reachable"],
+  "checks_skipped": ["inference/role-completion"],
   "findings": [],
   "summary": { "pass": 1, "info": 0, "warn": 0, "error": 0, "skipped": 1 },
   "ok": true

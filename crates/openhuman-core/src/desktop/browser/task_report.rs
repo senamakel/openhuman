@@ -18,7 +18,7 @@ use std::sync::{Mutex, MutexGuard, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use tinycomputer_bus::agent::{RescueOutcome, TaskId, TaskReport, TaskStatus, TaskView};
-use tinycomputer_bus::flow::{STEP_KINDS, StepOutcome};
+use tinycomputer_bus::flow::{StepOutcome, STEP_KINDS};
 use tokio::io::AsyncWriteExt;
 
 use crate::config::Config;

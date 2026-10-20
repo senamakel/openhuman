@@ -23,12 +23,10 @@ async fn saved_memory_loads_back_and_empty_save_removes_the_site() {
     let back = store.load("example.com").await.unwrap();
     assert_eq!(back, memory());
     let _: &SavedHint = &back.hints[0];
-    assert!(
-        store
-            .save("example.com", &SiteMemory::default())
-            .await
-            .unwrap()
-    );
+    assert!(store
+        .save("example.com", &SiteMemory::default())
+        .await
+        .unwrap());
     assert!(store.load("example.com").await.unwrap().is_empty());
 }
 

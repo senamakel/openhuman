@@ -6,7 +6,7 @@ use std::sync::OnceLock;
 
 use serde::Serialize;
 use tinybus::Proxy;
-use tinycomputer_bus::{DesktopResponse, PermissionsRequest, names};
+use tinycomputer_bus::{names, DesktopResponse, PermissionsRequest};
 
 use crate::config::Config;
 

@@ -264,7 +264,10 @@ async fn launch(
     let workspace = config.workspace_dir.clone();
     let Some(guard) = run_slots::reserve(&IMPORT, &workspace, &[&BACKFILL, &MIGRATION]) else {
         if is_running(&workspace) {
-            return Ok(status(config));
+            return Ok(LaunchOutcome {
+                state: status(config),
+                started: false,
+            });
         }
         let reason = if MIGRATION.is_running(&workspace) {
             "memory is being organized; import once that finishes"

@@ -4,7 +4,6 @@
 //! This module supplies the host executor, workspace key, cross-driver gate,
 //! billing-independent scheduler pause and wire error mapping.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use tinymemory_tools::layout_migration as lm;
@@ -100,10 +99,7 @@ pub fn tick(
     service(ctx).tick(
         config.workspace_dir.clone(),
         host,
-        || {
-            crate::memory::import::in_progress(&config)
-                || BACKFILL.is_running(&config.workspace_dir)
-        },
+        || crate::memory::import::in_progress(config) || BACKFILL.is_running(&config.workspace_dir),
         move || paused(),
     )
 }

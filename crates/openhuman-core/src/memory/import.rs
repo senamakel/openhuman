@@ -261,7 +261,6 @@ async fn launch(
     if mode == Mode::Import && !consent {
         return Err(import_error(&ImportError::ConsentRequired));
     }
-    let bound = engine::resolve(config).engine()?;
     let workspace = config.workspace_dir.clone();
     let Some(guard) = run_slots::reserve(&IMPORT, &workspace, &[&BACKFILL, &MIGRATION]) else {
         if is_running(&workspace) {
@@ -274,6 +273,7 @@ async fn launch(
         };
         return Err(Error::InvalidRequest(reason.into()));
     };
+    let bound = engine::resolve(config).engine()?;
     let driver = importer(config, bound.engine, consent, paused);
     let begin = {
         let driver = driver.clone();

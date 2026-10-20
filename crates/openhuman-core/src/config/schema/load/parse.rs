@@ -28,7 +28,7 @@ impl ConfigParseFailure {
                 .get(..span.start.min(contents.len()))
                 .unwrap_or_default()
                 .iter()
-                .filter(|byte| *byte == b'\n')
+                .filter(|byte| **byte == b'\n')
                 .count()
                 + 1
         });

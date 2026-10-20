@@ -7,10 +7,11 @@ use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
 
 use super::{
     AuthProfile, AuthProfileKind, CURRENT_SCHEMA_VERSION, KeychainSecrets, PROFILES_FILENAME,
-    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, default_profile_id,
+    PersistedAuthProfile, PersistedAuthProfiles, TokenSet,
     normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
     parse_profile_kind, profile_id,
 };
+use crate::security::credentials::default_profile_id;
 
 /// Safe failure categories for a read-only auth-profile snapshot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -25,10 +25,10 @@ pub async fn doctor_report_with_options(
     config: &Config,
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
-    if options.profile.is_none()
-        && let Some(outcome) = unusable_default_config_outcome(config, options.tier)
-    {
-        return Ok(outcome);
+    if options.profile.is_none() {
+        if let Some(outcome) = unusable_default_config_outcome(config, options.tier) {
+            return Ok(outcome);
+        }
     }
     if let Some(profile_id) = options.profile.take() {
         if crate::core::runtime::is_saas() {

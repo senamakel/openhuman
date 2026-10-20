@@ -90,16 +90,16 @@ unobserved check.
 }
 ```
 
-| Field | Contract |
-| --- | --- |
-| `check_id` | Required stable id of the check that produced the finding. |
-| `severity` | `pass`, `info`, `warn`, `error`, or `skipped`. |
-| `message` | Short operator-facing result, with no secret or config value. |
-| `fix_hint` | Required next step. Use “No action required.” for `pass`; explain how to rerun or enable a skipped check. |
-| `config_path` | Optional logical config path, never a resolved home-directory path. |
-| `value_source` | Optional `cli`, `env`, `dotenv`, `file`, or `default`, when a finding concerns a resolved value. |
-| `duration_ms` | Elapsed detector time, repeated consistently on findings from one check. A check skipped before execution reports `0`. |
-| `affects` | Zero or more stable `about_app` capability ids, such as `channels.connect_platform` or `local_ai.configure_provider`. |
+| Field          | Contract                                                                                                               |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `check_id`     | Required stable id of the check that produced the finding.                                                             |
+| `severity`     | `pass`, `info`, `warn`, `error`, or `skipped`.                                                                         |
+| `message`      | Short operator-facing result, with no secret or config value.                                                          |
+| `fix_hint`     | Required next step. Use “No action required.” for `pass`; explain how to rerun or enable a skipped check.              |
+| `config_path`  | Optional logical config path, never a resolved home-directory path.                                                    |
+| `value_source` | Optional `cli`, `env`, `dotenv`, `file`, or `default`, when a finding concerns a resolved value.                       |
+| `duration_ms`  | Elapsed detector time, repeated consistently on findings from one check. A check skipped before execution reports `0`. |
+| `affects`      | Zero or more stable `about_app` capability ids, such as `channels.connect_platform` or `local_ai.configure_provider`.  |
 
 The report must not contain credentials, tokens, secret material, raw config
 values, request or response bodies, or user-authored content. Redact endpoint
@@ -168,12 +168,12 @@ The command is implemented only in `crates/openhuman-cli`; the core contains
 no CLI parser or renderer. It calls `openhuman.doctor_report` through the
 `openhuman-rpc` facade and maps options to the RPC parameters above.
 
-| Invocation | Output and exit behavior |
-| --- | --- |
-| `openhuman-core doctor` | Human-readable table; exit `0` after a report is produced. |
-| `openhuman-core doctor --json` | JSON report; advisory mode exits `0` after a report is produced, regardless of findings. |
-| `openhuman-core doctor --lint` | Human-readable findings; exit `0` if none meet the threshold, `1` if any do, `2` if parsing or execution fails before a report is produced. |
-| `openhuman-core doctor --lint --json` | Same threshold and exit behavior as lint, with JSON output. |
+| Invocation                            | Output and exit behavior                                                                                                                    |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `openhuman-core doctor`               | Human-readable table; exit `0` after a report is produced.                                                                                  |
+| `openhuman-core doctor --json`        | JSON report; advisory mode exits `0` after a report is produced, regardless of findings.                                                    |
+| `openhuman-core doctor --lint`        | Human-readable findings; exit `0` if none meet the threshold, `1` if any do, `2` if parsing or execution fails before a report is produced. |
+| `openhuman-core doctor --lint --json` | Same threshold and exit behavior as lint, with JSON output.                                                                                 |
 
 `--severity-min` accepts `info`, `warn`, or `error` and defaults to `error`.
 The threshold controls both printed findings and the lint result. `pass` and
@@ -233,37 +233,37 @@ id and function together and link the final function line in its implementation
 PR. All findings use the fix hint shown here as a minimum, and may provide a
 more specific safe action.
 
-| Check id | Tier | Probe function | Owning leaf | Minimum fix hint |
-| --- | --- | --- | --- | --- |
-| `config/file-integrity` | static | `checks/config.rs::file_integrity` | #492 | Restore or repair the config file; review any recovered backup. |
-| `config/provenance` | static | `checks/config.rs::provenance` | #493 | Set the intended source explicitly and rerun doctor. |
-| `config/inference-references` | static | `checks/config.rs::inference_references` | #494 | Select a configured provider and model reference. |
-| `config/components-storage-paths-secrets` | static | `checks/config.rs::components_storage_paths_secrets` | #495 | Correct the named component, storage scheme, path, or secret-source configuration. |
-| `workspace/layout` | static | `checks/workspace.rs::layout` | #506 | Create or repair the required workspace path and permissions. |
-| `runtime/environment` | static | `checks/runtime.rs::environment` | #506 | Install or configure the named local runtime prerequisite. |
-| `runtime/agent-sdk` | connect | `checks/runtime.rs::agent_sdk` | #506 | Install or configure the agent SDK binary, then rerun doctor. |
-| `memory/store` | connect | `checks/memory.rs::store` | #498 | Restore the configured memory driver's availability and rerun doctor. |
-| `embeddings/configured-model` | connect | `checks/embeddings.rs::configured_model` | #509 | Start the configured embedding service or correct its base URL and model. |
-| `inference/provider-models` | connect | `checks/inference.rs::provider_models` | #497 | Configure an available provider/model or resolve the reported access issue. |
-| `storage/connectivity` | connect | `checks/storage.rs::connectivity` | #498 | Make the configured storage driver reachable and retry the check. |
-| `keyring/connectivity` | connect | `checks/keyring.rs::connectivity` | #498 | Unlock or configure the selected system keyring. |
-| `modules/readiness` | connect | `checks/modules.rs::readiness` | #499 | Install or enable the configured module source. |
-| `mcp/servers` | connect | `checks/mcp.rs::servers` | #499 | Start the configured MCP server or correct its safe connection settings. |
-| `skills/readiness` | static | `checks/skills.rs::readiness` | #499 | Repair the named skill source or its metadata. |
-| `sandbox/readiness` | connect | `checks/sandbox.rs::readiness` | #499 | Install or enable the selected sandbox backend. |
-| `channels/readiness` | connect | `checks/channels.rs::readiness` | #500 | Reconnect or correct the named channel configuration. |
-| `integrations/composio` | connect | `checks/integrations.rs::composio` | #500 | Reconnect the Composio integration or correct its endpoint configuration. |
-| `voice/readiness` | connect | `checks/voice.rs::readiness` | #500 | Configure an available voice provider or disable the unused voice feature. |
-| `search/readiness` | connect | `checks/search.rs::readiness` | #500 | Make the configured search provider reachable or correct its configuration. |
-| `wallet/readiness` | connect | `checks/wallet.rs::readiness` | #500 | Configure the required wallet safely or disable the wallet feature. |
-| `backend/reachable` | connect | `doctor/backend.rs::reachable` | #496 | Check the configured backend URL and network access. |
-| `identity/session` | connect | `doctor/identity.rs::session` | #496 | Sign in again or refresh the session through the supported auth flow. |
-| `socket/reachable` | connect | `doctor/socket.rs::reachable` | #496 | Check backend socket availability and network policy. |
-| `api/url` | static | `doctor/api.rs::url` | #496 | Set a valid backend API URL for this profile. |
-| `inference/managed-catalog` | connect | `doctor/inference.rs::managed_catalog` | #496 | Check the managed inference catalog service and tenant access. |
-| `inference/role-completion` | live | `checks/inference_live.rs::role_completion` | #501 | Check the selected role's provider access and model configuration. |
-| `embeddings/live-roundtrip` | live | `checks/embeddings_live.rs::roundtrip` | #502 | Check embedding access and configured vector dimensions. |
-| `memory/live-roundtrip` | live | `checks/memory_live.rs::roundtrip` | #502 | Check the memory driver's write, fetch, and delete capabilities. |
+| Check id                                  | Tier    | Probe function                                       | Owning leaf | Minimum fix hint                                                                   |
+| ----------------------------------------- | ------- | ---------------------------------------------------- | ----------- | ---------------------------------------------------------------------------------- |
+| `config/file-integrity`                   | static  | `checks/config.rs::file_integrity`                   | #492        | Restore or repair the config file; review any recovered backup.                    |
+| `config/provenance`                       | static  | `checks/config.rs::provenance`                       | #493        | Set the intended source explicitly and rerun doctor.                               |
+| `config/inference-references`             | static  | `checks/config.rs::inference_references`             | #494        | Select a configured provider and model reference.                                  |
+| `config/components-storage-paths-secrets` | static  | `checks/config.rs::components_storage_paths_secrets` | #495        | Correct the named component, storage scheme, path, or secret-source configuration. |
+| `workspace/layout`                        | static  | `checks/workspace.rs::layout`                        | #506        | Create or repair the required workspace path and permissions.                      |
+| `runtime/environment`                     | static  | `checks/runtime.rs::environment`                     | #506        | Install or configure the named local runtime prerequisite.                         |
+| `runtime/agent-sdk`                       | connect | `checks/runtime.rs::agent_sdk`                       | #506        | Install or configure the agent SDK binary, then rerun doctor.                      |
+| `memory/store`                            | connect | `checks/memory.rs::store`                            | #498        | Restore the configured memory driver's availability and rerun doctor.              |
+| `embeddings/configured-model`             | connect | `checks/embeddings.rs::configured_model`             | #509        | Start the configured embedding service or correct its base URL and model.          |
+| `inference/provider-models`               | connect | `checks/inference.rs::provider_models`               | #497        | Configure an available provider/model or resolve the reported access issue.        |
+| `storage/connectivity`                    | connect | `checks/storage.rs::connectivity`                    | #498        | Make the configured storage driver reachable and retry the check.                  |
+| `keyring/connectivity`                    | connect | `checks/keyring.rs::connectivity`                    | #498        | Unlock or configure the selected system keyring.                                   |
+| `modules/readiness`                       | connect | `checks/modules.rs::readiness`                       | #499        | Install or enable the configured module source.                                    |
+| `mcp/servers`                             | connect | `checks/mcp.rs::servers`                             | #499        | Start the configured MCP server or correct its safe connection settings.           |
+| `skills/readiness`                        | static  | `checks/skills.rs::readiness`                        | #499        | Repair the named skill source or its metadata.                                     |
+| `sandbox/readiness`                       | connect | `checks/sandbox.rs::readiness`                       | #499        | Install or enable the selected sandbox backend.                                    |
+| `channels/readiness`                      | connect | `checks/channels.rs::readiness`                      | #500        | Reconnect or correct the named channel configuration.                              |
+| `integrations/composio`                   | connect | `checks/integrations.rs::composio`                   | #500        | Reconnect the Composio integration or correct its endpoint configuration.          |
+| `voice/readiness`                         | connect | `checks/voice.rs::readiness`                         | #500        | Configure an available voice provider or disable the unused voice feature.         |
+| `search/readiness`                        | connect | `checks/search.rs::readiness`                        | #500        | Make the configured search provider reachable or correct its configuration.        |
+| `wallet/readiness`                        | connect | `checks/wallet.rs::readiness`                        | #500        | Configure the required wallet safely or disable the wallet feature.                |
+| `backend/reachable`                       | connect | `doctor/backend.rs::reachable`                       | #496        | Check the configured backend URL and network access.                               |
+| `identity/session`                        | connect | `doctor/identity.rs::session`                        | #496        | Sign in again or refresh the session through the supported auth flow.              |
+| `socket/reachable`                        | connect | `doctor/socket.rs::reachable`                        | #496        | Check backend socket availability and network policy.                              |
+| `api/url`                                 | static  | `doctor/api.rs::url`                                 | #496        | Set a valid backend API URL for this profile.                                      |
+| `inference/managed-catalog`               | connect | `doctor/inference.rs::managed_catalog`               | #496        | Check the managed inference catalog service and tenant access.                     |
+| `inference/role-completion`               | live    | `checks/inference_live.rs::role_completion`          | #501        | Check the selected role's provider access and model configuration.                 |
+| `embeddings/live-roundtrip`               | live    | `checks/embeddings_live.rs::roundtrip`               | #502        | Check embedding access and configured vector dimensions.                           |
+| `memory/live-roundtrip`                   | live    | `checks/memory_live.rs::roundtrip`                   | #502        | Check the memory driver's write, fetch, and delete capabilities.                   |
 
 `memory/live-roundtrip` uses disposable, uniquely scoped test content and must
 delete it in a `finally`/drop path even when a later step fails. If cleanup

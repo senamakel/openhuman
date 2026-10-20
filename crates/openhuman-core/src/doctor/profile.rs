@@ -250,7 +250,7 @@ async fn profile_paths_for_resolved_dirs(
     config_dir: PathBuf,
     workspace_dir: PathBuf,
 ) -> Result<(PathBuf, PathBuf, Option<String>, Option<LayoutVersion>), DesktopProfileError> {
-    if let Some(profile_id) = profile_id_for_dir(&config_dir) {
+    if let Some(profile_id) = profile_id_for_dir(&config_dir)? {
         let layout = read_profile_layout(config_dir).await?;
         return Ok((
             layout.dir.clone(),
@@ -260,7 +260,7 @@ async fn profile_paths_for_resolved_dirs(
         ));
     }
     if let Some(layout) = ProfileLayout::of_workspace(&workspace_dir) {
-        let id = profile_id_for_dir(&layout.dir);
+        let id = profile_id_for_dir(&layout.dir)?;
         return Ok((
             layout.dir.clone(),
             layout.workspace_dir.clone(),
@@ -276,13 +276,20 @@ async fn read_profile_layout(dir: PathBuf) -> Result<ProfileLayout, DesktopProfi
     Ok(ProfileLayout::with_version(dir, version))
 }
 
-fn profile_id_for_dir(dir: &Path) -> Option<String> {
-    let users_dir = dir.parent()?;
+fn profile_id_for_dir(dir: &Path) -> Result<Option<String>, DesktopProfileError> {
+    let Some(users_dir) = dir.parent() else {
+        return Ok(None);
+    };
     if !users_dir.file_name().is_some_and(|name| name == "users") {
-        return None;
+        return Ok(None);
     }
-    let id = dir.file_name()?.to_str()?;
-    is_profile_path_segment(id).then(|| id.to_owned())
+    let Some(id) = dir.file_name().and_then(|name| name.to_str()) else {
+        return Err(DesktopProfileError::InvalidId);
+    };
+    if !is_profile_path_segment(id) {
+        return Err(DesktopProfileError::InvalidId);
+    }
+    Ok(Some(id.to_owned()))
 }
 
 /// Derives a selected profile's root from an already-resolved config path.

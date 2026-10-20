@@ -685,7 +685,10 @@ async fn selected_profile_is_ambient_for_process_sources_without_a_parent_contex
     let temp = TempDir::new().unwrap();
     let layout = ProfileLayout::new(temp.path(), "account-b");
     tokio::fs::create_dir_all(&layout.dir).await.unwrap();
-    tokio::fs::write(&layout.config_path, "api_url = \"https://account-b.example\"\n")
+    tokio::fs::write(
+        &layout.config_path,
+        "api_url = \"https://account-b.example\"\n[components]\nmemory = false\n",
+    )
         .await
         .unwrap();
 

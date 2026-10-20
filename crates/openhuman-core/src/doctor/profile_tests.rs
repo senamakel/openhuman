@@ -542,9 +542,12 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
     let account_b = ProfileLayout::new(root, "account-b");
     tokio::fs::create_dir_all(&account_a.dir).await.unwrap();
     tokio::fs::create_dir_all(&account_b.dir).await.unwrap();
-    tokio::fs::write(&account_a.config_path, "api_url = \"https://account-a.example\"\n")
-        .await
-        .unwrap();
+    tokio::fs::write(
+        &account_a.config_path,
+        "api_url = \"https://account-a.example\"\n",
+    )
+    .await
+    .unwrap();
     tokio::fs::write(
         &account_b.config_path,
         "api_url = \"https://account-b.example\"\n[components]\nmemory = false\n",
@@ -604,14 +607,18 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
     .unwrap();
 
     for report in [explicit_outcome.value, selection_outcome.value] {
-        assert!(!report
-            .findings
-            .iter()
-            .any(|finding| finding.check_id == "doctor/selection"));
-        assert!(report
-            .checks_run
-            .iter()
-            .any(|id| id == "hosted/selected-profile-context"));
+        assert!(
+            !report
+                .findings
+                .iter()
+                .any(|finding| finding.check_id == "doctor/selection")
+        );
+        assert!(
+            report
+                .checks_run
+                .iter()
+                .any(|id| id == "hosted/selected-profile-context")
+        );
         assert_eq!(report.profile.as_deref(), Some("account-b"));
     }
     let observations = observed.lock().unwrap();
@@ -624,7 +631,10 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
             Some("https://account-b.example")
         );
         assert_eq!(observation.ambient_workspace, account_b.workspace_dir);
-        assert_eq!(observation.domains, crate::core::runtime::DomainSet::kernel());
+        assert_eq!(
+            observation.domains,
+            crate::core::runtime::DomainSet::kernel()
+        );
         assert_eq!(
             observation.tool_groups,
             crate::tools::toolpacks::ToolGroups::none()
@@ -673,16 +683,19 @@ impl DoctorCheck for SelectedProfileContextCheck {
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let current = crate::core::runtime::CoreContext::current().unwrap();
         let ambient = crate::core::runtime::CoreContext::current_embedder_config().unwrap();
-        self.0.lock().unwrap().push(SelectedProfileContextObservation {
-            doctor_workspace: ctx.config().workspace_dir.clone(),
-            doctor_config_path: ctx.config().config_path.clone(),
-            doctor_api_url: ctx.config().api_url.clone(),
-            ambient_workspace: ambient.workspace_dir,
-            domains: current.domains(),
-            tool_groups: current.tool_groups(),
-            user_skill_roots: current.user_skill_roots(),
-            components: ctx.components(),
-        });
+        self.0
+            .lock()
+            .unwrap()
+            .push(SelectedProfileContextObservation {
+                doctor_workspace: ctx.config().workspace_dir.clone(),
+                doctor_config_path: ctx.config().config_path.clone(),
+                doctor_api_url: ctx.config().api_url.clone(),
+                ambient_workspace: ambient.workspace_dir,
+                domains: current.domains(),
+                tool_groups: current.tool_groups(),
+                user_skill_roots: current.user_skill_roots(),
+                components: ctx.components(),
+            });
         vec![Finding::pass(
             self.id(),
             "The selected profile context and host check source are available.",

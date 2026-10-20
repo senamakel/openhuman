@@ -1,5 +1,6 @@
 //! Diagnostic checks for OpenHuman configuration, workspace health, and daemon state.
 
+mod checks;
 mod contract;
 mod core;
 mod legacy;
@@ -29,15 +30,15 @@ pub use schemas::{
 
 #[cfg(test)]
 #[path = "config_file_tests.rs"]
-mod config_file_tests;
+mod config_file_red_tests;
 
 #[cfg(test)]
 #[path = "config_provenance_tests.rs"]
-mod config_provenance_tests;
+mod config_provenance_red_tests;
 
 #[cfg(test)]
 #[path = "config_semantics_tests.rs"]
-mod config_semantics_tests;
+mod config_semantics_red_tests;
 
 #[cfg(test)]
 #[path = "inference_config_tests.rs"]
@@ -46,6 +47,10 @@ mod inference_config_tests;
 #[cfg(test)]
 #[path = "embeddings_config_tests.rs"]
 mod embeddings_config_tests;
+
+#[cfg(test)]
+#[path = "checks/config_file_tests.rs"]
+mod config_file_tests;
 
 #[cfg(test)]
 #[path = "runner_tests.rs"]

@@ -41,7 +41,7 @@ pub async fn doctor_report_with_options(
                 super::profile::DesktopProfileError::Missing,
             ));
         };
-        return doctor_report_for_desktop_profile(&root, &profile_id, options).await;
+        return doctor_report_for_selected_profile(&root, &profile_id, options).await;
     }
 
     let mut ctx = DoctorCtx::from_config(config.clone());
@@ -79,18 +79,23 @@ pub async fn doctor_report_for_dispatch(
                 super::profile::DesktopProfileError::Missing,
             ));
         };
-        return doctor_report_for_desktop_profile(&root, &profile_id, options).await;
+        return doctor_report_for_selected_profile(&root, &profile_id, options).await;
     }
 
     let config = dispatch.load_config().await?;
     doctor_report_with_options(&config, options).await
 }
 
-async fn doctor_report_for_desktop_profile(
+/// Builds a desktop profile report from an explicit root and profile id.
+/// This entry point does not load the active profile or initialize the core,
+/// so hosts can use it before runtime bootstrap when they need a read-only
+/// profile diagnostic.
+pub async fn doctor_report_for_selected_profile(
     root: &Path,
     profile_id: &str,
-    options: DoctorOptions,
+    mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
+    options.profile = None;
     let selected = match super::profile::load_desktop_profile(root, profile_id).await {
         Ok(selected) => selected,
         Err(error) => {

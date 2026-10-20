@@ -470,22 +470,22 @@ async fn inference_connect_checks_are_registered_but_skipped_in_static_tier() {
 }
 
 #[tokio::test]
-async fn process_auth_error_is_not_attributed_to_another_selected_profile() {
+async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
     let provider = "doctor-497-profile-scoped-auth-fixture";
     crate::inference::auth_error_registry::clear(provider);
     let (_temp_a, config_a) = temporary_config();
     let (_temp_b, config_b) = temporary_config();
 
     let first_episode = crate::core::runtime::CoreContext::scope(
-        profile_context(config_a.clone(), "doctor-profile-a"),
+        workspace_context(config_a.clone()),
         async { crate::inference::auth_error_registry::record(provider, 401) },
     )
     .await;
-    assert!(first_episode, "profile A begins the process notification episode");
+    assert!(first_episode, "workspace A begins the process notification episode");
 
-    let report_b_without_failure = report_for_profile(
+    let report_b_without_failure = report_for_context(
         &config_b,
-        "doctor-profile-b",
+        workspace_context(config_b.clone()),
         DoctorOptions {
             only: vec!["inference/auth-errors".into()],
             ..DoctorOptions::default()
@@ -502,13 +502,13 @@ async fn process_auth_error_is_not_attributed_to_another_selected_profile() {
             || finding.severity != FindingSeverity::Error
     }));
     assert!(report_b_without_failure.value.findings.iter().all(|finding| {
-        !finding.message.contains("doctor-profile-a")
-            && !finding.message.contains("doctor-profile-b")
+        !finding.message.contains(config_a.workspace_dir.to_string_lossy().as_ref())
+            && !finding.message.contains(config_b.workspace_dir.to_string_lossy().as_ref())
     }));
 
-    let report_a = report_for_profile(
+    let report_a = report_for_context(
         &config_a,
-        "doctor-profile-a",
+        workspace_context(config_a.clone()),
         DoctorOptions {
             only: vec!["inference/auth-errors".into()],
             ..DoctorOptions::default()
@@ -520,17 +520,17 @@ async fn process_auth_error_is_not_attributed_to_another_selected_profile() {
     }));
 
     let second_profile_episode = crate::core::runtime::CoreContext::scope(
-        profile_context(config_b.clone(), "doctor-profile-b"),
+        workspace_context(config_b.clone()),
         async { crate::inference::auth_error_registry::record(provider, 403) },
     )
     .await;
     assert!(
         !second_profile_episode,
-        "per-profile attribution must not re-arm the process notification latch"
+        "per-workspace attribution must not re-arm the process notification latch"
     );
-    let report_b_after_failure = report_for_profile(
+    let report_b_after_failure = report_for_context(
         &config_b,
-        "doctor-profile-b",
+        workspace_context(config_b.clone()),
         DoctorOptions {
             only: vec!["inference/auth-errors".into()],
             ..DoctorOptions::default()
@@ -547,6 +547,82 @@ async fn process_auth_error_is_not_attributed_to_another_selected_profile() {
             .count(),
         1,
         "the existing process snapshot should remain one entry per provider"
+    );
+    crate::inference::auth_error_registry::clear(provider);
+}
+
+#[tokio::test]
+async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
+    let provider = "doctor-497-saas-auth-fixture";
+    crate::inference::auth_error_registry::clear(provider);
+    let (_temp, config) = temporary_config();
+
+    let first_episode = crate::core::runtime::CoreContext::scope(
+        profile_context(config.clone(), "tenant-a"),
+        async { crate::inference::auth_error_registry::record(provider, 401) },
+    )
+    .await;
+    assert!(first_episode);
+
+    let report_b_without_failure = report_for_profile(
+        &config,
+        "tenant-b",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_b_without_failure
+        .value
+        .checks_run
+        .iter()
+        .any(|id| id == "inference/auth-errors"));
+    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
+        finding.check_id != "inference/auth-errors"
+            || finding.severity != FindingSeverity::Error
+    }));
+    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
+        !finding.message.contains("tenant-a") && !finding.message.contains("tenant-b")
+    }));
+
+    let report_a = report_for_profile(
+        &config,
+        "tenant-a",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_a.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
+    }));
+
+    let second_profile_episode = crate::core::runtime::CoreContext::scope(
+        profile_context(config.clone(), "tenant-b"),
+        async { crate::inference::auth_error_registry::record(provider, 403) },
+    )
+    .await;
+    assert!(!second_profile_episode);
+    let report_b_after_failure = report_for_profile(
+        &config,
+        "tenant-b",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_b_after_failure.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
+    }));
+    assert_eq!(
+        crate::inference::auth_error_registry::snapshot()
+            .iter()
+            .filter(|error| error.provider == provider)
+            .count(),
+        1
     );
     crate::inference::auth_error_registry::clear(provider);
 }

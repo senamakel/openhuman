@@ -15,7 +15,11 @@ fn report_schema() {
     let s = schemas("report");
     assert_eq!(s.namespace, "doctor");
     assert_eq!(s.function, "report");
-    assert!(s.inputs.is_empty());
+    assert_eq!(
+        s.inputs.iter().map(|field| field.name).collect::<Vec<_>>(),
+        ["tier", "only", "skip", "profile"]
+    );
+    assert!(s.inputs.iter().all(|field| !field.required));
 }
 
 #[test]

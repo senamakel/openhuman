@@ -1,5 +1,5 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crate::config::Config;
@@ -10,9 +10,60 @@ use async_trait::async_trait;
 use super::contract::{
     DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity,
 };
-use super::registry::{register_check_source_in, DoctorCheckSource};
+use super::registry::{DoctorCheckSource, register_check_source_in};
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
+
+struct DownMemoryEngine {
+    inner: tinymemory_api::conformance::ReferenceEngine,
+    reason: String,
+}
+
+#[async_trait]
+impl tinymemory_api::MemoryEngine for DownMemoryEngine {
+    fn descriptor(&self) -> &tinymemory_api::EngineDescriptor {
+        self.inner.descriptor()
+    }
+
+    async fn health(&self) -> tinymemory_api::EngineHealth {
+        tinymemory_api::EngineHealth::Down(self.reason.clone())
+    }
+
+    async fn recall(
+        &self,
+        request: tinymemory_api::RecallRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::RecallAnswer> {
+        self.inner.recall(request).await
+    }
+
+    async fn fetch(
+        &self,
+        request: tinymemory_api::FetchRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::FetchPage> {
+        self.inner.fetch(request).await
+    }
+
+    async fn store(
+        &self,
+        item: tinymemory_api::StoreItem,
+    ) -> tinymemory_api::Result<tinymemory_api::StoreReceipt> {
+        self.inner.store(item).await
+    }
+
+    async fn forget(
+        &self,
+        target: tinymemory_api::ForgetTarget,
+    ) -> tinymemory_api::Result<tinymemory_api::ForgetReport> {
+        self.inner.forget(target).await
+    }
+
+    async fn list(
+        &self,
+        request: tinymemory_api::ListRequest,
+    ) -> tinymemory_api::Result<tinymemory_api::ListPage> {
+        self.inner.list(request).await
+    }
+}
 
 struct BlockingProbe {
     id: String,
@@ -98,10 +149,12 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     let config_source: DoctorConfigSource = report.config_source;
     assert_eq!(config_source, DoctorConfigSource::Profile);
     assert!(report.checks_run.iter().any(|id| id == "hosted/ready"));
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "hosted/ready"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "hosted/ready")
+    );
 }
 
 #[tokio::test]
@@ -130,10 +183,12 @@ async fn hierarchical_check_ids_are_registered_and_selected_exactly() {
     .expect("hierarchical id is valid and selected as one exact id");
 
     assert_eq!(report.checks_run, vec!["inference/live/role".to_owned()]);
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "inference/live/role"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "inference/live/role")
+    );
 }
 
 #[tokio::test]
@@ -245,6 +300,153 @@ async fn memory_checks_are_skipped_when_the_memory_component_is_disabled() {
 }
 
 #[tokio::test]
+async fn memory_health_check_reports_the_engine_down_reason() {
+    let temp = tempfile::tempdir().expect("temp directory");
+    let config = crate::memory::test_fixtures::config_in(&temp);
+    let reason = "the configured memory service is unavailable";
+    crate::memory::engine::install_test_engine(
+        &config.workspace_dir,
+        Arc::new(DownMemoryEngine {
+            inner: tinymemory_api::conformance::ReferenceEngine::new(),
+            reason: reason.to_owned(),
+        }),
+    );
+
+    let report = runner::run(
+        &DoctorCtx::from_config(config.clone()),
+        DoctorOptions {
+            only: vec!["memory/health".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("memory health result is represented in the report");
+    crate::memory::engine::remove_test_engine(&config.workspace_dir);
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "memory/health")
+        .expect("the selected memory health check returns its own finding");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(finding.message.contains(reason));
+}
+
+#[tokio::test]
+async fn storage_connect_check_does_not_change_the_selected_sqlite_tree() {
+    use std::collections::BTreeMap;
+    use std::path::Path;
+
+    fn snapshot_tree(root: &Path) -> BTreeMap<std::path::PathBuf, Option<Vec<u8>>> {
+        fn walk(
+            current: &Path,
+            root: &Path,
+            snapshot: &mut BTreeMap<std::path::PathBuf, Option<Vec<u8>>>,
+        ) {
+            for entry in std::fs::read_dir(current).expect("read fixture directory") {
+                let path = entry.expect("fixture entry").path();
+                let relative = path
+                    .strip_prefix(root)
+                    .expect("fixture path is inside its root")
+                    .to_path_buf();
+                if path.is_dir() {
+                    snapshot.insert(relative, None);
+                    walk(&path, root, snapshot);
+                } else {
+                    snapshot.insert(
+                        relative,
+                        Some(std::fs::read(path).expect("read fixture file")),
+                    );
+                }
+            }
+        }
+
+        let mut snapshot = BTreeMap::new();
+        walk(root, root, &mut snapshot);
+        snapshot
+    }
+
+    let temp = tempfile::tempdir().expect("temp directory");
+    let workspace = temp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("create workspace");
+    let database_dir = temp.path().join("selected-storage");
+    let url = format!("sqlite:{}", database_dir.display());
+    let backend = crate::storage::open(&url)
+        .await
+        .expect("create a local SQLite fixture using the normal setup path");
+    drop(backend);
+    let before = snapshot_tree(temp.path());
+    let config = Config {
+        action_dir: workspace.clone(),
+        workspace_dir: workspace,
+        storage: crate::config::StorageConfig {
+            url: Some(url),
+            ..crate::config::StorageConfig::default()
+        },
+        ..Config::default()
+    };
+
+    let report = runner::run(
+        &DoctorCtx::from_config(config),
+        DoctorOptions {
+            only: vec!["storage/connect".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("storage check is represented in the report");
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "storage/connect")
+        .expect("the selected storage check returns its own finding");
+    assert_eq!(finding.severity, FindingSeverity::Skipped);
+    assert_eq!(before, snapshot_tree(temp.path()));
+}
+
+#[tokio::test]
+async fn storage_layout_check_warns_when_a_migration_is_pending() {
+    let temp = tempfile::tempdir().expect("temp directory");
+    let target = crate::storage::layout::Target::new(temp.path(), "u1");
+    std::fs::create_dir_all(&target.profile_dir).expect("create profile directory");
+    let state_path = target
+        .profile_dir
+        .join(crate::storage::layout::state::STATE_FILE);
+    crate::storage::layout::state::LayoutState::new("u1", 1_792_488_000_000)
+        .save(&target.profile_dir)
+        .expect("write pending migration state");
+    let before = std::fs::read(&state_path).expect("read migration state");
+    let workspace = target.workspace();
+    let config = Config {
+        action_dir: workspace.clone(),
+        config_path: target.profile_dir.join("config.toml"),
+        workspace_dir: workspace,
+        ..Config::default()
+    };
+
+    let report = runner::run(
+        &DoctorCtx::from_config(config),
+        DoctorOptions {
+            only: vec!["storage/layout".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("layout check is represented in the report");
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "storage/layout")
+        .expect("the selected layout check returns its own finding");
+    assert_eq!(finding.severity, FindingSeverity::Warn);
+    assert_eq!(
+        before,
+        std::fs::read(state_path).expect("migration state remains readable")
+    );
+}
+
+#[tokio::test]
 async fn checks_above_the_requested_tier_are_skipped() {
     let extensions = Extensions::new();
     register_check_source_in(
@@ -314,11 +516,13 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     .expect("unknown selection is a report finding");
 
     assert_eq!(report.checks_run, vec!["config/temperature".to_owned()]);
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "doctor/selection"
-            && finding.severity == FindingSeverity::Error));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"
+                && finding.severity == FindingSeverity::Error)
+    );
     assert_eq!(report.schema_version, 2);
     assert_eq!(report.summary.pass, 1);
     assert_eq!(report.summary.error, 1);

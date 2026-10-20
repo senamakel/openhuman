@@ -6,6 +6,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
 use openhuman_core::config::Config;
+use openhuman_core::doctor::{
+    register_check_source_in, DoctorCheck, DoctorCheckSource, DoctorCtx, DoctorTier, Finding,
+};
 use openhuman_core::security::secret_storage::{
     clear_master_key_source, clear_secret_backend, install_master_key_source,
     install_secret_backend, EncryptedFileBackend, MasterKeySource, SecretStorageError,
@@ -112,6 +115,39 @@ impl Drop for SecretBackendReset {
     }
 }
 
+struct InspectionCheck;
+
+#[async_trait::async_trait]
+impl DoctorCheck for InspectionCheck {
+    fn id(&self) -> &str {
+        "inspection/probe"
+    }
+
+    fn category(&self) -> &str {
+        "inspection"
+    }
+
+    fn tier(&self) -> DoctorTier {
+        DoctorTier::Static
+    }
+
+    async fn detect(&self, _ctx: &DoctorCtx) -> Vec<Finding> {
+        vec![Finding::pass(self.id(), "Inspection context is available.")]
+    }
+}
+
+struct InspectionSource;
+
+impl DoctorCheckSource for InspectionSource {
+    fn id(&self) -> &str {
+        "inspection-source"
+    }
+
+    fn checks(&self) -> Vec<Arc<dyn DoctorCheck>> {
+        vec![Arc::new(InspectionCheck)]
+    }
+}
+
 struct CountingMasterKeySource(Arc<AtomicUsize>);
 
 impl MasterKeySource for CountingMasterKeySource {
@@ -178,13 +214,17 @@ async fn preloaded_runtime_can_invoke_doctor_without_startup_writes() {
 
     let backend_opened = openhuman_core::storage::installed().is_some();
     let key_store_writes = key_writes.load(Ordering::SeqCst);
+    register_check_source_in(
+        runtime.core_runtime().context().extensions(),
+        InspectionSource,
+    );
     let response = runtime
         .core_runtime()
         .invoke(
             "openhuman.doctor_report",
             json!({
                 "tier": "static",
-                "only": ["config/semantics"]
+                "only": ["inspection/probe"]
             }),
         )
         .await
@@ -193,6 +233,11 @@ async fn preloaded_runtime_can_invoke_doctor_without_startup_writes() {
         .get("result")
         .expect("unwrap the CLI-compatible outcome envelope");
     assert_eq!(report["schema_version"], 2);
+    assert!(report["findings"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .any(|finding| finding["check_id"] == "inspection/probe"));
 
     drop(runtime);
     let after = snapshot(root.path());

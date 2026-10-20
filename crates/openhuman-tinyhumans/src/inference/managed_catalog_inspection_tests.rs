@@ -241,10 +241,16 @@ async fn a_prepared_managed_fetch_uses_the_frozen_session_after_rotation() {
         &base,
         chrono::Utc::now() + chrono::Duration::hours(1),
     );
+    let auth_file_a_before = std::fs::read(auth_profiles_path(&config)).expect("session A fixture");
 
     let prepared_a = prepare_managed_catalog(config.clone())
         .await
         .expect("read-only prepare should capture session A");
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config)).unwrap(),
+        auth_file_a_before,
+        "preparing A must not rewrite auth state"
+    );
     store_session(
         &config,
         "fixture-session-after-rotation",
@@ -258,13 +264,28 @@ async fn a_prepared_managed_fetch_uses_the_frozen_session_after_rotation() {
         .fetch()
         .await
         .expect("the prepared request must use its captured session");
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config)).unwrap(),
+        auth_file_after_rotation,
+        "fetching frozen A must not change the newly stored B credential"
+    );
     let prepared_b = prepare_managed_catalog(config.clone())
         .await
         .expect("a new prepare should see session B");
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config)).unwrap(),
+        auth_file_after_rotation,
+        "preparing B must not rewrite auth state"
+    );
     prepared_b
         .fetch()
         .await
         .expect("the second prepared request should use session B");
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config)).unwrap(),
+        auth_file_after_rotation,
+        "fetching frozen B must not rewrite auth state"
+    );
 
     assert_eq!(server.requests.load(Ordering::SeqCst), 2);
     assert_eq!(

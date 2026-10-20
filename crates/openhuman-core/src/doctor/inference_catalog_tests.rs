@@ -323,12 +323,37 @@ async fn doctor_models_does_not_reuse_a_catalog_for_another_profiles_credential(
     doctor_models(&config_a, true)
         .await
         .expect("first profile catalog should be available");
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config_a)).unwrap(),
+        auth_file_a_before,
+        "profile A credential bytes are unchanged after its probe"
+    );
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config_b)).unwrap(),
+        auth_file_b_before,
+        "profile B credential bytes are unchanged while A is probed"
+    );
     doctor_models(&config_b, true)
         .await
         .expect("selected profile catalog should use its own credential");
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config_a)).unwrap(),
+        auth_file_a_before,
+        "profile A credential bytes are unchanged while B is probed"
+    );
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config_b)).unwrap(),
+        auth_file_b_before,
+        "profile B credential bytes are unchanged after its probe"
+    );
     doctor_models(&config_b, true)
         .await
         .expect("the selected profile may reuse its own cached catalog");
+    assert_eq!(
+        std::fs::read(auth_profiles_path(&config_b)).unwrap(),
+        auth_file_b_before,
+        "profile B credential bytes are unchanged after its cache hit"
+    );
 
     assert_eq!(server.requests.load(Ordering::SeqCst), 2);
     assert_eq!(
@@ -388,6 +413,14 @@ async fn prepared_catalog_identity_changes_when_managed_credential_rotates_in_pl
     assert_eq!(first.value.entries[0].outcome, ModelProbeOutcome::Ok);
     assert_eq!(second.value.entries[0].outcome, ModelProbeOutcome::Ok);
     assert_eq!(third.value.entries[0].outcome, ModelProbeOutcome::Ok);
+    for result in [&first, &second, &third] {
+        assert!(result.value.entries.iter().all(|entry| {
+            entry
+                .message
+                .as_deref()
+                .is_none_or(|message| !message.contains("fixture-managed-credential-"))
+        }));
+    }
     assert_eq!(server.requests.load(Ordering::SeqCst), 2);
     assert_eq!(prepared_fetches.load(Ordering::SeqCst), 2);
     assert_eq!(

@@ -246,3 +246,63 @@ async fn resume_with_live_import_slot_does_not_claim_a_new_run() {
     assert!(!resumed, "no new run was scheduled");
     drop(guard);
 }
+
+#[tokio::test]
+async fn starting_import_or_retry_while_a_peer_driver_runs_gives_mode_specific_guidance() {
+    #[derive(Clone, Copy)]
+    enum Peer {
+        Migration,
+        Backfill,
+    }
+
+    for peer in [Peer::Migration, Peer::Backfill] {
+        for retry in [false, true] {
+            let tmp = tempfile::tempdir().unwrap();
+            let config = config_in(&tmp);
+            bind_reference(&config);
+            let workspace = config.workspace_dir.clone();
+            let _peer_guard = match peer {
+                Peer::Migration => crate::memory::run_slots::reserve(
+                    &crate::memory::run_slots::MIGRATION,
+                    &workspace,
+                    &[
+                        &crate::memory::run_slots::IMPORT,
+                        &crate::memory::run_slots::BACKFILL,
+                    ],
+                ),
+                Peer::Backfill => crate::memory::run_slots::reserve(
+                    &crate::memory::run_slots::BACKFILL,
+                    &workspace,
+                    &[
+                        &crate::memory::run_slots::IMPORT,
+                        &crate::memory::run_slots::MIGRATION,
+                    ],
+                ),
+            }
+            .expect("peer owns its driver-specific slot");
+
+            let error = if retry {
+                retry_failed(&crate::core::runtime::DispatchCtx::ambient(), &config)
+                    .await
+                    .unwrap_err()
+            } else {
+                start(&crate::core::runtime::DispatchCtx::ambient(), &config, true)
+                    .await
+                    .unwrap_err()
+            };
+            assert_eq!(error.code(), "INVALID_REQUEST");
+            let action = if retry { "retry" } else { "import" };
+            let reason = match peer {
+                Peer::Migration => {
+                    format!("memory is being organized; {action} once that finishes")
+                }
+                Peer::Backfill => {
+                    format!("a conversation backfill is running; {action} once it finishes")
+                }
+            };
+            assert!(error.to_string().contains(&reason), "{error}");
+            assert!(!is_running(&workspace));
+            assert_eq!(read_file(&workspace), ImportFile::default());
+        }
+    }
+}

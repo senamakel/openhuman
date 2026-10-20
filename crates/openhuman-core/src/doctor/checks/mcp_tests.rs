@@ -1,5 +1,6 @@
 use super::*;
 use crate::doctor::contract::{DoctorOptions, FindingSeverity};
+use std::path::Path;
 
 struct FixedStatuses(Result<Option<Vec<tinymcp_bus::ConnStatus>>, McpStatusFailure>);
 
@@ -23,6 +24,14 @@ fn server(name: &str) -> McpServerConfig {
     }
 }
 
+fn config_in(root: &Path) -> crate::config::Config {
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = root.join("workspace");
+    config.action_dir = root.join("actions");
+    config.config_path = root.join("config.toml");
+    config
+}
+
 fn status(server_id: &str, status: tinymcp_bus::ServerStatus) -> tinymcp_bus::ConnStatus {
     tinymcp_bus::ConnStatus {
         server_id: server_id.to_owned(),
@@ -37,6 +46,7 @@ fn status(server_id: &str, status: tinymcp_bus::ServerStatus) -> tinymcp_bus::Co
 
 #[tokio::test]
 async fn a_failed_existing_server_is_an_error_without_its_raw_error_text() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
     let check = McpServerCheck::with_probe(
         &server("server-a"),
         Arc::new(FixedStatuses(Ok(Some(vec![status(
@@ -46,7 +56,7 @@ async fn a_failed_existing_server_is_an_error_without_its_raw_error_text() {
     );
 
     let finding = check
-        .detect(&DoctorCtx::from_config(crate::config::Config::default()))
+        .detect(&DoctorCtx::from_config(config_in(scratch.path())))
         .await
         .remove(0);
 
@@ -59,10 +69,11 @@ async fn a_failed_existing_server_is_an_error_without_its_raw_error_text() {
 
 #[tokio::test]
 async fn an_absent_existing_client_is_skipped_without_bootstrapping_one() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
     let check = McpServerCheck::with_probe(&server("server-a"), Arc::new(FixedStatuses(Ok(None))));
 
     let finding = check
-        .detect(&DoctorCtx::from_config(crate::config::Config::default()))
+        .detect(&DoctorCtx::from_config(config_in(scratch.path())))
         .await
         .remove(0);
 
@@ -72,13 +83,14 @@ async fn an_absent_existing_client_is_skipped_without_bootstrapping_one() {
 
 #[tokio::test]
 async fn an_existing_runtime_status_failure_is_reported_as_an_error() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
     let check = McpServerCheck::with_probe(
         &server("server-a"),
         Arc::new(FixedStatuses(Err(McpStatusFailure::Failed))),
     );
 
     let finding = check
-        .detect(&DoctorCtx::from_config(crate::config::Config::default()))
+        .detect(&DoctorCtx::from_config(config_in(scratch.path())))
         .await
         .remove(0);
 

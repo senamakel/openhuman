@@ -1,5 +1,38 @@
 use super::*;
 use crate::core::runtime::DispatchCtx;
+use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
+
+#[tokio::test]
+async fn inspecting_an_unprovisioned_profile_does_not_run_storage_migrations() {
+    let tmp = tempfile::tempdir().unwrap();
+    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let saas = SaasConfig::new(tmp.path());
+    let host = ProfileHost::with_backend(
+        saas,
+        CoreContext::for_test(DomainSet::full(), None),
+        Some(Arc::clone(&backend)),
+    )
+    .unwrap();
+    let cluster = backend
+        .for_scope(&Scope::new(crate::storage::lease::CLUSTER_SCOPE).unwrap())
+        .unwrap();
+    let registry_spec = CollectionSpec::new(crate::profiles::registry::REGISTRY_COLLECTION);
+    let lease_spec = CollectionSpec::new(crate::storage::lease::LEASE_COLLECTION);
+    let docs = cluster.documents();
+
+    assert!(docs.validate_collection_spec(&registry_spec).await.is_err());
+    assert!(docs.validate_collection_spec(&lease_spec).await.is_err());
+    assert!(host.provisioned_config(&profile("alice")).await.is_err());
+
+    assert!(
+        docs.validate_collection_spec(&registry_spec).await.is_err(),
+        "a profile check must not create or migrate the registry schema"
+    );
+    assert!(
+        docs.validate_collection_spec(&lease_spec).await.is_err(),
+        "a profile check must not create or migrate the lease schema"
+    );
+}
 
 fn host(tmp: &tempfile::TempDir, max_open: usize, idle_secs: u64) -> ProfileHost {
     let mut saas = SaasConfig::new(tmp.path());

@@ -41,8 +41,7 @@ async fn invalid_primary_config_reports_backup_recovery_without_raw_parse_text()
     std::fs::create_dir(&workspace).expect("create workspace");
     std::fs::write(&config_path, "default_model = \"private-token\n")
         .expect("write invalid config");
-    std::fs::write(&backup_path, "default_model = \"backup-model\"\n")
-        .expect("write valid backup");
+    std::fs::write(&backup_path, "default_model = \"backup-model\"\n").expect("write valid backup");
     let config = Config::load_from_config_path(&config_path, &workspace)
         .await
         .expect("load config from backup");
@@ -58,7 +57,9 @@ async fn invalid_primary_config_reports_backup_recovery_without_raw_parse_text()
     assert!(finding.message.contains("backup"), "{}", finding.message);
     assert!(!finding.message.contains("private-token"));
     assert!(
-        !finding.message.contains(&directory.path().display().to_string()),
+        !finding
+            .message
+            .contains(&directory.path().display().to_string()),
         "{}",
         finding.message
     );
@@ -66,10 +67,8 @@ async fn invalid_primary_config_reports_backup_recovery_without_raw_parse_text()
 
 #[tokio::test]
 async fn legacy_keys_are_reported_as_info_with_the_replacement_path() {
-    let (_directory, config) = load_config(
-        "api_url = \"https://example.test/v1/chat/completions\"\n",
-    )
-    .await;
+    let (_directory, config) =
+        load_config("api_url = \"https://example.test/v1/chat/completions\"\n").await;
     let findings = ConfigFileIntegrityCheck
         .detect(&DoctorCtx::from_config(config))
         .await;
@@ -80,7 +79,11 @@ async fn legacy_keys_are_reported_as_info_with_the_replacement_path() {
         .expect("a migrated legacy key is informational");
     assert_eq!(finding.check_id, "config/file-integrity");
     assert!(finding.message.contains("api_url"), "{}", finding.message);
-    assert!(finding.message.contains("inference_url"), "{}", finding.message);
+    assert!(
+        finding.message.contains("inference_url"),
+        "{}",
+        finding.message
+    );
 }
 
 #[tokio::test]

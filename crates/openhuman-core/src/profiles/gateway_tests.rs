@@ -42,11 +42,9 @@ fn a_tampered_tag_is_refused() {
     let mut tampered = header.clone();
     let last = tampered.pop().unwrap();
     tampered.push(if last == '0' { '1' } else { '0' });
-    assert!(
-        verify(SECRET, "alice", &tampered, 1_000)
-            .unwrap_err()
-            .contains("does not match")
-    );
+    assert!(verify(SECRET, "alice", &tampered, 1_000)
+        .unwrap_err()
+        .contains("does not match"));
 }
 
 #[tokio::test]

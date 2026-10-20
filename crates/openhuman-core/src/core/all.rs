@@ -12,8 +12,8 @@ use std::{
 
 use serde_json::{Map, Value};
 
-use crate::core::ControllerSchema;
 use crate::core::runtime::DispatchCtx;
+use crate::core::ControllerSchema;
 
 /// A pinned, boxed future returned by a controller handler.
 pub type ControllerFuture = Pin<Box<dyn Future<Output = Result<Value, String>> + Send + 'static>>;

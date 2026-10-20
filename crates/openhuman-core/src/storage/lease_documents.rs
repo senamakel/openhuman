@@ -26,10 +26,10 @@ use tinystoragedrivers::{
     Version,
 };
 
-use super::StorageError;
 use super::lease::{
-    CLUSTER_SCOPE, LEASE_COLLECTION, LeaseError, LeaseGrant, LeaseRecord, LeaseStore, validate_key,
+    validate_key, LeaseError, LeaseGrant, LeaseRecord, LeaseStore, CLUSTER_SCOPE, LEASE_COLLECTION,
 };
+use super::StorageError;
 
 /// The `tsd.leases` owner of the host's process-placement leases.
 pub const LEASE_OWNER: &str = "profiles";

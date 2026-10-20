@@ -8,7 +8,7 @@
 //! `PROPTEST_RNG_SEED`.
 
 use super::*;
-use crate::config::schema::profile_layout::{ProfileLayout, users_dir};
+use crate::config::schema::profile_layout::{users_dir, ProfileLayout};
 use proptest::prelude::*;
 use std::path::Component;
 

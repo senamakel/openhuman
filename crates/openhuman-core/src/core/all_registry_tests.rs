@@ -2,7 +2,7 @@ use super::*;
 
 #[tokio::test]
 async fn doctor_report_is_in_both_scoped_saas_dispatch_and_schema_surfaces() {
-    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet, Mode, mode};
+    use crate::core::runtime::{mode, ContextOverlay, CoreContext, DomainSet, Mode};
 
     const CHILD: &str = "OPENHUMAN_SAAS_DOCTOR_SURFACE_CHILD";
     let name = "doctor_report_is_in_both_scoped_saas_dispatch_and_schema_surfaces";
@@ -81,17 +81,13 @@ async fn doctor_report_is_in_both_scoped_saas_dispatch_and_schema_surfaces() {
     assert!(operator_schemas.iter().any(|method| method == doctor));
     assert!(user_methods.iter().any(|method| method == doctor));
     assert!(user_schemas.iter().any(|method| method == doctor));
-    assert!(
-        !operator_methods
-            .iter()
-            .any(|method| method == doctor_models)
-    );
+    assert!(!operator_methods
+        .iter()
+        .any(|method| method == doctor_models));
     assert!(!user_methods.iter().any(|method| method == doctor_models));
-    assert!(
-        !user_methods
-            .iter()
-            .any(|method| method == "openhuman.config_get_config")
-    );
+    assert!(!user_methods
+        .iter()
+        .any(|method| method == "openhuman.config_get_config"));
 }
 
 #[tokio::test]

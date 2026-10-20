@@ -29,10 +29,10 @@ use std::sync::{Arc, Mutex, PoisonError, Weak};
 
 use tokio::sync::OwnedMutexGuard;
 
-use super::host::{ProfileHost, create_dirs, unix_now};
+use super::host::{create_dirs, unix_now, ProfileHost};
 use super::layout::{self, ProfileLayout};
 use super::lease as profile_lease;
-use super::types::{LAYOUT_VERSION, ProfileId, ProfileMeta};
+use super::types::{ProfileId, ProfileMeta, LAYOUT_VERSION};
 use crate::config::Config;
 use crate::core::runtime::CoreContext;
 use crate::storage::lease::{LeaseError, LeaseGrant};

@@ -1,8 +1,8 @@
 use super::*;
 use crate::core::runtime::{CoreContext, DomainSet, SaasConfig};
 use crate::memory::lifecycle::jobs::enqueue;
-use crate::profiles::ProfileId;
 use crate::profiles::layout::profile_config;
+use crate::profiles::ProfileId;
 use tinymemory_api::{ConsolidateRequest, ItemKind, Namespace, Reach};
 use tinymemory_tools::BackgroundJob;
 

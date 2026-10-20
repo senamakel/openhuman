@@ -1,7 +1,7 @@
 //! SaaS doctor selection fixtures. This module is included by
 //! `profiles::doctor` when the tenant resolver lands.
 
-use super::{DoctorCaller, DoctorProfileState, profile_provisioned_finding, resolve_with_loader};
+use super::{profile_provisioned_finding, resolve_with_loader, DoctorCaller, DoctorProfileState};
 use crate::config::Config;
 use crate::core::runtime::ComponentSet;
 use crate::doctor::FindingSeverity;
@@ -251,7 +251,7 @@ async fn dispatch_report_runs_registered_provisioned_check_without_creating_stat
         return;
     }
 
-    use crate::core::runtime::{CoreContext, DomainSet, Mode, SaasConfig, mode};
+    use crate::core::runtime::{mode, CoreContext, DomainSet, Mode, SaasConfig};
     use crate::storage::{CollectionSpec, DocumentStore, MemoryStorage, Scope, StorageBackend};
 
     mode::lock_mode(Mode::Saas).expect("isolated test process uses SaaS mode");
@@ -271,20 +271,16 @@ async fn dispatch_report_runs_registered_provisioned_check_without_creating_stat
         .unwrap();
     let registry_spec = CollectionSpec::new(crate::profiles::registry::REGISTRY_COLLECTION);
     let lease_spec = CollectionSpec::new(crate::storage::lease::LEASE_COLLECTION);
-    assert!(
-        cluster
-            .documents()
-            .validate_collection_spec(&registry_spec)
-            .await
-            .is_err()
-    );
-    assert!(
-        cluster
-            .documents()
-            .validate_collection_spec(&lease_spec)
-            .await
-            .is_err()
-    );
+    assert!(cluster
+        .documents()
+        .validate_collection_spec(&registry_spec)
+        .await
+        .is_err());
+    assert!(cluster
+        .documents()
+        .validate_collection_spec(&lease_spec)
+        .await
+        .is_err());
     crate::profiles::host::install(Arc::new(host));
 
     let options = DoctorOptions {
@@ -303,13 +299,11 @@ async fn dispatch_report_runs_registered_provisioned_check_without_creating_stat
 
     assert_eq!(outcome.value.profile.as_deref(), Some(id.as_str()));
     assert_eq!(outcome.value.config_source, DoctorConfigSource::Tenant);
-    assert!(
-        outcome
-            .value
-            .checks_run
-            .iter()
-            .any(|check| check == "profile/provisioned")
-    );
+    assert!(outcome
+        .value
+        .checks_run
+        .iter()
+        .any(|check| check == "profile/provisioned"));
     assert!(!outcome.value.ok);
     let finding = outcome
         .value
@@ -322,20 +316,16 @@ async fn dispatch_report_runs_registered_provisioned_check_without_creating_stat
         !layout.dir.exists(),
         "doctor must not create profile directories"
     );
-    assert!(
-        cluster
-            .documents()
-            .validate_collection_spec(&registry_spec)
-            .await
-            .is_err()
-    );
-    assert!(
-        cluster
-            .documents()
-            .validate_collection_spec(&lease_spec)
-            .await
-            .is_err()
-    );
+    assert!(cluster
+        .documents()
+        .validate_collection_spec(&registry_spec)
+        .await
+        .is_err());
+    assert!(cluster
+        .documents()
+        .validate_collection_spec(&lease_spec)
+        .await
+        .is_err());
 }
 
 #[test]

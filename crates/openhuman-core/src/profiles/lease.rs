@@ -19,10 +19,10 @@
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use crate::storage::StorageBackend;
 use crate::storage::lease::{
     DocumentLeases, LeaseError, LeaseGrant, LeaseRecord, LeaseStore, LocalLeases,
 };
+use crate::storage::StorageBackend;
 
 use super::host::ProfileHost;
 use super::layout;

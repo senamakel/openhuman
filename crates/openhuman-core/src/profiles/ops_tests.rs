@@ -17,13 +17,11 @@ async fn provision_derives_the_profile_and_never_echoes_the_user_id() {
     assert!(!json.contains("alice"), "{json}");
     assert!(json.contains("\"created\":true"), "{json}");
     let again = provision_on(&host, "alice@example.com").await.unwrap();
-    assert!(
-        again
-            .into_cli_compatible_json()
-            .unwrap()
-            .to_string()
-            .contains("\"created\":false")
-    );
+    assert!(again
+        .into_cli_compatible_json()
+        .unwrap()
+        .to_string()
+        .contains("\"created\":false"));
 }
 
 #[tokio::test]
@@ -34,12 +32,10 @@ async fn status_and_deprovision_take_profile_ids_only() {
     assert!(deprovision_on(&host, "../operator").await.is_err());
 
     let id = ProfileId::for_user("alice", crate::profiles::ProfileIdMode::Raw).unwrap();
-    assert!(
-        status_on(&host, id.as_str())
-            .await
-            .unwrap_err()
-            .contains("not provisioned")
-    );
+    assert!(status_on(&host, id.as_str())
+        .await
+        .unwrap_err()
+        .contains("not provisioned"));
     provision_on(&host, "alice").await.unwrap();
     status_on(&host, id.as_str()).await.unwrap();
     deprovision_on(&host, id.as_str()).await.unwrap();
@@ -55,18 +51,16 @@ async fn credentials_are_set_and_cleared_per_profile_and_never_echoed() {
     let bob_user = format!("bob-{}", uuid::Uuid::new_v4());
     let alice = ProfileId::for_user(&alice_user, crate::profiles::ProfileIdMode::Raw).unwrap();
     let bob = ProfileId::for_user(&bob_user, crate::profiles::ProfileIdMode::Raw).unwrap();
-    assert!(
-        set_credential_on(
-            &host,
-            alice.as_str(),
-            UserCredentialKind::Session,
-            "t",
-            None
-        )
-        .await
-        .unwrap_err()
-        .contains("not provisioned")
-    );
+    assert!(set_credential_on(
+        &host,
+        alice.as_str(),
+        UserCredentialKind::Session,
+        "t",
+        None
+    )
+    .await
+    .unwrap_err()
+    .contains("not provisioned"));
     provision_on(&host, &alice_user).await.unwrap();
     provision_on(&host, &bob_user).await.unwrap();
 

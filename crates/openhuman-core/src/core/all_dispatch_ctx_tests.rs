@@ -1,6 +1,6 @@
 //! The dispatch context reaches the handler as an argument, per call.
 
-use serde_json::{Map, Value, json};
+use serde_json::{json, Map, Value};
 
 use super::*;
 use crate::core::runtime::{CoreContext, DispatchCtx, DomainSet};

@@ -21,8 +21,8 @@ use tinystoragedrivers::{
 };
 
 use super::layout::{self, ProfileLayout};
-pub use super::storage_schema::REGISTRY_COLLECTION;
 use super::storage_schema::migrate_cluster;
+pub use super::storage_schema::REGISTRY_COLLECTION;
 use super::types::{ProfileId, ProfileMeta};
 use crate::storage::lease::CLUSTER_SCOPE;
 use crate::storage::schema_support::key_of;

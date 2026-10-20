@@ -18,11 +18,11 @@
 use std::path::{Path, PathBuf};
 
 use super::types::ProfileId;
-use crate::config::Config;
 use crate::config::schema::MemoryLayoutMode;
+use crate::config::Config;
 use crate::security::AutonomyLevel;
 
-pub use crate::config::schema::profile_layout::{ProfileLayout, users_dir};
+pub use crate::config::schema::profile_layout::{users_dir, ProfileLayout};
 
 /// The layout of profile `id` under the SaaS root.
 pub fn profile_layout(saas_root: &Path, id: &ProfileId) -> ProfileLayout {

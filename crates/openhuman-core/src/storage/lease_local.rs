@@ -25,8 +25,8 @@ use async_trait::async_trait;
 use fs2::FileExt;
 use tinystoragedrivers::Version;
 
+use super::lease::{local_dir, validate_key, LeaseError, LeaseGrant, LeaseRecord, LeaseStore};
 use super::StorageError;
-use super::lease::{LeaseError, LeaseGrant, LeaseRecord, LeaseStore, local_dir, validate_key};
 
 const LOCK_FILE: &str = ".lease";
 const RECORD_FILE: &str = ".lease.json";

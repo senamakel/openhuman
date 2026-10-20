@@ -49,6 +49,24 @@ fn text(result: &ToolResult) -> String {
     result.text()
 }
 
+fn expected_learn_meta(facts: &CallFacts) -> tinymemory_api::MemoryMeta {
+    tinymemory_api::MemoryMeta {
+        namespace: facts.namespace.clone(),
+        workspace: facts.workspace.clone(),
+        thread_id: facts.thread_id.clone(),
+        agent_id: facts.agent_id.clone(),
+        tool_call: Some(tinymemory_api::ToolCallRef {
+            name: MEMORY_TOOL_NAME.to_string(),
+            id: facts.tool_call_id.clone(),
+        }),
+        source: tinymemory_api::SourceRef {
+            kind: SourceKind::Agent,
+            id: None,
+        },
+        ..tinymemory_api::MemoryMeta::default()
+    }
+}
+
 #[test]
 fn schema_and_permissions_follow_the_action() {
     let tool = MemoryTool::new(Arc::new(Config::default()));
@@ -322,7 +340,7 @@ fn gather_falls_back_to_the_action_dir() {
     assert_eq!(gathered.workspace.as_deref(), Some("/the/action/dir"));
     assert!(gathered.thread_id.is_none());
     assert!(gathered.tool_call_id.is_none());
-    let meta = gathered.learn_meta();
+    let meta = expected_learn_meta(&gathered);
     assert!(
         meta.namespace.is_root(),
         "no agent in scope: the default root"

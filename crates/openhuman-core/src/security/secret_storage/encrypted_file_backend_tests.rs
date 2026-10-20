@@ -88,6 +88,26 @@ fn profile_read_only_secret_lookup_does_not_create_a_missing_key() {
 }
 
 #[test]
+fn profile_read_only_secret_lookup_preserves_corrupt_store_bytes() {
+    let workspace = secrets_tempdir();
+    let key = [0x42; KEY_LEN];
+    write_profile_key(workspace.path(), &key);
+    let backend = EncryptedFileBackend::new(workspace.path());
+    std::fs::write(&backend.path, b"corrupt encrypted store").unwrap();
+
+    assert!(backend.get_profile_read_only("user:token").is_err());
+
+    assert_eq!(std::fs::read(&backend.path).unwrap(), b"corrupt encrypted store");
+    assert!(!std::fs::read_dir(workspace.path())
+        .unwrap()
+        .flatten()
+        .any(|entry| entry
+            .file_name()
+            .to_string_lossy()
+            .starts_with("secrets.enc.corrupt.")));
+}
+
+#[test]
 fn legacy_plaintext_is_removed_only_after_verified_encrypted_migration() {
     let dir = secrets_tempdir();
     let legacy_path = dir.path().join(LEGACY_DEV_KEYCHAIN);

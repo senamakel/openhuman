@@ -44,7 +44,11 @@ pub async fn doctor_report_with_options(
             .with_profile(selected.id, DoctorConfigSource::Profile)
             .with_profile_metadata(Some(selected.layout.version), Some("--profile".into()))
             .with_profile_status(DoctorProfileStatus::Valid);
-        return report_with_context(&selected.config, options, ctx).await;
+        return CoreContext::scope(
+            CoreContext::bare(),
+            report_with_context(&selected.config, options, ctx),
+        )
+        .await;
     }
 
     let mut ctx = DoctorCtx::from_config(config.clone());

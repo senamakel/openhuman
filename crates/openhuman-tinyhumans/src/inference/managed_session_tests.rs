@@ -103,9 +103,6 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     use openhuman_embed::__host::core::events::DomainEvent;
     use openhuman_embed::__host::egress::EgressLedger;
     use openhuman_embed::__host::inference_registry::ChatModelRequest;
-    use openhuman_embed::__host::security::credentials::{
-        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
-    };
     use tinyinference_llm::message::Message;
     use tinyinference_llm::model::ModelRequest;
 
@@ -119,16 +116,15 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     config.config_path = temp.path().join("config.toml");
     config.api_url = Some(format!("http://{invoke_addr}"));
     config.secrets.encrypt = false;
-    AuthService::new(temp.path(), false)
-        .store_provider_token(
-            APP_SESSION_PROVIDER,
-            DEFAULT_AUTH_PROFILE_NAME,
-            "inspection-session-token",
-            std::collections::HashMap::new(),
-            true,
-        )
-        .expect("seed selected app-session profile");
     let auth_profile_path = temp.path().join("auth-profiles.json");
+    // Keep the fixture in the selected profile's portable JSON store. The
+    // ordinary AuthService may choose a machine-global secret backend, while
+    // the inspection adapter intentionally reads only this workspace.
+    std::fs::write(
+        &auth_profile_path,
+        r#"{"schema_version":1,"active_profiles":{"app-session":"app-session:default"},"profiles":{"app-session:default":{"provider":"app-session","profile_name":"default","kind":"token","token":"inspection-session-token"}}}"#,
+    )
+    .expect("seed selected app-session profile in the temporary workspace");
     let profile_before = std::fs::read(&auth_profile_path).expect("read seeded auth profile");
     let store_before = credential_store_snapshot(temp.path());
 

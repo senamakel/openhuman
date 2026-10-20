@@ -332,31 +332,26 @@ fn run_sentry_test_command(_args: &[String]) -> Result<()> {
 /// 3. Otherwise, it searches for `.env` in the current working directory.
 pub fn load_dotenv_for_cli() -> Result<()> {
     let previous_dotenv_load = crate::config::schema::load::current_dotenv_load();
-    set_current_dotenv_load(None);
     let process_vars = std::env::vars_os()
         .map(|(name, _)| name.to_string_lossy().into_owned())
         .collect::<HashSet<_>>();
     match std::env::var("OPENHUMAN_DOTENV_PATH") {
         Ok(path) if !path.trim().is_empty() => {
             let path = PathBuf::from(&path);
-            let variables = dotenv_variable_names(&path).map_err(|error| {
-                anyhow::anyhow!(
-                    "failed to load dotenv from OPENHUMAN_DOTENV_PATH={}: {error}",
-                    path.display()
-                )
-            })?;
             dotenvy::from_path(&path).map_err(|e| {
                 anyhow::anyhow!(
                     "failed to load dotenv from OPENHUMAN_DOTENV_PATH={}: {e}",
                     path.display()
                 )
             })?;
-            record_dotenv_load(
-                path,
-                variables,
-                &process_vars,
-                previous_dotenv_load.as_ref(),
-            );
+            if let Ok(variables) = dotenv_variable_names(&path) {
+                record_dotenv_load(
+                    path,
+                    variables,
+                    &process_vars,
+                    previous_dotenv_load.as_ref(),
+                );
+            }
         }
         _ => {
             if let Ok(path) = dotenvy::dotenv() {

@@ -49,3 +49,21 @@ fn table_groups_by_check_category_and_renders_fix_hints() {
     let workspace = rendered.find("workspace/layout").unwrap();
     assert!(first_config < second_config && second_config < workspace);
 }
+
+#[test]
+fn table_header_renders_report_profile_provenance_without_inference() {
+    let report = json!({
+        "profile": "desktop-default",
+        "profile_layout_version": 2,
+        "config_resolution_source": "active_user.toml",
+        "findings": [],
+        "summary": { "pass": 0, "info": 0, "warn": 0, "error": 0, "skipped": 0 },
+        "ok": true
+    });
+
+    let rendered = render_table(&report);
+
+    assert!(rendered.starts_with(
+        "Profile: desktop-default | layout v2 | config source: active_user.toml\n"
+    ));
+}

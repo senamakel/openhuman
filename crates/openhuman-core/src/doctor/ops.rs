@@ -1,13 +1,12 @@
 //! JSON-RPC / CLI controller surface for diagnostics.
 //!
-//! Also the home of the async probes [`doctor::run`] cannot take itself. It is
-//! blocking by contract (see its docs), so anything that has to be `await`ed
-//! is resolved here and passed down as a value.
+//! Resolve async inputs for the temporary v1 adapters, then run the v2 check
+//! registry and report assembler.
 
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::doctor::{
-    self, DoctorCtx, DoctorOptions, DoctorReport, MemoryEngineCheck, ModelProbeReport,
+    self, DoctorCtx, DoctorOptions, DoctorReport, DoctorTier, MemoryEngineCheck, ModelProbeReport,
 };
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
@@ -18,10 +17,21 @@ pub async fn doctor_report_with_options(
     config: &Config,
     options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
-    // Awaited before the blocking hop, not inside it: `doctor::run` may not
-    // `.await`. See `MemoryEngineCheck`.
-    let memory = memory_engine_check(config).await;
-    let ctx = DoctorCtx::from_config(config.clone()).with_memory_engine(memory);
+    let ctx = DoctorCtx::from_config(config.clone());
+    let needs_memory_engine = ctx.components().memory
+        && options.tier.includes(DoctorTier::Connect)
+        && (options.only.is_empty() || options.only.iter().any(|id| id == "memory/engine"))
+        && !options.skip.iter().any(|id| id == "memory/engine");
+    let memory = if needs_memory_engine {
+        memory_engine_check(config).await
+    } else {
+        MemoryEngineCheck {
+            engine: None,
+            status: "off".into(),
+            reason: Some("memory engine check was not selected".into()),
+        }
+    };
+    let ctx = ctx.with_memory_engine(memory);
     let report = super::runner::run(&ctx, options).await?;
     Ok(Outcome::single_log(report, "doctor report generated"))
 }

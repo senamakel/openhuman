@@ -31,4 +31,8 @@ pub use schemas::{
 mod runner_tests;
 
 #[cfg(test)]
+#[path = "inference_catalog_tests.rs"]
+mod inference_catalog_tests;
+
+#[cfg(test)]
 pub(crate) mod test_support;

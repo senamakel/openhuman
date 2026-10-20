@@ -241,6 +241,43 @@ impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightPro
         &self,
         toolkit: &str,
     ) -> crate::skills::preflight::PreflightProbeStatus<bool> {
+        existing_toolkit_status(self.config, toolkit).await
+    }
+
+    async fn composio_identity_status(
+        &self,
+        toolkit: &str,
+    ) -> crate::skills::preflight::PreflightProbeStatus<Option<String>> {
+        existing_identity_status(self.config, toolkit).await
+    }
+
+    async fn git_version(&self) -> Result<(), String> {
+        crate::skills::preflight::LivePreflightProbes::new(self.config)
+            .git_version()
+            .await
+    }
+
+    async fn git_user_name(&self) -> String {
+        crate::skills::preflight::LivePreflightProbes::new(self.config)
+            .git_user_name()
+            .await
+    }
+
+    async fn git_user_email(&self) -> String {
+        crate::skills::preflight::LivePreflightProbes::new(self.config)
+            .git_user_email()
+            .await
+    }
+}
+
+#[cfg(feature = "skills")]
+async fn existing_toolkit_status(
+    config: &crate::config::Config,
+    toolkit: &str,
+) -> crate::skills::preflight::PreflightProbeStatus<bool> {
+    use crate::skills::preflight::PreflightProbeStatus;
+    #[cfg(feature = "modules")]
+    {
         use crate::skills::preflight::PreflightProbeStatus;
         use tinyconnectors_bus::{
             ComposioConnectedIntegrationsMode as Mode,
@@ -248,10 +285,10 @@ impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightPro
             ComposioListConnectedIntegrationsRequest,
         };
 
-        let mode = if self.config.composio.host_credential.is_some() {
+        let mode = if config.composio.host_credential.is_some() {
             Mode::Direct
         } else {
-            match self.config.composio.mode.trim() {
+            match config.composio.mode.trim() {
                 "" | crate::config::schema::COMPOSIO_MODE_BACKEND => Mode::Backend,
                 crate::config::schema::COMPOSIO_MODE_DIRECT => Mode::Direct,
                 _ => return PreflightProbeStatus::Unavailable,
@@ -261,7 +298,7 @@ impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightPro
             _,
             ComposioConnectedIntegrationsResponse,
         >(
-            self.config,
+            config,
             crate::modules::connectors::methods::LIST_CONNECTED_INTEGRATIONS,
             ComposioListConnectedIntegrationsRequest { mode },
         )
@@ -281,18 +318,28 @@ impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightPro
             }
         }
     }
+    #[cfg(not(feature = "modules"))]
+    {
+        let _ = (config, toolkit);
+        PreflightProbeStatus::Unavailable
+    }
+}
 
-    async fn composio_identity_status(
-        &self,
-        toolkit: &str,
-    ) -> crate::skills::preflight::PreflightProbeStatus<Option<String>> {
+#[cfg(feature = "skills")]
+async fn existing_identity_status(
+    config: &crate::config::Config,
+    toolkit: &str,
+) -> crate::skills::preflight::PreflightProbeStatus<Option<String>> {
+    use crate::skills::preflight::PreflightProbeStatus;
+    #[cfg(feature = "modules")]
+    {
         use crate::skills::preflight::PreflightProbeStatus;
         use crate::integrations::composio::types::{
             ComposioUserProfile, ComposioUserProfileRequest,
         };
 
         match crate::modules::connectors::call_existing_readonly::<_, ComposioUserProfile>(
-            self.config,
+            config,
             crate::modules::connectors::methods::GET_USER_PROFILE,
             ComposioUserProfileRequest {
                 toolkit: toolkit.to_ascii_lowercase(),
@@ -318,23 +365,10 @@ impl crate::skills::preflight::PreflightProbes for ExistingConnectorPreflightPro
             }
         }
     }
-
-    async fn git_version(&self) -> Result<(), String> {
-        crate::skills::preflight::LivePreflightProbes::new(self.config)
-            .git_version()
-            .await
-    }
-
-    async fn git_user_name(&self) -> String {
-        crate::skills::preflight::LivePreflightProbes::new(self.config)
-            .git_user_name()
-            .await
-    }
-
-    async fn git_user_email(&self) -> String {
-        crate::skills::preflight::LivePreflightProbes::new(self.config)
-            .git_user_email()
-            .await
+    #[cfg(not(feature = "modules"))]
+    {
+        let _ = (config, toolkit);
+        PreflightProbeStatus::Unavailable
     }
 }
 

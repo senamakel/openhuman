@@ -38,7 +38,8 @@ pub(super) use migrate::redact_url_for_log;
 // against the real constant rather than a copied literal.
 pub(crate) use impl_load::CONFIG_OWNER_MISMATCH_MARKER;
 pub(crate) use provenance::{
-    ConfigProvenance, DotenvLoadProvenance, ProvenanceSource, ValueProvenance,
+    current_dotenv_load, dotenv_loaded_variable, set_current_dotenv_load, ConfigProvenance,
+    DotenvLoadProvenance, ProvenanceSource, ValueProvenance,
 };
 
 // Items needed by load_tests.rs (loaded as `mod tests` below).

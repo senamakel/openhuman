@@ -14,13 +14,18 @@ use crate::config::Config;
 #[inline(never)]
 pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
     let mut document: toml::Value = toml::from_str(contents)?;
+    let provenance_document = document.clone();
     crate::config::migrations::retire_cloud_provider_type::rewrite_document(&mut document)?;
     reject_non_finite_floats(&document, &mut String::new())?;
     let json = serde_json::to_value(document)?;
-    serde_path_to_error::deserialize(json).map_err(|err| {
+    let mut config: Config = serde_path_to_error::deserialize(json).map_err(|err| {
         let path = err.path().to_string();
         anyhow::anyhow!("{path}: {}", err.into_inner())
-    })
+    })?;
+    config
+        .load_provenance_mut()
+        .record_file_keys(&provenance_document);
+    Ok(config)
 }
 
 /// JSON has no NaN or infinity: `serde_json::to_value` turns them into null,

@@ -43,6 +43,23 @@ pub(super) fn classify_shell_hide_window(raw: &str) -> ShellHideWindowParse {
 }
 
 impl Config {
+    pub(crate) fn record_env_override<E: super::env::EnvLookup + ?Sized>(
+        &mut self,
+        env: &E,
+        field_path: &str,
+        env_vars: &[&str],
+    ) {
+        if let Some(env_var) = env_vars.iter().copied().find(|name| env.contains(name)) {
+            let source = if env.is_from_dotenv(env_var) {
+                super::ProvenanceSource::Dotenv
+            } else {
+                super::ProvenanceSource::Env
+            };
+            self.load_provenance_mut()
+                .record_env_override(field_path, env_var, source);
+        }
+    }
+
     pub fn apply_env_overrides(&mut self) {
         use super::env::ProcessEnv;
         self.apply_env_overrides_from(&ProcessEnv);
@@ -79,15 +96,23 @@ impl Config {
     /// with a [`HashMapEnv`] (see tests) without requiring the
     /// `TEST_ENV_LOCK` or tainting sibling tests.
     pub(crate) fn apply_env_overlay_with<E: super::env::EnvLookup + ?Sized>(&mut self, env: &E) {
+        self.load_provenance_mut()
+            .set_dotenv(super::current_dotenv_load());
+
         // Only the namespaced `OPENHUMAN_MODEL` is honoured. The bare `MODEL`
         // env var used to be accepted as an alias but collides with vendor
         // asset-tag env vars (e.g. Dell OptiPlex sets `MODEL=7080`), which
         // silently clobbered the LLM model and 400'd every backend call
         // (Sentry OPENHUMAN-TAURI-J8).
-        if let Some(model) = env.get("OPENHUMAN_MODEL") {
+        if let Some(model) = env.get_any(&["OPENHUMAN_DEFAULT_MODEL", "OPENHUMAN_MODEL"]) {
             let trimmed = model.trim();
             if !trimmed.is_empty() {
                 self.default_model = Some(trimmed.to_string());
+                self.record_env_override(
+                    env,
+                    "default_model",
+                    &["OPENHUMAN_DEFAULT_MODEL", "OPENHUMAN_MODEL"],
+                );
             }
         }
 
@@ -103,6 +128,7 @@ impl Config {
                     "OPENHUMAN_TOOL_DISPATCHER overrides agent.tool_dispatcher"
                 );
                 self.agent.tool_dispatcher = trimmed.to_string();
+                self.record_env_override(env, "agent.tool_dispatcher", &["OPENHUMAN_TOOL_DISPATCHER"]);
             }
         }
 
@@ -120,6 +146,11 @@ impl Config {
                              agent.max_tool_iterations_override"
                         );
                         self.agent.max_tool_iterations_override = Some(cap);
+                        self.record_env_override(
+                            env,
+                            "agent.max_tool_iterations_override",
+                            &["OPENHUMAN_AGENT_MAX_TOOL_ITERATIONS"],
+                        );
                     }
                     _ => tracing::warn!(
                         value = trimmed,
@@ -139,6 +170,7 @@ impl Config {
                     "OPENHUMAN_COMPOSIO_MODE overrides composio.mode"
                 );
                 self.composio.mode = trimmed.to_ascii_lowercase();
+                self.record_env_override(env, "composio.mode", &["OPENHUMAN_COMPOSIO_MODE"]);
             }
         }
 
@@ -154,6 +186,7 @@ impl Config {
                     "OPENHUMAN_JEV_ROUTE overrides agent.tool_search.jev_route"
                 );
                 self.agent.tool_search.jev_route = trimmed.to_ascii_lowercase();
+                self.record_env_override(env, "agent.tool_search.jev_route", &["OPENHUMAN_JEV_ROUTE"]);
             }
         }
         if let Some(raw) = env.get("OPENHUMAN_JEV_BASE_URL") {
@@ -161,6 +194,7 @@ impl Config {
             if !trimmed.is_empty() {
                 tracing::debug!("OPENHUMAN_JEV_BASE_URL overrides agent.tool_search.jev_base_url");
                 self.agent.tool_search.jev_base_url = Some(trimmed.to_string());
+                self.record_env_override(env, "agent.tool_search.jev_base_url", &["OPENHUMAN_JEV_BASE_URL"]);
             }
         }
 
@@ -169,6 +203,7 @@ impl Config {
                 let (_, workspace_dir) =
                     super::dirs::resolve_config_dir_for_workspace(&PathBuf::from(workspace));
                 self.workspace_dir = workspace_dir;
+                self.record_env_override(env, "workspace_dir", &["OPENHUMAN_WORKSPACE"]);
             }
         }
 
@@ -176,6 +211,7 @@ impl Config {
             let trimmed = v.trim();
             if !trimmed.is_empty() {
                 self.action_dir = PathBuf::from(trimmed);
+                self.record_env_override(env, "action_dir", &["OPENHUMAN_ACTION_DIR"]);
             }
         }
 
@@ -183,6 +219,7 @@ impl Config {
             if let Ok(temp) = temp_str.parse::<f64>() {
                 if (0.0..=2.0).contains(&temp) {
                     self.default_temperature = temp;
+                    self.record_env_override(env, "default_temperature", &["OPENHUMAN_TEMPERATURE"]);
                 }
             }
         }
@@ -191,7 +228,10 @@ impl Config {
             let trimmed = raw.trim();
             if !trimmed.is_empty() {
                 match trimmed.parse::<u32>() {
-                    Ok(limit) => self.autonomy.max_actions_per_hour = limit,
+                    Ok(limit) => {
+                        self.autonomy.max_actions_per_hour = limit;
+                        self.record_env_override(env, "autonomy.max_actions_per_hour", &["OPENHUMAN_MAX_ACTIONS_PER_HOUR"]);
+                    }
                     Err(_) => tracing::warn!(
                         value = %raw,
                         "invalid OPENHUMAN_MAX_ACTIONS_PER_HOUR ignored; expected an unsigned integer"
@@ -204,14 +244,29 @@ impl Config {
             let language = language.trim();
             if !language.is_empty() {
                 self.output_language = Some(language.to_string());
+                self.record_env_override(env, "output_language", &["OPENHUMAN_OUTPUT_LANGUAGE"]);
             }
         }
 
         if let Some(flag) = env.get_any(&["OPENHUMAN_REASONING_ENABLED", "REASONING_ENABLED"]) {
             let normalized = flag.trim().to_ascii_lowercase();
             match normalized.as_str() {
-                "1" | "true" | "yes" | "on" => self.runtime.reasoning_enabled = Some(true),
-                "0" | "false" | "no" | "off" => self.runtime.reasoning_enabled = Some(false),
+                "1" | "true" | "yes" | "on" => {
+                    self.runtime.reasoning_enabled = Some(true);
+                    self.record_env_override(
+                        env,
+                        "runtime.reasoning_enabled",
+                        &["OPENHUMAN_REASONING_ENABLED", "REASONING_ENABLED"],
+                    );
+                }
+                "0" | "false" | "no" | "off" => {
+                    self.runtime.reasoning_enabled = Some(false);
+                    self.record_env_override(
+                        env,
+                        "runtime.reasoning_enabled",
+                        &["OPENHUMAN_REASONING_ENABLED", "REASONING_ENABLED"],
+                    );
+                }
                 _ => {}
             }
         }
@@ -230,6 +285,11 @@ impl Config {
                 ),
                 ShellHideWindowParse::Set(value) => {
                     self.shell.hide_window = value;
+                    self.record_env_override(
+                        env,
+                        "shell.hide_window",
+                        &["OPENHUMAN_SHELL_HIDE_WINDOW", "SHELL_HIDE_WINDOW"],
+                    );
                     tracing::debug!(
                         value = %flag,
                         "[config][shell] OPENHUMAN_SHELL_HIDE_WINDOW applied: hide_window={value}"

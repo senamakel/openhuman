@@ -13,6 +13,11 @@ use crate::core::all;
 use crate::core::invoke::{default_state, invoke_method};
 use crate::core::params::parse_json_params;
 use crate::core::{ControllerSchema, TypeSchema};
+use crate::config::schema::load::{
+    set_current_dotenv_load, DotenvLoadProvenance,
+};
+use std::collections::HashSet;
+use std::path::{Path, PathBuf};
 
 /// The ASCII banner displayed when the CLI starts.
 const CLI_BANNER: &str = r#"
@@ -328,17 +333,40 @@ fn run_sentry_test_command(_args: &[String]) -> Result<()> {
 /// 2. If `OPENHUMAN_DOTENV_PATH` is set, that file is loaded.
 /// 3. Otherwise, it searches for `.env` in the current working directory.
 pub fn load_dotenv_for_cli() -> Result<()> {
+    set_current_dotenv_load(None);
+    let process_vars = std::env::vars_os()
+        .map(|(name, _)| name.to_string_lossy().into_owned())
+        .collect::<HashSet<_>>();
     match std::env::var("OPENHUMAN_DOTENV_PATH") {
         Ok(path) if !path.trim().is_empty() => {
+            let path = PathBuf::from(&path);
+            let variables = dotenv_variable_names(&path)?;
             dotenvy::from_path(&path).map_err(|e| {
                 anyhow::anyhow!("failed to load dotenv from OPENHUMAN_DOTENV_PATH={path}: {e}")
             })?;
+            set_current_dotenv_load(Some(DotenvLoadProvenance::from_variables(
+                path, variables, process_vars,
+            )));
         }
         _ => {
-            let _ = dotenvy::dotenv();
+            if let Ok(path) = dotenvy::dotenv() {
+                if let Ok(variables) = dotenv_variable_names(&path) {
+                    set_current_dotenv_load(Some(DotenvLoadProvenance::from_variables(
+                        path,
+                        variables,
+                        process_vars,
+                    )));
+                }
+            }
         }
     }
     Ok(())
+}
+
+fn dotenv_variable_names(path: &Path) -> Result<Vec<String>> {
+    dotenvy::from_path_iter(path)?
+        .map(|entry| entry.map(|(name, _)| name).map_err(anyhow::Error::from))
+        .collect()
 }
 
 /// Handles the `call` subcommand to invoke a JSON-RPC method directly from the CLI.

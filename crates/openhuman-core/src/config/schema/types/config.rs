@@ -21,6 +21,7 @@ pub(crate) struct ConfigDocumentSnapshot {
 #[doc(hidden)]
 #[derive(Debug, Default)]
 pub struct ConfigRuntimeState {
+    pub(crate) provenance: super::super::load::ConfigProvenance,
     pub(crate) document_snapshot: std::sync::Mutex<ConfigDocumentSnapshot>,
     pub(crate) context_snapshot: Option<std::sync::Weak<std::sync::Mutex<Config>>>,
     pub(crate) context_overlay: std::sync::Mutex<
@@ -31,6 +32,7 @@ pub struct ConfigRuntimeState {
 impl Clone for ConfigRuntimeState {
     fn clone(&self) -> Self {
         Self {
+            provenance: self.provenance.clone(),
             document_snapshot: std::sync::Mutex::new(
                 self.document_snapshot.lock().unwrap().clone(),
             ),

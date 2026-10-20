@@ -11,7 +11,15 @@ use crate::doctor::contract::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, F
 #[async_trait]
 trait SandboxProbe: Send + Sync {
     async fn docker_available(&self) -> Result<bool, ()>;
-    fn landlock_available(&self) -> bool;
+    async fn landlock_status(&self) -> LandlockStatus;
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LandlockStatus {
+    Available,
+    Unsupported,
+    Unavailable,
+    Failed,
 }
 
 struct HostSandboxProbe;
@@ -33,14 +41,36 @@ impl SandboxProbe for HostSandboxProbe {
         }
     }
 
-    fn landlock_available(&self) -> bool {
-        #[cfg(target_os = "linux")]
+    async fn landlock_status(&self) -> LandlockStatus {
+        #[cfg(all(target_os = "linux", feature = "modules"))]
         {
-            std::path::Path::new("/sys/kernel/security/landlock").exists()
+            use crate::modules::tinybox::contract::JailStatus;
+            use crate::modules::tinybox::contract::names::JAIL_STATUS;
+            use crate::modules::runtime::{ExistingModuleCallError, call_if_ready};
+
+            return match call_if_ready::<_, JailStatus>(
+                crate::modules::tinybox::MODULE_ID,
+                JAIL_STATUS,
+                (),
+                Duration::from_secs(5),
+            )
+            .await
+            {
+                Ok(Some(status))
+                    if status.backend.eq_ignore_ascii_case("landlock") && status.available =>
+                {
+                    LandlockStatus::Available
+                }
+                Ok(Some(_)) => LandlockStatus::Unsupported,
+                Ok(None) | Err(ExistingModuleCallError::Unavailable) => {
+                    LandlockStatus::Unavailable
+                }
+                Err(ExistingModuleCallError::Failed) => LandlockStatus::Failed,
+            };
         }
-        #[cfg(not(target_os = "linux"))]
+        #[cfg(not(all(target_os = "linux", feature = "modules")))]
         {
-            false
+            LandlockStatus::Unsupported
         }
     }
 }
@@ -90,15 +120,27 @@ impl SandboxBackendCheck {
                     "Start Docker and confirm that the current user can reach its daemon.",
                 ),
             },
-            SandboxBackend::Landlock if self.probe.landlock_available() => Finding::pass(
-                "sandbox/backend",
-                "The configured Landlock backend is available.",
-            ),
-            SandboxBackend::Landlock => Finding::error(
-                "sandbox/backend",
-                "The configured Landlock backend is unavailable on this host.",
-                "Use a Linux kernel with Landlock support or select another backend.",
-            ),
+            SandboxBackend::Landlock => match self.probe.landlock_status().await {
+                LandlockStatus::Available => Finding::pass(
+                    "sandbox/backend",
+                    "The configured Landlock backend is available.",
+                ),
+                LandlockStatus::Unsupported => Finding::error(
+                    "sandbox/backend",
+                    "The configured Landlock backend is unavailable on this host.",
+                    "Use a Linux kernel and TinyBox build with Landlock support, or select another backend.",
+                ),
+                LandlockStatus::Unavailable => Finding::skipped(
+                    "sandbox/backend",
+                    "TinyBox is not already available to report its native jail capability.",
+                    "Open the sandbox runtime, then rerun doctor to inspect its backend.",
+                ),
+                LandlockStatus::Failed => Finding::error(
+                    "sandbox/backend",
+                    "The existing TinyBox runtime did not return native jail status.",
+                    "Review the sandbox runtime and rerun doctor.",
+                ),
+            },
             SandboxBackend::Firejail | SandboxBackend::Bubblewrap => Finding::error(
                 "sandbox/backend",
                 "The configured sandbox backend is not supported by this build.",

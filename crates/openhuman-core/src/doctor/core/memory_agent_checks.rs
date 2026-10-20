@@ -37,8 +37,8 @@ pub(super) fn check_memory_engine(memory: &MemoryEngineCheck, items: &mut Vec<Di
 
 /// Probe the configured embedding provider and model.
 ///
-/// - If the intended provider is not `"ollama"` (e.g. cloud): `Ok` — no
-///   local daemon is involved and nothing to diagnose here.
+/// - If the intended provider is not `"ollama"` (e.g. cloud): `Skipped` — its
+///   health is probed in the live tier, not by this local-daemon check.
 /// - If Ollama is configured but the daemon at `<base_url>/api/tags` is
 ///   unreachable: `Error` with the pull command as the fix hint.
 /// - If the daemon is reachable but the configured embedding model is not
@@ -63,16 +63,18 @@ pub(super) fn check_embedding_model_health(config: &Config, items: &mut Vec<Diag
     log::debug!("[doctor] check_embedding_model_health: provider={provider} model={model}");
 
     if provider != "ollama" {
-        // Cloud or custom provider — no local daemon to probe.
-        items.push(DiagnosticItem::ok(
+        // Cloud or custom providers are probed in the live tier.
+        items.push(DiagnosticItem::skipped(
             cat,
-            format!("embedding provider: {provider} (model: {model}) — no local daemon required"),
+            format!("embedding provider: {provider} (model: {model}) — probed in the live tier"),
         ));
         return;
     }
 
     // Ollama path: probe reachability then model availability.
-    let base_url = tinyinference_local::ollama::ollama_base_url();
+    let base_url = tinyinference_local::ollama::ollama_base_url_from_override(
+        config.local_ai.base_url.as_deref(),
+    );
     let tags_url = format!("{}/api/tags", base_url.trim_end_matches('/'));
 
     log::debug!("[doctor] probing ollama at {tags_url} for embedding model {model}");

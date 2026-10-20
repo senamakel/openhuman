@@ -269,12 +269,16 @@ async fn launch(
                 started: false,
             });
         }
-        let reason = if MIGRATION.is_running(&workspace) {
-            "memory is being organized; import once that finishes"
-        } else {
-            "a conversation backfill is running; import once it finishes"
+        let action = match mode {
+            Mode::Import => "import",
+            Mode::Retry | Mode::ResumeRetry => "retry",
         };
-        return Err(Error::InvalidRequest(reason.into()));
+        let reason = if MIGRATION.is_running(&workspace) {
+            format!("memory is being organized; {action} once that finishes")
+        } else {
+            format!("a conversation backfill is running; {action} once it finishes")
+        };
+        return Err(Error::InvalidRequest(reason));
     };
     let bound = engine::resolve(config).engine()?;
     let driver = importer(config, bound.engine, consent, paused);

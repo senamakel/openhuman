@@ -60,5 +60,5 @@ fn module_ids_are_encoded_as_valid_check_id_segments() {
         ..status(ModuleState::Ready, None)
     });
 
-    assert_eq!(check.id(), "modules/_54iny_20_4dodule_2f_ce_b1");
+    assert_eq!(check.id(), "modules/__x_i_54696e79204d6f64756c652fceb1");
 }

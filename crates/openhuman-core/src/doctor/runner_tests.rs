@@ -440,6 +440,38 @@ async fn mcp_server_check_ids_come_from_the_selected_config() {
 }
 
 #[tokio::test]
+async fn duplicate_mcp_names_report_an_ambiguous_definition() {
+    let workspace = tempfile::tempdir().expect("create isolated MCP config fixture");
+    let mut config = isolated_config(workspace.path());
+    let mut first = crate::config::McpServerConfig::default();
+    first.name = "server-a".into();
+    first.command = "first-server".into();
+    let mut second = crate::config::McpServerConfig::default();
+    second.name = "server-a".into();
+    second.endpoint = "https://example.invalid/mcp".into();
+    config.mcp_client.servers.extend([first, second]);
+
+    let report = runner::run(
+        &DoctorCtx::from_config(config),
+        DoctorOptions {
+            only: vec!["mcp/server-a".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("duplicate server names are reported under one valid id");
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "mcp/server-a")
+        .expect("one finding identifies the duplicate MCP server");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(finding.message.to_ascii_lowercase().contains("duplicate"));
+    assert!(finding.fix_hint.contains("Remove"));
+}
+
+#[tokio::test]
 async fn malformed_skill_discovery_reports_a_warning_with_its_path() {
     let workspace = tempfile::tempdir().expect("create isolated skill fixture");
     let config = isolated_config(workspace.path());

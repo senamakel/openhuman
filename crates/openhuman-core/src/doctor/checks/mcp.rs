@@ -49,17 +49,28 @@ impl McpStatusProbe for ExistingClientProbe {
 }
 
 pub(super) fn for_context(ctx: &DoctorCtx) -> Vec<Arc<dyn DoctorCheck>> {
+    checks_for_servers(
+        &ctx.config().mcp_client.servers,
+        Arc::new(ExistingClientProbe),
+    )
+    .into_iter()
+    .map(|check| Arc::new(check) as Arc<dyn DoctorCheck>)
+    .collect()
+}
+
+fn checks_for_servers(
+    servers: &[McpServerConfig],
+    probe: Arc<dyn McpStatusProbe>,
+) -> Vec<McpServerCheck> {
     let mut seen = std::collections::HashSet::new();
-    ctx.config()
-        .mcp_client
-        .servers
-        .iter()
-        .filter_map(|server| {
-            let check = McpServerCheck::configured(server);
-            seen.insert(check.id.clone())
-                .then(|| Arc::new(check) as Arc<dyn DoctorCheck>)
-        })
-        .collect()
+    let mut checks = Vec::new();
+    for server in servers {
+        let check = McpServerCheck::configured(server, Arc::clone(&probe));
+        if seen.insert(check.id.clone()) {
+            checks.push(check);
+        }
+    }
+    checks
 }
 
 struct McpServerCheck {
@@ -70,12 +81,12 @@ struct McpServerCheck {
 }
 
 impl McpServerCheck {
-    fn configured(server: &McpServerConfig) -> Self {
+    fn configured(server: &McpServerConfig, probe: Arc<dyn McpStatusProbe>) -> Self {
         Self {
             id: format!("mcp/{}", canonical_segment(&server.name)),
             server_id: server.name.clone(),
             enabled: server.enabled,
-            probe: Arc::new(ExistingClientProbe),
+            probe,
         }
     }
 

@@ -1,6 +1,7 @@
 use super::*;
 use crate::doctor::contract::{DoctorOptions, FindingSeverity};
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct FixedStatuses(Result<Option<Vec<tinymcp_bus::ConnStatus>>, McpStatusFailure>);
 
@@ -124,11 +125,55 @@ async fn disabled_mcp_component_skips_each_configured_server() {
     }));
 }
 
+struct CountingProbe(Arc<AtomicUsize>);
+
+#[async_trait]
+impl McpStatusProbe for CountingProbe {
+    async fn statuses(
+        &self,
+        _config: &crate::config::Config,
+    ) -> Result<Option<Vec<tinymcp_bus::ConnStatus>>, McpStatusFailure> {
+        self.0.fetch_add(1, Ordering::SeqCst);
+        Ok(None)
+    }
+}
+
+#[tokio::test]
+async fn duplicate_mcp_definitions_report_one_error_without_probing_either_entry() {
+    let scratch = tempfile::tempdir().expect("create isolated config fixture");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let servers = [
+        server("server-a"),
+        McpServerConfig {
+            server: tinymcp_bus::McpServerConfig {
+                name: "server-a".to_owned(),
+                endpoint: "https://example.invalid/mcp".to_owned(),
+                ..Default::default()
+            },
+            ..Default::default()
+        },
+    ];
+    let checks = checks_for_servers(&servers, Arc::new(CountingProbe(Arc::clone(&calls))));
+
+    assert_eq!(checks.len(), 1, "one exact id represents the ambiguity");
+    let finding = checks[0]
+        .detect(&DoctorCtx::from_config(config_in(scratch.path())))
+        .await
+        .remove(0);
+
+    assert_eq!(finding.check_id, "mcp/server-a");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(finding.message.contains("Multiple MCP server definitions"));
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
 #[test]
 fn arbitrary_server_names_produce_valid_noncolliding_ids() {
-    let first = McpServerCheck::configured(&server("Server A/α"));
-    let second = McpServerCheck::configured(&server("server a/α"));
+    let first =
+        McpServerCheck::configured(&server("Server A/α"), Arc::new(FixedStatuses(Ok(None))));
+    let second =
+        McpServerCheck::configured(&server("server a/α"), Arc::new(FixedStatuses(Ok(None))));
 
-    assert_eq!(first.id(), "mcp/_53erver_20_41_2f_ce_b1");
+    assert_eq!(first.id(), "mcp/__x_i_53657276657220412fceb1");
     assert_ne!(first.id(), second.id());
 }

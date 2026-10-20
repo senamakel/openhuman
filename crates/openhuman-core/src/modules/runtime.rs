@@ -137,6 +137,15 @@ pub fn is_started() -> bool {
     RUNTIME.get().is_some_and(Result::is_ok)
 }
 
+/// Returns the current runtime only when it was already started and its host
+/// callbacks are serving. Unlike [`runtime`], this accessor never starts a
+/// runtime or installs callbacks.
+pub(crate) fn existing_runtime() -> Option<&'static ModuleRuntime> {
+    let runtime = RUNTIME.get()?.as_ref().ok()?;
+    CALLBACKS.get()?.as_ref().ok()?;
+    Some(runtime)
+}
+
 #[cfg(test)]
 #[path = "runtime_tests.rs"]
 mod tests;

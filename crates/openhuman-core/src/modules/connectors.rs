@@ -68,6 +68,11 @@ pub type ProxyTargetResolver = Arc<dyn Fn(&Config) -> Result<ProxyTarget, String
 static MODULE_PROXY_TARGETS: HookSlot<ProxyTargetResolver> =
     HookSlot::new("modules::connectors::proxy_targets");
 
+#[path = "connectors/inspection.rs"]
+mod inspection;
+
+pub(crate) use inspection::{call_existing_readonly, ExistingCallError};
+
 /// Registers `resolve` as the proxy target for `mode` (`"backend"` is the one
 /// mode the proxy route serves). Nothing registered => the mode has no route.
 pub fn register_proxy_target<F>(mode: impl Into<String>, resolve: F)
@@ -307,6 +312,7 @@ static ROUTE_TURN: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 /// user's session no longer owns, and "your account is broken" is a bad way to
 /// tell someone they are signed out.
 async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
+    let _inspection_guard = inspection::route_lock().lock().await;
     let mut route =
         module_config(config).unwrap_or_else(|_| serde_json::json!({ "route": "none" }));
     // `state_dir` is load-time only: the trigger archive opens once, and moving
@@ -345,6 +351,7 @@ async fn ensure_routed(config: &Config, proxy: &Proxy) -> Result<(), String> {
     *last_route()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(current);
+    inspection::record_configured_route(config, &route);
     Ok(())
 }
 

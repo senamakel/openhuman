@@ -23,8 +23,11 @@ pub(crate) struct ConfigParseFailure {
 impl ConfigParseFailure {
     fn syntax(contents: &str, source: toml::de::Error) -> Self {
         let line = source.span().map(|span| {
-            contents[..span.start.min(contents.len())]
-                .bytes()
+            contents
+                .as_bytes()
+                .get(..span.start.min(contents.len()))
+                .unwrap_or_default()
+                .iter()
                 .filter(|byte| *byte == b'\n')
                 .count()
                 + 1

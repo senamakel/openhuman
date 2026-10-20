@@ -214,12 +214,36 @@ pub(crate) fn migrate_cloud_provider_slugs(config: &mut Config) {
             .record_migrated_key("cloud_providers[].label");
     }
     let changed_routes: Vec<&str> = [
-        ("reasoning_provider", &previous_routes[0], &config.reasoning_provider),
-        ("agentic_provider", &previous_routes[1], &config.agentic_provider),
-        ("coding_provider", &previous_routes[2], &config.coding_provider),
-        ("vision_provider", &previous_routes[3], &config.vision_provider),
-        ("memory_provider", &previous_routes[4], &config.memory_provider),
-        ("embeddings_provider", &previous_routes[5], &config.embeddings_provider),
+        (
+            "reasoning_provider",
+            &previous_routes[0],
+            &config.reasoning_provider,
+        ),
+        (
+            "agentic_provider",
+            &previous_routes[1],
+            &config.agentic_provider,
+        ),
+        (
+            "coding_provider",
+            &previous_routes[2],
+            &config.coding_provider,
+        ),
+        (
+            "vision_provider",
+            &previous_routes[3],
+            &config.vision_provider,
+        ),
+        (
+            "memory_provider",
+            &previous_routes[4],
+            &config.memory_provider,
+        ),
+        (
+            "embeddings_provider",
+            &previous_routes[5],
+            &config.embeddings_provider,
+        ),
     ]
     .into_iter()
     .filter_map(|(key, before, after)| (before != after).then_some(key))

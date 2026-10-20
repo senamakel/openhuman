@@ -38,8 +38,7 @@ pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
         let mut record_unknown = |path: serde_ignored::Path<'_>| {
             unknown_keys.push(path.to_string());
         };
-        let deserializer =
-            serde_ignored::Deserializer::new(&mut deserializer, &mut record_unknown);
+        let deserializer = serde_ignored::Deserializer::new(&mut deserializer, &mut record_unknown);
         serde_path_to_error::deserialize(deserializer)
     };
     let mut config: Config = parsed.map_err(|err| {

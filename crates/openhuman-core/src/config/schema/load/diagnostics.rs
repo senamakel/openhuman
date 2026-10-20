@@ -2,6 +2,8 @@
 
 use std::path::PathBuf;
 
+use super::super::Config;
+
 /// Source used to recover after the configured file failed to parse.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub(crate) enum ConfigLoadFallback {
@@ -20,6 +22,10 @@ pub(crate) struct ConfigParseError {
     /// File whose contents failed to parse.
     pub(crate) path: PathBuf,
     /// Parse error including any TOML line or typed-field path.
+    ///
+    /// The parser's raw message can contain source context. Doctor findings
+    /// should report a safe path/line/classification instead of copying this
+    /// message verbatim.
     pub(crate) message: String,
 }
 
@@ -55,4 +61,20 @@ impl LoadDiagnostics {
             self.migrated_keys.push(key);
         }
     }
+}
+
+pub(super) fn record_non_utf8_recovery(
+    config: &mut Config,
+    path: &std::path::Path,
+    fallback: ConfigLoadFallback,
+) {
+    let diagnostics = config.load_diagnostics_mut();
+    if diagnostics.fallback != ConfigLoadFallback::None {
+        return;
+    }
+    diagnostics.parse_error = Some(ConfigParseError {
+        path: path.to_path_buf(),
+        message: "config file could not be decoded as UTF-8".to_string(),
+    });
+    diagnostics.fallback = fallback;
 }

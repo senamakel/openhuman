@@ -26,9 +26,7 @@ pub(super) async fn parse_source_contents(
             .map_err(|error| {
                 anyhow::anyhow!("the config document for this scope could not be parsed: {error}")
             })?;
-        config
-            .load_diagnostics_mut()
-            .warn_unknown_keys_once();
+        config.load_diagnostics_mut().warn_unknown_keys_once();
         *config.runtime_state.document_snapshot.lock().unwrap() =
             super::super::ConfigDocumentSnapshot {
                 version: read.document_version,
@@ -37,7 +35,12 @@ pub(super) async fn parse_source_contents(
         return Ok((config, false));
     }
     if read_was_recovered && contents.is_empty() {
-        let config = super::branches::default_config_boxed();
+        let mut config = super::branches::default_config_boxed();
+        super::diagnostics::record_non_utf8_recovery(
+            &mut config,
+            config_path,
+            super::ConfigLoadFallback::Defaults,
+        );
         *config.runtime_state.document_snapshot.lock().unwrap() =
             super::super::ConfigDocumentSnapshot {
                 version: read.document_version,
@@ -45,7 +48,15 @@ pub(super) async fn parse_source_contents(
             };
         return Ok((config, true));
     }
-    let (config, recovered) = Box::pin(parse_config_boxed(config_path, contents)).await;
+    let (mut config, recovered) = Box::pin(parse_config_boxed(config_path, contents)).await;
+    if read_was_recovered {
+        let fallback = if contents.is_empty() {
+            super::ConfigLoadFallback::Defaults
+        } else {
+            super::ConfigLoadFallback::Backup
+        };
+        super::diagnostics::record_non_utf8_recovery(&mut config, config_path, fallback);
+    }
     *config.runtime_state.document_snapshot.lock().unwrap() =
         super::super::ConfigDocumentSnapshot {
             version: read.document_version,

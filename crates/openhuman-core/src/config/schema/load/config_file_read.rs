@@ -20,9 +20,7 @@ pub(crate) async fn parse_config_with_recovery(
 pub(super) async fn parse_config_boxed(config_path: &Path, contents: &str) -> (Box<Config>, bool) {
     let parse_err = match parse_toml_off_worker(contents.to_string()).await {
         Ok(mut config) => {
-            config
-                .load_diagnostics_mut()
-                .warn_unknown_keys_once();
+            config.load_diagnostics_mut().warn_unknown_keys_once();
             tracing::debug!(
                 path = %config_path.display(),
                 "[config] Config parsed successfully"

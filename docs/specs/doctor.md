@@ -69,21 +69,21 @@ the report regardless of completion order. Timeout and detector failures are
 finishing. A timed-out detector is cancelled where the async operation supports
 cancellation.
 
-Every registered check emits at least one finding. A successful check emits a
-`pass` finding. If a check finds multiple conditions, it emits one finding for
-each condition; if it finds none, it emits one pass. This makes `checks_run`
-and severity totals meaningful without treating an empty vector as an
-unobserved check.
+Detectors may return an empty vector when the check is clean. The runner turns
+an empty result into one `pass` finding so `checks_run` and severity totals
+still distinguish a successful check from an unobserved one. Detectors that
+find multiple conditions emit one finding for each condition. This permits a
+clean config check to return no findings, as required by the config leaves.
 
 ### Finding
 
 ```json
 {
-  "check_id": "config/file-integrity",
+  "check_id": "config/unknown-key",
   "severity": "warn",
-  "message": "The config file was recovered from its backup.",
-  "fix_hint": "Review the backup and restore a valid config file.",
-  "config_path": "config.toml",
+  "message": "Unknown config key `memroy`; did you mean `memory`?",
+  "fix_hint": "Rename the key to `memory` and rerun doctor.",
+  "config_path": "memroy",
   "value_source": "file",
   "duration_ms": 4,
   "affects": ["settings.configuration"]
@@ -120,19 +120,19 @@ method and `doctor_health` / `doctor_models` tool names also remain stable.
   "profile": "desktop-default",
   "config_source": "profile",
   "tier": "connect",
-  "checks_run": ["config/file-integrity"],
-  "checks_skipped": ["inference/role-completion"],
+  "checks_run": ["config/parse"],
+  "checks_skipped": ["inference/live/chat"],
   "findings": [
     {
-      "check_id": "config/file-integrity",
+      "check_id": "config/parse",
       "severity": "pass",
-      "message": "The config file is valid.",
+      "message": "The config file parsed successfully.",
       "fix_hint": "No action required.",
       "duration_ms": 4,
       "affects": []
     },
     {
-      "check_id": "inference/role-completion",
+      "check_id": "inference/live/chat",
       "severity": "skipped",
       "message": "This live check was not requested.",
       "fix_hint": "Rerun doctor with --live to run this check.",
@@ -154,10 +154,10 @@ does not by itself make the report unhealthy. The CLI's lint threshold is
 separate from this field.
 
 `profile` is the effective profile id, when the host has one, and `null`
-otherwise. `config_source` is the redacted source kind (`profile` or `tenant`),
-not a filesystem path or tenant credential. The report describes the effective
-configuration used for this run. It does not reveal a config path, except for
-logical paths in individual findings.
+otherwise. `config_source` is always the redacted source kind (`profile` or
+`tenant`), not a filesystem path or tenant credential. The report describes
+the effective configuration used for this run. It does not reveal a config
+path, except for logical paths in individual findings.
 
 The selection validator is a reserved runner check, `doctor/selection`. An
 unknown id supplied to either `only` or `skip` adds an `error` finding under

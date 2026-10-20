@@ -20,7 +20,6 @@ impl ChannelHealthProbe for FixedHealth {
         &self,
         config: &crate::config::Config,
         _provider: &str,
-        channels: tinychannels_bus::ChannelsConfig,
         policy: HttpProxyPolicy,
     ) -> Result<Option<Vec<ChannelHealthReport>>, ChannelHealthFailure> {
         self.readiness_checks.fetch_add(1, Ordering::SeqCst);
@@ -29,7 +28,6 @@ impl ChannelHealthProbe for FixedHealth {
         }
         *self.workspace.lock().unwrap() = Some(config.workspace_dir.clone());
         *self.policy.lock().unwrap() = Some(policy);
-        let _ = channels;
         self.result.clone()
     }
 }
@@ -253,7 +251,6 @@ async fn disabled_module_configuration_skips_without_starting_or_loading_the_mod
     let result = ExistingModuleProbe.check(
         &config,
         "imessage",
-        health_config(&config, "imessage"),
         proxy_policy(&config, "imessage"),
     ).await;
 

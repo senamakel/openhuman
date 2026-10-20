@@ -24,7 +24,6 @@ pub(super) trait ChannelHealthProbe: Send + Sync {
         &self,
         config: &Config,
         provider: &str,
-        channels: ChannelsConfig,
         proxy: HttpProxyPolicy,
     ) -> Result<Option<Vec<ChannelHealthReport>>, ChannelHealthFailure>;
 }
@@ -37,7 +36,6 @@ impl ChannelHealthProbe for ExistingModuleProbe {
         &self,
         config: &Config,
         provider: &str,
-        channels: ChannelsConfig,
         proxy: HttpProxyPolicy,
     ) -> Result<Option<Vec<ChannelHealthReport>>, ChannelHealthFailure> {
         // Check readiness before reading credentials. `check_existing` repeats
@@ -47,7 +45,10 @@ impl ChannelHealthProbe for ExistingModuleProbe {
             return Ok(None);
         }
 
-        crate::modules::channel_health::check_existing(
+        #[cfg(all(feature = "modules", feature = "channels"))]
+        let channels = health_config(config, provider);
+        #[cfg(all(feature = "modules", feature = "channels"))]
+        return crate::modules::channel_health::check_existing(
             config,
             channels,
             proxy,
@@ -61,12 +62,17 @@ impl ChannelHealthProbe for ExistingModuleProbe {
             crate::modules::channel_health::ExistingHealthError::Failed => {
                 ChannelHealthFailure::Failed
             }
-        })
+        });
+        #[cfg(not(all(feature = "modules", feature = "channels")))]
+        {
+            let _ = (provider, proxy);
+            Ok(None)
+        }
     }
 }
 
 pub(super) fn for_context(ctx: &DoctorCtx) -> Vec<Arc<dyn DoctorCheck>> {
-    crate::channels::configured_providers(ctx.config())
+    configured_provider_ids(ctx.config())
         .into_iter()
         .map(|provider| {
             Arc::new(ChannelHealthCheck::configured(
@@ -98,9 +104,8 @@ impl ChannelHealthCheck {
     }
 
     async fn finding(&self, config: &Config) -> Finding {
-        let channels = health_config(config, &self.provider);
         let proxy = proxy_policy(config, &self.provider);
-        match self.probe.check(config, &self.provider, channels, proxy).await {
+        match self.probe.check(config, &self.provider, proxy).await {
             Ok(None) | Err(ChannelHealthFailure::Unavailable) => Finding::skipped(
                 &self.id,
                 format!(
@@ -175,13 +180,13 @@ fn channel_label(channel: &str) -> String {
 }
 
 fn module_is_ready(config: &Config) -> bool {
-    #[cfg(feature = "modules")]
+    #[cfg(all(feature = "modules", feature = "channels"))]
     {
         config.modules.enabled
             && crate::modules::runtime::existing_runtime().is_some()
             && crate::modules::ops::state_of(MODULE_ID) == crate::modules::types::ModuleState::Ready
     }
-    #[cfg(not(feature = "modules"))]
+    #[cfg(not(all(feature = "modules", feature = "channels")))]
     {
         let _ = config;
         false
@@ -211,6 +216,8 @@ fn proxy_policy(config: &Config, provider: &str) -> HttpProxyPolicy {
 
 fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
     let mut channels = config.channels_config.clone();
+    #[cfg(feature = "channels")]
+    {
     if provider == "email" {
         if let Some(email) = channels.email.take() {
             channels.email = Some(crate::channels::credentials::resolve_email_password_read_only(
@@ -224,6 +231,7 @@ fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
                 crate::channels::credentials::resolve_yuanbao_app_secret_read_only(yuanbao, config),
             );
         }
+    }
     }
 
     channels.cli = false;
@@ -272,6 +280,30 @@ fn health_config(config: &Config, provider: &str) -> ChannelsConfig {
         .flatten();
     channels.yuanbao = (provider == "yuanbao").then(|| channels.yuanbao.clone()).flatten();
     channels
+}
+
+fn configured_provider_ids(config: &Config) -> Vec<&'static str> {
+    let channels = &config.channels_config;
+    [
+        ("telegram", channels.telegram.is_some()),
+        ("discord", channels.discord.is_some()),
+        ("slack", channels.slack.is_some()),
+        ("mattermost", channels.mattermost.is_some()),
+        ("imessage", channels.imessage.is_some()),
+        ("matrix", channels.matrix.is_some()),
+        ("signal", channels.signal.is_some()),
+        ("whatsapp", channels.whatsapp.is_some()),
+        ("linq", channels.linq.is_some()),
+        ("email", channels.email.is_some()),
+        ("irc", channels.irc.is_some()),
+        ("lark", channels.lark.is_some()),
+        ("dingtalk", channels.dingtalk.is_some()),
+        ("qq", channels.qq.is_some()),
+        ("yuanbao", channels.yuanbao.is_some()),
+    ]
+    .into_iter()
+    .filter_map(|(provider, configured)| configured.then_some(provider))
+    .collect()
 }
 
 #[cfg(test)]

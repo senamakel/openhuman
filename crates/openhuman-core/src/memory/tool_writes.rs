@@ -26,6 +26,8 @@ use tinymemory_tools::pending::{
     Ack, Binding, Entry, Epoch, FenceToken, Limits, PendingError, PendingWrites, WriteExecutor,
     WriteGate, WriteOperation,
 };
+use tinymemory_tools::single::WriteSink;
+use tinymemory_tools::ToolScope;
 
 use super::tools::CallFacts;
 use super::types::{ForgetParams, LearnParams};
@@ -229,6 +231,79 @@ pub(super) fn enqueue(
             serde_json::json!({"queued":queued, "status":"queued; not yet removed from memory"})
         }
     })
+}
+
+/// The host policy and queue adapter used by TinyMemory's single tool.
+pub(super) struct HostWriteSink {
+    config: Arc<Config>,
+}
+
+impl HostWriteSink {
+    pub(super) fn new(config: Arc<Config>) -> Self {
+        Self { config }
+    }
+}
+
+impl WriteSink for HostWriteSink {
+    fn preflight(&self, _scope: &ToolScope) -> Result<()> {
+        if super::engine::switched_off(&self.config) {
+            return Err(Error::Off("memory is disabled".into()));
+        }
+        super::ops::saas_confinement(&self.config, Policy::Clamp)?;
+        Ok(())
+    }
+
+    fn enqueue(&self, operation: WriteOperation, scope: &ToolScope) -> Result<Ack> {
+        enqueue_operation(&self.config, operation, scope)
+    }
+}
+
+fn enqueue_operation(config: &Config, operation: WriteOperation, scope: &ToolScope) -> Result<Ack> {
+    if super::engine::switched_off(config) {
+        return Err(Error::Off("memory is disabled".into()));
+    }
+    let confinement = super::ops::saas_confinement(config, Policy::Clamp)?;
+    let mut reach = scope
+        .reach
+        .clone()
+        .unwrap_or_else(|| Reach::subtree(scope.place.clone()));
+    if let Some(confinement) = &confinement {
+        reach = confinement.reach(Some(reach))?;
+    }
+    let operation = match operation {
+        WriteOperation::Learn { mut item } => {
+            if let Some(confinement) = &confinement {
+                confinement.item(&mut item)?;
+            }
+            if reach.inherit || !Reach::subtree(reach.at.clone()).admits(&item.meta().namespace) {
+                return Err(Error::InvalidRequest(
+                    "learning namespace is outside the trusted reach".into(),
+                ));
+            }
+            WriteOperation::Learn {
+                item: tinymemory_integrations::safety::scrub_item_with(
+                    item,
+                    crate::security::scrub::host_policy(),
+                )
+                .value,
+            }
+        }
+        WriteOperation::Forget { ids, .. } => WriteOperation::Forget { ids, reach },
+    };
+    let scope_root = reach.at.clone();
+    let file = queue_path(config, &scope_root);
+    let _guard = LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    if !file.exists() && partitions(config)?.len() >= MAX_PENDING {
+        return Err(Error::Unavailable(
+            "memory write queue full; nothing was queued".into(),
+        ));
+    }
+    let owner = owner_state(config);
+    queue(&file)
+        .enqueue(operation, scope_root, binding(config), &owner.gate)
+        .map_err(map_pending)
 }
 
 /// A [`ListStore`] over one queue file: owner-only, written through a

@@ -637,7 +637,11 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
         assert_eq!(observation.ambient_workspace, account_b.workspace_dir);
         assert_eq!(
             observation.domains,
-            crate::core::runtime::DomainSet::kernel()
+            {
+                let mut domains = crate::core::runtime::DomainSet::kernel();
+                domains.memory = false;
+                domains
+            }
         );
         assert_eq!(
             observation.tool_groups,
@@ -645,6 +649,7 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
         );
         assert!(!observation.user_skill_roots);
         assert!(!observation.components.memory);
+        assert!(!observation.ambient_components.memory);
         assert_eq!(observation.tenant_profile, None);
         assert!(!observation.state_shared_with_parent);
     }
@@ -713,6 +718,7 @@ async fn selected_profile_is_ambient_for_process_sources_without_a_parent_contex
     assert_eq!(observations.len(), 1);
     assert_eq!(observations[0].ambient_workspace.as_deref(), Some(layout.workspace_dir.as_path()));
     assert_eq!(observations[0].tenant_profile, None);
+    assert_eq!(observations[0].ambient_memory_component, Some(false));
 }
 
 struct ProcessSelectedProfileContextSource(Arc<Mutex<Vec<ProcessSelectedProfileObservation>>>);
@@ -720,6 +726,7 @@ struct ProcessSelectedProfileContextSource(Arc<Mutex<Vec<ProcessSelectedProfileO
 struct ProcessSelectedProfileObservation {
     ambient_workspace: Option<std::path::PathBuf>,
     tenant_profile: Option<String>,
+    ambient_memory_component: Option<bool>,
 }
 
 struct ProcessSelectedProfileContextCheck(Arc<Mutex<Vec<ProcessSelectedProfileObservation>>>);
@@ -744,12 +751,15 @@ impl DoctorCheck for ProcessSelectedProfileContextCheck {
         let tenant_profile = crate::core::runtime::current_tenant()
             .ok()
             .and_then(|tenant| tenant.profile);
+        let ambient_memory_component = crate::core::runtime::CoreContext::current()
+            .map(|context| context.components().memory);
         self.0
             .lock()
             .unwrap()
             .push(ProcessSelectedProfileObservation {
                 ambient_workspace,
                 tenant_profile,
+                ambient_memory_component,
             });
         vec![Finding::pass(self.id(), "The selected profile is ambient to host checks.")]
     }
@@ -782,6 +792,7 @@ struct SelectedProfileContextObservation {
     tool_groups: crate::tools::toolpacks::ToolGroups,
     user_skill_roots: bool,
     components: crate::core::runtime::ComponentSet,
+    ambient_components: crate::core::runtime::ComponentSet,
     tenant_profile: Option<String>,
     state_shared_with_parent: bool,
 }
@@ -827,6 +838,7 @@ impl DoctorCheck for SelectedProfileContextCheck {
                 tool_groups: current.tool_groups(),
                 user_skill_roots: current.user_skill_roots(),
                 components: ctx.components(),
+                ambient_components: current.components(),
                 tenant_profile,
                 state_shared_with_parent: self
                     .parent_state

@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use crate::config::{Config, schema::ModuleOverride};
+use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 use crate::storage::{StorageUrl, STORAGE_URL_VAR};
 use tinystoragedrivers::{BlobConfig, StorageConfig};
@@ -118,10 +118,10 @@ fn finding(
     severity: FindingSeverity,
     message: impl Into<String>,
     fix_hint: impl Into<String>,
-    config_path: Option<&str>,
+    config_path: Option<String>,
 ) -> Finding {
     let mut finding = Finding::new(check_id, severity, message, fix_hint);
-    finding.config_path = config_path.map(str::to_owned);
+    finding.config_path = config_path;
     finding
 }
 
@@ -203,7 +203,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
     }
 
     if config.sandbox.enabled == Some(true)
-        || !matches!(config.sandbox.backend, crate::config::SandboxBackend::Auto)
+        || !matches!(&config.sandbox.backend, crate::config::SandboxBackend::Auto)
         || !config.sandbox.firejail_args.is_empty()
     {
         references.push(("sandbox", "sandbox"));
@@ -253,7 +253,7 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
                 format!(
                     "Enable the {component} component or remove the dependent configuration."
                 ),
-                Some(path),
+                Some(path.to_owned()),
             )
         })
         .collect()
@@ -303,7 +303,7 @@ fn module_source_fallback(config: &Config) -> Vec<Finding> {
                     status.id
                 ),
                 "Build or install the requested module source, or set modules.source to release.",
-                Some("modules.source"),
+                Some("modules.source".into()),
             ))
         })
         .collect()
@@ -322,9 +322,7 @@ fn invalid_module_overrides(config: &Config) -> Vec<Finding> {
                 FindingSeverity::Warn,
                 "A module override is invalid and will be ignored.",
                 "Set exactly one of `path` or `source` for each module override.",
-                Some(Box::leak(
-                    format!("modules.overrides[{index}]").into_boxed_str(),
-                )),
+                Some(format!("modules.overrides[{index}]")),
             )
         })
         .collect()
@@ -347,7 +345,7 @@ fn storage_url(config: &Config) -> Vec<Finding> {
                 FindingSeverity::Error,
                 "The configured storage URL is invalid.",
                 "Use a supported storage URL scheme and a valid location.",
-                Some("storage.url"),
+                Some("storage.url".into()),
             )];
         }
     };
@@ -363,7 +361,7 @@ fn storage_driver_error(check_id: &str, feature: &'static str) -> Finding {
         FindingSeverity::Error,
         format!("The configured storage driver is unavailable because this build omits `{feature}`."),
         format!("Use another storage scheme or enable the `{feature}` build feature."),
-        Some("storage.url"),
+        Some("storage.url".into()),
     )
 }
 
@@ -407,7 +405,7 @@ fn action_dir(config: &Config) -> Vec<Finding> {
         FindingSeverity::Error,
         "The configured action directory is missing or not writable.",
         "Create the directory or grant the process write access, then rerun doctor.",
-        Some("action_dir"),
+        Some("action_dir".into()),
     )]
 }
 
@@ -439,7 +437,7 @@ fn proxy(config: &Config) -> Vec<Finding> {
         FindingSeverity::Error,
         "The proxy configuration is invalid.",
         "Correct the proxy URL or service selectors in the proxy configuration.",
-        Some("proxy"),
+        Some("proxy".into()),
     )]
 }
 
@@ -455,9 +453,7 @@ fn memory_root(config: &Config) -> Vec<Finding> {
         FindingSeverity::Error,
         "The configured memory root is invalid.",
         "Set memory.root to a supported namespace root and rerun doctor.",
-        Some("memory.root"),
+        Some("memory.root".into()),
     )]
 }
 
-#[allow(dead_code)]
-fn _typecheck_module_override_is_used(_: &ModuleOverride) {}

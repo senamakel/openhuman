@@ -72,6 +72,44 @@ async fn site_files_are_private_to_their_owner() {
     assert_eq!(mode & 0o777, 0o600);
 }
 
+#[tokio::test(start_paused = true)]
+async fn first_daily_sweep_waits_until_its_deadline() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    const DAILY: std::time::Duration = std::time::Duration::from_secs(24 * 60 * 60);
+    let calls = std::sync::Arc::new(AtomicUsize::new(0));
+    let sweep_calls = std::sync::Arc::clone(&calls);
+    let (observed, mut sweeps) = tokio::sync::mpsc::unbounded_channel();
+    let (host, lifecycle) = tokio::sync::watch::channel(false);
+    let task = tokio::spawn(run_sweeper(
+        daily_sweep_interval(),
+        lifecycle,
+        move || {
+            let observed = observed.clone();
+            sweep_calls.fetch_add(1, Ordering::SeqCst);
+            async move {
+                observed.send(()).unwrap();
+            }
+        },
+    ));
+
+    tokio::task::yield_now().await;
+    assert!(
+        sweeps.try_recv().is_err(),
+        "module startup must not run the workspace sweep"
+    );
+    tokio::time::advance(DAILY - std::time::Duration::from_secs(1)).await;
+    tokio::task::yield_now().await;
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+
+    tokio::time::advance(std::time::Duration::from_secs(1)).await;
+    sweeps.recv().await.unwrap();
+    assert_eq!(calls.load(Ordering::SeqCst), 1);
+
+    drop(host);
+    task.await.unwrap();
+}
+
 #[test]
 fn site_memory_is_never_published_to_agent_memory_or_prompts() {
     // The adapter must stay a pure file store: no event bus, memory or prompt

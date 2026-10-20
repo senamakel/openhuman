@@ -58,12 +58,11 @@ pub(crate) use dirs::read_active_user_id_checked;
 // workspace→config-dir mapping `config::load` uses, so a legacy `.../workspace`
 // override lands on the sibling `.openhuman` root that holds `auth-profiles.json`.
 pub(crate) use dirs::resolve_config_dir_for_workspace;
-#[cfg(test)]
-pub(crate) use dirs::resolve_runtime_config_dirs_with;
 pub(crate) use dirs::{
-    load_persisted_workspace_dirs, read_active_user_id_checked_async, resolve_runtime_config_dirs,
-    ConfigResolutionSource,
+    load_persisted_workspace_dirs, read_active_user_id_checked_async, ConfigResolutionSource,
 };
+#[cfg(test)]
+pub(crate) use dirs::{resolve_runtime_config_dirs, resolve_runtime_config_dirs_with};
 // PathBuf and Config were in scope via `use super::*` in the original load.rs.
 #[cfg(test)]
 pub(crate) use super::Config;

@@ -6,9 +6,11 @@ semantics before the legacy `platform/doctor` code moves. The core owns checks,
 the registry, runner, and RPC surface; `openhuman-cli` owns command parsing,
 rendering, and process exit codes; `openhuman-tinyhumans` owns hosted checks.
 
-The intended user outcome is a read-only report that says whether the selected
+The intended user outcome is a report that says whether the selected
 configuration is ready to run, what was inspected, and what an operator can do
-about each finding. This contract borrows OpenClaw's stable check identifiers,
+about each finding. Doctor does not persist configuration or application-state
+changes; local filesystem write probes use temporary files and clean them up.
+This contract borrows OpenClaw's stable check identifiers,
 structured findings, advisory JSON mode, and threshold-based lint behavior.
 Wire fields remain snake case to match the existing RPC contract. This contract
 does not adopt OpenClaw's repair operation: this epic adds no repair command.
@@ -44,21 +46,23 @@ DoctorCheck {
 ```
 
 Ids are lowercase ASCII segments separated by `/`, with at least an area and
-name (`area/name`). Additional segments are allowed for checks scoped to a
-role or provider, such as `inference/live/chat`. They are API identifiers used
-by `--only`, `--skip`, the RPC filters, and downstream consumers. Once
-released, an id is never renamed or reused for different behavior; a
-replacement gets a new id and the old one remains recognizable for at least
-one schema lifetime. IDs are matched exactly. Prefixes, globs, and category
-names are not selectors.
+name (`area/name`). Each segment starts with a lowercase letter or digit and
+continues with lowercase letters, digits, `_`, or `-`. Additional segments are
+allowed for checks scoped to a role or provider, such as
+`inference/live/chat`. They are API identifiers used by `--only`, `--skip`, the
+RPC filters, and downstream consumers. Once released, an id is never renamed
+or reused for different behavior; a replacement gets a new id and the old one
+remains recognizable for at least one schema lifetime. IDs are matched
+exactly. Prefixes, globs, and category names are not selectors.
 
-`static` checks may read configuration and the local filesystem, but do not
-open network connections or write files. `connect` checks may make bounded,
-read-only network requests and are the default. `live` checks may make
-billable model or embedding calls and may write disposable scratch memory; they
-run only when explicitly requested. A requested tier is a ceiling: `static`
-runs static checks, `connect` runs static and connect checks, and `live` runs
-all three tiers.
+`static` checks may read and probe the local filesystem, but do not open network
+connections. Temporary local write probes must be cleaned up. `connect` checks
+may make bounded, read-only network requests and are the default; they do not
+make billable calls or persist state. `live` checks may make billable model or
+embedding calls and may write disposable scratch memory; they run only when
+explicitly requested. A requested tier is a ceiling: `static` runs static
+checks, `connect` runs static and connect checks, and `live` runs all three
+tiers.
 
 The runner applies the active `ComponentSet` gate before calling a detector.
 A gated-off component produces a `skipped` finding and is listed in
@@ -200,9 +204,11 @@ no CLI parser or renderer. It calls `openhuman.doctor_report` through the
 The threshold controls both printed findings and the lint result. `pass` and
 `skipped` never meet it. `--only <id>` and `--skip <id>` may be repeated;
 `--live` selects the live tier, and `--profile <id>` selects the effective
-profile where the host permits it. In a SaaS tenant, the tenant's forced
-configuration always wins; a client cannot use `--profile` to inspect another
-tenant or switch the active tenant. Argument syntax errors exit `2` before
+profile where the host permits it. In SaaS, an authenticated tenant always uses
+its forced config and storage scope. An operator may use `--profile <id>` to
+target another tenant; a tenant caller may target only itself. The host checks
+that permission before doctor reads config or credentials. Argument syntax
+errors exit `2` before
 the RPC call.
 
 The CLI does not add fields to the RPC report. Human output is a rendering of
@@ -217,11 +223,13 @@ changing the active profile, writing profile state, or changing process-wide
 configuration. With no explicit id, it uses the currently selected profile.
 The report's `profile` is the effective id and `config_source` is `profile`.
 
-In SaaS, doctor runs against the authenticated tenant's forced configuration.
-The host supplies that context to `DoctorCtx`; a client-supplied profile cannot
-override it. The report uses `config_source: "tenant"` and includes no tenant
-secret or private config path. Profile-scoped credential and config access must
-use the context provided for the run rather than process-global lookup helpers.
+In SaaS, doctor runs against a forced tenant configuration and storage scope.
+Without `profile`, the context is the authenticated tenant. An operator may
+select another tenant by id; an ordinary tenant caller may select only itself.
+The host authorizes this before doctor reads any config or credential. The
+report uses `config_source: "tenant"` and includes no tenant secret.
+Profile-scoped reads use the selected context rather than process-global
+lookup helpers.
 
 ## Check registration and hosted checks
 

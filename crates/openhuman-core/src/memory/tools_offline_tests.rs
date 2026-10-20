@@ -61,4 +61,3 @@ async fn queued_writes_work_without_an_available_engine_but_not_when_explicitly_
     .unwrap();
     assert_eq!(after_disabled, pending, "disabled memory must not append");
 }
-

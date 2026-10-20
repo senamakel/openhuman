@@ -17,7 +17,7 @@ pub(super) async fn run_action(
         .call_with_facts(args.clone(), ctx.clone(), facts.clone(), None)
         .await;
     if is_write_action(args) && !result.is_error {
-        crate::memory::tool_writes::drain(config).await;
+        crate::memory::tool_writes::tests::drain_for(config, &facts.reach.at).await;
     }
     result
 }

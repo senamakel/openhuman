@@ -108,7 +108,8 @@ fn schema_and_permissions_follow_the_action() {
 #[tokio::test]
 async fn every_action_reports_memory_off_as_a_tool_error() {
     let tmp = tempfile::tempdir().unwrap();
-    let config = config_in(&tmp);
+    let mut config = config_in(&tmp);
+    config.components.memory = false;
     for args in [
         json!({"action": "recall", "question": "q"}),
         json!({"action": "fetch", "query": "q"}),
@@ -186,15 +187,21 @@ async fn bad_arguments_and_unknown_actions_are_model_visible_errors() {
 
     let unknown = run_action(&ambient(), &config, &json!({"action": "explode"}), &facts()).await;
     assert!(unknown.is_error);
-    assert!(text(&unknown).contains("unknown action `explode`"));
+    assert!(text(&unknown).contains("unknown action"));
+    assert!(text(&unknown).contains("explode"));
 
     let missing = run_action(&ambient(), &config, &json!({}), &facts()).await;
     assert!(missing.is_error);
+    assert!(text(&missing).contains("action is required"));
 
     for action in ["recall", "fetch", "learn", "forget"] {
         let result = run_action(&ambient(), &config, &json!({ "action": action }), &facts()).await;
         assert!(result.is_error, "{action}");
-        assert!(text(&result).contains("invalid arguments"), "{action}");
+        assert!(
+            text(&result).contains("INVALID_REQUEST"),
+            "{action}: {}",
+            text(&result)
+        );
     }
 }
 
@@ -348,7 +355,9 @@ async fn fetch_with_an_undeclared_mode_is_unsupported() {
     )
     .await;
     assert!(result.is_error);
-    assert!(text(&result).contains("UNSUPPORTED"), "{}", text(&result));
+    assert!(text(&result).contains("INVALID_REQUEST"), "{}", text(&result));
+    assert!(text(&result).contains("keyword"), "{}", text(&result));
+    assert!(text(&result).contains("hybrid"), "{}", text(&result));
 }
 
 #[tokio::test]
@@ -460,7 +469,7 @@ async fn learnings_are_shared_under_a_root_and_a_team_root_is_kept_apart() {
             run_action(
                 &ambient(),
                 &config,
-                &json!({"action": "fetch", "query": "the", "limit": 50, "filter": {"reach": null}}),
+                &json!({"action": "fetch", "query": "the", "limit": 50}),
                 &facts,
             )
             .await
@@ -611,7 +620,7 @@ async fn learn_returns_on_accept_and_says_recall_may_lag() {
 async fn a_failed_learn_is_reported_to_the_model() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
-    crate::memory::test_fixtures::RefusingEngine::out_of_credits().bind(&config);
+    std::fs::write(config.workspace_dir.join("memory"), "blocks outbox directory").unwrap();
 
     let learned = run_action(
         &ambient(),
@@ -623,7 +632,7 @@ async fn a_failed_learn_is_reported_to_the_model() {
 
     assert!(learned.is_error, "{}", text(&learned));
     assert!(
-        text(&learned).contains("INSUFFICIENT_CREDITS"),
+        text(&learned).contains("queue unavailable"),
         "{}",
         text(&learned)
     );

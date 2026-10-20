@@ -83,11 +83,20 @@ async fn an_ordinary_tool_error_refunds_unused_time_without_opening_the_circuit(
     assert_eq!(
         budget
             .run(Some("turn"), async {
-                tokio::time::sleep(Duration::from_secs(27)).await;
+                tokio::time::sleep(Duration::from_secs(12)).await;
                 "healthy"
             })
             .await,
         Ok("healthy")
+    );
+    assert_eq!(
+        budget
+            .run(Some("turn"), async {
+                tokio::time::sleep(Duration::from_secs(15)).await;
+                "remaining per-run allowance"
+            })
+            .await,
+        Ok("remaining per-run allowance")
     );
     assert_eq!(
         budget.run(Some("turn"), async { "out of time" }).await,

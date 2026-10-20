@@ -57,6 +57,16 @@ pub(crate) fn queued_for(config: &Config, facts: &CallFacts) -> tinymemory_api::
     super::read_at(&super::queue_path(config, &facts.reach.at))
 }
 
+pub(crate) async fn drain_for(config: &Config, root: &Namespace) -> usize {
+    let file = super::queue_path(config, root);
+    let owner = super::owner_state(config);
+    let _owner = owner.barrier.read().await;
+    let state = super::drain_state(&file);
+    let _draining = state.barrier.lock().await;
+    let generation = owner.gate.generation();
+    super::drain_locked(config, &file, &owner, generation).await
+}
+
 fn facts(config: &Config) -> CallFacts {
     CallFacts::of(
         config,
@@ -123,7 +133,7 @@ async fn restart_drains_scrubbed_learnings_and_ordered_forgetting() {
     let id = ack["id"].as_str().unwrap();
     enqueue(
         &config,
-        &json!({"action":"forget","ids":[id],"reach":{"at":"root"}}),
+        &json!({"action":"forget","ids":[id]}),
         &facts,
     )
     .unwrap();
@@ -446,16 +456,18 @@ async fn model_supplied_forget_reach_cannot_remove_another_identitys_item() {
     let id = engine.store(item).await.unwrap().id.0;
     // All agents under one identity share their root by design. Choose an
     // unrelated root explicitly to exercise a foreign identity boundary.
-    let mut confined = facts(&config);
-    confined.reach = Reach::subtree("user:isolated".parse().unwrap());
     let mut config = config;
     config.memory.root = Some("user:isolated".into());
-    enqueue(
+    let mut confined = facts(&config);
+    confined.reach = Reach::subtree("user:isolated".parse().unwrap());
+    let rejected = enqueue(
         &config,
         &json!({"action":"forget","ids":[id],"reach":{"at":"","inherit":true,"descendants":true}}),
         &confined,
-    )
-    .unwrap();
+    );
+    assert!(matches!(rejected, Err(tinymemory_api::Error::InvalidRequest(_))));
+    assert!(read(&config.workspace_dir).unwrap().is_empty());
+    enqueue(&config, &json!({"action":"forget","ids":[id]}), &confined).unwrap();
     assert_eq!(drain(&config).await, 1);
     assert_eq!(stored(&engine, MetaFilter::default()).await.len(), 1);
 }

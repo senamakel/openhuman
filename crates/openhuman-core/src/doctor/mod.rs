@@ -31,4 +31,12 @@ pub use schemas::{
 mod runner_tests;
 
 #[cfg(test)]
+#[path = "checks/inference_tests.rs"]
+mod inference_config_tests;
+
+#[cfg(test)]
+#[path = "checks/embeddings_tests.rs"]
+mod embeddings_config_tests;
+
+#[cfg(test)]
 pub(crate) mod test_support;

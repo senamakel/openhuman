@@ -6,6 +6,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::config::schema::profile_layout::LayoutVersion;
 use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext};
 
@@ -139,6 +140,15 @@ pub enum DoctorConfigSource {
     Tenant,
 }
 
+/// Result of validating a selected desktop profile before other checks run.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum DoctorProfileStatus {
+    Valid,
+    Missing,
+    UnknownLayoutMarker,
+    InvalidConfig,
+}
+
 /// One operator-facing result from a check.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Finding {
@@ -231,6 +241,12 @@ pub struct DoctorReport {
     pub schema_version: u8,
     pub profile: Option<String>,
     pub config_source: DoctorConfigSource,
+    /// On-disk desktop profile layout, when the selected context has one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub profile_layout_version: Option<u8>,
+    /// Stable source label that selected the config directory, when known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub config_resolution_source: Option<String>,
     pub tier: DoctorTier,
     pub checks_run: Vec<String>,
     pub checks_skipped: Vec<String>,
@@ -246,6 +262,9 @@ pub struct DoctorCtx {
     components: ComponentSet,
     profile: Option<String>,
     config_source: DoctorConfigSource,
+    profile_layout_version: Option<LayoutVersion>,
+    profile_resolution_source: Option<String>,
+    profile_status: Option<DoctorProfileStatus>,
     // Transitional input for the v1 adapter. #506 removes it when the old
     // aggregate checks have been ported to `DoctorCheck` implementations.
     memory_engine: Option<MemoryEngineCheck>,
@@ -256,6 +275,7 @@ impl DoctorCtx {
     /// context. An unscoped local configuration reports `profile` as its
     /// source; a scoped SaaS context reports `tenant`.
     pub fn from_config(config: Config) -> Self {
+        let (profile_layout_version, profile_resolution_source) = config.doctor_profile_metadata();
         let core = CoreContext::current();
         let profile = core
             .as_ref()
@@ -273,8 +293,52 @@ impl DoctorCtx {
             components,
             profile,
             config_source,
+            profile_layout_version,
+            profile_resolution_source,
+            profile_status: None,
             memory_engine: None,
         }
+    }
+
+    /// Creates a context from a config and explicit component set without
+    /// consulting the ambient [`CoreContext`]. Use this when the caller has
+    /// already selected and loaded the profile context.
+    pub fn from_config_with_components(config: Config, components: ComponentSet) -> Self {
+        let (profile_layout_version, profile_resolution_source) = config.doctor_profile_metadata();
+        Self {
+            config: Arc::new(config),
+            components,
+            profile: None,
+            config_source: DoctorConfigSource::Profile,
+            profile_layout_version,
+            profile_resolution_source,
+            profile_status: None,
+            memory_engine: None,
+        }
+    }
+
+    /// Pins this run to an explicit profile or tenant id and source.
+    pub fn with_profile(mut self, profile: impl Into<String>, source: DoctorConfigSource) -> Self {
+        self.profile = Some(profile.into());
+        self.config_source = source;
+        self
+    }
+
+    /// Adds profile layout and directory-resolution provenance for the
+    /// `config/source` check.
+    pub fn with_profile_metadata(
+        mut self,
+        layout_version: Option<LayoutVersion>,
+        resolution_source: Option<String>,
+    ) -> Self {
+        self.profile_layout_version = layout_version;
+        self.profile_resolution_source = resolution_source;
+        self
+    }
+
+    pub(crate) fn with_profile_status(mut self, status: DoctorProfileStatus) -> Self {
+        self.profile_status = Some(status);
+        self
     }
 
     pub fn with_components(mut self, components: ComponentSet) -> Self {
@@ -302,12 +366,26 @@ impl DoctorCtx {
         self.profile.as_deref()
     }
 
+    /// On-disk profile layout selected for this run, when applicable.
+    pub fn profile_layout_version(&self) -> Option<LayoutVersion> {
+        self.profile_layout_version
+    }
+
+    /// Directory-selection provenance for the effective profile, when known.
+    pub fn profile_resolution_source(&self) -> Option<&str> {
+        self.profile_resolution_source.as_deref()
+    }
+
     pub(crate) fn config_source(&self) -> DoctorConfigSource {
         self.config_source
     }
 
     pub(crate) fn memory_engine(&self) -> Option<&MemoryEngineCheck> {
         self.memory_engine.as_ref()
+    }
+
+    pub(crate) fn profile_status(&self) -> Option<DoctorProfileStatus> {
+        self.profile_status
     }
 }
 

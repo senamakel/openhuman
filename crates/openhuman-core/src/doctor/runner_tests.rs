@@ -14,6 +14,16 @@ use super::registry::{DoctorCheckSource, register_check_source_in};
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
 
+#[test]
+fn no_unwritten_daemon_state_check_is_registered() {
+    let checks = super::registry::registered_checks().expect("built-in checks are valid");
+
+    assert!(
+        checks.iter().all(|check| check.id() != "runtime/daemon"),
+        "the doctor must not advertise a daemon state check whose file is never written"
+    );
+}
+
 struct BlockingProbe {
     id: String,
     timeout: Duration,

@@ -74,6 +74,15 @@ impl Config {
         self.apply_env_overrides_from(&ProcessEnv);
     }
 
+    /// Apply ordinary config environment overrides without replacing a
+    /// profile's already-selected workspace directory or updating process
+    /// proxy/keyring state. Used by read-only profile inspection.
+    pub(crate) fn apply_profile_env_overrides(&mut self) {
+        use super::env::ProcessEnvWithoutWorkspace;
+        self.apply_env_overlay_with(&ProcessEnvWithoutWorkspace);
+        super::super::cli_overrides::apply_cli_inference_overrides(self);
+    }
+
     pub(super) fn apply_env_overrides_from(
         &mut self,
         env: &(dyn super::env::EnvLookup + Send + Sync),

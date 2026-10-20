@@ -9,11 +9,66 @@
 //! `serde_path_to_error`, though not the line.
 
 use crate::config::Config;
+use std::fmt;
+
+/// A parser failure with safe location metadata and unchanged display text.
+#[derive(Debug)]
+pub(crate) struct ConfigParseFailure {
+    pub(crate) field_path: Option<String>,
+    pub(crate) line: Option<usize>,
+    message: String,
+    source: Option<Box<dyn std::error::Error + Send + Sync>>,
+}
+
+impl ConfigParseFailure {
+    fn syntax(contents: &str, source: toml::de::Error) -> Self {
+        let line = source.span().map(|span| {
+            contents
+                .as_bytes()
+                .get(..span.start.min(contents.len()))
+                .unwrap_or_default()
+                .iter()
+                .filter(|byte| **byte == b'\n')
+                .count()
+                + 1
+        });
+        let message = source.to_string();
+        Self {
+            field_path: None,
+            line,
+            message,
+            source: Some(Box::new(source)),
+        }
+    }
+
+    fn typed(field_path: String, source: serde_json::Error) -> Self {
+        let message = format!("{field_path}: {source}");
+        Self {
+            field_path: Some(field_path),
+            line: None,
+            message,
+            source: Some(Box::new(source)),
+        }
+    }
+}
+
+impl fmt::Display for ConfigParseFailure {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(&self.message)
+    }
+}
+
+impl std::error::Error for ConfigParseFailure {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        self.source.as_deref().map(|error| error as _)
+    }
+}
 
 /// Parse a `config.toml` document into a [`Config`].
 #[inline(never)]
 pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
-    let mut document: toml::Value = toml::from_str(contents)?;
+    let mut document: toml::Value =
+        toml::from_str(contents).map_err(|error| ConfigParseFailure::syntax(contents, error))?;
     let provenance_document = document.clone();
     let retired_provider_type = document
         .get("cloud_providers")
@@ -42,9 +97,9 @@ pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
         let deserializer = serde_ignored::Deserializer::new(&mut deserializer, &mut record_unknown);
         serde_path_to_error::deserialize(deserializer)
     };
-    let mut config: Config = parsed.map_err(|err| {
-        let path = err.path().to_string();
-        anyhow::anyhow!("{path}: {}", err.into_inner())
+    let mut config: Config = parsed.map_err(|error| {
+        let path = error.path().to_string();
+        ConfigParseFailure::typed(path, error.into_inner())
     })?;
     config
         .load_provenance_mut()

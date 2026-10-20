@@ -54,10 +54,7 @@ pub(super) fn record_configured_route(config: &Config, route: &serde_json::Value
         if selected.1 != accepted_secret {
             return None;
         }
-        Some(ConfiguredBinding {
-            context: context_fingerprint(config)?,
-            credential: credential_fingerprint(&selected.0, &selected.1),
-        })
+        binding_for_selected(config, &selected)
     })();
     *configured_binding()
         .lock()
@@ -84,12 +81,8 @@ where
     {
         return Ok(None);
     }
-    let Some(selected) = selected_credential(config) else {
+    let Some(expected) = binding_for_config(config) else {
         return Ok(None);
-    };
-    let expected = ConfiguredBinding {
-        context: context_fingerprint(config).ok_or(ExistingCallError::Unavailable)?,
-        credential: credential_fingerprint(&selected.0, &selected.1),
     };
     if *configured_binding()
         .lock()
@@ -106,13 +99,25 @@ where
         .proxy(record.bus_name, record.object_path)
         .map_err(|_| ExistingCallError::Unavailable)?
         .with_timeout(INSPECTION_TIMEOUT);
+    call_proxy_readonly(&proxy, member, request).await.map(Some)
+}
+
+async fn call_proxy_readonly<Request, Reply>(
+    proxy: &tinybus::Proxy,
+    member: &str,
+    request: Request,
+) -> Result<Reply, ExistingCallError>
+where
+    Request: Serialize + Send,
+    Reply: DeserializeOwned,
+{
     match tokio::time::timeout(
         INSPECTION_TIMEOUT,
         proxy.call_confidential::<Reply>(member, (request,)),
     )
     .await
     {
-        Ok(Ok(reply)) => Ok(Some(reply)),
+        Ok(Ok(reply)) => Ok(reply),
         Ok(Err(_)) | Err(_) => Err(ExistingCallError::Failed),
     }
 }
@@ -164,6 +169,29 @@ fn selected_credential(config: &Config) -> Option<(String, String)> {
     }
 }
 
+fn binding_for_config(config: &Config) -> Option<ConfiguredBinding> {
+    let selected = selected_credential(config)?;
+    binding_for_selected(config, &selected)
+}
+
+fn binding_for_selected(config: &Config, selected: &(String, String)) -> Option<ConfiguredBinding> {
+    Some(ConfiguredBinding {
+        context: context_fingerprint(config)?,
+        credential: credential_fingerprint(&selected.0, &selected.1),
+    })
+}
+
+#[cfg(test)]
+fn binding_matches_config(config: &Config) -> bool {
+    let Some(expected) = binding_for_config(config) else {
+        return false;
+    };
+    *configured_binding()
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        == Some(expected)
+}
+
 fn context_fingerprint(config: &Config) -> Option<[u8; 32]> {
     let config_json = serde_json::to_value(config).ok()?;
     let env = [
@@ -184,6 +212,12 @@ fn context_fingerprint(config: &Config) -> Option<[u8; 32]> {
         "workspace_dir": config.workspace_dir,
         "state_dir": config.workspace_dir.join("state"),
         "offered_toolkits": super::offered_toolkits(config),
+        "host_credential": config.composio.host_credential.as_ref().map(|credential| {
+            serde_json::json!({
+                "entity_id": credential.entity(),
+                "base_urls": credential.direct_base_urls().map(|urls| [&urls.v2, &urls.v3]),
+            })
+        }),
         "env": env,
     });
     Some(Sha256::digest(serde_json::to_vec(&context).ok()?).into())
@@ -196,4 +230,8 @@ fn credential_fingerprint(kind: &str, secret: &str) -> [u8; 32] {
     hash.update(secret.as_bytes());
     hash.finalize().into()
 }
+
+#[cfg(test)]
+#[path = "inspection_tests.rs"]
+mod tests;
 

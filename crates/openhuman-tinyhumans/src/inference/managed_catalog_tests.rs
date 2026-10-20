@@ -1,6 +1,5 @@
 use super::*;
 
-
 #[test]
 fn a_managed_401_on_an_attached_session_reads_as_signed_out() {
     assert!(managed_401_means_signed_out(401, true));

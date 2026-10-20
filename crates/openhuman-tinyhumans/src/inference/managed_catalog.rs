@@ -79,8 +79,7 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
             let credential = session
                 .filter(|_| is_safe_endpoint_for_managed_bearer(&catalog_url(&config)))
                 .or_else(|| {
-                    api_key
-                        .filter(|_| is_managed_endpoint_for_api_key(&catalog_url(&config)))
+                    api_key.filter(|_| is_managed_endpoint_for_api_key(&catalog_url(&config)))
                 });
             let url = catalog_url(&config);
             if credential.is_none() {

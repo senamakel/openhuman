@@ -1,6 +1,6 @@
 # doctor
 
-Diagnostic and self-check domain for OpenHuman. The v2 framework registers stable-id checks, runs them asynchronously with tier budgets, bounded concurrency, and component gates, then returns the versioned `DoctorReport`. Existing v1 probes run through per-check blocking adapters until #506 ports them. The report is exposed through `doctor.report`; `doctor.models` remains available and reports that catalog probing is not available yet.
+Diagnostic and self-check domain for OpenHuman. The v2 framework registers stable-id checks, runs them asynchronously with tier budgets, bounded concurrency, and component gates, then returns the versioned `DoctorReport`. Existing v1 probes run through per-check blocking adapters until #506 ports them. The report is exposed through `doctor.report`; `doctor.models` returns bounded, read-only provider catalog inspection results.
 
 ## Responsibilities
 

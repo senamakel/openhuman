@@ -148,6 +148,32 @@ fn auth_profiles_path(config: &Config) -> std::path::PathBuf {
         .join("auth-profiles.json")
 }
 
+fn profile_context(config: Config, profile_id: &str) -> std::sync::Arc<crate::core::runtime::CoreContext> {
+    use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
+
+    CoreContext::for_test(DomainSet::full(), None).derive_with(
+        ContextOverlay::new(
+            config,
+            DomainSet::full(),
+            crate::tools::toolpacks::ToolGroups::default(),
+        )
+        .profile(profile_id),
+    )
+}
+
+async fn report_for_profile(
+    config: &Config,
+    profile_id: &str,
+    options: DoctorOptions,
+) -> crate::core::Outcome<super::DoctorReport> {
+    crate::core::runtime::CoreContext::scope(
+        profile_context(config.clone(), profile_id),
+        async { doctor_report_with_options(config, options).await },
+    )
+    .await
+    .expect("doctor report for selected profile")
+}
+
 #[tokio::test]
 async fn doctor_models_lists_configured_catalogs_and_honors_use_cache() {
     let (endpoint, server) =
@@ -323,6 +349,123 @@ async fn doctor_models_never_falls_back_to_an_ordinary_mutable_catalog() {
         Ok(report) => assert_ne!(report.value.entries[0].outcome, ModelProbeOutcome::Ok),
         Err(_) => {}
     }
+}
+
+#[tokio::test]
+async fn inference_connect_checks_are_registered_but_skipped_in_static_tier() {
+    let (endpoint, server) =
+        spawn_catalog_server(StatusCode::OK, catalog_body(&["present-model"]), true).await;
+    let (_temp, config) =
+        config_for_catalog(endpoint, "p_doctor_497_static", "doctor-497-static");
+    let provider = "doctor-497-static";
+    crate::inference::auth_error_registry::clear(provider);
+    crate::inference::auth_error_registry::record(provider, 401);
+
+    let report = report_for_profile(
+        &config,
+        "doctor-497-static-profile",
+        DoctorOptions {
+            tier: super::DoctorTier::Static,
+            only: vec![
+                "inference/model-in-catalog".into(),
+                "inference/auth-errors".into(),
+            ],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    crate::inference::auth_error_registry::clear(provider);
+
+    for check_id in ["inference/model-in-catalog", "inference/auth-errors"] {
+        assert!(report.value.checks_skipped.iter().any(|id| id == check_id));
+        assert!(report.value.findings.iter().any(|finding| {
+            finding.check_id == check_id && finding.severity == FindingSeverity::Skipped
+        }));
+    }
+    assert!(report.value.ok);
+    assert_eq!(server.requests.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn process_auth_error_is_not_attributed_to_another_selected_profile() {
+    let provider = "doctor-497-profile-scoped-auth-fixture";
+    crate::inference::auth_error_registry::clear(provider);
+    let (_temp_a, config_a) = temporary_config();
+    let (_temp_b, config_b) = temporary_config();
+
+    let first_episode = crate::core::runtime::CoreContext::scope(
+        profile_context(config_a.clone(), "doctor-profile-a"),
+        async { crate::inference::auth_error_registry::record(provider, 401) },
+    )
+    .await;
+    assert!(first_episode, "profile A begins the process notification episode");
+
+    let report_b_without_failure = report_for_profile(
+        &config_b,
+        "doctor-profile-b",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_b_without_failure
+        .value
+        .checks_run
+        .iter()
+        .any(|id| id == "inference/auth-errors"));
+    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
+        finding.check_id != "inference/auth-errors"
+            || finding.severity != FindingSeverity::Error
+    }));
+    assert!(report_b_without_failure.value.findings.iter().all(|finding| {
+        !finding.message.contains("doctor-profile-a")
+            && !finding.message.contains("doctor-profile-b")
+    }));
+
+    let report_a = report_for_profile(
+        &config_a,
+        "doctor-profile-a",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_a.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
+    }));
+
+    let second_profile_episode = crate::core::runtime::CoreContext::scope(
+        profile_context(config_b.clone(), "doctor-profile-b"),
+        async { crate::inference::auth_error_registry::record(provider, 403) },
+    )
+    .await;
+    assert!(
+        !second_profile_episode,
+        "per-profile attribution must not re-arm the process notification latch"
+    );
+    let report_b_after_failure = report_for_profile(
+        &config_b,
+        "doctor-profile-b",
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_b_after_failure.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
+    }));
+    assert_eq!(
+        crate::inference::auth_error_registry::snapshot()
+            .iter()
+            .filter(|error| error.provider == provider)
+            .count(),
+        1,
+        "the existing process snapshot should remain one entry per provider"
+    );
+    crate::inference::auth_error_registry::clear(provider);
 }
 
 #[tokio::test]

@@ -17,8 +17,8 @@ use tinymemory_integrations::documents::RawDocument;
 use tinymemory_tools::layout::placement::{brain_node_with, files_source};
 use tinymemory_tools::{Brain, BrainSource, BrainSourcesView, MemoryLayout};
 
-use crate::config::Config;
 use crate::config::schema::MemorySourceKind;
+use crate::config::Config;
 
 use super::engine;
 use super::lifecycle::jobs;

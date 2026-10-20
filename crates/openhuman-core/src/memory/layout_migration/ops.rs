@@ -10,7 +10,7 @@ use std::sync::Arc;
 use tinymemory_tools::layout_migration as lm;
 use tinymemory_tools::run_slots::{MigrationSpawner, MigrationTask};
 
-use super::app_host::{AppHost, from_module};
+use super::app_host::{from_module, AppHost};
 use super::{LayoutHost, MigrationState, MigrationStatus, ScanView, Trigger};
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;

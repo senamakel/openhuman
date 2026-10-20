@@ -46,8 +46,8 @@ pub use tinymemory_api::Error as MemoryError;
 pub use tinymemory_integrations::cortex::CallbackBearerSource;
 pub use tinymemory_integrations::{BearerSource, Binding, BoundEngine, EngineBinder};
 
-use crate::config::Config;
 use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
+use crate::config::Config;
 use crate::security::credentials::session_support::resolve_backend_credential;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 

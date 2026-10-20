@@ -131,12 +131,10 @@ async fn rpc_list_fetch_and_recall_never_read_another_root() {
     )
     .await
     .unwrap();
-    assert!(
-        answer
-            .citations
-            .iter()
-            .all(|citation| citation.id.0 != theirs)
-    );
+    assert!(answer
+        .citations
+        .iter()
+        .all(|citation| citation.id.0 != theirs));
 }
 
 #[tokio::test]

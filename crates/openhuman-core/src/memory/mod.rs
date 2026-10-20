@@ -57,4 +57,4 @@ pub use schemas::{
     all_controller_schemas as all_memory_controller_schemas,
     all_registered_controllers as all_memory_registered_controllers,
 };
-pub use tools::{MEMORY_TOOL_NAME, MemoryTool};
+pub use tools::{MemoryTool, MEMORY_TOOL_NAME};

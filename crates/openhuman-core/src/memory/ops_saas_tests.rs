@@ -1,8 +1,8 @@
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in};
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
@@ -277,12 +277,10 @@ fn valid_saas_identity_clamps_memory_operations_in_an_isolated_process() {
             )
             .await
             .unwrap();
-            assert!(
-                recalled
-                    .citations
-                    .iter()
-                    .all(|citation| citation.id.0 != foreign)
-            );
+            assert!(recalled
+                .citations
+                .iter()
+                .all(|citation| citation.id.0 != foreign));
 
             let learned = learn(
                 &config,

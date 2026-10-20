@@ -181,16 +181,14 @@ async fn recall_off_still_logs_and_logging_off_still_recalls() {
     config.memory.recall.enabled = false;
     let quiet = tinymemory_tools::layout::identity::Identity::agent("a")
         .resolve(&crate::memory::scope::identity_pins(&config));
-    assert!(
-        run_pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &quiet,
-            input("t", 0, "when do deploys happen?")
-        )
-        .await
-        .is_none()
-    );
+    assert!(run_pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &quiet,
+        input("t", 0, "when do deploys happen?")
+    )
+    .await
+    .is_none());
     assert_eq!(
         stored(&engine, MetaFilter::kinds([ItemKind::Conversation]))
             .await
@@ -221,16 +219,14 @@ async fn recall_off_still_logs_and_logging_off_still_recalls() {
     config.memory.recall.enabled = false;
     let none = tinymemory_tools::layout::identity::Identity::agent("a")
         .resolve(&crate::memory::scope::identity_pins(&config));
-    assert!(
-        run_pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &none,
-            input("t", 4, "hi")
-        )
-        .await
-        .is_none()
-    );
+    assert!(run_pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &none,
+        input("t", 4, "hi")
+    )
+    .await
+    .is_none());
 }
 
 #[tokio::test]
@@ -239,16 +235,14 @@ async fn pre_turn_without_an_engine_runs_the_turn_without_a_pack() {
     let config = config_in(&tmp);
     let identity = tinymemory_tools::layout::identity::Identity::agent("a")
         .resolve(&crate::memory::scope::identity_pins(&config));
-    assert!(
-        run_pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &identity,
-            input("t", 0, "hello")
-        )
-        .await
-        .is_none()
-    );
+    assert!(run_pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &identity,
+        input("t", 0, "hello")
+    )
+    .await
+    .is_none());
     run_post_turn(&config, &identity, reply("t", 1, "hi")).await;
 }
 
@@ -319,17 +313,15 @@ async fn compaction_recalls_from_the_dropped_turns() {
     )
     .await;
     assert!(pack.expect("a pack").markdown.contains("Heron"));
-    assert!(
-        compaction_work(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &identity,
-            "t",
-            Vec::new()
-        )
-        .await
-        .is_none()
-    );
+    assert!(compaction_work(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &identity,
+        "t",
+        Vec::new()
+    )
+    .await
+    .is_none());
 }
 
 #[tokio::test]
@@ -399,16 +391,14 @@ async fn an_engine_fault_that_is_not_account_wide_injects_nothing() {
     let identity = tinymemory_tools::layout::identity::Identity::agent("orchestrator")
         .resolve(&crate::memory::scope::identity_pins(&config));
 
-    assert!(
-        run_pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &identity,
-            input("t", 0, "hello")
-        )
-        .await
-        .is_none()
-    );
+    assert!(run_pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &identity,
+        input("t", 0, "hello")
+    )
+    .await
+    .is_none());
 }
 
 // ── the pack's token budget against a large store (#6718, #7023) ────────────
@@ -606,16 +596,14 @@ async fn a_blank_turn_is_refused_without_a_pack_with_or_without_logging() {
     let engine = bind_reference(&config);
     let identity = tinymemory_tools::layout::identity::Identity::agent("orchestrator")
         .resolve(&crate::memory::scope::identity_pins(&config));
-    assert!(
-        run_pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &identity,
-            input("t-blank", 0, "   ")
-        )
-        .await
-        .is_none()
-    );
+    assert!(run_pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &identity,
+        input("t-blank", 0, "   ")
+    )
+    .await
+    .is_none());
     assert!(
         stored(&engine, MetaFilter::kinds([ItemKind::Conversation]))
             .await
@@ -626,28 +614,24 @@ async fn a_blank_turn_is_refused_without_a_pack_with_or_without_logging() {
     config.memory.conversations.enabled = false;
     let reader = tinymemory_tools::layout::identity::Identity::agent("orchestrator")
         .resolve(&crate::memory::scope::identity_pins(&config));
-    assert!(
-        run_pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &reader,
-            input("t-blank", 2, "   ")
-        )
-        .await
-        .is_none()
-    );
+    assert!(run_pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &reader,
+        input("t-blank", 2, "   ")
+    )
+    .await
+    .is_none());
     let mut resumed = input("  ", 4, "where were we?");
     resumed.5 = true;
-    assert!(
-        run_pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            &reader,
-            resumed
-        )
-        .await
-        .is_none()
-    );
+    assert!(run_pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &reader,
+        resumed
+    )
+    .await
+    .is_none());
 }
 
 /// With `date_hint` on, the turn's text goes to the chat model with the date

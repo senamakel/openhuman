@@ -2,8 +2,8 @@ use super::*;
 use crate::config::schema::MemoryAgentConfig;
 use crate::memory::test_fixtures::config_in;
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
@@ -225,18 +225,14 @@ fn valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace() {
                 .unwrap();
             assert!(!recall.is_error, "{}", recall.text());
             let evidence: Value = serde_json::from_str(&recall.text()).unwrap();
-            assert!(
-                evidence["evidence"]
-                    .as_str()
-                    .unwrap()
-                    .contains("acme boundary marker")
-            );
-            assert!(
-                !evidence["evidence"]
-                    .as_str()
-                    .unwrap()
-                    .contains("foreign boundary marker")
-            );
+            assert!(evidence["evidence"]
+                .as_str()
+                .unwrap()
+                .contains("acme boundary marker"));
+            assert!(!evidence["evidence"]
+                .as_str()
+                .unwrap()
+                .contains("foreign boundary marker"));
 
             let fetch = tool
                 .execute_with_context(
@@ -248,18 +244,14 @@ fn valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace() {
                 .unwrap();
             assert!(!fetch.is_error, "{}", fetch.text());
             let page: Value = serde_json::from_str(&fetch.text()).unwrap();
-            assert!(
-                page["matches"]
-                    .as_str()
-                    .unwrap()
-                    .contains("acme boundary marker")
-            );
-            assert!(
-                !page["matches"]
-                    .as_str()
-                    .unwrap()
-                    .contains("foreign boundary marker")
-            );
+            assert!(page["matches"]
+                .as_str()
+                .unwrap()
+                .contains("acme boundary marker"));
+            assert!(!page["matches"]
+                .as_str()
+                .unwrap()
+                .contains("foreign boundary marker"));
             assert_eq!(reads.load(Ordering::SeqCst), 2);
         });
     println!("SAAS_MEMORY_TOOL_VALID_ROOT_CHILD_PASSED");

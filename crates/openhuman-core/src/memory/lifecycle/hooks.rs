@@ -19,7 +19,7 @@ use crate::config::Config;
 use crate::core::runtime::{CoreContext, DispatchCtx};
 use crate::memory::engine;
 
-pub use native_turn::{CLOSE_TAG, MAX_TOOL_LINE_CHARS, OPEN_TAG, user_turn_index};
+pub use native_turn::{user_turn_index, CLOSE_TAG, MAX_TOOL_LINE_CHARS, OPEN_TAG};
 
 /// A native turn pack with the citation view used by OpenHuman's chat UI.
 #[derive(Debug, Clone, PartialEq, Serialize)]

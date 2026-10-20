@@ -1,11 +1,11 @@
-use std::sync::Arc;
 use std::sync::atomic::Ordering;
+use std::sync::Arc;
 
 use tinymemory_api::MemoryEngine;
 
 use super::*;
-use crate::memory::layout_migration::test_host::{FakeHost, count, fact};
-use crate::memory::layout_migration::{Phase, state};
+use crate::memory::layout_migration::test_host::{count, fact, FakeHost};
+use crate::memory::layout_migration::{state, Phase};
 
 fn never() -> Arc<dyn Fn() -> bool + Send + Sync> {
     Arc::new(|| false)

@@ -13,7 +13,7 @@ use tinymemory_tools::prefetch::{
 };
 
 use crate::config::Config;
-use crate::core::runtime::{DispatchCtx, slot_for};
+use crate::core::runtime::{slot_for, DispatchCtx};
 use tinymemory_tools::layout::identity::ResolvedIdentity;
 
 use super::hooks::{self, TurnPack};

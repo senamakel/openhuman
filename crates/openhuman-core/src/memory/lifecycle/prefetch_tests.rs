@@ -123,22 +123,20 @@ async fn pre_turn_logs_channel_metadata_without_writing_legacy_thread_map() {
     let key = Key::new(&config, &identity, thread_id, false);
     let cache = cache(&crate::core::runtime::DispatchCtx::ambient());
 
-    assert!(
-        pre_turn(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            config.clone(),
-            identity,
-            thread_id.into(),
-            0,
-            "hello from telegram".into(),
-            0,
-            chrono::Utc::now(),
-            false,
-            None,
-            Some("telegram".into()),
-        )
-        .is_none()
-    );
+    assert!(pre_turn(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        config.clone(),
+        identity,
+        thread_id.into(),
+        0,
+        "hello from telegram".into(),
+        0,
+        chrono::Utc::now(),
+        false,
+        None,
+        Some("telegram".into()),
+    )
+    .is_none());
     drain(&cache, &key).await;
 
     let turns = stored(

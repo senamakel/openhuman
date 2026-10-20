@@ -102,11 +102,9 @@ async fn sync_one_reports_memory_off_and_unreadable_sources() {
 
     bind_reference(&config);
     let missing = config.action_dir.join("does-not-exist");
-    assert!(
-        sync_one(&config, &folder_source("s", &missing, None))
-            .await
-            .is_err()
-    );
+    assert!(sync_one(&config, &folder_source("s", &missing, None))
+        .await
+        .is_err());
 }
 
 #[tokio::test]
@@ -199,15 +197,13 @@ async fn a_source_already_syncing_is_not_started_twice() {
     // Hold a claim as a running sync would: a second request starts nothing.
     let held = syncer_for(&config).start(Some("src-once")).unwrap();
     assert_eq!(held.len(), 1);
-    assert!(
-        start_sync(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            Some("src-once")
-        )
-        .unwrap()
-        .is_empty()
-    );
+    assert!(start_sync(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        Some("src-once")
+    )
+    .unwrap()
+    .is_empty());
     drop(held);
     assert_eq!(
         start_sync(
@@ -270,14 +266,12 @@ fn sync_due_with_memory_off_starts_nothing() {
         .memory
         .sources
         .push(folder_source("s", tmp.path(), Some(15)));
-    assert!(
-        sync_due(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            &config,
-            Utc::now()
-        )
-        .is_empty()
-    );
+    assert!(sync_due(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        Utc::now()
+    )
+    .is_empty());
 }
 
 #[test]
@@ -302,8 +296,8 @@ fn reset_interrupted_marks_syncing_sources_idle() {
 #[tokio::test]
 async fn a_sync_queues_a_belief_build_only_for_an_engine_that_waits_for_one() {
     use std::sync::Arc;
-    use tinymemory_api::Consolidation;
     use tinymemory_api::conformance::ReferenceEngine;
+    use tinymemory_api::Consolidation;
 
     let note = || {
         tinymemory_api::StoreItem::document(

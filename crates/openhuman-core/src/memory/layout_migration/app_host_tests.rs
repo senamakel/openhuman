@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
-use tinymemory_api::MemoryEngine;
 use tinymemory_api::conformance::ReferenceEngine;
+use tinymemory_api::MemoryEngine;
 
 use super::*;
 use crate::memory::engine::install_test_engine_for_root;

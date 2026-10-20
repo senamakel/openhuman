@@ -27,8 +27,8 @@ use std::sync::Arc;
 use tinymemory_api::MemoryEngine;
 use tinymemory_tools::{AgentMemory, RecallPolicy};
 
-use crate::config::Config;
 use crate::config::schema::RecallSettings;
+use crate::config::Config;
 
 use super::engine;
 use tinymemory_api::{Error, Result};

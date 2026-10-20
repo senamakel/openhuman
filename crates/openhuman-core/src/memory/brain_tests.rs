@@ -207,19 +207,17 @@ async fn ingest_refuses_bad_input() {
             Err(Error::InvalidRequest(_))
         ));
     }
-    assert!(
-        search(
-            &config,
-            &tinymemory_tools::layout::identity::Identity::root(),
-            BrainSearchParams {
-                query: " ".into(),
-                source: None,
-                limit: None
-            }
-        )
-        .await
-        .is_err()
-    );
+    assert!(search(
+        &config,
+        &tinymemory_tools::layout::identity::Identity::root(),
+        BrainSearchParams {
+            query: " ".into(),
+            source: None,
+            limit: None
+        }
+    )
+    .await
+    .is_err());
 }
 
 #[tokio::test]
@@ -296,8 +294,8 @@ async fn a_file_is_converted_and_filed_under_files() {
 #[tokio::test]
 async fn an_ingest_queues_a_belief_build_only_for_an_engine_that_waits_for_one() {
     use std::sync::Arc;
-    use tinymemory_api::Consolidation;
     use tinymemory_api::conformance::ReferenceEngine;
+    use tinymemory_api::Consolidation;
 
     for (consolidation, queued) in [(Consolidation::OnDemand, 1), (Consolidation::Automatic, 0)] {
         let tmp = tempfile::tempdir().unwrap();

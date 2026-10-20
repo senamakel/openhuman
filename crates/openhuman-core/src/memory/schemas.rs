@@ -3,10 +3,10 @@
 mod defs;
 mod handlers;
 
-use crate::core::ControllerSchema;
 use crate::core::all::RegisteredController;
+use crate::core::ControllerSchema;
 
-pub use defs::{FUNCTIONS, schema};
+pub use defs::{schema, FUNCTIONS};
 
 /// Every memory function paired with the handler it dispatches to.
 const HANDLERS: &[(&str, crate::core::all::ControllerHandler)] = &[

@@ -22,8 +22,8 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, LazyLock, Mutex, Weak};
 
 use tinymemory_api::Namespace;
-use tinymemory_tools::BackgroundJob;
 use tinymemory_tools::queue::{JobQueue as Queue, QueueError, QueueState, QueueStore};
+use tinymemory_tools::BackgroundJob;
 
 use tinymemory_tools::queue::{JobRun, Selection};
 

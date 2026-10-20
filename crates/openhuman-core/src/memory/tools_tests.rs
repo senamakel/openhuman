@@ -456,11 +456,9 @@ async fn learnings_are_shared_under_a_root_and_a_team_root_is_kept_apart() {
     );
     assert!(after_forget.iter().any(|hit| hit.id == main_item.id));
     assert!(after_forget.iter().any(|hit| hit.text.contains("arxiv")));
-    assert!(
-        after_forget
-            .iter()
-            .any(|hit| hit.text.contains("british english"))
-    );
+    assert!(after_forget
+        .iter()
+        .any(|hit| hit.text.contains("british english")));
 }
 
 /// The reference engine, recording how far each single store waited.

@@ -148,12 +148,10 @@ async fn parallel_memory_reads_reserve_from_the_same_time_budget() {
 async fn completed_run_tracking_is_bounded() {
     let budget = budget();
     for i in 0..200 {
-        assert!(
-            budget
-                .run(Some(&format!("turn-{i}")), async { "ok" })
-                .await
-                .is_ok()
-        );
+        assert!(budget
+            .run(Some(&format!("turn-{i}")), async { "ok" })
+            .await
+            .is_ok());
     }
     // The first idle record was evicted, so it receives a fresh call allowance.
     for _ in 0..8 {
@@ -172,12 +170,10 @@ async fn an_outstanding_memory_call_survives_other_runs_and_keeps_its_timeout_ci
     tokio::pin!(call);
     assert!(futures::poll!(call.as_mut()).is_pending());
     for i in 0..128 {
-        assert!(
-            budget
-                .run(Some(&format!("other-{i}")), async { "ok" })
-                .await
-                .is_ok()
-        );
+        assert!(budget
+            .run(Some(&format!("other-{i}")), async { "ok" })
+            .await
+            .is_ok());
     }
     assert_eq!(call.await, Err(Refusal::TimedOut));
     assert_eq!(

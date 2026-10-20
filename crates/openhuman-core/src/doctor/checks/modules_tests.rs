@@ -26,6 +26,35 @@ fn failed_module_status_reports_its_load_reason_and_source() {
 }
 
 #[test]
+fn failed_module_status_does_not_expose_raw_detail_urls_paths_or_credentials() {
+    let raw_url =
+        "https://module-user:module-password@downloads.invalid/tiny?token=module-query-secret";
+    let raw_path = "/Users/private-user/.openhuman/modules/tiny-module";
+    let raw_token = "module-error-secret-value";
+    let detail = format!("download failed from {raw_url} at {raw_path}; bearer={raw_token}");
+    let check = ModuleStatusCheck::new(status(ModuleState::Failed, Some(&detail)));
+
+    let finding = check.finding();
+
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(finding.message.contains("release"));
+    assert!(finding.message.contains("failed"));
+    for private_value in [
+        raw_url,
+        raw_path,
+        raw_token,
+        "module-password",
+        "module-query-secret",
+    ] {
+        assert!(
+            !finding.message.contains(private_value),
+            "module finding must not expose {private_value:?}: {}",
+            finding.message
+        );
+    }
+}
+
+#[test]
 fn module_statuses_map_to_their_contract_severities() {
     for state in [ModuleState::Available, ModuleState::Ready] {
         assert_eq!(

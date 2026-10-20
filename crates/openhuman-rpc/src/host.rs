@@ -57,6 +57,29 @@ pub fn cli_builder() -> RuntimeBuilder {
         .controller_extension(crate::http_host::extension())
 }
 
+/// Prepare the CLI host for a one-shot in-process command without booting a
+/// runtime or installing the server's storage-backed session store.
+///
+/// Config loading depends on the TinyHumans enricher and persistent hosts need
+/// the encrypted-file secret backend installed before a report reads config.
+#[cfg(feature = "server")]
+pub fn prepare_cli_host() {
+    openhuman_tinyhumans::register_hooks();
+    prepare_cli_environment();
+}
+
+#[cfg(feature = "server")]
+fn prepare_cli_environment() {
+    // The preflight reads URLs before normal CLI dispatch loads `.env` itself.
+    if let Err(error) = crate::core_host::core::cli::load_dotenv_for_cli() {
+        log::warn!(
+            "[rpc:host] cli: early dotenv load failed ({error}); a host setting supplied only \
+         in that file will not be seen"
+        );
+    }
+    secret_storage::install();
+}
+
 /// Parse the side-effect-free embedding capability command.
 #[cfg(any(feature = "server", test))]
 fn embed_info(args: &[String]) -> anyhow::Result<Option<crate::embed::RuntimeInfo>> {
@@ -94,15 +117,7 @@ pub fn cli(args: &[String]) -> anyhow::Result<()> {
         args.first().map(String::as_str).unwrap_or("<none>"),
         args.len()
     );
-    // The preflight reads the URL before the dispatcher loads `.env`
-    // itself, so a URL supplied through the dotenv file must be loaded now.
-    if let Err(error) = crate::core_host::core::cli::load_dotenv_for_cli() {
-        log::warn!(
-            "[rpc:host] cli: early dotenv load failed ({error}); a host setting supplied only \
-         in that file will not be seen"
-        );
-    }
-    secret_storage::install();
+    prepare_cli_environment();
     let mut builder = cli_builder();
     if cli_command_uses_storage(args, |namespace| {
         // `subsystems` only renders status; it never touches stored state.

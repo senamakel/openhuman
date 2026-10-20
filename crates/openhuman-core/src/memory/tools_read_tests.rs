@@ -3,7 +3,11 @@
 
 use super::*;
 use crate::memory::test_fixtures::{bind_reference, config_in};
+use crate::memory::ops;
+use crate::memory::types::RecallParams;
 use tinymemory_api::MemoryEngine;
+
+const EVIDENCE_TOKEN_BUDGET: usize = 2_500;
 
 // Keep the evidence budget contract tests beside the output they inspect;
 // production rendering belongs to TinyMemory's native single tool.
@@ -472,7 +476,7 @@ fn long_evidence_keeps_whole_entries_then_whole_lines_and_says_what_was_left_out
     let capped = capped_evidence(&evidence);
     let note = capped.rfind("\n\n(").unwrap();
     assert!(
-        note <= EVIDENCE_TOKENS * 4,
+        note <= EVIDENCE_TOKEN_BUDGET * 4,
         "the evidence stays within the budget"
     );
     assert_whole_lines(&evidence, &capped);
@@ -496,7 +500,7 @@ fn long_evidence_keeps_whole_entries_then_whole_lines_and_says_what_was_left_out
 
 #[test]
 fn a_first_line_longer_than_the_budget_is_kept_whole_never_split() {
-    let evidence = evidence_of(2, 1, EVIDENCE_TOKENS * 4 + 500);
+    let evidence = evidence_of(2, 1, EVIDENCE_TOKEN_BUDGET * 4 + 500);
     let capped = capped_evidence(&evidence);
     assert_whole_lines(&evidence, &capped);
     assert!(capped.starts_with(evidence.lines().next().unwrap()));

@@ -232,13 +232,6 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/memory/layout_migration/claim.rs",
-    "line": 106,
-    "text": "let temp = tempfile::NamedTempFile::new_in(key.marker.parent().unwrap_or(Path::new(\".\")))?;",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
     "path": "crates/openhuman-core/src/memory/local_root.rs",
     "line": 168,
     "text": "let temp = tempfile::NamedTempFile::new_in(dir)?;",

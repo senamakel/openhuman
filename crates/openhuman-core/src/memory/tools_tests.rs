@@ -6,7 +6,7 @@ fn ambient() -> DispatchCtx {
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use crate::memory::types::LearnParams;
 use std::path::{Path, PathBuf};
-use tinymemory_api::{ItemKind, MetaFilter, Namespace, SourceKind};
+use tinymemory_api::{ItemKind, MetaFilter, SourceKind};
 
 struct Ctx {
     root: PathBuf,

@@ -228,8 +228,9 @@ pub mod security {
         }
         pub mod session_support {
             pub use openhuman_core::security::credentials::session_support::{
-                build_session_state, classify_session_token, current_session_is_local,
+                build_session_state, check_session_backend, classify_session_token, current_session_is_local,
                 get_session_token, is_local_session_token, load_app_session_profile,
+                load_app_session_profile_read_only,
                 publish_local_session_expiry, resolve_backend_credential, BackendCredential,
                 SessionTokenCheck, LOCAL_SESSION_BACKEND_UNAVAILABLE,
                 LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SESSION_EXPIRES_AT_META,

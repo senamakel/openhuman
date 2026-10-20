@@ -11,6 +11,7 @@ use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::Outcome;
 use openhuman_embed::__host::inference_registry::{
     BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest,
+    InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
 };
 use openhuman_embed::__host::security::credentials::session_support::{
     classify_session_token, load_app_session_profile, publish_local_session_expiry,
@@ -44,6 +45,72 @@ pub(super) fn entry() -> CatalogEntry {
         list,
         limits: Some(limits),
     }
+}
+
+/// Inspection-only variant: freezes a read-only session credential before
+/// the core consults its cache. This deliberately does not call `list_models`
+/// or any mutable session/catalog path.
+pub(super) fn inspection_entry() -> InspectionCatalogListing {
+    Arc::new(|config, request| {
+        Box::pin(async move {
+            use openhuman_embed::__host::security::credentials::session_support::{
+                check_session_backend, classify_session_token, load_app_session_profile_read_only,
+                SessionTokenCheck,
+            };
+
+            let profile = load_app_session_profile_read_only(&config)
+                .map_err(|_| InspectionCatalogError::Unavailable)?;
+            check_session_backend(&config, profile.as_ref())
+                .map_err(|_| InspectionCatalogError::Unavailable)?;
+            let session = match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
+                SessionTokenCheck::Live(token) => Some(token),
+                SessionTokenCheck::Absent | SessionTokenCheck::Expired => None,
+            };
+            let provider_key = request.provider_key.trim();
+            let credential = session
+                .filter(|_| is_safe_endpoint_for_managed_bearer(&catalog_url(&config)))
+                .or_else(|| {
+                    (!provider_key.is_empty()
+                        && is_managed_endpoint_for_api_key(&catalog_url(&config)))
+                    .then(|| provider_key.to_owned())
+                });
+            let url = catalog_url(&config);
+            if credential.is_none() {
+                return Err(InspectionCatalogError::Unavailable);
+            }
+            let client = request.client;
+            let frozen = credential.clone();
+            let fetch_url = url.clone();
+            let fetch = Box::pin(async move {
+                let mut get = client.get(&fetch_url);
+                if let Some(token) = frozen.as_deref() {
+                    get = get.header("Authorization", format!("Bearer {token}"));
+                    if let Ok(headers) = attribution_headers() {
+                        get = get.headers(headers);
+                    }
+                }
+                let response = get.send().await.map_err(|_| InspectionCatalogError::Unavailable)?;
+                let status = response.status();
+                if status == reqwest::StatusCode::NOT_FOUND {
+                    return Err(InspectionCatalogError::NoCatalog);
+                }
+                if matches!(status, reqwest::StatusCode::UNAUTHORIZED | reqwest::StatusCode::FORBIDDEN) {
+                    return Err(InspectionCatalogError::AuthOrAccess);
+                }
+                if !status.is_success() { return Err(InspectionCatalogError::Failure); }
+                let body = response.json::<serde_json::Value>().await.map_err(|_| InspectionCatalogError::Failure)?;
+                if body.get("error").is_some() { return Err(InspectionCatalogError::Failure); }
+                let models = parse_models_response(&body).map_err(|_| InspectionCatalogError::Failure)?;
+                Ok(Outcome::new(serde_json::json!({"models": models}), Vec::new()))
+            });
+            Ok(PreparedInspectionCatalog::new(
+                PROVIDER_OPENHUMAN,
+                &url,
+                credential.as_deref(),
+                fetch,
+            ))
+        })
+    })
 }
 
 fn empty_catalog(reason: &str) -> Result<Outcome<serde_json::Value>, String> {

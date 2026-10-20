@@ -11,8 +11,6 @@ use crate::core::runtime::ComponentSet;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding};
 use crate::profiles::ProfileLayout;
 
-const EXPLICIT_PROFILE_SOURCE: &str = "--profile";
-
 /// A desktop profile config loaded without activating or repairing it.
 #[derive(Debug, Clone)]
 pub(crate) struct DesktopProfile {
@@ -28,6 +26,7 @@ pub(crate) enum DesktopProfileError {
     Missing,
     UnknownLayoutMarker,
     InvalidConfig,
+    Unavailable,
 }
 
 impl DesktopProfileError {
@@ -37,6 +36,7 @@ impl DesktopProfileError {
             Self::Missing => "The selected profile does not exist.",
             Self::UnknownLayoutMarker => "The selected profile has an unsupported layout marker.",
             Self::InvalidConfig => "The selected profile config is missing or invalid.",
+            Self::Unavailable => "Profile selection is unavailable for this host.",
         }
     }
 }

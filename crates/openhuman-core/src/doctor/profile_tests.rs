@@ -130,6 +130,45 @@ async fn invalid_explicit_profile_returns_one_safe_profile_exists_error() {
 }
 
 #[tokio::test]
+async fn explicit_dispatch_selection_does_not_load_the_ambient_config() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    let active_config_path = root.join("users/account-a/config.toml");
+    tokio::fs::create_dir_all(&active_config_path).await.unwrap();
+    let selected = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&selected.dir).await.unwrap();
+    tokio::fs::write(&selected.config_path, "default_model = \"account-b-model\"\n")
+        .await
+        .unwrap();
+    let active_config = Config {
+        config_path: active_config_path,
+        workspace_dir: root.join("users/account-a/workspace"),
+        ..Config::default()
+    };
+    let core = crate::core::runtime::CoreContext::for_test_with_config(
+        crate::core::runtime::DomainSet::full(),
+        active_config,
+    );
+    let dispatch = crate::core::runtime::DispatchCtx::new(core);
+
+    let outcome = crate::doctor::ops::doctor_report_for_dispatch(
+        &dispatch,
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["profile/exists".into()],
+            profile: Some("account-b".into()),
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(outcome.value.profile.as_deref(), Some("account-b"));
+    assert_eq!(outcome.value.checks_run, ["profile/exists"]);
+    assert_eq!(outcome.value.findings[0].severity, FindingSeverity::Pass);
+}
+
+#[tokio::test]
 async fn selected_profile_context_pins_id_layout_source_and_components() {
     let temp = TempDir::new().unwrap();
     let layout = ProfileLayout::new(temp.path(), "account-b");

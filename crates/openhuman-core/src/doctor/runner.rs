@@ -1,11 +1,11 @@
 //! Bounded async execution, filtering, and report assembly.
 
 use std::collections::HashSet;
-use std::sync::Arc;
+use std::sync::{Arc, LazyLock};
 use std::time::Instant;
 
 use futures::stream::{FuturesUnordered, StreamExt};
-use tokio::sync::Semaphore;
+use tokio::sync::{OwnedSemaphorePermit, Semaphore};
 
 use super::contract::{
     DoctorCheck, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, Finding,
@@ -13,6 +13,8 @@ use super::contract::{
 use super::registry;
 
 const MAX_CONCURRENT_CHECKS: usize = 8;
+static CHECK_SEMAPHORE: LazyLock<Arc<Semaphore>> =
+    LazyLock::new(|| Arc::new(Semaphore::new(MAX_CONCURRENT_CHECKS)));
 
 /// Runs registered checks using exact-id filters and stable report ordering.
 pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<DoctorReport, String> {
@@ -74,15 +76,9 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
         runnable.push((index, check));
     }
 
-    let semaphore = Arc::new(Semaphore::new(MAX_CONCURRENT_CHECKS));
     let mut tasks = FuturesUnordered::new();
     for (index, check) in runnable {
-        tasks.push(execute_one(
-            index,
-            check,
-            Arc::clone(&semaphore),
-            ctx.clone(),
-        ));
+        tasks.push(execute_one(index, check, ctx.clone()));
     }
     let mut outcomes = Vec::new();
     while let Some(outcome) = tasks.next().await {
@@ -129,19 +125,13 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
 async fn execute_one(
     index: usize,
     check: Arc<dyn DoctorCheck>,
-    semaphore: Arc<Semaphore>,
     ctx: DoctorCtx,
 ) -> (usize, String, Vec<Finding>, bool) {
-    let permit = semaphore
-        .acquire_owned()
-        .await
-        .expect("doctor semaphore is never closed");
     let id = check.id().to_owned();
     let timeout = check.timeout();
     let started = Instant::now();
     let detection = detect(check, ctx);
     let result = tokio::time::timeout(timeout, detection).await;
-    drop(permit);
     let duration_ms = elapsed_ms(started.elapsed());
     let mut findings = match result {
         Ok(Ok(mut findings)) => {
@@ -172,12 +162,26 @@ async fn execute_one(
 }
 
 async fn detect(check: Arc<dyn DoctorCheck>, ctx: DoctorCtx) -> Result<Vec<Finding>, ()> {
+    // Include permit acquisition in the per-check budget, so queued work
+    // cannot wait forever behind blocking probes that outlive a timeout.
+    let permit: OwnedSemaphorePermit = Arc::clone(&CHECK_SEMAPHORE)
+        .acquire_owned()
+        .await
+        .map_err(|_| ())?;
     if check.is_blocking() {
-        tokio::task::spawn_blocking(move || check.detect_blocking(&ctx).ok_or(()))
-            .await
-            .map_err(|_| ())?
+        tokio::task::spawn_blocking(move || {
+            let result = check.detect_blocking(&ctx).ok_or(());
+            // A blocking worker cannot be cancelled after it has started. It
+            // retains the process-wide slot after its caller times out.
+            drop(permit);
+            result
+        })
+        .await
+        .map_err(|_| ())?
     } else {
-        Ok(check.detect(&ctx).await)
+        let findings = check.detect(&ctx).await;
+        drop(permit);
+        Ok(findings)
     }
 }
 

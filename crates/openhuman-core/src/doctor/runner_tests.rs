@@ -4,7 +4,9 @@ use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext, DomainSet};
 use crate::core::slots::Extensions;
 
-use super::contract::{DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
+use super::contract::{
+    DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity,
+};
 use super::registry::register_check_source_in;
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
@@ -33,6 +35,8 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     .await
     .expect("registered check source runs");
 
+    let config_source: DoctorConfigSource = report.config_source;
+    assert_eq!(config_source, DoctorConfigSource::Profile);
     assert!(report.checks_run.iter().any(|id| id == "hosted/ready"));
     assert!(report
         .findings

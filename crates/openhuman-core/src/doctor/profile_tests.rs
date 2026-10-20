@@ -7,9 +7,7 @@ use crate::config::Config;
 use crate::doctor::profile::{
     DesktopProfileError, load_desktop_profile, resolve_desktop_profile_for_doctor,
 };
-use crate::doctor::{
-    DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity,
-};
+use crate::doctor::{DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
 use crate::profiles::ProfileLayout;
 use crate::security::credentials::{
     APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,

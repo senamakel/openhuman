@@ -8,7 +8,6 @@ use async_trait::async_trait;
 use crate::config::schema::load::ConfigResolutionSource;
 use crate::config::schema::profile_layout::LayoutVersion;
 use crate::config::Config;
-use crate::core::runtime::ComponentSet;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding};
 use crate::profiles::ProfileLayout;
 
@@ -162,7 +161,7 @@ async fn load_config_read_only(
     };
 
     let mut config = match config_text.as_deref() {
-        Some(contents) => crate::config::config_from_toml_str(contents)
+        Some(contents) => crate::config::schema::config_from_toml_str(contents)
             .map_err(|_| DesktopProfileError::InvalidConfig)?,
         None => Config::default(),
     };

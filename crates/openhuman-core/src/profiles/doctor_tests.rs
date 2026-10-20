@@ -2,7 +2,9 @@
 //! `profiles::doctor` when the tenant resolver lands.
 
 use super::{resolve_with_loader, DoctorCaller};
+use super::{profile_provisioned_finding, TenantProfileState};
 use crate::profiles::ProfileId;
+use crate::doctor::FindingSeverity;
 use std::future::Ready;
 use std::sync::{Arc, Mutex};
 
@@ -205,5 +207,27 @@ async fn malformed_profile_ids_are_rejected_before_tenant_reads() {
 
     assert!(result.is_err());
     assert!(reads.snapshot().is_empty());
+}
+
+#[test]
+fn an_unprovisioned_profile_is_a_safe_profile_provisioned_error() {
+    let finding = profile_provisioned_finding(TenantProfileState::Unprovisioned);
+
+    assert_eq!(finding.check_id, "profile/provisioned");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(!finding.message.contains("secret"));
+    assert!(!finding.message.contains("token"));
+    assert!(!finding.fix_hint.contains("secret"));
+}
+
+#[test]
+fn a_profile_held_by_another_node_is_reported_without_holder_details() {
+    let finding = profile_provisioned_finding(TenantProfileState::HeldElsewhere);
+
+    assert_eq!(finding.check_id, "profile/provisioned");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(!finding.message.contains("node-a"));
+    assert!(!finding.message.contains("https://"));
+    assert!(!finding.fix_hint.contains("token"));
 }
 

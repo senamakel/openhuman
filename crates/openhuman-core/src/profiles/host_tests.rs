@@ -133,6 +133,44 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     crate::profiles::credentials::clear(&target_b.config).unwrap();
 }
 
+#[tokio::test]
+async fn doctor_inspection_reports_an_existing_lease_without_taking_it() {
+    let tmp = tempfile::tempdir().unwrap();
+    let operator = CoreContext::for_test(DomainSet::full(), None);
+    let make_host = |node: &str| {
+        let mut saas = SaasConfig::new(tmp.path());
+        saas.node_id = Some(node.into());
+        ProfileHost::new(saas, Arc::clone(&operator))
+    };
+    let (owner, inspector, third) = (
+        make_host("node-a"),
+        make_host("node-b"),
+        make_host("node-c"),
+    );
+    let id = ProfileId::for_user(
+        &format!("doctor-held-{}", uuid::Uuid::new_v4().simple()),
+        crate::profiles::ProfileIdMode::Raw,
+    )
+    .unwrap();
+    owner.provision(&id).await.unwrap();
+    let opened = owner.open(&id).await.unwrap();
+
+    let inspected = inspector.inspect_for_doctor(&id).await.unwrap();
+    assert!(inspected.provisioned);
+    assert_eq!(
+        inspected.lease_record.as_ref().map(|record| record.owner.as_str()),
+        Some("node-a")
+    );
+    assert_eq!(inspector.open_count(), 0);
+
+    match third.open(&id).await {
+        Err(OpenError::HeldElsewhere(record)) => assert_eq!(record.owner, "node-a"),
+        other => panic!("inspection must leave the existing lease with node-a; got {other:?}"),
+    }
+
+    drop(opened);
+}
+
 fn host(tmp: &tempfile::TempDir, max_open: usize, idle_secs: u64) -> ProfileHost {
     let mut saas = SaasConfig::new(tmp.path());
     saas.max_profiles_open = max_open;

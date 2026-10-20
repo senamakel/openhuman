@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test]
-async fn inspecting_an_expired_holder_does_not_create_a_lock_file() {
+async fn doctor_holder_inspection_does_not_create_a_lock_file() {
     let dir = tempfile::tempdir().unwrap();
     let key_dir = local_dir(dir.path(), "k");
     fs::create_dir_all(&key_dir).unwrap();
@@ -21,7 +21,7 @@ async fn inspecting_an_expired_holder_does_not_create_a_lock_file() {
     assert!(!lock_path.exists());
 
     let observer = LocalLeases::new(dir.path(), "doctor");
-    let record = observer.holder("k").await.unwrap().unwrap();
+    let record = observer.holder_readonly("k").await.unwrap().unwrap();
 
     assert_eq!(record.owner, "previous-node");
     assert!(!record.is_live(0), "the absent lock means no holder is live");

@@ -12,7 +12,7 @@ fn node(storage: &MemoryStorage, id: &str) -> DocumentLeases {
 }
 
 #[tokio::test]
-async fn inspecting_a_holder_does_not_declare_the_lease_collection() {
+async fn doctor_holder_inspection_does_not_declare_the_lease_collection() {
     let storage = MemoryStorage::new();
     let leases = node(&storage, "a");
     let documents = storage
@@ -25,7 +25,7 @@ async fn inspecting_a_holder_does_not_declare_the_lease_collection() {
         .validate_collection_spec(&spec)
         .await
         .is_err());
-    assert!(leases.holder("alice").await.unwrap().is_none());
+    assert!(leases.holder_readonly("alice").await.unwrap().is_none());
     assert!(documents
         .documents()
         .validate_collection_spec(&spec)

@@ -61,8 +61,9 @@ async fn spawn_catalog_server(
     } else {
         app.fallback(get(catalog_handler))
     };
+    let app = app.with_state(state.clone());
     tokio::spawn(async move {
-        axum::serve(listener, app.with_state(state.clone()))
+        axum::serve(listener, app)
             .await
             .expect("serve local catalog");
     });
@@ -76,9 +77,9 @@ fn config_for_catalog(
 ) -> (tempfile::TempDir, Config) {
     let root = tempfile::tempdir().expect("temporary doctor fixture");
     let mut config = Config {
-        config_path: root.join("config.toml"),
-        workspace_dir: root.join("workspace"),
-        action_dir: root.join("workspace"),
+        config_path: root.path().join("config.toml"),
+        workspace_dir: root.path().join("workspace"),
+        action_dir: root.path().join("workspace"),
         ..Config::default()
     };
     config.secrets.encrypt = false;

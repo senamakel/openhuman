@@ -51,11 +51,15 @@ pub(super) fn parse_args(args: &[String]) -> Result<DoctorArgs, String> {
                 index += 1;
             }
             "--only" => {
-                options.only.push(argument_value(args, index, "--only")?.into());
+                options
+                    .only
+                    .push(argument_value(args, index, "--only")?.into());
                 index += 1;
             }
             "--skip" => {
-                options.skip.push(argument_value(args, index, "--skip")?.into());
+                options
+                    .skip
+                    .push(argument_value(args, index, "--skip")?.into());
                 index += 1;
             }
             "--profile" => {

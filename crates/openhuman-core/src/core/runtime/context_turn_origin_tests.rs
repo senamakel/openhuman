@@ -240,13 +240,11 @@ async fn a_turn_origin_survives_a_change_of_context() {
                 Some(crate::security::turn_origin::AgentTurnOrigin::TrustedAutomation { .. })
             ));
             // It is the inner context that is scoped (its own state), not the outer.
-            assert!(
-                CoreContext::current()
-                    .unwrap()
-                    .workspace_dir()
-                    .unwrap()
-                    .ends_with("origin-survives-inner")
-            );
+            assert!(CoreContext::current()
+                .unwrap()
+                .workspace_dir()
+                .unwrap()
+                .ends_with("origin-survives-inner"));
         })
         .await;
         CoreContext::sync_scope(inner, || {

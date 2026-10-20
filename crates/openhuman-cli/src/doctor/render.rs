@@ -63,7 +63,9 @@ fn render(report: &Value, minimum: Option<&str>) -> String {
                 .get("fix_hint")
                 .and_then(Value::as_str)
                 .unwrap_or("Review this check and rerun doctor.");
-            output.push_str(&format!("  [{severity}] {id} {message}\n  fix: {fix_hint}\n"));
+            output.push_str(&format!(
+                "  [{severity}] {id} {message}\n  fix: {fix_hint}\n"
+            ));
         }
     }
 

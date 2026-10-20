@@ -65,7 +65,10 @@ pub(super) fn run(args: &[String]) -> u8 {
     match report {
         Ok(report) => {
             if options.json {
-                println!("{}", serde_json::to_string_pretty(&report).unwrap_or_default());
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&report).unwrap_or_default()
+                );
             } else {
                 print!("{}", render_table_for_args(&report, &options));
             }
@@ -87,9 +90,7 @@ async fn invoke_report(options: &DoctorArgs) -> Result<Value, ()> {
         .invoke("openhuman.doctor_report", options.rpc_params())
         .await
         .map_err(|_| ())?;
-    doctor_report_body(&invoke_result)
-        .cloned()
-        .map_err(|_| ())
+    doctor_report_body(&invoke_result).cloned().map_err(|_| ())
 }
 
 fn print_runtime_failure(json: bool) {

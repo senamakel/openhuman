@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsString;
 use std::fs;
 use std::path::{Path, PathBuf};
@@ -239,9 +239,17 @@ async fn preloaded_runtime_report() {
 
     drop(runtime);
     let after = snapshot(root.path());
+    let changed_paths = before
+        .keys()
+        .chain(after.keys())
+        .cloned()
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .filter(|path| before.get(path) != after.get(path))
+        .collect::<Vec<_>>();
     assert!(
-        !backend_opened && key_store_writes == 0 && after == before,
+        !backend_opened && key_store_writes == 0 && changed_paths.is_empty(),
         "inspection startup side effects: backend_opened={backend_opened}, \
-         key_store_writes={key_store_writes}, before={before:?}, after={after:?}"
+         key_store_writes={key_store_writes}, changed_paths={changed_paths:?}"
     );
 }

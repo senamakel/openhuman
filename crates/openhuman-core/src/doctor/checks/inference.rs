@@ -6,10 +6,8 @@ use async_trait::async_trait;
 
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
-use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
-use crate::inference::provider::factory::{
-    PROVIDER_OPENHUMAN, create_chat_model_with_model_id_in_for_inspection,
-};
+use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding};
+use crate::inference::provider::factory::create_chat_model_with_model_id_in_for_inspection;
 
 const PROVIDER_REF_ID: &str = "inference/provider-ref";
 const CONSTRUCT_ID: &str = "inference/construct";
@@ -104,7 +102,12 @@ fn provider_ref_findings(config: &Config) -> Vec<Finding> {
         else {
             continue;
         };
-        if !chat_provider_resolves(config, provider) {
+        let resolves = if role == "embeddings" {
+            embedding_provider_resolves(provider)
+        } else {
+            chat_provider_resolves(config, provider)
+        };
+        if !resolves {
             findings.push(unresolved_provider(path));
         }
     }
@@ -206,6 +209,13 @@ fn provider_ref_findings(config: &Config) -> Vec<Finding> {
         findings.push(unresolved_provider(path));
     }
 
+    let mut seen_paths = std::collections::HashSet::new();
+    findings.retain(|finding| {
+        finding
+            .config_path
+            .as_ref()
+            .is_none_or(|path| seen_paths.insert(path.clone()))
+    });
     findings
 }
 
@@ -341,6 +351,14 @@ fn construction_findings(config: &Config) -> Vec<Finding> {
     let dispatch = DispatchCtx::ambient();
 
     for (role, path) in ROLE_PROVIDER_FIELDS {
+        if role == "embeddings"
+            && config
+                .embeddings_provider
+                .as_deref()
+                .is_some_and(|provider| provider.trim() == "none")
+        {
+            continue;
+        }
         let result = create_chat_model_with_model_id_in_for_inspection(
             &dispatch,
             role,

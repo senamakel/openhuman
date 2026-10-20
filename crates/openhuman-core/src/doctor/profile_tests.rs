@@ -114,6 +114,28 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
 }
 
 #[tokio::test]
+async fn inspecting_selected_profile_credentials_does_not_create_auth_store_state() {
+    let _env_guard = crate::config::TEST_ENV_LOCK.lock().await;
+    let temp = TempDir::new().unwrap();
+    let layout = ProfileLayout::new(temp.path(), "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(&layout.config_path, "secrets.encrypt = false\n")
+        .await
+        .unwrap();
+
+    let selected = load_desktop_profile(temp.path(), "account-b")
+        .await
+        .unwrap();
+    assert_eq!(get_session_token(&selected.config).unwrap(), None);
+    assert!(
+        tokio::fs::metadata(layout.dir.join("auth-profiles.lock"))
+            .await
+            .is_err(),
+        "read-only doctor credential inspection must not create the auth store lock"
+    );
+}
+
+#[tokio::test]
 async fn invalid_explicit_profile_returns_one_safe_profile_exists_error() {
     let temp = TempDir::new().unwrap();
     let root = temp.path();

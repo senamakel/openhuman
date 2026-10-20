@@ -252,6 +252,9 @@ pub struct DoctorCtx {
 }
 
 impl DoctorCtx {
+    /// Creates a check context from the effective config and active core
+    /// context. An unscoped local configuration reports `profile` as its
+    /// source; a scoped SaaS context reports `tenant`.
     pub fn from_config(config: Config) -> Self {
         let core = CoreContext::current();
         let profile = core
@@ -284,14 +287,17 @@ impl DoctorCtx {
         self
     }
 
+    /// The effective configuration inspected by this run.
     pub fn config(&self) -> &Config {
         &self.config
     }
 
+    /// The component switches for this run.
     pub fn components(&self) -> ComponentSet {
         self.components
     }
 
+    /// The effective profile or tenant id, when the active context has one.
     pub fn profile(&self) -> Option<&str> {
         self.profile.as_deref()
     }

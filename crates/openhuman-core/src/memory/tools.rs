@@ -2,12 +2,12 @@
 
 use std::future::Future;
 use std::pin::Pin;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tinymemory_api::{Namespace, Reach, ThreadWindow, ToolCallRef};
+use tinymemory_api::{MemoryEngine, Namespace, Reach, ThreadWindow, ToolCallRef};
 use tinymemory_tools::{
     concurrency_for, is_write_action, permission_for, CallContext, ConcurrencyClass, MemoryTools,
     PermissionClass, Refusal, RunBudget, SingleTool, ToolScope,
@@ -138,15 +138,45 @@ impl tinymemory_tools::BudgetClock for TokioClock {
 pub struct MemoryTool {
     config: Arc<Config>,
     budget: RunBudget,
+    last_engine: Mutex<Option<Arc<dyn MemoryEngine>>>,
 }
 
 impl MemoryTool {
     /// A tool bound to `config`'s configured memory engine.
     #[must_use]
     pub fn new(config: Arc<Config>) -> Self {
+        let last_engine = super::engine::resolve(&config)
+            .engine()
+            .ok()
+            .map(|bound| bound.engine);
         Self {
             config,
             budget: RunBudget::new(Arc::new(TokioClock::default())),
+            last_engine: Mutex::new(last_engine),
+        }
+    }
+
+    fn engine_for_call(&self) -> Result<Arc<dyn MemoryEngine>, tinymemory_api::Error> {
+        if super::engine::switched_off(&self.config) {
+            return super::engine::resolve(&self.config)
+                .engine()
+                .map(|bound| bound.engine);
+        }
+        match super::engine::resolve(&self.config).engine() {
+            Ok(bound) => {
+                let engine = bound.engine;
+                *self
+                    .last_engine
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(engine.clone());
+                Ok(engine)
+            }
+            Err(error) => self
+                .last_engine
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .clone()
+                .ok_or(error),
         }
     }
 
@@ -158,23 +188,38 @@ impl MemoryTool {
         run_id: Option<&str>,
     ) -> ToolResult {
         let call = async {
-            let bound = match super::engine::resolve(&self.config).engine() {
-                Ok(bound) => bound,
+            let engine = match self.engine_for_call() {
+                Ok(engine) => engine,
                 Err(error) => return ToolResult::error(render_error(error)),
             };
-            let tools = MemoryTools::with_scope(bound.engine, facts.native_scope(&self.config));
+            let tools = MemoryTools::with_scope(engine, facts.native_scope(&self.config));
             let single = SingleTool::new(MEMORY_TOOL_NAME, tools).with_write_sink(Arc::new(
                 super::tool_writes::HostWriteSink::new(self.config.clone()),
             ));
-            let outcome = match single
-                .call_with_details(
-                    args.clone(),
-                    CallContext {
-                        thread_window: facts.in_prompt.clone(),
-                    },
-                )
-                .await
-            {
+            let call_args = args.clone();
+            let thread_window = facts.in_prompt.clone();
+            let call = async move {
+                single
+                    .call_with_details(call_args, CallContext { thread_window })
+                    .await
+            };
+            let outcome = if is_write_action(&args) {
+                let runtime = tokio::runtime::Handle::current();
+                match dispatch
+                    .spawn_blocking(move || runtime.block_on(call))
+                    .await
+                {
+                    Ok(result) => result,
+                    Err(_) => {
+                        return ToolResult::error(render_error(tinymemory_api::Error::Unavailable(
+                            "memory write queue unavailable".into(),
+                        )))
+                    }
+                }
+            } else {
+                call.await
+            };
+            let outcome = match outcome {
                 Ok(outcome) => outcome,
                 Err(error) => return ToolResult::error(render_error(error)),
             };

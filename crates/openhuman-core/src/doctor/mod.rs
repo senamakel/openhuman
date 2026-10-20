@@ -1,9 +1,11 @@
 //! Diagnostic checks for OpenHuman configuration, workspace health, and daemon state.
 
+pub(crate) mod checks;
 mod contract;
 mod core;
 mod legacy;
 pub mod ops;
+pub mod profile;
 pub mod registry;
 mod runner;
 mod schemas;
@@ -27,8 +29,44 @@ pub use schemas::{
 };
 
 #[cfg(test)]
+#[path = "config_file_tests.rs"]
+mod config_file_red_tests;
+
+#[cfg(test)]
+#[path = "config_provenance_tests.rs"]
+mod config_provenance_red_tests;
+
+#[cfg(test)]
+#[path = "config_semantics_tests.rs"]
+mod config_semantics_red_tests;
+
+#[cfg(test)]
+#[path = "inference_config_tests.rs"]
+mod inference_config_red_tests;
+
+#[cfg(test)]
+#[path = "embeddings_config_tests.rs"]
+mod embeddings_config_red_tests;
+
+#[cfg(test)]
+#[path = "checks/config_file_tests.rs"]
+mod config_file_tests;
+
+#[cfg(test)]
 #[path = "runner_tests.rs"]
 mod runner_tests;
+
+#[cfg(test)]
+#[path = "checks/config_provenance_tests.rs"]
+mod config_provenance_tests;
+
+#[cfg(test)]
+#[path = "checks/inference_tests.rs"]
+mod inference_config_tests;
+
+#[cfg(test)]
+#[path = "checks/embeddings_tests.rs"]
+mod embeddings_config_tests;
 
 #[cfg(test)]
 pub(crate) mod test_support;

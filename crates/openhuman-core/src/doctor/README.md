@@ -66,7 +66,7 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 - `crate::config::{Config, rpc}`: reads the live config for all probes; `config_rpc::load_config_with_timeout` in the handlers.
 - `crate::memory::status`: the memory engine's status (`ok`/`degraded`/`down`/`off`), taken by `ops` before the blocking hop and passed to `run` as a `MemoryEngineCheck`.
 - `crate::inference::embedding_host::effective_embedding_settings`: resolves the intended embedding provider/model.
-- `crate::inference::local`: `ollama_base_url` (embedding probe).
+- `crate::inference::local`: `ollama_base_url_from_override(config.local_ai.base_url)` (configured embedding probe).
 - `config.resolved_endpoints` (filled by the host's config enricher) for the inference base URL; `crate::security::credentials::jwt::get_session_token` for sign-in state.
 - `crate::core::all::{ControllerFuture, RegisteredController}`, `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller/schema plumbing.
 - `crate::rpc::RpcOutcome`: handler return contract.
@@ -84,7 +84,7 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 - The v1 adapter maps status and ids to v2 but does not forward unstructured legacy messages, which may contain resolved configuration values. Native v2 checks should provide safe, specific findings.
 - An engine that is down is reported as an error and memory being off as a warning, so the doctor names what is wrong instead of showing an empty store.
 - `doctor.models` reports an explicit unavailable error until the inference catalog integration is implemented in #497; it does not return a fabricated all-skipped report.
-- The embedding probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-ollama providers short-circuit to OK.
+- The configured-model probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-Ollama providers are reported as skipped until their provider-specific checks run.
 - `model_matches` treats `name` vs `name:tag` as a match only when at most one side is tagged; two differently-tagged names are not considered equal.
 - Severity rollup: `DoctorSummary` counts `Ok`/`Warn`/`Error` items; checks are intentionally lenient (missing optional dirs/tools → `Warn`, not `Error`).
 - OS-specific helpers (`available_disk_space_mb`, `check_command_available`, `check_claude_agent_sdk`) set `CREATE_NO_WINDOW` on Windows to avoid console flashes.

@@ -9,6 +9,8 @@ use std::sync::{Mutex, OnceLock};
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub(crate) enum ProvenanceSource {
+    /// The value came from a process-local CLI launch option.
+    Cli,
     /// The value came from the process environment.
     Env,
     /// The value came from a `.env` file loaded for this process.
@@ -121,6 +123,21 @@ impl ConfigProvenance {
             ValueProvenance {
                 source,
                 env_var: Some(env_var.to_owned()),
+                file_also_set,
+            },
+        );
+    }
+
+    pub(crate) fn record_cli_override(&mut self, path: &str) {
+        let file_also_set = self
+            .fields
+            .get(path)
+            .is_some_and(|entry| entry.source == ProvenanceSource::File || entry.file_also_set);
+        self.fields.insert(
+            path.to_owned(),
+            ValueProvenance {
+                source: ProvenanceSource::Cli,
+                env_var: None,
                 file_also_set,
             },
         );

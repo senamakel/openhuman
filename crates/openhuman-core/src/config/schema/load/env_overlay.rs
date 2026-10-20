@@ -93,6 +93,18 @@ impl Config {
         // after loading so `openhuman -p <provider> -m <model>` never mutates
         // config.toml and desktop launches remain unaffected.
         super::super::cli_overrides::apply_cli_inference_overrides(self);
+        if self.cli_inference_snapshot.is_some() {
+            let provenance = self.load_provenance_mut();
+            for field in [
+                "default_model",
+                "chat_provider",
+                "reasoning_provider",
+                "agentic_provider",
+                "coding_provider",
+            ] {
+                provenance.record_cli_override(field);
+            }
+        }
     }
 
     /// Pure-ish env overlay: applies overrides read from `env` to `self`.

@@ -76,7 +76,12 @@ async fn disabled_mcp_component_warns_when_servers_are_configured() {
 async fn disabled_channels_component_warns_when_a_provider_is_configured() {
     let mut config = Config::default();
     config.components.channels = false;
-    config.channels_config.slack = Some(Default::default());
+    config.channels_config.slack = Some(crate::config::SlackConfig {
+        bot_token: "fixture-bot-token".into(),
+        app_token: None,
+        channel_id: None,
+        allowed_users: Vec::new(),
+    });
 
     let findings = run_check(config, "components/referenced-but-disabled").await;
 

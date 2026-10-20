@@ -8,10 +8,9 @@ use crate::core::slots::Extensions;
 use async_trait::async_trait;
 
 use super::contract::{
-    DoctorCheck, DoctorCheckSource, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier,
-    Finding, FindingSeverity,
+    DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity,
 };
-use super::registry::register_check_source_in;
+use super::registry::{DoctorCheckSource, register_check_source_in};
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
 

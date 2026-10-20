@@ -83,14 +83,12 @@ fn project_managed_usage_is_noop_without_envelope() {
 
     let projected = project_managed_usage(response);
     // raw keeps only the wire fields — no meta key injected.
-    assert!(
-        projected
-            .raw
-            .as_ref()
-            .unwrap()
-            .get("openhuman_usage_meta")
-            .is_none()
-    );
+    assert!(projected
+        .raw
+        .as_ref()
+        .unwrap()
+        .get("openhuman_usage_meta")
+        .is_none());
     let recovered = recover_usage(&projected).expect("usage present");
     assert_eq!(recovered.charged_amount_usd, None);
     assert_eq!(

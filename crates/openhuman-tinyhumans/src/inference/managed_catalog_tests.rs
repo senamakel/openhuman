@@ -48,12 +48,10 @@ fn limits_request_lists_the_catalog_keyed_by_the_inference_base() {
     };
     let request = limits_request("some/model", &config).expect("managed limits request");
     assert_eq!(request.endpoint, "https://api.tinyhumans.ai/openai/v1");
-    assert!(
-        request
-            .listing_url
-            .as_deref()
-            .is_some_and(|url| url.ends_with("/openai/v1/models?catalog=openrouter"))
-    );
+    assert!(request
+        .listing_url
+        .as_deref()
+        .is_some_and(|url| url.ends_with("/openai/v1/models?catalog=openrouter")));
 }
 
 #[test]

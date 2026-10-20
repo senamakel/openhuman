@@ -4,10 +4,10 @@
 
 use std::sync::Arc;
 
-use openhuman_embed::__host::egress::{EgressDescriptor, emit_external_transfer, enforce_egress};
+use openhuman_embed::__host::egress::{emit_external_transfer, enforce_egress, EgressDescriptor};
 use openhuman_embed::__host::inference_registry::EmbeddingRequest;
 use openhuman_embed::__host::security::approval::ApprovalChatContext;
-use openhuman_embed::__host::security::credentials::{APP_SESSION_PROVIDER, AuthService};
+use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use tinyinference_embeddings::{BearerResolver, CloudEmbeddingModel, EmbeddingModel};
 
 use crate::backend::url::effective_api_url;

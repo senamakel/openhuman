@@ -50,13 +50,21 @@ fn stored_wallet_json(address: &str) -> String {
 #[cfg(not(feature = "web3"))]
 #[tokio::test]
 async fn feature_off_wallet_facade_reports_no_accounts_without_a_wallet_probe() {
-    let outcome = crate::web3::wallet::status()
-        .await
-        .expect("disabled wallet facade is an available local snapshot");
-
-    assert!(outcome.value.accounts.is_empty());
+    let scratch = tempfile::tempdir().expect("create isolated wallet fixture");
+    let config = config_in(scratch.path());
+    let reads = Arc::new(AtomicUsize::new(0));
+    let check = WalletStatusCheck::with_probe(Arc::new(ReadOnlySnapshot {
+        expected_workspace: config.workspace_dir.clone(),
+        snapshot: Ok(Some(WalletSnapshot { configured: true })),
+        reads: Arc::clone(&reads),
+        keychain_queries: Arc::new(AtomicUsize::new(0)),
+    }));
+    let finding = check.detect(&DoctorCtx::from_config(config)).await.remove(0);
+    assert_eq!(finding.severity, FindingSeverity::Skipped);
+    assert_eq!(reads.load(Ordering::SeqCst), 0);
 }
 
+#[cfg(feature = "web3")]
 #[tokio::test]
 async fn a_valid_wallet_snapshot_is_inspected_without_keychain_access_or_rewrite() {
     let scratch = tempfile::tempdir().expect("create isolated wallet fixture");
@@ -92,6 +100,7 @@ async fn a_valid_wallet_snapshot_is_inspected_without_keychain_access_or_rewrite
     assert_eq!(std::fs::read_to_string(&state_path).unwrap(), original);
 }
 
+#[cfg(feature = "web3")]
 #[tokio::test]
 async fn malformed_selected_wallet_state_is_reported_without_quarantine_or_deletion() {
     let scratch = tempfile::tempdir().expect("create isolated wallet fixture");
@@ -132,6 +141,7 @@ async fn malformed_selected_wallet_state_is_reported_without_quarantine_or_delet
     );
 }
 
+#[cfg(feature = "web3")]
 #[tokio::test]
 async fn ambient_wallet_state_is_not_used_for_selected_b_workspace() {
     let ambient = tempfile::tempdir().expect("create ambient wallet fixture");

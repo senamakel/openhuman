@@ -201,11 +201,9 @@ impl MemoryTool {
                 {
                     Ok(result) => result,
                     Err(_) => {
-                        return ToolResult::error(render_error(
-                            tinymemory_api::Error::Unavailable(
-                                "memory write queue unavailable".into(),
-                            ),
-                        ));
+                        return ToolResult::error(render_error(tinymemory_api::Error::Unavailable(
+                            "memory write queue unavailable".into(),
+                        )))
                     }
                 }
             } else {
@@ -312,7 +310,8 @@ fn budget_refusal(refusal: Refusal) -> ToolResult {
                 }
                 _ => format!("Memory budget exhausted for this run. {CONTINUE_WITHOUT_MEMORY}"),
             };
-            ToolResult::error(message).with_metadata(json!({ REFUSAL_METADATA_KEY: "refused" }))
+            ToolResult::error(message)
+                .with_metadata(json!({ REFUSAL_METADATA_KEY: "refused" }))
         }
         Refusal::TimedOut => ToolResult::error(format!(
             "Memory did not finish within its latency budget and is unavailable for this run. {CONTINUE_WITHOUT_MEMORY}"

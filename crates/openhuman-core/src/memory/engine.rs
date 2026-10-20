@@ -439,7 +439,7 @@ fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
                 Some(CORTEXDB_ENGINE),
                 Some(endpoint),
                 "add a CortexDB API key to use CortexDB memory",
-            );
+            )
         }
         Err(error) => {
             tracing::warn!(error = %error, "[memory:engine] reading the CortexDB key failed");

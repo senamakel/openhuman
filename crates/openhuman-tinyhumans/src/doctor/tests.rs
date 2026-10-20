@@ -1,30 +1,91 @@
 use super::*;
-use crate::hosted::test_support::store_session;
 use crate::session::test_support::{EXPIRED_JWT, LIVE_JWT};
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::runtime::CoreContext;
 use openhuman_embed::__host::core::slots::Extensions;
 use openhuman_embed::__host::doctor::{registered_checks, DoctorCheck};
-use openhuman_embed::__host::security::credentials::{
-    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
-};
 use openhuman_embed::{CoreBuilder, DomainSet, HostKind, ServiceSet};
 use serde_json::json;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tempfile::TempDir;
 use wiremock::matchers::{header, method, path, query_param};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn context(tmp: &TempDir, api_url: &str) -> DoctorCtx {
+    let state_dir = tmp.path().join("workspace");
+    context_at(&state_dir, &state_dir, api_url)
+}
+
+fn context_at(state_dir: &Path, workspace_dir: &Path, api_url: &str) -> DoctorCtx {
     let mut config = Config {
-        workspace_dir: tmp.path().join("workspace"),
-        action_dir: tmp.path().join("workspace"),
-        config_path: tmp.path().join("config.toml"),
+        workspace_dir: workspace_dir.to_path_buf(),
+        action_dir: workspace_dir.to_path_buf(),
+        config_path: state_dir.join("config.toml"),
         api_url: Some(api_url.to_owned()),
         ..Config::default()
     };
     config.resolved_endpoints.control_plane_url = Some(api_url.to_owned());
     DoctorCtx::from_config(config)
+}
+
+fn write_raw_session_profile(
+    ctx: &DoctorCtx,
+    token: &str,
+    metadata: serde_json::Map<String, serde_json::Value>,
+) -> (PathBuf, Vec<u8>) {
+    let state_dir = ctx.config().config_path.parent().expect("config state dir");
+    std::fs::create_dir_all(state_dir).expect("create temp config state dir");
+    let path = state_dir.join("auth-profiles.json");
+    let bytes = serde_json::to_vec(&json!({
+        "schema_version": 1,
+        "updated_at": "2026-01-01T00:00:00Z",
+        "active_profiles": {},
+        "profiles": {
+            "app-session:default": {
+                "provider": "app-session",
+                "profile_name": "default",
+                "kind": "token",
+                "token": token,
+                "created_at": "2026-01-01T00:00:00Z",
+                "updated_at": "2026-01-01T00:00:00Z",
+                "metadata": metadata,
+            }
+        }
+    }))
+    .expect("serialize schema-1 auth profile");
+    std::fs::write(&path, &bytes).expect("write schema-1 auth profile");
+    (path, bytes)
+}
+
+fn metadata(entries: impl IntoIterator<Item = (&'static str, String)>) -> serde_json::Map<String, serde_json::Value> {
+    entries
+        .into_iter()
+        .map(|(key, value)| (key.to_owned(), serde_json::Value::String(value)))
+        .collect()
+}
+
+fn workspace_snapshot(root: &Path) -> BTreeMap<PathBuf, Vec<u8>> {
+    fn visit(root: &Path, dir: &Path, snapshot: &mut BTreeMap<PathBuf, Vec<u8>>) {
+        for entry in std::fs::read_dir(dir).expect("read temp workspace") {
+            let entry = entry.expect("workspace entry");
+            let path = entry.path();
+            if entry.file_type().expect("workspace entry type").is_dir() {
+                visit(root, &path, snapshot);
+            } else {
+                snapshot.insert(
+                    path.strip_prefix(root).expect("workspace-relative path").to_path_buf(),
+                    std::fs::read(path).expect("read workspace file"),
+                );
+            }
+        }
+    }
+    let mut snapshot = BTreeMap::new();
+    if root.exists() {
+        visit(root, root, &mut snapshot);
+    }
+    snapshot
 }
 
 fn check(source: &HostedDoctorCheckSource, id: &str) -> Arc<dyn DoctorCheck> {
@@ -44,22 +105,145 @@ async fn findings(source: &HostedDoctorCheckSource, ctx: &DoctorCtx) -> Vec<Find
     findings
 }
 
+async fn run_isolated_probe(
+    scenario: &str,
+    root: &Path,
+    api_url: &str,
+) -> serde_json::Value {
+    let workspace = root.join("workspace");
+    let output = tokio::process::Command::new(std::env::current_exe().unwrap())
+        .args(["--exact", "doctor::tests::hosted_probe_child", "--nocapture"])
+        .env("OPENHUMAN_DOCTOR_PROBE_CHILD_SCENARIO", scenario)
+        .env("OPENHUMAN_DOCTOR_PROBE_CHILD_ROOT", root)
+        .env("OPENHUMAN_DOCTOR_PROBE_CHILD_API_URL", api_url)
+        .env("OPENHUMAN_WORKSPACE", &workspace)
+        .env("OPENHUMAN_KEYRING_BACKEND", "encrypted_file")
+        .env("OPENHUMAN_KEYRING_MASTER_KEY", "11".repeat(32))
+        .env_remove("OPENHUMAN_KEYRING_MASTER_KEY_FILE")
+        .output()
+        .await
+        .expect("run isolated doctor child test");
+    assert!(
+        output.status.success(),
+        "child test failed: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    serde_json::from_slice(
+        &std::fs::read(root.join("child-result.json")).expect("child report"),
+    )
+    .expect("parse child report")
+}
+
+#[tokio::test]
+async fn hosted_probe_child() {
+    let Some(scenario) = std::env::var_os("OPENHUMAN_DOCTOR_PROBE_CHILD_SCENARIO") else {
+        return;
+    };
+    let scenario = scenario.to_string_lossy();
+    let root = PathBuf::from(
+        std::env::var_os("OPENHUMAN_DOCTOR_PROBE_CHILD_ROOT").expect("child root"),
+    );
+    openhuman_embed::process::init_master_key().expect("initialize isolated test key source");
+    openhuman_embed::__host::core::bus::init()
+        .await
+        .expect("initialize isolated child bus");
+    let mut events = openhuman_embed::__host::core::bus::BUS
+        .get()
+        .expect("initialized bus")
+        .receiver();
+    let workspace = root.join("workspace");
+    let api_url = std::env::var("OPENHUMAN_DOCTOR_PROBE_CHILD_API_URL").expect("child api url");
+    let ctx = context_at(&workspace, &workspace, &api_url);
+    let source = HostedDoctorCheckSource::with_socket_state_reader(|| {
+        Some(ConnectionStatus::Connected)
+    });
+    let before = (scenario == "expired").then(|| workspace_snapshot(&workspace));
+
+    let report = match scenario.as_ref() {
+        "healthy" => {
+            let results = findings(&source, &ctx).await;
+            json!({
+                "findings": results.iter().map(|finding| json!({
+                    "check_id": finding.check_id,
+                    "severity": format!("{:?}", finding.severity),
+                    "message": finding.message,
+                })).collect::<Vec<_>>(),
+            })
+        }
+        "outage" => {
+            let results = ["backend/reachable", "backend/identity", "inference/managed-catalog"]
+                .into_iter()
+                .map(|id| check(&source, id));
+            let mut findings = Vec::new();
+            for probe in results {
+                findings.extend(probe.detect(&ctx).await);
+            }
+            json!({
+                "findings": findings.iter().map(|finding| json!({
+                    "check_id": finding.check_id,
+                    "severity": format!("{:?}", finding.severity),
+                    "message": finding.message,
+                })).collect::<Vec<_>>(),
+            })
+        }
+        "issuer-mismatch" => {
+            let results = ["backend/credential", "backend/identity", "inference/managed-catalog"]
+                .into_iter()
+                .map(|id| check(&source, id));
+            let mut findings = Vec::new();
+            for probe in results {
+                findings.extend(probe.detect(&ctx).await);
+            }
+            json!({
+                "findings": findings.iter().map(|finding| json!({
+                    "check_id": finding.check_id,
+                    "severity": format!("{:?}", finding.severity),
+                    "message": finding.message,
+                })).collect::<Vec<_>>(),
+            })
+        }
+        "expired" => {
+            let finding = check(&source, "backend/credential").detect(&ctx).await;
+            let mut session_expired_published = false;
+            while let Ok(event) = events.try_recv() {
+                if matches!(
+                    event,
+                    openhuman_embed::__host::core::events::DomainEvent::SessionExpired { .. }
+                ) {
+                    session_expired_published = true;
+                }
+            }
+            json!({
+                "severity": format!("{:?}", finding[0].severity),
+                "message": finding[0].message,
+                "profile_store_unchanged": before.unwrap() == workspace_snapshot(&workspace),
+                "session_expired_published": session_expired_published,
+            })
+        }
+        _ => panic!("unknown child scenario"),
+    };
+    std::fs::write(root.join("child-result.json"), serde_json::to_vec(&report).unwrap())
+        .expect("write child result outside profile workspace");
+}
+
 #[tokio::test]
 async fn healthy_backend_passes_hosted_checks_and_uses_sdk_attribution() {
     let _registry = crate::registry_test_lock_async().await;
     let server = MockServer::start().await;
-    for (route, body) in [
-        ("/", json!({"ok": true})),
-        ("/auth/me", json!({"success": true, "data": {"user": {"id": "private-user"}}})),
-    ] {
-        Mock::given(method("GET"))
-            .and(path(route))
-            .and(header("x-sdk-name", "openhuman"))
-            .respond_with(ResponseTemplate::new(200).set_body_json(body))
-            .expect(1)
-            .mount(&server)
-            .await;
-    }
+    Mock::given(method("GET"))
+        .and(path("/"))
+        .and(header("x-sdk-name", "openhuman"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"ok": true})))
+        .expect(3)
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/auth/me"))
+        .and(header("x-sdk-name", "openhuman"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(json!({"success": true, "data": {"user": {"id": "private-user"}}})))
+        .expect(1)
+        .mount(&server)
+        .await;
     Mock::given(method("GET"))
         .and(path("/openai/v1/models"))
         .and(query_param("catalog", "openrouter"))
@@ -71,17 +255,16 @@ async fn healthy_backend_passes_hosted_checks_and_uses_sdk_attribution() {
 
     let tmp = TempDir::new().unwrap();
     let ctx = context(&tmp, &server.uri());
-    store_session(ctx.config(), &LIVE_JWT);
-    let source = HostedDoctorCheckSource::with_socket_state_reader(|| {
-        Some(ConnectionStatus::Connected)
-    });
-
-    let results = findings(&source, &ctx).await;
-    assert_eq!(results.len(), 6);
-    assert!(results.iter().all(|finding| finding.severity == FindingSeverity::Pass));
-    assert!(results
-        .iter()
-        .all(|finding| !finding.message.contains("private-user")));
+    write_raw_session_profile(
+        &ctx,
+        &LIVE_JWT,
+        metadata([("session_issuing_backend", server.uri())]),
+    );
+    let report = run_isolated_probe("healthy", tmp.path(), &server.uri()).await;
+    let findings = report["findings"].as_array().unwrap();
+    assert_eq!(findings.len(), 6);
+    assert!(findings.iter().all(|finding| finding["severity"] == "Pass"));
+    assert!(findings.iter().all(|finding| !finding["message"].as_str().unwrap().contains("private-user")));
 }
 
 #[tokio::test]
@@ -97,43 +280,63 @@ async fn backend_outage_skips_authenticated_hosted_probes_without_leaking_respon
         .mount(&server)
         .await;
 
-    let tmp = TempDir::new().unwrap();
     let ctx = context(&tmp, &server.uri());
-    store_session(ctx.config(), &LIVE_JWT);
-    let source = HostedDoctorCheckSource::with_socket_state_reader(|| {
-        Some(ConnectionStatus::Connected)
-    });
-
-    let reachable = check(&source, "backend/reachable").detect(&ctx).await;
-    let identity = check(&source, "backend/identity").detect(&ctx).await;
-    let catalog = check(&source, "inference/managed-catalog").detect(&ctx).await;
-
-    assert_eq!(reachable[0].severity, FindingSeverity::Error);
-    assert_eq!(identity[0].severity, FindingSeverity::Skipped);
-    assert_eq!(catalog[0].severity, FindingSeverity::Skipped);
-    for finding in reachable.iter().chain(&identity).chain(&catalog) {
-        assert!(!finding.message.contains("private-token"));
-        assert!(!finding.message.contains("private-user"));
-    }
+    write_raw_session_profile(
+        &ctx,
+        &LIVE_JWT,
+        metadata([("session_issuing_backend", server.uri())]),
+    );
+    let report = run_isolated_probe("outage", tmp.path(), &server.uri()).await;
+    let findings = report["findings"].as_array().unwrap();
+    assert_eq!(findings.len(), 3);
+    assert_eq!(findings[0]["severity"], "Error");
+    assert_eq!(findings[1]["severity"], "Skipped");
+    assert_eq!(findings[2]["severity"], "Skipped");
+    assert!(findings.iter().all(|finding| !finding["message"].as_str().unwrap().contains("private-token")));
+    assert!(findings.iter().all(|finding| !finding["message"].as_str().unwrap().contains("private-user")));
     let requests = server.received_requests().await.unwrap();
     assert_eq!(requests.len(), 3);
     assert!(requests.iter().all(|request| request.url.path() == "/"));
 }
 
+const EXPIRED_PROBE_CHILD_ROOT: &str = "OPENHUMAN_DOCTOR_EXPIRED_PROBE_CHILD_ROOT";
+
 #[tokio::test]
-async fn locally_expired_session_is_reported_as_session_expired() {
+async fn expired_session_probe_preserves_profile_and_does_not_publish_expiry() {
     let _registry = crate::registry_test_lock_async().await;
     let tmp = TempDir::new().unwrap();
-    let ctx = context(&tmp, "http://127.0.0.1:9");
-    store_session(ctx.config(), &EXPIRED_JWT);
-    let source = HostedDoctorCheckSource::default();
+    let workspace = tmp.path().join("workspace");
+    let ctx = context_at(&workspace, &workspace, "http://127.0.0.1:9");
+    write_raw_session_profile(
+        &ctx,
+        &EXPIRED_JWT,
+        metadata([
+            ("session_issuing_backend", "http://127.0.0.1:9".to_owned()),
+            ("session_expires_at", "2001-01-01T00:00:00Z".to_owned()),
+        ]),
+    );
 
-    let finding = check(&source, "backend/credential").detect(&ctx).await;
+    let report = run_isolated_probe("expired", tmp.path(), "http://127.0.0.1:9").await;
+    assert_eq!(report["severity"], "Error");
+    assert!(report["message"].as_str().unwrap().contains("SESSION_EXPIRED"));
+    assert_eq!(report["profile_store_unchanged"], true);
+    assert_eq!(report["session_expired_published"], false);
+    assert!(!report["message"].as_str().unwrap().contains(&*EXPIRED_JWT));
+}
 
-    assert_eq!(finding[0].severity, FindingSeverity::Error);
-    assert!(finding[0].message.contains("SESSION_EXPIRED"));
-    assert!(!finding[0].message.contains(&*EXPIRED_JWT));
-    assert!(!finding[0].message.contains("user-123"));
+#[tokio::test]
+async fn unattributed_global_socket_status_is_skipped_for_selected_profile() {
+    let tmp = TempDir::new().unwrap();
+    let ctx = context(&tmp, "https://selected-b.example");
+    let source = HostedDoctorCheckSource::with_socket_state_reader(|| {
+        // Simulate the process-global manager being connected for a different
+        // profile. A bare status does not establish ownership by selected B.
+        Some(ConnectionStatus::Connected)
+    });
+
+    let finding = check(&source, "backend/socket").detect(&ctx).await;
+
+    assert_eq!(finding[0].severity, FindingSeverity::Skipped);
 }
 
 #[tokio::test]
@@ -162,39 +365,29 @@ async fn mismatched_issuing_backend_is_rejected_before_authenticated_probes() {
 
     let tmp = TempDir::new().unwrap();
     let ctx = context(&tmp, &server.uri());
-    store_session(ctx.config(), &LIVE_JWT);
-    let mut metadata = std::collections::HashMap::new();
-    metadata.insert(
-        "session_issuing_backend".to_owned(),
-        "https://issuer-a.example".to_owned(),
+    write_raw_session_profile(
+        &ctx,
+        &LIVE_JWT,
+        metadata([(
+            "session_issuing_backend",
+            "https://issuer-a.example".to_owned(),
+        )]),
     );
-    AuthService::from_config(ctx.config())
-        .store_provider_token(
-            APP_SESSION_PROVIDER,
-            DEFAULT_AUTH_PROFILE_NAME,
-            &LIVE_JWT,
-            metadata,
-            true,
-        )
-        .expect("store session bound to its issuing backend");
-    let source = HostedDoctorCheckSource::default();
-
-    let credential = check(&source, "backend/credential").detect(&ctx).await;
-    let identity = check(&source, "backend/identity").detect(&ctx).await;
-    let catalog = check(&source, "inference/managed-catalog").detect(&ctx).await;
-
-    assert_eq!(credential[0].severity, FindingSeverity::Error);
-    assert!(credential[0].message.contains("SESSION_BACKEND_MISMATCH"));
-    assert_eq!(identity[0].severity, FindingSeverity::Skipped);
-    assert_eq!(catalog[0].severity, FindingSeverity::Skipped);
-    for finding in credential.iter().chain(&identity).chain(&catalog) {
-        assert!(!finding.message.contains(&*LIVE_JWT));
-        assert!(!finding.message.contains("issuer-a.example"));
-        assert!(!finding.message.contains("private-user"));
+    let report = run_isolated_probe("issuer-mismatch", tmp.path(), &server.uri()).await;
+    let findings = report["findings"].as_array().unwrap();
+    assert_eq!(findings[0]["severity"], "Error");
+    assert!(findings[0]["message"].as_str().unwrap().contains("SESSION_BACKEND_MISMATCH"));
+    assert_eq!(findings[1]["severity"], "Skipped");
+    assert_eq!(findings[2]["severity"], "Skipped");
+    for finding in findings {
+        assert!(!finding["message"].as_str().unwrap().contains(&*LIVE_JWT));
+        assert!(!finding["message"].as_str().unwrap().contains("issuer-a.example"));
+        assert!(!finding["message"].as_str().unwrap().contains("private-user"));
     }
 
     let requests = server.received_requests().await.unwrap();
-    assert_eq!(requests.len(), 3);
+    assert!(!requests.iter().any(|request| request.url.path() == "/auth/me"));
+    assert!(!requests.iter().any(|request| request.url.path() == "/openai/v1/models"));
     assert!(requests.iter().all(|request| request.url.path() == "/"));
     assert!(requests.iter().all(|request| !request.headers.contains_key("authorization")));
     server.verify().await;

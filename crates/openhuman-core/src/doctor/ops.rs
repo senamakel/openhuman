@@ -176,10 +176,16 @@ fn unusable_default_config_outcome(
     }
     let finding = config_parse_finding(config)?;
     let findings = vec![finding];
+    let (layout_version, resolution_source) = config.doctor_profile_metadata();
     let report = DoctorReport {
         schema_version: 2,
         profile: super::profile::id_for_config(config),
         config_source: DoctorConfigSource::Profile,
+        profile_layout_version: layout_version.map(|version| match version {
+            crate::config::schema::profile_layout::LayoutVersion::V1 => 1,
+            crate::config::schema::profile_layout::LayoutVersion::V2 => 2,
+        }),
+        config_resolution_source: resolution_source,
         tier,
         checks_run: vec!["config/parse".into()],
         checks_skipped: Vec::new(),
@@ -229,6 +235,8 @@ fn profile_error_outcome(
             schema_version: 2,
             profile,
             config_source: DoctorConfigSource::Profile,
+            profile_layout_version: None,
+            config_resolution_source: None,
             tier,
             checks_run: vec!["profile/exists".into()],
             checks_skipped: Vec::new(),

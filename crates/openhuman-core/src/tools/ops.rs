@@ -182,9 +182,7 @@ pub fn all_tools_with_runtime(
     // lifecycle. doctor/health/cost/dashboard/security reads are default-ON.
     // service_status / daemon_host_prefs_get default-ON; the lifecycle
     // mutators ship default-OFF via `tools::user_filter` (service_lifecycle).
-    tools.extend(crate::platform::doctor::tools::registered_tools(
-        config.clone(),
-    ));
+    tools.extend(crate::doctor::tools::registered_tools(config.clone()));
     tools.extend(crate::platform::health::tools::registered_tools());
     tools.extend(crate::platform::cost::tools::registered_tools(
         config.clone(),

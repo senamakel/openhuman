@@ -410,7 +410,7 @@ fn build_registered_controllers() -> Vec<GroupedController> {
     push(
         &mut controllers,
         DomainGroup::Platform,
-        crate::platform::doctor::all_doctor_registered_controllers(),
+        crate::doctor::all_doctor_registered_controllers(),
     );
     // User-authored hooks — inspect, reload, and test-fire `hooks.json` entries.
     push(

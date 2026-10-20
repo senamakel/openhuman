@@ -50,7 +50,7 @@ impl DoctorCheck for BlockingProbe {
     fn detect_blocking(&self, _ctx: &DoctorCtx) -> Option<Vec<Finding>> {
         let active = self.active.fetch_add(1, Ordering::SeqCst) + 1;
         self.peak.fetch_max(active, Ordering::SeqCst);
-        std::thread::sleep(Duration::from_millis(250));
+        std::thread::sleep(Duration::from_millis(500));
         self.active.fetch_sub(1, Ordering::SeqCst);
         Some(vec![Finding::pass(
             &self.id,
@@ -211,6 +211,10 @@ async fn timed_out_blocking_checks_keep_the_concurrency_slot_until_the_worker_ex
     .await
     .expect("all blocking checks return timed-out findings");
 
+    assert!(
+        active.load(Ordering::SeqCst) > 0,
+        "the report should return while timed-out blocking workers are still finishing"
+    );
     tokio::time::timeout(Duration::from_secs(3), async {
         while active.load(Ordering::SeqCst) != 0 {
             tokio::time::sleep(Duration::from_millis(10)).await;

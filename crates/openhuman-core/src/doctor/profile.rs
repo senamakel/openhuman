@@ -84,6 +84,7 @@ pub(crate) async fn load_desktop_profile(
     config.config_path = layout.config_path.clone();
     config.workspace_dir = layout.workspace_dir.clone();
     config.action_dir = crate::config::resolve_action_dir(&config.action_dir_override);
+    crate::config::schema::load::apply_loaded_config_migrations(&mut config, &config_text);
     config.apply_env_overrides();
 
     Ok(DesktopProfile {

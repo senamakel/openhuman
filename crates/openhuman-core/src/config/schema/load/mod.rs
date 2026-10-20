@@ -43,6 +43,7 @@ pub(super) use migrate::redact_url_for_log;
 // user-environment state). Exported so the classifier's tests can assert
 // against the real constant rather than a copied literal.
 pub(crate) use impl_load::CONFIG_OWNER_MISMATCH_MARKER;
+pub(crate) use migrate::apply_loaded_config_migrations;
 
 // Items needed by load_tests.rs (loaded as `mod tests` below).
 // Tests are a submodule of `load`, so `super::*` == this module's namespace.

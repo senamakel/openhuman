@@ -59,7 +59,10 @@ async fn disabled_memory_component_warns_when_an_engine_is_configured() {
 async fn disabled_mcp_component_warns_when_servers_are_configured() {
     let mut config = Config::default();
     config.components.mcp = false;
-    config.mcp_client.servers.push(Default::default());
+    let mut server = crate::config::McpServerConfig::default();
+    server.name = "example".into();
+    server.endpoint = "https://mcp.example.test/rpc".into();
+    config.mcp_client.servers.push(server);
 
     let findings = run_check(config, "components/referenced-but-disabled").await;
 
@@ -87,7 +90,10 @@ async fn disabled_channels_component_warns_when_a_provider_is_configured() {
 async fn disabled_voice_component_warns_when_a_provider_is_configured() {
     let mut config = Config::default();
     config.components.voice = false;
-    config.voice_providers.push(Default::default());
+    let mut provider = crate::config::schema::voice_providers::VoiceProviderCreds::default();
+    provider.slug = "test-provider".into();
+    provider.endpoint = "https://voice.example.test".into();
+    config.voice_providers.push(provider);
 
     let findings = run_check(config, "components/referenced-but-disabled").await;
 

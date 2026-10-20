@@ -18,12 +18,13 @@ struct ReadOnlyProviderResolver;
 #[async_trait]
 impl SearchProviderResolver for ReadOnlyProviderResolver {
     async fn resolve(&self, config: &Config) -> Vec<ResolvedProvider> {
-        if config.profile_providers.is_some() {
-            // This branch uses the immutable profile binding's private search
-            // settings and intentionally supplies no operator session.
-            return crate::search::providers::resolve(config);
-        }
-        crate::search::providers::resolve_with(config, managed_credential_available(config))
+        let effective = config
+            .profile_providers
+            .as_ref()
+            .map(|binding| binding.effective_search(config))
+            .unwrap_or_else(|| config.clone());
+        let managed_available = managed_credential_available(&effective);
+        crate::search::providers::resolve_with(&effective, managed_available)
     }
 }
 

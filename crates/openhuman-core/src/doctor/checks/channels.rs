@@ -24,6 +24,8 @@ pub(super) trait ChannelHealthProbe: Send + Sync {
         &self,
         config: &Config,
         provider: &str,
+        channels: ChannelsConfig,
+        proxy: HttpProxyPolicy,
     ) -> Result<Option<Vec<ChannelHealthReport>>, ChannelHealthFailure>;
 }
 
@@ -35,6 +37,8 @@ impl ChannelHealthProbe for ExistingModuleProbe {
         &self,
         config: &Config,
         provider: &str,
+        channels: ChannelsConfig,
+        proxy: HttpProxyPolicy,
     ) -> Result<Option<Vec<ChannelHealthReport>>, ChannelHealthFailure> {
         // Check readiness before reading credentials. `check_existing` repeats
         // this immediately before using the captured proxy, and never resolves
@@ -45,8 +49,8 @@ impl ChannelHealthProbe for ExistingModuleProbe {
 
         crate::modules::channel_health::check_existing(
             config,
-            health_config(config, provider),
-            proxy_policy(config, provider),
+            channels,
+            proxy,
             PROVIDER_TIMEOUT,
         )
         .await
@@ -94,7 +98,9 @@ impl ChannelHealthCheck {
     }
 
     async fn finding(&self, config: &Config) -> Finding {
-        match self.probe.check(config, &self.provider).await {
+        let channels = health_config(config, &self.provider);
+        let proxy = proxy_policy(config, &self.provider);
+        match self.probe.check(config, &self.provider, channels, proxy).await {
             Ok(None) | Err(ChannelHealthFailure::Unavailable) => Finding::skipped(
                 &self.id,
                 format!(

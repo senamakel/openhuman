@@ -327,6 +327,9 @@ mod native_budget_tests;
 #[path = "tools_read_tests.rs"]
 mod read_tests;
 #[cfg(test)]
+#[path = "tools_saas_tests.rs"]
+mod saas_tests;
+#[cfg(test)]
 #[path = "tools_schema_tests.rs"]
 mod schema_tests;
 #[cfg(test)]

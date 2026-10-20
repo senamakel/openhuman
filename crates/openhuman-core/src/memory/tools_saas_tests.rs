@@ -2,14 +2,14 @@ use super::*;
 use crate::config::schema::MemoryAgentConfig;
 use crate::memory::test_fixtures::config_in;
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
-    EngineDescriptor, FetchPage, FetchRequest, ForgetReport, ForgetTarget, LearningKind,
-    ListPage, ListRequest, MemoryEngine, MemoryMeta, Namespace, RecallAnswer, RecallRequest,
-    StoreItem, StoreReceipt,
+    EngineDescriptor, FetchPage, FetchRequest, ForgetReport, ForgetTarget, LearningKind, ListPage,
+    ListRequest, MemoryEngine, MemoryMeta, Namespace, RecallAnswer, RecallRequest, StoreItem,
+    StoreReceipt,
 };
 
 struct CountingReadEngine {
@@ -52,7 +52,9 @@ impl MemoryEngine for CountingReadEngine {
 
 fn tool_context_for(agent_id: &str) -> tinyagents_harness::tool::ToolExecutionContext {
     let mut host = crate::agent::tinyagents::host::OpenHumanRunContext::new();
-    host.memory_identity = Some(tinymemory_tools::layout::identity::Identity::agent(agent_id));
+    host.memory_identity = Some(tinymemory_tools::layout::identity::Identity::agent(
+        agent_id,
+    ));
     let run = host.into_tinyagents(tinyagents_harness::context::RunConfig::new("saas-memory"));
     tinyagents_harness::tool::ToolExecutionContext::from_run_context(
         &run,
@@ -136,18 +138,14 @@ fn invalid_saas_roots_and_agent_overrides_reject_memory_tool_reads() {
                     json!({"action":"fetch","query":"foreign marker"}),
                 ] {
                     let result = tool
-                        .execute_with_context(
-                            args,
-                            ToolCallOptions::default(),
-                            Some(&context),
-                        )
+                        .execute_with_context(args, ToolCallOptions::default(), Some(&context))
                         .await
                         .unwrap();
                     assert!(result.is_error, "root {root:?}: {}", result.text());
                     assert!(
-                        result.text().contains(
-                            "memory is unavailable: this agent has no valid memory root"
-                        ),
+                        result
+                            .text()
+                            .contains("memory is unavailable: this agent has no valid memory root"),
                         "root {root:?}: {}",
                         result.text()
                     );
@@ -229,8 +227,14 @@ fn valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace() {
                 .unwrap();
             assert!(!recall.is_error, "{}", recall.text());
             let evidence: Value = serde_json::from_str(&recall.text()).unwrap();
-            assert!(evidence["evidence"].as_str().unwrap().contains("acme boundary marker"));
-            assert!(!evidence["evidence"].as_str().unwrap().contains("foreign boundary marker"));
+            assert!(evidence["evidence"]
+                .as_str()
+                .unwrap()
+                .contains("acme boundary marker"));
+            assert!(!evidence["evidence"]
+                .as_str()
+                .unwrap()
+                .contains("foreign boundary marker"));
 
             let fetch = tool
                 .execute_with_context(
@@ -242,8 +246,14 @@ fn valid_saas_root_keeps_tool_reads_inside_the_authenticated_namespace() {
                 .unwrap();
             assert!(!fetch.is_error, "{}", fetch.text());
             let page: Value = serde_json::from_str(&fetch.text()).unwrap();
-            assert!(page["matches"].as_str().unwrap().contains("acme boundary marker"));
-            assert!(!page["matches"].as_str().unwrap().contains("foreign boundary marker"));
+            assert!(page["matches"]
+                .as_str()
+                .unwrap()
+                .contains("acme boundary marker"));
+            assert!(!page["matches"]
+                .as_str()
+                .unwrap()
+                .contains("foreign boundary marker"));
             assert_eq!(reads.load(Ordering::SeqCst), 2);
         });
     println!("SAAS_MEMORY_TOOL_VALID_ROOT_CHILD_PASSED");

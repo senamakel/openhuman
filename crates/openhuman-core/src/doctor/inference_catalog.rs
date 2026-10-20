@@ -83,7 +83,7 @@ async fn prepare(config: &crate::config::Config, entry: &CloudProviderCreds) -> 
         return Err(InspectionCatalogError::Unavailable);
     }
     let endpoint = entry.endpoint.trim_end_matches('/');
-    let Ok(mut url) = reqwest::Url::parse(&format!("{endpoint}/models")) else {
+    let Ok(url) = reqwest::Url::parse(&format!("{endpoint}/models")) else {
         return Err(InspectionCatalogError::Unavailable);
     };
     if !matches!(url.scheme(), "http" | "https") {
@@ -96,12 +96,18 @@ async fn prepare(config: &crate::config::Config, entry: &CloudProviderCreds) -> 
         None => crate::config::build_runtime_proxy_client_with_timeouts("providers.list_models", 30, 10),
     };
     let provider = entry.slug.clone();
+    let auth_style = entry.auth_style;
     let frozen_token = token.clone();
     let fetch = Box::pin(async move {
         let mut request = client.get(url.clone());
-        match entry_auth_style_placeholder() { _ => {} }
         if let Some(token) = frozen_token.as_deref() {
-            request = request.bearer_auth(token);
+            request = match auth_style {
+                AuthStyle::Anthropic => request
+                    .header("x-api-key", token)
+                    .header("anthropic-version", "2023-06-01"),
+                AuthStyle::Bearer => request.bearer_auth(token),
+                AuthStyle::None | AuthStyle::OpenhumanJwt => request,
+            };
         }
         let response = request.send().await.map_err(|_| InspectionCatalogError::Unavailable)?;
         let status = response.status();
@@ -118,10 +124,6 @@ async fn prepare(config: &crate::config::Config, entry: &CloudProviderCreds) -> 
     });
     Ok(PreparedInspectionCatalog::new(&provider, url.as_str(), token.as_deref(), fetch))
 }
-
-// Kept separate so only the safe header behavior for current supported styles
-// is needed here; Anthropic's listing uses its provider-specific header.
-fn entry_auth_style_placeholder() -> () { () }
 
 async fn catalog_for(config: &crate::config::Config, entry: &CloudProviderCreds, use_cache: bool) -> Result<(serde_json::Value, Vec<String>), InspectionCatalogError> {
     let prepared = prepare(config, entry).await?;
@@ -182,7 +184,7 @@ impl DoctorCheck for ModelInCatalog {
             };
             let ids = catalog.iter().filter_map(|model| model.get("id").and_then(serde_json::Value::as_str)).collect::<Vec<_>>();
             let selected = selected_models(ctx.config());
-            for (path, model) in selected.iter().filter(|(_, model)| model.starts_with(&format!("{}:", entry.slug))).map(|(path, model)| (*path, model.split_once(':').map(|(_, model)| model).unwrap_or(model.as_str()))) {
+            for (path, model) in selected.iter().filter(|(_, model)| model.starts_with(&format!("{}:", entry.slug))).map(|(path, model)| (path.as_str(), model.split_once(':').map(|(_, model)| model).unwrap_or(model.as_str()))) {
                 if !ids.iter().any(|id| *id == model) {
                     let mut finding = Finding::new(self.id(), FindingSeverity::Warn, format!("Configured model at {path} is not present in the provider catalog."), "Choose a model listed by the provider or update this route.");
                     finding.config_path = Some(path.to_owned());
@@ -194,11 +196,11 @@ impl DoctorCheck for ModelInCatalog {
     }
 }
 
-fn selected_models(config: &crate::config::Config) -> Vec<(&'static str, String)> {
+fn selected_models(config: &crate::config::Config) -> Vec<(String, String)> {
     let mut models = Vec::new();
     if let Some(model) = &config.default_model { models.push(("default_model", model.clone())); }
     for (index, route) in config.model_routes.iter().enumerate() {
-        models.push((Box::leak(format!("model_routes[{index}].model").into_boxed_str()), route.model.clone()));
+        models.push((format!("model_routes[{index}].model"), route.model.clone()));
     }
     models
 }

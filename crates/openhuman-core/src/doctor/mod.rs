@@ -6,6 +6,7 @@ mod legacy;
 pub mod ops;
 pub mod profile;
 pub mod registry;
+mod checks;
 mod runner;
 mod schemas;
 pub mod tools;

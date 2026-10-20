@@ -412,7 +412,9 @@ async fn read_layout_version(dir: &Path) -> Result<LayoutVersion, DesktopProfile
 }
 
 pub(crate) fn built_in_checks() -> Vec<Arc<dyn DoctorCheck>> {
-    vec![Arc::new(ProfileExistsCheck)]
+    let mut checks: Vec<Arc<dyn DoctorCheck>> = vec![Arc::new(ProfileExistsCheck)];
+    checks.extend(crate::doctor::checks::inference_catalog::built_in_checks());
+    checks
 }
 
 struct ProfileExistsCheck;

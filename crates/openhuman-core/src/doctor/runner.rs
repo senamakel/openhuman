@@ -18,7 +18,7 @@ static CHECK_SEMAPHORE: LazyLock<Arc<Semaphore>> =
 
 /// Runs registered checks using exact-id filters and stable report ordering.
 pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<DoctorReport, String> {
-    let checks = registry::registered_checks()?;
+    let checks = registry::registered_checks_for(ctx)?;
     let check_ids = checks
         .iter()
         .map(|check| check.id().to_owned())
@@ -113,6 +113,11 @@ pub(super) async fn run(ctx: &DoctorCtx, options: DoctorOptions) -> Result<Docto
         schema_version: 2,
         profile: ctx.profile().map(str::to_owned),
         config_source: ctx.config_source(),
+        profile_layout_version: ctx.profile_layout_version().map(|version| match version {
+            crate::config::schema::profile_layout::LayoutVersion::V1 => 1,
+            crate::config::schema::profile_layout::LayoutVersion::V2 => 2,
+        }),
+        config_resolution_source: ctx.profile_resolution_source().map(str::to_owned),
         tier: options.tier,
         checks_run,
         checks_skipped,

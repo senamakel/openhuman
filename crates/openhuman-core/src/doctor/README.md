@@ -1,12 +1,12 @@
 # doctor
 
-Diagnostic and self-check domain for OpenHuman. The v2 framework registers stable-id checks, runs them asynchronously with tier budgets, bounded concurrency, and component gates, then returns the versioned `DoctorReport`. Existing v1 probes run through per-check blocking adapters until #506 ports them. The report is exposed through `doctor.report`; provider model probes remain on `doctor.models`.
+Diagnostic and self-check domain for OpenHuman. The v2 framework registers stable-id checks, runs them asynchronously with tier budgets, bounded concurrency, and component gates, then returns the versioned `DoctorReport`. Existing v1 probes run through per-check blocking adapters until #506 ports them. The report is exposed through `doctor.report`; `doctor.models` remains available and reports that catalog probing is not available yet.
 
 ## Responsibilities
 
 - Define the check/report v2 contract, generic process and per-context check-source registrations, and a bounded asynchronous runner.
 - Filter selected checks by exact id and tier; report disabled-component and above-tier checks as skipped.
-- Keep the existing config, workspace, daemon, environment, memory, embeddings, and SDK probes working through a temporary v1 adapter.
+- Keep the existing config, workspace, environment, memory, embeddings, and SDK probes working through a temporary v1 adapter.
 - Preserve the `doctor.models` controller and the `doctor_health` / `doctor_models` tool names.
 
 ## Key files
@@ -28,7 +28,7 @@ From [`mod.rs`](./mod.rs):
 
 - V2 types: `DoctorCheck`, `DoctorCheckSource`, `DoctorCtx`, `DoctorOptions`, `DoctorTier`, `Finding`, `FindingSeverity`, and `DoctorReport`.
 - Registration: `register_check_source(source)` for the process or `register_check_source_in(&extensions, source)` for a `CoreContext` built with `CoreBuilder::extensions`.
-- Legacy types remain available as `LegacyDoctorReport` / `LegacyDoctorSummary` while `run_models` and its report types stay unchanged.
+- Legacy types remain available as `LegacyDoctorReport` / `LegacyDoctorSummary`; model-probe report types remain part of the `doctor.models` schema.
 
 From `ops` (also re-exported as `doctor::rpc`):
 
@@ -45,7 +45,7 @@ Namespace `doctor`, two functions:
 | Method | Inputs | Output |
 | --- | --- | --- |
 | `doctor.report` | optional `tier`, exact-id `only` / `skip`, and `profile` | v2 `DoctorReport` ("Run diagnostics for workspace and runtime configuration.") |
-| `doctor.models` | `use_cache: Option<bool>` (default `true`) | `ModelProbeReport` ("Probe provider model availability and auth status.") |
+| `doctor.models` | `use_cache: Option<bool>` (default `true`) | Returns an unavailable error until catalog probing is implemented. |
 
 Both handlers load config through `DispatchCtx` and return `Outcome::single_log(...)`. The profile field is reserved for the host profile loaders in #490/#491. Controllers remain wired in `crates/openhuman-core/src/core/all.rs`.
 
@@ -59,15 +59,14 @@ None. No `bus.rs` / event-bus subscribers or publishers.
 
 ## Persistence
 
-None of its own (no `store.rs`). It only **reads** existing state owned by other domains: the daemon state file (`service::daemon::state_file_path`), the memory engine's status (passed in as `MemoryEngineCheck`), config files, and `<workspace>/SYSTEM.md` / `<workspace>/memory/`. Its only writes are an ephemeral workspace probe file that is immediately deleted.
+None of its own (no `store.rs`). It only **reads** existing state owned by other domains: the memory engine's status (passed in as `MemoryEngineCheck`), config files, and `<workspace>/SYSTEM.md` / `<workspace>/memory/`. Its only writes are an ephemeral workspace probe file that is immediately deleted.
 
 ## Dependencies
 
 - `crate::config::{Config, rpc}`: reads the live config for all probes; `config_rpc::load_config_with_timeout` in the handlers.
-- `crate::platform::service::daemon`: `state_file_path` for the daemon heartbeat/component snapshot.
 - `crate::memory::status`: the memory engine's status (`ok`/`degraded`/`down`/`off`), taken by `ops` before the blocking hop and passed to `run` as a `MemoryEngineCheck`.
 - `crate::inference::embedding_host::effective_embedding_settings`: resolves the intended embedding provider/model.
-- `crate::inference::{provider, local}`: `provider::list_providers` (model targets) and `local::ollama_base_url` (embedding probe).
+- `crate::inference::local`: `ollama_base_url_from_override(config.local_ai.base_url)` (configured embedding probe).
 - `config.resolved_endpoints` (filled by the host's config enricher) for the inference base URL; `crate::security::credentials::jwt::get_session_token` for sign-in state.
 - `crate::core::all::{ControllerFuture, RegisteredController}`, `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller/schema plumbing.
 - `crate::rpc::RpcOutcome`: handler return contract.
@@ -84,8 +83,8 @@ None of its own (no `store.rs`). It only **reads** existing state owned by other
 - The legacy memory engine status remains an async input resolved by `ops` before the per-check blocking adapter. Do not call `Handle::block_on` from a check.
 - The v1 adapter maps status and ids to v2 but does not forward unstructured legacy messages, which may contain resolved configuration values. Native v2 checks should provide safe, specific findings.
 - An engine that is down is reported as an error and memory being off as a warning, so the doctor names what is wrong instead of showing an empty store.
-- `run_models` / `doctor.models` is effectively a **stub**: it enumerates providers from `inference::provider::list_providers` but marks every entry `Skipped` with message "model catalog refresh removed" (catalog refresh was removed). It never actually probes auth/availability despite the schema description.
-- The embedding probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-ollama providers short-circuit to OK.
+- `doctor.models` reports an explicit unavailable error until the inference catalog integration is implemented in #497; it does not return a fabricated all-skipped report.
+- The configured-model probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-Ollama providers are reported as skipped until their provider-specific checks run.
 - `model_matches` treats `name` vs `name:tag` as a match only when at most one side is tagged; two differently-tagged names are not considered equal.
 - Severity rollup: `DoctorSummary` counts `Ok`/`Warn`/`Error` items; checks are intentionally lenient (missing optional dirs/tools → `Warn`, not `Error`).
 - OS-specific helpers (`available_disk_space_mb`, `check_command_available`, `check_claude_agent_sdk`) set `CREATE_NO_WINDOW` on Windows to avoid console flashes.

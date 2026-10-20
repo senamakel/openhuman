@@ -23,6 +23,9 @@ pub(crate) struct ConfigDocumentSnapshot {
 pub struct ConfigRuntimeState {
     pub(crate) provenance: super::super::load::ConfigProvenance,
     pub(crate) load_diagnostics: super::super::load::LoadDiagnostics,
+    pub(crate) doctor_profile_layout_version:
+        Option<crate::config::schema::profile_layout::LayoutVersion>,
+    pub(crate) doctor_profile_resolution_source: Option<String>,
     pub(crate) document_snapshot: std::sync::Mutex<ConfigDocumentSnapshot>,
     pub(crate) context_snapshot: Option<std::sync::Weak<std::sync::Mutex<Config>>>,
     pub(crate) context_overlay: std::sync::Mutex<
@@ -35,6 +38,8 @@ impl Clone for ConfigRuntimeState {
         Self {
             provenance: self.provenance.clone(),
             load_diagnostics: self.load_diagnostics.clone(),
+            doctor_profile_layout_version: self.doctor_profile_layout_version,
+            doctor_profile_resolution_source: self.doctor_profile_resolution_source.clone(),
             document_snapshot: std::sync::Mutex::new(
                 self.document_snapshot.lock().unwrap().clone(),
             ),
@@ -558,6 +563,29 @@ pub struct Config {
 }
 
 impl Config {
+    /// Pins read-only doctor selection metadata to this in-memory snapshot.
+    pub(crate) fn set_doctor_profile_metadata(
+        &mut self,
+        layout_version: Option<crate::config::schema::profile_layout::LayoutVersion>,
+        resolution_source: Option<String>,
+    ) {
+        self.runtime_state.doctor_profile_layout_version = layout_version;
+        self.runtime_state.doctor_profile_resolution_source = resolution_source;
+    }
+
+    /// Metadata recorded when this snapshot was selected for doctor inspection.
+    pub(crate) fn doctor_profile_metadata(
+        &self,
+    ) -> (
+        Option<crate::config::schema::profile_layout::LayoutVersion>,
+        Option<String>,
+    ) {
+        (
+            self.runtime_state.doctor_profile_layout_version,
+            self.runtime_state.doctor_profile_resolution_source.clone(),
+        )
+    }
+
     /// Diagnostics captured while the loader parsed or migrated this snapshot.
     pub(crate) fn load_diagnostics(&self) -> &super::super::load::LoadDiagnostics {
         &self.runtime_state.load_diagnostics

@@ -54,6 +54,7 @@ mod turn_model;
 
 #[cfg(feature = "flows")]
 pub(crate) use access_gates::current_host_requires_session;
+pub(crate) use chat_model::create_chat_model_with_model_id_in_for_inspection;
 pub(crate) use chat_model::resolves_to_managed_backend;
 pub use chat_model::{
     create_chat_model_from_string, create_chat_model_from_string_with_model_id,
@@ -81,10 +82,11 @@ pub(crate) use turn_model::{
 use access_gates::{emit_inference_egress, enforce_local_only_inference};
 use chat_model::{unresolved_chat_model_error, with_default_temperature};
 use cloud_slug::{
-    resolve_cloud_slug, try_create_cloud_slug_chat_model,
-    try_create_cloud_slug_chat_model_from_string,
+    resolve_cloud_slug, resolve_cloud_slug_with_access, try_create_cloud_slug_chat_model,
+    try_create_cloud_slug_chat_model_for_inspection, try_create_cloud_slug_chat_model_from_string,
     try_create_cloud_slug_chat_model_with_native_tools,
 };
+use credentials::CredentialAccess;
 use local_runtime::{
     try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_from_string,
     OptionalChatModelResult,

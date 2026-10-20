@@ -41,7 +41,7 @@ impl Interface for ReadOnlyFixture {
 async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential() {
     let _guard = route_lock().lock().await;
     let scratch = tempfile::tempdir().expect("create isolated binding fixture");
-    let selected = Config {
+    let mut selected = Config {
         config_path: scratch.path().join("config.toml"),
         workspace_dir: scratch.path().join("workspace-a"),
         ..Config::default()
@@ -49,6 +49,7 @@ async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential(
     selected.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_owned();
     selected.composio.api_key = Some("doctor-binding-key-a".to_owned());
     selected.composio.offered_toolkits_allow = vec!["github".to_owned()];
+    seed_loaded_scope_for_test(&selected);
     let route = serde_json::json!({
         "route": "direct",
         "api_key": "doctor-binding-key-a",
@@ -57,7 +58,7 @@ async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential(
         "offered_toolkits": super::super::offered_toolkits(&selected),
     });
 
-    record_configured_route(&selected, &route);
+    record_configured_route_for_test(&selected, &route);
     assert!(binding_matches_config(&selected));
 
     let mut other_workspace = selected.clone();
@@ -75,9 +76,55 @@ async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential(
         .push("slack".to_owned());
     assert!(!binding_matches_config(&other_policy));
 
+    let mut reconfigured_b = selected.clone();
+    reconfigured_b.workspace_dir = scratch.path().join("workspace-b");
+    reconfigured_b.composio.api_key = Some("doctor-binding-key-b".to_owned());
+    let route_b = serde_json::json!({
+        "route": "direct",
+        "api_key": "doctor-binding-key-b",
+        "entity_id": "default",
+        "state_dir": reconfigured_b.workspace_dir.join("state"),
+        "offered_toolkits": super::super::offered_toolkits(&reconfigured_b),
+    });
+    record_configured_route_for_test(&reconfigured_b, &route_b);
+    assert!(
+        !binding_matches_config(&reconfigured_b),
+        "reconfiguring a module loaded under A cannot relabel its state/policy as B"
+    );
+
     *configured_binding()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+}
+
+#[tokio::test]
+async fn a_session_from_another_issuer_is_not_a_matching_connector_credential() {
+    let scratch = tempfile::tempdir().expect("create isolated issuer fixture");
+    let mut config = Config::default();
+    config.config_path = scratch.path().join("config.toml");
+    config.workspace_dir = scratch.path().join("workspace");
+    config.secrets.encrypt = false;
+    config.resolved_endpoints.control_plane_url = Some("https://account-b.example".to_owned());
+    let profiles = scratch.path().join("auth-profiles.json");
+    let raw = serde_json::json!({
+        "schema_version": 1,
+        "active_profiles": {},
+        "profiles": {
+            "app-session:default": {
+                "provider": "app-session",
+                "profile_name": "default",
+                "kind": "token",
+                "token": "issuer-mismatch-test-token",
+                "metadata": { "session_issuing_backend": "https://account-a.example" }
+            }
+        }
+    })
+    .to_string();
+    std::fs::write(&profiles, &raw).expect("seed selected issuer profile");
+
+    assert!(selected_credential(&config).is_none());
+    assert_eq!(std::fs::read_to_string(&profiles).unwrap(), raw);
+    assert!(!scratch.path().join("auth-profiles.lock").exists());
 }
 
 #[tokio::test]
@@ -89,6 +136,7 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     config.workspace_dir = scratch.path().join("workspace");
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_owned();
     config.composio.api_key = Some("doctor-boundary-fixture-key".to_owned());
+    seed_loaded_scope_for_test(&config);
     let accepted_route = serde_json::json!({
         "route": "direct",
         "api_key": "doctor-boundary-fixture-key",
@@ -96,7 +144,7 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
         "state_dir": config.workspace_dir.join("state"),
         "offered_toolkits": super::super::offered_toolkits(&config),
     });
-    record_configured_route(&config, &accepted_route);
+    record_configured_route_for_test(&config, &accepted_route);
 
     let bus = MemoryBus::new();
     tinybus::broker::Broker::new().spawn(bus.clone());

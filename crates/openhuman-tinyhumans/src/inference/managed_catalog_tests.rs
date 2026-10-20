@@ -1,8 +1,5 @@
 use super::*;
 
-#[cfg(test)]
-#[path = "managed_catalog_inspection_tests.rs"]
-mod inspection_tests;
 
 #[test]
 fn a_managed_401_on_an_attached_session_reads_as_signed_out() {

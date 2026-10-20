@@ -14,13 +14,50 @@ use crate::config::Config;
 #[inline(never)]
 pub(crate) fn config_from_toml_str(contents: &str) -> anyhow::Result<Config> {
     let mut document: toml::Value = toml::from_str(contents)?;
+    let provenance_document = document.clone();
+    let retired_provider_type = document
+        .get("cloud_providers")
+        .and_then(toml::Value::as_array)
+        .is_some_and(|providers| {
+            providers.iter().any(|provider| {
+                provider
+                    .as_table()
+                    .is_some_and(|entry| entry.contains_key("type"))
+            })
+        })
+        && document
+            .get("schema_version")
+            .and_then(toml::Value::as_integer)
+            .unwrap_or(0)
+            < 14;
     crate::config::migrations::retire_cloud_provider_type::rewrite_document(&mut document)?;
     reject_non_finite_floats(&document, &mut String::new())?;
-    let json = serde_json::to_value(document)?;
-    serde_path_to_error::deserialize(json).map_err(|err| {
+    let json = serde_json::to_string(&document)?;
+    let mut unknown_keys = Vec::new();
+    let mut deserializer = serde_json::Deserializer::from_str(&json);
+    let parsed = {
+        let mut record_unknown = |path: serde_ignored::Path<'_>| {
+            unknown_keys.push(path.to_string());
+        };
+        let deserializer = serde_ignored::Deserializer::new(&mut deserializer, &mut record_unknown);
+        serde_path_to_error::deserialize(deserializer)
+    };
+    let mut config: Config = parsed.map_err(|err| {
         let path = err.path().to_string();
         anyhow::anyhow!("{path}: {}", err.into_inner())
-    })
+    })?;
+    config
+        .load_provenance_mut()
+        .record_file_keys(&provenance_document);
+    unknown_keys.sort();
+    unknown_keys.dedup();
+    config.load_diagnostics_mut().unknown_keys = unknown_keys;
+    if retired_provider_type {
+        config
+            .load_diagnostics_mut()
+            .record_migrated_key("cloud_providers[].type");
+    }
+    Ok(config)
 }
 
 /// JSON has no NaN or infinity: `serde_json::to_value` turns them into null,

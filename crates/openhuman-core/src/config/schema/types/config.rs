@@ -21,6 +21,8 @@ pub(crate) struct ConfigDocumentSnapshot {
 #[doc(hidden)]
 #[derive(Debug, Default)]
 pub struct ConfigRuntimeState {
+    pub(crate) provenance: super::super::load::ConfigProvenance,
+    pub(crate) load_diagnostics: super::super::load::LoadDiagnostics,
     pub(crate) document_snapshot: std::sync::Mutex<ConfigDocumentSnapshot>,
     pub(crate) context_snapshot: Option<std::sync::Weak<std::sync::Mutex<Config>>>,
     pub(crate) context_overlay: std::sync::Mutex<
@@ -31,6 +33,8 @@ pub struct ConfigRuntimeState {
 impl Clone for ConfigRuntimeState {
     fn clone(&self) -> Self {
         Self {
+            provenance: self.provenance.clone(),
+            load_diagnostics: self.load_diagnostics.clone(),
             document_snapshot: std::sync::Mutex::new(
                 self.document_snapshot.lock().unwrap().clone(),
             ),
@@ -551,6 +555,18 @@ pub struct Config {
 
     #[serde(default)]
     pub model_registry: Vec<ModelRegistryEntry>,
+}
+
+impl Config {
+    /// Diagnostics captured while the loader parsed or migrated this snapshot.
+    pub(crate) fn load_diagnostics(&self) -> &super::super::load::LoadDiagnostics {
+        &self.runtime_state.load_diagnostics
+    }
+
+    /// Mutable access for the config loader while it assembles diagnostics.
+    pub(crate) fn load_diagnostics_mut(&mut self) -> &mut super::super::load::LoadDiagnostics {
+        &mut self.runtime_state.load_diagnostics
+    }
 }
 
 /// Shared default so `#[serde(default)]` and `Config::default()` stay in sync.

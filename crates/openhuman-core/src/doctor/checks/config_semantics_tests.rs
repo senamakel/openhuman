@@ -1,5 +1,3 @@
-use std::path::Path;
-
 use crate::config::{test_env::EnvVarGuard, Config};
 use crate::doctor::contract::{DoctorCtx, DoctorOptions, Finding, FindingSeverity};
 use crate::doctor::runner;
@@ -102,7 +100,7 @@ async fn action_directory_without_write_access_is_an_error() {
         Some("action_dir")
     );
     #[cfg(unix)]
-    assert_eq!(std::fs::read_dir(Path::new(dir.path())).unwrap().count(), 0);
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
 }
 
 #[tokio::test]

@@ -399,7 +399,7 @@ impl CoreBuilder {
         // late for embedders that only build and invoke.
         if self.boot_mode == CoreBootMode::Normal {
             if let Some(cfg) = config.as_ref() {
-            crate::core::runtime::services::run_legacy_migrations(cfg).await;
+                crate::core::runtime::services::run_legacy_migrations(cfg).await;
             }
         }
 
@@ -414,7 +414,7 @@ impl CoreBuilder {
         // reaps nothing rather than failing the build.
         if self.boot_mode == CoreBootMode::Normal {
             if let Some(cfg) = config.as_ref() {
-            crate::agent::tinyagents::reaper::reap_orphaned_runs(&cfg.workspace_dir).await;
+                crate::agent::tinyagents::reaper::reap_orphaned_runs(&cfg.workspace_dir).await;
             }
         }
 

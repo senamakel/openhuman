@@ -107,10 +107,7 @@ impl RuntimeBuilder {
                 ));
             }
         }
-        if !inspection
-            && self.agent_defaults.skills.root.is_some()
-            && !cfg!(feature = "skills")
-        {
+        if !inspection && self.agent_defaults.skills.root.is_some() && !cfg!(feature = "skills") {
             return Err(RuntimeError::Invalid(
                 "copying runtime skill bundles requires Cargo feature `openhuman-embed/skills`"
                     .into(),

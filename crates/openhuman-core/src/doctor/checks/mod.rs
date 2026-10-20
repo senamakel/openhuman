@@ -1,14 +1,23 @@
-//! Built-in doctor checks for configuration, inference, embeddings, and semantics.
+//! Built-in doctor checks for config, inference, embeddings, semantics, and dynamic services.
 
 mod config_file;
 mod config_provenance;
 mod config_semantics;
 mod embeddings;
+mod ids;
 mod inference;
+mod mcp;
+mod modules;
+mod registry;
+mod sandbox;
+mod skills;
 
 use std::sync::Arc;
 
 use super::contract::DoctorCheck;
+
+pub(super) use ids::canonical_segment;
+pub(super) use registry::for_context;
 
 pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
     let mut checks = config_file::checks();

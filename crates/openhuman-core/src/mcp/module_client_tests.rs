@@ -12,6 +12,8 @@ struct FakePort {
     prepared_requests: Arc<Mutex<Vec<PrepareAgentToolsRequest>>>,
     validation_requests: Arc<Mutex<Vec<ValidateServerArgumentsRequest>>>,
     transform_requests: Arc<Mutex<Vec<tinymcp_bus::TransformTextRequest>>>,
+    statuses: Arc<Mutex<Vec<tinymcp_bus::ConnStatus>>>,
+    fail_status: Arc<std::sync::atomic::AtomicBool>,
     open_started: Arc<Notify>,
     close_started: Arc<Notify>,
     release_close: Arc<Notify>,
@@ -132,7 +134,28 @@ impl McpModulePort for FakePort {
             }])
             .map_err(|_| ModuleCallError::ModuleFault);
         }
+        if member == names::methods::STATUS {
+            if self
+                .fail_status
+                .swap(false, std::sync::atomic::Ordering::SeqCst)
+            {
+                return Err(ModuleCallError::TransportFailed);
+            }
+            return serde_json::to_value(self.statuses.lock().unwrap().clone())
+                .map_err(|_| ModuleCallError::ModuleFault);
+        }
         Ok(Value::Bool(true))
+    }
+
+    async fn call_object_if_ready(
+        &self,
+        object_path: &str,
+        member: &str,
+        args: Value,
+        confidential: bool,
+    ) -> Result<Value, ModuleCallError> {
+        self.call_object(object_path, member, args, confidential)
+            .await
     }
 
     async fn prepare_agent_tools(
@@ -303,6 +326,142 @@ async fn static_server_summaries_use_the_confidential_module_member() {
     assert_eq!(calls.len(), 1);
     assert_eq!(calls[0].1, names::methods::STATIC_SERVER_SUMMARIES);
     assert!(calls[0].3, "server metadata must use confidential delivery");
+}
+
+#[tokio::test]
+async fn doctor_status_reads_only_an_open_client_for_the_exact_config() {
+    let scratch = tempfile::tempdir().expect("create isolated client workspace");
+    let mut host_config = Config::default();
+    host_config.workspace_dir = scratch.path().to_path_buf();
+    let client_config = crate::mcp::host::client_config(&host_config);
+    let mut port = FakePort::default();
+    let opened = Arc::clone(&port.opened);
+    let calls = Arc::clone(&port.calls);
+    let expected = tinymcp_bus::ConnStatus {
+        server_id: "docs".to_owned(),
+        qualified_name: "example/docs".to_owned(),
+        display_name: "Docs".to_owned(),
+        status: tinymcp_bus::ServerStatus::Error,
+        tool_count: 0,
+        last_error: Some("private response body".to_owned()),
+        auth_hint: None,
+    };
+    port.statuses.lock().unwrap().push(expected.clone());
+    let client = McpConfiguredClient::install_test_port(&host_config, Box::new(port))
+        .expect("install the test client without opening its module");
+    let mut state = ConfiguredLifecycle::new();
+    state.open_step(&client_config);
+    state.open_replied(Ok(OpenConfiguredResponse {
+        object_path: "/workspace/open".to_owned(),
+        transition_id: "fixture-open".to_owned(),
+    }));
+    state.open_polled(TransitionStatus::Complete);
+    *client.state.lock().await = state;
+
+    let statuses = McpConfiguredClient::existing_status_for_config(&host_config)
+        .await
+        .expect("status call succeeds")
+        .expect("the exact client is already open");
+
+    assert_eq!(statuses, vec![expected]);
+    assert!(
+        opened.lock().unwrap().is_empty(),
+        "doctor must not reopen MCP"
+    );
+    let calls = calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].1, names::methods::STATUS);
+    assert!(
+        !calls[0].3,
+        "status contains no credentials and is read-only"
+    );
+}
+
+#[tokio::test]
+async fn doctor_status_skips_mismatched_retiring_and_absent_clients_without_opening() {
+    let scratch = tempfile::tempdir().expect("create isolated client workspace");
+    let mut selected = Config::default();
+    selected.workspace_dir = scratch.path().to_path_buf();
+    selected.mcp_client.servers.push(
+        tinymcp_bus::McpServerConfig {
+            name: "selected-b".into(),
+            ..Default::default()
+        }
+        .into(),
+    );
+    let mut stale = selected.clone();
+    stale.mcp_client.servers[0].name = "ambient-a".into();
+    let port = FakePort::default();
+    let opened = Arc::clone(&port.opened);
+    let calls = Arc::clone(&port.calls);
+    let client = McpConfiguredClient::install_test_port(&selected, Box::new(port.clone()))
+        .expect("install the selected workspace client");
+    let mut state = ConfiguredLifecycle::new();
+    state.open_step(&crate::mcp::host::client_config(&stale));
+    state.open_replied(Ok(OpenConfiguredResponse {
+        object_path: "/workspace/ambient-a".to_owned(),
+        transition_id: "fixture-open".to_owned(),
+    }));
+    state.open_polled(TransitionStatus::Complete);
+    *client.state.lock().await = state;
+
+    assert!(McpConfiguredClient::existing_status_for_config(&selected)
+        .await
+        .expect("stale configuration is not a transport error")
+        .is_none());
+    assert!(calls.lock().unwrap().is_empty());
+
+    client.retiring.store(true, Ordering::Release);
+    assert_eq!(
+        McpConfiguredClient::existing_status_for_config(&selected).await,
+        Err(ModuleCallError::Unavailable)
+    );
+    assert!(calls.lock().unwrap().is_empty());
+    assert!(opened.lock().unwrap().is_empty());
+
+    let absent_root = tempfile::tempdir().expect("create absent-client workspace");
+    let mut absent = Config::default();
+    absent.workspace_dir = absent_root.path().to_path_buf();
+    assert!(McpConfiguredClient::existing_status_for_config(&absent)
+        .await
+        .expect("absent client is a safe unavailable result")
+        .is_none());
+    let absent_key = lifecycle::client_key(absent_root.path());
+    assert!(McpConfiguredClient::open_clients()
+        .iter()
+        .all(|(path, _)| path != &absent_key));
+}
+
+#[tokio::test]
+async fn existing_status_preserves_read_failures_without_reopening_the_client() {
+    let scratch = tempfile::tempdir().expect("create isolated client workspace");
+    let mut config = Config::default();
+    config.workspace_dir = scratch.path().to_path_buf();
+    let client_config = crate::mcp::host::client_config(&config);
+    let mut port = FakePort::default();
+    port.fail_status
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    let opened = Arc::clone(&port.opened);
+    let calls = Arc::clone(&port.calls);
+    let client = McpConfiguredClient::install_test_port(&config, Box::new(port))
+        .expect("install fake existing client");
+    let mut state = ConfiguredLifecycle::new();
+    state.open_step(&client_config);
+    state.open_replied(Ok(OpenConfiguredResponse {
+        object_path: "/workspace/open".to_owned(),
+        transition_id: "fixture-open".to_owned(),
+    }));
+    state.open_polled(TransitionStatus::Complete);
+    *client.state.lock().await = state;
+
+    assert_eq!(
+        McpConfiguredClient::existing_status_for_config(&config).await,
+        Err(ModuleCallError::TransportFailed)
+    );
+    assert!(opened.lock().unwrap().is_empty());
+    let calls = calls.lock().unwrap();
+    assert_eq!(calls.len(), 1);
+    assert_eq!(calls[0].1, names::methods::STATUS);
 }
 
 #[tokio::test]

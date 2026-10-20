@@ -99,7 +99,7 @@ clean config check to return no findings, as required by the config leaves.
 | `severity`     | `pass`, `info`, `warn`, `error`, or `skipped`.                                                                         |
 | `message`      | Short operator-facing result, with no secret or config value.                                                          |
 | `fix_hint`     | Required next step. Use “No action required.” for `pass`; explain how to rerun or enable a skipped check.              |
-| `config_path`  | Optional logical config path, never a resolved home-directory path.                                                    |
+| `config_path`  | Optional config key path or source file path. `config/source` may name the loaded config and `.env` paths; other checks normally use a logical config key path. |
 | `value_source` | Optional `cli`, `env`, `dotenv`, `file`, or `default`, when a finding concerns a resolved value.                       |
 | `duration_ms`  | Elapsed detector time, repeated consistently on findings from one check. A check skipped before execution reports `0`. |
 | `affects`      | Zero or more stable `about_app` capability ids, such as `channels.connect_platform` or `local_ai.configure_provider`.  |
@@ -157,10 +157,11 @@ does not by itself make the report unhealthy. The CLI's lint threshold is
 separate from this field.
 
 `profile` is the effective profile id, when the host has one, and `null`
-otherwise. `config_source` is always the redacted source kind (`profile` or
-`tenant`), not a filesystem path or tenant credential. The report describes
-the effective configuration used for this run. It does not reveal a config
-path, except for logical paths in individual findings.
+otherwise. `config_source` is always the source kind (`profile` or `tenant`),
+not a tenant credential or filesystem path. The `config/source` info finding
+reports the loaded config and `.env` paths, directory resolution source,
+profile layout version when applicable, and CLI model/provider overrides. It
+does not report config values or credentials.
 
 The selection validator is a reserved runner check, `doctor/selection`. An
 unknown id supplied to either `only` or `skip` adds an `error` finding under
@@ -230,8 +231,8 @@ without adding a dependency from core to that host. `openhuman-tinyhumans`
 registers its backend, identity, socket, API URL, and managed-inference checks
 through this seam. Sources register against the active core context, not a
 process-global mutable singleton, so profiles and tests do not share state.
-Duplicate ids fail registration with a startup error; hosted ids follow the
-same stable `area/name` format and are unique across sources. A source may
+Duplicate ids fail registration with a startup error; hosted ids use the same
+lowercase slash-separated segment grammar and are unique across sources. A source may
 register zero checks when its host capability is absent.
 
 The doctor stays in the existing `DomainGroup::Platform` registration group.

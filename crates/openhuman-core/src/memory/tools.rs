@@ -158,11 +158,28 @@ impl MemoryTool {
         run_id: Option<&str>,
     ) -> ToolResult {
         let call = async {
-            let scope = facts.native_scope(&self.config);
+            let mut scope = facts.native_scope(&self.config);
             let write_sink = Arc::new(super::tool_writes::HostWriteSink::new(self.config.clone()));
             let single = if is_write_action(&args) {
                 SingleTool::queued(MEMORY_TOOL_NAME, scope, write_sink)
             } else {
+                if let Err(error) = super::ops::saas_confinement(
+                    &self.config,
+                    tinymemory_tools::confine::Policy::Clamp,
+                )
+                .and_then(|confinement| {
+                    confinement
+                        .map(|confinement| confinement.reach(scope.reach.clone()))
+                        .transpose()
+                })
+                .map(|reach| {
+                    if let Some(reach) = reach {
+                        scope.reach = Some(reach);
+                    }
+                })
+                {
+                    return ToolResult::error(render_error(error));
+                }
                 let engine = match super::engine::resolve(&self.config).engine() {
                     Ok(bound) => bound.engine,
                     Err(error) => return ToolResult::error(render_error(error)),

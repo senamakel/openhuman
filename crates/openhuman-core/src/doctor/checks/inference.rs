@@ -103,7 +103,7 @@ fn provider_ref_findings(config: &Config) -> Vec<Finding> {
             continue;
         };
         let resolves = if role == "embeddings" {
-            embedding_provider_resolves(provider)
+            embedding_provider_resolves(config, provider)
         } else {
             chat_provider_resolves(config, provider)
         };
@@ -138,7 +138,7 @@ fn provider_ref_findings(config: &Config) -> Vec<Finding> {
     }
 
     for (index, route) in config.embedding_routes.iter().enumerate() {
-        if !embedding_provider_resolves(&route.provider) {
+        if !embedding_provider_resolves(config, &route.provider) {
             findings.push(unresolved_provider(&format!(
                 "embedding_routes[{index}].provider"
             )));
@@ -270,15 +270,16 @@ fn chat_provider_slug_resolves(config: &Config, slug: &str) -> bool {
         || crate::inference::registry::catalog(slug).is_some()
 }
 
-fn embedding_provider_resolves(provider: &str) -> bool {
+fn embedding_provider_resolves(config: &Config, provider: &str) -> bool {
     let provider = provider.trim();
     if matches!(provider, "cloud" | "managed" | "openhuman" | "none")
-        || provider == "custom"
-        || provider.starts_with("custom:")
         || matches!(provider, "ollama" | "openai" | "voyage" | "cohere")
         || tinyinference_local::profile::is_local_provider_string(provider)
     {
         return true;
+    }
+    if provider == "custom" || provider.starts_with("custom:") {
+        return custom_embedding_endpoint_is_configured(config, provider);
     }
     let slug = provider
         .split_once(':')
@@ -291,6 +292,16 @@ fn normalize_embedding_provider(provider: &str) -> &str {
         "cloud" | "openhuman" => "managed",
         other => other,
     }
+}
+
+fn custom_embedding_endpoint_is_configured(config: &Config, provider: &str) -> bool {
+    provider
+        .strip_prefix("custom:")
+        .is_some_and(|endpoint| !endpoint.trim().is_empty())
+        || config
+            .custom_embeddings
+            .as_ref()
+            .is_some_and(|custom| !custom.endpoint.trim().is_empty())
 }
 
 fn is_voice_deferred(provider: &str) -> bool {

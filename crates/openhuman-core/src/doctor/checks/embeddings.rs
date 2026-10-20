@@ -56,6 +56,16 @@ fn validate(config: &Config) -> Vec<Finding> {
         None
     };
     let active_route = active_route_index.and_then(|index| config.embedding_routes.get(index));
+    let active_hint = if local_model.is_none() {
+        config
+            .memory
+            .embedding_model
+            .trim()
+            .strip_prefix("hint:")
+            .map(str::trim)
+    } else {
+        None
+    };
     let (effective_provider, effective_model, effective_dimensions) =
         tinyinference_embeddings::catalog::effective_embedding_settings(
             &config.memory.embedding_provider,
@@ -65,7 +75,10 @@ fn validate(config: &Config) -> Vec<Finding> {
         );
     let (provider, model, dimensions, provider_path, model_path, dimensions_path) =
         if let Some(route) = active_route {
-            let route_path = format!("embedding_routes[{}]", active_route_index.unwrap());
+            let route_path = format!(
+                "embedding_routes[{}]",
+                active_route_index.expect("active route has an index")
+            );
             (
                 route.provider.clone(),
                 route.model.clone(),
@@ -96,6 +109,20 @@ fn validate(config: &Config) -> Vec<Finding> {
         };
     let provider_slug = normalized_provider_slug(&provider);
     let mut findings = Vec::new();
+
+    if active_hint.is_some()
+        && active_route.is_none()
+        && !config
+            .embedding_routes
+            .iter()
+            .any(|route| route.hint.trim() == active_hint.unwrap())
+    {
+        findings.push(invalid(
+            "memory.embedding_model",
+            "The selected embedding model hint has no matching route.",
+            "Add the matching embedding route or select a concrete embedding model.",
+        ));
+    }
 
     if tinyinference_embeddings::catalog::find_provider(provider_slug).is_none() {
         findings.push(invalid(
@@ -157,13 +184,14 @@ fn validate(config: &Config) -> Vec<Finding> {
         let route_dimensions = route
             .dimensions
             .unwrap_or(config.memory.embedding_dimensions);
+        let route_dimensions_path = if route.dimensions.is_some() {
+            format!("{path}.dimensions")
+        } else {
+            "memory.embedding_dimensions".to_owned()
+        };
         if route_dimensions == 0 {
             findings.push(invalid(
-                if route.dimensions.is_some() {
-                    &format!("{path}.dimensions")
-                } else {
-                    "memory.embedding_dimensions"
-                },
+                &route_dimensions_path,
                 "An embedding route has a zero vector dimension.",
                 "Set a positive dimension supported by the route's model.",
             ));

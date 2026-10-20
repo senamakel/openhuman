@@ -360,7 +360,7 @@ async fn fetch_with_an_undeclared_mode_is_unsupported() {
         "{}",
         text(&result)
     );
-    assert!(text(&result).contains("keyword"), "{}", text(&result));
+    assert!(text(&result).contains("mode"), "{}", text(&result));
     assert!(text(&result).contains("hybrid"), "{}", text(&result));
 }
 
@@ -644,6 +644,27 @@ async fn a_failed_learn_is_reported_to_the_model() {
         "{}",
         text(&learned)
     );
+
+    let credit_tmp = tempfile::tempdir().unwrap();
+    let credit_config = config_in(&credit_tmp);
+    crate::memory::test_fixtures::RefusingEngine::out_of_credits().bind(&credit_config);
+    let credit_error = crate::memory::ops::learn(
+        &credit_config,
+        LearnParams {
+            text: "The user drinks oolong".into(),
+            kind: None,
+            confidence: None,
+            meta: None,
+        },
+        None,
+    )
+    .await
+    .unwrap_err();
+    assert!(matches!(
+        &credit_error,
+        tinymemory_api::Error::InsufficientCredits(_)
+    ));
+    assert_eq!(credit_error.code(), "INSUFFICIENT_CREDITS");
 }
 
 /// The reference engine, recording the date hint each read carried.

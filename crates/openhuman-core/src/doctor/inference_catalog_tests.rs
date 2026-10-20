@@ -1,21 +1,21 @@
 use super::{
-    ops::{doctor_models, doctor_report_with_options},
     DoctorOptions, FindingSeverity, ModelProbeOutcome,
+    ops::{doctor_models, doctor_report_with_options},
 };
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ModelRouteConfig;
 use crate::config::Config;
+use crate::config::schema::ModelRouteConfig;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{
+    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
-    Json, Router,
 };
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 use std::time::Duration;
 
@@ -197,8 +197,8 @@ fn register_test_inspection_catalog(
     endpoint: String,
 ) -> Arc<AtomicUsize> {
     use crate::inference::registry::{
-        register_inspection_catalog_in, InspectionCatalogError, InspectionCatalogListing,
-        PreparedInspectionCatalog,
+        InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
+        register_inspection_catalog_in,
     };
 
     let requests = Arc::new(AtomicUsize::new(0));
@@ -498,10 +498,10 @@ async fn a_slow_provider_times_out_without_blocking_the_other_catalog() {
 
 #[tokio::test]
 async fn doctor_models_never_falls_back_to_an_ordinary_mutable_catalog() {
+    use crate::core::Outcome;
     use crate::core::runtime::{CoreContext, DomainSet};
     use crate::core::slots::Extensions;
-    use crate::core::Outcome;
-    use crate::inference::registry::{register_catalog_in, CatalogEntry, CatalogListing};
+    use crate::inference::registry::{CatalogEntry, CatalogListing, register_catalog_in};
 
     let (endpoint, _server) =
         spawn_catalog_server(StatusCode::OK, catalog_body(&["must-not-be-used"]), true).await;
@@ -602,31 +602,37 @@ async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
         },
     )
     .await;
-    assert!(report_b_without_failure
-        .value
-        .checks_run
-        .iter()
-        .any(|id| id == "inference/auth-errors"));
-    assert!(report_b_without_failure
-        .value
-        .findings
-        .iter()
-        .all(|finding| {
-            finding.check_id != "inference/auth-errors"
-                || finding.severity != FindingSeverity::Error
-        }));
-    assert!(report_b_without_failure
-        .value
-        .findings
-        .iter()
-        .all(|finding| {
-            !finding
-                .message
-                .contains(config_a.workspace_dir.to_string_lossy().as_ref())
-                && !finding
+    assert!(
+        report_b_without_failure
+            .value
+            .checks_run
+            .iter()
+            .any(|id| id == "inference/auth-errors")
+    );
+    assert!(
+        report_b_without_failure
+            .value
+            .findings
+            .iter()
+            .all(|finding| {
+                finding.check_id != "inference/auth-errors"
+                    || finding.severity != FindingSeverity::Error
+            })
+    );
+    assert!(
+        report_b_without_failure
+            .value
+            .findings
+            .iter()
+            .all(|finding| {
+                !finding
                     .message
-                    .contains(config_b.workspace_dir.to_string_lossy().as_ref())
-        }));
+                    .contains(config_a.workspace_dir.to_string_lossy().as_ref())
+                    && !finding
+                        .message
+                        .contains(config_b.workspace_dir.to_string_lossy().as_ref())
+            })
+    );
 
     let report_a = report_for_context(
         &config_a,
@@ -671,14 +677,16 @@ async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
         },
     )
     .await;
-    assert!(report_a_after_b_failure
-        .value
-        .findings
-        .iter()
-        .any(|finding| {
-            finding.check_id == "inference/auth-errors"
-                && finding.severity == FindingSeverity::Error
-        }));
+    assert!(
+        report_a_after_b_failure
+            .value
+            .findings
+            .iter()
+            .any(|finding| {
+                finding.check_id == "inference/auth-errors"
+                    && finding.severity == FindingSeverity::Error
+            })
+    );
     assert_eq!(
         crate::inference::auth_error_registry::snapshot()
             .iter()
@@ -712,26 +720,32 @@ async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
         },
     )
     .await;
-    assert!(report_b_without_failure
-        .value
-        .checks_run
-        .iter()
-        .any(|id| id == "inference/auth-errors"));
-    assert!(report_b_without_failure
-        .value
-        .findings
-        .iter()
-        .all(|finding| {
-            finding.check_id != "inference/auth-errors"
-                || finding.severity != FindingSeverity::Error
-        }));
-    assert!(report_b_without_failure
-        .value
-        .findings
-        .iter()
-        .all(|finding| {
-            !finding.message.contains("tenant-a") && !finding.message.contains("tenant-b")
-        }));
+    assert!(
+        report_b_without_failure
+            .value
+            .checks_run
+            .iter()
+            .any(|id| id == "inference/auth-errors")
+    );
+    assert!(
+        report_b_without_failure
+            .value
+            .findings
+            .iter()
+            .all(|finding| {
+                finding.check_id != "inference/auth-errors"
+                    || finding.severity != FindingSeverity::Error
+            })
+    );
+    assert!(
+        report_b_without_failure
+            .value
+            .findings
+            .iter()
+            .all(|finding| {
+                !finding.message.contains("tenant-a") && !finding.message.contains("tenant-b")
+            })
+    );
 
     let report_a = report_for_profile(
         &config,
@@ -773,14 +787,16 @@ async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
         },
     )
     .await;
-    assert!(report_a_after_b_failure
-        .value
-        .findings
-        .iter()
-        .any(|finding| {
-            finding.check_id == "inference/auth-errors"
-                && finding.severity == FindingSeverity::Error
-        }));
+    assert!(
+        report_a_after_b_failure
+            .value
+            .findings
+            .iter()
+            .any(|finding| {
+                finding.check_id == "inference/auth-errors"
+                    && finding.severity == FindingSeverity::Error
+            })
+    );
     assert_eq!(
         crate::inference::auth_error_registry::snapshot()
             .iter()
@@ -808,11 +824,13 @@ async fn an_unscoped_legacy_auth_error_is_reported_without_blame_to_profile_b() 
     )
     .await;
 
-    assert!(report
-        .value
-        .checks_run
-        .iter()
-        .any(|id| id == "inference/auth-errors"));
+    assert!(
+        report
+            .value
+            .checks_run
+            .iter()
+            .any(|id| id == "inference/auth-errors")
+    );
     assert!(report.value.findings.iter().any(|finding| {
         finding.check_id == "inference/auth-errors"
             && finding.severity == FindingSeverity::Info
@@ -877,10 +895,12 @@ async fn doctor_models_skips_a_provider_without_a_models_route() {
     assert_eq!(report.value.summary.skipped, 1);
     assert_eq!(report.value.summary.errors, 0);
     assert_eq!(report.value.entries[0].outcome, ModelProbeOutcome::Skipped);
-    assert!(report.value.entries[0]
-        .message
-        .as_deref()
-        .is_some_and(|message| message.to_ascii_lowercase().contains("models")));
+    assert!(
+        report.value.entries[0]
+            .message
+            .as_deref()
+            .is_some_and(|message| message.to_ascii_lowercase().contains("models"))
+    );
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 
@@ -915,11 +935,13 @@ async fn model_in_catalog_check_skips_a_provider_without_a_models_route() {
     .expect("scoped doctor report")
     .expect("missing catalogs are check findings, not transport failures");
 
-    assert!(report
-        .value
-        .checks_run
-        .iter()
-        .any(|id| id == "inference/model-in-catalog"));
+    assert!(
+        report
+            .value
+            .checks_run
+            .iter()
+            .any(|id| id == "inference/model-in-catalog")
+    );
     assert!(report.value.findings.iter().any(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Skipped
@@ -993,11 +1015,13 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
 
     assert_eq!(catalog.value.entries[0].outcome, ModelProbeOutcome::Ok);
     assert_eq!(report.value.profile.as_deref(), Some("doctor-profile-b"));
-    assert!(report
-        .value
-        .checks_run
-        .iter()
-        .any(|id| id == "inference/model-in-catalog"));
+    assert!(
+        report
+            .value
+            .checks_run
+            .iter()
+            .any(|id| id == "inference/model-in-catalog")
+    );
     let missing_default = report.value.findings.iter().find(|finding| {
         finding.check_id == "inference/model-in-catalog"
             && finding.severity == FindingSeverity::Warn

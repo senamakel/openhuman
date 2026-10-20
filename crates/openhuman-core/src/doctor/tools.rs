@@ -83,15 +83,15 @@ impl Tool for DoctorModelsTool {
     }
 
     fn description(&self) -> &str {
-        "Probe configured AI models for availability and return a per-model \
-         report. Set `use_cache` false to force a fresh probe (default true)."
+        "Model catalog probing is not available yet. This tool reports that \
+         status instead of implying that a probe was run."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
             "properties": {
-                "use_cache": { "type": "boolean", "description": "Use cached probe results (default true)." }
+                "use_cache": { "type": "boolean", "description": "Reserved for model catalog probes when they become available." }
             }
         })
     }

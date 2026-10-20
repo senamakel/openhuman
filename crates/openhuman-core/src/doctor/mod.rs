@@ -14,8 +14,8 @@ pub use contract::{
     DoctorSummary, DoctorTier, Finding, FindingSeverity, ValueSource,
 };
 pub use core::{
-    run, run_models, DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome,
-    ModelProbeReport, ModelProbeSummary, Severity,
+    run, DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome, ModelProbeReport,
+    ModelProbeSummary, Severity,
 };
 pub use core::{DoctorReport as LegacyDoctorReport, DoctorSummary as LegacyDoctorSummary};
 pub use ops as rpc;

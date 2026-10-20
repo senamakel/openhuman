@@ -1,18 +1,15 @@
-//! [`run`] and [`run_models`]: the doctor report's public entry points.
+//! [`run`]: the doctor report's public entry point.
 
 use anyhow::Result;
 
 use crate::config::Config;
 
 use super::config_checks::check_config_semantics;
-use super::daemon_env_checks::{check_daemon_state, check_environment};
+use super::daemon_env_checks::check_environment;
 use super::memory_agent_checks::{
     check_claude_agent_sdk, check_embedding_model_health, check_memory_engine,
 };
-use super::types::{
-    DiagnosticItem, DoctorReport, DoctorSummary, ModelProbeEntry, ModelProbeOutcome,
-    ModelProbeReport, ModelProbeSummary, Severity,
-};
+use super::types::{DiagnosticItem, DoctorReport, DoctorSummary, Severity};
 use super::workspace_checks::check_workspace;
 
 /// The memory engine's status, taken by the async caller (engine health is
@@ -38,7 +35,6 @@ pub fn run(config: &Config, memory: MemoryEngineCheck) -> Result<DoctorReport> {
 
     check_config_semantics(config, &mut items);
     check_workspace(config, &mut items);
-    check_daemon_state(config, &mut items);
     check_environment(&mut items);
     check_memory_engine(&memory, &mut items);
     check_embedding_model_health(config, &mut items);
@@ -75,7 +71,6 @@ pub(in crate::doctor) fn run_check(
     match id {
         "config/semantics" => check_config_semantics(config, &mut items),
         "workspace/layout" => check_workspace(config, &mut items),
-        "runtime/daemon" => check_daemon_state(config, &mut items),
         "runtime/environment" => check_environment(&mut items),
         "memory/engine" => check_memory_engine(memory, &mut items),
         "memory/embedding-model" => check_embedding_model_health(config, &mut items),
@@ -85,37 +80,3 @@ pub(in crate::doctor) fn run_check(
     items
 }
 
-fn doctor_model_targets() -> Vec<String> {
-    crate::inference::provider::list_providers()
-        .into_iter()
-        .map(|provider| provider.name.to_string())
-        .collect()
-}
-
-pub fn run_models(_config: &Config, _use_cache: bool) -> Result<ModelProbeReport> {
-    let targets = doctor_model_targets();
-
-    if targets.is_empty() {
-        anyhow::bail!("No providers available for model probing");
-    }
-
-    let skipped_count = targets.len();
-    let entries = targets
-        .into_iter()
-        .map(|provider| ModelProbeEntry {
-            provider,
-            outcome: ModelProbeOutcome::Skipped,
-            message: Some("model catalog refresh removed".to_string()),
-        })
-        .collect();
-
-    Ok(ModelProbeReport {
-        entries,
-        summary: ModelProbeSummary {
-            ok: 0,
-            skipped: skipped_count,
-            auth_or_access: 0,
-            errors: 0,
-        },
-    })
-}

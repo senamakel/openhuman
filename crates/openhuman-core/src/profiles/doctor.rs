@@ -21,11 +21,20 @@ pub(crate) enum DoctorCaller {
 }
 
 /// A selected tenant's forced config and no-store diagnostic context.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub(crate) struct TenantDoctorTarget {
     pub profile_id: ProfileId,
     pub config: Config,
     pub context: Arc<CoreContext>,
+}
+
+impl std::fmt::Debug for TenantDoctorTarget {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("TenantDoctorTarget")
+            .field("profile_id", &self.profile_id)
+            .finish_non_exhaustive()
+    }
 }
 
 /// The safe result of reading the tenant registry and lease for diagnostics.

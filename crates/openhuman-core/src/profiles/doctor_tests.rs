@@ -294,7 +294,6 @@ async fn dispatch_report_runs_registered_provisioned_check_without_creating_stat
         crate::doctor::ops::doctor_report_for_dispatch(&dispatch, options).await
     })
     .await
-    .unwrap()
     .unwrap();
 
     assert_eq!(outcome.value.profile.as_deref(), Some(id.as_str()));

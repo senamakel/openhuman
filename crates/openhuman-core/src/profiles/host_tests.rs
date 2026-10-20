@@ -125,12 +125,12 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
 
     let before_reads = snapshot_tree(tmp.path());
     let a_observed = CoreContext::scope(Arc::clone(&target_a.context), async {
-        let config = CoreContext::current()
-            .expect("selected profile context")
+        let selected_context = CoreContext::current().expect("selected profile context");
+        let config = selected_context
             .embedder_config()
             .expect("selected profile config");
         (
-            config.config_path,
+            config.config_path.clone(),
             crate::storage::current_scope().unwrap(),
             crate::security::credentials::api_key::get_api_key_read_only(&config).unwrap(),
             crate::security::credentials::session_support::load_app_session_profile_read_only(
@@ -145,12 +145,12 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     })
     .await;
     let b_observed = CoreContext::scope(Arc::clone(&target_b.context), async {
-        let config = CoreContext::current()
-            .expect("selected profile context")
+        let selected_context = CoreContext::current().expect("selected profile context");
+        let config = selected_context
             .embedder_config()
             .expect("selected profile config");
         (
-            config.config_path,
+            config.config_path.clone(),
             crate::storage::current_scope().unwrap(),
             crate::security::credentials::api_key::get_api_key_read_only(&config).unwrap(),
             crate::security::credentials::session_support::load_app_session_profile_read_only(

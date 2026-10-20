@@ -199,6 +199,7 @@ impl RuntimeBuilder {
             }
         }
         let mut seams = host_seams.install().map_err(RuntimeError::Invalid)?;
+        let core_extensions = host_seams.core_extensions.clone();
 
         // Before `CoreBuilder::build()`: the scheduler gate reads the credential
         // store exactly once, at boot, to decide whether it is signed in.
@@ -259,6 +260,7 @@ impl RuntimeBuilder {
             .domains(domains)
             .tool_groups(tool_groups.clone())
             .services(services)
+            .extensions(core_extensions)
             .token(std::mem::replace(
                 &mut self.token,
                 openhuman_core::core::runtime::TokenSource::EnvOrFile,

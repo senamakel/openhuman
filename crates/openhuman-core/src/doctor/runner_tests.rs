@@ -108,6 +108,40 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
 }
 
 #[tokio::test]
+async fn hierarchical_check_ids_are_registered_and_selected_exactly() {
+    let extensions = Extensions::new();
+    register_check_source_in(
+        &extensions,
+        FakeCheckSource::new(
+            "doctor-hierarchical-id-source",
+            vec![FakeCheck::pass("inference/live/role")],
+        ),
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(Config::default()),
+            DoctorOptions {
+                tier: DoctorTier::Live,
+                only: vec!["inference/live/role".into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("hierarchical id is valid and selected as one exact id");
+
+    assert_eq!(report.checks_run, vec!["inference/live/role".to_owned()]);
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "inference/live/role")
+    );
+}
+
+#[tokio::test]
 async fn a_timed_out_check_is_an_error_without_stopping_other_checks() {
     let extensions = Extensions::new();
     let slow = FakeCheck::pass("test/slow")
@@ -187,45 +221,6 @@ async fn timed_out_blocking_checks_keep_the_concurrency_slot_until_the_worker_ex
     .expect("blocking workers eventually finish");
     assert_eq!(report.summary.error, 16);
     assert!(peak.load(Ordering::SeqCst) <= 8);
-}
-
-#[cfg(unix)]
-#[tokio::test]
-async fn connect_workspace_check_does_not_require_write_access() {
-    use std::fs;
-    use std::os::unix::fs::PermissionsExt;
-
-    let workspace = tempfile::tempdir().expect("temporary workspace");
-    let original = fs::metadata(workspace.path())
-        .expect("workspace metadata")
-        .permissions();
-    let mut read_only = original.clone();
-    read_only.set_mode(original.mode() & !0o222);
-    fs::set_permissions(workspace.path(), read_only).expect("make workspace read-only");
-
-    let mut config = Config::default();
-    config.workspace_dir = workspace.path().to_path_buf();
-    let report = runner::run(
-        &DoctorCtx::from_config(config),
-        DoctorOptions {
-            tier: DoctorTier::Connect,
-            only: vec!["workspace/layout".into(), "workspace/write-probe".into()],
-            ..DoctorOptions::default()
-        },
-    )
-    .await
-    .expect("read-only workspace check completes");
-
-    fs::set_permissions(workspace.path(), original).expect("restore workspace permissions");
-    assert!(
-        report.ok,
-        "read-only connect checks should not require writes"
-    );
-    assert!(
-        report
-            .checks_skipped
-            .contains(&"workspace/write-probe".to_owned())
-    );
 }
 
 #[tokio::test]

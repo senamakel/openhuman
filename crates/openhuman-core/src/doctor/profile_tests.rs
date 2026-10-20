@@ -576,9 +576,13 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
     );
 
     let observed = Arc::new(Mutex::new(Vec::new()));
+    let parent_state = parent.agent_state().slot::<InspectionStateSentinel>();
     crate::doctor::register_check_source_in(
         parent.extensions(),
-        SelectedProfileContextSource(observed.clone()),
+        SelectedProfileContextSource {
+            observed: observed.clone(),
+            parent_state: Some(parent_state),
+        },
     );
     let before = snapshot_tree(root);
     let explicit_outcome = crate::core::runtime::CoreContext::scope(parent.clone(), async {
@@ -641,6 +645,8 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
         );
         assert!(!observation.user_skill_roots);
         assert!(!observation.components.memory);
+        assert_eq!(observation.tenant_profile, None);
+        assert!(!observation.state_shared_with_parent);
     }
     assert_eq!(before, snapshot_tree(root));
 }
@@ -768,9 +774,17 @@ struct SelectedProfileContextObservation {
     tool_groups: crate::tools::toolpacks::ToolGroups,
     user_skill_roots: bool,
     components: crate::core::runtime::ComponentSet,
+    tenant_profile: Option<String>,
+    state_shared_with_parent: bool,
 }
 
-struct SelectedProfileContextCheck(Arc<Mutex<Vec<SelectedProfileContextObservation>>>);
+#[derive(Default)]
+struct InspectionStateSentinel;
+
+struct SelectedProfileContextCheck {
+    observed: Arc<Mutex<Vec<SelectedProfileContextObservation>>>,
+    parent_state: Option<Arc<InspectionStateSentinel>>,
+}
 
 #[async_trait::async_trait]
 impl DoctorCheck for SelectedProfileContextCheck {
@@ -789,7 +803,11 @@ impl DoctorCheck for SelectedProfileContextCheck {
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let current = crate::core::runtime::CoreContext::current().unwrap();
         let ambient = crate::core::runtime::CoreContext::current_embedder_config().unwrap();
-        self.0
+        let context_state = current.agent_state().slot::<InspectionStateSentinel>();
+        let tenant_profile = crate::core::runtime::current_tenant()
+            .ok()
+            .and_then(|tenant| tenant.profile);
+        self.observed
             .lock()
             .unwrap()
             .push(SelectedProfileContextObservation {
@@ -801,6 +819,11 @@ impl DoctorCheck for SelectedProfileContextCheck {
                 tool_groups: current.tool_groups(),
                 user_skill_roots: current.user_skill_roots(),
                 components: ctx.components(),
+                tenant_profile,
+                state_shared_with_parent: self
+                    .parent_state
+                    .as_ref()
+                    .is_some_and(|parent| Arc::ptr_eq(parent, &context_state)),
             });
         vec![Finding::pass(
             self.id(),
@@ -809,7 +832,10 @@ impl DoctorCheck for SelectedProfileContextCheck {
     }
 }
 
-struct SelectedProfileContextSource(Arc<Mutex<Vec<SelectedProfileContextObservation>>>);
+struct SelectedProfileContextSource {
+    observed: Arc<Mutex<Vec<SelectedProfileContextObservation>>>,
+    parent_state: Option<Arc<InspectionStateSentinel>>,
+}
 
 impl DoctorCheckSource for SelectedProfileContextSource {
     fn id(&self) -> &str {
@@ -817,7 +843,10 @@ impl DoctorCheckSource for SelectedProfileContextSource {
     }
 
     fn checks(&self) -> Vec<Arc<dyn DoctorCheck>> {
-        vec![Arc::new(SelectedProfileContextCheck(self.0.clone()))]
+        vec![Arc::new(SelectedProfileContextCheck {
+            observed: self.observed.clone(),
+            parent_state: self.parent_state.clone(),
+        })]
     }
 }
 

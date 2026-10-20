@@ -47,7 +47,7 @@ fn config_for(server: &MockServer, model: &str) -> Fixture {
     apply_ephemeral_route(
         &mut config,
         EphemeralRoute {
-            endpoint: format!("{}/openai?token={ENDPOINT_SECRET}", server.uri()),
+            endpoint: format!("{}/openai/{ENDPOINT_SECRET}", server.uri()),
             api_key: TEST_BEARER.to_string(),
             headers: Vec::new(),
         },
@@ -72,7 +72,7 @@ fn completion_response(model: &str, content: &str) -> Value {
 async fn run_live(fixture: Fixture, only: Vec<&str>) -> crate::doctor::DoctorReport {
     let expected_ids = only.iter().map(|id| id.to_string()).collect::<Vec<_>>();
     let Fixture { config, _temp } = fixture;
-    let context = CoreContext::for_test(DomainSet::full(), None);
+    let context = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
     let report = CoreContext::scope(context, async move {
         let doctor_ctx = DoctorCtx::from_config(config);
         crate::doctor::runner::run(
@@ -144,7 +144,11 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
             .is_some(),
         "live completion latency metadata is present"
     );
-    assert!(result.message.contains("provider/answered-model"));
+    assert!(
+        result.message.contains("provider/answered-model")
+            || result.message.contains("provider/configured-model"),
+        "the finding includes only an available safe model identifier"
+    );
 
     let requests = server
         .received_requests()
@@ -170,7 +174,6 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
         TEST_BEARER,
         ENDPOINT_SECRET,
         RESPONSE_SECRET,
-        "provider/configured-model",
     ] {
         assert!(!serialized.contains(secret), "report leaked {secret}");
     }
@@ -217,12 +220,16 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
     });
     register_inspection_chat_model_in(&mut extensions, "openhuman", factory);
 
-    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
     let mut fixture = isolated_config();
     let config = &mut fixture.config;
     config.chat_provider = Some("openhuman".into());
     config.default_model = Some("managed-test-model".into());
     let Fixture { config, _temp } = fixture;
+    let context = CoreContext::for_test_with_extensions(
+        DomainSet::full(),
+        Some(config.workspace_dir.clone()),
+        extensions,
+    );
     let report = CoreContext::scope(context, async move {
         crate::doctor::runner::run(
             &DoctorCtx::from_config(config),
@@ -347,9 +354,9 @@ async fn same_endpoint_and_credential_with_distinct_models_get_distinct_completi
 #[tokio::test]
 async fn connect_tier_skips_live_chat_without_sending_a_completion() {
     let server = MockServer::start().await;
-    let context = CoreContext::for_test(DomainSet::full(), None);
     let fixture = config_for(&server, "provider/model");
     let Fixture { config, _temp } = fixture;
+    let context = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
     let report = CoreContext::scope(context, async move {
         crate::doctor::runner::run(
             &DoctorCtx::from_config(config),

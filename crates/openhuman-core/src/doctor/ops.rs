@@ -9,8 +9,8 @@ use super::contract::DoctorProfileStatus;
 use super::profile::DesktopProfileSelection;
 use crate::config::Config;
 use crate::core::{
-    runtime::{ComponentSet, CoreContext, DispatchCtx},
     Outcome,
+    runtime::{ComponentSet, CoreContext, DispatchCtx},
 };
 use crate::doctor::{
     DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier, Finding,
@@ -66,8 +66,8 @@ pub async fn doctor_report_for_dispatch(
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
     if crate::core::runtime::is_saas() {
-        let target = crate::profiles::doctor::resolve_target(dispatch, options.profile.as_deref())
-            .await?;
+        let target =
+            crate::profiles::doctor::resolve_target(dispatch, options.profile.as_deref()).await?;
         if let Some(target) = target {
             options.profile = None;
             let components = ComponentSet::from_config(&target.config.components);

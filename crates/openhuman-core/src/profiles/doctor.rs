@@ -7,9 +7,7 @@ use async_trait::async_trait;
 
 use crate::config::Config;
 use crate::core::runtime::{ContextOverlay, CoreContext, DispatchCtx};
-use crate::doctor::{
-    DoctorCheck, DoctorCheckSource, DoctorCtx, DoctorTier, Finding,
-};
+use crate::doctor::{DoctorCheck, DoctorCheckSource, DoctorCtx, DoctorTier, Finding};
 use crate::tools::toolpacks::ToolGroups;
 
 use super::host::{self, ProfileHost};
@@ -86,16 +84,15 @@ pub(crate) async fn resolve_target(
         (super::surface::Scope::Operator, Some(tenant)) if tenant.profile.is_none() => {
             Some(DoctorCaller::Operator)
         }
-        (super::surface::Scope::User, Some(tenant)) => tenant.profile.and_then(|profile| {
-            ProfileId::parse(&profile)
-                .ok()
-                .map(DoctorCaller::Tenant)
-        }),
+        (super::surface::Scope::User, Some(tenant)) => tenant
+            .profile
+            .and_then(|profile| ProfileId::parse(&profile).ok().map(DoctorCaller::Tenant)),
         _ => None,
     };
 
     resolve_with_loader(caller, requested, |profile_id| async move {
-        let host = host::host().ok_or_else(|| "SaaS profile inspection is unavailable".to_string())?;
+        let host =
+            host::host().ok_or_else(|| "SaaS profile inspection is unavailable".to_string())?;
         host.target_for_doctor(&profile_id)
     })
     .await
@@ -113,9 +110,13 @@ impl ProfileHost {
         profile_id: &ProfileId,
     ) -> Result<TenantDoctorTarget, String> {
         let config = self.serving_config(&self.layout_of(profile_id), profile_id)?;
-        let overlay = ContextOverlay::new(config.clone(), super::host::user_domains(), ToolGroups::none())
-            .without_user_skill_roots()
-            .profile(profile_id.as_str());
+        let overlay = ContextOverlay::new(
+            config.clone(),
+            super::host::user_domains(),
+            ToolGroups::none(),
+        )
+        .without_user_skill_roots()
+        .profile(profile_id.as_str());
         let context = self.operator.derive_for_inspection(overlay);
         Ok(TenantDoctorTarget {
             profile_id: profile_id.clone(),

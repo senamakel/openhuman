@@ -20,17 +20,22 @@ async fn doctor_holder_inspection_does_not_declare_the_lease_collection() {
         .unwrap();
     let spec = CollectionSpec::new(LEASE_COLLECTION);
 
-    assert!(documents
-        .documents()
-        .validate_collection_spec(&spec)
-        .await
-        .is_err());
+    assert!(
+        documents
+            .documents()
+            .validate_collection_spec(&spec)
+            .await
+            .is_err()
+    );
     assert!(leases.holder_readonly("alice").await.unwrap().is_none());
-    assert!(documents
-        .documents()
-        .validate_collection_spec(&spec)
-        .await
-        .is_err(), "a doctor-style holder inspection must not create storage schema");
+    assert!(
+        documents
+            .documents()
+            .validate_collection_spec(&spec)
+            .await
+            .is_err(),
+        "a doctor-style holder inspection must not create storage schema"
+    );
 }
 
 #[tokio::test]

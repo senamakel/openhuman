@@ -31,9 +31,11 @@ async fn registry_extension_is_visible_to_every_lookup_and_dispatches() {
         Some("openhuman.ext_probe_ping")
     );
     assert!(schema_for_rpc_method("openhuman.ext_probe_ping").is_some());
-    assert!(all_controller_schemas()
-        .iter()
-        .any(|s| s.namespace == "ext_probe" && s.function == "ping"));
+    assert!(
+        all_controller_schemas()
+            .iter()
+            .any(|s| s.namespace == "ext_probe" && s.function == "ping")
+    );
     assert_eq!(
         namespace_description("ext_probe"),
         Some("Registry extension probe.")

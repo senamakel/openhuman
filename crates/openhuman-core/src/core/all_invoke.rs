@@ -5,7 +5,7 @@ use std::pin::Pin;
 
 use serde_json::{Map, Value};
 
-use super::{internal_registry, registry_view, visible, ControllerFuture};
+use super::{ControllerFuture, internal_registry, registry_view, visible};
 use crate::core::runtime::{CoreContext, DispatchCtx};
 
 type Dispatched = Pin<Box<dyn Future<Output = Option<Result<Value, String>>> + Send + 'static>>;

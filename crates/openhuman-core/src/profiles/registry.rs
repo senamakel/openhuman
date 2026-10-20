@@ -21,8 +21,8 @@ use tinystoragedrivers::{
 };
 
 use super::layout::{self, ProfileLayout};
-use super::storage_schema::migrate_cluster;
 pub use super::storage_schema::REGISTRY_COLLECTION;
+use super::storage_schema::migrate_cluster;
 use super::types::{ProfileId, ProfileMeta};
 use crate::storage::lease::CLUSTER_SCOPE;
 use crate::storage::schema_support::key_of;
@@ -154,8 +154,11 @@ impl ProfileRegistry {
             return read_meta(&ProfileLayout::new(root, id));
         };
 
-        if collection_is_declared(docs.as_ref(), super::storage_schema::LEGACY_REGISTRY_COLLECTION)
-            .await?
+        if collection_is_declared(
+            docs.as_ref(),
+            super::storage_schema::LEGACY_REGISTRY_COLLECTION,
+        )
+        .await?
         {
             return Err("profile registry requires explicit storage migration".into());
         }

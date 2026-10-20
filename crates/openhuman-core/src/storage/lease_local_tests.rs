@@ -24,7 +24,10 @@ async fn doctor_holder_inspection_does_not_create_a_lock_file() {
     let record = observer.holder_readonly("k").await.unwrap().unwrap();
 
     assert_eq!(record.owner, "previous-node");
-    assert!(!record.is_live(0), "the absent lock means no holder is live");
+    assert!(
+        !record.is_live(0),
+        "the absent lock means no holder is live"
+    );
     assert!(
         !lock_path.exists(),
         "a read-only holder inspection must not create the lock file"

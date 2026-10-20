@@ -1,14 +1,12 @@
 //! SaaS doctor selection fixtures. This module is included by
 //! `profiles::doctor` when the tenant resolver lands.
 
-use super::{
-    profile_provisioned_finding, resolve_with_loader, DoctorCaller, DoctorProfileState,
-};
+use super::{DoctorCaller, DoctorProfileState, profile_provisioned_finding, resolve_with_loader};
 use crate::config::Config;
 use crate::core::runtime::ComponentSet;
+use crate::doctor::FindingSeverity;
 use crate::doctor::{DoctorConfigSource, DoctorCtx};
 use crate::profiles::ProfileId;
-use crate::doctor::FindingSeverity;
 use std::future::Ready;
 use std::sync::{Arc, Mutex};
 
@@ -41,9 +39,7 @@ impl ReadSpy {
     }
 }
 
-fn spy_loader(
-    spy: Arc<ReadSpy>,
-) -> impl FnOnce(ProfileId) -> Ready<Result<ProfileId, String>> {
+fn spy_loader(spy: Arc<ReadSpy>) -> impl FnOnce(ProfileId) -> Ready<Result<ProfileId, String>> {
     move |id| {
         spy.record_selected_profile(&id);
         std::future::ready(Ok(id))
@@ -57,11 +53,8 @@ fn profile(raw: &str) -> ProfileId {
 #[test]
 fn selected_tenant_context_reports_tenant_source_and_profile() {
     let id = profile("alice");
-    let ctx = DoctorCtx::from_config_with_components(
-        Config::default(),
-        ComponentSet::all(),
-    )
-    .with_profile(id.as_str(), DoctorConfigSource::Tenant);
+    let ctx = DoctorCtx::from_config_with_components(Config::default(), ComponentSet::all())
+        .with_profile(id.as_str(), DoctorConfigSource::Tenant);
 
     assert_eq!(ctx.profile(), Some(id.as_str()));
     assert_eq!(ctx.config_source(), DoctorConfigSource::Tenant);
@@ -92,12 +85,8 @@ async fn an_unscoped_saas_call_cannot_become_an_operator_profile_read() {
     let bob = profile("bob");
     let reads = Arc::new(ReadSpy::default());
 
-    let result = resolve_with_loader(
-        None,
-        Some(bob.as_str()),
-        spy_loader(Arc::clone(&reads)),
-    )
-    .await;
+    let result =
+        resolve_with_loader(None, Some(bob.as_str()), spy_loader(Arc::clone(&reads))).await;
 
     assert!(result.is_err(), "missing task scope must fail closed");
     assert!(reads.snapshot().is_empty());
@@ -177,21 +166,21 @@ async fn a_valid_but_unprovisioned_operator_target_reaches_the_profile_check() {
     let id = profile("not-provisioned");
     let reads = Arc::new(ReadSpy::default());
 
-    let result = resolve_with_loader(
-        Some(DoctorCaller::Operator),
-        Some(id.as_str()),
-        {
-            let reads = Arc::clone(&reads);
-            move |selected| {
-                reads.record_selected_profile(&selected);
-                std::future::ready(Ok(false))
-            }
-        },
-    )
+    let result = resolve_with_loader(Some(DoctorCaller::Operator), Some(id.as_str()), {
+        let reads = Arc::clone(&reads);
+        move |selected| {
+            reads.record_selected_profile(&selected);
+            std::future::ready(Ok(false))
+        }
+    })
     .await
     .unwrap();
 
-    assert_eq!(result, Some(false), "the selected check reports provision status");
+    assert_eq!(
+        result,
+        Some(false),
+        "the selected check reports provision status"
+    );
     assert!(reads.snapshot().iter().all(|(_, selected)| selected == &id));
 }
 
@@ -207,7 +196,10 @@ async fn an_operator_without_a_selected_profile_does_not_load_a_tenant() {
     .await
     .unwrap();
 
-    assert!(result.is_none(), "the operator keeps its own normal config path");
+    assert!(
+        result.is_none(),
+        "the operator keeps its own normal config path"
+    );
     assert!(reads.snapshot().is_empty());
 }
 
@@ -247,4 +239,3 @@ fn a_profile_held_by_another_node_is_reported_without_holder_details() {
     assert!(!finding.message.contains("https://"));
     assert!(!finding.fix_hint.contains("token"));
 }
-

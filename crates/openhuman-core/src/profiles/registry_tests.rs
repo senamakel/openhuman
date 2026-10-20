@@ -72,11 +72,13 @@ async fn the_file_registry_keeps_profile_toml_beside_each_profile() {
 #[tokio::test]
 async fn an_empty_root_lists_nothing() {
     let tmp = tempfile::tempdir().unwrap();
-    assert!(ProfileRegistry::files(tmp.path().join("missing"))
-        .list()
-        .await
-        .unwrap()
-        .is_empty());
+    assert!(
+        ProfileRegistry::files(tmp.path().join("missing"))
+            .list()
+            .await
+            .unwrap()
+            .is_empty()
+    );
 }
 
 #[tokio::test]
@@ -89,22 +91,26 @@ async fn doctor_lookup_of_an_unknown_profile_does_not_declare_cluster_schema() {
     let registry_spec = CollectionSpec::new(REGISTRY_COLLECTION);
     let lease_spec = CollectionSpec::new(crate::storage::lease::LEASE_COLLECTION);
 
-    assert!(registry
-        .get_readonly(&ProfileId::parse("alice").unwrap())
-        .await
-        .unwrap()
-        .is_none());
+    assert!(
+        registry
+            .get_readonly(&ProfileId::parse("alice").unwrap())
+            .await
+            .unwrap()
+            .is_none()
+    );
 
-    assert!(docs
-        .documents()
-        .validate_collection_spec(&registry_spec)
-        .await
-        .is_err());
-    assert!(docs
-        .documents()
-        .validate_collection_spec(&lease_spec)
-        .await
-        .is_err());
+    assert!(
+        docs.documents()
+            .validate_collection_spec(&registry_spec)
+            .await
+            .is_err()
+    );
+    assert!(
+        docs.documents()
+            .validate_collection_spec(&lease_spec)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]
@@ -155,12 +161,16 @@ async fn doctor_lookup_does_not_migrate_legacy_profile_or_lease_records() {
 
     assert!(docs.get("profiles", &alice_key).await.unwrap().is_some());
     assert!(docs.get("leases", "alice").await.unwrap().is_some());
-    assert!(docs
-        .validate_collection_spec(&CollectionSpec::new(REGISTRY_COLLECTION))
+    assert!(
+        docs.validate_collection_spec(&CollectionSpec::new(REGISTRY_COLLECTION))
+            .await
+            .is_err()
+    );
+    assert!(
+        docs.validate_collection_spec(&CollectionSpec::new(
+            crate::storage::lease::LEASE_COLLECTION
+        ))
         .await
-        .is_err());
-    assert!(docs
-        .validate_collection_spec(&CollectionSpec::new(crate::storage::lease::LEASE_COLLECTION))
-        .await
-        .is_err());
+        .is_err()
+    );
 }

@@ -12,8 +12,8 @@ use std::{
 
 use serde_json::{Map, Value};
 
-use crate::core::runtime::DispatchCtx;
 use crate::core::ControllerSchema;
+use crate::core::runtime::DispatchCtx;
 
 /// A pinned, boxed future returned by a controller handler.
 pub type ControllerFuture = Pin<Box<dyn Future<Output = Result<Value, String>> + Send + 'static>>;
@@ -97,13 +97,10 @@ fn group_allowed(group: DomainGroup) -> bool {
     active_domain_set().map_or(group != DomainGroup::Operator, |s| s.allows(group))
 }
 
-/// Whether `g` is live in the ambient scope: its family is enabled and, for a
-/// SaaS user, the method is on the user surface (`profiles::surface`).
+/// Whether `g` is live in the ambient scope.
 fn visible(g: &GroupedController) -> bool {
     let doctor_report = g.controller.rpc_method_name() == "openhuman.doctor_report";
-    // Doctor reports are shared across SaaS planes; the exact RPC is still
-    // filtered by `profiles::surface` below. No other Platform method bypasses
-    // its DomainSet gate.
+    // Only the shared report bypasses its group gate; surface checks still apply.
     let saas_doctor_report = crate::core::runtime::is_saas() && doctor_report;
     (group_allowed(g.group) || saas_doctor_report) && on_surface(g)
 }

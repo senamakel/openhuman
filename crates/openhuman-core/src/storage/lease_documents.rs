@@ -26,10 +26,10 @@ use tinystoragedrivers::{
     Version,
 };
 
-use super::lease::{
-    validate_key, LeaseError, LeaseGrant, LeaseRecord, LeaseStore, CLUSTER_SCOPE, LEASE_COLLECTION,
-};
 use super::StorageError;
+use super::lease::{
+    CLUSTER_SCOPE, LEASE_COLLECTION, LeaseError, LeaseGrant, LeaseRecord, LeaseStore, validate_key,
+};
 
 /// The `tsd.leases` owner of the host's process-placement leases.
 pub const LEASE_OWNER: &str = "profiles";
@@ -362,7 +362,7 @@ impl LeaseStore for DocumentLeases {
                     Ok(()) => {
                         return Err(LeaseError::Storage(StorageError::backend(
                             "legacy profile leases require explicit storage migration",
-                        )))
+                        )));
                     }
                     Err(error) if error.kind() == ErrorKind::NotFound => return Ok(None),
                     Err(error) => return Err(LeaseError::Storage(error)),

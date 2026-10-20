@@ -4,6 +4,7 @@ use tempfile::TempDir;
 
 use crate::config::Config;
 use crate::doctor::profile::{load_desktop_profile, DesktopProfileError};
+use crate::doctor::{DoctorOptions, DoctorTier};
 use crate::profiles::ProfileLayout;
 use crate::security::credentials::{
     session_support::get_session_token, AuthService, APP_SESSION_PROVIDER,
@@ -66,6 +67,47 @@ async fn explicit_profile_reads_its_own_session_without_switching_active_user() 
         tokio::fs::read(&active_user_path).await.unwrap(),
         active_user_before
     );
+}
+
+#[tokio::test]
+async fn invalid_explicit_profile_returns_one_safe_profile_exists_error() {
+    let temp = TempDir::new().unwrap();
+    let root = temp.path();
+    let layout = ProfileLayout::new(root, "account-b");
+    tokio::fs::create_dir_all(&layout.dir).await.unwrap();
+    tokio::fs::write(layout.dir.join(".layout"), "2\n")
+        .await
+        .unwrap();
+    tokio::fs::write(&layout.config_path, "default_model = [\"private-value\"\n")
+        .await
+        .unwrap();
+    let active_config = Config {
+        config_path: root.join("users/account-a/config.toml"),
+        ..Config::default()
+    };
+
+    let outcome = crate::doctor::ops::doctor_report_with_options(
+        &active_config,
+        DoctorOptions {
+            tier: DoctorTier::Connect,
+            profile: Some("account-b".into()),
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .unwrap();
+    let report = outcome.value;
+
+    assert_eq!(report.profile.as_deref(), Some("account-b"));
+    assert_eq!(report.config_source, crate::doctor::DoctorConfigSource::Profile);
+    assert_eq!(report.checks_run, ["profile/exists"]);
+    assert!(report.checks_skipped.is_empty());
+    assert_eq!(report.findings.len(), 1);
+    assert_eq!(report.findings[0].check_id, "profile/exists");
+    assert_eq!(report.findings[0].severity, crate::doctor::FindingSeverity::Error);
+    assert!(!report.findings[0].message.contains("private-value"));
+    assert_eq!(report.summary.error, 1);
+    assert!(!report.ok);
 }
 
 #[tokio::test]

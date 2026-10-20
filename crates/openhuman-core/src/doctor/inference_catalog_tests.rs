@@ -699,6 +699,49 @@ async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {
 }
 
 #[tokio::test]
+async fn process_auth_error_is_not_attributed_across_config_roots_sharing_a_workspace() {
+    let provider = "doctor-497-config-root-auth-fixture";
+    crate::inference::auth_error_registry::clear(provider);
+    let (_temp_a, config_a) = temporary_config();
+    let (_temp_b, mut config_b) = temporary_config();
+    config_b.workspace_dir = config_a.workspace_dir.clone();
+
+    let first =
+        crate::core::runtime::CoreContext::scope(workspace_context(config_a.clone()), async {
+            crate::inference::auth_error_registry::record(provider, 401)
+        })
+        .await;
+    assert!(first);
+
+    let report_b = report_for_context(
+        &config_b,
+        workspace_context(config_b.clone()),
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_b.value.findings.iter().all(|finding| {
+        finding.check_id != "inference/auth-errors" || finding.severity != FindingSeverity::Error
+    }));
+
+    let report_a = report_for_context(
+        &config_a,
+        workspace_context(config_a.clone()),
+        DoctorOptions {
+            only: vec!["inference/auth-errors".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await;
+    assert!(report_a.value.findings.iter().any(|finding| {
+        finding.check_id == "inference/auth-errors" && finding.severity == FindingSeverity::Error
+    }));
+    crate::inference::auth_error_registry::clear(provider);
+}
+
+#[tokio::test]
 async fn process_auth_error_is_attributed_to_the_matching_saas_profile() {
     let provider = "doctor-497-saas-auth-fixture";
     crate::inference::auth_error_registry::clear(provider);

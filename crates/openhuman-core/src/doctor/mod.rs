@@ -39,6 +39,14 @@ mod config_provenance_tests;
 mod config_semantics_tests;
 
 #[cfg(test)]
+#[path = "inference_config_tests.rs"]
+mod inference_config_tests;
+
+#[cfg(test)]
+#[path = "embeddings_config_tests.rs"]
+mod embeddings_config_tests;
+
+#[cfg(test)]
 #[path = "runner_tests.rs"]
 mod runner_tests;
 

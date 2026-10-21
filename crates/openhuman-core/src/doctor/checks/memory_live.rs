@@ -230,7 +230,14 @@ enum Operation {
 }
 
 fn failure_finding(error: MemoryApiError, operation: Operation, cleaned: bool) -> Finding {
-    let (message, hint) = match MemoryError::from(error) {
+    // Some memory transports preserve a typed 402 as `InsufficientCredits`,
+    // while others normalize it to `Engine` and retain the stable marker in
+    // the sanitized display string. Recover only the known account-wide
+    // refusal markers; ordinary engine errors keep the generic classification.
+    let error_text = error.to_string();
+    let classified = MemoryError::refusal_from_skip_reason(&error_text)
+        .unwrap_or_else(|| MemoryError::from(error));
+    let (message, hint) = match classified {
         MemoryError::Unauthorized(_) => (
             "The selected memory engine rejected its credential.",
             "Sign in again or update the selected memory credential, then rerun the live check.",

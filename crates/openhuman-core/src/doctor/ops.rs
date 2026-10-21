@@ -266,3 +266,7 @@ pub async fn doctor_models(
 ) -> Result<Outcome<ModelProbeReport>, String> {
     Err("Model catalog probing is not available yet.".to_owned())
 }
+
+#[cfg(test)]
+#[path = "ops_tests.rs"]
+mod tests;

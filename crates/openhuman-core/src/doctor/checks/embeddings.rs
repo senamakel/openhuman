@@ -36,6 +36,7 @@ impl DoctorCheck for EmbeddingConfigCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
+        tracing::debug!(target: "doctor", check = CONFIG_ID, event = "inspection_started");
         config(ctx.config())
     }
 }
@@ -55,6 +56,7 @@ impl DoctorCheck for ConfiguredModelCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
+        tracing::debug!(target: "doctor", check = CONFIGURED_MODEL_ID, event = "inspection_started");
         configured_model(ctx.config()).await
     }
 }
@@ -68,6 +70,7 @@ async fn configured_model(config: &Config) -> Vec<Finding> {
         local_model.as_deref(),
     );
     if provider != "ollama" {
+        tracing::debug!(target: "doctor", check = CONFIGURED_MODEL_ID, event = "skipped_non_ollama");
         return vec![Finding::skipped(
             CONFIGURED_MODEL_ID,
             "The configured embedding provider does not use the local Ollama runtime.",

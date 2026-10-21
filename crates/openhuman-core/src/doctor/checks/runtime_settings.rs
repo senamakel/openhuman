@@ -30,7 +30,15 @@ impl DoctorCheck for RuntimeSettingsCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        runtime_settings(ctx.config())
+        tracing::debug!(target: "doctor", check = CHECK_ID, event = "inspection_started");
+        let findings = runtime_settings(ctx.config());
+        tracing::debug!(
+            target: "doctor",
+            check = CHECK_ID,
+            finding_count = findings.len(),
+            "runtime settings inspected"
+        );
+        findings
     }
 }
 

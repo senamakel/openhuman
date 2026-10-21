@@ -237,6 +237,78 @@ async fn custom_embedding_route_accepts_a_well_formed_http_url() {
 }
 
 #[tokio::test]
+async fn the_disabled_embedding_provider_is_a_valid_route_value() {
+    use crate::config::EmbeddingRouteConfig;
+
+    let mut config = Config::default();
+    config.memory.embedding_model = "hint:disabled".to_owned();
+    config.embedding_routes = vec![EmbeddingRouteConfig {
+        hint: "disabled".to_owned(),
+        provider: "none".to_owned(),
+        model: "unused".to_owned(),
+        dimensions: Some(768),
+    }];
+
+    let findings = run_only(config).await;
+
+    assert!(!findings.iter().any(|finding| {
+        finding.check_id == EMBEDDINGS_CONFIG
+            && finding.config_path.as_deref() == Some("embedding_routes[0].provider")
+    }));
+}
+
+#[tokio::test]
+async fn incomplete_embedding_routes_keep_their_field_specific_findings() {
+    use crate::config::EmbeddingRouteConfig;
+
+    let mut config = Config::default();
+    config.embedding_routes = vec![EmbeddingRouteConfig {
+        hint: String::new(),
+        provider: "openai".to_owned(),
+        model: String::new(),
+        dimensions: Some(0),
+    }];
+
+    let findings = run_only(config).await;
+    let paths = findings
+        .iter()
+        .filter(|finding| finding.check_id == EMBEDDINGS_CONFIG)
+        .filter_map(|finding| finding.config_path.as_deref())
+        .collect::<Vec<_>>();
+
+    for path in [
+        "embedding_routes[0].hint",
+        "embedding_routes[0].model",
+        "embedding_routes[0].dimensions",
+    ] {
+        assert!(paths.contains(&path), "missing {path} finding: {findings:#?}");
+    }
+    assert!(findings.iter().all(|finding| {
+        finding.check_id != EMBEDDINGS_CONFIG
+            || (!finding.message.contains("private") && !finding.fix_hint.trim().is_empty())
+    }));
+}
+
+#[tokio::test]
+async fn an_unresolved_embedding_hint_is_reported_without_echoing_the_hint() {
+    let mut config = Config::default();
+    config.memory.embedding_model = "hint:private-workload-hint".to_owned();
+    config.embedding_routes.clear();
+
+    let findings = run_only(config).await;
+
+    assert!(findings.iter().any(|finding| {
+        finding.check_id == EMBEDDINGS_CONFIG
+            && finding.severity == FindingSeverity::Error
+            && finding.config_path.as_deref() == Some("memory.embedding_model")
+    }));
+    assert!(findings.iter().all(|finding| {
+        !finding.message.contains("private-workload-hint")
+            && !finding.fix_hint.contains("private-workload-hint")
+    }));
+}
+
+#[tokio::test]
 async fn custom_embedding_route_rejects_empty_and_malformed_urls() {
     use crate::config::EmbeddingRouteConfig;
 

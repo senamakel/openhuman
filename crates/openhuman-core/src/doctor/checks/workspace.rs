@@ -40,7 +40,6 @@ impl DoctorCheck for WorkspaceWritable {
         if !workspace.is_dir() {
             return vec![workspace_error(
                 "The configured workspace directory is missing or is not a directory.",
-                workspace,
             )];
         }
 
@@ -50,7 +49,6 @@ impl DoctorCheck for WorkspaceWritable {
                 tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "unwritable");
                 return vec![workspace_error(
                     &format!("The workspace directory `{}` is not writable.", workspace.display()),
-                    workspace,
                 )];
             }
         };
@@ -67,7 +65,6 @@ impl DoctorCheck for WorkspaceWritable {
                 tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "write_failed");
                 vec![workspace_error(
                     &format!("The workspace directory `{}` is not writable.", workspace.display()),
-                    workspace,
                 )]
             }
             (_, Err(_)) => {
@@ -77,7 +74,6 @@ impl DoctorCheck for WorkspaceWritable {
                         "The temporary workspace probe at `{}` could not be removed.",
                         probe_path.display()
                     ),
-                    workspace,
                 )]
             }
         }
@@ -103,16 +99,14 @@ fn create_probe(workspace: &Path) -> io::Result<(PathBuf, fs::File)> {
     ))
 }
 
-fn workspace_error(message: &str, workspace: &Path) -> Finding {
+fn workspace_error(message: &str) -> Finding {
     let mut finding = Finding::error(
         WRITABLE_ID,
         message,
         "Grant write access to the workspace directory, then rerun doctor.",
     );
     finding.config_path = Some("workspace_dir".to_owned());
-    // The resolved path helps an operator find the failing workspace without
-    // copying any workspace file contents into the report.
-    tracing::debug!(target: "doctor", check = WRITABLE_ID, workspace = %workspace.display());
+    tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "error");
     finding
 }
 
@@ -135,7 +129,14 @@ impl DoctorCheck for WorkspaceLayout {
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let workspace = &ctx.config().workspace_dir;
         let disk_space_mb = available_disk_space_mb(workspace);
-        layout_findings(workspace, disk_space_mb)
+        let findings = layout_findings(workspace, disk_space_mb);
+        tracing::debug!(
+            target: "doctor",
+            check = LAYOUT_ID,
+            finding_count = findings.len(),
+            "workspace layout inspected"
+        );
+        findings
     }
 }
 

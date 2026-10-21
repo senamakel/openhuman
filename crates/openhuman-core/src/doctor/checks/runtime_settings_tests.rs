@@ -34,8 +34,12 @@ async fn former_runtime_settings_findings_keep_their_paths_without_exposing_valu
             model: "private-model-name".to_owned(),
         },
     ];
-    let mut delegate = DelegateAgentConfig::default();
-    delegate.model.clear();
+    let delegate = DelegateAgentConfig {
+        model: String::new(),
+        system_prompt: None,
+        temperature: None,
+        max_depth: 3,
+    };
     config.agents.insert("private-agent-name".to_owned(), delegate);
 
     let findings = run_check(config).await;

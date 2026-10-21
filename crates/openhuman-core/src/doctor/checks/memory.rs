@@ -100,6 +100,7 @@ impl DoctorCheck for HealthCheck {
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         if !ctx.config().components.memory {
+            tracing::debug!(target: "doctor", check = MEMORY_HEALTH_ID, outcome = "component_disabled");
             return vec![Finding::skipped(
                 self.id(),
                 "Memory is disabled in the selected configuration.",
@@ -112,13 +113,21 @@ impl DoctorCheck for HealthCheck {
             .engine
             .eq_ignore_ascii_case(crate::memory::engine::DISABLED_ENGINE)
         {
+            tracing::debug!(target: "doctor", check = MEMORY_HEALTH_ID, outcome = "engine_disabled");
             return vec![Finding::skipped(
                 self.id(),
                 "Memory is turned off in the selected configuration.",
                 "Select a memory engine to check its health.",
             )];
         }
+        tracing::debug!(target: "doctor", check = MEMORY_HEALTH_ID, event = "probe_started");
         let memory = probe_selected_config(ctx.config()).await;
+        let outcome = match &memory {
+            EngineHealth::Ok => "healthy",
+            EngineHealth::Degraded(_) => "degraded",
+            EngineHealth::Down(_) => "down",
+        };
+        tracing::debug!(target: "doctor", check = MEMORY_HEALTH_ID, outcome);
         findings_for_health(memory)
     }
 }

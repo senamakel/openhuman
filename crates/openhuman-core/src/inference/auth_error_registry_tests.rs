@@ -142,7 +142,8 @@ async fn normal_boot_without_preloaded_config_uses_the_resolved_config_path() {
     const CHILD_MARKER: &str = "OPENHUMAN_AUTH_ORIGIN_NORMAL_BOOT_CHILD";
     if std::env::var_os(CHILD_MARKER).is_none() {
         let home = tempfile::tempdir().expect("isolated test home");
-        let config_dir = home.path().join(".openhuman");
+        let openhuman_dir = home.path().join(".openhuman");
+        let config_dir = crate::config::pre_login_user_dir(&openhuman_dir);
         std::fs::create_dir_all(&config_dir).expect("create isolated config directory");
         std::fs::write(
             config_dir.join("config.toml"),
@@ -202,7 +203,7 @@ async fn normal_boot_without_preloaded_config_uses_the_resolved_config_path() {
         std::env::var_os("HOME")
             .map(std::path::PathBuf::from)
             .expect("isolated HOME")
-            .join(".openhuman/config.toml")
+            .join(".openhuman/users/local/config.toml")
     );
 
     crate::core::runtime::CoreContext::scope(context, async {

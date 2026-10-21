@@ -405,7 +405,7 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
                     |State(calls): State<Arc<AtomicUsize>>,
                      Json(_body): Json<serde_json::Value>| async move {
                         calls.fetch_add(1, Ordering::SeqCst);
-                        Json(serde_json::json!({ "embeddings": [[0.1_f32; 768]] }))
+                        Json(serde_json::json!({ "embeddings": vec![vec![0.1_f32; 768]] }))
                     },
                 ),
             )

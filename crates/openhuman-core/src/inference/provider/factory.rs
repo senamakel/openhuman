@@ -54,8 +54,8 @@ mod turn_model;
 
 #[cfg(feature = "flows")]
 pub(crate) use access_gates::current_host_requires_session;
-pub(crate) use chat_model::create_chat_model_with_model_id_in_for_inspection;
 pub(crate) use chat_model::create_chat_model_with_identity_in_for_inspection;
+pub(crate) use chat_model::create_chat_model_with_model_id_in_for_inspection;
 pub(crate) use chat_model::resolves_to_managed_backend;
 pub use chat_model::{
     create_chat_model_from_string, create_chat_model_from_string_with_model_id,
@@ -84,14 +84,16 @@ use access_gates::{emit_inference_egress, enforce_local_only_inference};
 use chat_model::{unresolved_chat_model_error, with_default_temperature};
 use cloud_slug::{
     resolve_cloud_slug, resolve_cloud_slug_with_access, try_create_cloud_slug_chat_model,
+    try_create_cloud_slug_chat_model_for_inspection,
     try_create_cloud_slug_chat_model_for_inspection_with_identity,
-    try_create_cloud_slug_chat_model_for_inspection, try_create_cloud_slug_chat_model_from_string,
+    try_create_cloud_slug_chat_model_from_string,
     try_create_cloud_slug_chat_model_with_native_tools,
 };
 use credentials::CredentialAccess;
 use local_runtime::{
-    try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_for_inspection,
-    try_create_local_runtime_chat_model_from_string, OptionalChatModelResult,
+    OptionalChatModelResult, try_create_local_runtime_chat_model,
+    try_create_local_runtime_chat_model_for_inspection,
+    try_create_local_runtime_chat_model_from_string,
 };
 pub(crate) use managed_backend::{
     make_openhuman_backend_model_for_options, make_openhuman_backend_model_for_thread,
@@ -99,10 +101,10 @@ pub(crate) use managed_backend::{
 use managed_backend::{managed_chat_model, resolve_managed_model};
 use primary_cloud::{legacy_inference_slug, resolve_primary_cloud_provider_string};
 use subprocess_providers::{
-    try_create_claude_agent_sdk_chat_model_for_inspection,
-    try_create_claude_code_chat_model_for_inspection,
     prepare_claude_agent_sdk_chat_model, try_create_claude_agent_sdk_chat_model,
+    try_create_claude_agent_sdk_chat_model_for_inspection,
     try_create_claude_agent_sdk_chat_model_from_string, try_create_claude_code_chat_model,
+    try_create_claude_code_chat_model_for_inspection,
     try_create_claude_code_chat_model_from_string,
 };
 use tiers::{is_abstract_tier_model, managed_default_model};
@@ -127,19 +129,19 @@ pub mod test_provider_override;
 #[path = "factory_tests.rs"]
 mod factory_tests;
 
-use crate::config::schema::cloud_providers::AuthStyle;
 use crate::config::Config;
+use crate::config::schema::cloud_providers::AuthStyle;
 use crate::inference::provider::openai_codex::resolve_openai_codex_routing;
 use crate::security::credentials::AuthService;
 use crate::security::egress::EgressLedger;
 use std::sync::Arc;
 use tinyagents_harness::providers::claude_agent_sdk::ClaudeAgentSdkProvider;
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse, ModelStream};
-use tinyinference_llm::providers::openai::codex::{
-    openai_codex_client_version, openai_codex_user_agent, OPENAI_CODEX_ACCOUNT_HEADER,
-    OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
-};
 use tinyinference_llm::providers::openai::AuthStyle as CompatAuthStyle;
+use tinyinference_llm::providers::openai::codex::{
+    OPENAI_CODEX_ACCOUNT_HEADER, OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
+    openai_codex_client_version, openai_codex_user_agent,
+};
 
 /// Opaque per-report identity for an inspection completion. It contains the
 /// effective endpoint, exact frozen credential, and actual wire model, but

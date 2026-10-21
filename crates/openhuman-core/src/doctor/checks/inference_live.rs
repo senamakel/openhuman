@@ -13,7 +13,7 @@ use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 use crate::inference::provider::factory::{
-    create_chat_model_with_identity_in_for_inspection, InspectionRequestIdentity,
+    InspectionRequestIdentity, create_chat_model_with_identity_in_for_inspection,
 };
 
 const CATEGORY: &str = "live inference";
@@ -125,13 +125,18 @@ struct ProbeOutcome {
 
 impl ProbeOutcome {
     fn finding(&self, id: &str) -> Finding {
-        Finding::new(id, self.severity, self.message.clone(), self.fix_hint.clone())
+        Finding::new(
+            id,
+            self.severity,
+            self.message.clone(),
+            self.fix_hint.clone(),
+        )
     }
 }
 
 async fn invoke_once(model: Arc<dyn ChatModel<()>>, configured_model: String) -> ProbeOutcome {
-    let request = ModelRequest::new(vec![Message::user("Reply OK")])
-        .with_max_tokens(LIVE_OUTPUT_LIMIT);
+    let request =
+        ModelRequest::new(vec![Message::user("Reply OK")]).with_max_tokens(LIVE_OUTPUT_LIMIT);
     let started = Instant::now();
     let response = tokio::time::timeout(MODEL_TIMEOUT, model.invoke(&(), request)).await;
     let latency_ms = elapsed_ms(started.elapsed());
@@ -140,7 +145,9 @@ async fn invoke_once(model: Arc<dyn ChatModel<()>>, configured_model: String) ->
         Ok(Err(error)) => provider_error_outcome(&error),
         Err(_) => ProbeOutcome {
             severity: FindingSeverity::Error,
-            message: "The configured inference provider did not answer before the live-check timeout.".into(),
+            message:
+                "The configured inference provider did not answer before the live-check timeout."
+                    .into(),
             fix_hint: "Check the provider's availability and network connection, then rerun doctor with --live.",
         },
     }
@@ -182,7 +189,8 @@ fn provider_error_outcome(error: &tinyinference_llm::Error) -> ProbeOutcome {
         }
         _ => ProbeOutcome {
             severity: FindingSeverity::Error,
-            message: "The configured inference provider is unavailable for a live completion.".into(),
+            message: "The configured inference provider is unavailable for a live completion."
+                .into(),
             fix_hint: "Check the configured provider, its local credential, and network availability, then rerun doctor with --live.",
         },
     }
@@ -192,12 +200,16 @@ fn classify_provider_error(error: &ProviderError) -> ProbeOutcome {
     match error.status {
         Some(401 | 403) => ProbeOutcome {
             severity: FindingSeverity::Error,
-            message: format!("Inference authentication failed (HTTP {}).", error.status.unwrap()),
+            message: format!(
+                "Inference authentication failed (HTTP {}).",
+                error.status.unwrap()
+            ),
             fix_hint: "Reconnect the configured provider or replace its API key, then rerun doctor with --live.",
         },
         Some(429) => ProbeOutcome {
             severity: FindingSeverity::Error,
-            message: "The configured inference provider reported a quota or rate limit (HTTP 429).".into(),
+            message: "The configured inference provider reported a quota or rate limit (HTTP 429)."
+                .into(),
             fix_hint: "Check the provider's quota or rate limit and retry when it allows another request.",
         },
         Some(status) if status >= 500 => ProbeOutcome {
@@ -207,7 +219,8 @@ fn classify_provider_error(error: &ProviderError) -> ProbeOutcome {
         },
         _ => ProbeOutcome {
             severity: FindingSeverity::Error,
-            message: "The configured inference provider is unavailable for a live completion.".into(),
+            message: "The configured inference provider is unavailable for a live completion."
+                .into(),
             fix_hint: "Check the configured model and provider endpoint, then rerun doctor with --live.",
         },
     }

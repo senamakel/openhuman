@@ -19,12 +19,12 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use tinyinference_embeddings::EmbeddingModel;
-use tinyinference_llm::model::discover::DiscoveryRequest;
 use tinyinference_llm::model::ChatModel;
+use tinyinference_llm::model::discover::DiscoveryRequest;
 
 use crate::config::Config;
-use crate::core::slots::{Extensions, HookSlot};
 use crate::core::Outcome;
+use crate::core::slots::{Extensions, HookSlot};
 use crate::security::approval::ApprovalChatContext;
 use crate::security::egress::EgressLedger;
 
@@ -100,9 +100,7 @@ pub struct InspectionChatModelBuild {
 /// Inspection-safe provider callback. Unlike the runtime callback this must
 /// return the same frozen route identity used by the model invocation.
 pub type PreparedInspectionChatModelFactory = Arc<
-    dyn for<'a> Fn(&ChatModelRequest<'a>) -> anyhow::Result<InspectionChatModelBuild>
-        + Send
-        + Sync,
+    dyn for<'a> Fn(&ChatModelRequest<'a>) -> anyhow::Result<InspectionChatModelBuild> + Send + Sync,
 >;
 
 static INSPECTION_CHAT_MODELS: HookSlot<InspectionChatModelFactory> =

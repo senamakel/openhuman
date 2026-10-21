@@ -62,17 +62,21 @@ pub(super) fn try_create_claude_agent_sdk_chat_model_for_inspection(
             .unwrap_or("https://api.anthropic.com")
             .trim_end_matches('/')
             .to_string();
-        let auth = tinyagents_harness::providers::claude_agent_sdk::ClaudeAgentSdkInspectionAuth::new(
-            api_key,
-            auth_token,
-            base_url,
-        )?;
+        let auth =
+            tinyagents_harness::providers::claude_agent_sdk::ClaudeAgentSdkInspectionAuth::new(
+                api_key, auth_token, base_url,
+            )?;
         let chat = ClaudeAgentSdkProvider::for_inspection(
             (&config.claude_agent_sdk).into(),
             model.clone(),
             auth,
         );
-        Ok((Arc::new(chat) as Arc<dyn ChatModel<()>>, model.clone(), endpoint, credential))
+        Ok((
+            Arc::new(chat) as Arc<dyn ChatModel<()>>,
+            model.clone(),
+            endpoint,
+            credential,
+        ))
     })())
 }
 

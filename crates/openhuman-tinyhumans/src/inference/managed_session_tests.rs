@@ -7,7 +7,7 @@ use super::*;
 #[test]
 fn the_offline_local_session_cannot_authenticate_managed_inference() {
     use openhuman_embed::__host::security::credentials::session_support::{
-        SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+        LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SessionTokenCheck,
     };
 
     let error = managed_bearer(SessionTokenCheck::Live("header.payload.local".to_string()))

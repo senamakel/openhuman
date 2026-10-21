@@ -78,7 +78,7 @@ fn try_create_local_runtime_chat_model_from_string_with_identity(
     mut inspection_identity: Option<&mut Option<(String, String, String)>>,
 ) -> OptionalChatModelResult {
     use tinyinference_local::local_runtime::{
-        resolve_local_runtime, LocalRuntimeAuth, LocalRuntimeInputs,
+        LocalRuntimeAuth, LocalRuntimeInputs, resolve_local_runtime,
     };
 
     // Use the same classifier as privacy and session policy. Canonicalize only
@@ -126,7 +126,11 @@ fn try_create_local_runtime_chat_model_from_string_with_identity(
             LocalRuntimeAuth::None => String::new(),
             LocalRuntimeAuth::Bearer => resolved.api_key.clone(),
         };
-        *identity = Some((resolved.endpoint.clone(), credential, resolved.model.clone()));
+        *identity = Some((
+            resolved.endpoint.clone(),
+            credential,
+            resolved.model.clone(),
+        ));
     }
     let auth = match resolved.auth {
         LocalRuntimeAuth::None => CompatAuthStyle::None,

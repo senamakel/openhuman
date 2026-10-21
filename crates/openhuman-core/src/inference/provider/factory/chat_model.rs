@@ -46,7 +46,8 @@ pub(crate) fn create_chat_model_with_model_id_in_for_inspection(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    let prepared = create_chat_model_with_identity_in_for_inspection(ctx, role, config, temperature)?;
+    let prepared =
+        create_chat_model_with_identity_in_for_inspection(ctx, role, config, temperature)?;
     Ok((prepared.model, prepared.model_id))
 }
 
@@ -58,7 +59,11 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<PreparedInspectionChatModel> {
-    if ctx.host_overrides().and_then(|local| local.model_for(role)).is_some() {
+    if ctx
+        .host_overrides()
+        .and_then(|local| local.model_for(role))
+        .is_some()
+    {
         anyhow::bail!("host-provided inference model has no frozen inspection identity");
     }
 
@@ -76,11 +81,9 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
             temperature,
         ));
     }
-    if let Some(result) = try_create_claude_agent_sdk_chat_model_for_inspection(
-        role,
-        &resolved,
-        config,
-    ) {
+    if let Some(result) =
+        try_create_claude_agent_sdk_chat_model_for_inspection(role, &resolved, config)
+    {
         let (model, model_id, endpoint, credential) = result?;
         return Ok(prepared_inspection_model(
             model,
@@ -90,11 +93,8 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
             temperature,
         ));
     }
-    if let Some(result) = try_create_claude_code_chat_model_for_inspection(
-        role,
-        &resolved,
-        config,
-    ) {
+    if let Some(result) = try_create_claude_code_chat_model_for_inspection(role, &resolved, config)
+    {
         let (model, model_id, endpoint, credential) = result?;
         return Ok(prepared_inspection_model(
             model,
@@ -114,7 +114,8 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
             temperature,
         ));
     }
-    if let Some(result) = try_create_cloud_slug_chat_model_for_inspection_with_identity(role, config)
+    if let Some(result) =
+        try_create_cloud_slug_chat_model_for_inspection_with_identity(role, config)
     {
         let (model, model_id, endpoint, credential) = result?;
         return Ok(prepared_inspection_model(

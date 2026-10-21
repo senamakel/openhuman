@@ -5,8 +5,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use serde_json::Value;
 
-use crate::config::schema::load::ConfigLoadFallback;
 use crate::config::Config;
+use crate::config::schema::load::ConfigLoadFallback;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 
 const CATEGORY: &str = "configuration";

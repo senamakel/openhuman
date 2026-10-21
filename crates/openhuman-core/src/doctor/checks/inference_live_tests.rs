@@ -2,12 +2,12 @@
 
 use super::*;
 
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ephemeral_route::{apply as apply_ephemeral_route, EphemeralRoute};
 use crate::config::Config;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+use crate::config::schema::ephemeral_route::{EphemeralRoute, apply as apply_ephemeral_route};
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -61,12 +61,7 @@ fn config_for(server: &MockServer, model: &str) -> Fixture {
     fixture
 }
 
-fn add_cloud_provider(
-    config: &mut Config,
-    slug: &str,
-    endpoint: &str,
-    model: &str,
-) {
+fn add_cloud_provider(config: &mut Config, slug: &str, endpoint: &str, model: &str) {
     config.cloud_providers.push(CloudProviderCreds {
         id: format!("provider-id-{slug}"),
         slug: slug.to_string(),
@@ -235,9 +230,11 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
     let body: Value = serde_json::from_slice(&requests[0].body).expect("request is JSON");
     assert_eq!(body["messages"].as_array().unwrap().len(), 1);
     assert_eq!(body["messages"][0]["content"], "Reply OK");
-    assert!(body["max_tokens"]
-        .as_u64()
-        .is_some_and(|value| (1..=5).contains(&value)));
+    assert!(
+        body["max_tokens"]
+            .as_u64()
+            .is_some_and(|value| (1..=5).contains(&value))
+    );
     assert_eq!(
         requests[0]
             .headers
@@ -255,11 +252,11 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
 #[tokio::test]
 async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
     use crate::inference::registry::{
-        register_inspection_chat_model_in, ChatModelRequest, InspectionChatModelFactory,
+        ChatModelRequest, InspectionChatModelFactory, register_inspection_chat_model_in,
     };
     use std::sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc,
+        atomic::{AtomicUsize, Ordering},
     };
     use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
@@ -274,9 +271,11 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
             self.0.fetch_add(1, Ordering::SeqCst);
             assert_eq!(request.messages.len(), 1);
             assert_eq!(request.messages[0].text(), "Reply OK");
-            assert!(request
-                .max_tokens
-                .is_some_and(|value| (1..=5).contains(&value)));
+            assert!(
+                request
+                    .max_tokens
+                    .is_some_and(|value| (1..=5).contains(&value))
+            );
             Ok(ModelResponse::assistant("OK"))
         }
     }
@@ -431,34 +430,47 @@ async fn same_endpoint_and_model_with_distinct_credentials_get_distinct_completi
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path(provider_completion_path("shared")))
-        .respond_with(ResponseTemplate::new(200).set_body_json(completion_response(
-            "provider/answered-model",
-            "OK",
-        )))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(completion_response("provider/answered-model", "OK")),
+        )
         .mount(&server)
         .await;
     let fixture = cloud_route_fixture(
         &server,
         &[
-            ("route-one", "shared", "provider/shared-model", "dummy-key-one"),
-            ("route-two", "shared", "provider/shared-model", "dummy-key-two"),
+            (
+                "route-one",
+                "shared",
+                "provider/shared-model",
+                "dummy-key-one",
+            ),
+            (
+                "route-two",
+                "shared",
+                "provider/shared-model",
+                "dummy-key-two",
+            ),
         ],
         "route-one",
         "route-two",
     );
 
-    let report = run_live(
-        fixture,
-        vec![CHECK_CHAT, "inference/live/reasoning"],
-    )
-    .await;
+    let report = run_live(fixture, vec![CHECK_CHAT, "inference/live/reasoning"]).await;
     assert_eq!(finding(&report, CHECK_CHAT).severity, FindingSeverity::Pass);
     assert_eq!(
         finding(&report, "inference/live/reasoning").severity,
         FindingSeverity::Pass
     );
-    let requests = server.received_requests().await.expect("mock records calls");
-    assert_eq!(requests.len(), 2, "different frozen credentials cannot deduplicate");
+    let requests = server
+        .received_requests()
+        .await
+        .expect("mock records calls");
+    assert_eq!(
+        requests.len(),
+        2,
+        "different frozen credentials cannot deduplicate"
+    );
     let mut authorization = requests
         .iter()
         .map(|request| {
@@ -484,35 +496,48 @@ async fn distinct_endpoints_with_same_credential_and_model_get_distinct_completi
     for endpoint in ["first", "second"] {
         Mock::given(method("POST"))
             .and(path(provider_completion_path(endpoint)))
-            .respond_with(ResponseTemplate::new(200).set_body_json(completion_response(
-                "provider/answered-model",
-                "OK",
-            )))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(completion_response("provider/answered-model", "OK")),
+            )
             .mount(&server)
             .await;
     }
     let fixture = cloud_route_fixture(
         &server,
         &[
-            ("route-one", "first", "provider/shared-model", "dummy-same-key"),
-            ("route-two", "second", "provider/shared-model", "dummy-same-key"),
+            (
+                "route-one",
+                "first",
+                "provider/shared-model",
+                "dummy-same-key",
+            ),
+            (
+                "route-two",
+                "second",
+                "provider/shared-model",
+                "dummy-same-key",
+            ),
         ],
         "route-one",
         "route-two",
     );
 
-    let report = run_live(
-        fixture,
-        vec![CHECK_CHAT, "inference/live/reasoning"],
-    )
-    .await;
+    let report = run_live(fixture, vec![CHECK_CHAT, "inference/live/reasoning"]).await;
     assert_eq!(finding(&report, CHECK_CHAT).severity, FindingSeverity::Pass);
     assert_eq!(
         finding(&report, "inference/live/reasoning").severity,
         FindingSeverity::Pass
     );
-    let requests = server.received_requests().await.expect("mock records calls");
-    assert_eq!(requests.len(), 2, "different endpoints need separate probes");
+    let requests = server
+        .received_requests()
+        .await
+        .expect("mock records calls");
+    assert_eq!(
+        requests.len(),
+        2,
+        "different endpoints need separate probes"
+    );
     let mut paths = requests
         .iter()
         .map(|request| request.url.path().to_string())
@@ -520,7 +545,10 @@ async fn distinct_endpoints_with_same_credential_and_model_get_distinct_completi
     paths.sort();
     assert_eq!(
         paths,
-        vec![provider_completion_path("first"), provider_completion_path("second")]
+        vec![
+            provider_completion_path("first"),
+            provider_completion_path("second")
+        ]
     );
 }
 
@@ -529,27 +557,33 @@ async fn distinct_provider_slugs_with_the_same_endpoint_credential_and_model_ded
     let server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path(provider_completion_path("shared")))
-        .respond_with(ResponseTemplate::new(200).set_body_json(completion_response(
-            "provider/answered-model",
-            "OK",
-        )))
+        .respond_with(
+            ResponseTemplate::new(200)
+                .set_body_json(completion_response("provider/answered-model", "OK")),
+        )
         .mount(&server)
         .await;
     let fixture = cloud_route_fixture(
         &server,
         &[
-            ("alias-one", "shared", "provider/shared-model", "dummy-same-key"),
-            ("alias-two", "shared", "provider/shared-model", "dummy-same-key"),
+            (
+                "alias-one",
+                "shared",
+                "provider/shared-model",
+                "dummy-same-key",
+            ),
+            (
+                "alias-two",
+                "shared",
+                "provider/shared-model",
+                "dummy-same-key",
+            ),
         ],
         "alias-one",
         "alias-two",
     );
 
-    let report = run_live(
-        fixture,
-        vec![CHECK_CHAT, "inference/live/reasoning"],
-    )
-    .await;
+    let report = run_live(fixture, vec![CHECK_CHAT, "inference/live/reasoning"]).await;
     assert_eq!(finding(&report, CHECK_CHAT).severity, FindingSeverity::Pass);
     assert_eq!(
         finding(&report, "inference/live/reasoning").severity,
@@ -594,11 +628,13 @@ async fn connect_tier_skips_live_chat_without_sending_a_completion() {
     assert!(!report.findings.iter().any(|result| {
         result.check_id == "doctor/selection" && result.severity == FindingSeverity::Error
     }));
-    assert!(server
-        .received_requests()
-        .await
-        .expect("mock records calls")
-        .is_empty());
+    assert!(
+        server
+            .received_requests()
+            .await
+            .expect("mock records calls")
+            .is_empty()
+    );
 }
 
 #[test]

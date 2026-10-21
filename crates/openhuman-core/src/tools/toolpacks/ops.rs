@@ -4,7 +4,7 @@ use std::collections::HashSet;
 use std::sync::{Arc, Weak};
 
 use super::registry;
-use tinyagents_harness::tool::packs::{PackRegistryHandle, UseSkillTool, USE_SKILL};
+use tinyagents_harness_tools::skills::{PackRegistryHandle, UseSkillTool, USE_SKILL};
 use tinytools::Tool;
 
 /// Append `use_skill` to a freshly built registry.

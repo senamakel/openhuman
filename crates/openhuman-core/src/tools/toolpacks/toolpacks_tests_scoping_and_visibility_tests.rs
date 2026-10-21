@@ -2,7 +2,7 @@
 //! execution distinction the whole pack mechanism rests on.
 
 use super::*;
-use tinyagents_harness::tool::packs::{route_sentence, USE_SKILL};
+use tinyagents_harness_tools::skills::{route_sentence, USE_SKILL};
 
 // ── the index must agree with the gate too ──────────────────────────────────
 
@@ -32,7 +32,7 @@ fn the_index_drops_a_pack_this_session_can_call_nothing_in() {
     // Only the workflows pack is reachable.
     let workflows = pack("workflows").expect("workflows pack");
     let kept =
-        tinyagents_harness::tool::packs::scope_use_skill_spec(&CATALOG, &mut spec, &|name| {
+        tinyagents_harness_tools::skills::scope_use_skill_spec(&CATALOG, &mut spec, &|name| {
             workflows.tools.contains(&name)
         });
     assert!(
@@ -60,7 +60,7 @@ fn the_index_drops_a_pack_this_session_can_call_nothing_in() {
 fn the_skill_enum_offers_only_reachable_packs() {
     let mut spec = use_skill_spec();
     let workflows = pack("workflows").expect("workflows pack");
-    tinyagents_harness::tool::packs::scope_use_skill_spec(&CATALOG, &mut spec, &|name| {
+    tinyagents_harness_tools::skills::scope_use_skill_spec(&CATALOG, &mut spec, &|name| {
         workflows.tools.contains(&name)
     });
 
@@ -85,7 +85,7 @@ fn the_skill_enum_offers_only_reachable_packs() {
 fn a_session_that_can_reach_no_pack_loses_use_skill() {
     let mut spec = use_skill_spec();
     assert!(
-        !tinyagents_harness::tool::packs::scope_use_skill_spec(&CATALOG, &mut spec, &|_| false),
+        !tinyagents_harness_tools::skills::scope_use_skill_spec(&CATALOG, &mut spec, &|_| false),
         "with nothing reachable, use_skill must be dropped, not emptied"
     );
 }
@@ -97,7 +97,7 @@ fn scoping_the_index_only_ever_shrinks_it() {
     let mut spec = use_skill_spec();
     let before = spec.description.len();
     let workflows = pack("workflows").expect("workflows pack");
-    tinyagents_harness::tool::packs::scope_use_skill_spec(&CATALOG, &mut spec, &|name| {
+    tinyagents_harness_tools::skills::scope_use_skill_spec(&CATALOG, &mut spec, &|name| {
         workflows.tools.contains(&name)
     });
     assert!(
@@ -244,7 +244,7 @@ fn a_non_owner_listing_omits_the_tools_the_gate_will_refuse() {
     let handle = crate::tools::host_extensions::pack_registry_handle(find(&tools, USE_SKILL))
         .expect("use_skill carries the pack handle");
 
-    let rendered = tinyagents_harness::tool::packs::render_pack_filtered(
+    let rendered = tinyagents_harness_tools::skills::render_pack_filtered(
         &CATALOG,
         "workflows",
         handle,
@@ -272,7 +272,7 @@ fn a_listing_with_nothing_callable_names_the_route_out() {
         .expect("use_skill carries the pack handle");
 
     let route = route_sentence(&["build_workflow".to_string()], &["workflow_builder"]);
-    let err = tinyagents_harness::tool::packs::render_pack_filtered(
+    let err = tinyagents_harness_tools::skills::render_pack_filtered(
         &CATALOG,
         "workflows",
         handle,

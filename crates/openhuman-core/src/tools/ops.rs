@@ -7,7 +7,7 @@ use crate::security::{AuditLogger, SecurityPolicy};
 use crate::tools::delegate::DelegateTool;
 use std::collections::HashMap;
 use std::sync::Arc;
-use tinyagents_harness::tools::{CurrentTimeTool, ResolveTimeTool};
+use tinyagents_harness_tools::{CurrentTimeTool, ResolveTimeTool};
 use tinytools::Tool;
 use tinytools_std::detect_tools::DetectToolsTool;
 use tinytools_std::filesystem::{

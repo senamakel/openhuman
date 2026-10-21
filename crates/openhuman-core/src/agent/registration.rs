@@ -10,7 +10,7 @@ use crate::config::Config;
 #[cfg(feature = "skills")]
 use crate::skills::run_workflow::{AwaitWorkflowTool, RunWorkflowTool};
 use std::path::Path;
-use tinyagents_harness::tools as harness_tools;
+use tinyagents_harness_tools as harness_tools;
 use tinytools::Tool;
 use tinytools_std::filesystem::WorkspaceStateTool;
 

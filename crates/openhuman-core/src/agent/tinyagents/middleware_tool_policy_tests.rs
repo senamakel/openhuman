@@ -12,7 +12,7 @@ use crate::agent::tinyagents::middleware::tool_policy::ToolPolicyMiddleware;
 
 use crate::agent::orchestration::tools::{ArchetypeDelegationTool, DelegationTarget};
 use crate::tools::toolpacks::{append_pack_tools, bind_pack_registry};
-use tinyagents_harness::tool::packs::USE_SKILL;
+use tinyagents_harness_tools::skills::USE_SKILL;
 use tinytools::{PermissionLevel, ToolResult};
 use tinytools::{
     TaskProfile, TaskRiskLevel, ToolCapability, ToolPolicyAction, ToolPolicyDecision,

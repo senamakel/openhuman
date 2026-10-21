@@ -4,7 +4,7 @@
 //! memory, or the network. Wire names are
 //! given in parentheses where they differ from the type name:
 //!
-//! - `AskClarificationTool` (`ask_user_clarification`, from `tinyagents_harness::tools`) — returns the
+//! - `AskClarificationTool` (`ask_user_clarification`, from `tinyagents_harness_tools`) — returns the
 //!   question as its output; the turn actually pauses only because callers
 //!   list this name in the harness seam's `early_exit_tools`.
 //! - [`DelegateTool`] — hands a subtask to a named agent with its own
@@ -27,6 +27,6 @@ pub(crate) mod plan_exit;
 mod todo;
 
 pub use plan_exit::PlanExitTool;
-pub const PLAN_EXIT_MARKER: &str = tinyagents_harness::tool::plan_exit::PLAN_EXIT_MARKER;
+pub const PLAN_EXIT_MARKER: &str = tinyagents_harness_tools::PLAN_EXIT_MARKER;
 pub use todo::TodoTool;
 pub(crate) use todo::TodoToolDispatch;

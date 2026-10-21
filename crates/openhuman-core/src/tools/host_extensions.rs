@@ -5,7 +5,7 @@
 //! host implementation details, not portable tool-trait APIs.
 
 use crate::agent::orchestration::tools::DelegationTarget;
-use tinyagents_harness::tool::packs::{PackRegistryHandle, PackToolExtension};
+use tinyagents_harness_tools::skills::{PackRegistryHandle, PackToolExtension};
 #[cfg(test)]
 use tinytools::{PermissionLevel, ToolCategory, ToolResult, ToolScope};
 use tinytools::{Tool, ToolRunContext};

@@ -11,7 +11,7 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::*;
-use tinyagents_harness::tool::packs::USE_SKILL;
+use tinyagents_harness_tools::skills::USE_SKILL;
 use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 struct FakeTool {

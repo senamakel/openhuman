@@ -362,8 +362,8 @@ pub mod inference_registry {
         register_inspection_chat_model_in, unregister_catalog, unregister_chat_model,
         unregister_embedding, unregister_inspection_chat_model, BoxFuture, CatalogEntry,
         CatalogLimits, CatalogListing, CatalogRequest, ChatModelEntry, ChatModelFactory,
-        ChatModelRequest, EmbeddingFactory, EmbeddingRequest, InspectionChatModelFactory,
-        ReadinessProbe,
+        ChatModelRequest, EmbeddingFactory, EmbeddingRequest, InspectionChatModelBuild,
+        InspectionChatModelFactory, PreparedInspectionChatModelFactory, ReadinessProbe,
     };
 }
 

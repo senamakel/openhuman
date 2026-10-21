@@ -164,7 +164,8 @@ fn success_outcome(
         .and_then(|raw| raw.get("model"))
         .and_then(serde_json::Value::as_str)
         .filter(|model| safe_model_id(model))
-        .unwrap_or(configured_model);
+        .or_else(|| safe_model_id(configured_model).then_some(configured_model))
+        .unwrap_or("configured model");
     ProbeOutcome {
         severity: FindingSeverity::Pass,
         message: format!(

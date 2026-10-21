@@ -543,7 +543,12 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         http,
     });
     if let Some(identity) = inspection_identity.as_deref_mut() {
-        *identity = Some((codex.endpoint.clone(), key.clone(), effective_model.clone()));
+        let credential = if entry.auth_style == AuthStyle::None {
+            String::new()
+        } else {
+            key.clone()
+        };
+        *identity = Some((codex.endpoint.clone(), credential, effective_model.clone()));
     }
     Some(chat.map(|chat| (chat, effective_model)))
 }

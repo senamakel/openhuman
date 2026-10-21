@@ -122,7 +122,7 @@ fn try_create_local_runtime_chat_model_from_string_with_identity(
         Err(e) => return Some(Err(anyhow::anyhow!("{e}"))),
     };
     if let Some(identity) = inspection_identity.as_deref_mut() {
-        let credential = match resolved.auth {
+        let credential = match &resolved.auth {
             LocalRuntimeAuth::None => String::new(),
             LocalRuntimeAuth::Bearer => resolved.api_key.clone(),
         };

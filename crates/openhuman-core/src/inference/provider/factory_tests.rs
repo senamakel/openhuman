@@ -3,6 +3,8 @@ use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
 use crate::security::credentials::AuthService;
 use tempfile::TempDir;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::inference::provider::factory::access_gates::host_requires_session;
 fn create_test_chat_model_from_string(
@@ -128,6 +130,124 @@ fn store_byo_key(config: &Config, slug: &str, token: &str) {
         true,
     )
     .expect("store provider token");
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth_profile() {
+    use crate::config::test_env::{lock_env, EnvVarGuard};
+    use crate::security::credentials::openai_oauth::store::{
+        OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
+    };
+    use crate::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
+    use chrono::{Duration, Utc};
+
+    let _inference_guard = crate::inference::inference_test_guard_async().await;
+    let _env_lock = lock_env();
+    let tmp = tempfile::tempdir().expect("temporary credentials fixture");
+    let mut config = Config::default();
+    config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    config.action_dir = tmp.path().join("action");
+    config.secrets.encrypt = false;
+
+    let profiles = AuthProfilesStore::new(tmp.path(), false);
+    AuthService::from_config(&config)
+        .store_provider_token(
+            OPENAI_PROVIDER_KEY,
+            "default",
+            "dummy-selected-api-key",
+            Default::default(),
+            true,
+        )
+        .expect("store selected API-key profile in the temporary fixture");
+    let expired_oauth = AuthProfile::new_oauth(
+        OPENAI_PROVIDER_KEY,
+        OPENAI_OAUTH_PROFILE_NAME,
+        TokenSet {
+            access_token: "expired-oauth-access-token".into(),
+            refresh_token: Some("dummy-refresh-token".into()),
+            id_token: None,
+            expires_at: Some(Utc::now() - Duration::minutes(5)),
+            token_type: Some("Bearer".into()),
+            scope: None,
+        },
+    );
+    profiles
+        .upsert_profile(expired_oauth, false)
+        .expect("store inactive expired OAuth profile");
+    let snapshot = std::fs::read(tmp.path().join("auth-profiles.json"))
+        .expect("snapshot credential store before inspection");
+
+    let selected = AuthService::get_profile_read_only(&config, OPENAI_PROVIDER_KEY, None)
+        .expect("selected profile is readable without mutable auth")
+        .expect("selected API-key profile exists");
+    assert_eq!(selected.profile_name, "default");
+    assert_eq!(selected.token.as_deref(), Some("dummy-selected-api-key"));
+    let oauth = AuthService::get_profile_read_only(
+        &config,
+        OPENAI_PROVIDER_KEY,
+        Some(OPENAI_OAUTH_PROFILE_NAME),
+    )
+    .expect("named OAuth profile is readable without refreshing")
+    .expect("expired OAuth profile exists");
+    assert!(oauth
+        .token_set
+        .as_ref()
+        .and_then(|token_set| token_set.expires_at)
+        .is_some_and(|expires_at| expires_at < Utc::now()));
+
+    let refresh_server = MockServer::start().await;
+    Mock::given(method("POST"))
+        .and(path("/token"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "access_token": "refreshed-oauth-token-must-not-be-written",
+            "refresh_token": "rotated-dummy-refresh-token",
+            "expires_in": 3600,
+        })))
+        .mount(&refresh_server)
+        .await;
+    let _refresh_url = EnvVarGuard::set(
+        "OPENAI_CODEX_OAUTH_TOKEN_URL",
+        format!("{}/token", refresh_server.uri()),
+    );
+
+    let mut provider = openai_entry("p_openai_inspection", "openai");
+    provider.endpoint = "https://api.openai.example.test/v1".into();
+    config.cloud_providers = vec![provider];
+    config.chat_provider = Some("openai:gpt-4o".into());
+    let inspected = super::chat_model::create_chat_model_with_model_id_in_for_inspection(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        "chat",
+        &config,
+        0.0,
+    );
+    assert!(
+        inspected.is_ok(),
+        "the selected API-key profile is sufficient for model construction"
+    );
+
+    assert!(
+        refresh_server
+            .received_requests()
+            .await
+            .expect("refresh mock records requests")
+            .is_empty(),
+        "inspection construction must not refresh the unrelated expired OAuth profile"
+    );
+    assert_eq!(
+        std::fs::read(tmp.path().join("auth-profiles.json"))
+            .expect("read credential store after inspection"),
+        snapshot,
+        "inspection must leave all credential bytes unchanged"
+    );
+    let selected_after = AuthService::get_profile_read_only(&config, OPENAI_PROVIDER_KEY, None)
+        .expect("selected profile remains readable")
+        .expect("selected profile remains present");
+    assert_eq!(selected_after.profile_name, "default");
+    assert_eq!(
+        selected_after.token.as_deref(),
+        Some("dummy-selected-api-key")
+    );
 }
 
 // ── Motion B (#4727 Phase 3): wire-equivalent BYOK cloud-slug cutover ────────

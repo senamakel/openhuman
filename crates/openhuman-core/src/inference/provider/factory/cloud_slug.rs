@@ -459,11 +459,19 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
                     egress,
                 ),
                 CredentialAccess::Inspection => {
-                    super::managed_backend::managed_chat_model_for_inspection(
+                    let build = super::managed_backend::managed_chat_model_build_for_inspection(
                         role,
                         config,
                         model_override,
-                    )
+                    )?;
+                    if let Some(identity) = inspection_identity.as_deref_mut() {
+                        *identity = Some((
+                            build.endpoint.clone(),
+                            build.credential.clone(),
+                            build.model_id.clone(),
+                        ));
+                    }
+                    Ok((build.model, build.model_id))
                 }
             });
         }
@@ -534,5 +542,8 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         codex: codex_route,
         http,
     });
+    if let Some(identity) = inspection_identity.as_deref_mut() {
+        *identity = Some((codex.endpoint.clone(), key.clone(), effective_model.clone()));
+    }
     Some(chat.map(|chat| (chat, effective_model)))
 }

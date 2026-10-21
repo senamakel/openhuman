@@ -1,9 +1,7 @@
 //! Read-only workspace checks and a bounded, disposable write probe.
 
-use std::fs::{self, OpenOptions};
-use std::io::{self, Write};
-use std::path::{Path, PathBuf};
-use std::sync::atomic::{AtomicU64, Ordering};
+use std::fs;
+use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -13,7 +11,6 @@ use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity
 const WRITABLE_ID: &str = "workspace/writable";
 const LAYOUT_ID: &str = "workspace/layout";
 const LOW_DISK_SPACE_MB: u64 = 512;
-static PROBE_SEQUENCE: AtomicU64 = AtomicU64::new(0);
 
 pub(super) fn checks() -> Vec<Arc<dyn DoctorCheck>> {
     vec![Arc::new(WorkspaceWritable), Arc::new(WorkspaceLayout)]
@@ -43,60 +40,16 @@ impl DoctorCheck for WorkspaceWritable {
             )];
         }
 
-        let (probe_path, mut probe) = match create_probe(workspace) {
-            Ok(probe) => probe,
-            Err(_) => {
-                tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "unwritable");
-                return vec![workspace_error(&format!(
-                    "The workspace directory `{}` is not writable.",
-                    workspace.display()
-                ))];
-            }
-        };
-
-        let write_result = probe.write_all(b"doctor workspace probe");
-        drop(probe);
-        let cleanup_result = fs::remove_file(&probe_path);
-        match (write_result, cleanup_result) {
-            (Ok(()), Ok(())) => {
-                tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "writable");
-                Vec::new()
-            }
-            (Err(_), Ok(())) => {
-                tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "write_failed");
-                vec![workspace_error(&format!(
-                    "The workspace directory `{}` is not writable.",
-                    workspace.display()
-                ))]
-            }
-            (_, Err(_)) => {
-                tracing::warn!(target: "doctor", check = WRITABLE_ID, outcome = "cleanup_failed");
-                vec![workspace_error(&format!(
-                    "The temporary workspace probe at `{}` could not be removed.",
-                    probe_path.display()
-                ))]
-            }
+        if crate::storage::probe_directory_writable(workspace).is_ok() {
+            tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "writable");
+            Vec::new()
+        } else {
+            tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "unwritable");
+            vec![workspace_error(
+                "The configured workspace directory is not writable.",
+            )]
         }
     }
-}
-
-fn create_probe(workspace: &Path) -> io::Result<(PathBuf, fs::File)> {
-    for _ in 0..32 {
-        let sequence = PROBE_SEQUENCE.fetch_add(1, Ordering::Relaxed);
-        let path = workspace.join(format!(
-            ".openhuman-doctor-probe-{}-{sequence}",
-            std::process::id()
-        ));
-        match OpenOptions::new().write(true).create_new(true).open(&path) {
-            Ok(file) => return Ok((path, file)),
-            Err(error) if error.kind() == io::ErrorKind::AlreadyExists => continue,
-            Err(error) => return Err(error),
-        }
-    }
-    Err(io::Error::new(
-        io::ErrorKind::AlreadyExists,
-        "could not allocate a unique workspace probe path",
-    ))
 }
 
 fn workspace_error(message: &str) -> Finding {

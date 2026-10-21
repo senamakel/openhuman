@@ -1,5 +1,5 @@
 use super::*;
-use crate::inference::tokenjuice::LEGACY_RETRIEVE_TOOL_NAME as RECOVERY_TOOL_NAME;
+const RECOVERY_TOOL_NAME: &str = "retrieve_tool_output";
 use crate::tools::retrieve_tool_output_tool;
 use tinyagents_harness::tools::CurrentTimeTool;
 

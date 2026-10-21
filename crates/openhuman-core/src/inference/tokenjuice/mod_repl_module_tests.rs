@@ -4,6 +4,30 @@
 
 use super::*;
 
+struct ModuleQuerySource;
+
+#[async_trait::async_trait]
+impl tinyjuice_host::repl_tools::QuerySource for ModuleQuerySource {
+    async fn query(
+        &self,
+        context: Option<&dyn tinytools::ToolRunContext>,
+        request: tinyjuice_bus::wire::QueryRequest,
+    ) -> Result<tinyjuice_bus::wire::QueryResponse, String> {
+        let context = crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context);
+        super::query(&context, request).await
+    }
+}
+
+fn query_tools() -> Vec<Box<dyn tinytools::Tool>> {
+    tinyjuice_host::repl_tools::repl_tools(
+        std::sync::Arc::new(ModuleQuerySource),
+        tinyjuice_bus::repl::ReplLimits::default(),
+        None,
+        tinytools_std::filesystem::FileReadTool::MAX_FILE_SIZE_BYTES,
+        None,
+    )
+}
+
 /// A large result comes back as a stats line, a head and a handle, and
 /// `juice_find` reads the stored original through `Retrieve`.
 #[tokio::test]
@@ -52,7 +76,7 @@ async fn a_large_result_becomes_a_handle_the_repl_tools_can_query() {
         .expect("the footer names a handle")
         .to_string();
 
-    let tools = repl_tools();
+    let tools = query_tools();
     let find = tools.iter().find(|t| t.name() == "juice_find").unwrap();
     let hit = find
         .execute(serde_json::json!({ "handle": handle, "query": "needle" }))

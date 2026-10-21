@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn recovery_tool_aliases_remain_stable() {
     assert!(is_recovery_tool(tinyjuice_bus::tools::RETRIEVE));
-    assert!(is_recovery_tool(LEGACY_RETRIEVE_TOOL_NAME));
+    assert!(is_recovery_tool("retrieve_tool_output"));
     assert!(!is_recovery_tool("shell"));
 }
 

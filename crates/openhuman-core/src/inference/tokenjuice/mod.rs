@@ -8,14 +8,13 @@ use crate::core::runtime::DispatchCtx;
 use tinyjuice_bus::names::methods;
 use tinyjuice_bus::types::{AgentTokenjuiceCompression, CompressorKind};
 use tinyjuice_bus::tools::REPL_TOOLS;
-use tinyjuice_host::recovery::CompactedToolOutput;
+pub use tinyjuice_host::recovery::CompactedToolOutput;
 use tinytools::{Tool, ToolRunContext};
 use std::sync::Arc;
 
 use tinyjuice_bus::wire::InstallRequest;
 
 pub use tinyjuice_host::recovery::{RECOVERY_TOOL_NAMES, RECOVERY_TOOL_VISIBLE, is_recovery_tool};
-pub const LEGACY_RETRIEVE_TOOL_NAME: &str = "retrieve_tool_output";
 
 struct ModuleQuerySource {
     config: Option<Arc<crate::config::Config>>,
@@ -125,7 +124,7 @@ pub fn companion_tool_names(agent_id: &str, config: &crate::config::Config) -> V
     if enabled(config)
         && (config.context.compaction_enabled || summarizes_tool_output(agent_id, config))
     {
-        names.extend(RECOVERY_TOOL_VISIBLE.iter().copied());
+        names.extend(tinyjuice_host::recovery::RECOVERY_TOOL_VISIBLE.iter().copied());
     }
     if repl_handle_active(config) {
         names.extend(REPL_TOOLS.iter().copied());

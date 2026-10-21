@@ -63,5 +63,9 @@ mod config_semantics_tests;
 mod inference_live_tests;
 
 #[cfg(test)]
+#[path = "inference_live_budget_tests.rs"]
+mod inference_live_budget_tests;
+
+#[cfg(test)]
 #[path = "mod_tests.rs"]
 mod tests;

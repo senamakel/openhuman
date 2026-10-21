@@ -179,6 +179,61 @@ async fn cli_explicit_valid_profile_uses_its_config_without_activating_or_writin
 }
 
 #[tokio::test(flavor = "current_thread")]
+async fn legacy_doctor_report_and_models_keep_json_without_boot_storage_writes() {
+    let fixture = fixture_named("healthy").await;
+    let home = fixture._home.path();
+    let config_path = home
+        .join(".openhuman/users")
+        .join(MOCK_USER_ID)
+        .join("config.toml");
+    let mut config: toml::Value =
+        toml::from_str(&fs::read_to_string(&config_path).expect("active profile config"))
+            .expect("valid healthy config fixture");
+    let storage_path = home.join("legacy-doctor-storage");
+    config
+        .get_mut("storage")
+        .and_then(toml::Value::as_table_mut)
+        .expect("fixture has a storage table")
+        .insert(
+            "url".into(),
+            toml::Value::String(format!("sqlite:{}", storage_path.display())),
+        );
+    fs::write(&config_path, toml::to_string(&config).expect("serialize config"))
+        .expect("point legacy CLI fixture at a file-backed storage URL");
+    let before = snapshot_tree(home);
+
+    let report_output = fixture.run_cli(&[
+        "doctor",
+        "report",
+        "--tier",
+        "static",
+        "--only",
+        r#"["config/parse"]"#,
+    ]);
+    assert_eq!(report_output.status.code(), Some(0));
+    let report: Value =
+        serde_json::from_slice(&report_output.stdout).expect("legacy report remains raw JSON");
+    assert!(report["logs"].is_array(), "report keeps its legacy outcome envelope");
+    assert_eq!(report["result"]["tier"], "static");
+    assert!(report["result"]["checks_run"]
+        .as_array()
+        .is_some_and(|checks| checks.iter().any(|check| check == "config/parse")));
+    assert_unchanged(&before, &snapshot_tree(home));
+
+    let models_output = fixture.run_cli(&["doctor", "models", "--use-cache", "false"]);
+    assert_eq!(models_output.status.code(), Some(0));
+    let models: Value =
+        serde_json::from_slice(&models_output.stdout).expect("legacy models remains raw JSON");
+    assert!(models["summary"].is_object());
+    assert!(models["entries"].is_array());
+    assert_unchanged(&before, &snapshot_tree(home));
+    assert!(
+        !storage_path.exists(),
+        "legacy inspection must not create the configured session database"
+    );
+}
+
+#[tokio::test(flavor = "current_thread")]
 async fn connect_tier_skips_billable_live_probes() {
     let fixture = fixture_named("healthy").await;
     let report = fixture.report(json!({"tier": "connect"})).await;

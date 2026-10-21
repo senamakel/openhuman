@@ -6,7 +6,7 @@ use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::schema::ephemeral_route::{apply as apply_ephemeral_route, EphemeralRoute};
 use crate::config::Config;
 use crate::core::runtime::{CoreContext, DomainSet};
-use crate::doctor::{DoctorCheck, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
+use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use serde_json::{json, Value};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -421,7 +421,7 @@ async fn identical_role_routes_share_one_completion_but_keep_each_role_finding()
         .mount(&server)
         .await;
     let mut config = config_for(&server, "provider/shared-model");
-    config.reasoning_provider = config.chat_provider.clone();
+    config.config.reasoning_provider = config.config.chat_provider.clone();
 
     let report = run_live(config, vec![CHECK_CHAT, "inference/live/reasoning"]).await;
     assert_eq!(finding(&report, CHECK_CHAT).severity, FindingSeverity::Pass);

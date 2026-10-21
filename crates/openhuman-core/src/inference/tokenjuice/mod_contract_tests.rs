@@ -2,31 +2,27 @@ use tinyjuice_bus::types::ContentKind;
 use tinyjuice_bus::types::{CompressOptions, ContentHint};
 
 #[test]
-fn print_before_migration_tool_schema_fixtures() {
+fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
     use tinytools::Tool;
 
     let retrieve = super::TokenjuiceRetrieveTool::new();
-    println!(
-        "juice_retrieve={}",
-        serde_json::to_string(&serde_json::json!({
+    let mut declarations = vec![serde_json::json!({
             "name": retrieve.name(),
             "description": retrieve.description(),
             "parameters": retrieve.parameters_schema(),
-        }))
-        .unwrap()
-    );
+        })];
     for tool in super::repl_tools() {
-        println!(
-            "{}={}",
-            tool.name(),
-            serde_json::to_string(&serde_json::json!({
+        declarations.push(serde_json::json!({
                 "name": tool.name(),
                 "description": tool.description(),
                 "parameters": tool.parameters_schema(),
-            }))
-            .unwrap()
-        );
+            }));
     }
+
+    let fixture: Vec<serde_json::Value> =
+        serde_json::from_str(include_str!("tool_schema_fixtures.json"))
+            .expect("pre-migration declarations are valid JSON");
+    assert_eq!(declarations, fixture);
 }
 
 #[test]

@@ -27,69 +27,99 @@ impl DoctorCheck for StorageConnect {
         DoctorTier::Connect
     }
 
-    fn is_blocking(&self) -> bool {
-        true
-    }
-
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        self.detect_blocking(ctx).unwrap_or_default()
-    }
-
-    fn detect_blocking(&self, ctx: &DoctorCtx) -> Option<Vec<Finding>> {
         let Some(url) = crate::storage::url_from(None, ctx.config()) else {
-            return Some(vec![Finding::skipped(
+            return vec![Finding::skipped(
                 self.id(),
                 "Storage is not configured for this selected profile.",
                 "Configure storage for the selected profile and rerun doctor.",
-            )]);
+            )];
         };
         let parsed = match StorageConfig::parse(&url) {
             Ok(parsed) => parsed,
             Err(_) => {
-                return Some(vec![Finding::error(
+                return vec![Finding::error(
                     self.id(),
                     "The selected storage configuration is invalid.",
                     "Review the storage URL in the selected configuration.",
-                )]);
+                )];
             }
         };
-        let path = match parsed {
-            StorageConfig::Sqlite { path } => path,
+        match parsed {
+            StorageConfig::Sqlite { path } => match tokio::task::spawn_blocking(move || sqlite_probe(&path)).await {
+                Ok(true) => vec![Finding::pass(
+                    self.id(),
+                    "The selected SQLite storage database is readable.",
+                )],
+                Ok(false) | Err(_) => vec![Finding::error(
+                    self.id(),
+                    "The selected SQLite storage database could not be read.",
+                    "Check that the configured database exists, is readable, and is not busy.",
+                )],
+            },
             StorageConfig::Memory => {
-                return Some(vec![Finding::pass(
+                vec![Finding::pass(
                     self.id(),
                     "The selected in-memory storage driver is available.",
-                )]);
+                )]
             }
-            StorageConfig::MongoDb { .. }
-            | StorageConfig::File { .. }
-            | StorageConfig::Composite { .. } => {
-                return Some(vec![Finding::skipped(
+            StorageConfig::File { dir } => match tokio::task::spawn_blocking(move || file_probe(&dir)).await {
+                Ok(true) => vec![Finding::pass(
+                    self.id(),
+                    "The selected file storage directory exists and is readable.",
+                )],
+                Ok(false) | Err(_) => vec![Finding::error(
+                    self.id(),
+                    "The selected file storage directory could not be read.",
+                    "Check that the configured directory exists and is readable.",
+                )],
+            },
+            StorageConfig::MongoDb { uri, database } => {
+                #[cfg(feature = "storage-mongodb")]
+                {
+                    match tinystoragedrivers::MongoStorage::connect(&uri, &database).await {
+                        Ok(_) => vec![Finding::pass(
+                            self.id(),
+                            "The selected MongoDB server answered a read-only hello request.",
+                        )],
+                        Err(_) => vec![Finding::error(
+                            self.id(),
+                            "The selected MongoDB server could not be reached.",
+                            "Check the selected MongoDB endpoint and credentials.",
+                        )],
+                    }
+                }
+                #[cfg(not(feature = "storage-mongodb"))]
+                {
+                    let _ = (uri, database);
+                    vec![Finding::skipped(
+                        self.id(),
+                        "MongoDB connectivity cannot be checked in this build.",
+                        "Use a build with MongoDB storage support to probe this backend.",
+                    )]
+                }
+            }
+            StorageConfig::Composite { .. } => vec![Finding::skipped(
+                    self.id(),
+                    "The selected composite storage does not have a read-only probe for every configured driver.",
+                    "Check each configured records and blob backend with its read-only connectivity command.",
+                )],
+            #[allow(unreachable_patterns)]
+            _ => vec![Finding::skipped(
                     self.id(),
                     "The selected storage driver has no safe read-only connectivity probe.",
                     "Use a storage driver with a read-only doctor probe or run its own connectivity check.",
-                )]);
-            }
-            _ => {
-                return Some(vec![Finding::skipped(
-                    self.id(),
-                    "The selected storage driver has no safe read-only connectivity probe.",
-                    "Use a storage driver with a read-only doctor probe or run its own connectivity check.",
-                )]);
-            }
-        };
-        match tinystoragedrivers::sqlite::SqliteStorage::probe_read_only(&path) {
-            Ok(_) => Some(vec![Finding::pass(
-                self.id(),
-                "The selected SQLite storage database is readable.",
-            )]),
-            Err(_) => Some(vec![Finding::error(
-                self.id(),
-                "The selected SQLite storage database could not be read.",
-                "Check that the configured database exists, is readable, and is not busy.",
-            )]),
+                )],
         }
     }
+}
+
+fn sqlite_probe(path: &std::path::Path) -> bool {
+    tinystoragedrivers::sqlite::SqliteStorage::probe_read_only(path).is_ok()
+}
+
+fn file_probe(path: &std::path::Path) -> bool {
+    std::fs::read_dir(path).is_ok()
 }
 
 struct StorageLayout;

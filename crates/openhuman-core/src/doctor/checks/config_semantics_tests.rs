@@ -403,7 +403,8 @@ async fn valid_memory_namespace_root_is_accepted() {
 
     let findings = run_check(config, "memory/root").await;
 
-    assert!(findings.is_empty());
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, FindingSeverity::Pass);
 }
 
 #[tokio::test]

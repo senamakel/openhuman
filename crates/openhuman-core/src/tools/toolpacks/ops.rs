@@ -15,6 +15,26 @@ pub fn append_pack_tools(tools: &mut Vec<Box<dyn Tool>>) -> PackRegistryHandle {
     handle
 }
 
+/// Whether `tool` is the canonical OpenHuman `use_skill` proxy built from the
+/// compiled pack catalog. Public callers of `all_tools()` cannot carry the
+/// handle separately, so the session builder uses this signature to replace
+/// only that proxy with a session-owned handle before binding it.
+pub(crate) fn is_canonical_use_skill_tool(tool: &dyn Tool) -> bool {
+    if tool.name() != USE_SKILL
+        || tool
+            .host_extension()
+            .and_then(|extension| {
+                extension.downcast_ref::<tinyagents_harness::tool::ToolCallBinding>()
+            })
+            .is_none()
+    {
+        return false;
+    }
+    let canonical = UseSkillTool::new(PackRegistryHandle::default(), registry::CATALOG);
+    tool.description() == canonical.description()
+        && tool.parameters_schema() == canonical.parameters_schema()
+}
+
 /// Point the pack tool at the durable registry it lives in.
 ///
 /// The handle holds a [`Weak`], so the pack tool referencing the very vector

@@ -138,9 +138,6 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     use crate::security::credentials::openai_oauth::store::{
         OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
     };
-    use crate::security::credentials::profiles::{
-        AuthProfile, AuthProfilesData, TokenSet,
-    };
     use chrono::{Duration, Utc};
 
     let _inference_guard = crate::inference::inference_test_guard_async().await;
@@ -151,38 +148,47 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     config.action_dir = tmp.path().join("action");
     config.secrets.encrypt = false;
 
-    let selected_key = AuthProfile::new_token(
-        OPENAI_PROVIDER_KEY,
-        "default",
-        "dummy-selected-api-key".into(),
-    );
-    let expired_oauth = AuthProfile::new_oauth(
-        OPENAI_PROVIDER_KEY,
-        OPENAI_OAUTH_PROFILE_NAME,
-        TokenSet {
-            access_token: "expired-oauth-access-token".into(),
-            refresh_token: Some("dummy-refresh-token".into()),
-            id_token: None,
-            expires_at: Some(Utc::now() - Duration::minutes(5)),
-            token_type: Some("Bearer".into()),
-            scope: None,
-        },
-    );
-    let mut raw_profiles = AuthProfilesData::default();
-    raw_profiles.active_profiles.insert(
-        OPENAI_PROVIDER_KEY.into(),
-        selected_key.id.clone(),
-    );
-    raw_profiles
-        .profiles
-        .insert(selected_key.id.clone(), selected_key);
-    raw_profiles
-        .profiles
-        .insert(expired_oauth.id.clone(), expired_oauth);
+    let _env = EnvVarGuard::locked()
+        .with("HOME", tmp.path())
+        .with("OPENHUMAN_WORKSPACE", &config.workspace_dir)
+        .with("OPENHUMAN_KEYRING_BACKEND", "file");
+    let expires_at = (Utc::now() - Duration::minutes(5)).to_rfc3339();
+    let created_at = (Utc::now() - Duration::hours(1)).to_rfc3339();
+    let updated_at = created_at.clone();
     let profiles_path = tmp.path().join("auth-profiles.json");
     std::fs::write(
         &profiles_path,
-        serde_json::to_vec_pretty(&raw_profiles).expect("serialize raw profile fixture"),
+        serde_json::to_vec_pretty(&serde_json::json!({
+            "schema_version": 1,
+            "updated_at": created_at.clone(),
+            "active_profiles": {
+                (OPENAI_PROVIDER_KEY): format!("{OPENAI_PROVIDER_KEY}:default")
+            },
+            "profiles": {
+                (format!("{OPENAI_PROVIDER_KEY}:default")): {
+                    "provider": OPENAI_PROVIDER_KEY,
+                    "profile_name": "default",
+                    "kind": "token",
+                    "token": "dummy-selected-api-key",
+                    "created_at": created_at.clone(),
+                    "updated_at": updated_at.clone(),
+                    "metadata": {}
+                },
+                (format!("{OPENAI_PROVIDER_KEY}:{OPENAI_OAUTH_PROFILE_NAME}")): {
+                    "provider": OPENAI_PROVIDER_KEY,
+                    "profile_name": OPENAI_OAUTH_PROFILE_NAME,
+                    "kind": "oauth",
+                    "access_token": "expired-oauth-access-token",
+                    "refresh_token": "dummy-refresh-token",
+                    "expires_at": expires_at,
+                    "token_type": "Bearer",
+                    "created_at": created_at.clone(),
+                    "updated_at": updated_at.clone(),
+                    "metadata": {}
+                }
+            }
+        }))
+        .expect("serialize raw auth-profile schema"),
     )
     .expect("write raw profile fixture without mutable auth APIs");
 
@@ -214,14 +220,10 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         })))
         .mount(&refresh_server)
         .await;
-    let _env = EnvVarGuard::locked()
-        .with("HOME", tmp.path())
-        .with("OPENHUMAN_WORKSPACE", &config.workspace_dir)
-        .with("OPENHUMAN_KEYRING_BACKEND", "file")
-        .with(
-            "OPENAI_CODEX_OAUTH_TOKEN_URL",
-            format!("{}/token", refresh_server.uri()),
-        );
+    let _refresh_url = EnvVarGuard::set(
+        "OPENAI_CODEX_OAUTH_TOKEN_URL",
+        format!("{}/token", refresh_server.uri()),
+    );
     let snapshot = std::fs::read(&profiles_path)
         .expect("snapshot raw credential file before inspection");
 

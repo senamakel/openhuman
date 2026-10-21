@@ -49,11 +49,7 @@ impl DoctorCheck for StorageConnect {
     }
 }
 
-async fn inspect_storage_config(
-    check_id: &str,
-    config: StorageConfig,
-    depth: u8,
-) -> Vec<Finding> {
+async fn inspect_storage_config(check_id: &str, config: StorageConfig, depth: u8) -> Vec<Finding> {
     if depth > 2 {
         return vec![Finding::skipped(
             check_id,
@@ -118,7 +114,8 @@ async fn inspect_storage_config(
             }
         }
         StorageConfig::Composite { records, blobs } => {
-            let mut findings = Box::pin(inspect_storage_config(check_id, *records, depth + 1)).await;
+            let mut findings =
+                Box::pin(inspect_storage_config(check_id, *records, depth + 1)).await;
             findings.extend(match *blobs {
                 tinystoragedrivers::BlobConfig::Backend(config) => {
                     Box::pin(inspect_storage_config(check_id, config, depth + 1)).await

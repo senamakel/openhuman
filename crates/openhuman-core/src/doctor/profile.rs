@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::config::Config;
 use crate::config::schema::load::ConfigResolutionSource;
 use crate::config::schema::profile_layout::LayoutVersion;
-use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding};
 use crate::profiles::ProfileLayout;
 

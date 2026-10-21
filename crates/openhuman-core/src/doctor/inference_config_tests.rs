@@ -1,8 +1,8 @@
 use crate::config::Config;
 use crate::doctor::runner;
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 const PROVIDER_REF: &str = "inference/provider-ref";
@@ -129,7 +129,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-    use crate::inference::registry::{register_chat_model, ChatModelEntry};
+    use crate::inference::registry::{ChatModelEntry, register_chat_model};
 
     struct ManagedModel {
         generations: Arc<AtomicUsize>,
@@ -204,9 +204,11 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         "the managed provider factory must be consulted"
     );
     assert_eq!(generations.load(Ordering::SeqCst), 0);
-    assert!(findings
-        .iter()
-        .all(|result| !result.message.contains("doctor-test-session-token")));
+    assert!(
+        findings
+            .iter()
+            .all(|result| !result.message.contains("doctor-test-session-token"))
+    );
     assert!(!temp.path().join("auth-profiles.json").exists());
     assert!(!temp.path().join("auth-profiles.lock").exists());
 }

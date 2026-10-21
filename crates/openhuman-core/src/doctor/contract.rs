@@ -6,9 +6,9 @@ use std::time::Duration;
 use async_trait::async_trait;
 use serde::{Deserialize, Serialize};
 
+use crate::config::Config;
 use crate::config::schema::load::ProvenanceSource;
 use crate::config::schema::profile_layout::LayoutVersion;
-use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext};
 
 use super::core::MemoryEngineCheck;

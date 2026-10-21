@@ -16,7 +16,10 @@ async fn sqlite_connect_uses_read_only_probe_and_does_not_create_missing_paths()
     let root = tempfile::tempdir().expect("temporary storage root");
     let missing = root.path().join("not-created/storage.db");
     let findings = StorageConnect
-        .detect(&context(root.path(), format!("sqlite:{}", missing.display())))
+        .detect(&context(
+            root.path(),
+            format!("sqlite:{}", missing.display()),
+        ))
         .await;
     assert_eq!(findings[0].severity, FindingSeverity::Error);
     assert!(!missing.exists());
@@ -43,7 +46,10 @@ async fn file_storage_probe_reads_existing_directory_and_never_creates_it() {
     let existing = root.path().join("file-storage");
     std::fs::create_dir(&existing).expect("create existing fixture root");
     let good = StorageConnect
-        .detect(&context(root.path(), format!("file:{}", existing.display())))
+        .detect(&context(
+            root.path(),
+            format!("file:{}", existing.display()),
+        ))
         .await;
     assert_eq!(good[0].severity, FindingSeverity::Pass);
 

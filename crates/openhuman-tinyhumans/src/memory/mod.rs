@@ -17,8 +17,8 @@ pub(crate) mod billing;
 pub(crate) mod engine;
 
 use openhuman_embed::__host::memory_engines::{
-    EngineEntry, EngineHealth,
-    TINYHUMANS_ENGINE, register_memory_engine, register_memory_health_probe,
+    EngineEntry, EngineHealth, TINYHUMANS_ENGINE, register_memory_engine,
+    register_memory_health_probe,
 };
 use std::sync::Arc;
 

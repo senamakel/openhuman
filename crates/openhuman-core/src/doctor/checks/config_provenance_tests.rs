@@ -1,5 +1,5 @@
-use crate::config::schema::load::{DotenvLoadProvenance, ProvenanceSource};
 use crate::config::Config;
+use crate::config::schema::load::{DotenvLoadProvenance, ProvenanceSource};
 
 use super::contract::{
     DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity, ValueSource,
@@ -119,10 +119,12 @@ async fn config_source_reports_the_active_user_directory_resolution_source() {
         Some("active_user.toml")
     );
     assert_eq!(report.profile_layout_version, Some(2));
-    assert!(matching.iter().any(|finding| finding
-        .message
-        .contains("config_resolution_source: active_user.toml")
-        && finding.message.contains("profile_layout_version: 2")));
+    assert!(matching.iter().any(|finding| {
+        finding
+            .message
+            .contains("config_resolution_source: active_user.toml")
+            && finding.message.contains("profile_layout_version: 2")
+    }));
 }
 
 #[tokio::test]

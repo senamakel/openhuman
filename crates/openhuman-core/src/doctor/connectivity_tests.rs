@@ -100,7 +100,6 @@ fn snapshot_test_tree(
     snapshot
 }
 
-
 #[tokio::test]
 async fn memory_health_check_reports_the_engine_down_reason() {
     let temp = tempfile::tempdir().expect("temp directory");
@@ -265,4 +264,3 @@ async fn storage_layout_check_warns_when_a_migration_is_pending() {
         std::fs::read(state_path).expect("migration state remains readable")
     );
 }
-

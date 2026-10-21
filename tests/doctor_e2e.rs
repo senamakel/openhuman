@@ -685,13 +685,11 @@ fn assert_cli_report(output: &Output, expected_code: i32, check_id: Option<&str>
         .unwrap_or_else(|error| panic!("doctor CLI stdout is JSON ({error})"));
     assert_eq!(report["schema_version"], 2);
     if let Some(check_id) = check_id {
-        assert!(
-            report["findings"]
-                .as_array()
-                .unwrap()
-                .iter()
-                .any(|item| { item["check_id"] == check_id })
-        );
+        assert!(report["findings"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|item| { item["check_id"] == check_id }));
     }
     report
 }

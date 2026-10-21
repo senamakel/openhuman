@@ -232,7 +232,9 @@ export function handleIntegrations(ctx) {
     // callers without either value.
     const configuredDims = Number(mockBehavior.embeddingDimensions);
     const fallbackDims =
-      Number.isInteger(configuredDims) && configuredDims > 0 ? configuredDims : 4;
+      Number.isInteger(configuredDims) && configuredDims > 0
+        ? configuredDims
+        : 4;
     const requestedDims =
       Number.isInteger(parsedBody?.dimensions) && parsedBody.dimensions > 0
         ? parsedBody.dimensions

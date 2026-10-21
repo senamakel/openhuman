@@ -9,7 +9,9 @@ use super::env::{EnvLookup, NoEnv, ProcessEnv, ProcessEnvWithoutWorkspace};
 use super::migrate::{
     apply_loaded_config_migrations, migrate_components, migrate_legacy_memory_backend,
 };
-use super::secrets::{decrypt_config_secrets, decrypt_config_secrets_strict, encrypt_config_secrets};
+use super::secrets::{
+    decrypt_config_secrets, decrypt_config_secrets_strict, encrypt_config_secrets,
+};
 use anyhow::{Context, Result};
 use std::path::Path;
 use std::sync::{Mutex, OnceLock};

@@ -67,7 +67,7 @@ impl DoctorCheck for BindingCheck {
         }
         vec![Finding::pass(
             self.id(),
-            "A memory engine is selected for the effective configuration.",
+            "A supported memory engine is selected in the effective configuration.",
         )]
     }
 }
@@ -202,7 +202,7 @@ fn memory_check(
 }
 
 async fn cortexdb_health(config: &crate::config::Config) -> tinymemory_api::EngineHealth {
-    use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
+    use crate::security::credentials::AuthService;
     use tinymemory_api::{EngineHealth, MemoryEngine};
     use tinymemory_integrations::{EngineCredential, EngineSettings};
 

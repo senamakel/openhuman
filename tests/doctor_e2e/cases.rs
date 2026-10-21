@@ -276,6 +276,14 @@ async fn legacy_doctor_function_help_stays_on_the_existing_namespace_printer() {
 async fn connect_tier_skips_billable_live_probes() {
     let fixture = fixture_named("healthy").await;
     let report = fixture.report(json!({"tier": "connect"})).await;
+    assert_eq!(report["schema_version"], 2);
+    assert_eq!(report["tier"], "connect");
+    assert_eq!(
+        report["summary"]["error"], 0,
+        "healthy Connect checks should not fail: {:?}",
+        report["findings"]
+    );
+    assert_eq!(report["ok"], true, "healthy Connect report should pass");
     for check_id in ["inference/live/chat", "embeddings/live", "memory/roundtrip"] {
         assert_finding(&report, check_id, "skipped");
     }

@@ -191,16 +191,17 @@ pub(crate) async fn probe_dimensions_for_inspection(
             config.local_ai.base_url.as_deref(),
         );
         let input = ["OpenHuman doctor embedding probe".to_owned()];
-        let (_, vectors) = tinyinference_embeddings::OllamaEmbeddingModel::embed_discovering_dimensions(
-            &base_url,
-            model,
-            reqwest::Client::new(),
-            &input,
-            tinyinference_embeddings::RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
-            1,
-        )
-        .await
-        .map_err(|_| InspectionEmbeddingError::ProbeFailed)?;
+        let (_, vectors) =
+            tinyinference_embeddings::OllamaEmbeddingModel::embed_discovering_dimensions(
+                &base_url,
+                model,
+                reqwest::Client::new(),
+                &input,
+                tinyinference_embeddings::RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+                1,
+            )
+            .await
+            .map_err(|_| InspectionEmbeddingError::ProbeFailed)?;
         vectors.first().map_or(0, Vec::len)
     } else {
         let embedder = create_embedding_provider_for_inspection(
@@ -218,8 +219,5 @@ pub(crate) async fn probe_dimensions_for_inspection(
             .map_err(|_| InspectionEmbeddingError::ProbeFailed)?;
         vectors.first().map_or(0, Vec::len)
     };
-    Ok(InspectionEmbeddingDimensions {
-        configured,
-        actual,
-    })
+    Ok(InspectionEmbeddingDimensions { configured, actual })
 }

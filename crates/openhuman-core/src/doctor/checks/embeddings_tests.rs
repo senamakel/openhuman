@@ -1,3 +1,4 @@
+use super::{model_matches, ConfiguredModelCheck};
 use crate::config::Config;
 use crate::doctor::runner;
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};

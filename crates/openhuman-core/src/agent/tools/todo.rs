@@ -206,8 +206,13 @@ impl TodoTool {
     /// the legacy value remains untouched unless the copy succeeds.
     async fn migrate_legacy_list_if_absent(&self, scope: &TodoScope, legacy_key: &str) {
         let store = crate::storage::sessions::stores_or_ephemeral(&self.workspace_dir).kv;
-        if matches!(todos_store::list(&store, scope.key()).await, Ok(current) if !current.items.is_empty()) {
-            return;
+        match todos_store::get(&store, scope.key()).await {
+            Ok(Some(_)) => return,
+            Ok(None) => {}
+            Err(e) => {
+                tracing::debug!(error = %e, "[tool][todo] legacy-migration: current list read failed");
+                return;
+            }
         }
         match todos_store::list(&store, legacy_key).await {
             Ok(legacy) if !legacy.items.is_empty() => {

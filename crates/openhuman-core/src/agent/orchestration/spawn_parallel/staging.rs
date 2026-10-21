@@ -141,8 +141,7 @@ fn definition_visible_tool_permissions(
                 ToolScope::Named(names) => {
                     names.iter().any(|allowed| allowed == name)
                         || definition.extra_tools.iter().any(|extra| extra == name)
-                        || (tinyjuice_host::recovery::is_recovery_tool(name)
-                            && !names.is_empty())
+                        || (tinyjuice_host::recovery::is_recovery_tool(name) && !names.is_empty())
                 }
             };
             allowed.then(|| (name.to_string(), tool.permission_level()))

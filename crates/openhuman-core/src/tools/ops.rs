@@ -255,9 +255,9 @@ pub fn all_tools_with_runtime(
         tools.push(Box::new(
             tinyjuice_host::retrieve_tool::RetrieveToolOutputTool::new(std::sync::Arc::new(
                 |token, range| {
-                    Box::pin(async move {
-                        crate::inference::tokenjuice::retrieve(token, range).await
-                    })
+                    Box::pin(
+                        async move { crate::inference::tokenjuice::retrieve(token, range).await },
+                    )
                 },
             )),
         ));

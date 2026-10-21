@@ -162,13 +162,11 @@ impl OpenHumanTurnPrelude {
                 .filter(|spec| !live_names.contains(spec.name.as_str()))
                 .collect::<Vec<_>>();
             if !missing.is_empty() {
-                rebuilt.extend(
-                    crate::inference::tokenjuice::repl_tools_for_recorded(
-                        self.runtime_config.as_deref(),
-                        &self.workspace_dir,
-                        &missing,
-                    ),
-                );
+                rebuilt.extend(crate::inference::tokenjuice::repl_tools_for_recorded(
+                    self.runtime_config.as_deref(),
+                    &self.workspace_dir,
+                    &missing,
+                ));
             }
         }
         rebuilt

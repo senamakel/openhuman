@@ -5,11 +5,11 @@ pub mod savings;
 pub mod schemas;
 
 use crate::core::runtime::DispatchCtx;
-use tinyjuice_bus::names::methods;
-use tinyjuice_bus::types::{AgentTokenjuiceCompression, CompressorKind};
-use tinyjuice_bus::tools::REPL_TOOLS;
-use tinytools::{Tool, ToolRunContext};
 use std::sync::Arc;
+use tinyjuice_bus::names::methods;
+use tinyjuice_bus::tools::REPL_TOOLS;
+use tinyjuice_bus::types::{AgentTokenjuiceCompression, CompressorKind};
+use tinytools::{Tool, ToolRunContext};
 
 use tinyjuice_bus::wire::InstallRequest;
 
@@ -27,7 +27,8 @@ impl tinyjuice_host::repl_tools::QuerySource for ModuleQuerySource {
         match &self.config {
             Some(config) => query_for_config(config, request).await,
             None => {
-                let context = crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context);
+                let context =
+                    crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context);
                 query(&context, request).await
             }
         }
@@ -44,7 +45,9 @@ pub fn repl_tools_for(config: &crate::config::Config) -> Vec<Box<dyn Tool>> {
             config: Some(Arc::new(config.clone())),
         }),
         tinyjuice_bus::repl::ReplLimits::default(),
-        Some(crate::security::policy::tool_result_artifacts_dir(&config.workspace_dir)),
+        Some(crate::security::policy::tool_result_artifacts_dir(
+            &config.workspace_dir,
+        )),
         tinytools_std::filesystem::FileReadTool::MAX_FILE_SIZE_BYTES,
         None,
     )
@@ -73,7 +76,9 @@ pub(crate) fn repl_tools_for_recorded(
             config: config.cloned().map(Arc::new),
         }),
         tinyjuice_bus::repl::ReplLimits::default(),
-        Some(crate::security::policy::tool_result_artifacts_dir(workspace_dir)),
+        Some(crate::security::policy::tool_result_artifacts_dir(
+            workspace_dir,
+        )),
         tinytools_std::filesystem::FileReadTool::MAX_FILE_SIZE_BYTES,
         None,
     )
@@ -299,7 +304,10 @@ pub async fn compact_tool_output(
             Ok(config) => std::sync::Arc::new(config),
             Err(error) => {
                 log::debug!("[tokenjuice] config unavailable, passing through: {error}");
-                return tinyjuice_host::recovery::CompactedToolOutput::passthrough(content, wants_summary);
+                return tinyjuice_host::recovery::CompactedToolOutput::passthrough(
+                    content,
+                    wants_summary,
+                );
             }
         },
     };
@@ -340,7 +348,10 @@ pub async fn compact_tool_output(
         Ok(response) => response,
         Err(error) => {
             log::debug!("[tokenjuice] module compaction unavailable: {error}");
-            return tinyjuice_host::recovery::CompactedToolOutput::passthrough(content, wants_summary);
+            return tinyjuice_host::recovery::CompactedToolOutput::passthrough(
+                content,
+                wants_summary,
+            );
         }
     };
     record_savings(&client(&config), &response).await;

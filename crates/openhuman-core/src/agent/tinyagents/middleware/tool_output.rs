@@ -20,13 +20,13 @@ use crate::agent::harness::tool_result_artifacts::{
     TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
 use crate::agent::tinyagents::payload_summarizer::DynPayloadSummarizer;
-use tinyjuice_host::generate::GenerateTicket;
 use tinyagents_harness::artifacts::tool_results::{ArtifactRead, ToolResultArtifactOutcome};
 use tinyagents_harness::middleware::library::{
     plan_output_stages, run_output_ladder, CompactedOutput, OutputCapPolicy, OutputLadderInput,
     OutputProcessor,
 };
 use tinyjuice_bus::types::AgentTokenjuiceCompression;
+use tinyjuice_host::generate::GenerateTicket;
 
 /// TinyJuice's own estimate: `ceil(characters / 4)`, not bytes. Multibyte
 /// content has more bytes than characters, so a byte-based estimate here
@@ -246,9 +246,7 @@ impl ToolOutputMiddleware {
             return None;
         }
         match summarizer.prepare(ctx) {
-            Ok(prepared) => Some(Ok(tinyjuice_host::generate::register(
-                prepared,
-            ))),
+            Ok(prepared) => Some(Ok(tinyjuice_host::generate::register(prepared))),
             Err(error) => {
                 tracing::warn!(
                     tool = tool_name,

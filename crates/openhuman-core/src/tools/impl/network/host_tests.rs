@@ -22,9 +22,7 @@ fn web_fetch_opts_into_an_optional_summary_focus() {
         .unwrap()
         .contains(&json!(SUMMARY_FOCUS_ARG)));
     // The tool's schema declares TinyJuice's own property, not a lookalike.
-    assert!(tinyjuice_host::focus::declares_summary_focus(
-        &schema
-    ));
+    assert!(tinyjuice_host::focus::declares_summary_focus(&schema));
 }
 
 /// The exact wire contract `web_fetch` had before it moved: name, description,

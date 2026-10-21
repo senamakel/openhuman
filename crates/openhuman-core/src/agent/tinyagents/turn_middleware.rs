@@ -422,9 +422,7 @@ pub(super) fn install_turn_middleware(
         .schemas()
         .into_iter()
         .chain(harness.tools().deferred_schemas())
-        .filter(|schema| {
-            tinyjuice_host::focus::declares_summary_focus(&schema.parameters)
-        })
+        .filter(|schema| tinyjuice_host::focus::declares_summary_focus(&schema.parameters))
         .map(|schema| schema.name)
         .collect();
     context_mw.install(harness, tool_policies, summary_focus_tools);

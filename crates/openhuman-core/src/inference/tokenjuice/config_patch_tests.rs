@@ -17,8 +17,7 @@ fn applies_only_present_fields() {
 fn repl_switches_can_be_flipped() {
     let mut cfg = TokenjuiceConfig::default();
     let patch: TokenjuiceSettingsPatch =
-        serde_json::from_str(r#"{ "repl_handle_enabled": false }"#)
-            .unwrap();
+        serde_json::from_str(r#"{ "repl_handle_enabled": false }"#).unwrap();
     patch.apply(&mut cfg);
     assert!(!cfg.repl_handle_enabled);
 }

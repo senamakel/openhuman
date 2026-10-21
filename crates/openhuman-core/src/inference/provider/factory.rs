@@ -55,6 +55,7 @@ mod turn_model;
 #[cfg(feature = "flows")]
 pub(crate) use access_gates::current_host_requires_session;
 pub(crate) use chat_model::create_chat_model_with_model_id_in_for_inspection;
+pub(crate) use chat_model::create_chat_model_with_identity_in_for_inspection;
 pub(crate) use chat_model::resolves_to_managed_backend;
 pub use chat_model::{
     create_chat_model_from_string, create_chat_model_from_string_with_model_id,
@@ -136,6 +137,33 @@ use tinyinference_llm::providers::openai::codex::{
     OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
 };
 use tinyinference_llm::providers::openai::AuthStyle as CompatAuthStyle;
+
+/// Opaque per-report identity for an inspection completion. It contains the
+/// effective endpoint, exact frozen credential, and actual wire model, but
+/// deliberately has no Debug/Display implementation.
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub(crate) struct InspectionRequestIdentity {
+    endpoint: String,
+    credential: String,
+    wire_model: String,
+}
+
+impl InspectionRequestIdentity {
+    pub(crate) fn new(endpoint: String, credential: String, wire_model: String) -> Self {
+        Self {
+            endpoint,
+            credential,
+            wire_model,
+        }
+    }
+}
+
+/// Prepared, frozen model plus its opaque deduplication identity.
+pub(crate) struct PreparedInspectionChatModel {
+    pub(crate) model: Arc<dyn ChatModel<()>>,
+    pub(crate) model_id: String,
+    pub(crate) identity: InspectionRequestIdentity,
+}
 
 /// Sentinel meaning "use the OpenHuman backend session JWT".
 pub const PROVIDER_OPENHUMAN: &str = "openhuman";

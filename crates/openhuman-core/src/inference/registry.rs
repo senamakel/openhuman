@@ -83,13 +83,35 @@ static CHAT_MODELS: HookSlot<ChatModelEntry> = HookSlot::new("inference::chat_mo
 /// must not refresh or publish credential state.
 pub type InspectionChatModelFactory = ChatModelFactory;
 
+/// An inspection-safe model and the resolved wire identity it invokes.
+/// `credential` is retained only long enough for the core to build a
+/// report-local deduplication key; it must never be logged or reported.
+pub struct InspectionChatModelBuild {
+    /// Frozen chat model that invokes the resolved route.
+    pub model: Arc<dyn ChatModel<()>>,
+    /// Safe provider model identifier selected for the route.
+    pub model_id: String,
+    /// Effective request endpoint used by the model.
+    pub endpoint: String,
+    /// Exact frozen bearer/key used by the model. Never expose in findings.
+    pub credential: String,
+}
+
+/// Inspection-safe provider callback. Unlike the runtime callback this must
+/// return the same frozen route identity used by the model invocation.
+pub type PreparedInspectionChatModelFactory = Arc<
+    dyn for<'a> Fn(&ChatModelRequest<'a>) -> anyhow::Result<InspectionChatModelBuild>
+        + Send
+        + Sync,
+>;
+
 static INSPECTION_CHAT_MODELS: HookSlot<InspectionChatModelFactory> =
     HookSlot::new("inference::inspection_chat_models");
 
 /// Registers an inspection-safe managed model factory process-wide.
 pub fn register_inspection_chat_model(
     provider_id: impl Into<String>,
-    factory: InspectionChatModelFactory,
+    factory: PreparedInspectionChatModelFactory,
 ) {
     INSPECTION_CHAT_MODELS.register(provider_id, factory);
 }
@@ -99,7 +121,7 @@ pub fn register_inspection_chat_model(
 pub fn register_inspection_chat_model_in(
     extensions: &Extensions,
     provider_id: impl Into<String>,
-    factory: InspectionChatModelFactory,
+    factory: PreparedInspectionChatModelFactory,
 ) {
     INSPECTION_CHAT_MODELS.register_in(extensions, provider_id, factory);
 }
@@ -109,7 +131,9 @@ pub fn unregister_inspection_chat_model(provider_id: &str) -> bool {
     INSPECTION_CHAT_MODELS.unregister(provider_id)
 }
 
-pub(crate) fn inspection_chat_model(provider_id: &str) -> Option<InspectionChatModelFactory> {
+pub(crate) fn inspection_chat_model(
+    provider_id: &str,
+) -> Option<PreparedInspectionChatModelFactory> {
     INSPECTION_CHAT_MODELS.get(provider_id)
 }
 

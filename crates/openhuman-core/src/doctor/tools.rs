@@ -83,15 +83,15 @@ impl Tool for DoctorModelsTool {
     }
 
     fn description(&self) -> &str {
-        "Model catalog probing is not available yet. This tool reports that \
-         status instead of implying that a probe was run."
+        "Check configured inference providers by listing their models catalogs. \
+         This read-only check never generates a model response."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
         json!({
             "type": "object",
             "properties": {
-                "use_cache": { "type": "boolean", "description": "Reserved for model catalog probes when they become available." }
+                "use_cache": { "type": "boolean", "description": "Reuse a recent catalog result when available." }
             }
         })
     }

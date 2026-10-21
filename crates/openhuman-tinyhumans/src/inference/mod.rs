@@ -184,6 +184,10 @@ pub(crate) fn register(_options: &InstallOptions) {
         Ok(Box::new(ManagedEmbeddingModel::from_request(request)))
     });
     register_catalog(PROVIDER_OPENHUMAN, managed_catalog::entry());
+    openhuman_embed::__host::inference_registry::register_inspection_catalog(
+        PROVIDER_OPENHUMAN,
+        managed_catalog::inspection_entry(),
+    );
     log::debug!(
         "[tinyhumans] inference: registered the managed chat model, embeddings and catalog"
     );

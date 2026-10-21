@@ -281,11 +281,13 @@ fn persist_openai_oauth_token_stores_oauth_profile_with_metadata() {
             .and_then(|set| set.refresh_token.as_deref()),
         Some("refresh-token")
     );
-    assert!(profile
-        .token_set
-        .as_ref()
-        .and_then(|set| set.expires_at)
-        .is_some());
+    assert!(
+        profile
+            .token_set
+            .as_ref()
+            .and_then(|set| set.expires_at)
+            .is_some()
+    );
 
     let data = AuthProfilesStore::new(tmp.path(), false).load().unwrap();
     let stored = data.profiles.get(&profile.id).unwrap();
@@ -452,7 +454,7 @@ fn import_codex_cli_auth_file_reports_missing_file_with_login_hint() {
 /// `.codex/auth.json` anchor from a message, this test fails in CI.
 #[test]
 fn codex_import_user_state_errors_classify_as_expected() {
-    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
+    use crate::core::observability::{ExpectedErrorKind, expected_error_kind};
 
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);

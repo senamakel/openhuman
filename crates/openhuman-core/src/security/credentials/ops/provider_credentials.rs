@@ -7,7 +7,7 @@ use crate::core::Outcome;
 use crate::security::credentials::session_support::{
     parse_fields_value, profile_name_or_default, summarize_auth_profile,
 };
-use crate::security::credentials::{normalize_provider, AuthService, APP_SESSION_PROVIDER};
+use crate::security::credentials::{APP_SESSION_PROVIDER, AuthService, normalize_provider};
 
 pub async fn store_provider_credentials(
     config: &Config,

@@ -374,6 +374,9 @@ pub mod inference_registry {
         register_chat_model_in, register_embedding, register_embedding_in,
         register_inspection_chat_model, register_inspection_chat_model_in, unregister_catalog,
         unregister_chat_model, unregister_embedding, unregister_inspection_chat_model,
+        InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
+        register_inspection_catalog, register_inspection_catalog_in, unregister_catalog,
+        unregister_inspection_catalog,
     };
 }
 

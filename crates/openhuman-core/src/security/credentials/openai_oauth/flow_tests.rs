@@ -3,11 +3,11 @@ use super::store::persist_openai_oauth_token;
 use super::{
     complete_openai_oauth, disconnect_openai_oauth, openai_oauth_status, start_openai_oauth,
 };
-use crate::config::test_env::EnvVarGuard;
 use crate::config::Config;
+use crate::config::test_env::EnvVarGuard;
 use crate::inference::provider::factory::lookup_key_for_slug;
 use crate::security::credentials::openai_oauth::store::{
-    import_codex_cli_auth_from_path, OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
+    OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY, import_codex_cli_auth_from_path,
 };
 use crate::security::credentials::openai_oauth::{
     lookup_openai_bearer_token, lookup_openai_oauth_credentials,
@@ -18,8 +18,8 @@ use crate::security::credentials::profiles::{
 use chrono::{Duration, Utc};
 use tempfile::tempdir;
 use tinyinference_providers::oauth::{
-    authorization_url as build_authorize_url, exchange_authorization_code, parse_callback_input,
-    OAuthConfig, OAuthTokenSet,
+    OAuthConfig, OAuthTokenSet, authorization_url as build_authorize_url,
+    exchange_authorization_code, parse_callback_input,
 };
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -42,7 +42,7 @@ fn runtime() -> tokio::runtime::Runtime {
 }
 
 fn unsigned_jwt(payload: serde_json::Value) -> String {
-    use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine as _};
+    use base64::{Engine as _, engine::general_purpose::URL_SAFE_NO_PAD};
 
     let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"none"}"#);
     let payload = URL_SAFE_NO_PAD.encode(payload.to_string());

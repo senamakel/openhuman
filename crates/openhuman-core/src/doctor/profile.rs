@@ -5,9 +5,9 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
+use crate::config::Config;
 use crate::config::schema::load::ConfigResolutionSource;
 use crate::config::schema::profile_layout::LayoutVersion;
-use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorProfileStatus, DoctorTier, Finding};
 use crate::profiles::ProfileLayout;
 
@@ -412,7 +412,9 @@ async fn read_layout_version(dir: &Path) -> Result<LayoutVersion, DesktopProfile
 }
 
 pub(crate) fn built_in_checks() -> Vec<Arc<dyn DoctorCheck>> {
-    vec![Arc::new(ProfileExistsCheck)]
+    let mut checks: Vec<Arc<dyn DoctorCheck>> = vec![Arc::new(ProfileExistsCheck)];
+    checks.extend(crate::doctor::checks::inference_catalog::built_in_checks());
+    checks
 }
 
 struct ProfileExistsCheck;

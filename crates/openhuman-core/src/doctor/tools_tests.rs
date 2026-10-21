@@ -17,15 +17,9 @@ fn metadata() {
 }
 
 #[tokio::test]
-async fn models_tool_reports_unavailable_until_catalog_probes_exist() {
-    let error = DoctorModelsTool::new(cfg())
+async fn models_tool_returns_an_inspection_report_when_no_provider_is_configured() {
+    DoctorModelsTool::new(cfg())
         .execute(serde_json::json!({ "use_cache": true }))
         .await
-        .expect_err("a model probe that does not run must not return a healthy report")
-        .to_string();
-
-    assert!(
-        error.to_lowercase().contains("not available"),
-        "the unavailable model probe should explain its status: {error}"
-    );
+        .expect("doctor_models returns the actual empty inspection result");
 }

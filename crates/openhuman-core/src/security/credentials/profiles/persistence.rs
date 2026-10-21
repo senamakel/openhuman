@@ -12,10 +12,10 @@ use std::sync::atomic::Ordering;
 #[cfg(test)]
 use super::consume_one;
 use super::{
-    profile_kind_to_string, quarantine_corrupt_store, retry_with_backoff, write_owner_only,
-    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, EncryptedProfileFields,
-    PersistedAuthProfile, PersistedAuthProfiles, CURRENT_SCHEMA_VERSION, PERSIST_RETRY_ATTEMPTS,
-    PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
+    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, CURRENT_SCHEMA_VERSION,
+    EncryptedProfileFields, PERSIST_RETRY_ATTEMPTS, PERSIST_RETRY_BASE_MS, PROFILES_FILENAME,
+    PersistedAuthProfile, PersistedAuthProfiles, profile_kind_to_string, quarantine_corrupt_store,
+    retry_with_backoff, write_owner_only,
 };
 
 /// The secret the profiles live in on a storage backend

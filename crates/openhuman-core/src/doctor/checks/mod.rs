@@ -12,6 +12,7 @@ mod modules;
 mod registry;
 mod sandbox;
 mod skills;
+pub(crate) mod inference_catalog;
 
 use std::sync::Arc;
 

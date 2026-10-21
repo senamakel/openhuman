@@ -2,15 +2,15 @@
 
 use chrono::{DateTime, Utc};
 use serde::Serialize;
-use tinyinference_providers::oauth::{openai_codex_config, OAuthFlow};
+use tinyinference_providers::oauth::{OAuthFlow, openai_codex_config};
 
 use crate::config::Config;
 use crate::security::credentials::state_dir_from_config;
 
 use super::pending;
 use super::store::{
-    import_codex_cli_auth, persist_openai_oauth_token, OPENAI_OAUTH_PROFILE_NAME,
-    OPENAI_PROVIDER_KEY,
+    OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY, import_codex_cli_auth,
+    persist_openai_oauth_token,
 };
 
 const LOG_PREFIX: &str = "[inference][openai-oauth]";
@@ -75,8 +75,8 @@ pub fn import_openai_oauth_from_codex_cli(config: &Config) -> Result<serde_json:
 }
 
 pub fn openai_oauth_status(config: &Config) -> Result<OpenAiOAuthStatusResult, String> {
-    use crate::security::credentials::profiles::AuthProfileKind;
     use crate::security::credentials::AuthService;
+    use crate::security::credentials::profiles::AuthProfileKind;
 
     let profile = AuthService::from_config(config)
         .get_profile(OPENAI_PROVIDER_KEY, Some(OPENAI_OAUTH_PROFILE_NAME))

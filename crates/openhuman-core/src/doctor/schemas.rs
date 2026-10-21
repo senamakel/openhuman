@@ -2,8 +2,8 @@ use crate::core::runtime::DispatchCtx;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
-use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::Outcome;
+use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -71,11 +71,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "models" => ControllerSchema {
             namespace: "doctor",
             function: "models",
-            description: "Model catalog probing is not available yet.",
+            description: "Read-only inference provider catalog inspection.",
             inputs: vec![FieldSchema {
                 name: "use_cache",
                 ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-                comment: "Reserved for model catalog probes when they become available.",
+                comment: "Reuse a recent catalog result when available.",
                 required: false,
             }],
             outputs: vec![FieldSchema {

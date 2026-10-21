@@ -9,8 +9,8 @@ use super::contract::DoctorProfileStatus;
 use super::profile::DesktopProfileSelection;
 use crate::config::Config;
 use crate::core::{
-    runtime::{ComponentSet, CoreContext, DispatchCtx},
     Outcome,
+    runtime::{ComponentSet, CoreContext, DispatchCtx},
 };
 use crate::doctor::{
     DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier, Finding,
@@ -308,8 +308,11 @@ async fn memory_engine_check(config: &Config) -> MemoryEngineCheck {
 }
 
 pub async fn doctor_models(
-    _config: &Config,
-    _use_cache: bool,
+    config: &Config,
+    use_cache: bool,
 ) -> Result<Outcome<ModelProbeReport>, String> {
-    Err("Model catalog probing is not available yet.".to_owned())
+    Ok(Outcome::new(
+        super::checks::inference_catalog::doctor_models(config, use_cache).await,
+        Vec::new(),
+    ))
 }

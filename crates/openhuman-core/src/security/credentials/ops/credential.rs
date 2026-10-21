@@ -11,18 +11,18 @@
 
 use crate::core::runtime::DispatchCtx;
 use serde::Deserialize;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::config::Config;
 use crate::core::Outcome;
 use crate::security::credentials::jwt::decode_jwt_exp;
 use crate::security::credentials::responses::AuthStateResponse;
 use crate::security::credentials::session_support::{
-    build_session_state, load_app_session_profile, local_session_user_id,
-    session_token_from_profile, user_id_from_jwt_claims, CredentialKind, SESSION_EXPIRES_AT_META,
+    CredentialKind, SESSION_EXPIRES_AT_META, build_session_state, load_app_session_profile,
+    local_session_user_id, session_token_from_profile, user_id_from_jwt_claims,
 };
 use crate::security::credentials::{
-    api_key, identity, sentry_scope, AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME, api_key, identity, sentry_scope,
 };
 
 use super::gated_services::{

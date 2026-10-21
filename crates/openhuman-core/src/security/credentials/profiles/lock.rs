@@ -12,8 +12,9 @@ use std::time::{Duration, Instant};
 use std::sync::atomic::Ordering;
 
 use super::{
-    annotate_lock_create_failure, in_process_lock_for, is_pid_alive, AuthProfileLockGuard,
-    AuthProfilesStore, LOCK_TIMEOUT_MS, LOCK_WAIT_MS, MALFORMED_LOCK_GRACE_MS, STALE_LOCK_AGE_MS,
+    AuthProfileLockGuard, AuthProfilesStore, LOCK_TIMEOUT_MS, LOCK_WAIT_MS,
+    MALFORMED_LOCK_GRACE_MS, STALE_LOCK_AGE_MS, annotate_lock_create_failure, in_process_lock_for,
+    is_pid_alive,
 };
 
 impl AuthProfilesStore {

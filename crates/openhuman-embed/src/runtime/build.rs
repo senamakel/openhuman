@@ -184,6 +184,7 @@ impl RuntimeBuilder {
             .open_storage()
             .await
             .map_err(RuntimeError::Invalid)?;
+        let core_extensions = host_seams.core_extensions.clone();
         let storage_backend = match &host_seams.storage {
             Some(super::StorageSource::Backend(backend)) => Some(backend.clone()),
             _ => None,
@@ -259,6 +260,7 @@ impl RuntimeBuilder {
             .domains(domains)
             .tool_groups(tool_groups.clone())
             .services(services)
+            .extensions(core_extensions)
             .token(std::mem::replace(
                 &mut self.token,
                 openhuman_core::core::runtime::TokenSource::EnvOrFile,

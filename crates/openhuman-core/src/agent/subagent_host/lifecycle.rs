@@ -17,7 +17,7 @@ use tinyagents_orchestration::subagent::{
     SubagentPersistenceDisposition, SubagentPlanner, SubagentRequest, SubagentResume,
     SubagentRunResult, SubagentTaskKey, SubagentTerminalPersistenceDisposition,
 };
-use tinyagents_runtime::ToolSnapshot;
+use tinyagents_harness::tool::ToolSnapshot;
 use tinyinference_llm::{
     message::Message,
     usage::{ChargedAmount, Usage, UsageTotals},

@@ -1,5 +1,5 @@
-use crate::config::Config;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+use crate::config::Config;
 use crate::doctor::runner;
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use std::sync::atomic::{AtomicUsize, Ordering};

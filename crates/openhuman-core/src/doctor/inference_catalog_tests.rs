@@ -153,8 +153,11 @@ fn store_provider_key(config: &Config, slug: &str, token: &str) {
         "active_profiles": active_profiles,
         "profiles": profiles,
     });
-    std::fs::write(auth_profiles_path(config), serde_json::to_vec(&document).unwrap())
-        .expect("seed read-only provider credential fixture");
+    std::fs::write(
+        auth_profiles_path(config),
+        serde_json::to_vec(&document).unwrap(),
+    )
+    .expect("seed read-only provider credential fixture");
 }
 
 fn auth_profiles_path(config: &Config) -> std::path::PathBuf {

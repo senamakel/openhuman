@@ -151,8 +151,11 @@ fn store_session(
         "active_profiles": active_profiles,
         "profiles": profiles,
     });
-    std::fs::write(auth_profiles_path(config), serde_json::to_vec(&document).unwrap())
-        .expect("seed read-only session profile fixture");
+    std::fs::write(
+        auth_profiles_path(config),
+        serde_json::to_vec(&document).unwrap(),
+    )
+    .expect("seed read-only session profile fixture");
 }
 
 fn auth_profiles_path(config: &Config) -> std::path::PathBuf {

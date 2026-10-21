@@ -100,6 +100,8 @@ pub(super) fn temporary_config() -> (tempfile::TempDir, Config) {
         ..Config::default()
     };
     config.cloud_providers = Vec::new();
+    config.default_model = None;
+    config.model_routes.clear();
     (root, config)
 }
 

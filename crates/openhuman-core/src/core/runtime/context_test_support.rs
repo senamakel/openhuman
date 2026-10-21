@@ -97,4 +97,19 @@ impl CoreContext {
             bare: false,
         })
     }
+
+    /// Test-only constructor for a normal-boot binding with its resolved config
+    /// path, without exposing an embedder config snapshot.
+    pub(crate) fn for_test_with_boot_config_path(
+        domains: crate::core::runtime::DomainSet,
+        workspace_dir: std::path::PathBuf,
+        config_path: std::path::PathBuf,
+    ) -> Arc<CoreContext> {
+        let mut ctx = Arc::try_unwrap(Self::for_test(domains, None)).ok().unwrap();
+        ctx.workspace_binding = RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
+            workspace_dir: Some(workspace_dir),
+            config_path: Some(config_path),
+        })));
+        Arc::new(ctx)
+    }
 }

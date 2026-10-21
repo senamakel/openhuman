@@ -1,4 +1,5 @@
 use crate::config::Config;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::doctor::runner;
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -477,23 +478,31 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
 }
 
 #[tokio::test]
-async fn missing_default_model_is_reported_by_the_native_construct_check() {
+async fn missing_byok_model_is_reported_by_the_native_construct_check() {
     let workspace = tempfile::tempdir().expect("create isolated config fixture");
     let mut config = isolated_config(workspace.path());
     config.default_model = None;
     config.primary_cloud = None;
-    config.chat_provider = None;
+    config.chat_provider = Some("doctor-empty-model:".to_owned());
     config.reasoning_provider = None;
     config.agentic_provider = None;
     config.coding_provider = None;
     config.vision_provider = None;
     config.memory_provider = None;
+    config.cloud_providers = vec![CloudProviderCreds {
+        id: "doctor-empty-model-provider".to_owned(),
+        slug: "doctor-empty-model".to_owned(),
+        label: "Empty model fixture".to_owned(),
+        endpoint: "https://provider.example.invalid/v1".to_owned(),
+        auth_style: AuthStyle::Bearer,
+        default_model: None,
+    }];
 
     let findings = run_only(config, CONSTRUCT).await;
     let result = finding(&findings, CONSTRUCT);
 
     assert_eq!(result.severity, FindingSeverity::Error);
-    assert_eq!(result.config_path.as_deref(), Some("default_model"));
+    assert_eq!(result.config_path.as_deref(), Some("chat_provider"));
     assert!(result.message.contains("model is missing"));
     assert!(!result.message.contains("private"));
 }

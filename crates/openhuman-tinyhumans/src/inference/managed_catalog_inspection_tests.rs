@@ -14,7 +14,7 @@ use openhuman_embed::__host::security::credentials::session_support::{
     SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META,
 };
 use openhuman_embed::__host::security::credentials::{
-    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -128,15 +128,31 @@ fn store_session(
     let mut metadata = std::collections::HashMap::new();
     metadata.insert(SESSION_ISSUING_BACKEND_META.to_owned(), issuer.to_owned());
     metadata.insert(SESSION_EXPIRES_AT_META.to_owned(), expires_at.to_rfc3339());
-    AuthService::from_config(config)
-        .store_provider_token(
-            APP_SESSION_PROVIDER,
-            DEFAULT_AUTH_PROFILE_NAME,
-            token,
-            metadata,
-            true,
-        )
-        .expect("seed isolated session profile");
+    let profile_id = format!("{APP_SESSION_PROVIDER}:{DEFAULT_AUTH_PROFILE_NAME}");
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut active_profiles = std::collections::HashMap::new();
+    active_profiles.insert(APP_SESSION_PROVIDER, profile_id.clone());
+    let mut profiles = std::collections::HashMap::new();
+    profiles.insert(
+        profile_id,
+        serde_json::json!({
+            "provider": APP_SESSION_PROVIDER,
+            "profile_name": DEFAULT_AUTH_PROFILE_NAME,
+            "kind": "token",
+            "token": token,
+            "metadata": metadata,
+            "created_at": now,
+            "updated_at": now,
+        }),
+    );
+    let document = serde_json::json!({
+        "schema_version": 1,
+        "updated_at": now,
+        "active_profiles": active_profiles,
+        "profiles": profiles,
+    });
+    std::fs::write(auth_profiles_path(config), serde_json::to_vec(&document).unwrap())
+        .expect("seed read-only session profile fixture");
 }
 
 fn auth_profiles_path(config: &Config) -> std::path::PathBuf {

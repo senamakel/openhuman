@@ -442,9 +442,10 @@ async fn normal_boot_workspace_without_embedder_config_keeps_auth_error_attribut
     let provider = "doctor-497-normal-boot-auth-fixture";
     crate::inference::auth_error_registry::clear(provider);
     let (_temp, config) = temporary_config();
-    let context = crate::core::runtime::CoreContext::for_test(
+    let context = crate::core::runtime::CoreContext::for_test_with_boot_config_path(
         crate::core::runtime::DomainSet::full(),
-        Some(config.workspace_dir.clone()),
+        config.workspace_dir.clone(),
+        config.config_path.clone(),
     );
     assert!(
         crate::core::runtime::CoreContext::scope(context, async {

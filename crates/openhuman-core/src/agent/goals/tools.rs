@@ -1,7 +1,7 @@
 //! Host wiring for tinyagents' model-facing goal controls.
 //!
 //! `goal_get` / `goal_set` / `goal_complete` are owned by
-//! [`tinyagents_graph::goals`] (`GoalTool`); ownership stays asymmetric
+//! [`tinyagents_harness_tools::goals`] (`GoalTool`); ownership stays asymmetric
 //! (pause / resume / budget-limit are system-driven and have no model tool).
 //! This module only supplies what is OpenHuman's: the workspace-backed goal
 //! store and the `ThreadGoalUpdated` domain event the UI chip listens to.
@@ -9,11 +9,11 @@
 use std::path::Path;
 use std::sync::Arc;
 
-use tinyagents_graph::goals::{GoalTool, GoalToolKind, GoalUpdateHook};
+use tinyagents_harness_tools::goals::{GoalTool, GoalToolKind, GoalUpdateHook};
 use tinytools::Tool;
 
 use super::goal_to_value;
-use tinyagents_graph::goals::ThreadGoal;
+use tinyagents_harness_tools::goals::ThreadGoal;
 
 /// The model-facing goal tools for `workspace_dir`, each publishing
 /// `DomainEvent::ThreadGoalUpdated` after a write.

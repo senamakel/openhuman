@@ -21,7 +21,7 @@ use crate::agent::harness::fork_context::ParentExecutionContext;
 use async_trait::async_trait;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tinyagents_graph::todos::{self as graph_todos, store as todos_store};
+use tinyagents_harness_tools::todos::{self as graph_todos, store as todos_store};
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};

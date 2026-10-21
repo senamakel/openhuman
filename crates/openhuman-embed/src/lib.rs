@@ -245,7 +245,7 @@ pub mod seams {
 /// is held to. The persisted record types are the harness's own serde codecs,
 /// so hosts can encode and decode stored state without duplicating wire shapes.
 pub mod session_store {
-    pub use tinyagents_graph::todos::TodoList;
+    pub use tinyagents_harness_tools::todos::TodoList;
     pub use tinyagents_harness::events::{AgentEvent, HarnessRunStatus};
     pub use tinyagents_harness::ids::ExecutionStatus;
     pub use tinyagents_harness::observability::AgentObservation;

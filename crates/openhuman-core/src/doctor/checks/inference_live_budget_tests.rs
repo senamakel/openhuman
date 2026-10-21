@@ -1,12 +1,12 @@
 //! Output-budget capability tests for live inference checks.
 
-use super::inference_live::{probe_prepared_model, LiveProbeCache};
+use super::inference_live::{LiveProbeCache, probe_prepared_model};
 use crate::doctor::FindingSeverity;
 use crate::inference::provider::factory::{
     InspectionOutputBudgetCapability, InspectionRequestIdentity, PreparedInspectionChatModel,
 };
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 struct InvocationCounter(Arc<AtomicUsize>);
@@ -42,16 +42,15 @@ fn prepared(
 #[tokio::test]
 async fn unsupported_output_budget_is_skipped_without_invoking_the_model() {
     let invocations = Arc::new(AtomicUsize::new(0));
-    let finding =
-        probe_prepared_model(
-            &LiveProbeCache::default(),
-            prepared(
-                Arc::clone(&invocations),
-                InspectionOutputBudgetCapability::Unsupported,
-            ),
-            "inference/live/chat",
-        )
-        .await;
+    let finding = probe_prepared_model(
+        &LiveProbeCache::default(),
+        prepared(
+            Arc::clone(&invocations),
+            InspectionOutputBudgetCapability::Unsupported,
+        ),
+        "inference/live/chat",
+    )
+    .await;
     let invocation_count = invocations.load(Ordering::SeqCst);
 
     assert!(

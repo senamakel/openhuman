@@ -13,8 +13,8 @@ use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 use crate::inference::provider::factory::{
-    create_chat_model_with_identity_in_for_inspection, InspectionRequestIdentity,
-    PreparedInspectionChatModel,
+    InspectionRequestIdentity, PreparedInspectionChatModel,
+    create_chat_model_with_identity_in_for_inspection,
 };
 
 const CATEGORY: &str = "live inference";
@@ -108,7 +108,9 @@ pub(super) async fn probe_prepared_model(
     built: PreparedInspectionChatModel,
     check_id: &str,
 ) -> Finding {
-    if built.output_budget == crate::inference::provider::factory::InspectionOutputBudgetCapability::Unsupported {
+    if built.output_budget
+        == crate::inference::provider::factory::InspectionOutputBudgetCapability::Unsupported
+    {
         return Finding::skipped(
             check_id,
             "The Codex OAuth Responses API cannot enforce the required output-token limit; no completion request was sent.",

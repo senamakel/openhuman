@@ -184,7 +184,7 @@ async fn invoke_once(model: Arc<dyn ChatModel<()>>, configured_model: String) ->
             message:
                 "The configured inference provider did not answer before the live-check timeout."
                     .into(),
-            fix_hint: "Check the provider's availability and network connection, then rerun doctor with --live.",
+            fix_hint: "Check the provider's availability and network connection, then rerun doctor with --live.".into(),
         },
     }
 }
@@ -199,7 +199,8 @@ fn success_outcome(
             severity: FindingSeverity::Error,
             message: "The configured inference provider returned an empty completion.".into(),
             fix_hint:
-                "Check that the configured model can return text, then rerun doctor with --live.",
+                "Check that the configured model can return text, then rerun doctor with --live."
+                    .into(),
         };
     }
     let answered_model = response
@@ -215,7 +216,7 @@ fn success_outcome(
         message: format!(
             "Live completion succeeded in {latency_ms} ms using model `{answered_model}`."
         ),
-        fix_hint: "No action required.",
+        fix_hint: "No action required.".into(),
     }
 }
 
@@ -228,7 +229,7 @@ fn provider_error_outcome(error: &tinyinference_llm::Error) -> ProbeOutcome {
             severity: FindingSeverity::Error,
             message: "The configured inference provider is unavailable for a live completion."
                 .into(),
-            fix_hint: "Check the configured provider, its local credential, and network availability, then rerun doctor with --live.",
+            fix_hint: "Check the configured provider, its local credential, and network availability, then rerun doctor with --live.".into(),
         },
     }
 }
@@ -241,24 +242,24 @@ fn classify_provider_error(error: &ProviderError) -> ProbeOutcome {
                 "Inference authentication failed (HTTP {}).",
                 error.status.unwrap()
             ),
-            fix_hint: "Reconnect the configured provider or replace its API key, then rerun doctor with --live.",
+            fix_hint: "Reconnect the configured provider or replace its API key, then rerun doctor with --live.".into(),
         },
         Some(429) => ProbeOutcome {
             severity: FindingSeverity::Error,
             message: "The configured inference provider reported a quota or rate limit (HTTP 429)."
                 .into(),
-            fix_hint: "Check the provider's quota or rate limit and retry when it allows another request.",
+            fix_hint: "Check the provider's quota or rate limit and retry when it allows another request.".into(),
         },
         Some(status) if status >= 500 => ProbeOutcome {
             severity: FindingSeverity::Error,
             message: format!("The configured inference provider is unavailable (HTTP {status})."),
-            fix_hint: "Check the provider's service status and network connection, then rerun doctor with --live.",
+            fix_hint: "Check the provider's service status and network connection, then rerun doctor with --live.".into(),
         },
         _ => ProbeOutcome {
             severity: FindingSeverity::Error,
             message: "The configured inference provider is unavailable for a live completion."
                 .into(),
-            fix_hint: "Check the configured model and provider endpoint, then rerun doctor with --live.",
+            fix_hint: "Check the configured model and provider endpoint, then rerun doctor with --live.".into(),
         },
     }
 }

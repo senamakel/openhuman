@@ -166,7 +166,7 @@ impl InspectionRequestIdentity {
 
 /// Whether the resolved inspection route can enforce the requested output
 /// token ceiling on the provider request.
-#[derive(Clone, Copy, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub(crate) enum InspectionOutputBudgetCapability {
     /// The provider request enforces its requested output-token limit.
     Bounded,

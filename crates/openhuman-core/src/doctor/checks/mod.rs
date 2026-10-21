@@ -40,3 +40,7 @@ pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
 #[cfg(test)]
 #[path = "config_semantics_tests.rs"]
 mod config_semantics_tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod tests;

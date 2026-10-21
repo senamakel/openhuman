@@ -311,7 +311,7 @@ impl Fixture {
         let action_dir = home.path().join("action");
         fs::create_dir_all(&action_dir).expect("create fixture action directory");
         let environment = IsolatedEnvironment::install(home.path(), &action_dir, &mock.origin);
-        write_profile(home.path(), &mock.origin, config);
+        write_profile(home.path(), MOCK_USER_ID, &mock.origin, config, true);
 
         tinyhumans_boot::boot();
         ensure_rpc_auth();
@@ -415,18 +415,20 @@ fn healthy_mock_behavior() -> Value {
     })
 }
 
-fn write_profile(home: &Path, backend_url: &str, config: &str) {
+fn write_profile(home: &Path, profile_id: &str, backend_url: &str, config: &str, activate: bool) {
     let root = home.join(".openhuman");
-    let profile_dir = root.join("users").join(MOCK_USER_ID);
+    let profile_dir = root.join("users").join(profile_id);
     let files_dir = profile_dir.join("files");
     let sandbox_dir = profile_dir.join("sandbox");
     fs::create_dir_all(&files_dir).expect("create profile files directory");
     fs::create_dir_all(&sandbox_dir).expect("create profile sandbox directory");
-    fs::write(
-        root.join("active_user.toml"),
-        format!("user_id = \"{MOCK_USER_ID}\"\n"),
-    )
-    .expect("write active user fixture");
+    if activate {
+        fs::write(
+            root.join("active_user.toml"),
+            format!("user_id = \"{profile_id}\"\n"),
+        )
+        .expect("write active user fixture");
+    }
     fs::write(profile_dir.join(".layout"), "2\n").expect("mark profile layout v2");
 
     let content = config.replace(MOCK_BACKEND_PLACEHOLDER, backend_url);
@@ -621,3 +623,6 @@ fn ensure_rpc_auth() {
             .expect("initialize in-memory RPC bearer for doctor E2E");
     });
 }
+
+#[path = "doctor_e2e/cases.rs"]
+mod cases;

@@ -378,9 +378,10 @@ fn subagent_control_dispatches(
     tool_sets: &[SharedToolSet],
     run_context: &OpenHumanRunContext,
 ) -> std::collections::HashMap<String, RegisteredToolDispatch> {
-    use tinyagents_orchestration::subagent::{
-        SubAgentJobAction, SubAgentJobRegistry, SubAgentJobsTool, SubAgentMessageTool,
+    use tinyagents_harness_tools::subagents::{
+        SubAgentJobAction, SubAgentJobsTool, SubAgentMessageTool,
     };
+    use tinyagents_orchestration::subagent::SubAgentJobRegistry;
 
     let Some(parent) = run_context.parent.as_ref() else {
         return std::collections::HashMap::new();

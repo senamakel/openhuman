@@ -266,9 +266,10 @@ async fn closing_a_durable_driver_session_cancels_only_its_registered_child() {
         DurableSubagentSession, DurableSubagentStatus, OpenHumanTinySubagentSessionStore,
         SubagentSessionStore as HostSessionStore,
     };
+    use tinyagents_harness_tools::subagents::{SubAgentJobAction, SubAgentJobsTool};
     use tinyagents_orchestration::subagent::{
-        SubAgentJobAction, SubAgentJobRegistry, SubAgentJobStatus, SubAgentJobsTool,
-        SubagentSessionStore as TinySessionStore, SubagentTaskKey,
+        SubAgentJobRegistry, SubAgentJobStatus, SubagentSessionStore as TinySessionStore,
+        SubagentTaskKey,
     };
 
     let scratch = tempfile::tempdir().expect("isolated driver close fixture");

@@ -10,9 +10,8 @@ async fn force_fresh_cancels_old_driver_before_creating_a_new_session() {
     use crate::tools::toolpacks::ToolGroups;
     use tinyagents_harness::context::RunContext;
     use tinyagents_harness::tool::ToolDispatch;
-    use tinyagents_orchestration::subagent::{
-        SubAgentJobRegistry, SubAgentJobStatus, SubAgentJobsTool,
-    };
+    use tinyagents_harness_tools::subagents::SubAgentJobsTool;
+    use tinyagents_orchestration::subagent::{SubAgentJobRegistry, SubAgentJobStatus};
 
     struct GatedModel {
         calls: std::sync::atomic::AtomicUsize,

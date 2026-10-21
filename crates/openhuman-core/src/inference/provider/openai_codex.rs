@@ -1,6 +1,6 @@
 use crate::config::Config;
 use tinyinference_llm::providers::openai::codex::{
-    OPENAI_CODEX_BACKEND_BASE_URL, OpenAiCodexRouting,
+    OpenAiCodexRouting, OPENAI_CODEX_BACKEND_BASE_URL,
 };
 
 pub(crate) fn resolve_openai_codex_routing(

@@ -2,9 +2,9 @@ use super::*;
 
 #[test]
 fn recovery_tool_aliases_remain_stable() {
-    assert!(is_recovery_tool(tinyjuice_bus::tools::RETRIEVE));
-    assert!(is_recovery_tool("retrieve_tool_output"));
-    assert!(!is_recovery_tool("shell"));
+    assert!(tinyjuice_host::recovery::is_recovery_tool(tinyjuice_bus::tools::RETRIEVE));
+    assert!(tinyjuice_host::recovery::is_recovery_tool("retrieve_tool_output"));
+    assert!(!tinyjuice_host::recovery::is_recovery_tool("shell"));
 }
 
 /// Exercise the configured on-demand mode through the real module bus. Even
@@ -175,12 +175,12 @@ async fn a_module_disabled_in_configuration_discloses_a_wanted_summary() {
 
 #[test]
 fn passthrough_discloses_a_notice_only_when_a_summary_was_wanted() {
-    let silent = CompactedToolOutput::passthrough("raw".to_string(), false);
+    let silent = tinyjuice_host::recovery::CompactedToolOutput::passthrough("raw".to_string(), false);
     assert_eq!(silent.text, "raw");
     assert_eq!(silent.notice, None);
     assert_eq!(silent.summarized_from_bytes, None);
 
-    let disclosed = CompactedToolOutput::passthrough("raw".to_string(), true);
+    let disclosed = tinyjuice_host::recovery::CompactedToolOutput::passthrough("raw".to_string(), true);
     assert_eq!(disclosed.text, "raw");
     assert_eq!(disclosed.notice, Some(tinyjuice_host::recovery::summary_failed_notice()));
     assert_eq!(disclosed.summarized_from_bytes, None);

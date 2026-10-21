@@ -8,13 +8,10 @@ use crate::core::runtime::DispatchCtx;
 use tinyjuice_bus::names::methods;
 use tinyjuice_bus::types::{AgentTokenjuiceCompression, CompressorKind};
 use tinyjuice_bus::tools::REPL_TOOLS;
-pub use tinyjuice_host::recovery::CompactedToolOutput;
 use tinytools::{Tool, ToolRunContext};
 use std::sync::Arc;
 
 use tinyjuice_bus::wire::InstallRequest;
-
-pub use tinyjuice_host::recovery::{RECOVERY_TOOL_NAMES, RECOVERY_TOOL_VISIBLE, is_recovery_tool};
 
 struct ModuleQuerySource {
     config: Option<Arc<crate::config::Config>>,
@@ -124,7 +121,11 @@ pub fn companion_tool_names(agent_id: &str, config: &crate::config::Config) -> V
     if enabled(config)
         && (config.context.compaction_enabled || summarizes_tool_output(agent_id, config))
     {
-        names.extend(tinyjuice_host::recovery::RECOVERY_TOOL_VISIBLE.iter().copied());
+        names.extend(
+            tinyjuice_host::recovery::RECOVERY_TOOL_VISIBLE
+                .iter()
+                .copied(),
+        );
     }
     if repl_handle_active(config) {
         names.extend(REPL_TOOLS.iter().copied());
@@ -247,7 +248,9 @@ const COMPACT_WITH_TIMEOUT: std::time::Duration = std::time::Duration::from_secs
 
 /// Compact one tool result through the module, passing it through unchanged on
 /// any failure.
-pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToolOutput {
+pub async fn compact_tool_output(
+    call: ToolOutputCompaction<'_>,
+) -> tinyjuice_host::recovery::CompactedToolOutput {
     let ToolOutputCompaction {
         content,
         tool_name,
@@ -268,12 +271,12 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
     // is, disclose it the same way every other no-answer path does rather
     // than silently dropping it in an `unchanged` return.
     if profile == AgentTokenjuiceCompression::Off {
-        return CompactedToolOutput::passthrough(content, wants_summary);
+        return tinyjuice_host::recovery::CompactedToolOutput::passthrough(content, wants_summary);
     }
     // Nothing to ask the module for: the router is off and no summary call is
     // registered.
     if !enabled && !wants_summary {
-        return CompactedToolOutput::unchanged(content);
+        return tinyjuice_host::recovery::CompactedToolOutput::unchanged(content);
     }
     #[cfg(test)]
     if let Ok(stub) = module_stub::STUB.try_with(std::sync::Arc::clone) {
@@ -296,7 +299,7 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
             Ok(config) => std::sync::Arc::new(config),
             Err(error) => {
                 log::debug!("[tokenjuice] config unavailable, passing through: {error}");
-                return CompactedToolOutput::passthrough(content, wants_summary);
+                return tinyjuice_host::recovery::CompactedToolOutput::passthrough(content, wants_summary);
             }
         },
     };
@@ -313,7 +316,7 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
         };
     if let Err(error) = install_from_config(&config).await {
         log::debug!("[tokenjuice] module configuration failed, passing through: {error}");
-        return CompactedToolOutput::passthrough(content, wants_summary);
+        return tinyjuice_host::recovery::CompactedToolOutput::passthrough(content, wants_summary);
     }
     let request = tinyjuice_bus::wire::CompactRequest {
         content: content.clone(),
@@ -337,17 +340,19 @@ pub async fn compact_tool_output(call: ToolOutputCompaction<'_>) -> CompactedToo
         Ok(response) => response,
         Err(error) => {
             log::debug!("[tokenjuice] module compaction unavailable: {error}");
-            return CompactedToolOutput::passthrough(content, wants_summary);
+            return tinyjuice_host::recovery::CompactedToolOutput::passthrough(content, wants_summary);
         }
     };
     record_savings(&client(&config), &response).await;
     compacted_from(response)
 }
 
-fn compacted_from(response: tinyjuice_bus::wire::CompactResponse) -> CompactedToolOutput {
+fn compacted_from(
+    response: tinyjuice_bus::wire::CompactResponse,
+) -> tinyjuice_host::recovery::CompactedToolOutput {
     let summarized_from_bytes = (response.compressor == CompressorKind::LlmSummary.as_str())
         .then_some(response.original_bytes);
-    CompactedToolOutput {
+    tinyjuice_host::recovery::CompactedToolOutput {
         text: response.text,
         notice: response.notice,
         summarized_from_bytes,

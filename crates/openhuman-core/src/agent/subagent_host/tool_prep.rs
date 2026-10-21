@@ -91,7 +91,7 @@ pub(super) fn filter_tool_indices(
             delegation_tools.push(name.to_string());
         }
         if crate::tools::rules::glob_list_matches(disallowed, name) {
-            if crate::inference::tokenjuice::is_recovery_tool(name) {
+            if tinyjuice_host::recovery::is_recovery_tool(name) {
                 disallowed_recovery.insert(name.to_string());
             }
             continue;
@@ -123,7 +123,7 @@ pub(super) fn filter_tool_indices(
     if !matches!(scope, ToolScope::Named(allowed) if allowed.is_empty()) {
         for tool in parent_tools {
             let name = tool.name();
-            if crate::inference::tokenjuice::is_recovery_tool(name)
+            if tinyjuice_host::recovery::is_recovery_tool(name)
                 && !disallowed_recovery.contains(name)
                 && !delegation_tools.iter().any(|tool| tool == name)
             {

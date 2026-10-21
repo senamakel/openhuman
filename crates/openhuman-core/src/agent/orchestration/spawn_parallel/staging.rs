@@ -141,7 +141,7 @@ fn definition_visible_tool_permissions(
                 ToolScope::Named(names) => {
                     names.iter().any(|allowed| allowed == name)
                         || definition.extra_tools.iter().any(|extra| extra == name)
-                        || (crate::inference::tokenjuice::is_recovery_tool(name)
+                        || (tinyjuice_host::recovery::is_recovery_tool(name)
                             && !names.is_empty())
                 }
             };

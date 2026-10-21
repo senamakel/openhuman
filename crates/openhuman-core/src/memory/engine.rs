@@ -51,7 +51,8 @@ use crate::config::Config;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
 use super::engine_registry::ReadOnlyEngineError;
-use super::error::{MemoryError, MemoryResult};
+pub use super::error::MemoryError;
+use super::error::MemoryResult;
 
 /// Engine id of CortexDB behind the TinyHumans backend.
 pub use tinymemory_integrations::cortex::TINYHUMANS_ENGINE_ID as TINYHUMANS_ENGINE;

@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::core::Outcome;
+use crate::core::{runtime::CoreContext, Outcome};
 use crate::doctor::{
     contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity},
     core::{ModelProbeEntry, ModelProbeOutcome, ModelProbeReport, ModelProbeSummary},
@@ -35,10 +35,21 @@ fn hash_key<T: Hash>(value: &T) -> u64 {
 }
 
 fn scope_key(config: &crate::config::Config) -> String {
+    let context = CoreContext::scoped();
+    let scoped_workspace = context
+        .as_ref()
+        .and_then(|context| context.workspace_dir().ok())
+        .unwrap_or_else(|| config.workspace_dir.clone());
+    let tenant = context
+        .as_ref()
+        .and_then(|context| context.profile())
+        .unwrap_or_default();
     format!(
-        "{}\u{1f}{}",
+        "{}\u{1f}{}\u{1f}{}\u{1f}{}",
         config.config_path.display(),
-        config.workspace_dir.display()
+        config.workspace_dir.display(),
+        scoped_workspace.display(),
+        tenant,
     )
 }
 

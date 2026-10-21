@@ -30,5 +30,5 @@ mod wait;
 pub use plan_exit::PlanExitTool;
 pub const PLAN_EXIT_MARKER: &str = tinyagents_harness_tools::PLAN_EXIT_MARKER;
 pub use todo::TodoTool;
-pub use wait::{WaitLoopTool, WaitTool};
 pub(crate) use todo::TodoToolDispatch;
+pub use wait::{WaitLoopTool, WaitTool};

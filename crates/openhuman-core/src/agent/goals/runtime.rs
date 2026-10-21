@@ -169,14 +169,8 @@ pub async fn account_turn_against_goal(
     let prev_status = prev.status;
     let prev_tokens_used = prev.tokens_used;
 
-    match crate_budget::account_turn(
-        &store,
-        &thread_id,
-        input,
-        output,
-        Duration::from_secs(secs),
-    )
-    .await
+    match crate_budget::account_turn(&store, &thread_id, input, output, Duration::from_secs(secs))
+        .await
     {
         Ok(Some(updated)) => {
             tracing::debug!(

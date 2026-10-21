@@ -917,7 +917,6 @@ pub(super) fn resolve_target_definition(
     ))
 }
 
-
 fn make_tool_registry(
     host_only: bool,
     build: impl FnOnce() -> (

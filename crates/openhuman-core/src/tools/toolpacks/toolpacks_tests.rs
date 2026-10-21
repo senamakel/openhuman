@@ -11,8 +11,8 @@ use async_trait::async_trait;
 use serde_json::{json, Value};
 
 use super::*;
-use tinyagents_harness_tools::skills::USE_SKILL;
 use tinyagents_harness_tools::skills::PackRegistryHandle;
+use tinyagents_harness_tools::skills::USE_SKILL;
 use tinytools::{PermissionLevel, Tool, ToolResult, ToolTimeout};
 
 struct FakeTool {
@@ -48,9 +48,7 @@ impl Tool for FakeTool {
 }
 
 /// A registry holding several real packed tools plus the two pack tools, bound.
-fn registry_with_all(
-    names: &[&'static str],
-) -> (Arc<Vec<Box<dyn Tool>>>, PackRegistryHandle) {
+fn registry_with_all(names: &[&'static str]) -> (Arc<Vec<Box<dyn Tool>>>, PackRegistryHandle) {
     let mut tools: Vec<Box<dyn Tool>> = names
         .iter()
         .map(|name| {

@@ -1,4 +1,4 @@
-use super::{MemoryRoundtripCheck, Operation, failure_finding};
+use super::{failure_finding, MemoryRoundtripCheck, Operation};
 use crate::config::Config;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::core::slots::Extensions;
@@ -347,11 +347,17 @@ fn plan_required_memory_failure_has_safe_plan_guidance_and_cleanup_warning() {
     );
 
     assert_eq!(finding.severity, FindingSeverity::Error);
-    assert!(finding.message.contains("not included in the selected account's plan"));
+    assert!(finding
+        .message
+        .contains("not included in the selected account's plan"));
     assert!(!finding.message.contains("MEMORY_PLAN_REQUIRED"));
     assert!(!finding.message.contains("private-host.example"));
-    assert!(finding.fix_hint.contains("Upgrade to a plan that includes memory"));
-    assert!(finding.fix_hint.contains("could not confirm scratch cleanup"));
+    assert!(finding
+        .fix_hint
+        .contains("Upgrade to a plan that includes memory"));
+    assert!(finding
+        .fix_hint
+        .contains("could not confirm scratch cleanup"));
 }
 
 #[tokio::test]

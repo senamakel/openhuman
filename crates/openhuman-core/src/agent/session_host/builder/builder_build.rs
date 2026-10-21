@@ -29,8 +29,7 @@ impl SessionHostBuilder {
             tools.retain(|tool| {
                 !crate::tools::toolpacks::is_canonical_use_skill_tool(tool.as_ref())
             });
-            pack_registry_handle =
-                Some(crate::tools::toolpacks::append_pack_tools(&mut tools));
+            pack_registry_handle = Some(crate::tools::toolpacks::append_pack_tools(&mut tools));
         }
         // Advertise only the spawnable ids on the wire: see
         // `SpawnAsyncSubagentTool::scoped` for why the spec-view narrowing

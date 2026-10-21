@@ -130,4 +130,3 @@ async fn complete_and_clear_are_safe_without_a_goal_or_thread() {
     complete_for_thread(&dir, None).await;
     clear_for_thread(&dir, None).await;
 }
-

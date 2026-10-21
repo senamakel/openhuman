@@ -1,12 +1,12 @@
 use std::sync::{Arc, Mutex};
 
 use async_trait::async_trait;
+use tinyagents_harness::tool::ToolSnapshot;
 use tinyagents_runtime::{
     DriverFailure, DriverOutcome, DriverRequest, PrefixSnapshot, ResumeMode, SessionBuilder,
-    SessionDriver, SessionTerminal, SessionTurnRequest, TranscriptCodec,
-    TranscriptTurnOptions, TurnOptions,
+    SessionDriver, SessionTerminal, SessionTurnRequest, TranscriptCodec, TranscriptTurnOptions,
+    TurnOptions,
 };
-use tinyagents_harness::tool::ToolSnapshot;
 use tinyagents_session::port::{InMemorySessionStores, SessionStoreProvider};
 use tinyagents_session::transcript::TranscriptMeta;
 use tinyinference_llm::message::Message;

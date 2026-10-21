@@ -27,11 +27,11 @@ pub mod ops;
 pub mod registry;
 
 pub use groups::{set_process_default, GroupMode, ToolGroups, GROUP_COUNT};
+pub(crate) use ops::is_canonical_use_skill_tool;
 pub use ops::{
     append_pack_tools, bind_pack_registry, bind_synthesized_pack_registry, close_handed_off_packs,
     closed_by_direct_handoff, strip_packed_from_visible,
 };
-pub(crate) use ops::is_canonical_use_skill_tool;
 pub use registry::{
     all_packed_tool_names, callable_pack_ids, pack, pack_for_tool, pack_index_markdown_filtered,
     CATALOG, PACKS,

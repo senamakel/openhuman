@@ -254,10 +254,12 @@ async fn a_legacy_session_keyed_list_is_migrated_forward_once() {
     let thread_scope = TodoScope::Session {
         id: "thread-legacy".into(),
     };
-    let migrated =
-        tinyagents_harness_tools::todos::store::list(&todo_store(&workspace_dir), thread_scope.key())
-            .await
-            .unwrap();
+    let migrated = tinyagents_harness_tools::todos::store::list(
+        &todo_store(&workspace_dir),
+        thread_scope.key(),
+    )
+    .await
+    .unwrap();
     assert_eq!(migrated.items.len(), 1);
 
     // Clearing the new thread-keyed list must remain authoritative. The empty
@@ -307,13 +309,18 @@ async fn sessions_do_not_see_each_other_and_a_list_survives_across_turns() {
         .unwrap();
 
     let item = TodoItem::with_status("only in a", TodoStatus::InProgress);
-    tinyagents_harness_tools::todos::store::replace(&todo_store(&workspace_dir), a.key(), vec![item])
-        .await
-        .unwrap();
+    tinyagents_harness_tools::todos::store::replace(
+        &todo_store(&workspace_dir),
+        a.key(),
+        vec![item],
+    )
+    .await
+    .unwrap();
 
-    let a_again = tinyagents_harness_tools::todos::store::list(&todo_store(&workspace_dir), a.key())
-        .await
-        .unwrap();
+    let a_again =
+        tinyagents_harness_tools::todos::store::list(&todo_store(&workspace_dir), a.key())
+            .await
+            .unwrap();
     assert_eq!(
         a_again.items.len(),
         1,

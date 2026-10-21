@@ -7,11 +7,11 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tinyagents_harness_tools::goals::GoalToolKind;
-use tinyagents_harness_tools::skills::{PackSelection, UseSkillDispatch, USE_SKILL};
 use tinyagents_harness::tool::{
     CanonicalSharedToolAdapter, ToolDispatch, ToolExecScope, ToolExecution, ToolExecutionContext,
 };
+use tinyagents_harness_tools::goals::GoalToolKind;
+use tinyagents_harness_tools::skills::{PackSelection, UseSkillDispatch, USE_SKILL};
 use tinyagents_registry::{CapabilityRegistry, ComponentKind, RegistryDiagnostic};
 use tinyagents_runtime::turn_driver::{SharedToolSet, ToolSetBuilder};
 use tinyagents_runtime::{project_descriptors, ToolAdmission};

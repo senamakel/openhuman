@@ -12,8 +12,8 @@ use tinyagents_harness::middleware::{
     DenialRenderer, MiddlewareToolOutcome, PolicyDecision, ToolCallPolicy, ToolHandler,
     ToolMiddleware, ToolPolicyGateMiddleware,
 };
-use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinyagents_harness_tools::skills::PackRegistryHandle;
+use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
 use crate::agent::tinyagents::host::OpenHumanRunContext;

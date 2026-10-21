@@ -11,7 +11,10 @@ use tinytools::Tool;
 /// owner must retain for later rebinding.
 pub fn append_pack_tools(tools: &mut Vec<Box<dyn Tool>>) -> PackRegistryHandle {
     let handle = PackRegistryHandle::default();
-    tools.push(Box::new(UseSkillTool::new(handle.clone(), registry::CATALOG)));
+    tools.push(Box::new(UseSkillTool::new(
+        handle.clone(),
+        registry::CATALOG,
+    )));
     handle
 }
 
@@ -48,7 +51,10 @@ pub(crate) fn is_canonical_use_skill_tool(tool: &dyn Tool) -> bool {
 pub fn bind_pack_registry(handle: &PackRegistryHandle, tools: &Arc<Vec<Box<dyn Tool>>>) {
     let weak: Weak<Vec<Box<dyn Tool>>> = Arc::downgrade(tools);
     handle.bind(weak);
-    tracing::debug!(tools = tools.len(), "[toolpacks] bound pack tool to durable registry");
+    tracing::debug!(
+        tools = tools.len(),
+        "[toolpacks] bound pack tool to durable registry"
+    );
 }
 
 /// Point the pack tool at the synthesised delegate set.

@@ -118,7 +118,10 @@ pub fn all_tools_with_runtime_and_pack_handle(
     agents: &HashMap<String, DelegateAgentConfig>,
     root_config: &crate::config::Config,
     approval_workspace_root: Option<&std::path::Path>,
-) -> (Vec<Box<dyn Tool>>, tinyagents_harness_tools::skills::PackRegistryHandle) {
+) -> (
+    Vec<Box<dyn Tool>>,
+    tinyagents_harness_tools::skills::PackRegistryHandle,
+) {
     let shell: Box<dyn Tool> = Box::new(ShellTool::with_config(
         security.clone(),
         Arc::clone(&runtime),

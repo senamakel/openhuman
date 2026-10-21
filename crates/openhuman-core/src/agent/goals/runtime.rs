@@ -10,6 +10,7 @@
 //!   persistence and completed-turn accounting.
 
 use std::path::Path;
+use std::time::Duration;
 
 use tinyagents_harness_tools::goals::budget as crate_budget;
 use tinyagents_harness_tools::goals::{ThreadGoal, ThreadGoalStatus};
@@ -168,7 +169,15 @@ pub async fn account_turn_against_goal(
     let prev_status = prev.status;
     let prev_tokens_used = prev.tokens_used;
 
-    match crate_budget::account_turn(&store, &thread_id, input, output, secs, true).await {
+    match crate_budget::account_turn(
+        &store,
+        &thread_id,
+        input,
+        output,
+        Duration::from_secs(secs),
+    )
+    .await
+    {
         Ok(Some(updated)) => {
             tracing::debug!(
                 thread_id = %thread_id,

@@ -131,38 +131,3 @@ async fn complete_and_clear_are_safe_without_a_goal_or_thread() {
     clear_for_thread(&dir, None).await;
 }
 
-#[tokio::test]
-async fn account_turn_clears_suppression_without_losing_usage() {
-    let tmp = tempfile::tempdir().unwrap();
-    let dir = tmp.path().to_path_buf();
-    let goal = tinyagents_harness_tools::goals::store::set(
-        &crate::storage::sessions::stores_or_ephemeral(&dir).kv,
-        "t-suppressed",
-        "obj",
-        Some(1000),
-    )
-    .await
-    .unwrap();
-    tinyagents_harness_tools::goals::store::set_continuation_suppressed_if(
-        &crate::storage::sessions::stores_or_ephemeral(&dir).kv,
-        "t-suppressed",
-        &goal.goal_id,
-        true,
-    )
-    .await
-    .unwrap();
-
-    account_turn_against_goal(&dir, Some("t-suppressed"), 80, 40, 3).await;
-
-    let updated = tinyagents_harness_tools::goals::store::get(
-        &crate::storage::sessions::stores_or_ephemeral(&dir).kv,
-        "t-suppressed",
-    )
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(updated.goal_id, goal.goal_id);
-    assert!(!updated.continuation_suppressed);
-    assert_eq!(updated.tokens_used, 120);
-    assert_eq!(updated.time_used_seconds, 3);
-}

@@ -1,6 +1,6 @@
 use super::*;
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::security::credentials::AuthService;
 use tempfile::TempDir;
 use wiremock::matchers::{method, path};
@@ -23,9 +23,9 @@ fn inspection_codex_oauth_metadata_marks_output_budget_unsupported() {
         InspectionOutputBudgetCapability::Unsupported
     );
     assert_eq!(
-        super::cloud_slug::inspection_output_budget_capability(
-            &OpenAiCodexRouting::standard("https://api.openai.com/v1")
-        ),
+        super::cloud_slug::inspection_output_budget_capability(&OpenAiCodexRouting::standard(
+            "https://api.openai.com/v1"
+        )),
         InspectionOutputBudgetCapability::Bounded
     );
 }
@@ -233,11 +233,13 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     )
     .expect("named OAuth profile is readable without refreshing")
     .expect("expired OAuth profile exists");
-    assert!(oauth
-        .token_set
-        .as_ref()
-        .and_then(|token_set| token_set.expires_at)
-        .is_some_and(|expires_at| expires_at < Utc::now()));
+    assert!(
+        oauth
+            .token_set
+            .as_ref()
+            .and_then(|token_set| token_set.expires_at)
+            .is_some_and(|expires_at| expires_at < Utc::now())
+    );
     let selected_codex_credential =
         super::credentials::lookup_key_for_slug_read_only("openai", &config)
             .expect("read selected OpenAI API-key credential");
@@ -309,11 +311,13 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         Some("expired-oauth-access-token"),
         "inspection must not replace an expired token with a refreshed one"
     );
-    assert!(oauth_after
-        .token_set
-        .as_ref()
-        .and_then(|token_set| token_set.expires_at)
-        .is_some_and(|expires_at| expires_at < Utc::now()));
+    assert!(
+        oauth_after
+            .token_set
+            .as_ref()
+            .and_then(|token_set| token_set.expires_at)
+            .is_some_and(|expires_at| expires_at < Utc::now())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -423,7 +427,7 @@ fn deepseek_entry(id: &str) -> CloudProviderCreds {
 /// A config carrying a resolved model, as `agent_chat` leaves it after applying
 /// `model_override` and before building the agent.
 fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
-    use crate::config::schema::ephemeral_route::{apply, EphemeralRoute};
+    use crate::config::schema::ephemeral_route::{EphemeralRoute, apply};
     let mut config = Config {
         default_model: Some(model.to_string()),
         ..Config::default()

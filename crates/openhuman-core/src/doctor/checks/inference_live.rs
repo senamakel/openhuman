@@ -13,8 +13,8 @@ use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 use crate::inference::provider::factory::{
-    create_chat_model_with_identity_in_for_inspection, InspectionRequestIdentity,
-    PreparedInspectionChatModel,
+    InspectionRequestIdentity, PreparedInspectionChatModel,
+    create_chat_model_with_identity_in_for_inspection,
 };
 
 const CATEGORY: &str = "live inference";
@@ -197,8 +197,7 @@ fn success_outcome(
         return ProbeOutcome {
             severity: FindingSeverity::Error,
             message: "The configured inference provider returned an empty completion.".into(),
-            fix_hint:
-                "Check that the configured model can return text, then rerun doctor with --live.",
+            fix_hint: "Check that the configured model can return text, then rerun doctor with --live.",
         };
     }
     let answered_model = response

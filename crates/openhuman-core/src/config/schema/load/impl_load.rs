@@ -369,12 +369,6 @@ impl Config {
     }
 
     pub async fn save(&self) -> Result<()> {
-        if std::env::var_os("DOCTOR_E2E_TRACE_CONFIG_SAVE").is_some() {
-            eprintln!(
-                "[doctor-e2e config save] {}",
-                std::backtrace::Backtrace::force_capture()
-            );
-        }
         // A thin shim: the real body's future is ~25 KB, and `save` is awaited
         // from ~15 places in the load and migration paths. An unoptimised build
         // gives each of those await sites its own copy of the callee's future in

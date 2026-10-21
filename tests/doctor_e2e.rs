@@ -519,9 +519,13 @@ fn write_expired_session(home: &Path) {
 
 async fn assert_expired_session_is_seeded(home: &Path) {
     let before = snapshot_tree(home);
-    let config = openhuman_core::config::load_config_with_timeout()
+    let config = openhuman_core::doctor::profile::resolve_desktop_profile_for_doctor(
+        &home.join(".openhuman"),
+        Some(MOCK_USER_ID),
+    )
         .await
-        .expect("load isolated doctor config");
+        .expect("resolve isolated doctor profile read-only")
+        .config;
     let profile =
         openhuman_core::security::credentials::session_support::load_app_session_profile_read_only(
             &config,

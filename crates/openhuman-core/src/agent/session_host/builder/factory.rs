@@ -19,6 +19,8 @@ use tinytools_agent::dialect::{
     CodeDialect, CodeStyle, NativeDialect, PFormatDialect, ToolCallFormat, ToolDialect, XmlDialect,
 };
 
+#[path = "factory_tool_registry.rs"]
+mod tool_registry;
 #[path = "factory_workflows.rs"]
 mod workflows;
 
@@ -188,22 +190,23 @@ impl OpenHumanSessionHost {
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
         // Host-only (`host_only.rs`): no config-derived tool is even built.
-        let (mut tools, pack_registry_handle) = make_tool_registry(host_only, || {
-            tools::ops::all_tools_with_runtime_and_pack_handle(
-                Arc::clone(&tool_config),
-                &security,
-                runtime,
-                audit,
-                &tool_config.browser,
-                &tool_config.http_request,
-                &tool_config.action_dir,
-                &tool_config.agents,
-                &tool_config,
-                workspace_descriptor
-                    .as_ref()
-                    .map(|descriptor| descriptor.root.as_path()),
-            )
-        });
+        let (mut tools, pack_registry_handle) =
+            tool_registry::make_tool_registry(host_only, || {
+                tools::ops::all_tools_with_runtime_and_pack_handle(
+                    Arc::clone(&tool_config),
+                    &security,
+                    runtime,
+                    audit,
+                    &tool_config.browser,
+                    &tool_config.http_request,
+                    &tool_config.action_dir,
+                    &tool_config.agents,
+                    &tool_config,
+                    workspace_descriptor
+                        .as_ref()
+                        .map(|descriptor| descriptor.root.as_path()),
+                )
+            });
 
         // Filter tools by the user preference loaded above.
         if !enabled_tools.is_empty() {
@@ -915,22 +918,4 @@ pub(super) fn resolve_target_definition(
         "agent definition '{}' not found in registry",
         agent_id
     ))
-}
-
-fn make_tool_registry(
-    host_only: bool,
-    build: impl FnOnce() -> (
-        Vec<Box<dyn Tool>>,
-        tinyagents_harness_tools::skills::PackRegistryHandle,
-    ),
-) -> (
-    Vec<Box<dyn Tool>>,
-    Option<tinyagents_harness_tools::skills::PackRegistryHandle>,
-) {
-    if host_only {
-        (Vec::new(), None)
-    } else {
-        let (tools, handle) = build();
-        (tools, Some(handle))
-    }
 }

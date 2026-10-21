@@ -162,13 +162,6 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/memory/layout_migration/claim.rs",
-    "line": 106,
-    "text": "let temp = tempfile::NamedTempFile::new_in(key.marker.parent().unwrap_or(Path::new(\".\")))?;",
-    "occurrence": 1
-  },
-  {
-    "rule": "json-write",
     "path": "crates/openhuman-core/src/platform/doctor/core/workspace_checks.rs",
     "line": 30,
     "text": "match std::fs::OpenOptions::new()",

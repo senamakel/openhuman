@@ -81,7 +81,7 @@ static CHAT_MODELS: HookSlot<ChatModelEntry> = HookSlot::new("inference::chat_mo
 /// A managed chat-model factory that is safe for inspection calls through
 /// invoke/stream: it must use a frozen, read-only credential snapshot and
 /// must not refresh or publish credential state.
-pub type InspectionChatModelFactory = ChatModelFactory;
+pub type InspectionChatModelFactory = PreparedInspectionChatModelFactory;
 
 /// An inspection-safe model and the resolved wire identity it invokes.
 /// `credential` is retained only long enough for the core to build a

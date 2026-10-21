@@ -93,14 +93,12 @@ impl DoctorCheck for HealthCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        let memory = if let Some(memory) = ctx.memory_engine() {
-            // The transitional v1 adapter supplies this only for the legacy
-            // `memory/engine` selector. Native checks resolve their own
-            // selected-config probe below.
-            memory.clone()
-        } else {
-            probe_selected_config(ctx.config()).await
-        };
+        let memory = probe_selected_config(ctx.config()).await;
+        findings_for_health(memory)
+    }
+}
+
+fn findings_for_health(memory: crate::doctor::core::MemoryEngineCheck) -> Vec<Finding> {
         match (memory.status.as_str(), memory.reason.as_deref()) {
             ("ok" | "ready", _) => vec![Finding::pass(
                 self.id(),
@@ -123,24 +121,38 @@ impl DoctorCheck for HealthCheck {
                 "Check the memory engine configuration and connectivity.",
             )],
         }
-    }
 }
 
 fn safe_reason(reason: &str) -> String {
     let lower = reason.to_ascii_lowercase();
-    if reason.len() <= 160
-        && !reason.contains("://")
-        && !lower.contains("token")
-        && !lower.contains("bearer")
-        && !lower.contains("authorization")
-        && !lower.contains("password")
-        && !lower.contains("api_key")
-        && reason.chars().all(|ch| !ch.is_control())
-    {
-        reason.to_owned()
-    } else {
-        "The selected memory engine reported that it is unavailable.".to_owned()
+    if matches!(
+        lower.as_str(),
+        "engine is down"
+            | "the configured memory service is unavailable"
+            | "no usable credential is available for the selected backend."
+            | "the selected backend endpoint is unavailable."
+            | "backend attribution headers are unavailable."
+            | "the selected memory engine configuration is invalid."
+            | "cortexdb api key is not configured."
+            | "cortexdb credentials could not be read."
+    ) {
+        return reason.to_owned();
     }
+    if reason.contains("detail withheld") {
+        if let Some(code) = reason.split("HTTP_").nth(1).and_then(|tail| {
+            let digits = tail.chars().take_while(char::is_ascii_digit).collect::<String>();
+            (digits.len() == 3).then_some(digits)
+        }) {
+            return format!("The memory service returned HTTP {code}.");
+        }
+        if reason.contains("UNAVAILABLE") {
+            return "The memory service is temporarily unavailable.".to_owned();
+        }
+        if reason.contains("RATE_LIMITED") {
+            return "The memory service is rate limited.".to_owned();
+        }
+    }
+    "The selected memory engine reported an error; details are withheld.".to_owned()
 }
 
 async fn probe_selected_config(

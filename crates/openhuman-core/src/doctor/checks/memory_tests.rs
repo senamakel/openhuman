@@ -51,3 +51,19 @@ async fn health_redacts_urls_and_credential_like_reasons() {
     let finding = HealthCheck.detect(&ctx).await;
     assert!(!finding[0].message.contains("secret"));
 }
+
+#[tokio::test]
+async fn health_withholds_bare_secrets_and_local_paths() {
+    for private_reason in ["sk-live-secret-value", "/Users/private/person/data.db"] {
+        let ctx = context(crate::memory::engine::CORTEXDB_ENGINE).with_memory_engine(
+            MemoryEngineCheck {
+                engine: Some(crate::memory::engine::CORTEXDB_ENGINE.to_owned()),
+                status: "down".to_owned(),
+                reason: Some(private_reason.to_owned()),
+            },
+        );
+        let finding = HealthCheck.detect(&ctx).await;
+        assert!(!finding[0].message.contains(private_reason));
+        assert!(finding[0].message.contains("details are withheld"));
+    }
+}

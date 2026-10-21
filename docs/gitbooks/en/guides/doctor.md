@@ -57,6 +57,14 @@ cannot confirm cleanup. A local SQLite memory engine may update derived
 `-shm` or empty `-wal` sidecar state during database access.
 {% endhint %}
 
+Each chat inference probe sends the short `Reply OK` prompt with a provider-
+enforced output limit of at most five tokens. Roles that resolve to the same
+endpoint, credential, and wire model share one completion while keeping separate
+findings. A route that cannot enforce an output limit in its request is skipped
+without a model call. OpenAI Codex OAuth uses a Responses API request that has
+no output-token limit field, so its `inference/live/<role>` check is skipped;
+that skip does not indicate that Codex is healthy.
+
 The agent tool follows the same rule: ask the assistant to run `doctor_health`
 for ordinary diagnostics. It should request the live tier only when you
 explicitly ask for billable probes.
@@ -175,7 +183,7 @@ includes a more specific hint for the setting or service it checked.
 | `inference/managed-catalog` | connect | Whether the hosted managed inference catalog is reachable. | Check managed inference access for this profile. |
 | `inference/model-in-catalog` | connect | Whether configured models appear in their provider catalogs. Providers without a read-only catalog are skipped. | Choose a listed model or verify catalog support for the provider. |
 | `inference/auth-errors` | connect | Authentication errors recorded for inference providers. | Update or reconnect the provider credentials. |
-| `inference/live/<role>` | live | Whether each configured inference role can return a short completion. | Check the provider, model, credential, quota, and network connection named by the finding. |
+| `inference/live/<role>` | live | Whether each configured inference role can return a short, capped completion. Routes that cannot enforce the output cap are skipped; identical routes share one request. | A skipped check made no model call and does not confirm provider health. For attempted requests, check the provider, model, credential, quota, and network connection named by the finding. |
 | `embeddings/live` | live | Whether the selected embedding provider returns the configured vector width. | Check provider access and align the configured model and dimensions. |
 
 ## Common interpretation
@@ -183,8 +191,9 @@ includes a more specific hint for the setting or service it checked.
 - A `pass` means the check completed successfully. A `warn` calls out a problem
   that does not make the report's `ok` field false. An `error` means a check
   found a failure. A `skipped` result explains why a check did not run.
-- A check above the selected tier or behind a disabled component is skipped;
-  a skipped check is not evidence that the service is healthy.
+- A check above the selected tier, behind a disabled component, or using an
+  inference route that cannot enforce the output cap is skipped; a skipped check
+  is not evidence that the service is healthy.
 - `doctor.models` is a separate read-only provider-catalog report. It distinguishes
   available catalogs, providers without a catalog, access failures, and request
   errors; it does not make inference requests.

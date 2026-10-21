@@ -224,8 +224,8 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         })))
         .mount(&refresh_server)
         .await;
-    let snapshot = std::fs::read(&profiles_path)
-        .expect("snapshot raw credential file before inspection");
+    let snapshot =
+        std::fs::read(&profiles_path).expect("snapshot raw credential file before inspection");
 
     let mut provider = openai_entry("p_openai_inspection", "openai");
     provider.endpoint = "https://api.openai.example.test/v1".into();
@@ -264,6 +264,26 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         selected_after.token.as_deref(),
         Some("dummy-selected-api-key")
     );
+    let oauth_after = AuthService::get_profile_read_only(
+        &config,
+        OPENAI_PROVIDER_KEY,
+        Some(OPENAI_OAUTH_PROFILE_NAME),
+    )
+    .expect("OAuth snapshot remains readable")
+    .expect("OAuth snapshot remains present");
+    assert_eq!(
+        oauth_after
+            .token_set
+            .as_ref()
+            .map(|token_set| token_set.access_token.as_str()),
+        Some("expired-oauth-access-token"),
+        "inspection must not replace an expired token with a refreshed one"
+    );
+    assert!(oauth_after
+        .token_set
+        .as_ref()
+        .and_then(|token_set| token_set.expires_at)
+        .is_some_and(|expires_at| expires_at < Utc::now()));
 }
 
 // ── Motion B (#4727 Phase 3): wire-equivalent BYOK cloud-slug cutover ────────

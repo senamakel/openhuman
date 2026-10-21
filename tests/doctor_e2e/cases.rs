@@ -268,7 +268,7 @@ async fn legacy_doctor_function_help_stays_on_the_existing_namespace_printer() {
 
     let models_help = fixture.run_cli(&["doctor", "models", "--help"]);
     assert_eq!(models_help.status.code(), Some(0));
-    assert!(String::from_utf8_lossy(&models_help.stdout).contains("--use-cache"));
+    assert!(String::from_utf8_lossy(&models_help.stdout).contains("--use_cache"));
     assert_unchanged(&before, &snapshot_tree(fixture._home.path()));
 }
 

@@ -5463,6 +5463,7 @@ dependencies = [
  "tinyinference-providers",
  "tinyinference-voice",
  "tinyjuice-bus",
+ "tinyjuice-host",
  "tinymcp-bus",
  "tinymemes-bus",
  "tinymemory-api",
@@ -9514,7 +9515,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice"
-version = "0.10.8"
+version = "0.11.0"
 dependencies = [
  "async-trait",
  "dirs 7.0.0",
@@ -9537,7 +9538,7 @@ dependencies = [
 
 [[package]]
 name = "tinyjuice-bus"
-version = "0.10.8"
+version = "0.11.0"
 dependencies = [
  "serde",
  "serde_json",
@@ -9556,8 +9557,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinyjuice-host"
+version = "0.11.0"
+dependencies = [
+ "anyhow",
+ "async-trait",
+ "log",
+ "serde_json",
+ "tinyjuice-bus",
+ "tinytools",
+ "tokio",
+ "uuid",
+]
+
+[[package]]
 name = "tinyjuice-module"
-version = "0.10.8"
+version = "0.11.0"
 dependencies = [
  "log",
  "serde_json",

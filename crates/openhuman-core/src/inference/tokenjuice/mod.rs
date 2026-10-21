@@ -65,8 +65,6 @@ pub(crate) fn repl_tools_for_recorded(
         .filter(|spec| REPL_TOOLS.contains(&spec.name.as_str()))
         .filter_map(|spec| {
             let mut declaration = stock.iter().find(|item| item.name == spec.name)?.clone();
-            declaration.description.clone_from(&spec.description);
-            declaration.parameters.clone_from(&spec.parameters);
             Some(declaration)
         })
         .collect();

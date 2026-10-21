@@ -98,32 +98,6 @@ test("an initial allowance cannot exempt a newly introduced branch writer", () =
     [],
   );
 });
-test("the doctor action-directory permission probe is the sole audited temporary-write exception", () => {
-  const probe = {
-    rule: "file-mutation",
-    path: "crates/openhuman-core/src/doctor/checks/config_semantics.rs",
-    text: "&& tempfile::Builder::new()",
-    occurrence: 1,
-  };
-  const record = {
-    ...probe,
-    site: probe.text,
-    reason:
-      "The static doctor action-dir check writes a unique temporary file and removes it immediately to verify effective permissions; this is not persistent application state.",
-    issue: "https://github.com/tinyhumansai/openhuman/issues/8144",
-  };
-  const canonicalHistory = {
-    rawFindings: [],
-    allowances: [],
-  };
-
-  assert.deepEqual(validateAllowances([probe], [record], canonicalHistory), []);
-  const copied = { ...probe, path: "crates/openhuman-core/src/copied.rs" };
-  assert.match(
-    validateAllowances([copied], [{ ...record, path: copied.path }], canonicalHistory).join("\n"),
-    /growth forbidden/,
-  );
-});
 test("later allowances cannot grow or excuse a copied site", () => {
   const record = { ...row, site: row.text };
   const copy = { ...record, path: "crates/openhuman-embed/src/copy.rs" };

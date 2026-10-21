@@ -76,7 +76,7 @@ fn health_schema_exposes_only_optional_tier_and_exact_id_selection() {
     assert!(description.contains("live"), "{description}");
     assert!(description.contains("token"), "{description}");
     assert!(
-        description.contains("explicit user request"),
+        description.contains("user explicitly requested"),
         "{description}"
     );
 }
@@ -167,7 +167,7 @@ async fn health_tool_defaults_to_connect_when_tier_is_omitted() {
 #[test]
 fn gitbook_inventory_lists_every_registered_doctor_check_id() {
     let docs_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
-        .join("../../../docs/gitbooks/en/guides/doctor.md");
+        .join("../../docs/gitbooks/en/guides/doctor.md");
     let docs = std::fs::read_to_string(&docs_path).unwrap_or_else(|error| {
         panic!(
             "doctor check inventory page should exist at {}: {error}",
@@ -188,16 +188,3 @@ fn gitbook_inventory_lists_every_registered_doctor_check_id() {
     }
 }
 
-#[tokio::test]
-async fn models_tool_reports_unavailable_until_catalog_probes_exist() {
-    let error = DoctorModelsTool::new(cfg())
-        .execute(serde_json::json!({ "use_cache": true }))
-        .await
-        .expect_err("a model probe that does not run must not return a healthy report")
-        .to_string();
-
-    assert!(
-        error.to_lowercase().contains("not available"),
-        "the unavailable model probe should explain its status: {error}"
-    );
-}

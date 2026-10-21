@@ -165,11 +165,9 @@ async fn cli_explicit_valid_profile_uses_its_config_without_activating_or_writin
     let unknown_key = finding(&report, "config/unknown-key");
     assert_eq!(unknown_key["severity"], "warn");
     assert_eq!(unknown_key["config_path"], "memroy");
-    assert!(
-        unknown_key["message"]
-            .as_str()
-            .is_some_and(|message| message.contains("memroy"))
-    );
+    assert!(unknown_key["message"]
+        .as_str()
+        .is_some_and(|message| message.contains("memroy")));
 
     assert_eq!(
         fs::read_to_string(&active_user_path).expect("active user remains readable"),
@@ -241,11 +239,9 @@ async fn legacy_doctor_report_and_models_keep_json_without_boot_storage_writes()
         "report keeps its legacy outcome envelope"
     );
     assert_eq!(report["result"]["tier"], "static");
-    assert!(
-        report["result"]["checks_run"]
-            .as_array()
-            .is_some_and(|checks| checks.iter().any(|check| check == "config/parse"))
-    );
+    assert!(report["result"]["checks_run"]
+        .as_array()
+        .is_some_and(|checks| checks.iter().any(|check| check == "config/parse")));
     assert_unchanged(&before, &snapshot_tree(home));
 
     let models_output = fixture.run_cli(&["doctor", "models", "--use-cache", "false"]);
@@ -385,9 +381,7 @@ async fn cli_lint_uses_report_threshold_and_argument_error_exit_codes() {
 
     let invalid_arguments = fixture.run_cli(&["doctor", "--lint", "--severity-min", "pass"]);
     assert_eq!(invalid_arguments.status.code(), Some(2));
-    assert!(
-        String::from_utf8_lossy(&invalid_arguments.stderr)
-            .contains("invalid value for --severity-min")
-    );
+    assert!(String::from_utf8_lossy(&invalid_arguments.stderr)
+        .contains("invalid value for --severity-min"));
     assert_unchanged(&before, &snapshot_tree(fixture._home.path()));
 }

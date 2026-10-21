@@ -28,8 +28,12 @@ async fn run_only(config: crate::config::Config, id: &str) -> crate::doctor::Doc
 }
 
 #[cfg(unix)]
+const PRIVATE_WORKSPACE_MARKER: &str = "doctor-private-workspace-marker-8144";
+
+#[cfg(unix)]
 struct ReadOnlyWorkspace {
     temp: tempfile::TempDir,
+    workspace: std::path::PathBuf,
     original_mode: u32,
 }
 
@@ -39,24 +43,26 @@ impl ReadOnlyWorkspace {
         use std::os::unix::fs::PermissionsExt;
 
         let temp = tempfile::tempdir().expect("read-only workspace fixture");
-        let path = temp.path();
-        let original_mode = std::fs::metadata(path)
+        let path = temp.path().join(PRIVATE_WORKSPACE_MARKER);
+        std::fs::create_dir(&path).expect("create private workspace directory");
+        let original_mode = std::fs::metadata(&path)
             .expect("workspace metadata")
             .permissions()
             .mode();
-        let mut permissions = std::fs::metadata(path)
+        let mut permissions = std::fs::metadata(&path)
             .expect("workspace metadata")
             .permissions();
         permissions.set_mode(original_mode & !0o222);
-        std::fs::set_permissions(path, permissions).expect("make workspace read-only");
+        std::fs::set_permissions(&path, permissions).expect("make workspace read-only");
         Self {
             temp,
+            workspace: path,
             original_mode,
         }
     }
 
     fn path(&self) -> &std::path::Path {
-        self.temp.path()
+        &self.workspace
     }
 }
 
@@ -65,11 +71,11 @@ impl Drop for ReadOnlyWorkspace {
     fn drop(&mut self) {
         use std::os::unix::fs::PermissionsExt;
 
-        let mut permissions = std::fs::metadata(self.temp.path())
+        let mut permissions = std::fs::metadata(&self.workspace)
             .expect("workspace exists while restoring permissions")
             .permissions();
         permissions.set_mode(self.original_mode);
-        std::fs::set_permissions(self.temp.path(), permissions)
+        std::fs::set_permissions(&self.workspace, permissions)
             .expect("restore permissions before temporary cleanup");
     }
 }
@@ -157,6 +163,11 @@ async fn writable_probe_succeeds_and_leaves_the_selected_workspace_unchanged() {
 #[tokio::test]
 async fn read_only_workspace_is_reported_by_the_native_writable_check() {
     let workspace = ReadOnlyWorkspace::new();
+    assert!(workspace.path().is_dir(), "the selected workspace exists");
+    assert!(
+        create_probe(workspace.path()).is_err(),
+        "the selected directory must reject probe-file creation"
+    );
     let before = tree_snapshot(workspace.path());
     let mut config = crate::config::Config::default();
     config.workspace_dir = workspace.path().to_path_buf();
@@ -182,9 +193,12 @@ async fn read_only_workspace_is_reported_by_the_native_writable_check() {
         .find(|finding| finding.check_id == "workspace/writable")
         .expect("native workspace check produces a finding");
     assert_eq!(finding.severity, FindingSeverity::Error);
-    assert!(finding
-        .message
-        .contains(&workspace.path().display().to_string()));
+    assert_eq!(finding.config_path.as_deref(), Some("workspace_dir"));
+    let serialized = serde_json::to_string(&report).expect("serialize doctor report");
+    assert!(
+        !serialized.contains(PRIVATE_WORKSPACE_MARKER),
+        "the report must not disclose the physical workspace path"
+    );
     assert!(!finding.fix_hint.trim().is_empty());
 }
 

@@ -45,72 +45,98 @@ impl DoctorCheck for StorageConnect {
                 )];
             }
         };
-        match parsed {
-            StorageConfig::Sqlite { path } => match tokio::task::spawn_blocking(move || sqlite_probe(&path)).await {
+        inspect_storage_config(self.id(), parsed, 0).await
+    }
+}
+
+async fn inspect_storage_config(
+    check_id: &str,
+    config: StorageConfig,
+    depth: u8,
+) -> Vec<Finding> {
+    if depth > 2 {
+        return vec![Finding::skipped(
+            check_id,
+            "The selected composite storage configuration is nested beyond the inspection limit.",
+            "Simplify the storage configuration and rerun doctor.",
+        )];
+    }
+    match config {
+        StorageConfig::Sqlite { path } => {
+            match tokio::task::spawn_blocking(move || sqlite_probe(&path)).await {
                 Ok(true) => vec![Finding::pass(
-                    self.id(),
+                    check_id,
                     "The selected SQLite storage database is readable.",
                 )],
                 Ok(false) | Err(_) => vec![Finding::error(
-                    self.id(),
+                    check_id,
                     "The selected SQLite storage database could not be read.",
                     "Check that the configured database exists, is readable, and is not busy.",
                 )],
-            },
-            StorageConfig::Memory => {
-                vec![Finding::pass(
-                    self.id(),
-                    "The selected in-memory storage driver is available.",
-                )]
             }
-            StorageConfig::File { dir } => match tokio::task::spawn_blocking(move || file_probe(&dir)).await {
+        }
+        StorageConfig::Memory => vec![Finding::pass(
+            check_id,
+            "The selected in-memory storage driver is available.",
+        )],
+        StorageConfig::File { dir } => {
+            match tokio::task::spawn_blocking(move || file_probe(&dir)).await {
                 Ok(true) => vec![Finding::pass(
-                    self.id(),
+                    check_id,
                     "The selected file storage directory exists and is readable.",
                 )],
                 Ok(false) | Err(_) => vec![Finding::error(
-                    self.id(),
+                    check_id,
                     "The selected file storage directory could not be read.",
                     "Check that the configured directory exists and is readable.",
                 )],
-            },
-            StorageConfig::MongoDb { uri, database } => {
-                #[cfg(feature = "storage-mongodb")]
-                {
-                    match tinystoragedrivers::MongoStorage::connect(&uri, &database).await {
-                        Ok(_) => vec![Finding::pass(
-                            self.id(),
-                            "The selected MongoDB server answered a read-only hello request.",
-                        )],
-                        Err(_) => vec![Finding::error(
-                            self.id(),
-                            "The selected MongoDB server could not be reached.",
-                            "Check the selected MongoDB endpoint and credentials.",
-                        )],
-                    }
-                }
-                #[cfg(not(feature = "storage-mongodb"))]
-                {
-                    let _ = (uri, database);
-                    vec![Finding::skipped(
-                        self.id(),
-                        "MongoDB connectivity cannot be checked in this build.",
-                        "Use a build with MongoDB storage support to probe this backend.",
-                    )]
+            }
+        }
+        StorageConfig::MongoDb { uri, database } => {
+            #[cfg(feature = "storage-mongodb")]
+            {
+                match tinystoragedrivers::MongoStorage::connect(&uri, &database).await {
+                    Ok(_) => vec![Finding::pass(
+                        check_id,
+                        "The selected MongoDB server answered a read-only hello request.",
+                    )],
+                    Err(_) => vec![Finding::error(
+                        check_id,
+                        "The selected MongoDB server could not be reached.",
+                        "Check the selected MongoDB endpoint and credentials.",
+                    )],
                 }
             }
-            StorageConfig::Composite { .. } => vec![Finding::skipped(
-                    self.id(),
-                    "The selected composite storage does not have a read-only probe for every configured driver.",
-                    "Check each configured records and blob backend with its read-only connectivity command.",
-                )],
-            #[allow(unreachable_patterns)]
-            _ => vec![Finding::skipped(
-                    self.id(),
-                    "The selected storage driver has no safe read-only connectivity probe.",
-                    "Use a storage driver with a read-only doctor probe or run its own connectivity check.",
-                )],
+            #[cfg(not(feature = "storage-mongodb"))]
+            {
+                let _ = (uri, database);
+                vec![Finding::skipped(
+                    check_id,
+                    "MongoDB connectivity cannot be checked in this build.",
+                    "Use a build with MongoDB storage support to probe this backend.",
+                )]
+            }
         }
+        StorageConfig::Composite { records, blobs } => {
+            let mut findings = Box::pin(inspect_storage_config(check_id, *records, depth + 1)).await;
+            findings.extend(match *blobs {
+                tinystoragedrivers::BlobConfig::Backend(config) => {
+                    Box::pin(inspect_storage_config(check_id, config, depth + 1)).await
+                }
+                tinystoragedrivers::BlobConfig::S3 { .. } => vec![Finding::skipped(
+                    check_id,
+                    "The S3 blob backend has no bounded read-only connectivity probe.",
+                    "Check the configured S3 endpoint with its provider's read-only diagnostics.",
+                )],
+            });
+            findings
+        }
+        #[allow(unreachable_patterns)]
+        _ => vec![Finding::skipped(
+            check_id,
+            "The selected storage driver has no safe read-only connectivity probe.",
+            "Use a storage driver with a read-only doctor probe or run its own connectivity check.",
+        )],
     }
 }
 

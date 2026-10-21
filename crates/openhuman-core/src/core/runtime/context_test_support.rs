@@ -105,9 +105,7 @@ impl CoreContext {
         workspace_dir: std::path::PathBuf,
         config_path: std::path::PathBuf,
     ) -> Arc<CoreContext> {
-        let mut ctx = Arc::try_unwrap(Self::for_test(domains, None))
-            .ok()
-            .unwrap();
+        let mut ctx = Arc::try_unwrap(Self::for_test(domains, None)).ok().unwrap();
         ctx.workspace_binding = RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
             workspace_dir: Some(workspace_dir),
             config_path: Some(config_path),

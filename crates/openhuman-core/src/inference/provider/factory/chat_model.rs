@@ -59,14 +59,6 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<PreparedInspectionChatModel> {
-    if ctx
-        .host_overrides()
-        .and_then(|local| local.model_for(role))
-        .is_some()
-    {
-        anyhow::bail!("host-provided inference model has no frozen inspection identity");
-    }
-
     let mut resolved = provider_for_role(role, config);
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
         resolved = resolve_primary_cloud_provider_string(config);

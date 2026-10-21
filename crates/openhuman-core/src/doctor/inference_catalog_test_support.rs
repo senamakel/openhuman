@@ -28,7 +28,10 @@ pub(super) struct CatalogServerState {
     pub(super) authorizations: Arc<std::sync::Mutex<Vec<Option<String>>>>,
 }
 
-pub(super) async fn catalog_handler(State(state): State<CatalogServerState>, headers: HeaderMap) -> Response {
+pub(super) async fn catalog_handler(
+    State(state): State<CatalogServerState>,
+    headers: HeaderMap,
+) -> Response {
     state.requests.fetch_add(1, Ordering::SeqCst);
     if !state.delay.is_zero() {
         tokio::time::sleep(state.delay).await;
@@ -164,7 +167,9 @@ pub(super) fn profile_context(
     )
 }
 
-pub(super) fn workspace_context(config: Config) -> std::sync::Arc<crate::core::runtime::CoreContext> {
+pub(super) fn workspace_context(
+    config: Config,
+) -> std::sync::Arc<crate::core::runtime::CoreContext> {
     use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
 
     CoreContext::for_test(DomainSet::full(), None).derive_with(ContextOverlay::new(
@@ -283,4 +288,3 @@ pub(super) async fn report_for_context(
     .await
     .expect("doctor report for selected profile")
 }
-

@@ -577,4 +577,3 @@ async fn inference_connect_checks_are_registered_but_skipped_in_static_tier() {
     assert!(report.value.ok);
     assert_eq!(server.requests.load(Ordering::SeqCst), 0);
 }
-

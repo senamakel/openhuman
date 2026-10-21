@@ -480,4 +480,3 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
     assert_eq!(catalog_calls.load(Ordering::SeqCst), 1);
     assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
-

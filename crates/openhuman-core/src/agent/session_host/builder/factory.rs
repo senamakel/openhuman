@@ -1,6 +1,6 @@
 //! `OpenHumanSessionHost::from_config` factory methods and internal `build_session_agent_inner` constructor.
 
-use super::should_synthesize_delegation_tools;
+use super::{factory_resolution::provider_role_for_definition, should_synthesize_delegation_tools};
 use crate::agent::prompts::SystemPromptBuilder;
 use crate::agent::session_host::types::OpenHumanSessionHost;
 use crate::agent_registry::host_definition::{
@@ -188,11 +188,8 @@ impl OpenHumanSessionHost {
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
         // Host-only (`host_only.rs`): no config-derived tool is even built.
-        let (mut tools, pack_registry_handle) = if host_only {
-            (Vec::new(), None)
-        } else {
-            let (tools, pack_registry_handle) =
-                tools::ops::all_tools_with_runtime_and_pack_handle(
+        let (mut tools, pack_registry_handle) = make_tool_registry(host_only, || {
+            tools::ops::all_tools_with_runtime_and_pack_handle(
                 Arc::clone(&tool_config),
                 &security,
                 runtime,
@@ -205,9 +202,8 @@ impl OpenHumanSessionHost {
                 workspace_descriptor
                     .as_ref()
                     .map(|descriptor| descriptor.root.as_path()),
-            );
-            (tools, Some(pack_registry_handle))
-        };
+            )
+        });
 
         // Filter tools by the user preference loaded above.
         if !enabled_tools.is_empty() {
@@ -921,4 +917,21 @@ pub(super) fn resolve_target_definition(
     ))
 }
 
-use super::factory_resolution::provider_role_for_definition;
+
+fn make_tool_registry(
+    host_only: bool,
+    build: impl FnOnce() -> (
+        Vec<Box<dyn Tool>>,
+        tinyagents_harness_tools::skills::PackRegistryHandle,
+    ),
+) -> (
+    Vec<Box<dyn Tool>>,
+    Option<tinyagents_harness_tools::skills::PackRegistryHandle>,
+) {
+    if host_only {
+        (Vec::new(), None)
+    } else {
+        let (tools, handle) = build();
+        (tools, Some(handle))
+    }
+}

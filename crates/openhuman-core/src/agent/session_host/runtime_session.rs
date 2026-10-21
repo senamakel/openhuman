@@ -92,6 +92,7 @@ struct OpenHumanTurnPrelude {
             crate::agent::tinyagents::host::OpenHumanRunContext,
         >,
     >,
+    pack_registry_handle: Option<tinyagents_harness_tools::skills::PackRegistryHandle>,
     tool_dispatcher: Arc<dyn tinytools_agent::dialect::ToolDialect>,
     workspace_dir: std::path::PathBuf,
     action_dir: std::path::PathBuf,

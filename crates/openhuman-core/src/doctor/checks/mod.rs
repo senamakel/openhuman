@@ -6,6 +6,7 @@ mod config_semantics;
 mod embeddings;
 mod ids;
 mod inference;
+mod inference_live;
 mod mcp;
 mod modules;
 mod registry;
@@ -34,3 +35,7 @@ pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
 #[cfg(test)]
 #[path = "config_semantics_tests.rs"]
 mod config_semantics_tests;
+
+#[cfg(test)]
+#[path = "inference_live_tests.rs"]
+mod inference_live_tests;

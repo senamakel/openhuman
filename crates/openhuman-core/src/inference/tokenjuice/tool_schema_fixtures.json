@@ -1,0 +1,162 @@
+[
+  {
+    "description": "Return the whole original of a compacted or stored tool output, or a `range` of its lines or bytes. Pass the token its footer names (or the hash in a `⟦tj:…⟧` marker). To read or search only part of it, use juice_find with the same value as `handle` when that tool is offered.",
+    "name": "juice_retrieve",
+    "parameters": {
+      "properties": {
+        "range": {
+          "description": "Optional slice of the original to return.",
+          "properties": {
+            "end": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "start": {
+              "minimum": 0,
+              "type": "integer"
+            },
+            "unit": {
+              "enum": [
+                "bytes",
+                "lines"
+              ],
+              "type": "string"
+            }
+          },
+          "required": [
+            "start",
+            "end"
+          ],
+          "type": "object"
+        },
+        "token": {
+          "description": "The token named in the output's footer (or a ⟦tj:…⟧ marker's hash).",
+          "type": "string"
+        }
+      },
+      "required": [
+        "token"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Read or search part of a stored tool output by its handle, without loading all of it. mode `sed` reads exact lines (query `-n 120,200p`); `grep`/`regex` search (with `context` lines; regex returns capture groups); `text` substring; `rank` BM25; `awk` (`-F, '$2>5{print $1}'`); `jq` for JSON. Prefer this to juice_retrieve when you need only part of an output.",
+    "name": "juice_find",
+    "parameters": {
+      "properties": {
+        "context": {
+          "type": "integer"
+        },
+        "handle": {
+          "description": "the handle named in the output's footer",
+          "type": "string"
+        },
+        "ignore_case": {
+          "type": "boolean"
+        },
+        "mode": {
+          "enum": [
+            "text",
+            "grep",
+            "regex",
+            "rank",
+            "sed",
+            "awk",
+            "jq"
+          ],
+          "type": "string"
+        },
+        "query": {
+          "type": "string"
+        },
+        "scope": {
+          "description": "python slice, e.g. [:-100]",
+          "type": "string"
+        },
+        "top_k": {
+          "type": "integer"
+        },
+        "unit": {
+          "enum": [
+            "lines",
+            "chars"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle",
+        "query"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "HTML or Markdown outputs only: list their links or headings.",
+    "name": "juice_extract",
+    "parameters": {
+      "properties": {
+        "handle": {
+          "description": "the handle named in the output's footer",
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "lines",
+            "chars"
+          ],
+          "type": "string"
+        },
+        "what": {
+          "enum": [
+            "links",
+            "headings"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle",
+        "what"
+      ],
+      "type": "object"
+    }
+  },
+  {
+    "description": "Model-free overview of a stored output: size, outline or JSON shape, then head and tail; with `hint`, the parts most relevant to it. Use it to find where to read with juice_find.",
+    "name": "juice_summarize",
+    "parameters": {
+      "properties": {
+        "handle": {
+          "description": "the handle named in the output's footer",
+          "type": "string"
+        },
+        "hint": {
+          "description": "what you need from it",
+          "type": "string"
+        },
+        "max_chars": {
+          "type": "integer"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "unit": {
+          "enum": [
+            "lines",
+            "chars"
+          ],
+          "type": "string"
+        }
+      },
+      "required": [
+        "handle"
+      ],
+      "type": "object"
+    }
+  }
+]

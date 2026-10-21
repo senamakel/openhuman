@@ -55,7 +55,7 @@ instead of registering them as disabled.
 - `crate::agent::orchestration` for the sub-agent spawn tools, which sit next
   to these conceptually but live separately because they carry more
   lifecycle state.
-- `tinyagents_graph::todos` for the todo store and tool behavior.
+- `tinyagents_harness_tools::todos` for the todo store and tool behavior.
 
 ## Further reading
 

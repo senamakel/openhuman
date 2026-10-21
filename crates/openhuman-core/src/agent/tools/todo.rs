@@ -21,13 +21,13 @@ use crate::agent::harness::fork_context::ParentExecutionContext;
 use async_trait::async_trait;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tinyagents_harness_tools::todos::{self as graph_todos, store as todos_store};
+use tinyagents_harness_tools::todos::{self as harness_todos, store as todos_store};
 use tinyagents_harness::context::RunContext;
 use tinyagents_harness::tool::{ToolDispatch, ToolExecutionContext};
 use tinytools::{PermissionLevel, Tool, ToolCallOptions, ToolResult, ToolRunContext};
 
 pub struct TodoTool {
-    inner: graph_todos::TodoTool,
+    inner: harness_todos::TodoTool,
     workspace_dir: PathBuf,
 }
 
@@ -123,7 +123,7 @@ impl ToolDispatch<(), crate::agent::tinyagents::host::OpenHumanRunContext> for T
 impl TodoTool {
     pub fn new(workspace_dir: PathBuf) -> Self {
         Self {
-            inner: graph_todos::TodoTool::new(
+            inner: harness_todos::TodoTool::new(
                 crate::storage::sessions::stores_or_ephemeral(&workspace_dir).kv,
             ),
             workspace_dir,

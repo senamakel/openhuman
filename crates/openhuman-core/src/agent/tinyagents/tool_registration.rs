@@ -7,7 +7,7 @@ use std::collections::HashSet;
 use std::sync::Arc;
 
 use async_trait::async_trait;
-use tinyagents_graph::goals::GoalToolKind;
+use tinyagents_harness_tools::goals::GoalToolKind;
 use tinyagents_harness_tools::skills::{PackSelection, UseSkillDispatch, USE_SKILL};
 use tinyagents_harness::tool::{
     CanonicalSharedToolAdapter, ToolDispatch, ToolExecScope, ToolExecution, ToolExecutionContext,

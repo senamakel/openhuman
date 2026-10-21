@@ -7,6 +7,50 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::inference::provider::factory::access_gates::host_requires_session;
+
+#[test]
+fn inspection_codex_oauth_metadata_marks_output_budget_unsupported() {
+    use crate::inference::provider::factory::InspectionOutputBudgetCapability;
+    use tinyinference_llm::providers::openai::codex::OpenAiCodexRouting;
+
+    let codex = OpenAiCodexRouting {
+        endpoint: "https://chatgpt.com/backend-api/codex".into(),
+        using_oauth: true,
+        account_id: Some("acct-test".into()),
+    };
+    assert_eq!(
+        super::cloud_slug::inspection_output_budget_capability(&codex),
+        InspectionOutputBudgetCapability::Unsupported
+    );
+    assert_eq!(
+        super::cloud_slug::inspection_output_budget_capability(
+            &OpenAiCodexRouting::standard("https://api.openai.com/v1")
+        ),
+        InspectionOutputBudgetCapability::Bounded
+    );
+}
+
+#[test]
+fn inspection_codex_oauth_metadata_marks_output_budget_unsupported() {
+    use crate::inference::provider::factory::InspectionOutputBudgetCapability;
+    use tinyinference_llm::providers::openai::codex::OpenAiCodexRouting;
+
+    let codex = OpenAiCodexRouting {
+        endpoint: "https://chatgpt.com/backend-api/codex".into(),
+        using_oauth: true,
+        account_id: Some("acct-test".into()),
+    };
+    assert_eq!(
+        super::cloud_slug::inspection_output_budget_capability(&codex),
+        InspectionOutputBudgetCapability::Unsupported
+    );
+    assert_eq!(
+        super::cloud_slug::inspection_output_budget_capability(
+            &OpenAiCodexRouting::standard("https://api.openai.com/v1")
+        ),
+        InspectionOutputBudgetCapability::Bounded
+    );
+}
 fn create_test_chat_model_from_string(
     role: &str,
     provider: &str,

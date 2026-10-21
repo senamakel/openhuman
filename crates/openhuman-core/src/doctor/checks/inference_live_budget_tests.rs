@@ -36,12 +36,8 @@ async fn unsupported_output_budget_is_skipped_without_invoking_the_model() {
         ),
         output_budget: InspectionOutputBudgetCapability::Unsupported,
     };
-    let finding = probe_prepared_model(
-        &LiveProbeCache::default(),
-        prepared,
-        "inference/live/chat",
-    )
-    .await;
+    let finding =
+        probe_prepared_model(&LiveProbeCache::default(), prepared, "inference/live/chat").await;
     let invocation_count = invocations.load(Ordering::SeqCst);
 
     assert!(

@@ -106,4 +106,3 @@ pub async fn init_stores(cfg: &crate::config::Config, domains: crate::core::runt
         }
     }
 }
-

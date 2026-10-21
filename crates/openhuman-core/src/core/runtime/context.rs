@@ -18,8 +18,8 @@
 use std::future::Future;
 use std::sync::{Arc, OnceLock, RwLock};
 
-use crate::core::types::HostKind;
 use crate::core::runtime::TokenSource;
+use crate::core::types::HostKind;
 
 #[path = "context_accessors.rs"]
 mod accessors;
@@ -650,7 +650,7 @@ impl CoreContext {
 /// Per-`DomainGroup` gating decision for each workspace-bound store that
 #[path = "context_store_init.rs"]
 mod store_init;
-pub use store_init::{init_stores, StoreInitPlan};
+pub use store_init::{StoreInitPlan, init_stores};
 
 #[path = "context_boot.rs"]
 mod boot;

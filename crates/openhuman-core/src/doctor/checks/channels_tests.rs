@@ -118,7 +118,7 @@ async fn an_absent_or_mismatched_ready_module_is_skipped_without_opening_it() {
         policy: Default::default(),
         workspace: Default::default(),
     });
-    let check = ChannelHealthCheck::with_probe("telegram", probe);
+    let check = ChannelHealthCheck::with_probe("telegram", Arc::clone(&probe));
     let finding = check
         .detect(&DoctorCtx::from_config(selected_b))
         .await

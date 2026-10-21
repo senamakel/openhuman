@@ -22,7 +22,10 @@ fn listener_configuration_includes_channels_and_nonempty_relays_but_not_push_web
 
     config.channels_config.relay = Some(tinychannels_bus::config::RelayRuntimeConfig {
         url: "https://relay.example.invalid".into(),
-        identities: vec![Default::default()],
+        identities: vec![tinychannels_bus::config::RelayRuntimeIdentityConfig {
+            platform: "discord".into(),
+            bot_id: "doctor-test-bot".into(),
+        }],
         ..Default::default()
     });
     assert!(has_listener_configuration(&config));

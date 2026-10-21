@@ -1,4 +1,5 @@
 use super::*;
+use tinychannels_bus::ChannelHealthState;
 
 #[cfg(feature = "modules")]
 #[derive(Clone)]

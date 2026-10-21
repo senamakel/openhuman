@@ -2,12 +2,12 @@
 
 use super::*;
 
-use crate::config::Config;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ephemeral_route::{EphemeralRoute, apply as apply_ephemeral_route};
+use crate::config::schema::ephemeral_route::{apply as apply_ephemeral_route, EphemeralRoute};
+use crate::config::Config;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
-use serde_json::{Value, json};
+use serde_json::{json, Value};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -230,11 +230,9 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
     let body: Value = serde_json::from_slice(&requests[0].body).expect("request is JSON");
     assert_eq!(body["messages"].as_array().unwrap().len(), 1);
     assert_eq!(body["messages"][0]["content"], "Reply OK");
-    assert!(
-        body["max_tokens"]
-            .as_u64()
-            .is_some_and(|value| (1..=5).contains(&value))
-    );
+    assert!(body["max_tokens"]
+        .as_u64()
+        .is_some_and(|value| (1..=5).contains(&value)));
     assert_eq!(
         requests[0]
             .headers
@@ -302,11 +300,11 @@ async fn live_probe_uses_selected_doctor_config_inside_another_ambient_context()
 #[tokio::test]
 async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
     use crate::inference::registry::{
-        ChatModelRequest, InspectionChatModelFactory, register_inspection_chat_model_in,
+        register_inspection_chat_model_in, ChatModelRequest, InspectionChatModelFactory,
     };
     use std::sync::{
-        Arc,
         atomic::{AtomicUsize, Ordering},
+        Arc,
     };
     use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
@@ -321,11 +319,9 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
             self.0.fetch_add(1, Ordering::SeqCst);
             assert_eq!(request.messages.len(), 1);
             assert_eq!(request.messages[0].text(), "Reply OK");
-            assert!(
-                request
-                    .max_tokens
-                    .is_some_and(|value| (1..=5).contains(&value))
-            );
+            assert!(request
+                .max_tokens
+                .is_some_and(|value| (1..=5).contains(&value)));
             Ok(ModelResponse::assistant("OK"))
         }
     }
@@ -678,13 +674,11 @@ async fn connect_tier_skips_live_chat_without_sending_a_completion() {
     assert!(!report.findings.iter().any(|result| {
         result.check_id == "doctor/selection" && result.severity == FindingSeverity::Error
     }));
-    assert!(
-        server
-            .received_requests()
-            .await
-            .expect("mock records calls")
-            .is_empty()
-    );
+    assert!(server
+        .received_requests()
+        .await
+        .expect("mock records calls")
+        .is_empty());
 }
 
 #[test]

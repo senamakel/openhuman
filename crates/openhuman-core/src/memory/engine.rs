@@ -47,6 +47,7 @@ use crate::security::credentials::session_support::resolve_backend_credential;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
 use super::error::{MemoryError, MemoryResult};
+use super::engine_registry::ReadOnlyEngineError;
 
 /// Engine id of CortexDB behind the TinyHumans backend.
 pub const TINYHUMANS_ENGINE: &str = tinymemory_integrations::cortex::TINYHUMANS_ENGINE_ID;
@@ -279,6 +280,69 @@ pub fn resolve(config: &Config) -> Binding {
         None
     };
     resolve_configured(config, root.as_deref())
+}
+
+/// Builds an uncached engine for an explicitly requested live doctor check.
+/// Credential/profile reads use the read-only inspection seams; this never
+/// enters the active hosted context, normal engine cache, or mutable resolver.
+pub async fn resolve_read_only_for_inspection(
+    config: &Config,
+) -> Result<Arc<dyn MemoryEngine>, ReadOnlyEngineError> {
+    if !config.components.memory {
+        return Err(ReadOnlyEngineError::ComponentDisabled);
+    }
+    let engine_id = config.memory.engine.trim();
+    if engine_id.is_empty() || engine_id.eq_ignore_ascii_case(DISABLED_ENGINE) {
+        return Err(ReadOnlyEngineError::EngineDisabled);
+    }
+
+    if let Some(factory) = super::engine_registry::read_only_engine_factory(engine_id) {
+        return factory(config.clone())
+            .await
+            .map(super::guard::ScrubbingEngine::wrap);
+    }
+
+    if engine_id != CORTEXDB_ENGINE {
+        return Err(ReadOnlyEngineError::UnsupportedEngine);
+    }
+
+    let key = AuthService::get_provider_bearer_token_read_only(
+        config,
+        MEMORY_CORTEXDB_KEY_NAME,
+        None,
+    )
+    .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?
+    .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?;
+    let endpoint = config
+        .memory
+        .endpoint_for(CORTEXDB_ENGINE)
+        .unwrap_or_else(|| tinymemory_integrations::cortex::CORTEX_API_ENDPOINT.to_string());
+    let root = if super::scope::layout_is_v3(config) {
+        Some(
+            super::scope::user_root(config)
+                .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?,
+        )
+    } else {
+        None
+    };
+    let settings = EngineSettings {
+        endpoint: Some(endpoint),
+        observed_actor: config.memory.observed_actor,
+        ..EngineSettings::default()
+    };
+    let (settings, _) = rooted(
+        settings,
+        root.as_deref(),
+        false,
+        config.memory.legacy_user_segment_read,
+    );
+    let engine = tinymemory_integrations::build_engine(
+        CORTEXDB_ENGINE,
+        &settings,
+        EngineCredential::Static(key),
+    )
+    .map_err(|_| ReadOnlyEngineError::InvalidConfiguration)?;
+    Ok(super::guard::ScrubbingEngine::wrap(engine))
 }
 
 /// The engine the layout migration needs, for an explicit layout whatever

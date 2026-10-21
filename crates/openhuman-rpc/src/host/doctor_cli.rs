@@ -25,14 +25,17 @@ pub(super) fn try_run(args: &[String]) -> Option<Result<()>> {
 }
 
 fn parse(args: &[String]) -> Result<Option<Invocation>> {
-    if !args.first().is_some_and(is_doctor_or_launch_option) {
+    if !args
+        .first()
+        .is_some_and(|arg| is_doctor_or_launch_option(arg))
+    {
         return Ok(None);
     }
 
     // This pure parser is shared with the CLI dispatcher. The inspection path
     // accepts the familiar leading flags but deliberately does not apply their
     // transient model/provider overrides to the selected profile.
-    let command = match crate::core_host::core::cli::parse_cli_args_after_launch_options(args) {
+    let command = match crate::embed::cli::parse_cli_args_after_launch_options(args) {
         Ok(command) => command,
         Err(_) => return Ok(None),
     };
@@ -58,7 +61,7 @@ fn parse(args: &[String]) -> Result<Option<Invocation>> {
     let method = format!("openhuman.doctor_{function}");
     let schema = crate::embed::schema_for_rpc_method(&method)
         .ok_or_else(|| anyhow!("unregistered doctor controller '{function}'"))?;
-    let params = crate::core_host::core::cli::parse_function_params(&schema, &command[2..])
+    let params = crate::embed::cli::parse_function_params(&schema, &command[2..])
         .map_err(anyhow::Error::msg)?;
     Ok(Some(Invocation { method, params }))
 }

@@ -1,96 +1,106 @@
-# doctor
+# Doctor
 
-Diagnostic and self-check domain for OpenHuman. The v2 framework registers stable-id checks, runs them asynchronously with tier budgets, bounded concurrency, and component gates, then returns the versioned `DoctorReport`. Existing v1 probes run through per-check blocking adapters until #506 ports them. The report is exposed through `doctor.report`; `doctor.models` remains available and reports that catalog probing is not available yet.
+The doctor domain runs configuration and runtime diagnostics and returns a
+versioned `DoctorReport`. Checks have stable ids, a cost tier, a finding for
+every result, and a fix hint. The core owns the report contract, check registry,
+runner, core checks, and JSON-RPC controllers. Host-specific checks register
+through the same source interface.
 
-## Responsibilities
+## Contract
 
-- Define the check/report v2 contract, generic process and per-context check-source registrations, and a bounded asynchronous runner.
-- Filter selected checks by exact id and tier; report disabled-component and above-tier checks as skipped.
-- Keep the existing config, workspace, environment, memory, embeddings, and SDK probes working through a temporary v1 adapter.
-- Preserve the `doctor.models` controller and the `doctor_health` / `doctor_models` tool names.
+`DoctorReport.schema_version` is `2`. A report carries the selected profile
+and config source when known, the requested tier, ordered `checks_run` and
+`checks_skipped` ids, findings, a severity summary, and `ok`. `ok` is false when
+at least one finding has severity `error`; warnings and skipped checks do not
+make it false.
+
+Each `Finding` contains its check id, severity (`pass`, `info`, `warn`, `error`,
+or `skipped`), safe message, required `fix_hint`, optional config path and
+value source, elapsed milliseconds, and affected capability ids. Findings must
+not include credentials, resolved config values, request bodies, or user text.
+Use a safe error class and a useful recovery step when the original error may
+contain sensitive data. A passing check uses “No action required.” as its hint.
+
+## Tiers and selection
+
+| Tier | Runs | Budget |
+| --- | --- | --- |
+| `static` | Local config and filesystem checks. | 5 seconds per check. |
+| `connect` | Static checks and bounded, read-only connectivity probes. This is the default. | 10 seconds per check. |
+| `live` | Static and connect checks plus probes that may incur inference cost or write disposable remote test data. | 60 seconds per check. |
+
+The runner allows at most eight checks at once. Synchronous checks run on
+Tokio's blocking pool; async checks stay on the runtime. A timeout or failed
+worker becomes an error finding and does not stop sibling checks. Tier and
+component gates produce `skipped` findings before a detector runs.
+
+`only` and `skip` accept exact registered ids. When `only` is present, checks
+outside that list do not appear in the report. `skip` removes checks from the
+selected set. Unknown ids add one `doctor/selection` error finding without
+echoing the supplied value. Check ids use lowercase slash-separated segments;
+duplicate and malformed registrations are rejected before any detector runs.
+
+## Registry and check sources
+
+Built-in checks are composed in `checks/`, with profile checks in `profile.rs`.
+Configuration-dependent checks are selected for the report's `DoctorCtx`.
+Hosts contribute additional checks through `DoctorCheckSource`:
+
+- `register_check_source` adds a source for the process.
+- `register_check_source_in` scopes a source to a `CoreContext` extension set.
+- `checks_for(&DoctorCtx)` lets a source choose checks from the effective
+  config and profile; context-independent sources may use the default method.
+
+Use a process source for checks independent of the active user or profile. Use
+context-scoped registration and the supplied `DoctorCtx` for checks whose ids
+or checks depend on that context. `registered_checks_for` combines built-ins,
+context-dependent checks, and active host sources, then validates the complete
+set before the runner starts.
+
+## Profiles and hosted callers
+
+The active config supplies the default report. A desktop host may select a
+profile with `profile`; the doctor loads that profile read-only and reports
+selection failures as findings. It does not activate or repair the profile. A
+SaaS caller always uses its current tenant context and cannot use the profile
+input to inspect another tenant. Hosts should route selected-profile requests
+through `doctor_report_for_dispatch` or the explicit profile resolver so the
+core uses the host's authorization and profile rules.
+
+## Controller and tool surfaces
+
+The `doctor.report` JSON-RPC controller accepts optional `tier`, exact-id
+`only` and `skip` arrays, and `profile`. It returns the v2 report. The CLI host
+is a separate consumer of this controller; CLI argument parsing, presentation,
+and exit behavior belong in `crates/openhuman-cli`, not in this domain.
+
+The `doctor_health` agent tool accepts optional `tier` and `only`. It defaults
+to `connect` and returns the same report contract. Its description tells the
+model that `live` may spend inference tokens and is only appropriate when the
+user explicitly requested those probes; the tool has no separate user-intent
+signal to enforce that policy at execution time.
+
+The `doctor.models` controller and `doctor_models` tool are separate surfaces.
+Keep their wire names stable and document model-probe behavior alongside its
+implementation.
 
 ## Key files
 
 | File | Role |
 | --- | --- |
-| `crates/openhuman-core/src/doctor/contract.rs` | Check trait, tier/component types, v2 findings, context, options, and report. |
-| `crates/openhuman-core/src/doctor/registry.rs` | Built-in and host check sources; process and `CoreContext` registrations; id validation. |
-| `crates/openhuman-core/src/doctor/runner.rs` | Exact-id filters, component/tier skips, timeouts, bounded concurrency, and v2 report assembly. |
-| `crates/openhuman-core/src/doctor/legacy.rs` | Per-check adapter for the moved v1 probes until #506. |
-| `crates/openhuman-core/src/doctor/ops.rs` | Async JSON-RPC surface; resolves async memory status and invokes the v2 runner. |
-| `crates/openhuman-core/src/doctor/schemas.rs` | Controller schemas and handlers for `doctor.report` and `doctor.models`. |
-| `crates/openhuman-core/src/doctor/runner_tests.rs` | Runner acceptance tests and `FakeCheck` usage. |
-| `crates/openhuman-core/src/doctor/core_tests.rs` | Test suite for [`core.rs`](./core.rs) (via `#[path = "core_tests.rs"] mod tests`). |
+| [`contract.rs`](./contract.rs) | Tiers, check context and source traits, findings, and report types. |
+| [`registry.rs`](./registry.rs) | Built-in and host source composition, registration, and id validation. |
+| [`runner.rs`](./runner.rs) | Selection, tier/component skips, bounded execution, and report assembly. |
+| [`checks/`](./checks/) | Configuration, inference, memory, storage, and context-selected checks. |
+| [`profile.rs`](./profile.rs) | Read-only desktop profile loading and profile diagnostics. |
+| [`ops.rs`](./ops.rs) | Core report entry points and host-facing profile selection. |
+| [`schemas.rs`](./schemas.rs) | JSON-RPC controller schemas and handlers. |
+| [`tools.rs`](./tools.rs) | `doctor_health` and `doctor_models` agent tools. |
 
-## Public surface
+## Tests
 
-From [`mod.rs`](./mod.rs):
-
-- V2 types: `DoctorCheck`, `DoctorCheckSource`, `DoctorCtx`, `DoctorOptions`, `DoctorTier`, `Finding`, `FindingSeverity`, and `DoctorReport`.
-- Registration: `register_check_source(source)` for the process or `register_check_source_in(&extensions, source)` for a `CoreContext` built with `CoreBuilder::extensions`.
-- Legacy types remain available as `LegacyDoctorReport` / `LegacyDoctorSummary`; model-probe report types remain part of the `doctor.models` schema.
-
-From `ops` (also re-exported as `doctor::rpc`):
-
-- `doctor_report(&Config) -> Result<Outcome<DoctorReport>, String>` (v2 report)
-- `doctor_report_with_options(&Config, DoctorOptions) -> Result<Outcome<DoctorReport>, String>`
-- `doctor_models(&Config, use_cache: bool) -> Result<Outcome<ModelProbeReport>, String>`
-
-Schema pair re-exported as `all_doctor_controller_schemas` / `all_doctor_registered_controllers`.
-
-## RPC / controllers
-
-Namespace `doctor`, two functions:
-
-| Method | Inputs | Output |
-| --- | --- | --- |
-| `doctor.report` | optional `tier`, exact-id `only` / `skip`, and `profile` | v2 `DoctorReport` ("Run diagnostics for workspace and runtime configuration.") |
-| `doctor.models` | `use_cache: Option<bool>` (default `true`) | Returns an unavailable error until catalog probing is implemented. |
-
-Both handlers load config through `DispatchCtx` and return `Outcome::single_log(...)`. The profile field is reserved for the host profile loaders in #490/#491. Controllers remain wired in `crates/openhuman-core/src/core/all.rs`.
-
-## Agent tools
-
-The `doctor_health` and `doctor_models` tools remain in [`tools.rs`](./tools.rs); their names and JSON-RPC method names stay stable.
-
-## Events
-
-None. No `bus.rs` / event-bus subscribers or publishers.
-
-## Persistence
-
-None of its own (no `store.rs`). It only **reads** existing state owned by other domains: the memory engine's status (passed in as `MemoryEngineCheck`), config files, and `<workspace>/SYSTEM.md` / `<workspace>/memory/`. Its only writes are an ephemeral workspace probe file that is immediately deleted.
-
-## Dependencies
-
-- `crate::config::{Config, rpc}`: reads the live config for all probes; `config_rpc::load_config_with_timeout` in the handlers.
-- `crate::memory::status`: the memory engine's status (`ok`/`degraded`/`down`/`off`), taken by `ops` before the blocking hop and passed to `run` as a `MemoryEngineCheck`.
-- `crate::inference::embedding_host::effective_embedding_settings`: resolves the intended embedding provider/model.
-- `crate::inference::local`: `ollama_base_url_from_override(config.local_ai.base_url)` (configured embedding probe).
-- `config.resolved_endpoints` (filled by the host's config enricher) for the inference base URL; `crate::security::credentials::jwt::get_session_token` for sign-in state.
-- `crate::core::all::{ControllerFuture, RegisteredController}`, `crate::core::{ControllerSchema, FieldSchema, TypeSchema}`: controller/schema plumbing.
-- `crate::rpc::RpcOutcome`: handler return contract.
-- External: `reqwest` (blocking client + URL parse), `serde`/`serde_json`, `chrono`, `anyhow`.
-
-## Used by
-
-- `crates/openhuman-core/src/core/all.rs`: registers the doctor controllers/schemas into the global RPC + CLI registry (the only in-tree consumer).
-
-## Notes / gotchas
-
-- The framework runs at most eight checks at once. A blocking adapter runs on a dedicated `spawn_blocking` worker; an async check stays on the runtime.
-- Each detector has a tier-derived timeout (5 seconds static, 10 seconds connect, 60 seconds live). Timeout or worker failures are error findings and do not stop sibling checks.
-- The legacy memory engine status remains an async input resolved by `ops` before the per-check blocking adapter. Do not call `Handle::block_on` from a check.
-- The v1 adapter maps status and ids to v2 but does not forward unstructured legacy messages, which may contain resolved configuration values. Native v2 checks should provide safe, specific findings.
-- An engine that is down is reported as an error and memory being off as a warning, so the doctor names what is wrong instead of showing an empty store.
-- `doctor.models` reports an explicit unavailable error until the inference catalog integration is implemented in #497; it does not return a fabricated all-skipped report.
-- The configured-model probe is capped at a 3s timeout to avoid stalling on a slow Ollama daemon; non-Ollama providers are reported as skipped until their provider-specific checks run.
-- `model_matches` treats `name` vs `name:tag` as a match only when at most one side is tagged; two differently-tagged names are not considered equal.
-- Severity rollup: `DoctorSummary` counts `Ok`/`Warn`/`Error` items; checks are intentionally lenient (missing optional dirs/tools → `Warn`, not `Error`).
-- OS-specific helpers (`available_disk_space_mb`, `check_command_available`, `check_claude_agent_sdk`) set `CREATE_NO_WINDOW` on Windows to avoid console flashes.
-
-## Further reading
-
-- [Platform services](../platform/README.md)
-- [Platform and availability](../../../../docs/gitbooks/en/features/platform.md)
-- [Recover a failed installation](../../../../../docs/gitbooks/en/guides/recover-failed-installation.md)
+Tests live beside the implementation in `*_tests.rs` files. Use
+`test_support::FakeCheck` and context-scoped check sources for runner and tool
+tests. Keep tests independent of user skill roots and external services. The
+registered-id inventory test under `tools_tests.rs` checks the user guide
+against the check registry so documented ids track the code.

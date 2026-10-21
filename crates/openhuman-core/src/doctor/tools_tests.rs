@@ -187,4 +187,3 @@ fn gitbook_inventory_lists_every_registered_doctor_check_id() {
         );
     }
 }
-

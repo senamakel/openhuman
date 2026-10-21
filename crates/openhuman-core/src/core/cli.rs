@@ -560,7 +560,8 @@ fn run_namespace_command(
     Ok(())
 }
 
-/// Parses command-line arguments into a JSON map based on a function's schema.
+/// Parses namespace-style command-line arguments into a JSON map based on a
+/// function's schema, without dispatching the command or starting a runtime.
 ///
 /// # Arguments
 ///
@@ -570,8 +571,6 @@ fn run_namespace_command(
 /// # Errors
 ///
 /// Returns an error if arguments are malformed, unknown, or fail validation.
-/// Parse a controller's namespace-style CLI parameters using its registered
-/// schema, without dispatching the command or starting a runtime.
 pub fn parse_function_params(
     schema: &ControllerSchema,
     args: &[String],

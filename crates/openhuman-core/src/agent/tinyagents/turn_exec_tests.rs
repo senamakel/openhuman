@@ -410,7 +410,7 @@ async fn a_streamed_delta_reaches_the_progress_channel_exactly_once() {
         vec!["one delta".to_string()],
         "every model delta is forwarded once, by one producer"
     );
-    // The two counters have OPPOSITE contracts. Read them separately.
+    // Both counters are exact, for different reasons.
     //
     // `completed` is asserted by equality at 0, and that is a documented
     // design: `run_root` passes `defer_turn_completed_to_caller = true`, so
@@ -421,19 +421,9 @@ async fn a_streamed_delta_reaches_the_progress_channel_exactly_once() {
     // this test exists to prevent. So the ceiling could not fail in the
     // direction the test was written for. Do not loosen this one back.
     //
-    // `started` deliberately stays a ceiling. The deferral flag governs
-    // `TurnCompleted` only; it does not suppress the root's `Started` event.
-    // `host/progress_sink.rs:400` forwards `TurnStarted` for the root run, and
-    // the module docs at `:59` and `:185` say only the root projects a
-    // top-level one — and this path IS the root, so exactly one is what the
-    // contract calls for.
-    //
-    // It is nevertheless absent: instrumenting this test measured
-    // `started = 0`. `assert_eq!(started, 1)` is therefore the RIGHT eventual
-    // assertion and would fail today, so it is not made here — a PR tightening
-    // a test should not land a knowingly-red one. Tracked as #6576; tighten
-    // this to `== 1` as part of fixing that, not before.
-    assert!(started <= 1, "TurnStarted was emitted {started} times");
+    // `started` is exact too: the deferral flag governs `TurnCompleted` only,
+    // and this path IS the root, which announces its turn once (#6576).
+    assert_eq!(started, 1, "TurnStarted was emitted {started} times");
     assert_eq!(
         completed, 0,
         "the deferring seam must emit no TurnCompleted — the caller owns it"
@@ -613,4 +603,74 @@ async fn session_screens_the_new_input_but_not_a_replayed_tool_results_row() {
         2,
         "a blocked input never reaches the model"
     );
+}
+
+/// A root turn over its compaction trigger says so before the model call the
+/// summary is for: on a long chat the summary can hold that call for minutes.
+#[tokio::test]
+async fn a_root_turn_reports_its_compaction_before_the_model_call() {
+    use crate::progress::AgentProgress;
+
+    let (progress, mut events) = tokio::sync::mpsc::channel(256);
+    let model: Arc<dyn ChatModel<()>> =
+        Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
+            "summary", "done", "done",
+        ]));
+    let mut history = vec![TranscriptMessage::system("system-compacting")];
+    for round in 0..6 {
+        history.push(TranscriptMessage::user(format!(
+            "request {round}: {}",
+            "earlier detail ".repeat(40)
+        )));
+        history.push(TranscriptMessage::assistant(format!(
+            "answer {round}: {}",
+            "earlier result ".repeat(40)
+        )));
+    }
+    history.push(TranscriptMessage::user("continue"));
+
+    TurnSpec {
+        run_context: root_context("compacting", "/tmp/compacting", progress),
+        turn_models: TurnModelSource::from_model(model)
+            .build("root-test-model", 0.0, None, None)
+            .expect("scripted turn models build"),
+        provider_id: "test".to_string(),
+        model: "root-test-model",
+        history,
+        tool_sets: vec![Arc::new(Vec::new())],
+        allowed: Some(Default::default()),
+        max_iterations: 2,
+        context_window: None,
+        run_queue: None,
+        message_run_queue: None,
+        early_exit_tools: &[],
+        pause_at_cap: false,
+        max_output_tokens: None,
+        context_mw: TurnContextMiddleware {
+            autocompact_enabled: true,
+            compaction: crate::config::CompactionSettings {
+                trigger_tokens: Some(200),
+                strategy: crate::config::CompactionStrategy::Summary,
+            },
+            ..TurnContextMiddleware::default()
+        },
+        tool_policy: None,
+        defer_turn_completed_to_caller: true,
+        subagent_scope: None,
+        deterministic_cacheable: false,
+    }
+    .run_hosted(hosted_base(), "main".to_string())
+    .await
+    .expect("hosted root succeeds");
+
+    let mut kinds = Vec::new();
+    while let Ok(event) = events.try_recv() {
+        match event {
+            AgentProgress::ContextCompacting => kinds.push("compacting"),
+            AgentProgress::IterationStarted { .. } => kinds.push("iteration"),
+            _ => {}
+        }
+    }
+    assert_eq!(kinds.first(), Some(&"compacting"), "{kinds:?}");
+    assert!(kinds.contains(&"iteration"), "{kinds:?}");
 }

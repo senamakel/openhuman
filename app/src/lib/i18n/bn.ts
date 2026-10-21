@@ -578,6 +578,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'অপেক্ষমাণ ডেস্কটপ অনুমোদন লোড করা যায়নি। আবার চেষ্টা করতে রিফ্রেশ করুন।',
   'desktop.unsupported': 'এই পরিবেশে ডেস্কটপ নিয়ন্ত্রণ উপলব্ধ নয়।',
+  'desktop.unsupportedWindows':
+    'Windows-এ ডেস্কটপ নিয়ন্ত্রণ এখনও উপলব্ধ নয়। ব্রাউজার নিয়ন্ত্রণ এখনই Windows-এ কাজ করে।',
   'desktop.localOnly': 'এই সেটিং শুধু এই কম্পিউটারে প্রযোজ্য।',
   'desktop.permissions': 'সিস্টেম অনুমতি',
   'desktop.openSettings': 'সেটিংস খুলুন',
@@ -597,6 +599,10 @@ const messages: TranslationMap = {
     'এই মুহূর্তে মেমরিতে পৌঁছানো যাচ্ছে না। সংরক্ষিত কিছুই হারায়নি; একটু পরে আবার চেষ্টা করুন।',
   'memory.outOfCredits.title': 'ক্রেডিট শেষ',
   'memory.outOfCredits.action': 'টপ আপ করুন',
+  'memory.error.planRequired':
+    'আপনার বর্তমান প্ল্যানে মেমরি অন্তর্ভুক্ত নেই, তাই OpenHuman যা শেখে তা সংরক্ষণ করতে বা খুঁজে দেখতে পারে না। মেমরি চালু করতে আপগ্রেড করুন, অথবা সেটিংস থেকে অন্য কোনো মেমরি বিকল্পে যান।',
+  'memory.planRequired.title': 'মেমরি আপনার প্ল্যানের অংশ নয়',
+  'memory.planRequired.action': 'প্ল্যানগুলো দেখুন',
   'alerts.title': 'সতর্কতা',
   'alerts.empty': 'এখনো কোনো সতর্কতা নেই',
   'alerts.markAllRead': 'সব পঠিত চিহ্নিত করুন',
@@ -1299,6 +1305,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': 'বার্তা লোড করতে ব্যর্থ',
   'chat.thinkingDots': 'ভাবছে...',
   'chat.status.thinkingElapsed': 'ভাবছে · {elapsed}',
+  'chat.status.compacting': 'আগের কথোপকথনের সারাংশ তৈরি হচ্ছে…',
+  'chat.status.compactingElapsed': 'আগের কথোপকথনের সারাংশ তৈরি হচ্ছে · {elapsed}',
   'chat.status.waitingApproval': 'আপনার অনুমোদনের অপেক্ষায়',
   'chat.status.waitingReview': 'আপনার পর্যালোচনার অপেক্ষায়',
   'chat.status.waitingAnswer': 'আপনার উত্তরের অপেক্ষায়',

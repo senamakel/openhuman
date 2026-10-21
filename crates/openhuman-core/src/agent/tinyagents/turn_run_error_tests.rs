@@ -50,3 +50,27 @@ async fn the_model_call_cap_and_depth_limit_win_over_a_stale_provider_error() {
         )
     ));
 }
+
+#[tokio::test]
+async fn physical_dispatch_refusal_keeps_its_typed_reason_ahead_of_stale_provider_error() {
+    let refusal = crate::agent::tinyagents::budget::DispatchRefusal::new(
+        crate::agent::tinyagents::budget::DispatchRefusalReason::CallLimit,
+    );
+    let slot: ModelErrorSlot = std::sync::Arc::new(std::sync::Mutex::new(Some(
+        tinyinference_llm::Error::Model("stale provider error".to_string()),
+    )));
+    let mapped = map_turn_run_error(
+        tinyagents_harness::TinyAgentsError::PhysicalDispatchAdmission(refusal),
+        "m",
+        10,
+        &slot,
+        None,
+    )
+    .await;
+
+    assert_eq!(
+        mapped.downcast_ref::<crate::agent::tinyagents::budget::DispatchRefusal>(),
+        Some(&refusal)
+    );
+    assert!(slot.lock().unwrap().is_none());
+}

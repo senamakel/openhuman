@@ -574,6 +574,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     '대기 중인 데스크톱 승인을 불러올 수 없습니다. 새로고침 후 다시 시도하세요.',
   'desktop.unsupported': '이 실행 환경에서는 데스크톱 제어를 사용할 수 없습니다.',
+  'desktop.unsupportedWindows':
+    'Windows에서는 아직 데스크톱 제어를 사용할 수 없습니다. 브라우저 제어는 현재 Windows에서 사용할 수 있습니다.',
   'desktop.localOnly': '이 설정은 이 컴퓨터에만 적용됩니다.',
   'desktop.permissions': '시스템 권한',
   'desktop.openSettings': '설정 열기',
@@ -593,6 +595,10 @@ const messages: TranslationMap = {
     '지금은 메모리에 연결할 수 없습니다. 저장된 내용은 사라지지 않았습니다. 잠시 후 다시 시도하세요.',
   'memory.outOfCredits.title': '크레딧 소진',
   'memory.outOfCredits.action': '충전하기',
+  'memory.error.planRequired':
+    '현재 요금제에는 메모리가 포함되어 있지 않아 OpenHuman이 학습한 내용을 저장하거나 찾아볼 수 없습니다. 메모리를 켜려면 요금제를 업그레이드하거나, 설정에서 다른 메모리 옵션으로 전환하세요.',
+  'memory.planRequired.title': '메모리는 현재 요금제에 포함되어 있지 않습니다',
+  'memory.planRequired.action': '요금제 보기',
   'alerts.title': '알림',
   'alerts.empty': '아직 알림이 없습니다',
   'alerts.markAllRead': '모두 읽음으로 표시',
@@ -1287,6 +1293,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': '메시지를 불러오지 못했습니다',
   'chat.thinkingDots': '생각 중...',
   'chat.status.thinkingElapsed': '생각 중 · {elapsed}',
+  'chat.status.compacting': '이전 대화를 요약하는 중…',
+  'chat.status.compactingElapsed': '이전 대화를 요약하는 중 · {elapsed}',
   'chat.status.waitingApproval': '승인을 기다리는 중',
   'chat.status.waitingReview': '검토를 기다리는 중',
   'chat.status.waitingAnswer': '답변을 기다리는 중',

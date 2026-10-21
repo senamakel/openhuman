@@ -590,6 +590,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'Não foi possível carregar as aprovações de desktop pendentes. Atualize para tentar novamente.',
   'desktop.unsupported': 'O controle do computador não está disponível neste ambiente.',
+  'desktop.unsupportedWindows':
+    'O controle do computador ainda não está disponível no Windows. O controle do navegador já funciona no Windows.',
   'desktop.localOnly': 'Esta configuração vale apenas para este computador.',
   'desktop.permissions': 'Permissões do sistema',
   'desktop.openSettings': 'Abrir configurações',
@@ -610,6 +612,10 @@ const messages: TranslationMap = {
     'Não é possível acessar a memória agora. Nada do que foi guardado se perdeu; tente novamente em instantes.',
   'memory.outOfCredits.title': 'Sem créditos',
   'memory.outOfCredits.action': 'Recarregar',
+  'memory.error.planRequired':
+    'Seu plano atual não inclui memória, então o OpenHuman não consegue salvar nem consultar o que aprende. Faça upgrade para ativar a memória ou mude para outra opção de memória em Configurações.',
+  'memory.planRequired.title': 'A memória não faz parte do seu plano',
+  'memory.planRequired.action': 'Ver planos',
   'alerts.title': 'Alertas',
   'alerts.empty': 'Nenhum alerta ainda',
   'alerts.markAllRead': 'Marcar tudo como lido',
@@ -1326,6 +1332,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': 'Falha ao carregar mensagens',
   'chat.thinkingDots': 'Pensando...',
   'chat.status.thinkingElapsed': 'Pensando · {elapsed}',
+  'chat.status.compacting': 'Resumindo a conversa anterior…',
+  'chat.status.compactingElapsed': 'Resumindo a conversa anterior · {elapsed}',
   'chat.status.waitingApproval': 'Aguardando sua aprovação',
   'chat.status.waitingReview': 'Aguardando sua revisão',
   'chat.status.waitingAnswer': 'Aguardando sua resposta',

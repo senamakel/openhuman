@@ -2758,7 +2758,7 @@ async fn json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflo
     let _source_dir_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE_DIR");
     clear_forced_chat_completions();
 
-    let (artifact, _) = published_tinyflows::staged_v0_8_28_module();
+    let (artifact, _) = published_tinyflows::staged_v0_8_29_module();
     let module_path = artifact.parent().expect("native artifact directory");
     let _module_path_guard = EnvVarGuard::set_to_path("OPENHUMAN_MODULE_PATH", module_path);
 
@@ -2928,7 +2928,7 @@ async fn json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflo
         .unwrap_or_else(|| {
             panic!("TinyFlows is listed after the released cdylib loaded: {module_list}")
         });
-    assert_eq!(tinyflows["version"], "0.8.28");
+    assert_eq!(tinyflows["version"], "0.8.29");
 
     let name = format!("published-manual-{}", uuid::Uuid::new_v4().simple());
     let job = openhuman_core::cron::system_jobs::ensure_system_job(

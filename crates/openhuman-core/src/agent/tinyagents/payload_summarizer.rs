@@ -144,9 +144,16 @@ impl HarnessPayloadSummarizer<OpenHumanRunContext> for SubagentPayloadSummarizer
                 );
                 let provider_model: Arc<dyn tinyinference_llm::model::ChatModel<()>> =
                     Arc::new(provider_model);
-                let provider_model = match &child_context.data.model_budget {
-                    Some(budget) => budget.wrap(provider_model),
-                    None => provider_model,
+                let provider_model = if child_context.data.model_budget.is_some()
+                    || child_context.data.dispatch_admission.is_some()
+                {
+                    super::budget::ModelBudget::control(
+                        provider_model,
+                        child_context.data.model_budget.as_ref(),
+                        child_context.data.dispatch_admission.clone(),
+                    )
+                } else {
+                    provider_model
                 };
                 // Unary, never streaming: a streaming child would publish the
                 // internal summary to the user as parent `TextDelta`s.

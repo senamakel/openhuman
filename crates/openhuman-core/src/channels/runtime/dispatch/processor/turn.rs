@@ -6,9 +6,7 @@ use crate::agent::bus::AgentTurnResponse;
 use crate::channels::context::{
     compact_sender_history, is_context_window_overflow_error, ChannelRuntimeContext,
 };
-use crate::channels::routes::{
-    get_or_create_turn_model_source, get_route_selection, handle_runtime_command_if_needed,
-};
+use crate::channels::routes::{get_or_create_turn_model_source, get_route_selection};
 use crate::channels::{ChannelSendExt, SendMessage};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
@@ -27,7 +25,8 @@ use super::super::helpers::{
     REPLY_LOG_TRUNCATE_CHARS,
 };
 use super::super::host_agent::{self, run_host_agent_turn, seed_rows, HostChannelTurn, HostRoute};
-use super::approval::{channel_has_approval_surface, try_route_approval_reply};
+use super::admit::{admit_runtime_message, AdmittedInbound};
+use super::approval::channel_has_approval_surface;
 use super::bus_turn::dispatch_bus_turn;
 use super::RuntimeChannelMessage;
 
@@ -42,89 +41,16 @@ pub(crate) async fn process_channel_runtime_message(
     ctx: Arc<ChannelRuntimeContext>,
     runtime_msg: RuntimeChannelMessage,
 ) {
-    use tinychannels_bus::module_inbound::{ChannelInboundSource, PrepareChannelInboundRequest};
-    let RuntimeChannelMessage {
-        message,
-        inbound_envelope,
-        authenticated_relay,
-        prepared_inbound,
-    } = runtime_msg;
-    let prepared = match prepared_inbound {
-        Some(prepared) => prepared,
-        None => {
-            let source = if message.channel.is_empty() {
-                let Some(envelope) = inbound_envelope else {
-                    return;
-                };
-                ChannelInboundSource::Envelope {
-                    envelope,
-                    timestamp: 0,
-                }
-            } else {
-                ChannelInboundSource::Legacy {
-                    message,
-                    envelope: inbound_envelope,
-                }
-            };
-            match crate::modules::channel_controller::prepare_inbound(
-                &crate::channels::context::module_client(&ctx).await,
-                PrepareChannelInboundRequest {
-                    source,
-                    namespace: "main".into(),
-                    session_policy: Default::default(),
-                },
-            )
-            .await
-            {
-                Ok(prepared) => prepared,
-                Err(error) => {
-                    tracing::warn!("[dispatch] channel preparation failed: {error}");
-                    return;
-                }
-            }
-        }
-    };
-    let msg = prepared.message;
-    let history_key = prepared.history_key;
-    let mut envelope = prepared.envelope;
-    envelope.access.delivered_via_upstream_relay = authenticated_relay;
+    if let Some(admitted) = admit_runtime_message(Arc::clone(&ctx), runtime_msg).await {
+        run_admitted_turn(ctx, admitted).await;
+    }
+}
 
-    println!(
-        "  💬 [{}] from {}: {}",
-        msg.channel,
-        msg.sender,
-        truncate_with_ellipsis(&msg.content, 80)
-    );
-
-    BUS.publish(DomainEvent::ChannelMessageReceived {
-        channel: msg.channel.clone(),
-        message_id: msg.id.clone(),
-        sender: msg.sender.clone(),
-        reply_target: msg.reply_target.clone(),
-        content: msg.content.clone(),
-        thread_ts: msg.thread_ts.clone(),
-        inbound_envelope: Some(envelope),
-        workspace_dir: ctx.workspace_dir.as_ref().clone(),
-    });
-
+/// Run the agent turn for an admitted (possibly merged) message and deliver
+/// its reply.
+pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted: AdmittedInbound) {
+    let AdmittedInbound { msg, history_key } = admitted;
     let target_channel = ctx.channels_by_name.get(&msg.channel).cloned();
-    if handle_runtime_command_if_needed(ctx.as_ref(), &msg, target_channel.as_ref(), &history_key)
-        .await
-    {
-        return;
-    }
-
-    // Sub-issue 2 of #3098: if this channel has an approval surface and the
-    // inbound message is a yes/no reply for a parked approval on this same
-    // history key, route it to `ApprovalGate::decide` and return — running
-    // a fresh agent turn would cancel the parked tool call. Any other text
-    // falls through to the normal dispatch (the user is redirecting). Mirrors
-    // the same intercept in `web_chat/`.
-    if channel_has_approval_surface(&msg.channel)
-        && try_route_approval_reply(&msg, &history_key).await
-    {
-        return;
-    }
 
     // A channel bound to a host agent nobody answers for is refused before
     // any typing or provider work; see `host_agent`.

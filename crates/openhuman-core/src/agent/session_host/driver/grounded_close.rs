@@ -170,6 +170,12 @@ impl Drop for SupplementalCall {
 
 #[async_trait::async_trait]
 impl ChatModel<()> for SummarizerSourceModel<'_> {
+    fn tracks_physical_attempts(&self) -> bool {
+        // The selected provider is resolved afresh for each call and can be a
+        // host-injected model. Do not claim hook coverage for every route.
+        false
+    }
+
     async fn invoke(
         &self,
         state: &(),

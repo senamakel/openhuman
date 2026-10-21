@@ -34,6 +34,7 @@ pub use storage::StorageConfig;
 pub mod profile_layout;
 pub use profile_layout::{users_dir, ProfileLayout};
 mod identity_cost;
+mod inbound_debounce;
 pub(crate) mod load;
 pub(crate) use load::config_from_toml_str;
 pub(crate) use load::source::storage_schema::storage_schema as config_storage_schema;
@@ -97,6 +98,7 @@ pub use identity_cost::{
     BudgetAction, BudgetPeriod, BudgetPolicy, BudgetScope, CostConfig, ModelPricing,
 };
 pub use inbound::InboundConfig;
+pub use inbound_debounce::{InboundDebounceConfig, InboundDebounceOverride};
 pub use local_ai::{LocalAiConfig, LocalAiUsage};
 pub use memes::MemesConfig;
 pub use memory::{

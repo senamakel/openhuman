@@ -589,6 +589,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'Persetujuan desktop yang tertunda tidak dapat dimuat. Segarkan untuk mencoba lagi.',
   'desktop.unsupported': 'Kontrol desktop tidak tersedia di lingkungan ini.',
+  'desktop.unsupportedWindows':
+    'Kontrol desktop belum tersedia di Windows. Kontrol Browser sudah berfungsi di Windows.',
   'desktop.localOnly': 'Pengaturan ini hanya berlaku untuk komputer ini.',
   'desktop.permissions': 'Izin sistem',
   'desktop.openSettings': 'Buka pengaturan',
@@ -609,6 +611,10 @@ const messages: TranslationMap = {
     'Memori tidak dapat dijangkau saat ini. Tidak ada data tersimpan yang hilang; coba lagi sebentar lagi.',
   'memory.outOfCredits.title': 'Kredit habis',
   'memory.outOfCredits.action': 'Isi ulang',
+  'memory.error.planRequired':
+    'Paket Anda saat ini tidak mencakup memori, sehingga OpenHuman tidak dapat menyimpan atau mencari apa yang dipelajarinya. Tingkatkan paket untuk mengaktifkan memori, atau beralih ke opsi memori lain di Pengaturan.',
+  'memory.planRequired.title': 'Memori tidak termasuk dalam paket Anda',
+  'memory.planRequired.action': 'Lihat paket',
   'alerts.title': 'Peringatan',
   'alerts.empty': 'Belum ada peringatan',
   'alerts.markAllRead': 'Tandai semua sudah dibaca',
@@ -1317,6 +1323,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': 'Gagal memuat pesan',
   'chat.thinkingDots': 'Berpikir...',
   'chat.status.thinkingElapsed': 'Berpikir · {elapsed}',
+  'chat.status.compacting': 'Meringkas percakapan sebelumnya…',
+  'chat.status.compactingElapsed': 'Meringkas percakapan sebelumnya · {elapsed}',
   'chat.status.waitingApproval': 'Menunggu persetujuan Anda',
   'chat.status.waitingReview': 'Menunggu tinjauan Anda',
   'chat.status.waitingAnswer': 'Menunggu jawaban Anda',

@@ -49,6 +49,7 @@ fn managed_model_advertises_tool_and_vision_capabilities() {
     let profile = model.profile().expect("managed profile");
     assert!(profile.tool_calling);
     assert!(profile.modalities.image_in);
+    assert!(model.tracks_physical_attempts());
 }
 
 #[test]

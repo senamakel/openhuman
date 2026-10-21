@@ -23,6 +23,10 @@
 //!   `runtime::test_support::run_dispatch_harness`: inbound-envelope
 //!   publication, parallel processing, typing-task cancellation, the
 //!   `agent.run_turn` bus route, and multimodal path-marker hardening.
+//! * `runtime_debounce.rs` — per-conversation debounce in the dispatch loop
+//!   on paused time: bursts merge into one turn, the media window, mid-turn
+//!   follow-ups, the max-wait cap, command bypass, disabled config and the
+//!   flush when the inbound queue closes.
 //! * `runtime_tool_calls.rs` — native tool-call execution, the `/models`
 //!   command short-circuit, route overrides, and `max_tool_iterations`
 //!   through `process_channel_message`.
@@ -34,6 +38,7 @@ mod discord_integration;
 mod health;
 mod identity;
 mod prompt;
+mod runtime_debounce;
 mod runtime_dispatch;
 mod runtime_tool_calls;
 mod telegram_integration;

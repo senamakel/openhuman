@@ -71,6 +71,7 @@ pub mod hooks;
 pub mod hosting;
 #[cfg(feature = "inbound-queues")]
 pub mod inbound;
+pub mod inbound_debounce;
 pub mod inference;
 pub mod integrations;
 pub mod mcp;

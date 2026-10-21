@@ -570,6 +570,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'تعذر تحميل موافقات سطح المكتب المعلقة. حدّث الصفحة للمحاولة مجددًا.',
   'desktop.unsupported': 'التحكم بسطح المكتب غير متاح في بيئة التشغيل هذه.',
+  'desktop.unsupportedWindows':
+    'التحكم بسطح المكتب غير متاح على Windows بعد. يعمل التحكم بالمتصفح على Windows حاليًا.',
   'desktop.localOnly': 'ينطبق هذا الإعداد على هذا الكمبيوتر فقط.',
   'desktop.permissions': 'أذونات النظام',
   'desktop.openSettings': 'فتح الإعدادات',
@@ -589,6 +591,10 @@ const messages: TranslationMap = {
     'تعذّر الوصول إلى الذاكرة حاليًا. لم يُفقد أي شيء مخزّن؛ حاول مرة أخرى بعد قليل.',
   'memory.outOfCredits.title': 'نفد الرصيد',
   'memory.outOfCredits.action': 'اشحن الرصيد',
+  'memory.error.planRequired':
+    'خطتك الحالية لا تتضمن الذاكرة، لذا لا يستطيع OpenHuman حفظ ما يتعلّمه أو البحث فيه. قم بالترقية لتفعيل الذاكرة، أو انتقل إلى خيار ذاكرة آخر من الإعدادات.',
+  'memory.planRequired.title': 'الذاكرة ليست جزءًا من خطتك',
+  'memory.planRequired.action': 'عرض الخطط',
   'alerts.title': 'التنبيهات',
   'alerts.empty': 'لا توجد تنبيهات بعد',
   'alerts.markAllRead': 'تحديد الكل كمقروء',
@@ -1280,6 +1286,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': 'فشل تحميل الرسائل',
   'chat.thinkingDots': 'جارٍ التفكير...',
   'chat.status.thinkingElapsed': 'جارٍ التفكير · {elapsed}',
+  'chat.status.compacting': 'جارٍ تلخيص المحادثة السابقة…',
+  'chat.status.compactingElapsed': 'جارٍ تلخيص المحادثة السابقة · {elapsed}',
   'chat.status.waitingApproval': 'في انتظار موافقتك',
   'chat.status.waitingReview': 'في انتظار مراجعتك',
   'chat.status.waitingAnswer': 'في انتظار إجابتك',

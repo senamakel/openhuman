@@ -1,4 +1,4 @@
-//! Normal-host prompt composition against the checksum-verified TinyFlows v0.8.28 module.
+//! Normal-host prompt composition against the checksum-verified TinyFlows v0.8.29 module.
 
 #[path = "support/env_guard.rs"]
 mod env_guard;
@@ -96,7 +96,7 @@ async fn published_module_prompts_render_through_the_normal_host_path() {
     let _source_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE");
     let _source_dir_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE_DIR");
     let _tinyflows_source_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE_TINYFLOWS");
-    let (library, _) = published_tinyflows::staged_v0_8_28_module();
+    let (library, _) = published_tinyflows::staged_v0_8_29_module();
     let module_search_path = library
         .parent()
         .expect("staged module artifact has a search directory");
@@ -306,7 +306,7 @@ async fn published_module_public_import_uses_authoring_bus_in_a_cold_process() {
     let _source_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE");
     let _source_dir_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE_DIR");
     let _tinyflows_source_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE_TINYFLOWS");
-    let (library, digest) = published_tinyflows::staged_v0_8_28_module();
+    let (library, digest) = published_tinyflows::staged_v0_8_29_module();
     let workspace = temp.path().join("workspace");
     std::fs::create_dir_all(&workspace).expect("workspace directory");
     let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace);

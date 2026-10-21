@@ -404,6 +404,7 @@ if should_run_suite "settings"; then
   echo "## Running suite: settings"
   run "test/e2e/specs/settings-channels-permissions.spec.ts"  "settings-channels"         "settings"
   run "test/e2e/specs/settings-data-management.spec.ts"       "settings-data"             "settings"
+  run "test/e2e/specs/memory-plan-required.spec.ts"           "memory-plan-required"      "settings"
   run "test/e2e/specs/settings-ai-skills.spec.ts"             "settings-ai-skills"        "settings"
   run "test/e2e/specs/settings-account-preferences.spec.ts"   "settings-account"          "settings"
   run "test/e2e/specs/settings-advanced-config.spec.ts"       "settings-advanced"         "settings"

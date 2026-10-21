@@ -19,6 +19,7 @@ import {
   type ChatApprovalDecidedEvent,
   type ChatApprovalRequestEvent,
   type ChatCancelledEvent,
+  type ChatContextCompactingEvent,
   type ChatDoneEvent,
   type ChatErrorEvent,
   type ChatEventListeners,
@@ -47,6 +48,7 @@ import { socketService } from '../services/socketService';
 import { store } from '../store';
 import {
   appendSubagentStreamDelta,
+  beginInferenceTurn,
   bumpInferenceHeartbeatForThread,
   cancelUnresolvedTurnTimeline,
   clearInferenceStatusForThread,
@@ -797,6 +799,17 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
           ) {
             dispatch(setToolTimelineForThread({ threadId: event.thread_id, entries: [] }));
           }
+          // A turn this window did not send (one started right after a Stop,
+          // from another window, or queued) has no lifecycle yet, or a finished
+          // one: begin it here so its stream renders live, not after a reload.
+          const parallel =
+            !!event.request_id &&
+            store.getState().chatRuntime.parallelRequestThreads[event.request_id] !== undefined;
+          const lifecycle =
+            store.getState().chatRuntime.inferenceTurnLifecycleByThread[event.thread_id];
+          if (!parallel && lifecycle !== 'started' && lifecycle !== 'streaming') {
+            dispatch(beginInferenceTurn({ threadId: event.thread_id }));
+          }
           dispatch(markInferenceTurnStreaming({ threadId: event.thread_id }));
           if (event.request_id) {
             dispatch(liveTurnStarted({ threadId: event.thread_id, requestId: event.request_id }));
@@ -834,6 +847,30 @@ const ChatRuntimeProvider = ({ children }: { children: React.ReactNode }) => {
               threadId: event.thread_id,
               status: {
                 phase: 'thinking',
+                iteration: event.round,
+                maxIterations: prev?.maxIterations ?? 0,
+              },
+            })
+          );
+        },
+        onContextCompacting: (event: ChatContextCompactingEvent) => {
+          rtLog('context_compacting', { thread: event.thread_id, request: event.request_id });
+          const runtime = store.getState().chatRuntime;
+          // A parallel branch's compaction is its own, and a superseded turn's
+          // is stale: the thread's status line describes its live primary turn.
+          if (runtime.parallelRequestThreads[event.request_id] !== undefined) {
+            return;
+          }
+          const live = runtime.liveRequestIdByThread[event.thread_id];
+          if (live !== undefined && live !== event.request_id) {
+            return;
+          }
+          const prev = runtime.inferenceStatusByThread[event.thread_id];
+          dispatch(
+            setInferenceStatusForThread({
+              threadId: event.thread_id,
+              status: {
+                phase: 'compacting',
                 iteration: event.round,
                 maxIterations: prev?.maxIterations ?? 0,
               },

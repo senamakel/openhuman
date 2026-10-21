@@ -70,6 +70,7 @@ pub(crate) enum TurnTarget {
 /// on, so a host can build it in one place and send it from another.
 pub struct Turn {
     budget: Option<crate::budget::ModelBudget>,
+    dispatch_admission: Option<Arc<dyn crate::budget::PhysicalDispatchAdmission>>,
     /// A narrower model-directed delegation depth for this turn (fanout leaves).
     spawn_depth_limit: Option<usize>,
     /// The native token this turn's run tree observes, minted by `send` and
@@ -111,6 +112,7 @@ impl Turn {
         Self {
             target,
             budget: None,
+            dispatch_admission: None,
             spawn_depth_limit: None,
             native_cancellation: None,
             request: TurnRequest::new(message),
@@ -427,6 +429,15 @@ impl Turn {
         self
     }
 
+    /// Share a host-owned physical-dispatch policy with this turn and its children.
+    pub fn dispatch_admission(
+        mut self,
+        admission: Arc<dyn crate::budget::PhysicalDispatchAdmission>,
+    ) -> Self {
+        self.dispatch_admission = Some(admission);
+        self
+    }
+
     /// Narrow the model-directed delegation depth for this turn tree.
     pub(crate) fn with_spawn_depth_limit(mut self, limit: usize) -> Self {
         self.spawn_depth_limit = Some(limit);
@@ -606,7 +617,7 @@ async fn dispatch(
             let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =
                 Box::pin(async move {
                     use openhuman_core::inference::host_runtime::ops::{
-                        agent_chat_reply_for, AgentChatTarget,
+                        agent_chat_reply_for_controlled, AgentChatTarget,
                     };
                     let mut config = dispatch
                         .load_config()
@@ -621,7 +632,7 @@ async fn dispatch(
                         request.api_key.clone(),
                     )
                     .map(|route| route.with_headers(request.inference_headers.clone()));
-                    agent_chat_reply_for(
+                    agent_chat_reply_for_controlled(
                         &mut config,
                         target,
                         &request.message,
@@ -634,7 +645,7 @@ async fn dispatch(
                     )
                     .await
                     .map(|reply| (reply.text, None))
-                    .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
+                    .map_err(|error| map_agent_chat_error(error, None))
                 });
             rt.run_in(ctx, turn).await
         }
@@ -652,7 +663,7 @@ async fn dispatch(
             let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =
                 Box::pin(async move {
                     use openhuman_core::inference::host_runtime::ops::{
-                        agent_chat_for, AgentChatTarget,
+                        agent_chat_reply_for_controlled, AgentChatTarget,
                     };
                     let mut config = inner.config.clone();
                     let route = openhuman_core::config::schema::EphemeralRoute::from_params(
@@ -672,7 +683,7 @@ async fn dispatch(
                         observer: options.observer.as_ref(),
                         attachments: &options.attachments,
                     };
-                    let outcome = agent_chat_for(
+                    let outcome = agent_chat_reply_for_controlled(
                         &mut config,
                         target,
                         &request.message,
@@ -683,7 +694,8 @@ async fn dispatch(
                         route,
                         options.chat_env,
                     )
-                    .await;
+                    .await
+                    .map(|reply| reply.into_outcome());
                     // The shape preserves provider charges and root-call totals
                     // absent from normalized session usage. Overlay before both
                     // meter and outcome reads, retaining child/session metadata.
@@ -697,6 +709,23 @@ async fn dispatch(
                         }
                         if let Some(spent) = captured.as_mut() {
                             spent.reasoning_tokens = report.reasoning_tokens;
+                        }
+                    }
+                    if let Err(error) = &outcome {
+                        if let Some(refusal) =
+                            error.downcast_ref::<crate::budget::DispatchRefusal>()
+                        {
+                            return Err(CoreError::DispatchAdmission {
+                                method: AGENT_CHAT,
+                                source: *refusal,
+                                usage: report.usage.map(|spent| crate::complete::CompletionUsage {
+                                    input_tokens: spent.input_tokens,
+                                    output_tokens: spent.output_tokens,
+                                    cached_tokens: spent.cached_tokens,
+                                    reasoning_tokens: spent.reasoning_tokens,
+                                    cost_usd: spent.cost_usd,
+                                }),
+                            });
                         }
                     }
                     if outcome.is_err() && report.structured_failed {
@@ -726,9 +755,10 @@ async fn dispatch(
                             },
                         });
                     }
-                    outcome
-                        .map(|outcome| (outcome.value, Some(report)))
-                        .map_err(|raw| CoreError::from_rpc_string(AGENT_CHAT, raw))
+                    match outcome {
+                        Ok(outcome) => Ok((outcome.value, Some(report))),
+                        Err(error) => Err(map_agent_chat_error(error, report.usage)),
+                    }
                 });
             agent
                 .lifecycle
@@ -736,6 +766,26 @@ async fn dispatch(
                 .await
         }
     }
+}
+
+fn map_agent_chat_error(
+    error: anyhow::Error,
+    usage: Option<tinyagents_harness::middleware::ResponseUsage>,
+) -> CoreError {
+    if let Some(refusal) = error.downcast_ref::<crate::budget::DispatchRefusal>() {
+        return CoreError::DispatchAdmission {
+            method: AGENT_CHAT,
+            source: *refusal,
+            usage: usage.map(|spent| crate::complete::CompletionUsage {
+                input_tokens: spent.input_tokens,
+                output_tokens: spent.output_tokens,
+                cached_tokens: spent.cached_tokens,
+                reasoning_tokens: spent.reasoning_tokens,
+                cost_usd: spent.cost_usd,
+            }),
+        };
+    }
+    CoreError::from_rpc_string(AGENT_CHAT, error.to_string())
 }
 
 fn validate_route(request: &TurnRequest) -> Result<(), CoreError> {

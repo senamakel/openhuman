@@ -81,7 +81,7 @@ Capability {
         name: "Desktop Control",
         domain: "desktop",
         category: CapabilityCategory::Settings,
-        description: "Let agents inspect and control native desktop apps through a local, permission-aware connection. Desktop actions are discovered on demand. Switched off by [components] computer = false, which unregisters the desktop tools and answers the desktop.* RPCs with COMPONENT_DISABLED:computer while keeping this machine's own consent setting untouched.",
+        description: "Let agents inspect and control native desktop apps through a local, permission-aware connection. macOS only for now; Windows and Linux are not supported yet. Desktop actions are discovered on demand. Switched off by [components] computer = false, which unregisters the desktop tools and answers the desktop.* RPCs with COMPONENT_DISABLED:computer while keeping this machine's own consent setting untouched.",
         how_to: "Connections → Computer → Desktop; enable access and grant operating system permissions when requested",
         status: CapabilityStatus::Beta,
         privacy: DESKTOP_TO_JEV,

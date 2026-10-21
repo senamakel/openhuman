@@ -181,7 +181,10 @@ async fn drive_turn(
     let hosted_security_gate = hosted_root.is_some();
     let is_local = turn_models.is_local();
     // Wrap concrete routes before the invocation-local hosted resolver captures them.
-    let turn_models = turn_models.with_budget(run_context.model_budget.as_ref());
+    let turn_models = turn_models.with_host_controls(
+        run_context.model_budget.as_ref(),
+        run_context.dispatch_admission.clone(),
+    );
     let hosted_model_resolver = hosted_root.as_ref().map(|_| {
         Arc::new(turn_models.resolver()) as Arc<dyn tinyagents_harness::host::ModelResolver<()>>
     });
@@ -575,6 +578,10 @@ async fn drive_turn(
                 .map(|parent| {
                     crate::storage::sessions::stores_or_ephemeral(&parent.workspace_dir).kv
                 }),
+            compaction_notice: Some({
+                let bridge = bridge.clone();
+                Arc::new(move || bridge.announce_compaction())
+            }),
         },
     );
     if let Some(scope) = run_context.response_shape.clone() {

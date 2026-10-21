@@ -295,7 +295,12 @@ async fn start_channels_inner(mut config: Config, session: CancellationToken) ->
     tokio::select! {
         biased;
         _ = session.cancelled() => {},
-        _ = run_message_dispatch_loop(rx, runtime_ctx, max_in_flight_messages) => {},
+        _ = run_message_dispatch_loop(
+            rx,
+            runtime_ctx,
+            max_in_flight_messages,
+            config.inbound_debounce.clone(),
+        ) => {},
     }
     if let Some(runtime) = module_runtime.as_mut() {
         runtime.close().await?;

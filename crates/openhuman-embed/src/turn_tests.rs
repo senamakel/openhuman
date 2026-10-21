@@ -71,6 +71,41 @@ fn turn_request_omits_absent_options() {
 }
 
 #[test]
+fn typed_dispatch_refusal_precedes_structured_error_mapping_and_keeps_usage() {
+    let refusal =
+        crate::budget::DispatchRefusal::new(crate::budget::DispatchRefusalReason::CallLimit);
+    let error = anyhow::Error::new(refusal);
+    let mapped = map_agent_chat_error(
+        error,
+        Some(tinyagents_harness::middleware::ResponseUsage {
+            input_tokens: 13,
+            output_tokens: 5,
+            cached_tokens: 2,
+            reasoning_tokens: 1,
+            cost_usd: Some(0.004),
+            ..Default::default()
+        }),
+    );
+
+    match mapped {
+        CoreError::DispatchAdmission { source, usage, .. } => {
+            assert!(CoreError::DispatchAdmission {
+                method: AGENT_CHAT,
+                source,
+                usage: None,
+            }
+            .is_expected_user_state());
+            assert_eq!(source, refusal);
+            let usage = usage.expect("the completed invalid response remains accounted");
+            assert_eq!(usage.input_tokens, 13);
+            assert_eq!(usage.output_tokens, 5);
+            assert_eq!(usage.cost_usd, Some(0.004));
+        }
+        other => panic!("expected typed dispatch refusal, got {other:?}"),
+    }
+}
+
+#[test]
 fn a_route_sets_both_halves_or_neither() {
     // The core ignores the route unless both arrive non-blank, so the type
     // makes supplying one alone unrepresentable.

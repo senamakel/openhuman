@@ -71,6 +71,7 @@ pub use schema::{
 // Kept as a separate re-export (issue #4117) so the large alphabetized group
 // above stays byte-identical and rustfmt-stable.
 pub use schema::RequiredOutputContract;
+pub use schema::{InboundDebounceConfig, InboundDebounceOverride};
 pub use schemas::{
     all_controller_schemas as all_config_controller_schemas,
     all_registered_controllers as all_config_registered_controllers,

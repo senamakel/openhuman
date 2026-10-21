@@ -1,0 +1,65 @@
+//! Channel messages as [`crate::inbound_debounce`] items, and the merge that
+//! turns one debounced batch into the single message its turn runs on.
+
+use super::processor::AdmittedInbound;
+use crate::inbound_debounce::DebounceItem;
+
+const MEDIA_MARKERS: [&str; 5] = ["[IMAGE:", "[FILE:", "[VIDEO:", "[DOCUMENT:", "[Attachment:"];
+
+/// An admitted message with its receive order on the dispatch queue.
+#[derive(Debug, Clone)]
+pub(crate) struct QueuedInbound {
+    pub(crate) seq: u64,
+    pub(crate) inbound: AdmittedInbound,
+}
+
+impl DebounceItem for QueuedInbound {
+    fn chars(&self) -> usize {
+        self.inbound.msg.content.chars().count()
+    }
+
+    fn carries_media(&self) -> bool {
+        let content = &self.inbound.msg.content;
+        MEDIA_MARKERS.iter().any(|marker| content.contains(marker))
+    }
+
+    fn mergeable(&self) -> bool {
+        let trimmed = self.inbound.msg.content.trim_start();
+        !trimmed.is_empty() && !trimmed.starts_with('/')
+    }
+}
+
+/// Merge a batch into one message: ordered by (timestamp, receive order),
+/// addressed like the newest message, with the non-blank bodies joined by
+/// newlines.
+pub(crate) fn merge_channel_batch(mut batch: Vec<QueuedInbound>) -> Option<AdmittedInbound> {
+    batch.sort_by_key(|item| (item.inbound.msg.timestamp, item.seq));
+    if batch.len() <= 1 {
+        return batch.pop().map(|item| item.inbound);
+    }
+    let sender_name = batch
+        .iter()
+        .rev()
+        .find_map(|item| item.inbound.msg.sender_name.clone());
+    let content = batch
+        .iter()
+        .map(|item| item.inbound.msg.content.as_str())
+        .filter(|content| !content.trim().is_empty())
+        .collect::<Vec<_>>()
+        .join("\n");
+    let count = batch.len();
+    let mut merged = batch.pop()?.inbound;
+    merged.msg.content = content;
+    merged.msg.sender_name = sender_name;
+    tracing::debug!(
+        channel = %merged.msg.channel,
+        message_id = %merged.msg.id,
+        merged = count,
+        "[dispatch][debounce] merged inbound batch"
+    );
+    Some(merged)
+}
+
+#[cfg(test)]
+#[path = "inbound_batch_tests.rs"]
+mod tests;

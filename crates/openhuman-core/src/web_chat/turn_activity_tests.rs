@@ -307,3 +307,11 @@ async fn a_long_call_that_reports_progress_stays_active_past_the_expiry() {
     assert!(!watchdog.is_finished(), "an hour of progress beats");
     watchdog.abort();
 }
+
+#[test]
+fn a_compaction_names_the_step_the_turn_stopped_after() {
+    assert_eq!(
+        step_of(&AgentProgress::ContextCompacting).as_deref(),
+        Some("it began summarizing earlier conversation")
+    );
+}

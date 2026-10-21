@@ -475,6 +475,20 @@ pub(crate) fn spawn_progress_bridge(
                         },
                     );
                 }
+                AgentProgress::ContextCompacting => {
+                    publish_seq_stamped(
+                        &dispatch_ctx,
+                        &mut emit_seq,
+                        WebChannelEvent {
+                            event: "context_compacting".to_string(),
+                            client_id: client_id.clone(),
+                            thread_id: thread_id.clone(),
+                            request_id: request_id.clone(),
+                            round: Some(round),
+                            ..Default::default()
+                        },
+                    );
+                }
                 AgentProgress::ToolCallStarted {
                     call_id,
                     tool_name,

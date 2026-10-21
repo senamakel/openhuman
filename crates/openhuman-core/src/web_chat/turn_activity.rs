@@ -125,6 +125,7 @@ fn step_of(event: &AgentProgress) -> Option<Cow<'static, str>> {
     Some(match event {
         AgentProgress::TurnStarted => "the turn started".into(),
         AgentProgress::IterationStarted { .. } => "a model call started".into(),
+        AgentProgress::ContextCompacting => "it began summarizing earlier conversation".into(),
         AgentProgress::ModelCallCompleted {
             subagent_task_id: None,
             ..

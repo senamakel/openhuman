@@ -608,6 +608,17 @@ export interface ChatIterationStartEvent {
   message: string;
 }
 
+/**
+ * Emitted when the turn starts summarizing earlier conversation to fit the
+ * context window. The next `iteration_start` ends it.
+ */
+export interface ChatContextCompactingEvent {
+  thread_id: string;
+  request_id: string;
+  /** The iteration whose model call waits on the summary. */
+  round: number;
+}
+
 /** Emitted when a sub-agent is spawned during tool execution. */
 export interface ChatSubagentSpawnedEvent {
   thread_id: string;
@@ -870,6 +881,7 @@ export interface ChatEventListeners {
   onInferenceStart?: (event: ChatInferenceStartEvent) => void;
   onInferenceHeartbeat?: (event: ChatInferenceHeartbeatEvent) => void;
   onIterationStart?: (event: ChatIterationStartEvent) => void;
+  onContextCompacting?: (event: ChatContextCompactingEvent) => void;
   onToolCall?: (event: ChatToolCallEvent) => void;
   onToolResult?: (event: ChatToolResultEvent) => void;
   onSubagentSpawned?: (event: ChatSubagentSpawnedEventV2) => void;
@@ -922,6 +934,7 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     inferenceStart: 'inference_start',
     inferenceHeartbeat: 'inference_heartbeat',
     iterationStart: 'iteration_start',
+    contextCompacting: 'context_compacting',
     toolCall: 'tool_call',
     toolResult: 'tool_result',
     subagentSpawned: 'subagent_spawned',
@@ -994,6 +1007,22 @@ export function subscribeChatEvents(listeners: ChatEventListeners): () => void {
     };
     socket.on(EVENTS.iterationStart, cb);
     handlers.push([EVENTS.iterationStart, cb]);
+  }
+
+  if (listeners.onContextCompacting) {
+    const cb = (payload: unknown) => {
+      const e = payload as ChatContextCompactingEvent;
+      chatLog(
+        '%s thread_id=%s request_id=%s round=%d',
+        EVENTS.contextCompacting,
+        e.thread_id,
+        e.request_id,
+        e.round
+      );
+      listeners.onContextCompacting?.(e);
+    };
+    socket.on(EVENTS.contextCompacting, cb);
+    handlers.push([EVENTS.contextCompacting, cb]);
   }
 
   if (listeners.onToolCall) {

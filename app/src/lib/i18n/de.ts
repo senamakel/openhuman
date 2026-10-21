@@ -600,6 +600,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'Ausstehende Desktopfreigaben konnten nicht geladen werden. Aktualisiere die Seite und versuche es erneut.',
   'desktop.unsupported': 'Die Desktopsteuerung ist in dieser Laufzeit nicht verfügbar.',
+  'desktop.unsupportedWindows':
+    'Die Desktopsteuerung ist unter Windows noch nicht verfügbar. Die Browsersteuerung funktioniert unter Windows bereits.',
   'desktop.localOnly': 'Diese Einstellung gilt nur für diesen Computer.',
   'desktop.permissions': 'Systemberechtigungen',
   'desktop.openSettings': 'Einstellungen öffnen',
@@ -620,6 +622,10 @@ const messages: TranslationMap = {
     'Das Gedächtnis ist gerade nicht erreichbar. Nichts Gespeichertes ist verloren; versuche es gleich noch einmal.',
   'memory.outOfCredits.title': 'Kein Guthaben mehr',
   'memory.outOfCredits.action': 'Aufladen',
+  'memory.error.planRequired':
+    'Dein aktueller Tarif enthält kein Gedächtnis, daher kann OpenHuman nicht speichern oder nachschlagen, was es lernt. Wechsle zu einem höheren Tarif, um das Gedächtnis einzuschalten, oder wähle in den Einstellungen eine andere Gedächtnis-Option.',
+  'memory.planRequired.title': 'Gedächtnis ist nicht Teil deines Tarifs',
+  'memory.planRequired.action': 'Tarife ansehen',
   'alerts.title': 'Warnungen',
   'alerts.empty': 'Noch keine Benachrichtigungen',
   'alerts.markAllRead': 'Alle als gelesen markieren',
@@ -1340,6 +1346,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': 'Nachrichten konnten nicht geladen werden',
   'chat.thinkingDots': 'Denken...',
   'chat.status.thinkingElapsed': 'Denkt nach · {elapsed}',
+  'chat.status.compacting': 'Der bisherige Verlauf wird zusammengefasst…',
+  'chat.status.compactingElapsed': 'Der bisherige Verlauf wird zusammengefasst · {elapsed}',
   'chat.status.waitingApproval': 'Wartet auf deine Freigabe',
   'chat.status.waitingReview': 'Wartet auf deine Prüfung',
   'chat.status.waitingAnswer': 'Wartet auf deine Antwort',

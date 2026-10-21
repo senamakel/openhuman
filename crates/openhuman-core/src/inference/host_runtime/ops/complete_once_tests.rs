@@ -131,7 +131,10 @@ async fn refuses_tool_declarations() {
     let err = complete_once(&unreachable_endpoint(), request, None)
         .await
         .unwrap_err();
-    assert!(err.contains("tools are not supported"), "{err}");
+    assert_eq!(
+        err,
+        "complete_once: tools are not supported on a stateless completion; use an agent turn"
+    );
 }
 
 #[tokio::test]
@@ -140,7 +143,7 @@ async fn requires_a_model() {
     let err = complete_once(&unreachable_endpoint(), request, None)
         .await
         .unwrap_err();
-    assert!(err.contains("request.model is required"), "{err}");
+    assert_eq!(err, "complete_once: request.model is required");
 }
 
 #[tokio::test]
@@ -150,9 +153,9 @@ async fn refuses_tools_smuggled_through_provider_options() {
     let err = complete_once(&unreachable_endpoint(), request, None)
         .await
         .expect_err("tools must not reach the provider via provider_options");
-    assert!(
-        err.contains("provider_options may not set `tools`"),
-        "{err}"
+    assert_eq!(
+        err,
+        "complete_once: provider_options may not set `tools`; use the typed request fields"
     );
 }
 

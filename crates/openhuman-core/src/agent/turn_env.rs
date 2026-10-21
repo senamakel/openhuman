@@ -35,6 +35,9 @@ pub struct HostTurnEnv {
     /// Shared model-spend ledger and per-call bounds every model call of the
     /// turn tree is charged against.
     pub model_budget: Option<ModelBudget>,
+    /// Shared physical-dispatch policy for this turn and its synchronous or
+    /// detached children.
+    pub dispatch_admission: Option<Arc<dyn super::tinyagents::budget::PhysicalDispatchAdmission>>,
     /// A narrower model-directed delegation depth than the product ceiling.
     pub spawn_depth_limit: Option<usize>,
     /// The caller's cancellation, shared with every child run. `None` runs the
@@ -79,6 +82,7 @@ impl std::fmt::Debug for HostTurnEnv {
         f.debug_struct("HostTurnEnv")
             .field("command_environment", &self.command_environment.is_some())
             .field("model_budget", &self.model_budget.is_some())
+            .field("dispatch_admission", &self.dispatch_admission.is_some())
             .field("spawn_depth_limit", &self.spawn_depth_limit)
             .field("cancellation", &self.cancellation.is_some())
             .field("turn_deadline", &self.turn_deadline.is_some())

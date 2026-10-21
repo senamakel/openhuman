@@ -591,6 +591,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'Nie udało się wczytać oczekujących zgód na dostęp do pulpitu. Odśwież, aby spróbować ponownie.',
   'desktop.unsupported': 'Sterowanie pulpitem jest niedostępne w tym środowisku.',
+  'desktop.unsupportedWindows':
+    'Sterowanie pulpitem nie jest jeszcze dostępne w systemie Windows. Sterowanie przeglądarką już działa w systemie Windows.',
   'desktop.localOnly': 'To ustawienie dotyczy tylko tego komputera.',
   'desktop.permissions': 'Uprawnienia systemowe',
   'desktop.openSettings': 'Otwórz ustawienia',
@@ -610,6 +612,10 @@ const messages: TranslationMap = {
     'Nie można teraz połączyć się z pamięcią. Nic z zapisanych danych nie zostało utracone; spróbuj ponownie za chwilę.',
   'memory.outOfCredits.title': 'Brak kredytów',
   'memory.outOfCredits.action': 'Doładuj',
+  'memory.error.planRequired':
+    'Twój obecny plan nie obejmuje pamięci, więc OpenHuman nie może zapisywać ani wyszukiwać tego, czego się uczy. Ulepsz plan, aby włączyć pamięć, lub przełącz się na inną opcję pamięci w Ustawieniach.',
+  'memory.planRequired.title': 'Pamięć nie wchodzi w skład Twojego planu',
+  'memory.planRequired.action': 'Zobacz plany',
   'alerts.title': 'Alerty',
   'alerts.empty': 'Brak alertów',
   'alerts.markAllRead': 'Oznacz wszystkie jako przeczytane',
@@ -1319,6 +1325,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': 'Nie udało się wczytać wiadomości',
   'chat.thinkingDots': 'Myślę...',
   'chat.status.thinkingElapsed': 'Myślę · {elapsed}',
+  'chat.status.compacting': 'Podsumowuję wcześniejszą rozmowę…',
+  'chat.status.compactingElapsed': 'Podsumowuję wcześniejszą rozmowę · {elapsed}',
   'chat.status.waitingApproval': 'Czeka na Twoją zgodę',
   'chat.status.waitingReview': 'Czeka na Twoją ocenę',
   'chat.status.waitingAnswer': 'Czeka na Twoją odpowiedź',

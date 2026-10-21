@@ -581,6 +581,48 @@ describe('ChatRuntimeProvider — dedupe, proactive resolution, mid-turn invaria
       expect(store.getState().chatRuntime.inferenceHeartbeatByThread['t-par']).toBe(2);
     });
 
+    it('shows a primary turn compacting until its next iteration starts', () => {
+      const listeners = renderProvider();
+      const phase = () => store.getState().chatRuntime.inferenceStatusByThread['t-cmp']?.phase;
+
+      act(() => {
+        listeners.onContextCompacting?.({ thread_id: 't-cmp', request_id: 'primary', round: 1 });
+      });
+      expect(phase()).toBe('compacting');
+
+      act(() => {
+        listeners.onIterationStart?.({
+          thread_id: 't-cmp',
+          request_id: 'primary',
+          round: 1,
+          message: 'Iteration 1/200',
+        });
+      });
+      expect(phase()).toBe('thinking');
+    });
+
+    it('ignores a superseded turn compacting', () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        listeners.onInferenceStart?.({ thread_id: 't-cmp-old', request_id: 'newer' });
+        listeners.onContextCompacting?.({ thread_id: 't-cmp-old', request_id: 'older', round: 1 });
+      });
+      expect(store.getState().chatRuntime.inferenceStatusByThread['t-cmp-old']?.phase).toBe(
+        'thinking'
+      );
+    });
+
+    it('ignores a parallel branch compacting', () => {
+      const listeners = renderProvider();
+
+      act(() => {
+        store.dispatch(registerParallelRequest({ threadId: 't-cmp-par', requestId: 'branch' }));
+        listeners.onContextCompacting?.({ thread_id: 't-cmp-par', request_id: 'branch', round: 1 });
+      });
+      expect(store.getState().chatRuntime.inferenceStatusByThread['t-cmp-par']).toBeUndefined();
+    });
+
     it('drops duplicate chat_done events with the same thread/request', async () => {
       const listeners = renderProvider();
 

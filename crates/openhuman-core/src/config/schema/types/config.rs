@@ -483,6 +483,9 @@ pub struct Config {
     /// `[components] eventqueues`.
     #[serde(default)]
     pub inbound: InboundConfig,
+    /// Per-conversation batching of inbound channel messages (`[inbound_debounce]`).
+    #[serde(default)]
+    pub inbound_debounce: InboundDebounceConfig,
 
     /// Per-dependency switches (`[components]`). Narrow-only; applied at the
     /// next core start.

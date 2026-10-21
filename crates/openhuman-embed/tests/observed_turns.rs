@@ -168,6 +168,7 @@ fn model_and_tool_observations_capture_payloads_only_with_consent() {
             assert!(terminal[0].1.is_some());
             assert!(events.iter().all(|event| match event {
                 TurnObservation::Model {run_id,..} => Some(run_id) == terminal[0].1.as_ref(),
+                TurnObservation::ModelDispatch {run_id,..} => Some(run_id) == terminal[0].1.as_ref(),
                 TurnObservation::Tool {run_id,..} => run_id == &terminal[0].1,
             }));
             assert_eq!(models[1].0.as_deref(),Some("actual-model"));

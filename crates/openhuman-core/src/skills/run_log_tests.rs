@@ -99,3 +99,12 @@ async fn host_written_log_parses_like_legacy_layout() {
     assert_eq!(old[0].status, "FAILED");
     assert_eq!(old[0].duration_ms, Some(5));
 }
+
+#[test]
+fn a_compaction_is_logged_as_a_step() {
+    let line = format_event(&AgentProgress::ContextCompacting).expect("a step line");
+    assert!(
+        line.ends_with("· summarizing earlier conversation"),
+        "{line}"
+    );
+}

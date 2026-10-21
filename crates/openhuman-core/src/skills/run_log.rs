@@ -117,6 +117,7 @@ pub fn format_event(ev: &AgentProgress) -> Option<String> {
             iteration,
             max_iterations,
         } => format!("· iteration {iteration}/{max_iterations}"),
+        AgentProgress::ContextCompacting => "· summarizing earlier conversation".to_string(),
         AgentProgress::ToolCallStarted {
             tool_name,
             arguments,

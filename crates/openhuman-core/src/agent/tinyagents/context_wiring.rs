@@ -6,6 +6,7 @@
 
 use std::sync::Arc;
 
+use async_trait::async_trait;
 use tinyagents_harness::middleware::{
     compression_policy, legacy_max_input_tokens, microcompact_for_window, split_input_allowance,
     ArtifactIndexTocMiddleware, CapturedOutcomes, ContextCompressionMiddleware, ContextLadder,
@@ -13,9 +14,10 @@ use tinyagents_harness::middleware::{
 };
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::summarization::{
-    FaultTolerantCachingSummarizer, ModelSummarizer, SummarizationPolicy, TaskStateSummarizer,
-    DEFAULT_TASK_STATE_CHUNK_TOKENS,
+    FaultTolerantCachingSummarizer, ModelSummarizer, SummarizationPolicy, Summarizer,
+    SummaryRecord, SummaryRequest, TaskStateSummarizer, DEFAULT_TASK_STATE_CHUNK_TOKENS,
 };
+use tinyinference_llm::message::Message;
 
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::memory_summarizer::MemoryRecallSummarizer;
@@ -30,6 +32,51 @@ const TASK_STATE_KEEP_RECENT_TOKENS: u64 = 20_000;
 /// Store the artifact index is registered under on the run context.
 const ARTIFACT_INDEX_STORE: &str =
     crate::agent::harness::tool_result_artifacts::TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE;
+
+/// Called when the turn starts summarizing earlier conversation.
+pub(super) type CompactionNotice = Arc<dyn Fn() + Send + Sync>;
+
+/// A summarizer that reports each summarization before it runs, so the client
+/// can say what a turn is doing while a long compaction holds its next model
+/// call. It sits under the cache, so a cached summary is not reported.
+struct AnnouncingSummarizer {
+    inner: Box<dyn Summarizer>,
+    notice: CompactionNotice,
+}
+
+#[async_trait]
+impl Summarizer for AnnouncingSummarizer {
+    async fn summarize(
+        &self,
+        messages: &[Message],
+    ) -> tinyagents_harness::error::Result<SummaryRecord> {
+        (self.notice)();
+        self.inner.summarize(messages).await
+    }
+
+    async fn summarize_request(
+        &self,
+        request: &SummaryRequest,
+    ) -> tinyagents_harness::error::Result<SummaryRecord> {
+        (self.notice)();
+        self.inner.summarize_request(request).await
+    }
+
+    async fn merge(
+        &self,
+        summaries: &[SummaryRecord],
+    ) -> tinyagents_harness::error::Result<SummaryRecord> {
+        self.inner.merge(summaries).await
+    }
+}
+
+/// `inner`, reporting each summarization to `notice` when there is one.
+fn announced(inner: Box<dyn Summarizer>, notice: Option<CompactionNotice>) -> Box<dyn Summarizer> {
+    match notice {
+        Some(notice) => Box::new(AnnouncingSummarizer { inner, notice }),
+        None => inner,
+    }
+}
 
 /// Read side of the tool-outcome capture sink, for the wrap-up's restoration.
 pub(super) struct OutcomeSinkSource(pub(super) ToolOutcomeSink);
@@ -60,6 +107,7 @@ pub(super) fn install_context_ladder(
     wrap_up_at_cap: bool,
     tool_outcome_sink: &ToolOutcomeSink,
     memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
+    compaction_notice: Option<CompactionNotice>,
 ) -> (
     Option<Arc<ContextCompressionMiddleware>>,
     Option<Arc<FinalCallWrapUpMiddleware>>,
@@ -76,6 +124,7 @@ pub(super) fn install_context_ladder(
                 summarizer_model,
                 model,
                 memory_turn,
+                compaction_notice,
             ))
         });
     // One allowance split between the contents list and wrap-up restoration.
@@ -126,6 +175,7 @@ fn compression_middleware(
     summarizer_model: TurnChatModel,
     model: &str,
     memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
+    compaction_notice: Option<CompactionNotice>,
 ) -> ContextCompressionMiddleware {
     let window = context_window.filter(|w| *w > 0);
     match strategy {
@@ -138,8 +188,12 @@ fn compression_middleware(
             });
             tracing::info!(model, keep_recent_tokens = keep_recent, max_chunk_tokens = chunk, context_window = ?window, "[context_compression] strategy=task_state");
             let summarizer = FaultTolerantCachingSummarizer::new(
-                Box::new(
-                    TaskStateSummarizer::new(summarizer_model, model).with_max_chunk_tokens(chunk),
+                announced(
+                    Box::new(
+                        TaskStateSummarizer::new(summarizer_model, model)
+                            .with_max_chunk_tokens(chunk),
+                    ),
+                    compaction_notice,
                 ),
                 &policy,
             );
@@ -152,7 +206,10 @@ fn compression_middleware(
         crate::config::CompactionStrategy::Summary => {
             tracing::info!(model, "[context_compression] strategy=summary");
             let summarizer = FaultTolerantCachingSummarizer::new(
-                Box::new(ModelSummarizer::new(summarizer_model, model)),
+                announced(
+                    Box::new(ModelSummarizer::new(summarizer_model, model)),
+                    compaction_notice,
+                ),
                 &policy,
             );
             ContextCompressionMiddleware::with_summarizer(

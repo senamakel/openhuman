@@ -27,6 +27,11 @@ pub enum AgentProgress {
         max_iterations: u32,
     },
 
+    /// The turn is summarizing earlier conversation to fit the context window
+    /// before its next model call. That call starts with the next
+    /// [`Self::IterationStarted`].
+    ContextCompacting,
+
     /// The LLM responded and the agent is about to execute a tool.
     ToolCallStarted {
         /// Provider-assigned (or synthesised) tool call id that ties

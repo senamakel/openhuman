@@ -107,6 +107,7 @@ impl Default for Config {
             tokenjuice: TokenjuiceConfig::default(),
             memes: MemesConfig::default(),
             inbound: InboundConfig::default(),
+            inbound_debounce: InboundDebounceConfig::default(),
             components: ComponentsConfig::default(),
             hosting: HostingConfig::default(),
             storage: StorageConfig::default(),

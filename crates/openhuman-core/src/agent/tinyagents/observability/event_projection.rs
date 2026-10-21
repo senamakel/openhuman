@@ -2,6 +2,8 @@
 //! each `tinyagents` [`AgentEvent`] onto an [`AgentProgress`] update (or a
 //! grep-friendly trace lines for events with no UI surface.
 
+use std::sync::atomic::Ordering;
+
 use tinyagents_harness::cache::CacheLayoutEvent;
 use tinyagents_harness::events::{AgentEvent, EventListener, EventRecord};
 
@@ -16,6 +18,16 @@ impl EventListener for OpenhumanEventBridge {
             return;
         }
         match &record.event {
+            // The turn is live. The web channel turns this into `inference_start`
+            // (and starts its liveness beats and the run-ledger entry), which is
+            // how a client learns a turn began that it did not send itself — one
+            // started right after a Stop, or from another window. Only the
+            // top-level run of a parent bridge announces it, and only once.
+            AgentEvent::RunStarted { .. } => {
+                if self.scope.is_none() && !self.turn_announced.swap(true, Ordering::SeqCst) {
+                    self.send(AgentProgress::TurnStarted);
+                }
+            }
             AgentEvent::ModelStarted { .. } => {
                 let iteration = tinyagents_harness::events::advance_iteration(&self.cursor);
                 match &self.scope {

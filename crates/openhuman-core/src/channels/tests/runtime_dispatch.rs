@@ -176,7 +176,13 @@ async fn message_dispatch_processes_messages_in_parallel() {
     .unwrap();
     drop(tx);
 
-    run_message_dispatch_loop(rx, parallel_ctx, 2).await;
+    run_message_dispatch_loop(
+        rx,
+        parallel_ctx,
+        2,
+        crate::config::InboundDebounceConfig::disabled(),
+    )
+    .await;
     assert_eq!(peak_in_flight.load(Ordering::SeqCst), 2);
 
     let sent_messages = parallel_channel.sent_messages.lock().await;

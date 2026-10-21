@@ -96,6 +96,9 @@ pub(super) struct TurnMiddlewareInputs {
     /// plan-order middleware read it. `None` for a turn with no workspace or
     /// without the `todo` tool.
     pub(super) todo_store: Option<Arc<dyn tinyagents_harness::store::Store>>,
+    /// Called when the turn starts summarizing earlier conversation, so the
+    /// client can show it. `None` for a turn nobody watches.
+    pub(super) compaction_notice: Option<super::context_wiring::CompactionNotice>,
 }
 
 /// The handles the run loop reads after the drive returns.
@@ -147,6 +150,7 @@ pub(super) fn install_turn_middleware(
         provider_usage_carry,
         tool_outcome_sink,
         todo_store,
+        compaction_notice,
     } = inputs;
     let super::host::HarnessHostPolicy {
         stop_hooks,
@@ -446,6 +450,7 @@ pub(super) fn install_turn_middleware(
         pause_at_cap && subagent_scope.is_none(),
         &tool_outcome_sink,
         memory_turn,
+        compaction_notice,
     );
     let is_subagent = subagent_scope.is_some();
     let agent_id = tool_policy.as_ref().map(|p| p.agent_definition_id.as_str());

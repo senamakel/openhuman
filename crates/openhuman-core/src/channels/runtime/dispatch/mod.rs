@@ -2,6 +2,8 @@
 //!
 //! Sub-modules:
 //! * [`helpers`]   — small stateless helpers (context block, ACK reaction, typing, workers).
+//! * [`inbound_batch`] — admitted messages as debounce items and the merge of
+//!   one batch into the message its turn runs on.
 //! * [`host_agent`] — channels bound to a host-registered agent
 //!   (`agent.channel_agents`): routing, the refusal for a missing agent, the
 //!   turn runner and the external-channel posture.
@@ -12,6 +14,7 @@
 
 mod helpers;
 pub(crate) mod host_agent;
+mod inbound_batch;
 mod processor;
 mod routing;
 

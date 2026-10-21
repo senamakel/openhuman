@@ -71,6 +71,12 @@ impl ChatModel<()> for OpenHumanBackendModel {
         Some(&self.profile)
     }
 
+    fn tracks_physical_attempts(&self) -> bool {
+        // Every request is forwarded to the native OpenAI-compatible adapter,
+        // which checks the physical-attempt hook at its HTTP send boundary.
+        true
+    }
+
     fn supports_input(
         &self,
         modality: tinyinference_llm::model::InputModality,

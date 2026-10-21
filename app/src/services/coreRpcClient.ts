@@ -175,6 +175,12 @@ export function classifyRpcError(
   // feature build), never a transient fault. Classified before the generic
   // arms so polling callers can stop instead of retrying forever (#5157).
   if (message.startsWith(UNKNOWN_METHOD_PREFIX)) return 'method_not_found';
+  // #8081: TinyMemory words a hosted 403, including `[MEMORY_PLAN_REQUIRED]`
+  // (memory not in the account's plan), as "the session expired or the API
+  // key was rejected (HTTP 403 …)". A refusal is never an expired session;
+  // matching it below signed a valid user out on opening a Memory tab.
+  // Mirrors Rust `is_session_expired_message`.
+  if (/\[[A-Z0-9_]*_PLAN_REQUIRED\] memory API |\(HTTP 403/.test(message)) return 'unknown';
   // Confirmed OpenHuman session expiry — explicit markers from the backend/core.
   if (/Session expired|SESSION_EXPIRED/i.test(message)) return 'auth_expired';
   // Core-side "no backend session token" → the auth profile is gone but the

@@ -584,6 +584,13 @@ fn driver_error_with_snapshot(
 ) -> DriverFailure {
     // Classify from the typed harness error when the chain carries one, rather
     // than matching on its rendered text.
+    let dispatch_refusal = error.chain().find_map(|cause| {
+        cause.downcast_ref::<crate::agent::tinyagents::budget::DispatchRefusal>()
+    });
+    sidecar
+        .lock()
+        .unwrap_or_else(|poisoned| poisoned.into_inner())
+        .dispatch_refusal = dispatch_refusal.copied();
     let typed = error
         .chain()
         .find_map(|cause| cause.downcast_ref::<tinyagents_harness::TinyAgentsError>());

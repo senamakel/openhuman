@@ -487,6 +487,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'Bekleyen masaüstü onayları yüklenemedi. Yeniden denemek için yenileyin.',
   'desktop.unsupported': 'Masaüstü denetimi bu çalışma ortamında kullanılamıyor.',
+  'desktop.unsupportedWindows':
+    "Masaüstü denetimi henüz Windows'ta kullanılamıyor. Tarayıcı denetimi Windows'ta şu anda çalışıyor.",
   'desktop.localOnly': 'Bu ayar yalnızca bu bilgisayar için geçerlidir.',
   'desktop.permissions': 'Sistem izinleri',
   'desktop.openSettings': 'Ayarları aç',
@@ -4217,6 +4219,8 @@ const messages: TranslationMap = {
   'memoryPage.import.progress': '{imported}/{total} öğe içe aktarıldı',
   // Chat status, history, and tool activity.
   'chat.status.thinkingElapsed': 'Düşünüyor · {elapsed}',
+  'chat.status.compacting': 'Önceki konuşma özetleniyor…',
+  'chat.status.compactingElapsed': 'Önceki konuşma özetleniyor · {elapsed}',
   'chat.status.waitingApproval': 'Onayınız bekleniyor',
   'chat.status.waitingReview': 'İncelemeniz bekleniyor',
   'chat.status.waitingAnswer': 'Yanıtınız bekleniyor',
@@ -4379,6 +4383,10 @@ const messages: TranslationMap = {
     'Belleğe şu anda ulaşılamıyor. Kayıtlı hiçbir şey kaybolmadı; biraz sonra yeniden deneyin.',
   'memory.outOfCredits.title': 'Krediniz tükendi',
   'memory.outOfCredits.action': 'Kredi yükle',
+  'memory.error.planRequired':
+    "Mevcut planınız bellek içermediği için OpenHuman öğrendiklerini kaydedemez veya bunlara bakamaz. Belleği açmak için planınızı yükseltin ya da Ayarlar'dan başka bir bellek seçeneğine geçin.",
+  'memory.planRequired.title': 'Bellek planınıza dahil değil',
+  'memory.planRequired.action': 'Planları gör',
   'memoryPage.engine.badgeDegraded': 'Kısıtlı çalışıyor',
   'memoryPage.engine.badgeDown': 'Ulaşılamıyor',
   'memoryPage.engine.connecting': 'Bağlanıyor…',

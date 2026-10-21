@@ -62,6 +62,42 @@ pub async fn complete_once(
     request: ModelRequest,
     budget: Option<&crate::agent::tinyagents::budget::ModelBudget>,
 ) -> Result<ModelResponse, String> {
+    complete_once_observed(endpoint, request, budget, None).await
+}
+
+/// Run one completion and observe each admitted provider invocation without content.
+///
+/// When `budget` is present, the explicit observer and the turn-scoped observer
+/// run inside budget admission and after gateway charge normalization. They
+/// therefore see the same authoritative charge the ledger settles. Without a
+/// budget, the explicit observer still sees normalized provider usage.
+pub async fn complete_once_observed(
+    endpoint: &CompletionEndpoint,
+    request: ModelRequest,
+    budget: Option<&crate::agent::tinyagents::budget::ModelBudget>,
+    observer: Option<
+        std::sync::Arc<dyn tinyagents_harness::observability::PhysicalDispatchObserver>,
+    >,
+) -> Result<ModelResponse, String> {
+    validate_complete_once_request(&request)?;
+    complete_once_controlled(endpoint, request, budget, observer, None)
+        .await
+        .map_err(|error| match error {
+            tinyagents_harness::cost::ControlledDispatchError::Model(source) => {
+                format!("complete_once: {source}")
+            }
+            tinyagents_harness::cost::ControlledDispatchError::Admission(source) => {
+                source.to_string()
+            }
+        })
+}
+
+/// Validate the stateless completion request before dispatching it.
+///
+/// The legacy string facade returns these operation-level messages verbatim;
+/// separating preflight from provider errors preserves that contract without
+/// inspecting formatted error text.
+pub fn validate_complete_once_request(request: &ModelRequest) -> Result<(), String> {
     if !request.tools.is_empty() {
         return Err(
             "complete_once: tools are not supported on a stateless completion; use an agent turn"
@@ -76,13 +112,31 @@ pub async fn complete_once(
             "complete_once: provider_options may not set `{key}`; use the typed request fields"
         ));
     }
-    // Blank is refused, but the id itself goes out exactly as the caller named it.
-    let model_id = request
+    request
         .model
         .as_deref()
         .filter(|model| !model.trim().is_empty())
-        .ok_or_else(|| "complete_once: request.model is required".to_string())?
-        .to_string();
+        .map(|_| ())
+        .ok_or_else(|| "complete_once: request.model is required".to_string())
+}
+
+/// Run one completion with optional neutral physical-call admission.
+pub async fn complete_once_controlled(
+    endpoint: &CompletionEndpoint,
+    request: ModelRequest,
+    budget: Option<&crate::agent::tinyagents::budget::ModelBudget>,
+    observer: Option<
+        std::sync::Arc<dyn tinyagents_harness::observability::PhysicalDispatchObserver>,
+    >,
+    admission: Option<std::sync::Arc<dyn tinyagents_harness::cost::PhysicalDispatchAdmission>>,
+) -> Result<ModelResponse, tinyagents_harness::cost::ControlledDispatchError> {
+    if let Err(message) = validate_complete_once_request(&request) {
+        return Err(tinyagents_harness::cost::ControlledDispatchError::Model(
+            tinyinference_llm::Error::Validation(message),
+        ));
+    }
+    // Blank is refused, but the id itself goes out exactly as the caller named it.
+    let model_id = request.model.as_deref().unwrap().to_string();
 
     let mut model = OpenAiModel::new(endpoint.api_key.clone())
         .with_base_url(endpoint.base_url.clone())
@@ -100,14 +154,36 @@ pub async fn complete_once(
     );
 
     let model: std::sync::Arc<dyn ChatModel<()>> = std::sync::Arc::new(model);
-    let model = match budget {
-        Some(budget) => budget.wrap(model),
-        None => model,
-    };
-    model
-        .invoke(&(), request)
-        .await
-        .map_err(|e| format!("complete_once: {e}"))
+    let monetary_budget = budget.map(|budget| {
+        tinyagents_harness::cost::ModelBudget::new(budget.ledger.clone(), budget.call)
+    });
+    if admission.is_none() {
+        let model: std::sync::Arc<dyn ChatModel<()>> = match (budget, observer) {
+            (Some(budget), observer) => budget.wrap_with_observer(model, observer),
+            (None, Some(observer)) => {
+                let normalized =
+                    std::sync::Arc::new(tinyagents_harness::cost::GatewayChargeModel::new(model));
+                std::sync::Arc::new(
+                    tinyagents_harness::observability::physical_dispatch::ObservedChatModel::new(
+                        normalized, observer,
+                    ),
+                )
+            }
+            (None, None) => model,
+        };
+        return model
+            .invoke(&(), request)
+            .await
+            .map_err(tinyagents_harness::cost::ControlledDispatchError::Model);
+    }
+    let controlled = tinyagents_harness::cost::ControlledChatModel::new(
+        model,
+        tinyagents_harness::cost::DispatchModelOptions::new()
+            .monetary_budget(monetary_budget)
+            .observer(observer)
+            .admission(admission),
+    );
+    controlled.invoke_controlled(&(), request).await
 }
 
 /// Body keys that `provider_options` may not carry: the tool surface (which

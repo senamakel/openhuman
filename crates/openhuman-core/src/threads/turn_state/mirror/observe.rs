@@ -470,6 +470,12 @@ impl ObserveProgress for TurnStateMirror {
                 // running, so a flush per beat would buy nothing.
                 false
             }
+            AgentProgress::ContextCompacting => {
+                // Live-only (`context_compacting` on the socket): the snapshot's
+                // phases come from tinyagents' `TurnPhase`, which has none for
+                // it, and the next `IterationStarted` sets the phase anyway.
+                false
+            }
         }
     }
 }

@@ -106,6 +106,77 @@ async fn bridge_forwards_tool_and_cost_progress() {
     assert_eq!((input, output), (100, 40));
 }
 
+fn run_started(id: &str) -> AgentEvent {
+    AgentEvent::RunStarted {
+        run_id: tinyagents_harness::ids::RunId::new(id),
+        thread_id: None,
+    }
+}
+
+/// A turn announces itself (`TurnStarted`, which the web channel turns into
+/// `inference_start`) before anything else, exactly once. Without it a client
+/// that did not send the turn — one started right after a Stop — never learns
+/// a new turn is live and hides its stream until a reload.
+#[tokio::test]
+async fn the_top_level_run_announces_the_turn_once_and_first() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+    let bridge = OpenhumanEventBridge::new(Some(tx), "mock-model", 10);
+    let sink = EventSink::new();
+    sink.subscribe(bridge.clone());
+
+    sink.emit(run_started("root"));
+    sink.emit(AgentEvent::ModelStarted {
+        call_id: "c1".into(),
+        model: "mock-model".to_string(),
+    });
+    // A retried or nested run on the same bridge is not a new turn.
+    sink.emit(run_started("again"));
+
+    let mut kinds = Vec::new();
+    while let Ok(p) = rx.try_recv() {
+        kinds.push(match p {
+            AgentProgress::TurnStarted => "turn",
+            AgentProgress::IterationStarted { .. } => "iter",
+            _ => "other",
+        });
+    }
+    assert_eq!(kinds.first(), Some(&"turn"), "{kinds:?}");
+    assert_eq!(
+        kinds.iter().filter(|k| **k == "turn").count(),
+        1,
+        "{kinds:?}"
+    );
+}
+
+#[tokio::test]
+async fn a_subagent_run_does_not_announce_a_turn() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(64);
+    let bridge = OpenhumanEventBridge::with_scope(
+        Some(tx),
+        "mock-model",
+        "custom",
+        10,
+        Some(SubagentScope {
+            agent_id: "researcher".into(),
+            task_id: "t1".into(),
+            extended_policy: false,
+        }),
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        Vec::new(),
+        crate::core::runtime::DispatchCtx::unbound(),
+    );
+    let sink = EventSink::new();
+    sink.subscribe(bridge.clone());
+
+    sink.emit(run_started("child"));
+    while let Ok(p) = rx.try_recv() {
+        assert!(!matches!(p, AgentProgress::TurnStarted), "{p:?}");
+    }
+}
+
 #[tokio::test]
 async fn host_supplemental_generation_is_journaled_without_loop_progress_or_billing() {
     let (tx, mut rx) = tokio::sync::mpsc::channel(16);
@@ -675,4 +746,35 @@ async fn bridge_forwards_tool_progress_with_a_message() {
             "running 4m 12s · 38.2 KB output".to_string()
         )]
     );
+}
+
+#[tokio::test]
+async fn only_a_top_level_turn_announces_its_compaction() {
+    let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+    OpenhumanEventBridge::new(Some(tx), "mock-model", 10).announce_compaction();
+    assert!(matches!(
+        rx.try_recv(),
+        Ok(AgentProgress::ContextCompacting)
+    ));
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel(8);
+    OpenhumanEventBridge::with_scope(
+        Some(tx),
+        "mock-model",
+        "custom",
+        10,
+        Some(SubagentScope {
+            agent_id: "researcher".into(),
+            task_id: "t1".into(),
+            extended_policy: false,
+        }),
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        Arc::default(),
+        Vec::new(),
+        crate::core::runtime::DispatchCtx::unbound(),
+    )
+    .announce_compaction();
+    assert!(rx.try_recv().is_err());
 }

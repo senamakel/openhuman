@@ -583,6 +583,8 @@ const messages: TranslationMap = {
   'desktop.pendingUnavailable':
     'लंबित डेस्कटॉप अनुमोदन लोड नहीं हो सके। फिर कोशिश करने के लिए रीफ़्रेश करें।',
   'desktop.unsupported': 'इस रनटाइम में डेस्कटॉप नियंत्रण उपलब्ध नहीं है।',
+  'desktop.unsupportedWindows':
+    'Windows पर डेस्कटॉप नियंत्रण अभी उपलब्ध नहीं है। ब्राउज़र नियंत्रण Windows पर अभी काम करता है।',
   'desktop.localOnly': 'यह सेटिंग केवल इस कंप्यूटर पर लागू होती है।',
   'desktop.permissions': 'सिस्टम अनुमतियाँ',
   'desktop.openSettings': 'सेटिंग्स खोलें',
@@ -602,6 +604,10 @@ const messages: TranslationMap = {
     'अभी मेमोरी तक नहीं पहुँचा जा सकता। संग्रहीत कुछ भी खोया नहीं है; थोड़ी देर में फिर से कोशिश करें।',
   'memory.outOfCredits.title': 'क्रेडिट खत्म हो गए',
   'memory.outOfCredits.action': 'टॉप अप करें',
+  'memory.error.planRequired':
+    'आपके मौजूदा प्लान में मेमोरी शामिल नहीं है, इसलिए OpenHuman जो सीखता है उसे न सहेज सकता है, न खोज सकता है। मेमोरी चालू करने के लिए अपग्रेड करें, या सेटिंग्स में कोई दूसरा मेमोरी विकल्प चुनें।',
+  'memory.planRequired.title': 'मेमोरी आपके प्लान का हिस्सा नहीं है',
+  'memory.planRequired.action': 'प्लान देखें',
   'alerts.title': 'अलर्ट',
   'alerts.empty': 'अभी कोई अलर्ट नहीं',
   'alerts.markAllRead': 'सभी पढ़ा हुआ मार्क करें',
@@ -1307,6 +1313,8 @@ const messages: TranslationMap = {
   'chat.failedToLoadMessages': 'मैसेज लोड नहीं हो पाए',
   'chat.thinkingDots': 'सोच रहा है...',
   'chat.status.thinkingElapsed': 'सोच रहा है · {elapsed}',
+  'chat.status.compacting': 'पिछली बातचीत का सारांश बना रहा है…',
+  'chat.status.compactingElapsed': 'पिछली बातचीत का सारांश बना रहा है · {elapsed}',
   'chat.status.waitingApproval': 'आपकी स्वीकृति की प्रतीक्षा',
   'chat.status.waitingReview': 'आपकी समीक्षा की प्रतीक्षा',
   'chat.status.waitingAnswer': 'आपके उत्तर की प्रतीक्षा',

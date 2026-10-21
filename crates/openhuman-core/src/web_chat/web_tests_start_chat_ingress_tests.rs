@@ -659,6 +659,7 @@ fn hosted_timeout_bound_reaches_the_sentry_tag_and_keeps_the_user_class() {
             kind: HostedErrorKind::Timeout,
             message: "hosted agent invocation timed out".to_string(),
             timeout_bound: Some(bound),
+            dispatch_refusal: None,
             run: None,
         };
         let err = crate::agent::tinyagents::hosted_error::run_error_from_hosted(hosted);

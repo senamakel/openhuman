@@ -6,6 +6,7 @@
 mod components;
 mod context;
 mod embeddings;
+mod inbound_debounce;
 mod modules;
 mod observability;
 mod proxy;
@@ -348,6 +349,7 @@ impl Config {
         self.apply_search_env(env);
         self.apply_proxy_env(env);
         self.apply_runtime_env(env);
+        self.apply_inbound_debounce_env(env);
         self.apply_observability_env(env);
         self.apply_embedding_env(env);
         self.apply_update_env(env);

@@ -644,3 +644,31 @@ mod tool_progress_tests;
 
 #[path = "progress_bridge_subagent_tests.rs"]
 mod subagent_tests;
+
+/// A compaction reaches the client as `context_compacting`, for the status
+/// line to say what a long pause before the next model call is.
+#[tokio::test]
+async fn forwards_a_compaction_as_context_compacting() {
+    let mut events = super::super::event_bus::subscribe_web_channel_events();
+    let thread_id = "thread-context-compacting";
+    let request_id = "req-context-compacting";
+    let tx = spawn_test_bridge(thread_id, request_id);
+
+    tx.send(AgentProgress::TurnStarted).await.unwrap();
+    tx.send(AgentProgress::ContextCompacting).await.unwrap();
+
+    // The bus is process-global and never closes: bound the wait so a missing
+    // event fails the test instead of hanging it.
+    let compacting = tokio::time::timeout(std::time::Duration::from_secs(5), async {
+        loop {
+            let event = recv_for_thread(&mut events, thread_id).await;
+            if event.event == "context_compacting" {
+                break event;
+            }
+        }
+    })
+    .await
+    .expect("the bridge forwards ContextCompacting as context_compacting");
+    assert_eq!(compacting.request_id, request_id);
+    drop(tx);
+}

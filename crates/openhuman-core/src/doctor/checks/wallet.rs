@@ -56,16 +56,10 @@ impl WalletSnapshotProbe for FileSnapshot {
         if contents.len() as u64 > MAX_SNAPSHOT_BYTES {
             return Err(SnapshotFailure::Malformed);
         }
-        let value: serde_json::Value =
-            serde_json::from_slice(&contents).map_err(|_| SnapshotFailure::Malformed)?;
-        let configured = value
-            .get("consentGranted")
-            .and_then(serde_json::Value::as_bool)
-            == Some(true)
-            && value
-                .get("accounts")
-                .and_then(serde_json::Value::as_array)
-                .is_some_and(|accounts| !accounts.is_empty());
+        let inspection =
+            crate::web3::wallet::inspect_stored_wallet_state(&contents)
+                .map_err(|_| SnapshotFailure::Malformed)?;
+        let configured = inspection.consent_granted && inspection.account_count > 0;
         Ok(Some(WalletSnapshot { configured }))
     }
 }

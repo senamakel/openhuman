@@ -113,11 +113,17 @@ fn origins() -> &'static Mutex<HashMap<String, ErrorOrigins>> {
 
 fn current_scope() -> Option<ScopeIdentity> {
     let context = crate::core::runtime::CoreContext::current()?;
-    let workspace = context.workspace_dir().ok()?;
+    let (workspace, config_path) =
+        if let Some(binding) = crate::core::runtime::CoreContext::with_current_embedder_config(
+            |config| (config.workspace_dir.clone(), Some(config.config_path.clone())),
+        ) {
+            binding
+        } else {
+            context.workspace_config_binding().ok()?
+        };
     Some(ScopeIdentity {
         workspace,
-        config_path: crate::core::runtime::CoreContext::current_embedder_config()
-            .map(|config| config.config_path),
+        config_path,
         tenant: context.profile().unwrap_or_default().to_owned(),
     })
 }
@@ -155,23 +161,8 @@ pub fn snapshot_for_scope(
             if !partial_match {
                 return false;
             }
-            let ambiguous =
-                origins
-                    .values()
-                    .flat_map(|other| other.scopes.iter())
-                    .any(|recorded| {
-                        recorded.config_path.as_ref().is_some_and(|path| {
-                            recorded.workspace == scope.workspace
-                                && recorded.tenant == scope.tenant
-                                && path != &scope.config_path.clone().unwrap_or_default()
-                        })
-                    });
-            if ambiguous {
-                has_unscoped = true;
-                false
-            } else {
-                true
-            }
+            has_unscoped = true;
+            false
         })
         .collect();
     (errors, has_unscoped)

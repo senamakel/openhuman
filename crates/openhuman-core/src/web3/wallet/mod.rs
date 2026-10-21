@@ -62,7 +62,7 @@ pub use execution::{
     ProviderStatus, SupportedAsset, TxLookupInfo, TxReceiptInfo, TxState, TxStatusInfo,
 };
 #[cfg(feature = "web3")]
-pub(crate) use ops::secret_material;
+pub(crate) use ops::{inspect_stored_wallet_state, StoredWalletInspection, secret_material};
 #[cfg(feature = "web3")]
 pub use ops::{
     derive_recovery_material, generate_recovery_phrase, reveal_recovery_phrase, setup, status,

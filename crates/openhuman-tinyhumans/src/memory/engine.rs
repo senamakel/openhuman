@@ -31,13 +31,21 @@ use crate::backend::url::effective_backend_api_url;
 pub(crate) fn build_read_only_engine(
     config: &Config,
 ) -> Result<Arc<dyn tinymemory_api::MemoryEngine>, ReadOnlyEngineError> {
-    let credential = match openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(config) {
-        Ok(Some(key)) => key,
-        Ok(None) => read_only_session_token(config)?
-            .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?,
-        Err(_) => return Err(ReadOnlyEngineError::CredentialsUnavailable),
+    let (credential, is_api_key) =
+        match openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(config)
+        {
+            Ok(Some(key)) => (key, true),
+            Ok(None) => (
+                read_only_session_token(config)?
+                    .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?,
+                false,
+            ),
+            Err(_) => return Err(ReadOnlyEngineError::CredentialsUnavailable),
+        };
     };
     let endpoint = endpoint_for(config);
+    crate::client::endpoint::validate_credential_endpoint(&endpoint, is_api_key)
+        .map_err(|_| ReadOnlyEngineError::EndpointUnavailable)?;
     let headers = crate::backend::headers::attribution_headers()
         .map_err(|_| ReadOnlyEngineError::InvalidConfiguration)?
         .iter()

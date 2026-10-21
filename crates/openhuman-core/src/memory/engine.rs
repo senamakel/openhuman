@@ -310,10 +310,7 @@ pub async fn resolve_read_only_for_inspection(
         AuthService::get_provider_bearer_token_read_only(config, MEMORY_CORTEXDB_KEY_NAME, None)
             .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?
             .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?;
-    let endpoint = config
-        .memory
-        .endpoint_for(CORTEXDB_ENGINE)
-        .unwrap_or_else(|| tinymemory_integrations::cortex::CORTEX_API_ENDPOINT.to_string());
+    let endpoint = cortexdb_endpoint(config);
     let root = if super::scope::layout_is_v3(config) {
         Some(super::scope::user_root(config).ok_or(ReadOnlyEngineError::CredentialsUnavailable)?)
     } else {
@@ -526,10 +523,7 @@ pub fn rooted(
 }
 
 fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
-    let configured = config.memory.endpoint_for(CORTEXDB_ENGINE);
-    let endpoint = configured
-        .clone()
-        .unwrap_or_else(|| tinymemory_integrations::cortex::CORTEX_API_ENDPOINT.to_string());
+    let endpoint = cortexdb_endpoint(config);
     let key = match read_cortexdb_key(config) {
         Ok(Some(key)) => key,
         Ok(None) => {
@@ -570,6 +564,13 @@ fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
         fingerprint + &layout,
         EngineCredential::Static(key),
     )
+}
+
+fn cortexdb_endpoint(config: &Config) -> String {
+    config
+        .memory
+        .endpoint_for(CORTEXDB_ENGINE)
+        .unwrap_or_else(|| tinymemory_integrations::cortex::CORTEX_API_ENDPOINT.to_string())
 }
 
 pub fn build_cached(

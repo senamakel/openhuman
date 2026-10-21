@@ -188,10 +188,11 @@ impl OpenHumanSessionHost {
         let tool_config: Arc<Config> = Arc::clone(&base_config);
 
         // Host-only (`host_only.rs`): no config-derived tool is even built.
-        let mut tools = if host_only {
-            Vec::new()
+        let (mut tools, pack_registry_handle) = if host_only {
+            (Vec::new(), None)
         } else {
-            tools::ops::all_tools_with_runtime(
+            let (tools, pack_registry_handle) =
+                tools::ops::all_tools_with_runtime_and_pack_handle(
                 Arc::clone(&tool_config),
                 &security,
                 runtime,
@@ -204,7 +205,8 @@ impl OpenHumanSessionHost {
                 workspace_descriptor
                     .as_ref()
                     .map(|descriptor| descriptor.root.as_path()),
-            )
+            );
+            (tools, Some(pack_registry_handle))
         };
 
         // Filter tools by the user preference loaded above.
@@ -780,6 +782,7 @@ impl OpenHumanSessionHost {
         let mut builder = OpenHumanSessionHost::builder()
             .crate_native_provider(ctx, provider_role, Arc::clone(&base_config))
             .tools(tools)
+            .pack_registry_handle(pack_registry_handle)
             .synthesized_tools(delegation_tools)
             .visible_tool_names(visible)
             .withheld_tool_names(withheld_tool_names)

@@ -382,13 +382,12 @@ impl SessionHostBuilder {
 
         let tools = Arc::new(tools);
         let synthesized_tools = Arc::new(synthesized_tools);
-        // The pack tool lives inside this registry, so it can only be pointed
-        // at it once it exists. Re-bind after any later rebuild of this `Arc`.
-        crate::tools::toolpacks::bind_pack_registry(&tools);
-        // And at the delegates, which are NOT in that registry: every
-        // `delegate_*` is synthesised into its own `Arc`, so a packed delegate
-        // is unreachable through `use_skill` until this second binding runs.
-        crate::tools::toolpacks::bind_synthesized_pack_registry(&tools, &synthesized_tools);
+        // The pack handle is host-owned and retained beside the registry;
+        // rebind it after this Arc is built and after any future refresh.
+        if let Some(handle) = self.pack_registry_handle.as_ref() {
+            crate::tools::toolpacks::bind_pack_registry(handle, &tools);
+            crate::tools::toolpacks::bind_synthesized_pack_registry(handle, &synthesized_tools);
+        }
 
         Ok(OpenHumanSessionHost {
             runtime_session: None,
@@ -401,6 +400,7 @@ impl SessionHostBuilder {
             })),
             turn_model_source,
             tools,
+            pack_registry_handle: self.pack_registry_handle,
             synthesized_tools,
             tool_specs: Arc::new(tool_specs),
             durable_tool_specs: Arc::new(durable_tool_specs),

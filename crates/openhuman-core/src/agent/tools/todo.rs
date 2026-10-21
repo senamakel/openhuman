@@ -198,22 +198,21 @@ impl TodoTool {
             .await
     }
 
-    /// If `scope`'s list is empty and `legacy_key` has a non-empty one,
+    /// If `scope` has no stored list and `legacy_key` has a non-empty one,
     /// copy it forward under `scope`'s key so the rekey is transparent to an
-    /// in-flight session. Best-effort: any store error is logged and
-    /// swallowed — a failed migration just means the tool starts from an
-    /// empty list, same as any other first `todo` call.
+    /// in-flight session. A persisted empty list is authoritative too: it
+    /// records that the user cleared the migrated list and must not be treated
+    /// as an absent target. Best-effort: store errors are logged and swallowed;
+    /// the legacy value remains untouched unless the copy succeeds.
     async fn migrate_legacy_list_if_absent(&self, scope: &TodoScope, legacy_key: &str) {
         let store = crate::storage::sessions::stores_or_ephemeral(&self.workspace_dir).kv;
-        let current = match todos_store::list(&store, scope.key()).await {
-            Ok(snapshot) => snapshot,
+        match todos_store::get(&store, scope.key()).await {
+            Ok(Some(_)) => return,
+            Ok(None) => {}
             Err(e) => {
                 tracing::debug!(error = %e, "[tool][todo] legacy-migration: current list read failed");
                 return;
             }
-        };
-        if !current.items.is_empty() {
-            return;
         }
         match todos_store::list(&store, legacy_key).await {
             Ok(legacy) if !legacy.items.is_empty() => {

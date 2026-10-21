@@ -3,13 +3,13 @@ use crate::hosted::test_support;
 use openhuman_embed::__host::memory_engines::Binding;
 use openhuman_embed::__host::security::credentials::session_support::BackendCredential;
 use openhuman_embed::__host::security::credentials::{
-    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
+    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
 };
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use billing::{active_with_cache, digest, fetch, parse_active, Answer, CACHE_TTL};
+use billing::{Answer, CACHE_TTL, active_with_cache, digest, fetch, parse_active};
 use engine::HostBearer;
 
 const KEY: &str = "https://backend.test";
@@ -181,10 +181,12 @@ async fn health_server(status: u16) -> wiremock::MockServer {
     let server = wiremock::MockServer::start().await;
     wiremock::Mock::given(method("GET"))
         .and(path("/memory/scopes"))
-        .respond_with(wiremock::ResponseTemplate::new(status).set_body_json(json!({
-            "success": true,
-            "data": { "items": [] }
-        })))
+        .respond_with(
+            wiremock::ResponseTemplate::new(status).set_body_json(json!({
+                "success": true,
+                "data": { "items": [] }
+            })),
+        )
         .mount(&server)
         .await;
     server
@@ -206,15 +208,26 @@ fn store_session_with_metadata(
         .expect("store selected session fixture");
 }
 
-fn persistent_tree(path: &std::path::Path) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
-    fn visit(root: &std::path::Path, at: &std::path::Path, out: &mut std::collections::BTreeMap<std::path::PathBuf, Vec<u8>>) {
+fn persistent_tree(
+    path: &std::path::Path,
+) -> std::collections::BTreeMap<std::path::PathBuf, Vec<u8>> {
+    fn visit(
+        root: &std::path::Path,
+        at: &std::path::Path,
+        out: &mut std::collections::BTreeMap<std::path::PathBuf, Vec<u8>>,
+    ) {
         for entry in std::fs::read_dir(at).expect("read fixture tree") {
             let entry = entry.expect("read fixture entry");
             let path = entry.path();
             if path.is_dir() {
                 visit(root, &path, out);
             } else {
-                out.insert(path.strip_prefix(root).expect("relative fixture path").to_path_buf(), std::fs::read(path).expect("read fixture file"));
+                out.insert(
+                    path.strip_prefix(root)
+                        .expect("relative fixture path")
+                        .to_path_buf(),
+                    std::fs::read(path).expect("read fixture file"),
+                );
             }
         }
     }
@@ -245,9 +258,18 @@ async fn readonly_health_uses_the_selected_config_credential_and_endpoint() {
     assert!(server_a.received_requests().await.unwrap().is_empty());
     let requests = server_b.received_requests().await.unwrap();
     assert_eq!(requests.len(), 1);
-    assert_eq!(requests[0].header("authorization").unwrap(), "Bearer selected-b-token");
-    assert_eq!(persistent_tree(config_a.config_path.parent().unwrap()), before_a);
-    assert_eq!(persistent_tree(config_b.config_path.parent().unwrap()), before_b);
+    assert_eq!(
+        requests[0].header("authorization").unwrap(),
+        "Bearer selected-b-token"
+    );
+    assert_eq!(
+        persistent_tree(config_a.config_path.parent().unwrap()),
+        before_a
+    );
+    assert_eq!(
+        persistent_tree(config_b.config_path.parent().unwrap()),
+        before_b
+    );
 }
 
 #[tokio::test]

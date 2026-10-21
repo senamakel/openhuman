@@ -17,8 +17,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::memory_engines::{
-    build_cached, rooted, BearerSource, Binding, EngineCredential, EngineRequest, EngineSettings,
-    TINYHUMANS_ENGINE,
+    BearerSource, Binding, EngineCredential, EngineRequest, EngineSettings, TINYHUMANS_ENGINE,
+    build_cached, rooted,
 };
 use openhuman_embed::__host::security::credentials::session_support::resolve_backend_credential;
 

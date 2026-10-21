@@ -1,7 +1,7 @@
 use super::*;
 use crate::memory::test_fixtures::config_in;
 
-use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
+use crate::security::credentials::{APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
 fn off_reason(binding: Binding) -> String {
     match binding {

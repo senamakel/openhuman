@@ -37,12 +37,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, LazyLock, RwLock};
 
 use sha2::{Digest, Sha256};
+pub use tinymemory_api::EngineHealth;
 use tinymemory_api::MemoryEngine;
 pub use tinymemory_integrations::{BearerSource, EngineCredential, EngineSettings};
-pub use tinymemory_api::EngineHealth;
 
-use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
 use crate::config::Config;
+use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
 use crate::security::credentials::session_support::resolve_backend_credential;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
@@ -479,7 +479,7 @@ fn resolve_cortexdb(config: &Config, root: Option<&str>) -> Binding {
                 Some(CORTEXDB_ENGINE),
                 Some(endpoint),
                 "add a CortexDB API key to use CortexDB memory",
-            )
+            );
         }
         Err(error) => {
             tracing::warn!(error = %error, "[memory:engine] reading the CortexDB key failed");

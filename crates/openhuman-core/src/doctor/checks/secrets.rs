@@ -61,7 +61,10 @@ fn keyring_with_probe(
     }
     let (backend, available) = probe();
     if available {
-        Finding::pass("secrets/keyring", format!("The configured {backend} secret backend is available."))
+        Finding::pass(
+            "secrets/keyring",
+            format!("The configured {backend} secret backend is available."),
+        )
     } else {
         Finding::error(
             "secrets/keyring",

@@ -49,7 +49,8 @@ pub type FreeBackground = Arc<dyn Fn(Config, BoundEngine) -> EngineFuture<bool> 
 /// A read-only connectivity probe for the selected engine configuration.
 /// Unlike [`EngineBuilder`], this hook must not consult ambient profile state,
 /// mutate credential state, initialize storage, or cache the engine.
-pub type ReadOnlyHealthProbe = Arc<dyn Fn(Config) -> EngineFuture<tinymemory_api::EngineHealth> + Send + Sync>;
+pub type ReadOnlyHealthProbe =
+    Arc<dyn Fn(Config) -> EngineFuture<tinymemory_api::EngineHealth> + Send + Sync>;
 
 /// A registered memory engine.
 #[derive(Clone)]
@@ -80,10 +81,7 @@ pub fn register_memory_engine_in(
 }
 
 /// Registers a read-only health probe for a configured memory engine.
-pub fn register_memory_health_probe(
-    engine_id: impl Into<String>,
-    probe: ReadOnlyHealthProbe,
-) {
+pub fn register_memory_health_probe(engine_id: impl Into<String>, probe: ReadOnlyHealthProbe) {
     READ_ONLY_HEALTH_PROBES.register(engine_id, probe);
 }
 

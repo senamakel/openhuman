@@ -16,11 +16,11 @@
 pub(crate) mod billing;
 pub(crate) mod engine;
 
-use openhuman_embed::__host::memory_engines::{
-    register_memory_engine, register_memory_health_probe, EngineEntry, EngineHealth,
-    EngineCredential, EngineSettings, ReadOnlyHealthProbe, TINYHUMANS_ENGINE,
-};
 use openhuman_embed::__host::config::Config;
+use openhuman_embed::__host::memory_engines::{
+    EngineCredential, EngineEntry, EngineHealth, EngineSettings, ReadOnlyHealthProbe,
+    TINYHUMANS_ENGINE, register_memory_engine, register_memory_health_probe,
+};
 use std::sync::Arc;
 
 use crate::install::InstallOptions;
@@ -43,15 +43,21 @@ pub(crate) fn register(_options: &InstallOptions) {
 /// Builds a throwaway engine for a read-only health request. It reads the
 /// selected config's credential profile directly and never enters the normal
 /// engine cache or publishes session-expiry state.
-fn read_only_health_probe(config: Config) -> openhuman_embed::__host::memory_engines::EngineFuture<EngineHealth> {
+fn read_only_health_probe(
+    config: Config,
+) -> openhuman_embed::__host::memory_engines::EngineFuture<EngineHealth> {
     Box::pin(async move {
-        let credential = if let Ok(Some(key)) = openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(&config) {
+        let credential = if let Ok(Some(key)) =
+            openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(&config)
+        {
             Some(key)
         } else {
             read_only_session_token(&config)
         };
         let Some(credential) = credential else {
-            return EngineHealth::Down("No usable credential is available for the selected backend.".to_owned());
+            return EngineHealth::Down(
+                "No usable credential is available for the selected backend.".to_owned(),
+            );
         };
         let endpoint = config
             .memory
@@ -63,9 +69,18 @@ fn read_only_health_probe(config: Config) -> openhuman_embed::__host::memory_eng
         let headers = match crate::backend::headers::attribution_headers() {
             Ok(headers) => headers
                 .iter()
-                .filter_map(|(name, value)| value.to_str().ok().map(|value| (name.as_str().to_owned(), value.to_owned())))
+                .filter_map(|(name, value)| {
+                    value
+                        .to_str()
+                        .ok()
+                        .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                })
                 .collect(),
-            Err(_) => return EngineHealth::Down("Backend attribution headers are unavailable.".to_owned()),
+            Err(_) => {
+                return EngineHealth::Down(
+                    "Backend attribution headers are unavailable.".to_owned(),
+                );
+            }
         };
         let settings = EngineSettings {
             endpoint: Some(endpoint),
@@ -79,15 +94,17 @@ fn read_only_health_probe(config: Config) -> openhuman_embed::__host::memory_eng
             EngineCredential::Static(credential),
         ) {
             Ok(engine) => engine.health().await,
-            Err(_) => EngineHealth::Down("The selected memory engine configuration is invalid.".to_owned()),
+            Err(_) => EngineHealth::Down(
+                "The selected memory engine configuration is invalid.".to_owned(),
+            ),
         }
     })
 }
 
 fn read_only_session_token(config: &Config) -> Option<String> {
     use openhuman_embed::__host::security::credentials::session_support::{
-        check_session_backend, classify_session_token, load_app_session_profile_read_only,
-        SessionTokenCheck,
+        SessionTokenCheck, check_session_backend, classify_session_token,
+        load_app_session_profile_read_only,
     };
 
     let profile = load_app_session_profile_read_only(config).ok().flatten()?;

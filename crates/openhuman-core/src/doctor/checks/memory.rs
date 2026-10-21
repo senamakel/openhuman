@@ -143,7 +143,9 @@ fn safe_reason(reason: &str) -> String {
     }
 }
 
-async fn probe_selected_config(config: &crate::config::Config) -> crate::doctor::core::MemoryEngineCheck {
+async fn probe_selected_config(
+    config: &crate::config::Config,
+) -> crate::doctor::core::MemoryEngineCheck {
     use tinymemory_api::EngineHealth;
 
     let engine_id = config.memory.engine.trim();
@@ -155,17 +157,26 @@ async fn probe_selected_config(config: &crate::config::Config) -> crate::doctor:
         crate::memory::engine::TINYHUMANS_ENGINE => {
             let Some(probe) = crate::memory::engine_registry::read_only_health_probe(engine_id)
             else {
-                return unavailable(engine_id, "No read-only health probe is registered for this engine.");
+                return unavailable(
+                    engine_id,
+                    "No read-only health probe is registered for this engine.",
+                );
             };
             probe(config.clone()).await
         }
         crate::memory::engine::CORTEXDB_ENGINE => cortexdb_health(config).await,
         crate::memory::engine::DISABLED_ENGINE => {
-            return unavailable(engine_id, "Memory is disabled in the selected configuration.");
+            return unavailable(
+                engine_id,
+                "Memory is disabled in the selected configuration.",
+            );
         }
         other => {
             let Some(probe) = crate::memory::engine_registry::read_only_health_probe(other) else {
-                return unavailable(other, "No read-only health probe is registered for this engine.");
+                return unavailable(
+                    other,
+                    "No read-only health probe is registered for this engine.",
+                );
             };
             probe(config.clone()).await
         }

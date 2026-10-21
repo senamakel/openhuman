@@ -174,6 +174,10 @@ pub(crate) enum InspectionOutputBudgetCapability {
     Unsupported,
 }
 
+/// Result shape shared by inspection-only provider constructors.
+type InspectionChatModelResult =
+    Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String, String, String)>>;
+
 /// Prepared, frozen model plus its opaque deduplication identity.
 pub(crate) struct PreparedInspectionChatModel {
     pub(crate) model: Arc<dyn ChatModel<()>>,

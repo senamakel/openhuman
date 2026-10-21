@@ -39,7 +39,7 @@ pub(super) fn try_create_claude_agent_sdk_chat_model_for_inspection(
     role: &str,
     provider: &str,
     config: &Config,
-) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String, String, String)>> {
+) -> InspectionChatModelResult {
     let model = claude_agent_sdk_model_from_string(provider, config)?;
     Some((|| {
         enforce_local_only_inference(role, provider)?;
@@ -183,7 +183,7 @@ pub(super) fn try_create_claude_code_chat_model_for_inspection(
     role: &str,
     provider: &str,
     config: &Config,
-) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String, String, String)>> {
+) -> InspectionChatModelResult {
     let provider = provider.trim();
     let model_with_temp =
         provider.strip_prefix(tinyagents_harness::providers::claude_code::PROVIDER_PREFIX)?;

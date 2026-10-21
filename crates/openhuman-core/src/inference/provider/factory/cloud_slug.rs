@@ -9,6 +9,16 @@ use crate::inference::provider::factory::access_gates::verify_session_active;
 use crate::inference::provider::fallback_diagnostics;
 use tinyinference_llm::providers::anthropic::endpoint_is_anthropic_messages;
 
+type CloudSlugInspectionChatModelResult = Option<
+    anyhow::Result<(
+        Arc<dyn ChatModel<()>>,
+        String,
+        String,
+        String,
+        InspectionOutputBudgetCapability,
+    )>,
+>;
+
 /// Look up a `cloud_providers` entry by slug and build the provider.
 /// The shared resolution for a `<slug>:<model>` cloud provider — the cloud
 /// `cloud_providers` entry, the effective model id (with `default_model`
@@ -297,15 +307,7 @@ pub(super) fn try_create_cloud_slug_chat_model_for_inspection(
 pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
     role: &str,
     config: &Config,
-) -> Option<
-    anyhow::Result<(
-        Arc<dyn ChatModel<()>>,
-        String,
-        String,
-        String,
-        InspectionOutputBudgetCapability,
-    )>,
-> {
+) -> CloudSlugInspectionChatModelResult {
     let mut identity = None;
     let mut resolved = provider_for_role(role, config);
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
@@ -586,7 +588,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         codex: codex_route,
         http,
     });
-    if let Some(identity) = inspection_identity.as_deref_mut() {
+    if let Some(identity) = inspection_identity {
         let credential = if entry.auth_style == AuthStyle::None {
             String::new()
         } else {

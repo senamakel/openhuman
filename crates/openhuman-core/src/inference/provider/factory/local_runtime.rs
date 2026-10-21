@@ -47,7 +47,7 @@ pub(super) fn try_create_local_runtime_chat_model_from_string(
 pub(super) fn try_create_local_runtime_chat_model_for_inspection(
     role: &str,
     config: &Config,
-) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String, String, String)>> {
+) -> InspectionChatModelResult {
     let provider = provider_for_role(role, config);
     let mut identity = None;
     let result = try_create_local_runtime_chat_model_from_string_with_identity(
@@ -121,7 +121,7 @@ fn try_create_local_runtime_chat_model_from_string_with_identity(
         Ok(r) => r,
         Err(e) => return Some(Err(anyhow::anyhow!("{e}"))),
     };
-    if let Some(identity) = inspection_identity.as_deref_mut() {
+    if let Some(identity) = inspection_identity {
         let credential = match &resolved.auth {
             LocalRuntimeAuth::None => String::new(),
             LocalRuntimeAuth::Bearer => resolved.api_key.clone(),

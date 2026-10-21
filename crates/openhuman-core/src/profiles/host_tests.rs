@@ -115,13 +115,17 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     let target_a = host.target_for_doctor(&a).unwrap();
     let target_b = host.target_for_doctor(&b).unwrap();
 
-    crate::profiles::credentials::store(
-        &target_b.config,
-        crate::profiles::credentials::UserCredentialKind::ApiKey,
-        "doctor-b-only-test-key",
-        None,
+    let profile_store = target_b
+        .config
+        .config_path
+        .parent()
+        .unwrap()
+        .join("auth-profiles.json");
+    std::fs::write(
+        &profile_store,
+        r#"{"schema_version":1,"active_profiles":{"api-key":"api-key:default"},"profiles":{"api-key:default":{"provider":"api-key","profile_name":"default","kind":"token","token":"doctor-b-only-test-key","metadata":{"kind":"tinyhumans-api-key"}}}}"#,
     )
-    .unwrap();
+    .expect("seed profile B's temporary read-only API-key fixture");
 
     let before_reads = snapshot_tree(tmp.path());
     let a_observed = CoreContext::scope(Arc::clone(&target_a.context), async {
@@ -190,7 +194,6 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
     );
     assert_eq!(before_reads, snapshot_tree(tmp.path()));
 
-    crate::profiles::credentials::clear(&target_b.config).unwrap();
 }
 
 #[tokio::test]

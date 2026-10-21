@@ -459,10 +459,8 @@ impl SocketManager {
         // agree, or the guard could match on a credential this connection never
         // used. `ws_loop` rewrites it before every attempt, so a token refreshed
         // mid-session replaces this seed rather than going stale behind it.
-        self.shared.set_connection_snapshot(
-            Some((url.to_string(), token)),
-            ConnectionStatus::Connecting,
-        );
+        self.shared
+            .set_connection_snapshot(Some((url.to_string(), token)), ConnectionStatus::Connecting);
 
         log::info!("[socket] Connecting to {}", url);
 

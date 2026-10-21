@@ -218,6 +218,14 @@ fn errors_keep_their_wire_codes_across_the_module_boundary() {
     let back = from_module(to_module(credit_error));
     assert!(matches!(back, Error::InsufficientCredits(_)));
     assert!(back.is_account_wide());
+
+    let plan_error = crate::memory::MemoryError::PlanRequired(
+        "[MEMORY_PLAN_REQUIRED] memory API memory/scopes (HTTP 403)".into(),
+    );
+    let module_error = to_module(memory_error_to_engine(plan_error));
+    let back = crate::memory::MemoryError::from(from_module(module_error));
+    assert_eq!(back.code(), crate::memory::error::PLAN_REQUIRED);
+    assert!(back.is_account_wide());
 }
 
 #[test]

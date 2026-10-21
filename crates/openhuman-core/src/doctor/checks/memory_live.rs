@@ -246,6 +246,10 @@ fn failure_finding(error: MemoryApiError, operation: Operation, cleaned: bool) -
             "The selected memory service has insufficient credits for a live probe.",
             "Review the TinyHumans memory billing balance before rerunning the live check.",
         ),
+        MemoryError::PlanRequired(_) => (
+            "Memory is not included in the selected account's plan.",
+            "Upgrade to a plan that includes memory or select a different memory engine in Settings.",
+        ),
         MemoryError::Unavailable(_) => (
             "The selected memory service is temporarily unavailable.",
             "Check the memory service status and retry the live check later.",

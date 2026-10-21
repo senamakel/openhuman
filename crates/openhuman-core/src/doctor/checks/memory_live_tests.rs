@@ -1,4 +1,4 @@
-use super::MemoryRoundtripCheck;
+use super::{MemoryRoundtripCheck, Operation, failure_finding};
 use crate::config::Config;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::core::slots::Extensions;
@@ -334,6 +334,24 @@ async fn ambiguous_store_failure_attempts_scoped_cleanup_and_reports_a_billing_h
         "cleanup removes a possibly accepted write"
     );
     assert_eq!(remaining[0].id, real_id);
+}
+
+#[test]
+fn plan_required_memory_failure_has_safe_plan_guidance_and_cleanup_warning() {
+    let finding = failure_finding(
+        MemoryApiError::Engine(
+            "[MEMORY_PLAN_REQUIRED] memory API private-host.example: diagnostic details".into(),
+        ),
+        Operation::Store,
+        false,
+    );
+
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(finding.message.contains("not included in the selected account's plan"));
+    assert!(!finding.message.contains("MEMORY_PLAN_REQUIRED"));
+    assert!(!finding.message.contains("private-host.example"));
+    assert!(finding.fix_hint.contains("Upgrade to a plan that includes memory"));
+    assert!(finding.fix_hint.contains("could not confirm scratch cleanup"));
 }
 
 #[tokio::test]

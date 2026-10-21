@@ -168,6 +168,9 @@ fn memory_error_to_engine(error: MemoryError) -> Error {
         MemoryError::InvalidRequest(message) => Error::InvalidRequest(message),
         MemoryError::Unauthorized(message) => Error::Unauthorized(message),
         MemoryError::InsufficientCredits(message) => Error::InsufficientCredits(message),
+        // TinyMemory has no plan-specific API variant. Preserve the stable
+        // marker so the host can recover OpenHuman's PLAN_REQUIRED category.
+        MemoryError::PlanRequired(message) => Error::Engine(message),
         MemoryError::Unavailable(message) => Error::Unavailable(message),
         MemoryError::Engine(message) => Error::Engine(message),
         MemoryError::ConfigConflict(error) => Error::Conflict(error.message),

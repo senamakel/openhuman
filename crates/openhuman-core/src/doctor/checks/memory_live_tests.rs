@@ -254,29 +254,30 @@ async fn fetch_failure_still_cleans_the_unique_service_scoped_item() {
     let findings = run_check_with_config(&engine, config).await;
 
     assert!(only_error(&findings).message.contains("fetch"));
-    let calls = engine.calls.lock().unwrap();
-    assert_eq!(calls.steps, ["store", "fetch", "forget_within"]);
-    assert_eq!(
-        calls.unscoped_forgets, 0,
-        "cleanup is confined to the probe scope"
-    );
-    assert_eq!(calls.stored.len(), 1);
-    let (scratch_id, namespace) = &calls.stored[0];
-    assert_ne!(scratch_id, &real_id);
-    assert_ne!(scratch_id.as_str(), "doctor:probe");
-    assert!(namespace
-        .to_string()
-        .starts_with("service:openhuman-doctor-"));
-    assert!(!Reach::subtree(Namespace::ROOT).admits(namespace));
-    assert_eq!(calls.scoped_forgets.len(), 1);
-    assert_eq!(calls.scoped_forgets[0].0, vec![scratch_id.clone()]);
-    assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
-    let namespaces = calls
-        .stored
-        .iter()
-        .map(|(_, namespace)| namespace.clone())
-        .collect::<Vec<_>>();
-    drop(calls);
+    let namespaces = {
+        let calls = engine.calls.lock().unwrap();
+        assert_eq!(calls.steps, ["store", "fetch", "forget_within"]);
+        assert_eq!(
+            calls.unscoped_forgets, 0,
+            "cleanup is confined to the probe scope"
+        );
+        assert_eq!(calls.stored.len(), 1);
+        let (scratch_id, namespace) = &calls.stored[0];
+        assert_ne!(scratch_id, &real_id);
+        assert_ne!(scratch_id.as_str(), "doctor:probe");
+        assert!(namespace
+            .to_string()
+            .starts_with("service:openhuman-doctor-"));
+        assert!(!Reach::subtree(Namespace::ROOT).admits(namespace));
+        assert_eq!(calls.scoped_forgets.len(), 1);
+        assert_eq!(calls.scoped_forgets[0].0, vec![scratch_id.clone()]);
+        assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
+        calls
+            .stored
+            .iter()
+            .map(|(_, namespace)| namespace.clone())
+            .collect::<Vec<_>>()
+    };
 
     assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
@@ -307,17 +308,18 @@ async fn ambiguous_store_failure_attempts_scoped_cleanup_and_reports_a_billing_h
         "insufficient credits needs an actionable billing hint: {}",
         finding.fix_hint
     );
-    let calls = engine.calls.lock().unwrap();
-    assert_eq!(calls.steps, ["store", "forget_within"]);
-    assert_eq!(calls.unscoped_forgets, 0);
-    assert_eq!(calls.scoped_forgets.len(), 1);
-    assert_eq!(calls.scoped_forgets[0].0, vec![calls.stored[0].0.clone()]);
-    let namespaces = calls
-        .stored
-        .iter()
-        .map(|(_, namespace)| namespace.clone())
-        .collect::<Vec<_>>();
-    drop(calls);
+    let namespaces = {
+        let calls = engine.calls.lock().unwrap();
+        assert_eq!(calls.steps, ["store", "forget_within"]);
+        assert_eq!(calls.unscoped_forgets, 0);
+        assert_eq!(calls.scoped_forgets.len(), 1);
+        assert_eq!(calls.scoped_forgets[0].0, vec![calls.stored[0].0.clone()]);
+        calls
+            .stored
+            .iter()
+            .map(|(_, namespace)| namespace.clone())
+            .collect::<Vec<_>>()
+    };
 
     assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
@@ -378,41 +380,42 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
         );
     }
 
-    let calls = engine.calls.lock().unwrap();
-    assert_eq!(
-        calls.steps,
-        [
-            "store",
-            "fetch",
-            "forget_within",
-            "store",
-            "fetch",
-            "forget_within"
-        ]
-    );
-    assert_eq!(calls.stored.len(), 2);
-    assert_ne!(
-        calls.stored[0].0, calls.stored[1].0,
-        "probe IDs are unique per run"
-    );
-    assert_ne!(
-        calls.stored[0].1, calls.stored[1].1,
-        "probe namespaces are unique per run"
-    );
-    assert!(calls.stored.iter().all(|(_, namespace)| {
-        namespace
-            .to_string()
-            .starts_with("service:openhuman-doctor-")
-            && !Reach::subtree(Namespace::ROOT).admits(namespace)
-    }));
-    assert_eq!(calls.unscoped_forgets, 0);
-    assert_eq!(calls.scoped_forgets.len(), 2);
-    let namespaces = calls
-        .stored
-        .iter()
-        .map(|(_, namespace)| namespace.clone())
-        .collect::<Vec<_>>();
-    drop(calls);
+    let namespaces = {
+        let calls = engine.calls.lock().unwrap();
+        assert_eq!(
+            calls.steps,
+            [
+                "store",
+                "fetch",
+                "forget_within",
+                "store",
+                "fetch",
+                "forget_within"
+            ]
+        );
+        assert_eq!(calls.stored.len(), 2);
+        assert_ne!(
+            calls.stored[0].0, calls.stored[1].0,
+            "probe IDs are unique per run"
+        );
+        assert_ne!(
+            calls.stored[0].1, calls.stored[1].1,
+            "probe namespaces are unique per run"
+        );
+        assert!(calls.stored.iter().all(|(_, namespace)| {
+            namespace
+                .to_string()
+                .starts_with("service:openhuman-doctor-")
+                && !Reach::subtree(Namespace::ROOT).admits(namespace)
+        }));
+        assert_eq!(calls.unscoped_forgets, 0);
+        assert_eq!(calls.scoped_forgets.len(), 2);
+        calls
+            .stored
+            .iter()
+            .map(|(_, namespace)| namespace.clone())
+            .collect::<Vec<_>>()
+    };
 
     assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
@@ -438,13 +441,15 @@ async fn cancelling_a_pending_fetch_keeps_scoped_cleanup_owned_by_the_guard() {
         .await
         .expect("detached cleanup finishes after the check is cancelled");
 
-    let calls = engine.calls.lock().unwrap();
-    assert_eq!(calls.steps, ["store", "fetch", "forget_within"]);
-    assert_eq!(calls.unscoped_forgets, 0);
-    assert_eq!(calls.scoped_forgets.len(), 1);
-    let namespace = calls.stored[0].1.clone();
-    assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
-    drop(calls);
+    let namespace = {
+        let calls = engine.calls.lock().unwrap();
+        assert_eq!(calls.steps, ["store", "fetch", "forget_within"]);
+        assert_eq!(calls.unscoped_forgets, 0);
+        assert_eq!(calls.scoped_forgets.len(), 1);
+        let namespace = calls.stored[0].1.clone();
+        assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
+        namespace
+    };
 
     assert_scratch_namespaces_are_empty(&engine, &[namespace]).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
@@ -470,14 +475,16 @@ async fn cancelling_an_ambiguous_store_cleans_up_using_the_precomputed_id() {
         .await
         .expect("detached cleanup finishes after the store is cancelled");
 
-    let calls = engine.calls.lock().unwrap();
-    assert_eq!(calls.steps, ["store", "forget_within"]);
-    assert_eq!(calls.unscoped_forgets, 0);
-    assert_eq!(calls.scoped_forgets.len(), 1);
-    assert_eq!(calls.scoped_forgets[0].0, vec![calls.stored[0].0.clone()]);
-    let namespace = calls.stored[0].1.clone();
-    assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
-    drop(calls);
+    let namespace = {
+        let calls = engine.calls.lock().unwrap();
+        assert_eq!(calls.steps, ["store", "forget_within"]);
+        assert_eq!(calls.unscoped_forgets, 0);
+        assert_eq!(calls.scoped_forgets.len(), 1);
+        assert_eq!(calls.scoped_forgets[0].0, vec![calls.stored[0].0.clone()]);
+        let namespace = calls.stored[0].1.clone();
+        assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
+        namespace
+    };
 
     assert_scratch_namespaces_are_empty(&engine, &[namespace]).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;

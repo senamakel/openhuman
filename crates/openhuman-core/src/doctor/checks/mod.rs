@@ -7,10 +7,13 @@ mod embeddings;
 mod ids;
 mod inference;
 mod mcp;
+mod memory;
 mod modules;
 mod registry;
 mod sandbox;
+mod secrets;
 mod skills;
+mod storage;
 
 use std::sync::Arc;
 
@@ -26,6 +29,9 @@ pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
     checks.push(Arc::new(inference::ProviderRef));
     checks.push(Arc::new(inference::Construct));
     checks.push(Arc::new(inference::Temperature));
+    checks.extend(memory::checks());
+    checks.extend(storage::checks());
+    checks.push(Arc::new(secrets::KeyringCheck));
     checks.push(Arc::new(embeddings::EmbeddingConfigCheck));
     checks.extend(config_semantics::checks());
     checks

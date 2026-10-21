@@ -192,6 +192,8 @@ async fn models_tool_reports_each_configured_catalog_outcome() {
 
     let tmp = TempDir::new().expect("tempdir");
     let mut config = config_in(&tmp);
+    config.default_model = None;
+    config.model_routes.clear();
     config.cloud_providers = vec![
         crate::config::schema::cloud_providers::CloudProviderCreds {
             id: "p_doctor_tool_models_available".into(),

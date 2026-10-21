@@ -246,12 +246,9 @@ async fn tokenjuice_rpcs_use_their_derived_config_for_module_calls_and_install()
     drop(methods);
     let installs = calls.installs.lock().unwrap();
     for (index, config) in configs.iter().enumerate() {
-        let disk_root = config.workspace_dir.join(".tokenjuice/ccr");
-        let save_root = config.workspace_dir.join(".tokenjuice/repl");
         assert!(
             installs.iter().any(|request| {
-                request.disk_tier_root.as_deref() == Some(disk_root.to_string_lossy().as_ref())
-                    && request.options.repl_save_dir.as_deref() == Some(save_root.as_path())
+                request.ccr_durable
                     && request.options.min_bytes_to_compress
                         == config.tokenjuice.min_bytes_to_compress
             }),

@@ -134,7 +134,7 @@ fn store_byo_key(config: &Config, slug: &str, token: &str) {
 
 #[tokio::test(flavor = "multi_thread")]
 async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth_profile() {
-    use crate::config::test_env::{lock_env, EnvVarGuard};
+    use crate::config::test_env::EnvVarGuard;
     use crate::security::credentials::openai_oauth::store::{
         OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
     };
@@ -142,7 +142,6 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     use chrono::{Duration, Utc};
 
     let _inference_guard = crate::inference::inference_test_guard_async().await;
-    let _env_lock = lock_env();
     let tmp = tempfile::tempdir().expect("temporary credentials fixture");
     let mut config = Config::default();
     config.config_path = tmp.path().join("config.toml");
@@ -206,7 +205,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         })))
         .mount(&refresh_server)
         .await;
-    let _refresh_url = EnvVarGuard::set(
+    let _refresh_url = EnvVarGuard::locked_set(
         "OPENAI_CODEX_OAUTH_TOKEN_URL",
         format!("{}/token", refresh_server.uri()),
     );

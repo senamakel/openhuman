@@ -205,5 +205,6 @@ fn empty_prompt_context_for_static_sections() -> PromptContext<'static> {
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
+        flow_archetype_text: None,
     }
 }

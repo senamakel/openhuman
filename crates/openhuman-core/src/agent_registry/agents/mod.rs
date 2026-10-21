@@ -53,4 +53,13 @@ pub mod video_agent;
 #[path = "vision_agent/prompt.rs"]
 pub mod vision_agent;
 
+#[cfg(feature = "flows")]
+#[path = "flow_discovery/mod.rs"]
+pub mod flow_discovery;
+#[cfg(feature = "flows")]
+mod flow_prompts;
+#[cfg(feature = "flows")]
+#[path = "workflow_builder/mod.rs"]
+pub mod workflow_builder;
+
 pub use loader::{load_builtins, BuiltinAgent, BUILTINS};

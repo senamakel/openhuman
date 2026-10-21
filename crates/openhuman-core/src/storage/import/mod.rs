@@ -166,6 +166,16 @@ pub enum Outcome {
         /// Records written; the rest already existed.
         written: usize,
     },
+    /// The reader found records it could not import, so the clean-only marker
+    /// was withheld and this import will be retried.
+    Incomplete {
+        /// Records found in the legacy file (both shapes).
+        found: usize,
+        /// Records written; the rest already existed or were invalid.
+        written: usize,
+        /// Records rejected by the reader or owner importer.
+        skipped: usize,
+    },
 }
 
 /// One domain's result.
@@ -245,6 +255,18 @@ pub fn run_with(
                     found,
                     written,
                     "[storage::import] imported the legacy store; the files were not modified"
+                ),
+                Ok(Outcome::Incomplete {
+                    found,
+                    written,
+                    skipped,
+                }) => tracing::warn!(
+                    target: "openhuman::storage_import",
+                    domain = source.domain,
+                    found,
+                    written,
+                    skipped,
+                    "[storage::import] some legacy records were skipped; the import remains open for retry"
                 ),
                 Ok(Outcome::AlreadyDone) => tracing::debug!(
                     target: "openhuman::storage_import",

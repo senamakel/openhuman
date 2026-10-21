@@ -107,6 +107,7 @@ fn dynamic_child_prompt_lists_text_dialect_catalogue_once() {
             personality_roster: vec![],
             agents_md_global: None,
             agents_md_local: None,
+            flow_archetype_text: None,
         };
         let definition = AgentDefinition {
             id: "dynamic-child".into(),

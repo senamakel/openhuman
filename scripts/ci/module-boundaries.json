@@ -30,6 +30,11 @@
     "tinysearch-core",
     "cpal",
     "tinyflows-module",
+    "tinyflows",
+    "tinyflows-catalog",
+    "tinyflows-copilot",
+    "tinyflows-drivers",
+    "tinyflows-schedule",
     "tinyeventqueues"
   ],
   "implementationPrefixes": [

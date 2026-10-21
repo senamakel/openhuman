@@ -1,6 +1,16 @@
 use super::*;
 use crate::core::runtime::DispatchCtx;
 
+/// Persist suggestions received through the Copilot bus's portable wire shape.
+pub(crate) fn flows_suggestions_upsert_from_copilot(
+    config: &Config,
+    suggestions: Value,
+) -> Result<usize, String> {
+    let suggestions: Vec<FlowSuggestion> = serde_json::from_value(suggestions)
+        .map_err(|error| format!("invalid Copilot suggestions: {error}"))?;
+    store::upsert_suggestions(config, &suggestions).map_err(|error| error.to_string())
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Flow Scout — workflow discovery + suggestion lifecycle
 // ─────────────────────────────────────────────────────────────────────────────
@@ -110,7 +120,7 @@ pub async fn flows_discover(
     // Emit the terminal chat event so a client viewing the thread finalizes the
     // assistant bubble instead of spinning (the bridge only streams deltas).
     if let Some(target) = &stream {
-        finalize_flow_stream(ctx, target, &outcome, FLOW_DISCOVER_PROMPT).await;
+        finalize_flow_stream(ctx, target, &outcome, FLOW_DISCOVER_PROMPT, config).await;
     }
 
     let suggestions = store::list_suggestions(config, Some(SuggestionStatus::New), 50)

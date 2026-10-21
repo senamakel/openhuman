@@ -113,15 +113,14 @@ impl MemoryError {
 impl From<tinymemory_api::Error> for MemoryError {
     fn from(error: tinymemory_api::Error) -> Self {
         use tinymemory_api::Error as E;
-        // A 402 arrives as `Engine` with the backend's code on its message.
-        let credits = tinymemory_integrations::cortex::is_insufficient_credits(&error);
         match error {
+            E::Off(message) => Self::Off(message),
             E::Unsupported(message) => Self::Unsupported(message),
             E::InvalidRequest(message) | E::NotFound(message) => Self::InvalidRequest(message),
             E::Unauthorized(message) => Self::Unauthorized(message),
+            E::InsufficientCredits(message) => Self::InsufficientCredits(message),
             E::Config(message) => Self::InvalidRequest(message),
             E::Unavailable(message) => Self::Unavailable(message),
-            E::Engine(message) if credits => Self::InsufficientCredits(message),
             E::Conflict(message) | E::Engine(message) => Self::Engine(message),
         }
     }
@@ -143,9 +142,15 @@ impl MemoryError {
             E::Unauthorized(message.to_string())
         } else if let Some(message) = reason.strip_prefix("unavailable: ") {
             E::Unavailable(message.to_string())
+        } else if let Some(message) = reason.strip_prefix("insufficient credits: ") {
+            E::InsufficientCredits(message.to_string())
         } else {
             let message = reason.strip_prefix("engine error: ")?;
-            E::Engine(message.to_string())
+            if let Some(message) = message.strip_prefix("[USER_INSUFFICIENT_CREDITS]") {
+                E::InsufficientCredits(message.trim().to_string())
+            } else {
+                E::Engine(message.to_string())
+            }
         };
         Some(Self::from(error)).filter(Self::is_account_wide)
     }
@@ -154,6 +159,14 @@ impl MemoryError {
 impl From<MemoryError> for String {
     fn from(error: MemoryError) -> Self {
         error.to_structured().encode()
+    }
+}
+
+/// Direct RPC boundaries can map a TinyMemory error using the same stable
+/// memory taxonomy used by the host's fallible operations.
+impl From<tinymemory_api::Error> for StructuredRpcError {
+    fn from(error: tinymemory_api::Error) -> Self {
+        MemoryError::from(error).to_structured()
     }
 }
 

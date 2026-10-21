@@ -324,6 +324,159 @@ fn a_record_the_backend_already_holds_is_never_overwritten() {
 }
 
 #[test]
+fn an_invalid_flow_record_keeps_the_import_open_for_retry() {
+    let (dir, config) = workspace();
+    let path = dir.path().join("flows/flows.db");
+    let conn = crate::storage::rusqlite::Connection::open(&path).unwrap();
+    let oversized = "x".repeat(3 * 1024 * 1024);
+    conn.execute(
+        "UPDATE flow_definitions SET graph_json = ?1 WHERE id = 'flow-alpha'",
+        [&oversized],
+    )
+    .unwrap();
+    drop(conn);
+
+    let before = tree(dir.path());
+    let backend = backend();
+
+    let first = import_flows(&backend, &Scope::local(), &config).unwrap();
+    assert!(
+        matches!(&first, Outcome::Incomplete { skipped, .. } if *skipped > 0),
+        "a skipped flow record must keep the migration incomplete: {first:?}"
+    );
+    let catalog = FlowCatalogDocuments::new(documents(&backend, &Scope::local()));
+    let imported_ids = crate::storage::block_on_anyhow(async move {
+        Ok(catalog
+            .list_flows()
+            .await?
+            .0
+            .into_iter()
+            .map(|flow| flow.id)
+            .collect::<Vec<_>>())
+    })
+    .unwrap();
+    assert!(
+        !imported_ids.iter().any(|id| id == "flow-alpha"),
+        "the oversized target flow must not be imported"
+    );
+    assert!(
+        imported_ids.iter().any(|id| id == "flow-beta"),
+        "a valid unrelated flow should still import"
+    );
+    let retry = import_flows(&backend, &Scope::local(), &config).unwrap();
+    match (&first, &retry) {
+        (
+            Outcome::Incomplete {
+                found: first_found,
+                skipped: first_skipped,
+                ..
+            },
+            Outcome::Incomplete {
+                found: retry_found,
+                written: 0,
+                skipped: retry_skipped,
+            },
+        ) => {
+            assert_eq!(retry_found, first_found);
+            assert_eq!(retry_skipped, first_skipped);
+        }
+        (first, retry) => {
+            panic!("retry should remain incomplete without new writes: {first:?} / {retry:?}")
+        }
+    }
+    let pending = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(async {
+            (
+                legacy_flow_import_pending(&backend, &config, &Scope::local())
+                    .await
+                    .unwrap(),
+                legacy_flow_import_pending(
+                    &backend,
+                    &config,
+                    &crate::storage::scope_for_profile("another-profile"),
+                )
+                .await
+                .unwrap(),
+            )
+        });
+    assert!(pending.0);
+    assert!(!pending.1);
+    assert_eq!(tree(dir.path()), before, "the legacy files were modified");
+}
+
+#[tokio::test]
+async fn fallback_backend_migrates_legacy_catalog_state_without_importing_files() {
+    struct FallbackStorageRestore {
+        previous: Option<Arc<dyn StorageBackend>>,
+        workspace: PathBuf,
+    }
+
+    impl Drop for FallbackStorageRestore {
+        fn drop(&mut self) {
+            crate::storage::clear();
+            crate::storage::local::forget(&self.workspace);
+            if let Some(backend) = self.previous.take() {
+                crate::storage::install(backend);
+            }
+        }
+    }
+
+    let (dir, mut config) = workspace();
+    config.components.tinyflows = true;
+    let legacy_dir = dir.path().join("flows");
+    let legacy_files_before = tree(&legacy_dir);
+    let _restore = FallbackStorageRestore {
+        previous: crate::storage::installed(),
+        workspace: config.workspace_dir.clone(),
+    };
+    crate::storage::clear();
+    crate::storage::local::forget(&config.workspace_dir);
+    let backend = crate::storage::local::backend_for(&config.workspace_dir).unwrap();
+    let scoped = backend.for_scope(&Scope::local()).unwrap();
+    scoped
+        .documents()
+        .ensure_collection(&tinystoragedrivers::CollectionSpec::new("flows_kv"))
+        .await
+        .unwrap();
+    scoped
+        .documents()
+        .put(
+            "flows_kv",
+            "legacy-kv",
+            json!({
+                "namespace": "profile",
+                "key": "welcome",
+                "value_json": "{\"seen\":true}"
+            }),
+            tinystoragedrivers::Precondition::None,
+        )
+        .await
+        .unwrap();
+
+    ensure_flow_scope_ready(&config).await.unwrap();
+
+    let docs = Arc::clone(scoped.documents());
+    assert!(docs.get("flows_kv", "legacy-kv").await.unwrap().is_none());
+    let catalog = FlowCatalogDocuments::new(docs);
+    assert_eq!(
+        crate::storage::block_on_anyhow(async move { catalog.kv_get("profile", "welcome").await })
+            .unwrap(),
+        Some(json!({"seen": true}))
+    );
+    assert!(
+        flow_import_marker_done(&backend, &config)
+            .await
+            .is_ok_and(|done| !done),
+        "the unbooted local fallback must not run the workspace-file importer"
+    );
+    assert_eq!(tree(&legacy_dir), legacy_files_before);
+    crate::storage::local::forget(&config.workspace_dir);
+}
+
+#[test]
 fn a_workspace_without_legacy_files_imports_nothing_and_leaves_no_marker() {
     let dir = TempDir::new().unwrap();
     let config = Config {
@@ -347,6 +500,41 @@ fn a_workspace_without_legacy_files_imports_nothing_and_leaves_no_marker() {
     };
     copy_tree(&fixtures().join("workspace"), dir.path());
     assert!(written(import_flows(&backend, &Scope::local(), &with_files).unwrap()) > 0);
+}
+
+#[tokio::test]
+async fn catalog_and_schedule_owner_migrations_cover_existing_scopes() {
+    let (_dir, config) = workspace();
+    let backend = backend();
+    let profile = crate::storage::scope_for_profile("migration-profile");
+    let profile_scope = backend.for_scope(&profile).unwrap();
+    profile_scope
+        .documents()
+        .ensure_collection(&tinystoragedrivers::CollectionSpec::new(
+            "profile.migration-sentinel",
+        ))
+        .await
+        .unwrap();
+
+    let (reports, local_catalog_ready) = migrate_owner_stores(Arc::clone(&backend), config).await;
+    assert!(local_catalog_ready);
+    assert!(reports.is_empty(), "{reports:?}");
+
+    for scope in [Scope::local(), profile] {
+        let scoped = backend.for_scope(&scope).unwrap();
+        assert!(scoped
+            .documents()
+            .get("flows.definitions", "missing")
+            .await
+            .unwrap()
+            .is_none());
+        assert!(scoped
+            .documents()
+            .get("cron.jobs", "missing")
+            .await
+            .unwrap()
+            .is_none());
+    }
 }
 
 #[test]
@@ -391,9 +579,10 @@ fn a_run_that_skipped_records_leaves_no_marker_so_it_is_retried() {
     let skipped = marked(&backend, dir.path(), "skipdomain", || Ok(Some((3, 2, 1)))).unwrap();
     assert_eq!(
         skipped,
-        Outcome::Imported {
+        Outcome::Incomplete {
             found: 3,
-            written: 2
+            written: 2,
+            skipped: 1,
         }
     );
     // No marker: the next boot runs the body again instead of `AlreadyDone`.

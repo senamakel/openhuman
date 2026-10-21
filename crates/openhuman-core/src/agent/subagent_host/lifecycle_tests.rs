@@ -67,6 +67,7 @@ fn driver_error_accepts_only_matching_nonterminal_lifecycle_snapshots() {
             "incomplete",
             SubagentRunStatus::Incomplete {
                 reason: "iteration limit".into(),
+                failure_cause: None,
             },
         ),
         ("cancelled", SubagentRunStatus::Cancelled),
@@ -614,6 +615,7 @@ async fn driver_inline_projection_returns_the_durable_winner_not_a_local_loser()
         failure_cause: None,
         ..cached_outcome(SubagentRunStatus::Incomplete {
             reason: "winner stopped".into(),
+            failure_cause: None,
         })
     };
     let winner_cache = Arc::new(Mutex::new(HashMap::from([(key.clone(), winning_host)])));
@@ -643,7 +645,7 @@ async fn driver_inline_projection_returns_the_durable_winner_not_a_local_loser()
     assert_eq!(projected.usage.charged_amount_usd, 0.75);
     assert!(matches!(
         projected.status,
-        SubagentRunStatus::Incomplete { ref reason } if reason == "winner stopped"
+        SubagentRunStatus::Incomplete { ref reason, .. } if reason == "winner stopped"
     ));
     assert_eq!(projected.final_history.len(), 1);
     assert_eq!(

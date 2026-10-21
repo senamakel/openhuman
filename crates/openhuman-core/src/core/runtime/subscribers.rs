@@ -367,26 +367,6 @@ pub(super) fn register_domain_subscribers(
                     "[event_bus] failed to register flows run-digest subscriber — bus not initialized"
                 );
             }
-            // Dedup commit-on-success (issue #5263 PR2): on every terminal
-            // `FlowRunFinished`, settles each `dedup` node in the flow's graph
-            // — unions tentative keys into committed on success, releases
-            // (clears) tentative on failure/cancel/interrupt. This is the
-            // host half of the `dedup` node's exactly-once contract; the node
-            // itself (`tinyflows::nodes::control_flow::dedup`) only ever
-            // reads `committed` and writes `tentative`. Registered in the
-            // same `group_first_time(DomainGroup::Flows)` block as the other
-            // two flows subscribers above — see the digest subscriber's
-            // comment just above for why a second `group_first_time` guard
-            // here would be redundant.
-            if let Some(handle) = crate::core::bus::BUS.subscribe(Arc::new(
-                crate::flows::bus::DedupCommitSubscriber::new(Arc::new(config.clone())),
-            )) {
-                std::mem::forget(handle);
-            } else {
-                log::warn!(
-                    "[event_bus] failed to register flows dedup-commit subscriber — bus not initialized"
-                );
-            }
         }
     } else {
         log::debug!("[event_bus] flows trigger subscriber SKIPPED — Flows domain disabled");

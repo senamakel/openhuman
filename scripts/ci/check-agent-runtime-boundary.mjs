@@ -203,7 +203,7 @@ const taskLocalAccessors = [
   "current_meter",
   "with_turn_activity",
   // `memory::scope` (the acting memory identity) is explicit now: a run's
-  // `OpenHumanRunContext::memory_identity`, or a `&MemoryIdentity` argument.
+  // `OpenHumanRunContext::memory_identity`, or a `&Identity` argument.
   "resolve_current",
 ];
 const taskLocalStatics = [

@@ -3567,7 +3567,7 @@ dependencies = [
  "js-sys",
  "log",
  "wasm-bindgen",
- "windows-core 0.62.2",
+ "windows-core 0.58.0",
 ]
 
 [[package]]
@@ -5452,8 +5452,6 @@ dependencies = [
  "tinyeventqueues-bus",
  "tinyflows",
  "tinyflows-bus",
- "tinyflows-catalog",
- "tinyflows-copilot",
  "tinyflows-drivers",
  "tinyflows-import",
  "tinyflows-module",
@@ -5552,7 +5550,9 @@ dependencies = [
  "tinyinference-local",
  "tinyinference-voice",
  "tinymcp-bus",
+ "tinymemory-tools",
  "tinysearch-bus",
+ "tinystoragedrivers",
  "tinystoragedrivers-core",
  "tinytools",
  "tinytools-agent",
@@ -5658,6 +5658,7 @@ dependencies = [
  "sentry",
  "serde",
  "serde_json",
+ "sha2 0.10.9",
  "socketioxide",
  "tempfile",
  "tinyagents-harness",
@@ -8784,7 +8785,7 @@ dependencies = [
  "toml 1.1.6+spec-1.1.0",
  "tracing",
  "ureq",
- "zip 2.4.2",
+ "zip 9.0.5",
 ]
 
 [[package]]
@@ -8810,7 +8811,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels"
-version = "0.1.36"
+version = "0.1.38"
 dependencies = [
  "anyhow",
  "async-imap",
@@ -8858,7 +8859,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-bus"
-version = "0.1.36"
+version = "0.1.38"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8873,7 +8874,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-module"
-version = "0.1.36"
+version = "0.1.38"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -8897,7 +8898,7 @@ dependencies = [
 
 [[package]]
 name = "tinychannels-runtime"
-version = "0.1.36"
+version = "0.1.38"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -9138,9 +9139,10 @@ dependencies = [
 
 [[package]]
 name = "tinyflows"
-version = "0.8.23"
+version = "0.8.28"
 dependencies = [
  "async-trait",
+ "base64 0.23.1",
  "futures-timer",
  "futures-util",
  "getrandom 0.4.3",
@@ -9150,7 +9152,6 @@ dependencies = [
  "jaq-std",
  "serde",
  "serde_json",
- "sha2 0.11.0",
  "thiserror 2.0.20",
  "tokio",
  "tracing",
@@ -9248,9 +9249,13 @@ dependencies = [
  "tinybus-module",
  "tinyflows",
  "tinyflows-bus",
+ "tinyflows-catalog",
+ "tinyflows-copilot",
  "tinyflows-drivers",
+ "tinyflows-import",
  "tinyflows-schedule",
  "tinystoragedrivers-core",
+ "tinytools",
  "tokio",
  "tracing",
  "uuid",
@@ -9644,7 +9649,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-api"
-version = "1.28.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -9658,7 +9663,7 @@ dependencies = [
 
 [[package]]
 name = "tinymemory-integrations"
-version = "1.28.0"
+version = "2.0.0"
 dependencies = [
  "async-trait",
  "chrono",
@@ -9677,27 +9682,33 @@ dependencies = [
  "tinyredact",
  "tokio",
  "tracing",
+ "url",
  "walkdir",
 ]
 
 [[package]]
 name = "tinymemory-tools"
-version = "1.28.0"
+version = "2.0.0"
 dependencies = [
+ "async-lock",
  "async-trait",
  "chrono",
  "futures",
  "log",
+ "schemars",
  "serde",
  "serde_json",
  "sha2 0.11.0",
+ "tempfile",
  "thiserror 2.0.20",
  "tinymemory-api",
+ "url",
+ "uuid",
 ]
 
 [[package]]
 name = "tinyredact"
-version = "1.28.0"
+version = "2.0.0"
 dependencies = [
  "log",
  "regex",
@@ -11437,7 +11448,7 @@ version = "0.1.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2a7b1c03c876122aa43f3020e6c3c3ee5c05081c9a00739faf7503aeba10d22"
 dependencies = [
- "windows-sys 0.48.0",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]
@@ -12241,6 +12252,20 @@ dependencies = [
  "memchr",
  "typed-path",
  "zopfli",
+]
+
+[[package]]
+name = "zip"
+version = "9.0.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e04976da629d3b04204ba8105b396a193af8ad2583b2c79bfb3ab8af580a11e"
+dependencies = [
+ "crc32fast",
+ "flate2",
+ "indexmap",
+ "memchr",
+ "nix 0.31.3",
+ "typed-path",
 ]
 
 [[package]]

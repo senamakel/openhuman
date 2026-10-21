@@ -294,7 +294,7 @@ async fn run_member_loop(
     // never read each other's.
     // The member acts on memory as itself, in its team: it rides the parent's
     // host environment, so every run started from that parent keeps it.
-    let identity = crate::memory::scope::MemoryIdentity::team_member(team_id, agent_id);
+    let identity = tinymemory_tools::layout::identity::Identity::team_member(team_id, agent_id);
     let member_turn = with_root_parent(
         ctx,
         parent_override,

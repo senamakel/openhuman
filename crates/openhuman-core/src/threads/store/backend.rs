@@ -327,10 +327,34 @@ impl ConversationStore {
         Ok(deleted)
     }
 
-    /// Removes every thread.
+    /// Removes every thread and records its conversation-memory deletion in
+    /// this workspace's existing best-effort queue as each header is removed.
+    /// Queue persistence keeps its existing IO and process-crash limitations.
     pub fn purge_threads(&self) -> Result<ConversationPurgeStats, String> {
+        let ctx = self.ctx.clone();
+        let workspace_dir = self.workspace_dir.clone();
         let stats = self.run("purge_threads", NONE, |s| async move {
-            s.purge_threads().await.map(ConversationPurgeStats::from)
+            let callback_ctx = ctx.clone();
+            let callback_workspace = workspace_dir.clone();
+            s.purge_threads_with_async(move |thread_id| {
+                let ctx = callback_ctx.clone();
+                let workspace_dir = callback_workspace.clone();
+                async move {
+                    // The TinyAgents callback runs inside the storage bridge.
+                    // Persist off-bridge and await each header's queue write
+                    // before the purge deletes the next one.
+                    ctx.spawn_blocking(move || {
+                        crate::memory::deletion::enqueue(
+                            &workspace_dir,
+                            crate::memory::deletion::PendingDeletion::Thread { thread_id },
+                        );
+                    })
+                    .await
+                    .expect("conversation purge deletion callback worker must complete");
+                }
+            })
+            .await
+            .map(ConversationPurgeStats::from)
         })?;
         self.forget_all_transcript_keys();
         Ok(stats)

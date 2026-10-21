@@ -8,8 +8,19 @@ use anyhow::Result;
 
 impl OpenHumanSessionHost {
     /// Builds the system prompt for the current turn, including tool
-    /// instructions.
+    /// instructions. Bus-backed flow prompts require the caller to use
+    /// [`Self::build_system_prompt_with_flow_archetype`] with an explicitly
+    /// fetched archetype.
     pub fn build_system_prompt(&self) -> Result<String> {
+        self.build_system_prompt_with_flow_archetype(None)
+    }
+
+    /// Builds the system prompt with an optional TinyFlows archetype already
+    /// fetched by an async caller using its scoped runtime config.
+    pub(crate) fn build_system_prompt_with_flow_archetype(
+        &self,
+        flow_archetype_text: Option<&str>,
+    ) -> Result<String> {
         // `visible_tool_specs` holds shared `Arc<ToolSpec>` leaves. Materialise
         // the canonical dialect input for this prompt build.
         let visible_specs_owned: Vec<tinytools::ToolSpec> = self
@@ -52,6 +63,7 @@ impl OpenHumanSessionHost {
             workspace_dir: &self.workspace_dir,
             model_name: &self.model_name,
             agent_id: &self.agent_definition_name,
+            flow_archetype_text,
             tools: &prompt_tools,
             workflows: &self.workflows,
             dispatcher_instructions: &instructions,

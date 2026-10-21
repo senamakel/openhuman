@@ -23,7 +23,6 @@ pub fn compiled_features() -> std::collections::BTreeMap<String, bool> {
         ("mcp", cfg!(feature = "mcp")),
         ("crash-reporting", cfg!(feature = "crash-reporting")),
         ("channels", cfg!(feature = "channels")),
-        ("whatsapp-web", cfg!(feature = "whatsapp-web")),
         ("e2e-test-support", cfg!(feature = "e2e-test-support")),
         ("rss-bench", cfg!(feature = "rss-bench")),
         ("file-logging", cfg!(feature = "file-logging")),

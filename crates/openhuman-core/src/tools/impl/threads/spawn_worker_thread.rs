@@ -422,7 +422,9 @@ impl SpawnWorkerThreadTool {
                             })
                         )))
                     }
-                    crate::agent::subagent_host::SubagentRunStatus::Incomplete { reason } => {
+                    crate::agent::subagent_host::SubagentRunStatus::Incomplete {
+                        reason, ..
+                    } => {
                         if owns_effects {
                             crate::agent::orchestration::subagent_events::publish_subagent_completed(
                                 parent_session,

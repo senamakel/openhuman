@@ -102,7 +102,7 @@ The Decision column records the domains needed by the headless library host.
 | `tui`                |   OFF   |    —    | **DROP** | `openhuman tui`/`chat` terminal UI — no terminal in a library host                                  | `ratatui`, `crossterm`, `unicode-width`              |
 
 The historical recipe also left optional `browser-native`/`fantoccini`,
-`whatsapp-web`, `e2e-test-support`, `rss-bench` and `rss-bench-dhat` off.
+`e2e-test-support`, `rss-bench` and `rss-bench-dhat` off.
 Check the selected host crate's current feature list before adding optional
 domains. `rss-bench` and `rss-bench-dhat` remain development profiling features.
 

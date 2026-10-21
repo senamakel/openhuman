@@ -1,4 +1,7 @@
 use super::*;
+
+// Additional names from the extracted schema handler modules.
+use super::handlers::*;
 use serde_json::json;
 
 #[test]
@@ -15,6 +18,27 @@ fn run_schema_advertises_both_input_channels() {
     assert!(
         !declared.required,
         "a flow with no declared inputs must still be runnable without the param"
+    );
+}
+
+#[test]
+fn run_detached_schema_description_has_normal_spacing_and_input_rules() {
+    let rendered = serde_json::to_value(schemas("run_detached")).unwrap();
+    let inputs = rendered["inputs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|field| field["name"] == "inputs")
+        .unwrap();
+    let comment = inputs["comment"].as_str().unwrap();
+
+    assert!(comment.contains("graph.inputs"), "{comment}");
+    assert!(comment.contains("Validated synchronously"), "{comment}");
+    assert!(comment.contains("Distinct from `input`"), "{comment}");
+    assert!(
+        !comment.contains("                               "),
+        "the rendered schema must not contain continuation indentation: {:?}",
+        comment
     );
 }
 

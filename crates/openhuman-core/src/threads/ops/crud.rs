@@ -514,6 +514,16 @@ async fn thread_delete_inner(
         cancelled,
         discarded
     );
+    // The thread's conversation memory goes too, for good (by `memory_ids`).
+    // Record its deletion obligation before the fallible snapshot cleanup can
+    // return early. Memory off or a failed forget queues it for the next
+    // sign-in rather than failing the delete: the thread itself is already gone.
+    let forgotten = crate::memory::deletion::forget_thread(&config, &request.thread_id).await;
+    log::debug!(
+        "[threads] thread_delete thread_id={} memory_items_forgotten={}",
+        request.thread_id,
+        forgotten
+    );
     // Drop any persisted in-flight turn snapshot for this thread —
     // otherwise `threads_turn_state_list` keeps surfacing it (as
     // `Interrupted` on next restart) for a thread that no longer
@@ -530,16 +540,6 @@ async fn thread_delete_inner(
                 request.thread_id
             )
         })?;
-    // The thread's conversation memory goes too, for good (by `memory_ids`).
-    // Memory off (signed out) or a failed forget queues the deletion for the
-    // next sign-in (`memory::deletion`) rather than failing the delete: the
-    // thread itself is already gone.
-    let forgotten = crate::memory::deletion::forget_thread(&config, &request.thread_id).await;
-    log::debug!(
-        "[threads] thread_delete thread_id={} memory_items_forgotten={}",
-        request.thread_id,
-        forgotten
-    );
     Ok(envelope(
         DeleteConversationThreadResponse { deleted },
         None,

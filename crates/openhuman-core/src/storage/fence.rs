@@ -281,6 +281,14 @@ impl LeaseFence {
             .is_none_or(|anchor| anchor.strong_count() > 0)
     }
 
+    fn has_dead_anchor(&self) -> bool {
+        self.anchor
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .as_ref()
+            .is_some_and(|anchor| anchor.strong_count() == 0)
+    }
+
     /// The checks that need no I/O: the latch, and the grant's expiry by
     /// this node's clock less the margin.
     ///
@@ -379,9 +387,14 @@ impl FenceRegistry {
     }
 
     /// Registers `fence`, replacing any fence on the same key unless that
-    /// one is from a newer epoch.
+    /// one is from a newer epoch. Fences with dead anchors are pruned first;
+    /// newer live or unanchored fences retain their epoch protection.
     pub fn register(&self, fence: Arc<LeaseFence>) {
         let mut fences = self.lock();
+        // A dead anchor means no work can still write through the old grant.
+        // Prune it before comparing epochs because a fresh lease store may
+        // restart its epoch counter while a stale registry entry remains.
+        fences.retain(|held| !held.has_dead_anchor());
         // A fence from a newer epoch is never displaced by an older grant's.
         if fences
             .iter()

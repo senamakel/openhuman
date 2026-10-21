@@ -288,6 +288,11 @@ pub struct PromptContext<'a> {
     pub model_name: &'a str,
     /// Id of the agent this prompt is being built for.
     pub agent_id: &'a str,
+    /// Archetype text fetched by the caller for a TinyFlows-backed builtin.
+    ///
+    /// Flow prompt builders remain synchronous; async host entrypoints fetch
+    /// this value from the scoped TinyFlows Copilot bus before rendering.
+    pub flow_archetype_text: Option<&'a str>,
     pub tools: &'a [PromptTool<'a>],
     pub workflows: &'a [Workflow],
     pub dispatcher_instructions: &'a str,

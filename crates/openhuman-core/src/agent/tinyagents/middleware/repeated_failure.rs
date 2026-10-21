@@ -82,6 +82,14 @@ impl RepeatedToolFailureMiddleware {
         Self { owner, policy }
     }
 
+    /// Return typed classified facts only while this middleware still owns
+    /// the halt note recorded for the current run.
+    pub(crate) fn current_classified_cause(
+        &self,
+    ) -> Option<tinyagents_harness::no_progress::ClassifiedStopCause> {
+        self.policy.stop.current_classified_cause()
+    }
+
     /// Judge each call's side effect from the registered tools' own
     /// declarations ([`tinyagents_harness::middleware::tool_sets_lookup`]) rather than
     /// from tool names alone.
@@ -524,6 +532,11 @@ impl Middleware<(), OpenHumanRunContext> for RepeatedToolFailureMiddleware {
         state: &(),
         run: &mut tinyagents_harness::middleware::AgentRun,
     ) -> TaResult<()> {
+        // The owner's `after_agent` finishes the run and clears the stop latch,
+        // so read the typed cause first or it is lost on a classified halt.
+        if run.failure_cause.is_none() {
+            run.failure_cause = self.policy.stop.current_classified_cause();
+        }
         self.owner.after_agent(ctx, state, run).await
     }
 

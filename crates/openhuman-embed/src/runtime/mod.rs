@@ -513,11 +513,11 @@ impl Runtime {
     ///
     /// # Errors
     ///
-    /// [`MemoryError::InvalidRequest`](crate::memory::MemoryError::InvalidRequest)
+    /// [`tinymemory_api::Error::InvalidRequest`]
     /// when `root` is not a valid layout root, or is the store root itself.
-    pub fn memory(&self, root: &str) -> crate::memory::MemoryResult<crate::memory::Memory> {
+    pub fn memory(&self, root: &str) -> tinymemory_api::Result<crate::memory::Memory> {
         if let Some(error) = &self.config_unavailable {
-            return Err(crate::memory::MemoryError::InvalidRequest(format!(
+            return Err(tinymemory_api::Error::InvalidRequest(format!(
                 "the runtime's config failed to load ({error})"
             )));
         }

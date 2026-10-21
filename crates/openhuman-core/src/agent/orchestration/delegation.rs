@@ -157,15 +157,15 @@ pub(crate) async fn run_subagent_delegation_with_parent_context(
                             return Err(format!(
                                 "[SUBAGENT_AWAITING_USER]\nagent_id: {}\ntask_id: {}\nquestion: {}\ncheckpointed: {}\n[/SUBAGENT_AWAITING_USER]\n\
                                      delegation stage {stage:?} is awaiting user input; relay the answer with continue_subagent using this task_id.",
-                                outcome.agent_id,
-                                outcome.task_id,
-                                serde_json::to_string(&question).unwrap_or_else(|_| {
-                                    "\"<unserializable question>\"".to_string()
-                                }),
-                                checkpoint.is_some(),
+                                    outcome.agent_id,
+                                    outcome.task_id,
+                                    serde_json::to_string(&question).unwrap_or_else(|_| {
+                                        "\"<unserializable question>\"".to_string()
+                                    }),
+                                    checkpoint.is_some(),
                             ));
                         }
-                        SubagentRunStatus::Incomplete { reason } => {
+                        SubagentRunStatus::Incomplete { reason, .. } => {
                             return Err(format!(
                                 "delegation stage {stage:?} stopped incomplete: {reason}"
                             ));

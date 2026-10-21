@@ -10,8 +10,10 @@
 # the 160 GB disk without it. The profiles go too: lcov-core.info already holds
 # them, and a later `cargo llvm-cov report` must not merge profiles whose
 # binaries are gone. diff-cover unions ci-out/lcov/*.info, so the result is the
-# same. This only frees space because Tinymold does not keep those executables
-# (`max-executable-size` in ci-lanes.yml); a stored copy shares the inode.
+# same. An executable Tinymold stored (`max-executable-size` in ci-lanes.yml)
+# shares its inode with the Tinymold store, so removing it frees nothing. Only
+# executables that do not share an inode with that store, and the profiles,
+# free space.
 set -euo pipefail
 dir="${1:?usage: prune-coverage-binaries.sh <coverage-target-dir>}"
 log() { echo "[ci][prune-coverage] $*"; }

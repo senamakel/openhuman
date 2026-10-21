@@ -85,7 +85,7 @@ pub(crate) struct HostOperationContext {
     pub(crate) parent_agent_id: Option<String>,
     /// Who the run acts as on memory; see
     /// [`OpenHumanRunContext::memory_identity`](super::OpenHumanRunContext::memory_identity).
-    pub(crate) memory_identity: Option<crate::memory::scope::MemoryIdentity>,
+    pub(crate) memory_identity: Option<tinymemory_tools::layout::identity::Identity>,
     /// The turn's memory, read live for the thread's turns still verbatim in
     /// the run's prompt (see [`MemoryTurn::in_prompt`](crate::memory::lifecycle::hooks::MemoryTurn::in_prompt)).
     /// `None` when the turn has no memory, as a sub-agent's run does.
@@ -146,7 +146,7 @@ pub(crate) fn parent_agent_id_for_tool(
 /// dispatch has none.
 pub(crate) fn memory_identity_for_tool(
     context: Option<&dyn tinytools::ToolRunContext>,
-) -> Option<crate::memory::scope::MemoryIdentity> {
+) -> Option<tinymemory_tools::layout::identity::Identity> {
     context
         .and_then(tinytools::ToolRunContext::host_extension)
         .and_then(|extension| {

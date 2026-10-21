@@ -375,7 +375,8 @@ async fn strict_gate_rejects_an_incompatible_saved_child_reference() {
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .workflow;
 
     let error = strict_gate(
         &crate::core::runtime::DispatchCtx::ambient(),
@@ -403,7 +404,8 @@ async fn builder_proposal_rejects_an_incompatible_saved_child_reference() {
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .workflow;
     let parent = structurally_valid_graph(referenced_child_graph(&child.id));
 
     let error = build_builder_proposal(
@@ -428,8 +430,8 @@ async fn builder_proposal_rejects_an_incompatible_saved_child_reference() {
     assert!(error.contains("saved-child"), "{error}");
 }
 
-#[test]
-fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
+#[tokio::test]
+async fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     let flow_a = store::create_flow(
@@ -439,7 +441,8 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .workflow;
     let flow_b = store::create_flow(
         &config,
         "cycle b".to_string(),
@@ -447,7 +450,8 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
         false,
         false,
     )
-    .unwrap();
+    .unwrap()
+    .workflow;
     store::update_flow_graph(
         &config,
         &flow_a.id,
@@ -472,14 +476,21 @@ fn referenced_child_compatibility_stops_at_saved_workflow_cycles() {
     .unwrap();
 
     let candidate = structurally_valid_graph(referenced_child_graph(&flow_a.id));
-    assert!(referenced_workflow_compatibility_errors(&config, &candidate).is_empty());
+    assert!(config_aware_engine_compatibility_errors(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        serde_json::to_value(candidate).unwrap(),
+    )
+    .await
+    .unwrap()
+    .is_empty());
 }
 
 // ── core-managed drafts (F5) ─────────────────────────────────────────────────
 
 #[tokio::test]
 async fn draft_promote_creates_a_new_flow_and_removes_the_draft() {
-    use tinyflows_catalog::DraftOrigin;
+    use tinyflows_bus::catalog::DraftOrigin;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
@@ -506,7 +517,7 @@ async fn draft_promote_creates_a_new_flow_and_removes_the_draft() {
 
 #[tokio::test]
 async fn draft_promote_with_flow_id_updates_the_existing_flow() {
-    use tinyflows_catalog::DraftOrigin;
+    use tinyflows_bus::catalog::DraftOrigin;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
@@ -539,7 +550,7 @@ async fn draft_promote_with_flow_id_updates_the_existing_flow() {
 
 #[tokio::test]
 async fn draft_promote_of_invalid_graph_is_rejected_and_keeps_the_draft() {
-    use tinyflows_catalog::DraftOrigin;
+    use tinyflows_bus::catalog::DraftOrigin;
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 

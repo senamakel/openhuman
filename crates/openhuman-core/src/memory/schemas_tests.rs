@@ -5,6 +5,7 @@ use crate::core::runtime::DispatchCtx;
 use crate::core::runtime::DomainSet;
 use crate::memory::test_fixtures::{bind_reference, config_in};
 use serde_json::{json, Map, Value};
+use tinymemory_api::MemoryEngine;
 
 /// Every method of the spec's RPC table (`docs/specs/memory-v2.md`), exactly.
 const SPEC_METHODS: [&str; 35] = [
@@ -54,8 +55,12 @@ fn object(value: Value) -> Map<String, Value> {
 
 /// Runs `function`'s handler against `config` (as the embedder-supplied
 /// config, so no on-disk config is read).
-async fn call(config: &Config, function: &str, params: Value) -> Result<Value, String> {
-    let handler = handler_for(function);
+async fn call(
+    config: &Config,
+    function: &str,
+    params: Value,
+) -> std::result::Result<Value, String> {
+    let handler = handler_for(function).expect("test function has a handler");
     let ctx = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
     CoreContext::scope(ctx.clone(), async move {
         handler(DispatchCtx::new(ctx.clone()), object(params)).await
@@ -74,6 +79,73 @@ fn every_spec_method_is_registered_with_its_exact_name() {
         assert!(!controller.schema.description.is_empty());
         assert!(!controller.schema.outputs.is_empty());
     }
+}
+
+#[test]
+fn policy_set_schema_exposes_all_recall_policy_fields() {
+    let schema = schema("policy_set");
+    let fields: Vec<_> = schema.inputs.iter().map(|field| field.name).collect();
+    assert!(fields.contains(&"date_hint"));
+    assert!(fields.contains(&"compaction_timeout_ms"));
+    assert!(fields.contains(&"build_delay_secs"));
+}
+
+#[test]
+fn every_function_resolves_through_its_handler_entry() {
+    let expected_handlers: [(&str, crate::core::all::ControllerHandler); 35] = [
+        ("engines_list", handlers::engines_list),
+        ("engine_get", handlers::engine_get),
+        ("engine_set", handlers::engine_set),
+        ("policy_get", handlers::policy_get),
+        ("policy_set", handlers::policy_set),
+        ("pack_preview", handlers::pack_preview),
+        ("recall", handlers::recall),
+        ("fetch", handlers::fetch),
+        ("learn", handlers::learn),
+        ("forget", handlers::forget),
+        ("erase_all", handlers::erase_all),
+        ("items_list", handlers::items_list),
+        ("explore", handlers::explore),
+        ("items_get", handlers::items_get),
+        ("agents_list", handlers::agents_list),
+        (
+            "conversations_backfill_status",
+            handlers::conversations_backfill_status,
+        ),
+        (
+            "conversations_backfill_start",
+            handlers::conversations_backfill_start,
+        ),
+        ("brain_sources", handlers::brain_sources),
+        ("brain_search", handlers::brain_search),
+        ("brain_ingest", handlers::brain_ingest),
+        ("brain_forget", handlers::brain_forget),
+        ("sources_list", handlers::sources_list),
+        ("sources_add", handlers::sources_add),
+        ("sources_remove", handlers::sources_remove),
+        ("sources_sync", handlers::sources_sync),
+        ("jobs_list", handlers::jobs_list),
+        ("jobs_run", handlers::jobs_run),
+        ("import_scan", handlers::import_scan),
+        ("import_start", handlers::import_start),
+        ("import_status", handlers::import_status),
+        ("import_retry_failed", handlers::import_retry_failed),
+        ("migration_scan", handlers::migration_scan),
+        ("migration_start", handlers::migration_start),
+        ("migration_status", handlers::migration_status),
+        ("migration_retry", handlers::migration_retry),
+    ];
+
+    assert_eq!(FUNCTIONS.len(), expected_handlers.len());
+    for (function, (expected_name, expected_handler)) in FUNCTIONS.iter().zip(expected_handlers) {
+        assert_eq!(*function, expected_name);
+        assert!(std::ptr::fn_addr_eq(
+            handler_for(function).expect("registered function has a handler"),
+            expected_handler
+        ));
+    }
+
+    assert!(handler_for("no_such_function").is_none());
 }
 
 #[test]
@@ -136,6 +208,27 @@ fn required_inputs_match_the_spec() {
     ] {
         assert!(schema(empty).inputs.is_empty(), "{empty} takes no params");
     }
+}
+
+#[test]
+fn sources_add_schema_lists_only_supported_kinds_and_target_formats() {
+    let schema = schema("sources_add");
+    let field = |name: &str| {
+        schema
+            .inputs
+            .iter()
+            .find(|input| input.name == name)
+            .unwrap_or_else(|| panic!("missing sources_add input {name}"))
+    };
+
+    assert_eq!(
+        field("kind").comment,
+        "folder | file | link | github | rss."
+    );
+    assert_eq!(
+        field("target").comment,
+        "Path, URL, owner/repo or feed URL."
+    );
 }
 
 #[tokio::test]
@@ -258,6 +351,89 @@ async fn read_handlers_answer_over_a_bound_engine() {
 }
 
 #[tokio::test]
+async fn rpc_memory_handlers_apply_the_refuse_boundary_before_operations() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    config.memory.root = Some("team:acme".into());
+    bind_reference(&config);
+    let outside = serde_json::to_value(tinymemory_api::Reach::subtree(
+        "team:other".parse().unwrap(),
+    ))
+    .unwrap();
+
+    for (function, params) in [
+        (
+            "recall",
+            json!({"question": "x", "filter": {"reach": outside.clone()}}),
+        ),
+        (
+            "fetch",
+            json!({"query": "x", "filter": {"reach": outside.clone()}}),
+        ),
+        (
+            "learn",
+            json!({"text": "outside", "meta": {"namespace": "team:other"}}),
+        ),
+        (
+            "forget",
+            json!({"ids": ["not-present"], "reach": outside.clone()}),
+        ),
+        ("items_list", json!({"filter": {"reach": outside.clone()}})),
+        (
+            "explore",
+            json!({
+                "facet": "kind",
+                "path": [{"facet": "namespace", "value": "team:other"}]
+            }),
+        ),
+        (
+            "items_get",
+            json!({"ids": ["not-present"], "reach": outside.clone()}),
+        ),
+    ] {
+        let error = call(&config, function, params).await.unwrap_err();
+        assert!(error.contains("INVALID_REQUEST"), "{function}: {error}");
+        assert!(
+            error.contains("outside this caller's memory")
+                && error.contains("team:other")
+                && error.contains("team:acme"),
+            "{function}: unexpected boundary error: {error}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn rpc_default_reads_stay_within_the_configured_identity_root() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut config = config_in(&tmp);
+    config.memory.root = Some("team:acme".into());
+    let engine = bind_reference(&config);
+    for (text, root) in [
+        ("acme memory", "team:acme"),
+        ("other team secret", "team:other"),
+    ] {
+        engine
+            .store(tinymemory_api::StoreItem::learning(
+                text,
+                tinymemory_api::LearningKind::Fact,
+                0.9,
+                tinymemory_api::MemoryMeta {
+                    namespace: root.parse().unwrap(),
+                    ..tinymemory_api::MemoryMeta::default()
+                },
+            ))
+            .await
+            .unwrap();
+    }
+
+    let listed = call(&config, "items_list", json!({})).await.unwrap();
+    let listed = listed.get("result").unwrap_or(&listed);
+    let items = listed["items"].as_array().unwrap();
+    assert_eq!(items.len(), 1);
+    assert_eq!(items[0]["meta"]["namespace"], "team:acme");
+}
+
+#[tokio::test]
 async fn policy_handlers_validate_persist_and_report() {
     let tmp = tempfile::tempdir().unwrap();
     let config = config_in(&tmp);
@@ -359,6 +535,114 @@ async fn engine_set_persists_the_selection_and_rejects_unknown_engines() {
         !saved.contains("cdb-test-key"),
         "the key never lands in config"
     );
+}
+
+#[tokio::test]
+async fn rpc_learn_invalidates_a_cached_prefetch_pack() {
+    use std::sync::Arc;
+    use tinymemory_api::{LearningKind, MemoryEngine, MemoryMeta};
+
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_in(&tmp);
+    let engine = bind_reference(&config);
+    engine
+        .store(tinymemory_api::StoreItem::learning(
+            "The user prefers dark roast coffee",
+            LearningKind::Preference,
+            0.9,
+            MemoryMeta::default(),
+        ))
+        .await
+        .unwrap();
+
+    let ctx = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
+    let dispatch = DispatchCtx::new(ctx.clone());
+    let identity = tinymemory_tools::layout::identity::Identity::root()
+        .resolve(&crate::memory::scope::identity_pins(&config));
+    let thread = "rpc-learn-invalidates-prefetch";
+    let input = || {
+        (
+            thread.to_string(),
+            0,
+            "What coffee do I like?".to_string(),
+            0,
+            chrono::Utc::now(),
+            false,
+            None,
+        )
+    };
+
+    CoreContext::scope(ctx.clone(), async {
+        let config = Arc::new(config.clone());
+        let (thread_id, turn_index, user_text, in_prompt_from, at, resumed, observed_actor) =
+            input();
+        assert!(crate::memory::lifecycle::prefetch::pre_turn(
+            &dispatch,
+            config.clone(),
+            identity.clone(),
+            thread_id,
+            turn_index,
+            user_text,
+            in_prompt_from,
+            at,
+            resumed,
+            observed_actor,
+            None,
+        )
+        .is_none());
+        crate::memory::lifecycle::prefetch::settle_for_test(
+            &dispatch, &config, &identity, thread, false,
+        )
+        .await;
+        let (thread_id, turn_index, user_text, in_prompt_from, at, resumed, observed_actor) =
+            input();
+        assert!(
+            crate::memory::lifecycle::prefetch::pre_turn(
+                &dispatch,
+                config.clone(),
+                identity.clone(),
+                thread_id,
+                turn_index,
+                user_text,
+                in_prompt_from,
+                at,
+                resumed,
+                observed_actor,
+                None,
+            )
+            .is_some(),
+            "the initial turn should consume its completed pack"
+        );
+
+        call(
+            &config,
+            "learn",
+            json!({"text": "The user enjoys espresso"}),
+        )
+        .await
+        .unwrap();
+
+        let (thread_id, turn_index, user_text, in_prompt_from, at, resumed, observed_actor) =
+            input();
+        assert!(
+            crate::memory::lifecycle::prefetch::pre_turn(
+                &dispatch,
+                config,
+                identity,
+                thread_id,
+                turn_index,
+                user_text,
+                in_prompt_from,
+                at,
+                resumed,
+                observed_actor,
+                None,
+            )
+            .is_none(),
+            "a later turn must not consume a pack cached before RPC learn"
+        );
+    })
+    .await;
 }
 
 #[tokio::test]

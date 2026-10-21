@@ -25,6 +25,68 @@ fn agent_ids_must_be_plain_names() {
 }
 
 #[test]
+fn config_fn_final_autonomy_is_captured_on_the_built_agent_context() {
+    let tokio = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(2)
+        .thread_stack_size(openhuman_core::core::runtime::AGENT_WORKER_STACK_BYTES)
+        .enable_all()
+        .build()
+        .unwrap();
+    let test = tokio.spawn(async {
+        use openhuman_core::config::{AutonomyConfig, Config};
+        use openhuman_core::core::runtime::AutonomyTierSource;
+        use openhuman_core::security::AutonomyLevel;
+
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config {
+            config_path: dir.path().join("config.toml"),
+            workspace_dir: dir.path().join("workspace"),
+            action_dir: dir.path().join("action"),
+            autonomy: AutonomyConfig {
+                enabled: true,
+                level: AutonomyLevel::ReadOnly,
+                ..AutonomyConfig::default()
+            },
+            ..Config::default()
+        };
+        config.save().await.unwrap();
+
+        let runtime = crate::runtime::RuntimeBuilder::new()
+            .config(config)
+            .services(openhuman_core::core::runtime::ServiceSet::none())
+            .build()
+            .await
+            .expect("runtime with a file-backed ReadOnly config");
+        assert_eq!(
+            runtime.core_runtime().context().autonomy_tier_source(),
+            AutonomyTierSource::Captured,
+            "a CoreBuilder::config snapshot remains bound to its in-memory tier"
+        );
+        let agent = runtime
+            .agent(crate::AgentSpec::new("config-fn-tier").config(|effective| {
+                effective.autonomy.enabled = true;
+                effective.autonomy.level = AutonomyLevel::Full;
+            }))
+            .expect("AgentSpec config_fn builds");
+
+        assert_eq!(agent.inner.config.autonomy.level, AutonomyLevel::Full);
+        assert_eq!(
+            agent.inner.ctx.autonomy_tier_source(),
+            AutonomyTierSource::Captured
+        );
+        assert_eq!(
+            agent.inner.ctx.agent_policy().unwrap().autonomy,
+            AutonomyLevel::Full,
+            "the final config_fn tier is what the captured policy carries"
+        );
+
+        drop(agent);
+        drop(runtime);
+    });
+    tokio.block_on(test).unwrap();
+}
+
+#[test]
 fn an_agent_without_sub_agents_resolves_through_the_process_catalogue() {
     let catalogue = process_catalogue();
     let mut definition = super::super::AgentDefinitionSpec::new()

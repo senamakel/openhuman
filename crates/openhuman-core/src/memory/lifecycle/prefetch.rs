@@ -4,21 +4,22 @@
 
 use std::hash::{Hash, Hasher};
 use std::path::PathBuf;
-use std::sync::{Arc, LazyLock, Mutex, PoisonError, Weak};
+use std::sync::{Arc, LazyLock};
 use std::time::Duration;
 
 use futures::future::BoxFuture;
-use tinymemory_tools::prefetch::{Limits, PrefetchRuntime, Prefetcher, WorkerPool};
+use tinymemory_tools::prefetch::{
+    Limits, PrefetchRuntime, TurnCache, TurnCacheRegistry, WorkerPool,
+};
 
 use crate::config::Config;
 use crate::core::runtime::{slot_for, DispatchCtx};
-use crate::memory::scope::ResolvedIdentity;
+use tinymemory_tools::layout::identity::ResolvedIdentity;
 
-use super::hooks::{self, PreTurnInput, TurnPack};
+use super::hooks::{self, TurnPack};
 
-const MAX_PACK_BYTES: usize = 64 * 1024;
 static WORKERS: LazyLock<WorkerPool> = LazyLock::new(|| WorkerPool::new(8));
-static CACHES: LazyLock<Mutex<Vec<Weak<Cache>>>> = LazyLock::new(Mutex::default);
+static CACHES: LazyLock<TurnCacheRegistry<Key>> = LazyLock::new(TurnCacheRegistry::default);
 
 type Work = BoxFuture<'static, Option<TurnPack>>;
 
@@ -36,15 +37,6 @@ impl PrefetchRuntime for HostRuntime {
     }
 }
 
-fn pack_fits(pack: &TurnPack) -> bool {
-    serde_json::to_vec(pack)
-        .ok()
-        .zip(serde_json::to_vec(&pack.citations).ok())
-        .is_some_and(|(pack, citations)| {
-            pack.len().saturating_add(citations.len()) <= MAX_PACK_BYTES
-        })
-}
-
 #[derive(Clone, Hash, PartialEq, Eq)]
 struct Key {
     workspace: PathBuf,
@@ -55,49 +47,72 @@ struct Key {
 }
 
 impl Key {
-    fn new(config: &Config, identity: &ResolvedIdentity, thread: &str, compaction: bool) -> Self {
-        let mut fingerprint = std::collections::hash_map::DefaultHasher::new();
-        // Keep only the digest, never serialized settings or credentials.
-        serde_json::to_value(config)
-            .ok()
-            .and_then(|value| serde_json::to_vec(&value).ok())
-            .unwrap_or_default()
-            .hash(&mut fingerprint);
-        config.config_path.hash(&mut fingerprint);
-        config.action_dir.hash(&mut fingerprint);
+    /// `config_fingerprint` is supplied by the host so the cache key can
+    /// later consume the host's config generation directly (e.g. TurnCache).
+    fn with_fingerprint(
+        config: &Config,
+        config_fingerprint: u64,
+        identity: &ResolvedIdentity,
+        thread: &str,
+        compaction: bool,
+    ) -> Self {
         Self {
             workspace: config.workspace_dir.clone(),
-            config: fingerprint.finish(),
+            config: config_fingerprint,
             identity: identity.clone(),
             thread: thread.to_owned(),
             compaction,
         }
     }
+
+    #[cfg(test)]
+    fn new(config: &Config, identity: &ResolvedIdentity, thread: &str, compaction: bool) -> Self {
+        Self::with_fingerprint(
+            config,
+            memory_config_fingerprint(config),
+            identity,
+            thread,
+            compaction,
+        )
+    }
 }
 
-struct Cache(Prefetcher<Key, TurnPack>);
+/// Fingerprints only memory settings that affect recall and its sources. The
+/// full Config is large and unrelated settings must not invalidate turn packs.
+fn memory_config_fingerprint(config: &Config) -> u64 {
+    let mut fingerprint = std::collections::hash_map::DefaultHasher::new();
+    config.memory.hash(&mut fingerprint);
+    config.config_path.hash(&mut fingerprint);
+    config.action_dir.hash(&mut fingerprint);
+    config.api_url.hash(&mut fingerprint);
+    config.inference_url.hash(&mut fingerprint);
+    config.api_key.hash(&mut fingerprint);
+    config.components.memory.hash(&mut fingerprint);
+    config.default_model.hash(&mut fingerprint);
+    config.chat_provider.hash(&mut fingerprint);
+    config.memory_provider.hash(&mut fingerprint);
+    config.model_routes.hash(&mut fingerprint);
+    config.time_zone().hash(&mut fingerprint);
+    fingerprint.finish()
+}
+
+/// `slot_for` constructs a per-context default, while the actual cache and
+/// cross-context weak registry policy belong to TinyMemory.
+struct Cache(Arc<TurnCache<Key>>);
 
 impl Default for Cache {
     fn default() -> Self {
-        Self(
-            Prefetcher::new(Arc::new(HostRuntime))
+        Self(Arc::new(
+            TurnCache::new(Arc::new(HostRuntime))
                 .with_limits(Limits::default())
-                .with_workers(WORKERS.clone())
-                .with_filter(pack_fits),
-        )
+                .with_workers(WORKERS.clone()),
+        ))
     }
 }
 
 fn cache(ctx: &DispatchCtx) -> Arc<Cache> {
     let cache = slot_for::<Cache>(ctx);
-    let mut caches = CACHES.lock().unwrap_or_else(PoisonError::into_inner);
-    caches.retain(|known| known.strong_count() > 0);
-    if !caches
-        .iter()
-        .any(|known| known.ptr_eq(&Arc::downgrade(&cache)))
-    {
-        caches.push(Arc::downgrade(&cache));
-    }
+    CACHES.register(&cache.0);
     cache
 }
 
@@ -106,38 +121,25 @@ fn cache(ctx: &DispatchCtx) -> Arc<Cache> {
 /// cannot republish after invalidation. Call after
 /// successful memory writes and erasure; no engine work runs here.
 pub(crate) fn invalidate(config: &Config) {
-    let mut caches = CACHES.lock().unwrap_or_else(PoisonError::into_inner);
-    caches.retain(|known| {
-        let Some(cache) = known.upgrade() else {
-            return false;
-        };
-        cache
-            .0
-            .invalidate_where(|key| key.workspace == config.workspace_dir);
-        true
-    });
+    CACHES.invalidate_where(|key| key.workspace == config.workspace_dir);
 }
 
 /// Clears all automatic packs after engine or credential invalidation. Old
 /// in-flight completions cannot recreate entries they no longer own.
 pub(crate) fn invalidate_all() {
-    let mut caches = CACHES.lock().unwrap_or_else(PoisonError::into_inner);
-    caches.retain(|known| {
-        let Some(cache) = known.upgrade() else {
-            return false;
-        };
-        cache.0.invalidate_all();
-        true
-    });
+    CACHES.invalidate_all();
 }
 
 fn completed(cache: &Cache, key: &Key) -> Option<TurnPack> {
-    cache.0.completed(key)
+    cache.0.completed(key).map(TurnPack::from_native)
 }
 
 fn enqueue(cache: Arc<Cache>, key: Key, work: Work) {
     tracing::debug!(thread_id = %key.thread, agent_id = %key.identity.agent_id, compaction = key.compaction, "[memory:prefetch] enqueue refresh");
-    cache.0.enqueue(key, work);
+    cache.0.enqueue(
+        key,
+        Box::pin(async move { work.await.map(|pack| pack.native) }),
+    );
 }
 
 /// Returns the last completed pack immediately, then logs this user turn and
@@ -147,18 +149,30 @@ pub(crate) fn pre_turn(
     ctx: &DispatchCtx,
     config: Arc<Config>,
     identity: ResolvedIdentity,
-    input: PreTurnInput,
+    thread_id: String,
+    turn_index: u32,
+    user_text: String,
+    in_prompt_from: u32,
+    at: chrono::DateTime<chrono::Utc>,
+    resumed_after_compaction: bool,
+    observed_actor: Option<tinymemory_api::ObservedActor>,
     channel: Option<String>,
 ) -> Option<TurnPack> {
     if !config.memory.conversations.enabled && !identity.recall {
         return None;
     }
     let cache = cache(ctx);
-    let key = Key::new(&config, &identity, &input.thread_id, false);
+    let key = Key::with_fingerprint(
+        &config,
+        memory_config_fingerprint(&config),
+        &identity,
+        &thread_id,
+        false,
+    );
     let pack = identity.recall.then(|| completed(&cache, &key)).flatten();
     tracing::debug!(thread_id = %key.thread, agent_id = %key.identity.agent_id, cache_hit = pack.is_some(), "[memory:prefetch] pre_turn cache");
     if let Some(pack) = &pack {
-        crate::memory::tools::record_pack_citations(ctx, &input.thread_id, pack.citations.clone());
+        hooks::deliver_citations(ctx, &config, &identity, &thread_id, pack);
     }
     let dispatch = ctx.clone();
     enqueue(
@@ -167,34 +181,29 @@ pub(crate) fn pre_turn(
         guard_turn_work(
             &config.clone(),
             Box::pin(dispatch.clone().enter(async move {
-                if config.memory.conversations.enabled {
-                    if let Some(channel) = channel {
-                        let workspace = config.workspace_dir.clone();
-                        let thread = input.thread_id.clone();
-                        let _ = dispatch
-                            .spawn_blocking(move || {
-                                crate::memory::channels::record(&workspace, &channel, &thread)
-                            })
-                            .await;
-                    }
-                }
-                hooks::pre_turn_work(&dispatch, &config, &identity, input).await
+                hooks::pre_turn_work(
+                    &dispatch,
+                    &config,
+                    &identity,
+                    thread_id,
+                    turn_index,
+                    user_text,
+                    in_prompt_from,
+                    at,
+                    resumed_after_compaction,
+                    observed_actor,
+                    channel,
+                )
+                .await
             })),
         ),
     );
-    pack.map(cached_notice)
+    pack
 }
 
 fn guard_turn_work(config: &Config, work: Work) -> Work {
     let mutation = crate::memory::tool_writes::automatic_mutation(config);
     Box::pin(async move { mutation.run(work).await.flatten() })
-}
-
-fn cached_notice(mut pack: TurnPack) -> TurnPack {
-    let notice = "This is cached memory from a completed background lookup for an earlier turn. It may be incomplete or unrelated to the current question; use explicit memory recall or fetch when you need a current answer.\n\n";
-    pack.markdown.insert_str(0, notice);
-    pack.tokens += tinymemory_tools::recall::estimate_tokens(notice);
-    pack
 }
 
 /// Uses only completed context while queuing recall of the folded span. The
@@ -210,17 +219,23 @@ pub(crate) fn compaction(
         return None;
     }
     let cache = cache(ctx);
-    let key = Key::new(&config, &identity, &thread, true);
-    let pack = completed(&cache, &key)
-        .or_else(|| completed(&cache, &Key::new(&config, &identity, &thread, false)));
+    let fingerprint = memory_config_fingerprint(&config);
+    let key = Key::with_fingerprint(&config, fingerprint, &identity, &thread, true);
+    let pack = completed(&cache, &key).or_else(|| {
+        completed(
+            &cache,
+            &Key::with_fingerprint(&config, fingerprint, &identity, &thread, false),
+        )
+    });
+    let dispatch = ctx.clone();
     enqueue(
         cache,
         key,
         Box::pin(ctx.enter(async move {
-            hooks::compaction_work(&config, &identity, &thread, dropped).await
+            hooks::compaction_work(&dispatch, &config, &identity, &thread, dropped).await
         })),
     );
-    pack.map(cached_notice)
+    pack
 }
 
 #[cfg(test)]
@@ -232,7 +247,13 @@ pub(crate) async fn settle_for_test(
     compaction: bool,
 ) {
     let cache = cache(ctx);
-    let key = Key::new(config, identity, thread, compaction);
+    let key = Key::with_fingerprint(
+        config,
+        memory_config_fingerprint(config),
+        identity,
+        thread,
+        compaction,
+    );
     tokio::time::timeout(Duration::from_secs(2), async {
         while !cache.0.is_idle(&key) {
             tokio::task::yield_now().await;

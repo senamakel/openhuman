@@ -133,6 +133,9 @@ pub enum SubagentRunStatus {
     Incomplete {
         /// Short, machine-set reason the run stopped short (stuck vs. cap).
         reason: String,
+        /// Typed failure classification when the harness has one. It remains
+        /// separate from `reason`, which is user-facing summary text.
+        failure_cause: Option<tinyagents_harness::no_progress::ClassifiedStopCause>,
     },
     /// Cooperative cancellation won the subagent lifecycle. This is distinct
     /// from an incomplete run so callers never publish a completed result for

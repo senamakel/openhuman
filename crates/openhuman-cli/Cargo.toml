@@ -96,6 +96,20 @@ path = "../../tests/tinysearch_module_e2e.rs"
 required-features = ["modules"]
 
 [[test]]
+# Manually runs the normal host prompt path against a caller-supplied published
+# TinyFlows native module library; see the test's module-level instructions.
+name = "tinyflows_published_prompt_e2e"
+path = "../../tests/tinyflows_published_prompt_e2e.rs"
+required-features = ["flows"]
+
+[[test]]
+# Runs the checksum-verified published TinyFlows module through host Runs,
+# CapsHost, and scoped CatalogStorage adapters.
+name = "tinyflows_published_runs_e2e"
+path = "../../tests/tinyflows_published_runs_e2e.rs"
+required-features = ["flows"]
+
+[[test]]
 # Reproduction of the removed spend cap: needs its own process because the
 # global CostTracker is a `OnceCell`, so a shared `--lib` process makes the
 # spend state order-dependent.
@@ -364,6 +378,7 @@ uuid = { version = "1", features = ["v4"] }
 openhuman-core = { path = "../openhuman-core", package = "openhuman", default-features = false }
 openhuman-embed = { workspace = true }
 openhuman-tinyhumans = { workspace = true }
+tinymemory-tools = { path = "../../vendor/tinymemory/crates/tinymemory-tools" }
 aes-gcm = "0.10"
 async-trait = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
@@ -373,6 +388,7 @@ tempfile = "3"
 tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crates/tinyinference-llm" }
 # The document-port contract for failure injection in cron storage regressions.
 tinystoragedrivers-core = { git = "https://github.com/tinyhumansai/tinystoragedrivers", tag = "v1.0.0" }
+tinystoragedrivers = { git = "https://github.com/tinyhumansai/tinystoragedrivers", tag = "v1.0.0", default-features = false, features = ["sqlite"] }
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
 tinytools-std = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools-std" }
 # The completion log a detached sub-agent leaves, for the SaaS delivery-recovery e2e.
@@ -462,7 +478,6 @@ flows = ["openhuman-rpc/flows"]
 skills = ["openhuman-rpc/skills"]
 mcp = ["openhuman-rpc/mcp"]
 channels = ["openhuman-rpc/channels"]
-whatsapp-web = ["openhuman-rpc/whatsapp-web"]
 e2e-test-support = ["openhuman-rpc/e2e-test-support"]
 file-logging = ["openhuman-rpc/file-logging"]
 scheduler-gate = ["openhuman-rpc/scheduler-gate"]

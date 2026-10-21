@@ -592,32 +592,36 @@ async fn the_approval_context_survives_await_points_and_a_move_between_tasks() {
 /// an environment without one leaves the run's own alone.
 #[test]
 fn the_memory_identity_rides_the_run_and_its_children() {
-    use crate::memory::scope::MemoryIdentity;
-
     let mut context = OpenHumanRunContext::new();
     assert_eq!(context.memory_identity, None);
 
     let env = crate::agent::turn_env::HostTurnEnv {
-        memory_identity: Some(MemoryIdentity::team_member("acme", "lead")),
+        memory_identity: Some(tinymemory_tools::layout::identity::Identity::team_member(
+            "acme", "lead",
+        )),
         ..Default::default()
     };
     context = context.with_host_env(&env);
     assert_eq!(
         context.memory_identity,
-        Some(MemoryIdentity::team_member("acme", "lead"))
+        Some(tinymemory_tools::layout::identity::Identity::team_member(
+            "acme", "lead"
+        ))
     );
 
     let child = context.child();
     assert_eq!(child.memory_identity, context.memory_identity);
     assert_eq!(
         child.memory_identity.unwrap().child("scout"),
-        MemoryIdentity::team_member("acme", "scout")
+        tinymemory_tools::layout::identity::Identity::team_member("acme", "scout")
     );
 
     let unchanged = context.with_host_env(&crate::agent::turn_env::HostTurnEnv::default());
     assert_eq!(
         unchanged.memory_identity,
-        Some(MemoryIdentity::team_member("acme", "lead"))
+        Some(tinymemory_tools::layout::identity::Identity::team_member(
+            "acme", "lead"
+        ))
     );
 }
 
@@ -708,12 +712,13 @@ fn the_turns_still_in_the_prompt_reach_the_runs_tools() {
     let mut host = OpenHumanRunContext::new();
     host.memory_turn = Some(std::sync::Arc::new(
         crate::memory::lifecycle::hooks::MemoryTurn {
-            identity: crate::memory::scope::MemoryIdentity::agent("a").resolve(&config),
+            identity: tinymemory_tools::layout::identity::Identity::agent("a")
+                .resolve(&crate::memory::scope::identity_pins(&config)),
             config: std::sync::Arc::new(config),
             thread_id: "thread-long".into(),
             pack: None,
             in_prompt_from: std::sync::Arc::new(
-                crate::memory::lifecycle::window::InPromptFrom::new(12, 20),
+                tinymemory_tools::lifecycle::window::InPromptFrom::new(12, 20),
             ),
             core: None,
         },

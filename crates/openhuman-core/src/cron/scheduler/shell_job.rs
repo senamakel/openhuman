@@ -1,5 +1,5 @@
-//! Execution of `JobType::Shell` jobs under the security policy, with a
-//! forbidden-path argument scan and a hard timeout.
+//! Execution of `JobType::Shell` jobs under the security policy and a hard
+//! timeout.
 
 use crate::config::Config;
 use crate::security::SecurityPolicy;
@@ -57,67 +57,6 @@ pub(crate) async fn authorize_shell_command(
         let _ = (config, security, command);
         Err("Command analysis is unavailable.".to_owned())
     }
-}
-
-#[cfg(test)]
-pub(super) fn is_env_assignment(word: &str) -> bool {
-    word.contains('=')
-        && word
-            .chars()
-            .next()
-            .is_some_and(|c| c.is_ascii_alphabetic() || c == '_')
-}
-
-#[cfg(test)]
-pub(super) fn strip_wrapping_quotes(token: &str) -> &str {
-    token.trim_matches(|c| c == '"' || c == '\'')
-}
-
-#[cfg(test)]
-pub(super) fn forbidden_path_argument(security: &SecurityPolicy, command: &str) -> Option<String> {
-    let mut normalized = command.to_string();
-    for sep in ["&&", "||"] {
-        normalized = normalized.replace(sep, "\x00");
-    }
-    for sep in ['\n', ';', '|'] {
-        normalized = normalized.replace(sep, "\x00");
-    }
-
-    for segment in normalized.split('\x00') {
-        let tokens: Vec<&str> = segment.split_whitespace().collect();
-        if tokens.is_empty() {
-            continue;
-        }
-
-        // Skip leading env assignments and executable token.
-        let mut idx = 0;
-        while idx < tokens.len() && is_env_assignment(tokens[idx]) {
-            idx += 1;
-        }
-        if idx >= tokens.len() {
-            continue;
-        }
-        idx += 1;
-
-        for token in &tokens[idx..] {
-            let candidate = strip_wrapping_quotes(token);
-            if candidate.is_empty() || candidate.starts_with('-') || candidate.contains("://") {
-                continue;
-            }
-
-            let looks_like_path = candidate.starts_with('/')
-                || candidate.starts_with("./")
-                || candidate.starts_with("../")
-                || candidate.starts_with("~/")
-                || candidate.contains('/');
-
-            if looks_like_path && !security.is_path_string_allowed(candidate) {
-                return Some(candidate.to_string());
-            }
-        }
-    }
-
-    None
 }
 
 pub(super) async fn run_job_command(

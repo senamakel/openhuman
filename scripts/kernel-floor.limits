@@ -748,4 +748,18 @@
 # 321/301/2 2026-10-16 Re-measure after the upstream/main merge at ba83482245.
 #                      CI (Linux, EX63) reports five fewer packages and two
 #                      fewer unique crate names; native builds remain at two.
-flows:334:311:3
+# 338/315/3 2026-10-20 The tinymemory 2.0.0 bump (#8145) makes `async-lock`
+#                      (plus `event-listener` and `event-listener-strategy`)
+#                      an unconditional dependency of `tinymemory-tools`: its
+#                      owner barrier holds owned async RwLock guards without
+#                      binding a runtime. It is not behind a feature, so the
+#                      host cannot shed it; `uuid`, `schemars`, `url` were
+#                      already in the graph. +4 packages / +4 names, native
+#                      unchanged. Measured: scripts/kernel-floor.sh flows.
+# 318/298/3 2026-10-21 The flows profile improved (EX63 run 39476165978,
+#                      Linux): 318 packages / 298 names against 338/315, after
+#                      merging upstream main (flows bus, #8159). The gate only
+#                      requires the limit to follow an improvement; no
+#                      dependency was added. Native unchanged.
+#                      Measured: scripts/kernel-floor.sh flows.
+flows:318:298:3

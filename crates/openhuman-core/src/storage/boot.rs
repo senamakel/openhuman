@@ -123,7 +123,7 @@ pub async fn remigrate_owner(
 }
 
 /// `local`, plus every v2 scope the backend reports (when it can enumerate).
-async fn scopes_to_migrate(backend: &Arc<dyn StorageBackend>) -> Vec<Scope> {
+pub(crate) async fn scopes_to_migrate(backend: &Arc<dyn StorageBackend>) -> Vec<Scope> {
     let mut scopes = vec![Scope::local()];
     if backend
         .capabilities()
@@ -213,15 +213,6 @@ async fn post_migrate_importers(
     }
     for (step, error) in super::host_importers::run(scoped).await {
         record(report, scope, step, &error);
-    }
-    #[cfg(feature = "flows")]
-    {
-        if let Err(error) = tinyflows_drivers::import_legacy_kv(scoped).await {
-            record(report, scope, "flows_import_legacy_kv", &error);
-        }
-        if let Err(error) = tinyflows_drivers::import_legacy_cron_counters(scoped).await {
-            record(report, scope, "import_legacy_cron_counters", &error);
-        }
     }
 }
 

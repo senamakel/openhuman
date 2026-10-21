@@ -8,6 +8,8 @@ mod tinyhumans_boot;
 
 #[path = "support/env_guard.rs"]
 mod env_guard;
+#[path = "support/published_tinyflows.rs"]
+mod published_tinyflows;
 #[path = "support/scripted_stack.rs"]
 mod scripted_stack;
 use env_guard::EnvVarGuard;
@@ -2687,6 +2689,572 @@ async fn json_rpc_cron_add_run_list_round_trip_over_the_tinyflows_module_inner()
 }
 
 #[test]
+fn json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflows() {
+    const CHILD_ENV: &str = "OPENHUMAN_CRON_PUBLISHED_MODULE_E2E_CHILD";
+    if std::env::var_os(CHILD_ENV).is_none() {
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflows",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD_ENV, "1")
+            .output()
+            .expect("run isolated published TinyFlows host E2E child");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        print!("{stdout}");
+        eprint!("{stderr}");
+        let child_output = format!("{stdout}{stderr}");
+        assert!(
+            output.status.success(),
+            "published TinyFlows host E2E child failed:\n{child_output}"
+        );
+        assert!(
+            child_output.contains("running 1 test")
+                && child_output.contains(
+                    "test json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflows ... ok"
+                )
+                && child_output.contains("1 passed; 0 failed"),
+            "the child must prove exactly one test ran and passed:\n{child_output}"
+        );
+        return;
+    }
+
+    run_json_rpc_e2e_on_agent_stack(
+        "json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflows",
+        json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflows_inner,
+    );
+}
+
+async fn json_rpc_cron_manual_worker_survives_caller_cancel_on_published_tinyflows_inner() {
+    use openhuman_core::storage::{CollectionSpec, Precondition, Scope, StorageUrl};
+    use openhuman_core::{
+        config::Config,
+        core::{
+            events::DomainEvent,
+            runtime::{ContextOverlay, CoreContext, DispatchCtx, DomainSet, TokenSource},
+            types::HostKind,
+        },
+        cron::system_job_handlers,
+    };
+    use tinybus::EventHandler;
+    use tokio::sync::{mpsc, oneshot, Semaphore};
+
+    let _env_lock = json_rpc_e2e_env_lock_async().await;
+    let tmp = tempdir().expect("tempdir");
+    let home = tmp.path();
+    let openhuman_home = home.join(".openhuman");
+    let workspace = home.join("cron-workspace");
+    std::fs::create_dir_all(&workspace).expect("create E2E workspace");
+
+    let _home_guard = EnvVarGuard::set_to_path("HOME", home);
+    let _workspace_guard = EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &workspace);
+    let _backend_url_guard = EnvVarGuard::unset("BACKEND_URL");
+    let _storage_url_guard = EnvVarGuard::unset("OPENHUMAN_STORAGE_URL");
+    let _vite_backend_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
+    let _source_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE");
+    let _source_dir_guard = EnvVarGuard::unset("OPENHUMAN_MODULE_SOURCE_DIR");
+    clear_forced_chat_completions();
+
+    let (artifact, _) = published_tinyflows::staged_v0_8_28_module();
+    let module_path = artifact.parent().expect("native artifact directory");
+    let _module_path_guard = EnvVarGuard::set_to_path("OPENHUMAN_MODULE_PATH", module_path);
+
+    let (mock_addr, mock_join) = serve_on_ephemeral(mock_upstream_router()).await;
+    let mock_origin = format!("http://{mock_addr}");
+    write_min_config(&openhuman_home, &mock_origin);
+    write_min_config(&openhuman_home.join("users").join("e2e-user"), &mock_origin);
+
+    let storage_url = openhuman_core::storage::config::default_url(&workspace);
+    let config_path = openhuman_home.join("config.toml");
+    let config_text = std::fs::read_to_string(&config_path).expect("read E2E config");
+    std::fs::write(
+        &config_path,
+        format!("{config_text}\n[storage]\nurl = {storage_url:?}\n"),
+    )
+    .expect("bind E2E config to its explicit storage URL");
+    let mut config = Config {
+        workspace_dir: workspace.clone(),
+        action_dir: workspace.clone(),
+        config_path,
+        ..Config::default()
+    };
+    config.storage.url = Some(storage_url.clone());
+
+    // Open the exact configured backend without the host boot wrapper, which
+    // runs composed schema migrations immediately. Seed the legacy v1 rows
+    // first, then let normal CoreContext startup perform the real migration.
+    let parsed_url = StorageUrl::parse(&storage_url).expect("parse the configured storage URL");
+    let backend = tinystoragedrivers::open(&parsed_url)
+        .await
+        .expect("open the host's workspace storage backend");
+    openhuman_core::storage::install_for_url(&storage_url, Arc::clone(&backend));
+    assert_eq!(
+        openhuman_core::storage::installed_url().as_deref(),
+        Some(storage_url.as_str())
+    );
+    let scoped = backend
+        .for_scope(&Scope::local())
+        .expect("open the operator storage scope");
+    let docs = Arc::clone(scoped.documents());
+    for collection in ["cron_jobs", "cron_runs", "cron_counters", "tsd.migrations"] {
+        docs.ensure_collection(&CollectionSpec::new(collection))
+            .await
+            .unwrap();
+    }
+    assert!(
+        docs.get("tsd.migrations", "cron/cron.jobs/jobs_v2")
+            .await
+            .unwrap()
+            .is_none(),
+        "the fresh backend has not run Cron migration before the v1 fixture is seeded"
+    );
+    docs.put(
+        "cron_jobs",
+        "legacy-migration-proof",
+        json!({
+            "claim_generation": 1,
+            "expression": "0 9 * * *",
+            "command": "echo migrated",
+            "schedule": "{\"kind\":\"every\",\"every_ms\":3600000}",
+            "job_type": "shell",
+            "session_target": "isolated",
+            "enabled": false,
+            "delivery": "{\"mode\":\"none\",\"channel\":null,\"to\":null,\"best_effort\":true}",
+            "delete_after_run": false,
+            "created_at": "2026-03-04T05:06:07.123Z",
+            "created_ms": 1772600767123_i64,
+            "next_run": "2026-03-05T09:00:00Z",
+            "next_run_ms": 1772701200000_i64,
+            "next_run_ns": 1772701200000000000_i64,
+            "name": "legacy-migration-proof"
+        }),
+        Precondition::None,
+    )
+    .await
+    .unwrap();
+    docs.put(
+        "cron_runs",
+        "00000000000000000007",
+        json!({
+            "seq": 7,
+            "job_id": "legacy-migration-proof",
+            "started_at": "2026-03-04T09:00:00Z",
+            "started_ns": 1772614800000000000_i64,
+            "finished_at": "2026-03-04T09:00:02Z",
+            "status": "success",
+            "duration_ms": 2000,
+            "output": "legacy run preserved"
+        }),
+        Precondition::None,
+    )
+    .await
+    .unwrap();
+    docs.put(
+        "cron_counters",
+        "runs",
+        json!({ "next": 8 }),
+        Precondition::None,
+    )
+    .await
+    .unwrap();
+
+    openhuman_core::core::bus::init().await.unwrap();
+    let (default_context, _, _) = CoreContext::init_with_config(
+        HostKind::Library,
+        &TokenSource::Fixed(Arc::new(TEST_RPC_TOKEN.to_string())),
+        DomainSet::full(),
+        openhuman_core::tools::toolpacks::ToolGroups::none(),
+        Some(config.clone()),
+    )
+    .await
+    .expect("initialize the isolated core context for the native host scenario");
+    assert_eq!(
+        default_context.workspace_dir().unwrap(),
+        workspace,
+        "the RPC host and pre-seeded migration rows share the same workspace"
+    );
+    assert_eq!(
+        openhuman_core::storage::installed_url().as_deref(),
+        Some(storage_url.as_str()),
+        "CoreContext initialization retains the seeded backend URL"
+    );
+    let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
+    let rpc_base = format!("http://{rpc_addr}");
+    let jobs = post_json_rpc(&rpc_base, 80_001, "openhuman.cron_list", json!({})).await;
+    let jobs = assert_no_jsonrpc_error(&jobs, "cron_list");
+    assert!(
+        jobs.to_string().contains("legacy-migration-proof"),
+        "the first public Cron read runs the module migration: {jobs}"
+    );
+    let migrated = docs
+        .get("cron.jobs", "legacy-migration-proof")
+        .await
+        .unwrap()
+        .expect("the released module wrote the v2 job through the host callback");
+    assert_eq!(migrated.meta.created_ms, 1772600767123_i64);
+    for (collection, id) in [
+        ("cron_jobs", "legacy-migration-proof"),
+        ("cron_runs", "00000000000000000007"),
+        ("cron_counters", "runs"),
+    ] {
+        assert!(
+            docs.get(collection, id).await.unwrap().is_none(),
+            "the v25 module retired migrated legacy record {collection}/{id}"
+        );
+    }
+    for progress in [
+        "cron/cron.jobs/jobs_v2",
+        "cron/cron.runs/runs_v2",
+        "cron/cron.admission/admission_v2",
+        "cron/counters_import",
+    ] {
+        assert!(
+            docs.get("tsd.migrations", progress)
+                .await
+                .unwrap()
+                .is_some(),
+            "the module persisted migration progress {progress}"
+        );
+    }
+
+    let module_list = post_json_rpc(&rpc_base, 80_003, "openhuman.modules_list", json!({})).await;
+    let module_list = peel_logs_envelope(assert_no_jsonrpc_error(&module_list, "modules_list"));
+    let tinyflows = module_list["modules"]
+        .as_array()
+        .and_then(|modules| modules.iter().find(|module| module["id"] == "tinyflows"))
+        .unwrap_or_else(|| {
+            panic!("TinyFlows is listed after the released cdylib loaded: {module_list}")
+        });
+    assert_eq!(tinyflows["version"], "0.8.28");
+
+    let name = format!("published-manual-{}", uuid::Uuid::new_v4().simple());
+    let job = openhuman_core::cron::system_jobs::ensure_system_job(
+        &config,
+        &name,
+        openhuman_core::cron::Schedule::Every {
+            every_ms: 3_600_000,
+        },
+    )
+    .expect("seed a same-scope manual-worker job");
+    let (started_tx, started_rx) = oneshot::channel();
+    let (release_tx, release_rx) = oneshot::channel();
+    let started_tx = Arc::new(Mutex::new(Some(started_tx)));
+    let release_rx = Arc::new(Mutex::new(Some(release_rx)));
+    let _handler = system_job_handlers::register(
+        &name,
+        Arc::new(move |_| {
+            let started = started_tx.lock().unwrap().take();
+            let release = release_rx.lock().unwrap().take();
+            Box::pin(async move {
+                if let Some(started) = started {
+                    let _ = started.send(());
+                }
+                if let Some(release) = release {
+                    release.await.map_err(|error| error.to_string())?;
+                }
+                Ok(())
+            })
+        }),
+    );
+    struct CronEvents {
+        job_id: String,
+        tx: mpsc::UnboundedSender<(&'static str, bool)>,
+    }
+    #[async_trait::async_trait]
+    impl EventHandler<DomainEvent> for CronEvents {
+        fn name(&self) -> &str {
+            "test::json_rpc_e2e::published_cron_manual_lifecycle"
+        }
+        async fn handle(&self, event: &DomainEvent) {
+            let event = match event {
+                DomainEvent::CronJobTriggered { job_id, .. } if job_id == &self.job_id => {
+                    Some(("triggered", true))
+                }
+                DomainEvent::CronJobCompleted {
+                    job_id, success, ..
+                } if job_id == &self.job_id => Some(("completed", *success)),
+                _ => None,
+            };
+            if let Some(event) = event {
+                let _ = self.tx.send(event);
+            }
+        }
+    }
+    let (events_tx, mut events_rx) = mpsc::unbounded_channel();
+    let subscription = openhuman_core::core::bus::BUS
+        .subscribe(Arc::new(CronEvents {
+            job_id: job.id.clone(),
+            tx: events_tx,
+        }))
+        .expect("subscribe to the production Cron domain events");
+
+    let caller_rpc_base = rpc_base.clone();
+    let job_id = job.id.clone();
+    let caller = tokio::spawn(async move {
+        post_json_rpc(
+            &caller_rpc_base,
+            80_004,
+            "openhuman.cron_run",
+            json!({ "job_id": job_id }),
+        )
+        .await
+    });
+    tokio::time::timeout(Duration::from_secs(10), started_rx)
+        .await
+        .expect("the published module admitted the run and entered the host callback")
+        .expect("manual host handler start signal remains open");
+    caller.abort();
+    assert!(caller.await.unwrap_err().is_cancelled());
+    let queued_response = post_json_rpc(
+        &rpc_base,
+        80_006,
+        "openhuman.cron_runs",
+        json!({ "job_id": job.id }),
+    )
+    .await;
+    let queued_history = peel_logs_envelope(assert_no_jsonrpc_error(
+        &queued_response,
+        "queued cron_runs while the system handler is held",
+    ));
+    let queued_run = queued_history
+        .as_array()
+        .and_then(|runs| runs.first())
+        .unwrap_or_else(|| panic!("the admitted run has its queued history: {queued_history}"));
+    assert_eq!(queued_run["id"], 8, "v1 next=8 seeds the queue slot");
+    assert_eq!(queued_run["status"], "queued");
+    let invocation_id = queued_run["run_id"]
+        .as_str()
+        .filter(|id| !id.is_empty())
+        .expect("the queued run carries the invocation identity")
+        .to_string();
+    let _ = release_tx.send(());
+
+    let mut seen_events = Vec::new();
+    tokio::time::timeout(Duration::from_secs(10), async {
+        while seen_events.len() < 2 {
+            seen_events.push(
+                events_rx
+                    .recv()
+                    .await
+                    .expect("Cron event subscription remains open"),
+            );
+        }
+    })
+    .await
+    .expect("the retained native worker emits trigger and terminal completion");
+    assert_eq!(seen_events[0].0, "triggered");
+    assert_eq!(seen_events[1], ("completed", true));
+
+    let mut manual_history = serde_json::Value::Null;
+    for _ in 0..100 {
+        let runs = post_json_rpc(
+            &rpc_base,
+            80_005,
+            "openhuman.cron_runs",
+            json!({ "job_id": job.id }),
+        )
+        .await;
+        manual_history = peel_logs_envelope(assert_no_jsonrpc_error(&runs, "cron_runs")).clone();
+        if manual_history.to_string().contains("system job")
+            && manual_history.to_string().contains("\"status\":\"ok\"")
+        {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+    let terminal_run = manual_history
+        .as_array()
+        .and_then(|runs| runs.first())
+        .unwrap_or_else(|| {
+            panic!("the released worker committed terminal history: {manual_history}")
+        });
+    assert!(
+        terminal_run["output"]
+            .as_str()
+            .is_some_and(|output| output.contains("system job"))
+            && terminal_run["status"] == "ok",
+        "the released worker committed its terminal history after the caller disconnected: {manual_history}"
+    );
+    assert!(
+        terminal_run["id"] == 9,
+        "the terminal record follows queued slot 8 from the imported counter: {manual_history}"
+    );
+    assert!(
+        terminal_run["run_id"] == invocation_id,
+        "the terminal record preserves the queued invocation identity: {manual_history}"
+    );
+    drop(subscription);
+
+    let (scope_started_tx, mut scope_started_rx) = mpsc::unbounded_channel();
+    let scope_started_tx = Arc::new(scope_started_tx);
+    let scope_release = Arc::new(Semaphore::new(0));
+    let handler_started = Arc::clone(&scope_started_tx);
+    let handler_release = Arc::clone(&scope_release);
+    let scoped_name = format!("published-scope-{}", uuid::Uuid::new_v4().simple());
+    let _scope_handler = system_job_handlers::register(
+        &scoped_name,
+        Arc::new(move |_| {
+            let started = Arc::clone(&handler_started);
+            let release = Arc::clone(&handler_release);
+            Box::pin(async move {
+                let _ = started.send(());
+                release
+                    .acquire()
+                    .await
+                    .map_err(|error| error.to_string())?
+                    .forget();
+                Ok(())
+            })
+        }),
+    );
+    let agent_context = default_context.derive_with(
+        ContextOverlay::new(
+            config.clone(),
+            DomainSet::full(),
+            openhuman_core::tools::toolpacks::ToolGroups::none(),
+        )
+        .session_agent("published-cron-live-agent"),
+    );
+    let operator_scope = CoreContext::scope(Arc::clone(&default_context), async {
+        openhuman_core::storage::current_scope().unwrap()
+    })
+    .await;
+    let agent_scope = CoreContext::scope(Arc::clone(&agent_context), async {
+        openhuman_core::storage::current_scope().unwrap()
+    })
+    .await;
+    assert_ne!(
+        operator_scope, agent_scope,
+        "the live-agent invocation uses a distinct document scope"
+    );
+    let first_job = CoreContext::scope(Arc::clone(&default_context), async {
+        openhuman_core::cron::system_jobs::ensure_system_job(
+            &config,
+            &scoped_name,
+            openhuman_core::cron::Schedule::Every {
+                every_ms: 3_600_000,
+            },
+        )
+    })
+    .await
+    .unwrap();
+    let second_job = CoreContext::scope(Arc::clone(&agent_context), async {
+        openhuman_core::cron::system_jobs::ensure_system_job(
+            &config,
+            &scoped_name,
+            openhuman_core::cron::Schedule::Every {
+                every_ms: 3_600_000,
+            },
+        )
+    })
+    .await
+    .unwrap();
+    assert_eq!(first_job.id, second_job.id);
+
+    let first_config = config.clone();
+    let first_job_id = first_job.id.clone();
+    let first_context = Arc::clone(&default_context);
+    let first = tokio::spawn(async move {
+        let dispatch = DispatchCtx::new(Arc::clone(&first_context));
+        CoreContext::scope(first_context, async move {
+            openhuman_core::cron::ops::run_job_now(&dispatch, &first_config, &first_job_id).await
+        })
+        .await
+    });
+    tokio::time::timeout(Duration::from_secs(10), scope_started_rx.recv())
+        .await
+        .expect("the first document scope starts its manual worker")
+        .expect("scope handler channel remains open");
+    first.abort();
+    assert!(
+        first.await.unwrap_err().is_cancelled(),
+        "cancel the core's synchronous Run Now waiter while its module worker remains active"
+    );
+
+    let duplicate_context = Arc::clone(&default_context);
+    let duplicate_job_id = first_job.id.clone();
+    let duplicate_config = config.clone();
+    let duplicate = CoreContext::scope(Arc::clone(&duplicate_context), async move {
+        openhuman_core::cron::ops::run_job_now(
+            &DispatchCtx::new(Arc::clone(&duplicate_context)),
+            &duplicate_config,
+            &duplicate_job_id,
+        )
+        .await
+    })
+    .await;
+    let refusal = match duplicate {
+        Err(error) => error,
+        Ok((false, message)) => message,
+        Ok((true, message)) => panic!("same-scope active run unexpectedly succeeded: {message}"),
+    };
+    assert!(
+        refusal.contains("AlreadyRunning"),
+        "the same scope refuses the active job: {refusal}"
+    );
+
+    let second_config = config.clone();
+    let second_job_id = second_job.id.clone();
+    let second_context = Arc::clone(&agent_context);
+    let mut second = tokio::spawn(async move {
+        let dispatch = DispatchCtx::new(Arc::clone(&second_context));
+        CoreContext::scope(second_context, async move {
+            openhuman_core::cron::ops::run_job_now(&dispatch, &second_config, &second_job_id).await
+        })
+        .await
+    });
+    tokio::select! {
+        result = &mut second => panic!(
+            "a distinct document scope refused the same job id before its callback: {result:?}"
+        ),
+        started = tokio::time::timeout(Duration::from_secs(10), scope_started_rx.recv()) => {
+            started
+                .expect("a distinct document scope independently starts the same job id")
+                .expect("scope handler channel remains open");
+        }
+    }
+    scope_release.add_permits(2);
+    assert!(second.await.unwrap().unwrap().0);
+    let (operator_runs, agent_runs) = tokio::time::timeout(Duration::from_secs(10), async {
+        loop {
+            let operator_runs = CoreContext::scope(Arc::clone(&default_context), async {
+                openhuman_core::cron::list_runs(&config, &first_job.id, 10).unwrap()
+            })
+            .await;
+            let agent_runs = CoreContext::scope(Arc::clone(&agent_context), async {
+                openhuman_core::cron::list_runs(&config, &second_job.id, 10).unwrap()
+            })
+            .await;
+            if operator_runs.first().is_some_and(|run| run.status == "ok")
+                && agent_runs.first().is_some_and(|run| run.status == "ok")
+            {
+                break (operator_runs, agent_runs);
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("both scoped workers commit terminal run history after the first caller cancels");
+    assert_eq!(operator_runs.len(), 1);
+    assert_eq!(agent_runs.len(), 1);
+    let operator_run_id = operator_runs[0]
+        .run_id
+        .as_deref()
+        .expect("the operator run stores its invocation identity");
+    let agent_run_id = agent_runs[0]
+        .run_id
+        .as_deref()
+        .expect("the agent-scope run stores its invocation identity");
+    assert_ne!(operator_run_id, agent_run_id);
+
+    mock_join.abort();
+    rpc_join.abort();
+}
+
+#[test]
 fn json_rpc_protocol_auth_and_agent_hello() {
     run_json_rpc_e2e_on_agent_stack(
         "json_rpc_protocol_auth_and_agent_hello",
@@ -3570,8 +4138,7 @@ async fn json_rpc_thread_generate_title_falls_back_when_provider_path_is_unavail
 
     assert_ne!(generated_title, original_title);
     assert_eq!(
-        generated_title,
-        "summarize latest five",
+        generated_title, "summarize latest five",
         "fallback title should be the 3-word shape derived from the first user message (filler stripped), got: {generated_title}"
     );
 
@@ -6490,7 +7057,9 @@ async fn json_rpc_wallet_solana_prepare_execute_round_trips() {
     );
     assert_eq!(
         exec_result.get("transactionHash").and_then(Value::as_str),
-        Some("5xS9pXmqVz8R1nuRZTfsdsAxBdBFmtnAtuYbCsmK5DYzGn5vR4VqWGmiR5McLnYx8oFqLdo62q4qiUZpQyR4Hkn3"),
+        Some(
+            "5xS9pXmqVz8R1nuRZTfsdsAxBdBFmtnAtuYbCsmK5DYzGn5vR4VqWGmiR5McLnYx8oFqLdo62q4qiUZpQyR4Hkn3"
+        ),
     );
 
     mock_join.abort();
@@ -11360,6 +11929,9 @@ encrypt = false
 # content, so compaction must stay off for the arc to be observable in-test.
 [context]
 compaction_enabled = false
+
+[autonomy]
+auto_approve = ["run_flow"]
 "#
     );
     fn write_config_file(config_dir: &Path, cfg: &str) {
@@ -11461,6 +12033,39 @@ fn opus_sonnet_demo_graph() -> Value {
 #[cfg(feature = "flows")]
 #[test]
 fn json_rpc_flows_full_arc_discover_build_create_run() {
+    const CHILD_ENV: &str = "OPENHUMAN_COPILOT_RUN_FLOW_E2E_CHILD";
+    if std::env::var_os(CHILD_ENV).is_none() {
+        // ApprovalGate is process-global and one-shot. Run this case in an
+        // exact-filtered child so the test's narrow run_flow auto-approval
+        // cannot leak into any sibling E2E case in a broad cargo invocation.
+        let output = std::process::Command::new(std::env::current_exe().expect("test executable"))
+            .args([
+                "--exact",
+                "json_rpc_flows_full_arc_discover_build_create_run",
+                "--nocapture",
+                "--test-threads=1",
+            ])
+            .env(CHILD_ENV, "1")
+            .output()
+            .expect("run the isolated Copilot RunFlow E2E child");
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        print!("{stdout}");
+        eprint!("{stderr}");
+        let child_output = format!("{stdout}{stderr}");
+        assert!(
+            output.status.success(),
+            "isolated Copilot RunFlow E2E child failed:\n{child_output}"
+        );
+        assert!(
+            child_output.contains("running 1 test")
+                && child_output
+                    .contains("test json_rpc_flows_full_arc_discover_build_create_run ... ok")
+                && child_output.contains("1 passed; 0 failed"),
+            "child must prove exactly one test ran and passed:\n{child_output}"
+        );
+        return;
+    }
     run_json_rpc_e2e_on_agent_stack(
         "json_rpc_flows_full_arc_discover_build_create_run",
         json_rpc_flows_full_arc_discover_build_create_run_inner,
@@ -11488,6 +12093,24 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
     write_flows_tier_config(&openhuman_home, &mock_origin);
     let user_scoped_dir = openhuman_home.join("users").join("e2e-user");
     write_flows_tier_config(&user_scoped_dir, &mock_origin);
+
+    // This test runs as its own exact-filtered JSON-RPC E2E process. Install
+    // only the approval needed for the real run_flow tool call below, so the
+    // streaming builder exposes that tool without parking the deterministic
+    // test completion for a human decision.
+    let mut approval_config = openhuman_core::config::Config {
+        workspace_dir: openhuman_home.join("workspace"),
+        config_path: openhuman_home.join("config.toml"),
+        ..openhuman_core::config::Config::default()
+    };
+    approval_config
+        .autonomy
+        .auto_approve
+        .push("run_flow".to_string());
+    openhuman_core::security::approval::ApprovalGate::init_global(
+        approval_config,
+        format!("session-{}", uuid::Uuid::new_v4()),
+    );
 
     let (rpc_addr, rpc_join) = serve_on_ephemeral(build_core_http_router(false)).await;
     let rpc_base = format!("http://{rpc_addr}");
@@ -11560,15 +12183,42 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
         "scripted suggestion should be persisted: {listed:?}"
     );
 
-    // ── 2. flows_build: the builder scripts a propose_workflow tool call ──
+    // ── 2. flows_build: the builder exercises the Copilot bus and sandbox ──
     clear_forced_chat_completions();
     with_chat_completion_requests(|requests| requests.clear());
     let demo_graph = opus_sonnet_demo_graph();
-    // Turn 1: propose the demo graph. Turn 2: a plain reply ends the builder's
-    // loop. Both gate on "propose_workflow" (in the builder's tool schema every
-    // turn, absent from the scout / plain agent nodes).
+    let invalid_preflight_graph = json!({
+        "nodes": [
+            { "id": "trigger", "kind": "trigger", "name": "Manual" },
+            { "id": "send", "kind": "tool_call", "name": "Incomplete action",
+              "config": { "slug": "GMAIL_ADD_LABEL_TO_EMAIL", "args": { "add_label_ids": ["INBOX"] } } }
+        ],
+        "edges": [ { "from_node": "trigger", "to_node": "send" } ]
+    });
+    let sandbox_graph = json!({
+        "nodes": [
+            { "id": "trigger", "kind": "trigger", "name": "Manual" },
+            { "id": "search", "kind": "tool_call", "name": "Mock search",
+              "config": { "slug": "oh:web_search", "args": { "query": "sandbox callback probe" } } }
+        ],
+        "edges": [ { "from_node": "trigger", "to_node": "search" } ]
+    });
+    // First reject a missing required arg through the preflight-only CapsHost
+    // callback. Then accept a valid native tool node using module MockTools,
+    // propose the demo graph, and end the turn with a plain reply.
     push_forced_chat_completion_when(
-        "propose_workflow",
+        "dry_run_workflow",
+        forced_tool_call_completion(
+            "dry_run_workflow",
+            json!({ "graph": invalid_preflight_graph }),
+        ),
+    );
+    push_forced_chat_completion_when(
+        "message_id",
+        forced_tool_call_completion("dry_run_workflow", json!({ "graph": sandbox_graph })),
+    );
+    push_forced_chat_completion_when(
+        "\\\"sandbox\\\": true",
         forced_tool_call_completion(
             "propose_workflow",
             json!({
@@ -11611,6 +12261,25 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
     assert!(
         proposed_ids.contains(&"planner") && proposed_ids.contains(&"drafter"),
         "proposal graph must carry the agent nodes: {proposed_ids:?}"
+    );
+    let builder_requests = with_chat_completion_requests(|requests| requests.clone());
+    assert!(
+        builder_requests.iter().any(|request| {
+            request
+                .get("body")
+                .map(Value::to_string)
+                .is_some_and(|body| body.contains("\\\"sandbox\\\": true"))
+        }),
+        "the second builder call must receive the released module's sandbox report: {builder_requests:?}"
+    );
+    assert!(
+        builder_requests.iter().any(|request| {
+            request
+                .get("body")
+                .map(Value::to_string)
+                .is_some_and(|body| body.contains("message_id") && body.contains("required arg"))
+        }),
+        "the invalid sandbox graph must return the required-arg preflight error before any mock call: {builder_requests:?}"
     );
 
     // ── 3. flows_create + flows_run: the saved graph runs its agent nodes ──
@@ -11698,6 +12367,133 @@ async fn json_rpc_flows_full_arc_discover_build_create_run_inner() {
     assert!(
         body_of(&drafter_req).contains("PLAN_MARKER"),
         "drafter prompt must reference the planner's structured plan (graph data passing)"
+    );
+
+    // ── 4. Copilot run_flow goes through InvokeTool → RunFlow over TinyBus ──
+    // The trigger-only flow finishes without a model call, keeping this proof
+    // focused on the detached-run callback rather than flow-node execution.
+    let callback_flow = post_json_rpc(
+        &rpc_base,
+        71_030,
+        "openhuman.flows_create",
+        json!({
+            "name": "Copilot RunFlow callback probe",
+            "graph": {
+                "nodes": [{"id":"trigger","kind":"trigger","name":"Manual"}],
+                "edges": []
+            }
+        }),
+    )
+    .await;
+    let callback_flow_id = peel_logs_envelope(assert_no_jsonrpc_error(
+        &callback_flow,
+        "flows_create for Copilot RunFlow callback",
+    ))
+    .get("id")
+    .and_then(Value::as_str)
+    .expect("saved callback flow id")
+    .to_string();
+    let callback_graph = json!({
+        "nodes": [{"id":"trigger","kind":"trigger","name":"Manual"}],
+        "edges": []
+    });
+
+    fn tool_result_with_marker(requests: &[Value], marker: &str) -> Option<String> {
+        requests
+            .iter()
+            .filter_map(|request| request.pointer("/body/messages").and_then(Value::as_array))
+            .flatten()
+            .filter(|message| message.get("role").and_then(Value::as_str) == Some("tool"))
+            .filter_map(|message| message.get("content").and_then(Value::as_str))
+            .find(|content| content.contains(marker))
+            .map(str::to_string)
+    }
+
+    clear_forced_chat_completions();
+    with_chat_completion_requests(|requests| requests.clear());
+    push_forced_chat_completion_when(
+        "run_flow",
+        forced_tool_call_completion("run_flow", json!({ "flow_id": "missing-copilot-flow" })),
+    );
+    push_forced_chat_completion_when(
+        "Could not start flow",
+        forced_text_completion("That flow is not saved, so I could not run it."),
+    );
+    let missing_run = post_json_rpc(
+        &rpc_base,
+        71_031,
+        "openhuman.flows_build",
+        json!({
+            "mode": "revise",
+            "flow_id": "missing-copilot-flow",
+            "graph": callback_graph,
+            "instruction": "The user confirmed a test run; attempt the saved flow now.",
+            "thread_id": "e2e-copilot-runflow-missing",
+            "request_id": "req-copilot-runflow-missing"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&missing_run, "Copilot run_flow missing-flow path");
+    let missing_requests = with_chat_completion_requests(|requests| requests.clone());
+    assert!(
+        missing_requests.iter().any(|request| {
+            request
+                .pointer("/body/tools")
+                .and_then(Value::as_array)
+                .is_some_and(|tools| {
+                    tools.iter().any(|tool| {
+                        tool.pointer("/function/name").and_then(Value::as_str) == Some("run_flow")
+                    })
+                })
+        }),
+        "streaming Copilot builder must expose the real run_flow tool"
+    );
+    let missing_tool_result = tool_result_with_marker(&missing_requests, "Could not start flow")
+        .expect("module tool result reports the missing saved flow");
+    assert!(
+        missing_tool_result.contains("missing-copilot-flow"),
+        "missing flow result should identify the rejected id: {missing_tool_result}"
+    );
+
+    clear_forced_chat_completions();
+    with_chat_completion_requests(|requests| requests.clear());
+    push_forced_chat_completion_when(
+        "run_flow",
+        forced_tool_call_completion("run_flow", json!({ "flow_id": callback_flow_id })),
+    );
+    push_forced_chat_completion_when(
+        "workflow_run_started",
+        forced_text_completion("The confirmed test run started."),
+    );
+    let started_run = post_json_rpc(
+        &rpc_base,
+        71_032,
+        "openhuman.flows_build",
+        json!({
+            "mode": "revise",
+            "flow_id": callback_flow_id,
+            "graph": callback_graph,
+            "instruction": "The user confirmed a test run; run this saved flow now.",
+            "thread_id": "e2e-copilot-runflow-saved",
+            "request_id": "req-copilot-runflow-saved"
+        }),
+    )
+    .await;
+    assert_no_jsonrpc_error(&started_run, "Copilot run_flow saved-flow path");
+    let started_requests = with_chat_completion_requests(|requests| requests.clone());
+    let started_tool_result = tool_result_with_marker(&started_requests, "workflow_run_started")
+        .expect("module tool result reports a detached run");
+    let started_payload: Value =
+        serde_json::from_str(&started_tool_result).expect("run_flow result is JSON");
+    assert_eq!(started_payload["type"], "workflow_run_started");
+    assert_eq!(started_payload["flow_id"], callback_flow_id);
+    assert_eq!(started_payload["status"], "running");
+    assert_eq!(started_payload["detached"], true);
+    assert!(
+        started_payload["run_id"]
+            .as_str()
+            .is_some_and(|run_id| !run_id.is_empty()),
+        "detached tool result must contain its run id: {started_payload}"
     );
 
     // Hygiene: never let a leftover scripted completion bleed into another test

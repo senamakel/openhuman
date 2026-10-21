@@ -188,6 +188,26 @@ where
         Ok(Ok(reply)) => Ok(Some(reply)),
         Ok(Err(_)) | Err(_) => Err(ExistingModuleCallError::Failed),
     }
+
+/// Whether `id` is admitted and currently serving on an already-started
+/// module runtime. This is a read-only snapshot; it never starts the runtime.
+#[must_use]
+pub fn is_module_serving(id: &str) -> bool {
+    let Some(record) = crate::modules::registry::find(id) else {
+        return false;
+    };
+    let Some(Ok(runtime)) = RUNTIME.get() else {
+        return false;
+    };
+    runtime.host().list().into_iter().any(|module| {
+        module.manifest.bus_name.as_str() == record.bus_name
+            && module.manifest.object_path.as_str() == record.object_path
+            && module.enabled
+            && matches!(
+                module.state,
+                tinybus::module::ModuleState::Ready | tinybus::module::ModuleState::Serving
+            )
+    })
 }
 
 #[cfg(test)]

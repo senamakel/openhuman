@@ -25,19 +25,42 @@ use tinyinference_llm::message::Message;
 
 use super::OpenHumanTurnPrelude;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
-use crate::memory::lifecycle::hooks::{
-    self, MemoryTurn, PostTurnInput, PreTurnInput, ToolCallSummary,
-};
-use crate::memory::scope::ResolvedIdentity;
+use crate::memory::lifecycle::hooks::{self, MemoryTurn, ToolCallSummary};
+use tinymemory_tools::layout::identity::ResolvedIdentity;
 
 /// The memory side of the turn in flight, held from pre-turn to commit.
 #[derive(Clone)]
 pub(super) struct PendingMemoryTurn {
     identity: ResolvedIdentity,
     user_index: u32,
+    channel: Option<String>,
     // The canonical runtime can commit on a different task. Restore the
     // authenticated profile captured at preparation, never infer it from config.
     profile_context: ProfileMemoryContext,
+}
+
+/// The provider channel that owns a logged conversation, if this turn came
+/// from an external channel. Event-context labels such as `cron`, `voice`, and
+/// `mcp_server` are not channel owners.
+fn logged_channel(
+    origin: Option<&crate::security::turn_origin::AgentTurnOrigin>,
+) -> Option<String> {
+    let Some(crate::security::turn_origin::AgentTurnOrigin::ExternalChannel {
+        channel,
+        message_id,
+        ..
+    }) = origin
+    else {
+        return None;
+    };
+    if message_id.starts_with("cron:") {
+        return None;
+    }
+    let channel = channel.trim().to_ascii_lowercase();
+    if channel.is_empty() {
+        return None;
+    }
+    Some(channel)
 }
 
 // Missing profile authority must not be confused with an ordinary desktop turn.
@@ -124,7 +147,9 @@ impl OpenHumanTurnPrelude {
         // The identity the turn's run context carries: the host environment's
         // (a team member's), narrowed to this agent.
         let acting = self.host_env.memory_identity.clone().unwrap_or_default();
-        let mut identity = acting.child(&self.agent_definition_id).resolve(&config);
+        let mut identity = acting
+            .child(&self.agent_definition_id)
+            .resolve(&crate::memory::scope::identity_pins(&config));
         if self.omit_memory_context {
             identity.recall = false;
         }
@@ -137,37 +162,37 @@ impl OpenHumanTurnPrelude {
         }
         let user_index = hooks::user_turn_index(committed_turns);
         let (in_prompt_from, compacted) = in_prompt_window(history, committed_turns, current);
+        let memory_channel = logged_channel(origin.as_ref());
         self.mutable
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .pending_memory_turn = Some(PendingMemoryTurn {
             identity: identity.clone(),
             user_index,
+            channel: memory_channel.clone(),
             profile_context,
         });
         let pack = crate::memory::lifecycle::prefetch::pre_turn(
             &self.dispatch_ctx(),
             config.clone(),
             identity.clone(),
-            PreTurnInput {
-                thread_id: thread_id.clone(),
-                turn_index: user_index,
-                user_text,
-                in_prompt_from,
-                at: Utc::now(),
-                resumed_after_compaction: compacted && committed_turns > 0,
-                observed_actor: origin
-                    .as_ref()
-                    .and_then(crate::memory::lifecycle::sender::channel_actor),
-            },
-            Some(self.event_channel.clone()),
+            thread_id.clone(),
+            user_index,
+            user_text,
+            in_prompt_from,
+            Utc::now(),
+            compacted && committed_turns > 0,
+            origin
+                .as_ref()
+                .and_then(crate::memory::lifecycle::sender::channel_actor),
+            memory_channel,
         );
         Some(Arc::new(MemoryTurn {
             config,
             identity,
             thread_id,
             pack,
-            in_prompt_from: Arc::new(crate::memory::lifecycle::window::InPromptFrom::new(
+            in_prompt_from: Arc::new(tinymemory_tools::lifecycle::window::InPromptFrom::new(
                 in_prompt_from,
                 user_index,
             )),
@@ -225,16 +250,17 @@ impl OpenHumanTurnPrelude {
             let Some(config) = prelude.memory_config().await else {
                 return;
             };
+            let dispatch = prelude.dispatch_ctx();
             hooks::post_turn(
+                &dispatch,
                 &config,
                 &pending.identity,
-                PostTurnInput {
-                    thread_id,
-                    turn_index: pending.user_index.saturating_add(1),
-                    assistant_text,
-                    tool_calls,
-                    at: Utc::now(),
-                },
+                thread_id,
+                pending.user_index.saturating_add(1),
+                assistant_text,
+                tool_calls,
+                Utc::now(),
+                pending.channel,
             )
             .await;
         };

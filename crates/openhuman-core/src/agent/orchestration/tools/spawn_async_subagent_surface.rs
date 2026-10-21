@@ -586,15 +586,13 @@ fn durable_task_key_source(
 pub(crate) fn extract_workflow_proposal_from_history(
     history: &[TranscriptMessage],
 ) -> Option<serde_json::Value> {
-    history
-        .iter()
-        .rev()
-        .filter(|message| message.role == "tool")
-        .find_map(|message| {
-            let value: serde_json::Value = serde_json::from_str(message.content.trim()).ok()?;
-            (value.get("type").and_then(|t| t.as_str()) == Some("workflow_proposal"))
-                .then_some(value)
-        })
+    crate::agent::orchestration::tools::structured_payload::extract_last_typed_payload(
+        history
+            .iter()
+            .filter(|message| message.role == "tool")
+            .map(|message| message.content.as_str()),
+        "workflow_proposal",
+    )
 }
 
 /// Durably surface a workflow proposal found in a finished child's history:

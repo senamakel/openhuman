@@ -58,7 +58,7 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/cron/scheduler/agent_run.rs",
-    "line": 198,
+    "line": 182,
     "text": "let turn = crate::security::turn_origin::with_origin(",
     "occurrence": 1
   },
@@ -78,65 +78,51 @@
   },
   {
     "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/flows/caps_host/agent_harness.rs",
+    "line": 171,
+    "text": "Box::pin(turn_origin::with_origin(",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
+    "path": "crates/openhuman-core/src/flows/caps_host/tier.rs",
+    "line": 245,
+    "text": "turn_origin::with_origin(",
+    "occurrence": 1
+  },
+  {
+    "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/flows/ops.rs",
-    "line": 60,
-    "text": "use crate::security::turn_origin::{with_origin, AgentTurnOrigin, TrustedAutomationSource};",
+    "line": 44,
+    "text": "use crate::security::turn_origin::{with_origin, AgentTurnOrigin};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/flows/ops/builder.rs",
-    "line": 204,
+    "line": 179,
     "text": "let run = with_origin(",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/flows/ops/builder.rs",
-    "line": 254,
+    "line": 229,
     "text": "let run = with_origin(AgentTurnOrigin::Cli, agent.run_single(&prompt));",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/flows/ops/discovery.rs",
-    "line": 45,
+    "line": 55,
     "text": "use crate::security::turn_origin::{with_origin, AgentTurnOrigin};",
     "occurrence": 1
   },
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/flows/ops/discovery.rs",
-    "line": 78,
+    "line": 88,
     "text": "let run = with_origin(AgentTurnOrigin::Cli, agent.run_single(FLOW_DISCOVER_PROMPT));",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/flows/ops/execution.rs",
-    "line": 315,
-    "text": "let run = with_origin(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/flows/ops/resume.rs",
-    "line": 308,
-    "text": "let run = with_origin(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/flows/tinyflows/caps/agent.rs",
-    "line": 467,
-    "text": "Box::pin(turn_origin::with_origin(",
-    "occurrence": 1
-  },
-  {
-    "rule": "openhuman-task-local",
-    "path": "crates/openhuman-core/src/flows/tinyflows/caps/tier.rs",
-    "line": 116,
-    "text": "turn_origin::with_origin(",
     "occurrence": 1
   },
   {
@@ -569,7 +555,7 @@
   {
     "rule": "tinyagents-upstream-reexport",
     "path": "vendor/tinyagents/crates/tinyagents-session/src/lib.rs",
-    "line": 128,
+    "line": 117,
     "text": "pub use tinyagents_harness::error::{Result, TinyAgentsError};",
     "occurrence": 1
   },

@@ -305,7 +305,7 @@ pub struct OpenHumanRunContext {
     /// Context-preparation sources already consumed in this turn.
     pub prepared_context_sources: Arc<Vec<AgentContextPreparedSource>>,
     /// Who the run acts as on memory; `None` is the root identity.
-    pub memory_identity: Option<crate::memory::scope::MemoryIdentity>,
+    pub memory_identity: Option<tinymemory_tools::layout::identity::Identity>,
     /// The context the turn runs under, read by tools, middleware and the
     /// provider factory instead of the ambient scope. Children inherit it.
     pub core: Option<std::sync::Weak<crate::core::runtime::CoreContext>>,

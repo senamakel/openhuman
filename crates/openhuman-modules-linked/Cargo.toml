@@ -66,6 +66,8 @@ openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features 
 log = "0.4"
 
 tinybox-module = { path = "../../vendor/tinybox/crates/tinybox-module", features = ["static-link"], optional = true }
+# Default features stay on (including `whatsapp-web`): this is the local linked-modules
+# dev mode and mirrors the released module. CI never builds this crate.
 tinychannels-module = { path = "../../vendor/tinychannels/crates/tinychannels-module", features = ["static-link"], optional = true }
 tinycomputer = { path = "../../vendor/tinycomputer/crates/tinycomputer", features = ["static-link"], optional = true }
 tinyconnectors = { path = "../../vendor/tinyconnectors/crates/tinyconnectors", features = ["static-link"], optional = true }

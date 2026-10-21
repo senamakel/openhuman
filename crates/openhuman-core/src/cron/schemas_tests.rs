@@ -1,5 +1,34 @@
 use super::*;
-use serde_json::json;
+
+// Additional names from the extracted schema handler modules.
+use super::handlers::{read_optional_u64, read_required, type_name};
+use crate::core::TypeSchema;
+use serde_json::{json, Map, Value};
+use tempfile::TempDir;
+
+async fn cron_test_runtime(config: crate::config::Config) -> crate::core::runtime::CoreRuntime {
+    use crate::core::runtime::{CoreBuilder, DomainSet, ServiceSet};
+    use crate::core::types::HostKind;
+
+    CoreBuilder::new(HostKind::Cli)
+        .domains(DomainSet::full())
+        .services(ServiceSet::none())
+        .config(config)
+        .build()
+        .await
+        .unwrap()
+}
+
+fn cron_test_config(tmp: &TempDir) -> crate::config::Config {
+    let config = crate::config::Config {
+        workspace_dir: tmp.path().join("workspace"),
+        action_dir: tmp.path().join("workspace"),
+        config_path: tmp.path().join("config.toml"),
+        ..Default::default()
+    };
+    std::fs::create_dir_all(&config.workspace_dir).unwrap();
+    config
+}
 
 // ── schemas() branch coverage ───────────────────────────────────
 
@@ -83,6 +112,145 @@ fn schemas_add_requires_schedule_and_returns_job() {
         .collect();
     assert_eq!(required, vec!["schedule"]);
     assert_eq!(s.outputs[0].name, "job");
+}
+
+#[tokio::test]
+async fn rpc_add_rejects_disallowed_target_even_with_request_origin_spoof() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = cron_test_config(&tmp);
+    config.channels_config.telegram = Some(crate::config::TelegramConfig {
+        bot_token: "test-token".into(),
+        chat_id: None,
+        allowed_users: vec!["alice".into()],
+        stream_mode: Default::default(),
+        draft_update_interval_ms: 1000,
+        silent_streaming: true,
+        mention_only: false,
+    });
+    let runtime = cron_test_runtime(config.clone()).await;
+    let result = runtime
+        .invoke(
+            "openhuman.cron_add",
+            json!({
+                "job_type": "agent",
+                "schedule": {"kind":"every", "every_ms":300000},
+                "prompt": "check inbox",
+                "session_target": "isolated",
+                "delivery": {"mode":"announce", "channel":"telegram", "to":"42", "best_effort":true},
+                "origin": {"kind":"channel", "channel":"telegram", "reply_target":"42", "history_key":"telegram_alice_42", "sender":"alice"}
+            }),
+        )
+        .await;
+    assert!(
+        result.unwrap_err().contains("allowed"),
+        "RPC-supplied origin must not bypass the configured recipient allowlist"
+    );
+    assert!(crate::cron::list_jobs(&config).unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn rpc_origin_delivery_accepts_web_origin_without_trusting_channel_origin() {
+    let tmp = TempDir::new().unwrap();
+    let config = cron_test_config(&tmp);
+    let runtime = cron_test_runtime(config.clone()).await;
+    let result = runtime
+        .invoke(
+            "openhuman.cron_add",
+            json!({
+                "job_type": "agent",
+                "schedule": {"kind":"every", "every_ms":300000},
+                "prompt": "check inbox",
+                "session_target": "current",
+                "delivery": {"mode":"origin"},
+                "origin": {"kind":"web", "thread_id":"thread-1"}
+            }),
+        )
+        .await
+        .expect("a caller-provided Web origin is structurally valid for RPC origin delivery");
+    assert_eq!(result["logs"][0], "cron job created");
+    let jobs = crate::cron::list_jobs(&config).unwrap();
+    assert_eq!(jobs.len(), 1);
+    assert_eq!(
+        jobs[0].origin,
+        Some(tinyflows_bus::schedule::types::JobOrigin::Web {
+            thread_id: "thread-1".into(),
+            agent_id: None,
+        })
+    );
+}
+
+#[tokio::test]
+async fn rpc_origin_delivery_rejects_channel_origin_outside_allowed_users() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = cron_test_config(&tmp);
+    config.channels_config.telegram = Some(crate::config::TelegramConfig {
+        bot_token: "test-token".into(),
+        chat_id: None,
+        allowed_users: vec!["alice".into()],
+        stream_mode: Default::default(),
+        draft_update_interval_ms: 1000,
+        silent_streaming: true,
+        mention_only: false,
+    });
+    let runtime = cron_test_runtime(config.clone()).await;
+    let result = runtime
+        .invoke(
+            "openhuman.cron_add",
+            json!({
+                "job_type": "agent",
+                "schedule": {"kind":"every", "every_ms":300000},
+                "prompt": "check inbox",
+                "session_target": "isolated",
+                "delivery": {"mode":"origin"},
+                "origin": {"kind":"channel", "channel":"telegram", "reply_target":"999", "history_key":"telegram-eve-999", "sender":"eve"}
+            }),
+        )
+        .await
+        .unwrap_err();
+    assert!(result.contains("allowed_users"), "{result}");
+    assert!(crate::cron::list_jobs(&config).unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn rpc_add_refuses_when_cron_is_disabled_without_creating_job() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = cron_test_config(&tmp);
+    config.cron.enabled = false;
+    let runtime = cron_test_runtime(config.clone()).await;
+    let result = runtime
+        .invoke(
+            "openhuman.cron_add",
+            json!({
+                "job_type": "shell",
+                "schedule": {"kind":"every", "every_ms":300000},
+                "command": "echo harmless"
+            }),
+        )
+        .await;
+    assert!(result.unwrap_err().contains("cron is disabled"));
+    assert!(crate::cron::list_jobs(&config).unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn rpc_add_cannot_create_a_memory_system_flow_from_parameters() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = cron_test_config(&tmp);
+    config.cron.agent_jobs_only = true;
+    let runtime = cron_test_runtime(config.clone()).await;
+    let result = runtime
+        .invoke(
+            "openhuman.cron_add",
+            json!({
+                "job_type": "flow",
+                "schedule": {"kind":"every", "every_ms":300000},
+                "command": "system:memory_background"
+            }),
+        )
+        .await
+        .unwrap_err();
+
+    assert!(result.contains("allowed enum variants"), "{result}");
+    assert!(crate::cron::list_jobs(&config).unwrap().is_empty());
 }
 
 #[test]

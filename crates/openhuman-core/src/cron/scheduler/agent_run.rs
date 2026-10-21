@@ -13,22 +13,6 @@ use {tinyflows_bus::schedule::types::CronJob, tinyflows_bus::schedule::types::Se
 /// by the `composio_execute` handler via the run context (`OpenHumanRunExt`).
 pub(super) const MORNING_BRIEFING_TASK_RECENCY_SECS: u64 = 24 * 60 * 60;
 
-/// [`run_agent_job_for_run`] under a fresh run id.
-#[cfg(test)]
-pub(super) async fn run_agent_job(
-    config: &Config,
-    job: &CronJob,
-) -> (bool, String, Option<String>) {
-    let run_id = uuid::Uuid::new_v4().to_string();
-    run_agent_job_for_run(
-        &crate::core::runtime::DispatchCtx::host_default(),
-        config,
-        job,
-        &run_id,
-    )
-    .await
-}
-
 pub(super) async fn run_agent_job_for_run(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
@@ -287,6 +271,13 @@ pub(super) fn build_agent_for_cron_job(
         .and_then(crate::agent::host_agents::resolve);
     build_cron_agent(ctx, config, job, host_agent)
 }
+
+#[cfg(test)]
+#[path = "agent_run_tests.rs"]
+pub(super) mod tests;
+
+#[cfg(test)]
+pub(super) use tests::run_agent_job;
 
 fn build_cron_agent(
     ctx: &crate::core::runtime::DispatchCtx,

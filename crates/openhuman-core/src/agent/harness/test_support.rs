@@ -1,4 +1,10 @@
 //! Test-only agent definitions used by harness and orchestration tests.
+//!
+//! The authoritative built-in list lives in
+//! [`crate::agent_registry::agents`]. Flow agent prompts are fetched from
+//! TinyFlows Copilot through the module bus; the test fixtures here let
+//! orchestration tests exercise those definitions without moving registry
+//! ownership into the agent harness.
 
 use crate::agent_registry::host_definition::AgentDefinition;
 use tinyagents_definition::DefinitionSource;

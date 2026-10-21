@@ -369,13 +369,8 @@ pub enum DomainEvent {
         job_id: String,
         success: bool,
         output: String,
-    },
-    /// A cron job requests delivery of its output to a channel.
-    CronDeliveryRequested {
-        job_id: String,
-        channel: String,
-        target: String,
-        output: String,
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        tenant: Option<crate::core::runtime::Tenant>,
     },
 
     /// A proactive message (morning briefing, welcome, cron output, etc.)
@@ -1400,7 +1395,6 @@ impl DomainEvent {
 
             Self::CronJobTriggered { .. }
             | Self::CronJobCompleted { .. }
-            | Self::CronDeliveryRequested { .. }
             | Self::ProactiveMessageRequested { .. }
             | Self::CronSystemJobDue { .. }
             | Self::FlowRunProgress { .. }

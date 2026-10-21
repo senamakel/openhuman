@@ -169,7 +169,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
             ));
         }
         if let Some(root) = binding.root_namespace() {
-            openhuman_core::memory::scope::validate_root(root)
+            tinymemory_tools::layout::identity::validate_root(root)
                 .map_err(|reason| AgentError::Invalid(format!("memory root {root:?}: {reason}")))?;
         }
         log::debug!("[embed][agent] id={id} binds its memory agent_id={agent_id}");
@@ -317,6 +317,9 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
             )
             .with_privacy_mode(config.privacy.mode),
         )),
+        autonomy_tier_source: Some(openhuman_core::core::runtime::AutonomyTierSource::Captured),
+        autonomy_tier_ceiling: host_only
+            .then_some(openhuman_core::security::AutonomyLevel::ReadOnly),
         approvals_disabled: !access.approval_gate_enabled(),
         definitions,
     };

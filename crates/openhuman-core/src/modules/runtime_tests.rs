@@ -1,4 +1,4 @@
-use super::{is_started, runtime};
+use super::*;
 
 /// The process-global runtime is stable within one caller runtime.
 #[tokio::test]
@@ -25,6 +25,40 @@ async fn the_module_bus_is_a_singleton_and_serves_proxies() {
 
     // A name that cannot be a bus name is refused without reaching the bus.
     assert!(first.proxy("not a bus name", "/nope").is_err());
+}
+
+#[cfg(feature = "flows")]
+#[tokio::test]
+async fn registry_id_matches_the_live_modules_bus_address_not_package_name() {
+    let config = crate::config::Config::default();
+    let proxy = crate::modules::tinyflows::copilot_proxy(&config)
+        .await
+        .expect("linked TinyFlows module should be admitted and serving");
+    let _: Vec<tinyflows_bus::copilot::ResourceFile> = proxy
+        .call("ListResources", ())
+        .await
+        .expect("the resource call waits for module initialization");
+
+    let record = crate::modules::registry::find(crate::modules::tinyflows::MODULE_ID)
+        .expect("TinyFlows registry record");
+    let runtime = runtime().await.expect("module runtime is already serving");
+    let loaded = runtime
+        .host()
+        .list()
+        .into_iter()
+        .find(|module| {
+            module.manifest.bus_name.as_str() == record.bus_name
+                && module.manifest.object_path.as_str() == record.object_path
+        })
+        .expect("the registry bus address identifies the loaded module");
+
+    assert_eq!(record.id, "tinyflows");
+    assert_eq!(loaded.name, "tinyflows-module");
+    assert_ne!(loaded.name, record.id);
+    assert!(
+        is_module_serving(record.id),
+        "the registry id must report the enabled, live module despite its package name; info={loaded:#?}"
+    );
 }
 
 #[cfg(feature = "web3")]

@@ -102,10 +102,7 @@ pub(crate) fn stopped_subagent_result(
     failure_cause: Option<tinyagents_harness::no_progress::ClassifiedStopCause>,
     envelope: String,
 ) -> ToolResult {
-    let stop = crate::agent::session_host::stop_summary::stop_from_incomplete_with_cause(
-        reason,
-        failure_cause,
-    );
+    let stop = incomplete_stop(reason, failure_cause).expect("incomplete stop is present");
     log::debug!(
         "[subagent] {tool_name} child stopped early agent_id={agent_id} task_id={task_id} \
          {}; returning a failed tool result",

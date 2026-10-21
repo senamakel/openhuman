@@ -221,6 +221,11 @@ pub mod inference {
     }
 }
 
+/// Native memory bearer types used by hosted backend transport adapters.
+pub mod memory {
+    pub use openhuman_core::memory::engine::{BearerSource, CallbackBearerSource, MemoryError};
+}
+
 /// tinyhumans (credentials for the hosted client) and rpc (server auth,
 /// Socket.IO approvals, bind policy).
 pub mod security {

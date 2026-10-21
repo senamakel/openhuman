@@ -262,32 +262,30 @@ pub fn mark_driver_pause_cancelled(
     if !observed.was_paused {
         return Ok(false);
     }
-    let _guard = store_write_lock()
-        .lock()
-        .map_err(|_| "subagent session store lock poisoned".to_string())?;
-    let mut sessions = store.load()?;
-    let Some(session) = sessions
-        .iter_mut()
-        .find(|session| session.subagent_session_id == observed.subagent_session_id)
-    else {
-        return Ok(false);
-    };
-    if session.parent_session != observed.parent_session
-        || session.parent_thread_id != observed.parent_thread_id
-        || session.current_task_id.as_deref() != Some(observed.task_id.as_str())
-        || session.lifecycle_key != observed.lifecycle_key
-        || session.status != DurableSubagentStatus::AwaitingUser
-    {
-        return Ok(false);
-    }
-    session.status = DurableSubagentStatus::Failed;
-    session
-        .latest_error
-        .get_or_insert_with(|| "cancelled by user".into());
-    session.updated_at = chrono::Utc::now().to_rfc3339();
-    session.last_used_at = session.updated_at.clone();
-    store.save(&sessions)?;
-    Ok(true)
+    let id = observed.subagent_session_id.clone();
+    let parent_session = observed.parent_session.clone();
+    let parent_thread_id = observed.parent_thread_id.clone();
+    let task_id = observed.task_id.clone();
+    let lifecycle_key = observed.lifecycle_key.clone();
+    store
+        .update_session_if(&id, move |session, now| {
+            if session.parent_session != parent_session
+                || session.parent_thread_id != parent_thread_id
+                || session.current_task_id.as_deref() != Some(task_id.as_str())
+                || session.lifecycle_key != lifecycle_key
+                || session.status != DurableSubagentStatus::AwaitingUser
+            {
+                return false;
+            }
+            session.status = DurableSubagentStatus::Failed;
+            session
+                .latest_error
+                .get_or_insert_with(|| "cancelled by user".into());
+            session.updated_at = now.clone();
+            session.last_used_at = now;
+            true
+        })
+        .map(|updated| updated.is_some())
 }
 
 /// Persist an optional RPC cancellation reason before signaling TinyAgents so
@@ -302,19 +300,20 @@ pub(crate) fn record_cancel_reason(
     if reason.is_empty() {
         return Ok(true);
     }
-    mutate_observed_session(store, observed, |session, now| {
+    let reason = reason.to_owned();
+    mutate_observed_session(store, observed, move |session, now| {
         if matches!(
             session.status,
             DurableSubagentStatus::Running | DurableSubagentStatus::AwaitingUser
         ) {
-            session.latest_error = Some(reason.to_owned());
+            session.latest_error = Some(reason.clone());
             session.updated_at = now;
         }
     })
 }
 
 fn clear_cancel_reason(store: &SubagentSessionStore, observed: &DurableSubagentSession) {
-    let _ = mutate_observed_session(store, observed, |session, now| {
+    let _ = mutate_observed_session(store, observed, move |session, now| {
         session.latest_error = None;
         session.updated_at = now;
     });
@@ -323,32 +322,26 @@ fn clear_cancel_reason(store: &SubagentSessionStore, observed: &DurableSubagentS
 fn mutate_observed_session<F>(
     store: &SubagentSessionStore,
     observed: &DurableSubagentSession,
-    update: F,
+    mut update: F,
 ) -> Result<bool, String>
 where
-    F: FnOnce(&mut DurableSubagentSession, String),
+    F: FnMut(&mut DurableSubagentSession, String) + Send + 'static,
 {
-    let _guard = store_write_lock()
-        .lock()
-        .map_err(|_| "subagent session store lock poisoned".to_string())?;
-    let mut sessions = store.load()?;
-    let Some(session) = sessions
-        .iter_mut()
-        .find(|session| session.subagent_session_id == observed.subagent_session_id)
-    else {
-        return Ok(false);
-    };
-    if session.parent_session != observed.parent_session
-        || session.parent_thread_id != observed.parent_thread_id
-        || session.current_task_id != observed.current_task_id
-        || session.lifecycle_key != observed.lifecycle_key
-        || session.status != observed.status
-    {
-        return Ok(false);
-    }
-    update(session, chrono::Utc::now().to_rfc3339());
-    store.save(&sessions)?;
-    Ok(true)
+    let observed = observed.clone();
+    store
+        .update_session_if(&observed.subagent_session_id, move |session, now| {
+            if session.parent_session != observed.parent_session
+                || session.parent_thread_id != observed.parent_thread_id
+                || session.current_task_id != observed.current_task_id
+                || session.lifecycle_key != observed.lifecycle_key
+                || session.status != observed.status
+            {
+                return false;
+            }
+            update(session, now);
+            true
+        })
+        .map(|updated| updated.is_some())
 }
 
 /// Resolve a saved product session to its exact TinyAgents lifecycle key.
@@ -388,3 +381,7 @@ pub fn resolve_lifecycle_key(
     }
     Ok(key)
 }
+
+#[cfg(test)]
+#[path = "ops_driver_tests.rs"]
+mod tests;

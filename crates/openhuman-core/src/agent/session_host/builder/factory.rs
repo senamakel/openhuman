@@ -314,7 +314,7 @@ impl OpenHumanSessionHost {
         // Build prompt builder — either the default "orchestrator /
         // main agent" layout that bootstraps from workspace identity
         // files, OR a narrow per-agent builder that injects the target
-        // definition's `prompt.md` body and respects its `omit_*` flags.
+        // definition's archetype body and respects its `omit_*` flags.
         //
         // The narrow path is selected whenever we resolved a
         // non-orchestrator definition from the registry. The orchestrator
@@ -327,7 +327,7 @@ impl OpenHumanSessionHost {
         // unavailable (pre-startup, tests). `PromptSource::Dynamic`
         // agents install a [`DynamicPromptSection`] that re-runs the
         // builder against the live [`PromptContext`] at `build_system_prompt`
-        // time, so late `connected_integrations` land in the prompt.
+        // time, so late integrations and the flow archetype land in the prompt.
         // `Inline`/`File` sources still resolve to just the archetype
         // body and get wrapped by [`SystemPromptBuilder::for_subagent`].
         let prompt_builder = match target_def {
@@ -795,7 +795,7 @@ impl OpenHumanSessionHost {
             .workspace_dir(config.workspace_dir.clone())
             .action_dir(config.action_dir.clone())
             .workspace_descriptor(workspace_descriptor)
-            .workflows(workflows::session_workflows(config, host_only))
+            .workflows(workflows::session_workflows(ctx, config, host_only))
             .post_turn_hooks(post_turn_hooks)
             .agent_definition_name(agent_id.to_string())
             .omit_memory_context(effective_omit_memory_context)

@@ -70,6 +70,15 @@ impl Tool for CronUpdateTool {
         args: serde_json::Value,
         options: ToolCallOptions,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, options, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: serde_json::Value,
+        options: ToolCallOptions,
+        tool_context: Option<&dyn tinytools::ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         if !self.config.cron.enabled {
             return Ok(ToolResult::error(
                 "cron is disabled by config (cron.enabled=false)".to_string(),
@@ -109,7 +118,10 @@ impl Tool for CronUpdateTool {
             }
         }
 
-        match cron::update_job(&self.config, job_id, patch) {
+        let origin =
+            crate::agent::tinyagents::host::run_context::turn_origin_for_tool(tool_context)
+                .and_then(|origin| crate::cron::origin::current_job_origin(Some(&origin)));
+        match cron::store::update_job_with_origin(&self.config, job_id, patch, origin) {
             Ok(job) => {
                 let mut tr = ToolResult::success(serde_json::to_string_pretty(&job)?);
                 if options.prefer_markdown {

@@ -198,8 +198,11 @@ async fn cached_models_and_help_responses_render_expected_text() {
 
     let models = module_route_help_response(tempdir.path(), "/model", Vec::new()).await;
     assert!(models.contains("Current provider: `openai`"));
-    assert!(models.contains("Cached model IDs"));
-    assert!(models.contains("- `gpt-5-mini`"));
+    // The module no longer reads `models_cache.json` (tinychannels 0.1.38):
+    // a catalog-less channel points the user at the web UI instead of listing
+    // a possibly stale workspace file.
+    assert!(models.contains("Model catalog is unavailable in this channel"));
+    assert!(!models.contains("gpt-5-mini"));
 
     let providers = module_route_help_response(
         tempdir.path(),
@@ -301,7 +304,7 @@ async fn load_cached_model_preview_returns_empty_when_cache_json_is_invalid() {
     .unwrap();
 
     let response = module_route_help_response(tempdir.path(), "/model", Vec::new()).await;
-    assert!(response.contains("No cached model list found for `openai`"));
+    assert!(response.contains("Model catalog is unavailable in this channel for `openai`"));
 }
 
 #[tokio::test]

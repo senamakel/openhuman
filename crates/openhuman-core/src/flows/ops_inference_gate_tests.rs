@@ -181,8 +181,8 @@ async fn inference_gate_surfaces_construction_error() {
 // failure (no network, no test-provider-override seam) so a bug that skips a
 // role would show up as a falsely-empty `errors` list.
 
-#[test]
-fn agent_node_role_prefers_custom_registry_entry_model_pin_over_default() {
+#[tokio::test]
+async fn agent_node_role_prefers_custom_registry_entry_model_pin_over_default() {
     // Finding A/B: a node with no per-node `config.model` but a STATIC
     // (non-`=`) `agent_ref` naming a custom registry entry that itself pins a
     // model (e.g. `hint:reasoning`) must resolve to THAT role — the same
@@ -217,9 +217,14 @@ fn agent_node_role_prefers_custom_registry_entry_model_pin_over_default() {
         ],
         "edges": [ { "from_node": "t", "to_node": "a" } ]
     }));
-    let node = g.nodes.iter().find(|n| n.id == "a").expect("node 'a'");
+    let node = g["nodes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|node| node["id"] == "a")
+        .expect("node 'a'");
     assert_eq!(
-        agent_node_role(&config, node),
+        agent_node_role(&config, &node["config"]).await,
         "reasoning",
         "the custom registry entry's `hint:reasoning` pin must win over the default role"
     );

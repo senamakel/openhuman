@@ -11,7 +11,9 @@
 //! - the memory domain's `memory/*.json` state values (`tsd.kv`) and the
 //!   legacy conversation log;
 //!
-//! all into the `local` scope, the one the desktop operator's profile reads.
+//! into the `local` scope, the one the desktop operator's profile reads. The
+//! pending-deletion queue is workspace-owned and goes into its deterministic
+//! workspace module scope so retries still find it after profile context ends.
 //! Every importer is idempotent and records its completion in
 //! `tsd.migrations`, so a resumed migration repeats nothing. An importer that
 //! fails fails the step: nothing may be archived-and-deleted that was not
@@ -104,10 +106,7 @@ fn import_blocking(
             failures.push(format!("{}: {error:#}", report.domain));
         }
     }
-    let scoped = backend
-        .for_scope(&storage::tenant_scope(None))
-        .map_err(|e| LayoutError::Other(anyhow::anyhow!("open the local scope: {e}")))?;
-    match crate::memory::state_store::import_all(&scoped, workspace) {
+    match crate::memory::state_store::import_all(backend, workspace) {
         Ok(names) => summary.memory_state = names,
         Err(error) => failures.push(format!("memory state: {error:#}")),
     }

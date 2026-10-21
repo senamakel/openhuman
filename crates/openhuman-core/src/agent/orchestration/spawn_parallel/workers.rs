@@ -155,7 +155,7 @@ async fn run_one_parallel_task(
                         .as_ref()
                         .map(|path| path.to_string_lossy().to_string()),
                 ),
-                SubagentRunStatus::Incomplete { reason } => (
+                SubagentRunStatus::Incomplete { reason, .. } => (
                     ParallelAgentStatus::Incomplete,
                     false,
                     Some(reason.clone()),

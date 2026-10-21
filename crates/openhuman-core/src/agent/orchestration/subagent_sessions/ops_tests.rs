@@ -524,7 +524,63 @@ fn closed_session_is_not_reusable() {
     .unwrap();
 
     assert!(close(&store, &session.subagent_session_id).unwrap());
-    assert!(find_reusable(&store, &selector("task")).unwrap().is_none());
+    let reusable = find_reusable(&store, &selector("task")).unwrap();
+    assert!(
+        reusable.is_none(),
+        "closed session {} matched reusable record {:?}",
+        session.subagent_session_id,
+        reusable.map(|record| (record.subagent_session_id, record.status, record.reusable))
+    );
+}
+
+#[test]
+fn an_equal_millisecond_live_close_persists_and_a_stale_snapshot_cannot_reopen_it() {
+    use crate::agent::orchestration::subagent_sessions::store_documents::{with_override, Docs};
+    use crate::storage::{MemoryStorage, Scope, StorageBackend};
+
+    let storage = MemoryStorage::new();
+    let docs = Docs::over(&storage.for_scope(&Scope::new("local").unwrap()).unwrap());
+    let store = SubagentSessionStore::new(std::env::temp_dir());
+    let original = with_override(docs.clone(), || {
+        upsert_running(
+            &store,
+            SubagentSessionUpsert {
+                selector: selector("equal-ms-close"),
+                display_name: None,
+                task_title: "Task".into(),
+                worker_thread_id: None,
+                task_id: "task-id".into(),
+                lifecycle_key: None,
+            },
+            None,
+        )
+        .unwrap()
+    });
+    let stale_snapshot = docs.load().unwrap();
+
+    with_override(docs.clone(), || {
+        store
+            .update_session(&original.subagent_session_id, |current, _now| {
+                current.status = DurableSubagentStatus::Closed;
+                current.reusable = false;
+                // Leave updated_at untouched to force an equal `_ms` live
+                // transition deterministically, without a sleep or clock shim.
+            })
+            .unwrap()
+            .expect("the session is updated");
+
+        // A whole-list snapshot at the same timestamp must not reopen it.
+        store.save(&stale_snapshot).unwrap();
+    });
+
+    let closed = docs
+        .load()
+        .unwrap()
+        .into_iter()
+        .find(|record| record.subagent_session_id == original.subagent_session_id)
+        .expect("session remains stored");
+    assert_eq!(closed.status, DurableSubagentStatus::Closed);
+    assert!(!closed.reusable);
 }
 
 #[test]

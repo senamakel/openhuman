@@ -1,5 +1,40 @@
 use super::*;
 
+#[tokio::test]
+async fn classified_stop_cause_survives_the_latch_cleanup_on_agent_finish() {
+    use tinyagents_harness::{context::RunConfig, middleware::AgentRun, steering::SteeringPolicy};
+
+    let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
+    let handle = SteeringHandle::new(SteeringPolicy::new());
+    let middleware = RepeatedToolFailureMiddleware::new(handle, 3, slot);
+    middleware.policy.stop.halt_classified(
+        "classified summary".into(),
+        "uncertain_side_effect",
+        "web_answer_tool",
+        false,
+        String::new,
+    );
+    let mut run = AgentRun::default();
+    let mut context = RunContext::new(
+        RunConfig::new("classified-stop"),
+        crate::agent::tinyagents::host::OpenHumanRunContext::new(),
+    );
+
+    middleware
+        .after_agent(&mut context, &(), &mut run)
+        .await
+        .expect("middleware cleanup succeeds");
+
+    assert_eq!(
+        run.failure_cause,
+        Some(tinyagents_harness::no_progress::ClassifiedStopCause {
+            class: "uncertain_side_effect".into(),
+            operation: "web_answer_tool".into(),
+            summary: "classified summary".into(),
+        })
+    );
+}
+
 #[test]
 fn identical_recoverable_halt_uses_openhuman_copy() {
     let ladder = RecoverableFailureLadder::default();

@@ -120,8 +120,9 @@ go as OTLP/HTTP JSON to the OpenHuman backend's Langfuse proxy,
 backend call uses. The backend stamps the signed-in user on every span, injects
 the project keys server-side and forwards to Langfuse v4's
 `/api/public/otel/v1/traces` with `x-langfuse-ingestion-version: 4`. Clients
-never hold Langfuse credentials directly. Flow runs export the same way
-(`crates/openhuman-core/src/flows/tinyflows/langfuse_export.rs`).
+never hold Langfuse credentials directly. Flow runs export their graph
+observations through `crates/openhuman-core/src/agent/progress_tracing/flow_export.rs`;
+`crates/openhuman-core/src/flows/ops/execution.rs` adapts the engine journal.
 
 Langfuse v4 has no trace record of its own and filters observations directly,
 so the exporters copy the trace name, session, tags, release, environment and

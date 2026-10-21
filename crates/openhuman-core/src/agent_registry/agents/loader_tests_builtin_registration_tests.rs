@@ -11,6 +11,18 @@ fn all_builtins_parse() {
     assert_eq!(defs.len(), expected);
 }
 
+#[test]
+fn flow_builtin_entries_follow_the_flows_feature_gate() {
+    let definitions = load_builtins().expect("built-in TOML must parse");
+    for id in ["workflow_builder", "flow_discovery"] {
+        assert_eq!(
+            definitions.iter().any(|definition| definition.id == id),
+            cfg!(feature = "flows"),
+            "builtin `{id}` registration must follow the `flows` feature"
+        );
+    }
+}
+
 /// Pins the `presentation_agent` compile-time gate, both directions: it is
 /// registered under the `documents` feature (its `generate_presentation`
 /// deck tool lives there) and filtered out of the registry without it, so
@@ -168,6 +180,11 @@ fn every_builtin_has_a_prompt_body() {
                     workspace_dir: std::path::Path::new("."),
                     model_name: "test",
                     agent_id: &def.id,
+                    flow_archetype_text: matches!(
+                        def.id.as_str(),
+                        "workflow_builder" | "flow_discovery"
+                    )
+                    .then_some("synthetic flow archetype for loader coverage"),
                     tools: &empty_tools,
                     workflows: &[],
                     dispatcher_instructions: "",

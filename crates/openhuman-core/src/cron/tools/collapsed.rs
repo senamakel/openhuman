@@ -120,10 +120,11 @@ impl Tool for CronTool {
          `remove`, `run` (force-run now), `runs` (recent run history). \
          Schedules use the device-local timezone unless `tz` is set; the \
          scheduler polls on an interval and does not catch up missed runs. \
-         For agent jobs, when the current turn carries a `[Channel context]` \
-         block, set `delivery` to `{\"mode\": \"announce\", \"channel\": <channel>, \
-         \"to\": <reply target>}` so the reminder returns to that chat rather \
-         than the desktop."
+         For agent jobs, a job created inside a conversation sends each run's \
+         reply back to that conversation automatically; do not set `delivery` \
+         or copy a reply target for that. Only set `delivery` to override it \
+         (`proactive` for an in-app notification, `none` for silent). A job \
+         created with no conversation defaults to `proactive`."
     }
 
     fn parameters_schema(&self) -> Value {
@@ -174,6 +175,15 @@ impl Tool for CronTool {
         args: Value,
         options: ToolCallOptions,
     ) -> anyhow::Result<ToolResult> {
+        self.execute_with_context(args, options, None).await
+    }
+
+    async fn execute_with_context(
+        &self,
+        args: Value,
+        options: ToolCallOptions,
+        context: Option<&dyn tinytools::ToolRunContext>,
+    ) -> anyhow::Result<ToolResult> {
         let actions = self.actions();
         let requested = args.get("action").and_then(Value::as_str);
         let Some(entry) = requested.and_then(|action| resolve(&actions, action)) else {
@@ -182,11 +192,12 @@ impl Tool for CronTool {
             )));
         };
         tracing::debug!(action = %entry.action, "[tool][cron] dispatch");
-        // `execute_with_options` rather than `execute`, so an action whose
-        // member honours `prefer_markdown` keeps doing so through the collapse.
+        // The selected member owns its context-aware dispatch and option
+        // handling. Forward the original call context unchanged, including
+        // for members that bind a core or conversation origin.
         entry
             .tool
-            .execute_with_options(args_without_action(&args), options)
+            .execute_with_context(args_without_action(&args), options, context)
             .await
     }
 }

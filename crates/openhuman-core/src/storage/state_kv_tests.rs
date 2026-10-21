@@ -1,6 +1,36 @@
 use super::*;
 use crate::storage::{MemoryStorage, Scope, StorageBackend};
 use std::collections::BTreeMap;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+static COUNTED_A_DESERIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
+static COUNTED_B_DESERIALIZATIONS: AtomicUsize = AtomicUsize::new(0);
+
+struct CountedA;
+
+impl<'de> serde::Deserialize<'de> for CountedA {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let _: serde_json::Value = serde::Deserialize::deserialize(deserializer)?;
+        COUNTED_A_DESERIALIZATIONS.fetch_add(1, Ordering::SeqCst);
+        Ok(Self)
+    }
+}
+
+struct CountedB;
+
+impl<'de> serde::Deserialize<'de> for CountedB {
+    fn deserialize<D>(deserializer: D) -> std::result::Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let _: serde_json::Value = serde::Deserialize::deserialize(deserializer)?;
+        COUNTED_B_DESERIALIZATIONS.fetch_add(1, Ordering::SeqCst);
+        Ok(Self)
+    }
+}
 
 fn state(storage: &MemoryStorage, scope: &str) -> StateKv {
     StateKv::over(
@@ -113,4 +143,116 @@ fn import_file_records_a_missing_or_corrupt_file_without_failing() {
     kv.import_file("none", &dir.path().join("missing.json"))
         .unwrap();
     assert!(kv.get::<u32>("none").unwrap().is_none());
+}
+
+#[test]
+fn typed_import_quarantines_invalid_json_and_wrong_legacy_shapes() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = MemoryStorage::new();
+    let kv = state(&storage, "local");
+    let cases: [(&str, &[u8]); 2] = [
+        ("malformed", b"{not json"),
+        ("wrong_shape", br#"{"a":"not a number"}"#),
+    ];
+
+    for (name, bytes) in cases {
+        let legacy = dir.path().join(format!("{name}.json"));
+        std::fs::write(&legacy, bytes).unwrap();
+        kv.import_file_quarantining::<BTreeMap<String, u32>>(name, &legacy)
+            .unwrap();
+
+        assert!(!legacy.exists(), "invalid {name} state was quarantined");
+        assert_eq!(
+            std::fs::read(legacy.with_extension("json.corrupt")).unwrap(),
+            bytes,
+            "the raw {name} bytes are preserved"
+        );
+        assert!(kv.get::<BTreeMap<String, u32>>(name).unwrap().is_none());
+    }
+}
+
+#[test]
+fn typed_import_keeps_valid_legacy_file_and_does_not_resurrect_deleted_value() {
+    let dir = tempfile::tempdir().unwrap();
+    let legacy = dir.path().join("valid.json");
+    let bytes = br#"{"a":7}"#;
+    std::fs::write(&legacy, bytes).unwrap();
+    let kv = state(&MemoryStorage::new(), "local");
+
+    kv.import_file_quarantining::<BTreeMap<String, u32>>("valid", &legacy)
+        .unwrap();
+    assert_eq!(
+        kv.get::<BTreeMap<String, u32>>("valid").unwrap().unwrap()["a"],
+        7
+    );
+    assert_eq!(std::fs::read(&legacy).unwrap(), bytes);
+
+    kv.delete("valid").unwrap();
+    kv.import_file_quarantining::<BTreeMap<String, u32>>("valid", &legacy)
+        .unwrap();
+    assert!(kv.get::<BTreeMap<String, u32>>("valid").unwrap().is_none());
+    assert_eq!(std::fs::read(legacy).unwrap(), bytes);
+}
+
+#[test]
+fn typed_quarantine_validation_is_cached_per_backend_scope_name_and_type() {
+    COUNTED_A_DESERIALIZATIONS.store(0, Ordering::SeqCst);
+    COUNTED_B_DESERIALIZATIONS.store(0, Ordering::SeqCst);
+    let dir = tempfile::tempdir().unwrap();
+    let first_legacy = dir.path().join("first.json");
+    let second_legacy = dir.path().join("second.json");
+    std::fs::write(&first_legacy, r#"{"ok":true}"#).unwrap();
+    std::fs::write(&second_legacy, r#"{"ok":true}"#).unwrap();
+
+    let backend: std::sync::Arc<dyn StorageBackend> = std::sync::Arc::new(MemoryStorage::new());
+    let local = StateKv::on_backend(&backend, &Scope::local(), "test_owner", "state").unwrap();
+    local
+        .import_file_quarantining::<CountedA>("first", &first_legacy)
+        .unwrap();
+    let first_count = COUNTED_A_DESERIALIZATIONS.load(Ordering::SeqCst);
+    assert!(
+        first_count > 0,
+        "the legacy value was validated on first import"
+    );
+
+    local
+        .import_file_quarantining::<CountedA>("first", &first_legacy)
+        .unwrap();
+    assert_eq!(
+        COUNTED_A_DESERIALIZATIONS.load(Ordering::SeqCst),
+        first_count,
+        "reopening a valid legacy file does not reparse it"
+    );
+
+    local
+        .import_file_quarantining::<CountedA>("second", &second_legacy)
+        .unwrap();
+    assert!(
+        COUNTED_A_DESERIALIZATIONS.load(Ordering::SeqCst) > first_count,
+        "another state name gets its own validation"
+    );
+
+    let another_scope = StateKv::on_backend(
+        &backend,
+        &Scope::new("another").unwrap(),
+        "test_owner",
+        "state",
+    )
+    .unwrap();
+    let before_other_scope = COUNTED_A_DESERIALIZATIONS.load(Ordering::SeqCst);
+    another_scope
+        .import_file_quarantining::<CountedA>("first", &first_legacy)
+        .unwrap();
+    assert!(
+        COUNTED_A_DESERIALIZATIONS.load(Ordering::SeqCst) > before_other_scope,
+        "the same state name in another scope is validated independently"
+    );
+
+    local
+        .import_file_quarantining::<CountedB>("first", &first_legacy)
+        .unwrap();
+    assert!(
+        COUNTED_B_DESERIALIZATIONS.load(Ordering::SeqCst) > 0,
+        "a different requested value type gets its own validation"
+    );
 }

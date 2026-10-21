@@ -1,4 +1,4 @@
-use crate::memory::types::TurnCitation;
+use crate::web_chat::TurnCitation;
 
 pub async fn deliver_response_for_test(
     client_id: &str,

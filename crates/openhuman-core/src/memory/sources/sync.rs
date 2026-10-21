@@ -16,12 +16,12 @@ use tinymemory_integrations::sources::sync::{
     Syncer,
 };
 use tinymemory_integrations::sources::SourceKind;
+use tinymemory_integrations::sources::SourceStatus;
 
 use crate::config::schema::{MemorySourceConfig, MemorySourceKind};
 use crate::config::Config;
 use crate::memory::engine;
-use crate::memory::error::{MemoryError, MemoryResult};
-use crate::memory::types::SourceStatus;
+use tinymemory_api::{Error, Result};
 
 use super::state;
 
@@ -43,18 +43,16 @@ fn registered(source: &MemorySourceConfig) -> RegisteredSource {
     }
 }
 
-fn host_error(error: SyncError) -> MemoryError {
+fn host_error(error: SyncError) -> Error {
     match error {
-        SyncError::Invalid(message) => MemoryError::invalid(message),
-        SyncError::Read(message) => {
-            MemoryError::Engine(format!("reading the source failed: {message}"))
-        }
-        SyncError::Engine(error) => error.into(),
+        SyncError::Invalid(message) => Error::InvalidRequest(message),
+        SyncError::Read(message) => Error::Engine(format!("reading the source failed: {message}")),
+        SyncError::Engine(error) => error,
     }
 }
 
 /// Checks `source` is readable as configured, without reading it.
-pub(super) fn validate(source: &MemorySourceConfig) -> MemoryResult<()> {
+pub(super) fn validate(source: &MemorySourceConfig) -> Result<()> {
     module::entry_for(&registered(source))
         .map(|_| ())
         .map_err(host_error)
@@ -128,19 +126,19 @@ fn syncer_for(config: &Config) -> Syncer {
 }
 
 /// Reads `source` and stores what it yields. Returns the number stored.
-pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> MemoryResult<u64> {
+pub async fn sync_one(config: &Config, source: &MemorySourceConfig) -> Result<u64> {
     engine::resolve(config).engine()?;
     run(config, source).await.map_err(host_error)
 }
 
-async fn run(config: &Config, source: &MemorySourceConfig) -> Result<u64, SyncError> {
+async fn run(config: &Config, source: &MemorySourceConfig) -> std::result::Result<u64, SyncError> {
     let bound = engine::resolve(config)
         .engine()
         .map_err(|error| SyncError::Invalid(error.to_string()))?;
     let collected = module::read_source(
         &registered(source),
         &config.action_dir,
-        &crate::memory::convert::converter(config),
+        &crate::modules::memory_converter::converter(config),
     )
     .await?;
     let layout = super::layout_of_source(config, source);
@@ -154,41 +152,22 @@ async fn run(config: &Config, source: &MemorySourceConfig) -> Result<u64, SyncEr
     .await
 }
 
-/// Files `items` into `layout`'s brain, each under the brain source it
-/// belongs to (`memory::brain::brain_node`), stores them through the module,
-/// and queues one belief build per node touched. Returns how many were stored.
+/// Uses the module to file `items` into `layout`'s brain, and queues its
+/// belief-build jobs. Returns how many were stored.
 pub(crate) async fn place_and_store(
     config: &Config,
     bound: &engine::BoundEngine,
     items: Vec<tinymemory_api::StoreItem>,
     (kind, source_id): (MemorySourceKind, &str),
     layout: &tinymemory_tools::MemoryLayout,
-) -> Result<u64, SyncError> {
+) -> std::result::Result<u64, SyncError> {
     let brain_source = crate::memory::brain::brain_source(kind);
-    // Placing an item under its brain node is pure, so every one is placed up
-    // front: the module stores `(node, item)` pairs and reports the nodes hit.
-    let mut placed = Vec::with_capacity(items.len());
-    for item in items {
-        let node = crate::memory::brain::brain_node(config, layout, &brain_source, &item)
-            .map_err(|error| SyncError::Invalid(error.to_string()))?;
-        let item = tinymemory_tools::layout::placement::file_into(node.clone(), item);
-        placed.push((node, item));
-    }
-    let stored = module::store_all(bound.engine.as_ref(), source_id, placed).await?;
-    // An engine that rebuilds beliefs on its own needs no build job.
-    let automatic =
-        bound.engine.descriptor().consolidation == tinymemory_api::Consolidation::Automatic;
-    let jobs = stored
-        .touched
-        .into_iter()
-        .filter(|_| !automatic)
-        .map(|node| tinymemory_tools::BackgroundJob::BuildBeliefs {
-            request: tinymemory_api::ConsolidateRequest::new(tinymemory_api::Reach::exact(node))
-                .kinds([tinymemory_api::ItemKind::Document]),
-        })
-        .collect();
-    crate::memory::lifecycle::jobs::enqueue(config, layout.root(), jobs).await;
-    Ok(stored.stored)
+    let placed = module::store_placed(bound.engine.as_ref(), source_id, items, |item| {
+        crate::memory::brain::brain_node(config, layout, &brain_source, item)
+    })
+    .await?;
+    crate::memory::lifecycle::jobs::enqueue(config, layout.root(), placed.jobs).await;
+    Ok(placed.stored.stored)
 }
 
 /// `memory_sources_sync`: starts a background sync of source `id`, or of
@@ -197,7 +176,7 @@ pub fn start_sync(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
     id: Option<&str>,
-) -> MemoryResult<Vec<String>> {
+) -> Result<Vec<String>> {
     engine::resolve(config).engine()?;
     let claims = syncer_for(config).start(id).map_err(host_error)?;
     let mut started = Vec::new();

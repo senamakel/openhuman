@@ -141,15 +141,15 @@
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/flows/tinyflows/caps/code.rs",
-    "line": 127,
+    "path": "crates/openhuman-core/src/flows/caps_host/code.rs",
+    "line": 139,
     "text": "tokio::fs::write(&script_path, script_body)",
     "occurrence": 1
   },
   {
     "rule": "json-write",
-    "path": "crates/openhuman-core/src/flows/tinyflows/caps/code.rs",
-    "line": 130,
+    "path": "crates/openhuman-core/src/flows/caps_host/code.rs",
+    "line": 142,
     "text": "tokio::fs::write(&input_path, input_json)",
     "occurrence": 1
   },
@@ -165,6 +165,13 @@
     "path": "crates/openhuman-core/src/memory/layout_migration/claim.rs",
     "line": 106,
     "text": "let temp = tempfile::NamedTempFile::new_in(key.marker.parent().unwrap_or(Path::new(\".\")))?;",
+    "occurrence": 1
+  },
+  {
+    "rule": "json-write",
+    "path": "crates/openhuman-core/src/platform/doctor/core/workspace_checks.rs",
+    "line": 30,
+    "text": "match std::fs::OpenOptions::new()",
     "occurrence": 1
   },
   {

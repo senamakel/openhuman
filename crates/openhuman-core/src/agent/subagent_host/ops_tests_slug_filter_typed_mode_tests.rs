@@ -224,7 +224,7 @@ async fn capped_no_progress_subagent_returns_incomplete_status() {
     .expect("a cap halt is still Ok (not Err)");
 
     match outcome.status {
-        SubagentRunStatus::Incomplete { reason } => assert!(
+        SubagentRunStatus::Incomplete { reason, .. } => assert!(
             reason.contains("limit") || reason.contains("tool-call"),
             "incomplete reason should describe the cap stop: {reason}"
         ),

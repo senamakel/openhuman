@@ -43,7 +43,6 @@ crash-reporting = ["dep:sentry", "openhuman-core/crash-reporting"]
 # (`ProfileHandle::relay_inbound`) is a channel transport and needs `channels`.
 profiles = []
 channels = ["profiles", "openhuman-core/channels"]
-whatsapp-web = ["openhuman-core/whatsapp-web"]
 file-logging = ["openhuman-core/file-logging"]
 scheduler-gate = ["openhuman-core/scheduler-gate"]
 # Exposes the destructive `openhuman.test_reset` RPC for E2E builds only.

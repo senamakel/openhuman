@@ -64,7 +64,7 @@ pub struct HostTurnEnv {
     /// a turn or sub-agent narrows with `child(<definition id>)`. `None` is the
     /// root identity. Unlike `approval` it follows delegation, so runs started
     /// from a parent snapshot keep the parent's team.
-    pub memory_identity: Option<crate::memory::scope::MemoryIdentity>,
+    pub memory_identity: Option<tinymemory_tools::layout::identity::Identity>,
     /// The [`CoreContext`](crate::core::runtime::CoreContext) the turn runs
     /// under (the tenant's, an embedded agent's, or the host's own), held
     /// weakly: the env outlives a turn, and a strong handle would keep the

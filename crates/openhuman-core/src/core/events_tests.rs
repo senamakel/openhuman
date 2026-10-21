@@ -202,15 +202,7 @@ fn all_variants_have_correct_domain() {
                 job_id: "j".into(),
                 success: true,
                 output: "ok".into(),
-            },
-            "cron",
-        ),
-        (
-            DomainEvent::CronDeliveryRequested {
-                job_id: "j".into(),
-                channel: "c".into(),
-                target: "t".into(),
-                output: "o".into(),
+                tenant: None,
             },
             "cron",
         ),
@@ -785,6 +777,7 @@ fn events_outside_the_supervisor_have_no_event_log_detail() {
         job_id: "job-1".into(),
         success: true,
         output: "done".into(),
+        tenant: None,
     }
     .log_detail()
     .is_none());
@@ -924,9 +917,6 @@ fn every_workspace_bound_variant_is_reachable_through_one_accessor() {
     }
 }
 
-/// `None` here means "not bound to a workspace", which a consumer filtering
-/// by workspace must let through rather than drop. Getting this backwards
-/// would silence cron, webhook and sub-agent notifications entirely.
 #[test]
 fn events_without_a_workspace_report_none() {
     assert_eq!(
@@ -939,6 +929,7 @@ fn events_without_a_workspace_report_none() {
             job_id: "job-1".into(),
             success: true,
             output: "done".into(),
+            tenant: None,
         }
         .workspace_dir(),
         None

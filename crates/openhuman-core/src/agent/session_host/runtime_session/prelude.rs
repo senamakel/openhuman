@@ -73,8 +73,10 @@ impl OpenHumanTurnPrelude {
             )
             .map_err(|error| anyhow::anyhow!(error.to_string()))?
         };
+        let flow_archetype_text = super::prompt::flow_archetype_text(self, cold).await?;
         let prefix = if cold {
-            let tiered = self.build_system_prompt_tiered()?;
+            let tiered = self
+                .build_system_prompt_tiered_with_flow_archetype(flow_archetype_text.as_deref())?;
             Some(tinyagents_runtime::PrefixSnapshot::new(
                 tiered
                     .system_messages()
@@ -92,6 +94,13 @@ impl OpenHumanTurnPrelude {
     }
 
     pub(super) fn build_system_prompt_tiered(&self) -> Result<crate::agent::prompts::TieredPrompt> {
+        self.build_system_prompt_tiered_with_flow_archetype(None)
+    }
+
+    pub(super) fn build_system_prompt_tiered_with_flow_archetype(
+        &self,
+        flow_archetype_text: Option<&str>,
+    ) -> Result<crate::agent::prompts::TieredPrompt> {
         use crate::agent::prompts::{PromptContext, PromptTool};
         let surface = self
             .tool_surface
@@ -150,6 +159,7 @@ impl OpenHumanTurnPrelude {
             workspace_dir: &self.workspace_dir,
             model_name: &self.model_name,
             agent_id: &self.agent_definition_name,
+            flow_archetype_text,
             tools: &prompt_tools,
             workflows: &mutable.workflows,
             dispatcher_instructions: &instructions,

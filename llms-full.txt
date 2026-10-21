@@ -2815,7 +2815,6 @@ This matrix comes from the default-feature compiled capability-report example. R
 | `tinymemes` | Yes |
 | `voice` | No |
 | `web3` | No |
-| `whatsapp-web` | No |
 
 <!-- Source: docs/gitbooks/en/developing/embed/builder-setters.md -->
 # RuntimeBuilder setters
@@ -3087,8 +3086,7 @@ The compiled capability report describes this build:
     "storage-sqlite": true,
     "tinymemes": true,
     "voice": false,
-    "web3": false,
-    "whatsapp-web": false
+    "web3": false
   },
   "domains": [
     "agent",

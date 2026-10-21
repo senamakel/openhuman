@@ -41,11 +41,6 @@ pub fn owner_schemas() -> Vec<Schema> {
         crate::agent::orchestration::subagent_sessions::storage_schema(),
         super::agents::storage_schema(),
     ];
-    #[cfg(feature = "flows")]
-    {
-        schemas.push(tinyflows_drivers::storage_schema());
-        schemas.push(tinyflows_drivers::cron_storage_schema());
-    }
     #[cfg(feature = "skills")]
     schemas.push(tinyskills_drivers::storage_schema());
     #[cfg(feature = "modules")]

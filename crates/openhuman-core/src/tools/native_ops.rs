@@ -73,15 +73,23 @@ fn command_class_for_tool(tool: &dyn Tool, args: &serde_json::Value) -> CommandC
 }
 
 pub fn build_runtime_tools(config: &Config) -> Result<Vec<Box<dyn Tool>>, String> {
-    debug!(
-        workspace = %config.workspace_dir.display(),
-        "[native_ops] build_runtime_tools: start"
-    );
     let security = Arc::new(SecurityPolicy::from_config(
         &config.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     ));
+    build_runtime_tools_with_security(config, security)
+}
+
+/// Builds native tools with a caller-resolved policy snapshot.
+pub fn build_runtime_tools_with_security(
+    config: &Config,
+    security: Arc<SecurityPolicy>,
+) -> Result<Vec<Box<dyn Tool>>, String> {
+    debug!(
+        workspace = %config.workspace_dir.display(),
+        "[native_ops] build_runtime_tools: start"
+    );
     // Phase 1 of #1401: see comment in channels/runtime/startup.rs.
     let audit = crate::security::get_or_create_workspace_audit_logger(
         crate::config::AuditConfig::default(),
@@ -125,8 +133,23 @@ pub fn classify_tool_call(
     tool_name: &str,
     args: &serde_json::Value,
 ) -> Result<CommandClass, String> {
+    let security = Arc::new(SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+        &config.action_dir,
+    ));
+    classify_tool_call_with_security(config, security, tool_name, args)
+}
+
+/// Classifies a native call using the same policy snapshot that will execute it.
+pub fn classify_tool_call_with_security(
+    config: &Config,
+    security: Arc<SecurityPolicy>,
+    tool_name: &str,
+    args: &serde_json::Value,
+) -> Result<CommandClass, String> {
     debug!(tool_name, "[native_ops] classify_tool_call: start");
-    let tools = build_runtime_tools(config)?;
+    let tools = build_runtime_tools_with_security(config, security)?;
     let tool = tools
         .into_iter()
         .find(|tool| tool.name() == tool_name)
@@ -151,11 +174,27 @@ pub async fn execute_tool(
     args: serde_json::Value,
     prefer_markdown: bool,
 ) -> Result<ExecuteToolOutcome, String> {
+    let security = Arc::new(SecurityPolicy::from_config(
+        &config.autonomy,
+        &config.workspace_dir,
+        &config.action_dir,
+    ));
+    execute_tool_with_security(config, security, tool_name, args, prefer_markdown).await
+}
+
+/// Executes a native call using the same policy snapshot used for its gate.
+pub async fn execute_tool_with_security(
+    config: &Config,
+    security: Arc<SecurityPolicy>,
+    tool_name: &str,
+    args: serde_json::Value,
+    prefer_markdown: bool,
+) -> Result<ExecuteToolOutcome, String> {
     debug!(
         tool_name,
         prefer_markdown, "[native_ops] execute_tool: start"
     );
-    let tools = build_runtime_tools(config)?;
+    let tools = build_runtime_tools_with_security(config, security)?;
     trace!(
         tool_count = tools.len(),
         tool_name,

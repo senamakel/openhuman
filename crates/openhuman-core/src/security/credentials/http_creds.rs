@@ -9,7 +9,7 @@
 //!
 //! **Security contract:** the secret value NEVER leaves this module except as
 //! the header it is injected into, server-side, inside
-//! `tinyflows::caps::OpenHumanHttp::request`. It is never returned to the UI,
+//! `flows::caps_host::OpenHumanHttp::request`. It is never returned to the UI,
 //! handed to the flow engine/graph, or logged. List/summary shapes carry only
 //! the name + scheme + non-secret template fields ([`HttpCredentialSummary`]).
 

@@ -7,9 +7,9 @@
 //! one deliberate difference: **every bearer shares one store**. The real
 //! backend keeps each credential's memory apart, which would hide a core
 //! that read or wrote outside a profile's `user:<id>` root. Here the only
-//! thing keeping profiles apart is the core's own confinement, the worst case
-//! `memory::user_scope` defends (users sharing one engine). Every request is
-//! recorded with its bearer and the scopes it names, so a test can check
+//! thing keeping profiles apart is the core's upstream `Policy::Clamp`, the
+//! worst case `memory::ops` defends (users sharing one engine). Every request
+//! is recorded with its bearer and the scopes it names, so a test can check
 //! both what each profile read back and what it asked the backend for.
 //!
 //! Anything outside `/memory/*` answers `500` at once, so a profile's other

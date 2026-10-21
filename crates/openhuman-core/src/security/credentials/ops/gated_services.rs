@@ -44,9 +44,30 @@ pub(super) fn spawn_integrations_cache_warm(config: &Config) {
 /// from the initial boot path (when an existing
 /// session is detected) and from `set_credential()` when a credential is installed.
 pub async fn start_credential_gated_services(
-    _ctx: &crate::core::runtime::DispatchCtx,
+    ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
 ) {
+    // Optional TinyFlows resources warm in the background and must never hold
+    // credential activation or ordinary chat startup on module availability.
+    crate::skills::schedule_flow_authoring_prewarm(ctx, config, None);
+    // These login-gated services are mutually independent — the ONLY ordering
+    // constraint is voice-server → standalone-dictation-listener (they contend
+    // for the single rdev global listener on macOS). Previously each was
+    // `.await`ed in series, so their cold-start costs SUMMED: the local-AI
+    // bootstrap (Ollama/embeddings) + the Windows WASAPI microphone init
+    // (a synchronous readiness handshake in `always_on::spawn_capture_thread`)
+    // stacked into the ~10s stall users hit before hotkeys/commands were usable
+    // — worst on Windows (#3490). Worse,
+    // the hotkey/command registration (steps 2–3) sat
+    // *after* the local-AI bootstrap in the series, so commands could not
+    // register until Ollama finished warming.
+    //
+    // Run them concurrently on independent tasks instead: readiness is bounded
+    // by the slowest single service rather than their sum, and command
+    // registration no longer waits behind local-AI warm-up. Each task logs its
+    // own elapsed time so a future regression can be attributed to one stage; a
+    // panic in one service is logged on join and never aborts the others.
+
     // Unit tests must not launch the real login-gated background services: they
     // include detached listeners that outlive the test that spawned them and interleave with the
     // shared process state (HOME / active_user.toml) of the parallel `cargo
@@ -58,17 +79,6 @@ pub async fn start_credential_gated_services(
     if cfg!(test) && std::env::var_os("OPENHUMAN_RUN_LOGIN_GATED_SERVICES_IN_TEST").is_none() {
         log::debug!("[services] login-gated services skipped under unit test");
         return;
-    }
-
-    // An embedder's task-local user-root policy does not cross spawn_blocking;
-    // its first agent build warms the correctly scoped cache instead.
-    if !is_embedder_host() {
-        let skills_workspace = config.workspace_dir.clone();
-        // Detached on purpose: the warm-up must not delay startup.
-        tokio::task::spawn_blocking(move || {
-            let count = crate::skills::load_workflow_metadata(&skills_workspace).len();
-            log::debug!("[services] skill metadata cache warmed entries={count}");
-        });
     }
 
     spawn_integrations_cache_warm(config);

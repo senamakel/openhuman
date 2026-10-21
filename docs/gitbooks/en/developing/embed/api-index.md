@@ -213,8 +213,7 @@ The compiled capability report describes this build:
     "storage-sqlite": true,
     "tinymemes": true,
     "voice": false,
-    "web3": false,
-    "whatsapp-web": false
+    "web3": false
   },
   "domains": [
     "agent",

@@ -325,6 +325,11 @@ export class Runner {
   constructor(plan, { out, maxParallel, maxHeavy = Infinity }) {
     this.plan = plan;
     this.out = out;
+    // ex63 runs lanes one at a time. Overlapping the frontend lanes with the
+    // cargo chain was measured in run 39434038570 on 4 vCPU / 24 GB: vitest
+    // took 2.6x as long and cache restores 5.6x, rust-cov peaked at 19.4 GB,
+    // and nothing finished sooner, since compiles and tests already use every
+    // core.
     this.maxParallel =
       plan.profile === "ex63"
         ? 1

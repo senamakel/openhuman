@@ -165,3 +165,6 @@ proptest-regressions/
 crates/openhuman-core/storage/*.db
 crates/openhuman-core/storage/*.db-wal
 crates/openhuman-core/storage/*.db-shm
+
+# Retired generated app schema snapshot; the runtime schema is registered in Rust.
+/app/schema.json

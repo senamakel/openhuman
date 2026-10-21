@@ -1,8 +1,8 @@
 use std::path::{Path, PathBuf};
 
 use super::persist_delivered_reply;
-use crate::memory::types::TurnCitation;
 use crate::threads::store::{self as conversations, CreateConversationThread};
+use crate::web_chat::TurnCitation;
 
 fn temp_ws() -> PathBuf {
     let dir = std::env::temp_dir().join(format!("web-chat-reply-{}", uuid::Uuid::new_v4()));

@@ -98,6 +98,7 @@ pub(super) async fn finalize_flow_stream(
     target: &FlowStreamTarget,
     result: &Result<String, String>,
     prompt: &str,
+    config: &Config,
 ) {
     match result {
         Ok(text) => {
@@ -145,24 +146,25 @@ pub(super) async fn finalize_flow_stream(
     // left non-terminal makes `threads_turn_state_get` report the turn as still
     // running, so re-entering the thread paints a permanent "Thinking..."
     // indicator under a reply that already landed.
-    if let Ok(config) = ctx.load_config().await {
-        let lifecycle = if result.is_ok() {
-            tinyagents_session::turn_state::TurnLifecycle::Completed
-        } else {
-            tinyagents_session::turn_state::TurnLifecycle::Interrupted
-        };
-        let now = chrono::Utc::now().to_rfc3339();
-        if let Err(err) = crate::storage::sessions::turn_states_for(&config.workspace_dir)
-            .settle_turn(&target.thread_id, &target.request_id, lifecycle, &now)
-        {
-            tracing::warn!(
-                target: "flows",
-                thread_id = %target.thread_id,
-                request_id = %target.request_id,
-                error = %err,
-                "[flows] failed to settle turn snapshot"
-            );
-        }
+    let lifecycle = if result.is_ok() {
+        tinyagents_session::turn_state::TurnLifecycle::Completed
+    } else {
+        tinyagents_session::turn_state::TurnLifecycle::Interrupted
+    };
+    let now = chrono::Utc::now().to_rfc3339();
+    if let Err(err) = crate::storage::sessions::turn_states_for(&config.workspace_dir).settle_turn(
+        &target.thread_id,
+        &target.request_id,
+        lifecycle,
+        &now,
+    ) {
+        tracing::warn!(
+            target: "flows",
+            thread_id = %target.thread_id,
+            request_id = %target.request_id,
+            error = %err,
+            "[flows] failed to settle turn snapshot"
+        );
     }
     tracing::info!(
         target: "flows",

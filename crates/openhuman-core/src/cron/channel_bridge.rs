@@ -56,6 +56,9 @@ pub fn register_channel_bridge(
 static MAX_HISTORY: std::sync::atomic::AtomicUsize =
     std::sync::atomic::AtomicUsize::new(MAX_HISTORY_MESSAGES);
 
+#[cfg(test)]
+pub(crate) static TEST_BRIDGE_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
+
 /// The `(role, text)` messages of one chat's history, oldest first. Empty when
 /// no channel runtime is registered or the chat has no history.
 pub fn history_messages(history_key: &str) -> Vec<(String, String)> {

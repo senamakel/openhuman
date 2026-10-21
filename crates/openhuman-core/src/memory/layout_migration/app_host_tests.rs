@@ -5,10 +5,11 @@ use tinymemory_api::MemoryEngine;
 
 use super::*;
 use crate::memory::engine::install_test_engine_for_root;
-use crate::memory::layout_migration::claim;
-use crate::memory::layout_migration::service::scan;
+use crate::memory::layout_migration::ops::scan;
 use crate::memory::layout_migration::test_host::{count, fact};
-use tinymemory_tools::layout_migration::{LayoutHost, Outcome, Trigger};
+use tinymemory_tools::layout_migration::{
+    FsLegacyClaim, LayoutHost, LegacyClaim, Outcome, Trigger,
+};
 
 const ACCOUNT: &str = "0123456789abcdef01234567";
 
@@ -47,7 +48,8 @@ async fn binds_the_legacy_tree_and_the_users_own() {
     assert!(scan(&AppHost::new(config.clone())).await.unwrap().needed);
 
     let placement = AppHost::new(config.clone()).placement().unwrap();
-    assert!(placement.chat_node.to_string().ends_with("ws:main"));
+    assert_eq!(placement.layout.root().to_string(), "root");
+    assert_eq!(placement.chat_node.to_string(), "ws:main");
     assert!(matches!(placement.flows, FlowPlacement::WithRoot));
 }
 
@@ -55,11 +57,11 @@ async fn binds_the_legacy_tree_and_the_users_own() {
 fn places_into_the_v3_layout_before_the_switch() {
     let tmp = tempfile::tempdir().unwrap();
     let config = signed_in(&tmp);
-    assert!(!crate::memory::scope::layout_is_v3(&config));
+    assert!(config.memory.layout != crate::config::MemoryLayoutMode::V3);
     let mut v3 = config.clone();
     v3.memory.layout = crate::config::MemoryLayoutMode::V3;
-    let legacy = crate::memory::scope::MemoryIdentity::root()
-        .resolve(&config)
+    let legacy = tinymemory_tools::layout::identity::Identity::root()
+        .resolve(&crate::memory::scope::identity_pins(&config))
         .layout;
     let placement = AppHost::new(config.clone()).placement().unwrap();
     assert_ne!(placement.layout, legacy, "chats are pooled at ws:main");
@@ -87,12 +89,12 @@ fn every_account_on_a_self_hosted_engine_shares_one_claim() {
             Arc::new(ReferenceEngine::new()),
         );
     }
-    let key_a = claim_key(&a).unwrap().unwrap();
-    let key_b = claim_key(&b).unwrap().unwrap();
-    assert_eq!(key_a.marker, key_b.marker);
+    let key_a = claim(&a).unwrap().unwrap();
+    let key_b = claim(&b).unwrap().unwrap();
+    assert_eq!(key_a.marker_path(), key_b.marker_path());
     assert_eq!(
         key_a
-            .marker
+            .marker_path()
             .parent()
             .unwrap()
             .parent()
@@ -101,10 +103,10 @@ fn every_account_on_a_self_hosted_engine_shares_one_claim() {
             .unwrap(),
         tmp.path()
     );
-    assert_eq!(key_a.owner, format!("user:{ACCOUNT}"));
+    assert_eq!(key_a.owner(), format!("user:{ACCOUNT}"));
 
     let hosted = signed_in(&tmp);
-    assert!(claim_key(&hosted).unwrap().is_none());
+    assert!(claim(&hosted).unwrap().is_none());
 }
 
 #[tokio::test]
@@ -122,7 +124,7 @@ async fn the_switch_writes_the_migrated_persons_own_config_fresh() {
     let saved = Config::load_from_config_path(&snapshot.config_path, &snapshot.workspace_dir)
         .await
         .unwrap();
-    assert!(crate::memory::scope::layout_is_v3(&saved));
+    assert_eq!(saved.memory.layout, crate::config::MemoryLayoutMode::V3);
     assert_eq!(saved.memory.agent_id.as_deref(), Some("changed-later"));
 }
 
@@ -156,19 +158,17 @@ async fn a_shared_tree_reaches_the_module_as_a_claim() {
     assert_eq!(count(&*host.engines().unwrap().tree).await, 0);
 
     // Another account on the machine took the tree first.
-    let key = claim_key(&config).unwrap().unwrap();
-    let other = ClaimKey::new(
-        key.marker
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap()
-            .parent()
-            .unwrap(),
-        &key.endpoint,
-        "user:fedcba9876543210fedcba98",
-    );
-    assert!(claim::take(&other).unwrap());
+    let key = claim(&config).unwrap().unwrap();
+    let app_dir = key
+        .marker_path()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap()
+        .parent()
+        .unwrap();
+    let other = FsLegacyClaim::new(app_dir, key.endpoint(), "user:fedcba9876543210fedcba98");
+    assert!(other.take().unwrap());
     let view = scan(&host).await.unwrap();
     assert!(!view.needed && view.shared, "{view:?}");
 }
@@ -176,16 +176,63 @@ async fn a_shared_tree_reaches_the_module_as_a_claim() {
 #[test]
 fn errors_keep_their_wire_codes_across_the_module_boundary() {
     for error in [
-        MemoryError::Off("x".into()),
-        MemoryError::Unsupported("x".into()),
-        MemoryError::invalid("x"),
-        MemoryError::Unauthorized("x".into()),
-        MemoryError::Unavailable("x".into()),
-        MemoryError::InsufficientCredits("[USER_INSUFFICIENT_CREDITS] x".into()),
-        MemoryError::Engine("x".into()),
+        Error::Off("x".into()),
+        Error::Unsupported("x".into()),
+        Error::InvalidRequest("x".into()),
+        Error::NotFound("x".into()),
+        Error::Config("x".into()),
+        Error::Conflict("x".into()),
+        Error::Unauthorized("x".into()),
+        Error::Unavailable("x".into()),
+        Error::InsufficientCredits("hosted refusal without a code marker".into()),
+        Error::Engine("x".into()),
     ] {
         let back = from_module(to_module(error.clone()));
         assert_eq!(back.code(), error.code(), "{error:?}");
         assert_eq!(back.is_account_wide(), error.is_account_wide(), "{error:?}");
     }
+
+    let credit_error = Error::InsufficientCredits("hosted refusal without a code marker".into());
+    let back = from_module(to_module(credit_error));
+    assert!(matches!(back, Error::InsufficientCredits(_)));
+    assert!(back.is_account_wide());
+}
+
+#[test]
+fn one_endpoint_has_one_marker_however_it_is_spelled() {
+    let dir = tempfile::tempdir().unwrap();
+    let local = "http://127.0.0.1:3141";
+    let key = FsLegacyClaim::new(dir.path(), local, "user:a");
+    for spelling in ["HTTP://127.0.0.1:3141/", " http://127.0.0.1:3141 "] {
+        assert_eq!(
+            FsLegacyClaim::new(dir.path(), spelling, "user:b").marker_path(),
+            key.marker_path()
+        );
+    }
+    assert_ne!(
+        FsLegacyClaim::new(dir.path(), "http://127.0.0.1:3142", "user:a").marker_path(),
+        key.marker_path()
+    );
+}
+
+#[test]
+fn the_first_account_takes_the_tree_and_keeps_it() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = FsLegacyClaim::new(dir.path(), "http://127.0.0.1:3141", "user:a");
+    let b = FsLegacyClaim::new(dir.path(), "http://127.0.0.1:3141", "user:b");
+    assert!(a.take().unwrap());
+    assert!(!b.take().unwrap());
+    assert!(b.held_by_other().unwrap());
+    assert!(a.take().unwrap());
+    assert!(!a.held_by_other().unwrap());
+}
+
+#[test]
+fn an_unreadable_marker_is_an_error_not_a_free_tree() {
+    let dir = tempfile::tempdir().unwrap();
+    let claim = FsLegacyClaim::new(dir.path(), "http://127.0.0.1:3141", "user:a");
+    std::fs::create_dir_all(claim.marker_path().parent().unwrap()).unwrap();
+    std::fs::write(claim.marker_path(), b"{ torn").unwrap();
+    assert!(claim.held_by_other().is_err());
+    assert!(claim.take().is_err());
 }

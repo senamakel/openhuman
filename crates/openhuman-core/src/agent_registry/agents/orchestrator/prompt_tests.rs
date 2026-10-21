@@ -42,6 +42,7 @@ fn ctx_with<'a>(integrations: &'a [ConnectedIntegration]) -> PromptContext<'a> {
         personality_roster: vec![],
         agents_md_global: None,
         agents_md_local: None,
+        flow_archetype_text: None,
     }
 }
 

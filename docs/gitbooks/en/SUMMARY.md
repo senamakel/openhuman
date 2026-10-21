@@ -77,7 +77,7 @@
   - [Deep Architecture Reference](developing/architecture.md)
   - [Agent Harness](developing/architecture/agent-harness.md)
   - [Storage](developing/architecture/storage.md)
-  - [Flows on TinyAgents](developing/architecture/flows-on-tinyagents.md)
+  - [Flows on TinyFlows](developing/architecture/flows-on-tinyflows.md)
   - [Memory](developing/architecture/memory.md)
   - [Storage](developing/architecture/storage.md)
   - [Process state in shared cores](developing/architecture/process-state.md)

@@ -30,6 +30,8 @@ impl CoreContext {
             workspace_binding: RwLock::new(binding),
             domains: self.domains,
             tool_groups: self.tool_groups.clone(),
+            autonomy_tier_source: self.autonomy_tier_source,
+            autonomy_tier_ceiling: self.autonomy_tier_ceiling,
             components: self.components,
             embedder_config: self.embedder_config.clone(),
             latest_embedder_config: self.latest_embedder_config.as_ref().map(Arc::clone),

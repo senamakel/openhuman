@@ -33,7 +33,8 @@ use std::sync::Arc;
 
 use anyhow::{Context, Result};
 use tinyagents_session::legacy::{
-    import_transcripts, import_turn_states, QuiescentSource, SourceOwner,
+    import_transcripts, import_turn_states, ImportCounts, LegacyDatabaseReport, QuiescentSource,
+    SourceOwner,
 };
 use tinyagents_session::transcript::{session_stem, SessionRef};
 use tinyagents_session::DriverSessionStores;
@@ -88,22 +89,9 @@ fn import(backend: &Arc<dyn StorageBackend>, config: &Config) -> Result<Outcome>
                 Ok(ledger.import_legacy_database(&source).await)
             })?
             .context("[sessions] import sessions.db")?;
-            for counts in [
-                report.sessions,
-                report.messages,
-                report.tool_calls,
-                report.agent_runs,
-                report.telemetry,
-                report.events,
-                report.workflow_runs,
-                report.teams,
-                report.members,
-                report.tasks,
-                report.tool_effects,
-            ] {
-                found += counts.read;
-                written += counts.imported;
-            }
+            let (database_found, database_written) = database_totals(&report);
+            found += database_found;
+            written += database_written;
         }
 
         if raw.is_dir() {
@@ -125,6 +113,29 @@ fn import(backend: &Arc<dyn StorageBackend>, config: &Config) -> Result<Outcome>
         }
         Ok(Some((found, written, skipped)))
     })
+}
+
+/// The native importer reports source rows per stored family. FTS rows are a
+/// derived index and do not represent additional legacy records.
+fn database_totals(report: &LegacyDatabaseReport) -> (usize, usize) {
+    [
+        report.sessions,
+        report.messages,
+        report.tool_calls,
+        report.agent_runs,
+        report.telemetry,
+        report.events,
+        report.workflow_runs,
+        report.teams,
+        report.members,
+        report.tasks,
+        report.tool_effects,
+    ]
+    .into_iter()
+    .fold(
+        (0, 0),
+        |(found, written), ImportCounts { read, imported, .. }| (found + read, written + imported),
+    )
 }
 
 /// The agent definitions a stem may belong to, by the component their ids

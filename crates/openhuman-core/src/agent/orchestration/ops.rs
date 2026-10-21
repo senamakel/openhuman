@@ -512,7 +512,7 @@ impl AgentOrchestrationSession {
                             }
                         }
                     }
-                    SubagentRunStatus::Incomplete { reason } => {
+                    SubagentRunStatus::Incomplete { reason, .. } => {
                         let message = format!("sub-agent stopped incomplete: {reason}");
                         let _ = status_tx.send(ChildState {
                             status: OrchestrationTaskStatus::Failed,

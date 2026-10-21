@@ -17,11 +17,97 @@ use super::super::types::{
     ComposioAuthorizeRequest, ComposioAuthorizeResponse, ComposioConnectionsResponse,
     ComposioDeleteConnectionRequest, ComposioDeleteResponse,
 };
+
+/// Matches cached identity records to normalized provider/account keys shared
+/// by the settings response and the flow connection picker.
+pub(crate) fn identity_lookup<'a>(
+    identities: &'a [crate::integrations::composio::contract::ConnectedIdentity],
+    normalized_keys: &HashMap<String, String>,
+) -> HashMap<(String, String), &'a crate::integrations::composio::contract::ConnectedIdentity> {
+    let normalize = |value: &str| {
+        normalized_keys
+            .get(value)
+            .cloned()
+            .unwrap_or_else(|| value.to_string())
+    };
+    identities
+        .iter()
+        .map(|identity| {
+            (
+                (normalize(&identity.source), normalize(&identity.identifier)),
+                identity,
+            )
+        })
+        .collect()
+}
 use super::error_utils::{
     backend_mode_without_session, direct_mode_without_key, report_composio_op_error, OpResult,
     COMPOSIO_NO_SESSION,
 };
 use crate::integrations::composio::contract::normalize_connection_identifiers;
+
+/// Secret-free Composio picker row consumed by the flow RPC adapter.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub(crate) struct FlowConnectionEntry {
+    pub connection_ref: String,
+    pub display: String,
+    pub toolkit: String,
+    pub platform_user_id: Option<String>,
+}
+
+/// Builds Composio picker rows and attaches cached member identities.
+pub(crate) fn flow_connection_entries(
+    connections: &[crate::integrations::composio::ComposioConnection],
+    identities: &[crate::integrations::composio::contract::ConnectedIdentity],
+    keys: &HashMap<String, String>,
+) -> Vec<FlowConnectionEntry> {
+    let identity_lookup = identity_lookup(identities, keys);
+    connections
+        .iter()
+        .filter(|connection| connection.is_active())
+        .map(|connection| {
+            let toolkit = connection.normalized_toolkit();
+            let normalize = |raw: &str| keys.get(raw).cloned().unwrap_or_else(|| raw.to_string());
+            let platform_user_id = identity_lookup
+                .get(&(normalize(&toolkit), normalize(&connection.id)))
+                .and_then(|identity| identity.user_id.clone());
+            let title = title_case_toolkit(&toolkit);
+            let identity = connection
+                .account_email
+                .as_deref()
+                .or(connection.workspace.as_deref())
+                .or(connection.username.as_deref())
+                .map(str::trim)
+                .filter(|value| !value.is_empty());
+            FlowConnectionEntry {
+                connection_ref: format!("composio:{toolkit}:{}", connection.id),
+                display: identity.map_or(title.clone(), |value| format!("{title} · {value}")),
+                toolkit,
+                platform_user_id,
+            }
+        })
+        .collect()
+}
+
+/// Title-cases a toolkit slug for display.
+pub(crate) fn title_case_toolkit(toolkit: &str) -> String {
+    let trimmed = toolkit.trim();
+    if trimmed.is_empty() {
+        return String::new();
+    }
+    trimmed
+        .split(['_', '-', ' '])
+        .filter(|word| !word.is_empty())
+        .map(|word| {
+            let mut chars = word.chars();
+            match chars.next() {
+                Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
+                None => String::new(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
 pub async fn composio_list_connections(
     ctx: &crate::core::runtime::DispatchCtx,
@@ -332,12 +418,9 @@ pub(crate) async fn enrich_connections_with_identity(
             return resp;
         }
     };
-    let (identity_keys, connection_keys) = normalized.split_at(identities.len() * 2);
-    let lookup: HashMap<(String, String), _> = identities
-        .iter()
-        .zip(identity_keys.chunks(2))
-        .map(|(id, keys)| ((keys[0].clone(), keys[1].clone()), id))
-        .collect();
+    let connection_keys = normalized[identities.len() * 2..].to_vec();
+    let normalized_keys: HashMap<_, _> = raw.into_iter().zip(normalized).collect();
+    let lookup = identity_lookup(&identities, &normalized_keys);
 
     tracing::debug!(
         total = resp.connections.len(),

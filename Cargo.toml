@@ -43,7 +43,7 @@ repository = "https://github.com/tinyhumansai/openhuman"
 openhuman-rpc = { path = "crates/openhuman-rpc", default-features = false }
 openhuman-embed = { path = "crates/openhuman-embed", default-features = false }
 openhuman-tinyhumans = { path = "crates/openhuman-tinyhumans", default-features = false }
-tinyagents-hooks = { path = "vendor/tinyagents/crates/tinyagents-hooks" }
+tinyagents-hooks = { path = "vendor/tinyagents/crates/tinyagents-hooks", default-features = false }
 
 # Patches are workspace-root settings; Cargo ignores them in member manifests.
 [patch."https://github.com/tinyhumansai/tinytools"]

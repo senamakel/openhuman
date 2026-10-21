@@ -31,6 +31,7 @@ impl Channel for MockChannel {
 // One test: the bridge is process-global, so keep its steps sequential.
 #[tokio::test]
 async fn bridge_reads_appends_trims_and_sends() {
+    let _bridge_lock = TEST_BRIDGE_LOCK.lock().await;
     let histories: ChannelHistories = Arc::new(Mutex::new(HashMap::new()));
     histories.lock().unwrap().insert(
         "k".into(),

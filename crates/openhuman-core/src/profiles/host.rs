@@ -83,7 +83,7 @@ pub(super) struct Slot {
 /// The open profiles of one SaaS process.
 pub struct ProfileHost {
     pub(super) saas: SaasConfig,
-    capabilities: Option<Arc<super::capabilities::ProfileCapabilities>>,
+    pub(super) capabilities: Option<Arc<super::capabilities::ProfileCapabilities>>,
     pub(super) operator: Arc<CoreContext>,
     pub(super) node: String,
     pub(super) open: Mutex<HashMap<ProfileId, Slot>>,
@@ -97,6 +97,12 @@ pub struct ProfileHost {
     /// on it (provision, open, credential changes, deprovision); see
     /// [`super::lifecycle`].
     pub(super) lifecycle: ProfileLocks,
+    /// The backend shared by the profile registry and cluster leases.
+    pub(super) backend: Option<Arc<dyn StorageBackend>>,
+    /// The same physical backend, guarded by this host's profile fences, for
+    /// cron admission policy writes. `None` uses the host-installed/default
+    /// workspace backend.
+    pub(super) cron_backend: Option<Arc<dyn StorageBackend>>,
     pub(super) leases: Arc<dyn LeaseStore>,
     pub(super) fences: Arc<FenceRegistry>,
     pub(super) registry: ProfileRegistry,
@@ -132,58 +138,12 @@ impl ProfileHost {
         Self::with_backend(saas, operator, None).expect("file-backed profile host")
     }
 
-    /// A host over `backend` when given (the shared registry and cluster
-    /// leases), else as [`Self::new`].
-    ///
-    /// # Errors
-    ///
-    /// When the backend refuses the cluster scope.
-    pub fn with_backend(
-        mut saas: SaasConfig,
-        operator: Arc<CoreContext>,
-        backend: Option<Arc<dyn StorageBackend>>,
-    ) -> Result<Self, String> {
-        super::provider_settings::ProfileProviderSettings::from_saas(&saas)
-            .map_err(|error| error.to_string())?;
-        let node = saas.resolve_node_id(None).to_owned();
-        let leases = profile_lease::store_for(
-            &saas.root,
-            backend.as_ref(),
-            &node,
-            saas.advertise_url.clone(),
-            saas.lease_ttl(),
-        )?;
-        let registry = match &backend {
-            Some(backend) => ProfileRegistry::cluster(backend.as_ref())?,
-            None => ProfileRegistry::files(&saas.root),
-        };
-        Ok(Self {
-            capabilities: None,
-            saas,
-            operator,
-            node,
-            open: Mutex::new(HashMap::new()),
-            gate: tokio::sync::Mutex::new(()),
-            lifecycle: ProfileLocks::default(),
-            leases,
-            fences: crate::storage::fence::registry(),
-            registry,
-        })
-    }
-
     /// Install immutable operator adapters before this host is shared.
     pub fn with_capabilities(
         mut self,
         capabilities: Option<Arc<super::capabilities::ProfileCapabilities>>,
     ) -> Self {
         self.capabilities = capabilities;
-        self
-    }
-
-    /// This host registering its fences in `fences` instead of the process
-    /// registry (tests, which must not share one).
-    pub fn with_fences(mut self, fences: Arc<FenceRegistry>) -> Self {
-        self.fences = fences;
         self
     }
 
@@ -225,7 +185,7 @@ impl ProfileHost {
 
     /// [`layout::profile_config`] plus the operator's cron limits, which no
     /// profile config can loosen.
-    fn forced_config(&self, layout: &ProfileLayout, id: &ProfileId) -> Config {
+    pub(super) fn forced_config(&self, layout: &ProfileLayout, id: &ProfileId) -> Config {
         let mut config = layout::profile_config(layout, id);
         let cron = &self.saas.cron;
         config.cron.agent_jobs_only = cron.agent_jobs_only;
@@ -363,6 +323,14 @@ impl ProfileHost {
         let anchor: Arc<dyn std::any::Any + Send + Sync> = context.clone();
         fence.anchor_to(Arc::downgrade(&anchor));
         self.fences.register(Arc::clone(&fence));
+        if let Err(error) =
+            super::lifecycle::reconcile_cron_admission(&config, id, self.cron_backend.as_ref())
+                .await
+        {
+            self.fences.retire(id.as_str(), grant.epoch);
+            profile_lease::release_all(self, vec![(id.clone(), grant)]).await;
+            return Err(OpenError::Storage(error));
+        }
         if grant.previous_unclean {
             log::info!(
                 "[profiles] profile={id} taken over from a holder that never released it (epoch {}); recovering",
@@ -725,3 +693,7 @@ pub(super) fn unix_now() -> u64 {
 #[cfg(test)]
 #[path = "host_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "host_storage_tests.rs"]
+mod storage_tests;

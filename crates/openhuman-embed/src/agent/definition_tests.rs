@@ -154,6 +154,18 @@ fn base_can_be_named_or_custom_and_unknown_names_are_typed() {
 }
 
 #[test]
+fn renamed_flow_builtin_keeps_its_original_prompt_owner() {
+    let definition = AgentDefinitionSpec::from_base("workflow_builder")
+        .into_core("library_workflow_builder")
+        .expect("renamed builtin definition");
+
+    assert_eq!(
+        definition.extensions.tinyflows_prompt_owner.as_deref(),
+        Some("workflow_builder")
+    );
+}
+
+#[test]
 fn a_custom_base_does_not_allow_a_wider_tool_scope() {
     let mut base = AgentDefinitionSpec::new()
         .tools(ToolScopeSpec::Named(vec!["read_file".into()]))

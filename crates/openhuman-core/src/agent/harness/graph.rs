@@ -59,7 +59,7 @@ pub(crate) async fn run_channel_turn_via_graph(
     origin: Option<crate::security::turn_origin::AgentTurnOrigin>,
     sandbox_mode: tinyagents_definition::SandboxMode,
     approval: crate::security::approval::ApprovalTurnContext,
-    memory_identity: crate::memory::scope::MemoryIdentity,
+    memory_identity: tinymemory_tools::layout::identity::Identity,
 ) -> Result<crate::agent::tinyagents::TinyagentsTurnOutcome> {
     let extra_arc = Arc::new(extra_tools);
     // A channel/CLI turn is entered without a run context: the model source

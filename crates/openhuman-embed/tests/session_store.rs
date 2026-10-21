@@ -177,10 +177,15 @@ fn a_stateless_runtime_keeps_every_conversation_in_its_session_store() {
                 .expect("status records list");
             assert!(!runs.is_empty(), "asha's runs are recorded in her scope");
 
-            // Nothing durable reached the scratch workspace.
+            // Nothing durable reached the scratch workspace. The flow-authoring
+            // skill's files are a regenerable cache of the TinyFlows module's
+            // resources (materialized in the background from the module, never
+            // read back as state), so they do not count; the scratch workspace
+            // is removed with the runtime below.
             let written: Vec<_> = files_under(&scratch)
                 .into_iter()
                 .filter(|path| !baseline.contains(path))
+                .filter(|path| !path.starts_with("workspace/.openhuman/builtin-flow-skills"))
                 .collect();
             assert!(
                 written.is_empty(),

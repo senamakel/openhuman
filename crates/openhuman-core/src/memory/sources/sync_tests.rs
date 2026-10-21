@@ -1,8 +1,8 @@
 use super::*;
-use crate::memory::error::INVALID_REQUEST;
 use crate::memory::sources::state;
 use crate::memory::test_fixtures::{bind_reference, config_in, stored};
 use tinymemory_api::{ItemKind, MetaFilter};
+use tinymemory_integrations::sources::{SourceState, SourceStatus};
 
 fn folder_source(id: &str, dir: &std::path::Path, mins: Option<u32>) -> MemorySourceConfig {
     MemorySourceConfig {
@@ -29,7 +29,7 @@ fn notes(config: &Config, n: usize) -> PathBuf {
     dir
 }
 
-async fn wait_for_idle(config: &Config, id: &str) -> state::SourceState {
+async fn wait_for_idle(config: &Config, id: &str) -> SourceState {
     for _ in 0..400 {
         if let Some(state) = state::load(&config.workspace_dir).get(id) {
             if state.status != SourceStatus::Syncing {
@@ -64,7 +64,7 @@ fn validate_accepts_every_kind_and_refuses_an_empty_target() {
         validate(&mk(MemorySourceKind::Folder, ""))
             .unwrap_err()
             .code(),
-        INVALID_REQUEST
+        "INVALID_REQUEST"
     );
 }
 
@@ -98,7 +98,7 @@ async fn sync_one_reports_memory_off_and_unreadable_sources() {
     let off = sync_one(&config, &folder_source("s", &dir, None))
         .await
         .unwrap_err();
-    assert_eq!(off.code(), crate::memory::error::MEMORY_OFF);
+    assert_eq!(off.code(), "MEMORY_OFF");
 
     bind_reference(&config);
     let missing = config.action_dir.join("does-not-exist");
@@ -163,7 +163,7 @@ fn start_sync_refuses_unknown_ids_and_memory_off() {
         start_sync(&crate::core::runtime::DispatchCtx::ambient(), &config, None)
             .unwrap_err()
             .code(),
-        crate::memory::error::MEMORY_OFF
+        "MEMORY_OFF"
     );
     bind_reference(&config);
     assert_eq!(
@@ -174,7 +174,7 @@ fn start_sync_refuses_unknown_ids_and_memory_off() {
         )
         .unwrap_err()
         .code(),
-        INVALID_REQUEST
+        "INVALID_REQUEST"
     );
     assert!(
         start_sync(&crate::core::runtime::DispatchCtx::ambient(), &config, None)
@@ -393,22 +393,4 @@ async fn github_files_per_repository_only_when_switched_on() {
         3,
         "one belief build per node written"
     );
-}
-
-#[test]
-fn orphaned_connector_files_are_removed_and_missing_ones_ignored() {
-    let tmp = tempfile::tempdir().unwrap();
-    let dir = tmp.path().join("memory");
-    std::fs::create_dir_all(&dir).unwrap();
-    std::fs::write(dir.join("connector_items.json"), "{}").unwrap();
-    std::fs::write(dir.join("connection_roots.json"), "{}").unwrap();
-    std::fs::write(dir.join("sources_state.json"), "{}").unwrap();
-    state::remove_orphaned_connector_files(tmp.path());
-    assert!(!dir.join("connector_items.json").exists());
-    assert!(!dir.join("connection_roots.json").exists());
-    assert!(
-        dir.join("sources_state.json").exists(),
-        "live state is kept"
-    );
-    state::remove_orphaned_connector_files(tmp.path());
 }

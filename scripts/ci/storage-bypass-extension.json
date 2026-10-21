@@ -260,26 +260,6 @@
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7425"
   },
   {
-    "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/memory/layout_migration/claim.rs",
-    "line": 111,
-    "text": "serde_json::to_writer(temp.as_file(), &marker).map_err(std::io::Error::other)?;",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Legacy memory layout migration claim/state marker publication; historical source capture and native migration admission remain separate.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
-  },
-  {
-    "rule": "file-mutation",
-    "path": "crates/openhuman-core/src/memory/layout_migration/claim.rs",
-    "line": 114,
-    "text": "std::fs::hard_link(temp.path(), &key.marker)",
-    "occurrence": 1,
-    "classification": "classic",
-    "reason": "Legacy memory layout migration claim/state marker publication; historical source capture and native migration admission remain separate.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7427"
-  },
-  {
     "rule": "writer-helper",
     "path": "crates/openhuman-core/src/modules/browser_task_report.rs",
     "line": 297,

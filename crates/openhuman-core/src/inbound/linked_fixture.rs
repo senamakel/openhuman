@@ -165,7 +165,7 @@ impl TriageRunner for ScriptedTriage {
         }
         let failing = self
             .failing_applies
-            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |n| n.checked_sub(1))
             .is_ok();
         if failing {
             return Err(anyhow::anyhow!("scripted apply failure"));

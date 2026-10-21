@@ -217,6 +217,65 @@ fn the_registry_replaces_retires_and_prunes_dead_tombstones() {
     assert!(registry.lookup("profile:alice").is_none());
 }
 
+#[test]
+fn registration_prunes_a_dead_anchored_fence_before_comparing_epochs() {
+    let backend = MemoryStorage::new();
+    let store = leases(&backend, "a");
+    let registry = FenceRegistry::new(|| 0);
+    let make = |epoch| {
+        Arc::new(LeaseFence::new(
+            Arc::clone(&store),
+            "alice",
+            "a",
+            epoch,
+            u64::MAX,
+            0,
+            scopes(),
+        ))
+    };
+    let dead_anchor_fence = make(2);
+    let dead_anchor: Arc<dyn Any + Send + Sync> = Arc::new(());
+    dead_anchor_fence.anchor_to(Arc::downgrade(&dead_anchor));
+    registry.register(dead_anchor_fence);
+    drop(dead_anchor);
+
+    let lower_epoch = make(1);
+    registry.register(Arc::clone(&lower_epoch));
+    assert_eq!(registry.lookup("profile:alice").unwrap().epoch(), 1);
+}
+
+#[test]
+fn registration_preserves_a_live_or_unanchored_higher_epoch_fence() {
+    let backend = MemoryStorage::new();
+    let store = leases(&backend, "a");
+    let registry = FenceRegistry::new(|| 0);
+    let make = |epoch| {
+        Arc::new(LeaseFence::new(
+            Arc::clone(&store),
+            "alice",
+            "a",
+            epoch,
+            u64::MAX,
+            0,
+            scopes(),
+        ))
+    };
+    let higher = make(2);
+    let live_anchor: Arc<dyn Any + Send + Sync> = Arc::new(());
+    higher.anchor_to(Arc::downgrade(&live_anchor));
+    registry.register(Arc::clone(&higher));
+    registry.register(make(1));
+    assert_eq!(registry.lookup("profile:alice").unwrap().epoch(), 2);
+
+    // No anchor means ownership has not been tied to a disposable host yet;
+    // it must remain protected from a lower-epoch registration.
+    registry.retire("alice", 2);
+    let unanchored = make(3);
+    registry.register(Arc::clone(&unanchored));
+    registry.register(make(1));
+    assert_eq!(registry.lookup("profile:alice").unwrap().epoch(), 3);
+}
+
 #[tokio::test]
 async fn the_guard_passes_unfenced_scopes_and_refuses_with_a_typed_error() {
     let backend = MemoryStorage::new();

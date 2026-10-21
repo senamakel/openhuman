@@ -155,7 +155,7 @@ async fn delivery_stores_the_reply_before_announcing_it() {
     )
     .expect("thread created");
 
-    let citation = crate::memory::types::TurnCitation {
+    let citation = crate::web_chat::TurnCitation {
         id: "mem-deliver".to_string(),
         key: "summary-source".to_string(),
         namespace: None,

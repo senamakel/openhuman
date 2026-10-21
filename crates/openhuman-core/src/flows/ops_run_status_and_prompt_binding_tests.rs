@@ -50,9 +50,22 @@ async fn graph_wiring_warnings_uses_the_probed_output_fields_when_schema_is_unkn
         ]
     }));
     assert!(
-        graph_wiring_warnings(&config, &real_field).await.is_empty(),
+        graph_wiring_warnings(
+            &crate::core::runtime::DispatchCtx::unbound(),
+            &config,
+            &real_field
+        )
+        .await
+        .expect("TinyFlows wiring warnings should succeed")
+        .is_empty(),
         "a probed-real field must not warn: {:?}",
-        graph_wiring_warnings(&config, &real_field).await
+        graph_wiring_warnings(
+            &crate::core::runtime::DispatchCtx::unbound(),
+            &config,
+            &real_field
+        )
+        .await
+        .expect("TinyFlows wiring warnings should succeed")
     );
 
     // A binding to a field the probe did NOT observe — flagged, using the
@@ -72,7 +85,13 @@ async fn graph_wiring_warnings_uses_the_probed_output_fields_when_schema_is_unkn
             { "from_node": "post", "to_node": "xform" }
         ]
     }));
-    let warnings = graph_wiring_warnings(&config, &fake_field).await;
+    let warnings = graph_wiring_warnings(
+        &crate::core::runtime::DispatchCtx::unbound(),
+        &config,
+        &fake_field,
+    )
+    .await
+    .expect("TinyFlows wiring warnings should succeed");
     assert!(
         warnings
             .iter()
@@ -98,7 +117,9 @@ fn agent_prompt_binding_unaffected() {
         ],
         "edges": [ { "from_node": "t", "to_node": "summarize" } ]
     }));
-    assert!(tinyflows::gates::failures(&g).is_empty());
+    let engine_graph: tinyflows::model::WorkflowGraph =
+        serde_json::from_value(g.clone()).expect("graph fixture converts to engine graph");
+    assert!(tinyflows::gates::failures(&engine_graph).is_empty());
 }
 
 /// Regression for issue #4593 (widened for #4881's `resume_flow_run`/
@@ -121,7 +142,10 @@ async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
     // belt name-resolution so the hide-list can't silently stop covering a
     // live-run/resume tool.
     use tinytools::Tool as _;
-    let live_runner = crate::flows::tools::RunFlowTool::new(std::sync::Arc::new(config.clone()));
+    let live_runner = crate::flows::copilot_bus::BusCopilotTool::from_name(
+        std::sync::Arc::new(config.clone()),
+        "run_flow",
+    );
     assert!(
         live_runner.external_effect(),
         "the flows live-runner must be external-effect for the #4593 concern to apply"
@@ -261,7 +285,51 @@ async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
     .expect("build workflow_builder agent");
     agent.set_agent_definition_name("workflow_builder".to_string());
 
+    #[derive(Clone, Default)]
+    struct Capture(std::sync::Arc<std::sync::Mutex<Vec<u8>>>);
+
+    impl std::io::Write for Capture {
+        fn write(&mut self, bytes: &[u8]) -> std::io::Result<usize> {
+            self.0.lock().unwrap().extend_from_slice(bytes);
+            Ok(bytes.len())
+        }
+
+        fn flush(&mut self) -> std::io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<'a> tracing_subscriber::fmt::MakeWriter<'a> for Capture {
+        type Writer = Self;
+
+        fn make_writer(&'a self) -> Self::Writer {
+            self.clone()
+        }
+    }
+
+    let capture = Capture::default();
+    let subscriber = tracing_subscriber::fmt()
+        .with_writer(capture.clone())
+        .with_ansi(false)
+        .finish();
+    let _subscriber_guard = tracing::subscriber::set_default(subscriber);
+
     restrict_builder_toolset_for_copilot(&mut agent);
+
+    let log = String::from_utf8(capture.0.lock().unwrap().clone()).unwrap();
+    assert!(
+        log.contains("cancel_flow_run"),
+        "trace should name the hidden tool: {log}"
+    );
+    assert!(
+        log.contains("run_flow/resume_flow_run stay visible")
+            && log.contains("cancel_flow_run and the unrelated legacy run_workflow are hidden"),
+        "trace should describe the actual builder tool visibility: {log}"
+    );
+    assert!(
+        !log.contains("run_flow/resume_flow_run/cancel_flow_run stay visible"),
+        "trace contradicts the actual hidden toolset: {log}"
+    );
 
     let visible = agent.visible_tool_specs_arc();
     for still_reachable in ["run_flow", "resume_flow_run"] {

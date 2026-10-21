@@ -287,7 +287,7 @@ Capability {
         domain: "flows",
         category: CapabilityCategory::Automation,
         description: "A `dedup` node inside a saved workflow graph, giving the flow durable \
-                      exactly-once processing per item with no agent turn or extra plumbing \
+                      per-item deduplication with no agent turn or extra plumbing \
                       involved. It drops an item whose per-item key was already committed by a \
                       prior successful run, and otherwise passes it through. Committing happens \
                       automatically: keys the node passes through are marked done only once the \

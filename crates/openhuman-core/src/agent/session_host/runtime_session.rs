@@ -7,6 +7,8 @@ mod permanent;
 mod post_commit;
 #[path = "runtime_session/prelude.rs"]
 mod prelude;
+#[path = "runtime_session/prompt.rs"]
+mod prompt;
 #[path = "runtime_session/prompt_surface.rs"]
 mod prompt_surface;
 #[path = "runtime_session_usage.rs"]

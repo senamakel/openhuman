@@ -23,8 +23,62 @@ fn the_manifest_declares_the_catalog_in_both_directions() {
 }
 
 #[test]
-fn removing_an_event_advances_the_catalog_major_version() {
-    assert_eq!(EVENTS_VERSION, tinybus::Version::new(2, 1, 0));
+fn removing_cron_delivery_moves_past_the_canonical_v2_event_catalog() {
+    // The canonical 2.0 catalog already retired the desktop voice event, and
+    // 2.1 added inbound-event queues. Removing CronDeliveryRequested from
+    // that wire contract requires a new major version beyond both.
+    let manifest = manifest();
+    let interface = EVENTS_INTERFACE.try_into().unwrap();
+    let advertised = manifest
+        .provided(&interface)
+        .expect("OpenHuman advertises its event catalog");
+    assert!(
+        advertised.speaks.major > 2,
+        "removing CronDeliveryRequested is incompatible with the canonical 2.x catalog; got {}",
+        advertised.speaks
+    );
+}
+
+#[test]
+fn removed_cron_delivery_is_not_a_deserializable_wire_event() {
+    let error = serde_json::from_value::<crate::core::events::DomainEvent>(serde_json::json!({
+        "CronDeliveryRequested": {}
+    }))
+    .expect_err("the removed event must not remain in the published vocabulary");
+    let message = error.to_string();
+    assert!(
+        message.contains("unknown variant") && message.contains("CronDeliveryRequested"),
+        "expected an explicit removed-variant error, got {message}"
+    );
+}
+
+#[test]
+fn cron_completion_tenant_remains_optional_and_round_trips() {
+    let event = crate::core::events::DomainEvent::CronJobCompleted {
+        job_id: "job-1".into(),
+        success: true,
+        output: "done".into(),
+        tenant: Some(crate::core::runtime::Tenant {
+            profile: Some("profile-a".into()),
+            agent: Some("agent-a".into()),
+        }),
+    };
+    let wire = serde_json::to_value(event).unwrap();
+    assert_eq!(wire["CronJobCompleted"]["tenant"]["profile"], "profile-a");
+    assert_eq!(wire["CronJobCompleted"]["tenant"]["agent"], "agent-a");
+
+    let legacy = serde_json::from_value::<crate::core::events::DomainEvent>(serde_json::json!({
+        "CronJobCompleted": {
+            "job_id": "job-legacy",
+            "success": true,
+            "output": "done"
+        }
+    }))
+    .unwrap();
+    assert!(matches!(
+        legacy,
+        crate::core::events::DomainEvent::CronJobCompleted { tenant: None, .. }
+    ));
 }
 
 #[tokio::test]

@@ -215,7 +215,7 @@ pub(crate) async fn run_chat_task(
             // any stale budget-exhausted signal before it could mislabel a
             // later genuine empty response. See #3386.
             super::ops::clear_budget_signal(ctx, thread_id).await;
-            let citations = crate::memory::tools::take_turn_citations(ctx, thread_id);
+            let citations = crate::web_chat::citations::take_turn_citations(ctx, thread_id);
             let usage = agent.take_last_turn_usage_totals();
             Ok(WebChatTaskResult {
                 full_response: response,

@@ -508,8 +508,10 @@ Tool names, descriptions, parameter schemas, permissions and the
 `agent_prompt::resolve_completion_model` are upstream; the dedup exactly-once
 settle contract was already `tinyflows::nodes::control_flow::dedup_settle`, so
 only the per-flow lock and the run-finished subscriber remain in
-`flows/bus/dedup_commit.rs`. `observability.rs` and `langfuse_export.rs` call
-`tinyflows::observe::{step_status_str, to_exporter_observations}`.
+`flows/bus/dedup_commit.rs`. `observability.rs` calls
+`tinyflows::observe::step_status_str`; `flows/ops/execution.rs` converts the
+engine observation journal for the generic exporter in
+`agent/progress_tracing/flow_export.rs`.
 
 Stays host: `search_tool_catalog`, `get_tool_contract`,
 `get_tool_output_sample`, `list_connectable_toolkits` and
@@ -550,6 +552,6 @@ schedule rows included, regardless of `flows`.
 
 ### TinyFlows schedule bus cutover (#7397)
 
-Supersedes the section above for who runs the scheduler. The `tinyflows` module (registry record `records_flows.rs`, contract `tinyflows_bus::schedule` v3) owns the scheduler runtime, claims, retry timing, completion, the cron job and run store (`CronDocuments`) and the schedule maths (`NextRun`, `ValidateSchedule`, `RunsCloserThan`, `NormalizeExpression`, `ParseHumanDelay`, `ValidateDelivery`, `DefaultDelivery`, `CheckOriginRequirements`, `CheckPatch`, `TruncateCronOutput`). Core links only `tinyflows-bus` (serde and chrono): `cargo tree -p openhuman -e normal -i tinyflows-schedule` is empty, and `tinyflows-drivers` is optional behind `flows` for the catalog alone.
+Supersedes the section above for who runs the scheduler. The `tinyflows` module (registry record `records_flows.rs`, contract `tinyflows_bus::schedule` v6) owns the scheduler runtime, claims, retry timing, completion, the cron job and run store (`CronDocuments`) and the schedule maths (`NextRun`, `ValidateSchedule`, `RunsCloserThan`, `NormalizeExpression`, `ParseHumanDelay`, `ValidateDelivery`, `DefaultDelivery`, `CheckOriginRequirements`, `CheckPatch`, `TruncateCronOutput`). Core links only `tinyflows-bus` (serde and chrono): `cargo tree -p openhuman -e normal -i tinyflows-schedule` is empty, and `tinyflows-drivers` is optional behind `flows` for the catalog alone.
 
-The host keeps four adapters in `crates/openhuman-core/src/cron/`: `client.rs` (typed calls and `ScheduleStore` requests), `documents_port.rs` (the scope's document store served to the module), `bus_host.rs` (the `ScheduleHost` callbacks `Execute`, `Failed`, `Deliver`, `ScheduleTrigger`, bound per scope) and `handlers.rs` (the job-kind registry that replaced the hard-coded shell/agent/flow split and absorbed the system-job handlers). Deleted: `claims.rs`, `scheduler/host.rs`, `scheduler/run_record.rs` and the `tinyflows_schedule` re-export facade. Temporary exception: `tinyflows-bus` carries `chrono` (record timestamps), recorded in `scripts/ci/module-boundaries.json`.
+The host keeps four adapters in `crates/openhuman-core/src/cron/`: `client.rs` (typed calls and `ScheduleStore` requests), `documents_port.rs` (the scope's document store served to the module), `bus_host.rs` (the `ScheduleHost` callbacks `Execute`, `Failed`, `Send`, `Deliver`, `ScheduleTrigger`, bound per scheduler or manual invocation) and `handlers.rs` (the job-kind registry that replaced the hard-coded shell/agent/flow split and absorbed the system-job handlers). Manual invocation owners retain their callback and bound context until the v6 module worker reaches terminal state and its handle is acknowledged. The host forwards the document metadata and migration contract without implementing the schedule schema. Deleted: `claims.rs`, `scheduler/host.rs`, `scheduler/run_record.rs` and the `tinyflows_schedule` re-export facade. Temporary exception: `tinyflows-bus` carries `chrono` (record timestamps), recorded in `scripts/ci/module-boundaries.json`.

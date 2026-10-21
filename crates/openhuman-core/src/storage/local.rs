@@ -48,8 +48,103 @@ impl Opened {
 
 /// Default backends this process opened for workspaces with nothing
 /// installed, by workspace directory.
-static WORKSPACES: LazyLock<Mutex<HashMap<PathBuf, Arc<dyn StorageBackend>>>> =
+type WorkspaceBackend = Arc<tokio::sync::OnceCell<Arc<dyn StorageBackend>>>;
+
+static WORKSPACES: LazyLock<Mutex<HashMap<PathBuf, WorkspaceBackend>>> =
     LazyLock::new(Mutex::default);
+
+#[cfg(test)]
+struct BackendOpenTestGate {
+    started: tokio::sync::oneshot::Sender<()>,
+    release: tokio::sync::oneshot::Receiver<()>,
+}
+
+#[cfg(test)]
+static BACKEND_OPEN_TEST_GATE: LazyLock<Mutex<Option<BackendOpenTestGate>>> =
+    LazyLock::new(Mutex::default);
+
+#[cfg(test)]
+static SYNC_BACKEND_ENTRY_TEST_SIGNAL: LazyLock<Mutex<Option<std::sync::mpsc::Sender<()>>>> =
+    LazyLock::new(Mutex::default);
+
+#[cfg(test)]
+pub(super) fn install_test_backend_open_gate(
+    started: tokio::sync::oneshot::Sender<()>,
+    release: tokio::sync::oneshot::Receiver<()>,
+) {
+    *BACKEND_OPEN_TEST_GATE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner) = Some(BackendOpenTestGate { started, release });
+}
+
+#[cfg(test)]
+pub(super) fn arm_test_sync_backend_entry_signal(sender: std::sync::mpsc::Sender<()>) {
+    *SYNC_BACKEND_ENTRY_TEST_SIGNAL
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner) = Some(sender);
+}
+
+#[cfg(test)]
+async fn await_test_backend_open_gate() {
+    let gate = BACKEND_OPEN_TEST_GATE
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take();
+    if let Some(gate) = gate {
+        let _ = gate.started.send(());
+        let _ = gate.release.await;
+    }
+}
+
+#[cfg(test)]
+fn signal_test_sync_backend_entry() {
+    if let Some(sender) = SYNC_BACKEND_ENTRY_TEST_SIGNAL
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .take()
+    {
+        let _ = sender.send(());
+    }
+}
+
+fn workspace_backend(workspace_dir: &Path) -> WorkspaceBackend {
+    let mut opened = WORKSPACES.lock().unwrap_or_else(PoisonError::into_inner);
+    Arc::clone(
+        opened
+            .entry(workspace_dir.to_path_buf())
+            .or_insert_with(|| Arc::new(tokio::sync::OnceCell::new())),
+    )
+}
+
+async fn open_default_backend(workspace_dir: PathBuf) -> Result<Arc<dyn StorageBackend>> {
+    #[cfg(test)]
+    await_test_backend_open_gate().await;
+
+    let url = super::config::default_url(&workspace_dir);
+    super::config::prepare_default_dir(&workspace_dir).with_context(|| {
+        format!(
+            "create the storage directory for {}",
+            workspace_dir.display()
+        )
+    })?;
+    tracing::debug!(
+        target: "openhuman::storage",
+        workspace = %workspace_dir.display(),
+        "[storage::local] opening the workspace default backend (none installed)"
+    );
+    super::open(&url)
+        .await
+        .with_context(|| format!("open the default storage for {}", workspace_dir.display()))
+}
+
+async fn initialized_backend(
+    cell: WorkspaceBackend,
+    workspace_dir: PathBuf,
+) -> Result<Arc<dyn StorageBackend>> {
+    cell.get_or_try_init(|| async move { open_default_backend(workspace_dir).await })
+        .await
+        .map(Arc::clone)
+}
 
 /// The backend for `workspace_dir`: the installed one, else the workspace's
 /// own default, opened on first use.
@@ -62,29 +157,28 @@ pub fn backend_for(workspace_dir: &Path) -> Result<Arc<dyn StorageBackend>> {
     if let Some(backend) = installed() {
         return Ok(backend);
     }
-    let mut opened = WORKSPACES.lock().unwrap_or_else(PoisonError::into_inner);
-    if let Some(backend) = opened.get(workspace_dir) {
-        return Ok(Arc::clone(backend));
+    #[cfg(test)]
+    signal_test_sync_backend_entry();
+
+    let cell = workspace_backend(workspace_dir);
+    let workspace_dir = workspace_dir.to_path_buf();
+    super::block_on_anyhow(async move { initialized_backend(cell, workspace_dir).await })
+}
+
+/// Async counterpart to [`backend_for`] for boot and module-proxy paths that
+/// already run inside a future. Cold initialization is delegated to Tokio's
+/// blocking pool so the shared OnceCell initializer is driven by the storage
+/// bridge rather than by the caller's runtime. A synchronous store may wait for
+/// that same initializer, including from a current-thread runtime, without
+/// preventing it from making progress.
+pub async fn backend_for_async(workspace_dir: &Path) -> Result<Arc<dyn StorageBackend>> {
+    if let Some(backend) = installed() {
+        return Ok(backend);
     }
-    let url = super::config::default_url(workspace_dir);
-    super::config::prepare_default_dir(workspace_dir).with_context(|| {
-        format!(
-            "create the storage directory for {}",
-            workspace_dir.display()
-        )
-    })?;
-    tracing::debug!(
-        target: "openhuman::storage",
-        workspace = %workspace_dir.display(),
-        "[storage::local] opening the workspace default backend (none installed)"
-    );
-    let backend = super::block_on_anyhow({
-        let url = url.clone();
-        async move { Ok(super::open(&url).await?) }
-    })
-    .with_context(|| format!("open the default storage for {}", workspace_dir.display()))?;
-    opened.insert(workspace_dir.to_path_buf(), Arc::clone(&backend));
-    Ok(backend)
+    let workspace_dir = workspace_dir.to_path_buf();
+    tokio::task::spawn_blocking(move || backend_for(&workspace_dir))
+        .await
+        .context("join the workspace storage opener")?
 }
 
 /// The storage a store uses for this call: [`backend_for`] `workspace_dir`

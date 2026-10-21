@@ -80,7 +80,7 @@ pub enum ToolOperation {
 #[derive(Debug)]
 pub struct ActionTracker {
     /// Timestamps of recent actions (kept within the last hour).
-    actions: Mutex<Vec<Instant>>,
+    actions: Arc<Mutex<Vec<Instant>>>,
 }
 
 impl Default for ActionTracker {
@@ -92,7 +92,7 @@ impl Default for ActionTracker {
 impl ActionTracker {
     pub fn new() -> Self {
         Self {
-            actions: Mutex::new(Vec::new()),
+            actions: Arc::new(Mutex::new(Vec::new())),
         }
     }
 
@@ -116,13 +116,23 @@ impl ActionTracker {
         actions.retain(|t| *t > cutoff);
         actions.len()
     }
+
+    /// Shares the action history with a short-lived policy derived from this
+    /// tracker. Ordinary `Clone` intentionally snapshots history for separate
+    /// policies; live flow gates use this handle so rebuilding the tier view
+    /// does not reset one run's action budget.
+    pub(crate) fn shared_clone(&self) -> Self {
+        Self {
+            actions: Arc::clone(&self.actions),
+        }
+    }
 }
 
 impl Clone for ActionTracker {
     fn clone(&self) -> Self {
         let actions = self.actions.lock();
         Self {
-            actions: Mutex::new(actions.clone()),
+            actions: Arc::new(Mutex::new(actions.clone())),
         }
     }
 }

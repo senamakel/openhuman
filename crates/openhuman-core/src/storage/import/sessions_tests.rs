@@ -200,3 +200,28 @@ fn a_stem_names_the_agent_it_was_written_by() {
     );
     assert_eq!(agent_of("plain", &known), None);
 }
+
+#[test]
+fn database_import_totals_source_families_not_derived_fts_rows() {
+    let counts = |read, imported| ImportCounts {
+        read,
+        imported,
+        already_present: read - imported,
+    };
+    let report = LegacyDatabaseReport {
+        sessions: counts(1, 1),
+        messages: counts(2, 1),
+        tool_calls: counts(3, 2),
+        agent_runs: counts(4, 3),
+        telemetry: counts(5, 4),
+        events: counts(6, 5),
+        workflow_runs: counts(7, 6),
+        teams: counts(8, 7),
+        members: counts(9, 8),
+        tasks: counts(10, 9),
+        tool_effects: counts(11, 10),
+        fts_rows: 1_000,
+    };
+
+    assert_eq!(database_totals(&report), (66, 56));
+}

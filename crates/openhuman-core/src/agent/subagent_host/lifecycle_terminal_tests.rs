@@ -68,6 +68,7 @@ async fn driver_cancel_uses_the_typed_terminal_for_lossy_idle_sessions() {
                 "typed-completed" => SubagentRunStatus::Completed,
                 _ => SubagentRunStatus::Incomplete {
                     reason: "iteration cap".into(),
+                    failure_cause: None,
                 },
             },
             Vec::new(),

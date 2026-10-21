@@ -74,6 +74,8 @@ pub mod documents;
 pub mod event_queues;
 #[cfg(feature = "modules")]
 pub mod linked;
+#[path = "documents/memory_converter.rs"]
+pub(crate) mod memory_converter;
 #[cfg(feature = "modules")]
 pub mod ops;
 #[cfg(feature = "modules")]

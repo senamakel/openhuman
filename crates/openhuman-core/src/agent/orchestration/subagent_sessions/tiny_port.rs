@@ -276,6 +276,7 @@ impl TinySessionStore for OpenHumanTinySubagentSessionStore {
         let status = match status {
             TinyStatus::Running => crate::agent::subagent_host::SubagentRunStatus::Incomplete {
                 reason: "still running".into(),
+                failure_cause: None,
             },
             TinyStatus::Idle => crate::agent::subagent_host::SubagentRunStatus::Completed,
             TinyStatus::AwaitingUser => {

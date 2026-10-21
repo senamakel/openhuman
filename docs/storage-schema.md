@@ -139,20 +139,6 @@ Migration steps:
 
 - `records_v2`: `cost.records` v1 to v2 from `cost_records`
 
-## cron
-
-| Kind | Name | Version | Scope | Indexed fields |
-| --- | --- | --- | --- | --- |
-| collection | `cron.admission` | 2 | tenant |  |
-| collection | `cron.jobs` | 2 | tenant | `next_run_ms`, `enabled`, `next_run_ms`, `name`, `job_type`, `command` |
-| collection | `cron.runs` | 2 | tenant | `job_id`, `started_ms`, `seq` |
-
-Migration steps:
-
-- `jobs_v2`: `cron.jobs` v1 to v2 from `cron_jobs`
-- `runs_v2`: `cron.runs` v1 to v2 from `cron_runs`
-- `admission_v2`: `cron.admission` v1 to v2 from `cron_counters`
-
 ## devices
 
 | Kind | Name | Version | Scope | Indexed fields |
@@ -162,36 +148,6 @@ Migration steps:
 Migration steps:
 
 - `paired_v2`: `devices.paired` v1 to v2 from `paired_devices`
-
-## flows
-
-| Kind | Name | Version | Scope | Indexed fields |
-| --- | --- | --- | --- | --- |
-| collection | `flows.definitions` | 2 | tenant | `enabled`, `created_ms` |
-| collection | `flows.drafts` | 2 | tenant | `updated_ms` |
-| collection | `flows.revisions` | 2 | tenant | `flow_id`, `created_ms` |
-| collection | `flows.runs` | 2 | tenant | `flow_id`, `started_ms`, `status`, `started_ms`, `started_ms` |
-| collection | `flows.suggestions` | 2 | tenant | `status`, `created_ms` |
-| collection | `flows.workflow_notes` | 2 | tenant |  |
-| collection | `flows.workflow_proposals` | 2 | tenant | `workflow_id`, `created_ms` |
-| collection | `flows.workflow_quarantine` | 2 | tenant |  |
-| collection | `flows.workflow_revisions` | 2 | tenant | `workflow_id`, `superseded_ms` |
-| collection | `flows.workflow_runs` | 2 | tenant | `workflow_id`, `started_ms`, `settled`, `started_ms` |
-| collection | `flows.workflows` | 2 | tenant |  |
-
-Migration steps:
-
-- `definitions_v2`: `flows.definitions` v1 to v2 from `flows_definitions`
-- `revisions_v2`: `flows.revisions` v1 to v2 from `flows_revisions`
-- `runs_v2`: `flows.runs` v1 to v2 from `flows_runs`
-- `suggestions_v2`: `flows.suggestions` v1 to v2 from `flows_suggestions`
-- `drafts_v2`: `flows.drafts` v1 to v2 from `flows_drafts`
-- `workflows_v2`: `flows.workflows` v1 to v2 from `wf_definitions`
-- `workflow_revisions_v2`: `flows.workflow_revisions` v1 to v2 from `wf_revisions`
-- `workflow_runs_v2`: `flows.workflow_runs` v1 to v2 from `wf_runs`
-- `workflow_notes_v2`: `flows.workflow_notes` v1 to v2 from `wf_notes`
-- `workflow_proposals_v2`: `flows.workflow_proposals` v1 to v2 from `wf_proposals`
-- `workflow_quarantine_v2`: `flows.workflow_quarantine` v1 to v2 from `wf_quarantine`
 
 ## graph
 

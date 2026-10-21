@@ -63,7 +63,7 @@ pub(crate) const COMPACTION_EXEMPT_TOOLS: &[&str] = &[
 
 /// Tools whose results the model reads to derive an exact schema (e.g.
 /// `primary_array_path` / `output_fields`) from a *real* sampled tool
-/// response, per the B12 output-probe contract (`flows::builder_tools`).
+/// response, per the B12 output-probe contract (`integrations::composio::builder_tools`).
 /// TokenJuice's array-elision tabulation defeats their purpose outright — a
 /// tabulated sample hides the very array shape the model is calling the tool
 /// to observe, so it derives a wrong or nonexistent `split_out.path` from the

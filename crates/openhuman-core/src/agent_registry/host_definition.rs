@@ -65,6 +65,10 @@ pub struct AgentExt {
     /// Runtime only: never serialised and not authorable in TOML.
     #[serde(skip)]
     pub prompt_builder: Option<PromptBuilder>,
+    /// Original builtin archetype whose prompt is loaded through TinyFlows.
+    /// Runtime only: actor ids may change when an embedder clones a builtin.
+    #[serde(skip)]
+    pub tinyflows_prompt_owner: Option<String>,
 }
 
 impl Default for AgentExt {
@@ -76,6 +80,7 @@ impl Default for AgentExt {
             tokenjuice_compression: AgentTokenjuiceCompression::default(),
             searches_connected_mcp: false,
             prompt_builder: None,
+            tinyflows_prompt_owner: None,
         }
     }
 }

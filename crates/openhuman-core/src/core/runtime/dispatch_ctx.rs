@@ -160,6 +160,20 @@ impl DispatchCtx {
         self.resolved().and_then(|core| core.agent_policy())
     }
 
+    /// Source binding for live autonomy-tier decisions under this dispatch.
+    pub fn autonomy_tier_source(&self) -> super::AutonomyTierSource {
+        self.resolved()
+            .map_or(super::AutonomyTierSource::Captured, |core| {
+                core.autonomy_tier_source()
+            })
+    }
+
+    /// Fixed autonomy ceiling inherited by this dispatch, if any.
+    pub fn autonomy_tier_ceiling(&self) -> Option<crate::security::AutonomyLevel> {
+        self.resolved()
+            .and_then(|core| core.autonomy_tier_ceiling())
+    }
+
     /// Whether the interactive approval gate is off for the agent this call
     /// runs for.
     pub fn approvals_disabled(&self) -> bool {

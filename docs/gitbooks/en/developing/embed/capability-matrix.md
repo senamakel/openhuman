@@ -30,4 +30,3 @@ This matrix comes from the default-feature compiled capability-report example. R
 | `tinymemes` | Yes |
 | `voice` | No |
 | `web3` | No |
-| `whatsapp-web` | No |

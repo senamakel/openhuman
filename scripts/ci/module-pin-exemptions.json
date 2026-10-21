@@ -9,13 +9,7 @@
     "is a deliberate edit to this file, which is a reviewable diff.",
     "",
     "Delete an entry the moment the pins are reconciled. An exemption that has",
-    "stopped being true fails the gate too — `expect` must still match."
+    "stopped being true fails the gate too \u2014 `expect` must still match."
   ],
-  "exemptions": [
-    {
-      "id": "tinyflows",
-      "expect": "v0.8.23-92-gcad43f97",
-      "reason": "Storage schema v2 (epic #7973): the gitlink sits past the registry's released tag on the merged upstream commit carrying the uniform storage schema. Re-pin both once a release carrying it is cut; retire this entry then."
-    }
-  ]
+  "exemptions": []
 }

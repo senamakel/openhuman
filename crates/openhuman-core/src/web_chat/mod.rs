@@ -27,6 +27,7 @@
 //! contract), `types.rs` (shared param/state types).
 
 mod channel_event;
+pub(crate) mod citations;
 mod egress_surface;
 mod event_bus;
 mod event_bus_channel;
@@ -61,6 +62,7 @@ pub use channel_event::{
     ChatSuggestion, GuardrailPayload, GuardrailReason, QueueItemPayload, SubagentProgressDetail,
     SubagentUsagePayload, TurnTimingPayload, TurnUsagePayload, WebChannelEvent,
 };
+pub use citations::{TurnCitation, TURN_CITATION_SNIPPET_CHARS};
 pub use egress_surface::register_egress_surface_subscriber;
 pub use event_bus::{
     approval_request_event, plan_review_request_event, publish_web_channel_event,

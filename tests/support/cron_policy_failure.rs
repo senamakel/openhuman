@@ -38,8 +38,9 @@ mod policy {
         set_policy(config, job_id, JobPolicy::default())
     }
 }
-/// A job's policy is a field of its job document.
-const JOBS: &str = "cron_jobs";
+/// A job's policy is a field of its job document, in the schedule module's
+/// `cron.jobs` collection (`cron_jobs` is only the retired v1 source).
+const JOBS: &str = "cron.jobs";
 const BACKEND_DETAIL: &str = "mongodb://policy-user:secret@backend/private-payload";
 
 #[derive(Debug, Default)]
@@ -326,18 +327,13 @@ async fn policy_reads_refuse_execution_without_consuming_a_slot() {
     // Force the persisted occurrence into the past through its actual document port.
     CoreContext::scope(Arc::clone(&alpha), async {
         let docs = storage::current_scoped().unwrap().unwrap();
-        let mut stored = docs
-            .documents()
-            .get("cron_jobs", &job.id)
-            .await
-            .unwrap()
-            .unwrap();
+        let mut stored = docs.documents().get(JOBS, &job.id).await.unwrap().unwrap();
         let due = chrono::Utc::now() - chrono::Duration::seconds(1);
         stored.doc["next_run"] = json!(due.to_rfc3339());
         stored.doc["next_run_ms"] = json!(due.timestamp_millis());
         stored.doc["next_run_ns"] = json!(due.timestamp_nanos_opt().unwrap());
         docs.documents()
-            .put("cron_jobs", &job.id, stored.doc, Precondition::None)
+            .put(JOBS, &job.id, stored.doc, Precondition::None)
             .await
             .unwrap();
     })

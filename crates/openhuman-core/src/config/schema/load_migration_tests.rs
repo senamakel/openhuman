@@ -247,7 +247,7 @@ backend = "sqlite"
     let off = crate::memory::engine::resolve(&config)
         .engine()
         .unwrap_err();
-    assert_eq!(off.code(), crate::memory::error::MEMORY_OFF);
+    assert_eq!(off.code(), "MEMORY_OFF");
     assert!(off.to_string().contains("legacy memory backend"));
     config.save().await.unwrap();
 
@@ -268,7 +268,7 @@ backend = "sqlite"
     let off = crate::memory::engine::resolve(&reloaded)
         .engine()
         .unwrap_err();
-    assert_eq!(off.code(), crate::memory::error::MEMORY_OFF);
+    assert_eq!(off.code(), "MEMORY_OFF");
     assert!(off.to_string().contains("legacy memory backend"));
 }
 

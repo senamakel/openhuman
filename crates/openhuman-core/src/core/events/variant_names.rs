@@ -36,7 +36,6 @@ impl DomainEvent {
             Self::ChannelDisconnected { .. } => "ChannelDisconnected",
             Self::CronJobTriggered { .. } => "CronJobTriggered",
             Self::CronJobCompleted { .. } => "CronJobCompleted",
-            Self::CronDeliveryRequested { .. } => "CronDeliveryRequested",
             Self::ProactiveMessageRequested { .. } => "ProactiveMessageRequested",
             Self::CronSystemJobDue { .. } => "CronSystemJobDue",
             Self::FlowRunProgress { .. } => "FlowRunProgress",

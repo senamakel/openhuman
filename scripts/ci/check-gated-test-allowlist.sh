@@ -38,7 +38,6 @@ core/invoke_tests.rs
 core/legacy_aliases_tests.rs
 core/runtime/services.rs
 core/runtime/subscribers.rs
-inference/provider/factory.rs
 mcp/server/resources.rs
 mcp/ui/tools.rs
 mcp/server/tools/mod.rs
@@ -56,7 +55,6 @@ mcp/host.rs
 modules/registry_contract_tests.rs
 modules/registry.rs
 security/credentials/ops/credential.rs
-storage/boot.rs
 storage/import/tinyflows.rs
 storage/schema.rs
 skills/bundled/mod.rs
@@ -87,6 +85,20 @@ channels/mod.rs
 mcp/host.rs
 modules/registry_contract_tests.rs
 modules/registry.rs
+memory/ops.rs
+memory/ops_tests.rs
+agent/prompts/mod.rs
+agent/session_host/runtime_session_flow_prompt_tests.rs
+agent/subagent_host/ops/runner_flow_prompt_tests.rs
+agent_registry/agents/fleet_prompt_tests.rs
+agent_registry/agents/mod.rs
+core/agent_cli/debug/mod.rs
+core/agent_cli/debug/mod_tests.rs
+core/runtime/services_tests.rs
+integrations/composio/ops/mod.rs
+mcp/server/resources_tests.rs
+modules/tinyflows.rs
+skills/ops_discover.rs
 EOF
 )
 

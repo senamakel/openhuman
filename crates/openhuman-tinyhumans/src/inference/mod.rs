@@ -136,11 +136,14 @@ fn build_chat_model_for_inspection(
         crate::backend::url::effective_api_url(request.config.api_url.as_deref())
             .trim_end_matches('/')
     );
-    let model =
-        OpenHumanBackendModel::new(request.config.api_url.as_deref(), &options, default_model.clone())
-            .with_native_tool_calling(request.native_tool_calling)
-            .with_thread_id(request.thread_id)
-            .with_inspection_bearer(bearer);
+    let model = OpenHumanBackendModel::new(
+        request.config.api_url.as_deref(),
+        &options,
+        default_model.clone(),
+    )
+    .with_native_tool_calling(request.native_tool_calling)
+    .with_thread_id(request.thread_id)
+    .with_inspection_bearer(bearer);
     Ok(InspectionChatModelBuild {
         model: Arc::new(model),
         model_id: default_model,

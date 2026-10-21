@@ -25,8 +25,10 @@ pub(crate) mod plan_exit;
 // with the `skills` gate so the tool list OMITS these rather than degrading
 // them to a disabled-error.
 mod todo;
+mod wait;
 
 pub use plan_exit::PlanExitTool;
 pub const PLAN_EXIT_MARKER: &str = tinyagents_harness_tools::PLAN_EXIT_MARKER;
 pub use todo::TodoTool;
+pub use wait::{WaitLoopTool, WaitTool};
 pub(crate) use todo::TodoToolDispatch;

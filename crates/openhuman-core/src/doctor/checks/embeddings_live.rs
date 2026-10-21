@@ -41,18 +41,30 @@ impl DoctorCheck for EmbeddingsLiveCheck {
         }
 
         match probe_dimensions_for_inspection(config).await {
-            Ok(dimensions) if dimensions.actual == dimensions.configured => vec![Finding::pass(
-                self.id(),
-                "The configured embedding provider returned the expected vector dimensions.",
-            )],
-            Ok(dimensions) => vec![Finding::error(
-                self.id(),
-                format!(
-                    "The embedding provider returned {} dimensions; the configuration requests {}.",
-                    dimensions.actual, dimensions.configured
-                ),
-                "Select a model that matches the configured vector dimensions, or update the configured dimensions.",
-            )],
+            Ok(dimensions) if dimensions.actual > 0 && dimensions.actual == dimensions.configured => {
+                vec![Finding::pass(
+                    self.id(),
+                    "The configured embedding provider returned the expected vector dimensions.",
+                )]
+            }
+            Ok(dimensions) => {
+                let message = if dimensions.actual == 0 {
+                    format!(
+                        "The embedding provider returned an empty vector (0 dimensions); the configuration requests {}.",
+                        dimensions.configured
+                    )
+                } else {
+                    format!(
+                        "The embedding provider returned {} dimensions; the configuration requests {}.",
+                        dimensions.actual, dimensions.configured
+                    )
+                };
+                vec![Finding::error(
+                    self.id(),
+                    message,
+                    "Select a model that matches the configured vector dimensions, or update the configured dimensions.",
+                )]
+            }
             Err(error) => vec![finding_for_error(self.id(), error)],
         }
     }

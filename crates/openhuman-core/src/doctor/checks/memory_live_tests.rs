@@ -5,7 +5,10 @@ use crate::core::slots::Extensions;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, FindingSeverity};
 use crate::memory::test_fixtures::stored;
 use async_trait::async_trait;
-use std::sync::{Arc, Mutex};
+use std::sync::{
+    Arc, Mutex,
+    atomic::{AtomicUsize, Ordering},
+};
 use tempfile::TempDir;
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
@@ -481,4 +484,57 @@ async fn cancelling_an_ambiguous_store_cleans_up_using_the_precomputed_id() {
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
     assert_eq!(remaining.len(), 1);
     assert_eq!(remaining[0].id, real_id);
+}
+
+#[tokio::test]
+async fn inspection_binding_rejects_disabled_and_unregistered_engines_without_fallback() {
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let mut config = config_in(&tmp);
+    config.components.memory = false;
+    assert!(matches!(
+        crate::memory::engine::resolve_read_only_for_inspection(&config).await,
+        Err(crate::memory::engine_registry::ReadOnlyEngineError::ComponentDisabled)
+    ));
+
+    config.components.memory = true;
+    config.memory.engine = format!("doctor-unregistered-{}", uuid::Uuid::new_v4().simple());
+    assert!(matches!(
+        crate::memory::engine::resolve_read_only_for_inspection(&config).await,
+        Err(crate::memory::engine_registry::ReadOnlyEngineError::UnsupportedEngine)
+    ));
+}
+
+#[tokio::test]
+async fn inspection_engine_factories_are_called_for_each_live_probe_without_caching() {
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let mut config = config_in(&tmp);
+    let engine_id = format!("doctor-uncached-{}", uuid::Uuid::new_v4().simple());
+    config.memory.engine = engine_id.clone();
+    let calls = Arc::new(AtomicUsize::new(0));
+    let factory_calls = Arc::clone(&calls);
+    let factory: crate::memory::engine_registry::ReadOnlyEngineFactory = Arc::new(move |_| {
+        factory_calls.fetch_add(1, Ordering::SeqCst);
+        let engine: Arc<dyn MemoryEngine> = Arc::new(ReferenceEngine::new());
+        Box::pin(async move { Ok(engine) })
+    });
+    let extensions = Extensions::new();
+    crate::memory::engine_registry::register_read_only_engine_factory_in(
+        &extensions,
+        engine_id,
+        factory,
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+
+    CoreContext::scope(context, async {
+        let first = crate::memory::engine::resolve_read_only_for_inspection(&config)
+            .await
+            .expect("first selected-config inspection bind");
+        let second = crate::memory::engine::resolve_read_only_for_inspection(&config)
+            .await
+            .expect("second selected-config inspection bind");
+        assert!(!Arc::ptr_eq(&first, &second));
+    })
+    .await;
+
+    assert_eq!(calls.load(Ordering::SeqCst), 2);
 }

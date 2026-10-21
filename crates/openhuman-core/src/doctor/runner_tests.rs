@@ -3,13 +3,6 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
-#[cfg(unix)]
-use std::os::unix::fs::PermissionsExt;
-#[cfg(unix)]
-use std::path::PathBuf;
-#[cfg(unix)]
-use tempfile::TempDir;
-
 use crate::config::Config;
 use crate::core::runtime::{ComponentSet, CoreContext, DomainSet};
 use crate::core::slots::Extensions;

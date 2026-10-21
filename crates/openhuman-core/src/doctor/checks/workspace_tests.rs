@@ -1,5 +1,7 @@
 use super::*;
 
+use crate::core::runtime::{CoreContext, DomainSet};
+use crate::core::slots::Extensions;
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
 
 fn config_in(root: &std::path::Path) -> crate::config::Config {
@@ -9,16 +11,67 @@ fn config_in(root: &std::path::Path) -> crate::config::Config {
 }
 
 async fn run_only(config: crate::config::Config, id: &str) -> crate::doctor::DoctorReport {
-    crate::doctor::runner::run(
-        &DoctorCtx::from_config(config),
-        DoctorOptions {
-            tier: DoctorTier::Static,
-            only: vec![id.to_owned()],
-            ..DoctorOptions::default()
-        },
-    )
+    let core = CoreContext::for_test_with_extensions(DomainSet::full(), None, Extensions::new());
+    CoreContext::scope(core, async move {
+        crate::doctor::runner::run(
+            &DoctorCtx::from_config(config),
+            DoctorOptions {
+                tier: DoctorTier::Static,
+                only: vec![id.to_owned()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
     .await
     .expect("selected workspace check should be in the report")
+}
+
+#[cfg(unix)]
+struct ReadOnlyWorkspace {
+    temp: tempfile::TempDir,
+    original_mode: u32,
+}
+
+#[cfg(unix)]
+impl ReadOnlyWorkspace {
+    fn new() -> Self {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp = tempfile::tempdir().expect("read-only workspace fixture");
+        let path = temp.path();
+        let original_mode = std::fs::metadata(path)
+            .expect("workspace metadata")
+            .permissions()
+            .mode();
+        let mut permissions = std::fs::metadata(path)
+            .expect("workspace metadata")
+            .permissions();
+        permissions.set_mode(original_mode & !0o222);
+        std::fs::set_permissions(path, permissions).expect("make workspace read-only");
+        Self {
+            temp,
+            original_mode,
+        }
+    }
+
+    fn path(&self) -> &std::path::Path {
+        self.temp.path()
+    }
+}
+
+#[cfg(unix)]
+impl Drop for ReadOnlyWorkspace {
+    fn drop(&mut self) {
+        use std::os::unix::fs::PermissionsExt;
+
+        let mut permissions = std::fs::metadata(self.temp.path())
+            .expect("workspace exists while restoring permissions")
+            .permissions();
+        permissions.set_mode(self.original_mode);
+        std::fs::set_permissions(self.temp.path(), permissions)
+            .expect("restore permissions before temporary cleanup");
+    }
 }
 
 #[cfg(unix)]
@@ -98,6 +151,41 @@ async fn writable_probe_succeeds_and_leaves_the_selected_workspace_unchanged() {
         finding.check_id == "workspace/writable" && finding.severity == FindingSeverity::Pass
     }));
     assert_eq!(before, tree_snapshot(&fixture.path().join("workspace")));
+}
+
+#[cfg(unix)]
+#[tokio::test]
+async fn read_only_workspace_is_reported_by_the_native_writable_check() {
+    let workspace = ReadOnlyWorkspace::new();
+    let before = tree_snapshot(workspace.path());
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = workspace.path().to_path_buf();
+
+    let report = run_only(config, "workspace/writable").await;
+    let after = tree_snapshot(workspace.path());
+
+    assert_eq!(
+        before, after,
+        "the static probe must clean up its scratch file"
+    );
+    assert!(report
+        .checks_run
+        .iter()
+        .any(|id| id == "workspace/writable"));
+    assert!(!report
+        .findings
+        .iter()
+        .any(|finding| finding.check_id == "doctor/selection"));
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "workspace/writable")
+        .expect("native workspace check produces a finding");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(finding
+        .message
+        .contains(&workspace.path().display().to_string()));
+    assert!(!finding.fix_hint.trim().is_empty());
 }
 
 #[tokio::test]

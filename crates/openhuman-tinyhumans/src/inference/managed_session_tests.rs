@@ -131,12 +131,18 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     let temp = tempfile::tempdir().expect("temporary selected credential workspace");
     let invoke_addr = spawn_inspection_401_server(false).await;
     let stream_addr = spawn_inspection_401_server(true).await;
-    let mut config = Config::default();
-    config.workspace_dir = temp.path().to_owned();
-    config.action_dir = temp.path().to_owned();
-    config.config_path = temp.path().join("config.toml");
-    config.api_url = Some(format!("http://{invoke_addr}"));
-    config.secrets.encrypt = false;
+    let config = Config {
+        workspace_dir: temp.path().to_owned(),
+        action_dir: temp.path().to_owned(),
+        config_path: temp.path().join("config.toml"),
+        api_url: Some(format!("http://{invoke_addr}")),
+        secrets: {
+            let mut secrets = Config::default().secrets;
+            secrets.encrypt = false;
+            secrets
+        },
+        ..Config::default()
+    };
     let auth_profile_path = temp.path().join("auth-profiles.json");
     // Keep the fixture in the selected profile's portable JSON store. The
     // ordinary AuthService may choose a machine-global secret backend, while

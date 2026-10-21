@@ -6,6 +6,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         host_kind: HostKind::Cli,
         workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
             workspace_dir: Some(PathBuf::from(dir)),
+            config_path: None,
         }))),
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),
@@ -367,6 +368,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         host_kind: HostKind::Cli,
         workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
             workspace_dir: None,
+            config_path: None,
         }))),
         domains: crate::core::runtime::DomainSet::full(),
         tool_groups: Default::default(),

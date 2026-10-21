@@ -333,6 +333,7 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
     use axum::{extract::State, routing::post, Json, Router};
     use std::sync::atomic::AtomicUsize;
     use tempfile::TempDir;
+    use tinymemory_api::{MemoryEngine, conformance::ReferenceEngine};
 
     let tmp = TempDir::new().expect("temporary config and workspace");
     let workspace = tmp.path().join("workspace");
@@ -363,24 +364,47 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
     };
     config.memory.embedding_provider = "ollama".to_owned();
     config.memory.embedding_model = "nomic-embed-text".to_owned();
+    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_owned();
     config.local_ai.base_url = Some(endpoint);
-    let ctx = DoctorCtx::from_config(config);
+    let memory_factory_calls = Arc::new(AtomicUsize::new(0));
+    let factory_calls = Arc::clone(&memory_factory_calls);
+    let inspection_factory: crate::memory::engine_registry::ReadOnlyEngineFactory =
+        Arc::new(move |_| {
+            factory_calls.fetch_add(1, Ordering::SeqCst);
+            let engine: Arc<dyn MemoryEngine> = Arc::new(ReferenceEngine::new());
+            Box::pin(async move { Ok(engine) })
+        });
+    let extensions = Extensions::new();
+    crate::memory::engine_registry::register_read_only_engine_factory_in(
+        &extensions,
+        crate::memory::engine::TINYHUMANS_ENGINE,
+        inspection_factory,
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
 
-    let report = runner::run(
-        &ctx,
-        DoctorOptions {
-            tier: DoctorTier::Connect,
-            only: vec![
-                "embeddings/live".to_owned(),
-                "memory/roundtrip".to_owned(),
-            ],
-            ..DoctorOptions::default()
-        },
-    )
-    .await
-    .expect("connect-only report");
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(config),
+            DoctorOptions {
+                tier: DoctorTier::Connect,
+                only: vec![
+                    "embeddings/live".to_owned(),
+                    "memory/roundtrip".to_owned(),
+                ],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+        .expect("connect-only report")
+    })
+    .await;
 
     assert_eq!(calls.load(Ordering::SeqCst), 0, "live embedding was not invoked");
+    assert_eq!(
+        memory_factory_calls.load(Ordering::SeqCst),
+        0,
+        "live memory was not bound"
+    );
     assert!(report
         .checks_skipped
         .contains(&"embeddings/live".to_owned()));

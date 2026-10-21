@@ -60,3 +60,19 @@ fn health_withholds_bare_secrets_and_local_paths() {
         assert!(finding[0].message.contains("details are withheld"));
     }
 }
+
+#[test]
+fn hosted_memory_binding_requires_a_registered_host_adapter() {
+    assert!(!binding_supported(
+        crate::memory::engine::TINYHUMANS_ENGINE,
+        false
+    ));
+    assert!(binding_supported(
+        crate::memory::engine::TINYHUMANS_ENGINE,
+        true
+    ));
+    assert!(binding_supported(
+        crate::memory::engine::CORTEXDB_ENGINE,
+        false
+    ));
+}

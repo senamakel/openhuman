@@ -57,6 +57,10 @@ mod config_file_tests;
 mod runner_tests;
 
 #[cfg(test)]
+#[path = "connectivity_tests.rs"]
+mod connectivity_tests;
+
+#[cfg(test)]
 #[path = "checks/config_provenance_tests.rs"]
 mod config_provenance_tests;
 

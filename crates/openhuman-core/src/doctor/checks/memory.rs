@@ -54,11 +54,10 @@ impl DoctorCheck for BindingCheck {
                 "Select a memory engine to enable memory.",
             )];
         }
-        let known = matches!(
+        if !binding_supported(
             engine,
-            crate::memory::engine::TINYHUMANS_ENGINE | crate::memory::engine::CORTEXDB_ENGINE
-        ) || crate::memory::engine_registry::lookup(engine).is_some();
-        if !known {
+            crate::memory::engine_registry::lookup(engine).is_some(),
+        ) {
             return vec![Finding::error(
                 self.id(),
                 "The selected memory engine is not available in this build.",
@@ -70,6 +69,10 @@ impl DoctorCheck for BindingCheck {
             "A supported memory engine is selected in the effective configuration.",
         )]
     }
+}
+
+fn binding_supported(engine: &str, registered: bool) -> bool {
+    engine == crate::memory::engine::CORTEXDB_ENGINE || registered
 }
 
 struct HealthCheck;

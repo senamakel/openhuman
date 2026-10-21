@@ -222,7 +222,10 @@ async fn models_tool_reports_each_configured_catalog_outcome() {
     assert_eq!(available["outcome"], "Ok");
     assert_eq!(available["message"], "Catalog returned 1 models.");
     assert_eq!(missing["outcome"], "Skipped");
-    assert_eq!(missing["message"], "Provider does not expose a models catalog.");
+    assert_eq!(
+        missing["message"],
+        "Provider does not expose a models catalog."
+    );
     assert_eq!(report["summary"]["ok"], 1);
     assert_eq!(report["summary"]["skipped"], 1);
     assert_eq!(report["summary"]["errors"], 0);

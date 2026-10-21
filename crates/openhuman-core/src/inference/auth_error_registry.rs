@@ -142,7 +142,13 @@ pub fn snapshot_for_scope(
         tenant: tenant.unwrap_or_default().to_owned(),
     };
     let origins = origins().lock().unwrap_or_else(|error| error.into_inner());
-    let mut has_unscoped = origins.values().any(|origin| origin.unscoped);
+    let mut has_unscoped = origins.values().any(|origin| {
+        origin.unscoped
+            || origin
+                .scopes
+                .iter()
+                .any(|scope| scope.config_path.is_none())
+    });
     let errors = registry()
         .snapshot()
         .into_iter()

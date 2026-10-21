@@ -377,7 +377,7 @@ impl CoreContext {
             .workspace_binding
             .write()
             .map_err(|e| format!("workspace rebind failed: binding handle lock poisoned: {e}"))?;
-        let binding_arc = Arc::clone(&binding_handle);
+        let binding_arc = Arc::clone(&*binding_handle);
         let mut binding = binding_arc
             .write()
             .map_err(|e| format!("workspace rebind failed: binding lock poisoned: {e}"))?;

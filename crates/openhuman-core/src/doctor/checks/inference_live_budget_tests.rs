@@ -1,12 +1,12 @@
 //! Output-budget capability tests for live inference checks.
 
-use super::inference_live::{LiveProbeCache, probe_prepared_model};
+use super::inference_live::{probe_prepared_model, LiveProbeCache};
 use crate::doctor::FindingSeverity;
 use crate::inference::provider::factory::{
     InspectionOutputBudgetCapability, InspectionRequestIdentity, PreparedInspectionChatModel,
 };
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Arc;
 use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
 struct InvocationCounter(Arc<AtomicUsize>);

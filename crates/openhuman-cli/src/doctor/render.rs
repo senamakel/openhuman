@@ -2,6 +2,7 @@ use serde_json::Value;
 
 use super::args::DoctorArgs;
 
+#[cfg(test)]
 pub(super) fn render_table(report: &Value) -> String {
     render(report, None)
 }

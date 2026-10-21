@@ -249,7 +249,7 @@ async fn timed_out_blocking_checks_keep_the_concurrency_slot_until_the_worker_ex
 }
 
 #[tokio::test]
-async fn memory_checks_are_skipped_when_the_memory_component_is_disabled() {
+async fn memory_binding_and_health_checks_are_skipped_when_the_component_is_disabled() {
     let mut components = ComponentSet::all();
     components.memory = false;
     let context = DoctorCtx::from_config(Config::default()).with_components(components);
@@ -257,17 +257,22 @@ async fn memory_checks_are_skipped_when_the_memory_component_is_disabled() {
         &context,
         DoctorOptions {
             tier: DoctorTier::Connect,
-            only: vec!["memory/engine".into()],
+            only: vec!["memory/binding".into(), "memory/health".into()],
             ..DoctorOptions::default()
         },
     )
     .await
     .expect("component-gated check is represented as skipped");
 
-    assert_eq!(report.checks_skipped, vec!["memory/engine".to_owned()]);
-    assert!(report.findings.iter().any(|finding| {
-        finding.check_id == "memory/engine" && finding.severity == FindingSeverity::Skipped
-    }));
+    assert_eq!(
+        report.checks_skipped,
+        ["memory/binding", "memory/health"].map(str::to_owned)
+    );
+    for check_id in ["memory/binding", "memory/health"] {
+        assert!(report.findings.iter().any(|finding| {
+            finding.check_id == check_id && finding.severity == FindingSeverity::Skipped
+        }));
+    }
 }
 
 #[tokio::test]

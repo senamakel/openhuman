@@ -313,6 +313,7 @@ impl SocketManager {
     /// was handed at spawn — a provider that refreshes the session mid-loop
     /// keeps matching instead of forcing a pointless reconnect.
     pub fn is_live_for(&self, url: &str, token: &str) -> bool {
+        let identity = self.shared.connection_identity.read();
         let status = *self.shared.status.read();
         let serving = match status {
             ConnectionStatus::Connected => true,
@@ -320,10 +321,7 @@ impl SocketManager {
             _ => false,
         };
         serving
-            && self
-                .shared
-                .connection_identity
-                .read()
+            && identity
                 .as_ref()
                 .is_some_and(|(u, t)| u == url && t == token)
     }

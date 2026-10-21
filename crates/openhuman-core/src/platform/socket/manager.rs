@@ -318,12 +318,32 @@ impl SocketManager {
     /// `Error`, `Reconnecting`, and `Disconnected` status for readiness
     /// reporting; no matching identity returns `None`.
     pub fn status_for(&self, url: &str, token: &str) -> Option<ConnectionStatus> {
+        self.status_for_with_observer(url, token, || {})
+    }
+
+    fn status_for_with_observer(
+        &self,
+        url: &str,
+        token: &str,
+        after_status_snapshot: impl FnOnce(),
+    ) -> Option<ConnectionStatus> {
         let status = *self.shared.status.read();
+        after_status_snapshot();
         let identity = self.shared.connection_identity.read();
         identity
             .as_ref()
             .is_some_and(|(active_url, active_token)| active_url == url && active_token == token)
             .then_some(status)
+    }
+
+    #[cfg(test)]
+    fn status_for_with_snapshot_observer(
+        &self,
+        url: &str,
+        token: &str,
+        after_status_snapshot: impl FnOnce(),
+    ) -> Option<ConnectionStatus> {
+        self.status_for_with_observer(url, token, after_status_snapshot)
     }
 
     // -----------------------------------------------------------------------

@@ -82,6 +82,14 @@ unsafe extern "C" fn linked_fixture_shutdown(ctx: *mut std::ffi::c_void, _: u64)
     tinybus::module::abi::TB_OK
 }
 
+unsafe extern "C" fn linked_fixture_reinitialize(
+    _: *mut std::ffi::c_void,
+    _: *const u8,
+    _: usize,
+) -> i32 {
+    tinybus::module::abi::TB_BAD_ARGUMENT
+}
+
 unsafe extern "C" fn linked_fixture_init(
     host: *const tinybus::module::abi::TbHostVtable,
     out: *mut tinybus::module::abi::TbModuleVtable,
@@ -147,7 +155,7 @@ unsafe extern "C" fn linked_fixture_init(
             module_ctx: Box::into_raw(Box::new(LinkedFixtureModule { tx })).cast(),
             deliver: linked_fixture_deliver,
             shutdown: linked_fixture_shutdown,
-            reinitialize: None,
+            reinitialize: Some(linked_fixture_reinitialize),
         };
     }
     tinybus::module::abi::TB_OK

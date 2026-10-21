@@ -54,7 +54,7 @@ pub(crate) fn create_chat_model_with_model_id_in_for_inspection(
 /// Build a model for a live inspection call and preserve the exact resolved
 /// endpoint, frozen credential, and wire-model identity used by that model.
 pub(crate) fn create_chat_model_with_identity_in_for_inspection(
-    ctx: &DispatchCtx,
+    _ctx: &DispatchCtx,
     role: &str,
     config: &Config,
     temperature: f64,

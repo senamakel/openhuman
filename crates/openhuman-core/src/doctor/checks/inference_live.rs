@@ -71,13 +71,22 @@ impl DoctorCheck for InferenceLiveCheck {
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let check_id = self.id();
-        let dispatch = inspection_dispatch_context(ctx.config());
-        let built = match create_chat_model_with_identity_in_for_inspection(
-            &dispatch,
-            self.role,
-            ctx.config(),
-            0.0,
-        ) {
+        let selected_config = ctx.config().clone();
+        let dispatch = inspection_dispatch_context(&selected_config);
+        let core = dispatch
+            .core()
+            .expect("inspection dispatch always has a CoreContext")
+            .clone();
+        let built = match crate::core::runtime::CoreContext::scope(core, async {
+            create_chat_model_with_identity_in_for_inspection(
+                &dispatch,
+                self.role,
+                &selected_config,
+                0.0,
+            )
+        })
+        .await
+        {
             Ok(built) => built,
             Err(error) => {
                 return vec![inspection_construction_error(

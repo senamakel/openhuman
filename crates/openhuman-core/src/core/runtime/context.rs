@@ -223,9 +223,9 @@ impl CoreContext {
             overlay.tool_groups,
             overlay.user_skill_roots
         );
-        // A derived context over the parent's workspace shares the parent's
-        // binding handle, so a workspace rebind reaches it. One that carries
-        // another workspace keeps that override.
+        // A derived context over the parent's workspace and config root shares
+        // the binding handle, so a matching workspace rebind reaches it. One
+        // that carries another workspace or config root keeps that override.
         let shared_binding = {
             let parent_handle = self.workspace_binding.read();
             let parent_handle = parent_handle
@@ -235,6 +235,8 @@ impl CoreContext {
             let can_share = parent_handle.as_ref().is_some_and(|handle| {
                 handle.read().ok().is_some_and(|parent| {
                     parent.workspace_dir.as_deref() == Some(overlay.config.workspace_dir.as_path())
+                        && parent.config_path.as_deref()
+                            == Some(overlay.config.config_path.as_path())
                 })
             });
             match (can_share, parent_handle.as_ref()) {

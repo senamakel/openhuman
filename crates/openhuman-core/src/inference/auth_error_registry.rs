@@ -113,14 +113,7 @@ fn origins() -> &'static Mutex<HashMap<String, ErrorOrigins>> {
 
 fn current_scope() -> Option<ScopeIdentity> {
     let context = crate::core::runtime::CoreContext::current()?;
-    let (workspace, config_path) =
-        if let Some(binding) = crate::core::runtime::CoreContext::with_current_embedder_config(
-            |config| (config.workspace_dir.clone(), Some(config.config_path.clone())),
-        ) {
-            binding
-        } else {
-            context.workspace_config_binding().ok()?
-        };
+    let (workspace, config_path) = context.workspace_config_binding().ok()?;
     Some(ScopeIdentity {
         workspace,
         config_path,
@@ -142,13 +135,7 @@ pub fn snapshot_for_scope(
         tenant: tenant.unwrap_or_default().to_owned(),
     };
     let origins = origins().lock().unwrap_or_else(|error| error.into_inner());
-    let mut has_unscoped = origins.values().any(|origin| {
-        origin.unscoped
-            || origin
-                .scopes
-                .iter()
-                .any(|scope| scope.config_path.is_none())
-    });
+    let mut has_unscoped = origins.values().any(|origin| origin.unscoped);
     let errors = registry()
         .snapshot()
         .into_iter()
@@ -156,18 +143,20 @@ pub fn snapshot_for_scope(
             let Some(origin) = origins.get(&error.provider) else {
                 return false;
             };
-            if origin.scopes.contains(&scope) {
-                return true;
-            }
             let partial_match = origin.scopes.iter().any(|recorded| {
                 recorded.config_path.is_none()
                     && recorded.workspace == scope.workspace
                     && recorded.tenant == scope.tenant
             });
+            if partial_match {
+                has_unscoped = true;
+            }
+            if origin.scopes.contains(&scope) {
+                return true;
+            }
             if !partial_match {
                 return false;
             }
-            has_unscoped = true;
             false
         })
         .collect();

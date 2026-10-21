@@ -13,8 +13,8 @@ use tinymemory_tools::layout_migration::{
 use super::state::StateKvMigrationStore;
 use crate::config::{Config, MemoryLayoutMode};
 use crate::memory::engine::{self, CORTEXDB_ENGINE};
-use crate::memory::MemoryError;
 use crate::memory::scope;
+use crate::memory::MemoryError;
 use tinymemory_api::{Error, Result};
 
 /// The app's [`lm::LayoutHost`], bound to one account's config.

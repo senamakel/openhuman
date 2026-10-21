@@ -10,9 +10,7 @@ mod settings;
 
 pub use api_keys::{clear_api_key, set_api_key};
 pub use embed::{embed, test_connection};
-pub(crate) use embed::{
-    probe_dimensions_for_inspection, InspectionEmbeddingDimensions, InspectionEmbeddingError,
-};
+pub(crate) use embed::{probe_dimensions_for_inspection, InspectionEmbeddingError};
 pub use settings::{get_settings, update_settings};
 
 #[cfg(test)]

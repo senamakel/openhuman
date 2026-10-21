@@ -1,7 +1,5 @@
 //! Behaviour tests for the opt-in live inference checks.
 
-use super::*;
-
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::schema::ephemeral_route::{apply as apply_ephemeral_route, EphemeralRoute};
 use crate::config::Config;

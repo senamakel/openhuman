@@ -375,6 +375,44 @@ impl Fixture {
         report
     }
 
+    async fn models(&self, params: Value) -> Value {
+        let before = snapshot_tree(self._home.path());
+        let response = reqwest::Client::new()
+            .post(format!("{}/rpc", self.rpc_base))
+            .header(AUTHORIZATION, format!("Bearer {RPC_TOKEN}"))
+            .json(&json!({
+                "jsonrpc": "2.0",
+                "id": 1,
+                "method": "openhuman.doctor_models",
+                "params": params,
+            }))
+            .send()
+            .await
+            .expect("call doctor models JSON-RPC");
+        assert!(response.status().is_success(), "doctor models transport status");
+        let envelope: Value = response.json().await.expect("doctor models JSON");
+        assert!(envelope.get("error").is_none(), "doctor models RPC succeeded");
+        let result = envelope
+            .get("result")
+            .unwrap_or_else(|| panic!("doctor models RPC has result: {envelope}"));
+        let models = if result.get("logs").is_some() {
+            result
+                .get("result")
+                .unwrap_or_else(|| panic!("doctor models outcome has report: {result}"))
+        } else {
+            result
+        }
+        .clone();
+        assert!(
+            !serde_json::to_string(&models)
+                .expect("serialize doctor models report")
+                .contains(&mock_token()),
+            "the report does not contain the synthetic session token"
+        );
+        assert_unchanged(&before, &snapshot_tree(self._home.path()));
+        models
+    }
+
     fn run_cli(&self, args: &[&str]) -> Output {
         let mut command = Command::new(env!("CARGO_BIN_EXE_openhuman-core"));
         command
@@ -619,6 +657,14 @@ fn ensure_rpc_auth() {
         openhuman_core::core::auth::init_rpc_token_with_value(RPC_TOKEN)
             .expect("initialize in-memory RPC bearer for doctor E2E");
     });
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn models_rpc_inspects_the_selected_profile_without_writing_it() {
+    let fixture = fixture_named("healthy").await;
+    let models = fixture.models(json!({ "use_cache": false })).await;
+    assert!(models["summary"].is_object());
+    assert!(models["entries"].is_array());
 }
 
 #[path = "doctor_e2e/cases.rs"]

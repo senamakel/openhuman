@@ -98,7 +98,7 @@ impl SessionHostBuilder {
 
     /// Retains the host-owned pack handle used by the session's `use_skill`
     /// tool so registry refreshes can rebind its durable and synthesized views.
-    pub(crate) fn pack_registry_handle(
+    pub fn pack_registry_handle(
         mut self,
         handle: Option<tinyagents_harness_tools::skills::PackRegistryHandle>,
     ) -> Self {

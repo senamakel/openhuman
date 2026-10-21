@@ -13,9 +13,25 @@ impl SessionHostBuilder {
     /// setting up the context manager, and initializing the conversation history.
     /// It ensures that all required fields (provider, tools, dispatcher, …) are present.
     pub fn build(self) -> Result<OpenHumanSessionHost> {
+        let mut pack_registry_handle = self.pack_registry_handle.clone();
         let mut tools = self
             .tools
             .ok_or_else(|| anyhow::anyhow!("tools are required"))?;
+        if pack_registry_handle.is_none()
+            && tools
+                .iter()
+                .any(|tool| crate::tools::toolpacks::is_canonical_use_skill_tool(tool.as_ref()))
+        {
+            // Preserve the public `all_tools() -> Vec<_>` then `.tools(...)`
+            // flow: callers that do not receive a handle still get a proxy
+            // bound to this session's registry. Custom `use_skill` tools are
+            // left untouched; they can supply a handle through the builder.
+            tools.retain(|tool| {
+                !crate::tools::toolpacks::is_canonical_use_skill_tool(tool.as_ref())
+            });
+            pack_registry_handle =
+                Some(crate::tools::toolpacks::append_pack_tools(&mut tools));
+        }
         // Advertise only the spawnable ids on the wire: see
         // `SpawnAsyncSubagentTool::scoped` for why the spec-view narrowing
         // alone did not reach a native-tool-calling provider.
@@ -384,7 +400,7 @@ impl SessionHostBuilder {
         let synthesized_tools = Arc::new(synthesized_tools);
         // The pack handle is host-owned and retained beside the registry;
         // rebind it after this Arc is built and after any future refresh.
-        if let Some(handle) = self.pack_registry_handle.as_ref() {
+        if let Some(handle) = pack_registry_handle.as_ref() {
             crate::tools::toolpacks::bind_pack_registry(handle, &tools);
             crate::tools::toolpacks::bind_synthesized_pack_registry(handle, &synthesized_tools);
         }
@@ -400,7 +416,7 @@ impl SessionHostBuilder {
             })),
             turn_model_source,
             tools,
-            pack_registry_handle: self.pack_registry_handle,
+            pack_registry_handle,
             synthesized_tools,
             tool_specs: Arc::new(tool_specs),
             durable_tool_specs: Arc::new(durable_tool_specs),

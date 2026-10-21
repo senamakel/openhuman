@@ -107,7 +107,7 @@ pub fn all_tools_with_runtime(
 /// so later registry refreshes can rebind `use_skill` without inspecting the
 /// tool's generic dispatch extension.
 #[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
-pub(crate) fn all_tools_with_runtime_and_pack_handle(
+pub fn all_tools_with_runtime_and_pack_handle(
     config: Arc<Config>,
     security: &Arc<SecurityPolicy>,
     runtime: Arc<dyn RuntimeAdapter>,

@@ -243,24 +243,6 @@ fn build_agent_with(
     (agent, tmp)
 }
 
-fn build_agent_with_pack_registry(
-    provider: Arc<dyn ChatModel<()>>,
-    tools: Vec<Box<dyn Tool>>,
-    pack_registry_handle: tinyagents_harness_tools::skills::PackRegistryHandle,
-    dispatcher: Box<dyn ToolDialect>,
-) -> (OpenHumanSessionHost, tempfile::TempDir) {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let agent = OpenHumanSessionHost::builder()
-        .chat_model(provider)
-        .tools(tools)
-        .pack_registry_handle(Some(pack_registry_handle))
-        .tool_dispatcher(dispatcher)
-        .workspace_dir(tmp.path().to_path_buf())
-        .build()
-        .unwrap();
-    (agent, tmp)
-}
-
 fn build_agent_with_config(
     provider: Arc<dyn ChatModel<()>>,
     tools: Vec<Box<dyn Tool>>,
@@ -270,25 +252,6 @@ fn build_agent_with_config(
     let agent = OpenHumanSessionHost::builder()
         .chat_model(provider)
         .tools(tools)
-        .tool_dispatcher(Box::new(NativeDialect))
-        .workspace_dir(tmp.path().to_path_buf())
-        .config(config)
-        .build()
-        .unwrap();
-    (agent, tmp)
-}
-
-fn build_agent_with_config_and_pack_registry(
-    provider: Arc<dyn ChatModel<()>>,
-    tools: Vec<Box<dyn Tool>>,
-    config: AgentConfig,
-    pack_registry_handle: tinyagents_harness_tools::skills::PackRegistryHandle,
-) -> (OpenHumanSessionHost, tempfile::TempDir) {
-    let tmp = tempfile::TempDir::new().unwrap();
-    let agent = OpenHumanSessionHost::builder()
-        .chat_model(provider)
-        .tools(tools)
-        .pack_registry_handle(Some(pack_registry_handle))
         .tool_dispatcher(Box::new(NativeDialect))
         .workspace_dir(tmp.path().to_path_buf())
         .config(config)

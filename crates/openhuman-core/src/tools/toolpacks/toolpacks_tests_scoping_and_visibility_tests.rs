@@ -238,7 +238,7 @@ fn rebinding_a_pack_handle_repoints_it_at_the_new_registry() {
 /// not mention a tool that gate will refuse.
 #[test]
 fn a_non_owner_listing_omits_the_tools_the_gate_will_refuse() {
-    let (tools, handle) = registry_with_all(&["build_workflow", "propose_workflow"]);
+    let (_tools, handle) = registry_with_all(&["build_workflow", "propose_workflow"]);
 
     let rendered = tinyagents_harness_tools::skills::render_pack_filtered(
         &CATALOG,
@@ -263,7 +263,7 @@ fn a_non_owner_listing_omits_the_tools_the_gate_will_refuse() {
 /// way out. A bare "no tools available" is the dead end the model retried into.
 #[test]
 fn a_listing_with_nothing_callable_names_the_route_out() {
-    let (tools, handle) = registry_with_all(&["build_workflow", "propose_workflow"]);
+    let (_tools, handle) = registry_with_all(&["build_workflow", "propose_workflow"]);
 
     let route = route_sentence(&["build_workflow".to_string()], &["workflow_builder"]);
     let err = tinyagents_harness_tools::skills::render_pack_filtered(

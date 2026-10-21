@@ -5594,6 +5594,7 @@ dependencies = [
  "tinyagents-definition",
  "tinyagents-graph",
  "tinyagents-harness",
+ "tinyagents-harness-tools",
  "tinyagents-hooks",
  "tinyagents-session",
  "tinybus",

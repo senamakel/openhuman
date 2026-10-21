@@ -159,11 +159,9 @@ fn command_on_path(command: &str, path: Option<&OsStr>, pathext: Option<&OsStr>)
         {
             let direct = directory.join(command);
             direct.is_file()
-                || extensions.iter().any(|extension| {
-                    directory
-                        .join(format!("{command}{extension}"))
-                        .is_file()
-                })
+                || extensions
+                    .iter()
+                    .any(|extension| directory.join(format!("{command}{extension}")).is_file())
         }
 
         #[cfg(unix)]

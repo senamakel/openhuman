@@ -47,13 +47,16 @@ impl DoctorCheck for WorkspaceWritable {
             Ok(probe) => probe,
             Err(_) => {
                 tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "unwritable");
-                return vec![workspace_error(
-                    &format!("The workspace directory `{}` is not writable.", workspace.display()),
-                )];
+                return vec![workspace_error(&format!(
+                    "The workspace directory `{}` is not writable.",
+                    workspace.display()
+                ))];
             }
         };
 
-        let write_result = probe.write_all(b"doctor workspace probe").and_then(|()| probe.sync_all());
+        let write_result = probe
+            .write_all(b"doctor workspace probe")
+            .and_then(|()| probe.sync_all());
         drop(probe);
         let cleanup_result = fs::remove_file(&probe_path);
         match (write_result, cleanup_result) {
@@ -63,18 +66,17 @@ impl DoctorCheck for WorkspaceWritable {
             }
             (Err(_), Ok(())) => {
                 tracing::debug!(target: "doctor", check = WRITABLE_ID, outcome = "write_failed");
-                vec![workspace_error(
-                    &format!("The workspace directory `{}` is not writable.", workspace.display()),
-                )]
+                vec![workspace_error(&format!(
+                    "The workspace directory `{}` is not writable.",
+                    workspace.display()
+                ))]
             }
             (_, Err(_)) => {
                 tracing::warn!(target: "doctor", check = WRITABLE_ID, outcome = "cleanup_failed");
-                vec![workspace_error(
-                    &format!(
-                        "The temporary workspace probe at `{}` could not be removed.",
-                        probe_path.display()
-                    ),
-                )]
+                vec![workspace_error(&format!(
+                    "The temporary workspace probe at `{}` could not be removed.",
+                    probe_path.display()
+                ))]
             }
         }
     }

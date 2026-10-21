@@ -120,7 +120,7 @@ fn has_configured_channel(config: &Config) -> bool {
         || channels.qq.is_some()
         || channels.yuanbao.is_some()
         || channels.relay.is_some()
-    }
+}
 
 fn warning(config_path: &str, message: &str, fix_hint: &str) -> Finding {
     let mut finding = Finding::new(CHECK_ID, FindingSeverity::Warn, message, fix_hint);

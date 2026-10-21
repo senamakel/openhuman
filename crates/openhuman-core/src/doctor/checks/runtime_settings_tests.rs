@@ -40,7 +40,9 @@ async fn former_runtime_settings_findings_keep_their_paths_without_exposing_valu
         temperature: None,
         max_depth: 3,
     };
-    config.agents.insert("private-agent-name".to_owned(), delegate);
+    config
+        .agents
+        .insert("private-agent-name".to_owned(), delegate);
 
     let findings = run_check(config).await;
     let paths = findings
@@ -55,7 +57,10 @@ async fn former_runtime_settings_findings_keep_their_paths_without_exposing_valu
         "model_routes[1].hint",
         "agents[0].model",
     ] {
-        assert!(paths.contains(&path), "missing {path} finding: {findings:#?}");
+        assert!(
+            paths.contains(&path),
+            "missing {path} finding: {findings:#?}"
+        );
     }
     assert!(findings
         .iter()

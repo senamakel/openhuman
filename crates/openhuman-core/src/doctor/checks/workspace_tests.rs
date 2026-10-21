@@ -86,7 +86,10 @@ async fn writable_probe_succeeds_and_leaves_the_selected_workspace_unchanged() {
 
     let report = run_only(config, "workspace/writable").await;
 
-    assert!(report.checks_run.iter().any(|id| id == "workspace/writable"));
+    assert!(report
+        .checks_run
+        .iter()
+        .any(|id| id == "workspace/writable"));
     assert!(!report
         .findings
         .iter()

@@ -45,7 +45,10 @@ fn environment_check_resolves_git_and_curl_from_path_without_running_them() {
     assert!(findings
         .iter()
         .all(|finding| !finding.message.contains("/isolated/home")));
-    assert!(!marker.exists(), "static environment checks must not spawn tools");
+    assert!(
+        !marker.exists(),
+        "static environment checks must not spawn tools"
+    );
 }
 
 #[test]
@@ -61,16 +64,17 @@ fn environment_check_reports_missing_prerequisites_without_echoing_values() {
             && finding.severity == FindingSeverity::Warn
     }));
     assert!(findings.iter().any(|finding| {
-        finding.config_path.as_deref() == Some("SHELL")
-            && finding.severity == FindingSeverity::Warn
+        finding.config_path.as_deref() == Some("SHELL") && finding.severity == FindingSeverity::Warn
     }));
     assert!(findings.iter().any(|finding| {
-        finding.config_path.as_deref() == Some("HOME")
-            && finding.severity == FindingSeverity::Error
+        finding.config_path.as_deref() == Some("HOME") && finding.severity == FindingSeverity::Error
     }));
-    assert!(findings
-        .iter()
-        .all(|finding| !finding.message.contains("/Users/") && !finding.message.contains("secret")));
+    assert!(
+        findings
+            .iter()
+            .all(|finding| !finding.message.contains("/Users/")
+                && !finding.message.contains("secret"))
+    );
 }
 
 #[cfg(unix)]
@@ -99,7 +103,10 @@ fn sdk_context(binary: std::path::PathBuf) -> DoctorCtx {
 #[tokio::test]
 async fn agent_sdk_probe_reports_availability_without_echoing_command_output() {
     let fixture = tempfile::tempdir().expect("SDK fixture");
-    let binary = fake_cli(fixture.path(), "printf 'claude 1.2.3\\n'; printf 'private-token\\n' >&2");
+    let binary = fake_cli(
+        fixture.path(),
+        "printf 'claude 1.2.3\\n'; printf 'private-token\\n' >&2",
+    );
 
     let findings = AgentSdkCheck.detect(&sdk_context(binary)).await;
 
@@ -115,7 +122,10 @@ async fn agent_sdk_probe_reports_availability_without_echoing_command_output() {
 #[tokio::test]
 async fn agent_sdk_probe_reports_failure_without_echoing_stderr() {
     let fixture = tempfile::tempdir().expect("SDK fixture");
-    let binary = fake_cli(fixture.path(), "printf 'private-error-token\\n' >&2; exit 7");
+    let binary = fake_cli(
+        fixture.path(),
+        "printf 'private-error-token\\n' >&2; exit 7",
+    );
 
     let findings = AgentSdkCheck.detect(&sdk_context(binary)).await;
 
@@ -138,12 +148,13 @@ async fn disabled_agent_sdk_is_skipped_without_running_its_configured_binary() {
     config.claude_agent_sdk.enabled = false;
     config.claude_agent_sdk.binary = binary.to_string_lossy().into_owned();
 
-    let findings = AgentSdkCheck
-        .detect(&DoctorCtx::from_config(config))
-        .await;
+    let findings = AgentSdkCheck.detect(&DoctorCtx::from_config(config)).await;
 
     assert_eq!(findings[0].severity, FindingSeverity::Skipped);
-    assert!(!marker.exists(), "disabled SDK check must not spawn its CLI");
+    assert!(
+        !marker.exists(),
+        "disabled SDK check must not spawn its CLI"
+    );
 }
 
 #[cfg(unix)]

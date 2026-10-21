@@ -6,12 +6,14 @@
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use serde::Deserialize;
 use serde_json::json;
 
 use crate::config::Config;
 use tinytools::{Tool, ToolResult};
 
 use super::ops;
+use super::{DoctorOptions, DoctorTier};
 
 macro_rules! emit {
     ($outcome:expr, $name:literal) => {{
@@ -23,6 +25,13 @@ macro_rules! emit {
 /// Run the full diagnostic battery.
 pub struct DoctorHealthTool {
     config: Arc<Config>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+#[serde(deny_unknown_fields)]
+struct DoctorHealthArgs {
+    tier: Option<DoctorTier>,
+    only: Option<Vec<String>>,
 }
 
 impl DoctorHealthTool {
@@ -42,18 +51,54 @@ impl Tool for DoctorHealthTool {
     }
 
     fn description(&self) -> &str {
-        "Run the full diagnostic battery (config, connectivity, dependencies, \
-         runtime) and return a structured report of checks with pass/warn/fail \
-         status. Use to diagnose why the assistant or a subsystem isn't working."
+        "Run selected OpenHuman health checks and return a structured v2 report. \
+         The default connect tier uses bounded, read-only checks. The live tier \
+         can spend inference tokens and write disposable test data; run live only \
+         when the user explicitly requested those billable probes. Use exact \
+         registered check ids with `only` to narrow the report."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {
-        json!({ "type": "object", "properties": {} })
+        json!({
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "tier": {
+                    "type": "string",
+                    "enum": ["static", "connect", "live"],
+                    "default": "connect",
+                    "description": "Maximum check tier. Live can spend inference tokens and write disposable test data; select it only when the user explicitly requested these billable probes."
+                },
+                "only": {
+                    "type": "array",
+                    "items": { "type": "string" },
+                    "description": "Optional exact registered check ids to run. Omit to include all checks up to the selected tier."
+                }
+            }
+        })
     }
 
-    async fn execute(&self, _args: serde_json::Value) -> anyhow::Result<ToolResult> {
+    async fn execute(&self, args: serde_json::Value) -> anyhow::Result<ToolResult> {
+        let args = if args.is_null() {
+            DoctorHealthArgs::default()
+        } else {
+            serde_json::from_value::<DoctorHealthArgs>(args)?
+        };
+        let tier = args.tier.unwrap_or(DoctorTier::Connect);
+        let only = args.only.unwrap_or_default();
         log::debug!("[tool][doctor] health invoked");
-        emit!(ops::doctor_report(&self.config).await, "doctor_health")
+        emit!(
+            ops::doctor_report_with_options(
+                &self.config,
+                DoctorOptions {
+                    tier,
+                    only,
+                    ..DoctorOptions::default()
+                }
+            )
+            .await,
+            "doctor_health"
+        )
     }
 
     fn is_concurrency_safe(&self, _args: &serde_json::Value) -> bool {

@@ -148,7 +148,6 @@ fn profile_config(workspace: &std::path::Path, threshold: usize) -> Config {
     config.config_path = workspace.join("config.toml");
     config.tokenjuice.min_bytes_to_compress = threshold;
     config.tokenjuice.ccr_disk_enabled = true;
-    config.tokenjuice.repl_save_enabled = true;
     config
 }
 

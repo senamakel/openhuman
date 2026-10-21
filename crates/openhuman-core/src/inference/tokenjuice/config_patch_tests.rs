@@ -17,11 +17,20 @@ fn applies_only_present_fields() {
 fn repl_switches_can_be_flipped() {
     let mut cfg = TokenjuiceConfig::default();
     let patch: TokenjuiceSettingsPatch =
-        serde_json::from_str(r#"{ "repl_handle_enabled": false, "repl_save_enabled": true }"#)
+        serde_json::from_str(r#"{ "repl_handle_enabled": false }"#)
             .unwrap();
     patch.apply(&mut cfg);
     assert!(!cfg.repl_handle_enabled);
-    assert!(cfg.repl_save_enabled);
+}
+
+#[test]
+fn removed_plain_copy_setting_is_ignored_by_existing_settings_updates() {
+    let mut cfg = TokenjuiceConfig::default();
+    let patch: TokenjuiceSettingsPatch =
+        serde_json::from_str(r#"{ "repl_save_enabled": true }"#).unwrap();
+    patch.apply(&mut cfg);
+    assert!(cfg.repl_handle_enabled);
+    assert!(!cfg.ccr_disk_enabled);
 }
 
 #[test]

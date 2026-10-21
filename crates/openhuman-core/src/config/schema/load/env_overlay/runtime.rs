@@ -22,11 +22,6 @@ impl Config {
                 self.tokenjuice.repl_handle_enabled = v;
             }
         }
-        if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_REPL_SAVE_ENABLED") {
-            if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_REPL_SAVE_ENABLED", &flag) {
-                self.tokenjuice.repl_save_enabled = v;
-            }
-        }
         if let Some(flag) = env.get("OPENHUMAN_TOKENJUICE_CCR_DISK_ENABLED") {
             if let Some(v) = parse_env_bool("OPENHUMAN_TOKENJUICE_CCR_DISK_ENABLED", &flag) {
                 self.tokenjuice.ccr_disk_enabled = v;

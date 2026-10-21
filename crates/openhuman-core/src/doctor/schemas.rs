@@ -2,8 +2,8 @@ use crate::core::runtime::DispatchCtx;
 use serde::de::DeserializeOwned;
 use serde_json::{Map, Value};
 
-use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::Outcome;
+use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
@@ -102,7 +102,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
 
 fn handle_report(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let config = ctx.load_config().await?;
         let options = crate::doctor::DoctorOptions {
             tier: read_optional::<crate::doctor::DoctorTier>(&params, "tier")?
                 .unwrap_or(crate::doctor::DoctorTier::Connect),
@@ -110,7 +109,7 @@ fn handle_report(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
             skip: read_optional::<Vec<String>>(&params, "skip")?.unwrap_or_default(),
             profile: read_optional::<String>(&params, "profile")?,
         };
-        to_json(crate::doctor::ops::doctor_report_with_options(&config, options).await?)
+        to_json(crate::doctor::ops::doctor_report_for_dispatch(&ctx, options).await?)
     })
 }
 

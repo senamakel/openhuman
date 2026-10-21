@@ -3,8 +3,10 @@
 use crate::config::Config;
 use crate::core::Outcome;
 
-use super::{resolve_api_key, LOG_PREFIX};
-use crate::inference::embedding_host::factory::create_embedding_provider_with_config;
+use super::{LOG_PREFIX, resolve_api_key};
+use crate::inference::embedding_host::factory::{
+    create_embedding_provider_for_inspection, create_embedding_provider_with_config,
+};
 use tinyinference_embeddings::probe::probe_custom_embeddings;
 
 /// Generates embeddings for the given input texts using the currently
@@ -144,4 +146,54 @@ pub async fn test_connection(
             ))
         }
     }
+}
+
+/// The requested and actual vector widths from one read-only doctor probe.
+pub(crate) struct InspectionEmbeddingDimensions {
+    pub configured: usize,
+    pub actual: usize,
+}
+
+/// Safe failure classes for the live doctor embedding probe.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum InspectionEmbeddingError {
+    CredentialStoreUnavailable,
+    ProviderUnavailable,
+    ProbeFailed,
+}
+
+/// Embeds one fixed, non-user string through the same configured provider
+/// factory, using read-only profile credentials and an inspection-safe managed
+/// provider when the selected route is managed.
+pub(crate) async fn probe_dimensions_for_inspection(
+    config: &Config,
+) -> Result<InspectionEmbeddingDimensions, InspectionEmbeddingError> {
+    let provider_name = config.memory.embedding_provider.trim();
+    let model = config.memory.embedding_model.trim();
+    let configured = config.memory.embedding_dimensions;
+    let api_key = super::resolve_api_key_read_only(config, provider_name)
+        .map_err(|_| InspectionEmbeddingError::CredentialStoreUnavailable)?;
+    let custom_endpoint = provider_name.strip_prefix("custom:").map(str::to_owned);
+    let provider_slug = if custom_endpoint.is_some() {
+        "custom"
+    } else {
+        provider_name
+    };
+    let embedder = create_embedding_provider_for_inspection(
+        config,
+        provider_slug,
+        model,
+        configured,
+        &api_key,
+        custom_endpoint.as_deref(),
+    )
+    .map_err(|_| InspectionEmbeddingError::ProviderUnavailable)?;
+    let vectors = embedder
+        .embed(&["OpenHuman doctor embedding probe".to_owned()])
+        .await
+        .map_err(|_| InspectionEmbeddingError::ProbeFailed)?;
+    Ok(InspectionEmbeddingDimensions {
+        configured,
+        actual: vectors.first().map_or(0, Vec::len),
+    })
 }

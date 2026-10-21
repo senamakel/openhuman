@@ -1,9 +1,11 @@
 //! Diagnostic checks for OpenHuman configuration, workspace health, and daemon state.
 
+pub(crate) mod checks;
 mod contract;
 mod core;
 mod legacy;
 pub mod ops;
+pub mod profile;
 pub mod registry;
 mod runner;
 mod schemas;
@@ -14,21 +16,61 @@ pub use contract::{
     DoctorSummary, DoctorTier, Finding, FindingSeverity, ValueSource,
 };
 pub use core::{
-    run, DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome, ModelProbeReport,
-    ModelProbeSummary, Severity,
+    DiagnosticItem, MemoryEngineCheck, ModelProbeEntry, ModelProbeOutcome, ModelProbeReport,
+    ModelProbeSummary, Severity, run,
 };
 pub use core::{DoctorReport as LegacyDoctorReport, DoctorSummary as LegacyDoctorSummary};
 pub use ops as rpc;
 pub use ops::*;
-pub use registry::{register_check_source, register_check_source_in, DoctorCheckSource};
+pub use registry::{DoctorCheckSource, register_check_source, register_check_source_in};
 pub use schemas::{
     all_controller_schemas as all_doctor_controller_schemas,
     all_registered_controllers as all_doctor_registered_controllers,
 };
 
 #[cfg(test)]
+#[path = "config_file_tests.rs"]
+mod config_file_red_tests;
+
+#[cfg(test)]
+#[path = "config_provenance_tests.rs"]
+mod config_provenance_red_tests;
+
+#[cfg(test)]
+#[path = "config_semantics_tests.rs"]
+mod config_semantics_red_tests;
+
+#[cfg(test)]
+#[path = "inference_config_tests.rs"]
+mod inference_config_red_tests;
+
+#[cfg(test)]
+#[path = "embeddings_config_tests.rs"]
+mod embeddings_config_red_tests;
+
+#[cfg(test)]
+#[path = "checks/config_file_tests.rs"]
+mod config_file_tests;
+
+#[cfg(test)]
 #[path = "runner_tests.rs"]
 mod runner_tests;
+
+#[cfg(test)]
+#[path = "connectivity_tests.rs"]
+mod connectivity_tests;
+
+#[cfg(test)]
+#[path = "checks/config_provenance_tests.rs"]
+mod config_provenance_tests;
+
+#[cfg(test)]
+#[path = "checks/inference_tests.rs"]
+mod inference_config_tests;
+
+#[cfg(test)]
+#[path = "checks/embeddings_tests.rs"]
+mod embeddings_config_tests;
 
 #[cfg(test)]
 pub(crate) mod test_support;

@@ -19,12 +19,12 @@ use std::pin::Pin;
 use std::sync::Arc;
 
 use tinyinference_embeddings::EmbeddingModel;
-use tinyinference_llm::model::discover::DiscoveryRequest;
 use tinyinference_llm::model::ChatModel;
+use tinyinference_llm::model::discover::DiscoveryRequest;
 
 use crate::config::Config;
-use crate::core::slots::{Extensions, HookSlot};
 use crate::core::Outcome;
+use crate::core::slots::{Extensions, HookSlot};
 use crate::security::approval::ApprovalChatContext;
 use crate::security::egress::EgressLedger;
 
@@ -77,6 +77,41 @@ pub struct ChatModelEntry {
 }
 
 static CHAT_MODELS: HookSlot<ChatModelEntry> = HookSlot::new("inference::chat_models");
+
+/// A managed chat-model factory that is safe for inspection calls through
+/// invoke/stream: it must use a frozen, read-only credential snapshot and
+/// must not refresh or publish credential state.
+pub type InspectionChatModelFactory = ChatModelFactory;
+
+static INSPECTION_CHAT_MODELS: HookSlot<InspectionChatModelFactory> =
+    HookSlot::new("inference::inspection_chat_models");
+
+/// Registers an inspection-safe managed model factory process-wide.
+pub fn register_inspection_chat_model(
+    provider_id: impl Into<String>,
+    factory: InspectionChatModelFactory,
+) {
+    INSPECTION_CHAT_MODELS.register(provider_id, factory);
+}
+
+/// Registers an inspection-safe managed model factory for the context built
+/// from `extensions`.
+pub fn register_inspection_chat_model_in(
+    extensions: &Extensions,
+    provider_id: impl Into<String>,
+    factory: InspectionChatModelFactory,
+) {
+    INSPECTION_CHAT_MODELS.register_in(extensions, provider_id, factory);
+}
+
+/// Removes the process-wide inspection-safe managed model factory.
+pub fn unregister_inspection_chat_model(provider_id: &str) -> bool {
+    INSPECTION_CHAT_MODELS.unregister(provider_id)
+}
+
+pub(crate) fn inspection_chat_model(provider_id: &str) -> Option<InspectionChatModelFactory> {
+    INSPECTION_CHAT_MODELS.get(provider_id)
+}
 
 /// Registers the chat-model provider `provider_id` for the whole process.
 pub fn register_chat_model(provider_id: impl Into<String>, entry: ChatModelEntry) {
@@ -142,6 +177,46 @@ pub type EmbeddingFactory = Arc<
 >;
 
 static EMBEDDINGS: HookSlot<EmbeddingFactory> = HookSlot::new("inference::embeddings");
+
+/// A managed embedding factory safe for doctor inspection: it uses a frozen
+/// credential snapshot and never refreshes or publishes credential state.
+pub type InspectionEmbeddingFactory = EmbeddingFactory;
+
+static INSPECTION_EMBEDDINGS: HookSlot<InspectionEmbeddingFactory> =
+    HookSlot::new("inference::inspection-embeddings");
+
+/// Registers a managed embedding factory for read-only credential inspection.
+pub fn register_inspection_embedding<F>(provider_id: impl Into<String>, factory: F)
+where
+    F: for<'a> Fn(
+            &EmbeddingRequest<'a>,
+        ) -> tinyinference_embeddings::Result<Box<dyn EmbeddingModel>>
+        + Send
+        + Sync
+        + 'static,
+{
+    INSPECTION_EMBEDDINGS.register(provider_id, Arc::new(factory));
+}
+
+/// Registers an inspection-safe embedding factory for one core context.
+pub fn register_inspection_embedding_in<F>(
+    extensions: &Extensions,
+    provider_id: impl Into<String>,
+    factory: F,
+) where
+    F: for<'a> Fn(
+            &EmbeddingRequest<'a>,
+        ) -> tinyinference_embeddings::Result<Box<dyn EmbeddingModel>>
+        + Send
+        + Sync
+        + 'static,
+{
+    INSPECTION_EMBEDDINGS.register_in(extensions, provider_id, Arc::new(factory));
+}
+
+pub(crate) fn inspection_embedding(provider_id: &str) -> Option<InspectionEmbeddingFactory> {
+    INSPECTION_EMBEDDINGS.get(provider_id)
+}
 
 /// Registers the embedding provider `provider_id` for the whole process.
 pub fn register_embedding<F>(provider_id: impl Into<String>, factory: F)

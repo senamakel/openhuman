@@ -1,5 +1,6 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
+use std::path::Path;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crate::config::Config;
@@ -10,9 +11,24 @@ use async_trait::async_trait;
 use super::contract::{
     DoctorCheck, DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity,
 };
-use super::registry::{register_check_source_in, DoctorCheckSource};
+use super::registry::{DoctorCheckSource, register_check_source_in};
 use super::runner;
 use super::test_support::{FakeCheck, FakeCheckSource};
+
+fn isolated_config(root: &Path) -> Config {
+    let mut config = Config::default();
+    config.workspace_dir = root.join("workspace");
+    config.action_dir = root.join("actions");
+    config.config_path = root.join("config.toml");
+    config
+}
+
+fn scoped_config_context(config: Config, extensions: Extensions) -> Arc<CoreContext> {
+    CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions).derive_with(
+        crate::core::runtime::ContextOverlay::new(config, DomainSet::full(), Default::default())
+            .without_user_skill_roots(),
+    )
+}
 
 #[test]
 fn no_unwritten_daemon_state_check_is_registered() {
@@ -22,6 +38,23 @@ fn no_unwritten_daemon_state_check_is_registered() {
         checks.iter().all(|check| check.id() != "runtime/daemon"),
         "the doctor must not advertise a daemon state check whose file is never written"
     );
+}
+
+#[test]
+fn live_embedding_and_memory_roundtrip_checks_are_registered_as_live() {
+    let checks = super::registry::registered_checks().expect("built-in checks are valid");
+
+    for id in ["embeddings/live", "memory/roundtrip"] {
+        let check = checks
+            .iter()
+            .find(|check| check.id() == id)
+            .unwrap_or_else(|| panic!("the live doctor check {id} must be registered"));
+        assert_eq!(
+            check.tier(),
+            DoctorTier::Live,
+            "{id} may run only when the doctor live tier is requested"
+        );
+    }
 }
 
 struct BlockingProbe {
@@ -108,10 +141,12 @@ async fn a_context_check_source_is_reported_with_its_check_id() {
     let config_source: DoctorConfigSource = report.config_source;
     assert_eq!(config_source, DoctorConfigSource::Profile);
     assert!(report.checks_run.iter().any(|id| id == "hosted/ready"));
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "hosted/ready"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "hosted/ready")
+    );
 }
 
 #[tokio::test]
@@ -140,10 +175,12 @@ async fn hierarchical_check_ids_are_registered_and_selected_exactly() {
     .expect("hierarchical id is valid and selected as one exact id");
 
     assert_eq!(report.checks_run, vec!["inference/live/role".to_owned()]);
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "inference/live/role"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "inference/live/role")
+    );
 }
 
 #[tokio::test]
@@ -292,6 +329,98 @@ async fn checks_above_the_requested_tier_are_skipped() {
 }
 
 #[tokio::test]
+async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
+    use axum::{Json, Router, extract::State, routing::post};
+    use std::sync::atomic::AtomicUsize;
+    use tempfile::TempDir;
+    use tinymemory_api::{MemoryEngine, conformance::ReferenceEngine};
+
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace directory");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app =
+        Router::new()
+            .route(
+                "/api/embed",
+                post(
+                    |State(calls): State<Arc<AtomicUsize>>,
+                     Json(_body): Json<serde_json::Value>| async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Json(serde_json::json!({ "embeddings": [[0.1_f32; 768]] }))
+                    },
+                ),
+            )
+            .with_state(Arc::clone(&calls));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind local embedding mock");
+    let endpoint = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let mut config = Config {
+        workspace_dir: workspace.clone(),
+        action_dir: workspace,
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.memory.embedding_provider = "ollama".to_owned();
+    config.memory.embedding_model = "nomic-embed-text".to_owned();
+    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_owned();
+    config.local_ai.base_url = Some(endpoint);
+    let memory_factory_calls = Arc::new(AtomicUsize::new(0));
+    let factory_calls = Arc::clone(&memory_factory_calls);
+    let inspection_factory: crate::memory::engine_registry::ReadOnlyEngineFactory =
+        Arc::new(move |_| {
+            factory_calls.fetch_add(1, Ordering::SeqCst);
+            let engine: Arc<dyn MemoryEngine> = Arc::new(ReferenceEngine::new());
+            Box::pin(async move { Ok(engine) })
+        });
+    let extensions = Extensions::new();
+    crate::memory::engine_registry::register_read_only_engine_factory_in(
+        &extensions,
+        crate::memory::engine::TINYHUMANS_ENGINE,
+        inspection_factory,
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(config),
+            DoctorOptions {
+                tier: DoctorTier::Connect,
+                only: vec!["embeddings/live".to_owned(), "memory/roundtrip".to_owned()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+        .expect("connect-only report")
+    })
+    .await;
+
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "live embedding was not invoked"
+    );
+    assert_eq!(
+        memory_factory_calls.load(Ordering::SeqCst),
+        0,
+        "live memory was not bound"
+    );
+    assert!(
+        report
+            .checks_skipped
+            .contains(&"embeddings/live".to_owned())
+    );
+    assert!(
+        report
+            .checks_skipped
+            .contains(&"memory/roundtrip".to_owned())
+    );
+}
+
+#[tokio::test]
 async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     let extensions = Extensions::new();
     register_check_source_in(
@@ -324,13 +453,213 @@ async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     .expect("unknown selection is a report finding");
 
     assert_eq!(report.checks_run, vec!["config/temperature".to_owned()]);
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "doctor/selection"
-            && finding.severity == FindingSeverity::Error));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"
+                && finding.severity == FindingSeverity::Error)
+    );
     assert_eq!(report.schema_version, 2);
     assert_eq!(report.summary.pass, 1);
     assert_eq!(report.summary.error, 1);
     assert!(!report.ok);
+}
+
+#[tokio::test]
+async fn module_status_checks_are_registered_with_their_native_id() {
+    let workspace = tempfile::tempdir().expect("create isolated doctor fixture");
+    let report = runner::run(
+        &DoctorCtx::from_config(isolated_config(workspace.path())),
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["modules/tinymcp".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("module check is part of the doctor report");
+
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"),
+        "module check ids are exact registered ids, not unknown selectors: {:?}",
+        report.findings
+    );
+    assert!(report.checks_run.iter().any(|id| id == "modules/tinymcp"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "modules/tinymcp")
+    );
+}
+
+#[tokio::test]
+async fn mcp_server_check_ids_come_from_the_selected_config() {
+    let workspace_a = tempfile::tempdir().expect("create ambient config fixture");
+    let workspace_b = tempfile::tempdir().expect("create selected config fixture");
+    let mut config_a = isolated_config(workspace_a.path());
+    let mut server_a = crate::config::McpServerConfig::default();
+    server_a.name = "server-a".into();
+    config_a.mcp_client.servers.push(server_a);
+    let mut config_b = isolated_config(workspace_b.path());
+    let mut server_b = crate::config::McpServerConfig::default();
+    server_b.name = "server-b".into();
+    config_b.mcp_client.servers.push(server_b);
+
+    // The ambient context represents configuration A. The selected doctor
+    // input is B, so its dynamic check id must be used for exact selection.
+    let extensions_a = Extensions::new();
+    register_check_source_in(
+        &extensions_a,
+        FakeCheckSource::new("doctor-mcp-config-a", vec![FakeCheck::pass("mcp/server-a")]),
+    );
+    let context_a = scoped_config_context(config_a, extensions_a);
+    let report = CoreContext::scope(context_a, async {
+        runner::run(
+            &DoctorCtx::from_config(config_b),
+            DoctorOptions {
+                // Static ceiling proves the id is registered without probing
+                // or starting any MCP server.
+                tier: DoctorTier::Static,
+                only: vec!["mcp/server-b".into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("configured MCP check is represented in the report");
+
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"),
+        "the selected config's id must be registered: {:?}",
+        report.findings
+    );
+    assert!(
+        report.checks_skipped.iter().any(|id| id == "mcp/server-b")
+            || report.checks_run.iter().any(|id| id == "mcp/server-b")
+    );
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "mcp/server-b")
+    );
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "mcp/server-a")
+    );
+}
+
+#[tokio::test]
+async fn duplicate_mcp_names_report_an_ambiguous_definition() {
+    let workspace = tempfile::tempdir().expect("create isolated MCP config fixture");
+    let mut config = isolated_config(workspace.path());
+    let mut first = crate::config::McpServerConfig::default();
+    first.name = "server-a".into();
+    first.command = "first-server".into();
+    let mut second = crate::config::McpServerConfig::default();
+    second.name = "server-a".into();
+    second.endpoint = "https://example.invalid/mcp".into();
+    config.mcp_client.servers.extend([first, second]);
+
+    let report = runner::run(
+        &DoctorCtx::from_config(config),
+        DoctorOptions {
+            only: vec!["mcp/server-a".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("duplicate server names are reported under one valid id");
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "mcp/server-a")
+        .expect("one finding identifies the duplicate MCP server");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(finding.message.to_ascii_lowercase().contains("duplicate"));
+    assert!(finding.fix_hint.contains("Remove"));
+}
+
+#[tokio::test]
+async fn malformed_skill_discovery_reports_a_warning_with_its_path() {
+    let workspace = tempfile::tempdir().expect("create isolated skill fixture");
+    let config = isolated_config(workspace.path());
+    let skill_dir = config.workspace_dir.join("skills").join("broken-skill");
+    std::fs::create_dir_all(&skill_dir).expect("create skill fixture directory");
+    let skill_path = skill_dir.join("SKILL.md");
+    std::fs::write(
+        &skill_path,
+        "---\nname: [unterminated\n---\nA test skill.\n",
+    )
+    .expect("write malformed skill manifest");
+
+    std::fs::create_dir_all(&config.workspace_dir).expect("create isolated workspace");
+    let context = scoped_config_context(config.clone(), Extensions::new());
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(config),
+            DoctorOptions {
+                tier: DoctorTier::Static,
+                only: vec!["skills/discovery".into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("skill discovery check is part of the doctor report");
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "skills/discovery")
+        .expect("malformed skill produces a discovery finding");
+    assert_eq!(finding.severity, FindingSeverity::Warn);
+    let expected_path = skill_path.to_string_lossy();
+    assert_eq!(finding.config_path.as_deref(), Some(expected_path.as_ref()));
+    assert!(finding.message.to_ascii_lowercase().contains("manifest"));
+}
+
+#[tokio::test]
+async fn sandbox_backend_check_is_registered_without_running_above_static_tier() {
+    let workspace = tempfile::tempdir().expect("create isolated doctor fixture");
+    let mut config = isolated_config(workspace.path());
+    config.sandbox.backend = crate::config::SandboxBackend::Docker;
+    let mut components = ComponentSet::all();
+    components.sandbox = false;
+    let report = runner::run(
+        &DoctorCtx::from_config(config).with_components(components),
+        DoctorOptions {
+            tier: DoctorTier::Static,
+            only: vec!["sandbox/backend".into()],
+            ..DoctorOptions::default()
+        },
+    )
+    .await
+    .expect("sandbox check is represented without invoking Docker");
+
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"),
+        "sandbox check id must be registered: {:?}",
+        report.findings
+    );
+    assert_eq!(report.checks_skipped, vec!["sandbox/backend".to_owned()]);
+    assert!(report.findings.iter().any(|finding| {
+        finding.check_id == "sandbox/backend" && finding.severity == FindingSeverity::Skipped
+    }));
 }

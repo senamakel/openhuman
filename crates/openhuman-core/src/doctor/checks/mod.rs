@@ -1,0 +1,50 @@
+//! Built-in doctor checks for config, inference, embeddings, semantics, and dynamic services.
+
+mod config_file;
+mod config_provenance;
+mod config_semantics;
+mod embeddings;
+mod embeddings_live;
+mod ids;
+mod inference;
+mod mcp;
+mod memory;
+mod memory_live;
+mod modules;
+mod registry;
+mod sandbox;
+mod secrets;
+mod skills;
+mod storage;
+
+use std::sync::Arc;
+
+use super::contract::DoctorCheck;
+
+pub(super) use ids::canonical_segment;
+pub(super) use registry::for_context;
+
+pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
+    let mut checks = config_file::checks();
+    checks.push(Arc::new(config_provenance::EnvironmentOverrideCheck));
+    checks.push(Arc::new(config_provenance::ConfigSourceCheck));
+    checks.push(Arc::new(inference::ProviderRef));
+    checks.push(Arc::new(inference::Construct));
+    checks.push(Arc::new(inference::Temperature));
+    checks.extend(memory::checks());
+    checks.push(Arc::new(memory_live::MemoryRoundtripCheck));
+    checks.extend(storage::checks());
+    checks.push(Arc::new(secrets::KeyringCheck));
+    checks.push(Arc::new(embeddings::EmbeddingConfigCheck));
+    checks.push(Arc::new(embeddings_live::EmbeddingsLiveCheck));
+    checks.extend(config_semantics::checks());
+    checks
+}
+
+#[cfg(test)]
+#[path = "config_semantics_tests.rs"]
+mod config_semantics_tests;
+
+#[cfg(test)]
+#[path = "mod_tests.rs"]
+mod tests;

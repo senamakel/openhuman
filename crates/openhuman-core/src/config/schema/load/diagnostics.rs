@@ -27,6 +27,42 @@ pub(crate) struct ConfigParseError {
     /// should report a safe path/line/classification instead of copying this
     /// message verbatim.
     pub(crate) message: String,
+    /// Safe dotted field path from the typed-deserialization error, if any.
+    pub(crate) field_path: Option<String>,
+    /// TOML syntax line, when the parser reports one.
+    pub(crate) line: Option<usize>,
+}
+
+impl ConfigParseError {
+    pub(crate) fn new(path: PathBuf, message: String) -> Self {
+        Self {
+            path,
+            message,
+            field_path: None,
+            line: None,
+        }
+    }
+
+    pub(crate) fn from_error(path: PathBuf, error: &anyhow::Error) -> Self {
+        let typed = error.downcast_ref::<super::parse::ConfigParseFailure>();
+        Self {
+            path,
+            message: error.to_string(),
+            field_path: typed.and_then(|failure| failure.field_path.clone()),
+            line: typed.and_then(|failure| failure.line),
+        }
+    }
+
+    /// Operator-facing summary that excludes parser text and source values.
+    pub(crate) fn safe_summary(&self) -> String {
+        if let Some(field_path) = &self.field_path {
+            format!("The config field `{field_path}` has an invalid value.")
+        } else if let Some(line) = self.line {
+            format!("The config file has invalid TOML syntax at line {line}.")
+        } else {
+            "The config file is invalid.".into()
+        }
+    }
 }
 
 /// Non-persisted information collected as a config is loaded.
@@ -72,9 +108,9 @@ pub(super) fn record_non_utf8_recovery(
     if diagnostics.fallback != ConfigLoadFallback::None {
         return;
     }
-    diagnostics.parse_error = Some(ConfigParseError {
-        path: path.to_path_buf(),
-        message: "config file could not be decoded as UTF-8".to_string(),
-    });
+    diagnostics.parse_error = Some(ConfigParseError::new(
+        path.to_path_buf(),
+        "config file could not be decoded as UTF-8".to_string(),
+    ));
     diagnostics.fallback = fallback;
 }

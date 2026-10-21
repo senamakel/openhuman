@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use super::contract::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
-use super::core::{run_check, MemoryEngineCheck, Severity};
+use super::core::{MemoryEngineCheck, Severity, run_check};
 use super::registry::DoctorCheckSource;
 
 /// Source for the checks that still use the moved v1 implementation.

@@ -192,6 +192,25 @@ impl ConfigProvenance {
         self.fields.get(path).cloned().unwrap_or_default()
     }
 
+    /// Iterate over recorded fields without exposing or retaining config values.
+    pub(crate) fn fields(&self) -> impl Iterator<Item = (&str, &ValueProvenance)> {
+        self.fields
+            .iter()
+            .map(|(path, provenance)| (path.as_str(), provenance))
+    }
+
+    /// Whether a logical config field or any of its descendants was supplied
+    /// explicitly instead of coming from schema defaults.
+    pub(crate) fn has_explicit_under(&self, path: &str) -> bool {
+        self.fields.iter().any(|(candidate, provenance)| {
+            let is_field_or_descendant = candidate == path
+                || candidate
+                    .strip_prefix(path)
+                    .is_some_and(|suffix| suffix.starts_with('.') || suffix.starts_with("[]"));
+            is_field_or_descendant && provenance.source != ProvenanceSource::Default
+        })
+    }
+
     pub(crate) fn set_dotenv(&mut self, dotenv: Option<DotenvLoadProvenance>) {
         self.dotenv = dotenv;
     }

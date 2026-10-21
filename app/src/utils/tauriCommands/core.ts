@@ -37,6 +37,8 @@ export interface DoctorReport {
   schema_version: 2;
   profile: string | null;
   config_source: 'profile' | 'tenant';
+  profile_layout_version?: 1 | 2;
+  config_resolution_source?: string;
   tier: DoctorTier;
   checks_run: string[];
   checks_skipped: string[];

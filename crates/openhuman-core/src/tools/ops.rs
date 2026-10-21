@@ -86,6 +86,39 @@ pub fn all_tools_with_runtime(
     root_config: &crate::config::Config,
     approval_workspace_root: Option<&std::path::Path>,
 ) -> Vec<Box<dyn Tool>> {
+    all_tools_with_runtime_and_pack_handle(
+        config,
+        security,
+        runtime,
+        audit,
+        browser_config,
+        http_config,
+        action_dir,
+        agents,
+        root_config,
+        approval_workspace_root,
+    )
+    .0
+}
+
+/// Build the full tool registry and return its pack handle alongside it.
+///
+/// The handle belongs to the session that owns the registry; callers retain it
+/// so later registry refreshes can rebind `use_skill` without inspecting the
+/// tool's generic dispatch extension.
+#[allow(clippy::implicit_hasher, clippy::too_many_arguments)]
+pub(crate) fn all_tools_with_runtime_and_pack_handle(
+    config: Arc<Config>,
+    security: &Arc<SecurityPolicy>,
+    runtime: Arc<dyn RuntimeAdapter>,
+    audit: Arc<AuditLogger>,
+    browser_config: &crate::config::BrowserConfig,
+    http_config: &crate::config::HttpRequestConfig,
+    action_dir: &std::path::Path,
+    agents: &HashMap<String, DelegateAgentConfig>,
+    root_config: &crate::config::Config,
+    approval_workspace_root: Option<&std::path::Path>,
+) -> (Vec<Box<dyn Tool>>, tinyagents_harness_tools::skills::PackRegistryHandle) {
     let shell: Box<dyn Tool> = Box::new(ShellTool::with_config(
         security.clone(),
         Arc::clone(&runtime),
@@ -570,13 +603,13 @@ pub fn all_tools_with_runtime(
     // cover the `delegate_*` tools synthesised later by
     // `orchestrator_tools::collect_orchestrator_tools` — which never pass
     // through this function.
-    crate::tools::toolpacks::append_pack_tools(&mut tools);
+    let pack_registry = crate::tools::toolpacks::append_pack_tools(&mut tools);
     // The lookup half of `ToolExposure::Deferred` is not registered here: the
     // tinyagents harness advertises its intrinsic `tool_search` bridge
     // (a found tool is then called by its own name) whenever a run has a
     // deferred tool (`tool::discover`), ranked by whatever `agent::tinyagents::discovery` installed. A host-registered
     // `tool_search` would shadow that bridge.
-    tools
+    (tools, pack_registry)
 }
 
 #[path = "ops_tool_groups.rs"]

@@ -105,7 +105,7 @@ async fn a_health_timeout_is_an_error_for_the_configured_provider() {
 }
 
 #[tokio::test]
-async fn an_absent_or_mismatched_ready_module_is_skipped_without_opening_it() {
+async fn an_unavailable_module_is_skipped_without_opening_it() {
     let scratch = tempfile::tempdir().expect("create isolated config fixture");
     let mut selected_b = config_in(scratch.path().join("b").as_path());
     selected_b.channels_config.telegram = Some(telegram());
@@ -128,7 +128,10 @@ async fn an_absent_or_mismatched_ready_module_is_skipped_without_opening_it() {
 
     assert_eq!(finding.check_id, "channels/telegram");
     assert_eq!(finding.severity, FindingSeverity::Skipped);
-    assert!(finding.message.contains("not already serving"));
+    assert_eq!(
+        finding.message,
+        "The Telegram channel module is not already serving for this run."
+    );
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_eq!(probe.readiness_checks.load(Ordering::SeqCst), 1);
 }

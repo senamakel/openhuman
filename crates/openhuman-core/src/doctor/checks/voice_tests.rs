@@ -49,7 +49,14 @@ async fn stt_and_tts_configuration_findings_are_separate_and_sanitized() {
     assert_eq!(stt.severity, FindingSeverity::Error);
     assert_eq!(tts.check_id, "voice/tts");
     assert_eq!(tts.severity, FindingSeverity::Pass);
-    assert!(!stt.message.contains("credential"));
+    assert_eq!(
+        stt.message,
+        "The selected voice provider has no saved credential."
+    );
+    assert_eq!(
+        stt.fix_hint,
+        "Connect the selected speech provider or choose an available route."
+    );
     assert_eq!(calls.load(Ordering::SeqCst), 2);
 }
 

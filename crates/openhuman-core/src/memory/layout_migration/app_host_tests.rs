@@ -13,6 +13,28 @@ use tinymemory_tools::layout_migration::{
 
 const ACCOUNT: &str = "0123456789abcdef01234567";
 
+#[test]
+fn memory_bind_errors_keep_their_engine_categories_at_the_migration_boundary() {
+    assert_eq!(
+        memory_error_to_engine(crate::memory::MemoryError::Off("memory is disabled".into())),
+        tinymemory_api::Error::Off("memory is disabled".into())
+    );
+    assert_eq!(
+        memory_error_to_engine(crate::memory::MemoryError::Unavailable("offline".into())),
+        tinymemory_api::Error::Unavailable("offline".into())
+    );
+    assert_eq!(
+        memory_error_to_engine(crate::memory::MemoryError::ConfigConflict(
+            crate::core::StructuredRpcError {
+                message: "configuration changed".into(),
+                data: None,
+                expected_user_state: true,
+            }
+        )),
+        tinymemory_api::Error::Conflict("configuration changed".into())
+    );
+}
+
 /// A config that lives where a signed-in account's does.
 fn signed_in(tmp: &tempfile::TempDir) -> Config {
     let mut config = crate::memory::test_fixtures::config_in(tmp);

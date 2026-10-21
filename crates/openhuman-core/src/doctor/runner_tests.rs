@@ -134,6 +134,23 @@ fn no_unwritten_daemon_state_check_is_registered() {
     );
 }
 
+#[test]
+fn memory_storage_and_keyring_checks_are_registered_at_their_declared_tiers() {
+    let checks = super::registry::registered_checks().expect("built-in checks are valid");
+    let tier = |id: &str| {
+        checks
+            .iter()
+            .find(|check| check.id() == id)
+            .map(|check| check.tier())
+    };
+
+    assert_eq!(tier("memory/binding"), Some(DoctorTier::Static));
+    assert_eq!(tier("memory/health"), Some(DoctorTier::Connect));
+    assert_eq!(tier("storage/connect"), Some(DoctorTier::Connect));
+    assert_eq!(tier("storage/layout"), Some(DoctorTier::Static));
+    assert_eq!(tier("secrets/keyring"), Some(DoctorTier::Connect));
+}
+
 struct BlockingProbe {
     id: String,
     timeout: Duration,

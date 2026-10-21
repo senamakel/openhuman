@@ -31,9 +31,10 @@ use std::sync::Arc;
 use anyhow::Result;
 use tinyagents_harness_tools::goals::ThreadGoalStatus;
 use tinyagents_harness::multimodal::markers::extract_image_placeholders_in_text;
+use tinyagents_harness::tool::ToolSnapshot;
 use tinyagents_runtime::{
-    CommitReceipt, ResumePreparation, SessionBuilder, SessionTerminal, ToolSnapshot,
-    TranscriptTarget, TurnPreparation,
+    CommitReceipt, ResumePreparation, SessionBuilder, SessionTerminal, TranscriptTarget,
+    TurnPreparation,
 };
 use tinyinference_llm::message::Message;
 

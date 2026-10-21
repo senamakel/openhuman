@@ -271,10 +271,6 @@ Migration steps:
 | Kind | Name | Version | Scope | Indexed fields |
 | --- | --- | --- | --- | --- |
 | collection | `ledger.agent_runs` | 2 | agent | `status`, `kind`, `parent_run_id`, `parent_thread_id`, `updated_ms`, `worker_thread_id` |
-| collection | `ledger.entries` | 2 | agent | `session_id`, `ordinal`, `session_id`, `parent_id` |
-| collection | `ledger.entry_heads` | 2 | agent |  |
-| collection | `ledger.entry_indexes` | 2 | agent | `session_id` |
-| collection | `ledger.entry_labels` | 2 | agent | `session_id` |
 | collection | `ledger.event_heads` | 2 | agent |  |
 | collection | `ledger.event_outbox` | 2 | agent | `run_id`, `sequence` |
 | stream | `ledger.events` |  | agent |  |
@@ -296,10 +292,6 @@ Migration steps:
 - `event_outbox_v2`: `ledger.event_outbox` v1 to v2 from `run_ledger_event_outbox`
 - `event_heads_v2`: `ledger.event_heads` v1 to v2 from `run_ledger_event_heads`
 - `tool_effects_v2`: `ledger.tool_effects` v1 to v2 from `run_ledger_tool_effects`
-- `entry_heads_v2`: `ledger.entry_heads` v1 to v2 from `run_ledger_entry_heads`
-- `entries_v2`: `ledger.entries` v1 to v2 from `run_ledger_entries`
-- `entry_labels_v2`: `ledger.entry_labels` v1 to v2 from `run_ledger_entry_labels`
-- `entry_indexes_v2`: `ledger.entry_indexes` v1 to v2 from `run_ledger_entry_indexes`
 - `run_events_v2`: `ledger.events` v1 to v2 from `run_events:`
 
 ## mcp

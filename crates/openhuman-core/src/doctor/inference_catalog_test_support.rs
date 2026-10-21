@@ -1,9 +1,8 @@
 use super::{
-    ops::{doctor_models, doctor_report_with_options},
-    DoctorOptions, FindingSeverity, ModelProbeOutcome,
+    ops::doctor_report_with_options,
+    DoctorOptions,
 };
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ModelRouteConfig;
 use crate::config::Config;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{

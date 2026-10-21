@@ -284,8 +284,6 @@ async fn report_for_context(
     .expect("doctor report for selected profile")
 }
 
-use super::inference_catalog_test_support::*;
-
 #[tokio::test]
 async fn inference_connect_checks_are_registered_but_skipped_in_static_tier() {
     let (endpoint, server) =
@@ -374,8 +372,7 @@ async fn model_in_catalog_check_skips_a_provider_without_a_models_route() {
         .await
     })
     .await
-    .expect("scoped doctor report")
-    .expect("missing catalogs are check findings, not transport failures");
+    .expect("scoped doctor report");
 
     assert!(report
         .value
@@ -450,8 +447,7 @@ async fn missing_default_and_route_models_are_warned_by_the_inference_check() {
         Ok::<_, String>((catalog, report))
     })
     .await
-    .expect("selected profile scope")
-    .expect("model catalog and v2 check results");
+    .expect("selected profile scope");
 
     assert_eq!(catalog.value.entries[0].outcome, ModelProbeOutcome::Ok);
     assert_eq!(report.value.profile.as_deref(), Some("doctor-profile-b"));

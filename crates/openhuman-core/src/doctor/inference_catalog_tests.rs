@@ -3,7 +3,6 @@ use super::{
     DoctorOptions, FindingSeverity, ModelProbeOutcome,
 };
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ModelRouteConfig;
 use crate::config::Config;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{
@@ -284,8 +283,6 @@ async fn report_for_context(
     .expect("doctor report for selected profile")
 }
 
-use super::inference_catalog_test_support::*;
-
 #[tokio::test]
 async fn doctor_models_lists_configured_catalogs_and_honors_use_cache() {
     let (endpoint, server) =
@@ -412,8 +409,7 @@ async fn prepared_catalog_identity_changes_when_managed_credential_rotates_in_pl
         Ok::<_, String>((first, second, third))
     })
     .await
-    .expect("selected profile scope")
-    .expect("managed model catalog results");
+    .expect("selected profile scope");
 
     assert_eq!(first.value.entries[0].outcome, ModelProbeOutcome::Ok);
     assert_eq!(second.value.entries[0].outcome, ModelProbeOutcome::Ok);

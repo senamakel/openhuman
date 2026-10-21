@@ -232,7 +232,7 @@ pub async fn resolve_read_only_for_inspection(
     if let Some(factory) = super::engine_registry::read_only_engine_factory(engine_id) {
         return factory(config.clone())
             .await
-            .map(|engine| guard_read_only_engine(engine));
+            .map(guard_read_only_engine);
     }
 
     if engine_id != CORTEXDB_ENGINE {

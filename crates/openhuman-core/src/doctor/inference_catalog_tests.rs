@@ -100,6 +100,8 @@ fn temporary_config() -> (tempfile::TempDir, Config) {
         ..Config::default()
     };
     config.cloud_providers = Vec::new();
+    config.default_model = None;
+    config.model_routes.clear();
     (root, config)
 }
 
@@ -128,15 +130,32 @@ fn catalog_body(ids: &[&str]) -> serde_json::Value {
 }
 
 fn store_provider_key(config: &Config, slug: &str, token: &str) {
-    AuthService::from_config(config)
-        .store_provider_token(
-            &crate::inference::provider::factory::auth_key_for_slug(slug),
-            DEFAULT_AUTH_PROFILE_NAME,
-            token,
-            std::collections::HashMap::new(),
-            true,
-        )
-        .expect("seed scoped provider credential");
+    let provider = crate::inference::provider::factory::auth_key_for_slug(slug);
+    let profile_id = format!("{provider}:default");
+    let now = chrono::Utc::now().to_rfc3339();
+    let mut active_profiles = std::collections::HashMap::new();
+    active_profiles.insert(provider.clone(), profile_id.clone());
+    let mut profiles = std::collections::HashMap::new();
+    profiles.insert(
+        profile_id,
+        serde_json::json!({
+            "provider": provider,
+            "profile_name": "default",
+            "kind": "token",
+            "token": token,
+            "metadata": {},
+            "created_at": now,
+            "updated_at": now,
+        }),
+    );
+    let document = serde_json::json!({
+        "schema_version": 1,
+        "updated_at": now,
+        "active_profiles": active_profiles,
+        "profiles": profiles,
+    });
+    std::fs::write(auth_profiles_path(config), serde_json::to_vec(&document).unwrap())
+        .expect("seed read-only provider credential fixture");
 }
 
 fn auth_profiles_path(config: &Config) -> std::path::PathBuf {
@@ -495,13 +514,13 @@ async fn a_slow_provider_times_out_without_blocking_the_other_catalog() {
 }
 
 #[tokio::test]
-async fn doctor_models_never_falls_back_to_an_ordinary_mutable_catalog() {
+async fn doctor_models_uses_read_only_http_without_calling_the_mutable_catalog() {
     use crate::core::runtime::{CoreContext, DomainSet};
     use crate::core::slots::Extensions;
     use crate::core::Outcome;
     use crate::inference::registry::{register_catalog_in, CatalogEntry, CatalogListing};
 
-    let (endpoint, _server) =
+    let (endpoint, server) =
         spawn_catalog_server(StatusCode::OK, catalog_body(&["must-not-be-used"]), true).await;
     let (_temp, config) = config_for_catalog(
         endpoint,
@@ -535,9 +554,10 @@ async fn doctor_models_never_falls_back_to_an_ordinary_mutable_catalog() {
 
     assert_eq!(normal_calls.load(Ordering::SeqCst), 0);
     match result {
-        Ok(report) => assert_ne!(report.value.entries[0].outcome, ModelProbeOutcome::Ok),
-        Err(_) => {}
+        Ok(report) => assert_eq!(report.value.entries[0].outcome, ModelProbeOutcome::Ok),
+        Err(error) => panic!("read-only HTTP catalog should be available: {error}"),
     }
+    assert_eq!(server.requests.load(Ordering::SeqCst), 1);
 }
 
 #[tokio::test]

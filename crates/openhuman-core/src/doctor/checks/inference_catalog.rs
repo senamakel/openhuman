@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use async_trait::async_trait;
 
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::core::{runtime::CoreContext, Outcome};
+use crate::core::Outcome;
 use crate::doctor::{
     contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity},
     core::{ModelProbeEntry, ModelProbeOutcome, ModelProbeReport, ModelProbeSummary},
@@ -18,6 +18,7 @@ use crate::inference::registry::{
 };
 
 const CACHE_TTL: Duration = Duration::from_secs(60);
+const PROVIDER_CATALOG_TIMEOUT: Duration = Duration::from_secs(10);
 type CachedCatalog = (
     Instant,
     Result<(serde_json::Value, Vec<String>), InspectionCatalogError>,
@@ -34,15 +35,10 @@ fn hash_key<T: Hash>(value: &T) -> u64 {
 }
 
 fn scope_key(config: &crate::config::Config) -> String {
-    let context = CoreContext::current();
-    let workspace = context
-        .as_ref()
-        .and_then(|context| context.workspace_dir().ok())
-        .unwrap_or_else(|| config.workspace_dir.clone());
     format!(
         "{}\u{1f}{}",
         config.config_path.display(),
-        workspace.display()
+        config.workspace_dir.display()
     )
 }
 
@@ -189,6 +185,22 @@ async fn prepare(
 }
 
 async fn catalog_for(
+    config: &crate::config::Config,
+    entry: &CloudProviderCreds,
+    use_cache: bool,
+) -> Result<(serde_json::Value, Vec<String>), InspectionCatalogError> {
+    match tokio::time::timeout(
+        PROVIDER_CATALOG_TIMEOUT,
+        catalog_for_with_timeout(config, entry, use_cache),
+    )
+    .await
+    {
+        Ok(result) => result,
+        Err(_) => Err(InspectionCatalogError::Failure),
+    }
+}
+
+async fn catalog_for_with_timeout(
     config: &crate::config::Config,
     entry: &CloudProviderCreds,
     use_cache: bool,

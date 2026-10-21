@@ -172,7 +172,7 @@ async fn roundtrip(engine: Arc<dyn MemoryEngine>) -> Result<(), Finding> {
         },
         ..FetchRequest::new(
             "OpenHuman doctor memory roundtrip probe",
-            FetchMode::Hybrid,
+            FetchMode::Keyword,
             1,
         )
     };

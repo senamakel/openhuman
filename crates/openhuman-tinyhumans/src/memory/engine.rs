@@ -42,7 +42,6 @@ pub(crate) fn build_read_only_engine(
             ),
             Err(_) => return Err(ReadOnlyEngineError::CredentialsUnavailable),
         };
-    };
     let endpoint = endpoint_for(config);
     crate::client::endpoint::validate_credential_endpoint(&endpoint, is_api_key)
         .map_err(|_| ReadOnlyEngineError::EndpointUnavailable)?;

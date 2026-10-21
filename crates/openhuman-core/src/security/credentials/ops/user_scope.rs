@@ -148,7 +148,7 @@ pub(super) fn rebind_after_credential_change(
         ));
     }
     crate::cron::seed::prune_retired_jobs(config).map_err(|error| error.to_string())?;
-    crate::core::runtime::context::CoreContext::rebind_default_workspace(
+    crate::core::runtime::context::CoreContext::rebind_default_workspace_with_config(
         &config.workspace_dir,
         Some(&config.config_path),
     )

@@ -356,7 +356,11 @@ impl CoreContext {
     /// Scoped multi-tenant dispatch is unaffected because tenant contexts are
     /// passed to [`CoreContext::scope`] explicitly and are not the process
     /// default.
-    pub fn rebind_default_workspace(
+    pub fn rebind_default_workspace(workspace_dir: &std::path::Path) -> Result<(), String> {
+        Self::rebind_default_workspace_with_config(workspace_dir, None)
+    }
+
+    pub(crate) fn rebind_default_workspace_with_config(
         workspace_dir: &std::path::Path,
         config_path: Option<&std::path::Path>,
     ) -> Result<(), String> {

@@ -198,8 +198,11 @@ async fn legacy_doctor_report_and_models_keep_json_without_boot_storage_writes()
             "url".into(),
             toml::Value::String(format!("sqlite:{}", storage_path.display())),
         );
-    fs::write(&config_path, toml::to_string(&config).expect("serialize config"))
-        .expect("point legacy CLI fixture at a file-backed storage URL");
+    fs::write(
+        &config_path,
+        toml::to_string(&config).expect("serialize config"),
+    )
+    .expect("point legacy CLI fixture at a file-backed storage URL");
     let before = snapshot_tree(home);
 
     let report_output = fixture.run_cli(&[
@@ -213,7 +216,10 @@ async fn legacy_doctor_report_and_models_keep_json_without_boot_storage_writes()
     assert_eq!(report_output.status.code(), Some(0));
     let report: Value =
         serde_json::from_slice(&report_output.stdout).expect("legacy report remains raw JSON");
-    assert!(report["logs"].is_array(), "report keeps its legacy outcome envelope");
+    assert!(
+        report["logs"].is_array(),
+        "report keeps its legacy outcome envelope"
+    );
     assert_eq!(report["result"]["tier"], "static");
     assert!(report["result"]["checks_run"]
         .as_array()

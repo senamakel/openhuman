@@ -48,7 +48,10 @@ fn parse(args: &[String]) -> Result<Option<Invocation>> {
     }
     // Core's namespace dispatcher prints these function-help forms before it
     // parses parameters. Let that path retain its existing help text.
-    if command.get(2).is_some_and(|arg| matches!(arg.as_str(), "-h" | "--help" | "help")) {
+    if command
+        .get(2)
+        .is_some_and(|arg| matches!(arg.as_str(), "-h" | "--help" | "help"))
+    {
         return Ok(None);
     }
 
@@ -79,7 +82,11 @@ fn invoke(invocation: Invocation) -> Result<()> {
     let tokio = crate::embed::process::tokio_runtime()?;
     let runtime = tokio.block_on(super::doctor_runtime(selected_profile.as_deref()))?;
     let result = tokio
-        .block_on(runtime.core_runtime().invoke(&invocation.method, Value::Object(invocation.params)))
+        .block_on(
+            runtime
+                .core_runtime()
+                .invoke(&invocation.method, Value::Object(invocation.params)),
+        )
         .map_err(anyhow::Error::msg)?;
     println!("{}", serde_json::to_string_pretty(&result)?);
     Ok(())

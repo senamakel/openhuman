@@ -110,12 +110,5 @@
     "site": "let mut file = tokio::fs::OpenOptions::new()",
     "reason": "User-visible artifact content is retained as a local deliverable; versioned records and native blob storage are separate capabilities and this file does not establish shared storage authority.",
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7425"
-  },
-  {
-    "path": "crates/openhuman-core/src/doctor/checks/config_semantics.rs",
-    "rule": "file-mutation",
-    "site": "&& tempfile::Builder::new()",
-    "reason": "The static doctor action_dir check creates and closes a unique temporary file inside the selected user action directory, then immediately removes it; this intentional local write proves effective permissions and is never application state stored outside the storage port.",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/8144"
   }
 ]

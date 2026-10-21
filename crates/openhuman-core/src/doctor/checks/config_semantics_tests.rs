@@ -257,6 +257,18 @@ async fn action_directory_without_write_access_is_an_error() {
 }
 
 #[tokio::test]
+async fn writable_action_directory_passes_and_removes_its_probe_file() {
+    let dir = tempfile::tempdir().expect("temporary action directory");
+    let mut config = Config::default();
+    config.action_dir = dir.path().to_owned();
+
+    let findings = run_check(config, "workspace/action-dir").await;
+
+    assert!(findings.is_empty(), "a writable action directory passes");
+    assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
+}
+
+#[tokio::test]
 async fn missing_action_directory_is_reported_without_creating_it() {
     let dir = tempfile::tempdir().expect("temporary parent directory");
     let action_dir = dir.path().join("missing");

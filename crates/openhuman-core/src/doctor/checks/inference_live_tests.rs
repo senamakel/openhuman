@@ -250,6 +250,56 @@ async fn live_chat_sends_the_fixed_short_prompt_and_reports_only_safe_metadata()
 }
 
 #[tokio::test]
+async fn live_probe_uses_selected_doctor_config_inside_another_ambient_context() {
+    let ambient_server = MockServer::start().await;
+    let selected_server = MockServer::start().await;
+    for server in [&ambient_server, &selected_server] {
+        Mock::given(method("POST"))
+            .and(path(completion_path()))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(completion_response("provider/selected-model", "OK")),
+            )
+            .mount(server)
+            .await;
+    }
+    let ambient = config_for(&ambient_server, "provider/ambient-model");
+    let selected = config_for(&selected_server, "provider/selected-model");
+    let context = CoreContext::for_test_with_config(DomainSet::full(), ambient.config);
+    let report = CoreContext::scope(context, async move {
+        crate::doctor::runner::run(
+            &DoctorCtx::from_config(selected.config),
+            DoctorOptions {
+                tier: DoctorTier::Live,
+                only: vec![CHECK_CHAT.into()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("selected config live probe returns a report");
+    assert_eq!(finding(&report, CHECK_CHAT).severity, FindingSeverity::Pass);
+    assert_eq!(
+        ambient_server
+            .received_requests()
+            .await
+            .expect("ambient mock records calls")
+            .len(),
+        0,
+        "the ambient profile must not receive a selected-config probe"
+    );
+    assert_eq!(
+        selected_server
+            .received_requests()
+            .await
+            .expect("selected mock records calls")
+            .len(),
+        1
+    );
+}
+
+#[tokio::test]
 async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
     use crate::inference::registry::{
         ChatModelRequest, InspectionChatModelFactory, register_inspection_chat_model_in,

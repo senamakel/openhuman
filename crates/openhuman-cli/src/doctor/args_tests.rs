@@ -1,6 +1,8 @@
 use serde_json::{json, Value};
 
-use super::{exit_code, is_doctor_command, parse_args, DoctorArgs};
+use super::args::{parse_args, DoctorArgs};
+use super::is_doctor_command;
+use super::runner::exit_code;
 
 fn args(values: &[&str]) -> DoctorArgs {
     let values = values

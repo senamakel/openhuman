@@ -44,7 +44,8 @@ pub(super) fn parse_args(args: &[String]) -> Result<DoctorArgs, String> {
                 let value = argument_value(args, index, "--severity-min")?;
                 if !matches!(value, "info" | "warn" | "error") {
                     return Err(
-                        "invalid value for --severity-min: expected info, warn, or error".to_owned(),
+                        "invalid value for --severity-min: expected info, warn, or error"
+                            .to_owned(),
                     );
                 }
                 options.severity_min = value.into();

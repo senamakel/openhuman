@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::render_table;
+use super::render::render_table;
 
 #[test]
 fn table_groups_by_check_category_and_renders_fix_hints() {

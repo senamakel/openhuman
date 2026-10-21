@@ -42,7 +42,11 @@ fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
     let fixture: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("tool_schema_fixtures.json"))
             .expect("pre-migration declarations are valid JSON");
-    assert_eq!(declarations, fixture);
+    assert_eq!(
+        serde_json::to_vec(&declarations).expect("serialize current declarations"),
+        serde_json::to_vec(&fixture).expect("serialize captured declarations"),
+        "all four names, descriptions and schemas stay byte-identical"
+    );
 }
 
 #[test]

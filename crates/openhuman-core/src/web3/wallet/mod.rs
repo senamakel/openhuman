@@ -69,7 +69,7 @@ pub use ops::{
     WalletSetupParams, WalletSetupSource, WalletStatus, WALLET_NOT_CONFIGURED_MESSAGE,
 };
 #[cfg(feature = "web3")]
-pub(crate) use ops::{inspect_stored_wallet_state, secret_material, StoredWalletInspection};
+pub(crate) use ops::{inspect_stored_wallet_state, secret_material};
 #[cfg(feature = "web3")]
 pub use schemas::{
     all_controller_schemas, all_registered_controllers, all_wallet_controller_schemas,

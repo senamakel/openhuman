@@ -173,7 +173,7 @@ async fn managed_inspection_catalog_lists_models_with_a_read_only_session() {
     let _env_lock = crate::backend::url::backend_env_test_lock();
     let (base, server) = spawn_managed_backend(StatusCode::OK).await;
     let _env = BackendEnvSnapshot::set(&base);
-    let (_temp, mut config) = temporary_config(&base);
+    let (_temp, config) = temporary_config(&base);
     store_session(
         &config,
         "fixture-managed-session",

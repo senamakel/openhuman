@@ -224,8 +224,9 @@ impl CoreContext {
             overlay.user_skill_roots
         );
         // A derived context over the parent's workspace and config root shares
-        // the binding handle, so a matching workspace rebind reaches it. One
-        // that carries another workspace or config root keeps that override.
+        // its current binding snapshot. A later parent rebind replaces the
+        // parent's handle, leaving already-derived work on the prior binding.
+        // Another workspace or config root gets its own binding from the start.
         let shared_binding = {
             let parent_handle = self.workspace_binding.read();
             let parent_handle = parent_handle
@@ -383,12 +384,13 @@ impl CoreContext {
             .workspace_binding
             .write()
             .map_err(|e| format!("workspace rebind failed: binding handle lock poisoned: {e}"))?;
-        let binding_arc = Arc::clone(&*binding_handle);
-        let mut binding = binding_arc
-            .write()
-            .map_err(|e| format!("workspace rebind failed: binding lock poisoned: {e}"))?;
-        let already = binding.workspace_dir.as_deref() == Some(workspace_dir)
-            && binding.config_path.as_deref() == config_path;
+        let already = {
+            let binding = binding_handle
+                .read()
+                .map_err(|e| format!("workspace rebind failed: binding lock poisoned: {e}"))?;
+            binding.workspace_dir.as_deref() == Some(workspace_dir)
+                && binding.config_path.as_deref() == config_path
+        };
         if already {
             log::debug!(
                 "[core-context] workspace {} already bound",
@@ -400,10 +402,10 @@ impl CoreContext {
             "[core-context] rebound default workspace to {}",
             workspace_dir.display()
         );
-        *binding = WorkspaceBinding {
+        *binding_handle = Arc::new(RwLock::new(WorkspaceBinding {
             workspace_dir: Some(workspace_dir.to_path_buf()),
             config_path: config_path.map(std::path::Path::to_path_buf),
-        };
+        }));
         Ok(())
     }
 

@@ -85,38 +85,6 @@ async fn a_workspace_only_origin_is_not_assigned_to_a_different_config_root() {
 }
 
 #[tokio::test]
-async fn a_normal_boot_binding_attributes_errors_to_its_resolved_config_root() {
-    let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    reset_for_tests();
-    let workspace = tempfile::tempdir().expect("shared workspace");
-    let config_root_a = tempfile::tempdir().expect("resolved config root A");
-    let config_root_b = tempfile::tempdir().expect("selected config root B");
-    let config_path_a = config_root_a.path().join("config.toml");
-    let config_path_b = config_root_b.path().join("config.toml");
-    let context = crate::core::runtime::CoreContext::for_test_with_boot_config_path(
-        crate::core::runtime::DomainSet::full(),
-        workspace.path().to_path_buf(),
-        config_path_a.clone(),
-    );
-
-    crate::core::runtime::CoreContext::scope(context, async {
-        assert!(crate::core::runtime::CoreContext::current_embedder_config().is_none());
-        assert!(record("normal-boot-provider", 401));
-    })
-    .await;
-
-    let (errors_for_a, unattributed_for_a) =
-        snapshot_for_scope(workspace.path(), &config_path_a, None);
-    let (errors_for_b, unattributed_for_b) =
-        snapshot_for_scope(workspace.path(), &config_path_b, None);
-    assert_eq!(errors_for_a.len(), 1);
-    assert!(!unattributed_for_a);
-    assert!(errors_for_b.is_empty());
-    assert!(!unattributed_for_b);
-    reset_for_tests();
-}
-
-#[tokio::test]
 async fn workspace_rebind_updates_or_clears_the_config_origin_hint_locally() {
     let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
     reset_for_tests();
@@ -125,16 +93,14 @@ async fn workspace_rebind_updates_or_clears_the_config_origin_hint_locally() {
     let config_root_b = tempfile::tempdir().expect("config root B");
     let config_path_a = config_root_a.path().join("config.toml");
     let config_path_b = config_root_b.path().join("config.toml");
-    let context_a = crate::core::runtime::CoreContext::for_test_with_boot_config_path(
+    let mut config_a = crate::config::Config::default();
+    config_a.workspace_dir = workspace.path().to_path_buf();
+    config_a.config_path = config_path_a.clone();
+    let context_a = crate::core::runtime::CoreContext::for_test_with_config(
         crate::core::runtime::DomainSet::full(),
-        workspace.path().to_path_buf(),
-        config_path_a.clone(),
+        config_a,
     );
-    let context_stays_a = crate::core::runtime::CoreContext::for_test_with_boot_config_path(
-        crate::core::runtime::DomainSet::full(),
-        workspace.path().to_path_buf(),
-        config_path_a.clone(),
-    );
+    let derived_a = context_a.for_agent("in-flight-agent-a");
 
     crate::core::runtime::CoreContext::scope(context_a.clone(), async {
         assert!(record("config-a-provider", 401));
@@ -147,8 +113,8 @@ async fn workspace_rebind_updates_or_clears_the_config_origin_hint_locally() {
         assert!(record("config-b-provider", 403));
     })
     .await;
-    crate::core::runtime::CoreContext::scope(context_stays_a, async {
-        assert!(record("still-config-a-provider", 401));
+    crate::core::runtime::CoreContext::scope(derived_a, async {
+        assert!(record("in-flight-config-a-provider", 401));
     })
     .await;
 

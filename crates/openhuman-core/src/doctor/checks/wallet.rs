@@ -2,22 +2,28 @@
 
 use std::sync::Arc;
 
-use crate::config::Config;
 use crate::doctor::{ComponentId, DoctorCheck, DoctorTier, Finding};
 use async_trait::async_trait;
 
+#[cfg(feature = "web3")]
+use crate::config::Config;
+
+#[cfg(feature = "web3")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum WalletSnapshotFailure {
     Malformed,
     Unavailable,
 }
+#[cfg(feature = "web3")]
 type SnapshotFailure = WalletSnapshotFailure;
 
+#[cfg(feature = "web3")]
 #[derive(Debug, Clone, Copy)]
 struct WalletSnapshot {
     configured: bool,
 }
 
+#[cfg(feature = "web3")]
 trait WalletSnapshotProbe: Send + Sync {
     fn read_existing(
         &self,
@@ -25,8 +31,10 @@ trait WalletSnapshotProbe: Send + Sync {
     ) -> Result<Option<WalletSnapshot>, WalletSnapshotFailure>;
 }
 
+#[cfg(feature = "web3")]
 struct FileSnapshot;
 
+#[cfg(feature = "web3")]
 impl WalletSnapshotProbe for FileSnapshot {
     fn read_existing(
         &self,
@@ -65,16 +73,18 @@ impl WalletSnapshotProbe for FileSnapshot {
 
 pub(super) fn for_context() -> Vec<Arc<dyn DoctorCheck>> {
     vec![Arc::new(WalletStatusCheck {
+        #[cfg(feature = "web3")]
         probe: Arc::new(FileSnapshot),
     })]
 }
 
 struct WalletStatusCheck {
+    #[cfg(feature = "web3")]
     probe: Arc<dyn WalletSnapshotProbe>,
 }
 
 impl WalletStatusCheck {
-    #[cfg(test)]
+    #[cfg(all(test, feature = "web3"))]
     fn with_probe(probe: Arc<dyn WalletSnapshotProbe>) -> Self {
         Self { probe }
     }
@@ -125,8 +135,6 @@ impl DoctorCheck for WalletStatusCheck {
         };
         #[cfg(not(feature = "web3"))]
         let _ = ctx;
-        #[cfg(not(feature = "web3"))]
-        let _ = &self.probe;
         vec![finding]
     }
 }

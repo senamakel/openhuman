@@ -28,6 +28,9 @@ pub use factory::{
     default_embedding_provider_for_chat, default_embedding_provider_with_config,
 };
 pub use rpc::provider_from_config;
+pub(crate) use rpc::{
+    InspectionEmbeddingDimensions, InspectionEmbeddingError, probe_dimensions_for_inspection,
+};
 /// A shared embedding provider as this module's factories return it, nameable
 /// by hosts that hold one without depending on the embeddings crate.
 pub type SharedEmbeddingModel = std::sync::Arc<dyn tinyinference_embeddings::EmbeddingModel>;

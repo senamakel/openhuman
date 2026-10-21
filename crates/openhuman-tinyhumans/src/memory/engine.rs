@@ -39,7 +39,7 @@ pub(crate) fn build_read_only_engine(
     };
     let endpoint = endpoint_for(config);
     let headers = crate::backend::headers::attribution_headers()
-        .map_err(|_| "Backend attribution headers are unavailable.")?
+        .map_err(|_| ReadOnlyEngineError::InvalidConfiguration)?
         .iter()
         .filter_map(|(name, value)| {
             value

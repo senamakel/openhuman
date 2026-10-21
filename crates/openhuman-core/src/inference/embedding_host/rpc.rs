@@ -9,6 +9,9 @@ mod embed;
 mod settings;
 
 pub use api_keys::{clear_api_key, set_api_key};
+pub(crate) use embed::{
+    InspectionEmbeddingDimensions, InspectionEmbeddingError, probe_dimensions_for_inspection,
+};
 pub use embed::{embed, test_connection};
 pub use settings::{get_settings, update_settings};
 

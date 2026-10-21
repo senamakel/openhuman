@@ -137,8 +137,9 @@ async fn prepare(
     let provider = entry.slug.clone();
     let auth_style = entry.auth_style;
     let frozen_token = token.clone();
+    let fetch_url = url.clone();
     let fetch = Box::pin(async move {
-        let mut request = client.get(url.clone());
+        let mut request = client.get(fetch_url);
         if let Some(token) = frozen_token.as_deref() {
             request = match auth_style {
                 AuthStyle::Anthropic => request
@@ -390,7 +391,7 @@ impl DoctorCheck for ModelInCatalog {
 fn selected_models(config: &crate::config::Config) -> Vec<(String, String)> {
     let mut models = Vec::new();
     if let Some(model) = &config.default_model {
-        models.push(("default_model", model.clone()));
+        models.push(("default_model".to_owned(), model.clone()));
     }
     for (index, route) in config.model_routes.iter().enumerate() {
         models.push((format!("model_routes[{index}].model"), route.model.clone()));

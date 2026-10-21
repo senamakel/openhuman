@@ -162,7 +162,8 @@ async fn roundtrip(engine: Arc<dyn MemoryEngine>) -> Result<(), Finding> {
             return Err(timeout_finding(Operation::Store, cleaned));
         }
     };
-    cleanup.include_receipt_id(receipt.id);
+    let stored_id = receipt.id;
+    cleanup.include_receipt_id(stored_id.clone());
 
     let request = FetchRequest {
         filter: MetaFilter {
@@ -176,7 +177,7 @@ async fn roundtrip(engine: Arc<dyn MemoryEngine>) -> Result<(), Finding> {
         )
     };
     match tokio::time::timeout(OPERATION_TIMEOUT, engine.fetch(request)).await {
-        Ok(Ok(page)) if page.hits.iter().any(|hit| hit.id == scratch_id) => {}
+        Ok(Ok(page)) if page.hits.iter().any(|hit| hit.id == stored_id) => {}
         Ok(Ok(_)) => {
             let cleaned = cleanup.cleanup().await;
             return Err(Finding::error(

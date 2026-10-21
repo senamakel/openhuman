@@ -18,6 +18,8 @@ use tinymemory_api::{
 enum Failure {
     None,
     Fetch,
+    FetchUntilCancelled,
+    StoreUntilCancelled,
     StoreAfterAccept(MemoryApiError),
 }
 
@@ -33,6 +35,9 @@ struct ProbeEngine {
     inner: ReferenceEngine,
     failure: Failure,
     calls: Mutex<Calls>,
+    store_started: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    fetch_started: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
+    cleanup_finished: Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
 }
 
 impl ProbeEngine {
@@ -41,7 +46,52 @@ impl ProbeEngine {
             inner: ReferenceEngine::new(),
             failure,
             calls: Mutex::new(Calls::default()),
+            store_started: Mutex::new(None),
+            fetch_started: Mutex::new(None),
+            cleanup_finished: Mutex::new(None),
         }
+    }
+
+    fn pending_fetch() -> (
+        Self,
+        tokio::sync::oneshot::Receiver<()>,
+        tokio::sync::oneshot::Receiver<()>,
+    ) {
+        let (fetch_started_tx, fetch_started_rx) = tokio::sync::oneshot::channel();
+        let (cleanup_finished_tx, cleanup_finished_rx) = tokio::sync::oneshot::channel();
+        (
+            Self {
+                inner: ReferenceEngine::new(),
+                failure: Failure::FetchUntilCancelled,
+                calls: Mutex::new(Calls::default()),
+                store_started: Mutex::new(None),
+                fetch_started: Mutex::new(Some(fetch_started_tx)),
+                cleanup_finished: Mutex::new(Some(cleanup_finished_tx)),
+            },
+            fetch_started_rx,
+            cleanup_finished_rx,
+        )
+    }
+
+    fn pending_store() -> (
+        Self,
+        tokio::sync::oneshot::Receiver<()>,
+        tokio::sync::oneshot::Receiver<()>,
+    ) {
+        let (store_started_tx, store_started_rx) = tokio::sync::oneshot::channel();
+        let (cleanup_finished_tx, cleanup_finished_rx) = tokio::sync::oneshot::channel();
+        (
+            Self {
+                inner: ReferenceEngine::new(),
+                failure: Failure::StoreUntilCancelled,
+                calls: Mutex::new(Calls::default()),
+                store_started: Mutex::new(Some(store_started_tx)),
+                fetch_started: Mutex::new(None),
+                cleanup_finished: Mutex::new(Some(cleanup_finished_tx)),
+            },
+            store_started_rx,
+            cleanup_finished_rx,
+        )
     }
 
 }
@@ -65,6 +115,12 @@ impl MemoryEngine for ProbeEngine {
         if matches!(&self.failure, Failure::Fetch) {
             return Err(MemoryApiError::Unavailable("mock fetch failure".into()));
         }
+        if matches!(&self.failure, Failure::FetchUntilCancelled) {
+            if let Some(started) = self.fetch_started.lock().unwrap().take() {
+                let _ = started.send(());
+            }
+            return std::future::pending().await;
+        }
         self.inner.fetch(request).await
     }
 
@@ -78,6 +134,12 @@ impl MemoryEngine for ProbeEngine {
             .unwrap()
             .stored
             .push((id, namespace));
+        if matches!(&self.failure, Failure::StoreUntilCancelled) {
+            if let Some(started) = self.store_started.lock().unwrap().take() {
+                let _ = started.send(());
+            }
+            return std::future::pending().await;
+        }
         if let Failure::StoreAfterAccept(error) = &self.failure {
             return Err(error.clone());
         }
@@ -98,7 +160,11 @@ impl MemoryEngine for ProbeEngine {
         calls.steps.push("forget_within");
         calls.scoped_forgets.push((ids.clone(), reach.clone()));
         drop(calls);
-        self.inner.forget_within(ids, reach).await
+        let result = self.inner.forget_within(ids, reach).await;
+        if let Some(finished) = self.cleanup_finished.lock().unwrap().take() {
+            let _ = finished.send(());
+        }
+        result
     }
 
     async fn list(&self, request: ListRequest) -> tinymemory_api::Result<ListPage> {
@@ -314,4 +380,73 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
     assert_eq!(remaining.len(), 1, "the scratch probes are gone");
     assert_eq!(remaining[0].id, real_id, "unrelated memory is preserved");
+}
+
+#[tokio::test]
+async fn cancelling_a_pending_fetch_keeps_scoped_cleanup_owned_by_the_guard() {
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let config = config_in(&tmp);
+    let (probe, fetch_started, cleanup_finished) = ProbeEngine::pending_fetch();
+    let engine = Arc::new(probe);
+    let real_id = seed_real_memory(&engine).await;
+
+    let engine_for_task = Arc::clone(&engine);
+    let task = tokio::spawn(async move {
+        run_check_with_config(&engine_for_task, config).await
+    });
+    fetch_started
+        .await
+        .expect("the scratch item was stored and fetch began");
+    task.abort();
+    cleanup_finished
+        .await
+        .expect("detached cleanup finishes after the check is cancelled");
+
+    let calls = engine.calls.lock().unwrap();
+    assert_eq!(calls.steps, ["store", "fetch", "forget_within"]);
+    assert_eq!(calls.unscoped_forgets, 0);
+    assert_eq!(calls.scoped_forgets.len(), 1);
+    let namespace = calls.stored[0].1.clone();
+    assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
+    drop(calls);
+
+    assert_scratch_namespaces_are_empty(&engine, &[namespace]).await;
+    let remaining = stored(&engine.inner, MetaFilter::default()).await;
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].id, real_id);
+}
+
+#[tokio::test]
+async fn cancelling_an_ambiguous_store_cleans_up_using_the_precomputed_id() {
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let config = config_in(&tmp);
+    let (probe, store_started, cleanup_finished) = ProbeEngine::pending_store();
+    let engine = Arc::new(probe);
+    let real_id = seed_real_memory(&engine).await;
+
+    let engine_for_task = Arc::clone(&engine);
+    let task = tokio::spawn(async move {
+        run_check_with_config(&engine_for_task, config).await
+    });
+    store_started
+        .await
+        .expect("the store was accepted but its response is pending");
+    task.abort();
+    cleanup_finished
+        .await
+        .expect("detached cleanup finishes after the store is cancelled");
+
+    let calls = engine.calls.lock().unwrap();
+    assert_eq!(calls.steps, ["store", "forget_within"]);
+    assert_eq!(calls.unscoped_forgets, 0);
+    assert_eq!(calls.scoped_forgets.len(), 1);
+    assert_eq!(calls.scoped_forgets[0].0, vec![calls.stored[0].0.clone()]);
+    let namespace = calls.stored[0].1.clone();
+    assert_eq!(calls.scoped_forgets[0].1, Reach::exact(namespace.clone()));
+    drop(calls);
+
+    assert_scratch_namespaces_are_empty(&engine, &[namespace]).await;
+    let remaining = stored(&engine.inner, MetaFilter::default()).await;
+    assert_eq!(remaining.len(), 1);
+    assert_eq!(remaining[0].id, real_id);
 }

@@ -62,12 +62,10 @@ async fn missing_embedding_model_and_dimensions_are_reported() {
         paths.contains(&"memory.embedding_dimensions"),
         "missing dimensions path in findings: {findings:#?}"
     );
-    assert!(
-        findings
-            .iter()
-            .filter(|result| result.check_id == EMBEDDINGS_CONFIG)
-            .all(|result| result.severity == FindingSeverity::Error)
-    );
+    assert!(findings
+        .iter()
+        .filter(|result| result.check_id == EMBEDDINGS_CONFIG)
+        .all(|result| result.severity == FindingSeverity::Error));
 }
 
 #[tokio::test]
@@ -131,10 +129,8 @@ async fn embedding_workload_model_must_match_memory_model() {
 
 #[tokio::test]
 async fn configured_ollama_model_uses_each_selected_config_base_url() {
-    let (url_a, request_a) = fake_ollama(200, r#"{"models":[{"name":"bge-m3:latest"}]}"#)
-        .await;
-    let (url_b, request_b) =
-        fake_ollama(200, r#"{"models":[{"name":"nomic-embed-text"}]}"#).await;
+    let (url_a, request_a) = fake_ollama(200, r#"{"models":[{"name":"bge-m3:latest"}]}"#).await;
+    let (url_b, request_b) = fake_ollama(200, r#"{"models":[{"name":"nomic-embed-text"}]}"#).await;
 
     let mut config_a = Config::default();
     config_a.memory.embedding_provider = "ollama".to_owned();
@@ -281,7 +277,10 @@ async fn incomplete_embedding_routes_keep_their_field_specific_findings() {
         "embedding_routes[0].model",
         "embedding_routes[0].dimensions",
     ] {
-        assert!(paths.contains(&path), "missing {path} finding: {findings:#?}");
+        assert!(
+            paths.contains(&path),
+            "missing {path} finding: {findings:#?}"
+        );
     }
     assert!(findings.iter().all(|finding| {
         finding.check_id != EMBEDDINGS_CONFIG
@@ -324,11 +323,14 @@ async fn custom_embedding_route_rejects_empty_and_malformed_urls() {
 
         let findings = run_only(config).await;
 
-        assert!(findings.iter().any(|finding| {
-            finding.check_id == EMBEDDINGS_CONFIG
-                && finding.severity == FindingSeverity::Error
-                && finding.config_path.as_deref() == Some("embedding_routes[0].provider")
-        }), "invalid endpoint was not reported: {findings:#?}");
+        assert!(
+            findings.iter().any(|finding| {
+                finding.check_id == EMBEDDINGS_CONFIG
+                    && finding.severity == FindingSeverity::Error
+                    && finding.config_path.as_deref() == Some("embedding_routes[0].provider")
+            }),
+            "invalid endpoint was not reported: {findings:#?}"
+        );
     }
 }
 
@@ -343,10 +345,7 @@ fn configured_ollama_model_matches_exact_and_tagged_names() {
     assert!(!model_matches("bge-m3:latest", "bge-m3:v1.0"));
 }
 
-async fn fake_ollama(
-    status: u16,
-    body: &'static str,
-) -> (String, tokio::task::JoinHandle<String>) {
+async fn fake_ollama(status: u16, body: &'static str) -> (String, tokio::task::JoinHandle<String>) {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
@@ -367,7 +366,11 @@ async fn fake_ollama(
                 break;
             }
         }
-        let reason = if status == 200 { "OK" } else { "Service Unavailable" };
+        let reason = if status == 200 {
+            "OK"
+        } else {
+            "Service Unavailable"
+        };
         let response = format!(
             "HTTP/1.1 {status} {reason}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}",
             body.len()

@@ -3,10 +3,10 @@ use crate::core::runtime::ComponentSet;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::core::slots::Extensions;
 use crate::doctor::contract::{DoctorConfigSource, DoctorCtx, FindingSeverity};
-use crate::memory::engine::{Binding, DISABLED_ENGINE, EngineHealth};
+use crate::memory::engine::{Binding, EngineHealth, DISABLED_ENGINE};
 use crate::memory::engine_registry::{
-    EngineEntry, EngineFuture, ReadOnlyHealthProbe, register_memory_engine_in,
-    register_memory_health_probe_in,
+    register_memory_engine_in, register_memory_health_probe_in, EngineEntry, EngineFuture,
+    ReadOnlyHealthProbe,
 };
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;

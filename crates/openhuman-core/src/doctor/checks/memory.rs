@@ -187,9 +187,7 @@ fn safe_reason(reason: &str) -> String {
     "The selected memory engine reported an error; details are withheld.".to_owned()
 }
 
-async fn probe_selected_config(
-    config: &crate::config::Config,
-) -> EngineHealth {
+async fn probe_selected_config(config: &crate::config::Config) -> EngineHealth {
     let engine_id = config.memory.engine.trim();
     #[cfg(test)]
     if let Some(health) = crate::memory::engine::doctor_test_health(config).await {

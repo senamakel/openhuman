@@ -16,7 +16,7 @@ pub use contract::{
 };
 pub use core::{ModelProbeEntry, ModelProbeOutcome, ModelProbeReport, ModelProbeSummary};
 pub use ops::*;
-pub use registry::{DoctorCheckSource, register_check_source, register_check_source_in};
+pub use registry::{register_check_source, register_check_source_in, DoctorCheckSource};
 pub use schemas::{
     all_controller_schemas as all_doctor_controller_schemas,
     all_registered_controllers as all_doctor_registered_controllers,

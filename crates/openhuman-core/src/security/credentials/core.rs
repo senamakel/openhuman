@@ -1,5 +1,5 @@
 use super::profiles::{
-    profile_id, AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore,
+    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, profile_id,
 };
 use crate::config::Config;
 use anyhow::Result;
@@ -27,6 +27,25 @@ impl AuthService {
         profile_override: Option<&str>,
     ) -> Result<Option<AuthProfile>, super::profiles::ReadOnlyAuthProfileError> {
         super::profiles::load_profile_read_only(config, provider, profile_override)
+    }
+
+    /// Reads the selected profile's bearer without opening the mutable
+    /// auth-profile store. Doctor inspection uses this for BYOK providers.
+    pub fn get_provider_bearer_token_read_only(
+        config: &Config,
+        provider: &str,
+        profile_override: Option<&str>,
+    ) -> Result<Option<String>, super::profiles::ReadOnlyAuthProfileError> {
+        let Some(profile) = Self::get_profile_read_only(config, provider, profile_override)? else {
+            return Ok(None);
+        };
+        let credential = match profile.kind {
+            super::profiles::AuthProfileKind::Token => profile.token,
+            super::profiles::AuthProfileKind::OAuth => {
+                profile.token_set.map(|tokens| tokens.access_token)
+            }
+        };
+        Ok(credential.filter(|token| !token.trim().is_empty()))
     }
 
     pub fn from_config(config: &Config) -> Self {

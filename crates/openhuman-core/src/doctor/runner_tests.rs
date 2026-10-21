@@ -47,6 +47,23 @@ fn no_unwritten_daemon_state_check_is_registered() {
     );
 }
 
+#[test]
+fn live_embedding_and_memory_roundtrip_checks_are_registered_as_live() {
+    let checks = super::registry::registered_checks().expect("built-in checks are valid");
+
+    for id in ["embeddings/live", "memory/roundtrip"] {
+        let check = checks
+            .iter()
+            .find(|check| check.id() == id)
+            .unwrap_or_else(|| panic!("the live doctor check {id} must be registered"));
+        assert_eq!(
+            check.tier(),
+            DoctorTier::Live,
+            "{id} may run only when the doctor live tier is requested"
+        );
+    }
+}
+
 struct BlockingProbe {
     id: String,
     timeout: Duration,
@@ -316,6 +333,98 @@ async fn checks_above_the_requested_tier_are_skipped() {
             && finding.severity == FindingSeverity::Skipped
             && finding.duration_ms == 0
     }));
+}
+
+#[tokio::test]
+async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
+    use axum::{Json, Router, extract::State, routing::post};
+    use std::sync::atomic::AtomicUsize;
+    use tempfile::TempDir;
+    use tinymemory_api::{MemoryEngine, conformance::ReferenceEngine};
+
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace directory");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app =
+        Router::new()
+            .route(
+                "/api/embed",
+                post(
+                    |State(calls): State<Arc<AtomicUsize>>,
+                     Json(_body): Json<serde_json::Value>| async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Json(serde_json::json!({ "embeddings": [[0.1_f32; 768]] }))
+                    },
+                ),
+            )
+            .with_state(Arc::clone(&calls));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind local embedding mock");
+    let endpoint = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let mut config = Config {
+        workspace_dir: workspace.clone(),
+        action_dir: workspace,
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.memory.embedding_provider = "ollama".to_owned();
+    config.memory.embedding_model = "nomic-embed-text".to_owned();
+    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_owned();
+    config.local_ai.base_url = Some(endpoint);
+    let memory_factory_calls = Arc::new(AtomicUsize::new(0));
+    let factory_calls = Arc::clone(&memory_factory_calls);
+    let inspection_factory: crate::memory::engine_registry::ReadOnlyEngineFactory =
+        Arc::new(move |_| {
+            factory_calls.fetch_add(1, Ordering::SeqCst);
+            let engine: Arc<dyn MemoryEngine> = Arc::new(ReferenceEngine::new());
+            Box::pin(async move { Ok(engine) })
+        });
+    let extensions = Extensions::new();
+    crate::memory::engine_registry::register_read_only_engine_factory_in(
+        &extensions,
+        crate::memory::engine::TINYHUMANS_ENGINE,
+        inspection_factory,
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(config),
+            DoctorOptions {
+                tier: DoctorTier::Connect,
+                only: vec!["embeddings/live".to_owned(), "memory/roundtrip".to_owned()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+        .expect("connect-only report")
+    })
+    .await;
+
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "live embedding was not invoked"
+    );
+    assert_eq!(
+        memory_factory_calls.load(Ordering::SeqCst),
+        0,
+        "live memory was not bound"
+    );
+    assert!(
+        report
+            .checks_skipped
+            .contains(&"embeddings/live".to_owned())
+    );
+    assert!(
+        report
+            .checks_skipped
+            .contains(&"memory/roundtrip".to_owned())
+    );
 }
 
 #[tokio::test]

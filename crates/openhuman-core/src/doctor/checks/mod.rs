@@ -4,10 +4,12 @@ mod config_file;
 mod config_provenance;
 mod config_semantics;
 mod embeddings;
+mod embeddings_live;
 mod ids;
 mod inference;
 mod mcp;
 mod memory;
+mod memory_live;
 mod modules;
 mod registry;
 mod sandbox;
@@ -30,9 +32,11 @@ pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
     checks.push(Arc::new(inference::Construct));
     checks.push(Arc::new(inference::Temperature));
     checks.extend(memory::checks());
+    checks.push(Arc::new(memory_live::MemoryRoundtripCheck));
     checks.extend(storage::checks());
     checks.push(Arc::new(secrets::KeyringCheck));
     checks.push(Arc::new(embeddings::EmbeddingConfigCheck));
+    checks.push(Arc::new(embeddings_live::EmbeddingsLiveCheck));
     checks.extend(config_semantics::checks());
     checks
 }

@@ -360,9 +360,10 @@ pub mod inference_registry {
     pub use openhuman_core::inference::registry::{
         BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest, ChatModelEntry,
         ChatModelFactory, ChatModelRequest, EmbeddingFactory, EmbeddingRequest,
-        InspectionChatModelFactory, ReadinessProbe, register_catalog, register_catalog_in,
-        register_chat_model, register_chat_model_in, register_embedding, register_embedding_in,
-        register_inspection_chat_model, register_inspection_chat_model_in, unregister_catalog,
+        InspectionChatModelFactory, InspectionEmbeddingFactory, ReadinessProbe, register_catalog,
+        register_catalog_in, register_chat_model, register_chat_model_in, register_embedding,
+        register_embedding_in, register_inspection_chat_model, register_inspection_chat_model_in,
+        register_inspection_embedding, register_inspection_embedding_in, unregister_catalog,
         unregister_chat_model, unregister_embedding, unregister_inspection_chat_model,
     };
 }
@@ -375,8 +376,10 @@ pub mod memory_engines {
     };
     pub use openhuman_core::memory::engine_registry::{
         EngineBuilder, EngineEntry, EngineFuture, EngineRequest, FreeBackground,
-        ReadOnlyHealthProbe, bound_engine, register_memory_engine, register_memory_engine_in,
-        register_memory_health_probe, register_memory_health_probe_in, unregister_memory_engine,
+        ReadOnlyEngineError, ReadOnlyEngineFactory, ReadOnlyHealthProbe, bound_engine,
+        register_memory_engine, register_memory_engine_in, register_memory_health_probe,
+        register_memory_health_probe_in, register_read_only_engine_factory,
+        register_read_only_engine_factory_in, unregister_memory_engine,
     };
 }
 

@@ -108,6 +108,14 @@ pub mod core {
 
 /// The generic doctor hook for checks contributed by a layered host.
 pub mod doctor {
+    /// The read-only desktop profile resolver used by the RPC host's one-shot
+    /// doctor boot.
+    pub mod profile {
+        pub use openhuman_core::doctor::profile::{
+            resolve_desktop_profile_for_doctor, DesktopProfileError, DesktopProfileSelection,
+        };
+    }
+
     pub use openhuman_core::doctor::registry::registered_checks;
     pub use openhuman_core::doctor::{
         register_check_source, register_check_source_in, DoctorCheck, DoctorCheckSource,
@@ -372,11 +380,11 @@ pub mod inference_registry {
         register_inspection_chat_model_in, register_inspection_embedding,
         register_inspection_embedding_in, unregister_catalog, unregister_chat_model,
         unregister_embedding, unregister_inspection_catalog, unregister_inspection_chat_model,
-        unregister_inspection_embedding, BoxFuture, CatalogEntry, CatalogLimits, CatalogListing,
-        CatalogRequest, ChatModelEntry, ChatModelFactory, ChatModelRequest, EmbeddingFactory,
-        EmbeddingRequest, InspectionCatalogError, InspectionCatalogListing,
-        InspectionChatModelBuild, InspectionChatModelFactory, InspectionEmbeddingFactory,
-        PreparedInspectionCatalog, PreparedInspectionChatModelFactory, ReadinessProbe,
+        BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest, ChatModelEntry,
+        ChatModelFactory, ChatModelRequest, EmbeddingFactory, EmbeddingRequest,
+        InspectionCatalogError, InspectionCatalogListing, InspectionChatModelBuild,
+        InspectionChatModelFactory, InspectionEmbeddingFactory, PreparedInspectionCatalog,
+        PreparedInspectionChatModelFactory, ReadinessProbe,
     };
 }
 
@@ -434,17 +442,6 @@ pub mod voice_registry {
 pub mod desktop {
     pub mod notifications {
         pub use openhuman_core::desktop::notifications::subscribe_core_notifications;
-    }
-}
-
-/// The read-only desktop profile resolver used by the RPC host's one-shot
-/// doctor boot. Kept on the host-internals facade so CLI code does not depend
-/// on `openhuman-core` directly.
-pub mod doctor {
-    pub mod profile {
-        pub use openhuman_core::doctor::profile::{
-            resolve_desktop_profile_for_doctor, DesktopProfileError, DesktopProfileSelection,
-        };
     }
 }
 

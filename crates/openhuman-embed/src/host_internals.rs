@@ -251,6 +251,7 @@ pub mod security {
                 publish_local_session_expiry, resolve_backend_credential, session_token_for_config,
                 BackendCredential, SessionTokenCheck, LOCAL_SESSION_BACKEND_UNAVAILABLE,
                 LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SESSION_EXPIRES_AT_META,
+                SESSION_ISSUING_BACKEND_META,
             };
         }
         pub mod api_key {

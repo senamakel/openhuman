@@ -99,8 +99,7 @@ fn build_chat_model_for_inspection(
     let bearer = managed_session::managed_bearer_for_inspection(request.config)?;
     let endpoint = format!(
         "{}/openai/v1",
-        crate::backend::url::effective_api_url(request.config.api_url.as_deref())
-            .trim_end_matches('/')
+        crate::backend::url::effective_api_url(&request.config.api_url).trim_end_matches('/')
     );
     let model = OpenHumanBackendModel::new(
         request.config.api_url.as_deref(),

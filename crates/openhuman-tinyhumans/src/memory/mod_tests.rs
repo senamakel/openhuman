@@ -259,7 +259,12 @@ async fn readonly_health_uses_the_selected_config_credential_and_endpoint() {
     let requests = server_b.received_requests().await.unwrap();
     assert_eq!(requests.len(), 1);
     assert_eq!(
-        requests[0].header("authorization").unwrap(),
+        requests[0]
+            .headers
+            .get("authorization")
+            .unwrap()
+            .to_str()
+            .unwrap(),
         "Bearer selected-b-token"
     );
     assert_eq!(

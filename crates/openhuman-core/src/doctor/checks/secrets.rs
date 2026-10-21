@@ -47,11 +47,16 @@ fn keyring_with_probe(
     interactive: bool,
     probe: impl FnOnce() -> (String, bool),
 ) -> Finding {
-    if is_macos && !interactive {
+    if !interactive {
+        let message = if is_macos {
+            "The macOS keyring probe was skipped because this session is non-interactive."
+        } else {
+            "The keyring probe was skipped because this session is non-interactive."
+        };
         return Finding::skipped(
             "secrets/keyring",
-            "The macOS keyring probe was skipped because this session is non-interactive.",
-            "Rerun doctor in an interactive terminal to check keychain availability.",
+            message,
+            "Rerun doctor in an interactive terminal to check keyring availability.",
         );
     }
     let (backend, available) = probe();

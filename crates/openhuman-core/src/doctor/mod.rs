@@ -73,4 +73,16 @@ mod embeddings_config_tests;
 mod inference_catalog_tests;
 
 #[cfg(test)]
+#[path = "inference_auth_error_tests.rs"]
+mod inference_auth_error_tests;
+
+#[cfg(test)]
+#[path = "inference_model_catalog_tests.rs"]
+mod inference_model_catalog_tests;
+
+#[cfg(test)]
+#[path = "inference_catalog_test_support.rs"]
+mod inference_catalog_test_support;
+
+#[cfg(test)]
 pub(crate) mod test_support;

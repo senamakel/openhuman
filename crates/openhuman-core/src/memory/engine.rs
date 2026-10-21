@@ -299,7 +299,7 @@ fn inspection_layout_root(
 /// Memory is off for `config`, or an embedding host's (or a test's)
 /// installed engine is bound, which has one layout of its own and cannot be
 /// bound below a scope root.
-pub fn bind_with_root(config: &Config, root: Option<&str>) -> Result<BoundEngine> {
+pub fn bind_with_root(config: &Config, root: Option<&str>) -> MemoryResult<BoundEngine> {
     if !config.components.memory {
         return Err(MemoryError::Off(COMPONENT_OFF_REASON.to_string()));
     }
@@ -323,8 +323,8 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> Result<BoundEngine
             .contains_key(&config.workspace_dir);
         if one_engine {
             return match root {
-                None => resolve(config).engine(),
-                Some(_) => Err(Error::Engine(
+                None => resolve(config).engine().map_err(MemoryError::from),
+                Some(_) => Err(MemoryError::Engine(
                     "the installed test engine cannot be bound below a scope root".to_string(),
                 )),
             };
@@ -339,7 +339,9 @@ pub fn bind_with_root(config: &Config, root: Option<&str>) -> Result<BoundEngine
     )? {
         return Ok(bound);
     }
-    resolve_configured(config, root).engine()
+    resolve_configured(config, root)
+        .engine()
+        .map_err(MemoryError::from)
 }
 
 /// Whether the process-wide host engine may be used: never in SaaS, where one

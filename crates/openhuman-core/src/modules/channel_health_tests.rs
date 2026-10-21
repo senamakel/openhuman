@@ -1,12 +1,14 @@
 use super::*;
 use tinychannels_bus::ChannelHealthState;
 
+type ObservedHealth = (bool, Vec<String>, u64);
+
 #[cfg(feature = "modules")]
 #[derive(Clone)]
 struct HealthResponseState {
     delay: std::time::Duration,
     fail: bool,
-    observed: std::sync::Arc<std::sync::Mutex<Option<(bool, Vec<String>, u64)>>>,
+    observed: std::sync::Arc<std::sync::Mutex<Option<ObservedHealth>>>,
 }
 
 #[cfg(feature = "modules")]

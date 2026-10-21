@@ -324,7 +324,7 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
         }
     }
 
-    let mut extensions = crate::core::slots::Extensions::new();
+    let extensions = crate::core::slots::Extensions::new();
     let calls = Arc::new(AtomicUsize::new(0));
     let model_calls = Arc::clone(&calls);
     let factory: InspectionChatModelFactory = Arc::new(move |request: &ChatModelRequest<'_>| {
@@ -336,7 +336,7 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
             credential: "frozen-managed-test-token".into(),
         })
     });
-    register_inspection_chat_model_in(&mut extensions, "openhuman", factory);
+    register_inspection_chat_model_in(&extensions, "openhuman", factory);
 
     let mut fixture = isolated_config();
     let config = &mut fixture.config;
@@ -710,7 +710,7 @@ fn configured_role_ids_are_registered_as_live_checks_for_that_config() {
     ] {
         let id = format!("inference/live/{role}");
         assert_eq!(by_id.get(&id), Some(&DoctorTier::Live), "missing {id}");
-        assert!(!provider_for_role(role, &config).is_empty());
+        assert!(!provider_for_role(role, config).is_empty());
     }
     assert!(!by_id.contains_key("inference/live/embeddings"));
 }

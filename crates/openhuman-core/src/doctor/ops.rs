@@ -73,11 +73,7 @@ pub async fn doctor_report_for_dispatch(
             let ctx = DoctorCtx::from_config_with_components(target.config.clone(), components)
                 .with_profile(target.profile_id.as_str(), DoctorConfigSource::Tenant)
                 .with_profile_metadata(None, Some("saas-tenant".into()));
-            return CoreContext::scope(
-                target.context,
-                report_with_context(options, ctx),
-            )
-            .await;
+            return CoreContext::scope(target.context, report_with_context(options, ctx)).await;
         }
     }
 

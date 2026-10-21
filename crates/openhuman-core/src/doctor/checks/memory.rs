@@ -216,7 +216,6 @@ async fn probe_selected_config(config: &crate::config::Config) -> EngineHealth {
 
 async fn cortexdb_health(config: &crate::config::Config) -> EngineHealth {
     use crate::security::credentials::AuthService;
-    use tinymemory_api::MemoryEngine;
     use tinymemory_integrations::{EngineCredential, EngineSettings};
 
     let profile = match AuthService::get_profile_read_only(

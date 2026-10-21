@@ -32,7 +32,7 @@ const PRIVATE_WORKSPACE_MARKER: &str = "doctor-private-workspace-marker-8144";
 
 #[cfg(unix)]
 struct ReadOnlyWorkspace {
-    temp: tempfile::TempDir,
+    _temp: tempfile::TempDir,
     workspace: std::path::PathBuf,
     original_mode: u32,
 }
@@ -55,7 +55,7 @@ impl ReadOnlyWorkspace {
         permissions.set_mode(original_mode & !0o222);
         std::fs::set_permissions(&path, permissions).expect("make workspace read-only");
         Self {
-            temp,
+            _temp: temp,
             workspace: path,
             original_mode,
         }

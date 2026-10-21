@@ -82,7 +82,8 @@ async fn read_only_inspection_engines_use_the_native_host_scrub_policy() {
 #[test]
 fn read_only_inspection_uses_the_current_v3_user_root_only_for_v3_layout() {
     let mut config = crate::config::Config::default();
-    config.config_path = "/home/operator/.openhuman/users/6512ab0f6512ab0f6512ab0f/config.toml".into();
+    config.config_path =
+        "/home/operator/.openhuman/users/6512ab0f6512ab0f6512ab0f/config.toml".into();
 
     assert_eq!(inspection_layout_root(&config).unwrap(), None);
 

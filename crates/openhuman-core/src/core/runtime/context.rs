@@ -458,7 +458,7 @@ impl CoreContext {
 /// Per-`DomainGroup` gating decision for each workspace-bound store that
 #[path = "context_store_init.rs"]
 mod store_init;
-pub use store_init::{StoreInitPlan, init_stores};
+pub use store_init::{init_stores, StoreInitPlan};
 
 #[path = "context_boot.rs"]
 mod boot;

@@ -2,6 +2,34 @@ use tinyjuice_bus::types::ContentKind;
 use tinyjuice_bus::types::{CompressOptions, ContentHint};
 
 #[test]
+fn print_before_migration_tool_schema_fixtures() {
+    use tinytools::Tool;
+
+    let retrieve = super::TokenjuiceRetrieveTool::new();
+    println!(
+        "juice_retrieve={}",
+        serde_json::to_string(&serde_json::json!({
+            "name": retrieve.name(),
+            "description": retrieve.description(),
+            "parameters": retrieve.parameters_schema(),
+        }))
+        .unwrap()
+    );
+    for tool in super::repl_tools() {
+        println!(
+            "{}={}",
+            tool.name(),
+            serde_json::to_string(&serde_json::json!({
+                "name": tool.name(),
+                "description": tool.description(),
+                "parameters": tool.parameters_schema(),
+            }))
+            .unwrap()
+        );
+    }
+}
+
+#[test]
 fn compress_options_accept_omitted_fields() {
     let options: CompressOptions = serde_json::from_value(serde_json::json!({
         "routerEnabled": false

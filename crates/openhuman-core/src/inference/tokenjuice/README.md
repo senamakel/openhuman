@@ -1,9 +1,10 @@
 # OpenHuman TokenJuice Adapter
 
-TinyJuice ships as a separately released TinyBus module. OpenHuman links only
-its `tinyjuice-bus` vocabulary and declarations. Compression, cached retrieval,
-queries and HTML extraction execute inside that module. This directory owns
-configuration, model callbacks, artifact authorization and savings attribution.
+TinyJuice ships as a separately released TinyBus module. OpenHuman links its
+`tinyjuice-bus` contract and `tinyjuice-host` adapters. Compression, cached
+retrieval, queries and HTML extraction execute inside that module. This
+directory owns configuration, turn-bound model callbacks, artifact
+authorization and savings attribution.
 
 Token compression is one of the ways OpenHuman keeps a turn cheap and fast
 (see [docs/gitbooks/en/developing/performance.md](../../../../../docs/gitbooks/en/developing/performance.md)):
@@ -16,12 +17,9 @@ OpenHuman-owned files:
 
 | Path | Role |
 | --- | --- |
-| [`mod.rs`](./mod.rs) | TinyBus calls (through `tinyjuice_bus::names::methods` constants), config installation, pass-through fallback, and savings wiring. |
+| [`mod.rs`](./mod.rs) | TinyBus calls, config installation, pass-through fallback, savings wiring, and the thin host-context/artifact-policy adapter for query tools. |
 | [`schemas.rs`](./schemas.rs) | JSON-RPC controller schemas and handlers. |
 | [`config_patch.rs`](./config_patch.rs) | Partial update shape for the `[tokenjuice]` config block. |
-| [`generate.rs`](./generate.rs) | Turn-bound, single-use summary callbacks. The host registers the model call, sends its opaque ticket through the existing contract, and withdraws the callback when the ticket drops. |
-| [`repl_tools.rs`](./repl_tools.rs) | The three REPL tools (`juice_find`, `juice_extract`, `juice_summarize`) over a stored result. Declarations come from `tinyjuice-bus`; operations execute over `Query` inside the module CCR store. Registered by [`tools/ops.rs`](../../tools/ops.rs) only while `repl_handle_active(config)`. |
-| [`tools.rs`](./tools.rs) | OpenHuman agent tool implementation for the retrieve tool (`tinyjuice_bus::tools::RETRIEVE` (`"juice_retrieve"`); `"tokenjuice_retrieve"` is a recognized recovery-tool alias, not the tool's registered name, see `RECOVERY_TOOL_NAMES`). |
 | Plain text | Compressed with TinyJuice's deterministic TextCrusher. |
 | [`savings.rs`](./savings.rs) | Thin adapter: attribution model and `agent::cost` price per input token; the module (`RecordSavings`, `SavingsStats`, `ResetSavings`) does the aggregate math and persists the `juice.savings` document in its storage (a legacy `state/tokenjuice_savings.json` is imported once). |
 
@@ -58,8 +56,8 @@ behavior. There is no linked implementation fallback.
   Builds without `modules` return an unavailable error.
 - Controllers are registered from `crate::inference::tokenjuice::all_tokenjuice_registered_controllers()`,
   called by [`core/all.rs`](../../core/all.rs).
-- `tools/ops.rs` registers `crate::inference::tokenjuice::TokenjuiceRetrieveTool::new()`
-  in the agent tool catalog (it is not re-exported through [`tools/mod.rs`](../../tools/mod.rs)) and
+- `tools/ops.rs` registers `tinyjuice_host::retrieve_tool::RetrieveToolOutputTool`
+  with a host callback to the module-backed retrieval operation (it is not re-exported through [`tools/mod.rs`](../../tools/mod.rs)) and
   treats every `RECOVERY_TOOL_NAMES` entry as a recovery tool. The registered
   tool name is `tinyjuice_bus::tools::RETRIEVE` (`"juice_retrieve"`);
   `"tokenjuice_retrieve"` and `LEGACY_RETRIEVE_TOOL_NAME`
@@ -78,15 +76,19 @@ behavior. There is no linked implementation fallback.
   their answers from being stored behind a second handle (their own
   `max_result_size_chars` still caps them). The additive `Query` member carries the typed operation; existing `Repl`
   arity is unchanged.
-- Contract crate: `tinyjuice-bus` ([`vendor/tinyjuice/crates/tinyjuice-bus`](../../../../../vendor/tinyjuice/crates/tinyjuice-bus/),
-  path dependency in [`crates/openhuman-core/Cargo.toml`](../../../Cargo.toml)).
+- Contract and host crates: `tinyjuice-bus` and `tinyjuice-host` under
+  [`vendor/tinyjuice/crates`](../../../../../vendor/tinyjuice/crates/), path
+  dependencies in [`crates/openhuman-core/Cargo.toml`](../../../Cargo.toml).
 
 ## Further reading
 
 - [Parent module README](../README.md)
 - [tinyjuice](../../../../../vendor/tinyjuice/README.md)
 
-Contract types are imported directly from `tinyjuice_bus::types` and `tinyjuice_bus::wire`; the adapter keeps serialization compatibility tests in `mod_contract_tests.rs`.
+Contract types are imported directly from `tinyjuice_bus::types` and
+`tinyjuice_bus::wire`; `tinyjuice-host` owns the generic tool wrappers. The
+host keeps serialization and model-facing declaration compatibility pinned in
+`mod_contract_tests.rs` and `tool_schema_fixtures.json`.
 
 ## `[components] juice`
 

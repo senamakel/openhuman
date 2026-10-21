@@ -242,7 +242,7 @@ pub fn web_fetch_tool(
         http_limits(),
         Arc::new(TinyJuiceHtml { ctx: ctx.clone() }),
     )
-    // Opts into a caller-steered summary; see `tokenjuice::focus`.
+    // Opts into a caller-steered summary; see `tinyjuice_host::focus`.
     .with_schema_property(SUMMARY_FOCUS_ARG, summary_focus_property())
 }
 

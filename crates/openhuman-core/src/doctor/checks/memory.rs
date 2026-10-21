@@ -147,6 +147,10 @@ async fn probe_selected_config(config: &crate::config::Config) -> crate::doctor:
     use tinymemory_api::EngineHealth;
 
     let engine_id = config.memory.engine.trim();
+    #[cfg(test)]
+    if let Some(health) = crate::memory::engine::doctor_test_health(config).await {
+        return memory_check(engine_id, health);
+    }
     let health = match engine_id {
         crate::memory::engine::TINYHUMANS_ENGINE => {
             let Some(probe) = crate::memory::engine_registry::read_only_health_probe(engine_id)
@@ -166,6 +170,14 @@ async fn probe_selected_config(config: &crate::config::Config) -> crate::doctor:
             probe(config.clone()).await
         }
     };
+    memory_check(engine_id, health)
+}
+
+fn memory_check(
+    engine_id: &str,
+    health: tinymemory_api::EngineHealth,
+) -> crate::doctor::core::MemoryEngineCheck {
+    use tinymemory_api::EngineHealth;
     let (status, reason) = match health {
         EngineHealth::Ok => ("ok", None),
         EngineHealth::Degraded(reason) => ("degraded", Some(reason)),

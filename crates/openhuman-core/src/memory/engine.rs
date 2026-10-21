@@ -120,6 +120,18 @@ static CACHE: LazyLock<RwLock<HashMap<String, BoundEngine>>> =
 static TEST_ENGINES: LazyLock<RwLock<HashMap<std::path::PathBuf, Arc<dyn MemoryEngine>>>> =
     LazyLock::new(|| RwLock::new(HashMap::new()));
 
+/// Test-only fixture lookup for native doctor probes; unlike [`resolve`],
+/// this never falls through to ambient profile state or configured builders.
+#[cfg(test)]
+pub(crate) async fn doctor_test_health(config: &Config) -> Option<tinymemory_api::EngineHealth> {
+    let engine = TEST_ENGINES
+        .read()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .get(&config.workspace_dir)
+        .cloned()?;
+    Some(engine.health().await)
+}
+
 /// Binds `engine` for every config whose workspace is `workspace` (tests only).
 #[cfg(test)]
 pub(crate) fn install_test_engine(workspace: &std::path::Path, engine: Arc<dyn MemoryEngine>) {

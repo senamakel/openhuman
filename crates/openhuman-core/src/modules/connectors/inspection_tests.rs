@@ -379,27 +379,27 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     record_configured_route_for_test(&config, &accepted_route);
 
     let bus = MemoryBus::new();
-    tinybus::broker::Broker::new().spawn(bus.clone());
-    let service = tinybus::Connection::connect(bus.connect().await.unwrap())
-        .await
-        .unwrap();
+    let broker = tinybus::broker::Broker::new();
+    let broker_task = broker.clone().spawn(bus.clone());
+    let host = tinybus::module::ModuleHost::new(broker);
+    host.attach_linked_with_config(
+        tinybus::module::LinkedModule {
+            descriptor: tinybus::module::abi::TbAbiDescriptor::current(
+                "doctor-connector-fixture",
+                "1.0.0",
+            ),
+            manifest: linked_fixture_manifest(),
+            init: linked_fixture_init,
+        },
+        serde_json::json!({
+            "reply": { "integrations": [{ "toolkit": "github", "connected": true }] }
+        }),
+    )
+    .expect("admit the fixture through the trusted linked-module host");
     let client = tinybus::Connection::connect(bus.connect().await.unwrap())
         .await
         .unwrap();
-    service.request_name(DESTINATION).await.unwrap();
-    let calls = Arc::new(Mutex::new(Vec::new()));
     let reply = serde_json::json!({ "integrations": [{ "toolkit": "github", "connected": true }] });
-    service
-        .serve_at(
-            tinybus::ObjectPath::new(OBJECT_PATH).unwrap(),
-            ReadOnlyFixture {
-                calls: Arc::clone(&calls),
-                reply: reply.clone(),
-                delay: std::time::Duration::ZERO,
-            },
-        )
-        .await
-        .unwrap();
     let proxy = client.proxy(DESTINATION, OBJECT_PATH, INTERFACE).unwrap();
     let proxy_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let runtime = FixtureReadyRuntime {
@@ -418,7 +418,12 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     .expect("read-only fixture responds")
     .expect("the exactly matching ready binding is probeable");
 
-    assert_eq!(response, reply);
+    assert_eq!(response["response"], reply);
+    assert_eq!(response["observed_member"], "ListConnectedIntegrations");
+    assert_eq!(
+        response["observed_body"],
+        serde_json::json!([request.clone()])
+    );
     let mut other_workspace = config.clone();
     other_workspace.workspace_dir = scratch.path().join("workspace-b");
     assert!(
@@ -432,15 +437,12 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
         .expect("mismatched binding is unavailable")
         .is_none()
     );
-    let calls = calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].0, "ListConnectedIntegrations");
-    assert_eq!(calls[0].1, serde_json::json!([request]));
     assert_eq!(proxy_requests.load(std::sync::atomic::Ordering::SeqCst), 1);
-    drop(calls);
     *configured_binding()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+    drop(host);
+    broker_task.abort();
 }
 
 #[tokio::test]

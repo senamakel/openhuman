@@ -565,7 +565,7 @@ Capability {
         name: "Health Diagnostics",
         domain: "doctor",
         category: CapabilityCategory::Intelligence,
-        description: "Inspect OpenHuman configuration and runtime health with a structured report of checks and repair hints. The default tier uses local and bounded read-only checks; live probes that can spend inference tokens require an explicit request.",
+        description: "Inspect OpenHuman configuration and runtime health with a structured diagnostic report of checks and repair hints. The default tier uses local and bounded read-only checks; live probes that can spend inference tokens require an explicit request.",
         how_to: "Ask the assistant to run doctor_health when diagnosing a configuration or runtime problem",
         status: CapabilityStatus::Beta,
         privacy: DIAGNOSTICS_TO_BACKEND,

@@ -204,18 +204,15 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     // 401 from the provider several layers later — exactly the baffling error
     // this diagnostic exists to replace.
     //
-    // Scoped to the *implicit fallback* path deliberately. That is the case the
-    // diagnostic is for: a local-chat user whose background role landed on a
-    // BYOK slug they never configured. An explicitly routed provider keeps its
-    // existing behaviour and is allowed to build without a stored key — callers
-    // construct such models to probe or describe a provider before a key is
-    // saved, and failing that at construction time would be a behaviour change
-    // well beyond this diagnostic.
+    // Runtime construction only rejects missing credentials on the implicit
+    // fallback path: explicit routes may be constructed before a key is saved.
+    // Inspection is stricter because doctor must report an unusable authenticated
+    // route without invoking the model.
     //
     // Styles that carry no stored key (`OpenhumanJwt` injects a session JWT
     // downstream, `None` sends no auth header at all) are legitimately blank and
     // never trip this.
-    if implicit_fallback
+    if (implicit_fallback || credential_access == CredentialAccess::Inspection)
         && key.trim().is_empty()
         && matches!(entry.auth_style, AuthStyle::Bearer | AuthStyle::Anthropic)
     {

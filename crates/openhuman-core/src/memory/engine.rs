@@ -40,7 +40,7 @@ use std::sync::{Arc, LazyLock};
 
 use sha2::{Digest, Sha256};
 pub use tinymemory_api::EngineHealth;
-use tinymemory_api::MemoryEngine;
+use tinymemory_api::{Error, MemoryEngine, Result};
 pub use tinymemory_integrations::cortex::CallbackBearerSource;
 pub use tinymemory_integrations::{
     BearerSource, Binding, BoundEngine, EngineBinder, EngineCredential, EngineSettings,
@@ -231,7 +231,7 @@ pub async fn resolve_read_only_for_inspection(
     if let Some(factory) = super::engine_registry::read_only_engine_factory(engine_id) {
         return factory(config.clone())
             .await
-            .map(super::guard::ScrubbingEngine::wrap);
+            .map(|engine| guard_read_only_engine(engine));
     }
 
     if engine_id != CORTEXDB_ENGINE {
@@ -243,7 +243,7 @@ pub async fn resolve_read_only_for_inspection(
             .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?
             .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?;
     let endpoint = cortexdb_endpoint(config);
-    let root = if super::scope::layout_is_v3(config) {
+    let root = if config.memory.layout == crate::config::MemoryLayoutMode::V3 {
         Some(super::scope::user_root(config).ok_or(ReadOnlyEngineError::CredentialsUnavailable)?)
     } else {
         None
@@ -265,7 +265,19 @@ pub async fn resolve_read_only_for_inspection(
         EngineCredential::Static(key),
     )
     .map_err(|_| ReadOnlyEngineError::InvalidConfiguration)?;
-    Ok(super::guard::ScrubbingEngine::wrap(engine))
+    Ok(guard_read_only_engine(engine))
+}
+
+/// Apply the same native scrub and timing decorators used for configured
+/// engines without inserting this one-off inspection engine into the cache.
+fn guard_read_only_engine(engine: Arc<dyn MemoryEngine>) -> Arc<dyn MemoryEngine> {
+    ENGINE_BINDER
+        .bind_external(
+            engine,
+            "doctor://inspection",
+            crate::security::scrub::host_policy(),
+        )
+        .engine
 }
 
 /// The engine the layout migration needs, for an explicit layout whatever

@@ -538,7 +538,12 @@ fn memory_root(config: &Config) -> Vec<Finding> {
     let Some(root) = config.memory.root.as_deref() else {
         return Vec::new();
     };
-    if crate::memory::scope::validate_root(root).is_ok() {
+    let valid = root
+        .trim()
+        .parse::<tinymemory_api::Namespace>()
+        .and_then(tinymemory_tools::MemoryLayout::new)
+        .is_ok();
+    if valid {
         return Vec::new();
     }
     vec![finding(

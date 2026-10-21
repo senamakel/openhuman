@@ -395,3 +395,24 @@ async fn invalid_memory_root_is_reported_without_echoing_the_value() {
     let error = finding(&findings, FindingSeverity::Error);
     assert!(!error.message.contains("private-invalid-root"));
 }
+
+#[tokio::test]
+async fn valid_memory_namespace_root_is_accepted() {
+    let mut config = Config::default();
+    config.memory.root = Some("project:q4/team:ops".into());
+
+    let findings = run_check(config, "memory/root").await;
+
+    assert!(findings.is_empty());
+}
+
+#[tokio::test]
+async fn memory_root_beyond_layout_depth_is_reported_without_echoing_it() {
+    let mut config = Config::default();
+    config.memory.root = Some("team:a/team:b/team:c/team:d/team:e/team:f/team:g/team:h".into());
+
+    let findings = run_check(config, "memory/root").await;
+
+    let error = finding(&findings, FindingSeverity::Error);
+    assert!(!error.message.contains("team:a"));
+}

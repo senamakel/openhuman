@@ -7,7 +7,6 @@ use crate::config::schema::ephemeral_route::{apply as apply_ephemeral_route, Eph
 use crate::config::Config;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
-use crate::security::credentials::AuthService;
 use serde_json::{json, Value};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -67,7 +66,6 @@ fn add_cloud_provider(
     slug: &str,
     endpoint: &str,
     model: &str,
-    credential: &str,
 ) {
     config.cloud_providers.push(CloudProviderCreds {
         id: format!("provider-id-{slug}"),
@@ -77,15 +75,6 @@ fn add_cloud_provider(
         auth_style: AuthStyle::Bearer,
         default_model: Some(model.to_string()),
     });
-    AuthService::from_config(config)
-        .store_provider_token(
-            &format!("provider:{slug}"),
-            "default",
-            credential,
-            Default::default(),
-            true,
-        )
-        .expect("dummy provider key is stored only in this temp fixture");
 }
 
 fn cloud_route_fixture(
@@ -96,15 +85,45 @@ fn cloud_route_fixture(
 ) -> Fixture {
     let mut fixture = isolated_config();
     fixture.config.default_model = Some("provider/shared-model".into());
+    let mut active_profiles = serde_json::Map::new();
+    let mut profile_records = serde_json::Map::new();
     for (slug, endpoint_suffix, model, credential) in providers {
         add_cloud_provider(
             &mut fixture.config,
             slug,
             &format!("{}/{endpoint_suffix}/{ENDPOINT_SECRET}", server.uri()),
             model,
-            credential,
+        );
+        let provider = format!("provider:{slug}");
+        let profile_id = format!("{provider}:default");
+        active_profiles.insert(provider.clone(), Value::String(profile_id.clone()));
+        profile_records.insert(
+            profile_id,
+            json!({
+                "provider": provider,
+                "profile_name": "default",
+                "kind": "token",
+                "token": credential,
+                "metadata": {}
+            }),
         );
     }
+    let profile_path = fixture
+        .config
+        .config_path
+        .parent()
+        .expect("config fixture has a parent")
+        .join("auth-profiles.json");
+    std::fs::write(
+        profile_path,
+        serde_json::to_vec(&json!({
+            "schema_version": 1,
+            "active_profiles": active_profiles,
+            "profiles": profile_records
+        }))
+        .expect("serialize dummy profile data"),
+    )
+    .expect("write dummy keys only inside this temp fixture");
     fixture.config.chat_provider = Some(format!("{chat_slug}:provider/shared-model"));
     fixture.config.reasoning_provider = Some(format!("{reasoning_slug}:provider/shared-model"));
     fixture

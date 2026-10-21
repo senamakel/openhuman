@@ -128,7 +128,7 @@ async fn an_absent_or_mismatched_ready_module_is_skipped_without_opening_it() {
 
     assert_eq!(finding.check_id, "channels/telegram");
     assert_eq!(finding.severity, FindingSeverity::Skipped);
-    assert!(finding.message.contains("already ready"));
+    assert!(finding.message.contains("not already serving"));
     assert_eq!(calls.load(Ordering::SeqCst), 0);
     assert_eq!(probe.readiness_checks.load(Ordering::SeqCst), 1);
 }

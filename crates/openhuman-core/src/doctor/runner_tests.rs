@@ -312,6 +312,85 @@ async fn checks_above_the_requested_tier_are_skipped() {
 }
 
 #[tokio::test]
+async fn native_checks_use_the_selected_config_and_respect_its_component_gates() {
+    let ambient_workspace = tempfile::tempdir().expect("ambient config workspace");
+    let mut ambient_config = Config::default();
+    ambient_config.workspace_dir = ambient_workspace.path().join("workspace");
+    ambient_config.action_dir = ambient_workspace.path().join("projects");
+    ambient_config.config_path = ambient_workspace.path().join("config.toml");
+    ambient_config.channels_config.imessage = Some(tinychannels_bus::config::IMessageConfig {
+        allowed_contacts: vec![],
+    });
+
+    let selected_workspace = tempfile::tempdir().expect("selected config workspace");
+    let mut selected_config = Config::default();
+    selected_config.workspace_dir = selected_workspace.path().join("workspace");
+    selected_config.action_dir = selected_workspace.path().join("projects");
+    selected_config.config_path = selected_workspace.path().join("config.toml");
+    selected_config.channels_config.telegram = Some(tinychannels_bus::config::TelegramConfig {
+        bot_token: "doctor-test-token".into(),
+        chat_id: None,
+        allowed_users: vec![],
+        stream_mode: Default::default(),
+        draft_update_interval_ms: 1_000,
+        silent_streaming: true,
+        mention_only: false,
+    });
+    selected_config.components.channels = false;
+    selected_config.components.connectors = false;
+    selected_config.components.voice = false;
+    selected_config.components.search = false;
+    selected_config.components.wallet = false;
+
+    let ambient = CoreContext::for_test_with_config(DomainSet::full(), ambient_config);
+    let selected_components = ComponentSet::from_config(&selected_config.components);
+    let report = CoreContext::scope(ambient, async {
+        let selected = DoctorCtx::from_config(selected_config).with_components(selected_components);
+        runner::run(
+            &selected,
+            DoctorOptions {
+                only: vec![
+                    "channels/telegram".into(),
+                    "integrations/composio".into(),
+                    "voice/stt".into(),
+                    "voice/tts".into(),
+                    "search/exa".into(),
+                    "wallet/status".into(),
+                ],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("selected native checks are represented in the report");
+
+    let expected_skipped = [
+        "channels/telegram",
+        "integrations/composio",
+        "voice/stt",
+        "voice/tts",
+        "search/exa",
+        "wallet/status",
+    ];
+    for check_id in expected_skipped {
+        assert!(
+            report.checks_skipped.iter().any(|id| id == check_id),
+            "selected-config check {check_id} should be skipped: {report:#?}"
+        );
+        assert!(report.findings.iter().any(|finding| {
+            finding.check_id == check_id
+                && finding.severity == FindingSeverity::Skipped
+                && finding.message.contains("disabled")
+        }));
+    }
+    assert!(!report.checks_run.iter().any(|id| id == "channels/imessage"));
+    assert!(!report.findings.iter().any(|finding| {
+        finding.check_id == "doctor/selection" && finding.severity == FindingSeverity::Error
+    }));
+}
+
+#[tokio::test]
 async fn only_filters_exact_ids_and_unknown_ids_get_a_selection_finding() {
     let extensions = Extensions::new();
     register_check_source_in(

@@ -1,5 +1,6 @@
-//! Built-in doctor checks for config, inference, embeddings, semantics, and dynamic services.
+//! Built-in doctor checks for configuration and native domain readiness.
 
+mod channels;
 mod config_file;
 mod config_provenance;
 mod config_semantics;
@@ -7,12 +8,16 @@ mod embeddings;
 mod ids;
 mod inference;
 mod inference_live;
+mod integrations;
 mod mcp;
 mod modules;
 mod registry;
 mod sandbox;
+mod search;
 mod skills;
 pub(crate) mod inference_catalog;
+mod voice;
+mod wallet;
 
 use std::sync::Arc;
 

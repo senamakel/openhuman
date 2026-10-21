@@ -12,10 +12,13 @@ mod memory;
 mod memory_live;
 mod modules;
 mod registry;
+mod runtime;
+mod runtime_settings;
 mod sandbox;
 mod secrets;
 mod skills;
 mod storage;
+mod workspace;
 
 use std::sync::Arc;
 
@@ -28,6 +31,9 @@ pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
     let mut checks = config_file::checks();
     checks.push(Arc::new(config_provenance::EnvironmentOverrideCheck));
     checks.push(Arc::new(config_provenance::ConfigSourceCheck));
+    checks.extend(runtime_settings::checks());
+    checks.extend(workspace::checks());
+    checks.extend(runtime::checks());
     checks.push(Arc::new(inference::ProviderRef));
     checks.push(Arc::new(inference::Construct));
     checks.push(Arc::new(inference::Temperature));
@@ -35,7 +41,7 @@ pub(super) fn builtins() -> Vec<Arc<dyn DoctorCheck>> {
     checks.push(Arc::new(memory_live::MemoryRoundtripCheck));
     checks.extend(storage::checks());
     checks.push(Arc::new(secrets::KeyringCheck));
-    checks.push(Arc::new(embeddings::EmbeddingConfigCheck));
+    checks.extend(embeddings::checks());
     checks.push(Arc::new(embeddings_live::EmbeddingsLiveCheck));
     checks.extend(config_semantics::checks());
     checks

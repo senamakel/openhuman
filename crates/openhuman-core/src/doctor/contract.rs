@@ -11,7 +11,6 @@ use crate::config::schema::load::ProvenanceSource;
 use crate::config::schema::profile_layout::LayoutVersion;
 use crate::core::runtime::{ComponentSet, CoreContext};
 
-use super::core::MemoryEngineCheck;
 
 /// The maximum cost a caller permits for a doctor run.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -266,9 +265,6 @@ pub struct DoctorCtx {
     profile_layout_version: Option<LayoutVersion>,
     profile_resolution_source: Option<String>,
     profile_status: Option<DoctorProfileStatus>,
-    // Transitional input for the v1 adapter. #506 removes it when the old
-    // aggregate checks have been ported to `DoctorCheck` implementations.
-    memory_engine: Option<MemoryEngineCheck>,
 }
 
 impl DoctorCtx {
@@ -297,7 +293,6 @@ impl DoctorCtx {
             profile_layout_version,
             profile_resolution_source,
             profile_status: None,
-            memory_engine: None,
         }
     }
 
@@ -314,7 +309,6 @@ impl DoctorCtx {
             profile_layout_version,
             profile_resolution_source,
             profile_status: None,
-            memory_engine: None,
         }
     }
 
@@ -344,11 +338,6 @@ impl DoctorCtx {
 
     pub fn with_components(mut self, components: ComponentSet) -> Self {
         self.components = components;
-        self
-    }
-
-    pub fn with_memory_engine(mut self, memory_engine: MemoryEngineCheck) -> Self {
-        self.memory_engine = Some(memory_engine);
         self
     }
 
@@ -396,10 +385,6 @@ impl DoctorCtx {
 
     pub(crate) fn config_source(&self) -> DoctorConfigSource {
         self.config_source
-    }
-
-    pub(crate) fn memory_engine(&self) -> Option<&MemoryEngineCheck> {
-        self.memory_engine.as_ref()
     }
 
     pub(crate) fn profile_status(&self) -> Option<DoctorProfileStatus> {

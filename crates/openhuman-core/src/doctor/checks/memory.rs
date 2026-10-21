@@ -5,6 +5,9 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::doctor::contract::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding};
+use crate::memory::engine::EngineHealth;
+
+const MEMORY_HEALTH_ID: &str = "memory/health";
 
 pub(super) fn checks() -> Vec<Arc<dyn DoctorCheck>> {
     vec![Arc::new(BindingCheck), Arc::new(HealthCheck)]
@@ -80,7 +83,7 @@ struct HealthCheck;
 #[async_trait]
 impl DoctorCheck for HealthCheck {
     fn id(&self) -> &str {
-        "memory/health"
+        MEMORY_HEALTH_ID
     }
 
     fn category(&self) -> &str {
@@ -96,6 +99,13 @@ impl DoctorCheck for HealthCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
+        if !ctx.config().components.memory {
+            return vec![Finding::skipped(
+                self.id(),
+                "Memory is disabled in the selected configuration.",
+                "Enable memory in the selected configuration to check engine health.",
+            )];
+        }
         if ctx
             .config()
             .memory
@@ -113,26 +123,21 @@ impl DoctorCheck for HealthCheck {
     }
 }
 
-fn findings_for_health(memory: crate::doctor::core::MemoryEngineCheck) -> Vec<Finding> {
-    match (memory.status.as_str(), memory.reason.as_deref()) {
-        ("ok" | "ready", _) => vec![Finding::pass(
-            self.id(),
+fn findings_for_health(health: EngineHealth) -> Vec<Finding> {
+    match health {
+        EngineHealth::Ok => vec![Finding::pass(
+            MEMORY_HEALTH_ID,
             "The selected memory engine is healthy.",
         )],
-        ("degraded", Some(reason)) => vec![Finding::new(
-            self.id(),
+        EngineHealth::Degraded(reason) => vec![Finding::new(
+            MEMORY_HEALTH_ID,
             crate::doctor::FindingSeverity::Warn,
-            safe_reason(reason),
+            safe_reason(&reason),
             "Check the memory engine configuration and connectivity.",
         )],
-        (_, Some(reason)) => vec![Finding::error(
-            self.id(),
-            safe_reason(reason),
-            "Check the memory engine configuration and connectivity.",
-        )],
-        _ => vec![Finding::error(
-            self.id(),
-            "The selected memory engine is unavailable.",
+        EngineHealth::Down(reason) => vec![Finding::error(
+            MEMORY_HEALTH_ID,
+            safe_reason(&reason),
             "Check the memory engine configuration and connectivity.",
         )],
     }
@@ -175,65 +180,36 @@ fn safe_reason(reason: &str) -> String {
 
 async fn probe_selected_config(
     config: &crate::config::Config,
-) -> crate::doctor::core::MemoryEngineCheck {
-    use tinymemory_api::EngineHealth;
-
+) -> EngineHealth {
     let engine_id = config.memory.engine.trim();
     #[cfg(test)]
     if let Some(health) = crate::memory::engine::doctor_test_health(config).await {
-        return memory_check(engine_id, health);
+        return health;
     }
-    let health = match engine_id {
+    match engine_id {
         crate::memory::engine::TINYHUMANS_ENGINE => {
             let Some(probe) = crate::memory::engine_registry::read_only_health_probe(engine_id)
             else {
-                return unavailable(
-                    engine_id,
-                    "No read-only health probe is registered for this engine.",
-                );
+                return unavailable("No read-only health probe is registered for this engine.");
             };
             probe(config.clone()).await
         }
         crate::memory::engine::CORTEXDB_ENGINE => cortexdb_health(config).await,
         crate::memory::engine::DISABLED_ENGINE => {
-            return unavailable(
-                engine_id,
-                "Memory is disabled in the selected configuration.",
-            );
+            return unavailable("Memory is disabled in the selected configuration.");
         }
         other => {
             let Some(probe) = crate::memory::engine_registry::read_only_health_probe(other) else {
-                return unavailable(
-                    other,
-                    "No read-only health probe is registered for this engine.",
-                );
+                return unavailable("No read-only health probe is registered for this engine.");
             };
             probe(config.clone()).await
         }
-    };
-    memory_check(engine_id, health)
-}
-
-fn memory_check(
-    engine_id: &str,
-    health: tinymemory_api::EngineHealth,
-) -> crate::doctor::core::MemoryEngineCheck {
-    use tinymemory_api::EngineHealth;
-    let (status, reason) = match health {
-        EngineHealth::Ok => ("ok", None),
-        EngineHealth::Degraded(reason) => ("degraded", Some(reason)),
-        EngineHealth::Down(reason) => ("down", Some(reason)),
-    };
-    crate::doctor::core::MemoryEngineCheck {
-        engine: Some(engine_id.to_owned()),
-        status: status.to_owned(),
-        reason,
     }
 }
 
-async fn cortexdb_health(config: &crate::config::Config) -> tinymemory_api::EngineHealth {
+async fn cortexdb_health(config: &crate::config::Config) -> EngineHealth {
     use crate::security::credentials::AuthService;
-    use tinymemory_api::{EngineHealth, MemoryEngine};
+    use tinymemory_api::MemoryEngine;
     use tinymemory_integrations::{EngineCredential, EngineSettings};
 
     let profile = match AuthService::get_profile_read_only(
@@ -273,12 +249,8 @@ async fn cortexdb_health(config: &crate::config::Config) -> tinymemory_api::Engi
     }
 }
 
-fn unavailable(engine: &str, reason: &str) -> crate::doctor::core::MemoryEngineCheck {
-    crate::doctor::core::MemoryEngineCheck {
-        engine: Some(engine.to_owned()),
-        status: "down".to_owned(),
-        reason: Some(reason.to_owned()),
-    }
+fn unavailable(reason: &str) -> EngineHealth {
+    EngineHealth::Down(reason.to_owned())
 }
 
 #[cfg(test)]

@@ -1,8 +1,7 @@
 use super::*;
 use crate::core::runtime::ComponentSet;
 use crate::doctor::contract::{DoctorConfigSource, DoctorCtx, FindingSeverity};
-use crate::doctor::core::MemoryEngineCheck;
-use crate::memory::engine::DISABLED_ENGINE;
+use crate::memory::engine::{DISABLED_ENGINE, EngineHealth};
 
 fn context(engine: &str) -> DoctorCtx {
     let mut config = crate::config::Config::default();
@@ -34,11 +33,7 @@ async fn health_is_skipped_when_memory_is_intentionally_disabled() {
 
 #[test]
 fn health_reports_a_safe_engine_down_reason() {
-    let finding = findings_for_health(MemoryEngineCheck {
-        engine: Some(crate::memory::engine::CORTEXDB_ENGINE.to_owned()),
-        status: "down".to_owned(),
-        reason: Some("engine is down".to_owned()),
-    });
+    let finding = findings_for_health(EngineHealth::Down("engine is down".to_owned()));
     assert_eq!(finding[0].check_id, "memory/health");
     assert_eq!(finding[0].severity, FindingSeverity::Error);
     assert_eq!(finding[0].message, "engine is down");
@@ -46,22 +41,16 @@ fn health_reports_a_safe_engine_down_reason() {
 
 #[test]
 fn health_redacts_urls_and_credential_like_reasons() {
-    let finding = findings_for_health(MemoryEngineCheck {
-        engine: Some(crate::memory::engine::CORTEXDB_ENGINE.to_owned()),
-        status: "down".to_owned(),
-        reason: Some("request to https://user:secret@example.test failed".to_owned()),
-    });
+    let finding = findings_for_health(EngineHealth::Down(
+        "request to https://user:secret@example.test failed".to_owned(),
+    ));
     assert!(!finding[0].message.contains("secret"));
 }
 
 #[test]
 fn health_withholds_bare_secrets_and_local_paths() {
     for private_reason in ["sk-live-secret-value", "/Users/private/person/data.db"] {
-        let finding = findings_for_health(MemoryEngineCheck {
-            engine: Some(crate::memory::engine::CORTEXDB_ENGINE.to_owned()),
-            status: "down".to_owned(),
-            reason: Some(private_reason.to_owned()),
-        });
+        let finding = findings_for_health(EngineHealth::Down(private_reason.to_owned()));
         assert!(!finding[0].message.contains(private_reason));
         assert!(finding[0].message.contains("details are withheld"));
     }

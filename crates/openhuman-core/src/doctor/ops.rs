@@ -1,7 +1,6 @@
 //! JSON-RPC / CLI controller surface for diagnostics.
 //!
-//! Resolve async inputs for the temporary v1 adapters, then run the v2 check
-//! registry and report assembler.
+//! Resolve the selected profile and run the native doctor check registry.
 
 use std::path::Path;
 
@@ -14,7 +13,7 @@ use crate::core::{
 };
 use crate::doctor::{
     DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier, Finding,
-    MemoryEngineCheck, ModelProbeReport,
+    ModelProbeReport,
 };
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
@@ -56,7 +55,7 @@ pub async fn doctor_report_with_options(
             ctx = ctx.with_profile(profile_id, DoctorConfigSource::Profile);
         }
     }
-    report_with_context(config, options, ctx).await
+    report_with_context(options, ctx).await
 }
 
 /// Runs a report under the dispatch's selected tenant context when present,
@@ -123,7 +122,7 @@ pub async fn doctor_report_for_selected_profile(
         profile_inspection_context(&selected.config, Some(&inspection_profile_id));
     CoreContext::scope(
         inspection_context,
-        report_with_context(&selected.config, options, ctx),
+        report_with_context(options, ctx),
     )
     .await
 }
@@ -152,7 +151,7 @@ pub async fn doctor_report_for_desktop_selection(
         profile_inspection_context(&selection.config, inspection_profile_id.as_deref());
     CoreContext::scope(
         inspection_context,
-        report_with_context(&selection.config, options, ctx),
+        report_with_context(options, ctx),
     )
     .await
 }
@@ -221,24 +220,9 @@ fn unusable_default_config_outcome(
 }
 
 async fn report_with_context(
-    config: &Config,
     options: DoctorOptions,
     ctx: DoctorCtx,
 ) -> Result<Outcome<DoctorReport>, String> {
-    let needs_memory_engine = ctx.components().memory
-        && options.tier.includes(DoctorTier::Connect)
-        && (options.only.is_empty() || options.only.iter().any(|id| id == "memory/engine"))
-        && !options.skip.iter().any(|id| id == "memory/engine");
-    let memory = if needs_memory_engine {
-        memory_engine_check(config).await
-    } else {
-        MemoryEngineCheck {
-            engine: None,
-            status: "off".into(),
-            reason: Some("memory engine check was not selected".into()),
-        }
-    };
-    let ctx = ctx.with_memory_engine(memory);
     let report = super::runner::run(&ctx, options).await?;
     Ok(Outcome::single_log(report, "doctor report generated"))
 }
@@ -274,20 +258,6 @@ fn profile_error_outcome(
 
 fn safe_profile_id(profile_id: &str) -> Option<String> {
     super::profile::is_profile_path_segment(profile_id).then(|| profile_id.to_owned())
-}
-
-/// The memory engine's status for the doctor report.
-async fn memory_engine_check(config: &Config) -> MemoryEngineCheck {
-    let view = crate::memory::ops::engine_get(config).await;
-    let status = serde_json::to_value(view.status)
-        .ok()
-        .and_then(|value| value.as_str().map(str::to_string))
-        .unwrap_or_else(|| "down".to_string());
-    MemoryEngineCheck {
-        engine: view.engine,
-        status,
-        reason: view.reason,
-    }
 }
 
 pub async fn doctor_models(

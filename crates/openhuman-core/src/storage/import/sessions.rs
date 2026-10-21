@@ -100,7 +100,6 @@ fn import(backend: &Arc<dyn StorageBackend>, config: &Config) -> Result<Outcome>
                 report.members,
                 report.tasks,
                 report.tool_effects,
-                report.entries,
             ] {
                 found += counts.read;
                 written += counts.imported;

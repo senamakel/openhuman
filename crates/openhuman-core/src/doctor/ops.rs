@@ -75,7 +75,7 @@ pub async fn doctor_report_for_dispatch(
                 .with_profile_metadata(None, Some("saas-tenant".into()));
             return CoreContext::scope(
                 target.context,
-                report_with_context(&target.config, options, ctx),
+                report_with_context(options, ctx),
             )
             .await;
         }

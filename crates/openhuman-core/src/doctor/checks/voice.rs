@@ -5,7 +5,7 @@ use std::sync::Arc;
 use async_trait::async_trait;
 
 use crate::config::Config;
-use crate::doctor::{ComponentId, DoctorCheck, DoctorTier, Finding, FindingSeverity};
+use crate::doctor::{ComponentId, DoctorCheck, DoctorTier, Finding};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum VoiceIssue {

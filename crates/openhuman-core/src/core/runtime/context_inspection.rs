@@ -46,6 +46,8 @@ impl CoreContext {
             }))),
             domains,
             tool_groups,
+            autonomy_tier_source: super::AutonomyTierSource::Captured,
+            autonomy_tier_ceiling: None,
             components,
             embedder_config: Some(config),
             latest_embedder_config,

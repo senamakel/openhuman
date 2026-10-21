@@ -204,6 +204,12 @@ impl CoreContext {
                 }))),
                 domains,
                 tool_groups,
+                autonomy_tier_source: if embedder_config.is_some() {
+                    super::AutonomyTierSource::Captured
+                } else {
+                    super::AutonomyTierSource::LiveConfig
+                },
+                autonomy_tier_ceiling: None,
                 components,
                 embedder_config,
                 latest_embedder_config,

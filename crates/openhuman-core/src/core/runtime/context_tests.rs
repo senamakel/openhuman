@@ -405,3 +405,14 @@ fn degraded_context_rejects_workspace_bound_stores() {
 
 #[path = "context_turn_origin_tests.rs"]
 mod turn_origin_tests;
+#[test]
+fn inspection_context_uses_captured_autonomy_tier_without_a_ceiling() {
+    let context = CoreContext::for_inspection(crate::config::Config::default());
+
+    assert_eq!(
+        context.autonomy_tier_source(),
+        AutonomyTierSource::Captured,
+        "inspection runs against its explicitly supplied config snapshot"
+    );
+    assert_eq!(context.autonomy_tier_ceiling(), None);
+}

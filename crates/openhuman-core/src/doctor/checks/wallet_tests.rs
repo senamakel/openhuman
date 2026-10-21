@@ -22,7 +22,7 @@ impl WalletSnapshotProbe for ReadOnlySnapshot {
     ) -> Result<Option<WalletSnapshot>, WalletSnapshotFailure> {
         self.reads.fetch_add(1, Ordering::SeqCst);
         assert_eq!(config.workspace_dir, self.expected_workspace);
-        self.snapshot.clone()
+        self.snapshot
     }
 }
 

@@ -16,7 +16,9 @@ impl CredentialAccess {
     pub(super) fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
         match self {
             Self::Runtime => lookup_key_for_slug(slug, config),
-            Self::Inspection => lookup_key_for_slug_read_only(slug, config).map(|credential| credential.key),
+            Self::Inspection => {
+                lookup_key_for_slug_read_only(slug, config).map(|credential| credential.key)
+            }
         }
     }
 
@@ -126,7 +128,14 @@ fn read_only_profile_credential(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
-) -> anyhow::Result<Option<(String, bool, Option<chrono::DateTime<chrono::Utc>>, Option<String>)>> {
+) -> anyhow::Result<
+    Option<(
+        String,
+        bool,
+        Option<chrono::DateTime<chrono::Utc>>,
+        Option<String>,
+    )>,
+> {
     let Some(profile) = crate::security::credentials::AuthService::get_profile_read_only(
         config,
         provider,

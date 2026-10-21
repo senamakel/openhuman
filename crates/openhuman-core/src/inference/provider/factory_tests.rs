@@ -1,6 +1,6 @@
 use super::*;
-use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::security::credentials::AuthService;
 use tempfile::TempDir;
 use wiremock::matchers::{method, path};
@@ -210,11 +210,19 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     )
     .expect("named OAuth profile is readable without refreshing")
     .expect("expired OAuth profile exists");
-    assert!(oauth
-        .token_set
-        .as_ref()
-        .and_then(|token_set| token_set.expires_at)
-        .is_some_and(|expires_at| expires_at < Utc::now()));
+    assert!(
+        oauth
+            .token_set
+            .as_ref()
+            .and_then(|token_set| token_set.expires_at)
+            .is_some_and(|expires_at| expires_at < Utc::now())
+    );
+    let selected_codex_credential =
+        super::credentials::lookup_key_for_slug_read_only("openai", &config)
+            .expect("read selected OpenAI API-key credential");
+    assert_eq!(selected_codex_credential.key, "dummy-selected-api-key");
+    assert!(!selected_codex_credential.is_oauth);
+    assert_eq!(selected_codex_credential.account_id, None);
 
     Mock::given(method("POST"))
         .and(path("/token"))
@@ -280,11 +288,13 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         Some("expired-oauth-access-token"),
         "inspection must not replace an expired token with a refreshed one"
     );
-    assert!(oauth_after
-        .token_set
-        .as_ref()
-        .and_then(|token_set| token_set.expires_at)
-        .is_some_and(|expires_at| expires_at < Utc::now()));
+    assert!(
+        oauth_after
+            .token_set
+            .as_ref()
+            .and_then(|token_set| token_set.expires_at)
+            .is_some_and(|expires_at| expires_at < Utc::now())
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -359,12 +369,13 @@ async fn inspection_codex_metadata_matches_the_selected_oauth_profile() {
     assert!(selected.is_oauth);
     assert_eq!(selected.account_id.as_deref(), Some("acct-active"));
 
-    let routing = crate::inference::provider::openai_codex::resolve_openai_codex_routing_for_inspection(
-        "openai",
-        "https://api.openai.example.test/v1",
-        selected.is_oauth,
-        selected.account_id,
-    );
+    let routing =
+        crate::inference::provider::openai_codex::resolve_openai_codex_routing_for_inspection(
+            "openai",
+            "https://api.openai.example.test/v1",
+            selected.is_oauth,
+            selected.account_id,
+        );
     assert!(routing.using_oauth);
     assert_eq!(routing.account_id.as_deref(), Some("acct-active"));
     assert_eq!(
@@ -397,7 +408,7 @@ fn deepseek_entry(id: &str) -> CloudProviderCreds {
 /// A config carrying a resolved model, as `agent_chat` leaves it after applying
 /// `model_override` and before building the agent.
 fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
-    use crate::config::schema::ephemeral_route::{apply, EphemeralRoute};
+    use crate::config::schema::ephemeral_route::{EphemeralRoute, apply};
     let mut config = Config {
         default_model: Some(model.to_string()),
         ..Config::default()

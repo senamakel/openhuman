@@ -101,6 +101,10 @@ pub async fn doctor_report_for_dispatch(
         return doctor_report_for_selected_profile(&root, &profile_id, options).await;
     }
 
+    if crate::core::runtime::is_saas() {
+        let config = dispatch.load_config().await?;
+        return doctor_report_with_options(&config, options).await;
+    }
     if let Some(config) = dispatch.embedder_config() {
         return doctor_report_with_options(&config, options).await;
     }
@@ -110,10 +114,6 @@ pub async fn doctor_report_for_dispatch(
     // through to `Config::load_or_init()` when no embedder config exists; that
     // startup loader persists migrations and can rewrite config.toml during an
     // otherwise read-only report.
-    if crate::core::runtime::is_saas() {
-        let config = dispatch.load_config().await?;
-        return doctor_report_with_options(&config, options).await;
-    }
     let selection = desktop_selection_for_dispatch(dispatch).await?;
     doctor_report_for_desktop_selection(selection, options).await
 }
@@ -122,11 +122,11 @@ pub async fn doctor_report_for_dispatch(
 /// snapshot, diagnostics use the read-only desktop profile loader instead of
 /// `Config::load_or_init`, which can persist migrations.
 pub(crate) async fn config_for_dispatch(dispatch: &DispatchCtx) -> Result<Config, String> {
-    if let Some(config) = dispatch.embedder_config() {
-        return Ok(config);
-    }
     if crate::core::runtime::is_saas() {
         return dispatch.load_config().await;
+    }
+    if let Some(config) = dispatch.embedder_config() {
+        return Ok(config);
     }
     Ok(desktop_selection_for_dispatch(dispatch).await?.config)
 }

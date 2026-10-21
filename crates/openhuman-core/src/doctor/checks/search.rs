@@ -168,9 +168,9 @@ fn managed_credential_available(config: &Config) -> bool {
         api_key,
         session_support::{
             check_session_backend, classify_session_token, is_local_session_token,
-            SessionTokenCheck, APP_SESSION_PROVIDER,
+            SessionTokenCheck,
         },
-        AuthService,
+        AuthService, APP_SESSION_PROVIDER,
     };
 
     if api_key::get_api_key_read_only(config)

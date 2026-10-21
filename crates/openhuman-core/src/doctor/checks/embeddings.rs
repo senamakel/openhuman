@@ -6,7 +6,7 @@ use std::time::Duration;
 use async_trait::async_trait;
 
 use crate::config::Config;
-use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding};
+use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 
 const CONFIG_ID: &str = "embeddings/config";
 const CONFIGURED_MODEL_ID: &str = "embeddings/configured-model";

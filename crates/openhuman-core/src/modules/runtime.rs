@@ -188,6 +188,7 @@ where
         Ok(Ok(reply)) => Ok(Some(reply)),
         Ok(Err(_)) | Err(_) => Err(ExistingModuleCallError::Failed),
     }
+}
 
 /// Whether `id` is admitted and currently serving on an already-started
 /// module runtime. This is a read-only snapshot; it never starts the runtime.

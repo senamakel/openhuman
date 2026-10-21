@@ -253,7 +253,13 @@ pub fn all_tools_with_runtime(
     if crate::inference::tokenjuice::enabled(root_config) {
         tools.push(Box::new(retrieve_tool_output_tool()));
         tools.push(Box::new(
-            crate::inference::tokenjuice::TokenjuiceRetrieveTool::new(),
+            tinyjuice_host::retrieve_tool::RetrieveToolOutputTool::new(std::sync::Arc::new(
+                |token, range| {
+                    Box::pin(async move {
+                        crate::inference::tokenjuice::retrieve(token, range).await
+                    })
+                },
+            )),
         ));
     } else {
         tracing::debug!("[tools::ops] juice component off; recovery tools not registered");

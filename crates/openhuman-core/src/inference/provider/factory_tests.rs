@@ -142,6 +142,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
 
     let _inference_guard = crate::inference::inference_test_guard_async().await;
     let tmp = tempfile::tempdir().expect("temporary credentials fixture");
+    let refresh_server = MockServer::start().await;
     let mut config = Config::default();
     config.config_path = tmp.path().join("config.toml");
     config.workspace_dir = tmp.path().join("workspace");
@@ -151,7 +152,11 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     let _env = EnvVarGuard::locked()
         .with("HOME", tmp.path())
         .with("OPENHUMAN_WORKSPACE", &config.workspace_dir)
-        .with("OPENHUMAN_KEYRING_BACKEND", "file");
+        .with("OPENHUMAN_KEYRING_BACKEND", "file")
+        .with(
+            "OPENAI_CODEX_OAUTH_TOKEN_URL",
+            format!("{}/token", refresh_server.uri()),
+        );
     let expires_at = (Utc::now() - Duration::minutes(5)).to_rfc3339();
     let created_at = (Utc::now() - Duration::hours(1)).to_rfc3339();
     let updated_at = created_at.clone();
@@ -210,7 +215,6 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         .and_then(|token_set| token_set.expires_at)
         .is_some_and(|expires_at| expires_at < Utc::now()));
 
-    let refresh_server = MockServer::start().await;
     Mock::given(method("POST"))
         .and(path("/token"))
         .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
@@ -220,10 +224,6 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
         })))
         .mount(&refresh_server)
         .await;
-    let _refresh_url = EnvVarGuard::set(
-        "OPENAI_CODEX_OAUTH_TOKEN_URL",
-        format!("{}/token", refresh_server.uri()),
-    );
     let snapshot = std::fs::read(&profiles_path)
         .expect("snapshot raw credential file before inspection");
 

@@ -1,7 +1,8 @@
 use super::MemoryRoundtripCheck;
 use crate::config::Config;
+use crate::core::runtime::{CoreContext, DomainSet};
+use crate::core::slots::Extensions;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, FindingSeverity};
-use crate::memory::engine;
 use crate::memory::test_fixtures::stored;
 use async_trait::async_trait;
 use std::sync::{Arc, Mutex};
@@ -43,18 +44,6 @@ impl ProbeEngine {
         }
     }
 
-    fn bind(self: &Arc<Self>, config: &Config) -> EngineBinding {
-        engine::install_test_engine(&config.workspace_dir, self.clone());
-        EngineBinding(config.workspace_dir.clone())
-    }
-}
-
-struct EngineBinding(std::path::PathBuf);
-
-impl Drop for EngineBinding {
-    fn drop(&mut self) {
-        engine::remove_test_engine(&self.0);
-    }
 }
 
 #[async_trait]
@@ -137,9 +126,29 @@ async fn seed_real_memory(engine: &ProbeEngine) -> ItemId {
 }
 
 async fn run_check(engine: &Arc<ProbeEngine>, tmp: &TempDir) -> Vec<crate::doctor::contract::Finding> {
-    let config = config_in(tmp);
-    let _binding = engine.bind(&config);
-    MemoryRoundtripCheck.detect(&DoctorCtx::from_config(config)).await
+    run_check_with_config(engine, config_in(tmp)).await
+}
+
+async fn run_check_with_config(
+    engine: &Arc<ProbeEngine>,
+    mut config: Config,
+) -> Vec<crate::doctor::contract::Finding> {
+    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_owned();
+    let extensions = Extensions::new();
+    let engine_for_factory: Arc<dyn MemoryEngine> = engine.clone();
+    crate::memory::engine_registry::register_read_only_engine_factory_in(
+        &extensions,
+        crate::memory::engine::TINYHUMANS_ENGINE,
+        Arc::new(move |_selected| {
+            let engine = Arc::clone(&engine_for_factory);
+            Box::pin(async move { Ok(engine) })
+        }),
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+    CoreContext::scope(context, async {
+        MemoryRoundtripCheck.detect(&DoctorCtx::from_config(config)).await
+    })
+    .await
 }
 
 async fn assert_scratch_namespaces_are_empty(engine: &ProbeEngine, namespaces: &[Namespace]) {
@@ -169,11 +178,7 @@ async fn fetch_failure_still_cleans_the_unique_service_scoped_item() {
     let config = config_in(&tmp);
     let engine = Arc::new(ProbeEngine::new(Failure::Fetch));
     let real_id = seed_real_memory(&engine).await;
-    let _binding = engine.bind(&config);
-
-    let findings = MemoryRoundtripCheck
-        .detect(&DoctorCtx::from_config(config))
-        .await;
+    let findings = run_check_with_config(&engine, config).await;
 
     assert!(only_error(&findings).message.contains("fetch"));
     let calls = engine.calls.lock().unwrap();
@@ -211,11 +216,7 @@ async fn ambiguous_store_failure_attempts_scoped_cleanup_and_reports_a_billing_h
         ),
     )));
     let real_id = seed_real_memory(&engine).await;
-    let _binding = engine.bind(&config);
-
-    let findings = MemoryRoundtripCheck
-        .detect(&DoctorCtx::from_config(config))
-        .await;
+    let findings = run_check_with_config(&engine, config).await;
 
     let finding = only_error(&findings);
     assert!(
@@ -280,11 +281,9 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
     let config = config_in(&tmp);
     let engine = Arc::new(ProbeEngine::new(Failure::None));
     let real_id = seed_real_memory(&engine).await;
-    let _binding = engine.bind(&config);
-    let ctx = DoctorCtx::from_config(config);
 
     for _ in 0..2 {
-        let findings = MemoryRoundtripCheck.detect(&ctx).await;
+        let findings = run_check_with_config(&engine, config.clone()).await;
         assert!(
             findings
                 .iter()

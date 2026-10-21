@@ -325,12 +325,10 @@ async fn inspection_codex_metadata_matches_the_selected_oauth_profile() {
                 "provider": "provider:openai",
                 "profile_name": "active-oauth",
                 "kind": "oauth",
-                "token_set": {
-                    "access_token": "active-oauth-bearer",
-                    "refresh_token": "active-refresh-token",
-                    "expires_at": expires,
-                    "token_type": "Bearer"
-                },
+                "access_token": "active-oauth-bearer",
+                "refresh_token": "active-refresh-token",
+                "expires_at": expires,
+                "token_type": "Bearer",
                 "metadata": {"account_id": "acct-active"},
                 "created_at": created,
                 "updated_at": created
@@ -339,12 +337,10 @@ async fn inspection_codex_metadata_matches_the_selected_oauth_profile() {
                 "provider": "provider:openai",
                 "profile_name": "oauth",
                 "kind": "oauth",
-                "token_set": {
-                    "access_token": "other-oauth-bearer",
-                    "refresh_token": "other-refresh-token",
-                    "expires_at": expires,
-                    "token_type": "Bearer"
-                },
+                "access_token": "other-oauth-bearer",
+                "refresh_token": "other-refresh-token",
+                "expires_at": expires,
+                "token_type": "Bearer",
                 "metadata": {"account_id": "acct-unselected"},
                 "created_at": created,
                 "updated_at": created

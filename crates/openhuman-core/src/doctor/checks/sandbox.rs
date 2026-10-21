@@ -44,9 +44,9 @@ impl SandboxProbe for HostSandboxProbe {
     async fn landlock_status(&self) -> LandlockStatus {
         #[cfg(all(target_os = "linux", feature = "modules"))]
         {
-            use crate::modules::runtime::{ExistingModuleCallError, call_if_ready};
-            use crate::modules::tinybox::contract::JailStatus;
+            use crate::modules::runtime::{call_if_ready, ExistingModuleCallError};
             use crate::modules::tinybox::contract::names::JAIL_STATUS;
+            use crate::modules::tinybox::contract::JailStatus;
 
             return match call_if_ready::<_, JailStatus>(
                 crate::modules::tinybox::MODULE_ID,

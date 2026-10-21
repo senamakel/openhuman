@@ -2,8 +2,8 @@
 //! yields, and the `SessionExpired` publications that follow an expired or
 //! rejected session.
 
-use tinyinference_llm::Error as TiError;
 use tinyinference_llm::model::ProviderError;
+use tinyinference_llm::Error as TiError;
 
 /// Resolve the managed backend bearer from a read-only selected-profile
 /// snapshot. Inspection never refreshes credentials or publishes expiry.
@@ -11,8 +11,8 @@ pub(super) fn managed_bearer_for_inspection(
     config: &openhuman_embed::__host::config::Config,
 ) -> anyhow::Result<String> {
     use openhuman_embed::__host::security::credentials::session_support::{
-        SessionTokenCheck, check_session_backend, classify_session_token, is_local_session_token,
-        load_app_session_profile_read_only,
+        check_session_backend, classify_session_token, is_local_session_token,
+        load_app_session_profile_read_only, SessionTokenCheck,
     };
 
     if let Some(key) =
@@ -60,7 +60,7 @@ pub(super) fn managed_bearer(
     check: openhuman_embed::__host::security::credentials::session_support::SessionTokenCheck,
 ) -> anyhow::Result<String> {
     use openhuman_embed::__host::security::credentials::session_support::{
-        LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SessionTokenCheck, is_local_session_token,
+        is_local_session_token, SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
     };
 
     match check {

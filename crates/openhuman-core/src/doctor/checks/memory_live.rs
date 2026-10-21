@@ -134,10 +134,11 @@ impl Drop for ScopedScratchCleanup {
 
 async fn roundtrip(engine: Arc<dyn MemoryEngine>) -> Result<(), Finding> {
     let nonce = uuid::Uuid::new_v4().simple().to_string();
-    let namespace = Namespace::new(vec![
-        Segment::new(SegmentKind::Service, format!("openhuman-doctor-{nonce}"))
-            .expect("generated service namespace is valid"),
-    ])
+    let namespace = Namespace::new(vec![Segment::new(
+        SegmentKind::Service,
+        format!("openhuman-doctor-{nonce}"),
+    )
+    .expect("generated service namespace is valid")])
     .expect("one service namespace segment is valid");
     let item = StoreItem::document(
         "OpenHuman doctor memory roundtrip probe",

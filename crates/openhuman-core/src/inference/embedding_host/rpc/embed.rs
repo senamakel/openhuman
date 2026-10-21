@@ -3,7 +3,7 @@
 use crate::config::Config;
 use crate::core::Outcome;
 
-use super::{LOG_PREFIX, resolve_api_key};
+use super::{resolve_api_key, LOG_PREFIX};
 use crate::inference::embedding_host::factory::{
     create_embedding_provider_for_inspection, create_embedding_provider_with_config,
 };

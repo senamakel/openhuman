@@ -41,8 +41,8 @@ pub use tinymemory_api::EngineHealth;
 use tinymemory_api::MemoryEngine;
 pub use tinymemory_integrations::{BearerSource, EngineCredential, EngineSettings};
 
-use crate::config::Config;
 use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
+use crate::config::Config;
 use crate::security::credentials::session_support::resolve_backend_credential;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 

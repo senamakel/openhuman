@@ -7,7 +7,7 @@ use async_trait::async_trait;
 
 use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
-use crate::storage::{STORAGE_URL_VAR, StorageUrl};
+use crate::storage::{StorageUrl, STORAGE_URL_VAR};
 use tinystoragedrivers::{BlobConfig, StorageConfig};
 
 const COMPONENTS_ID: &str = "components/referenced-but-disabled";

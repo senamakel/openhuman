@@ -4,8 +4,8 @@
 use super::*;
 #[cfg(feature = "jev")]
 use openhuman_embed::__host::agent::tinyagents::discovery::installed_tool_ranker;
-use openhuman_embed::seams::DomainGroup;
 use openhuman_embed::__host::core::slots::Extensions;
+use openhuman_embed::seams::DomainGroup;
 
 fn test_wiring(options: &InstallOptions) -> Result<Wiring, InstallError> {
     wiring(options, &Extensions::new())

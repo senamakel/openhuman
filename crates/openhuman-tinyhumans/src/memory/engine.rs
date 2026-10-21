@@ -17,8 +17,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::memory_engines::{
-    BearerSource, Binding, EngineCredential, EngineRequest, EngineSettings, ReadOnlyEngineError,
-    TINYHUMANS_ENGINE, build_cached, rooted,
+    build_cached, rooted, BearerSource, Binding, EngineCredential, EngineRequest, EngineSettings,
+    ReadOnlyEngineError, TINYHUMANS_ENGINE,
 };
 use openhuman_embed::__host::security::credentials::session_support::resolve_backend_credential;
 
@@ -71,8 +71,8 @@ pub(crate) fn build_read_only_engine(
 
 fn read_only_session_token(config: &Config) -> Result<Option<String>, ReadOnlyEngineError> {
     use openhuman_embed::__host::security::credentials::session_support::{
-        SessionTokenCheck, check_session_backend, classify_session_token, is_local_session_token,
-        load_app_session_profile_read_only,
+        check_session_backend, classify_session_token, is_local_session_token,
+        load_app_session_profile_read_only, SessionTokenCheck,
     };
 
     let profile = load_app_session_profile_read_only(config)

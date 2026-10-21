@@ -79,18 +79,14 @@ async fn selected_profile_reports_preserve_parent_check_sources_without_using_pa
     .unwrap();
 
     for report in [explicit_outcome.value, selection_outcome.value] {
-        assert!(
-            !report
-                .findings
-                .iter()
-                .any(|finding| finding.check_id == "doctor/selection")
-        );
-        assert!(
-            report
-                .checks_run
-                .iter()
-                .any(|id| id == "hosted/selected-profile-context")
-        );
+        assert!(!report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "doctor/selection"));
+        assert!(report
+            .checks_run
+            .iter()
+            .any(|id| id == "hosted/selected-profile-context"));
         assert_eq!(report.profile.as_deref(), Some("account-b"));
     }
     let observations = observed.lock().unwrap();

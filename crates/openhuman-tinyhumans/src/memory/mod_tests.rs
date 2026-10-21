@@ -3,13 +3,13 @@ use crate::hosted::test_support;
 use openhuman_embed::__host::memory_engines::Binding;
 use openhuman_embed::__host::security::credentials::session_support::BackendCredential;
 use openhuman_embed::__host::security::credentials::{
-    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use serde_json::json;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
 
-use billing::{Answer, CACHE_TTL, active_with_cache, digest, fetch, parse_active};
+use billing::{active_with_cache, digest, fetch, parse_active, Answer, CACHE_TTL};
 use engine::HostBearer;
 
 const KEY: &str = "https://backend.test";

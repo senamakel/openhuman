@@ -6,8 +6,8 @@ use crate::doctor::contract::{DoctorCheck, DoctorCtx, FindingSeverity};
 use crate::memory::test_fixtures::stored;
 use async_trait::async_trait;
 use std::sync::{
-    Arc, Mutex,
     atomic::{AtomicUsize, Ordering},
+    Arc, Mutex,
 };
 use tempfile::TempDir;
 use tinymemory_api::conformance::ReferenceEngine;
@@ -263,11 +263,9 @@ async fn fetch_failure_still_cleans_the_unique_service_scoped_item() {
     let (scratch_id, namespace) = &calls.stored[0];
     assert_ne!(scratch_id, &real_id);
     assert_ne!(scratch_id.as_str(), "doctor:probe");
-    assert!(
-        namespace
-            .to_string()
-            .starts_with("service:openhuman-doctor-")
-    );
+    assert!(namespace
+        .to_string()
+        .starts_with("service:openhuman-doctor-"));
     assert!(!Reach::subtree(Namespace::ROOT).admits(namespace));
     assert_eq!(calls.scoped_forgets.len(), 1);
     assert_eq!(calls.scoped_forgets[0].0, vec![scratch_id.clone()]);

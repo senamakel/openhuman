@@ -2,8 +2,8 @@ use super::*;
 use crate::memory::billing::free_period_active;
 use crate::memory::engine::{bind_with_root, resolve};
 use crate::memory::test_fixtures::config_in;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::Mutex;
 use tinymemory_api::conformance::ReferenceEngine;
 
 const ID: &str = "registry-test-engine";

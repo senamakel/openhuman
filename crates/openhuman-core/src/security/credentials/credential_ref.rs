@@ -77,7 +77,7 @@
 
 use zeroize::Zeroizing;
 
-use crate::security::keyring_consent::{PolicyDecision, policy};
+use crate::security::keyring_consent::{policy, PolicyDecision};
 use crate::security::secret_storage;
 
 /// Log prefix for this module's diagnostics.

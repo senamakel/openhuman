@@ -68,7 +68,11 @@ pub(super) fn redact_inference_url(url: Option<&str>) -> &str {
             .rfind('@')
             .map_or(authority, |i| &authority[i + 1..]);
         let host = host.rfind(':').map_or(host, |i| &host[..i]);
-        if host.is_empty() { None } else { Some(host) }
+        if host.is_empty() {
+            None
+        } else {
+            Some(host)
+        }
     })
     .unwrap_or("<redacted>")
 }

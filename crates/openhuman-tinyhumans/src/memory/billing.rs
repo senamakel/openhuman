@@ -15,11 +15,11 @@ use std::time::{Duration, Instant};
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::memory_engines::BoundEngine;
 use openhuman_embed::__host::security::credentials::session_support::{
-    BackendCredential, resolve_backend_credential,
+    resolve_backend_credential, BackendCredential,
 };
 use sha2::Digest;
 
-use crate::client::{BackendClient, flatten_authed_error};
+use crate::client::{flatten_authed_error, BackendClient};
 
 /// How long an answer is reused. A job polls between batches; the period
 /// changes on the order of days, so a minute keeps it to one request a minute.

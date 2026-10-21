@@ -91,9 +91,8 @@ use cloud_slug::{
 };
 use credentials::CredentialAccess;
 use local_runtime::{
-    OptionalChatModelResult, try_create_local_runtime_chat_model,
-    try_create_local_runtime_chat_model_for_inspection,
-    try_create_local_runtime_chat_model_from_string,
+    try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_for_inspection,
+    try_create_local_runtime_chat_model_from_string, OptionalChatModelResult,
 };
 pub(crate) use managed_backend::{
     make_openhuman_backend_model_for_options, make_openhuman_backend_model_for_thread,

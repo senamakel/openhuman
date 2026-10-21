@@ -5,10 +5,10 @@ use crate::core::slots::Extensions;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, FindingSeverity};
 use crate::inference::embedding_host::create_embedding_provider_for_inspection;
 use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-use axum::{Json, Router, extract::State, routing::post};
+use axum::{extract::State, routing::post, Json, Router};
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 use tempfile::TempDir;
 
@@ -108,12 +108,10 @@ async fn managed_inspection_does_not_fall_back_to_the_mutable_provider_factory()
             None,
         )
         .expect("inspection factory returns its unavailable placeholder");
-        assert!(
-            model
-                .embed(&["fixed doctor probe".to_owned()])
-                .await
-                .is_err()
-        );
+        assert!(model
+            .embed(&["fixed doctor probe".to_owned()])
+            .await
+            .is_err());
     })
     .await;
 

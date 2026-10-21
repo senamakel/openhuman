@@ -14,8 +14,8 @@ use openhuman_embed::__host::inference_registry::{
     InspectionCatalogListing, PreparedInspectionCatalog,
 };
 use openhuman_embed::__host::security::credentials::session_support::{
-    BackendCredential, SessionTokenCheck, classify_session_token, load_app_session_profile,
-    publish_local_session_expiry, resolve_backend_credential,
+    classify_session_token, load_app_session_profile, publish_local_session_expiry,
+    resolve_backend_credential, BackendCredential, SessionTokenCheck,
 };
 use openhuman_embed::__host::util::url::join_url;
 use std::sync::Arc;
@@ -55,8 +55,8 @@ pub(super) fn inspection_entry() -> InspectionCatalogListing {
     Arc::new(|config, request| {
         Box::pin(async move {
             use openhuman_embed::__host::security::credentials::session_support::{
-                SessionTokenCheck, check_session_backend, classify_session_token,
-                load_app_session_profile_read_only,
+                check_session_backend, classify_session_token, load_app_session_profile_read_only,
+                SessionTokenCheck,
             };
 
             let profile = load_app_session_profile_read_only(&config)

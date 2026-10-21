@@ -9,10 +9,10 @@ mod embed;
 mod settings;
 
 pub use api_keys::{clear_api_key, set_api_key};
-pub(crate) use embed::{
-    InspectionEmbeddingDimensions, InspectionEmbeddingError, probe_dimensions_for_inspection,
-};
 pub use embed::{embed, test_connection};
+pub(crate) use embed::{
+    probe_dimensions_for_inspection, InspectionEmbeddingDimensions, InspectionEmbeddingError,
+};
 pub use settings::{get_settings, update_settings};
 
 #[cfg(test)]
@@ -21,7 +21,7 @@ use tinyinference_embeddings::probe::redact_secrets;
 #[cfg(test)]
 use settings::remember_active_custom_profile;
 #[cfg(test)]
-use tinyinference_embeddings::probe::{EmbedProbe, classify_embed_probe};
+use tinyinference_embeddings::probe::{classify_embed_probe, EmbedProbe};
 #[cfg(test)]
 use tinyinference_embeddings::served_models::{
     check_requested_model_served, fetch_served_model_ids, normalize_embed_model_id,

@@ -35,11 +35,9 @@ async fn github_preflight_is_not_registered_when_no_skill_requires_it() {
     .await;
 
     assert!(checks.iter().any(|check| check.id() == "skills/discovery"));
-    assert!(
-        checks
-            .iter()
-            .all(|check| check.id() != "skills/github-preflight")
-    );
+    assert!(checks
+        .iter()
+        .all(|check| check.id() != "skills/github-preflight"));
 }
 
 #[derive(Default)]
@@ -94,11 +92,9 @@ async fn required_github_preflight_uses_fake_probes_and_redacts_error_details() 
     .await;
     let required = required.expect("the workflow explicitly requires GitHub");
     assert_eq!(required.path, manifest);
-    assert!(
-        checks
-            .iter()
-            .any(|check| check.id() == "skills/github-preflight")
-    );
+    assert!(checks
+        .iter()
+        .any(|check| check.id() == "skills/github-preflight"));
 
     let check = GithubPreflightCheck {
         required: required.config,
@@ -111,11 +107,9 @@ async fn required_github_preflight_uses_fake_probes_and_redacts_error_details() 
         .remove(0);
 
     assert_eq!(finding.severity, FindingSeverity::Error);
-    assert!(
-        finding
-            .message
-            .contains("GitHub integration is not connected")
-    );
+    assert!(finding
+        .message
+        .contains("GitHub integration is not connected"));
     assert!(!finding.message.contains("private"));
     assert!(!finding.message.contains("example.test"));
     assert_eq!(
@@ -125,8 +119,8 @@ async fn required_github_preflight_uses_fake_probes_and_redacts_error_details() 
 }
 
 #[tokio::test]
-async fn production_github_preflight_skips_expired_profile_without_mutating_credentials_or_loading_connectors()
- {
+async fn production_github_preflight_skips_expired_profile_without_mutating_credentials_or_loading_connectors(
+) {
     let scratch = tempfile::tempdir().expect("create isolated preflight fixture");
     let config = config_in(scratch.path());
     let _env = crate::config::test_env::EnvVarGuard::locked_async()
@@ -208,8 +202,8 @@ async fn production_github_preflight_skips_expired_profile_without_mutating_cred
 }
 
 #[tokio::test]
-async fn production_github_preflight_skips_malformed_profile_without_quarantining_or_loading_connectors()
- {
+async fn production_github_preflight_skips_malformed_profile_without_quarantining_or_loading_connectors(
+) {
     let scratch = tempfile::tempdir().expect("create isolated preflight fixture");
     let config = config_in(scratch.path());
     let _env = crate::config::test_env::EnvVarGuard::locked_async()
@@ -253,14 +247,12 @@ async fn production_github_preflight_skips_malformed_profile_without_quarantinin
 
     assert_eq!(std::fs::read(&profiles).unwrap(), malformed);
     assert!(!scratch.path().join("auth-profiles.lock").exists());
-    assert!(
-        !scratch
-            .path()
-            .read_dir()
-            .unwrap()
-            .filter_map(Result::ok)
-            .any(|entry| entry.file_name().to_string_lossy().contains("corrupt"))
-    );
+    assert!(!scratch
+        .path()
+        .read_dir()
+        .unwrap()
+        .filter_map(Result::ok)
+        .any(|entry| entry.file_name().to_string_lossy().contains("corrupt")));
     assert_eq!(findings.len(), 1);
     assert_eq!(findings[0].severity, FindingSeverity::Skipped);
     assert!(findings[0].message.contains("unavailable"));

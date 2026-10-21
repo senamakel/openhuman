@@ -4,9 +4,9 @@
 
 use super::*;
 use crate::transport::BackendTransport;
+use openhuman_embed::__host::core::slots::Extensions;
 use openhuman_embed::seams::DomainGroup;
 use openhuman_embed::BuilderSummary;
-use openhuman_embed::__host::core::slots::Extensions;
 
 fn connected(builder: RuntimeBuilder) -> BuilderSummary {
     builder.connect().expect("connect").summary()

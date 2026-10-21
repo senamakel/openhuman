@@ -77,11 +77,9 @@ async fn typed_parse_error_reports_field_path_and_backup_fallback_safely() {
         error.message
     );
     assert!(!error.message.contains("837465"));
-    assert!(
-        !error
-            .message
-            .contains(&directory.path().display().to_string())
-    );
+    assert!(!error
+        .message
+        .contains(&directory.path().display().to_string()));
 }
 
 #[tokio::test]

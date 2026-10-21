@@ -1,4 +1,4 @@
-use crate::config::{Config, test_env::EnvVarGuard};
+use crate::config::{test_env::EnvVarGuard, Config};
 use crate::doctor::contract::{DoctorCtx, DoctorOptions, Finding, FindingSeverity};
 use crate::doctor::runner;
 
@@ -130,11 +130,9 @@ async fn missing_storage_driver_is_reported_without_opening_the_backend() {
         assert!(!error.message.contains("db.internal"));
     }
     #[cfg(feature = "storage-mongodb")]
-    assert!(
-        findings
-            .iter()
-            .any(|finding| finding.severity == FindingSeverity::Pass)
-    );
+    assert!(findings
+        .iter()
+        .any(|finding| finding.severity == FindingSeverity::Pass));
 }
 
 #[tokio::test]
@@ -212,11 +210,9 @@ async fn both_master_key_environment_sources_are_reported_without_initializing_k
 
     let error = finding(&findings, FindingSeverity::Error);
     assert!(!error.message.contains("do-not-read-inline"));
-    assert!(
-        !error
-            .message
-            .contains(&supplied_key_file.display().to_string())
-    );
+    assert!(!error
+        .message
+        .contains(&supplied_key_file.display().to_string()));
     assert_eq!(workspace_entries(workspace.path()), entries_before);
     assert!(!supplied_key_file.exists());
     assert!(!workspace.path().join("keyring/master.key").exists());

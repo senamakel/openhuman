@@ -27,7 +27,7 @@ pub use ops::*;
 pub use profiles::{AuthProfile, AuthProfileKind, TokenSet};
 // Direct-mode (BYO Composio API key) credential helpers.
 pub use ops::{
-    COMPOSIO_DIRECT_PROVIDER, clear_composio_api_key, get_composio_api_key, store_composio_api_key,
+    clear_composio_api_key, get_composio_api_key, store_composio_api_key, COMPOSIO_DIRECT_PROVIDER,
 };
 pub use schemas::{
     all_controller_schemas as all_credentials_controller_schemas,

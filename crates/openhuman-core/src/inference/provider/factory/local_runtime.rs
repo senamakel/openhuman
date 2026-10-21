@@ -78,7 +78,7 @@ fn try_create_local_runtime_chat_model_from_string_with_identity(
     mut inspection_identity: Option<&mut Option<(String, String, String)>>,
 ) -> OptionalChatModelResult {
     use tinyinference_local::local_runtime::{
-        LocalRuntimeAuth, LocalRuntimeInputs, resolve_local_runtime,
+        resolve_local_runtime, LocalRuntimeAuth, LocalRuntimeInputs,
     };
 
     // Use the same classifier as privacy and session policy. Canonicalize only

@@ -3,7 +3,7 @@
 use async_trait::async_trait;
 
 use crate::doctor::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding};
-use crate::inference::embedding_host::{InspectionEmbeddingError, probe_dimensions_for_inspection};
+use crate::inference::embedding_host::{probe_dimensions_for_inspection, InspectionEmbeddingError};
 
 pub(super) struct EmbeddingsLiveCheck;
 

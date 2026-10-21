@@ -1,11 +1,11 @@
 use super::*;
 use crate::inference::provider::factory::{
-    PROVIDER_OPENHUMAN, create_chat_model_from_string, make_openhuman_backend_model_for_thread,
-    model_limits_request,
+    create_chat_model_from_string, make_openhuman_backend_model_for_thread, model_limits_request,
+    PROVIDER_OPENHUMAN,
 };
 use async_trait::async_trait;
-use std::sync::Mutex;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::sync::Mutex;
 use tinyinference_llm::model::{ModelRequest, ModelResponse};
 
 type SeenModelRequests = Arc<Mutex<Vec<(String, Option<String>, Option<String>)>>>;
@@ -201,7 +201,7 @@ fn selecting_the_managed_provider_with_nothing_registered_is_backend_unavailable
 #[tokio::test]
 async fn a_registered_catalog_receives_the_entrys_provider_key() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-    use crate::config::schema::{EPHEMERAL_ROUTE_SLUG, EphemeralRoute};
+    use crate::config::schema::{EphemeralRoute, EPHEMERAL_ROUTE_SLUG};
     let seen = Arc::new(Mutex::new(String::new()));
     let sink = Arc::clone(&seen);
     register_catalog(

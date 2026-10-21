@@ -1,10 +1,10 @@
 use super::super::inspection_entry;
 use axum::{
-    Json, Router,
     extract::State,
     http::{HeaderMap, StatusCode},
     response::{IntoResponse, Response},
     routing::get,
+    Json, Router,
 };
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::inference_registry::{
@@ -14,11 +14,11 @@ use openhuman_embed::__host::security::credentials::session_support::{
     SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META,
 };
 use openhuman_embed::__host::security::credentials::{
-    APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+    AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
 };
 use std::sync::{
-    Arc,
     atomic::{AtomicUsize, Ordering},
+    Arc,
 };
 
 #[derive(Clone)]

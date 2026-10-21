@@ -176,6 +176,24 @@ async fn cli_explicit_valid_profile_uses_its_config_without_activating_or_writin
     );
     assert!(alternate_dir.is_dir(), "selected profile remains present");
     assert_unchanged(&before, &snapshot_tree(healthy_fixture._home.path()));
+
+    let legacy_output = healthy_fixture.run_cli(&[
+        "doctor",
+        "report",
+        "--tier",
+        "static",
+        "--only",
+        r#"["config/unknown-key"]"#,
+        "--profile",
+        ALTERNATE_PROFILE,
+    ]);
+    assert_eq!(legacy_output.status.code(), Some(0));
+    let legacy: Value = serde_json::from_slice(&legacy_output.stdout)
+        .expect("legacy report keeps its JSON outcome shape");
+    assert_eq!(legacy["result"]["profile"], ALTERNATE_PROFILE);
+    assert_eq!(legacy["result"]["config_resolution_source"], "--profile");
+    assert_eq!(legacy["result"]["findings"][0]["config_path"], "memroy");
+    assert_unchanged(&before, &snapshot_tree(healthy_fixture._home.path()));
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -237,6 +255,21 @@ async fn legacy_doctor_report_and_models_keep_json_without_boot_storage_writes()
         !storage_path.exists(),
         "legacy inspection must not create the configured session database"
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn legacy_doctor_function_help_stays_on_the_existing_namespace_printer() {
+    let fixture = fixture_named("healthy").await;
+    let before = snapshot_tree(fixture._home.path());
+
+    let report_help = fixture.run_cli(&["doctor", "report", "--help"]);
+    assert_eq!(report_help.status.code(), Some(0));
+    assert!(String::from_utf8_lossy(&report_help.stdout).contains("--tier"));
+
+    let models_help = fixture.run_cli(&["doctor", "models", "--help"]);
+    assert_eq!(models_help.status.code(), Some(0));
+    assert!(String::from_utf8_lossy(&models_help.stdout).contains("--use-cache"));
+    assert_unchanged(&before, &snapshot_tree(fixture._home.path()));
 }
 
 #[tokio::test(flavor = "current_thread")]

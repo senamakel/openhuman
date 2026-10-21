@@ -476,6 +476,28 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     assert!(!temp.path().join("auth-profiles.lock").exists());
 }
 
+#[tokio::test]
+async fn missing_default_model_is_reported_by_the_native_construct_check() {
+    let workspace = tempfile::tempdir().expect("create isolated config fixture");
+    let mut config = isolated_config(workspace.path());
+    config.default_model = None;
+    config.primary_cloud = None;
+    config.chat_provider = None;
+    config.reasoning_provider = None;
+    config.agentic_provider = None;
+    config.coding_provider = None;
+    config.vision_provider = None;
+    config.memory_provider = None;
+
+    let findings = run_only(config, CONSTRUCT).await;
+    let result = finding(&findings, CONSTRUCT);
+
+    assert_eq!(result.severity, FindingSeverity::Error);
+    assert_eq!(result.config_path.as_deref(), Some("default_model"));
+    assert!(result.message.contains("model is missing"));
+    assert!(!result.message.contains("private"));
+}
+
 struct RegisterManagedModel;
 
 impl Drop for RegisterManagedModel {

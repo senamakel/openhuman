@@ -360,9 +360,10 @@ pub mod inference_registry {
     pub use openhuman_core::inference::registry::{
         BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest, ChatModelEntry,
         ChatModelFactory, ChatModelRequest, EmbeddingFactory, EmbeddingRequest,
-        InspectionChatModelFactory, ReadinessProbe, register_catalog, register_catalog_in,
-        register_chat_model, register_chat_model_in, register_embedding, register_embedding_in,
-        register_inspection_chat_model, register_inspection_chat_model_in, unregister_catalog,
+        InspectionChatModelFactory, InspectionEmbeddingFactory, ReadinessProbe, register_catalog,
+        register_catalog_in, register_chat_model, register_chat_model_in, register_embedding,
+        register_embedding_in, register_inspection_chat_model, register_inspection_chat_model_in,
+        register_inspection_embedding, register_inspection_embedding_in, unregister_catalog,
         unregister_chat_model, unregister_embedding, unregister_inspection_chat_model,
     };
 }

@@ -178,6 +178,47 @@ pub type EmbeddingFactory = Arc<
 
 static EMBEDDINGS: HookSlot<EmbeddingFactory> = HookSlot::new("inference::embeddings");
 
+/// A managed embedding factory safe for doctor inspection: it uses a frozen
+/// credential snapshot and never refreshes or publishes credential state.
+pub type InspectionEmbeddingFactory = EmbeddingFactory;
+
+static INSPECTION_EMBEDDINGS: HookSlot<InspectionEmbeddingFactory> =
+    HookSlot::new("inference::inspection-embeddings");
+
+/// Registers a managed embedding factory for read-only credential inspection.
+pub fn register_inspection_embedding<F>(provider_id: impl Into<String>, factory: F)
+where
+    F: for<'a> Fn(
+            &EmbeddingRequest<'a>,
+        ) -> tinyinference_embeddings::Result<Box<dyn EmbeddingModel>>
+        + Send
+        + Sync
+        + 'static,
+{
+    INSPECTION_EMBEDDINGS.register(provider_id, Arc::new(factory));
+}
+
+/// Registers an inspection-safe embedding factory for one core context.
+pub fn register_inspection_embedding_in<F>(
+    extensions: &Extensions,
+    provider_id: impl Into<String>,
+    factory: F,
+)
+where
+    F: for<'a> Fn(
+            &EmbeddingRequest<'a>,
+        ) -> tinyinference_embeddings::Result<Box<dyn EmbeddingModel>>
+        + Send
+        + Sync
+        + 'static,
+{
+    INSPECTION_EMBEDDINGS.register_in(extensions, provider_id, Arc::new(factory));
+}
+
+pub(crate) fn inspection_embedding(provider_id: &str) -> Option<InspectionEmbeddingFactory> {
+    INSPECTION_EMBEDDINGS.get(provider_id)
+}
+
 /// Registers the embedding provider `provider_id` for the whole process.
 pub fn register_embedding<F>(provider_id: impl Into<String>, factory: F)
 where

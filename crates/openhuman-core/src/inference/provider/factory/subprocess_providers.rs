@@ -67,12 +67,12 @@ pub(super) fn try_create_claude_agent_sdk_chat_model_for_inspection(
             auth_token,
             base_url,
         )?;
-        let model = ClaudeAgentSdkProvider::for_inspection(
+        let chat = ClaudeAgentSdkProvider::for_inspection(
             (&config.claude_agent_sdk).into(),
             model.clone(),
             auth,
         );
-        Ok((Arc::new(model) as Arc<dyn ChatModel<()>>, model.clone(), endpoint, credential))
+        Ok((Arc::new(chat) as Arc<dyn ChatModel<()>>, model.clone(), endpoint, credential))
     })())
 }
 

@@ -84,13 +84,14 @@ use access_gates::{emit_inference_egress, enforce_local_only_inference};
 use chat_model::{unresolved_chat_model_error, with_default_temperature};
 use cloud_slug::{
     resolve_cloud_slug, resolve_cloud_slug_with_access, try_create_cloud_slug_chat_model,
+    try_create_cloud_slug_chat_model_for_inspection_with_identity,
     try_create_cloud_slug_chat_model_for_inspection, try_create_cloud_slug_chat_model_from_string,
     try_create_cloud_slug_chat_model_with_native_tools,
 };
 use credentials::CredentialAccess;
 use local_runtime::{
-    try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_from_string,
-    OptionalChatModelResult,
+    try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_for_inspection,
+    try_create_local_runtime_chat_model_from_string, OptionalChatModelResult,
 };
 pub(crate) use managed_backend::{
     make_openhuman_backend_model_for_options, make_openhuman_backend_model_for_thread,
@@ -98,6 +99,8 @@ pub(crate) use managed_backend::{
 use managed_backend::{managed_chat_model, resolve_managed_model};
 use primary_cloud::{legacy_inference_slug, resolve_primary_cloud_provider_string};
 use subprocess_providers::{
+    try_create_claude_agent_sdk_chat_model_for_inspection,
+    try_create_claude_code_chat_model_for_inspection,
     prepare_claude_agent_sdk_chat_model, try_create_claude_agent_sdk_chat_model,
     try_create_claude_agent_sdk_chat_model_from_string, try_create_claude_code_chat_model,
     try_create_claude_code_chat_model_from_string,

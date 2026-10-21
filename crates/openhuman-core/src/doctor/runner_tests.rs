@@ -266,7 +266,7 @@ async fn memory_binding_and_health_checks_are_skipped_when_the_component_is_disa
 
     assert_eq!(
         report.checks_skipped,
-        ["memory/binding", "memory/health"].map(str::to_owned)
+        vec!["memory/binding".to_owned(), "memory/health".to_owned()]
     );
     for check_id in ["memory/binding", "memory/health"] {
         assert!(report.findings.iter().any(|finding| {

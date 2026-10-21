@@ -71,6 +71,7 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
             build.endpoint,
             build.credential,
             temperature,
+            InspectionOutputBudgetCapability::Bounded,
         ));
     }
     if let Some(result) =
@@ -83,6 +84,7 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
             endpoint,
             credential,
             temperature,
+            InspectionOutputBudgetCapability::Bounded,
         ));
     }
     if let Some(result) = try_create_claude_code_chat_model_for_inspection(role, &resolved, config)
@@ -94,6 +96,7 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
             endpoint,
             credential,
             temperature,
+            InspectionOutputBudgetCapability::Bounded,
         ));
     }
     if let Some(result) = try_create_local_runtime_chat_model_for_inspection(role, config) {
@@ -104,18 +107,20 @@ pub(crate) fn create_chat_model_with_identity_in_for_inspection(
             endpoint,
             credential,
             temperature,
+            InspectionOutputBudgetCapability::Bounded,
         ));
     }
     if let Some(result) =
         try_create_cloud_slug_chat_model_for_inspection_with_identity(role, config)
     {
-        let (model, model_id, endpoint, credential) = result?;
+        let (model, model_id, endpoint, credential, output_budget) = result?;
         return Ok(prepared_inspection_model(
             model,
             model_id.clone(),
             endpoint,
             credential,
             temperature,
+            output_budget,
         ));
     }
     Err(unresolved_chat_model_error_with_access(
@@ -133,11 +138,13 @@ fn prepared_inspection_model(
     endpoint: String,
     credential: String,
     temperature: f64,
+    output_budget: InspectionOutputBudgetCapability,
 ) -> PreparedInspectionChatModel {
     PreparedInspectionChatModel {
         model: with_default_temperature(model, temperature),
         identity: InspectionRequestIdentity::new(endpoint, credential, model_id.clone()),
         model_id,
+        output_budget,
     }
 }
 

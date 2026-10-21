@@ -164,11 +164,22 @@ impl InspectionRequestIdentity {
     }
 }
 
+/// Whether the resolved inspection route can enforce the requested output
+/// token ceiling on the provider request.
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub(crate) enum InspectionOutputBudgetCapability {
+    /// The provider request enforces its requested output-token limit.
+    Bounded,
+    /// The provider route cannot express a bounded output-token request.
+    Unsupported,
+}
+
 /// Prepared, frozen model plus its opaque deduplication identity.
 pub(crate) struct PreparedInspectionChatModel {
     pub(crate) model: Arc<dyn ChatModel<()>>,
     pub(crate) model_id: String,
     pub(crate) identity: InspectionRequestIdentity,
+    pub(crate) output_budget: InspectionOutputBudgetCapability,
 }
 
 /// Sentinel meaning "use the OpenHuman backend session JWT".

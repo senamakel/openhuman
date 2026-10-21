@@ -211,8 +211,8 @@ fn edit_distance(left: &str, right: &str) -> usize {
     for (index, row) in distances.iter_mut().enumerate() {
         row[0] = index;
     }
-    for index in 0..=right.len() {
-        distances[0][index] = index;
+    for (index, distance) in distances[0].iter_mut().enumerate() {
+        *distance = index;
     }
 
     for left_index in 1..=left.len() {

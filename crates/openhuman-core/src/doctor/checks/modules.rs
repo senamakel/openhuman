@@ -12,10 +12,10 @@ use super::canonical_segment;
 pub(super) fn for_context(ctx: &DoctorCtx) -> Vec<Arc<dyn DoctorCheck>> {
     #[cfg(feature = "modules")]
     {
-        return crate::modules::ops::list(ctx.config())
+        crate::modules::ops::list(ctx.config())
             .into_iter()
             .map(|status| Arc::new(ModuleStatusCheck::new(status)) as Arc<dyn DoctorCheck>)
-            .collect();
+            .collect()
     }
     #[cfg(not(feature = "modules"))]
     {

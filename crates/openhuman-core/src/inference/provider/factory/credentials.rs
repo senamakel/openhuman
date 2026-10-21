@@ -3,6 +3,13 @@
 
 use super::*;
 
+type ReadOnlyProfileCredential = (
+    String,
+    bool,
+    Option<chrono::DateTime<chrono::Utc>>,
+    Option<String>,
+);
+
 /// Credential behavior used by shared model construction. Runtime callers keep
 /// the established mutable auth-profile store path; doctor inspection uses the
 /// selected profile's read-only snapshot and never refreshes credentials.
@@ -128,14 +135,7 @@ fn read_only_profile_credential(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
-) -> anyhow::Result<
-    Option<(
-        String,
-        bool,
-        Option<chrono::DateTime<chrono::Utc>>,
-        Option<String>,
-    )>,
-> {
+) -> anyhow::Result<Option<ReadOnlyProfileCredential>> {
     let Some(profile) = crate::security::credentials::AuthService::get_profile_read_only(
         config,
         provider,

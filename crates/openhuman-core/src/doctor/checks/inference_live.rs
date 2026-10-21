@@ -99,15 +99,15 @@ impl DoctorCheck for InferenceLiveCheck {
             }
         };
 
-        let outcome = probe_prepared_model(&self.cache, built).await;
-        vec![outcome.finding(check_id)]
+        vec![probe_prepared_model(&self.cache, built, check_id).await]
     }
 }
 
-async fn probe_prepared_model(
+pub(super) async fn probe_prepared_model(
     cache: &LiveProbeCache,
     built: PreparedInspectionChatModel,
-) -> ProbeOutcome {
+    check_id: &str,
+) -> Finding {
     // Capability is metadata today; the regression test pins the missing
     // unsupported-budget guard before it is introduced.
     let _output_budget = built.output_budget;
@@ -117,6 +117,7 @@ async fn probe_prepared_model(
     slot.get_or_init(|| async move { invoke_once(model, model_id).await })
         .await
         .clone()
+        .finding(check_id)
 }
 
 fn inspection_dispatch_context(config: &Config) -> DispatchCtx {
@@ -136,7 +137,7 @@ fn inspection_dispatch_context(config: &Config) -> DispatchCtx {
 }
 
 #[derive(Default)]
-struct LiveProbeCache {
+pub(super) struct LiveProbeCache {
     calls: Mutex<HashMap<InspectionRequestIdentity, Arc<OnceCell<ProbeOutcome>>>>,
 }
 

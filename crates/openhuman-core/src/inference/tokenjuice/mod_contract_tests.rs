@@ -13,24 +13,8 @@ fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
             "description": retrieve.description(),
             "parameters": retrieve.parameters_schema(),
         })];
-    struct UnusedQuerySource;
-    #[async_trait::async_trait]
-    impl tinyjuice_host::repl_tools::QuerySource for UnusedQuerySource {
-        async fn query(
-            &self,
-            _: Option<&dyn tinytools::ToolRunContext>,
-            _: tinyjuice_bus::wire::QueryRequest,
-        ) -> Result<tinyjuice_bus::wire::QueryResponse, String> {
-            Err("schema fixture does not execute queries".into())
-        }
-    }
-    let tools = tinyjuice_host::repl_tools::repl_tools(
-        std::sync::Arc::new(UnusedQuerySource),
-        tinyjuice_bus::repl::ReplLimits::default(),
-        None,
-        tinytools_std::filesystem::FileReadTool::MAX_FILE_SIZE_BYTES,
-        None,
-    );
+    let config = crate::config::Config::default();
+    let tools = super::repl_tools_for(&config);
     for tool in tools {
         declarations.push(serde_json::json!({
                 "name": tool.name(),
@@ -46,6 +30,39 @@ fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
         serde_json::to_vec(&declarations).expect("serialize current declarations"),
         serde_json::to_vec(&fixture).expect("serialize captured declarations"),
         "all four names, descriptions and schemas stay byte-identical"
+    );
+}
+
+#[test]
+fn resumed_repl_tools_keep_the_recorded_declarations() {
+    use tinytools::Tool;
+
+    let config = crate::config::Config::default();
+    let live = super::repl_tools_for(&config);
+    let recorded = live
+        .iter()
+        .map(|tool| tinytools::ToolSpec {
+            name: tool.name().to_owned(),
+            description: tool.description().to_owned(),
+            parameters: tool.parameters_schema(),
+        })
+        .collect::<Vec<_>>();
+    let rebuilt = super::repl_tools_for_recorded(
+        Some(&config),
+        &config.workspace_dir,
+        &recorded,
+    );
+    let rebuilt = rebuilt
+        .iter()
+        .map(|tool| tinytools::ToolSpec {
+            name: tool.name().to_owned(),
+            description: tool.description().to_owned(),
+            parameters: tool.parameters_schema(),
+        })
+        .collect::<Vec<_>>();
+    assert_eq!(
+        serde_json::to_vec(&rebuilt).expect("serialize rebuilt declarations"),
+        serde_json::to_vec(&recorded).expect("serialize recorded declarations"),
     );
 }
 

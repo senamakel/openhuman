@@ -1,6 +1,7 @@
 use super::*;
 use tinychannels_bus::ChannelHealthState;
 
+#[cfg(feature = "modules")]
 type ObservedHealth = (bool, Vec<String>, u64);
 
 #[cfg(feature = "modules")]

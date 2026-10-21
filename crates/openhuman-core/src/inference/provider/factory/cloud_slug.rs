@@ -287,7 +287,15 @@ pub(super) fn try_create_cloud_slug_chat_model_for_inspection(
 pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
     role: &str,
     config: &Config,
-) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String, String, String)>> {
+) -> Option<
+    anyhow::Result<(
+        Arc<dyn ChatModel<()>>,
+        String,
+        String,
+        String,
+        InspectionOutputBudgetCapability,
+    )>,
+> {
     let mut identity = None;
     let mut resolved = provider_for_role(role, config);
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
@@ -303,13 +311,13 @@ pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
         Some(&mut identity),
     )?;
     Some(result.and_then(|(model, model_id)| {
-        let (endpoint, credential, wire_model) = identity.ok_or_else(|| {
+        let (endpoint, credential, wire_model, output_budget) = identity.ok_or_else(|| {
             anyhow::anyhow!("inspection route did not expose its frozen wire identity")
         })?;
         if wire_model != model_id {
             anyhow::bail!("inspection route model identity did not match its constructed model");
         }
-        Ok((model, model_id, endpoint, credential))
+        Ok((model, model_id, endpoint, credential, output_budget))
     }))
 }
 
@@ -319,7 +327,9 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     native_tool_calling: bool,
     egress: &EgressLedger,
     credential_access: CredentialAccess,
-    inspection_identity: Option<&mut Option<(String, String, String)>>,
+    inspection_identity: Option<
+        &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
+    >,
 ) -> OptionalChatModelResult {
     // Resolve the role's provider string, expanding the empty / "cloud" sentinel
     // to the primary cloud target.
@@ -374,7 +384,9 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     native_tool_calling: bool,
     egress: &EgressLedger,
     credential_access: CredentialAccess,
-    mut inspection_identity: Option<&mut Option<(String, String, String)>>,
+    mut inspection_identity: Option<
+        &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
+    >,
 ) -> OptionalChatModelResult {
     let p = provider.trim().to_string();
 
@@ -487,6 +499,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
                                     build.endpoint.clone(),
                                     build.credential.clone(),
                                     build.model_id.clone(),
+                                    InspectionOutputBudgetCapability::Bounded,
                                 ));
                             }
                             Ok((build.model, build.model_id))
@@ -569,7 +582,17 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         } else {
             key.clone()
         };
-        *identity = Some((codex.endpoint.clone(), credential, effective_model.clone()));
+        let output_budget = if codex.using_oauth {
+            InspectionOutputBudgetCapability::Unsupported
+        } else {
+            InspectionOutputBudgetCapability::Bounded
+        };
+        *identity = Some((
+            codex.endpoint.clone(),
+            credential,
+            effective_model.clone(),
+            output_budget,
+        ));
     }
     Some(chat.map(|chat| (chat, effective_model)))
 }

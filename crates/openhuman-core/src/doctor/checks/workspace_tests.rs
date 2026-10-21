@@ -238,12 +238,14 @@ fn complete_workspace_layout_passes_at_the_disk_space_threshold() {
     let fixture = tempfile::tempdir().expect("workspace fixture");
     let workspace = fixture.path().join("workspace");
     std::fs::create_dir_all(workspace.join("memory")).expect("create memory directory");
-    std::fs::write(workspace.join("SYSTEM.md"), "fixture prompt")
-        .expect("write workspace prompt");
+    std::fs::write(workspace.join("SYSTEM.md"), "fixture prompt").expect("write workspace prompt");
 
     let findings = layout_findings(&workspace, Some(512));
 
-    assert!(findings.is_empty(), "complete layout should be clean: {findings:#?}");
+    assert!(
+        findings.is_empty(),
+        "complete layout should be clean: {findings:#?}"
+    );
 }
 
 #[cfg(unix)]

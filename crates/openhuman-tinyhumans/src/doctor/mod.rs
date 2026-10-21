@@ -467,5 +467,5 @@ async fn health_check(config: &Config) -> Result<(), HealthFailure> {
 }
 
 #[cfg(test)]
-#[path = "tests.rs"]
+#[path = "hosted_checks_tests.rs"]
 mod tests;

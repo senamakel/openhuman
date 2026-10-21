@@ -27,6 +27,16 @@ pub(super) fn resolve_cloud_slug<'a>(
     model: &str,
     config: &'a Config,
 ) -> anyhow::Result<CloudSlugResolution<'a>> {
+    resolve_cloud_slug_with_access(role, slug, model, config, CredentialAccess::Runtime)
+}
+
+pub(super) fn resolve_cloud_slug_with_access<'a>(
+    role: &str,
+    slug: &str,
+    model: &str,
+    config: &'a Config,
+    credential_access: CredentialAccess,
+) -> anyhow::Result<CloudSlugResolution<'a>> {
     let entry = config.cloud_providers.iter().find(|e| e.slug == slug);
 
     let entry = entry.ok_or_else(|| {
@@ -146,8 +156,28 @@ pub(super) fn resolve_cloud_slug<'a>(
         fallback_diagnostics::missing_provider_credentials_message(role, slug, local_chat)
     };
 
-    let key = lookup_key_for_slug(slug, config)
-        .map_err(|e| anyhow::anyhow!("{} (underlying error: {e})", missing_credentials()))?;
+    let (key, bearer_is_oauth, oauth_account_id) = if credential_access
+        == CredentialAccess::Inspection
+        && entry.auth_style == AuthStyle::OpenhumanJwt
+    {
+        // The managed model constructor receives its credential later, on
+        // invoke. Its hosted construction callback is config-only and offline.
+        (String::new(), false, None)
+    } else if credential_access == CredentialAccess::Inspection {
+        let credential =
+            super::credentials::lookup_key_for_slug_read_only(slug, config).map_err(|error| {
+                anyhow::anyhow!("{} (underlying error: {error})", missing_credentials())
+            })?;
+        (credential.key, credential.is_oauth, credential.account_id)
+    } else {
+        let key = credential_access
+            .lookup_key_for_slug(slug, config)
+            .map_err(|error| {
+                anyhow::anyhow!("{} (underlying error: {error})", missing_credentials())
+            })?;
+        let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth(config);
+        (key, is_oauth, None)
+    };
 
     // A readable auth profile with no key for this slug returns `Ok("")`, which
     // would otherwise build a client with an empty bearer and surface as a raw
@@ -171,9 +201,18 @@ pub(super) fn resolve_cloud_slug<'a>(
     {
         anyhow::bail!("{}", missing_credentials());
     }
-    let bearer_is_oauth = slug == "openai" && openai_bearer_is_oauth(config);
-    let codex = resolve_openai_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth)
-        .map_err(anyhow::Error::msg)?;
+    let codex = match credential_access {
+        CredentialAccess::Runtime => {
+            resolve_openai_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth)
+                .map_err(anyhow::Error::msg)?
+        }
+        CredentialAccess::Inspection => resolve_openai_codex_routing_for_inspection(
+            slug,
+            &entry.endpoint,
+            bearer_is_oauth,
+            oauth_account_id,
+        ),
+    };
 
     Ok(CloudSlugResolution {
         entry,
@@ -220,18 +259,49 @@ pub(super) fn try_create_cloud_slug_chat_model_with_native_tools(
     native_tool_calling: bool,
     egress: &EgressLedger,
 ) -> OptionalChatModelResult {
+    try_create_cloud_slug_chat_model_with_native_tools_and_access(
+        role,
+        config,
+        native_tool_calling,
+        egress,
+        CredentialAccess::Runtime,
+    )
+}
+
+pub(super) fn try_create_cloud_slug_chat_model_for_inspection(
+    role: &str,
+    config: &Config,
+    egress: &EgressLedger,
+) -> OptionalChatModelResult {
+    try_create_cloud_slug_chat_model_with_native_tools_and_access(
+        role,
+        config,
+        true,
+        egress,
+        CredentialAccess::Inspection,
+    )
+}
+
+fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
+    role: &str,
+    config: &Config,
+    native_tool_calling: bool,
+    egress: &EgressLedger,
+    credential_access: CredentialAccess,
+) -> OptionalChatModelResult {
     // Resolve the role's provider string, expanding the empty / "cloud" sentinel
     // to the primary cloud target.
     let mut resolved = provider_for_role(role, config);
     if resolved.trim().is_empty() || resolved.trim() == "cloud" {
         resolved = resolve_primary_cloud_provider_string(config);
     }
-    try_create_cloud_slug_chat_model_from_string_with_native_tools(
+    try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         role,
         &resolved,
         config,
         native_tool_calling,
         egress,
+        credential_access,
     )
 }
 
@@ -252,6 +322,24 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     config: &Config,
     native_tool_calling: bool,
     egress: &EgressLedger,
+) -> OptionalChatModelResult {
+    try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+        role,
+        provider,
+        config,
+        native_tool_calling,
+        egress,
+        CredentialAccess::Runtime,
+    )
+}
+
+fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+    role: &str,
+    provider: &str,
+    config: &Config,
+    native_tool_calling: bool,
+    egress: &EgressLedger,
+    credential_access: CredentialAccess,
 ) -> OptionalChatModelResult {
     let p = provider.trim().to_string();
 
@@ -282,9 +370,11 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
     if let Err(e) = enforce_local_only_inference(role, &p) {
         return Some(Err(e));
     }
-    #[cfg(not(test))]
-    if let Err(e) = verify_session_active(config) {
-        return Some(Err(e));
+    if credential_access == CredentialAccess::Runtime {
+        #[cfg(not(test))]
+        if let Err(e) = verify_session_active(config) {
+            return Some(Err(e));
+        }
     }
 
     let CloudSlugResolution {
@@ -292,7 +382,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         effective_model,
         key,
         codex,
-    } = match resolve_cloud_slug(role, &slug, &raw_model, config) {
+    } = match resolve_cloud_slug_with_access(role, &slug, &raw_model, config, credential_access) {
         Ok(r) => r,
         Err(e) => return Some(Err(e)),
     };
@@ -332,21 +422,32 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         }
         AuthStyle::Anthropic | AuthStyle::None => {}
         AuthStyle::OpenhumanJwt => {
-            #[cfg(not(test))]
-            if let Err(error) = verify_backend_session_active(config) {
-                return Some(Err(error));
+            if credential_access == CredentialAccess::Runtime {
+                #[cfg(not(test))]
+                if let Err(error) = verify_backend_session_active(config) {
+                    return Some(Err(error));
+                }
             }
             let model_override =
                 (!effective_model.trim().is_empty()).then_some(effective_model.as_str());
-            return Some(managed_chat_model(
-                role,
-                config,
-                model_override,
-                None,
-                native_tool_calling,
-                None,
-                egress,
-            ));
+            return Some(match credential_access {
+                CredentialAccess::Runtime => managed_chat_model(
+                    role,
+                    config,
+                    model_override,
+                    None,
+                    native_tool_calling,
+                    None,
+                    egress,
+                ),
+                CredentialAccess::Inspection => {
+                    super::managed_backend::managed_chat_model_for_inspection(
+                        role,
+                        config,
+                        model_override,
+                    )
+                }
+            });
         }
         AuthStyle::Bearer => {
             // The codex routing may re-target the endpoint (OAuth backend).

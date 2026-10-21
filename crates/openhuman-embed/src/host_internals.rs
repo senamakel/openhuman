@@ -228,8 +228,9 @@ pub mod security {
         }
         pub mod session_support {
             pub use openhuman_core::security::credentials::session_support::{
-                build_session_state, classify_session_token, current_session_is_local,
-                get_session_token, is_local_session_token, load_app_session_profile,
+                build_session_state, check_session_backend, classify_session_token,
+                current_session_is_local, get_session_token, is_local_session_token,
+                load_app_session_profile, load_app_session_profile_read_only,
                 publish_local_session_expiry, resolve_backend_credential, BackendCredential,
                 SessionTokenCheck, LOCAL_SESSION_BACKEND_UNAVAILABLE,
                 LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SESSION_EXPIRES_AT_META,
@@ -237,7 +238,7 @@ pub mod security {
         }
         pub mod api_key {
             pub use openhuman_core::security::credentials::api_key::{
-                get_api_key_in, store_api_key, store_api_key_in,
+                get_api_key_in, get_api_key_read_only, store_api_key, store_api_key_in,
             };
         }
     }
@@ -357,10 +358,12 @@ pub mod inference_registry {
     pub use openhuman_core::inference::provider::openhuman_backend_model::REASONING_OFF_METADATA_KEY;
     pub use openhuman_core::inference::registry::{
         register_catalog, register_catalog_in, register_chat_model, register_chat_model_in,
-        register_embedding, register_embedding_in, unregister_catalog, unregister_chat_model,
-        unregister_embedding, BoxFuture, CatalogEntry, CatalogLimits, CatalogListing,
-        CatalogRequest, ChatModelEntry, ChatModelFactory, ChatModelRequest, EmbeddingFactory,
-        EmbeddingRequest, ReadinessProbe,
+        register_embedding, register_embedding_in, register_inspection_chat_model,
+        register_inspection_chat_model_in, unregister_catalog, unregister_chat_model,
+        unregister_embedding, unregister_inspection_chat_model, BoxFuture, CatalogEntry,
+        CatalogLimits, CatalogListing, CatalogRequest, ChatModelEntry, ChatModelFactory,
+        ChatModelRequest, EmbeddingFactory, EmbeddingRequest, InspectionChatModelFactory,
+        ReadinessProbe,
     };
 }
 
@@ -415,6 +418,17 @@ pub mod voice_registry {
 pub mod desktop {
     pub mod notifications {
         pub use openhuman_core::desktop::notifications::subscribe_core_notifications;
+    }
+}
+
+/// The read-only desktop profile resolver used by the RPC host's one-shot
+/// doctor boot. Kept on the host-internals facade so CLI code does not depend
+/// on `openhuman-core` directly.
+pub mod doctor {
+    pub mod profile {
+        pub use openhuman_core::doctor::profile::{
+            resolve_desktop_profile_for_doctor, DesktopProfileError, DesktopProfileSelection,
+        };
     }
 }
 

@@ -65,6 +65,23 @@ pub async fn doctor_report_for_dispatch(
     dispatch: &DispatchCtx,
     mut options: DoctorOptions,
 ) -> Result<Outcome<DoctorReport>, String> {
+    if crate::core::runtime::is_saas() {
+        let target =
+            crate::profiles::doctor::resolve_target(dispatch, options.profile.as_deref()).await?;
+        if let Some(target) = target {
+            options.profile = None;
+            let components = ComponentSet::from_config(&target.config.components);
+            let ctx = DoctorCtx::from_config_with_components(target.config.clone(), components)
+                .with_profile(target.profile_id.as_str(), DoctorConfigSource::Tenant)
+                .with_profile_metadata(None, Some("saas-tenant".into()));
+            return CoreContext::scope(
+                target.context,
+                report_with_context(&target.config, options, ctx),
+            )
+            .await;
+        }
+    }
+
     if let Some(profile_id) = options.profile.take() {
         if crate::core::runtime::is_saas() {
             return Ok(profile_error_outcome(

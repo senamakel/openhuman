@@ -17,12 +17,29 @@ impl CoreContext {
     /// the supplied config only for the scoped inspection and does not publish
     /// a process-default context or initialize stores.
     pub fn for_inspection(config: crate::config::Config) -> Arc<CoreContext> {
+        Self::for_runtime_inspection(
+            config,
+            HostKind::Cli,
+            crate::core::runtime::DomainSet::full(),
+            Default::default(),
+        )
+    }
+
+    /// Build an inspection runtime context while retaining the host's selected
+    /// domains and tool groups. The builder merges its scoped extensions after
+    /// this constructor returns.
+    pub(super) fn for_runtime_inspection(
+        config: crate::config::Config,
+        host_kind: HostKind,
+        domains: crate::core::runtime::DomainSet,
+        tool_groups: crate::tools::toolpacks::ToolGroups,
+    ) -> Arc<CoreContext> {
         let components = crate::core::runtime::ComponentSet::from_config(&config.components);
-        let domains = components.narrow_domains(crate::core::runtime::DomainSet::full());
-        let tool_groups = components.narrow_tool_groups(Default::default());
+        let domains = components.narrow_domains(domains);
+        let tool_groups = components.narrow_tool_groups(tool_groups);
         let latest_embedder_config = Some(Arc::new(std::sync::Mutex::new(config.clone())));
         Arc::new(CoreContext {
-            host_kind: HostKind::Cli,
+            host_kind,
             workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
                 workspace_dir: Some(config.workspace_dir.clone()),
             }))),

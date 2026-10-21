@@ -73,3 +73,23 @@ fn legacy_doctor_parameter_errors_use_the_registered_schema() {
         .expect_err("unknown controller parameters are refused");
     assert!(error.to_string().contains("unknown param 'unknown'"));
 }
+
+#[test]
+fn raw_json_printer_preserves_both_outcome_and_bare_controller_shapes() {
+    let report = json!({
+        "result": {"schema_version": 2, "findings": []},
+        "logs": ["doctor report generated"]
+    });
+    let models = json!({"entries": [], "summary": {"ok": 0, "skipped": 0}});
+
+    assert_eq!(
+        serde_json::from_str::<Value>(&format_json(&report).expect("format report JSON"))
+            .expect("parse report JSON"),
+        report
+    );
+    assert_eq!(
+        serde_json::from_str::<Value>(&format_json(&models).expect("format models JSON"))
+            .expect("parse models JSON"),
+        models
+    );
+}

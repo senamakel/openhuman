@@ -88,8 +88,12 @@ fn invoke(invocation: Invocation) -> Result<()> {
                 .invoke(&invocation.method, Value::Object(invocation.params)),
         )
         .map_err(anyhow::Error::msg)?;
-    println!("{}", serde_json::to_string_pretty(&result)?);
+    println!("{}", format_json(&result)?);
     Ok(())
+}
+
+fn format_json(value: &Value) -> Result<String> {
+    Ok(serde_json::to_string_pretty(value)?)
 }
 
 #[cfg(test)]

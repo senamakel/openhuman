@@ -389,9 +389,15 @@ impl Fixture {
             .send()
             .await
             .expect("call doctor models JSON-RPC");
-        assert!(response.status().is_success(), "doctor models transport status");
+        assert!(
+            response.status().is_success(),
+            "doctor models transport status"
+        );
         let envelope: Value = response.json().await.expect("doctor models JSON");
-        assert!(envelope.get("error").is_none(), "doctor models RPC succeeded");
+        assert!(
+            envelope.get("error").is_none(),
+            "doctor models RPC succeeded"
+        );
         let result = envelope
             .get("result")
             .unwrap_or_else(|| panic!("doctor models RPC has result: {envelope}"));
@@ -643,11 +649,13 @@ fn assert_cli_report(output: &Output, expected_code: i32, check_id: Option<&str>
         .unwrap_or_else(|error| panic!("doctor CLI stdout is JSON ({error})"));
     assert_eq!(report["schema_version"], 2);
     if let Some(check_id) = check_id {
-        assert!(report["findings"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|item| { item["check_id"] == check_id }));
+        assert!(
+            report["findings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| { item["check_id"] == check_id })
+        );
     }
     report
 }

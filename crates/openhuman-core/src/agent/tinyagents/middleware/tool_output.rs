@@ -20,7 +20,7 @@ use crate::agent::harness::tool_result_artifacts::{
     TINYAGENTS_TOOL_RESULT_ARTIFACT_STORE,
 };
 use crate::agent::tinyagents::payload_summarizer::DynPayloadSummarizer;
-use tinyjuice_host::generate::GenerateTicket;
+use tinyjuice_host::tinyjuice_host::generate::GenerateTicket;
 use tinyagents_harness::artifacts::tool_results::{ArtifactRead, ToolResultArtifactOutcome};
 use tinyagents_harness::middleware::library::{
     plan_output_stages, run_output_ladder, CompactedOutput, OutputCapPolicy, OutputLadderInput,
@@ -246,7 +246,7 @@ impl ToolOutputMiddleware {
             return None;
         }
         match summarizer.prepare(ctx) {
-            Ok(prepared) => Some(Ok(tinyjuice_host::generate::register(
+            Ok(prepared) => Some(Ok(tinyjuice_host::tinyjuice_host::generate::register(
                 prepared,
             ))),
             Err(error) => {
@@ -429,7 +429,7 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext> for Too
         // argument to the summary of the result, not to the tool. Only from a
         // tool that declared it; for any other tool it is the tool's own.
         let focus = if self.summary_focus_tools.contains(&call.name) {
-            tinyjuice_host::focus::take_summary_focus(&mut call.arguments)
+            tinyjuice_host::tinyjuice_host::focus::take_summary_focus(&mut call.arguments)
         } else {
             None
         };

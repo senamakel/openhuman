@@ -26,7 +26,7 @@ async fn the_module_defers_a_summary_until_requested() {
         None::<tinyjuice_bus::wire::GenerateRequest>,
     ));
     let sink = seen.clone();
-    let ticket = generate::register(Box::new(
+    let ticket = tinyjuice_host::generate::register(Box::new(
         move |request: tinyjuice_bus::wire::GenerateRequest| {
             *sink.lock().unwrap() = Some(request);
             Box::pin(async { Ok("the rate limit is 60 requests a minute".to_string()) })
@@ -87,7 +87,7 @@ async fn an_unreachable_module_discloses_a_wanted_summary() {
 
     let wanted = compact_tool_output(call(Some("token".to_string()))).await;
     assert_eq!(wanted.text, "raw");
-    assert_eq!(wanted.notice, Some(summary_failed_notice()));
+    assert_eq!(wanted.notice, Some(tinyjuice_host::recovery::summary_failed_notice()));
 
     let unwanted = compact_tool_output(ToolOutputCompaction {
         enabled: true,
@@ -116,7 +116,7 @@ async fn an_off_profile_still_discloses_a_registered_summary() {
     })
     .await;
     assert_eq!(output.text, "raw");
-    assert_eq!(output.notice, Some(summary_failed_notice()));
+    assert_eq!(output.notice, Some(tinyjuice_host::recovery::summary_failed_notice()));
 
     let silent = compact_tool_output(ToolOutputCompaction {
         content: "raw".to_string(),
@@ -168,7 +168,7 @@ async fn a_module_disabled_in_configuration_discloses_a_wanted_summary() {
     assert_eq!(output.text, "raw");
     assert_eq!(
         output.notice,
-        Some(summary_failed_notice()),
+        Some(tinyjuice_host::recovery::summary_failed_notice()),
         "installation failure must disclose the unsummarized notice"
     );
 }
@@ -182,7 +182,7 @@ fn passthrough_discloses_a_notice_only_when_a_summary_was_wanted() {
 
     let disclosed = CompactedToolOutput::passthrough("raw".to_string(), true);
     assert_eq!(disclosed.text, "raw");
-    assert_eq!(disclosed.notice, Some(summary_failed_notice()));
+    assert_eq!(disclosed.notice, Some(tinyjuice_host::recovery::summary_failed_notice()));
     assert_eq!(disclosed.summarized_from_bytes, None);
 }
 

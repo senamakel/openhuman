@@ -219,8 +219,8 @@ pub(crate) fn tool_group(name: &str) -> crate::core::all::DomainGroup {
     // constant list rather than a name prefix — the live tool is
     // `juice_retrieve`, and `tokenjuice_retrieve` / `retrieve_tool_output`
     // are migration aliases, so a prefix rule silently missed the real one.
-    if crate::inference::tokenjuice::RECOVERY_TOOL_NAMES.contains(&name)
-        || crate::inference::tokenjuice::is_repl_tool(name)
+    if tinyjuice_host::recovery::RECOVERY_TOOL_NAMES.contains(&name)
+        || tinyjuice_bus::tools::REPL_TOOLS.contains(&name)
     {
         return DomainGroup::Inference;
     }

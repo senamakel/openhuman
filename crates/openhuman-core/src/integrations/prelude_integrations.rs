@@ -69,7 +69,7 @@ impl OpenHumanTurnPrelude {
             mutable.recorded_repl_tools = recorded
                 .specs()
                 .iter()
-                .filter(|spec| crate::inference::tokenjuice::is_repl_tool(&spec.name))
+                .filter(|spec| tinyjuice_bus::tools::REPL_TOOLS.contains(&spec.name.as_str()))
                 .cloned()
                 .collect();
         }
@@ -163,7 +163,7 @@ impl OpenHumanTurnPrelude {
                 .collect::<Vec<_>>();
             if !missing.is_empty() {
                 rebuilt.extend(
-                    crate::inference::tokenjuice::repl_tools::repl_tools_for_recorded(
+                    crate::inference::tokenjuice::repl_tools_for_recorded(
                         self.runtime_config.as_deref(),
                         &self.workspace_dir,
                         &missing,

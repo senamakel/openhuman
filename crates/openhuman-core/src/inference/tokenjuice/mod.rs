@@ -245,7 +245,7 @@ pub struct ToolOutputCompaction<'a> {
     pub arguments: Option<serde_json::Value>,
     /// What the calling model said it needs from this result.
     pub focus: Option<String>,
-    /// A [`generate::GenerateTicket`] token. `None` keeps the module from
+    /// A [`tinyjuice_host::generate::GenerateTicket`] token. `None` keeps the module from
     /// asking for a summary.
     pub context_token: Option<String>,
     /// Scopes summary reuse and the failure breaker, usually the thread id.

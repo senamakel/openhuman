@@ -196,11 +196,11 @@ impl OpenHumanTurnPrelude {
                 .collect::<std::collections::HashSet<_>>();
             if recorded_tool_snapshot_adopted {
                 specs.retain(|spec| {
-                    !crate::inference::tokenjuice::is_repl_tool(&spec.name)
+                    !tinyjuice_bus::tools::REPL_TOOLS.contains(&spec.name.as_str())
                         || recorded_names.contains(spec.name.as_str())
                 });
                 surface.visible_tool_names.retain(|name| {
-                    !crate::inference::tokenjuice::is_repl_tool(name)
+                    !tinyjuice_bus::tools::REPL_TOOLS.contains(&name)
                         || recorded_names.contains(name.as_str())
                 });
             }

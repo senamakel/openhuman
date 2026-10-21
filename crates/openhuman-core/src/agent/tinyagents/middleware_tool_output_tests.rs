@@ -84,13 +84,13 @@ async fn a_summary_model_that_cannot_prepare_leaves_the_payload_intact() {
             crate::agent::tinyagents::host::OpenHumanRunContext,
         > for Unpreparable
     {
-        type Prepared = tinyjuice_host::generate::PreparedGenerate;
+        type Prepared = tinyjuice_host::tinyjuice_host::generate::PreparedGenerate;
         type Error = anyhow::Error;
 
         fn prepare(
             &self,
             _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-        ) -> anyhow::Result<tinyjuice_host::generate::PreparedGenerate> {
+        ) -> anyhow::Result<tinyjuice_host::tinyjuice_host::generate::PreparedGenerate> {
             Err(anyhow::anyhow!("summarizer misconfigured"))
         }
     }
@@ -110,7 +110,7 @@ async fn a_summary_model_that_cannot_prepare_leaves_the_payload_intact() {
     .expect("a summarizer error must never break the tool call");
 
     let text = result_text(&result);
-    assert!(text.starts_with(&tinyjuice_host::recovery::summary_failed_notice()));
+    assert!(text.starts_with(&tinyjuice_host::recovery::tinyjuice_host::recovery::summary_failed_notice()));
     assert!(text.ends_with("RAW-TOOL-OUTPUT"));
 }
 

@@ -92,7 +92,7 @@ pub(crate) fn summarizing(recorded: Arc<Mutex<Vec<CompactRequest>>>) -> StubComp
             let Some(token) = request.context_token.clone() else {
                 return passthrough(&request);
             };
-            let reply = super::generate::serve(GenerateRequest {
+            let reply = tinyjuice_host::generate::serve(GenerateRequest {
                 context_token: token,
                 purpose: "tool_output_summary".into(),
                 system: "stub system".into(),

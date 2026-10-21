@@ -210,7 +210,7 @@ pub(super) fn ensure_recovery_tool_visible(
     // to truncate. Adding it would turn "no tools" into "one tool" and put a
     // schema back on a turn whose whole point is that it stays flat.
     if !crate::agent_registry::host_definition::is_empty_tool_scope(visible) {
-        for name in crate::inference::tokenjuice::RECOVERY_TOOL_VISIBLE {
+        for name in tinyjuice_host::recovery::RECOVERY_TOOL_VISIBLE {
             visible.insert((*name).to_string());
         }
     }

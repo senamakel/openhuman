@@ -208,7 +208,7 @@ async fn resumed_juice_snapshot_does_not_add_live_repl_declarations() {
     let juice_names = prepared
         .specs()
         .iter()
-        .filter(|spec| crate::inference::tokenjuice::is_repl_tool(&spec.name))
+        .filter(|spec| tinyjuice_bus::tools::REPL_TOOLS.contains(&spec.name.as_str()))
         .map(|spec| spec.name.as_str())
         .collect::<Vec<_>>();
     assert_eq!(juice_names, [tinyjuice_bus::tools::REPL_TOOLS[0]]);
@@ -236,7 +236,7 @@ async fn resumed_juice_snapshot_does_not_add_live_repl_declarations() {
         prepared
             .specs()
             .iter()
-            .all(|spec| !crate::inference::tokenjuice::is_repl_tool(&spec.name)),
+            .all(|spec| !tinyjuice_bus::tools::REPL_TOOLS.contains(&spec.name.as_str())),
         "an empty frozen transcript must not gain Juice declarations from the live catalog"
     );
 }

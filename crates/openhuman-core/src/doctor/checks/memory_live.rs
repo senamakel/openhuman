@@ -146,10 +146,7 @@ impl Drop for ScopedScratchCleanup {
     }
 }
 
-async fn roundtrip(
-    engine: Arc<dyn MemoryEngine>,
-    fetch_mode: FetchMode,
-) -> Result<(), Finding> {
+async fn roundtrip(engine: Arc<dyn MemoryEngine>, fetch_mode: FetchMode) -> Result<(), Finding> {
     let nonce = uuid::Uuid::new_v4().simple().to_string();
     let namespace = Namespace::new(vec![Segment::new(
         SegmentKind::Service,
@@ -190,11 +187,7 @@ async fn roundtrip(
             reach: Some(Reach::exact(namespace)),
             ..MetaFilter::default()
         },
-        ..FetchRequest::new(
-            "OpenHuman doctor memory roundtrip probe",
-            fetch_mode,
-            1,
-        )
+        ..FetchRequest::new("OpenHuman doctor memory roundtrip probe", fetch_mode, 1)
     };
     match tokio::time::timeout(OPERATION_TIMEOUT, engine.fetch(request)).await {
         Ok(Ok(page)) if page.hits.iter().any(|hit| hit.id == stored_id) => {}

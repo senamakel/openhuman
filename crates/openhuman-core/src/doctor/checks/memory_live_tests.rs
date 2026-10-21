@@ -434,10 +434,16 @@ fn probe_fetch_mode_prefers_hybrid_then_falls_back_to_keyword() {
     let engine = ReferenceEngine::new();
     let mut descriptor = engine.descriptor().clone();
     descriptor.fetch_modes = vec![FetchMode::Keyword, FetchMode::Hybrid];
-    assert_eq!(super::probe_fetch_mode(&descriptor), Some(FetchMode::Hybrid));
+    assert_eq!(
+        super::probe_fetch_mode(&descriptor),
+        Some(FetchMode::Hybrid)
+    );
 
     descriptor.fetch_modes = vec![FetchMode::Keyword];
-    assert_eq!(super::probe_fetch_mode(&descriptor), Some(FetchMode::Keyword));
+    assert_eq!(
+        super::probe_fetch_mode(&descriptor),
+        Some(FetchMode::Keyword)
+    );
 
     descriptor.fetch_modes = vec![FetchMode::Vector];
     assert_eq!(super::probe_fetch_mode(&descriptor), None);

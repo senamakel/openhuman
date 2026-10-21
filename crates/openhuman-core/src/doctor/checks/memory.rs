@@ -203,7 +203,7 @@ async fn probe_selected_config(config: &crate::config::Config) -> EngineHealth {
         }
         crate::memory::engine::CORTEXDB_ENGINE => cortexdb_health(config).await,
         crate::memory::engine::DISABLED_ENGINE => {
-            return unavailable("Memory is disabled in the selected configuration.");
+            unavailable("Memory is disabled in the selected configuration.")
         }
         other => {
             let Some(probe) = crate::memory::engine_registry::read_only_health_probe(other) else {

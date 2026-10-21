@@ -309,6 +309,43 @@ impl SocketManager {
                 .is_some_and(|(u, t)| u == url && t == token)
     }
 
+    /// Return the stored status only when it belongs to exactly `url` and
+    /// `token`, including terminal and reconnecting states.
+    ///
+    /// Diagnostics that inspect a selected profile use this instead of
+    /// `get_state()`, whose process-global status may describe another
+    /// account. Unlike [`Self::is_live_for`], this preserves an owner's
+    /// `Error`, `Reconnecting`, and `Disconnected` status for readiness
+    /// reporting; no matching identity returns `None`.
+    pub fn status_for(&self, url: &str, token: &str) -> Option<ConnectionStatus> {
+        self.status_for_with_observer(url, token, || {})
+    }
+
+    fn status_for_with_observer(
+        &self,
+        url: &str,
+        token: &str,
+        after_status_snapshot: impl FnOnce(),
+    ) -> Option<ConnectionStatus> {
+        let status = *self.shared.status.read();
+        after_status_snapshot();
+        let identity = self.shared.connection_identity.read();
+        identity
+            .as_ref()
+            .is_some_and(|(active_url, active_token)| active_url == url && active_token == token)
+            .then_some(status)
+    }
+
+    #[cfg(test)]
+    fn status_for_with_snapshot_observer(
+        &self,
+        url: &str,
+        token: &str,
+        after_status_snapshot: impl FnOnce(),
+    ) -> Option<ConnectionStatus> {
+        self.status_for_with_observer(url, token, after_status_snapshot)
+    }
+
     // -----------------------------------------------------------------------
     // Connection lifecycle
     // -----------------------------------------------------------------------

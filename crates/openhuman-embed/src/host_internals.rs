@@ -106,6 +106,15 @@ pub mod core {
     }
 }
 
+/// The generic doctor hook for checks contributed by a layered host.
+pub mod doctor {
+    pub use openhuman_core::doctor::registry::registered_checks;
+    pub use openhuman_core::doctor::{
+        register_check_source, register_check_source_in, DoctorCheck, DoctorCheckSource,
+        DoctorConfigSource, DoctorCtx, DoctorTier, Finding, FindingSeverity,
+    };
+}
+
 /// tinyhumans (every hosted controller loads its config) and rpc (server).
 pub mod config {
     pub use openhuman_core::config::{
@@ -228,18 +237,18 @@ pub mod security {
         }
         pub mod session_support {
             pub use openhuman_core::security::credentials::session_support::{
-                BackendCredential, LOCAL_SESSION_BACKEND_UNAVAILABLE,
-                LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SESSION_EXPIRES_AT_META,
-                SessionTokenCheck, build_session_state, check_session_backend,
-                classify_session_token, current_session_is_local, get_session_token,
-                is_local_session_token, load_app_session_profile,
-                load_app_session_profile_read_only, publish_local_session_expiry,
-                resolve_backend_credential,
+                build_session_state, check_session_backend, classify_session_token,
+                current_session_is_local, get_session_token, is_local_session_token,
+                load_app_session_profile, load_app_session_profile_read_only,
+                publish_local_session_expiry, resolve_backend_credential,
+                session_token_for_config, BackendCredential, SessionTokenCheck,
+                LOCAL_SESSION_BACKEND_UNAVAILABLE, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+                SESSION_EXPIRES_AT_META,
             };
         }
         pub mod api_key {
             pub use openhuman_core::security::credentials::api_key::{
-                get_api_key_in, get_api_key_read_only, store_api_key, store_api_key_in,
+                get_api_key, get_api_key_in, get_api_key_read_only, store_api_key, store_api_key_in,
             };
         }
     }
@@ -456,6 +465,12 @@ pub mod platform {
     }
     pub mod health {
         pub use openhuman_core::platform::health::{snapshot, verdict};
+    }
+
+    /// tinyhumans: read-only view of the live Socket.IO connection state.
+    pub mod socket {
+        pub use openhuman_core::platform::socket::global_socket_manager;
+        pub use openhuman_core::platform::socket::models::ConnectionStatus;
     }
 }
 

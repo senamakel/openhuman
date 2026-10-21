@@ -3,7 +3,6 @@ use tinyjuice_bus::types::{CompressOptions, ContentHint};
 
 #[test]
 fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
-    use tinytools::Tool;
 
     let retrieve =
         tinyjuice_host::retrieve_tool::RetrieveToolOutputTool::new(std::sync::Arc::new(|_, _| {

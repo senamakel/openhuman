@@ -200,7 +200,7 @@ impl OpenHumanTurnPrelude {
                         || recorded_names.contains(spec.name.as_str())
                 });
                 surface.visible_tool_names.retain(|name| {
-                    !tinyjuice_bus::tools::REPL_TOOLS.contains(&name)
+                    !tinyjuice_bus::tools::REPL_TOOLS.contains(&name.as_str())
                         || recorded_names.contains(name.as_str())
                 });
             }

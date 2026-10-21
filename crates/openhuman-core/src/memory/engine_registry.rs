@@ -28,6 +28,18 @@ use super::engine::{Binding, BoundEngine};
 use crate::config::Config;
 use crate::core::slots::{Extensions, HookSlot};
 
+/// Safe failures while constructing an uncached memory engine for doctor live
+/// checks. These variants intentionally carry no provider response text.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ReadOnlyEngineError {
+    ComponentDisabled,
+    EngineDisabled,
+    UnsupportedEngine,
+    CredentialsUnavailable,
+    EndpointUnavailable,
+    InvalidConfiguration,
+}
+
 /// A boxed `Send` future.
 pub type EngineFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 
@@ -52,6 +64,17 @@ pub type FreeBackground = Arc<dyn Fn(Config, BoundEngine) -> EngineFuture<bool> 
 pub type ReadOnlyHealthProbe =
     Arc<dyn Fn(Config) -> EngineFuture<tinymemory_api::EngineHealth> + Send + Sync>;
 
+/// Builds an uncached engine from the explicitly selected config using a
+/// frozen, read-only credential snapshot. The returned engine may perform
+/// operations requested by an opt-in live doctor check; its construction must
+/// not consult ambient profile state or mutate credential/config stores.
+pub type ReadOnlyEngineFactory = Arc<
+    dyn Fn(Config) -> EngineFuture<
+            Result<Arc<dyn MemoryEngine>, ReadOnlyEngineError>,
+        > + Send
+        + Sync,
+>;
+
 /// A registered memory engine.
 #[derive(Clone)]
 pub struct EngineEntry {
@@ -64,6 +87,8 @@ pub struct EngineEntry {
 static ENGINES: HookSlot<EngineEntry> = HookSlot::new("memory::engines");
 static READ_ONLY_HEALTH_PROBES: HookSlot<ReadOnlyHealthProbe> =
     HookSlot::new("memory::read-only-health-probes");
+static READ_ONLY_ENGINE_FACTORIES: HookSlot<ReadOnlyEngineFactory> =
+    HookSlot::new("memory::read-only-engine-factories");
 
 /// Registers the memory engine `engine_id` for the whole process.
 pub fn register_memory_engine(engine_id: impl Into<String>, entry: EngineEntry) {
@@ -94,6 +119,23 @@ pub fn register_memory_health_probe_in(
     READ_ONLY_HEALTH_PROBES.register_in(extensions, engine_id, probe);
 }
 
+/// Registers a read-only, uncached engine constructor for the selected config.
+pub fn register_read_only_engine_factory(
+    engine_id: impl Into<String>,
+    factory: ReadOnlyEngineFactory,
+) {
+    READ_ONLY_ENGINE_FACTORIES.register(engine_id, factory);
+}
+
+/// Registers a read-only, uncached engine constructor for one core context.
+pub fn register_read_only_engine_factory_in(
+    extensions: &Extensions,
+    engine_id: impl Into<String>,
+    factory: ReadOnlyEngineFactory,
+) {
+    READ_ONLY_ENGINE_FACTORIES.register_in(extensions, engine_id, factory);
+}
+
 /// Removes the process-wide memory engine `engine_id`.
 pub fn unregister_memory_engine(engine_id: &str) -> bool {
     ENGINES.unregister(engine_id)
@@ -107,6 +149,10 @@ pub(crate) fn lookup(engine_id: &str) -> Option<EngineEntry> {
 /// The read-only health probe for `engine_id`, if the current context has one.
 pub(crate) fn read_only_health_probe(engine_id: &str) -> Option<ReadOnlyHealthProbe> {
     READ_ONLY_HEALTH_PROBES.get(engine_id)
+}
+
+pub(crate) fn read_only_engine_factory(engine_id: &str) -> Option<ReadOnlyEngineFactory> {
+    READ_ONLY_ENGINE_FACTORIES.get(engine_id)
 }
 
 /// Wraps `engine` as a [`BoundEngine`] with the same write scrubbing every

@@ -459,19 +459,23 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
                     egress,
                 ),
                 CredentialAccess::Inspection => {
-                    let build = super::managed_backend::managed_chat_model_build_for_inspection(
+                    match super::managed_backend::managed_chat_model_build_for_inspection(
                         role,
                         config,
                         model_override,
-                    )?;
-                    if let Some(identity) = inspection_identity.as_deref_mut() {
-                        *identity = Some((
-                            build.endpoint.clone(),
-                            build.credential.clone(),
-                            build.model_id.clone(),
-                        ));
+                    ) {
+                        Ok(build) => {
+                            if let Some(identity) = inspection_identity.as_deref_mut() {
+                                *identity = Some((
+                                    build.endpoint.clone(),
+                                    build.credential.clone(),
+                                    build.model_id.clone(),
+                                ));
+                            }
+                            Ok((build.model, build.model_id))
+                        }
+                        Err(error) => Err(error),
                     }
-                    Ok((build.model, build.model_id))
                 }
             });
         }

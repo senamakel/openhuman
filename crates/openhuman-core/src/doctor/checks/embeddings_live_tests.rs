@@ -1,10 +1,10 @@
 use super::EmbeddingsLiveCheck;
 use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, FindingSeverity};
-use axum::{extract::State, routing::post, Json, Router};
+use axum::{Json, Router, extract::State, routing::post};
 use std::sync::{
-    atomic::{AtomicUsize, Ordering},
     Arc,
+    atomic::{AtomicUsize, Ordering},
 };
 use tempfile::TempDir;
 
@@ -26,19 +26,21 @@ fn config_in(tmp: &TempDir, embedding_url: String) -> Config {
 
 async fn mock_ollama(dimensions: usize) -> (String, Arc<AtomicUsize>) {
     let calls = Arc::new(AtomicUsize::new(0));
-    let app = Router::new()
-        .route(
-            "/api/embed",
-            post(
-                |State(calls): State<Arc<AtomicUsize>>, Json(_body): Json<serde_json::Value>| async move {
-                    calls.fetch_add(1, Ordering::SeqCst);
-                    Json(serde_json::json!({
-                        "embeddings": [vec![0.1_f32; dimensions]],
-                    }))
-                },
-            ),
-        )
-        .with_state(Arc::clone(&calls));
+    let app =
+        Router::new()
+            .route(
+                "/api/embed",
+                post(
+                    |State(calls): State<Arc<AtomicUsize>>,
+                     Json(_body): Json<serde_json::Value>| async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Json(serde_json::json!({
+                            "embeddings": [vec![0.1_f32; dimensions]],
+                        }))
+                    },
+                ),
+            )
+            .with_state(Arc::clone(&calls));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind local embedding mock");
@@ -55,7 +57,11 @@ async fn reports_actual_embedding_dimensions_when_the_provider_ignores_config() 
 
     let findings = EmbeddingsLiveCheck.detect(&ctx).await;
 
-    assert_eq!(calls.load(Ordering::SeqCst), 1, "the local embed mock is called once");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "the local embed mock is called once"
+    );
     let finding = findings
         .iter()
         .find(|finding| finding.severity == FindingSeverity::Error)

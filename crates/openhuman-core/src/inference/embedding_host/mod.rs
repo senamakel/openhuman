@@ -20,7 +20,7 @@ mod rpc;
 mod schemas;
 
 pub use cloud::{
-    UnavailableEmbeddingModel, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
+    DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL, UnavailableEmbeddingModel,
 };
 pub use factory::{
     create_embedding_provider_for_chat, create_embedding_provider_for_inspection,

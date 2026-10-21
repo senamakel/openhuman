@@ -84,9 +84,9 @@ fn read_only_session_token(config: &Config) -> Result<Option<String>, ReadOnlyEn
         .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?;
     match classify_session_token(Some(&profile), chrono::Utc::now()) {
         SessionTokenCheck::Live(token) if !is_local_session_token(&token) => Ok(Some(token)),
-        SessionTokenCheck::Live(_)
-        | SessionTokenCheck::Absent
-        | SessionTokenCheck::Expired => Ok(None),
+        SessionTokenCheck::Live(_) | SessionTokenCheck::Absent | SessionTokenCheck::Expired => {
+            Ok(None)
+        }
     }
 }
 

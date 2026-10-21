@@ -27,7 +27,12 @@ impl DoctorCheck for EmbeddingsLiveCheck {
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let config = ctx.config();
-        if config.memory.embedding_provider.trim().eq_ignore_ascii_case("none") {
+        if config
+            .memory
+            .embedding_provider
+            .trim()
+            .eq_ignore_ascii_case("none")
+        {
             return vec![Finding::skipped(
                 self.id(),
                 "Embedding generation is disabled in the selected configuration.",

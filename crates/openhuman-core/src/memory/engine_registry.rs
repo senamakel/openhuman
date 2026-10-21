@@ -47,8 +47,12 @@ impl ReadOnlyEngineError {
         match self {
             Self::ComponentDisabled => "Memory is disabled in the selected configuration.",
             Self::EngineDisabled => "Memory is turned off in the selected configuration.",
-            Self::UnsupportedEngine => "The selected memory engine is not available for inspection.",
-            Self::CredentialsUnavailable => "No usable credential is available for the selected memory engine.",
+            Self::UnsupportedEngine => {
+                "The selected memory engine is not available for inspection."
+            }
+            Self::CredentialsUnavailable => {
+                "No usable credential is available for the selected memory engine."
+            }
             Self::EndpointUnavailable => "The selected memory engine endpoint is unavailable.",
             Self::InvalidConfiguration => "The selected memory engine configuration is invalid.",
         }
@@ -84,9 +88,8 @@ pub type ReadOnlyHealthProbe =
 /// operations requested by an opt-in live doctor check; its construction must
 /// not consult ambient profile state or mutate credential/config stores.
 pub type ReadOnlyEngineFactory = Arc<
-    dyn Fn(Config) -> EngineFuture<
-            Result<Arc<dyn MemoryEngine>, ReadOnlyEngineError>,
-        > + Send
+    dyn Fn(Config) -> EngineFuture<Result<Arc<dyn MemoryEngine>, ReadOnlyEngineError>>
+        + Send
         + Sync,
 >;
 

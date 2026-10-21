@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use tinymemory_api::{
-    Error as MemoryApiError, FetchMode, FetchRequest, ItemId, MemoryEngine, MemoryMeta,
-    MetaFilter, Namespace, Reach, Segment, SegmentKind, StoreItem,
+    Error as MemoryApiError, FetchMode, FetchRequest, ItemId, MemoryEngine, MemoryMeta, MetaFilter,
+    Namespace, Reach, Segment, SegmentKind, StoreItem,
 };
 
 use crate::doctor::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding};
@@ -109,22 +109,23 @@ impl Drop for ScopedScratchCleanup {
             return;
         }
         let Ok(runtime) = tokio::runtime::Handle::try_current() else {
-            tracing::warn!(check_id = CHECK_ID, "scratch cleanup could not be scheduled");
+            tracing::warn!(
+                check_id = CHECK_ID,
+                "scratch cleanup could not be scheduled"
+            );
             return;
         };
         let engine = Arc::clone(&self.engine);
         let ids = self.ids.clone();
         let reach = self.reach.clone();
         runtime.spawn(async move {
-            match tokio::time::timeout(
-                CLEANUP_TIMEOUT,
-                engine.forget_within(ids, reach),
-            )
-            .await
-            {
+            match tokio::time::timeout(CLEANUP_TIMEOUT, engine.forget_within(ids, reach)).await {
                 Ok(Ok(_)) => {}
                 Ok(Err(_)) | Err(_) => {
-                    tracing::warn!(check_id = CHECK_ID, "scratch cleanup failed after cancellation");
+                    tracing::warn!(
+                        check_id = CHECK_ID,
+                        "scratch cleanup failed after cancellation"
+                    );
                 }
             }
         });
@@ -149,7 +150,8 @@ async fn roundtrip(engine: Arc<dyn MemoryEngine>) -> Result<(), Finding> {
     // engines. Compute it before store so an accepted-but-timed-out write can
     // still be cleaned up.
     let scratch_id = ItemId::new(item.fingerprint());
-    let mut cleanup = ScopedScratchCleanup::new(engine.clone(), scratch_id.clone(), namespace.clone());
+    let mut cleanup =
+        ScopedScratchCleanup::new(engine.clone(), scratch_id.clone(), namespace.clone());
 
     let receipt = match tokio::time::timeout(OPERATION_TIMEOUT, engine.store(item)).await {
         Ok(Ok(receipt)) => receipt,

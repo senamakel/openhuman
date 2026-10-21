@@ -4,10 +4,10 @@
 
 use std::sync::Arc;
 
-use openhuman_embed::__host::egress::{emit_external_transfer, enforce_egress, EgressDescriptor};
+use openhuman_embed::__host::egress::{EgressDescriptor, emit_external_transfer, enforce_egress};
 use openhuman_embed::__host::inference_registry::EmbeddingRequest;
 use openhuman_embed::__host::security::approval::ApprovalChatContext;
-use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use openhuman_embed::__host::security::credentials::{APP_SESSION_PROVIDER, AuthService};
 use tinyinference_embeddings::{BearerResolver, CloudEmbeddingModel, EmbeddingModel};
 
 use crate::backend::url::effective_api_url;
@@ -49,11 +49,12 @@ impl ManagedEmbeddingModel {
                 "selected managed embedding config is unavailable".to_owned(),
             )
         })?;
-        let bearer = super::managed_session::managed_bearer_for_inspection(config).map_err(|_| {
-            tinyinference_embeddings::Error::Validation(
-                "selected managed embedding credential is unavailable".to_owned(),
-            )
-        })?;
+        let bearer =
+            super::managed_session::managed_bearer_for_inspection(config).map_err(|_| {
+                tinyinference_embeddings::Error::Validation(
+                    "selected managed embedding credential is unavailable".to_owned(),
+                )
+            })?;
         Ok(Self::new_with_bearer(
             config.api_url.clone(),
             bearer,

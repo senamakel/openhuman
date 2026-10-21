@@ -1,5 +1,5 @@
 use super::profiles::{
-    profile_id, AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore,
+    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, profile_id,
 };
 use crate::config::Config;
 use anyhow::Result;
@@ -41,7 +41,9 @@ impl AuthService {
         };
         let credential = match profile.kind {
             super::profiles::AuthProfileKind::Token => profile.token,
-            super::profiles::AuthProfileKind::OAuth => profile.token_set.map(|tokens| tokens.access_token),
+            super::profiles::AuthProfileKind::OAuth => {
+                profile.token_set.map(|tokens| tokens.access_token)
+            }
         };
         Ok(credential.filter(|token| !token.trim().is_empty()))
     }

@@ -9,9 +9,9 @@ use std::sync::{Arc, Mutex};
 use tempfile::TempDir;
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
-    EngineDescriptor, EngineHealth, Error as MemoryApiError, FetchPage, FetchRequest,
-    ForgetReport, ForgetTarget, ItemId, ListPage, ListRequest, MemoryEngine, MemoryMeta,
-    MetaFilter, Namespace, Reach, RecallAnswer, RecallRequest, StoreItem, StoreReceipt,
+    EngineDescriptor, EngineHealth, Error as MemoryApiError, FetchPage, FetchRequest, ForgetReport,
+    ForgetTarget, ItemId, ListPage, ListRequest, MemoryEngine, MemoryMeta, MetaFilter, Namespace,
+    Reach, RecallAnswer, RecallRequest, StoreItem, StoreReceipt,
 };
 
 #[derive(Clone)]
@@ -93,7 +93,6 @@ impl ProbeEngine {
             cleanup_finished_rx,
         )
     }
-
 }
 
 #[async_trait]
@@ -129,11 +128,7 @@ impl MemoryEngine for ProbeEngine {
         let id = ItemId::new(item.fingerprint());
         let namespace = item.meta().namespace.clone();
         let receipt = self.inner.store(item).await?;
-        self.calls
-            .lock()
-            .unwrap()
-            .stored
-            .push((id, namespace));
+        self.calls.lock().unwrap().stored.push((id, namespace));
         if matches!(&self.failure, Failure::StoreUntilCancelled) {
             if let Some(started) = self.store_started.lock().unwrap().take() {
                 let _ = started.send(());
@@ -170,7 +165,6 @@ impl MemoryEngine for ProbeEngine {
     async fn list(&self, request: ListRequest) -> tinymemory_api::Result<ListPage> {
         self.inner.list(request).await
     }
-
 }
 
 fn config_in(tmp: &TempDir) -> Config {
@@ -187,11 +181,18 @@ fn config_in(tmp: &TempDir) -> Config {
 async fn seed_real_memory(engine: &ProbeEngine) -> ItemId {
     let item = StoreItem::document("existing user memory", MemoryMeta::default());
     let id = ItemId::new(item.fingerprint());
-    engine.inner.store(item).await.expect("seed existing memory");
+    engine
+        .inner
+        .store(item)
+        .await
+        .expect("seed existing memory");
     id
 }
 
-async fn run_check(engine: &Arc<ProbeEngine>, tmp: &TempDir) -> Vec<crate::doctor::contract::Finding> {
+async fn run_check(
+    engine: &Arc<ProbeEngine>,
+    tmp: &TempDir,
+) -> Vec<crate::doctor::contract::Finding> {
     run_check_with_config(engine, config_in(tmp)).await
 }
 
@@ -212,7 +213,9 @@ async fn run_check_with_config(
     );
     let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
     CoreContext::scope(context, async {
-        MemoryRoundtripCheck.detect(&DoctorCtx::from_config(config)).await
+        MemoryRoundtripCheck
+            .detect(&DoctorCtx::from_config(config))
+            .await
     })
     .await
 }
@@ -249,12 +252,19 @@ async fn fetch_failure_still_cleans_the_unique_service_scoped_item() {
     assert!(only_error(&findings).message.contains("fetch"));
     let calls = engine.calls.lock().unwrap();
     assert_eq!(calls.steps, ["store", "fetch", "forget_within"]);
-    assert_eq!(calls.unscoped_forgets, 0, "cleanup is confined to the probe scope");
+    assert_eq!(
+        calls.unscoped_forgets, 0,
+        "cleanup is confined to the probe scope"
+    );
     assert_eq!(calls.stored.len(), 1);
     let (scratch_id, namespace) = &calls.stored[0];
     assert_ne!(scratch_id, &real_id);
     assert_ne!(scratch_id.as_str(), "doctor:probe");
-    assert!(namespace.to_string().starts_with("service:openhuman-doctor-"));
+    assert!(
+        namespace
+            .to_string()
+            .starts_with("service:openhuman-doctor-")
+    );
     assert!(!Reach::subtree(Namespace::ROOT).admits(namespace));
     assert_eq!(calls.scoped_forgets.len(), 1);
     assert_eq!(calls.scoped_forgets[0].0, vec![scratch_id.clone()]);
@@ -268,7 +278,11 @@ async fn fetch_failure_still_cleans_the_unique_service_scoped_item() {
 
     assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
-    assert_eq!(remaining.len(), 1, "only the pre-existing user memory remains");
+    assert_eq!(
+        remaining.len(),
+        1,
+        "only the pre-existing user memory remains"
+    );
     assert_eq!(remaining[0].id, real_id);
 }
 
@@ -305,7 +319,11 @@ async fn ambiguous_store_failure_attempts_scoped_cleanup_and_reports_a_billing_h
 
     assert_scratch_namespaces_are_empty(&engine, &namespaces).await;
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
-    assert_eq!(remaining.len(), 1, "cleanup removes a possibly accepted write");
+    assert_eq!(
+        remaining.len(),
+        1,
+        "cleanup removes a possibly accepted write"
+    );
     assert_eq!(remaining[0].id, real_id);
 }
 
@@ -359,12 +377,30 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
     }
 
     let calls = engine.calls.lock().unwrap();
-    assert_eq!(calls.steps, ["store", "fetch", "forget_within", "store", "fetch", "forget_within"]);
+    assert_eq!(
+        calls.steps,
+        [
+            "store",
+            "fetch",
+            "forget_within",
+            "store",
+            "fetch",
+            "forget_within"
+        ]
+    );
     assert_eq!(calls.stored.len(), 2);
-    assert_ne!(calls.stored[0].0, calls.stored[1].0, "probe IDs are unique per run");
-    assert_ne!(calls.stored[0].1, calls.stored[1].1, "probe namespaces are unique per run");
+    assert_ne!(
+        calls.stored[0].0, calls.stored[1].0,
+        "probe IDs are unique per run"
+    );
+    assert_ne!(
+        calls.stored[0].1, calls.stored[1].1,
+        "probe namespaces are unique per run"
+    );
     assert!(calls.stored.iter().all(|(_, namespace)| {
-        namespace.to_string().starts_with("service:openhuman-doctor-")
+        namespace
+            .to_string()
+            .starts_with("service:openhuman-doctor-")
             && !Reach::subtree(Namespace::ROOT).admits(namespace)
     }));
     assert_eq!(calls.unscoped_forgets, 0);
@@ -391,9 +427,7 @@ async fn cancelling_a_pending_fetch_keeps_scoped_cleanup_owned_by_the_guard() {
     let real_id = seed_real_memory(&engine).await;
 
     let engine_for_task = Arc::clone(&engine);
-    let task = tokio::spawn(async move {
-        run_check_with_config(&engine_for_task, config).await
-    });
+    let task = tokio::spawn(async move { run_check_with_config(&engine_for_task, config).await });
     fetch_started
         .await
         .expect("the scratch item was stored and fetch began");
@@ -425,9 +459,7 @@ async fn cancelling_an_ambiguous_store_cleans_up_using_the_precomputed_id() {
     let real_id = seed_real_memory(&engine).await;
 
     let engine_for_task = Arc::clone(&engine);
-    let task = tokio::spawn(async move {
-        run_check_with_config(&engine_for_task, config).await
-    });
+    let task = tokio::spawn(async move { run_check_with_config(&engine_for_task, config).await });
     store_started
         .await
         .expect("the store was accepted but its response is pending");

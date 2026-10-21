@@ -35,9 +35,8 @@ pub(crate) fn register(_options: &InstallOptions) {
             })),
         },
     );
-    let read_only_factory: ReadOnlyEngineFactory = Arc::new(|config| {
-        Box::pin(async move { engine::build_read_only_engine(&config) })
-    });
+    let read_only_factory: ReadOnlyEngineFactory =
+        Arc::new(|config| Box::pin(async move { engine::build_read_only_engine(&config) }));
     register_read_only_engine_factory(TINYHUMANS_ENGINE, read_only_factory);
     register_memory_health_probe(TINYHUMANS_ENGINE, Arc::new(read_only_health_probe));
     log::debug!("[tinyhumans] memory: hosted engine registered as '{TINYHUMANS_ENGINE}'");

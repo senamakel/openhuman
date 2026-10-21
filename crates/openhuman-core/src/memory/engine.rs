@@ -46,8 +46,8 @@ use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
 use crate::security::credentials::session_support::resolve_backend_credential;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 
-use super::error::{MemoryError, MemoryResult};
 use super::engine_registry::ReadOnlyEngineError;
+use super::error::{MemoryError, MemoryResult};
 
 /// Engine id of CortexDB behind the TinyHumans backend.
 pub const TINYHUMANS_ENGINE: &str = tinymemory_integrations::cortex::TINYHUMANS_ENGINE_ID;
@@ -306,22 +306,16 @@ pub async fn resolve_read_only_for_inspection(
         return Err(ReadOnlyEngineError::UnsupportedEngine);
     }
 
-    let key = AuthService::get_provider_bearer_token_read_only(
-        config,
-        MEMORY_CORTEXDB_KEY_NAME,
-        None,
-    )
-    .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?
-    .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?;
+    let key =
+        AuthService::get_provider_bearer_token_read_only(config, MEMORY_CORTEXDB_KEY_NAME, None)
+            .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?
+            .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?;
     let endpoint = config
         .memory
         .endpoint_for(CORTEXDB_ENGINE)
         .unwrap_or_else(|| tinymemory_integrations::cortex::CORTEX_API_ENDPOINT.to_string());
     let root = if super::scope::layout_is_v3(config) {
-        Some(
-            super::scope::user_root(config)
-                .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?,
-        )
+        Some(super::scope::user_root(config).ok_or(ReadOnlyEngineError::CredentialsUnavailable)?)
     } else {
         None
     };

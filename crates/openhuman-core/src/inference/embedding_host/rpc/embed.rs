@@ -3,7 +3,7 @@
 use crate::config::Config;
 use crate::core::Outcome;
 
-use super::{resolve_api_key, LOG_PREFIX};
+use super::{LOG_PREFIX, resolve_api_key};
 use crate::inference::embedding_host::factory::{
     create_embedding_provider_for_inspection, create_embedding_provider_with_config,
 };
@@ -173,9 +173,7 @@ pub(crate) async fn probe_dimensions_for_inspection(
     let configured = config.memory.embedding_dimensions;
     let api_key = super::resolve_api_key_read_only(config, provider_name)
         .map_err(|_| InspectionEmbeddingError::CredentialStoreUnavailable)?;
-    let custom_endpoint = provider_name
-        .strip_prefix("custom:")
-        .map(str::to_owned);
+    let custom_endpoint = provider_name.strip_prefix("custom:").map(str::to_owned);
     let provider_slug = if custom_endpoint.is_some() {
         "custom"
     } else {

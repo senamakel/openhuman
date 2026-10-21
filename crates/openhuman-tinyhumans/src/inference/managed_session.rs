@@ -2,8 +2,8 @@
 //! yields, and the `SessionExpired` publications that follow an expired or
 //! rejected session.
 
-use tinyinference_llm::model::ProviderError;
 use tinyinference_llm::Error as TiError;
+use tinyinference_llm::model::ProviderError;
 
 /// Resolve the managed backend bearer from a read-only selected-profile
 /// snapshot. Inspection never refreshes credentials or publishes expiry.
@@ -11,12 +11,13 @@ pub(super) fn managed_bearer_for_inspection(
     config: &openhuman_embed::__host::config::Config,
 ) -> anyhow::Result<String> {
     use openhuman_embed::__host::security::credentials::session_support::{
-        SessionTokenCheck, check_session_backend, classify_session_token,
-        is_local_session_token, load_app_session_profile_read_only,
+        SessionTokenCheck, check_session_backend, classify_session_token, is_local_session_token,
+        load_app_session_profile_read_only,
     };
 
-    if let Some(key) = openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(config)
-        .map_err(|_| anyhow::anyhow!("managed API key profile is unavailable or invalid"))?
+    if let Some(key) =
+        openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(config)
+            .map_err(|_| anyhow::anyhow!("managed API key profile is unavailable or invalid"))?
     {
         let endpoint = format!(
             "{}/openai/v1",
@@ -36,7 +37,9 @@ pub(super) fn managed_bearer_for_inspection(
     match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
         SessionTokenCheck::Live(token) if !is_local_session_token(&token) => Ok(token),
         SessionTokenCheck::Expired => anyhow::bail!("managed session is expired"),
-        SessionTokenCheck::Live(_) => anyhow::bail!("offline local session cannot call managed inference"),
+        SessionTokenCheck::Live(_) => {
+            anyhow::bail!("offline local session cannot call managed inference")
+        }
         SessionTokenCheck::Absent => anyhow::bail!("managed session credential is unavailable"),
     }
 }
@@ -57,7 +60,7 @@ pub(super) fn managed_bearer(
     check: openhuman_embed::__host::security::credentials::session_support::SessionTokenCheck,
 ) -> anyhow::Result<String> {
     use openhuman_embed::__host::security::credentials::session_support::{
-        is_local_session_token, SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
+        LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE, SessionTokenCheck, is_local_session_token,
     };
 
     match check {

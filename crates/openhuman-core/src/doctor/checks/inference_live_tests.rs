@@ -16,6 +16,86 @@ const TEST_BEARER: &str = "dummy-doctor-bearer";
 const RESPONSE_SECRET: &str = "provider-response-must-not-leak";
 const ENDPOINT_SECRET: &str = "endpoint-query-secret";
 
+#[tokio::test]
+async fn unsupported_output_budget_is_skipped_without_invoking_the_model() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
+
+    struct InvocationCounter(Arc<AtomicUsize>);
+
+    #[async_trait::async_trait]
+    impl ChatModel<()> for InvocationCounter {
+        async fn invoke(
+            &self,
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyinference_llm::Result<ModelResponse> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(ModelResponse::assistant("OK"))
+        }
+    }
+
+    let invocations = Arc::new(AtomicUsize::new(0));
+    let prepared = crate::inference::provider::factory::PreparedInspectionChatModel {
+        model: Arc::new(InvocationCounter(Arc::clone(&invocations))),
+        model_id: "gpt-codex".into(),
+        identity: crate::inference::provider::factory::InspectionRequestIdentity::new(
+            "https://chatgpt.com/backend-api/codex".into(),
+            "dummy-frozen-codex-token".into(),
+            "gpt-codex".into(),
+        ),
+        output_budget: crate::inference::provider::factory::InspectionOutputBudgetCapability::Unsupported,
+    };
+    let outcome = probe_prepared_model(&LiveProbeCache::default(), prepared).await;
+    let invocation_count = invocations.load(Ordering::SeqCst);
+
+    assert!(
+        outcome.severity == FindingSeverity::Skipped && invocation_count == 0,
+        "a route without an enforced output limit must skip before invoking; severity={:?}, invocations={invocation_count}",
+        outcome.severity
+    );
+}
+
+#[tokio::test]
+async fn unsupported_output_budget_is_skipped_without_invoking_the_model() {
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
+
+    struct InvocationCounter(Arc<AtomicUsize>);
+
+    #[async_trait::async_trait]
+    impl ChatModel<()> for InvocationCounter {
+        async fn invoke(
+            &self,
+            _state: &(),
+            _request: ModelRequest,
+        ) -> tinyinference_llm::Result<ModelResponse> {
+            self.0.fetch_add(1, Ordering::SeqCst);
+            Ok(ModelResponse::assistant("OK"))
+        }
+    }
+
+    let invocations = Arc::new(AtomicUsize::new(0));
+    let prepared = crate::inference::provider::factory::PreparedInspectionChatModel {
+        model: Arc::new(InvocationCounter(Arc::clone(&invocations))),
+        model_id: "gpt-codex".into(),
+        identity: crate::inference::provider::factory::InspectionRequestIdentity::new(
+            "https://chatgpt.com/backend-api/codex".into(),
+            "dummy-frozen-codex-token".into(),
+            "gpt-codex".into(),
+        ),
+        output_budget: crate::inference::provider::factory::InspectionOutputBudgetCapability::Unsupported,
+    };
+    let outcome = probe_prepared_model(&LiveProbeCache::default(), prepared).await;
+    let invocation_count = invocations.load(Ordering::SeqCst);
+
+    assert!(
+        outcome.severity == FindingSeverity::Skipped && invocation_count == 0,
+        "a route without an enforced output limit must skip before invoking; severity={:?}, invocations={invocation_count}",
+        outcome.severity
+    );
+}
+
 fn completion_path() -> String {
     format!("/openai/{ENDPOINT_SECRET}/chat/completions")
 }

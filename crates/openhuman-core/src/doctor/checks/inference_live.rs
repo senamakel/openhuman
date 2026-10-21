@@ -14,6 +14,7 @@ use crate::core::runtime::DispatchCtx;
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 use crate::inference::provider::factory::{
     create_chat_model_with_identity_in_for_inspection, InspectionRequestIdentity,
+    PreparedInspectionChatModel,
 };
 
 const CATEGORY: &str = "live inference";
@@ -98,15 +99,24 @@ impl DoctorCheck for InferenceLiveCheck {
             }
         };
 
-        let slot = self.cache.slot(built.identity).await;
-        let model = built.model;
-        let model_id = built.model_id;
-        let outcome = slot
-            .get_or_init(|| async move { invoke_once(model, model_id).await })
-            .await
-            .clone();
+        let outcome = probe_prepared_model(&self.cache, built).await;
         vec![outcome.finding(check_id)]
     }
+}
+
+async fn probe_prepared_model(
+    cache: &LiveProbeCache,
+    built: PreparedInspectionChatModel,
+) -> ProbeOutcome {
+    // Capability is metadata today; the regression test pins the missing
+    // unsupported-budget guard before it is introduced.
+    let _output_budget = built.output_budget;
+    let slot = cache.slot(built.identity).await;
+    let model = built.model;
+    let model_id = built.model_id;
+    slot.get_or_init(|| async move { invoke_once(model, model_id).await })
+        .await
+        .clone()
 }
 
 fn inspection_dispatch_context(config: &Config) -> DispatchCtx {

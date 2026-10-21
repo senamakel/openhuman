@@ -54,6 +54,7 @@ crate-type = ["rlib"]
 # without the OpenHuman `flows` surface; engine and catalog implementations are
 # reached only through the loaded module's bus endpoints.
 tinyflows-bus = { path = "../../vendor/tinyflows/crates/tinyflows-bus" }
+tinyjuice-host = { path = "../../vendor/tinyjuice/crates/tinyjuice-host" }
 # Reads the stores tinyflows hosts used before storage moved onto the ports
 # (`flows.db`, `jobs.db`, `checkpoints.db`, drafts). Only its pure SQLite readers
 # are enabled here: flows and checkpoints use bus records owned by the module;

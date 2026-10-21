@@ -219,7 +219,7 @@ pub fn resolve(config: &Config) -> Binding {
 /// enters the active hosted context, normal engine cache, or mutable resolver.
 pub async fn resolve_read_only_for_inspection(
     config: &Config,
-) -> Result<Arc<dyn MemoryEngine>, ReadOnlyEngineError> {
+) -> std::result::Result<Arc<dyn MemoryEngine>, ReadOnlyEngineError> {
     if !config.components.memory {
         return Err(ReadOnlyEngineError::ComponentDisabled);
     }
@@ -243,11 +243,7 @@ pub async fn resolve_read_only_for_inspection(
             .map_err(|_| ReadOnlyEngineError::CredentialsUnavailable)?
             .ok_or(ReadOnlyEngineError::CredentialsUnavailable)?;
     let endpoint = cortexdb_endpoint(config);
-    let root = if config.memory.layout == crate::config::MemoryLayoutMode::V3 {
-        Some(super::scope::user_root(config).ok_or(ReadOnlyEngineError::CredentialsUnavailable)?)
-    } else {
-        None
-    };
+    let root = inspection_layout_root(config)?;
     let settings = EngineSettings {
         endpoint: Some(endpoint),
         observed_actor: config.memory.observed_actor,
@@ -278,6 +274,18 @@ fn guard_read_only_engine(engine: Arc<dyn MemoryEngine>) -> Arc<dyn MemoryEngine
             crate::security::scrub::host_policy(),
         )
         .engine
+}
+
+fn inspection_layout_root(
+    config: &Config,
+) -> std::result::Result<Option<String>, ReadOnlyEngineError> {
+    if config.memory.layout == crate::config::MemoryLayoutMode::V3 {
+        super::scope::user_root(config)
+            .map(Some)
+            .ok_or(ReadOnlyEngineError::CredentialsUnavailable)
+    } else {
+        Ok(None)
+    }
 }
 
 /// The engine the layout migration needs, for an explicit layout whatever

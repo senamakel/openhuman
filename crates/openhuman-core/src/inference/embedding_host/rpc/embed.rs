@@ -179,21 +179,47 @@ pub(crate) async fn probe_dimensions_for_inspection(
     } else {
         provider_name
     };
-    let embedder = create_embedding_provider_for_inspection(
-        config,
-        provider_slug,
-        model,
-        configured,
-        &api_key,
-        custom_endpoint.as_deref(),
-    )
-    .map_err(|_| InspectionEmbeddingError::ProviderUnavailable)?;
-    let vectors = embedder
-        .embed(&["OpenHuman doctor embedding probe".to_owned()])
+
+    // Ollama's `/api/embed` endpoint does not accept a requested output width.
+    // The normal provider constructor uses `configured` as a validation width,
+    // which turns a doctor probe into an opaque failure before it can report
+    // the actual vector width. Use TinyInference's single-request discovery
+    // path for this inspection only; runtime embeddings keep their configured
+    // width validation.
+    let actual = if provider_slug == "ollama" {
+        let base_url = tinyinference_local::ollama::ollama_base_url_from_override(
+            config.local_ai.base_url.as_deref(),
+        );
+        let input = ["OpenHuman doctor embedding probe".to_owned()];
+        let (_, vectors) = tinyinference_embeddings::OllamaEmbeddingModel::embed_discovering_dimensions(
+            &base_url,
+            model,
+            reqwest::Client::new(),
+            &input,
+            tinyinference_embeddings::RECOMMENDED_OLLAMA_CONTEXT_TOKENS,
+            1,
+        )
         .await
         .map_err(|_| InspectionEmbeddingError::ProbeFailed)?;
+        vectors.first().map_or(0, Vec::len)
+    } else {
+        let embedder = create_embedding_provider_for_inspection(
+            config,
+            provider_slug,
+            model,
+            configured,
+            &api_key,
+            custom_endpoint.as_deref(),
+        )
+        .map_err(|_| InspectionEmbeddingError::ProviderUnavailable)?;
+        let vectors = embedder
+            .embed(&["OpenHuman doctor embedding probe".to_owned()])
+            .await
+            .map_err(|_| InspectionEmbeddingError::ProbeFailed)?;
+        vectors.first().map_or(0, Vec::len)
+    };
     Ok(InspectionEmbeddingDimensions {
         configured,
-        actual: vectors.first().map_or(0, Vec::len),
+        actual,
     })
 }

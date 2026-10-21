@@ -1,10 +1,12 @@
 use super::*;
 use crate::doctor::contract::{DoctorCtx, FindingSeverity};
+#[cfg(feature = "web3")]
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
     Arc,
 };
 
+#[cfg(feature = "web3")]
 struct ReadOnlySnapshot {
     expected_workspace: std::path::PathBuf,
     snapshot: Result<Option<WalletSnapshot>, WalletSnapshotFailure>,
@@ -12,6 +14,7 @@ struct ReadOnlySnapshot {
     keychain_queries: Arc<AtomicUsize>,
 }
 
+#[cfg(feature = "web3")]
 impl WalletSnapshotProbe for ReadOnlySnapshot {
     fn read_existing(
         &self,
@@ -31,6 +34,7 @@ fn config_in(root: &std::path::Path) -> crate::config::Config {
     config
 }
 
+#[cfg(feature = "web3")]
 fn stored_wallet_json(address: &str) -> String {
     serde_json::json!({
         "consentGranted": true,
@@ -49,22 +53,20 @@ fn stored_wallet_json(address: &str) -> String {
 
 #[cfg(not(feature = "web3"))]
 #[tokio::test]
-async fn feature_off_wallet_facade_reports_no_accounts_without_a_wallet_probe() {
+async fn feature_off_wallet_facade_skips_without_reading_wallet_state() {
     let scratch = tempfile::tempdir().expect("create isolated wallet fixture");
     let config = config_in(scratch.path());
-    let reads = Arc::new(AtomicUsize::new(0));
-    let check = WalletStatusCheck::with_probe(Arc::new(ReadOnlySnapshot {
-        expected_workspace: config.workspace_dir.clone(),
-        snapshot: Ok(Some(WalletSnapshot { configured: true })),
-        reads: Arc::clone(&reads),
-        keychain_queries: Arc::new(AtomicUsize::new(0)),
-    }));
+    let state_path = config.workspace_dir.join("state").join("wallet-state.json");
+    std::fs::create_dir_all(state_path.parent().unwrap()).expect("create state fixture");
+    let original = b"wallet snapshot remains untouched";
+    std::fs::write(&state_path, original).expect("write state fixture");
+    let check = WalletStatusCheck {};
     let finding = check
         .detect(&DoctorCtx::from_config(config))
         .await
         .remove(0);
     assert_eq!(finding.severity, FindingSeverity::Skipped);
-    assert_eq!(reads.load(Ordering::SeqCst), 0);
+    assert_eq!(std::fs::read(&state_path).unwrap(), original);
 }
 
 #[cfg(feature = "web3")]

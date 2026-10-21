@@ -54,9 +54,7 @@ impl DoctorCheck for WorkspaceWritable {
             }
         };
 
-        let write_result = probe
-            .write_all(b"doctor workspace probe")
-            .and_then(|()| probe.sync_all());
+        let write_result = probe.write_all(b"doctor workspace probe");
         drop(probe);
         let cleanup_result = fs::remove_file(&probe_path);
         match (write_result, cleanup_result) {

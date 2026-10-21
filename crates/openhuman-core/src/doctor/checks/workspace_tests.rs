@@ -100,6 +100,24 @@ async fn writable_probe_succeeds_and_leaves_the_selected_workspace_unchanged() {
     assert_eq!(before, tree_snapshot(&fixture.path().join("workspace")));
 }
 
+#[tokio::test]
+async fn missing_workspace_is_an_error_without_creating_it() {
+    let fixture = tempfile::tempdir().expect("workspace fixture");
+    let config = config_in(fixture.path());
+    let workspace = config.workspace_dir.clone();
+
+    let report = run_only(config, "workspace/writable").await;
+
+    let finding = report
+        .findings
+        .iter()
+        .find(|finding| finding.check_id == "workspace/writable")
+        .expect("missing workspace finding");
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert_eq!(finding.config_path.as_deref(), Some("workspace_dir"));
+    assert!(!workspace.exists(), "doctor must not create the workspace");
+}
+
 #[cfg(unix)]
 #[test]
 fn workspace_layout_reports_missing_entries_and_low_space_without_repairing_them() {
@@ -124,6 +142,20 @@ fn workspace_layout_reports_missing_entries_and_low_space_without_repairing_them
             && !finding.fix_hint.trim().is_empty()
     }));
     assert_eq!(before, tree_snapshot(&workspace));
+}
+
+#[cfg(unix)]
+#[test]
+fn complete_workspace_layout_passes_at_the_disk_space_threshold() {
+    let fixture = tempfile::tempdir().expect("workspace fixture");
+    let workspace = fixture.path().join("workspace");
+    std::fs::create_dir_all(workspace.join("memory")).expect("create memory directory");
+    std::fs::write(workspace.join("SYSTEM.md"), "fixture prompt")
+        .expect("write workspace prompt");
+
+    let findings = layout_findings(&workspace, Some(512));
+
+    assert!(findings.is_empty(), "complete layout should be clean: {findings:#?}");
 }
 
 #[cfg(unix)]

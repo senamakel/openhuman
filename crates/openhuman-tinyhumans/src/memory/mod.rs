@@ -17,7 +17,8 @@ pub(crate) mod billing;
 pub(crate) mod engine;
 
 use openhuman_embed::__host::memory_engines::{
-    register_memory_engine, EngineEntry, TINYHUMANS_ENGINE,
+    EngineEntry, EngineHealth, TINYHUMANS_ENGINE, register_memory_engine,
+    register_memory_health_probe,
 };
 use std::sync::Arc;
 
@@ -34,7 +35,22 @@ pub(crate) fn register(_options: &InstallOptions) {
             })),
         },
     );
+    register_memory_health_probe(TINYHUMANS_ENGINE, Arc::new(read_only_health_probe));
     log::debug!("[tinyhumans] memory: hosted engine registered as '{TINYHUMANS_ENGINE}'");
+}
+
+/// Builds a throwaway engine for a read-only health request. It reads the
+/// selected config's credential profile directly and never enters the normal
+/// engine cache or publishes session-expiry state.
+fn read_only_health_probe(
+    config: openhuman_embed::__host::config::Config,
+) -> openhuman_embed::__host::memory_engines::EngineFuture<EngineHealth> {
+    Box::pin(async move {
+        match engine::build_read_only_engine(&config) {
+            Ok(engine) => engine.health().await,
+            Err(reason) => EngineHealth::Down(reason.to_owned()),
+        }
+    })
 }
 
 #[cfg(test)]

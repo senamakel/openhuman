@@ -78,6 +78,41 @@ pub struct ChatModelEntry {
 
 static CHAT_MODELS: HookSlot<ChatModelEntry> = HookSlot::new("inference::chat_models");
 
+/// A managed chat-model factory that is safe for inspection calls through
+/// invoke/stream: it must use a frozen, read-only credential snapshot and
+/// must not refresh or publish credential state.
+pub type InspectionChatModelFactory = ChatModelFactory;
+
+static INSPECTION_CHAT_MODELS: HookSlot<InspectionChatModelFactory> =
+    HookSlot::new("inference::inspection_chat_models");
+
+/// Registers an inspection-safe managed model factory process-wide.
+pub fn register_inspection_chat_model(
+    provider_id: impl Into<String>,
+    factory: InspectionChatModelFactory,
+) {
+    INSPECTION_CHAT_MODELS.register(provider_id, factory);
+}
+
+/// Registers an inspection-safe managed model factory for the context built
+/// from `extensions`.
+pub fn register_inspection_chat_model_in(
+    extensions: &Extensions,
+    provider_id: impl Into<String>,
+    factory: InspectionChatModelFactory,
+) {
+    INSPECTION_CHAT_MODELS.register_in(extensions, provider_id, factory);
+}
+
+/// Removes the process-wide inspection-safe managed model factory.
+pub fn unregister_inspection_chat_model(provider_id: &str) -> bool {
+    INSPECTION_CHAT_MODELS.unregister(provider_id)
+}
+
+pub(crate) fn inspection_chat_model(provider_id: &str) -> Option<InspectionChatModelFactory> {
+    INSPECTION_CHAT_MODELS.get(provider_id)
+}
+
 /// Registers the chat-model provider `provider_id` for the whole process.
 pub fn register_chat_model(provider_id: impl Into<String>, entry: ChatModelEntry) {
     CHAT_MODELS.register(provider_id, entry);

@@ -73,11 +73,7 @@ fn finding<'a>(findings: &'a [Finding], check_id: &str) -> &'a Finding {
         .unwrap_or_else(|| panic!("expected finding from {check_id}: {findings:#?}"))
 }
 
-fn finding_for_path<'a>(
-    findings: &'a [Finding],
-    check_id: &str,
-    config_path: &str,
-) -> &'a Finding {
+fn finding_for_path<'a>(findings: &'a [Finding], check_id: &str, config_path: &str) -> &'a Finding {
     findings
         .iter()
         .find(|finding| {

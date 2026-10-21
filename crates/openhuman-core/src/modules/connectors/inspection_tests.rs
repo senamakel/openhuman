@@ -99,7 +99,10 @@ unsafe extern "C" fn linked_fixture_init(
             Err(_) => return tinybus::module::abi::TB_BAD_ARGUMENT,
         }
     };
-    let reply = config.get("reply").cloned().unwrap_or(serde_json::Value::Null);
+    let reply = config
+        .get("reply")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
     let host_ctx = host.host_ctx as usize;
     let send = host.send;
     let ready = host.ready;

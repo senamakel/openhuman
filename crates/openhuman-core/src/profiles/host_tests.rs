@@ -193,7 +193,6 @@ async fn selected_doctor_context_keeps_config_storage_credentials_and_provider_b
         "doctor inspection does not open profiles"
     );
     assert_eq!(before_reads, snapshot_tree(tmp.path()));
-
 }
 
 #[tokio::test]

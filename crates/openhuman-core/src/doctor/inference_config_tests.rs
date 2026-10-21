@@ -73,6 +73,19 @@ fn finding<'a>(findings: &'a [Finding], check_id: &str) -> &'a Finding {
         .unwrap_or_else(|| panic!("expected finding from {check_id}: {findings:#?}"))
 }
 
+fn finding_for_path<'a>(
+    findings: &'a [Finding],
+    check_id: &str,
+    config_path: &str,
+) -> &'a Finding {
+    findings
+        .iter()
+        .find(|finding| {
+            finding.check_id == check_id && finding.config_path.as_deref() == Some(config_path)
+        })
+        .unwrap_or_else(|| panic!("expected {check_id} finding for {config_path}: {findings:#?}"))
+}
+
 #[tokio::test]
 async fn an_unregistered_chat_provider_reports_its_config_path() {
     let mut config = Config::default();
@@ -115,7 +128,7 @@ async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
     let before = filesystem_snapshot(temp.path());
     let findings = run_only(config, CONSTRUCT).await;
     assert_eq!(filesystem_snapshot(temp.path()), before);
-    let result = finding(&findings, CONSTRUCT);
+    let result = finding_for_path(&findings, CONSTRUCT, "vision_provider");
 
     assert_eq!(result.severity, FindingSeverity::Error);
     assert_eq!(result.config_path.as_deref(), Some("vision_provider"));
@@ -129,7 +142,7 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
     use crate::config::test_env::EnvVarGuard;
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-    use crate::inference::registry::{register_chat_model, ChatModelEntry};
+    use crate::inference::registry::{register_inspection_chat_model, InspectionChatModelFactory};
 
     struct ManagedModel {
         generations: Arc<AtomicUsize>,
@@ -159,21 +172,16 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let generations = Arc::new(AtomicUsize::new(0));
     let build_constructions = Arc::clone(&constructions);
     let model_generations = Arc::clone(&generations);
-    register_chat_model(
-        PROVIDER_OPENHUMAN,
-        ChatModelEntry {
-            build: Arc::new(move |_| {
-                build_constructions.fetch_add(1, Ordering::SeqCst);
-                Ok((
-                    Arc::new(ManagedModel {
-                        generations: Arc::clone(&model_generations),
-                    }) as Arc<dyn ChatModel<()>>,
-                    "managed-test-model".to_owned(),
-                ))
-            }),
-            probe: None,
-        },
-    );
+    let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| {
+        build_constructions.fetch_add(1, Ordering::SeqCst);
+        Ok((
+            Arc::new(ManagedModel {
+                generations: Arc::clone(&model_generations),
+            }) as Arc<dyn ChatModel<()>>,
+            "managed-test-model".to_owned(),
+        ))
+    });
+    register_inspection_chat_model(PROVIDER_OPENHUMAN, inspection_factory);
     let _registered_model = RegisterManagedModel;
 
     let mut config = isolated_config(temp.path());
@@ -215,7 +223,7 @@ struct RegisterManagedModel;
 
 impl Drop for RegisterManagedModel {
     fn drop(&mut self) {
-        crate::inference::registry::unregister_chat_model(
+        crate::inference::registry::unregister_inspection_chat_model(
             crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         );
     }

@@ -47,8 +47,7 @@ pub(super) fn for_context() -> Vec<Arc<dyn DoctorCheck>> {
         .collect()
 }
 
-#[cfg(test)]
-pub(super) fn checks_with_probe(probe: Arc<dyn VoiceStatusProbe>) -> Vec<VoiceCheck> {
+fn checks_with_probe(probe: Arc<dyn VoiceStatusProbe>) -> Vec<VoiceCheck> {
     vec![
         VoiceCheck::configured(VoiceKind::Stt, Arc::clone(&probe)),
         VoiceCheck::configured(VoiceKind::Tts, probe),

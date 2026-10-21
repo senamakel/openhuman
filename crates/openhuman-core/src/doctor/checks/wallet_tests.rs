@@ -178,6 +178,37 @@ async fn oversized_wallet_snapshot_is_rejected_without_rewriting_it() {
 
 #[cfg(feature = "web3")]
 #[tokio::test]
+async fn malformed_wallet_account_records_are_rejected_without_rewriting_state() {
+    let scratch = tempfile::tempdir().expect("create isolated wallet fixture");
+    let config = config_in(scratch.path());
+    let state_path = config.workspace_dir.join("state").join("wallet-state.json");
+    std::fs::create_dir_all(state_path.parent().unwrap()).unwrap();
+    let original = serde_json::json!({
+        "consentGranted": true,
+        "source": "generated",
+        "mnemonicWordCount": 12,
+        "encryptedMnemonic": "enc2:doctor-fake-encrypted-mnemonic",
+        "accounts": [null],
+        "updatedAtMs": 7
+    })
+    .to_string();
+    std::fs::write(&state_path, &original).unwrap();
+
+    let check = WalletStatusCheck {
+        probe: Arc::new(FileSnapshot),
+    };
+    let finding = check
+        .detect(&DoctorCtx::from_config(config))
+        .await
+        .remove(0);
+
+    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert!(!finding.message.contains("doctor-fake-encrypted-mnemonic"));
+    assert_eq!(std::fs::read_to_string(&state_path).unwrap(), original);
+}
+
+#[cfg(feature = "web3")]
+#[tokio::test]
 async fn malformed_selected_wallet_state_is_reported_without_quarantine_or_deletion() {
     let scratch = tempfile::tempdir().expect("create isolated wallet fixture");
     let config = config_in(scratch.path());

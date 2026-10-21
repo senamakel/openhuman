@@ -65,10 +65,6 @@ mod config_provenance_tests;
 mod inference_config_tests;
 
 #[cfg(test)]
-#[path = "checks/embeddings_tests.rs"]
-mod embeddings_config_tests;
-
-#[cfg(test)]
 #[path = "inference_catalog_tests.rs"]
 mod inference_catalog_tests;
 

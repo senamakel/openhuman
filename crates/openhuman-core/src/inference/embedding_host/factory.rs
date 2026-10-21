@@ -65,7 +65,11 @@ fn inspection_managed_factory(config: &Config) -> ManagedModelFactory {
             state_dir,
             secrets_encrypt,
         })
-        .map_err(|_| anyhow::anyhow!("managed embedding inspection is unavailable"))
+        .map_err(|_| {
+            tinyinference_embeddings::Error::Validation(
+                "managed embedding inspection is unavailable".to_owned(),
+            )
+        })
     })
 }
 

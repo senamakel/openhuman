@@ -23,9 +23,9 @@ pub use cloud::{
     UnavailableEmbeddingModel, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
 };
 pub use factory::{
-    create_embedding_provider_for_chat, create_embedding_provider_with_config,
-    create_embedding_provider_with_credentials, default_embedding_provider_for_chat,
-    default_embedding_provider_with_config,
+    create_embedding_provider_for_chat, create_embedding_provider_for_inspection,
+    create_embedding_provider_with_config, create_embedding_provider_with_credentials,
+    default_embedding_provider_for_chat, default_embedding_provider_with_config,
 };
 pub use rpc::provider_from_config;
 /// A shared embedding provider as this module's factories return it, nameable

@@ -87,3 +87,17 @@ pub(crate) fn resolve_api_key(config: &Config, provider_name: &str) -> String {
         .flatten()
         .unwrap_or_default()
 }
+
+pub(crate) fn resolve_api_key_read_only(
+    config: &Config,
+    provider_name: &str,
+) -> Result<String, crate::security::credentials::profiles::ReadOnlyAuthProfileError> {
+    let slug = if provider_name.starts_with("custom:") {
+        "custom"
+    } else {
+        provider_name
+    };
+    let cred_provider = format!("embeddings:{slug}");
+    Ok(AuthService::get_provider_bearer_token_read_only(config, &cred_provider, None)?
+        .unwrap_or_default())
+}

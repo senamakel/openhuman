@@ -1,7 +1,7 @@
 //! Read-only, bounded provider catalog inspection for doctor.
 
 use std::collections::HashMap;
-use std::hash::{BuildHasher, Hash, Hasher};
+use std::hash::{BuildHasher, Hash};
 use std::sync::{Arc, LazyLock, Mutex};
 use std::time::{Duration, Instant};
 
@@ -29,9 +29,7 @@ static CACHE_HASHER: LazyLock<std::collections::hash_map::RandomState> =
     LazyLock::new(std::collections::hash_map::RandomState::new);
 
 fn hash_key<T: Hash>(value: &T) -> u64 {
-    let mut hasher = CACHE_HASHER.build_hasher();
-    value.hash(&mut hasher);
-    hasher.finish()
+    CACHE_HASHER.hash_one(value)
 }
 
 fn scope_key(config: &crate::config::Config) -> String {
@@ -393,7 +391,7 @@ impl DoctorCheck for ModelInCatalog {
                     )
                 })
             {
-                if !ids.iter().any(|id| *id == model) {
+                if !ids.contains(&model) {
                     let mut finding = Finding::new(
                         self.id(),
                         FindingSeverity::Warn,

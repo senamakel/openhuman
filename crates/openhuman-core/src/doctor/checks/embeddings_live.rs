@@ -41,7 +41,9 @@ impl DoctorCheck for EmbeddingsLiveCheck {
         }
 
         match probe_dimensions_for_inspection(config).await {
-            Ok(dimensions) if dimensions.actual > 0 && dimensions.actual == dimensions.configured => {
+            Ok(dimensions)
+                if dimensions.actual > 0 && dimensions.actual == dimensions.configured =>
+            {
                 vec![Finding::pass(
                     self.id(),
                     "The configured embedding provider returned the expected vector dimensions.",

@@ -330,7 +330,7 @@ async fn checks_above_the_requested_tier_are_skipped() {
 
 #[tokio::test]
 async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
-    use axum::{extract::State, routing::post, Json, Router};
+    use axum::{Json, Router, extract::State, routing::post};
     use std::sync::atomic::AtomicUsize;
     use tempfile::TempDir;
     use tinymemory_api::{MemoryEngine, conformance::ReferenceEngine};
@@ -339,17 +339,19 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace).expect("workspace directory");
     let calls = Arc::new(AtomicUsize::new(0));
-    let app = Router::new()
-        .route(
-            "/api/embed",
-            post(
-                |State(calls): State<Arc<AtomicUsize>>, Json(_body): Json<serde_json::Value>| async move {
-                    calls.fetch_add(1, Ordering::SeqCst);
-                    Json(serde_json::json!({ "embeddings": [[0.1_f32; 768]] }))
-                },
-            ),
-        )
-        .with_state(Arc::clone(&calls));
+    let app =
+        Router::new()
+            .route(
+                "/api/embed",
+                post(
+                    |State(calls): State<Arc<AtomicUsize>>,
+                     Json(_body): Json<serde_json::Value>| async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Json(serde_json::json!({ "embeddings": [[0.1_f32; 768]] }))
+                    },
+                ),
+            )
+            .with_state(Arc::clone(&calls));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind local embedding mock");
@@ -387,10 +389,7 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
             &DoctorCtx::from_config(config),
             DoctorOptions {
                 tier: DoctorTier::Connect,
-                only: vec![
-                    "embeddings/live".to_owned(),
-                    "memory/roundtrip".to_owned(),
-                ],
+                only: vec!["embeddings/live".to_owned(), "memory/roundtrip".to_owned()],
                 ..DoctorOptions::default()
             },
         )
@@ -399,18 +398,26 @@ async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
     })
     .await;
 
-    assert_eq!(calls.load(Ordering::SeqCst), 0, "live embedding was not invoked");
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "live embedding was not invoked"
+    );
     assert_eq!(
         memory_factory_calls.load(Ordering::SeqCst),
         0,
         "live memory was not bound"
     );
-    assert!(report
-        .checks_skipped
-        .contains(&"embeddings/live".to_owned()));
-    assert!(report
-        .checks_skipped
-        .contains(&"memory/roundtrip".to_owned()));
+    assert!(
+        report
+            .checks_skipped
+            .contains(&"embeddings/live".to_owned())
+    );
+    assert!(
+        report
+            .checks_skipped
+            .contains(&"memory/roundtrip".to_owned())
+    );
 }
 
 #[tokio::test]

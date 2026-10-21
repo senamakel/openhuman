@@ -91,15 +91,11 @@ async fn managed_inspection_does_not_fall_back_to_the_mutable_provider_factory()
     let calls = Arc::new(AtomicUsize::new(0));
     let provider_calls = Arc::clone(&calls);
     let extensions = Extensions::new();
-    crate::inference::registry::register_embedding_in(
-        &extensions,
-        PROVIDER_OPENHUMAN,
-        move |_| {
-            provider_calls.fetch_add(1, Ordering::SeqCst);
-            Ok(Box::new(tinyinference_embeddings::NoopEmbeddingModel)
-                as Box<dyn tinyinference_embeddings::EmbeddingModel>)
-        },
-    );
+    crate::inference::registry::register_embedding_in(&extensions, PROVIDER_OPENHUMAN, move |_| {
+        provider_calls.fetch_add(1, Ordering::SeqCst);
+        Ok(Box::new(tinyinference_embeddings::NoopEmbeddingModel)
+            as Box<dyn tinyinference_embeddings::EmbeddingModel>)
+    });
     let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
 
     CoreContext::scope(context, async {
@@ -112,7 +108,12 @@ async fn managed_inspection_does_not_fall_back_to_the_mutable_provider_factory()
             None,
         )
         .expect("inspection factory returns its unavailable placeholder");
-        assert!(model.embed(&["fixed doctor probe".to_owned()]).await.is_err());
+        assert!(
+            model
+                .embed(&["fixed doctor probe".to_owned()])
+                .await
+                .is_err()
+        );
     })
     .await;
 

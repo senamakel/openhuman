@@ -1,6 +1,6 @@
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use crate::config::Config;
@@ -639,10 +639,12 @@ async fn module_status_checks_are_registered_with_their_native_id() {
         report.findings
     );
     assert!(report.checks_run.iter().any(|id| id == "modules/tinymcp"));
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "modules/tinymcp"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "modules/tinymcp")
+    );
 }
 
 #[tokio::test]
@@ -694,14 +696,18 @@ async fn mcp_server_check_ids_come_from_the_selected_config() {
         report.checks_skipped.iter().any(|id| id == "mcp/server-b")
             || report.checks_run.iter().any(|id| id == "mcp/server-b")
     );
-    assert!(report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "mcp/server-b"));
-    assert!(!report
-        .findings
-        .iter()
-        .any(|finding| finding.check_id == "mcp/server-a"));
+    assert!(
+        report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "mcp/server-b")
+    );
+    assert!(
+        !report
+            .findings
+            .iter()
+            .any(|finding| finding.check_id == "mcp/server-a")
+    );
 }
 
 #[tokio::test]

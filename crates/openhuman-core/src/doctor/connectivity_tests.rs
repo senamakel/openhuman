@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use async_trait::async_trait;
 
-use super::contract::{DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
+use super::contract::{DoctorCtx, DoctorOptions, FindingSeverity};
 use super::runner;
 use crate::config::schema::StorageConfig;
 use crate::config::Config;

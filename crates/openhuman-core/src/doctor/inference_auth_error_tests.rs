@@ -1,9 +1,5 @@
-use super::{
-    ops::{doctor_models, doctor_report_with_options},
-    DoctorOptions, FindingSeverity, ModelProbeOutcome,
-};
+use super::{ops::doctor_report_with_options, DoctorOptions, FindingSeverity};
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
-use crate::config::schema::ModelRouteConfig;
 use crate::config::Config;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
 use axum::{
@@ -283,8 +279,6 @@ async fn report_for_context(
     .await
     .expect("doctor report for selected profile")
 }
-
-use super::inference_catalog_test_support::*;
 
 #[tokio::test]
 async fn process_auth_error_is_not_attributed_across_desktop_workspaces() {

@@ -1,5 +1,3 @@
-use super::*;
-
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
 
 const ID: &str = "config/runtime-settings";

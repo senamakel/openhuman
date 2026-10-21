@@ -5,6 +5,8 @@ use crate::tools::toolpacks::ToolGroups;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use tempfile::TempDir;
 use tinytools::{PermissionLevel, ToolScope};
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, MockServer, ResponseTemplate};
 
 fn cfg() -> Arc<Config> {
     Arc::new(Config::default())
@@ -162,6 +164,68 @@ async fn health_tool_defaults_to_connect_when_tier_is_omitted() {
         serde_json::json!(["test/default-connect"])
     );
     assert_eq!(selected_calls.load(Ordering::SeqCst), 1);
+}
+
+#[tokio::test]
+async fn models_tool_reports_each_configured_catalog_outcome() {
+    let server = MockServer::start().await;
+    Mock::given(method("GET"))
+        .and(path("/available/v1/models"))
+        .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({
+            "data": [{ "id": "fixture-model" }]
+        })))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/missing/v1/models"))
+        .respond_with(ResponseTemplate::new(404))
+        .mount(&server)
+        .await;
+
+    let tmp = TempDir::new().expect("tempdir");
+    let mut config = config_in(&tmp);
+    config.cloud_providers = vec![
+        crate::config::schema::cloud_providers::CloudProviderCreds {
+            id: "p_doctor_tool_models_available".into(),
+            slug: "doctor-tool-models-available".into(),
+            label: "Available test provider".into(),
+            endpoint: format!("{}/available/v1", server.uri()),
+            auth_style: crate::config::schema::cloud_providers::AuthStyle::None,
+            default_model: None,
+        },
+        crate::config::schema::cloud_providers::CloudProviderCreds {
+            id: "p_doctor_tool_models_missing".into(),
+            slug: "doctor-tool-models-missing".into(),
+            label: "Missing test provider".into(),
+            endpoint: format!("{}/missing/v1", server.uri()),
+            auth_style: crate::config::schema::cloud_providers::AuthStyle::None,
+            default_model: None,
+        },
+    ];
+
+    let result = DoctorModelsTool::new(Arc::new(config))
+        .execute(serde_json::json!({ "use_cache": false }))
+        .await
+        .expect("catalog outcomes should be returned as a report");
+    let report: serde_json::Value =
+        serde_json::from_str(&result.text()).expect("tool result is a JSON model probe report");
+    let entries = report["entries"].as_array().expect("provider entries");
+    let available = entries
+        .iter()
+        .find(|entry| entry["provider"] == "doctor-tool-models-available")
+        .expect("available provider entry");
+    let missing = entries
+        .iter()
+        .find(|entry| entry["provider"] == "doctor-tool-models-missing")
+        .expect("missing provider entry");
+
+    assert_eq!(available["outcome"], "Ok");
+    assert_eq!(available["message"], "Catalog returned 1 models.");
+    assert_eq!(missing["outcome"], "Skipped");
+    assert_eq!(missing["message"], "Provider does not expose a models catalog.");
+    assert_eq!(report["summary"]["ok"], 1);
+    assert_eq!(report["summary"]["skipped"], 1);
+    assert_eq!(report["summary"]["errors"], 0);
 }
 
 #[test]

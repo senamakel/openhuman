@@ -423,7 +423,7 @@ pub(super) fn install_turn_middleware(
         .into_iter()
         .chain(harness.tools().deferred_schemas())
         .filter(|schema| {
-            crate::inference::tokenjuice::focus::declares_summary_focus(&schema.parameters)
+            tinyjuice_host::focus::declares_summary_focus(&schema.parameters)
         })
         .map(|schema| schema.name)
         .collect();

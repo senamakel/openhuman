@@ -67,13 +67,13 @@ impl
         crate::agent::tinyagents::host::OpenHumanRunContext,
     > for StubSummarizer
 {
-    type Prepared = crate::inference::tokenjuice::generate::PreparedGenerate;
+    type Prepared = tinyjuice_host::generate::PreparedGenerate;
     type Error = anyhow::Error;
 
     fn prepare(
         &self,
         _parent_ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-    ) -> anyhow::Result<crate::inference::tokenjuice::generate::PreparedGenerate> {
+    ) -> anyhow::Result<tinyjuice_host::generate::PreparedGenerate> {
         self.prepared
             .store(true, std::sync::atomic::Ordering::SeqCst);
         let reply = self

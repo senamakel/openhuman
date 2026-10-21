@@ -21,7 +21,7 @@ impl MlHost {
         &self,
         request: tinyjuice_bus::wire::GenerateRequest,
     ) -> tinybus::Result<Option<String>> {
-        crate::inference::tokenjuice::generate::serve(request)
+        tinyjuice_host::generate::serve(request)
             .await
             .map_err(method_error)
     }

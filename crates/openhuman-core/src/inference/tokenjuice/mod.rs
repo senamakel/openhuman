@@ -1,41 +1,86 @@
 //! OpenHuman host adapter for the separately released TinyJuice module.
 
 pub mod config_patch;
-pub mod focus;
-pub mod generate;
-pub mod repl_tools;
 pub mod savings;
 pub mod schemas;
-pub mod tools;
 
 use crate::core::runtime::DispatchCtx;
 use tinyjuice_bus::names::methods;
 use tinyjuice_bus::types::{AgentTokenjuiceCompression, CompressorKind};
-
-pub use repl_tools::{is_repl_tool, repl_tools, repl_tools_for};
-pub use tools::TokenjuiceRetrieveTool;
+use tinyjuice_bus::tools::REPL_TOOLS;
+use tinyjuice_host::recovery::CompactedToolOutput;
+use tinytools::{Tool, ToolRunContext};
+use std::sync::Arc;
 
 use tinyjuice_bus::wire::InstallRequest;
 
-use tinyjuice_bus::tools::{LEGACY_RETRIEVE, REPL_TOOLS, RETRIEVE};
+pub use tinyjuice_host::recovery::{RECOVERY_TOOL_NAMES, RECOVERY_TOOL_VISIBLE, is_recovery_tool};
 pub const LEGACY_RETRIEVE_TOOL_NAME: &str = "retrieve_tool_output";
-/// Every name the recovery surface answers to: the live tool plus the two
-/// migration aliases a replayed transcript may still call.
-pub const RECOVERY_TOOL_NAMES: &[&str] = &[
-    RETRIEVE,
-    LEGACY_RETRIEVE,
-    "tokenjuice_retrieve",
-    LEGACY_RETRIEVE_TOOL_NAME,
-];
 
-/// The recovery tool a curated (`ToolScope::Named`) belt is guaranteed to
-/// advertise. Only the live tool: the aliases stay registered so an old
-/// transcript replays, but putting all three on the wire charged every
-/// Named agent for three copies of one schema.
-pub const RECOVERY_TOOL_VISIBLE: &[&str] = &[RETRIEVE];
+struct ModuleQuerySource {
+    config: Option<Arc<crate::config::Config>>,
+}
 
-pub fn is_recovery_tool(name: &str) -> bool {
-    RECOVERY_TOOL_NAMES.contains(&name)
+#[async_trait::async_trait]
+impl tinyjuice_host::repl_tools::QuerySource for ModuleQuerySource {
+    async fn query(
+        &self,
+        context: Option<&dyn ToolRunContext>,
+        request: tinyjuice_bus::wire::QueryRequest,
+    ) -> Result<tinyjuice_bus::wire::QueryResponse, String> {
+        match &self.config {
+            Some(config) => query_for_config(config, request).await,
+            None => {
+                let context = crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(context);
+                query(&context, request).await
+            }
+        }
+    }
+}
+
+/// Current REPL tools, with the host's active module configuration and artifact policy.
+pub fn repl_tools_for(config: &crate::config::Config) -> Vec<Box<dyn Tool>> {
+    if !repl_handle_active(config) {
+        return Vec::new();
+    }
+    tinyjuice_host::repl_tools::repl_tools(
+        Arc::new(ModuleQuerySource {
+            config: Some(Arc::new(config.clone())),
+        }),
+        tinyjuice_bus::repl::ReplLimits::default(),
+        Some(crate::security::policy::tool_result_artifacts_dir(&config.workspace_dir)),
+        tinytools_std::filesystem::FileReadTool::MAX_FILE_SIZE_BYTES,
+        None,
+    )
+}
+
+/// Rebuild recorded REPL declarations verbatim for a resumed session.
+pub(crate) fn repl_tools_for_recorded(
+    config: Option<&crate::config::Config>,
+    workspace_dir: &std::path::Path,
+    recorded: &[tinytools::ToolSpec],
+) -> Vec<Box<dyn Tool>> {
+    let stock = tinyjuice_bus::tools::repl_tool_declarations();
+    let declarations = recorded
+        .iter()
+        .filter(|spec| REPL_TOOLS.contains(&spec.name.as_str()))
+        .filter_map(|spec| {
+            let mut declaration = stock.iter().find(|item| item.name == spec.name)?.clone();
+            declaration.description.clone_from(&spec.description);
+            declaration.parameters.clone_from(&spec.parameters);
+            Some(declaration)
+        })
+        .collect();
+    tinyjuice_host::repl_tools::repl_tools_with_declarations(
+        declarations,
+        Arc::new(ModuleQuerySource {
+            config: config.cloned().map(Arc::new),
+        }),
+        tinyjuice_bus::repl::ReplLimits::default(),
+        Some(crate::security::policy::tool_result_artifacts_dir(workspace_dir)),
+        tinytools_std::filesystem::FileReadTool::MAX_FILE_SIZE_BYTES,
+        None,
+    )
 }
 
 /// Whether the `[components] juice` switch is on. Off means turns truncate
@@ -205,43 +250,6 @@ pub struct ToolOutputCompaction<'a> {
     pub context_token: Option<String>,
     /// Scopes summary reuse and the failure breaker, usually the thread id.
     pub scope: Option<String>,
-}
-
-/// What came back for one tool result.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct CompactedToolOutput {
-    pub text: String,
-    /// Prefix after the host's caps: the summary stage ran and wrote nothing.
-    pub notice: Option<String>,
-    /// Set when `text` is a model-written summary of this many bytes.
-    pub summarized_from_bytes: Option<usize>,
-}
-
-impl CompactedToolOutput {
-    fn unchanged(text: String) -> Self {
-        Self {
-            text,
-            notice: None,
-            summarized_from_bytes: None,
-        }
-    }
-
-    /// The content untouched, disclosing the summary that did not happen when
-    /// one was wanted.
-    fn passthrough(text: String, wants_summary: bool) -> Self {
-        Self {
-            notice: wants_summary.then(summary_failed_notice),
-            ..Self::unchanged(text)
-        }
-    }
-}
-
-/// TinyJuice's own notice for a summary that was attempted and not produced,
-/// so a host-side failure reads the same as a module-side one.
-pub fn summary_failed_notice() -> String {
-    tinyjuice_bus::summary::UnavailableReason::Failed
-        .notice()
-        .to_string()
 }
 
 /// Deadline for `CompactWith`. It may wait on a summary model call, which the

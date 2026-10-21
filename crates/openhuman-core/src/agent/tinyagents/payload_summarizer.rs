@@ -34,7 +34,7 @@ use crate::agent::subagent_host;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent_registry::host_definition::AgentDefinition;
 use {
-    crate::inference::tokenjuice::generate::PreparedGenerate, tinyjuice_bus::wire::GenerateRequest,
+    tinyjuice_host::generate::PreparedGenerate, tinyjuice_bus::wire::GenerateRequest,
 };
 
 /// The host's payload-summary seam: the harness contract

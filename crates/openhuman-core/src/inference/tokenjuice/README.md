@@ -67,8 +67,8 @@ behavior. There is no linked implementation fallback.
   the aliases stay registered for transcript replay but off the wire. It is
   added when compaction is on or the agent's results can be summarized
   (`summarizes_tool_output`), since a summary's footer names it too.
-- Handle mode: `install_request` sets `CompressOptions.repl_handle` (and
-  `repl_save_dir` when `repl_save_enabled`) from `repl_handle_active(config)`,
+- Handle mode: `install_request` sets `CompressOptions.repl_handle` from
+  `repl_handle_active(config)`,
   which needs `context.compaction_enabled`, `router_enabled`, `ccr_enabled` and
   `repl_handle_enabled`. `tools/ops.rs` registers the REPL tools under the same
   test, `session_host/builder/mod.rs::ensure_repl_tools_visible` adds them to a

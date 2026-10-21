@@ -13,8 +13,8 @@ use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 use crate::inference::provider::factory::{
-    InspectionRequestIdentity, PreparedInspectionChatModel,
-    create_chat_model_with_identity_in_for_inspection,
+    create_chat_model_with_identity_in_for_inspection, InspectionRequestIdentity,
+    PreparedInspectionChatModel,
 };
 
 const CATEGORY: &str = "live inference";

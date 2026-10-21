@@ -114,6 +114,26 @@ pub async fn doctor_report_for_dispatch(
         let config = dispatch.load_config().await?;
         return doctor_report_with_options(&config, options).await;
     }
+    let selection = desktop_selection_for_dispatch(dispatch).await?;
+    doctor_report_for_desktop_selection(selection, options).await
+}
+
+/// Config resolution for non-SaaS doctor surfaces. Without an embedder-owned
+/// snapshot, diagnostics use the read-only desktop profile loader instead of
+/// `Config::load_or_init`, which can persist migrations.
+pub(crate) async fn config_for_dispatch(dispatch: &DispatchCtx) -> Result<Config, String> {
+    if let Some(config) = dispatch.embedder_config() {
+        return Ok(config);
+    }
+    if crate::core::runtime::is_saas() {
+        return dispatch.load_config().await;
+    }
+    Ok(desktop_selection_for_dispatch(dispatch).await?.config)
+}
+
+async fn desktop_selection_for_dispatch(
+    dispatch: &DispatchCtx,
+) -> Result<DesktopProfileSelection, String> {
     let process_root = dispatch.resolved().and_then(|context| {
         let (_, config_path) = context.workspace_config_binding().ok()?;
         super::profile::root_for_config_path(&config_path?)
@@ -122,10 +142,9 @@ pub async fn doctor_report_for_dispatch(
         .or(process_root)
         .or_else(|| crate::config::default_root_openhuman_dir().ok())
         .ok_or_else(|| "Could not resolve the desktop config root".to_owned())?;
-    let selection = super::profile::resolve_desktop_profile_for_doctor(&root, None)
+    super::profile::resolve_desktop_profile_for_doctor(&root, None)
         .await
-        .map_err(|error| error.message().to_owned())?;
-    doctor_report_for_desktop_selection(selection, options).await
+        .map_err(|error| error.message().to_owned())
 }
 
 /// Builds a desktop profile report from an explicit root and profile id.

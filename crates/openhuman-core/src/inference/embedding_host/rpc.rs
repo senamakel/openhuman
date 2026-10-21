@@ -9,6 +9,9 @@ mod embed;
 mod settings;
 
 pub use api_keys::{clear_api_key, set_api_key};
+pub(crate) use embed::{
+    InspectionEmbeddingDimensions, InspectionEmbeddingError, probe_dimensions_for_inspection,
+};
 pub use embed::{embed, test_connection};
 pub use settings::{get_settings, update_settings};
 
@@ -18,7 +21,7 @@ use tinyinference_embeddings::probe::redact_secrets;
 #[cfg(test)]
 use settings::remember_active_custom_profile;
 #[cfg(test)]
-use tinyinference_embeddings::probe::{classify_embed_probe, EmbedProbe};
+use tinyinference_embeddings::probe::{EmbedProbe, classify_embed_probe};
 #[cfg(test)]
 use tinyinference_embeddings::served_models::{
     check_requested_model_served, fetch_served_model_ids, normalize_embed_model_id,
@@ -86,4 +89,20 @@ pub(crate) fn resolve_api_key(config: &Config, provider_name: &str) -> String {
         .ok()
         .flatten()
         .unwrap_or_default()
+}
+
+pub(crate) fn resolve_api_key_read_only(
+    config: &Config,
+    provider_name: &str,
+) -> Result<String, crate::security::credentials::profiles::ReadOnlyAuthProfileError> {
+    let slug = if provider_name.starts_with("custom:") {
+        "custom"
+    } else {
+        provider_name
+    };
+    let cred_provider = format!("embeddings:{slug}");
+    Ok(
+        AuthService::get_provider_bearer_token_read_only(config, &cred_provider, None)?
+            .unwrap_or_default(),
+    )
 }

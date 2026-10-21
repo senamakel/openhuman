@@ -1,13 +1,25 @@
 //! Static validation for the selected embedding provider and vector settings.
 
+use std::sync::Arc;
+use std::time::Duration;
+
 use async_trait::async_trait;
 
 use crate::config::Config;
 use crate::doctor::{DoctorCheck, DoctorCtx, DoctorTier, Finding};
 
 const CONFIG_ID: &str = "embeddings/config";
+const CONFIGURED_MODEL_ID: &str = "embeddings/configured-model";
 
 pub(super) struct EmbeddingConfigCheck;
+pub(super) struct ConfiguredModelCheck;
+
+pub(super) fn checks() -> Vec<Arc<dyn DoctorCheck>> {
+    vec![
+        Arc::new(EmbeddingConfigCheck),
+        Arc::new(ConfiguredModelCheck),
+    ]
+}
 
 #[async_trait]
 impl DoctorCheck for EmbeddingConfigCheck {
@@ -24,8 +36,165 @@ impl DoctorCheck for EmbeddingConfigCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
+        tracing::debug!(target: "doctor", check = CONFIG_ID, event = "inspection_started");
         config(ctx.config())
     }
+}
+
+#[async_trait]
+impl DoctorCheck for ConfiguredModelCheck {
+    fn id(&self) -> &str {
+        CONFIGURED_MODEL_ID
+    }
+
+    fn category(&self) -> &str {
+        "embedding runtime"
+    }
+
+    fn tier(&self) -> DoctorTier {
+        DoctorTier::Connect
+    }
+
+    async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
+        tracing::debug!(target: "doctor", check = CONFIGURED_MODEL_ID, event = "inspection_started");
+        configured_model(ctx.config()).await
+    }
+}
+
+async fn configured_model(config: &Config) -> Vec<Finding> {
+    let local_model = config.workload_local_model("embeddings");
+    let (provider, model, _) = tinyinference_embeddings::catalog::effective_embedding_settings(
+        &config.memory.embedding_provider,
+        &config.memory.embedding_model,
+        config.memory.embedding_dimensions,
+        local_model.as_deref(),
+    );
+    if provider != "ollama" {
+        tracing::debug!(target: "doctor", check = CONFIGURED_MODEL_ID, event = "skipped_non_ollama");
+        return vec![Finding::skipped(
+            CONFIGURED_MODEL_ID,
+            "The configured embedding provider does not use the local Ollama runtime.",
+            "This readiness check applies only to Ollama; use the provider-specific diagnostics for other services.",
+        )];
+    }
+    if model.trim().is_empty() {
+        let mut finding = Finding::error(
+            CONFIGURED_MODEL_ID,
+            "No Ollama embedding model is configured.",
+            "Select an embedding model for Ollama and rerun doctor.",
+        );
+        finding.config_path = Some("memory.embedding_model".to_owned());
+        return vec![finding];
+    }
+
+    let base_url = tinyinference_local::ollama::ollama_base_url_from_override(
+        config.local_ai.base_url.as_deref(),
+    );
+    let tags_url = format!("{}/api/tags", base_url.trim_end_matches('/'));
+    tracing::debug!(target: "doctor", check = CONFIGURED_MODEL_ID, event = "probe_started");
+
+    let client = match reqwest::Client::builder()
+        .timeout(Duration::from_secs(3))
+        .build()
+    {
+        Ok(client) => client,
+        Err(_) => {
+            return vec![endpoint_error(
+                "The local Ollama readiness client could not be initialized.",
+            )];
+        }
+    };
+    let response = match client.get(tags_url).send().await {
+        Ok(response) => response,
+        Err(_) => {
+            tracing::debug!(target: "doctor", check = CONFIGURED_MODEL_ID, event = "unreachable");
+            return vec![endpoint_error(
+                "The configured Ollama runtime could not be reached.",
+            )];
+        }
+    };
+    if !response.status().is_success() {
+        return vec![endpoint_error(
+            "The configured Ollama runtime returned an unsuccessful tags response.",
+        )];
+    }
+
+    let body = match response.text().await {
+        Ok(body) => body,
+        Err(_) => {
+            return vec![Finding::new(
+                CONFIGURED_MODEL_ID,
+                FindingSeverity::Warn,
+                "The Ollama tags response could not be read; model readiness could not be verified.",
+                "Check the local Ollama runtime and rerun doctor.",
+            )];
+        }
+    };
+    let payload = match serde_json::from_str::<serde_json::Value>(&body) {
+        Ok(payload) => payload,
+        Err(_) => {
+            return vec![Finding::new(
+                CONFIGURED_MODEL_ID,
+                FindingSeverity::Warn,
+                "The Ollama tags response was not valid JSON; model readiness could not be verified.",
+                "Check the local Ollama runtime and rerun doctor.",
+            )];
+        }
+    };
+    let Some(models) = payload.get("models").and_then(serde_json::Value::as_array) else {
+        return vec![Finding::new(
+            CONFIGURED_MODEL_ID,
+            FindingSeverity::Warn,
+            "The Ollama tags response has no models list; model readiness could not be verified.",
+            "Check the local Ollama runtime and rerun doctor.",
+        )];
+    };
+
+    let installed = models.iter().any(|entry| {
+        entry
+            .get("name")
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|name| model_matches(name, &model))
+    });
+    if installed {
+        tracing::debug!(target: "doctor", check = CONFIGURED_MODEL_ID, event = "model_available");
+        vec![Finding::pass(
+            CONFIGURED_MODEL_ID,
+            "The configured embedding model is installed in the local Ollama runtime.",
+        )]
+    } else {
+        let mut finding = Finding::error(
+            CONFIGURED_MODEL_ID,
+            "The configured embedding model is not installed in the local Ollama runtime.",
+            "Pull the configured embedding model in Ollama, then rerun doctor.",
+        );
+        finding.config_path = Some("memory.embedding_model".to_owned());
+        vec![finding]
+    }
+}
+
+fn endpoint_error(message: &str) -> Finding {
+    let mut finding = Finding::error(
+        CONFIGURED_MODEL_ID,
+        message,
+        "Start the configured Ollama runtime and verify its local base URL, then rerun doctor.",
+    );
+    finding.config_path = Some("local_ai.base_url".to_owned());
+    finding
+}
+
+fn model_matches(installed: &str, configured: &str) -> bool {
+    if installed == configured {
+        return true;
+    }
+    if installed.contains(':') && configured.contains(':') {
+        return false;
+    }
+    model_base(installed) == model_base(configured)
+}
+
+fn model_base(model: &str) -> &str {
+    model.split(':').next().unwrap_or_default()
 }
 
 fn config(config: &Config) -> Vec<Finding> {
@@ -272,13 +441,20 @@ fn normalized_provider_slug(provider: &str) -> &str {
 }
 
 fn custom_endpoint_is_configured(config: &Config, provider: &str) -> bool {
-    provider
-        .strip_prefix("custom:")
-        .is_some_and(|endpoint| !endpoint.trim().is_empty())
-        || config
+    if let Some(endpoint) = provider.strip_prefix("custom:") {
+        return valid_custom_endpoint(endpoint.trim());
+    }
+    provider.trim() == "custom"
+        && config
             .custom_embeddings
             .as_ref()
-            .is_some_and(|custom| !custom.endpoint.trim().is_empty())
+            .is_some_and(|custom| valid_custom_endpoint(custom.endpoint.trim()))
+}
+
+fn valid_custom_endpoint(endpoint: &str) -> bool {
+    reqwest::Url::parse(endpoint)
+        .map(|url| matches!(url.scheme(), "http" | "https") && url.host_str().is_some())
+        .unwrap_or(false)
 }
 
 fn normalize_provider(provider: &str) -> &str {
@@ -310,3 +486,7 @@ fn invalid(path: &str, message: &str, fix_hint: &str) -> Finding {
     finding.config_path = Some(path.to_owned());
     finding
 }
+
+#[cfg(test)]
+#[path = "embeddings_tests.rs"]
+mod tests;

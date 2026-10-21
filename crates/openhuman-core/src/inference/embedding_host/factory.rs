@@ -3,13 +3,13 @@
 use std::sync::Arc;
 
 use crate::config::Config;
-use tinyinference_embeddings::factory::{
-    create_configured_embedding_model, create_default_embedding_model, CredentialResolver,
-    EmbeddingFactorySettings, ManagedModelFactory,
-};
 use tinyinference_embeddings::EmbeddingModel;
+use tinyinference_embeddings::factory::{
+    CredentialResolver, EmbeddingFactorySettings, ManagedModelFactory,
+    create_configured_embedding_model, create_default_embedding_model,
+};
 
-use super::cloud::{credential_scope, UnavailableEmbeddingModel};
+use super::cloud::{UnavailableEmbeddingModel, credential_scope};
 use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
 use crate::inference::registry::EmbeddingRequest;
 use crate::security::approval::ApprovalChatContext;
@@ -45,6 +45,31 @@ fn managed_factory(config: &Config, chat: Option<ApprovalChatContext>) -> Manage
         }
         log::debug!("[embeddings::factory] no managed embedding provider registered");
         Ok(Box::new(UnavailableEmbeddingModel::new(model, dimensions)))
+    })
+}
+
+fn inspection_managed_factory(config: &Config) -> ManagedModelFactory {
+    let config = config.clone();
+    Arc::new(move |model, dimensions| {
+        let Some(registered) = crate::inference::registry::inspection_embedding(PROVIDER_OPENHUMAN)
+        else {
+            log::debug!("[embeddings::factory] no inspection-safe managed embedder registered");
+            return Ok(Box::new(UnavailableEmbeddingModel::new(model, dimensions)));
+        };
+        let (state_dir, secrets_encrypt) = credential_scope(Some(&config));
+        registered(&EmbeddingRequest {
+            config: Some(&config),
+            model,
+            dimensions,
+            chat: None,
+            state_dir,
+            secrets_encrypt,
+        })
+        .map_err(|_| {
+            tinyinference_embeddings::Error::Validation(
+                "managed embedding inspection is unavailable".to_owned(),
+            )
+        })
     })
 }
 
@@ -115,6 +140,40 @@ pub fn create_embedding_provider_with_config(
         custom_endpoint,
         None,
     )
+}
+
+/// Builds the selected provider through the shared TinyInference factory,
+/// using only the supplied read-only credential snapshot for BYOK providers.
+/// Managed embeddings use a separate inspection-safe factory and never fall
+/// back to the ordinary mutable managed factory.
+pub fn create_embedding_provider_for_inspection(
+    config: &Config,
+    provider: &str,
+    model: &str,
+    dimensions: usize,
+    api_key: &str,
+    custom_endpoint: Option<&str>,
+) -> anyhow::Result<Box<dyn EmbeddingModel>> {
+    let provider = custom_endpoint
+        .filter(|_| provider == "custom")
+        .map(|endpoint| format!("custom:{endpoint}"))
+        .unwrap_or_else(|| provider.to_owned());
+    let selected = settings(
+        &provider,
+        model,
+        dimensions,
+        tinyinference_local::ollama::ollama_base_url_from_override(
+            config.local_ai.base_url.as_deref(),
+        ),
+    );
+    let api_key = api_key.to_owned();
+    let credentials: CredentialResolver = Arc::new(move |_| api_key.clone());
+    let model = create_configured_embedding_model(
+        &selected,
+        &credentials,
+        &inspection_managed_factory(config),
+    )?;
+    Ok(model)
 }
 
 /// [`create_embedding_provider_with_config`] for a call made in a chat turn:

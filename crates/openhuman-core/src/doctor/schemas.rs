@@ -117,7 +117,7 @@ fn handle_models(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
     Box::pin(async move {
         let config = ctx.load_config().await?;
         let use_cache = read_optional::<bool>(&params, "use_cache")?.unwrap_or(true);
-        to_json(crate::doctor::rpc::doctor_models(&config, use_cache).await?)
+        to_json(crate::doctor::ops::doctor_models(&config, use_cache).await?)
     })
 }
 

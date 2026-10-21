@@ -375,8 +375,10 @@ pub mod inference_registry {
         register_inspection_chat_model, register_inspection_chat_model_in, unregister_catalog,
         unregister_chat_model, unregister_embedding, unregister_inspection_chat_model,
         InspectionCatalogError, InspectionCatalogListing, PreparedInspectionCatalog,
-        register_inspection_catalog, register_inspection_catalog_in, unregister_catalog,
+        register_inspection_catalog, register_inspection_catalog_in,
         unregister_inspection_catalog,
+        register_inspection_embedding, register_inspection_embedding_in,
+        unregister_inspection_embedding, InspectionEmbeddingFactory,
     };
 }
 
@@ -384,11 +386,15 @@ pub mod inference_registry {
 pub mod memory_engines {
     pub use openhuman_core::memory::engine::{
         BearerSource, Binding, BoundEngine, EngineCredential, EngineSettings, TINYHUMANS_ENGINE,
-        build_cached, rooted,
+        EngineHealth, build_cached, rooted,
     };
     pub use openhuman_core::memory::engine_registry::{
         EngineBuilder, EngineEntry, EngineFuture, EngineRequest, FreeBackground, bound_engine,
-        register_memory_engine, register_memory_engine_in, unregister_memory_engine,
+        register_memory_engine, register_memory_engine_in,
+        register_memory_health_probe, register_memory_health_probe_in,
+        register_read_only_engine_factory, register_read_only_engine_factory_in,
+        unregister_memory_engine, EngineBuilder, EngineEntry, EngineFuture, EngineRequest,
+        FreeBackground, ReadOnlyEngineError, ReadOnlyEngineFactory, ReadOnlyHealthProbe,
     };
 }
 

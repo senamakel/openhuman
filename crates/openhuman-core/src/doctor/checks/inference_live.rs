@@ -71,7 +71,7 @@ impl DoctorCheck for InferenceLiveCheck {
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let check_id = self.id();
-        let dispatch = DispatchCtx::ambient();
+        let dispatch = inspection_dispatch_context(ctx.config());
         let built = match create_chat_model_with_identity_in_for_inspection(
             &dispatch,
             self.role,
@@ -97,6 +97,22 @@ impl DoctorCheck for InferenceLiveCheck {
             .await
             .clone();
         vec![outcome.finding(check_id)]
+    }
+}
+
+fn inspection_dispatch_context(config: &Config) -> DispatchCtx {
+    match DispatchCtx::ambient().resolved() {
+        Some(parent) => {
+            let overlay = crate::core::runtime::ContextOverlay::new(
+                config.clone(),
+                parent.domains(),
+                parent.tool_groups(),
+            );
+            DispatchCtx::new(parent.derive_for_inspection(overlay))
+        }
+        None => DispatchCtx::new(crate::core::runtime::CoreContext::for_inspection(
+            config.clone(),
+        )),
     }
 }
 

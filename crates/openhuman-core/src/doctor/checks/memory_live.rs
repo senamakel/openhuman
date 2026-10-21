@@ -5,8 +5,8 @@ use std::time::Duration;
 
 use async_trait::async_trait;
 use tinymemory_api::{
-    Error as MemoryApiError, FetchMode, FetchRequest, ItemId, MemoryEngine, MemoryMeta, MetaFilter,
-    Namespace, Reach, Segment, SegmentKind, StoreItem,
+    EngineDescriptor, Error as MemoryApiError, FetchMode, FetchRequest, ItemId, MemoryEngine,
+    MemoryMeta, MetaFilter, Namespace, Reach, Segment, SegmentKind, StoreItem,
 };
 
 use crate::doctor::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding};
@@ -51,7 +51,15 @@ impl DoctorCheck for MemoryRoundtripCheck {
             Err(error) => return vec![finding_for_engine_error(error)],
         };
 
-        match roundtrip(engine).await {
+        let Some(fetch_mode) = probe_fetch_mode(engine.descriptor()) else {
+            return vec![Finding::error(
+                CHECK_ID,
+                "The selected memory engine does not support a keyword or hybrid probe fetch.",
+                "Select a memory engine that supports text-query fetch, store, and scoped forget.",
+            )];
+        };
+
+        match roundtrip(engine, fetch_mode).await {
             Ok(()) => vec![Finding::pass(
                 CHECK_ID,
                 "The selected memory engine stored, fetched, and removed a temporary probe.",
@@ -59,6 +67,12 @@ impl DoctorCheck for MemoryRoundtripCheck {
             Err(finding) => vec![finding],
         }
     }
+}
+
+fn probe_fetch_mode(descriptor: &EngineDescriptor) -> Option<FetchMode> {
+    [FetchMode::Hybrid, FetchMode::Keyword]
+        .into_iter()
+        .find(|mode| descriptor.supports(*mode))
 }
 
 struct ScopedScratchCleanup {
@@ -132,7 +146,10 @@ impl Drop for ScopedScratchCleanup {
     }
 }
 
-async fn roundtrip(engine: Arc<dyn MemoryEngine>) -> Result<(), Finding> {
+async fn roundtrip(
+    engine: Arc<dyn MemoryEngine>,
+    fetch_mode: FetchMode,
+) -> Result<(), Finding> {
     let nonce = uuid::Uuid::new_v4().simple().to_string();
     let namespace = Namespace::new(vec![Segment::new(
         SegmentKind::Service,
@@ -175,7 +192,7 @@ async fn roundtrip(engine: Arc<dyn MemoryEngine>) -> Result<(), Finding> {
         },
         ..FetchRequest::new(
             "OpenHuman doctor memory roundtrip probe",
-            FetchMode::Keyword,
+            fetch_mode,
             1,
         )
     };

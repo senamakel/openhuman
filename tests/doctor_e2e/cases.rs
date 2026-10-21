@@ -336,6 +336,7 @@ async fn live_completion_embedding_and_memory_roundtrip_pass_and_clean_up() {
         ("POST", "/openai/v1/chat/completions"),
         ("POST", "/openai/v1/embeddings"),
         ("POST", "/memory/experience"),
+        ("POST", "/memory/recall"),
         ("GET", "/memory/events"),
         ("POST", "/memory/forget"),
     ] {

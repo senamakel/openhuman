@@ -12,9 +12,9 @@ use std::sync::{
 use tempfile::TempDir;
 use tinymemory_api::conformance::ReferenceEngine;
 use tinymemory_api::{
-    EngineDescriptor, EngineHealth, Error as MemoryApiError, FetchPage, FetchRequest, ForgetReport,
-    ForgetTarget, ItemId, ListPage, ListRequest, MemoryEngine, MemoryMeta, MetaFilter, Namespace,
-    Reach, RecallAnswer, RecallRequest, StoreItem, StoreReceipt,
+    EngineDescriptor, EngineHealth, Error as MemoryApiError, FetchMode, FetchPage, FetchRequest,
+    ForgetReport, ForgetTarget, ItemId, ListPage, ListRequest, MemoryEngine, MemoryMeta,
+    MetaFilter, Namespace, Reach, RecallAnswer, RecallRequest, StoreItem, StoreReceipt,
 };
 
 #[derive(Clone)]
@@ -29,6 +29,7 @@ enum Failure {
 #[derive(Default)]
 struct Calls {
     steps: Vec<&'static str>,
+    fetch_modes: Vec<FetchMode>,
     stored: Vec<(ItemId, Namespace)>,
     scoped_forgets: Vec<(Vec<ItemId>, Reach)>,
     unscoped_forgets: usize,
@@ -113,7 +114,11 @@ impl MemoryEngine for ProbeEngine {
     }
 
     async fn fetch(&self, request: FetchRequest) -> tinymemory_api::Result<FetchPage> {
-        self.calls.lock().unwrap().steps.push("fetch");
+        {
+            let mut calls = self.calls.lock().unwrap();
+            calls.steps.push("fetch");
+            calls.fetch_modes.push(request.mode);
+        }
         if matches!(&self.failure, Failure::Fetch) {
             return Err(MemoryApiError::Unavailable("mock fetch failure".into()));
         }
@@ -393,6 +398,7 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
                 "forget_within"
             ]
         );
+        assert_eq!(calls.fetch_modes, [FetchMode::Hybrid, FetchMode::Hybrid]);
         assert_eq!(calls.stored.len(), 2);
         assert_ne!(
             calls.stored[0].0, calls.stored[1].0,
@@ -421,6 +427,20 @@ async fn each_successful_probe_uses_a_fresh_service_namespace_and_preserves_user
     let remaining = stored(&engine.inner, MetaFilter::default()).await;
     assert_eq!(remaining.len(), 1, "the scratch probes are gone");
     assert_eq!(remaining[0].id, real_id, "unrelated memory is preserved");
+}
+
+#[test]
+fn probe_fetch_mode_prefers_hybrid_then_falls_back_to_keyword() {
+    let engine = ReferenceEngine::new();
+    let mut descriptor = engine.descriptor().clone();
+    descriptor.fetch_modes = vec![FetchMode::Keyword, FetchMode::Hybrid];
+    assert_eq!(super::probe_fetch_mode(&descriptor), Some(FetchMode::Hybrid));
+
+    descriptor.fetch_modes = vec![FetchMode::Keyword];
+    assert_eq!(super::probe_fetch_mode(&descriptor), Some(FetchMode::Keyword));
+
+    descriptor.fetch_modes = vec![FetchMode::Vector];
+    assert_eq!(super::probe_fetch_mode(&descriptor), None);
 }
 
 #[tokio::test]

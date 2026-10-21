@@ -240,7 +240,7 @@ async fn a_legacy_session_keyed_list_is_migrated_forward_once() {
     let read = tool
         .execute_with_parent_context(
             json!({}),
-            Some(parent),
+            Some(parent.clone()),
             Some(&ThreadContext("thread-legacy")),
         )
         .await
@@ -259,6 +259,35 @@ async fn a_legacy_session_keyed_list_is_migrated_forward_once() {
             .await
             .unwrap();
     assert_eq!(migrated.items.len(), 1);
+
+    // Clearing the new thread-keyed list must remain authoritative. The empty
+    // list is persisted, so a later read must not treat it as an absent target
+    // and copy the still-present legacy row back into it.
+    let cleared = tool
+        .execute_with_parent_context(
+            json!({ "todos": [] }),
+            Some(parent.clone()),
+            Some(&ThreadContext("thread-legacy")),
+        )
+        .await
+        .unwrap();
+    assert!(payload(&cleared)["todos"].as_array().unwrap().is_empty());
+
+    let read_after_clear = tool
+        .execute_with_parent_context(
+            json!({}),
+            Some(parent),
+            Some(&ThreadContext("thread-legacy")),
+        )
+        .await
+        .unwrap();
+    assert!(
+        payload(&read_after_clear)["todos"]
+            .as_array()
+            .unwrap()
+            .is_empty(),
+        "a cleared migrated list must not be resurrected from the legacy key"
+    );
 }
 
 #[tokio::test]

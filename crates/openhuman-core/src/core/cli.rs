@@ -201,6 +201,16 @@ fn parse_launch_options(args: &[String]) -> Result<CliLaunchOptions> {
     Ok(parsed)
 }
 
+/// Parse the same leading model/provider flags as the CLI and return the
+/// remaining command arguments without applying those transient overrides.
+///
+/// Hosts that route an inspection command around the normal CLI boot path use
+/// this to preserve the launch-argument grammar while keeping the selected
+/// inspection configuration unchanged.
+pub fn parse_cli_args_after_launch_options(args: &[String]) -> Result<Vec<String>> {
+    parse_launch_options(args).map(|options| options.args)
+}
+
 fn run_moved_tui_diagnostic() -> Result<()> {
     anyhow::bail!(
         "the terminal UI is now the separate `openhuman-tui` executable; \
@@ -550,7 +560,8 @@ fn run_namespace_command(
     Ok(())
 }
 
-/// Parses command-line arguments into a JSON map based on a function's schema.
+/// Parses namespace-style command-line arguments into a JSON map based on a
+/// function's schema, without dispatching the command or starting a runtime.
 ///
 /// # Arguments
 ///
@@ -560,7 +571,7 @@ fn run_namespace_command(
 /// # Errors
 ///
 /// Returns an error if arguments are malformed, unknown, or fail validation.
-fn parse_function_params(
+pub fn parse_function_params(
     schema: &ControllerSchema,
     args: &[String],
 ) -> Result<Map<String, Value>, String> {

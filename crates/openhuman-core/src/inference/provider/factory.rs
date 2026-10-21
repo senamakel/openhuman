@@ -54,6 +54,7 @@ mod turn_model;
 
 #[cfg(feature = "flows")]
 pub(crate) use access_gates::current_host_requires_session;
+pub(crate) use chat_model::create_chat_model_with_identity_in_for_inspection;
 pub(crate) use chat_model::create_chat_model_with_model_id_in_for_inspection;
 pub(crate) use chat_model::resolves_to_managed_backend;
 pub use chat_model::{
@@ -83,13 +84,15 @@ use access_gates::{emit_inference_egress, enforce_local_only_inference};
 use chat_model::{unresolved_chat_model_error, with_default_temperature};
 use cloud_slug::{
     resolve_cloud_slug, resolve_cloud_slug_with_access, try_create_cloud_slug_chat_model,
-    try_create_cloud_slug_chat_model_for_inspection, try_create_cloud_slug_chat_model_from_string,
+    try_create_cloud_slug_chat_model_for_inspection,
+    try_create_cloud_slug_chat_model_for_inspection_with_identity,
+    try_create_cloud_slug_chat_model_from_string,
     try_create_cloud_slug_chat_model_with_native_tools,
 };
 use credentials::CredentialAccess;
 use local_runtime::{
-    try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_from_string,
-    OptionalChatModelResult,
+    try_create_local_runtime_chat_model, try_create_local_runtime_chat_model_for_inspection,
+    try_create_local_runtime_chat_model_from_string, OptionalChatModelResult,
 };
 pub(crate) use managed_backend::{
     make_openhuman_backend_model_for_options, make_openhuman_backend_model_for_thread,
@@ -98,7 +101,9 @@ use managed_backend::{managed_chat_model, resolve_managed_model};
 use primary_cloud::{legacy_inference_slug, resolve_primary_cloud_provider_string};
 use subprocess_providers::{
     prepare_claude_agent_sdk_chat_model, try_create_claude_agent_sdk_chat_model,
+    try_create_claude_agent_sdk_chat_model_for_inspection,
     try_create_claude_agent_sdk_chat_model_from_string, try_create_claude_code_chat_model,
+    try_create_claude_code_chat_model_for_inspection,
     try_create_claude_code_chat_model_from_string,
 };
 use tiers::{is_abstract_tier_model, managed_default_model};
@@ -138,6 +143,48 @@ use tinyinference_llm::providers::openai::codex::{
     OPENAI_CODEX_ORIGINATOR, OPENAI_CODEX_ORIGINATOR_HEADER,
 };
 use tinyinference_llm::providers::openai::AuthStyle as CompatAuthStyle;
+
+/// Opaque per-report identity for an inspection completion. It contains the
+/// effective endpoint, exact frozen credential, and actual wire model, but
+/// deliberately has no Debug/Display implementation.
+#[derive(Clone, Eq, Hash, PartialEq)]
+pub(crate) struct InspectionRequestIdentity {
+    endpoint: String,
+    credential: String,
+    wire_model: String,
+}
+
+impl InspectionRequestIdentity {
+    pub(crate) fn new(endpoint: String, credential: String, wire_model: String) -> Self {
+        Self {
+            endpoint,
+            credential,
+            wire_model,
+        }
+    }
+}
+
+/// Whether the resolved inspection route can enforce the requested output
+/// token ceiling on the provider request.
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
+pub(crate) enum InspectionOutputBudgetCapability {
+    /// The provider request enforces its requested output-token limit.
+    Bounded,
+    /// The provider route cannot express a bounded output-token request.
+    Unsupported,
+}
+
+/// Result shape shared by inspection-only provider constructors.
+type InspectionChatModelResult =
+    Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String, String, String)>>;
+
+/// Prepared, frozen model plus its opaque deduplication identity.
+pub(crate) struct PreparedInspectionChatModel {
+    pub(crate) model: Arc<dyn ChatModel<()>>,
+    pub(crate) model_id: String,
+    pub(crate) identity: InspectionRequestIdentity,
+    pub(crate) output_budget: InspectionOutputBudgetCapability,
+}
 
 /// Sentinel meaning "use the OpenHuman backend session JWT".
 pub const PROVIDER_OPENHUMAN: &str = "openhuman";

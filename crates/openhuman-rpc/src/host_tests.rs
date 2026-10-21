@@ -200,6 +200,27 @@ fn cli_storage_is_opened_for_one_shot_commands_only() {
 }
 
 #[test]
+#[cfg(feature = "server")]
+fn legacy_doctor_namespace_commands_do_not_preopen_storage() {
+    let args = |parts: &[&str]| parts.iter().map(|p| p.to_string()).collect::<Vec<_>>();
+    let uses = |parts: &[&str]| cli_command_uses_storage(&args(parts), |_| true);
+
+    for invocation in [
+        &["doctor", "report"][..],
+        &["doctor", "report", "--tier", "static"][..],
+        &["--model", "x", "doctor", "report", "--only", "config/parse"][..],
+        &["doctor", "models"][..],
+        &["doctor", "models", "--use-cache", "false"][..],
+        &["--provider=x", "doctor", "models", "--use-cache", "true"][..],
+    ] {
+        assert!(
+            !uses(invocation),
+            "legacy doctor inspection must not open storage before namespace dispatch: {invocation:?}"
+        );
+    }
+}
+
+#[test]
 fn embed_info_is_versioned_and_rejects_unknown_flags() {
     let info = embed_info(&["embed".into(), "info".into(), "--json".into()])
         .unwrap()

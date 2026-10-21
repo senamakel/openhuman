@@ -19,7 +19,7 @@ async fn run_check(config: Config, check_id: &str) -> Vec<Finding> {
         .collect()
 }
 
-fn finding<'a>(findings: &'a [Finding], severity: FindingSeverity) -> &'a Finding {
+fn finding(findings: &[Finding], severity: FindingSeverity) -> &Finding {
     findings
         .iter()
         .find(|finding| finding.severity == severity)

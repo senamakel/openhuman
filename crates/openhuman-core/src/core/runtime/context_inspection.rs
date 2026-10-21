@@ -42,6 +42,7 @@ impl CoreContext {
             host_kind,
             workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
                 workspace_dir: Some(config.workspace_dir.clone()),
+                config_path: Some(config.config_path.clone()),
             }))),
             domains,
             tool_groups,

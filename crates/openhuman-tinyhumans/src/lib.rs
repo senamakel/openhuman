@@ -64,7 +64,7 @@ pub mod embed {
     // The curated facades (each is an explicit list inside embed).
     pub use openhuman_embed::modules;
     pub use openhuman_embed::{
-        artifacts, chat_surface, config, identity, memory, process, seams, secret_storage,
+        artifacts, chat_surface, cli, config, identity, memory, process, seams, secret_storage,
         session_store,
     };
 }
@@ -77,6 +77,7 @@ pub use openhuman_embed::__host;
 pub mod backend;
 pub(crate) mod channels;
 pub mod client;
+pub(crate) mod doctor;
 pub mod hosted;
 pub(crate) mod inference;
 mod install;

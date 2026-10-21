@@ -7,6 +7,29 @@ use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
 use crate::inference::provider::factory::access_gates::host_requires_session;
+
+#[test]
+fn inspection_codex_oauth_metadata_marks_output_budget_unsupported() {
+    use crate::inference::provider::factory::InspectionOutputBudgetCapability;
+    use tinyinference_llm::providers::openai::codex::OpenAiCodexRouting;
+
+    let codex = OpenAiCodexRouting {
+        endpoint: "https://chatgpt.com/backend-api/codex".into(),
+        using_oauth: true,
+        account_id: Some("acct-test".into()),
+    };
+    assert_eq!(
+        super::cloud_slug::inspection_output_budget_capability(&codex),
+        InspectionOutputBudgetCapability::Unsupported
+    );
+    assert_eq!(
+        super::cloud_slug::inspection_output_budget_capability(&OpenAiCodexRouting::standard(
+            "https://api.openai.com/v1"
+        )),
+        InspectionOutputBudgetCapability::Bounded
+    );
+}
+
 fn create_test_chat_model_from_string(
     role: &str,
     provider: &str,
@@ -41,6 +64,62 @@ fn config_with_providers_in_tempdir(tmp: &TempDir, providers: Vec<CloudProviderC
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
     c
+}
+
+#[test]
+fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes() {
+    let tmp = TempDir::new().expect("temporary provider workspace");
+    let mut provider = openai_entry("p_missing_key", "factory-missing-key-test");
+    let mut config = config_with_providers_in_tempdir(&tmp, vec![provider.clone()]);
+    config.chat_provider = Some("factory-missing-key-test:gpt-4o".to_string());
+
+    let inspection = super::chat_model::create_chat_model_with_model_id_in_for_inspection(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        "chat",
+        &config,
+        0.0,
+    );
+    assert!(
+        inspection.is_err(),
+        "inspection must reject explicit Bearer routes without credentials"
+    );
+
+    let runtime = super::chat_model::create_chat_model_with_model_id_in(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        "chat",
+        &config,
+        0.0,
+    );
+    assert!(
+        runtime.is_ok(),
+        "runtime construction preserves explicit routes before a key is saved"
+    );
+
+    provider.auth_style = AuthStyle::Anthropic;
+    config.cloud_providers = vec![provider.clone()];
+    assert!(
+        super::chat_model::create_chat_model_with_model_id_in_for_inspection(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            "chat",
+            &config,
+            0.0,
+        )
+        .is_err(),
+        "inspection must reject explicit Anthropic routes without credentials"
+    );
+
+    provider.auth_style = AuthStyle::None;
+    config.cloud_providers = vec![provider];
+    assert!(
+        super::chat_model::create_chat_model_with_model_id_in_for_inspection(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            "chat",
+            &config,
+            0.0,
+        )
+        .is_ok(),
+        "unauthenticated proxy routes do not require a stored credential"
+    );
 }
 
 fn oh_entry(id: &str) -> CloudProviderCreds {

@@ -1,3 +1,4 @@
+use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
 use crate::doctor::runner;
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
@@ -429,12 +430,14 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let model_generations = Arc::clone(&generations);
     let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| {
         build_constructions.fetch_add(1, Ordering::SeqCst);
-        Ok((
-            Arc::new(ManagedModel {
+        Ok(crate::inference::registry::InspectionChatModelBuild {
+            model: Arc::new(ManagedModel {
                 generations: Arc::clone(&model_generations),
             }) as Arc<dyn ChatModel<()>>,
-            "managed-test-model".to_owned(),
-        ))
+            model_id: "managed-test-model".to_owned(),
+            endpoint: "https://api.openhuman.invalid/openai/v1".to_owned(),
+            credential: "doctor-test-session-token".to_owned(),
+        })
     });
     register_inspection_chat_model(PROVIDER_OPENHUMAN, inspection_factory);
     let _registered_model = RegisterManagedModel;
@@ -472,6 +475,36 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         .all(|result| !result.message.contains("doctor-test-session-token")));
     assert!(!temp.path().join("auth-profiles.json").exists());
     assert!(!temp.path().join("auth-profiles.lock").exists());
+}
+
+#[tokio::test]
+async fn missing_byok_model_is_reported_by_the_native_construct_check() {
+    let workspace = tempfile::tempdir().expect("create isolated config fixture");
+    let mut config = isolated_config(workspace.path());
+    config.default_model = None;
+    config.primary_cloud = None;
+    config.chat_provider = Some("doctor-empty-model:".to_owned());
+    config.reasoning_provider = None;
+    config.agentic_provider = None;
+    config.coding_provider = None;
+    config.vision_provider = None;
+    config.memory_provider = None;
+    config.cloud_providers = vec![CloudProviderCreds {
+        id: "doctor-empty-model-provider".to_owned(),
+        slug: "doctor-empty-model".to_owned(),
+        label: "Empty model fixture".to_owned(),
+        endpoint: "https://provider.example.invalid/v1".to_owned(),
+        auth_style: AuthStyle::Bearer,
+        default_model: None,
+    }];
+
+    let findings = run_only(config, CONSTRUCT).await;
+    let result = finding(&findings, CONSTRUCT);
+
+    assert_eq!(result.severity, FindingSeverity::Error);
+    assert_eq!(result.config_path.as_deref(), Some("chat_provider"));
+    assert!(result.message.contains("model is missing"));
+    assert!(!result.message.contains("private"));
 }
 
 struct RegisterManagedModel;

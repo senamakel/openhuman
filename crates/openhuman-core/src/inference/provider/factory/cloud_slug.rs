@@ -9,6 +9,16 @@ use crate::inference::provider::factory::access_gates::verify_session_active;
 use crate::inference::provider::fallback_diagnostics;
 use tinyinference_llm::providers::anthropic::endpoint_is_anthropic_messages;
 
+type CloudSlugInspectionChatModelResult = Option<
+    anyhow::Result<(
+        Arc<dyn ChatModel<()>>,
+        String,
+        String,
+        String,
+        InspectionOutputBudgetCapability,
+    )>,
+>;
+
 /// Look up a `cloud_providers` entry by slug and build the provider.
 /// The shared resolution for a `<slug>:<model>` cloud provider — the cloud
 /// `cloud_providers` entry, the effective model id (with `default_model`
@@ -19,6 +29,16 @@ pub(super) struct CloudSlugResolution<'a> {
     pub(super) effective_model: String,
     pub(super) key: String,
     pub(super) codex: tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
+}
+
+pub(super) fn inspection_output_budget_capability(
+    codex: &tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
+) -> InspectionOutputBudgetCapability {
+    if codex.using_oauth {
+        InspectionOutputBudgetCapability::Unsupported
+    } else {
+        InspectionOutputBudgetCapability::Bounded
+    }
 }
 
 pub(super) fn resolve_cloud_slug<'a>(
@@ -184,18 +204,15 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     // 401 from the provider several layers later — exactly the baffling error
     // this diagnostic exists to replace.
     //
-    // Scoped to the *implicit fallback* path deliberately. That is the case the
-    // diagnostic is for: a local-chat user whose background role landed on a
-    // BYOK slug they never configured. An explicitly routed provider keeps its
-    // existing behaviour and is allowed to build without a stored key — callers
-    // construct such models to probe or describe a provider before a key is
-    // saved, and failing that at construction time would be a behaviour change
-    // well beyond this diagnostic.
+    // Runtime construction only rejects missing credentials on the implicit
+    // fallback path: explicit routes may be constructed before a key is saved.
+    // Inspection is stricter because doctor must report an unusable authenticated
+    // route without invoking the model.
     //
     // Styles that carry no stored key (`OpenhumanJwt` injects a session JWT
     // downstream, `None` sends no auth header at all) are legitimately blank and
     // never trip this.
-    if implicit_fallback
+    if (implicit_fallback || credential_access == CredentialAccess::Inspection)
         && key.trim().is_empty()
         && matches!(entry.auth_style, AuthStyle::Bearer | AuthStyle::Anthropic)
     {
@@ -265,6 +282,7 @@ pub(super) fn try_create_cloud_slug_chat_model_with_native_tools(
         native_tool_calling,
         egress,
         CredentialAccess::Runtime,
+        None,
     )
 }
 
@@ -279,7 +297,37 @@ pub(super) fn try_create_cloud_slug_chat_model_for_inspection(
         true,
         egress,
         CredentialAccess::Inspection,
+        None,
     )
+}
+
+pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
+    role: &str,
+    config: &Config,
+) -> CloudSlugInspectionChatModelResult {
+    let mut identity = None;
+    let mut resolved = provider_for_role(role, config);
+    if resolved.trim().is_empty() || resolved.trim() == "cloud" {
+        resolved = resolve_primary_cloud_provider_string(config);
+    }
+    let result = try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+        role,
+        &resolved,
+        config,
+        true,
+        &EgressLedger::none(),
+        CredentialAccess::Inspection,
+        Some(&mut identity),
+    )?;
+    Some(result.and_then(|(model, model_id)| {
+        let (endpoint, credential, wire_model, output_budget) = identity.ok_or_else(|| {
+            anyhow::anyhow!("inspection route did not expose its frozen wire identity")
+        })?;
+        if wire_model != model_id {
+            anyhow::bail!("inspection route model identity did not match its constructed model");
+        }
+        Ok((model, model_id, endpoint, credential, output_budget))
+    }))
 }
 
 fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
@@ -288,6 +336,9 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     native_tool_calling: bool,
     egress: &EgressLedger,
     credential_access: CredentialAccess,
+    inspection_identity: Option<
+        &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
+    >,
 ) -> OptionalChatModelResult {
     // Resolve the role's provider string, expanding the empty / "cloud" sentinel
     // to the primary cloud target.
@@ -302,6 +353,7 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         native_tool_calling,
         egress,
         credential_access,
+        inspection_identity,
     )
 }
 
@@ -330,6 +382,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         native_tool_calling,
         egress,
         CredentialAccess::Runtime,
+        None,
     )
 }
 
@@ -340,6 +393,9 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     native_tool_calling: bool,
     egress: &EgressLedger,
     credential_access: CredentialAccess,
+    mut inspection_identity: Option<
+        &mut Option<(String, String, String, InspectionOutputBudgetCapability)>,
+    >,
 ) -> OptionalChatModelResult {
     let p = provider.trim().to_string();
 
@@ -441,11 +497,24 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
                     egress,
                 ),
                 CredentialAccess::Inspection => {
-                    super::managed_backend::managed_chat_model_for_inspection(
+                    match super::managed_backend::managed_chat_model_build_for_inspection(
                         role,
                         config,
                         model_override,
-                    )
+                    ) {
+                        Ok(build) => {
+                            if let Some(identity) = inspection_identity.as_deref_mut() {
+                                *identity = Some((
+                                    build.endpoint.clone(),
+                                    build.credential.clone(),
+                                    build.model_id.clone(),
+                                    InspectionOutputBudgetCapability::Bounded,
+                                ));
+                            }
+                            Ok((build.model, build.model_id))
+                        }
+                        Err(error) => Err(error),
+                    }
                 }
             });
         }
@@ -516,5 +585,19 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         codex: codex_route,
         http,
     });
+    if let Some(identity) = inspection_identity {
+        let credential = if entry.auth_style == AuthStyle::None {
+            String::new()
+        } else {
+            key.clone()
+        };
+        let output_budget = inspection_output_budget_capability(&codex);
+        *identity = Some((
+            codex.endpoint.clone(),
+            credential,
+            effective_model.clone(),
+            output_budget,
+        ));
+    }
     Some(chat.map(|chat| (chat, effective_model)))
 }

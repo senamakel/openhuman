@@ -1,7 +1,6 @@
 //! JSON-RPC / CLI controller surface for diagnostics.
 //!
-//! Resolve async inputs for the temporary v1 adapters, then run the v2 check
-//! registry and report assembler.
+//! Resolve the selected profile and run the native doctor check registry.
 
 use std::path::Path;
 
@@ -14,7 +13,7 @@ use crate::core::{
 };
 use crate::doctor::{
     DoctorConfigSource, DoctorCtx, DoctorOptions, DoctorReport, DoctorSummary, DoctorTier, Finding,
-    MemoryEngineCheck, ModelProbeReport,
+    ModelProbeReport,
 };
 
 pub async fn doctor_report(config: &Config) -> Result<Outcome<DoctorReport>, String> {
@@ -56,7 +55,7 @@ pub async fn doctor_report_with_options(
             ctx = ctx.with_profile(profile_id, DoctorConfigSource::Profile);
         }
     }
-    report_with_context(config, options, ctx).await
+    report_with_context(options, ctx).await
 }
 
 /// Runs a report under the dispatch's selected tenant context when present,
@@ -74,11 +73,7 @@ pub async fn doctor_report_for_dispatch(
             let ctx = DoctorCtx::from_config_with_components(target.config.clone(), components)
                 .with_profile(target.profile_id.as_str(), DoctorConfigSource::Tenant)
                 .with_profile_metadata(None, Some("saas-tenant".into()));
-            return CoreContext::scope(
-                target.context,
-                report_with_context(&target.config, options, ctx),
-            )
-            .await;
+            return CoreContext::scope(target.context, report_with_context(options, ctx)).await;
         }
     }
 
@@ -106,8 +101,50 @@ pub async fn doctor_report_for_dispatch(
         return doctor_report_for_selected_profile(&root, &profile_id, options).await;
     }
 
-    let config = dispatch.load_config().await?;
-    doctor_report_with_options(&config, options).await
+    if crate::core::runtime::is_saas() {
+        let config = dispatch.load_config().await?;
+        return doctor_report_with_options(&config, options).await;
+    }
+    if let Some(config) = dispatch.embedder_config() {
+        return doctor_report_with_options(&config, options).await;
+    }
+
+    // A doctor RPC is diagnostic, so resolve the desktop's effective config
+    // through the read-only profile loader. `DispatchCtx::load_config()` falls
+    // through to `Config::load_or_init()` when no embedder config exists; that
+    // startup loader persists migrations and can rewrite config.toml during an
+    // otherwise read-only report.
+    let selection = desktop_selection_for_dispatch(dispatch).await?;
+    doctor_report_for_desktop_selection(selection, options).await
+}
+
+/// Config resolution for non-SaaS doctor surfaces. Without an embedder-owned
+/// snapshot, diagnostics use the read-only desktop profile loader instead of
+/// `Config::load_or_init`, which can persist migrations.
+pub(crate) async fn config_for_dispatch(dispatch: &DispatchCtx) -> Result<Config, String> {
+    if crate::core::runtime::is_saas() {
+        return dispatch.load_config().await;
+    }
+    if let Some(config) = dispatch.embedder_config() {
+        return Ok(config);
+    }
+    Ok(desktop_selection_for_dispatch(dispatch).await?.config)
+}
+
+async fn desktop_selection_for_dispatch(
+    dispatch: &DispatchCtx,
+) -> Result<DesktopProfileSelection, String> {
+    let process_root = dispatch.resolved().and_then(|context| {
+        let (_, config_path) = context.workspace_config_binding().ok()?;
+        super::profile::root_for_config_path(&config_path?)
+    });
+    let root = super::profile::root_for_workspace_override()
+        .or(process_root)
+        .or_else(|| crate::config::default_root_openhuman_dir().ok())
+        .ok_or_else(|| "Could not resolve the desktop config root".to_owned())?;
+    super::profile::resolve_desktop_profile_for_doctor(&root, None)
+        .await
+        .map_err(|error| error.message().to_owned())
 }
 
 /// Builds a desktop profile report from an explicit root and profile id.
@@ -138,11 +175,7 @@ pub async fn doctor_report_for_selected_profile(
         .with_profile_status(DoctorProfileStatus::Valid);
     let inspection_context =
         profile_inspection_context(&selected.config, Some(&inspection_profile_id));
-    CoreContext::scope(
-        inspection_context,
-        report_with_context(&selected.config, options, ctx),
-    )
-    .await
+    CoreContext::scope(inspection_context, report_with_context(options, ctx)).await
 }
 
 /// Runs a report from the effective desktop selection without consulting the
@@ -167,11 +200,7 @@ pub async fn doctor_report_for_desktop_selection(
     }
     let inspection_context =
         profile_inspection_context(&selection.config, inspection_profile_id.as_deref());
-    CoreContext::scope(
-        inspection_context,
-        report_with_context(&selection.config, options, ctx),
-    )
-    .await
+    CoreContext::scope(inspection_context, report_with_context(options, ctx)).await
 }
 
 fn profile_inspection_context(
@@ -238,24 +267,9 @@ fn unusable_default_config_outcome(
 }
 
 async fn report_with_context(
-    config: &Config,
     options: DoctorOptions,
     ctx: DoctorCtx,
 ) -> Result<Outcome<DoctorReport>, String> {
-    let needs_memory_engine = ctx.components().memory
-        && options.tier.includes(DoctorTier::Connect)
-        && (options.only.is_empty() || options.only.iter().any(|id| id == "memory/engine"))
-        && !options.skip.iter().any(|id| id == "memory/engine");
-    let memory = if needs_memory_engine {
-        memory_engine_check(config).await
-    } else {
-        MemoryEngineCheck {
-            engine: None,
-            status: "off".into(),
-            reason: Some("memory engine check was not selected".into()),
-        }
-    };
-    let ctx = ctx.with_memory_engine(memory);
     let report = super::runner::run(&ctx, options).await?;
     Ok(Outcome::single_log(report, "doctor report generated"))
 }
@@ -293,23 +307,16 @@ fn safe_profile_id(profile_id: &str) -> Option<String> {
     super::profile::is_profile_path_segment(profile_id).then(|| profile_id.to_owned())
 }
 
-/// The memory engine's status for the doctor report.
-async fn memory_engine_check(config: &Config) -> MemoryEngineCheck {
-    let view = crate::memory::ops::engine_get(config).await;
-    let status = serde_json::to_value(view.status)
-        .ok()
-        .and_then(|value| value.as_str().map(str::to_string))
-        .unwrap_or_else(|| "down".to_string());
-    MemoryEngineCheck {
-        engine: view.engine,
-        status,
-        reason: view.reason,
-    }
+pub async fn doctor_models(
+    config: &Config,
+    use_cache: bool,
+) -> Result<Outcome<ModelProbeReport>, String> {
+    Ok(Outcome::new(
+        super::checks::inference_catalog::doctor_models(config, use_cache).await,
+        Vec::new(),
+    ))
 }
 
-pub async fn doctor_models(
-    _config: &Config,
-    _use_cache: bool,
-) -> Result<Outcome<ModelProbeReport>, String> {
-    Err("Model catalog probing is not available yet.".to_owned())
-}
+#[cfg(test)]
+#[path = "ops_tests.rs"]
+mod tests;

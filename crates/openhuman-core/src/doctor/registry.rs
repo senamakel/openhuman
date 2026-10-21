@@ -6,7 +6,6 @@ use std::sync::Arc;
 use crate::core::slots::{Extensions, HookSlot};
 
 use super::contract::{DoctorCheck, DoctorCtx};
-use super::legacy::LegacyV1CheckSource;
 
 /// A host-owned group of checks. The core stores the source without knowing
 /// which host or service supplies it.
@@ -51,7 +50,7 @@ pub fn unregister_check_source(id: &str) -> bool {
 /// The checks available in the active context, with duplicate and malformed
 /// ids rejected before a report starts.
 pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
-    let mut checks = LegacyV1CheckSource.checks();
+    let mut checks = Vec::new();
     checks.extend(super::profile::built_in_checks());
     checks.extend(super::checks::builtins());
     for (_, source) in CHECK_SOURCES.entries() {
@@ -64,7 +63,7 @@ pub fn registered_checks() -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
 /// The checks available for the selected doctor context, with duplicate and
 /// malformed ids rejected before a report starts.
 pub fn registered_checks_for(ctx: &DoctorCtx) -> Result<Vec<Arc<dyn DoctorCheck>>, String> {
-    let mut checks = LegacyV1CheckSource.checks();
+    let mut checks = Vec::new();
     checks.extend(super::profile::built_in_checks());
     checks.extend(super::checks::builtins());
     checks.extend(super::checks::for_context(ctx));

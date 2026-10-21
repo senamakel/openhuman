@@ -482,5 +482,9 @@ linked-modules = ["modules", "dep:openhuman-modules-linked"]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [[test]]
+name = "doctor_e2e"
+path = "../../tests/doctor_e2e.rs"
+
+[[test]]
 name = "embeddings_opt_out"
 path = "../../tests/embeddings_opt_out.rs"

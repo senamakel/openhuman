@@ -26,8 +26,8 @@ use std::sync::Arc;
 use openhuman_embed::__host::config::{Config, MODEL_MANAGED_DEFAULT};
 use openhuman_embed::__host::inference_registry::{
     register_catalog, register_chat_model, register_embedding, register_inspection_chat_model,
-    BoxFuture, ChatModelEntry, ChatModelFactory, ChatModelRequest, ReadinessProbe,
-    PROVIDER_OPENHUMAN,
+    register_inspection_embedding, BoxFuture, ChatModelEntry, ChatModelFactory, ChatModelRequest,
+    InspectionChatModelBuild, ReadinessProbe, PROVIDER_OPENHUMAN,
 };
 use tinyinference_llm::model::ChatModel;
 
@@ -82,12 +82,7 @@ pub(crate) fn build_chat_model(
 /// inspection calls; invoke and stream never consult mutable auth state.
 fn build_chat_model_for_inspection(
     request: &ChatModelRequest<'_>,
-) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    use openhuman_embed::__host::security::credentials::session_support::{
-        check_session_backend, classify_session_token, is_local_session_token,
-        load_app_session_profile_read_only, SessionTokenCheck,
-    };
-
+) -> anyhow::Result<InspectionChatModelBuild> {
     let pinned = request
         .model_override
         .map(str::trim)
@@ -101,42 +96,25 @@ fn build_chat_model_for_inspection(
         .map(str::to_string)
         .unwrap_or_else(|| pinned.clone());
     let options = managed_options(request.config);
-    let bearer = if let Some(key) =
-        openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(
-            request.config,
-        )
-        .map_err(|_| anyhow::anyhow!("managed API key profile is unavailable or invalid"))?
-    {
-        let base = crate::backend::url::effective_api_url(&request.config.api_url);
-        let endpoint = format!("{}/openai/v1", base.trim_end_matches('/'));
-        if !crate::client::endpoint::is_managed_endpoint_for_api_key(&endpoint) {
-            anyhow::bail!("managed API key endpoint is not an approved managed endpoint");
-        }
-        key
-    } else {
-        let profile = load_app_session_profile_read_only(request.config)
-            .map_err(|_| anyhow::anyhow!("managed session profile is unavailable or invalid"))?;
-        check_session_backend(request.config, profile.as_ref())
-            .map_err(|_| anyhow::anyhow!("managed session belongs to a different backend"))?;
-        match classify_session_token(profile.as_ref(), chrono::Utc::now()) {
-            SessionTokenCheck::Live(token) if !is_local_session_token(&token) => token,
-            SessionTokenCheck::Expired => {
-                anyhow::bail!("managed session is expired and would require refresh")
-            }
-            SessionTokenCheck::Live(_) => {
-                anyhow::bail!("offline local sessions cannot call managed inference")
-            }
-            SessionTokenCheck::Absent => {
-                anyhow::bail!("managed session credential is unavailable")
-            }
-        }
-    };
-    let model =
-        OpenHumanBackendModel::new(request.config.api_url.as_deref(), &options, default_model)
-            .with_native_tool_calling(request.native_tool_calling)
-            .with_thread_id(request.thread_id)
-            .with_inspection_bearer(bearer);
-    Ok((Arc::new(model), pinned))
+    let bearer = managed_session::managed_bearer_for_inspection(request.config)?;
+    let endpoint = format!(
+        "{}/openai/v1",
+        crate::backend::url::effective_api_url(&request.config.api_url).trim_end_matches('/')
+    );
+    let model = OpenHumanBackendModel::new(
+        request.config.api_url.as_deref(),
+        &options,
+        default_model.clone(),
+    )
+    .with_native_tool_calling(request.native_tool_calling)
+    .with_thread_id(request.thread_id)
+    .with_inspection_bearer(bearer.clone());
+    Ok(InspectionChatModelBuild {
+        model: Arc::new(model),
+        model_id: default_model,
+        endpoint,
+        credential: bearer,
+    })
 }
 
 fn readiness_probe() -> ReadinessProbe {
@@ -170,7 +148,15 @@ pub(crate) fn register(_options: &InstallOptions) {
     register_embedding(PROVIDER_OPENHUMAN, |request| {
         Ok(Box::new(ManagedEmbeddingModel::from_request(request)))
     });
+    register_inspection_embedding(PROVIDER_OPENHUMAN, |request| {
+        ManagedEmbeddingModel::from_request_for_inspection(request)
+            .map(|model| Box::new(model) as Box<dyn tinyinference_embeddings::EmbeddingModel>)
+    });
     register_catalog(PROVIDER_OPENHUMAN, managed_catalog::entry());
+    openhuman_embed::__host::inference_registry::register_inspection_catalog(
+        PROVIDER_OPENHUMAN,
+        managed_catalog::inspection_entry(),
+    );
     log::debug!(
         "[tinyhumans] inference: registered the managed chat model, embeddings and catalog"
     );

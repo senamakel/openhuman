@@ -126,6 +126,7 @@ pub struct CoreContext {
 /// The workspace a context is bound to.
 struct WorkspaceBinding {
     workspace_dir: Option<std::path::PathBuf>,
+    config_path: Option<std::path::PathBuf>,
 }
 
 impl CoreContext {
@@ -222,9 +223,10 @@ impl CoreContext {
             overlay.tool_groups,
             overlay.user_skill_roots
         );
-        // A derived context over the parent's workspace shares the parent's
-        // binding handle, so a workspace rebind reaches it. One that carries
-        // another workspace keeps that override.
+        // A derived context over the parent's workspace and config root shares
+        // its current binding snapshot. A later parent rebind replaces the
+        // parent's handle, leaving already-derived work on the prior binding.
+        // Another workspace or config root gets its own binding from the start.
         let shared_binding = {
             let parent_handle = self.workspace_binding.read();
             let parent_handle = parent_handle
@@ -234,12 +236,15 @@ impl CoreContext {
             let can_share = parent_handle.as_ref().is_some_and(|handle| {
                 handle.read().ok().is_some_and(|parent| {
                     parent.workspace_dir.as_deref() == Some(overlay.config.workspace_dir.as_path())
+                        && parent.config_path.as_deref()
+                            == Some(overlay.config.config_path.as_path())
                 })
             });
             match (can_share, parent_handle.as_ref()) {
                 (true, Some(handle)) => Arc::clone(handle),
                 _ => Arc::new(RwLock::new(WorkspaceBinding {
                     workspace_dir: Some(overlay.config.workspace_dir.clone()),
+                    config_path: Some(overlay.config.config_path.clone()),
                 })),
             }
         };
@@ -312,6 +317,26 @@ impl CoreContext {
             })
     }
 
+    /// The workspace and config path hint from one binding snapshot. The hint
+    /// is captured during normal boot even when no embedder config was supplied.
+    pub(crate) fn workspace_config_binding(
+        &self,
+    ) -> Result<(std::path::PathBuf, Option<std::path::PathBuf>), String> {
+        let handle = self
+            .workspace_binding
+            .read()
+            .map_err(|e| format!("workspace unavailable: context lock poisoned: {e}"))?;
+        let binding = handle
+            .read()
+            .map_err(|e| format!("workspace unavailable: binding lock poisoned: {e}"))?;
+        let workspace = binding.workspace_dir.clone().ok_or_else(|| {
+            "workspace unavailable: Config::load_or_init failed during core boot; \
+             fix config.toml or OPENHUMAN_WORKSPACE and restart"
+                .to_string()
+        })?;
+        Ok((workspace, binding.config_path.clone()))
+    }
+
     /// The context for the current dispatch: the one scoped by
     /// [`CoreContext::scope`] if inside a scope, else the process
     /// [`DEFAULT_CONTEXT`]. Returns `None` only before any context is built
@@ -333,6 +358,13 @@ impl CoreContext {
     /// passed to [`CoreContext::scope`] explicitly and are not the process
     /// default.
     pub fn rebind_default_workspace(workspace_dir: &std::path::Path) -> Result<(), String> {
+        Self::rebind_default_workspace_with_config(workspace_dir, None)
+    }
+
+    pub(crate) fn rebind_default_workspace_with_config(
+        workspace_dir: &std::path::Path,
+        config_path: Option<&std::path::Path>,
+    ) -> Result<(), String> {
         let Some(ctx) = DEFAULT_CONTEXT.get() else {
             log::debug!(
                 "[core-context] default context not initialized; skipped workspace rebind to {}",
@@ -340,20 +372,25 @@ impl CoreContext {
             );
             return Ok(());
         };
-        ctx.rebind_workspace(workspace_dir)
+        ctx.rebind_workspace(workspace_dir, config_path)
     }
 
-    fn rebind_workspace(&self, workspace_dir: &std::path::Path) -> Result<(), String> {
+    pub(crate) fn rebind_workspace(
+        &self,
+        workspace_dir: &std::path::Path,
+        config_path: Option<&std::path::Path>,
+    ) -> Result<(), String> {
         let mut binding_handle = self
             .workspace_binding
             .write()
             .map_err(|e| format!("workspace rebind failed: binding handle lock poisoned: {e}"))?;
-        let already = binding_handle
-            .read()
-            .map_err(|e| format!("workspace rebind failed: binding lock poisoned: {e}"))?
-            .workspace_dir
-            .as_deref()
-            == Some(workspace_dir);
+        let already = {
+            let binding = binding_handle
+                .read()
+                .map_err(|e| format!("workspace rebind failed: binding lock poisoned: {e}"))?;
+            binding.workspace_dir.as_deref() == Some(workspace_dir)
+                && binding.config_path.as_deref() == config_path
+        };
         if already {
             log::debug!(
                 "[core-context] workspace {} already bound",
@@ -367,6 +404,7 @@ impl CoreContext {
         );
         *binding_handle = Arc::new(RwLock::new(WorkspaceBinding {
             workspace_dir: Some(workspace_dir.to_path_buf()),
+            config_path: config_path.map(std::path::Path::to_path_buf),
         }));
         Ok(())
     }

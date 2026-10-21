@@ -170,12 +170,14 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
     let model_generations = Arc::clone(&generations);
     let inspection_factory: InspectionChatModelFactory = Arc::new(move |_| {
         build_constructions.fetch_add(1, Ordering::SeqCst);
-        Ok((
-            Arc::new(ManagedModel {
+        Ok(crate::inference::registry::InspectionChatModelBuild {
+            model: Arc::new(ManagedModel {
                 generations: Arc::clone(&model_generations),
             }) as Arc<dyn ChatModel<()>>,
-            "managed-test-model".to_owned(),
-        ))
+            model_id: "managed-test-model".to_owned(),
+            endpoint: "https://api.openhuman.invalid/openai/v1".to_owned(),
+            credential: "doctor-test-session-token".to_owned(),
+        })
     });
     register_inspection_chat_model(PROVIDER_OPENHUMAN, inspection_factory);
     let _registered_model = RegisterManagedModel;

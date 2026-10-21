@@ -226,6 +226,7 @@ impl RuntimeBuilder {
                 _ => None,
             }
         };
+        let core_extensions = host_seams.core_extensions.clone();
         if !inspection && self.session_store.is_none() {
             if let Some(backend) = &storage_backend {
                 let stores = openhuman_core::storage::sessions::TenantSessionStores::new(
@@ -310,6 +311,7 @@ impl RuntimeBuilder {
             .domains(domains)
             .tool_groups(tool_groups.clone())
             .services(services)
+            .extensions(core_extensions)
             .token(std::mem::replace(
                 &mut self.token,
                 openhuman_core::core::runtime::TokenSource::EnvOrFile,

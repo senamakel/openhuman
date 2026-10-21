@@ -4010,6 +4010,8 @@ dependencies = [
  "tinyinference-video",
  "tinyinference-voice",
  "tinyjevclient",
+ "tinymemory-api",
+ "tinymemory-integrations",
  "tinytools",
  "tinytools-jev",
  "tokio",

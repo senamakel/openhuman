@@ -249,7 +249,7 @@ async fn timed_out_blocking_checks_keep_the_concurrency_slot_until_the_worker_ex
 }
 
 #[tokio::test]
-async fn memory_checks_are_skipped_when_the_memory_component_is_disabled() {
+async fn memory_binding_and_health_checks_are_skipped_when_the_component_is_disabled() {
     let mut components = ComponentSet::all();
     components.memory = false;
     let context = DoctorCtx::from_config(Config::default()).with_components(components);
@@ -257,17 +257,22 @@ async fn memory_checks_are_skipped_when_the_memory_component_is_disabled() {
         &context,
         DoctorOptions {
             tier: DoctorTier::Connect,
-            only: vec!["memory/engine".into()],
+            only: vec!["memory/binding".into(), "memory/health".into()],
             ..DoctorOptions::default()
         },
     )
     .await
     .expect("component-gated check is represented as skipped");
 
-    assert_eq!(report.checks_skipped, vec!["memory/engine".to_owned()]);
-    assert!(report.findings.iter().any(|finding| {
-        finding.check_id == "memory/engine" && finding.severity == FindingSeverity::Skipped
-    }));
+    assert_eq!(
+        report.checks_skipped,
+        vec!["memory/binding".to_owned(), "memory/health".to_owned()]
+    );
+    for check_id in ["memory/binding", "memory/health"] {
+        assert!(report.findings.iter().any(|finding| {
+            finding.check_id == check_id && finding.severity == FindingSeverity::Skipped
+        }));
+    }
 }
 
 #[tokio::test]
@@ -305,6 +310,173 @@ async fn checks_above_the_requested_tier_are_skipped() {
             && finding.severity == FindingSeverity::Skipped
             && finding.duration_ms == 0
     }));
+}
+
+#[tokio::test]
+async fn native_checks_use_the_selected_config_and_respect_its_component_gates() {
+    let ambient_workspace = tempfile::tempdir().expect("ambient config workspace");
+    let mut ambient_config = Config::default();
+    ambient_config.workspace_dir = ambient_workspace.path().join("workspace");
+    ambient_config.action_dir = ambient_workspace.path().join("projects");
+    ambient_config.config_path = ambient_workspace.path().join("config.toml");
+    ambient_config.channels_config.imessage = Some(tinychannels_bus::config::IMessageConfig {
+        allowed_contacts: vec![],
+    });
+
+    let selected_workspace = tempfile::tempdir().expect("selected config workspace");
+    let mut selected_config = Config::default();
+    selected_config.workspace_dir = selected_workspace.path().join("workspace");
+    selected_config.action_dir = selected_workspace.path().join("projects");
+    selected_config.config_path = selected_workspace.path().join("config.toml");
+    selected_config.channels_config.telegram = Some(tinychannels_bus::config::TelegramConfig {
+        bot_token: "doctor-test-token".into(),
+        chat_id: None,
+        allowed_users: vec![],
+        stream_mode: Default::default(),
+        draft_update_interval_ms: 1_000,
+        silent_streaming: true,
+        mention_only: false,
+    });
+    selected_config.components.channels = false;
+    selected_config.components.connectors = false;
+    selected_config.components.voice = false;
+    selected_config.components.search = false;
+    selected_config.components.wallet = false;
+
+    let ambient = CoreContext::for_test_with_config(DomainSet::full(), ambient_config);
+    let selected_components = ComponentSet::from_config(&selected_config.components);
+    let report = CoreContext::scope(ambient, async {
+        let selected = DoctorCtx::from_config(selected_config).with_components(selected_components);
+        runner::run(
+            &selected,
+            DoctorOptions {
+                only: vec![
+                    "channels/telegram".into(),
+                    "integrations/composio".into(),
+                    "voice/stt".into(),
+                    "voice/tts".into(),
+                    "search/exa".into(),
+                    "wallet/status".into(),
+                ],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+    })
+    .await
+    .expect("selected native checks are represented in the report");
+
+    let expected_skipped = [
+        "channels/telegram",
+        "integrations/composio",
+        "voice/stt",
+        "voice/tts",
+        "search/exa",
+        "wallet/status",
+    ];
+    for check_id in expected_skipped {
+        assert!(
+            report.checks_skipped.iter().any(|id| id == check_id),
+            "selected-config check {check_id} should be skipped: {report:#?}"
+        );
+        assert!(report.findings.iter().any(|finding| {
+            finding.check_id == check_id
+                && finding.severity == FindingSeverity::Skipped
+                && finding.message.contains("disabled")
+        }));
+    }
+    assert!(!report.checks_run.iter().any(|id| id == "channels/imessage"));
+    assert!(!report.findings.iter().any(|finding| {
+        finding.check_id == "doctor/selection" && finding.severity == FindingSeverity::Error
+    }));
+}
+
+#[tokio::test]
+async fn connect_tier_skips_live_embedding_without_calling_the_provider() {
+    use axum::{extract::State, routing::post, Json, Router};
+    use std::sync::atomic::AtomicUsize;
+    use tempfile::TempDir;
+    use tinymemory_api::{conformance::ReferenceEngine, MemoryEngine};
+
+    let tmp = TempDir::new().expect("temporary config and workspace");
+    let workspace = tmp.path().join("workspace");
+    std::fs::create_dir_all(&workspace).expect("workspace directory");
+    let calls = Arc::new(AtomicUsize::new(0));
+    let app =
+        Router::new()
+            .route(
+                "/api/embed",
+                post(
+                    |State(calls): State<Arc<AtomicUsize>>,
+                     Json(_body): Json<serde_json::Value>| async move {
+                        calls.fetch_add(1, Ordering::SeqCst);
+                        Json(serde_json::json!({ "embeddings": vec![vec![0.1_f32; 768]] }))
+                    },
+                ),
+            )
+            .with_state(Arc::clone(&calls));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind local embedding mock");
+    let endpoint = format!("http://127.0.0.1:{}", listener.local_addr().unwrap().port());
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+
+    let mut config = Config {
+        workspace_dir: workspace.clone(),
+        action_dir: workspace,
+        config_path: tmp.path().join("config.toml"),
+        ..Config::default()
+    };
+    config.memory.embedding_provider = "ollama".to_owned();
+    config.memory.embedding_model = "nomic-embed-text".to_owned();
+    config.memory.engine = crate::memory::engine::TINYHUMANS_ENGINE.to_owned();
+    config.local_ai.base_url = Some(endpoint);
+    let memory_factory_calls = Arc::new(AtomicUsize::new(0));
+    let factory_calls = Arc::clone(&memory_factory_calls);
+    let inspection_factory: crate::memory::engine_registry::ReadOnlyEngineFactory =
+        Arc::new(move |_| {
+            factory_calls.fetch_add(1, Ordering::SeqCst);
+            let engine: Arc<dyn MemoryEngine> = Arc::new(ReferenceEngine::new());
+            Box::pin(async move { Ok(engine) })
+        });
+    let extensions = Extensions::new();
+    crate::memory::engine_registry::register_read_only_engine_factory_in(
+        &extensions,
+        crate::memory::engine::TINYHUMANS_ENGINE,
+        inspection_factory,
+    );
+    let context = CoreContext::for_test_with_extensions(DomainSet::full(), None, extensions);
+
+    let report = CoreContext::scope(context, async {
+        runner::run(
+            &DoctorCtx::from_config(config),
+            DoctorOptions {
+                tier: DoctorTier::Connect,
+                only: vec!["embeddings/live".to_owned(), "memory/roundtrip".to_owned()],
+                ..DoctorOptions::default()
+            },
+        )
+        .await
+        .expect("connect-only report")
+    })
+    .await;
+
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        0,
+        "live embedding was not invoked"
+    );
+    assert_eq!(
+        memory_factory_calls.load(Ordering::SeqCst),
+        0,
+        "live memory was not bound"
+    );
+    assert!(report
+        .checks_skipped
+        .contains(&"embeddings/live".to_owned()));
+    assert!(report
+        .checks_skipped
+        .contains(&"memory/roundtrip".to_owned()));
 }
 
 #[tokio::test]

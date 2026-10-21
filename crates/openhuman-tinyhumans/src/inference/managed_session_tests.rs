@@ -177,9 +177,9 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
             thread_id: None,
             egress: &egress,
         };
-        let (model, _) = super::super::build_chat_model_for_inspection(&request)
+        let model = super::super::build_chat_model_for_inspection(&request)
             .expect("real TinyHumans inspection adapter should read the selected profile");
-        (model_config, model)
+        (model_config, model.model)
     };
 
     let (_invoke_config, invoke_model) = build_inspection_model(&invoke_addr);

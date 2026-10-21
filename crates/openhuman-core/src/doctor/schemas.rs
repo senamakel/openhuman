@@ -71,11 +71,11 @@ pub fn schemas(function: &str) -> ControllerSchema {
         "models" => ControllerSchema {
             namespace: "doctor",
             function: "models",
-            description: "Model catalog probing is not available yet.",
+            description: "Read-only inference provider catalog inspection.",
             inputs: vec![FieldSchema {
                 name: "use_cache",
                 ty: TypeSchema::Option(Box::new(TypeSchema::Bool)),
-                comment: "Reserved for model catalog probes when they become available.",
+                comment: "Reuse a recent catalog result when available.",
                 required: false,
             }],
             outputs: vec![FieldSchema {
@@ -115,9 +115,9 @@ fn handle_report(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFutu
 
 fn handle_models(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
     Box::pin(async move {
-        let config = ctx.load_config().await?;
+        let config = crate::doctor::ops::config_for_dispatch(&ctx).await?;
         let use_cache = read_optional::<bool>(&params, "use_cache")?.unwrap_or(true);
-        to_json(crate::doctor::rpc::doctor_models(&config, use_cache).await?)
+        to_json(crate::doctor::ops::doctor_models(&config, use_cache).await?)
     })
 }
 

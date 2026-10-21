@@ -248,6 +248,7 @@ pub(super) fn try_create_cloud_slug_chat_model_with_native_tools(
         native_tool_calling,
         egress,
         CredentialAccess::Runtime,
+        None,
     )
 }
 
@@ -262,7 +263,37 @@ pub(super) fn try_create_cloud_slug_chat_model_for_inspection(
         true,
         egress,
         CredentialAccess::Inspection,
+        None,
     )
+}
+
+pub(super) fn try_create_cloud_slug_chat_model_for_inspection_with_identity(
+    role: &str,
+    config: &Config,
+) -> Option<anyhow::Result<(Arc<dyn ChatModel<()>>, String, String, String)>> {
+    let mut identity = None;
+    let mut resolved = provider_for_role(role, config);
+    if resolved.trim().is_empty() || resolved.trim() == "cloud" {
+        resolved = resolve_primary_cloud_provider_string(config);
+    }
+    let result = try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
+        role,
+        &resolved,
+        config,
+        true,
+        &EgressLedger::none(),
+        CredentialAccess::Inspection,
+        Some(&mut identity),
+    )?;
+    Some(result.and_then(|(model, model_id)| {
+        let (endpoint, credential, wire_model) = identity.ok_or_else(|| {
+            anyhow::anyhow!("inspection route did not expose its frozen wire identity")
+        })?;
+        if wire_model != model_id {
+            anyhow::bail!("inspection route model identity did not match its constructed model");
+        }
+        Ok((model, model_id, endpoint, credential))
+    }))
 }
 
 fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
@@ -271,6 +302,7 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
     native_tool_calling: bool,
     egress: &EgressLedger,
     credential_access: CredentialAccess,
+    inspection_identity: Option<&mut Option<(String, String, String)>>,
 ) -> OptionalChatModelResult {
     // Resolve the role's provider string, expanding the empty / "cloud" sentinel
     // to the primary cloud target.
@@ -285,6 +317,7 @@ fn try_create_cloud_slug_chat_model_with_native_tools_and_access(
         native_tool_calling,
         egress,
         credential_access,
+        inspection_identity,
     )
 }
 
@@ -313,6 +346,7 @@ pub(super) fn try_create_cloud_slug_chat_model_from_string_with_native_tools(
         native_tool_calling,
         egress,
         CredentialAccess::Runtime,
+        None,
     )
 }
 
@@ -323,6 +357,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     native_tool_calling: bool,
     egress: &EgressLedger,
     credential_access: CredentialAccess,
+    mut inspection_identity: Option<&mut Option<(String, String, String)>>,
 ) -> OptionalChatModelResult {
     let p = provider.trim().to_string();
 

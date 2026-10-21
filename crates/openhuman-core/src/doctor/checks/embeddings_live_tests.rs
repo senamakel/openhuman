@@ -30,21 +30,20 @@ fn config_in(tmp: &TempDir, embedding_url: String) -> Config {
 
 async fn mock_ollama(dimensions: usize) -> (String, Arc<AtomicUsize>) {
     let calls = Arc::new(AtomicUsize::new(0));
-    let app =
-        Router::new()
-            .route(
-                "/api/embed",
-                post(
-                    |State(calls): State<Arc<AtomicUsize>>,
-                     Json(_body): Json<serde_json::Value>| async move {
-                        calls.fetch_add(1, Ordering::SeqCst);
-                        Json(serde_json::json!({
-                            "embeddings": [vec![0.1_f32; dimensions]],
-                        }))
-                    },
-                ),
-            )
-            .with_state(Arc::clone(&calls));
+    let app = Router::new()
+        .route(
+            "/api/embed",
+            post(
+                move |State(calls): State<Arc<AtomicUsize>>,
+                      Json(_body): Json<serde_json::Value>| async move {
+                    calls.fetch_add(1, Ordering::SeqCst);
+                    Json(serde_json::json!({
+                        "embeddings": [vec![0.1_f32; dimensions]],
+                    }))
+                },
+            ),
+        )
+        .with_state(Arc::clone(&calls));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
         .await
         .expect("bind local embedding mock");

@@ -4,6 +4,7 @@ use async_trait::async_trait;
 
 use super::contract::{DoctorCtx, DoctorOptions, DoctorTier, FindingSeverity};
 use super::runner;
+use crate::config::schema::StorageConfig;
 use crate::config::Config;
 
 struct DownMemoryEngine {
@@ -148,9 +149,9 @@ async fn storage_connect_check_does_not_change_the_selected_sqlite_tree() {
     let config = Config {
         action_dir: workspace.clone(),
         workspace_dir: workspace,
-        storage: crate::config::StorageConfig {
+        storage: StorageConfig {
             url: Some(url),
-            ..crate::config::StorageConfig::default()
+            ..StorageConfig::default()
         },
         ..Config::default()
     };
@@ -184,9 +185,9 @@ async fn storage_connect_check_reports_corrupt_sqlite_without_changing_it() {
     let config = Config {
         action_dir: workspace.clone(),
         workspace_dir: workspace,
-        storage: crate::config::StorageConfig {
+        storage: StorageConfig {
             url: Some(format!("sqlite:{}", file.display())),
-            ..crate::config::StorageConfig::default()
+            ..StorageConfig::default()
         },
         ..Config::default()
     };

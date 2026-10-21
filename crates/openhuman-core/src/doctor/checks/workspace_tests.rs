@@ -126,8 +126,6 @@ fn tree_snapshot(root: &std::path::Path) -> Vec<(std::path::PathBuf, Option<Vec<
         }
     }
 
-    use std::os::unix::fs::PermissionsExt;
-
     let mut entries = Vec::new();
     collect(root, root, &mut entries);
     entries

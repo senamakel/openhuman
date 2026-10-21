@@ -1,7 +1,4 @@
-use super::{
-    ops::doctor_report_with_options,
-    DoctorOptions,
-};
+use super::{ops::doctor_report_with_options, DoctorOptions};
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 use crate::config::Config;
 use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};

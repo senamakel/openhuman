@@ -154,10 +154,11 @@ impl MemoryEngine for ProbeEngine {
         ids: Vec<ItemId>,
         reach: Reach,
     ) -> tinymemory_api::Result<ForgetReport> {
-        let mut calls = self.calls.lock().unwrap();
-        calls.steps.push("forget_within");
-        calls.scoped_forgets.push((ids.clone(), reach.clone()));
-        drop(calls);
+        {
+            let mut calls = self.calls.lock().unwrap();
+            calls.steps.push("forget_within");
+            calls.scoped_forgets.push((ids.clone(), reach.clone()));
+        }
         let result = self.inner.forget_within(ids, reach).await;
         if let Some(finished) = self.cleanup_finished.lock().unwrap().take() {
             let _ = finished.send(());

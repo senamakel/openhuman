@@ -616,7 +616,9 @@ fn assert_finding(report: &Value, check_id: &str, severity: &str) {
         selected["severity"],
         severity,
         "{check_id}: {}",
-        selected["message"].as_str().unwrap_or("<no safe finding message>")
+        selected["message"]
+            .as_str()
+            .unwrap_or("<no safe finding message>")
     );
 }
 

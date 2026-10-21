@@ -21,6 +21,16 @@ pub(super) struct CloudSlugResolution<'a> {
     pub(super) codex: tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
 }
 
+pub(super) fn inspection_output_budget_capability(
+    codex: &tinyinference_llm::providers::openai::codex::OpenAiCodexRouting,
+) -> InspectionOutputBudgetCapability {
+    if codex.using_oauth {
+        InspectionOutputBudgetCapability::Unsupported
+    } else {
+        InspectionOutputBudgetCapability::Bounded
+    }
+}
+
 pub(super) fn resolve_cloud_slug<'a>(
     role: &str,
     slug: &str,
@@ -582,11 +592,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         } else {
             key.clone()
         };
-        let output_budget = if codex.using_oauth {
-            InspectionOutputBudgetCapability::Unsupported
-        } else {
-            InspectionOutputBudgetCapability::Bounded
-        };
+        let output_budget = inspection_output_budget_capability(&codex);
         *identity = Some((
             codex.endpoint.clone(),
             credential,

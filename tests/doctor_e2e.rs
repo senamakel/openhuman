@@ -614,9 +614,6 @@ fn assert_cli_report(output: &Output, expected_code: i32, check_id: Option<&str>
     report
 }
 
-#[path = "doctor_e2e/cases.rs"]
-mod cases;
-
 fn ensure_rpc_auth() {
     RPC_AUTH_INIT.get_or_init(|| {
         openhuman_core::core::auth::init_rpc_token_with_value(RPC_TOKEN)

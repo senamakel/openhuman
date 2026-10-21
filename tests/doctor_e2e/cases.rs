@@ -9,6 +9,18 @@ async fn healthy_report_is_v2_and_does_not_write_profile_state() {
     assert_eq!(report["ok"], true);
     assert_eq!(report["summary"]["error"], 0);
     assert_eq!(report["tier"], "static");
+
+    let product_requests = fixture
+        .mock
+        .request_paths()
+        .await
+        .into_iter()
+        .filter(|(_, path)| path != "/" && !path.starts_with("/__admin/"))
+        .collect::<Vec<_>>();
+    assert!(
+        product_requests.is_empty(),
+        "static doctor made no product backend requests: {product_requests:?}"
+    );
 }
 
 #[tokio::test(flavor = "current_thread")]
@@ -114,6 +126,58 @@ async fn missing_profile_is_a_reported_rpc_finding_without_creating_it() {
         !missing.exists(),
         "profile inspection does not create a profile"
     );
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn cli_explicit_valid_profile_uses_its_config_without_activating_or_writing_it() {
+    const ALTERNATE_PROFILE: &str = "doctor-alternate";
+    let healthy_fixture = fixture_named("healthy").await;
+    let root = healthy_fixture._home.path().join(".openhuman");
+    let active_user_path = root.join("active_user.toml");
+    let active_user_before = fs::read_to_string(&active_user_path).expect("active user fixture");
+    let alternate_dir = root.join("users").join(ALTERNATE_PROFILE);
+    write_profile(
+        healthy_fixture._home.path(),
+        ALTERNATE_PROFILE,
+        &healthy_fixture.mock.origin,
+        fixture("unknown-key"),
+        false,
+    );
+    let before = snapshot_tree(healthy_fixture._home.path());
+
+    let output = healthy_fixture.run_cli(&[
+        "doctor",
+        "--lint",
+        "--json",
+        "--severity-min",
+        "warn",
+        "--only",
+        "config/unknown-key",
+        "--profile",
+        ALTERNATE_PROFILE,
+    ]);
+    let report = assert_cli_report(&output, 1, Some("config/unknown-key"));
+
+    assert_eq!(report["profile"], ALTERNATE_PROFILE);
+    assert_eq!(report["config_source"], "profile");
+    assert_eq!(report["config_resolution_source"], "--profile");
+    assert_eq!(report["profile_layout_version"], 2);
+    let unknown_key = finding(&report, "config/unknown-key");
+    assert_eq!(unknown_key["severity"], "warn");
+    assert!(unknown_key["message"]
+        .as_str()
+        .is_some_and(|message| message.contains("memroy")));
+    assert!(unknown_key["config_path"]
+        .as_str()
+        .is_some_and(|path| path.ends_with("users/doctor-alternate/config.toml")));
+
+    assert_eq!(
+        fs::read_to_string(&active_user_path).expect("active user remains readable"),
+        active_user_before,
+        "explicit profile inspection does not activate the alternate profile"
+    );
+    assert!(alternate_dir.is_dir(), "selected profile remains present");
+    assert_unchanged(&before, &snapshot_tree(healthy_fixture._home.path()));
 }
 
 #[tokio::test(flavor = "current_thread")]

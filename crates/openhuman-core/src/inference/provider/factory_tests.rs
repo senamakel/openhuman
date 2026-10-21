@@ -149,7 +149,8 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     config.action_dir = tmp.path().join("action");
     config.secrets.encrypt = false;
 
-    let _env = EnvVarGuard::locked()
+    let _env = EnvVarGuard::locked_async()
+        .await
         .with("HOME", tmp.path())
         .with("OPENHUMAN_WORKSPACE", &config.workspace_dir)
         .with("OPENHUMAN_KEYRING_BACKEND", "file")

@@ -17,21 +17,6 @@ impl SessionHostBuilder {
         let mut tools = self
             .tools
             .ok_or_else(|| anyhow::anyhow!("tools are required"))?;
-        if pack_registry_handle.is_none()
-            && tools
-                .iter()
-                .any(|tool| crate::tools::toolpacks::is_canonical_use_skill_tool(tool.as_ref()))
-        {
-            // Preserve the public `all_tools() -> Vec<_>` then `.tools(...)`
-            // flow: callers that do not receive a handle still get a proxy
-            // bound to this session's registry. Custom `use_skill` tools are
-            // left untouched; they can supply a handle through the builder.
-            tools.retain(|tool| {
-                !crate::tools::toolpacks::is_canonical_use_skill_tool(tool.as_ref())
-            });
-            pack_registry_handle =
-                Some(crate::tools::toolpacks::append_pack_tools(&mut tools));
-        }
         // Advertise only the spawnable ids on the wire: see
         // `SpawnAsyncSubagentTool::scoped` for why the spec-view narrowing
         // alone did not reach a native-tool-calling provider.

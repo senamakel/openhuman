@@ -97,5 +97,4 @@ impl CoreContext {
             bare: false,
         })
     }
-
 }

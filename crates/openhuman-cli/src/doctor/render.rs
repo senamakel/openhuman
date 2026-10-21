@@ -2,11 +2,11 @@ use serde_json::Value;
 
 use super::DoctorArgs;
 
-pub(crate) fn render_table(report: &Value) -> String {
+pub(super) fn render_table(report: &Value) -> String {
     render(report, None)
 }
 
-pub(crate) fn render_table_for_args(report: &Value, options: &DoctorArgs) -> String {
+pub(super) fn render_table_for_args(report: &Value, options: &DoctorArgs) -> String {
     let minimum = options.lint.then_some(options.severity_min.as_str());
     render(report, minimum)
 }

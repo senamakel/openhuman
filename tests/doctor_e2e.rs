@@ -597,8 +597,40 @@ fn assert_unchanged(before: &BTreeMap<PathBuf, Vec<u8>>, after: &BTreeMap<PathBu
             .filter(|path| before.get(*path) != after.get(*path))
             .cloned()
             .collect::<Vec<_>>();
-        panic!("doctor changed fixture files: {changed:?}");
+        let config_keys = if std::env::var_os("DOCTOR_E2E_TRACE_CONFIG_SAVE").is_some() {
+            changed
+                .iter()
+                .filter(|path| path.file_name().is_some_and(|name| name == "config.toml"))
+                .filter_map(|path| Some((before.get(path)?, after.get(path)?)))
+                .flat_map(|(before, after)| changed_config_keys(before, after))
+                .collect::<std::collections::BTreeSet<_>>()
+        } else {
+            std::collections::BTreeSet::new()
+        };
+        panic!("doctor changed fixture files: {changed:?}; config keys changed: {config_keys:?}");
     }
+}
+
+fn changed_config_keys(before: &[u8], after: &[u8]) -> Vec<String> {
+    let parse = |bytes: &[u8]| {
+        std::str::from_utf8(bytes)
+            .ok()
+            .and_then(|text| toml::from_str::<toml::Value>(text).ok())
+    };
+    let (Some(before), Some(after)) = (parse(before), parse(after)) else {
+        return Vec::new();
+    };
+    let (Some(before), Some(after)) = (before.as_table(), after.as_table()) else {
+        return Vec::new();
+    };
+    before
+        .keys()
+        .chain(after.keys())
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .filter(|key| before.get(*key) != after.get(*key))
+        .map(|key| key.to_owned())
+        .collect()
 }
 
 fn finding<'a>(report: &'a Value, check_id: &str) -> &'a Value {
@@ -653,11 +685,13 @@ fn assert_cli_report(output: &Output, expected_code: i32, check_id: Option<&str>
         .unwrap_or_else(|error| panic!("doctor CLI stdout is JSON ({error})"));
     assert_eq!(report["schema_version"], 2);
     if let Some(check_id) = check_id {
-        assert!(report["findings"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|item| { item["check_id"] == check_id }));
+        assert!(
+            report["findings"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .any(|item| { item["check_id"] == check_id })
+        );
     }
     report
 }

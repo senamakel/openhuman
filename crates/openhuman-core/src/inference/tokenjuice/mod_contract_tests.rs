@@ -1,9 +1,9 @@
 use tinyjuice_bus::types::ContentKind;
 use tinyjuice_bus::types::{CompressOptions, ContentHint};
+use tinytools::Tool;
 
 #[test]
 fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
-
     let retrieve =
         tinyjuice_host::retrieve_tool::RetrieveToolOutputTool::new(std::sync::Arc::new(|_, _| {
             Box::pin(async { Ok::<_, String>(None) })
@@ -47,8 +47,6 @@ fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
 
 #[test]
 fn resumed_repl_tools_keep_the_recorded_declarations() {
-    use tinytools::Tool;
-
     let config = crate::config::Config::default();
     let live = super::repl_tools_for(&config);
     assert_eq!(live.len(), 3);

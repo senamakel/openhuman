@@ -16,7 +16,7 @@ impl CredentialAccess {
     pub(super) fn lookup_key_for_slug(self, slug: &str, config: &Config) -> anyhow::Result<String> {
         match self {
             Self::Runtime => lookup_key_for_slug(slug, config),
-            Self::Inspection => lookup_key_for_slug_read_only(slug, config).map(|(key, _)| key),
+            Self::Inspection => lookup_key_for_slug_read_only(slug, config).map(|credential| credential.key),
         }
     }
 
@@ -24,22 +24,35 @@ impl CredentialAccess {
         match self {
             Self::Runtime => openai_bearer_is_oauth(config),
             Self::Inspection => lookup_key_for_slug_read_only("openai", config)
-                .map(|(_, is_oauth)| is_oauth)
+                .map(|credential| credential.is_oauth)
                 .unwrap_or(false),
         }
     }
 }
 
-fn lookup_key_for_slug_read_only(slug: &str, config: &Config) -> anyhow::Result<(String, bool)> {
+pub(super) struct ReadOnlyCloudCredential {
+    pub(super) key: String,
+    pub(super) is_oauth: bool,
+    pub(super) account_id: Option<String>,
+}
+
+pub(super) fn lookup_key_for_slug_read_only(
+    slug: &str,
+    config: &Config,
+) -> anyhow::Result<ReadOnlyCloudCredential> {
     if slug == crate::config::schema::EPHEMERAL_ROUTE_SLUG {
         if let Some(route) = config.ephemeral_route.as_ref() {
-            return Ok((route.api_key.trim().to_string(), false));
+            return Ok(ReadOnlyCloudCredential {
+                key: route.api_key.trim().to_string(),
+                is_oauth: false,
+                account_id: None,
+            });
         }
     }
 
     let auth_profile_key = auth_key_for_slug(slug);
     for provider in [auth_profile_key.as_str(), slug] {
-        if let Some((key, is_oauth, expires_at)) =
+        if let Some((key, is_oauth, expires_at, account_id)) =
             read_only_profile_credential(config, provider, None)?
         {
             if slug == "openai"
@@ -51,7 +64,11 @@ fn lookup_key_for_slug_read_only(slug: &str, config: &Config) -> anyhow::Result<
                 anyhow::bail!("OpenAI OAuth credential requires refresh");
             }
             if !key.trim().is_empty() {
-                return Ok((key, is_oauth));
+                return Ok(ReadOnlyCloudCredential {
+                    key,
+                    is_oauth,
+                    account_id,
+                });
             }
         }
     }
@@ -65,13 +82,17 @@ fn lookup_key_for_slug_read_only(slug: &str, config: &Config) -> anyhow::Result<
             crate::security::credentials::openai_oauth::OPENAI_PROVIDER_KEY,
             Some(crate::security::credentials::openai_oauth::OPENAI_OAUTH_PROFILE_NAME),
         )? {
-            Some((key, true, expires_at)) if !key.trim().is_empty() => {
+            Some((key, true, expires_at, account_id)) if !key.trim().is_empty() => {
                 if expires_at.is_some_and(|expires_at| {
                     expires_at <= chrono::Utc::now() + chrono::Duration::minutes(2)
                 }) {
                     anyhow::bail!("OpenAI OAuth credential requires refresh");
                 }
-                return Ok((key, true));
+                return Ok(ReadOnlyCloudCredential {
+                    key,
+                    is_oauth: true,
+                    account_id,
+                });
             }
             _ => {}
         }
@@ -86,18 +107,26 @@ fn lookup_key_for_slug_read_only(slug: &str, config: &Config) -> anyhow::Result<
             .map(str::trim)
             .filter(|key| !key.is_empty())
         {
-            return Ok((config_key.to_string(), false));
+            return Ok(ReadOnlyCloudCredential {
+                key: config_key.to_string(),
+                is_oauth: false,
+                account_id: None,
+            });
         }
     }
 
-    Ok((String::new(), false))
+    Ok(ReadOnlyCloudCredential {
+        key: String::new(),
+        is_oauth: false,
+        account_id: None,
+    })
 }
 
 fn read_only_profile_credential(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
-) -> anyhow::Result<Option<(String, bool, Option<chrono::DateTime<chrono::Utc>>)>> {
+) -> anyhow::Result<Option<(String, bool, Option<chrono::DateTime<chrono::Utc>>, Option<String>)>> {
     let Some(profile) = crate::security::credentials::AuthService::get_profile_read_only(
         config,
         provider,
@@ -108,21 +137,37 @@ fn read_only_profile_credential(
         return Ok(None);
     };
 
-    let (token, is_oauth, expires_at) = match profile.kind {
+    let (token, is_oauth, expires_at, account_id) = match profile.kind {
         crate::security::credentials::profiles::AuthProfileKind::Token => {
-            (profile.token.unwrap_or_default(), false, None)
+            (profile.token.unwrap_or_default(), false, None, None)
         }
-        crate::security::credentials::profiles::AuthProfileKind::OAuth => (
-            profile
+        crate::security::credentials::profiles::AuthProfileKind::OAuth => {
+            let access_token = profile
                 .token_set
                 .as_ref()
-                .map(|tokens| tokens.access_token.clone())
-                .unwrap_or_default(),
-            true,
-            profile.token_set.and_then(|tokens| tokens.expires_at),
-        ),
+                .map(|tokens| tokens.access_token.trim().to_string())
+                .unwrap_or_default();
+            let account_id = profile
+                .metadata
+                .get("account_id")
+                .map(String::as_str)
+                .map(str::trim)
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+                .or_else(|| {
+                    tinyinference_providers::oauth::openai_account_id_from_access_token(
+                        &access_token,
+                    )
+                });
+            (
+                access_token,
+                true,
+                profile.token_set.and_then(|tokens| tokens.expires_at),
+                account_id,
+            )
+        }
     };
-    Ok(Some((token, is_oauth, expires_at)))
+    Ok(Some((token, is_oauth, expires_at, account_id)))
 }
 
 fn read_only_profile_error(

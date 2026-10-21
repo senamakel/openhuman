@@ -96,6 +96,18 @@ impl DoctorCheck for HealthCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
+        if ctx
+            .config()
+            .memory
+            .engine
+            .eq_ignore_ascii_case(crate::memory::engine::DISABLED_ENGINE)
+        {
+            return vec![Finding::skipped(
+                self.id(),
+                "Memory is turned off in the selected configuration.",
+                "Select a memory engine to check its health.",
+            )];
+        }
         let memory = probe_selected_config(ctx.config()).await;
         findings_for_health(memory)
     }

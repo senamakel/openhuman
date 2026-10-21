@@ -26,6 +26,12 @@ async fn binding_reports_disabled_memory_without_resolving_an_engine() {
     assert_eq!(finding[0].severity, FindingSeverity::Skipped);
 }
 
+#[tokio::test]
+async fn health_is_skipped_when_memory_is_intentionally_disabled() {
+    let finding = HealthCheck.detect(&context(DISABLED_ENGINE)).await;
+    assert_eq!(finding[0].severity, FindingSeverity::Skipped);
+}
+
 #[test]
 fn health_reports_a_safe_engine_down_reason() {
     let finding = findings_for_health(MemoryEngineCheck {

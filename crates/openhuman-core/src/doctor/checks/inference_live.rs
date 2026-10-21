@@ -108,9 +108,13 @@ pub(super) async fn probe_prepared_model(
     built: PreparedInspectionChatModel,
     check_id: &str,
 ) -> Finding {
-    // Capability is metadata today; the regression test pins the missing
-    // unsupported-budget guard before it is introduced.
-    let _output_budget = built.output_budget;
+    if built.output_budget == crate::inference::provider::factory::InspectionOutputBudgetCapability::Unsupported {
+        return Finding::skipped(
+            check_id,
+            "The Codex OAuth Responses API cannot enforce the required output-token limit; no completion request was sent.",
+            "Use a provider route that supports a bounded output-token request to run this live check.",
+        );
+    }
     let slot = cache.slot(built.identity).await;
     let model = built.model;
     let model_id = built.model_id;

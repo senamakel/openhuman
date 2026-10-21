@@ -50,6 +50,10 @@ pub use crate::server::EmbeddedReadySignal;
 #[path = "host/secret_storage.rs"]
 mod secret_storage;
 
+#[cfg(feature = "server")]
+#[path = "host/doctor_cli.rs"]
+mod doctor_cli;
+
 /// The CLI host's builder: the `cli` preset with this crate's server as the
 /// `run` / `serve` launcher and the `http_host.*` controllers registered.
 #[cfg(feature = "server")]
@@ -157,6 +161,9 @@ fn embed_info(args: &[String]) -> anyhow::Result<Option<crate::embed::RuntimeInf
 pub fn cli(args: &[String]) -> anyhow::Result<()> {
     // Config reads below (and in the dispatcher) need the enricher.
     openhuman_tinyhumans::register_hooks();
+    if let Some(result) = doctor_cli::try_run(args) {
+        return result;
+    }
     // Introspection belongs above the core: never introduce a core -> embed dependency.
     if let Some(info) = embed_info(args)? {
         println!("{}", serde_json::to_string_pretty(&info)?);
@@ -230,6 +237,7 @@ fn cli_command_uses_storage(args: &[String], has_cli_handler: impl Fn(&str) -> b
     let tail: Vec<&str> = rest.collect();
     match command {
         "run" | "serve" | "tui" | "chat" | "sentry-test" => false,
+        "doctor" if matches!(tail.first().copied(), Some("report" | "models")) => false,
         // The MCP server speaks stdio when given no function and runs agent
         // sessions, so it needs the backend.
         "mcp" | "mcp-server" => !tail.iter().any(|a| is_help(a)),

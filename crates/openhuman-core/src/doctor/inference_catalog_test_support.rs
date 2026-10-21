@@ -52,18 +52,18 @@ pub(super) async fn missing_catalog_handler(State(state): State<CatalogServerSta
 }
 
 pub(super) async fn spawn_catalog_server(
-    pub(super) status: StatusCode,
-    pub(super) body: serde_json::Value,
+    status: StatusCode,
+    body: serde_json::Value,
     has_models_route: bool,
 ) -> (String, CatalogServerState) {
     spawn_catalog_server_with_delay(status, body, has_models_route, Duration::ZERO).await
 }
 
 pub(super) async fn spawn_catalog_server_with_delay(
-    pub(super) status: StatusCode,
-    pub(super) body: serde_json::Value,
+    status: StatusCode,
+    body: serde_json::Value,
     has_models_route: bool,
-    pub(super) delay: Duration,
+    delay: Duration,
 ) -> (String, CatalogServerState) {
     let state = CatalogServerState {
         status,

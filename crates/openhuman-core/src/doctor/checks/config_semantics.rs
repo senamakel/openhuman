@@ -1,6 +1,5 @@
 //! Static checks for configuration values that disagree with one another.
 
-use std::path::Path;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -482,13 +481,7 @@ fn missing_blob_feature(config: &BlobConfig) -> Option<&'static str> {
 }
 
 fn action_dir(config: &Config) -> Vec<Finding> {
-    let directory = Path::new(&config.action_dir);
-    let writable = directory.is_dir()
-        && tempfile::Builder::new()
-            .prefix(".openhuman-doctor-")
-            .tempfile_in(directory)
-            .and_then(|file| file.close())
-            .is_ok();
+    let writable = crate::storage::probe_directory_writable(&config.action_dir).is_ok();
     if writable {
         return Vec::new();
     }

@@ -1,15 +1,15 @@
 use serde_json::Value;
 
-use super::{render_table_for_args, DoctorArgs};
+use super::args::DoctorArgs;
 
-pub(crate) fn doctor_report_body(invoke_result: &Value) -> Result<&Value, String> {
+pub(super) fn doctor_report_body(invoke_result: &Value) -> Result<&Value, String> {
     invoke_result
         .get("result")
         .filter(|result| result.is_object())
         .ok_or_else(|| "doctor RPC response did not include a report".into())
 }
 
-pub(crate) fn exit_code(options: &DoctorArgs, report: Result<&Value, ()>) -> u8 {
+pub(super) fn exit_code(options: &DoctorArgs, report: Result<&Value, ()>) -> u8 {
     let Ok(report) = report else {
         return 2;
     };
@@ -44,7 +44,7 @@ fn severity_rank(severity: &str) -> u8 {
 }
 
 pub(crate) fn run(args: &[String]) -> u8 {
-    let options = match super::parse_args(args) {
+    let options = match super::args::parse_args(args) {
         Ok(options) => options,
         Err(error) => {
             eprintln!("doctor: {error}");
@@ -70,7 +70,10 @@ pub(crate) fn run(args: &[String]) -> u8 {
                     serde_json::to_string_pretty(&report).unwrap_or_default()
                 );
             } else {
-                print!("{}", render_table_for_args(&report, &options));
+                print!(
+                    "{}",
+                    super::render::render_table_for_args(&report, &options)
+                );
             }
             exit_code(&options, Ok(&report))
         }

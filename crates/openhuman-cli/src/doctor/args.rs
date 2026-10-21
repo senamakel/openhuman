@@ -1,7 +1,7 @@
 use serde_json::{json, Value};
 
 /// Parsed options for the host-owned doctor command.
-pub(crate) struct DoctorArgs {
+pub(super) struct DoctorArgs {
     pub(super) json: bool,
     pub(super) lint: bool,
     pub(super) severity_min: String,
@@ -23,7 +23,7 @@ impl DoctorArgs {
     }
 }
 
-pub(crate) fn parse_args(args: &[String]) -> Result<DoctorArgs, String> {
+pub(super) fn parse_args(args: &[String]) -> Result<DoctorArgs, String> {
     let mut options = DoctorArgs {
         json: false,
         lint: false,
@@ -43,9 +43,10 @@ pub(crate) fn parse_args(args: &[String]) -> Result<DoctorArgs, String> {
             "--severity-min" => {
                 let value = argument_value(args, index, "--severity-min")?;
                 if !matches!(value, "info" | "warn" | "error") {
-                    return Err(format!(
+                    return Err(
                         "invalid value for --severity-min: expected info, warn, or error"
-                    ));
+                            .to_owned(),
+                    );
                 }
                 options.severity_min = value.into();
                 index += 1;

@@ -1,6 +1,6 @@
 use serde_json::json;
 
-use super::doctor_report_body;
+use super::runner::doctor_report_body;
 
 #[test]
 fn invoke_outcome_is_unwrapped_to_the_snake_case_report_body() {

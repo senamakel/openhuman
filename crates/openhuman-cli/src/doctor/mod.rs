@@ -2,9 +2,7 @@ mod args;
 mod render;
 mod runner;
 
-pub(crate) use args::{parse_args, DoctorArgs};
-pub(crate) use render::{render_table, render_table_for_args};
-pub(crate) use runner::{doctor_report_body, exit_code, run};
+pub(crate) use runner::run;
 
 /// Whether the top-level `doctor` invocation belongs to the v2 host command.
 ///

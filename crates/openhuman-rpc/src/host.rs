@@ -111,11 +111,12 @@ fn doctor_builder(config: RuntimeConfig) -> RuntimeBuilder {
 
 #[cfg(feature = "server")]
 fn doctor_fallback_config(root: &std::path::Path) -> RuntimeConfig {
-    let mut config = RuntimeConfig::default();
-    config.config_path = root.join("config.toml");
-    config.workspace_dir = root.join("workspace");
-    config.action_dir = root.join("action");
-    config
+    RuntimeConfig {
+        config_path: root.join("config.toml"),
+        workspace_dir: root.join("workspace"),
+        action_dir: root.join("action"),
+        ..RuntimeConfig::default()
+    }
 }
 
 #[cfg(feature = "server")]

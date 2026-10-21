@@ -1,5 +1,6 @@
 //! Read-only discovery diagnostics and opt-in GitHub preflight checks.
 
+#[cfg(feature = "skills")]
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -8,7 +9,10 @@ use async_trait::async_trait;
 use crate::doctor::contract::{ComponentId, DoctorCheck, DoctorCtx, DoctorTier, Finding};
 
 pub(super) fn for_context(ctx: &DoctorCtx) -> Vec<Arc<dyn DoctorCheck>> {
+    #[cfg(feature = "skills")]
     let mut checks: Vec<Arc<dyn DoctorCheck>> = vec![Arc::new(SkillDiscoveryCheck)];
+    #[cfg(not(feature = "skills"))]
+    let checks: Vec<Arc<dyn DoctorCheck>> = vec![Arc::new(SkillDiscoveryCheck)];
     #[cfg(feature = "skills")]
     if let Some(required) = required_github_preflight(ctx.config()) {
         checks.push(Arc::new(GithubPreflightCheck {

@@ -358,7 +358,11 @@ fn profile_id_for_dir(dir: &Path) -> Result<Option<String>, DesktopProfileError>
 /// Derives a selected profile's root from an already-resolved config path.
 /// This does not consult the active-profile markers or environment.
 pub(crate) fn root_for_config(config: &Config) -> Option<PathBuf> {
-    let config_dir = config.config_path.parent()?;
+    root_for_config_path(&config.config_path)
+}
+
+pub(crate) fn root_for_config_path(config_path: &Path) -> Option<PathBuf> {
+    let config_dir = config_path.parent()?;
     let users_dir = config_dir.parent()?;
     if users_dir.file_name().is_some_and(|name| name == "users") {
         return users_dir.parent().map(Path::to_path_buf);

@@ -101,8 +101,31 @@ pub async fn doctor_report_for_dispatch(
         return doctor_report_for_selected_profile(&root, &profile_id, options).await;
     }
 
-    let config = dispatch.load_config().await?;
-    doctor_report_with_options(&config, options).await
+    if let Some(config) = dispatch.embedder_config() {
+        return doctor_report_with_options(&config, options).await;
+    }
+
+    // A doctor RPC is diagnostic, so resolve the desktop's effective config
+    // through the read-only profile loader. `DispatchCtx::load_config()` falls
+    // through to `Config::load_or_init()` when no embedder config exists; that
+    // startup loader persists migrations and can rewrite config.toml during an
+    // otherwise read-only report.
+    if crate::core::runtime::is_saas() {
+        let config = dispatch.load_config().await?;
+        return doctor_report_with_options(&config, options).await;
+    }
+    let process_root = dispatch.resolved().and_then(|context| {
+        let (_, config_path) = context.workspace_config_binding().ok()?;
+        super::profile::root_for_config_path(&config_path?)
+    });
+    let root = super::profile::root_for_workspace_override()
+        .or(process_root)
+        .or_else(|| crate::config::default_root_openhuman_dir().ok())
+        .ok_or_else(|| "Could not resolve the desktop config root".to_owned())?;
+    let selection = super::profile::resolve_desktop_profile_for_doctor(&root, None)
+        .await
+        .map_err(|error| error.message().to_owned())?;
+    doctor_report_for_desktop_selection(selection, options).await
 }
 
 /// Builds a desktop profile report from an explicit root and profile id.

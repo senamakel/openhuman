@@ -1,7 +1,5 @@
 //! Safe diagnostics for the configured secret backend.
 
-use std::sync::Arc;
-
 use async_trait::async_trait;
 
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding};

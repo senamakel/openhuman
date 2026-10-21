@@ -1,6 +1,5 @@
 //! Storage connectivity and interrupted-layout checks.
 
-use std::path::PathBuf;
 use std::sync::Arc;
 
 use async_trait::async_trait;
@@ -125,7 +124,7 @@ impl DoctorCheck for StorageLayout {
             )]);
         };
         match crate::storage::layout::state::LayoutState::load(&target.profile_dir) {
-            Ok(Some(state)) => Some(vec![Finding::new(
+            Ok(Some(_state)) => Some(vec![Finding::new(
                 self.id(),
                 crate::doctor::FindingSeverity::Warn,
                 "A storage layout migration is incomplete.",

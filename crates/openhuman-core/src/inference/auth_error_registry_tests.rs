@@ -136,3 +136,88 @@ async fn workspace_rebind_updates_or_clears_the_config_origin_hint_locally() {
     assert!(has_unattributed);
     reset_for_tests();
 }
+
+#[tokio::test]
+async fn normal_boot_without_preloaded_config_uses_the_resolved_config_path() {
+    const CHILD_MARKER: &str = "OPENHUMAN_AUTH_ORIGIN_NORMAL_BOOT_CHILD";
+    if std::env::var_os(CHILD_MARKER).is_none() {
+        let home = tempfile::tempdir().expect("isolated test home");
+        let config_dir = home.path().join(".openhuman");
+        std::fs::create_dir_all(&config_dir).expect("create isolated config directory");
+        std::fs::write(
+            config_dir.join("config.toml"),
+            "[storage]\nurl = \"memory\"\n\n[secrets]\nencrypt = false\n",
+        )
+        .expect("write isolated normal-boot config");
+
+        let output = std::process::Command::new(
+            std::env::current_exe().expect("test executable path"),
+        )
+        .args([
+            "--exact",
+            "inference::auth_error_registry::tests::normal_boot_without_preloaded_config_uses_the_resolved_config_path",
+            "--nocapture",
+        ])
+        .env(CHILD_MARKER, "1")
+        .env("HOME", home.path())
+        .env("USERPROFILE", home.path())
+        .env("OPENHUMAN_APP_ENV", "production")
+        .env_remove("VITE_OPENHUMAN_APP_ENV")
+        .env_remove("OPENHUMAN_WORKSPACE")
+        .env_remove("OPENHUMAN_KEYRING_MASTER_KEY")
+        .env_remove("OPENHUMAN_KEYRING_MASTER_KEY_FILE")
+        .output()
+        .expect("spawn isolated normal-boot test process");
+        assert!(
+            output.status.success(),
+            "isolated normal-boot child failed: stdout={} stderr={}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        return;
+    }
+
+    let _guard = TEST_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    reset_for_tests();
+    assert!(crate::core::runtime::CoreContext::current().is_none());
+    let token = crate::core::runtime::TokenSource::Fixed(std::sync::Arc::new(
+        "auth-origin-test-token".to_owned(),
+    ));
+    let (context, _, config) = crate::core::runtime::CoreContext::init_with_boot_mode(
+        crate::core::types::HostKind::Library,
+        &token,
+        crate::core::runtime::DomainSet::none(),
+        crate::tools::toolpacks::ToolGroups::none(),
+        None,
+        crate::core::runtime::CoreBootMode::Normal,
+    )
+    .await
+    .expect("normal boot with config discovery");
+    let config = config.expect("normal boot config loaded from disk");
+    let config_path_a = config.config_path.clone();
+    let config_root_b = tempfile::tempdir().expect("selected config root B");
+    let config_path_b = config_root_b.path().join("config.toml");
+    assert_eq!(
+        config_path_a,
+        std::env::var_os("HOME")
+            .map(std::path::PathBuf::from)
+            .expect("isolated HOME")
+            .join(".openhuman/config.toml")
+    );
+
+    crate::core::runtime::CoreContext::scope(context, async {
+        assert!(crate::core::runtime::CoreContext::current_embedder_config().is_none());
+        assert!(record("normal-boot-provider", 401));
+    })
+    .await;
+
+    let (errors_for_a, unattributed_for_a) =
+        snapshot_for_scope(&config.workspace_dir, &config_path_a, None);
+    let (errors_for_b, unattributed_for_b) =
+        snapshot_for_scope(&config.workspace_dir, &config_path_b, None);
+    assert_eq!(errors_for_a.len(), 1);
+    assert!(!unattributed_for_a);
+    assert!(errors_for_b.is_empty());
+    assert!(!unattributed_for_b);
+    reset_for_tests();
+}

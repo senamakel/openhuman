@@ -371,11 +371,13 @@ pub mod inference_registry {
 pub mod memory_engines {
     pub use openhuman_core::memory::engine::{
         build_cached, rooted, BearerSource, Binding, BoundEngine, EngineCredential, EngineSettings,
-        TINYHUMANS_ENGINE,
+        EngineHealth, TINYHUMANS_ENGINE,
     };
     pub use openhuman_core::memory::engine_registry::{
-        bound_engine, register_memory_engine, register_memory_engine_in, unregister_memory_engine,
-        EngineBuilder, EngineEntry, EngineFuture, EngineRequest, FreeBackground,
+        bound_engine, register_memory_engine, register_memory_engine_in,
+        register_memory_health_probe, register_memory_health_probe_in,
+        unregister_memory_engine, EngineBuilder, EngineEntry, EngineFuture, EngineRequest,
+        FreeBackground, ReadOnlyHealthProbe,
     };
 }
 

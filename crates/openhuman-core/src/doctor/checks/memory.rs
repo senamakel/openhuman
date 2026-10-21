@@ -93,12 +93,13 @@ impl DoctorCheck for HealthCheck {
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
-        let Some(memory) = ctx.memory_engine() else {
-            return vec![Finding::skipped(
-                self.id(),
-                "No read-only memory health probe is available for the selected engine.",
-                "Run doctor from a host that provides a read-only memory health probe.",
-            )];
+        let memory = if let Some(memory) = ctx.memory_engine() {
+            // The transitional v1 adapter supplies this only for the legacy
+            // `memory/engine` selector. Native checks resolve their own
+            // selected-config probe below.
+            memory.clone()
+        } else {
+            probe_selected_config(ctx.config()).await
         };
         match (memory.status.as_str(), memory.reason.as_deref()) {
             ("ok" | "ready", _) => vec![Finding::pass(
@@ -126,11 +127,105 @@ impl DoctorCheck for HealthCheck {
 }
 
 fn safe_reason(reason: &str) -> String {
-    // Engine health strings can include URLs or credential-bearing details.
-    // Only return a bounded classification unless a later typed health reason
-    // explicitly permits safe text.
-    let _ = reason;
-    "The selected memory engine reported that it is unavailable.".to_owned()
+    let lower = reason.to_ascii_lowercase();
+    if reason.len() <= 160
+        && !reason.contains("://")
+        && !lower.contains("token")
+        && !lower.contains("bearer")
+        && !lower.contains("authorization")
+        && !lower.contains("password")
+        && !lower.contains("api_key")
+        && reason.chars().all(|ch| !ch.is_control())
+    {
+        reason.to_owned()
+    } else {
+        "The selected memory engine reported that it is unavailable.".to_owned()
+    }
+}
+
+async fn probe_selected_config(config: &crate::config::Config) -> crate::doctor::core::MemoryEngineCheck {
+    use tinymemory_api::EngineHealth;
+
+    let engine_id = config.memory.engine.trim();
+    let health = match engine_id {
+        crate::memory::engine::TINYHUMANS_ENGINE => {
+            let Some(probe) = crate::memory::engine_registry::read_only_health_probe(engine_id)
+            else {
+                return unavailable(engine_id, "No read-only health probe is registered for this engine.");
+            };
+            probe(config.clone()).await
+        }
+        crate::memory::engine::CORTEXDB_ENGINE => cortexdb_health(config).await,
+        crate::memory::engine::DISABLED_ENGINE => {
+            return unavailable(engine_id, "Memory is disabled in the selected configuration.");
+        }
+        other => {
+            let Some(probe) = crate::memory::engine_registry::read_only_health_probe(other) else {
+                return unavailable(other, "No read-only health probe is registered for this engine.");
+            };
+            probe(config.clone()).await
+        }
+    };
+    let (status, reason) = match health {
+        EngineHealth::Ok => ("ok", None),
+        EngineHealth::Degraded(reason) => ("degraded", Some(reason)),
+        EngineHealth::Down(reason) => ("down", Some(reason)),
+    };
+    crate::doctor::core::MemoryEngineCheck {
+        engine: Some(engine_id.to_owned()),
+        status: status.to_owned(),
+        reason,
+    }
+}
+
+async fn cortexdb_health(config: &crate::config::Config) -> tinymemory_api::EngineHealth {
+    use crate::security::credentials::{AuthService, DEFAULT_AUTH_PROFILE_NAME};
+    use tinymemory_api::{EngineHealth, MemoryEngine};
+    use tinymemory_integrations::{EngineCredential, EngineSettings};
+
+    let profile = match AuthService::get_profile_read_only(
+        config,
+        crate::config::schema::MEMORY_CORTEXDB_KEY_NAME,
+        None,
+    ) {
+        Ok(Some(profile)) => profile,
+        Ok(None) => return EngineHealth::Down("CortexDB API key is not configured.".to_owned()),
+        Err(_) => return EngineHealth::Down("CortexDB credentials could not be read.".to_owned()),
+    };
+    let key = match profile.kind {
+        crate::security::credentials::profiles::AuthProfileKind::Token => profile.token,
+        crate::security::credentials::profiles::AuthProfileKind::OAuth => {
+            profile.token_set.map(|tokens| tokens.access_token)
+        }
+    };
+    let Some(key) = key.filter(|key| !key.trim().is_empty()) else {
+        return EngineHealth::Down("CortexDB API key is not configured.".to_owned());
+    };
+    let endpoint = config
+        .memory
+        .endpoint_for(crate::memory::engine::CORTEXDB_ENGINE)
+        .unwrap_or_else(|| tinymemory_integrations::cortex::CORTEX_API_ENDPOINT.to_owned());
+    let settings = EngineSettings {
+        endpoint: Some(endpoint),
+        observed_actor: config.memory.observed_actor,
+        ..EngineSettings::default()
+    };
+    match tinymemory_integrations::build_engine(
+        crate::memory::engine::CORTEXDB_ENGINE,
+        &settings,
+        EngineCredential::Static(key),
+    ) {
+        Ok(engine) => engine.health().await,
+        Err(_) => EngineHealth::Down("CortexDB engine configuration is invalid.".to_owned()),
+    }
+}
+
+fn unavailable(engine: &str, reason: &str) -> crate::doctor::core::MemoryEngineCheck {
+    crate::doctor::core::MemoryEngineCheck {
+        engine: Some(engine.to_owned()),
+        status: "down".to_owned(),
+        reason: Some(reason.to_owned()),
+    }
 }
 
 #[cfg(test)]

@@ -46,6 +46,11 @@ pub type EngineBuilder = Arc<dyn for<'a> Fn(&EngineRequest<'a>) -> Binding + Sen
 /// Whether background memory work is free for the bound engine and config.
 pub type FreeBackground = Arc<dyn Fn(Config, BoundEngine) -> EngineFuture<bool> + Send + Sync>;
 
+/// A read-only connectivity probe for the selected engine configuration.
+/// Unlike [`EngineBuilder`], this hook must not consult ambient profile state,
+/// mutate credential state, initialize storage, or cache the engine.
+pub type ReadOnlyHealthProbe = Arc<dyn Fn(Config) -> EngineFuture<tinymemory_api::EngineHealth> + Send + Sync>;
+
 /// A registered memory engine.
 #[derive(Clone)]
 pub struct EngineEntry {
@@ -56,6 +61,8 @@ pub struct EngineEntry {
 }
 
 static ENGINES: HookSlot<EngineEntry> = HookSlot::new("memory::engines");
+static READ_ONLY_HEALTH_PROBES: HookSlot<ReadOnlyHealthProbe> =
+    HookSlot::new("memory::read-only-health-probes");
 
 /// Registers the memory engine `engine_id` for the whole process.
 pub fn register_memory_engine(engine_id: impl Into<String>, entry: EngineEntry) {
@@ -72,6 +79,23 @@ pub fn register_memory_engine_in(
     ENGINES.register_in(extensions, engine_id, entry);
 }
 
+/// Registers a read-only health probe for a configured memory engine.
+pub fn register_memory_health_probe(
+    engine_id: impl Into<String>,
+    probe: ReadOnlyHealthProbe,
+) {
+    READ_ONLY_HEALTH_PROBES.register(engine_id, probe);
+}
+
+/// Registers a read-only health probe for a context built from `extensions`.
+pub fn register_memory_health_probe_in(
+    extensions: &Extensions,
+    engine_id: impl Into<String>,
+    probe: ReadOnlyHealthProbe,
+) {
+    READ_ONLY_HEALTH_PROBES.register_in(extensions, engine_id, probe);
+}
+
 /// Removes the process-wide memory engine `engine_id`.
 pub fn unregister_memory_engine(engine_id: &str) -> bool {
     ENGINES.unregister(engine_id)
@@ -80,6 +104,11 @@ pub fn unregister_memory_engine(engine_id: &str) -> bool {
 /// The registered entry for `engine_id`, if any.
 pub(crate) fn lookup(engine_id: &str) -> Option<EngineEntry> {
     ENGINES.get(engine_id)
+}
+
+/// The read-only health probe for `engine_id`, if the current context has one.
+pub(crate) fn read_only_health_probe(engine_id: &str) -> Option<ReadOnlyHealthProbe> {
+    READ_ONLY_HEALTH_PROBES.get(engine_id)
 }
 
 /// Wraps `engine` as a [`BoundEngine`] with the same write scrubbing every

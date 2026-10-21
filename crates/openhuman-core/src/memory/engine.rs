@@ -39,6 +39,7 @@ use std::sync::{Arc, LazyLock, RwLock};
 use sha2::{Digest, Sha256};
 use tinymemory_api::MemoryEngine;
 pub use tinymemory_integrations::{BearerSource, EngineCredential, EngineSettings};
+pub use tinymemory_api::EngineHealth;
 
 use crate::config::schema::MEMORY_CORTEXDB_KEY_NAME;
 use crate::config::Config;

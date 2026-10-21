@@ -123,6 +123,12 @@ pub mod channels;
 pub mod chat_surface;
 pub mod complete;
 pub mod config;
+/// Pure command-line argument parsers shared by host-owned command facades.
+pub mod cli {
+    pub use openhuman_core::core::cli::{
+        parse_cli_args_after_launch_options, parse_function_params,
+    };
+}
 mod core_agent;
 pub mod cron;
 pub mod embeddings;

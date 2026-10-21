@@ -26,8 +26,8 @@ use std::sync::Arc;
 use openhuman_embed::__host::config::{Config, MODEL_MANAGED_DEFAULT};
 use openhuman_embed::__host::inference_registry::{
     register_catalog, register_chat_model, register_embedding, register_inspection_chat_model,
-    BoxFuture, ChatModelEntry, ChatModelFactory, ChatModelRequest, ReadinessProbe,
-    PROVIDER_OPENHUMAN,
+    BoxFuture, ChatModelEntry, ChatModelFactory, ChatModelRequest, InspectionChatModelBuild,
+    ReadinessProbe, PROVIDER_OPENHUMAN,
 };
 use tinyinference_llm::model::ChatModel;
 
@@ -82,7 +82,7 @@ pub(crate) fn build_chat_model(
 /// inspection calls; invoke and stream never consult mutable auth state.
 fn build_chat_model_for_inspection(
     request: &ChatModelRequest<'_>,
-) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
+) -> anyhow::Result<InspectionChatModelBuild> {
     use openhuman_embed::__host::security::credentials::session_support::{
         check_session_backend, classify_session_token, is_local_session_token,
         load_app_session_profile_read_only, SessionTokenCheck,
@@ -131,12 +131,22 @@ fn build_chat_model_for_inspection(
             }
         }
     };
+    let endpoint = format!(
+        "{}/openai/v1",
+        crate::backend::url::effective_api_url(request.config.api_url.as_deref())
+            .trim_end_matches('/')
+    );
     let model =
         OpenHumanBackendModel::new(request.config.api_url.as_deref(), &options, default_model)
             .with_native_tool_calling(request.native_tool_calling)
             .with_thread_id(request.thread_id)
             .with_inspection_bearer(bearer);
-    Ok((Arc::new(model), pinned))
+    Ok(InspectionChatModelBuild {
+        model: Arc::new(model),
+        model_id: pinned,
+        endpoint,
+        credential: bearer,
+    })
 }
 
 fn readiness_probe() -> ReadinessProbe {

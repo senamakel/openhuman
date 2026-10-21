@@ -46,13 +46,106 @@ pub(crate) fn create_chat_model_with_model_id_in_for_inspection(
     config: &Config,
     temperature: f64,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    let (model, model_id) = create_chat_model_with_model_id_inner_and_access(
-        ctx,
+    let prepared = create_chat_model_with_identity_in_for_inspection(ctx, role, config, temperature)?;
+    Ok((prepared.model, prepared.model_id))
+}
+
+/// Build a model for a live inspection call and preserve the exact resolved
+/// endpoint, frozen credential, and wire-model identity used by that model.
+pub(crate) fn create_chat_model_with_identity_in_for_inspection(
+    ctx: &DispatchCtx,
+    role: &str,
+    config: &Config,
+    temperature: f64,
+) -> anyhow::Result<PreparedInspectionChatModel> {
+    if ctx.host_overrides().and_then(|local| local.model_for(role)).is_some() {
+        anyhow::bail!("host-provided inference model has no frozen inspection identity");
+    }
+
+    let mut resolved = provider_for_role(role, config);
+    if resolved.trim().is_empty() || resolved.trim() == "cloud" {
+        resolved = resolve_primary_cloud_provider_string(config);
+    }
+    if resolves_to_managed_backend(role, config) {
+        let build = managed_backend::managed_chat_model_for_inspection(role, config, None)?;
+        return Ok(prepared_inspection_model(
+            build.model,
+            build.model_id.clone(),
+            build.endpoint,
+            build.credential,
+            temperature,
+        ));
+    }
+    if let Some(result) = try_create_claude_agent_sdk_chat_model_for_inspection(
         role,
+        &resolved,
         config,
+    ) {
+        let (model, model_id, endpoint, credential) = result?;
+        return Ok(prepared_inspection_model(
+            model,
+            model_id.clone(),
+            endpoint,
+            credential,
+            temperature,
+        ));
+    }
+    if let Some(result) = try_create_claude_code_chat_model_for_inspection(
+        role,
+        &resolved,
+        config,
+    ) {
+        let (model, model_id, endpoint, credential) = result?;
+        return Ok(prepared_inspection_model(
+            model,
+            model_id.clone(),
+            endpoint,
+            credential,
+            temperature,
+        ));
+    }
+    if let Some(result) = try_create_local_runtime_chat_model_for_inspection(role, config) {
+        let (model, model_id, endpoint, credential) = result?;
+        return Ok(prepared_inspection_model(
+            model,
+            model_id.clone(),
+            endpoint,
+            credential,
+            temperature,
+        ));
+    }
+    if let Some(result) = try_create_cloud_slug_chat_model_for_inspection_with_identity(role, config)
+    {
+        let (model, model_id, endpoint, credential) = result?;
+        return Ok(prepared_inspection_model(
+            model,
+            model_id.clone(),
+            endpoint,
+            credential,
+            temperature,
+        ));
+    }
+    Err(unresolved_chat_model_error_with_access(
+        role,
+        &provider_for_role(role, config),
+        config,
+        &EgressLedger::none(),
         CredentialAccess::Inspection,
-    )?;
-    Ok((with_default_temperature(model, temperature), model_id))
+    ))
+}
+
+fn prepared_inspection_model(
+    model: Arc<dyn ChatModel<()>>,
+    model_id: String,
+    endpoint: String,
+    credential: String,
+    temperature: f64,
+) -> PreparedInspectionChatModel {
+    PreparedInspectionChatModel {
+        model: with_default_temperature(model, temperature),
+        identity: InspectionRequestIdentity::new(endpoint, credential, model_id.clone()),
+        model_id,
+    }
 }
 
 pub(super) fn create_chat_model_with_model_id_inner(

@@ -25,13 +25,12 @@ fn report_reuses_launch_and_schema_parameter_parsing_without_global_overrides() 
 
     assert_eq!(invocation.method, "openhuman.doctor_report");
     assert_eq!(
-        invocation.params,
-        serde_json::from_value(json!({
+        Value::Object(invocation.params),
+        json!({
             "tier": "static",
             "only": ["config/parse"],
             "profile": "selected-profile"
-        }))
-        .expect("params have the registered schema shape")
+        })
     );
 }
 
@@ -51,7 +50,7 @@ fn models_parses_legacy_bool_argument_and_keeps_raw_method() {
     .expect("legacy models is routed through inspection");
 
     assert_eq!(invocation.method, "openhuman.doctor_models");
-    assert_eq!(invocation.params, json!({"use_cache": false}));
+    assert_eq!(Value::Object(invocation.params), json!({"use_cache": false}));
 }
 
 #[test]

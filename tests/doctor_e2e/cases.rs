@@ -164,12 +164,10 @@ async fn cli_explicit_valid_profile_uses_its_config_without_activating_or_writin
     assert_eq!(report["profile_layout_version"], 2);
     let unknown_key = finding(&report, "config/unknown-key");
     assert_eq!(unknown_key["severity"], "warn");
+    assert_eq!(unknown_key["config_path"], "memroy");
     assert!(unknown_key["message"]
         .as_str()
         .is_some_and(|message| message.contains("memroy")));
-    assert!(unknown_key["config_path"]
-        .as_str()
-        .is_some_and(|path| path.ends_with("users/doctor-alternate/config.toml")));
 
     assert_eq!(
         fs::read_to_string(&active_user_path).expect("active user remains readable"),

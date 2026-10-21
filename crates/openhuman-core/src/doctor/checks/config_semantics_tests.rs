@@ -264,7 +264,9 @@ async fn writable_action_directory_passes_and_removes_its_probe_file() {
 
     let findings = run_check(config, "workspace/action-dir").await;
 
-    assert!(findings.is_empty(), "a writable action directory passes");
+    assert_eq!(findings.len(), 1);
+    assert_eq!(findings[0].severity, FindingSeverity::Pass);
+    assert_eq!(findings[0].check_id, "workspace/action-dir");
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
 }
 

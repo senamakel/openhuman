@@ -163,7 +163,7 @@ async fn read_only_workspace_is_reported_by_the_native_writable_check() {
     let workspace = ReadOnlyWorkspace::new();
     assert!(workspace.path().is_dir(), "the selected workspace exists");
     assert!(
-        create_probe(workspace.path()).is_err(),
+        crate::storage::probe_directory_writable(workspace.path()).is_err(),
         "the selected directory must reject probe-file creation"
     );
     let before = tree_snapshot(workspace.path());

@@ -72,7 +72,7 @@ pub(crate) fn build_chat_model(
         request.thread_id.is_some()
     );
     let model =
-        OpenHumanBackendModel::new(request.config.api_url.as_deref(), &options, default_model.clone())
+        OpenHumanBackendModel::new(request.config.api_url.as_deref(), &options, default_model)
             .with_native_tool_calling(request.native_tool_calling)
             .with_thread_id(request.thread_id);
     Ok((Arc::new(model), pinned))
@@ -137,7 +137,7 @@ fn build_chat_model_for_inspection(
             .trim_end_matches('/')
     );
     let model =
-        OpenHumanBackendModel::new(request.config.api_url.as_deref(), &options, default_model)
+        OpenHumanBackendModel::new(request.config.api_url.as_deref(), &options, default_model.clone())
             .with_native_tool_calling(request.native_tool_calling)
             .with_thread_id(request.thread_id)
             .with_inspection_bearer(bearer);

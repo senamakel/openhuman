@@ -129,7 +129,7 @@ fn stt_readiness(config: &Config) -> Result<(), VoiceIssue> {
     #[cfg(not(feature = "voice"))]
     {
         let _ = config;
-        return Err(VoiceIssue::BuildDisabled);
+        Err(VoiceIssue::BuildDisabled)
     }
     #[cfg(feature = "voice")]
     {
@@ -160,7 +160,7 @@ fn tts_readiness(config: &Config) -> Result<(), VoiceIssue> {
     #[cfg(not(feature = "voice"))]
     {
         let _ = config;
-        return Err(VoiceIssue::BuildDisabled);
+        Err(VoiceIssue::BuildDisabled)
     }
     #[cfg(feature = "voice")]
     {

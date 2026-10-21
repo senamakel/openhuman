@@ -314,10 +314,9 @@ async fn connect_tier_skips_billable_live_probes() {
 #[tokio::test(flavor = "current_thread")]
 async fn live_completion_embedding_and_memory_roundtrip_pass_and_clean_up() {
     let fixture = fixture_named("healthy").await;
-    fixture
-        .mock
-        .set_behavior(healthy_mock_behavior(), false)
-        .await;
+    let mut behavior = healthy_mock_behavior();
+    behavior["embeddingDimensions"] = json!(1024);
+    fixture.mock.set_behavior(behavior, false).await;
     let report = fixture
         .report(json!({
             "tier": "live",

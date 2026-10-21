@@ -5,13 +5,33 @@ use tinyjuice_bus::types::{CompressOptions, ContentHint};
 fn model_facing_tool_schemas_match_the_pre_migration_fixture() {
     use tinytools::Tool;
 
-    let retrieve = super::TokenjuiceRetrieveTool::new();
+    let retrieve = tinyjuice_host::retrieve_tool::RetrieveToolOutputTool::new(
+        std::sync::Arc::new(|_, _| Box::pin(async { Ok::<_, String>(None) })),
+    );
     let mut declarations = vec![serde_json::json!({
             "name": retrieve.name(),
             "description": retrieve.description(),
             "parameters": retrieve.parameters_schema(),
         })];
-    for tool in super::repl_tools() {
+    struct UnusedQuerySource;
+    #[async_trait::async_trait]
+    impl tinyjuice_host::repl_tools::QuerySource for UnusedQuerySource {
+        async fn query(
+            &self,
+            _: Option<&dyn tinytools::ToolRunContext>,
+            _: tinyjuice_bus::wire::QueryRequest,
+        ) -> Result<tinyjuice_bus::wire::QueryResponse, String> {
+            Err("schema fixture does not execute queries".into())
+        }
+    }
+    let tools = tinyjuice_host::repl_tools::repl_tools(
+        std::sync::Arc::new(UnusedQuerySource),
+        tinyjuice_bus::repl::ReplLimits::default(),
+        None,
+        tinytools_std::filesystem::FileReadTool::MAX_FILE_SIZE_BYTES,
+        None,
+    );
+    for tool in tools {
         declarations.push(serde_json::json!({
                 "name": tool.name(),
                 "description": tool.description(),

@@ -611,10 +611,12 @@ fn finding<'a>(report: &'a Value, check_id: &str) -> &'a Value {
 }
 
 fn assert_finding(report: &Value, check_id: &str, severity: &str) {
+    let selected = finding(report, check_id);
     assert_eq!(
-        finding(report, check_id)["severity"],
+        selected["severity"],
         severity,
-        "{check_id}"
+        "{check_id}: {}",
+        selected["message"].as_str().unwrap_or("<no safe finding message>")
     );
 }
 

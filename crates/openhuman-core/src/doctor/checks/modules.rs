@@ -136,6 +136,6 @@ fn module_state(state: ModuleState) -> &'static str {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "modules"))]
 #[path = "modules_tests.rs"]
 mod tests;

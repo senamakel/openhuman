@@ -135,7 +135,7 @@ fn store_byo_key(config: &Config, slug: &str, token: &str) {
 #[tokio::test(flavor = "multi_thread")]
 async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth_profile() {
     use crate::config::test_env::EnvVarGuard;
-    use crate::security::credentials::openai_oauth::store::{
+    use crate::security::credentials::openai_oauth::{
         OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
     };
     use chrono::{Duration, Utc};
@@ -217,6 +217,12 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
             .and_then(|token_set| token_set.expires_at)
             .is_some_and(|expires_at| expires_at < Utc::now())
     );
+    let selected_codex_credential =
+        super::credentials::lookup_key_for_slug_read_only("openai", &config)
+            .expect("read selected OpenAI API-key credential");
+    assert_eq!(selected_codex_credential.key, "dummy-selected-api-key");
+    assert!(!selected_codex_credential.is_oauth);
+    assert_eq!(selected_codex_credential.account_id, None);
 
     Mock::given(method("POST"))
         .and(path("/token"))
@@ -288,6 +294,94 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
             .as_ref()
             .and_then(|token_set| token_set.expires_at)
             .is_some_and(|expires_at| expires_at < Utc::now())
+    );
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn inspection_codex_metadata_matches_the_selected_oauth_profile() {
+    use crate::config::test_env::EnvVarGuard;
+    use chrono::{Duration, Utc};
+
+    let _inference_guard = crate::inference::inference_test_guard_async().await;
+    let temp = tempfile::tempdir().expect("temporary credentials fixture");
+    let mut config = Config::default();
+    config.config_path = temp.path().join("config.toml");
+    config.workspace_dir = temp.path().join("workspace");
+    config.action_dir = temp.path().join("action");
+    config.secrets.encrypt = false;
+    let _env = EnvVarGuard::locked_async()
+        .await
+        .with("HOME", temp.path())
+        .with("OPENHUMAN_WORKSPACE", &config.workspace_dir)
+        .with("OPENHUMAN_KEYRING_BACKEND", "file");
+
+    let now = Utc::now();
+    let created = (now - Duration::hours(1)).to_rfc3339();
+    let expires = (now + Duration::hours(1)).to_rfc3339();
+    let raw_profiles = serde_json::json!({
+        "schema_version": 1,
+        "updated_at": created,
+        "active_profiles": {
+            "provider:openai": "provider:openai:active-oauth"
+        },
+        "profiles": {
+            "provider:openai:active-oauth": {
+                "provider": "provider:openai",
+                "profile_name": "active-oauth",
+                "kind": "oauth",
+                "token_set": {
+                    "access_token": "active-oauth-bearer",
+                    "refresh_token": "active-refresh-token",
+                    "expires_at": expires,
+                    "token_type": "Bearer"
+                },
+                "metadata": {"account_id": "acct-active"},
+                "created_at": created,
+                "updated_at": created
+            },
+            "provider:openai:oauth": {
+                "provider": "provider:openai",
+                "profile_name": "oauth",
+                "kind": "oauth",
+                "token_set": {
+                    "access_token": "other-oauth-bearer",
+                    "refresh_token": "other-refresh-token",
+                    "expires_at": expires,
+                    "token_type": "Bearer"
+                },
+                "metadata": {"account_id": "acct-unselected"},
+                "created_at": created,
+                "updated_at": created
+            }
+        }
+    });
+    let profiles_path = temp.path().join("auth-profiles.json");
+    std::fs::write(
+        &profiles_path,
+        serde_json::to_vec_pretty(&raw_profiles).expect("serialize profile fixture"),
+    )
+    .expect("write read-only profile fixture");
+    let before = std::fs::read(&profiles_path).expect("snapshot profile bytes");
+
+    let selected = super::credentials::lookup_key_for_slug_read_only("openai", &config)
+        .expect("read selected OAuth profile");
+    assert_eq!(selected.key, "active-oauth-bearer");
+    assert!(selected.is_oauth);
+    assert_eq!(selected.account_id.as_deref(), Some("acct-active"));
+
+    let routing =
+        crate::inference::provider::openai_codex::resolve_openai_codex_routing_for_inspection(
+            "openai",
+            "https://api.openai.example.test/v1",
+            selected.is_oauth,
+            selected.account_id,
+        );
+    assert!(routing.using_oauth);
+    assert_eq!(routing.account_id.as_deref(), Some("acct-active"));
+    assert_eq!(
+        std::fs::read(profiles_path).expect("profile bytes remain readable"),
+        before,
+        "inspection routing must not refresh or migrate profile data"
     );
 }
 

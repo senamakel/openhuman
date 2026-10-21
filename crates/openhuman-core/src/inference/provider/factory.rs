@@ -131,7 +131,9 @@ mod factory_tests;
 
 use crate::config::Config;
 use crate::config::schema::cloud_providers::AuthStyle;
-use crate::inference::provider::openai_codex::resolve_openai_codex_routing;
+use crate::inference::provider::openai_codex::{
+    resolve_openai_codex_routing, resolve_openai_codex_routing_for_inspection,
+};
 use crate::security::credentials::AuthService;
 use crate::security::egress::EgressLedger;
 use std::sync::Arc;

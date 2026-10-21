@@ -422,6 +422,17 @@ pub mod desktop {
     }
 }
 
+/// The read-only desktop profile resolver used by the RPC host's one-shot
+/// doctor boot. Kept on the host-internals facade so CLI code does not depend
+/// on `openhuman-core` directly.
+pub mod doctor {
+    pub mod profile {
+        pub use openhuman_core::doctor::profile::{
+            DesktopProfileError, DesktopProfileSelection, resolve_desktop_profile_for_doctor,
+        };
+    }
+}
+
 pub mod mcp {
     pub mod registry {
         pub mod oauth {

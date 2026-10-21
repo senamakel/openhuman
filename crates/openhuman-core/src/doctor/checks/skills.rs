@@ -402,6 +402,6 @@ fn github_error_message(error: &crate::skills::preflight::GithubGateError) -> St
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "skills", feature = "modules"))]
 #[path = "skills_tests.rs"]
 mod tests;

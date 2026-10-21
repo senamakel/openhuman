@@ -103,6 +103,7 @@ uuid = { version = "1", features = ["v4"] }
 async-trait = "0.1"
 tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["conformance"] }
 dirs = "6"
+zeroize = "1"
 # `cron_tests` builds core `CronJob`s, whose schedule types live in the
 # tinyflows bus contract.
 tinyflows-bus = { path = "../../vendor/tinyflows/crates/tinyflows-bus" }

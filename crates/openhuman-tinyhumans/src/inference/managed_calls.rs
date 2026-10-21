@@ -51,6 +51,7 @@ pub(super) fn log_managed_provider_error(pe: &ProviderError, operation: &str) {
 
 /// Gives a failure reported inside a stream the same handling as a failed
 /// `stream()` call: logged, and an expired session starts re-authentication.
+#[cfg(test)]
 pub(super) fn observe_in_band_failure(item: &ModelStreamItem) {
     observe_in_band_failure_with_session_publish(item, true);
 }

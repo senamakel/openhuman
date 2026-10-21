@@ -156,12 +156,19 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
         fallback_diagnostics::missing_provider_credentials_message(role, slug, local_chat)
     };
 
-    let (key, bearer_is_oauth) = if credential_access == CredentialAccess::Inspection
+    let (key, bearer_is_oauth, oauth_account_id) = if credential_access
+        == CredentialAccess::Inspection
         && entry.auth_style == AuthStyle::OpenhumanJwt
     {
         // The managed model constructor receives its credential later, on
         // invoke. Its hosted construction callback is config-only and offline.
-        (String::new(), false)
+        (String::new(), false, None)
+    } else if credential_access == CredentialAccess::Inspection {
+        let credential =
+            super::credentials::lookup_key_for_slug_read_only(slug, config).map_err(|error| {
+                anyhow::anyhow!("{} (underlying error: {error})", missing_credentials())
+            })?;
+        (credential.key, credential.is_oauth, credential.account_id)
     } else {
         let key = credential_access
             .lookup_key_for_slug(slug, config)
@@ -169,7 +176,7 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
                 anyhow::anyhow!("{} (underlying error: {error})", missing_credentials())
             })?;
         let is_oauth = slug == "openai" && credential_access.openai_bearer_is_oauth(config);
-        (key, is_oauth)
+        (key, is_oauth, None)
     };
 
     // A readable auth profile with no key for this slug returns `Ok("")`, which
@@ -194,8 +201,18 @@ pub(super) fn resolve_cloud_slug_with_access<'a>(
     {
         anyhow::bail!("{}", missing_credentials());
     }
-    let codex = resolve_openai_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth)
-        .map_err(anyhow::Error::msg)?;
+    let codex = match credential_access {
+        CredentialAccess::Runtime => {
+            resolve_openai_codex_routing(config, slug, &entry.endpoint, &key, bearer_is_oauth)
+                .map_err(anyhow::Error::msg)?
+        }
+        CredentialAccess::Inspection => resolve_openai_codex_routing_for_inspection(
+            slug,
+            &entry.endpoint,
+            bearer_is_oauth,
+            oauth_account_id,
+        ),
+    };
 
     Ok(CloudSlugResolution {
         entry,

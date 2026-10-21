@@ -54,6 +54,148 @@ impl Interface for ReadOnlyFixture {
     }
 }
 
+struct LinkedFixtureModule {
+    tx: std::sync::mpsc::SyncSender<Vec<u8>>,
+}
+
+unsafe extern "C" fn linked_fixture_deliver(
+    ctx: *mut std::ffi::c_void,
+    ptr: *const u8,
+    len: usize,
+) -> i32 {
+    if ctx.is_null() || ptr.is_null() {
+        return tinybus::module::abi::TB_BAD_ARGUMENT;
+    }
+    let module = unsafe { &*ctx.cast::<LinkedFixtureModule>() };
+    let bytes = unsafe { std::slice::from_raw_parts(ptr, len) }.to_vec();
+    match module.tx.try_send(bytes) {
+        Ok(()) => tinybus::module::abi::TB_OK,
+        Err(std::sync::mpsc::TrySendError::Full(_)) => tinybus::module::abi::TB_BACKPRESSURE,
+        Err(std::sync::mpsc::TrySendError::Disconnected(_)) => tinybus::module::abi::TB_CLOSED,
+    }
+}
+
+unsafe extern "C" fn linked_fixture_shutdown(ctx: *mut std::ffi::c_void, _: u64) -> i32 {
+    if !ctx.is_null() {
+        drop(unsafe { Box::from_raw(ctx.cast::<LinkedFixtureModule>()) });
+    }
+    tinybus::module::abi::TB_OK
+}
+
+unsafe extern "C" fn linked_fixture_reinitialize(
+    _: *mut std::ffi::c_void,
+    _: *const u8,
+    _: usize,
+) -> i32 {
+    tinybus::module::abi::TB_BAD_ARGUMENT
+}
+
+unsafe extern "C" fn linked_fixture_init(
+    host: *const tinybus::module::abi::TbHostVtable,
+    out: *mut tinybus::module::abi::TbModuleVtable,
+) -> i32 {
+    if host.is_null() || out.is_null() {
+        return tinybus::module::abi::TB_BAD_ARGUMENT;
+    }
+    let host = unsafe { *host };
+    let config = if host.config.len == 0 {
+        serde_json::Value::Null
+    } else {
+        let bytes = unsafe { std::slice::from_raw_parts(host.config.ptr, host.config.len) };
+        match serde_json::from_slice::<serde_json::Value>(bytes) {
+            Ok(config) => config,
+            Err(_) => return tinybus::module::abi::TB_BAD_ARGUMENT,
+        }
+    };
+    let reply = config
+        .get("reply")
+        .cloned()
+        .unwrap_or(serde_json::Value::Null);
+    let host_ctx = host.host_ctx as usize;
+    let send = host.send;
+    let ready = host.ready;
+    let (tx, rx) = std::sync::mpsc::sync_channel::<Vec<u8>>(8);
+    std::thread::spawn(move || {
+        unsafe { ready(host_ctx as *mut std::ffi::c_void) };
+        while let Ok(bytes) = rx.recv() {
+            let Ok(message) = serde_json::from_slice::<tinybus::Message>(&bytes) else {
+                continue;
+            };
+            if message.header.kind != tinybus::MessageKind::MethodCall {
+                continue;
+            }
+            let member = message
+                .header
+                .member
+                .as_ref()
+                .map(ToString::to_string)
+                .unwrap_or_default();
+            let body = serde_json::json!({
+                "response": reply,
+                "observed_member": member,
+                "observed_body": message.body,
+            });
+            let response = tinybus::Message::method_return(&message.header, body);
+            let Ok(bytes) = serde_json::to_vec(&response) else {
+                continue;
+            };
+            let _ = unsafe {
+                send(
+                    host_ctx as *mut std::ffi::c_void,
+                    bytes.as_ptr(),
+                    bytes.len(),
+                )
+            };
+        }
+    });
+    unsafe {
+        *out = tinybus::module::abi::TbModuleVtable {
+            size: std::mem::size_of::<tinybus::module::abi::TbModuleVtable>() as u32,
+            _reserved: 0,
+            module_ctx: Box::into_raw(Box::new(LinkedFixtureModule { tx })).cast(),
+            deliver: linked_fixture_deliver,
+            shutdown: linked_fixture_shutdown,
+            reinitialize: Some(linked_fixture_reinitialize),
+        };
+    }
+    tinybus::module::abi::TB_OK
+}
+
+fn linked_fixture_manifest() -> tinybus::module::manifest::ModuleManifest {
+    use tinybus::module::manifest::{
+        ModuleIdentity, ModuleManifest, PanicPolicy, ProvidedInterface, MANIFEST_SCHEMA,
+    };
+    use tinybus::name::{BusName, InterfaceName, MemberName, ObjectPath};
+    use tinybus::version::{InterfaceVersion, Version};
+
+    ModuleManifest {
+        schema: MANIFEST_SCHEMA,
+        module: ModuleIdentity {
+            name: "doctor-connector-fixture".to_owned(),
+            version: Version::new(1, 0, 0),
+            description: "Test-only attested connector fixture".to_owned(),
+            homepage: None,
+            license: String::new(),
+        },
+        bus_name: BusName::new(DESTINATION).unwrap(),
+        object_path: ObjectPath::new(OBJECT_PATH).unwrap(),
+        provides: vec![ProvidedInterface {
+            version: InterfaceVersion::provided(
+                InterfaceName::new(INTERFACE).unwrap(),
+                Version::new(1, 0, 0),
+            ),
+            methods: vec![MemberName::new("ListConnectedIntegrations").unwrap()],
+            signals: Vec::new(),
+        }],
+        requires: Vec::new(),
+        environment: Vec::new(),
+        capabilities: Vec::new(),
+        lazy_init: false,
+        worker_threads: 1,
+        on_panic: PanicPolicy::Detach,
+    }
+}
+
 #[tokio::test]
 async fn a_matching_config_binding_is_pinned_to_workspace_policy_and_credential() {
     let _guard = route_lock().lock().await;
@@ -248,27 +390,27 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     record_configured_route_for_test(&config, &accepted_route);
 
     let bus = MemoryBus::new();
-    tinybus::broker::Broker::new().spawn(bus.clone());
-    let service = tinybus::Connection::connect(bus.connect().await.unwrap())
-        .await
-        .unwrap();
+    let broker = tinybus::broker::Broker::new();
+    let broker_task = broker.clone().spawn(bus.clone());
+    let host = tinybus::module::ModuleHost::new(broker);
+    host.attach_linked_with_config(
+        tinybus::module::LinkedModule {
+            descriptor: tinybus::module::abi::TbAbiDescriptor::current(
+                "doctor-connector-fixture",
+                "1.0.0",
+            ),
+            manifest: linked_fixture_manifest(),
+            init: linked_fixture_init,
+        },
+        serde_json::json!({
+            "reply": { "integrations": [{ "toolkit": "github", "connected": true }] }
+        }),
+    )
+    .expect("admit the fixture through the trusted linked-module host");
     let client = tinybus::Connection::connect(bus.connect().await.unwrap())
         .await
         .unwrap();
-    service.request_name(DESTINATION).await.unwrap();
-    let calls = Arc::new(Mutex::new(Vec::new()));
     let reply = serde_json::json!({ "integrations": [{ "toolkit": "github", "connected": true }] });
-    service
-        .serve_at(
-            tinybus::ObjectPath::new(OBJECT_PATH).unwrap(),
-            ReadOnlyFixture {
-                calls: Arc::clone(&calls),
-                reply: reply.clone(),
-                delay: std::time::Duration::ZERO,
-            },
-        )
-        .await
-        .unwrap();
     let proxy = client.proxy(DESTINATION, OBJECT_PATH, INTERFACE).unwrap();
     let proxy_requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
     let runtime = FixtureReadyRuntime {
@@ -287,7 +429,12 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
     .expect("read-only fixture responds")
     .expect("the exactly matching ready binding is probeable");
 
-    assert_eq!(response, reply);
+    assert_eq!(response["response"], reply);
+    assert_eq!(response["observed_member"], "ListConnectedIntegrations");
+    assert_eq!(
+        response["observed_body"],
+        serde_json::json!([request.clone()])
+    );
     let mut other_workspace = config.clone();
     other_workspace.workspace_dir = scratch.path().join("workspace-b");
     assert!(
@@ -301,15 +448,12 @@ async fn existing_readonly_call_returns_a_matching_ready_response_with_a_bound()
         .expect("mismatched binding is unavailable")
         .is_none()
     );
-    let calls = calls.lock().unwrap();
-    assert_eq!(calls.len(), 1);
-    assert_eq!(calls[0].0, "ListConnectedIntegrations");
-    assert_eq!(calls[0].1, serde_json::json!([request]));
     assert_eq!(proxy_requests.load(std::sync::atomic::Ordering::SeqCst), 1);
-    drop(calls);
     *configured_binding()
         .lock()
         .unwrap_or_else(std::sync::PoisonError::into_inner) = None;
+    drop(host);
+    broker_task.abort();
 }
 
 #[tokio::test]

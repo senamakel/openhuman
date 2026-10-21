@@ -4,13 +4,13 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Duration, TimeZone, Utc};
 use tinyinference_providers::oauth::{
-    openai_account_id_from_access_token, openai_codex_config, parse_openai_codex_auth_json,
-    refresh_access_token, OAuthTokenSet,
+    OAuthTokenSet, openai_account_id_from_access_token, openai_codex_config,
+    parse_openai_codex_auth_json, refresh_access_token,
 };
 
 use crate::config::Config;
 use crate::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use crate::security::credentials::{state_dir_from_config, AuthService};
+use crate::security::credentials::{AuthService, state_dir_from_config};
 
 const LOG_PREFIX: &str = "[inference][openai-oauth][store]";
 
@@ -196,11 +196,15 @@ fn auth_profiles_store(config: &Config) -> AuthProfilesStore {
 }
 
 fn try_refresh_oauth_token(refresh: &str) -> Result<OAuthTokenSet, String> {
-    let mut cfg = openai_codex_config("http://127.0.0.1:1455/auth/callback");
+    let cfg = openai_codex_config("http://127.0.0.1:1455/auth/callback");
     #[cfg(test)]
-    if let Some(token_url) = local_refresh_url_override() {
+    let cfg = if let Some(token_url) = local_refresh_url_override() {
+        let mut cfg = cfg;
         cfg.token_url = token_url;
-    }
+        cfg
+    } else {
+        cfg
+    };
     let refresh = refresh.to_string();
     if let Ok(handle) = tokio::runtime::Handle::try_current() {
         // `block_in_place` lets the multi-thread runtime move other tasks off this

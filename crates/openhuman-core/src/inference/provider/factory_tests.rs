@@ -135,7 +135,7 @@ fn store_byo_key(config: &Config, slug: &str, token: &str) {
 #[tokio::test(flavor = "multi_thread")]
 async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth_profile() {
     use crate::config::test_env::EnvVarGuard;
-    use crate::security::credentials::openai_oauth::store::{
+    use crate::security::credentials::openai_oauth::{
         OPENAI_OAUTH_PROFILE_NAME, OPENAI_PROVIDER_KEY,
     };
     use chrono::{Duration, Utc};

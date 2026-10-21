@@ -375,8 +375,10 @@ pub mod memory_engines {
     };
     pub use openhuman_core::memory::engine_registry::{
         EngineBuilder, EngineEntry, EngineFuture, EngineRequest, FreeBackground,
-        ReadOnlyHealthProbe, bound_engine, register_memory_engine, register_memory_engine_in,
-        register_memory_health_probe, register_memory_health_probe_in, unregister_memory_engine,
+        ReadOnlyEngineError, ReadOnlyEngineFactory, ReadOnlyHealthProbe, bound_engine,
+        register_memory_engine, register_memory_engine_in, register_memory_health_probe,
+        register_memory_health_probe_in, register_read_only_engine_factory,
+        register_read_only_engine_factory_in, unregister_memory_engine,
     };
 }
 

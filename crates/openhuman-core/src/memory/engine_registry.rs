@@ -40,6 +40,21 @@ pub enum ReadOnlyEngineError {
     InvalidConfiguration,
 }
 
+impl ReadOnlyEngineError {
+    /// A safe operator-facing summary with no credential or provider detail.
+    #[must_use]
+    pub const fn safe_message(self) -> &'static str {
+        match self {
+            Self::ComponentDisabled => "Memory is disabled in the selected configuration.",
+            Self::EngineDisabled => "Memory is turned off in the selected configuration.",
+            Self::UnsupportedEngine => "The selected memory engine is not available for inspection.",
+            Self::CredentialsUnavailable => "No usable credential is available for the selected memory engine.",
+            Self::EndpointUnavailable => "The selected memory engine endpoint is unavailable.",
+            Self::InvalidConfiguration => "The selected memory engine configuration is invalid.",
+        }
+    }
+}
+
 /// A boxed `Send` future.
 pub type EngineFuture<T> = Pin<Box<dyn Future<Output = T> + Send>>;
 

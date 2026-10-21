@@ -368,7 +368,7 @@ impl CoreContext {
         ctx.rebind_workspace(workspace_dir, config_path)
     }
 
-    fn rebind_workspace(
+    pub(crate) fn rebind_workspace(
         &self,
         workspace_dir: &std::path::Path,
         config_path: Option<&std::path::Path>,

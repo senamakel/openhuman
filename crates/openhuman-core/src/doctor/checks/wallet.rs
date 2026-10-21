@@ -56,9 +56,8 @@ impl WalletSnapshotProbe for FileSnapshot {
         if contents.len() as u64 > MAX_SNAPSHOT_BYTES {
             return Err(SnapshotFailure::Malformed);
         }
-        let inspection =
-            crate::web3::wallet::inspect_stored_wallet_state(&contents)
-                .map_err(|_| SnapshotFailure::Malformed)?;
+        let inspection = crate::web3::wallet::inspect_stored_wallet_state(&contents)
+            .map_err(|_| SnapshotFailure::Malformed)?;
         let configured = inspection.consent_granted && inspection.account_count > 0;
         Ok(Some(WalletSnapshot { configured }))
     }

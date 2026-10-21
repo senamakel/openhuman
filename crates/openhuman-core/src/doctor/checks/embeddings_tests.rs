@@ -353,13 +353,10 @@ async fn fake_ollama(status: u16, body: &'static str) -> (String, tokio::task::J
         .expect("bind local fake Ollama");
     let address = listener.local_addr().expect("fake Ollama address");
     let request = tokio::spawn(async move {
-        let (mut stream, _) = tokio::time::timeout(
-            std::time::Duration::from_secs(5),
-            listener.accept(),
-        )
-        .await
-        .expect("configured Ollama probe should reach the local fixture")
-        .expect("accept local probe");
+        let (mut stream, _) = tokio::time::timeout(std::time::Duration::from_secs(5), listener.accept())
+            .await
+            .expect("configured Ollama probe should reach the local fixture")
+            .expect("accept local probe");
         let mut bytes = Vec::new();
         let mut buffer = [0_u8; 512];
         loop {

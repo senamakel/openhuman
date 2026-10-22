@@ -313,6 +313,70 @@ fn gateway_requests_run_under_the_named_users_profile() {
 }
 
 #[test]
+fn socket_ticket_minting_requires_the_trusted_user_gateway_context() {
+    const TICKET_SECRET: &str = "test-only-socket-ticket-secret-0123456789";
+    let d = deployment(true);
+    std::fs::write(
+        &d.config,
+        format!("root = {:?}\nsocketio_enabled = true\n", d.root.display()),
+    )
+    .unwrap();
+    let (server, base) = spawn_core(|port| {
+        core_command(&d, &["--port", &port.to_string()])
+            .env("OPENHUMAN_SOCKET_TICKET_SECRET", TICKET_SECRET)
+            .stdout(Stdio::null())
+            .stderr(Stdio::null())
+    });
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+
+    let (_, provisioned) = rpc_with(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.profiles_provision",
+        json!({ "user_id": "socket-user" }),
+    );
+    assert!(provisioned.get("result").is_some(), "{provisioned}");
+
+    // This is the app's actual bearer-only POST /rpc shape. The core must not
+    // infer a profile from the bearer or accept a caller-supplied profile id.
+    let (_, operator_response) = rpc(&client, &base, Some(BEARER), "openhuman.plan_review_socket_ticket");
+    assert!(
+        operator_response.get("error").is_some(),
+        "bearer-only RPC has operator scope and cannot mint a profile ticket: {operator_response}"
+    );
+
+    // The trusted ingress contract signs/injects these headers on every user
+    // request. Exercise that real gateway path through the spawned core.
+    let (status, response) = user_rpc(
+        &client,
+        &base,
+        BEARER,
+        "socket-user",
+        None,
+        "openhuman.plan_review_socket_ticket",
+    );
+    assert_eq!(status, 200, "{response}");
+    let ticket = response
+        .pointer("/result/result/ticket")
+        .or_else(|| response.pointer("/result/ticket"))
+        .and_then(Value::as_str)
+        .unwrap_or_else(|| panic!("ticket response: {response}"));
+    let claims = openhuman_core::profiles::socket_ticket::verify(
+        ticket,
+        now(),
+        TICKET_SECRET,
+    )
+    .expect("ticket minted by the trusted user-scoped RPC");
+    assert_eq!(claims.profile, "socket-user");
+    assert_eq!(claims.aud, openhuman_core::profiles::socket_ticket::AUDIENCE);
+    drop(server);
+}
+
+#[test]
 fn each_user_sees_only_their_own_threads() {
     let d = deployment(true);
     let (server, base, client) = start(&d);

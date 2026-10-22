@@ -149,6 +149,14 @@ when Socket.IO is enabled; missing, forged, expired or unavailable-profile
 tickets fail the connection closed. Local cores continue using their
 server-attached active-profile context.
 
+In SaaS deployments, every user-scoped ticket request must arrive through the
+trusted ingress that injects `X-OpenHuman-User` and
+`X-OpenHuman-User-Sig`, signed with the configured service bearer. The core
+does not derive a user from the service bearer, a client-supplied profile id,
+or a backend session JWT. A direct bearer-only `/rpc` call has operator scope
+and cannot mint a socket ticket; configure the trusted ingress before enabling
+SaaS Socket.IO.
+
 A profile another core hosts answers **`409 Conflict`**:
 
 ```text

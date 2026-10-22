@@ -7,7 +7,6 @@ fn single_user_surfaces_are_closed() {
         "/v1/chat/completions",
         "/events/domain",
         "/events/webhooks",
-        "/socket.io/",
         "/dev/connect",
         "/oauth/mcp/callback",
     ] {
@@ -33,10 +32,9 @@ fn the_gateway_surfaces_stay_open() {
 }
 
 #[test]
-fn socket_io_is_not_unconditionally_closed_when_ticketed() {
-    // The SaaS gateway will admit this route only when its initial request
-    // carries a valid core-issued socket ticket. Rejecting the route before
-    // ticket validation makes profile-scoped review replay impossible.
+fn socket_io_reaches_the_ticket_validating_connect_handler() {
+    // SaaS gateway middleware must allow the transport to reach the
+    // namespace connect callback, where the auth payload ticket is checked.
     assert!(!is_closed_in_saas("/socket.io/"));
 }
 

@@ -136,7 +136,7 @@ pub(crate) async fn dispatch_in(ctx: Arc<CoreContext>, mut req: Request, next: N
 }
 
 /// The SaaS request layer; `operator` is the runtime's own context.
-pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, mut req: Request, next: Next) -> Response {
+pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next: Next) -> Response {
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())

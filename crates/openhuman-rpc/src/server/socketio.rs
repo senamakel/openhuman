@@ -29,6 +29,7 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
+use std::sync::Arc;
 use socketioxide::extract::{AckSender, Data, SocketRef, TryData};
 use socketioxide::SocketIo;
 

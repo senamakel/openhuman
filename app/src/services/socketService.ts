@@ -12,7 +12,7 @@ import type { ChannelAuthMode, ChannelConnectionStatus, ChannelType } from '../t
 import type { UserErrorScope } from '../types/userError';
 import { IS_DEV, IS_TEST } from '../utils/config';
 import { createSafeLogData, sanitizeError } from '../utils/sanitize';
-import { getCoreRpcToken, getCoreRpcUrl, resolveCoreSocketEndpoint } from './coreRpcClient';
+import { callCoreRpc, getCoreRpcToken, getCoreRpcUrl, resolveCoreSocketEndpoint } from './coreRpcClient';
 import { createCoreSocket } from './coreSocket';
 
 // Socket service logger using debug package
@@ -174,10 +174,9 @@ class SocketService {
       return;
     }
 
-    // The local core's Socket.IO handshake validates the per-process bearer
-    // exposed via `core_rpc_token` (Tauri IPC) / the cloud-mode picker. The
-    // session JWT rides alongside on the `auth` payload as `session` so a
-    // future handler can correlate the connection with the logged-in user.
+    // A SaaS core needs a short-lived profile ticket in addition to the
+    // process bearer. Socket.IO invokes this callback for each namespace
+    // reconnect, so a ticket never has to outlive Engine.IO polling.
     const coreToken = await getCoreRpcToken();
     if (this.token !== token || this.socket) return;
 
@@ -185,7 +184,17 @@ class SocketService {
     if (this.token !== token || this.socket) return;
     this.socket = createCoreSocket(endpoint.baseUrl, {
       coreToken,
-      authExtras: { session: token },
+      authExtras: (callback) => {
+        void callCoreRpc<{ ticket?: string | null }>({
+          method: 'plan_review.socket_ticket',
+          params: {},
+        })
+          .then(({ ticket }) => callback({ session: token, ...(ticket ? { ticket } : {}) }))
+          .catch((error: unknown) => {
+            socketWarn('Could not mint Socket.IO profile ticket', sanitizeError(error));
+            callback({ session: token });
+          });
+      },
       overrides: {
         path: endpoint.path,
         ...(endpoint.transports ? { transports: endpoint.transports } : {}),

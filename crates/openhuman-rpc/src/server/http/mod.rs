@@ -47,7 +47,6 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
         .route("/", get(root_handler))
         .route("/health", get(health::health_handler))
         .route("/schema", get(health::schema_handler))
-        .route("/socket-ticket", post(socket_ticket_handler))
         .route("/events", get(events::events_handler))
         .route("/events/webhooks", get(events::webhook_events_handler))
         .route("/events/domain", get(events::domain_events_handler))
@@ -108,37 +107,6 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
     router
 }
 
-/// Mint a short-lived socket credential from the already-resolved request
-/// context. The body is intentionally ignored: clients cannot choose a profile.
-async fn socket_ticket_handler(
-    axum::Extension(dispatch): axum::Extension<crate::core_host::core::runtime::DispatchCtx>,
-) -> Response {
-    if !crate::core_host::core::runtime::is_saas() {
-        return (StatusCode::NO_CONTENT, "").into_response();
-    }
-    let Ok(tenant) = dispatch.tenant() else {
-        return (StatusCode::FORBIDDEN, Json(json!({ "error": "profile scope required" })))
-            .into_response();
-    };
-    let Some(profile) = tenant.profile else {
-        return (StatusCode::FORBIDDEN, Json(json!({ "error": "profile scope required" })))
-            .into_response();
-    };
-    let Some(secret) = super::socket_ticket::secret() else {
-        return (StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "error": "socket tickets unavailable" })))
-            .into_response();
-    };
-    let now = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|duration| duration.as_secs())
-        .unwrap_or_default();
-    match super::socket_ticket::mint(&profile, now, &secret) {
-        Ok(ticket) => Json(json!({ "ticket": ticket, "expires_in": super::socket_ticket::TTL_SECS }))
-            .into_response(),
-        Err(_) => (StatusCode::SERVICE_UNAVAILABLE, Json(json!({ "error": "socket tickets unavailable" })))
-            .into_response(),
-    }
-}
 
 /// Stable machine-readable `error` code of the "Socket.IO is off" response.
 /// Clients (the app's connection test) match on it.

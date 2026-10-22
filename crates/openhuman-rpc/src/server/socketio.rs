@@ -96,6 +96,8 @@ fn socket_tenant_from_request_extensions(
 struct HandshakeAuth {
     #[serde(default)]
     token: Option<String>,
+    #[serde(default)]
+    ticket: Option<String>,
 }
 
 /// Origins the local core trusts at the Socket.IO handshake.
@@ -269,7 +271,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
 
     io.ns(
         "/",
-        |socket: SocketRef, TryData(handshake): TryData<HandshakeAuth>| {
+        |socket: SocketRef, TryData(handshake): TryData<HandshakeAuth>| async move {
             let client_id = socket.id.to_string();
 
             // Reject cross-origin browser pages before the handshake completes.
@@ -295,7 +297,8 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
             // Verify the handshake bearer matches the per-process RPC token.
             // `TryData` lets us treat a missing/malformed `auth` payload as a
             // soft failure (no panic) and reject the connect cleanly.
-            let supplied = handshake.ok().and_then(|h| h.token).unwrap_or_default();
+            let handshake = handshake.ok().unwrap_or_default();
+            let supplied = handshake.token.unwrap_or_default();
             if !crate::core_host::core::auth::verify_bearer_token(&supplied) {
                 log::warn!(
                     "[socketio] rejecting connect: missing or invalid bearer client={}",
@@ -305,21 +308,57 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                 return;
             }
             socket.extensions.insert(AuthedConnection);
-            let Some(dispatch) = socket.req_parts().extensions
-                .get::<crate::core_host::core::runtime::DispatchCtx>().cloned() else {
-                log::warn!("[socketio] rejecting socket without server dispatch context");
-                let _ = socket.clone().disconnect();
-                return;
+            let (dispatch, profile_hold) = if crate::core_host::core::runtime::is_saas() {
+                let Some(ticket) = handshake.ticket.as_deref() else {
+                    log::warn!("[socketio] rejecting SaaS socket without a ticket");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_secs()).unwrap_or_default();
+                let Some(ticket_secret) = crate::core_host::profiles::socket_ticket::secret() else {
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Ok(claims) = crate::core_host::profiles::socket_ticket::verify(ticket, now, &ticket_secret) else {
+                    log::warn!("[socketio] rejecting invalid or expired SaaS socket ticket");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Ok(profile_id) = crate::core_host::profiles::types::ProfileId::parse(&claims.profile) else {
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Some(host) = crate::core_host::profiles::host::host() else {
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Ok(profile) = host.open(&profile_id).await else {
+                    log::warn!("[socketio] rejecting SaaS socket: profile lease unavailable");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                (crate::core_host::core::runtime::DispatchCtx::new(Arc::clone(profile.context())), Some(profile))
+            } else {
+                let Some(dispatch) = socket.req_parts().extensions
+                    .get::<crate::core_host::core::runtime::DispatchCtx>().cloned() else {
+                    log::warn!("[socketio] rejecting socket without server dispatch context");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                (dispatch, None)
             };
-            let Some(tenant) = socket_tenant_from_request_extensions(
-                &socket.req_parts().extensions,
-            ) else {
+            let Some(scope) = crate::core_host::agent::plan_review::gate::global()
+                .socket_scope_for_dispatch(&dispatch) else {
                 log::warn!("[socketio] rejecting socket without a tenant scope in SaaS mode");
                 let _ = socket.clone().disconnect();
                 return;
             };
-            socket.extensions.insert(tenant);
+            socket.extensions.insert(SocketTenant(scope));
             socket.extensions.insert(SocketDispatch(dispatch));
+            if let Some(profile) = profile_hold {
+                socket.extensions.insert(profile);
+            }
 
             log::info!("[socketio] client connected id={client_id} (authenticated)");
             // Join a room named after the client ID for targeted event delivery.

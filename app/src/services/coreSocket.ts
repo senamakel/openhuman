@@ -27,7 +27,9 @@ interface CoreSocketOptions {
    * future server-side handler can correlate the connection with the
    * logged-in user.
    */
-  authExtras?: Record<string, unknown>;
+  authExtras?:
+    | Record<string, unknown>
+    | ((callback: (data: Record<string, unknown>) => void) => void);
   /**
    * Override of the underlying Socket.IO connect options. The default
    * shape matches what the previous in-line callers used.
@@ -45,7 +47,11 @@ const DEFAULT_OPTIONS: Partial<ManagerOptions & SocketOptions> = {
 };
 
 export function createCoreSocket(baseUrl: string, opts: CoreSocketOptions): Socket {
-  const auth = { token: opts.coreToken ?? '', ...(opts.authExtras ?? {}) };
+  const auth =
+    typeof opts.authExtras === 'function'
+      ? (callback: (data: Record<string, unknown>) => void) =>
+          opts.authExtras?.((data) => callback({ token: opts.coreToken ?? '', ...data }))
+      : { token: opts.coreToken ?? '', ...(opts.authExtras ?? {}) };
   return io(baseUrl, { ...DEFAULT_OPTIONS, ...(opts.overrides ?? {}), auth });
 }
 
@@ -58,7 +64,9 @@ interface ConnectCoreSocketOptions {
    * without leaking a connection.
    */
   isDisposed?: () => boolean;
-  authExtras?: Record<string, unknown>;
+  authExtras?:
+    | Record<string, unknown>
+    | ((callback: (data: Record<string, unknown>) => void) => void);
   overrides?: Partial<ManagerOptions & SocketOptions>;
 }
 

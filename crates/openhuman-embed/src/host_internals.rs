@@ -504,7 +504,10 @@ pub mod profiles {
         };
     }
     pub mod host {
-        pub use openhuman_core::profiles::host::host;
+        pub use openhuman_core::profiles::host::{host, Profile, ProfileHost};
+    }
+    pub mod types {
+        pub use openhuman_core::profiles::types::ProfileId;
     }
 }
 

@@ -71,6 +71,9 @@ struct AuthedConnection;
 #[derive(Clone, Debug)]
 struct SocketTenant(crate::core_host::agent::plan_review::gate::SocketReviewScope);
 
+#[derive(Clone)]
+struct SocketDispatch(crate::core_host::core::runtime::DispatchCtx);
+
 /// Bind replay tenancy from the HTTP request extensions retained by
 /// Socket.IO. Its async connect callback is spawned independently of the
 /// Axum request task, so task-local ambient context is not a reliable carrier.
@@ -298,6 +301,12 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                 return;
             }
             socket.extensions.insert(AuthedConnection);
+            let Some(dispatch) = socket.req_parts().extensions
+                .get::<crate::core_host::core::runtime::DispatchCtx>().cloned() else {
+                log::warn!("[socketio] rejecting socket without server dispatch context");
+                let _ = socket.clone().disconnect();
+                return;
+            };
             let Some(tenant) = socket_tenant_from_request_extensions(
                 &socket.req_parts().extensions,
             ) else {
@@ -306,6 +315,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                 return;
             };
             socket.extensions.insert(tenant);
+            socket.extensions.insert(SocketDispatch(dispatch));
 
             log::info!("[socketio] client connected id={client_id} (authenticated)");
             // Join a room named after the client ID for targeted event delivery.
@@ -381,9 +391,8 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
 
                     // Invoke the method through the same logic used by the HTTP RPC endpoint.
                     let response = match crate::core_host::core::invoke::invoke_method(
-                        // A Socket.IO event is not scoped to a request, so it
-                        // runs under the process default context.
-                        crate::core_host::core::runtime::DispatchCtx::process_default(),
+                        socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
+                            .unwrap_or_else(crate::core_host::core::runtime::DispatchCtx::host_default),
                         crate::core_host::core::invoke::default_state(),
                         payload.method.as_str(),
                         payload.params,
@@ -428,7 +437,8 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         match crate::core_host::agent::tinyagents::run_mode::parse_mode_label(run_mode) {
                             Some(mode) => {
                                 crate::core_host::agent::tinyagents::run_mode::set_mode(
-                                    &crate::core_host::core::runtime::DispatchCtx::host_default(),
+                                    &socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
+                                        .unwrap_or_else(crate::core_host::core::runtime::DispatchCtx::host_default),
                                     &thread_id,
                                     mode,
                                 );
@@ -442,7 +452,8 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     // Trigger the web channel's chat logic.
                     match crate::core_host::web_chat::start_chat(
                         // Outside SaaS the host's one context; in SaaS the socket task's own scope.
-                        &crate::core_host::core::runtime::DispatchCtx::host_default(),
+                        &socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
+                            .unwrap_or_else(crate::core_host::core::runtime::DispatchCtx::host_default),
                         &client_id,
                         &payload.thread_id,
                         &payload.message,

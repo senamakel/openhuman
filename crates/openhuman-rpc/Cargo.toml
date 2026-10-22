@@ -36,6 +36,8 @@ server = [
     "dep:once_cell",
     "dep:tinyinference-core",
     "dep:base64",
+    "dep:hmac",
+    "dep:sha2",
     "dep:rand",
     "dep:uuid",
     "dep:urlencoding",
@@ -104,6 +106,8 @@ chrono = { version = "0.4", features = ["serde"], optional = true }
 anyhow = { version = "1.0", optional = true }
 once_cell = { version = "1.19", optional = true }
 base64 = { version = "0.22", optional = true }
+hmac = { version = "0.12", optional = true }
+sha2 = { version = "0.10", optional = true }
 rand = { version = "0.10", optional = true }
 uuid = { version = "1", features = ["v4"], optional = true }
 urlencoding = { version = "2.1", optional = true }

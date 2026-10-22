@@ -42,6 +42,7 @@ mod storage_schema;
 pub use storage_schema::storage_schema;
 pub mod schemas;
 pub mod surface;
+pub mod socket_ticket;
 pub mod tools;
 pub mod turn_gate;
 pub mod types;

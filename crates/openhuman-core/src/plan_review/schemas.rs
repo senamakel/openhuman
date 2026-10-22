@@ -13,18 +13,31 @@ use super::gate;
 use super::types::PlanReviewResolution;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
-    vec![schemas("decide")]
+    vec![schemas("decide"), schemas("socket_ticket")]
 }
 
 pub fn all_registered_controllers() -> Vec<RegisteredController> {
     vec![RegisteredController {
         schema: schemas("decide"),
         handler: handle_decide,
+    }, RegisteredController {
+        schema: schemas("socket_ticket"),
+        handler: handle_socket_ticket,
     }]
 }
 
 pub fn schemas(function: &str) -> ControllerSchema {
     match function {
+        "socket_ticket" => ControllerSchema {
+            namespace: "plan_review",
+            function: "socket_ticket",
+            description: "Mint a short-lived profile-bound Socket.IO ticket for this authenticated session.",
+            inputs: vec![],
+            outputs: vec![
+                FieldSchema { name: "ticket", ty: TypeSchema::Option(Box::new(TypeSchema::String)), comment: "Short-lived ticket; null for a local single-user core.", required: true },
+                FieldSchema { name: "expires_in", ty: TypeSchema::Option(Box::new(TypeSchema::Integer)), comment: "Ticket lifetime in seconds, when issued.", required: true },
+            ],
+        },
         "decide" => ControllerSchema {
             namespace: "plan_review",
             function: "decide",
@@ -72,6 +85,22 @@ pub fn schemas(function: &str) -> ControllerSchema {
             }],
         },
     }
+}
+
+fn handle_socket_ticket(ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
+    Box::pin(async move {
+        if !crate::core::runtime::is_saas() {
+            return Ok(serde_json::json!({ "ticket": null, "expires_in": null }));
+        }
+        let tenant = ctx.tenant().map_err(|error| error.to_string())?;
+        let profile = tenant.profile.ok_or_else(|| "profile scope required".to_string())?;
+        let secret = crate::profiles::socket_ticket::secret()
+            .ok_or_else(|| "socket ticket service is not configured".to_string())?;
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+            .map(|duration| duration.as_secs()).unwrap_or_default();
+        let ticket = crate::profiles::socket_ticket::mint(&profile, now, &secret)?;
+        Ok(serde_json::json!({ "ticket": ticket, "expires_in": crate::profiles::socket_ticket::TTL_SECS }))
+    })
 }
 
 #[derive(Debug, Deserialize)]

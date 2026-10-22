@@ -143,31 +143,10 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, mut req: Request, n
         .unwrap_or_default();
     let secret = crate::core_host::core::auth::get_rpc_token();
     if req.uri().path() == "/socket.io" || req.uri().path().starts_with("/socket.io/") {
-        let claims = req
-            .uri()
-            .query()
-            .and_then(|query| url::form_urlencoded::parse(query.as_bytes())
-                .find(|(key, _)| key == "ticket")
-                .map(|(_, value)| value.into_owned()))
-            .and_then(|ticket| crate::server::socket_ticket::secret()
-                .and_then(|ticket_secret| crate::server::socket_ticket::verify(&ticket, now, &ticket_secret).ok()));
-        let Some(claims) = claims else {
-            return refuse(401, "invalid socket ticket");
-        };
-        let Ok(profile_id) = crate::core_host::profiles::types::ProfileId::parse(&claims.profile) else {
-            return refuse(401, "invalid socket ticket");
-        };
-        let Some(host) = crate::core_host::profiles::host::host() else {
-            return refuse(503, "profile host unavailable");
-        };
-        return match host.open(&profile_id).await {
-            Ok(profile) => {
-                let ctx = Arc::clone(profile.context());
-                req.extensions_mut().insert(profile);
-                dispatch_in(ctx, req, next).await
-            }
-            Err(error) => refusal_response(GatewayRefusal::from_open_error(error, now * 1000)),
-        };
+        // Socket.IO sends a fresh ticket in the namespace auth payload for
+        // every reconnect. It cannot be inspected by HTTP middleware, and a
+        // per-poll URL ticket would expire during Engine.IO polling sessions.
+        return dispatch_in(operator, req, next).await;
     }
     let (user, signature) = match decide(&req, secret) {
         Err(refused) => return refused.into_response(),

@@ -448,15 +448,19 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     // model; Codex OAuth routes to the Responses API with its headers / UA /
     // query; every other Bearer/Anthropic/None slug uses Chat Completions (or
     // the Anthropic Messages adapter for a first-party native-tools endpoint).
-    let mut extra_headers: Vec<(String, String)> = config
-        .ephemeral_route
-        .as_ref()
-        .filter(|route| {
-            slug == crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG
-                && route.endpoint == entry.endpoint
-        })
+    // The ephemeral route's own headers and provider options apply only to the
+    // endpoint it names, never to another slug.
+    let scoped_route = config.ephemeral_route.as_ref().filter(|route| {
+        slug == crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG
+            && route.endpoint == entry.endpoint
+    });
+    let mut extra_headers: Vec<(String, String)> = scoped_route
         .map(|route| route.headers.clone())
         .unwrap_or_default();
+    let route_provider_options = scoped_route.and_then(|route| route.provider_options.clone());
+    if route_provider_options.is_some() {
+        log::debug!("[providers][chat-factory] slug={slug} route provider options applied");
+    }
     let mut extra_query_params: Vec<(String, String)> = Vec::new();
     let mut user_agent: Option<String> = None;
     let mut codex_route: Option<&tinyinference_llm::providers::openai::codex::OpenAiCodexRouting> =
@@ -584,6 +588,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
         user_agent: user_agent.as_deref(),
         codex: codex_route,
         http,
+        default_provider_options: route_provider_options,
     });
     if let Some(identity) = inspection_identity {
         let credential = if entry.auth_style == AuthStyle::None {

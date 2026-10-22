@@ -22,10 +22,9 @@ interface CoreSocketOptions {
    */
   coreToken: string | null;
   /**
-   * Extra fields merged onto the `auth` payload. Today only the
-   * authenticated user's session JWT goes here (under `session`) so a
-   * future server-side handler can correlate the connection with the
-   * logged-in user.
+   * Extra fields merged onto the `auth` payload, or a callback that builds
+   * fresh fields for each namespace connection (used for short-lived SaaS
+   * socket tickets).
    */
   authExtras?:
     | Record<string, unknown>

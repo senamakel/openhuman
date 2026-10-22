@@ -29,9 +29,9 @@ use serde::Deserialize;
 use serde::Serialize;
 use serde_json::json;
 use serde_json::Value;
-use std::sync::Arc;
 use socketioxide::extract::{AckSender, Data, SocketRef, TryData};
 use socketioxide::SocketIo;
+use std::sync::Arc;
 
 use crate::core_host::web_chat::{GuardrailPayload, WebChannelEvent};
 
@@ -187,15 +187,24 @@ fn socket_is_authed(socket: &SocketRef) -> bool {
 }
 
 fn socket_dispatch(socket: &SocketRef) -> Option<crate::core_host::core::runtime::DispatchCtx> {
-    socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
+    socket
+        .extensions
+        .get::<SocketDispatch>()
+        .map(|scope| scope.0.clone())
 }
 
 fn client_room(profile: Option<&str>, client_id: &str) -> String {
-    profile.map_or_else(|| client_id.to_owned(), |profile| format!("profile:{profile}:client:{client_id}"))
+    profile.map_or_else(
+        || client_id.to_owned(),
+        |profile| format!("profile:{profile}:client:{client_id}"),
+    )
 }
 
 fn thread_room(profile: Option<&str>, thread_id: &str) -> String {
-    profile.map_or_else(|| format!("thread:{thread_id}"), |profile| format!("profile:{profile}:thread:{thread_id}"))
+    profile.map_or_else(
+        || format!("thread:{thread_id}"),
+        |profile| format!("profile:{profile}:thread:{thread_id}"),
+    )
 }
 
 fn process_global_bridges_enabled(saas: bool) -> bool {
@@ -204,6 +213,28 @@ fn process_global_bridges_enabled(saas: bool) -> bool {
 
 fn web_event_is_deliverable(profile: Option<&str>, saas: bool) -> bool {
     !saas || profile.is_some()
+}
+
+fn web_event_rooms(
+    profile: Option<&str>,
+    client_id: &str,
+    thread_id: &str,
+    saas: bool,
+) -> Option<(String, Option<String>)> {
+    if !web_event_is_deliverable(profile, saas) {
+        return None;
+    }
+    let primary = if client_id == "system" {
+        profile.map_or_else(
+            || "system".to_owned(),
+            |profile| format!("profile:{profile}:system"),
+        )
+    } else {
+        client_room(profile, client_id)
+    };
+    let thread =
+        (client_id != "system" && !thread_id.is_empty()).then(|| thread_room(profile, thread_id));
+    Some((primary, thread))
 }
 
 /// Best-effort disconnect. Called when we discover an unauthenticated socket
@@ -1170,10 +1201,15 @@ fn join_room_logged(socket: &SocketRef, room: &str, client_id: &str) -> bool {
 
 fn emit_web_channel_event(io: &SocketIo, event: WebChannelEvent) {
     let profile = event.profile.as_deref();
-    if !web_event_is_deliverable(profile, crate::core_host::core::runtime::is_saas()) {
+    let Some((primary, thread_room)) = web_event_rooms(
+        profile,
+        &event.client_id,
+        &event.thread_id,
+        crate::core_host::core::runtime::is_saas(),
+    ) else {
         log::debug!("[socketio] dropping unstamped SaaS web-channel event");
         return;
-    }
+    };
     let name = event.event.clone();
     // Deliver to the initiating client's own room AND the per-thread room. The
     // thread room lets a socket that reconnected with a new client_id (after
@@ -1189,13 +1225,6 @@ fn emit_web_channel_event(io: &SocketIo, event: WebChannelEvent) {
     // `client_id` room, then to the thread room EXCEPT the `client_id` room —
     // each socket is reached exactly once regardless of room overlap.
     // "system" broadcasts and events without a thread_id keep single-room delivery.
-    let primary = if event.client_id == "system" {
-        profile.map_or_else(|| "system".to_owned(), |profile| format!("profile:{profile}:system"))
-    } else {
-        client_room(profile, &event.client_id)
-    };
-    let thread_room = (event.client_id != "system" && !event.thread_id.is_empty())
-        .then(|| thread_room(profile, &event.thread_id));
     if let Ok(payload) = serde_json::to_value(event) {
         log::debug!(
             "[socketio] send event={} primary={} thread_room={:?} thread_id={} request_id={}",

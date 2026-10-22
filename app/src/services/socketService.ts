@@ -189,10 +189,10 @@ class SocketService {
           method: 'plan_review.socket_ticket',
           params: {},
         })
-          .then(({ ticket }) => callback({ session: token, ...(ticket ? { ticket } : {}) }))
+          .then(({ ticket }) => callback(ticket ? { ticket } : {}))
           .catch((error: unknown) => {
             socketWarn('Could not mint Socket.IO profile ticket', sanitizeError(error));
-            callback({ session: token });
+            callback({});
           });
       },
       overrides: {

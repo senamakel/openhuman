@@ -64,7 +64,12 @@ fn enabled_saas_socketio_requires_a_shared_ticket_secret() {
     let mut i = inputs(&f, &[]);
     i.services.socketio = true;
     let found = violations(&i);
-    assert!(found.iter().any(|v| matches!(v, Violation::Env { var, .. } if var == "OPENHUMAN_SOCKET_TICKET_SECRET")), "{found:?}");
+    assert!(
+        found.iter().any(
+            |v| matches!(v, Violation::Env { var, .. } if var == "OPENHUMAN_SOCKET_TICKET_SECRET")
+        ),
+        "{found:?}"
+    );
 
     let env = env(&[("OPENHUMAN_SOCKET_TICKET_SECRET", &"s".repeat(32))]);
     let i = inputs(&f, &env);

@@ -490,6 +490,8 @@ fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
             endpoint: endpoint.to_string(),
             api_key: api_key.to_string(),
             headers: Vec::new(),
+            provider_options: None,
+            reasoning_effort: None,
         },
     );
     config

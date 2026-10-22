@@ -313,6 +313,52 @@ fn gateway_requests_run_under_the_named_users_profile() {
 }
 
 #[test]
+fn socket_ticket_rpc_requires_the_trusted_user_gateway_context() {
+    let d = deployment(true);
+    std::fs::write(&d.config, format!("root = {:?}\n", d.root.display())).unwrap();
+    let (server, base) = spawn_core(|port| {
+        let mut command = core_command(&d, &["--port", &port.to_string()]);
+        command.stdout(Stdio::null()).stderr(Stdio::null());
+        command
+    });
+    let client = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(10))
+        .build()
+        .unwrap();
+
+    // This is the app's actual bearer-only POST /rpc shape. The core must not
+    // infer a profile from the bearer or accept a caller-supplied profile id.
+    let (_, operator_response) = rpc(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.plan_review_socket_ticket",
+    );
+    assert!(
+        operator_response.get("error").is_some(),
+        "bearer-only RPC has operator scope and cannot mint a profile ticket: {operator_response}"
+    );
+
+    // The trusted ingress contract signs/injects these headers on every user
+    // request. The unprovisioned-profile refusal proves this request reached
+    // the user-scoped gateway path; profile ticket minting itself is covered
+    // by the controller and ticket-signature unit tests.
+    let (status, response) = user_rpc(
+        &client,
+        &base,
+        BEARER,
+        "socket-user",
+        None,
+        "openhuman.plan_review_socket_ticket",
+    );
+    assert_eq!(
+        status, 403,
+        "signed but unprovisioned user is refused: {response}"
+    );
+    drop(server);
+}
+
+#[test]
 fn each_user_sees_only_their_own_threads() {
     let d = deployment(true);
     let (server, base, client) = start(&d);

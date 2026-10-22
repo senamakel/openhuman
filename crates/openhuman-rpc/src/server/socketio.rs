@@ -31,6 +31,7 @@ use serde_json::json;
 use serde_json::Value;
 use socketioxide::extract::{AckSender, Data, SocketRef, TryData};
 use socketioxide::SocketIo;
+use std::sync::Arc;
 
 use crate::core_host::web_chat::{GuardrailPayload, WebChannelEvent};
 
@@ -71,9 +72,13 @@ struct AuthedConnection;
 #[derive(Clone, Debug)]
 struct SocketTenant(crate::core_host::agent::plan_review::gate::SocketReviewScope);
 
+#[derive(Clone)]
+struct SocketDispatch(crate::core_host::core::runtime::DispatchCtx);
+
 /// Bind replay tenancy from the HTTP request extensions retained by
 /// Socket.IO. Its async connect callback is spawned independently of the
 /// Axum request task, so task-local ambient context is not a reliable carrier.
+#[cfg(test)]
 fn socket_tenant_from_request_extensions(
     extensions: &axum::http::Extensions,
 ) -> Option<SocketTenant> {
@@ -93,6 +98,8 @@ fn socket_tenant_from_request_extensions(
 struct HandshakeAuth {
     #[serde(default)]
     token: Option<String>,
+    #[serde(default)]
+    ticket: Option<String>,
 }
 
 /// Origins the local core trusts at the Socket.IO handshake.
@@ -180,6 +187,57 @@ fn socket_is_authed(socket: &SocketRef) -> bool {
     socket.extensions.get::<AuthedConnection>().is_some()
 }
 
+fn socket_dispatch(socket: &SocketRef) -> Option<crate::core_host::core::runtime::DispatchCtx> {
+    socket
+        .extensions
+        .get::<SocketDispatch>()
+        .map(|scope| scope.0.clone())
+}
+
+fn client_room(profile: Option<&str>, client_id: &str) -> String {
+    profile.map_or_else(
+        || client_id.to_owned(),
+        |profile| format!("profile:{profile}:client:{client_id}"),
+    )
+}
+
+fn thread_room(profile: Option<&str>, thread_id: &str) -> String {
+    profile.map_or_else(
+        || format!("thread:{thread_id}"),
+        |profile| format!("profile:{profile}:thread:{thread_id}"),
+    )
+}
+
+fn process_global_bridges_enabled(saas: bool) -> bool {
+    !saas
+}
+
+fn web_event_is_deliverable(profile: Option<&str>, saas: bool) -> bool {
+    !saas || profile.is_some()
+}
+
+fn web_event_rooms(
+    profile: Option<&str>,
+    client_id: &str,
+    thread_id: &str,
+    saas: bool,
+) -> Option<(String, Option<String>)> {
+    if !web_event_is_deliverable(profile, saas) {
+        return None;
+    }
+    let primary = if client_id == "system" {
+        profile.map_or_else(
+            || "system".to_owned(),
+            |profile| format!("profile:{profile}:system"),
+        )
+    } else {
+        client_room(profile, client_id)
+    };
+    let thread =
+        (client_id != "system" && !thread_id.is_empty()).then(|| thread_room(profile, thread_id));
+    Some((primary, thread))
+}
+
 /// Best-effort disconnect. Called when we discover an unauthenticated socket
 /// inside an event handler — the connect path already disconnects the bad
 /// origins / wrong tokens, so this is purely a defense-in-depth path.
@@ -262,7 +320,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
 
     io.ns(
         "/",
-        |socket: SocketRef, TryData(handshake): TryData<HandshakeAuth>| {
+        |socket: SocketRef, TryData(handshake): TryData<HandshakeAuth>| async move {
             let client_id = socket.id.to_string();
 
             // Reject cross-origin browser pages before the handshake completes.
@@ -288,7 +346,8 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
             // Verify the handshake bearer matches the per-process RPC token.
             // `TryData` lets us treat a missing/malformed `auth` payload as a
             // soft failure (no panic) and reject the connect cleanly.
-            let supplied = handshake.ok().and_then(|h| h.token).unwrap_or_default();
+            let handshake = handshake.ok().unwrap_or_default();
+            let supplied = handshake.token.unwrap_or_default();
             if !crate::core_host::core::auth::verify_bearer_token(&supplied) {
                 log::warn!(
                     "[socketio] rejecting connect: missing or invalid bearer client={}",
@@ -298,18 +357,62 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                 return;
             }
             socket.extensions.insert(AuthedConnection);
-            let Some(tenant) = socket_tenant_from_request_extensions(
-                &socket.req_parts().extensions,
-            ) else {
+            let (dispatch, profile_hold) = if crate::core_host::core::runtime::is_saas() {
+                let Some(ticket) = handshake.ticket.as_deref() else {
+                    log::warn!("[socketio] rejecting SaaS socket without a ticket");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_secs()).unwrap_or_default();
+                let Some(ticket_secret) = crate::core_host::profiles::socket_ticket::secret() else {
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Ok(claims) = crate::core_host::profiles::socket_ticket::verify(ticket, now, &ticket_secret) else {
+                    log::warn!("[socketio] rejecting invalid or expired SaaS socket ticket");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Ok(profile_id) = crate::core_host::profiles::types::ProfileId::parse(&claims.profile) else {
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Some(host) = crate::core_host::profiles::host::host() else {
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                let Ok(profile) = host.open(&profile_id).await else {
+                    log::warn!("[socketio] rejecting SaaS socket: profile lease unavailable");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                (crate::core_host::core::runtime::DispatchCtx::new(Arc::clone(profile.context())), Some(profile))
+            } else {
+                let Some(dispatch) = socket.req_parts().extensions
+                    .get::<crate::core_host::core::runtime::DispatchCtx>().cloned() else {
+                    log::warn!("[socketio] rejecting socket without server dispatch context");
+                    let _ = socket.clone().disconnect();
+                    return;
+                };
+                (dispatch, None)
+            };
+            let Some(scope) = crate::core_host::agent::plan_review::gate::global()
+                .socket_scope_for_dispatch(&dispatch) else {
                 log::warn!("[socketio] rejecting socket without a tenant scope in SaaS mode");
                 let _ = socket.clone().disconnect();
                 return;
             };
-            socket.extensions.insert(tenant);
+            socket.extensions.insert(SocketTenant(scope));
+            socket.extensions.insert(SocketDispatch(dispatch.clone()));
+            if let Some(profile) = profile_hold {
+                socket.extensions.insert(profile);
+            }
 
             log::info!("[socketio] client connected id={client_id} (authenticated)");
             // Join a room named after the client ID for targeted event delivery.
-            let _ = join_room_logged(&socket, &client_id, &client_id);
+            let profile = dispatch.tenant().ok().and_then(|tenant| tenant.profile);
+            let _ = join_room_logged(&socket, &client_room(profile.as_deref(), &client_id), &client_id);
             // Also auto-join the "system" room so every connected client
             // receives broadcast-style events that aren't tied to a
             // specific chat thread. Today this covers proactive messages
@@ -318,7 +421,11 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
             // emits with `client_id = "system"` — see `emit_web_channel_event`.
             // If this join fails the welcome message silently disappears,
             // so we log both success and failure for diagnosability.
-            let _ = join_room_logged(&socket, "system", &client_id);
+            if let Some(profile) = profile.as_deref() {
+                let _ = join_room_logged(&socket, &format!("profile:{profile}:system"), &client_id);
+            } else {
+                let _ = join_room_logged(&socket, "system", &client_id);
+            }
             let ready_payload = json!({ "sid": client_id });
             log::debug!("[socketio] emit event=ready to_client={}", socket.id);
             let _ = socket.emit("ready", &ready_payload);
@@ -371,6 +478,10 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         drop_unauthed(&socket, "rpc:request from unauthenticated socket");
                         return;
                     }
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "rpc:request missing dispatch scope");
+                        return;
+                    };
                     let client_id = socket.id.to_string();
                     log::info!(
                         "[socketio] rpc:request method={} id={} client={}",
@@ -381,9 +492,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
 
                     // Invoke the method through the same logic used by the HTTP RPC endpoint.
                     let response = match crate::core_host::core::invoke::invoke_method(
-                        // A Socket.IO event is not scoped to a request, so it
-                        // runs under the process default context.
-                        crate::core_host::core::runtime::DispatchCtx::process_default(),
+                        dispatch,
                         crate::core_host::core::invoke::default_state(),
                         payload.method.as_str(),
                         payload.params,
@@ -415,6 +524,10 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         drop_unauthed(&socket, "chat:start from unauthenticated socket");
                         return;
                     }
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "chat:start missing dispatch scope");
+                        return;
+                    };
                     let client_id = socket.id.to_string();
                     let thread_id = payload.thread_id.clone();
                     let model_override = payload.model_override.or(payload.model);
@@ -428,7 +541,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         match crate::core_host::agent::tinyagents::run_mode::parse_mode_label(run_mode) {
                             Some(mode) => {
                                 crate::core_host::agent::tinyagents::run_mode::set_mode(
-                                    &crate::core_host::core::runtime::DispatchCtx::host_default(),
+                                    &dispatch,
                                     &thread_id,
                                     mode,
                                 );
@@ -442,7 +555,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     // Trigger the web channel's chat logic.
                     match crate::core_host::web_chat::start_chat(
                         // Outside SaaS the host's one context; in SaaS the socket task's own scope.
-                        &crate::core_host::core::runtime::DispatchCtx::host_default(),
+                        &dispatch,
                         &client_id,
                         &payload.thread_id,
                         &payload.message,
@@ -505,6 +618,10 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         drop_unauthed(&socket, "chat:cancel from unauthenticated socket");
                         return;
                     }
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "chat:cancel missing dispatch scope");
+                        return;
+                    };
                     let client_id = socket.id.to_string();
                     log::debug!(
                         "[socketio] recv event=chat:cancel client_id={} thread_id={}",
@@ -512,7 +629,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         payload.thread_id
                     );
                     let _ = crate::core_host::web_chat::cancel_chat_scoped(
-                        &crate::core_host::core::runtime::DispatchCtx::host_default(),
+                        &dispatch,
                         &client_id,
                         &payload.thread_id,
                         payload.request_id.as_deref(),
@@ -553,7 +670,16 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         ack.send(&ThreadSubscribeAck { joined: false }).ok();
                         return;
                     }
-                    let room = format!("thread:{thread_id}");
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "thread:subscribe missing dispatch scope");
+                        return;
+                    };
+                    let profile = dispatch.tenant().ok().and_then(|tenant| tenant.profile);
+                    if crate::core_host::core::runtime::is_saas() && profile.is_none() {
+                        drop_unauthed(&socket, "thread:subscribe missing profile");
+                        return;
+                    }
+                    let room = thread_room(profile.as_deref(), thread_id);
                     // Report what actually happened. Acknowledging a join that
                     // failed is worse than not acknowledging at all: the client
                     // stops queueing the thread for retry and reads on the
@@ -564,7 +690,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     // client that orders its recovery reads against the ack
                     // already holds the card.
                     if joined {
-                        replay_parked_approval(&socket, thread_id);
+                        replay_parked_approval(&socket, thread_id, &dispatch);
                         replay_parked_plan_review(&socket, thread_id);
                     }
                     ack.send(&ThreadSubscribeAck { joined }).ok();
@@ -601,6 +727,12 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
         }
         log::debug!("[socketio] web_channel bridge stopped");
     });
+
+    // The remaining process-wide buses do not carry a trusted profile scope.
+    // In SaaS, broadcasting them would disclose another user's events.
+    if !process_global_bridges_enabled(crate::core_host::core::runtime::is_saas()) {
+        return;
+    }
 
     let io_notify = io.clone();
     let io_auth = io.clone();
@@ -1069,6 +1201,16 @@ fn join_room_logged(socket: &SocketRef, room: &str, client_id: &str) -> bool {
 }
 
 fn emit_web_channel_event(io: &SocketIo, event: WebChannelEvent) {
+    let profile = event.profile.as_deref();
+    let Some((primary, thread_room)) = web_event_rooms(
+        profile,
+        &event.client_id,
+        &event.thread_id,
+        crate::core_host::core::runtime::is_saas(),
+    ) else {
+        log::debug!("[socketio] dropping unstamped SaaS web-channel event");
+        return;
+    };
     let name = event.event.clone();
     // Deliver to the initiating client's own room AND the per-thread room. The
     // thread room lets a socket that reconnected with a new client_id (after
@@ -1084,9 +1226,6 @@ fn emit_web_channel_event(io: &SocketIo, event: WebChannelEvent) {
     // `client_id` room, then to the thread room EXCEPT the `client_id` room —
     // each socket is reached exactly once regardless of room overlap.
     // "system" broadcasts and events without a thread_id keep single-room delivery.
-    let primary = event.client_id.clone();
-    let thread_room = (event.client_id != "system" && !event.thread_id.is_empty())
-        .then(|| format!("thread:{}", event.thread_id));
     if let Ok(payload) = serde_json::to_value(event) {
         log::debug!(
             "[socketio] send event={} primary={} thread_room={:?} thread_id={} request_id={}",
@@ -1173,12 +1312,17 @@ fn event_alias(name: &str) -> Option<String> {
 /// Every park on the thread is replayed, oldest first: several async
 /// sub-agents can each be waiting on the same parent thread, and replaying
 /// only the newest left the others unanswerable until they expired.
-fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
+fn replay_parked_approval(
+    socket: &SocketRef,
+    thread_id: &str,
+    dispatch: &crate::core_host::core::runtime::DispatchCtx,
+) {
     let Some(gate) = crate::core_host::security::approval::ApprovalGate::try_global() else {
         return;
     };
     let client_id = socket.id.to_string();
-    for row in gate.parked_requests_for_thread(thread_id) {
+    let agent = dispatch.tenant().ok().and_then(|tenant| tenant.agent);
+    for row in gate.parked_requests_for_thread_in(dispatch, thread_id, agent.as_deref()) {
         let expires_at = row.expires_at.map(|t| t.to_rfc3339());
         let mut event = crate::core_host::web_chat::approval_request_event(
             &row.request_id,

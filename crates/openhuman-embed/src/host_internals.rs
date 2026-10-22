@@ -81,8 +81,10 @@ pub mod core {
     }
     pub mod runtime {
         pub use openhuman_core::core::runtime::{
-            current_tenant, is_saas, CoreContext, CoreRuntime, DispatchCtx, Mode, SaasConfig,
+            current_tenant, is_saas, ContextOverlay, CoreContext, CoreRuntime, DispatchCtx,
+            DomainSet, Mode, SaasConfig,
         };
+        pub use openhuman_core::{CoreBootMode, CoreBuilder, HostKind, ServiceSet, TokenSource};
         pub mod saas {
             pub use openhuman_core::core::runtime::saas::build;
         }
@@ -497,6 +499,11 @@ pub mod storage {
 }
 
 pub mod profiles {
+    pub mod socket_ticket {
+        pub use openhuman_core::profiles::socket_ticket::{
+            mint, mint_for_dispatch, secret, verify, Claims, AUDIENCE, SECRET_ENV, TTL_SECS,
+        };
+    }
     pub mod gateway {
         pub use openhuman_core::profiles::gateway::{
             resolve_scope, sign, verify, GatewayRefusal, GatewayScope, HeldBy, PROFILE_HELD,
@@ -504,7 +511,10 @@ pub mod profiles {
         };
     }
     pub mod host {
-        pub use openhuman_core::profiles::host::host;
+        pub use openhuman_core::profiles::host::{host, Profile, ProfileHost};
+    }
+    pub mod types {
+        pub use openhuman_core::profiles::types::ProfileId;
     }
 }
 

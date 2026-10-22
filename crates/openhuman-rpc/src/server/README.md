@@ -128,13 +128,34 @@ picks each request's context (the decision is
 `openhuman::profiles::gateway`):
 
 - routes a SaaS core never serves (`/v1`, `/events/*`, `/ws/*`,
-  `/socket.io`, `/dev/connect`, `/oauth/*`) answer `404`, and so does
+  `/dev/connect`, `/oauth/*`) answer `404`, and so does
   `/events` without a user;
 - no `X-OpenHuman-User`: the operator plane;
 - with one: the bearer first (`401`), then a duplicate or unreadable header
   (`400`), the signature (`401`), and the user's profile, which is opened
   and leased: `403` when it is not provisioned, `503` when every slot is
   busy or storage fails.
+
+SaaS Socket.IO is opt-in with `socketio_enabled = true` in the operator
+config. It also requires `OPENHUMAN_SOCKET_TICKET_SECRET`, a server-only
+secret of at least 32 bytes shared by every node that may serve the same
+profile. The user-scoped `plan_review.socket_ticket` RPC mints a 30-second
+profile-bound ticket; the browser sends it in Socket.IO's `auth` payload on
+each namespace reconnect. The connect handler validates the audience,
+signature and expiry, opens the ticket's profile lease, and captures that
+profile context for RPC/chat/cancel events. Engine.IO polling continues under
+the accepted connection after ticket expiry. Missing secrets fail SaaS boot
+when Socket.IO is enabled; missing, forged, expired or unavailable-profile
+tickets fail the connection closed. Local cores continue using their
+server-attached active-profile context.
+
+In SaaS deployments, every user-scoped ticket request must arrive through the
+trusted ingress that injects `X-OpenHuman-User` and
+`X-OpenHuman-User-Sig`, signed with the configured service bearer. The core
+does not derive a user from the service bearer, a client-supplied profile id,
+or a backend session JWT. A direct bearer-only `/rpc` call has operator scope
+and cannot mint a socket ticket; configure the trusted ingress before enabling
+SaaS Socket.IO.
 
 A profile another core hosts answers **`409 Conflict`**:
 

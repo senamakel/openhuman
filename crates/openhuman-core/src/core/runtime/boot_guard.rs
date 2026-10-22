@@ -199,7 +199,8 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
         violations.push(Violation::HostKind(inputs.host_kind));
     }
 
-    let allowed = ServiceSet::saas();
+    let mut allowed = ServiceSet::saas();
+    allowed.socketio = inputs.config.socketio_enabled;
     for ((name, on), (_, ok)) in service_flags(&inputs.services)
         .into_iter()
         .zip(service_flags(&allowed))
@@ -241,6 +242,17 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
                 why: "a process-wide backend key; set shared_backend_api_key to allow it",
             });
         }
+    }
+    if inputs.config.socketio_enabled
+        && !inputs
+            .env
+            .iter()
+            .any(|(name, value)| name == "OPENHUMAN_SOCKET_TICKET_SECRET" && value.len() >= 32)
+    {
+        violations.push(Violation::Env {
+            var: "OPENHUMAN_SOCKET_TICKET_SECRET".into(),
+            why: "SaaS Socket.IO requires a shared secret of at least 32 bytes",
+        });
     }
 
     let unknown = crate::profiles::tools::unknown_entries(&inputs.config.tool_allowlist);

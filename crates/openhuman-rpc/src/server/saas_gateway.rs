@@ -33,14 +33,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 /// Route prefixes a SaaS core never serves.
-pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
-    "/v1",
-    "/events/",
-    "/ws/",
-    "/socket.io",
-    "/dev/connect",
-    "/oauth/",
-];
+pub(crate) const CLOSED_IN_SAAS: &[&str] = &["/v1", "/events/", "/ws/", "/dev/connect", "/oauth/"];
 
 /// A prefix ending in `/` closes only what lies beneath it; any other prefix
 /// closes the path itself and everything beneath it.
@@ -138,28 +131,58 @@ pub(crate) async fn dispatch_in(ctx: Arc<CoreContext>, mut req: Request, next: N
 
 /// The SaaS request layer; `operator` is the runtime's own context.
 pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next: Next) -> Response {
+    saas_gateway_with_resolver(
+        operator,
+        req,
+        next,
+        |user, signature, secret, now| async move {
+            match resolve_scope(Some(&user), signature.as_deref(), &secret, now).await? {
+                GatewayScope::User(profile) => Ok(ResolvedUser {
+                    context: Arc::clone(profile.context()),
+                    _lease: Some(profile),
+                }),
+                GatewayScope::Operator => Err(GatewayRefusal::new(403, "user scope required")),
+            }
+        },
+    )
+    .await
+}
+
+struct ResolvedUser {
+    context: Arc<CoreContext>,
+    _lease: Option<Arc<dyn std::any::Any + Send + Sync>>,
+}
+
+async fn saas_gateway_with_resolver<F, Fut>(
+    operator: Arc<CoreContext>,
+    req: Request,
+    next: Next,
+    resolve_user: F,
+) -> Response
+where
+    F: FnOnce(String, Option<String>, String, u64) -> Fut,
+    Fut: std::future::Future<Output = Result<ResolvedUser, GatewayRefusal>>,
+{
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
         .unwrap_or_default();
     let secret = crate::core_host::core::auth::get_rpc_token();
+    if req.uri().path() == "/socket.io" || req.uri().path().starts_with("/socket.io/") {
+        // Socket.IO sends a fresh ticket in the namespace auth payload for
+        // every reconnect. It cannot be inspected by HTTP middleware, and a
+        // per-poll URL ticket would expire during Engine.IO polling sessions.
+        return dispatch_in(operator, req, next).await;
+    }
     let (user, signature) = match decide(&req, secret) {
         Err(refused) => return refused.into_response(),
         Ok(Admitted::Operator) => return dispatch_in(operator, req, next).await,
         Ok(Admitted::User { user, signature }) => (user, signature),
     };
     let secret = secret.expect("decide admits a user only once the core has a token");
-    match resolve_scope(Some(&user), signature.as_deref(), secret, now).await {
+    match resolve_user(user, signature, secret.to_owned(), now).await {
         Err(refusal) => refusal_response(refusal),
-        Ok(GatewayScope::User(profile)) => {
-            let ctx = Arc::clone(profile.context());
-            // Holding the state for the request keeps the profile from being
-            // evicted under it.
-            let response = dispatch_in(ctx, req, next).await;
-            drop(profile);
-            response
-        }
-        Ok(GatewayScope::Operator) => dispatch_in(operator, req, next).await,
+        Ok(profile) => dispatch_in(profile.context, req, next).await,
     }
 }
 

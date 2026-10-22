@@ -23,6 +23,7 @@ pub(crate) mod http;
 mod saas_gateway;
 mod serve;
 pub(crate) mod shims;
+mod socket_ticket;
 mod socketio;
 #[cfg(test)]
 pub(crate) mod testing;

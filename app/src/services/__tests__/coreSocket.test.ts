@@ -57,6 +57,26 @@ describe('createCoreSocket', () => {
     expect(call[1].auth.session).toBe('jwt-abc');
   });
 
+  it('rebuilds auth payloads on each namespace reconnect', () => {
+    let generation = 0;
+    createCoreSocket('http://127.0.0.1:7788', {
+      coreToken: 'core',
+      authExtras: callback => callback({ ticket: `ticket-${++generation}` }),
+    });
+    const calls = ioMock.mock.calls as unknown as Array<
+      [string, { auth: (callback: (auth: Record<string, string>) => void) => void }]
+    >;
+    const options = calls[0]?.[1] as {
+      auth: (callback: (auth: Record<string, string>) => void) => void;
+    };
+    const first: Record<string, string>[] = [];
+    const second: Record<string, string>[] = [];
+    options.auth(auth => first.push(auth));
+    options.auth(auth => second.push(auth));
+    expect(first[0]).toEqual({ token: 'core', ticket: 'ticket-1' });
+    expect(second[0]).toEqual({ token: 'core', ticket: 'ticket-2' });
+  });
+
   it('honours overrides without dropping the auth payload', () => {
     createCoreSocket('http://127.0.0.1:7788', {
       coreToken: 'core',

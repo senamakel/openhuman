@@ -29,6 +29,7 @@ const SHARED_SAAS_METHODS: &[&str] = &["openhuman.doctor_report"];
 /// completions are keyed per profile (`tenant::profile_key_in`) and web-channel
 /// sessions per tenant.
 pub const USER_METHODS: &[&str] = &[
+    "openhuman.plan_review_socket_ticket",
     // Detached-worker controls compare the original worker's captured profile.
     "openhuman.subagent_cancel",
     // Conversation threads: all state lives under the agent's workspace.

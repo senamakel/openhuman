@@ -58,6 +58,25 @@ fn a_clean_deployment_boots() {
 }
 
 #[test]
+fn enabled_saas_socketio_requires_a_shared_ticket_secret() {
+    let mut f = fixture();
+    f.config.socketio_enabled = true;
+    let mut i = inputs(&f, &[]);
+    i.services.socketio = true;
+    let found = violations(&i);
+    assert!(
+        found.iter().any(
+            |v| matches!(v, Violation::Env { var, .. } if var == "OPENHUMAN_SOCKET_TICKET_SECRET")
+        ),
+        "{found:?}"
+    );
+
+    let env = env(&[("OPENHUMAN_SOCKET_TICKET_SECRET", &"s".repeat(32))]);
+    let i = inputs(&f, &env);
+    assert_eq!(check(&i), Ok(()));
+}
+
+#[test]
 fn only_the_saas_host_kind_serves_saas() {
     let f = fixture();
     for kind in [

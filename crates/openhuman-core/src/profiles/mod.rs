@@ -41,6 +41,7 @@ pub mod registry;
 mod storage_schema;
 pub use storage_schema::storage_schema;
 pub mod schemas;
+pub mod socket_ticket;
 pub mod surface;
 pub mod tools;
 pub mod turn_gate;

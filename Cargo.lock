@@ -5648,6 +5648,7 @@ dependencies = [
  "chrono",
  "futures",
  "hex",
+ "hmac 0.12.1",
  "keyring",
  "log",
  "once_cell",

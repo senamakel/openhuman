@@ -22,12 +22,13 @@ interface CoreSocketOptions {
    */
   coreToken: string | null;
   /**
-   * Extra fields merged onto the `auth` payload. Today only the
-   * authenticated user's session JWT goes here (under `session`) so a
-   * future server-side handler can correlate the connection with the
-   * logged-in user.
+   * Extra fields merged onto the `auth` payload, or a callback that builds
+   * fresh fields for each namespace connection (used for short-lived SaaS
+   * socket tickets).
    */
-  authExtras?: Record<string, unknown>;
+  authExtras?:
+    | Record<string, unknown>
+    | ((callback: (data: Record<string, unknown>) => void) => void);
   /**
    * Override of the underlying Socket.IO connect options. The default
    * shape matches what the previous in-line callers used.
@@ -45,7 +46,12 @@ const DEFAULT_OPTIONS: Partial<ManagerOptions & SocketOptions> = {
 };
 
 export function createCoreSocket(baseUrl: string, opts: CoreSocketOptions): Socket {
-  const auth = { token: opts.coreToken ?? '', ...(opts.authExtras ?? {}) };
+  const authExtras = opts.authExtras;
+  const auth =
+    typeof authExtras === 'function'
+      ? (callback: (data: Record<string, unknown>) => void) =>
+          authExtras(data => callback({ token: opts.coreToken ?? '', ...data }))
+      : { token: opts.coreToken ?? '', ...(authExtras ?? {}) };
   return io(baseUrl, { ...DEFAULT_OPTIONS, ...(opts.overrides ?? {}), auth });
 }
 
@@ -58,7 +64,9 @@ interface ConnectCoreSocketOptions {
    * without leaking a connection.
    */
   isDisposed?: () => boolean;
-  authExtras?: Record<string, unknown>;
+  authExtras?:
+    | Record<string, unknown>
+    | ((callback: (data: Record<string, unknown>) => void) => void);
   overrides?: Partial<ManagerOptions & SocketOptions>;
 }
 

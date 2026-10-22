@@ -83,6 +83,11 @@ pub struct SaasConfig {
     /// (see `profiles::gateway`).
     #[serde(default = "default_true")]
     pub require_user_signature: bool,
+    /// Enable authenticated Socket.IO for user-scoped realtime chat/events.
+    /// Requires `OPENHUMAN_SOCKET_TICKET_SECRET` to be configured identically
+    /// on every SaaS node; the secret is never sent to clients.
+    #[serde(default)]
+    pub socketio_enabled: bool,
     /// The storage backend every node of a deployment shares (`sqlite:…`,
     /// `mongodb://…`): the profile registry, the profile leases and the
     /// session store. `OPENHUMAN_STORAGE_URL` wins over it. Unset keeps the
@@ -139,6 +144,7 @@ impl std::fmt::Debug for SaasConfig {
             .field("shared_backend_api_key", &self.shared_backend_api_key)
             .field("custom_definitions", &self.custom_definitions)
             .field("require_user_signature", &self.require_user_signature)
+            .field("socketio_enabled", &self.socketio_enabled)
             .field(
                 "storage_url",
                 &self.storage_url.as_ref().map(|_| "<redacted>"),
@@ -273,6 +279,7 @@ impl SaasConfig {
             shared_backend_api_key: false,
             custom_definitions: false,
             require_user_signature: true,
+            socketio_enabled: false,
             storage_url: None,
             node_id: None,
             advertise_url: None,
@@ -425,7 +432,8 @@ pub async fn build_with_profile_capabilities(
     }
     mode::reserve_saas_boot().map_err(|e| anyhow::anyhow!("[saas] {e}"))?;
 
-    let services = ServiceSet::saas();
+    let mut services = ServiceSet::saas();
+    services.socketio = config.socketio_enabled;
     let domains = DomainSet::saas();
     let token = ServiceToken::read(&config.service_token_path());
     let env: Vec<(String, String)> = std::env::vars().collect();

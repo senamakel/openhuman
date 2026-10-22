@@ -38,7 +38,7 @@
 - [Composio](docs/gitbooks/en/developing/embed/integrations/composio.md): Composio calls use the host backend transport. Install that transport before booting a managed runtime; see TinyHumans managed inference. An explicit inference provider route supplies model inference, not the connector transport.
 - [Local and custom models](docs/gitbooks/en/developing/embed/integrations/local-models.md): For a local server that implements chat completions, use `Provider::openai_compatible` with its API root and model id. The constructor requires a bearer string even when a particular local server ignores it. Set the endpoint explicitly rather than relying on another user's installed configuration. The OpenAI-compatible example controls can point a live example at that local server.
 - [MCP servers](docs/gitbooks/en/developing/embed/integrations/mcp.md): Enable the `mcp` Cargo feature and declare a server with `AgentSpec::mcp`. `McpServer::http` takes a registered name and endpoint; `allow_tools` narrows the remote tool list. Server configuration and its connections belong to the agent that declared them.
-- [OpenAI-compatible providers and BYOK](docs/gitbooks/en/developing/embed/integrations/openai-compatible.md): Construct a route with `Provider::openai_compatible(base_url, api_key).model(model_id)`, then set it on the runtime or an individual agent. Pass the API root, such as a provider's `/v1` URL; the adapter appends `/chat/completions`. Supply an explicit model id so the route can register that model for its workload roles.
+- [OpenAI-compatible providers and BYOK](docs/gitbooks/en/developing/embed/integrations/openai-compatible.md): Construct a route with `Provider::openai_compatible(base_url, api_key).model(model_id)`, then set it on the runtime or an individual agent. Pass the API root, such as a provider's `/v1` URL; the adapter appends `/chat/completions`. Supply an explicit model id so the route can register that model for its workload roles. A `Route` can also carry the endpoint's provider options and a reasoning effort, which then hold for every call on it.
 - [Storage drivers](docs/gitbooks/en/developing/embed/integrations/storage-drivers.md): Enable `storage-sqlite` for SQLite or `storage-mongodb` for MongoDB on your Embed dependency. These Cargo gates make the driver available; choosing a URL selects the runtime backend. Set `RuntimeConfig.storage.url`, pass a URL through `RuntimeBuilder::storage`, or set the `url` field in the `[storage]` section of the host's configuration. `OPENHUMAN_STORAGE_URL` is the environment override used by host configuration resolution.
 - [TinyHumans managed inference](docs/gitbooks/en/developing/embed/integrations/tinyhumans-managed.md): Embed wraps the core; neither contains a TinyHumans backend client. A managed host boots through the builder in `openhuman-tinyhumans` (`openhuman_tinyhumans::RuntimeBuilder`), or calls `openhuman_tinyhumans::install`. That layer owns the transport, the authenticated client, the hosted routes and the hosted providers, and it plugs them into the core through the core's generic registries (chat models, voice, tool sources, the channel callback and memory engines). A host can register its own provider in the same registries. The connected host layer also owns session login. `RuntimeBuilder::backend_url` selects a URL; it does not connect anything.
 - [Web search](docs/gitbooks/en/developing/embed/integrations/web-search.md): An agent's web-search tools (`web_search_tool`, `web_answer_tool`, `web_contents_tool`) run through the process-wide TinySearch module. Several agents in one runtime can each search with their own provider key: pin it on that agent's config, and it is never written to `config.toml`, the environment, or a log.
@@ -535,6 +535,10 @@ Set `CompletionRequest::timeout_ms(120_000)` to bound each physical provider HTT
 A physical timeout is an RPC transport failure, so an explicit `CompletionLadder` can try its next route. By contrast, `Completer::timeout(duration)` bounds the entire logical completion, including repair attempts, and returns terminal `DeadlineExceeded`. Cancellation also stops the ladder without fallback. You can use both bounds when the host needs separate physical and logical limits.
 
 A timed-out physical attempt has unknown reported cost. Ladder aggregate cost stays unknown, and a budgeted call keeps its conservative reservation if no authoritative usage arrived. The remaining budget may therefore refuse a fallback before it sends another request. See the [routing guide](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/ROUTING.md) for the explicit ladder API.
+
+## Provider dispatch observation
+
+Attach `Completer::physical_observer` to receive one content-free start and terminal outcome for each provider invocation. The observer runs inside budget admission, so a request refused by the budget produces no dispatch event. A dropped in-flight request reports cancellation; terminal outcomes carry duration and provider-reported usage when available. The existing `CompletionObserver` remains a logical completion hook and still fires once for the whole call, including structured repair attempts.
 
 <!-- Source: docs/gitbooks/en/developing/embed/concepts/cron.md -->
 ---
@@ -2158,7 +2162,7 @@ icon: code
 
 # OpenAI-compatible providers and BYOK
 
-Construct a route with `Provider::openai_compatible(base_url, api_key).model(model_id)`, then set it on the runtime or an individual agent. Pass the API root, such as a provider's `/v1` URL; the adapter appends `/chat/completions`. Supply an explicit model id so the route can register that model for its workload roles.
+Construct a route with `Provider::openai_compatible(base_url, api_key).model(model_id)`, then set it on the runtime or an individual agent. Pass the API root, such as a provider's `/v1` URL; the adapter appends `/chat/completions`. Supply an explicit model id so the route can register that model for its workload roles. A `Route` can also carry the endpoint's provider options and a reasoning effort, which then hold for every call on it.
 
 The runtime and agent routes in this example answer independently. Assertions inspect the actual request bodies, including model, temperature, and token limits.
 
@@ -2202,6 +2206,15 @@ The runtime and agent routes in this example answer independently. Assertions in
 The [complete defaults_overrides example](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/examples/defaults_overrides.rs) includes the loopback endpoint setup. Run `cargo run -p openhuman-embed --example defaults_overrides` for its offline assertions.
 
 Examples using `support::example_provider` switch to live inference only with `OPENHUMAN_EXAMPLE_LIVE=1` and all three of `OPENHUMAN_EXAMPLE_BASE_URL`, `OPENHUMAN_EXAMPLE_API_KEY`, and `OPENHUMAN_EXAMPLE_MODEL`. These settings are example controls, not replacements for your application's credential configuration. Keep provider keys in your host's secret configuration.
+
+## Provider options and reasoning effort
+
+`Route::provider_options` and `Route::reasoning_effort` set request preferences for the endpoint itself, not for one turn. For example, `Route::openai_compatible("https://openrouter.ai/api/v1", key).provider_options(json!({"provider": {"order": ["first-host", "second-host"], "allow_fallbacks": true}})).reasoning_effort(ReasoningEffort::Low)` asks OpenRouter for those hosts in that order and low reasoning on every call. Pass that route to `Provider::routed(route).model(model_id)`. `ReasoningEffort` is re-exported from `openhuman_embed`.
+
+- **What is sent.** The options are flattened into every Chat Completions body on the route. This covers the agent's turns, a per-turn `Turn::route`, scheduled agent runs, the payload summarizer and sub-agents, and `Completer` calls on the route. They must form a JSON object. Keys owned by the normalized request (`model`, `messages`, `tools`, `temperature`, `max_tokens`, `stream` and the like) are never sent: an agent turn drops them and a completion refuses them.
+- **OpenRouter's default.** On an `openrouter.ai` endpoint the registry otherwise sends `{"provider":{"sort":"price"}}`. A `provider` object in the route's options replaces that default.
+- **What a call can still override.** A turn's `Turn::provider_options`, or a `CompletionRequest::provider_options`, replaces the route's options per top-level key: a request `provider` replaces the route's whole `provider` object, and keys the request does not name keep the route's value.
+- **Reasoning.** The effort becomes the route model's `runtime.reasoning_effort_by_model` entry. A thread's own reasoning choice still outranks it, it outranks `runtime.reasoning_effort`, and sub-agents keep their provider default. The wire carries `reasoning_effort`. When a turn caps its output on OpenRouter, it carries `reasoning.max_tokens` (a share of the cap) instead. A `Completer` request that sets no reasoning of its own gets the route's effort.
 
 For a non-HTTP implementation, [local and custom models](local-models.md) covers `Provider::custom`, native fallback, and role pins. [Managed inference](tinyhumans-managed.md) uses a different backend transport boundary.
 
@@ -2500,6 +2513,18 @@ group, including descendants. Other platforms stop the direct command. Host
 tools that spawn independent tasks or processes must provide their own cleanup;
 MCP server lifecycles remain owned by the agent. Keep polling `send()` while
 awaiting cancellation, for example in a spawned task.
+
+## Observing provider dispatches
+
+Attach `Completer::physical_observer` to receive one content-free terminal event
+for each admitted provider `ChatModel` invocation. Structured JSON repairs
+produce separate events, while request and response content remains private.
+Transport-level compatibility retries performed inside one provider invocation
+remain within that event, and its latency includes those retries. With a model
+budget, the explicit and turn-scoped observers run inside admission and after
+gateway charge normalization, so they see the same authoritative amount the
+ledger settles. A budget refusal before provider invocation creates no event.
+The existing `CompletionObserver` remains a once-per-logical-call callback.
 
 ## Steering one turn
 
@@ -2962,6 +2987,12 @@ Generate the complete local Rust API reference with `cargo doc -p openhuman-embe
 - [`PendingApproval`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`PermissionFuture`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`PermissionLevel`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`PhysicalDispatchMetadata`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`PhysicalDispatchObserver`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`PhysicalDispatchOutcome`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`PhysicalDispatchStatus`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`PhysicalDispatchTerminal`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`PhysicalDispatchUsage`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`PickListenPortError`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`ProfileError`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`ProfileEvents`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
@@ -2973,6 +3004,7 @@ Generate the complete local Rust API reference with `cargo doc -p openhuman-embe
 - [`ProfileSummary`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`Provider`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`Provisioned`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`ReasoningEffort`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`RelayAccepted`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`RelayMessage`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`RemoveAgent`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)

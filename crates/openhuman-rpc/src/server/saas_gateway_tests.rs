@@ -32,6 +32,14 @@ fn the_gateway_surfaces_stay_open() {
     }
 }
 
+#[test]
+fn socket_io_is_not_unconditionally_closed_when_ticketed() {
+    // The SaaS gateway will admit this route only when its initial request
+    // carries a valid core-issued socket ticket. Rejecting the route before
+    // ticket validation makes profile-scoped review replay impossible.
+    assert!(!is_closed_in_saas("/socket.io/"));
+}
+
 mod decision {
     use super::*;
     use crate::core_host::profiles::gateway::sign;

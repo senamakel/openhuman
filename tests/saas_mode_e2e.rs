@@ -315,11 +315,7 @@ fn gateway_requests_run_under_the_named_users_profile() {
 #[test]
 fn socket_ticket_rpc_requires_the_trusted_user_gateway_context() {
     let d = deployment(true);
-    std::fs::write(
-        &d.config,
-        format!("root = {:?}\n", d.root.display()),
-    )
-    .unwrap();
+    std::fs::write(&d.config, format!("root = {:?}\n", d.root.display())).unwrap();
     let (server, base) = spawn_core(|port| {
         let mut command = core_command(&d, &["--port", &port.to_string()]);
         command.stdout(Stdio::null()).stderr(Stdio::null());
@@ -332,7 +328,12 @@ fn socket_ticket_rpc_requires_the_trusted_user_gateway_context() {
 
     // This is the app's actual bearer-only POST /rpc shape. The core must not
     // infer a profile from the bearer or accept a caller-supplied profile id.
-    let (_, operator_response) = rpc(&client, &base, Some(BEARER), "openhuman.plan_review_socket_ticket");
+    let (_, operator_response) = rpc(
+        &client,
+        &base,
+        Some(BEARER),
+        "openhuman.plan_review_socket_ticket",
+    );
     assert!(
         operator_response.get("error").is_some(),
         "bearer-only RPC has operator scope and cannot mint a profile ticket: {operator_response}"
@@ -350,7 +351,10 @@ fn socket_ticket_rpc_requires_the_trusted_user_gateway_context() {
         None,
         "openhuman.plan_review_socket_ticket",
     );
-    assert_eq!(status, 403, "signed but unprovisioned user is refused: {response}");
+    assert_eq!(
+        status, 403,
+        "signed but unprovisioned user is refused: {response}"
+    );
     drop(server);
 }
 

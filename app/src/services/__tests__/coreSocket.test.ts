@@ -63,7 +63,10 @@ describe('createCoreSocket', () => {
       coreToken: 'core',
       authExtras: callback => callback({ ticket: `ticket-${++generation}` }),
     });
-    const options = ioMock.mock.calls[0]?.[1] as unknown as {
+    const calls = ioMock.mock.calls as unknown as Array<
+      [string, { auth: (callback: (auth: Record<string, string>) => void) => void }]
+    >;
+    const options = calls[0]?.[1] as {
       auth: (callback: (auth: Record<string, string>) => void) => void;
     };
     const first: Record<string, string>[] = [];

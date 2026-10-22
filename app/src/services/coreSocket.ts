@@ -46,11 +46,12 @@ const DEFAULT_OPTIONS: Partial<ManagerOptions & SocketOptions> = {
 };
 
 export function createCoreSocket(baseUrl: string, opts: CoreSocketOptions): Socket {
+  const authExtras = opts.authExtras;
   const auth =
-    typeof opts.authExtras === 'function'
+    typeof authExtras === 'function'
       ? (callback: (data: Record<string, unknown>) => void) =>
-          opts.authExtras?.(data => callback({ token: opts.coreToken ?? '', ...data }))
-      : { token: opts.coreToken ?? '', ...(opts.authExtras ?? {}) };
+          authExtras(data => callback({ token: opts.coreToken ?? '', ...data }))
+      : { token: opts.coreToken ?? '', ...(authExtras ?? {}) };
   return io(baseUrl, { ...DEFAULT_OPTIONS, ...(opts.overrides ?? {}), auth });
 }
 

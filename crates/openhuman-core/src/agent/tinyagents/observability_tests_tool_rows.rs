@@ -125,9 +125,3 @@ async fn unknown_tool_call_in_a_child_run_projects_one_subagent_row() {
     assert_eq!((started, completed), (1, 1));
     assert_eq!(class, Some(tinytools::status::ToolFailureClass::NotFound));
 }
-
-/// W2-budget-dedupe: two `UsageRecorded` events for the *same* model call
-/// (as happens once the observe-only crate `BudgetMiddleware` re-emits usage
-/// its `after_model` folded, on top of the runtime's own emit) must be
-/// recorded into the bridge accounting **exactly once**. Without the dedupe
-/// guard the totals would double.

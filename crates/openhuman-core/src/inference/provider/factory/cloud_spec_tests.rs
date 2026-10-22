@@ -24,6 +24,7 @@ fn build<'a>(entry: &CloudProviderCreds, model: &str, key: &'a str) -> CloudBuil
         user_agent: None,
         codex: None,
         http: None,
+        default_provider_options: None,
     }
 }
 
@@ -102,4 +103,103 @@ fn discovery_request_uses_x_api_key_for_anthropic_and_skips_codex_oauth() {
     let mut with_oauth = build(&openai, "gpt", "tok");
     with_oauth.codex = Some(&oauth);
     assert!(cloud_discovery_request(&with_oauth).is_none());
+}
+
+/// Builds the route on an `openrouter.ai` endpoint whose host resolves to a
+/// stub, sends one request carrying `request_options`, and returns its body.
+async fn openrouter_wire_body(
+    route_options: Option<serde_json::Value>,
+    request_options: serde_json::Value,
+) -> serde_json::Value {
+    let server = wiremock::MockServer::start().await;
+    wiremock::Mock::given(wiremock::matchers::method("POST"))
+        .respond_with(wiremock::ResponseTemplate::new(400).set_body_string("{}"))
+        .mount(&server)
+        .await;
+    let address = *server.address();
+    let creds = entry(
+        crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG,
+        &format!("http://openrouter.ai:{}/api/v1", address.port()),
+        AuthStyle::Bearer,
+    );
+    let mut build = build(&creds, "z-ai/model", "sk-or");
+    build.default_provider_options = route_options;
+    build.http = Some(
+        reqwest::Client::builder()
+            .no_proxy()
+            .resolve("openrouter.ai", address)
+            .build()
+            .unwrap(),
+    );
+    let model = build_cloud_model(build).expect("route builds");
+    let mut request = tinyinference_llm::model::ModelRequest::new(vec![
+        tinyinference_llm::message::Message::user("hello"),
+    ]);
+    request.provider_options = request_options;
+    let _ = model.invoke(&(), request).await;
+    let received = server.received_requests().await.unwrap();
+    let request = received.first().expect("one request reached the stub");
+    serde_json::from_slice(&request.body).unwrap()
+}
+
+#[tokio::test]
+async fn ephemeral_route_provider_options_replace_the_price_default() {
+    let body = openrouter_wire_body(
+        Some(serde_json::json!({"provider": {"sort": "latency"}, "top_k": 5})),
+        serde_json::Value::Null,
+    )
+    .await;
+    assert_eq!(body["provider"], serde_json::json!({"sort": "latency"}));
+    assert_eq!(body["top_k"], 5);
+}
+
+#[tokio::test]
+async fn request_provider_options_still_override_route_defaults() {
+    let body = openrouter_wire_body(
+        Some(serde_json::json!({"provider": {"sort": "latency"}, "top_k": 5})),
+        serde_json::json!({"provider": {"sort": "throughput"}}),
+    )
+    .await;
+    assert_eq!(body["provider"], serde_json::json!({"sort": "throughput"}));
+    // Keys the request does not name keep the route's value.
+    assert_eq!(body["top_k"], 5);
+}
+
+#[tokio::test]
+async fn ephemeral_route_without_provider_options_keeps_the_registry_default() {
+    let body = openrouter_wire_body(None, serde_json::Value::Null).await;
+    assert_eq!(body["provider"], serde_json::json!({"sort": "price"}));
+}
+
+#[test]
+fn route_provider_options_apply_only_to_the_route_they_came_with() {
+    let mut config = Config::default();
+    config.ephemeral_route = Some(
+        crate::config::schema::EphemeralRoute::from_params(
+            Some("https://openrouter.ai/api/v1".into()),
+            Some("sk-or".into()),
+        )
+        .unwrap()
+        .with_provider_options(Some(serde_json::json!({"provider": {"sort": "latency"}}))),
+    );
+    let route = entry(
+        crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG,
+        "https://openrouter.ai/api/v1",
+        AuthStyle::Bearer,
+    );
+    assert!(scoped_ephemeral_route(&config, &route).is_some());
+    // Another slug on the same endpoint, or the route's slug on a different
+    // endpoint, is not the route.
+    let other_slug = entry(
+        "openrouter",
+        "https://openrouter.ai/api/v1",
+        AuthStyle::Bearer,
+    );
+    assert!(scoped_ephemeral_route(&config, &other_slug).is_none());
+    let other_endpoint = entry(
+        crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG,
+        "https://api.example.test/v1",
+        AuthStyle::Bearer,
+    );
+    assert!(scoped_ephemeral_route(&config, &other_endpoint).is_none());
 }

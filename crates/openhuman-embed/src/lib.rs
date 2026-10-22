@@ -274,6 +274,8 @@ pub use complete::{
     PhysicalDispatchUsage,
 };
 pub use session_store::{InMemorySessionStores, SessionStoreProvider};
+/// The reasoning level a [`Route::reasoning_effort`] asks for.
+pub use tinyinference_llm::model::ReasoningEffort;
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 pub use turn_cancellation::TurnCancellation;
 pub use turn_steering::{SteerRefused, TurnSteering};

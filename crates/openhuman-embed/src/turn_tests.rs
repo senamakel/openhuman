@@ -365,3 +365,73 @@ async fn runtime_tool_events_preserve_order_and_discard_tool_payloads() {
         assert!(!serde_json::to_string(&event).unwrap().contains(private));
     }
 }
+
+#[test]
+fn route_tuning_reaches_the_cores_ephemeral_route() {
+    let route = Route::openai_compatible(" https://gateway.example/v1 ", " sk ")
+        .header("x-run", "r1")
+        .provider_options(json!({"provider": {"order": ["a"]}}))
+        .reasoning_effort(tinyinference_llm::model::ReasoningEffort::Medium);
+    let scoped = route.ephemeral().expect("a complete route");
+    assert_eq!(scoped.endpoint, "https://gateway.example/v1");
+    assert_eq!(scoped.headers, vec![("x-run".into(), "r1".into())]);
+    assert_eq!(
+        scoped.provider_options,
+        Some(json!({"provider": {"order": ["a"]}}))
+    );
+    assert_eq!(scoped.reasoning_effort.as_deref(), Some("medium"));
+    assert!(Route::openai_compatible("https://gateway.example/v1", " ")
+        .ephemeral()
+        .is_none());
+    // `null` clears what an earlier call set.
+    let cleared = route.provider_options(serde_json::Value::Null);
+    assert_eq!(cleared.provider_options, None);
+    let debug = format!("{cleared:?}");
+    assert!(debug.contains("has_provider_options: false"), "{debug}");
+    assert!(debug.contains("Medium"), "{debug}");
+}
+
+#[test]
+fn a_requests_provider_options_replace_the_routes_per_key() {
+    let route = Route::openai_compatible("https://gateway.example/v1", "sk")
+        .provider_options(json!({"provider": {"order": ["a"]}, "top_k": 3}));
+    assert_eq!(
+        route.provider_options_under(serde_json::Value::Null),
+        json!({"provider": {"order": ["a"]}, "top_k": 3})
+    );
+    assert_eq!(
+        route.provider_options_under(json!({"provider": {"sort": "latency"}})),
+        json!({"provider": {"sort": "latency"}, "top_k": 3})
+    );
+    // A malformed request value is passed on for the transport to reject.
+    assert_eq!(route.provider_options_under(json!("bad")), json!("bad"));
+    let bare = Route::openai_compatible("https://gateway.example/v1", "sk");
+    assert_eq!(
+        bare.provider_options_under(json!({"top_k": 1})),
+        json!({"top_k": 1})
+    );
+    assert_eq!(
+        bare.provider_options_under(serde_json::Value::Null),
+        serde_json::Value::Null
+    );
+}
+
+#[test]
+fn a_turn_route_keeps_its_tuning_for_dispatch() {
+    let tuning = RouteTuning {
+        provider_options: Some(json!({"provider": {"order": ["a"]}})),
+        reasoning_effort: Some(tinyinference_llm::model::ReasoningEffort::High),
+    };
+    let scoped = tuning.apply(
+        openhuman_core::config::schema::EphemeralRoute::from_params(
+            Some("https://gateway.example/v1".into()),
+            Some("sk".into()),
+        )
+        .unwrap(),
+    );
+    assert_eq!(
+        scoped.provider_options,
+        Some(json!({"provider": {"order": ["a"]}}))
+    );
+    assert_eq!(scoped.reasoning_effort.as_deref(), Some("high"));
+}

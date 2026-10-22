@@ -91,7 +91,12 @@ roles (memory, embeddings, learning) alone. Pass the API root
 (`https://host/v1`); `/chat/completions` is appended. `Provider::model` is
 advisory (an unknown model falls back to the default), and a route with no
 model resolved registers nothing. `Provider::inherit()` uses whatever the
-machine's configuration resolves to.
+machine's configuration resolves to. A `Route`'s `provider_options` and
+`reasoning_effort` ride on the same `EphemeralRoute`, so every call on the
+route carries them, including cron runs, payload summaries and sub-agents.
+On OpenRouter a `provider` object there replaces the registry's
+`sort: price` default. A call's own provider options still replace them
+per top-level key.
 
 `Workspace` chooses where state lives:
 

@@ -53,6 +53,8 @@ fn config_for(server: &MockServer, model: &str) -> Fixture {
             endpoint: format!("{}/openai/{ENDPOINT_SECRET}", server.uri()),
             api_key: TEST_BEARER.to_string(),
             headers: Vec::new(),
+            provider_options: None,
+            reasoning_effort: None,
         },
     );
     fixture.config = config;

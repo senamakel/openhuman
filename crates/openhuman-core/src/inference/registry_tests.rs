@@ -226,6 +226,8 @@ async fn a_registered_catalog_receives_the_entrys_provider_key() {
             endpoint: "https://self-hosted.example/v1".into(),
             api_key: "entry-key".into(),
             headers: vec![],
+            provider_options: None,
+            reasoning_effort: None,
         }),
         ..Config::default()
     };

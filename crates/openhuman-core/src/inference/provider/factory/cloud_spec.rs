@@ -5,8 +5,9 @@
 //! which owns adapter construction (Chat Completions, Anthropic Messages,
 //! Codex Responses, OpenRouter routing options) and listing discovery. Only
 //! host policy is expressed here: which auth style a slug uses, which extra
-//! headers the ephemeral route and Codex OAuth add, and the TLS client for a
-//! provider with a custom CA bundle.
+//! headers the ephemeral route and Codex OAuth add, the provider options an
+//! ephemeral route carries, and the TLS client for a provider with a custom CA
+//! bundle.
 
 use super::*;
 use tinyinference_llm::providers::openai::codex::OpenAiCodexRouting;
@@ -33,6 +34,19 @@ pub(super) fn cloud_provider_spec(entry: &CloudProviderCreds, model: &str) -> Pr
     }
 }
 
+/// The ephemeral route `entry` was registered from, when `entry` is that
+/// route's slug and endpoint. Its headers and provider options apply only
+/// there, never to another configured provider.
+pub(super) fn scoped_ephemeral_route<'a>(
+    config: &'a Config,
+    entry: &CloudProviderCreds,
+) -> Option<&'a crate::config::schema::EphemeralRoute> {
+    config.ephemeral_route.as_ref().filter(|route| {
+        entry.slug == crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG
+            && route.endpoint == entry.endpoint
+    })
+}
+
 /// The registry auth style for a host [`AuthStyle`]; `None` for the managed
 /// JWT style, which never reaches the registry.
 pub(super) fn registry_auth_style(style: AuthStyle) -> Option<CompatAuthStyle> {
@@ -57,6 +71,9 @@ pub(super) struct CloudBuild<'a> {
     pub(super) user_agent: Option<&'a str>,
     pub(super) codex: Option<&'a OpenAiCodexRouting>,
     pub(super) http: Option<reqwest::Client>,
+    /// Options sent beneath each request's own `provider_options`; a key here
+    /// replaces the registry's endpoint default (OpenRouter's price sorting).
+    pub(super) default_provider_options: Option<serde_json::Value>,
 }
 
 impl<'a> CloudBuild<'a> {
@@ -71,6 +88,7 @@ impl<'a> CloudBuild<'a> {
             user_agent: self.user_agent,
             codex: self.codex,
             http: self.http.clone(),
+            default_provider_options: self.default_provider_options.clone(),
             ..ProviderBuildOptions::default()
         }
     }

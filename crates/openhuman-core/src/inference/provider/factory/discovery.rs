@@ -79,6 +79,11 @@ pub(crate) fn model_limits_request(
         user_agent: None,
         codex: Some(&resolution.codex),
         http: None,
+        default_provider_options: super::cloud_spec::scoped_ephemeral_route(
+            config,
+            resolution.entry,
+        )
+        .and_then(|route| route.provider_options.clone()),
     })
 }
 

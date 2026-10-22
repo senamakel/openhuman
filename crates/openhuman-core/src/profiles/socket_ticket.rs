@@ -41,6 +41,21 @@ pub fn mint(profile: &str, now: u64, secret: &str) -> Result<String, String> {
     Ok(format!("{payload}.{signature}"))
 }
 
+/// Mint a ticket for the profile carried by an explicit RPC dispatch context.
+/// This is the only RPC ticket entry point: callers cannot choose the profile
+/// in parameters or infer it from the service bearer.
+pub fn mint_for_dispatch(
+    dispatch: &crate::core::runtime::DispatchCtx,
+    now: u64,
+    secret: &str,
+) -> Result<String, String> {
+    let tenant = dispatch.tenant().map_err(|error| error.to_string())?;
+    let profile = tenant
+        .profile
+        .ok_or_else(|| "profile scope required".to_string())?;
+    mint(&profile, now, secret)
+}
+
 pub fn verify(ticket: &str, now: u64, secret: &str) -> Result<Claims, &'static str> {
     let (payload, signature) = ticket.split_once('.').ok_or("malformed ticket")?;
     let signature = base64::engine::general_purpose::URL_SAFE_NO_PAD

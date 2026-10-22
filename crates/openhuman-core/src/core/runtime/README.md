@@ -152,8 +152,10 @@ non-SaaS core can boot in that process, and neither can a second SaaS core.
   `service_token_file` (defaults to `<root>/service.token`), `tool_allowlist`
   (host tool groups, see `profiles/README.md`), `[sandbox]` (the shell
   container), `rpc_allowlist_extra`, `max_profiles_open`, `profile_ids`, `idle_evict_secs`,
-  `shared_backend_api_key`, `custom_definitions` and `require_user_signature`
-  (default `true`), and the cluster settings: `storage_url` (the shared
+  `shared_backend_api_key`, `custom_definitions`, `require_user_signature`
+  (default `true`), and `socketio_enabled` (default `false`; requires the
+  server-only, cluster-shared `OPENHUMAN_SOCKET_TICKET_SECRET`, at least 32
+  bytes), and the cluster settings: `storage_url` (the shared
   backend; `OPENHUMAN_STORAGE_URL` wins), `node_id` (else
   `OPENHUMAN_NODE_ID`, else random per process), `advertise_url`,
   `lease_ttl_secs` (default 30) and `operator_dir` (default
@@ -171,6 +173,7 @@ non-SaaS core can boot in that process, and neither can a second SaaS core.
   - `rpc_allowlist_extra` is non-empty (the per-user RPC surface is fixed);
   - the root is relative, missing, world-writable or inside `~/.openhuman`;
   - the service token is missing, readable by others, or shorter than 32 bytes;
+  - Socket.IO is enabled without a shared ticket secret of at least 32 bytes;
   - the node is clustered (`advertise_url` set) without a storage URL whose
     driver keeps compare-and-swap atomic across processes (SQLite, MongoDB).
 - The operator plane boots with its own config under `operator_dir()`

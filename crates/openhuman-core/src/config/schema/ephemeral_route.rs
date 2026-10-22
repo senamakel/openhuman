@@ -21,6 +21,20 @@
 //! route apply it to their own per-call `Config` copy, which is dropped when the
 //! call returns.
 //!
+//! # Routing preferences and reasoning
+//!
+//! A route can also carry the endpoint's own request preferences, so they hold
+//! for every call made on it, including the ones OpenHuman starts itself (cron
+//! agent runs, the payload summarizer, sub-agents), not just a host's turn:
+//!
+//! - [`EphemeralRoute::provider_options`] are sent beneath every request's own
+//!   `provider_options`. On an OpenRouter endpoint a `provider` object here
+//!   replaces the registry's `{"provider":{"sort":"price"}}` default. A
+//!   request's `provider_options` still replace these per top-level key.
+//! - [`EphemeralRoute::reasoning_effort`] becomes the route model's entry in
+//!   `runtime.reasoning_effort_by_model`, so it ranks as that setting does:
+//!   below a thread's own choice, above `runtime.reasoning_effort`.
+//!
 //! # What it does and does not capture
 //!
 //! [`apply`] pins the four roles an agent turn actually runs on — chat,
@@ -63,6 +77,21 @@ pub struct EphemeralRoute {
     /// Custom headers scoped to this endpoint, never copied to unrelated providers.
     #[serde(default)]
     pub headers: Vec<(String, String)>,
+    /// Provider options sent beneath every request's own `provider_options` on
+    /// this endpoint, such as OpenRouter's `{"provider":{"order":[...]}}`.
+    ///
+    /// Must be a JSON object; the transport rejects anything else when a
+    /// request is built. Top-level keys reserved for the normalized request
+    /// (`model`, `messages`, `tools`, `temperature`, `max_tokens`, `stream`
+    /// and the like) are dropped. `None` keeps the registry default for the
+    /// endpoint.
+    #[serde(default)]
+    pub provider_options: Option<serde_json::Value>,
+    /// Reasoning effort for the route's model, spelled as
+    /// `runtime.reasoning_effort` is (`none`, `minimal`, `low`, `medium`,
+    /// `high`, `xhigh`). `None` leaves the configured level.
+    #[serde(default)]
+    pub reasoning_effort: Option<String>,
 }
 
 impl std::fmt::Debug for EphemeralRoute {
@@ -74,6 +103,8 @@ impl std::fmt::Debug for EphemeralRoute {
             )
             .field("api_key", &"[redacted]")
             .field("header_count", &self.headers.len())
+            .field("has_provider_options", &self.provider_options.is_some())
+            .field("reasoning_effort", &self.reasoning_effort)
             .finish()
     }
 }
@@ -91,12 +122,31 @@ impl EphemeralRoute {
             endpoint,
             api_key,
             headers: Vec::new(),
+            provider_options: None,
+            reasoning_effort: None,
         })
     }
 
     /// Attach the embedding host's per-route headers.
     pub fn with_headers(mut self, headers: Vec<(String, String)>) -> Self {
         self.headers = headers;
+        self
+    }
+
+    /// Attach the provider options every request on this route is sent with
+    /// (see [`Self::provider_options`]); `None` keeps the endpoint default.
+    pub fn with_provider_options(mut self, options: Option<serde_json::Value>) -> Self {
+        self.provider_options = options.filter(|options| !options.is_null());
+        self
+    }
+
+    /// Set the reasoning effort for the route's model; `None` leaves the
+    /// configured level.
+    pub fn with_reasoning_effort(
+        mut self,
+        effort: Option<tinyinference_llm::model::ReasoningEffort>,
+    ) -> Self {
+        self.reasoning_effort = effort.map(|effort| effort.as_str().to_string());
         self
     }
 }
@@ -147,6 +197,18 @@ pub fn apply(config: &mut crate::config::Config, route: EphemeralRoute) {
         default_model: Some(model.clone()),
     });
 
+    if let Some(effort) = route
+        .reasoning_effort
+        .as_deref()
+        .map(str::trim)
+        .filter(|effort| !effort.is_empty())
+    {
+        config
+            .runtime
+            .reasoning_effort_by_model
+            .insert(model.clone(), effort.to_string());
+    }
+
     let provider_string = format!("{EPHEMERAL_ROUTE_SLUG}:{model}");
     config.chat_provider = Some(provider_string.clone());
     config.reasoning_provider = Some(provider_string.clone());
@@ -154,9 +216,11 @@ pub fn apply(config: &mut crate::config::Config, route: EphemeralRoute) {
     config.coding_provider = Some(provider_string);
 
     log::info!(
-        "[config][ephemeral-route] this call routed to {} model={}",
+        "[config][ephemeral-route] this call routed to {} model={} provider_options={} reasoning_effort={}",
         crate::inference::provider::factory::redact_endpoint(&route.endpoint),
-        model
+        model,
+        route.provider_options.is_some(),
+        route.reasoning_effort.as_deref().unwrap_or("default")
     );
 
     config.ephemeral_route = Some(route);

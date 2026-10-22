@@ -53,10 +53,10 @@ pub mod embed {
     pub use openhuman_embed::{
         Access, Agent, AgentDefaults, AgentDefinitionSpec, AgentSpec, ApiKey, ConfigSource,
         ConfigurationInfo, ContextOverlay, CoreBootMode, CoreBuilder, CoreError, CoreRuntime,
-        DefaultsInfo, DefinitionBase, DomainSet, Harness, HarnessBuilder, HostKind, LearningSettings, ModelDefaults, Provider,
-        Runtime, RuntimeBuilder, RuntimeConfig, RuntimeDefaults, RuntimeError, RuntimeInfo,
-        RuntimeModule, ServiceSet, SkillsPolicy, StorageInfo, TokenSource, ToolGroups, WeightClass,
-        Workspace,
+        DefaultsInfo, DefinitionBase, DomainSet, Harness, HarnessBuilder, HostKind,
+        LearningSettings, ModelDefaults, Provider, Runtime, RuntimeBuilder, RuntimeConfig,
+        RuntimeDefaults, RuntimeError, RuntimeInfo, RuntimeModule, ServiceSet, SkillsPolicy,
+        StorageInfo, TokenSource, ToolGroups, WeightClass, Workspace,
     };
     // Process-level facts a host reads.
     pub use openhuman_embed::{

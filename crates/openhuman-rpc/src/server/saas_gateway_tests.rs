@@ -329,24 +329,32 @@ mod decision {
 
 mod ticket_handoff {
     use super::*;
-    use crate::core_host::config::Config;
-    use crate::core_host::core::runtime::{
-        ContextOverlay, CoreBootMode, CoreBuilder, DispatchCtx, DomainSet, HostKind, ServiceSet,
-        TokenSource,
+    use crate::core_host::core::runtime::DispatchCtx;
+    use crate::embed::{
+        ContextOverlay, CoreBootMode, CoreBuilder, DomainSet, HostKind, RuntimeConfig, ServiceSet,
+        TokenSource, ToolGroups,
     };
-    use crate::core_host::tools::toolpacks::ToolGroups;
+    use axum::body::Body;
     use axum::extract::Extension;
+    use axum::http::StatusCode;
     use axum::routing::post;
-    use axum::Json;
+    use axum::{Json, Router};
     use std::sync::Arc;
 
+    const SERVICE_SECRET: &str = "test-service-token";
     const TICKET_SECRET: &str = "middleware-ticket-secret-0123456789abcdef";
-    const NOW: u64 = 1_700_000_000;
+
+    fn now() -> u64 {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_secs()
+    }
 
     async fn ticket_route(Extension(dispatch): Extension<DispatchCtx>) -> Json<serde_json::Value> {
         let result = crate::core_host::profiles::socket_ticket::mint_for_dispatch(
             &dispatch,
-            NOW,
+            now(),
             TICKET_SECRET,
         );
         Json(match result {
@@ -358,11 +366,11 @@ mod ticket_handoff {
     #[tokio::test]
     async fn trusted_user_headers_reach_ticket_minting_and_bearer_only_fails_closed() {
         let temp = tempfile::tempdir().unwrap();
-        let mut config = Config::default();
+        let mut config = RuntimeConfig::default();
         config.workspace_dir = temp.path().to_path_buf();
         let runtime = CoreBuilder::new(HostKind::Cli)
             .boot_mode(CoreBootMode::Inspection)
-            .token(TokenSource::Fixed(Arc::new(SECRET.to_string())))
+            .token(TokenSource::Fixed(Arc::new(SERVICE_SECRET.to_string())))
             .services(ServiceSet::none())
             .config(config.clone())
             .build()
@@ -405,7 +413,15 @@ mod ticket_handoff {
                 }
             }));
         let client = axum::http::Request::builder();
-        let user_headers = [bearer_header(), user("alice"), sig("alice", NOW)];
+        let timestamp = now();
+        let user_headers = [
+            ("authorization", format!("Bearer {SERVICE_SECRET}")),
+            (USER_HEADER, "alice".to_string()),
+            (
+                USER_SIG_HEADER,
+                crate::core_host::profiles::gateway::sign(SERVICE_SECRET, "alice", timestamp),
+            ),
+        ];
         let mut request = client.method("POST").uri("/rpc");
         for (name, value) in &user_headers {
             request = request.header(*name, value);
@@ -421,14 +437,15 @@ mod ticket_handoff {
             .unwrap();
         let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
         let ticket = body["ticket"].as_str().expect("profile ticket");
-        let claims = crate::core_host::profiles::socket_ticket::verify(ticket, NOW, TICKET_SECRET)
-            .expect("signed-user dispatch minted a valid socket ticket");
+        let claims =
+            crate::core_host::profiles::socket_ticket::verify(ticket, now(), TICKET_SECRET)
+                .expect("signed-user dispatch minted a valid socket ticket");
         assert_eq!(claims.profile, "alice");
 
         let bearer_only = axum::http::Request::builder()
             .method("POST")
             .uri("/rpc")
-            .header("authorization", format!("Bearer {SECRET}"))
+            .header("authorization", format!("Bearer {SERVICE_SECRET}"))
             .header("content-type", "application/json")
             .body(Body::empty())
             .unwrap();

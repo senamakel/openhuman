@@ -150,7 +150,7 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
 
 struct ResolvedUser {
     context: Arc<CoreContext>,
-    _lease: Option<Arc<crate::core_host::profiles::Profile>>,
+    _lease: Option<Arc<dyn std::any::Any + Send + Sync>>,
 }
 
 async fn saas_gateway_with_resolver<F, Fut>(

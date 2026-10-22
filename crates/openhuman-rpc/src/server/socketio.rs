@@ -183,6 +183,10 @@ fn socket_is_authed(socket: &SocketRef) -> bool {
     socket.extensions.get::<AuthedConnection>().is_some()
 }
 
+fn socket_dispatch(socket: &SocketRef) -> Option<crate::core_host::core::runtime::DispatchCtx> {
+    socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
+}
+
 /// Best-effort disconnect. Called when we discover an unauthenticated socket
 /// inside an event handler — the connect path already disconnects the bad
 /// origins / wrong tokens, so this is purely a defense-in-depth path.
@@ -381,6 +385,10 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         drop_unauthed(&socket, "rpc:request from unauthenticated socket");
                         return;
                     }
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "rpc:request missing dispatch scope");
+                        return;
+                    };
                     let client_id = socket.id.to_string();
                     log::info!(
                         "[socketio] rpc:request method={} id={} client={}",
@@ -391,8 +399,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
 
                     // Invoke the method through the same logic used by the HTTP RPC endpoint.
                     let response = match crate::core_host::core::invoke::invoke_method(
-                        socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
-                            .unwrap_or_else(crate::core_host::core::runtime::DispatchCtx::host_default),
+                        dispatch,
                         crate::core_host::core::invoke::default_state(),
                         payload.method.as_str(),
                         payload.params,
@@ -424,6 +431,10 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         drop_unauthed(&socket, "chat:start from unauthenticated socket");
                         return;
                     }
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "chat:start missing dispatch scope");
+                        return;
+                    };
                     let client_id = socket.id.to_string();
                     let thread_id = payload.thread_id.clone();
                     let model_override = payload.model_override.or(payload.model);
@@ -437,8 +448,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         match crate::core_host::agent::tinyagents::run_mode::parse_mode_label(run_mode) {
                             Some(mode) => {
                                 crate::core_host::agent::tinyagents::run_mode::set_mode(
-                                    &socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
-                                        .unwrap_or_else(crate::core_host::core::runtime::DispatchCtx::host_default),
+                                    &dispatch,
                                     &thread_id,
                                     mode,
                                 );
@@ -452,8 +462,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     // Trigger the web channel's chat logic.
                     match crate::core_host::web_chat::start_chat(
                         // Outside SaaS the host's one context; in SaaS the socket task's own scope.
-                        &socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
-                            .unwrap_or_else(crate::core_host::core::runtime::DispatchCtx::host_default),
+                        &dispatch,
                         &client_id,
                         &payload.thread_id,
                         &payload.message,
@@ -516,6 +525,10 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         drop_unauthed(&socket, "chat:cancel from unauthenticated socket");
                         return;
                     }
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "chat:cancel missing dispatch scope");
+                        return;
+                    };
                     let client_id = socket.id.to_string();
                     log::debug!(
                         "[socketio] recv event=chat:cancel client_id={} thread_id={}",
@@ -523,7 +536,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         payload.thread_id
                     );
                     let _ = crate::core_host::web_chat::cancel_chat_scoped(
-                        &crate::core_host::core::runtime::DispatchCtx::host_default(),
+                        &dispatch,
                         &client_id,
                         &payload.thread_id,
                         payload.request_id.as_deref(),

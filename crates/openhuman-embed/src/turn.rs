@@ -49,6 +49,7 @@ use openhuman_core::security::turn_origin::AgentTurnOrigin;
 
 #[path = "turn_types.rs"]
 mod types;
+use types::RouteTuning;
 pub(crate) use types::{is_safe_endpoint_for_bearer, sanitize_url_for_display};
 pub use types::{Route, TurnOutcome, TurnRequest};
 #[path = "turn_control.rs"]

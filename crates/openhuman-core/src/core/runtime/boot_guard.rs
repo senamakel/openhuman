@@ -245,7 +245,7 @@ pub fn check(inputs: &BootInputs<'_>) -> Result<(), BootGuardError> {
     }
     if inputs.config.socketio_enabled
         && !inputs.env.iter().any(|(name, value)| {
-            name == "OPENHUMAN_SOCKET_TICKET_SECRET" && value.as_bytes().len() >= 32
+            name == "OPENHUMAN_SOCKET_TICKET_SECRET" && value.len() >= 32
         })
     {
         violations.push(Violation::Env {

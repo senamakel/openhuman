@@ -31,6 +31,7 @@ idle_evict_secs = 60
 shared_backend_api_key = true
 custom_definitions = true
 require_user_signature = false
+socketio_enabled = true
 
 [sandbox]
 image = "registry.example/sandbox:1"
@@ -56,6 +57,7 @@ cpu_limit = 0.5
     assert_eq!(config.idle_evict_secs, 60);
     assert!(config.shared_backend_api_key && config.custom_definitions);
     assert!(!config.require_user_signature);
+    assert!(config.socketio_enabled);
 }
 
 #[test]

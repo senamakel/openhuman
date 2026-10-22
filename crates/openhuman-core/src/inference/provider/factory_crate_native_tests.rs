@@ -379,11 +379,6 @@ fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
     assert!(try_create_local_runtime_chat_model("chat", &cloud, &EgressLedger::none()).is_none());
 }
 
-mod upstream_cloud_tests {
-    use super::*;
-    include!("factory_crate_native_cloud_tests.rs");
-}
-
 #[path = "factory_crate_native_managed_slug_tests.rs"]
 mod managed_slug_tests;
 

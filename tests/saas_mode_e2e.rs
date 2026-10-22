@@ -325,6 +325,7 @@ fn socket_ticket_minting_requires_the_trusted_user_gateway_context() {
         let mut command = core_command(&d, &["--port", &port.to_string()]);
         command
             .env("OPENHUMAN_SOCKET_TICKET_SECRET", TICKET_SECRET)
+            .env("OPENHUMAN_MODULE_SOURCE", "linked")
             .stdout(Stdio::null())
             .stderr(Stdio::null());
         command

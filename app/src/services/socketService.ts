@@ -12,7 +12,12 @@ import type { ChannelAuthMode, ChannelConnectionStatus, ChannelType } from '../t
 import type { UserErrorScope } from '../types/userError';
 import { IS_DEV, IS_TEST } from '../utils/config';
 import { createSafeLogData, sanitizeError } from '../utils/sanitize';
-import { callCoreRpc, getCoreRpcToken, getCoreRpcUrl, resolveCoreSocketEndpoint } from './coreRpcClient';
+import {
+  callCoreRpc,
+  getCoreRpcToken,
+  getCoreRpcUrl,
+  resolveCoreSocketEndpoint,
+} from './coreRpcClient';
 import { createCoreSocket } from './coreSocket';
 
 // Socket service logger using debug package
@@ -184,7 +189,7 @@ class SocketService {
     if (this.token !== token || this.socket) return;
     this.socket = createCoreSocket(endpoint.baseUrl, {
       coreToken,
-      authExtras: (callback) => {
+      authExtras: callback => {
         void callCoreRpc<{ ticket?: string | null }>({
           method: 'plan_review.socket_ticket',
           params: {},

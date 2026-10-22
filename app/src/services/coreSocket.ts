@@ -49,7 +49,7 @@ export function createCoreSocket(baseUrl: string, opts: CoreSocketOptions): Sock
   const auth =
     typeof opts.authExtras === 'function'
       ? (callback: (data: Record<string, unknown>) => void) =>
-          opts.authExtras?.((data) => callback({ token: opts.coreToken ?? '', ...data }))
+          opts.authExtras?.(data => callback({ token: opts.coreToken ?? '', ...data }))
       : { token: opts.coreToken ?? '', ...(opts.authExtras ?? {}) };
   return io(baseUrl, { ...DEFAULT_OPTIONS, ...(opts.overrides ?? {}), auth });
 }

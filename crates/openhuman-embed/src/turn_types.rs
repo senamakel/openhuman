@@ -171,10 +171,14 @@ impl Route {
     /// [`Turn::provider_options`](crate::Turn::provider_options) or a
     /// [`CompletionRequest::provider_options`](crate::CompletionRequest::provider_options).
     ///
+    /// [`Completer`](crate::Completer) calls on the route send them too, and
+    /// its requests get [`Self::reasoning_effort`] when they set no reasoning.
+    ///
     /// `options` must be a JSON object; anything else fails the call with a
     /// validation error. Keys reserved for the normalized request (`model`,
     /// `messages`, `tools`, `temperature`, `max_tokens`, `stream` and the
-    /// like) are dropped. A JSON `null` clears them.
+    /// like) are never sent: an agent turn drops them, and a completion
+    /// refuses them. A JSON `null` clears the options.
     pub fn provider_options(mut self, options: serde_json::Value) -> Self {
         self.provider_options = (!options.is_null()).then_some(options);
         self

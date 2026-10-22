@@ -498,7 +498,9 @@ pub mod storage {
 
 pub mod profiles {
     pub mod socket_ticket {
-        pub use openhuman_core::profiles::socket_ticket::{mint, secret, verify, Claims, AUDIENCE, SECRET_ENV, TTL_SECS};
+        pub use openhuman_core::profiles::socket_ticket::{
+            mint, secret, verify, Claims, AUDIENCE, SECRET_ENV, TTL_SECS,
+        };
     }
     pub mod gateway {
         pub use openhuman_core::profiles::gateway::{

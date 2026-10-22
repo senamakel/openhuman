@@ -33,13 +33,7 @@ use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
 
 /// Route prefixes a SaaS core never serves.
-pub(crate) const CLOSED_IN_SAAS: &[&str] = &[
-    "/v1",
-    "/events/",
-    "/ws/",
-    "/dev/connect",
-    "/oauth/",
-];
+pub(crate) const CLOSED_IN_SAAS: &[&str] = &["/v1", "/events/", "/ws/", "/dev/connect", "/oauth/"];
 
 /// A prefix ending in `/` closes only what lies beneath it; any other prefix
 /// closes the path itself and everything beneath it.

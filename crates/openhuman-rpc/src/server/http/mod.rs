@@ -107,7 +107,6 @@ pub fn build_core_http_router(socketio_enabled: bool) -> Router {
     router
 }
 
-
 /// Stable machine-readable `error` code of the "Socket.IO is off" response.
 /// Clients (the app's connection test) match on it.
 pub const SOCKETIO_DISABLED_ERROR: &str = "socketio_disabled";

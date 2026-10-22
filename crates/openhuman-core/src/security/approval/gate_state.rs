@@ -448,38 +448,79 @@ impl ApprovalGate {
     /// [`RequestRoute`], so replay reads those instead and a rejoining client
     /// can rebuild every card, not only the last one raised.
     pub fn parked_requests_for_thread(&self, thread_id: &str) -> Vec<PendingApproval> {
-        let agent = crate::core::runtime::agent_scope::current_agent_id();
-        let parked_here = |route: &RequestRoute| {
-            route.thread_id.as_deref() == Some(thread_id)
-                && route.agent_id.as_deref() == agent.as_deref()
-        };
-        let ids: std::collections::HashSet<String> = self
-            .request_routes
-            .lock()
+        self.parked_requests_for_thread_scoped(
+            &DispatchCtx::ambient(),
+            thread_id,
+            crate::core::runtime::agent_scope::current_agent_id().as_deref(),
+            false,
+        )
+    }
+
+    /// Every approval still parked on `thread_id` within `ctx`'s tenant.
+    /// `agent` narrows a host-agent socket; `None` is the user socket, which
+    /// can see all embedded agents' requests in that user's profile store.
+    pub fn parked_requests_for_thread_in(
+        &self,
+        ctx: &DispatchCtx,
+        thread_id: &str,
+        agent: Option<&str>,
+    ) -> Vec<PendingApproval> {
+        self.parked_requests_for_thread_scoped(ctx, thread_id, agent, agent.is_none())
+    }
+
+    fn parked_requests_for_thread_scoped(
+        &self,
+        ctx: &DispatchCtx,
+        thread_id: &str,
+        agent: Option<&str>,
+        all_agents: bool,
+    ) -> Vec<PendingApproval> {
+        let routes = self.request_routes.lock();
+        let matching: Vec<(String, Option<String>)> = routes
             .iter()
-            .filter(|(_, route)| parked_here(route))
-            .map(|(id, _)| id.clone())
+            .filter(|(_, route)| {
+                route.thread_id.as_deref() == Some(thread_id)
+                    && (all_agents || route.agent_id.as_deref() == agent)
+            })
+            .map(|(id, route)| (id.clone(), route.agent_id.clone()))
             .collect();
-        if ids.is_empty() {
+        drop(routes);
+        if matching.is_empty() {
             return Vec::new();
         }
-        let mut rows: Vec<PendingApproval> = match self.list_pending() {
-            Ok(rows) => rows
-                .into_iter()
-                .filter(|row| ids.contains(&row.request_id))
-                .collect(),
-            Err(error) => {
-                tracing::warn!(
+
+        let mut rows = Vec::new();
+        let groups: std::collections::HashSet<Option<String>> = matching
+            .iter()
+            .map(|(_, route_agent)| route_agent.clone())
+            .collect();
+        for group in groups {
+            match self.list_pending_for_agent(ctx, group.as_deref()) {
+                Ok(group_rows) => rows.extend(group_rows),
+                Err(error) => tracing::warn!(
                     error = %error,
-                    "[approval::gate] parked_requests_for_thread: store read failed"
-                );
-                return Vec::new();
+                    "[approval::gate] parked_requests_for_thread: scoped store read failed"
+                ),
             }
-        };
+        }
+        let ids: std::collections::HashSet<String> = matching
+            .into_iter()
+            .map(|(id, _)| id)
+            .collect();
+        let mut rows: Vec<PendingApproval> = rows
+            .into_iter()
+            .filter(|row| ids.contains(&row.request_id))
+            .collect();
         // Re-check after the unlocked store read, as `parked_request_for_thread`
         // does: a request decided in between must not be replayed.
         let routes = self.request_routes.lock();
-        rows.retain(|row| routes.get(&row.request_id).is_some_and(parked_here));
+        rows.retain(|row| {
+            routes.get(&row.request_id).is_some_and(|route| {
+                route.thread_id.as_deref() == Some(thread_id)
+                    && (all_agents || route.agent_id.as_deref() == agent)
+            })
+        });
+        rows.sort_by_key(|row| row.created_at);
         rows
     }
 

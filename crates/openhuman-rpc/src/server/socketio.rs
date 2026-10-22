@@ -689,7 +689,7 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                     // client that orders its recovery reads against the ack
                     // already holds the card.
                     if joined {
-                        replay_parked_approval(&socket, thread_id);
+                        replay_parked_approval(&socket, thread_id, &dispatch);
                         replay_parked_plan_review(&socket, thread_id);
                     }
                     ack.send(&ThreadSubscribeAck { joined }).ok();
@@ -1311,12 +1311,17 @@ fn event_alias(name: &str) -> Option<String> {
 /// Every park on the thread is replayed, oldest first: several async
 /// sub-agents can each be waiting on the same parent thread, and replaying
 /// only the newest left the others unanswerable until they expired.
-fn replay_parked_approval(socket: &SocketRef, thread_id: &str) {
+fn replay_parked_approval(
+    socket: &SocketRef,
+    thread_id: &str,
+    dispatch: &crate::core_host::core::runtime::DispatchCtx,
+) {
     let Some(gate) = crate::core_host::security::approval::ApprovalGate::try_global() else {
         return;
     };
     let client_id = socket.id.to_string();
-    for row in gate.parked_requests_for_thread(thread_id) {
+    let agent = dispatch.tenant().ok().and_then(|tenant| tenant.agent);
+    for row in gate.parked_requests_for_thread_in(dispatch, thread_id, agent.as_deref()) {
         let expires_at = row.expires_at.map(|t| t.to_rfc3339());
         let mut event = crate::core_host::web_chat::approval_request_event(
             &row.request_id,

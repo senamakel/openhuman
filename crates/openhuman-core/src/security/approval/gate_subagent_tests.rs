@@ -298,6 +298,22 @@ async fn every_detached_park_on_a_thread_stays_recoverable() {
         ],
         "both parks must be replayable, oldest first"
     );
+    let replayed_without_ambient_agent = gate.parked_requests_for_thread_in(
+        &crate::core::runtime::DispatchCtx::process_default(),
+        "thread-multi",
+        None,
+    );
+    assert_eq!(
+        replayed_without_ambient_agent
+            .iter()
+            .map(|row| row.request_id.as_str())
+            .collect::<Vec<_>>(),
+        parked
+            .iter()
+            .map(|row| row.request_id.as_str())
+            .collect::<Vec<_>>(),
+        "a reconnecting host socket carries its dispatch explicitly and must replay all agents' parks"
+    );
     assert!(gate
         .parked_requests_for_thread("thread-unrelated")
         .is_empty());

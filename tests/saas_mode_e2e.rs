@@ -318,7 +318,10 @@ fn socket_ticket_minting_requires_the_trusted_user_gateway_context() {
     let d = deployment(true);
     std::fs::write(
         &d.config,
-        format!("root = {:?}\nsocketio_enabled = true\n", d.root.display()),
+        format!(
+            "root = {:?}\nsocketio_enabled = true\n\n[modules]\nsource = \"linked\"\n",
+            d.root.display()
+        ),
     )
     .unwrap();
     let (server, base) = spawn_core(|port| {

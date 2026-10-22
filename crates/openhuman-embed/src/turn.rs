@@ -555,24 +555,6 @@ mod futures_box {
 
 /// What only an agent target can honour, already validated by
 /// [`Turn::validate_turn_options`].
-/// What a per-turn [`Route`] carries beyond its endpoint, bearer and headers.
-#[derive(Clone, Default)]
-struct RouteTuning {
-    provider_options: Option<serde_json::Value>,
-    reasoning_effort: Option<tinyinference_llm::model::ReasoningEffort>,
-}
-
-impl RouteTuning {
-    fn apply(
-        self,
-        route: openhuman_core::config::schema::EphemeralRoute,
-    ) -> openhuman_core::config::schema::EphemeralRoute {
-        route
-            .with_provider_options(self.provider_options)
-            .with_reasoning_effort(self.reasoning_effort)
-    }
-}
-
 struct AgentTurnOptions {
     route_tuning: RouteTuning,
     tools: Option<openhuman_core::agent::HostTools>,

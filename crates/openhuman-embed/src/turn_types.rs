@@ -227,6 +227,24 @@ impl Route {
     }
 }
 
+/// What a per-turn [`Route`] carries beyond its endpoint, bearer and headers.
+#[derive(Clone, Default)]
+pub(crate) struct RouteTuning {
+    pub(crate) provider_options: Option<serde_json::Value>,
+    pub(crate) reasoning_effort: Option<tinyinference_llm::model::ReasoningEffort>,
+}
+
+impl RouteTuning {
+    pub(crate) fn apply(
+        self,
+        route: openhuman_core::config::schema::EphemeralRoute,
+    ) -> openhuman_core::config::schema::EphemeralRoute {
+        route
+            .with_provider_options(self.provider_options)
+            .with_reasoning_effort(self.reasoning_effort)
+    }
+}
+
 /// Wire params for [`super::AGENT_CHAT`].
 ///
 /// Field names are the wire contract — see the module docs. `snake_case`, no

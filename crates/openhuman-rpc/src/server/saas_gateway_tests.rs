@@ -340,6 +340,7 @@ mod ticket_handoff {
     use axum::routing::post;
     use axum::{Json, Router};
     use std::sync::Arc;
+    use tower::ServiceExt;
 
     const SERVICE_SECRET: &str = "test-service-token";
     const TICKET_SECRET: &str = "middleware-ticket-secret-0123456789abcdef";

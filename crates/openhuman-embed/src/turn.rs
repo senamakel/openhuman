@@ -639,6 +639,7 @@ async fn dispatch(
             }
             let ctx = std::sync::Arc::clone(rt.context());
             let chat_env = options.chat_env;
+            let route_tuning = options.route_tuning;
             let dispatch =
                 openhuman_core::core::runtime::DispatchCtx::new(std::sync::Arc::clone(&ctx));
             let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =

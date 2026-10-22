@@ -190,6 +190,14 @@ fn socket_dispatch(socket: &SocketRef) -> Option<crate::core_host::core::runtime
     socket.extensions.get::<SocketDispatch>().map(|scope| scope.0.clone())
 }
 
+fn client_room(profile: Option<&str>, client_id: &str) -> String {
+    profile.map_or_else(|| client_id.to_owned(), |profile| format!("profile:{profile}:client:{client_id}"))
+}
+
+fn thread_room(profile: Option<&str>, thread_id: &str) -> String {
+    profile.map_or_else(|| format!("thread:{thread_id}"), |profile| format!("profile:{profile}:thread:{thread_id}"))
+}
+
 /// Best-effort disconnect. Called when we discover an unauthenticated socket
 /// inside an event handler — the connect path already disconnects the bad
 /// origins / wrong tokens, so this is purely a defense-in-depth path.
@@ -356,14 +364,15 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                 return;
             };
             socket.extensions.insert(SocketTenant(scope));
-            socket.extensions.insert(SocketDispatch(dispatch));
+            socket.extensions.insert(SocketDispatch(dispatch.clone()));
             if let Some(profile) = profile_hold {
                 socket.extensions.insert(profile);
             }
 
             log::info!("[socketio] client connected id={client_id} (authenticated)");
             // Join a room named after the client ID for targeted event delivery.
-            let _ = join_room_logged(&socket, &client_id, &client_id);
+            let profile = dispatch.tenant().ok().and_then(|tenant| tenant.profile);
+            let _ = join_room_logged(&socket, &client_room(profile.as_deref(), &client_id), &client_id);
             // Also auto-join the "system" room so every connected client
             // receives broadcast-style events that aren't tied to a
             // specific chat thread. Today this covers proactive messages
@@ -372,7 +381,11 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
             // emits with `client_id = "system"` — see `emit_web_channel_event`.
             // If this join fails the welcome message silently disappears,
             // so we log both success and failure for diagnosability.
-            let _ = join_room_logged(&socket, "system", &client_id);
+            if let Some(profile) = profile.as_deref() {
+                let _ = join_room_logged(&socket, &format!("profile:{profile}:system"), &client_id);
+            } else {
+                let _ = join_room_logged(&socket, "system", &client_id);
+            }
             let ready_payload = json!({ "sid": client_id });
             log::debug!("[socketio] emit event=ready to_client={}", socket.id);
             let _ = socket.emit("ready", &ready_payload);
@@ -617,7 +630,16 @@ pub fn attach_socketio() -> (socketioxide::layer::SocketIoLayer, SocketIo) {
                         ack.send(&ThreadSubscribeAck { joined: false }).ok();
                         return;
                     }
-                    let room = format!("thread:{thread_id}");
+                    let Some(dispatch) = socket_dispatch(&socket) else {
+                        drop_unauthed(&socket, "thread:subscribe missing dispatch scope");
+                        return;
+                    };
+                    let profile = dispatch.tenant().ok().and_then(|tenant| tenant.profile);
+                    if crate::core_host::core::runtime::is_saas() && profile.is_none() {
+                        drop_unauthed(&socket, "thread:subscribe missing profile");
+                        return;
+                    }
+                    let room = thread_room(profile.as_deref(), thread_id);
                     // Report what actually happened. Acknowledging a join that
                     // failed is worse than not acknowledging at all: the client
                     // stops queueing the thread for retry and reads on the
@@ -665,6 +687,12 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
         }
         log::debug!("[socketio] web_channel bridge stopped");
     });
+
+    // The remaining process-wide buses do not carry a trusted profile scope.
+    // In SaaS, broadcasting them would disclose another user's events.
+    if crate::core_host::core::runtime::is_saas() {
+        return;
+    }
 
     let io_notify = io.clone();
     let io_auth = io.clone();
@@ -1133,6 +1161,11 @@ fn join_room_logged(socket: &SocketRef, room: &str, client_id: &str) -> bool {
 }
 
 fn emit_web_channel_event(io: &SocketIo, event: WebChannelEvent) {
+    let profile = event.profile.as_deref();
+    if crate::core_host::core::runtime::is_saas() && profile.is_none() {
+        log::debug!("[socketio] dropping unstamped SaaS web-channel event");
+        return;
+    }
     let name = event.event.clone();
     // Deliver to the initiating client's own room AND the per-thread room. The
     // thread room lets a socket that reconnected with a new client_id (after
@@ -1148,9 +1181,13 @@ fn emit_web_channel_event(io: &SocketIo, event: WebChannelEvent) {
     // `client_id` room, then to the thread room EXCEPT the `client_id` room —
     // each socket is reached exactly once regardless of room overlap.
     // "system" broadcasts and events without a thread_id keep single-room delivery.
-    let primary = event.client_id.clone();
+    let primary = if event.client_id == "system" {
+        profile.map_or_else(|| "system".to_owned(), |profile| format!("profile:{profile}:system"))
+    } else {
+        client_room(profile, &event.client_id)
+    };
     let thread_room = (event.client_id != "system" && !event.thread_id.is_empty())
-        .then(|| format!("thread:{}", event.thread_id));
+        .then(|| thread_room(profile, &event.thread_id));
     if let Ok(payload) = serde_json::to_value(event) {
         log::debug!(
             "[socketio] send event={} primary={} thread_room={:?} thread_id={} request_id={}",

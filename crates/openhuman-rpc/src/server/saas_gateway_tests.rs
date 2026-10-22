@@ -377,6 +377,8 @@ mod ticket_handoff {
             .build()
             .await
             .expect("isolated inspection context");
+        let service_secret = crate::core_host::core::auth::get_rpc_token()
+            .expect("the inspection runtime has a bearer token");
         let operator = Arc::clone(runtime.context());
         let profile_context = runtime.context().derive_with(
             ContextOverlay::new(config, DomainSet::full(), Default::default()).profile("alice"),
@@ -416,11 +418,11 @@ mod ticket_handoff {
         let client = axum::http::Request::builder();
         let timestamp = now();
         let user_headers = [
-            ("authorization", format!("Bearer {SERVICE_SECRET}")),
+            ("authorization", format!("Bearer {service_secret}")),
             (USER_HEADER, "alice".to_string()),
             (
                 USER_SIG_HEADER,
-                crate::core_host::profiles::gateway::sign(SERVICE_SECRET, "alice", timestamp),
+                crate::core_host::profiles::gateway::sign(service_secret, "alice", timestamp),
             ),
         ];
         let mut request = client.method("POST").uri("/rpc");
@@ -446,7 +448,7 @@ mod ticket_handoff {
         let bearer_only = axum::http::Request::builder()
             .method("POST")
             .uri("/rpc")
-            .header("authorization", format!("Bearer {SERVICE_SECRET}"))
+            .header("authorization", format!("Bearer {service_secret}"))
             .header("content-type", "application/json")
             .body(Body::empty())
             .unwrap();

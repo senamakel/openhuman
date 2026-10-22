@@ -142,6 +142,22 @@ mod decision {
         assert_eq!(status(app(Some(SECRET)), "/rpc", &[]).await, StatusCode::OK);
     }
 
+    #[test]
+    fn app_shaped_bearer_only_ticket_rpc_has_no_profile_identity() {
+        // coreRpcClient sends Authorization and Content-Type, but not the
+        // gateway's server-signed user headers. Therefore the current edge
+        // contract routes the ticket RPC to the operator plane; the ticket
+        // controller fails closed rather than deriving identity from auth.session.
+        let request = Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("authorization", format!("Bearer {SECRET}"))
+            .header("content-type", "application/json")
+            .body(Body::empty())
+            .unwrap();
+        assert_eq!(decide(&request, Some(SECRET)), Ok(Admitted::Operator));
+    }
+
     #[tokio::test]
     async fn the_chat_event_stream_is_not_the_operators() {
         assert_eq!(

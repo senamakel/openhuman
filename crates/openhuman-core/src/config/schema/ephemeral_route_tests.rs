@@ -282,7 +282,9 @@ fn ephemeral_route_without_reasoning_effort_keeps_the_configured_level() {
 #[test]
 fn ephemeral_route_debug_reports_options_without_their_values() {
     let route = route()
-        .with_provider_options(Some(serde_json::json!({"provider": {"only": ["secret-host"]}})))
+        .with_provider_options(Some(
+            serde_json::json!({"provider": {"only": ["secret-host"]}}),
+        ))
         .with_reasoning_effort(Some(tinyinference_llm::model::ReasoningEffort::High));
     let debug = format!("{route:?}");
     assert!(debug.contains("has_provider_options: true"), "{debug}");

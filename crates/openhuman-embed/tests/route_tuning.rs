@@ -47,10 +47,12 @@ async fn scenario() {
         )
         .unwrap();
     let plain_agent = runtime
-        .agent(AgentSpec::new("plain").provider(
-            Provider::openai_compatible(format!("{}/v1", plain_provider.uri()), "sk-plain")
-                .model("fixture"),
-        ))
+        .agent(
+            AgentSpec::new("plain").provider(
+                Provider::openai_compatible(format!("{}/v1", plain_provider.uri()), "sk-plain")
+                    .model("fixture"),
+            ),
+        )
         .unwrap();
 
     // route_reasoning_effort_reaches_the_wire, and the route's options ride
@@ -99,8 +101,16 @@ async fn scenario() {
     plain_agent.run("hello").await.unwrap();
     let plain_bodies = bodies(&chat_requests(&plain_provider).await);
     assert_eq!(plain_bodies.len(), 1);
-    assert!(plain_bodies[0].get("provider").is_none(), "{}", plain_bodies[0]);
-    assert!(plain_bodies[0].get("top_k").is_none(), "{}", plain_bodies[0]);
+    assert!(
+        plain_bodies[0].get("provider").is_none(),
+        "{}",
+        plain_bodies[0]
+    );
+    assert!(
+        plain_bodies[0].get("top_k").is_none(),
+        "{}",
+        plain_bodies[0]
+    );
     assert!(
         plain_bodies[0].get("reasoning_effort").is_none(),
         "{}",
@@ -124,7 +134,11 @@ async fn scenario() {
     plain_agent.run("unrouted").await.unwrap();
     let plain_bodies = bodies(&chat_requests(&plain_provider).await);
     assert_eq!(plain_bodies.len(), 2);
-    assert!(plain_bodies[1].get("provider").is_none(), "{}", plain_bodies[1]);
+    assert!(
+        plain_bodies[1].get("provider").is_none(),
+        "{}",
+        plain_bodies[1]
+    );
 
     drop(tuned_agent);
     drop(plain_agent);

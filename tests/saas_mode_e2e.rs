@@ -322,10 +322,12 @@ fn socket_ticket_minting_requires_the_trusted_user_gateway_context() {
     )
     .unwrap();
     let (server, base) = spawn_core(|port| {
-        core_command(&d, &["--port", &port.to_string()])
+        let mut command = core_command(&d, &["--port", &port.to_string()]);
+        command
             .env("OPENHUMAN_SOCKET_TICKET_SECRET", TICKET_SECRET)
             .stdout(Stdio::null())
-            .stderr(Stdio::null())
+            .stderr(Stdio::null());
+        command
     });
     let client = reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(10))

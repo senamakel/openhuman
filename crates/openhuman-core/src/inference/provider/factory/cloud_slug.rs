@@ -448,12 +448,7 @@ fn try_create_cloud_slug_chat_model_from_string_with_native_tools_and_access(
     // model; Codex OAuth routes to the Responses API with its headers / UA /
     // query; every other Bearer/Anthropic/None slug uses Chat Completions (or
     // the Anthropic Messages adapter for a first-party native-tools endpoint).
-    // The ephemeral route's own headers and provider options apply only to the
-    // endpoint it names, never to another slug.
-    let scoped_route = config.ephemeral_route.as_ref().filter(|route| {
-        slug == crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG
-            && route.endpoint == entry.endpoint
-    });
+    let scoped_route = cloud_spec::scoped_ephemeral_route(config, entry);
     let mut extra_headers: Vec<(String, String)> = scoped_route
         .map(|route| route.headers.clone())
         .unwrap_or_default();

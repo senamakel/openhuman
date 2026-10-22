@@ -24,6 +24,7 @@ fn build<'a>(entry: &CloudProviderCreds, model: &str, key: &'a str) -> CloudBuil
         user_agent: None,
         codex: None,
         http: None,
+        default_provider_options: None,
     }
 }
 

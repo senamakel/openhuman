@@ -34,6 +34,19 @@ pub(super) fn cloud_provider_spec(entry: &CloudProviderCreds, model: &str) -> Pr
     }
 }
 
+/// The ephemeral route `entry` was registered from, when `entry` is that
+/// route's slug and endpoint. Its headers and provider options apply only
+/// there, never to another configured provider.
+pub(super) fn scoped_ephemeral_route<'a>(
+    config: &'a Config,
+    entry: &CloudProviderCreds,
+) -> Option<&'a crate::config::schema::EphemeralRoute> {
+    config.ephemeral_route.as_ref().filter(|route| {
+        entry.slug == crate::config::schema::ephemeral_route::EPHEMERAL_ROUTE_SLUG
+            && route.endpoint == entry.endpoint
+    })
+}
+
 /// The registry auth style for a host [`AuthStyle`]; `None` for the managed
 /// JWT style, which never reaches the registry.
 pub(super) fn registry_auth_style(style: AuthStyle) -> Option<CompatAuthStyle> {

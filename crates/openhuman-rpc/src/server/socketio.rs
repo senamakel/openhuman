@@ -78,6 +78,7 @@ struct SocketDispatch(crate::core_host::core::runtime::DispatchCtx);
 /// Bind replay tenancy from the HTTP request extensions retained by
 /// Socket.IO. Its async connect callback is spawned independently of the
 /// Axum request task, so task-local ambient context is not a reliable carrier.
+#[cfg(test)]
 fn socket_tenant_from_request_extensions(
     extensions: &axum::http::Extensions,
 ) -> Option<SocketTenant> {

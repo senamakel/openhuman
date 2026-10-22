@@ -49,7 +49,6 @@ use openhuman_core::security::turn_origin::AgentTurnOrigin;
 
 #[path = "turn_types.rs"]
 mod types;
-use types::RouteTuning;
 pub(crate) use types::{is_safe_endpoint_for_bearer, sanitize_url_for_display};
 pub use types::{Route, TurnOutcome, TurnRequest};
 #[path = "turn_control.rs"]
@@ -92,9 +91,6 @@ pub struct Turn {
     top_p: Option<f64>,
     token_cancellation: Option<crate::CancellationToken>,
     provider_options: serde_json::Value,
-    /// The per-turn route's provider options and reasoning effort, which the
-    /// wire request's `inference_*` fields have no place for.
-    route_tuning: RouteTuning,
     require_tool_call: bool,
     untrusted_input: bool,
     cancellation: Option<crate::TurnCancellation>,
@@ -133,7 +129,6 @@ impl Turn {
             top_p: None,
             token_cancellation: None,
             provider_options: serde_json::Value::Null,
-            route_tuning: RouteTuning::default(),
             require_tool_call: false,
             untrusted_input: false,
             cancellation: None,
@@ -466,10 +461,6 @@ impl Turn {
         self.request.inference_url = Some(route.base_url);
         self.request.api_key = Some(route.api_key);
         self.request.inference_headers = route.headers;
-        self.route_tuning = RouteTuning {
-            provider_options: route.provider_options,
-            reasoning_effort: route.reasoning_effort,
-        };
         self
     }
 
@@ -557,7 +548,6 @@ mod futures_box {
 /// What only an agent target can honour, already validated by
 /// [`Turn::validate_turn_options`].
 struct AgentTurnOptions {
-    route_tuning: RouteTuning,
     tools: Option<openhuman_core::agent::HostTools>,
     shape: std::sync::Arc<ResponseShapeScope>,
     observer:
@@ -622,7 +612,6 @@ async fn dispatch(
             }
             let ctx = std::sync::Arc::clone(rt.context());
             let chat_env = options.chat_env;
-            let route_tuning = options.route_tuning;
             let dispatch =
                 openhuman_core::core::runtime::DispatchCtx::new(std::sync::Arc::clone(&ctx));
             let turn: futures_box::BoxFuture<'_, Result<AgentReply, CoreError>> =
@@ -642,8 +631,7 @@ async fn dispatch(
                         request.inference_url.clone(),
                         request.api_key.clone(),
                     )
-                    .map(|route| route.with_headers(request.inference_headers.clone()))
-                    .map(|route| route_tuning.apply(route));
+                    .map(|route| route.with_headers(request.inference_headers.clone()));
                     agent_chat_reply_for_controlled(
                         &mut config,
                         target,
@@ -682,8 +670,7 @@ async fn dispatch(
                         request.inference_url,
                         request.api_key,
                     )
-                    .map(|route| route.with_headers(request.inference_headers))
-                    .map(|route| options.route_tuning.clone().apply(route));
+                    .map(|route| route.with_headers(request.inference_headers));
                     let host = options.tools.or_else(|| inner.composed_host_tools());
                     let target = AgentChatTarget::Definition {
                         definition: &inner.definition,

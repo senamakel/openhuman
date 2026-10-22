@@ -382,7 +382,6 @@ impl Turn {
             run_queue: steering.queue(),
         };
         let options = AgentTurnOptions {
-            route_tuning: std::mem::take(&mut self.route_tuning),
             chat_env,
             // Captured here, before the dispatch can hop to a core worker that
             // does not inherit task locals; the core re-establishes it around

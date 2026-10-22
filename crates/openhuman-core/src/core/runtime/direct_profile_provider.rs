@@ -51,8 +51,6 @@ impl DirectProfileProvider {
                 endpoint,
                 api_key,
                 headers: Vec::new(),
-                provider_options: None,
-                reasoning_effort: None,
             },
             model,
         })

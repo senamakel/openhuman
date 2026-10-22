@@ -73,11 +73,6 @@ pub struct Route {
     pub api_key: String,
     /// Headers scoped to this route and never persisted or logged as values.
     pub headers: Vec<(String, String)>,
-    /// Provider options sent beneath every request's own on this route; see
-    /// [`Route::provider_options`].
-    pub provider_options: Option<serde_json::Value>,
-    /// Reasoning effort for the route's model; see [`Route::reasoning_effort`].
-    pub reasoning_effort: Option<tinyinference_llm::model::ReasoningEffort>,
 }
 
 impl std::fmt::Debug for Route {
@@ -90,8 +85,6 @@ impl std::fmt::Debug for Route {
             .field("base_url", &sanitize_url_for_display(&self.base_url))
             .field("api_key", &"<redacted>")
             .field("headers", &self.headers.len())
-            .field("has_provider_options", &self.provider_options.is_some())
-            .field("reasoning_effort", &self.reasoning_effort)
             .finish()
     }
 }
@@ -150,98 +143,12 @@ impl Route {
             base_url: base_url.into(),
             api_key: api_key.into(),
             headers: Vec::new(),
-            provider_options: None,
-            reasoning_effort: None,
         }
     }
     /// Add a header sent only to this route's endpoint.
     pub fn header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.headers.push((name.into(), value.into()));
         self
-    }
-
-    /// Send `options` with every model call on this route, for example
-    /// OpenRouter's `{"provider":{"order":["a","b"],"allow_fallbacks":true}}`.
-    ///
-    /// They hold for every call the route carries, including the ones the
-    /// core starts on its own: scheduled agent runs, payload summaries and
-    /// sub-agents. On an OpenRouter endpoint a `provider` object here replaces
-    /// the default `{"provider":{"sort":"price"}}`. A call's own options still
-    /// win per top-level key: a turn's
-    /// [`Turn::provider_options`](crate::Turn::provider_options) or a
-    /// [`CompletionRequest::provider_options`](crate::CompletionRequest::provider_options).
-    ///
-    /// [`Completer`](crate::Completer) calls on the route send them too, and
-    /// its requests get [`Self::reasoning_effort`] when they set no reasoning.
-    ///
-    /// `options` must be a JSON object; anything else fails the call with a
-    /// validation error. Keys reserved for the normalized request (`model`,
-    /// `messages`, `tools`, `temperature`, `max_tokens`, `stream` and the
-    /// like) are never sent: an agent turn drops them, and a completion
-    /// refuses them. A JSON `null` clears the options.
-    pub fn provider_options(mut self, options: serde_json::Value) -> Self {
-        self.provider_options = (!options.is_null()).then_some(options);
-        self
-    }
-
-    /// Ask the route's model for `effort` reasoning on agent turns.
-    ///
-    /// It becomes the model's `runtime.reasoning_effort_by_model` entry, so a
-    /// thread's own reasoning choice still outranks it, and it outranks the
-    /// global `runtime.reasoning_effort`. Sub-agents keep their provider
-    /// default, as they do for every configured level. When a turn caps its
-    /// output on OpenRouter, the request carries `reasoning.max_tokens` (a
-    /// share of the cap) in place of the bare effort.
-    pub fn reasoning_effort(mut self, effort: tinyinference_llm::model::ReasoningEffort) -> Self {
-        self.reasoning_effort = Some(effort);
-        self
-    }
-
-    /// The core's in-memory route for this one, or `None` when the endpoint or
-    /// bearer is blank.
-    pub(crate) fn ephemeral(&self) -> Option<openhuman_core::config::schema::EphemeralRoute> {
-        openhuman_core::config::schema::EphemeralRoute::from_params(
-            Some(self.base_url.clone()),
-            Some(self.api_key.clone()),
-        )
-        .map(|route| {
-            route
-                .with_headers(self.headers.clone())
-                .with_provider_options(self.provider_options.clone())
-                .with_reasoning_effort(self.reasoning_effort)
-        })
-    }
-
-    /// `request` options laid over this route's: a key the request names
-    /// replaces the route's whole value for that key.
-    pub(crate) fn provider_options_under(&self, request: serde_json::Value) -> serde_json::Value {
-        match (&self.provider_options, request) {
-            (Some(serde_json::Value::Object(route)), serde_json::Value::Object(request)) => {
-                let mut merged = route.clone();
-                merged.extend(request);
-                serde_json::Value::Object(merged)
-            }
-            (Some(route), serde_json::Value::Null) => route.clone(),
-            (_, request) => request,
-        }
-    }
-}
-
-/// What a per-turn [`Route`] carries beyond its endpoint, bearer and headers.
-#[derive(Clone, Default)]
-pub(crate) struct RouteTuning {
-    pub(crate) provider_options: Option<serde_json::Value>,
-    pub(crate) reasoning_effort: Option<tinyinference_llm::model::ReasoningEffort>,
-}
-
-impl RouteTuning {
-    pub(crate) fn apply(
-        self,
-        route: openhuman_core::config::schema::EphemeralRoute,
-    ) -> openhuman_core::config::schema::EphemeralRoute {
-        route
-            .with_provider_options(self.provider_options)
-            .with_reasoning_effort(self.reasoning_effort)
     }
 }
 

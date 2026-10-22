@@ -641,17 +641,7 @@ impl Completer {
             request.messages.len(),
             request.timeout_ms
         );
-        let mut wire_request = request.into_wire();
-        // The route's own preferences sit beneath the request's.
-        wire_request.provider_options = self
-            .route
-            .provider_options_under(std::mem::take(&mut wire_request.provider_options));
-        if wire_request.reasoning.is_none() {
-            wire_request.reasoning = self
-                .route
-                .reasoning_effort
-                .map(tinyinference_llm::model::ReasoningConfig::effort);
-        }
+        let wire_request = request.into_wire();
         if let Err(message) =
             openhuman_core::inference::host_runtime::ops::validate_complete_once_request(
                 &wire_request,

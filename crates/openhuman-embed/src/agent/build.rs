@@ -276,7 +276,13 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
 
     // ── context ──────────────────────────────────────────────────────────
     let mut context_config = config.clone();
-    context_config.ephemeral_route = provider.route().and_then(crate::Route::ephemeral);
+    context_config.ephemeral_route = provider.route().and_then(|route| {
+        openhuman_core::config::schema::EphemeralRoute::from_params(
+            Some(route.base_url.clone()),
+            Some(route.api_key.clone()),
+        )
+        .map(|scoped| scoped.with_headers(route.headers.clone()))
+    });
     let mut overrides = openhuman_core::agent::host_overrides::HostOverrides::default();
     overrides.parent = runtime.core_runtime().context().host_overrides();
     let lifecycle = super::lifecycle::Lifecycle::new();

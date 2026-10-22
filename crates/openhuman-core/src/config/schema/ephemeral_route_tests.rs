@@ -16,8 +16,6 @@ fn route() -> EphemeralRoute {
         endpoint: "http://127.0.0.1:41234/openai".to_string(),
         api_key: "mdl-token".to_string(),
         headers: Vec::new(),
-        provider_options: None,
-        reasoning_effort: None,
     }
 }
 
@@ -31,8 +29,6 @@ fn from_params_needs_both_halves() {
             endpoint: "http://x/openai".into(),
             api_key: "k".into(),
             headers: Vec::new(),
-            provider_options: None,
-            reasoning_effort: None,
         })
     );
     // An endpoint with no credential and a credential with no endpoint are both
@@ -62,8 +58,6 @@ fn from_params_treats_blank_as_absent_and_trims() {
             endpoint: "http://x/openai".into(),
             api_key: "k".into(),
             headers: Vec::new(),
-            provider_options: None,
-            reasoning_effort: None,
         })
     );
 }
@@ -165,8 +159,6 @@ fn apply_twice_leaves_one_entry() {
             endpoint: "http://127.0.0.1:9999/openai".into(),
             api_key: "mdl-other".into(),
             headers: Vec::new(),
-            provider_options: None,
-            reasoning_effort: None,
         },
     );
     let entries: Vec<_> = config
@@ -196,98 +188,8 @@ fn debug_never_discloses_route_bearer_or_header_values() {
         endpoint: "https://fixture.example/v1".into(),
         api_key: "u2-unique-route-secret".into(),
         headers: vec![("x-private".into(), "u2-unique-header-secret".into())],
-        provider_options: None,
-        reasoning_effort: None,
     };
     let debug = format!("{route:?}");
     assert!(!debug.contains("u2-unique-route-secret"));
     assert!(!debug.contains("u2-unique-header-secret"));
-}
-
-// ── provider options and reasoning effort ────────────────────────────────────
-
-#[test]
-fn ephemeral_route_carries_provider_options_and_reasoning_effort() {
-    let options = serde_json::json!({"provider": {"order": ["wafer"]}});
-    let route = route()
-        .with_provider_options(Some(options.clone()))
-        .with_reasoning_effort(Some(tinyinference_llm::model::ReasoningEffort::Low));
-    assert_eq!(route.provider_options, Some(options));
-    assert_eq!(route.reasoning_effort.as_deref(), Some("low"));
-    // A JSON null is "no options", not an object the transport would reject.
-    let route = route.with_provider_options(Some(serde_json::Value::Null));
-    assert_eq!(route.provider_options, None);
-    assert_eq!(
-        route.with_reasoning_effort(None).reasoning_effort,
-        None,
-        "clearing the effort leaves the configured level"
-    );
-}
-
-#[test]
-fn ephemeral_route_reasoning_effort_sets_the_route_models_level() {
-    let mut config = config_with_model("z-ai/glm");
-    config
-        .runtime
-        .reasoning_effort_by_model
-        .insert("other/model".into(), "high".into());
-    config.runtime.reasoning_effort = Some("medium".into());
-    apply(
-        &mut config,
-        route().with_reasoning_effort(Some(tinyinference_llm::model::ReasoningEffort::Low)),
-    );
-    assert_eq!(
-        config
-            .runtime
-            .reasoning_effort_by_model
-            .get("z-ai/glm")
-            .map(String::as_str),
-        Some("low")
-    );
-    // Other models and the global level are the operator's, untouched.
-    assert_eq!(
-        config
-            .runtime
-            .reasoning_effort_by_model
-            .get("other/model")
-            .map(String::as_str),
-        Some("high")
-    );
-    assert_eq!(config.runtime.reasoning_effort.as_deref(), Some("medium"));
-    let resolved = crate::inference::reasoning::reasoning_for_config(&config)
-        .expect("the route's level resolves");
-    assert_eq!(
-        resolved.effort,
-        Some(tinyinference_llm::model::ReasoningEffort::Low)
-    );
-}
-
-#[test]
-fn ephemeral_route_without_reasoning_effort_keeps_the_configured_level() {
-    let mut config = config_with_model("z-ai/glm");
-    config.runtime.reasoning_effort = Some("medium".into());
-    apply(&mut config, route());
-    assert!(config.runtime.reasoning_effort_by_model.is_empty());
-    let mut config = config_with_model("z-ai/glm");
-    apply(
-        &mut config,
-        EphemeralRoute {
-            reasoning_effort: Some("  ".into()),
-            ..route()
-        },
-    );
-    assert!(config.runtime.reasoning_effort_by_model.is_empty());
-}
-
-#[test]
-fn ephemeral_route_debug_reports_options_without_their_values() {
-    let route = route()
-        .with_provider_options(Some(
-            serde_json::json!({"provider": {"only": ["secret-host"]}}),
-        ))
-        .with_reasoning_effort(Some(tinyinference_llm::model::ReasoningEffort::High));
-    let debug = format!("{route:?}");
-    assert!(debug.contains("has_provider_options: true"), "{debug}");
-    assert!(debug.contains("high"), "{debug}");
-    assert!(!debug.contains("secret-host"), "{debug}");
 }

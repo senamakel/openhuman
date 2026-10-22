@@ -198,6 +198,14 @@ fn thread_room(profile: Option<&str>, thread_id: &str) -> String {
     profile.map_or_else(|| format!("thread:{thread_id}"), |profile| format!("profile:{profile}:thread:{thread_id}"))
 }
 
+fn process_global_bridges_enabled(saas: bool) -> bool {
+    !saas
+}
+
+fn web_event_is_deliverable(profile: Option<&str>, saas: bool) -> bool {
+    !saas || profile.is_some()
+}
+
 /// Best-effort disconnect. Called when we discover an unauthenticated socket
 /// inside an event handler — the connect path already disconnects the bad
 /// origins / wrong tokens, so this is purely a defense-in-depth path.
@@ -690,7 +698,7 @@ pub fn spawn_web_channel_bridge(io: SocketIo) {
 
     // The remaining process-wide buses do not carry a trusted profile scope.
     // In SaaS, broadcasting them would disclose another user's events.
-    if crate::core_host::core::runtime::is_saas() {
+    if !process_global_bridges_enabled(crate::core_host::core::runtime::is_saas()) {
         return;
     }
 
@@ -1162,7 +1170,7 @@ fn join_room_logged(socket: &SocketRef, room: &str, client_id: &str) -> bool {
 
 fn emit_web_channel_event(io: &SocketIo, event: WebChannelEvent) {
     let profile = event.profile.as_deref();
-    if crate::core_host::core::runtime::is_saas() && profile.is_none() {
+    if !web_event_is_deliverable(profile, crate::core_host::core::runtime::is_saas()) {
         log::debug!("[socketio] dropping unstamped SaaS web-channel event");
         return;
     }

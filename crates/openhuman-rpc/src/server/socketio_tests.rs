@@ -1,7 +1,9 @@
 use super::{
     channel_connection_update_payload, event_alias, origin_is_allowed_with_extra,
     publish_companion_state_changed, socket_tenant_from_request_extensions,
-    subscribe_companion_state_changed, ThreadSubscribePayload,
+    subscribe_companion_state_changed, ThreadSubscribePayload, client_room, thread_room,
+    process_global_bridges_enabled,
+    web_event_is_deliverable,
 };
 
 #[tokio::test]
@@ -21,6 +23,16 @@ async fn socket_connect_reads_dispatch_context_from_request_extensions_after_spa
     .expect("spawned connect callback completes");
 
     assert_eq!(actual, expected);
+}
+
+#[test]
+fn saas_rooms_are_profile_scoped_and_global_bridges_are_off() {
+    assert_ne!(thread_room(Some("alice"), "same-thread"), thread_room(Some("bob"), "same-thread"));
+    assert_ne!(client_room(Some("alice"), "socket-1"), client_room(Some("bob"), "socket-1"));
+    assert!(!process_global_bridges_enabled(true), "profile-less notifications and domain events must not fan out in SaaS");
+    assert!(process_global_bridges_enabled(false), "single-user cores retain existing global bridges");
+    assert!(web_event_is_deliverable(Some("alice"), true));
+    assert!(!web_event_is_deliverable(None, true), "unstamped web events cannot be guessed into a profile room");
 }
 
 #[test]

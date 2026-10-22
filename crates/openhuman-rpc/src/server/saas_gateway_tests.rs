@@ -367,8 +367,10 @@ mod ticket_handoff {
     #[tokio::test]
     async fn trusted_user_headers_reach_ticket_minting_and_bearer_only_fails_closed() {
         let temp = tempfile::tempdir().unwrap();
-        let mut config = RuntimeConfig::default();
-        config.workspace_dir = temp.path().to_path_buf();
+        let config = RuntimeConfig {
+            workspace_dir: temp.path().to_path_buf(),
+            ..RuntimeConfig::default()
+        };
         let runtime = CoreBuilder::new(HostKind::Cli)
             .boot_mode(CoreBootMode::Inspection)
             .token(TokenSource::Fixed(Arc::new(SERVICE_SECRET.to_string())))

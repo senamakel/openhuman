@@ -131,6 +131,38 @@ pub(crate) async fn dispatch_in(ctx: Arc<CoreContext>, mut req: Request, next: N
 
 /// The SaaS request layer; `operator` is the runtime's own context.
 pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next: Next) -> Response {
+    saas_gateway_with_resolver(
+        operator,
+        req,
+        next,
+        |user, signature, secret, now| async move {
+            match resolve_scope(Some(&user), signature.as_deref(), &secret, now).await? {
+                GatewayScope::User(profile) => Ok(ResolvedUser {
+                    context: Arc::clone(profile.context()),
+                    _lease: Some(profile),
+                }),
+                GatewayScope::Operator => Err(GatewayRefusal::new(403, "user scope required")),
+            }
+        },
+    )
+    .await
+}
+
+struct ResolvedUser {
+    context: Arc<CoreContext>,
+    _lease: Option<Arc<crate::core_host::profiles::Profile>>,
+}
+
+async fn saas_gateway_with_resolver<F, Fut>(
+    operator: Arc<CoreContext>,
+    req: Request,
+    next: Next,
+    resolve_user: F,
+) -> Response
+where
+    F: FnOnce(String, Option<String>, String, u64) -> Fut,
+    Fut: std::future::Future<Output = Result<ResolvedUser, GatewayRefusal>>,
+{
     let now = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .map(|d| d.as_secs())
@@ -148,17 +180,9 @@ pub(crate) async fn saas_gateway(operator: Arc<CoreContext>, req: Request, next:
         Ok(Admitted::User { user, signature }) => (user, signature),
     };
     let secret = secret.expect("decide admits a user only once the core has a token");
-    match resolve_scope(Some(&user), signature.as_deref(), secret, now).await {
+    match resolve_user(user, signature, secret.to_owned(), now).await {
         Err(refusal) => refusal_response(refusal),
-        Ok(GatewayScope::User(profile)) => {
-            let ctx = Arc::clone(profile.context());
-            // Holding the state for the request keeps the profile from being
-            // evicted under it.
-            let response = dispatch_in(ctx, req, next).await;
-            drop(profile);
-            response
-        }
-        Ok(GatewayScope::Operator) => dispatch_in(operator, req, next).await,
+        Ok(profile) => dispatch_in(profile.context, req, next).await,
     }
 }
 

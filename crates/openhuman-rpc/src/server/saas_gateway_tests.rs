@@ -326,3 +326,117 @@ mod decision {
         );
     }
 }
+
+mod ticket_handoff {
+    use super::*;
+    use crate::core_host::config::Config;
+    use crate::core_host::core::runtime::{
+        ContextOverlay, CoreBootMode, CoreBuilder, DispatchCtx, DomainSet, HostKind, ServiceSet,
+        TokenSource,
+    };
+    use crate::core_host::tools::toolpacks::ToolGroups;
+    use axum::extract::Extension;
+    use axum::routing::post;
+    use axum::Json;
+    use std::sync::Arc;
+
+    const TICKET_SECRET: &str = "middleware-ticket-secret-0123456789abcdef";
+    const NOW: u64 = 1_700_000_000;
+
+    async fn ticket_route(Extension(dispatch): Extension<DispatchCtx>) -> Json<serde_json::Value> {
+        let result = crate::core_host::profiles::socket_ticket::mint_for_dispatch(
+            &dispatch,
+            NOW,
+            TICKET_SECRET,
+        );
+        Json(match result {
+            Ok(ticket) => serde_json::json!({ "ticket": ticket }),
+            Err(error) => serde_json::json!({ "error": error }),
+        })
+    }
+
+    #[tokio::test]
+    async fn trusted_user_headers_reach_ticket_minting_and_bearer_only_fails_closed() {
+        let temp = tempfile::tempdir().unwrap();
+        let mut config = Config::default();
+        config.workspace_dir = temp.path().to_path_buf();
+        let runtime = CoreBuilder::new(HostKind::Cli)
+            .boot_mode(CoreBootMode::Inspection)
+            .token(TokenSource::Fixed(Arc::new(SECRET.to_string())))
+            .services(ServiceSet::none())
+            .config(config.clone())
+            .build()
+            .await
+            .expect("isolated inspection context");
+        let operator = Arc::clone(runtime.context());
+        let profile_context = runtime.context().derive_with(
+            ContextOverlay::new(config, DomainSet::full(), ToolGroups::none()).profile("alice"),
+        );
+        let app = Router::new()
+            .route("/rpc", post(ticket_route))
+            .layer(axum::middleware::from_fn(move |req, next| {
+                let operator = Arc::clone(&operator);
+                let profile_context = Arc::clone(&profile_context);
+                async move {
+                    saas_gateway_with_resolver(
+                        operator,
+                        req,
+                        next,
+                        move |user, signature, secret, now| {
+                            let profile_context = Arc::clone(&profile_context);
+                            async move {
+                                let signature = signature
+                                    .ok_or_else(|| GatewayRefusal::new(401, "missing signature"))?;
+                                crate::core_host::profiles::gateway::verify(
+                                    &secret, &user, &signature, now,
+                                )
+                                .map_err(|error| GatewayRefusal::new(401, error))?;
+                                if user != "alice" {
+                                    return Err(GatewayRefusal::new(403, "not provisioned"));
+                                }
+                                Ok(ResolvedUser {
+                                    context: profile_context,
+                                    _lease: None,
+                                })
+                            }
+                        },
+                    )
+                    .await
+                }
+            }));
+        let client = axum::http::Request::builder();
+        let user_headers = [bearer_header(), user("alice"), sig("alice", NOW)];
+        let mut request = client.method("POST").uri("/rpc");
+        for (name, value) in &user_headers {
+            request = request.header(*name, value);
+        }
+        let response = app
+            .clone()
+            .oneshot(request.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(response.status(), StatusCode::OK);
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        let ticket = body["ticket"].as_str().expect("profile ticket");
+        let claims = crate::core_host::profiles::socket_ticket::verify(ticket, NOW, TICKET_SECRET)
+            .expect("signed-user dispatch minted a valid socket ticket");
+        assert_eq!(claims.profile, "alice");
+
+        let bearer_only = axum::http::Request::builder()
+            .method("POST")
+            .uri("/rpc")
+            .header("authorization", format!("Bearer {SECRET}"))
+            .header("content-type", "application/json")
+            .body(Body::empty())
+            .unwrap();
+        let response = app.oneshot(bearer_only).await.unwrap();
+        let body = axum::body::to_bytes(response.into_body(), usize::MAX)
+            .await
+            .unwrap();
+        let body: serde_json::Value = serde_json::from_slice(&body).unwrap();
+        assert_eq!(body["error"], "profile scope required");
+    }
+}

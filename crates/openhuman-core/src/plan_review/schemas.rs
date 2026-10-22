@@ -35,7 +35,7 @@ pub fn schemas(function: &str) -> ControllerSchema {
             inputs: vec![],
             outputs: vec![
                 FieldSchema { name: "ticket", ty: TypeSchema::Option(Box::new(TypeSchema::String)), comment: "Short-lived ticket; null for a local single-user core.", required: true },
-                FieldSchema { name: "expires_in", ty: TypeSchema::Option(Box::new(TypeSchema::Integer)), comment: "Ticket lifetime in seconds, when issued.", required: true },
+                FieldSchema { name: "expires_in", ty: TypeSchema::Option(Box::new(TypeSchema::U64)), comment: "Ticket lifetime in seconds, when issued.", required: true },
             ],
         },
         "decide" => ControllerSchema {

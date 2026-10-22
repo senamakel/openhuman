@@ -91,6 +91,9 @@ pub struct Turn {
     top_p: Option<f64>,
     token_cancellation: Option<crate::CancellationToken>,
     provider_options: serde_json::Value,
+    /// The per-turn route's provider options and reasoning effort, which the
+    /// wire request's `inference_*` fields have no place for.
+    route_tuning: RouteTuning,
     require_tool_call: bool,
     untrusted_input: bool,
     cancellation: Option<crate::TurnCancellation>,
@@ -129,6 +132,7 @@ impl Turn {
             top_p: None,
             token_cancellation: None,
             provider_options: serde_json::Value::Null,
+            route_tuning: RouteTuning::default(),
             require_tool_call: false,
             untrusted_input: false,
             cancellation: None,
@@ -461,6 +465,10 @@ impl Turn {
         self.request.inference_url = Some(route.base_url);
         self.request.api_key = Some(route.api_key);
         self.request.inference_headers = route.headers;
+        self.route_tuning = RouteTuning {
+            provider_options: route.provider_options,
+            reasoning_effort: route.reasoning_effort,
+        };
         self
     }
 
@@ -547,7 +555,26 @@ mod futures_box {
 
 /// What only an agent target can honour, already validated by
 /// [`Turn::validate_turn_options`].
+/// What a per-turn [`Route`] carries beyond its endpoint, bearer and headers.
+#[derive(Clone, Default)]
+struct RouteTuning {
+    provider_options: Option<serde_json::Value>,
+    reasoning_effort: Option<tinyinference_llm::model::ReasoningEffort>,
+}
+
+impl RouteTuning {
+    fn apply(
+        self,
+        route: openhuman_core::config::schema::EphemeralRoute,
+    ) -> openhuman_core::config::schema::EphemeralRoute {
+        route
+            .with_provider_options(self.provider_options)
+            .with_reasoning_effort(self.reasoning_effort)
+    }
+}
+
 struct AgentTurnOptions {
+    route_tuning: RouteTuning,
     tools: Option<openhuman_core::agent::HostTools>,
     shape: std::sync::Arc<ResponseShapeScope>,
     observer:
@@ -631,7 +658,8 @@ async fn dispatch(
                         request.inference_url.clone(),
                         request.api_key.clone(),
                     )
-                    .map(|route| route.with_headers(request.inference_headers.clone()));
+                    .map(|route| route.with_headers(request.inference_headers.clone()))
+                    .map(|route| route_tuning.apply(route));
                     agent_chat_reply_for_controlled(
                         &mut config,
                         target,
@@ -670,7 +698,8 @@ async fn dispatch(
                         request.inference_url,
                         request.api_key,
                     )
-                    .map(|route| route.with_headers(request.inference_headers));
+                    .map(|route| route.with_headers(request.inference_headers))
+                    .map(|route| options.route_tuning.clone().apply(route));
                     let host = options.tools.or_else(|| inner.composed_host_tools());
                     let target = AgentChatTarget::Definition {
                         definition: &inner.definition,

@@ -329,10 +329,10 @@ mod decision {
 
 mod ticket_handoff {
     use super::*;
-    use crate::core_host::core::runtime::DispatchCtx;
-    use crate::embed::{
-        ContextOverlay, CoreBootMode, CoreBuilder, DomainSet, HostKind, RuntimeConfig, ServiceSet,
-        TokenSource, ToolGroups,
+    use crate::core_host::config::Config as RuntimeConfig;
+    use crate::core_host::core::runtime::{
+        ContextOverlay, CoreBootMode, CoreBuilder, DispatchCtx, DomainSet, HostKind, ServiceSet,
+        TokenSource,
     };
     use axum::body::Body;
     use axum::extract::Extension;
@@ -379,7 +379,7 @@ mod ticket_handoff {
             .expect("isolated inspection context");
         let operator = Arc::clone(runtime.context());
         let profile_context = runtime.context().derive_with(
-            ContextOverlay::new(config, DomainSet::full(), ToolGroups::none()).profile("alice"),
+            ContextOverlay::new(config, DomainSet::full(), Default::default()).profile("alice"),
         );
         let app = Router::new()
             .route("/rpc", post(ticket_route))

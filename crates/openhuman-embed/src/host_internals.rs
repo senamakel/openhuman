@@ -81,7 +81,9 @@ pub mod core {
     }
     pub mod runtime {
         pub use openhuman_core::core::runtime::{
-            current_tenant, is_saas, CoreContext, CoreRuntime, DispatchCtx, Mode, SaasConfig,
+            current_tenant, is_saas, ContextOverlay, CoreBootMode, CoreBuilder, CoreContext,
+            CoreRuntime, DispatchCtx, DomainSet, HostKind, Mode, SaasConfig, ServiceSet,
+            TokenSource,
         };
         pub mod saas {
             pub use openhuman_core::core::runtime::saas::build;

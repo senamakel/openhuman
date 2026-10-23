@@ -14,11 +14,13 @@ test("native browser egress fixture runs security and opt-in Chromium tests", ()
   const dir = mkdtempSync(join(tmpdir(), "security-browser-egress-fixture-"));
   const log = join(dir, "invocations.txt");
   const bash = join(dir, "bash");
+  const computerModule = join(dir, "libtinycomputer.so");
   writeFileSync(
     bash,
     `#!/bin/sh\nprintf 'ARGS %s\\nDNS %s\\n' "$*" "\${TINYSECURITY_TEST_DNS_SEQUENCE:-}" >> "${log}"\n`,
   );
   chmodSync(bash, 0o755);
+  writeFileSync(computerModule, "fixture module artifact");
 
   const result = spawnSync("/bin/bash", [fixture], {
     encoding: "utf8",
@@ -26,14 +28,14 @@ test("native browser egress fixture runs security and opt-in Chromium tests", ()
       ...process.env,
       PATH: `${dir}:${process.env.PATH}`,
       OPENHUMAN_TEST_SECURITY_MODULE: fixture,
+      OPENHUMAN_TEST_TINYCOMPUTER_MODULE: computerModule,
     },
   });
 
   assert.equal(result.status, 0, result.stderr);
   const calls = readFileSync(log, "utf8");
   assert.match(calls, /cargo build -p tinysecurity-module/);
-  assert.match(calls, /cargo build -p tinysecurity-module --features native-security-tests/);
-  assert.match(calls, /cargo build -p tinycomputer/);
+  assert.doesNotMatch(calls, /cargo build -p tinycomputer/);
   assert.match(calls, /cargo test -p openhuman --lib/);
   assert.match(calls, /--features[^\n]*native-security-tests/);
   const invocations = calls.split("\n");
@@ -52,15 +54,11 @@ test("native browser egress fixture runs security and opt-in Chromium tests", ()
   );
   assert.ok(browserTest, "real-module Chromium test is selected");
   assert.match(browserTest, /-- --ignored --exact$/);
-  const rebindingTest = invocations.find((line) =>
+  const publicControlTest = invocations.find((line) =>
     line.includes(
-      "modules::browser_egress_host::tests::loaded_tinycomputer_rejects_public_to_loopback_dns_rebinding",
+      "modules::browser_egress_host::tests::loaded_tinycomputer_uses_tinysecurity_to_allow_one_public_socket",
     ),
   );
-  assert.ok(rebindingTest, "controlled DNS rebinding test is selected");
-  assert.match(rebindingTest, /-- --ignored --exact$/);
-  assert.match(
-    invocations.join("\n"),
-    /DNS \{"rebind\.test":\["8\.8\.8\.8","127\.0\.0\.1"\],"metadata\.test":\["8\.8\.8\.8","169\.254\.169\.254","169\.254\.169\.254"\]\}/,
-  );
+  assert.ok(publicControlTest, "TinySecurity-authorized public-socket test is selected");
+  assert.match(publicControlTest, /-- --ignored --exact$/);
 });

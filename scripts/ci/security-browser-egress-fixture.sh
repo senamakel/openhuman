@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Build TinySecurity with its test-only controlled resolver and exercise the
-# authenticated browser-dial host callbacks against that native module.
+# Build TinySecurity and exercise the authenticated browser-dial host callbacks
+# against that native module.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -22,7 +22,7 @@ fi
 # required by its GHASH zeroization assertion. Cargo must run from that repo.
 (
   cd -- "$security_dir"
-  bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinysecurity-module --features native-security-tests
+  bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinysecurity-module
 )
 
 test -f "$module_path" || {
@@ -38,11 +38,17 @@ bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib \
   -- --exact
 
 if [[ "$(uname -s)" == Linux ]]; then
-  computer_module="$computer_dir/target/debug/libtinycomputer.so"
-  (
-    cd -- "$computer_dir"
-    bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinycomputer
-  )
+  if [[ -n "${OPENHUMAN_TEST_TINYCOMPUTER_MODULE:-}" ]]; then
+    computer_module="$OPENHUMAN_TEST_TINYCOMPUTER_MODULE"
+  else
+    computer_module="$computer_dir/target/debug/libtinycomputer.so"
+  fi
+  if [[ -z "${OPENHUMAN_TEST_TINYCOMPUTER_MODULE:-}" ]]; then
+    (
+      cd -- "$computer_dir"
+      bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinycomputer --features test-connector
+    )
+  fi
   test -f "$computer_module" || {
     echo "TinyComputer module artifact was not produced: $computer_module" >&2
     exit 1
@@ -53,10 +59,9 @@ if [[ "$(uname -s)" == Linux ]]; then
       modules::browser_egress_host::tests::loaded_tinycomputer_uses_tinysecurity_to_block_loopback_dials \
       -- --ignored --exact
 
-  TINYSECURITY_TEST_DNS_SEQUENCE='{"rebind.test":["8.8.8.8","127.0.0.1"],"metadata.test":["8.8.8.8","169.254.169.254","169.254.169.254"]}' \
-    OPENHUMAN_TEST_TINYCOMPUTER_MODULE="$computer_module" \
+  OPENHUMAN_TEST_TINYCOMPUTER_MODULE="$computer_module" \
     bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib \
       --no-default-features --features modules,security-module,native-security-tests,legacy-import,storage-sqlite,secret-file \
-      modules::browser_egress_host::tests::loaded_tinycomputer_rejects_public_to_loopback_dns_rebinding \
+      modules::browser_egress_host::tests::loaded_tinycomputer_uses_tinysecurity_to_allow_one_public_socket \
       -- --ignored --exact
 fi

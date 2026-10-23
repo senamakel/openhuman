@@ -172,9 +172,9 @@ pub(crate) async fn run(
 ///
 /// A worker owns cancellation and resource cleanup if the caller drops its wait.
 pub(crate) async fn run_yielding(
-    ctx: &crate::core::runtime::DispatchCtx,
+    _ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
-    mut run: NativeShellRun,
+    run: NativeShellRun,
 ) -> anyhow::Result<ShellRunOutcome> {
     #[cfg(test)]
     if !run.is_jailed() && USE_FIXTURE.load(std::sync::atomic::Ordering::SeqCst) {

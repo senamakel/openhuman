@@ -23,7 +23,7 @@ test("browser egress workflow installs TinyComputer native build dependencies", 
   assert.match(install, /pkg-config/);
 });
 
-test("native fixture builds TinyComputer without an undeclared feature", () => {
+test("native fixture follows the pinned TinyComputer contract", () => {
   const source = readFileSync(fixture, "utf8");
   assert.doesNotMatch(source, /cargo build -p tinycomputer --features test-connector/);
   assert.doesNotMatch(

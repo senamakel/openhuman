@@ -460,8 +460,8 @@ async fn loaded_tinycomputer_uses_tinysecurity_to_block_loopback_dials() {
 }
 
 /// Proves a real Chromium request can use only the public socket authorized by
-/// TinySecurity, while the test connector maps that exact socket to a local
-/// fixture instead of contacting the public network.
+/// TinySecurity, while a TinyComputer epic-branch test connector maps that
+/// exact socket to a local fixture instead of contacting the public network.
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(all(feature = "native-security-tests", target_os = "linux"))]
 #[ignore = "requires local TinySecurity/TinyComputer cdylibs and Chromium; run the browser-egress fixture script"]
@@ -476,7 +476,7 @@ async fn loaded_tinycomputer_uses_tinysecurity_to_allow_one_public_socket() {
 
     let computer_artifact = std::path::PathBuf::from(
         std::env::var_os("OPENHUMAN_TEST_TINYCOMPUTER_MODULE")
-            .expect("fixture script supplies TinyComputer with test-connector"),
+            .expect("test setup supplies TinyComputer built with test-connector"),
     );
     let computer_fixtures = tempfile::tempdir().expect("private TinyComputer fixture directory");
     std::fs::set_permissions(

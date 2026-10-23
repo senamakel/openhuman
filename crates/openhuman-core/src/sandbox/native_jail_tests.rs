@@ -88,6 +88,7 @@ fn open_jail() -> contract::NativeJailConfig {
         read_only: Vec::new(),
         read_write: Vec::new(),
         allow_net: true,
+        network_allowlist: None,
         allow_subprocess: true,
         enforcement: contract::JailEnforcement::Enforced,
         require_process_isolation: true,

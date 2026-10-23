@@ -113,6 +113,7 @@ async fn a_disabled_module_never_falls_back_to_a_host_shell_for_a_jailed_run() {
         read_only: Vec::new(),
         read_write: Vec::new(),
         allow_net: false,
+        network_allowlist: None,
         allow_subprocess: true,
         enforcement: contract::JailEnforcement::Enforced,
         require_process_isolation: true,

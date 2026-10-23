@@ -18,7 +18,6 @@ use crate::skills::ops::{
     UninstallWorkflowParams,
 };
 use crate::skills::ops_install::ScanAcknowledgement;
-use crate::skills::runtime::spawn_workflow_run_background;
 use crate::skills::{registry, run_log};
 
 use super::helpers::{deserialize_params, resolve_config, resolve_workspace_dir, to_json};

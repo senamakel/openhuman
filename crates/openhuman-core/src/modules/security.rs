@@ -243,8 +243,15 @@ async fn require_attestation(
     let attestation = tokio::time::timeout(CALL_TIMEOUT, proxy.attestation())
         .await
         .map_err(|_| "TinySecurity attestation timed out")?
-        .map_err(|_| "TinySecurity attestation failed")?
-        .ok_or("TinySecurity recipient is not attested")?;
+        .map_err(|_| "TinySecurity attestation failed")?;
+    validate_attestation(attestation, record)
+}
+
+fn validate_attestation(
+    attestation: Option<tinybus::attest::Attestation>,
+    record: &super::ModuleRecord,
+) -> Result<(), String> {
+    let attestation = attestation.ok_or("TinySecurity recipient is not attested")?;
     if attestation.name.as_str() != record.bus_name || !pinned(record, &attestation.sha256) {
         return Err("TinySecurity recipient does not match a pinned release".into());
     }

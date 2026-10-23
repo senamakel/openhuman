@@ -230,11 +230,12 @@ pub(crate) async fn native_fixture_configured(
             assets: &[],
             ..record
         };
+        let attestation = proxy.attestation().await.unwrap();
         assert_eq!(
-            require_attestation(&proxy, &unpinned).await.unwrap_err(),
+            validate_attestation(attestation.clone(), &unpinned).unwrap_err(),
             "TinySecurity recipient does not match a pinned release"
         );
-        require_attestation(&proxy, &record).await.unwrap();
+        validate_attestation(attestation, &record).unwrap();
     }
     NativeFixture {
         _fixtures: fixtures,

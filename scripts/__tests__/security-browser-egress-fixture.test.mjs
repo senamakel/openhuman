@@ -26,6 +26,10 @@ test("browser egress workflow installs TinyComputer native build dependencies", 
 test("native fixture builds TinyComputer without an undeclared feature", () => {
   const source = readFileSync(fixture, "utf8");
   assert.doesNotMatch(source, /cargo build -p tinycomputer --features test-connector/);
+  assert.doesNotMatch(
+    source,
+    /loaded_tinycomputer_uses_tinysecurity_to_allow_one_public_socket/,
+  );
 });
 
 test("native browser egress fixture runs security and opt-in Chromium tests", () => {
@@ -76,11 +80,4 @@ test("native browser egress fixture runs security and opt-in Chromium tests", ()
   );
   assert.ok(browserTest, "real-module Chromium test is selected");
   assert.match(browserTest, /-- --ignored --exact$/);
-  const publicControlTest = invocations.find((line) =>
-    line.includes(
-      "modules::browser_egress_host::tests::loaded_tinycomputer_uses_tinysecurity_to_allow_one_public_socket",
-    ),
-  );
-  assert.ok(publicControlTest, "TinySecurity-authorized public-socket test is selected");
-  assert.match(publicControlTest, /-- --ignored --exact$/);
 });

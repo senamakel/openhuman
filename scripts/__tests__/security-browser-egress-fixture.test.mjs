@@ -23,6 +23,11 @@ test("browser egress workflow installs TinyComputer native build dependencies", 
   assert.match(install, /pkg-config/);
 });
 
+test("native fixture builds TinyComputer without an undeclared feature", () => {
+  const source = readFileSync(fixture, "utf8");
+  assert.doesNotMatch(source, /cargo build -p tinycomputer --features test-connector/);
+});
+
 test("native browser egress fixture runs security and opt-in Chromium tests", () => {
   const dir = mkdtempSync(join(tmpdir(), "security-browser-egress-fixture-"));
   const log = join(dir, "invocations.txt");

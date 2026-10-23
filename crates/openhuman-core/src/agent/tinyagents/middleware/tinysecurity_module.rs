@@ -178,7 +178,10 @@ impl VerdictSource for ModuleVerdicts {
                 spend: acts && !workflow_run,
                 command_policy: None,
             };
+            #[cfg(feature = "skills")]
             let mut checks = vec![check];
+            #[cfg(not(feature = "skills"))]
+            let checks = vec![check];
             #[cfg(feature = "skills")]
             if workflow_run {
                 checks.push(workflow_skill_scan_check(ctx, call).await?);

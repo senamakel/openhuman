@@ -196,6 +196,7 @@ impl VerdictSource for ModuleVerdicts {
                     call.arguments
                         .get("inputs")
                         .unwrap_or(&serde_json::Value::Null),
+                    &call.id,
                     &scan.bundle_sha256,
                 );
                 checks.push(Check::SkillScan {

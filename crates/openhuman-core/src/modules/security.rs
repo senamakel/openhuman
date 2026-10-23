@@ -610,7 +610,7 @@ pub(super) async fn call_register_path_policy(
     let id: tinysecurity_bus::PathPolicyId = proxy
         .call_confidential(names::methods::REGISTER_PATH_POLICY, (policy,))
         .await
-        .map_err(|_| "TinySecurity RegisterPathPolicy failed")?;
+        .map_err(|error| format!("TinySecurity RegisterPathPolicy failed: {error}"))?;
     if id.0.is_empty() {
         return Err("TinySecurity returned an empty path scope".into());
     }

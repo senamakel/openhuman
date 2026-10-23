@@ -163,7 +163,7 @@ pub use dispatch_control::{decide_dispatch, DispatchDecision, DispatchInputs, Tu
 #[derive(Clone)]
 pub struct OpenHumanRunContext {
     /// Single-use authorization snapshots for workflows admitted in this run.
-    pub(crate) workflow_scan_permits: Arc<Mutex<Vec<(String, String, String, String)>>>,
+    pub(crate) workflow_scan_permits: super::operation_context::WorkflowScanPermits,
     /// Explicit shared model-call budget inherited by synchronous children.
     pub model_budget: Option<super::super::budget::ModelBudget>,
     /// Host admission policy shared by this run and its synchronous descendants.

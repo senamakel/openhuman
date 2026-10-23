@@ -6,6 +6,9 @@ use tinyagents_definition::SandboxMode;
 
 use std::{sync::Arc, time::Duration};
 
+type WorkflowScanPermit = (String, String, String, String);
+pub(crate) type WorkflowScanPermits = Arc<std::sync::Mutex<Vec<WorkflowScanPermit>>>;
+
 /// OpenHuman product values that tools read from the run through
 /// `ToolExecutionContext::host::<OpenHumanRunExt>()`, installed by
 /// [`OpenHumanRunContext::into_tinyagents`] with `RunContext::with_host`.
@@ -74,8 +77,7 @@ pub(crate) fn task_recency_window_for_tool(
 /// harness's typed state-view seam.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HostOperationContext {
-    pub(crate) workflow_scan_permits:
-        std::sync::Arc<std::sync::Mutex<Vec<(String, String, String, String)>>>,
+    pub(crate) workflow_scan_permits: WorkflowScanPermits,
     pub(crate) origin: Option<AgentTurnOrigin>,
     /// Where this run's approvals are surfaced; see
     /// [`OpenHumanRunContext::approval`](super::OpenHumanRunContext::approval).

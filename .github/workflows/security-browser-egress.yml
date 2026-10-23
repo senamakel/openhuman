@@ -34,7 +34,7 @@ jobs:
           persist-credentials: false
           submodules: recursive
       - name: Install native dependencies
-        run: sudo apt-get update && sudo apt-get install -y libasound2-dev pkg-config
+        run: sudo apt-get update && sudo apt-get install -y libasound2-dev libxdo-dev pkg-config
       - uses: dtolnay/rust-toolchain@1.99.1
       - uses: Swatinem/rust-cache@v2
         with:

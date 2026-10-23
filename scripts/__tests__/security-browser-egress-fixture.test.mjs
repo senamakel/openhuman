@@ -9,6 +9,19 @@ import test from "node:test";
 const fixture = fileURLToPath(
   new URL("../ci/security-browser-egress-fixture.sh", import.meta.url),
 );
+const workflow = fileURLToPath(
+  new URL("../../.github/workflows/security-browser-egress.yml", import.meta.url),
+);
+
+test("browser egress workflow installs TinyComputer native build dependencies", () => {
+  const source = readFileSync(workflow, "utf8");
+  const install = source.match(/- name: Install native dependencies\n\s+run: ([^\n]+)/)?.[1];
+
+  assert.ok(install, "workflow installs native dependencies");
+  assert.match(install, /libasound2-dev/);
+  assert.match(install, /libxdo-dev/);
+  assert.match(install, /pkg-config/);
+});
 
 test("native browser egress fixture runs security and opt-in Chromium tests", () => {
   const dir = mkdtempSync(join(tmpdir(), "security-browser-egress-fixture-"));

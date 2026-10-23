@@ -38,15 +38,15 @@ impl NativeFixture {
             broker_task.abort();
             let _ = broker_task.await;
         }
-        self._module_name_guard.take();
     }
 }
 
 impl Drop for NativeFixture {
     fn drop(&mut self) {
-        let (Some(broker_task), Some(module_name_guard)) =
-            (self._broker_task.take(), self._module_name_guard.take())
-        else {
+        let Some(broker_task) = self._broker_task.take() else {
+            return;
+        };
+        let Some(module_name_guard) = self._module_name_guard.take() else {
             return;
         };
         let host = self.host.clone();
@@ -54,6 +54,7 @@ impl Drop for NativeFixture {
             host.shutdown(std::time::Duration::from_secs(2)).await;
             broker_task.abort();
             let _ = broker_task.await;
+            drop(host);
             drop(module_name_guard);
         };
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {

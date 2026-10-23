@@ -18,7 +18,7 @@ const TURN_SAMPLES: usize = 200;
 pub(crate) struct NativeFixture {
     pub(crate) _fixtures: tempfile::TempDir,
     pub(crate) acting: tempfile::TempDir,
-    pub(crate) host: Arc<ModuleHost>,
+    pub(crate) host: std::mem::ManuallyDrop<Arc<ModuleHost>>,
     pub(crate) _broker_task: Option<tokio::task::JoinHandle<tinybus::Result<()>>>,
     pub(crate) proxy: tinybus::Proxy,
     pub(crate) client: Connection,
@@ -44,28 +44,34 @@ impl NativeFixture {
 impl Drop for NativeFixture {
     fn drop(&mut self) {
         let Some(broker_task) = self._broker_task.take() else {
+            unsafe { std::mem::ManuallyDrop::drop(&mut self.host) };
             return;
         };
-        let Some(module_name_guard) = self._module_name_guard.take() else {
-            return;
-        };
-        let host = self.host.clone();
-        let cleanup = async move {
-            host.shutdown(std::time::Duration::from_secs(2)).await;
-            broker_task.abort();
-            let _ = broker_task.await;
-            drop(host);
-            drop(module_name_guard);
-        };
+        let host = unsafe { std::mem::ManuallyDrop::take(&mut self.host) };
         if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let cleanup = async move {
+                host.shutdown(std::time::Duration::from_secs(2)).await;
+                broker_task.abort();
+                let _ = broker_task.await;
+                drop(host);
+            };
             if matches!(
                 runtime.runtime_flavor(),
                 tokio::runtime::RuntimeFlavor::MultiThread
             ) {
                 tokio::task::block_in_place(|| runtime.block_on(cleanup));
             } else {
-                runtime.spawn(cleanup);
+                let Some(module_name_guard) = self._module_name_guard.take() else {
+                    return;
+                };
+                runtime.spawn(async move {
+                    cleanup.await;
+                    drop(module_name_guard);
+                });
             }
+        } else {
+            broker_task.abort();
+            drop(host);
         }
     }
 }
@@ -233,7 +239,7 @@ pub(crate) async fn native_fixture_configured(
     NativeFixture {
         _fixtures: fixtures,
         acting,
-        host: Arc::new(host),
+        host: std::mem::ManuallyDrop::new(Arc::new(host)),
         _broker_task: Some(broker_task),
         proxy,
         client,

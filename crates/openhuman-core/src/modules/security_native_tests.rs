@@ -223,6 +223,20 @@ pub(crate) async fn native_fixture_configured(
         "native module did not become available: {:#?}",
         host.list()
     );
+    let attested = tokio::time::timeout(LOAD_TIMEOUT, async {
+        loop {
+            if proxy.attestation().await.unwrap().is_some() {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await;
+    assert!(
+        attested.is_ok(),
+        "native module became available without recipient attestation: {:#?}",
+        host.list()
+    );
     if record.version != "test-only" {
         let unpinned = super::super::ModuleRecord {
             assets: &[],

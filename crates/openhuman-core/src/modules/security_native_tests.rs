@@ -282,7 +282,7 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
     assert!(call_register_path_policy(&proxy, malformed).await.is_err());
     let id = call_register_path_policy(&proxy, policy.clone())
         .await
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error}; module state: {:#?}", fixture.host.list()));
     assert_eq!(
         id,
         call_register_path_policy(&proxy, policy.clone())

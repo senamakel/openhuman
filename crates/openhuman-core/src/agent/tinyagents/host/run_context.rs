@@ -458,6 +458,13 @@ impl OpenHumanRunContext {
         self
     }
 
+    /// Binds the trusted source of this run's actions.
+    #[must_use]
+    pub fn with_origin(mut self, origin: AgentTurnOrigin) -> Self {
+        self.origin = Some(origin);
+        self
+    }
+
     /// The dispatch context this run's readers use: its own `core`, else the
     /// calling task's (a run assembled by a caller that did not bind one).
     pub fn dispatch_ctx(&self) -> crate::core::runtime::DispatchCtx {

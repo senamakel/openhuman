@@ -182,6 +182,28 @@ pub async fn execute_tool(
     run_gated(&tools, gate, tool_name, args, prefer_markdown).await
 }
 
+/// Execute a direct host-dispatched tool call while retaining its tenant and
+/// verified turn origin through the same TinySecurity and approval middleware
+/// used for agent tool calls.
+pub(crate) async fn execute_tool_in_context(
+    config: &Config,
+    dispatch: crate::core::runtime::DispatchCtx,
+    origin: crate::security::turn_origin::AgentTurnOrigin,
+    tool_name: &str,
+    args: serde_json::Value,
+) -> Result<ExecuteToolOutcome, String> {
+    let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(build_runtime_tools(config)?);
+    let gate = crate::agent::tinyagents::middleware::security_gate::tool_middleware(
+        vec![Arc::clone(&tools)],
+        None,
+        None,
+    );
+    let data = OpenHumanRunContext::new()
+        .with_core(dispatch.core().cloned())
+        .with_origin(origin);
+    run_gated_with_context(&tools, gate, tool_name, args, false, data).await
+}
+
 /// Executes a native call using the same policy snapshot used for its gate.
 pub async fn execute_tool_with_security(
     config: &Config,
@@ -314,6 +336,25 @@ pub(crate) async fn run_gated(
     args: serde_json::Value,
     prefer_markdown: bool,
 ) -> Result<ExecuteToolOutcome, String> {
+    run_gated_with_context(
+        tools,
+        gate,
+        tool_name,
+        args,
+        prefer_markdown,
+        OpenHumanRunContext::new(),
+    )
+    .await
+}
+
+async fn run_gated_with_context(
+    tools: &[Box<dyn Tool>],
+    gate: Arc<dyn ToolMiddleware<(), OpenHumanRunContext>>,
+    tool_name: &str,
+    args: serde_json::Value,
+    prefer_markdown: bool,
+    data: OpenHumanRunContext,
+) -> Result<ExecuteToolOutcome, String> {
     let tool = tools
         .iter()
         .find(|tool| tool.name() == tool_name)
@@ -334,7 +375,7 @@ pub(crate) async fn run_gated(
 
     let mut stack: MiddlewareStack<(), OpenHumanRunContext> = MiddlewareStack::new();
     stack.push_tool_middleware(gate);
-    let ctx = RunContext::new(RunConfig::new("direct-tool"), OpenHumanRunContext::new());
+    let ctx = data.into_tinyagents(RunConfig::new("direct-tool"));
     let call = ToolCall {
         id: format!("direct-{tool_name}"),
         name: tool_name.to_string(),

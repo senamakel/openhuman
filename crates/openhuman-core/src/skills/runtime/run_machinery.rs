@@ -135,6 +135,17 @@ pub async fn spawn_workflow_run_background(
         );
     }
 
+    // Preflight may await external probes. Re-read the bounded bundle directly
+    // before its prompt is exposed to the spawned agent so a changed resource
+    // cannot ride an earlier approval.
+    let exposure_scan = super::skill_scan::scan_workflow(&skill, scan_source.as_ref())?;
+    if let Some(reason) = super::skill_scan::scan_approval_refusal(
+        &exposure_scan,
+        approved_scan_digest.as_deref(),
+    ) {
+        return Err(format!("workflow_run: {reason}"));
+    }
+
     // Focus the orchestrator on this single skill: its SKILL.md rides in
     // the task prompt as guidelines + the resolved inputs; the
     // orchestrator's own system prompt and full tool access are kept.

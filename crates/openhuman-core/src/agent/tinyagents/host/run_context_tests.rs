@@ -1,6 +1,22 @@
 use super::*;
 
 #[test]
+fn workflow_scan_permits_bind_workflow_inputs_and_are_single_use() {
+    let host = OpenHumanRunContext::new();
+    let inputs = serde_json::json!({"target": "repo"});
+    host.record_workflow_scan_permit("workflow", &inputs, "digest-a");
+
+    assert!(!host.take_workflow_scan_permit("workflow", &inputs, "digest-b"));
+    assert!(!host.take_workflow_scan_permit(
+        "workflow",
+        &serde_json::json!({"target": "other"}),
+        "digest-a"
+    ));
+    assert!(host.take_workflow_scan_permit("workflow", &inputs, "digest-a"));
+    assert!(!host.take_workflow_scan_permit("workflow", &inputs, "digest-a"));
+}
+
+#[test]
 fn converts_explicit_values_to_the_canonical_tinyagents_context() {
     let cancellation = tinyagents_harness::cancel::CancellationToken::new();
     let workspace = tinytools::WorkspaceDescriptor::new("/work/action");

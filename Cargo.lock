@@ -9137,7 +9137,7 @@ dependencies = [
  "tinybox-bus",
  "tinybox-core",
  "tinybox-linux",
- "windows-sys 0.61.2",
+ "win-custody",
 ]
 
 [[package]]
@@ -11918,6 +11918,14 @@ name = "widestring"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72069c3113ab32ab29e5584db3c6ec55d416895e60715417b5b883a357c3e471"
+
+[[package]]
+name = "win-custody"
+version = "0.1.1"
+source = "git+https://github.com/senamakel/Win-Custody.rs?rev=a61bd476db8b9b64bbc053634035dae0fbcecc24#a61bd476db8b9b64bbc053634035dae0fbcecc24"
+dependencies = [
+ "windows-sys 0.61.2",
+]
 
 [[package]]
 name = "winapi"

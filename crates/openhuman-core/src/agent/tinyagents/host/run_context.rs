@@ -163,7 +163,7 @@ pub use dispatch_control::{decide_dispatch, DispatchDecision, DispatchInputs, Tu
 #[derive(Clone)]
 pub struct OpenHumanRunContext {
     /// Single-use authorization snapshots for workflows admitted in this run.
-    pub(crate) workflow_scan_permits: Arc<Mutex<Vec<(String, String, String)>>>,
+    pub(crate) workflow_scan_permits: Arc<Mutex<Vec<(String, String, String, String)>>>,
     /// Explicit shared model-call budget inherited by synchronous children.
     pub model_budget: Option<super::super::budget::ModelBudget>,
     /// Host admission policy shared by this run and its synchronous descendants.
@@ -391,6 +391,7 @@ impl OpenHumanRunContext {
         &self,
         workflow_id: &str,
         inputs: &serde_json::Value,
+        call_id: &str,
         digest: &str,
     ) {
         let Ok(inputs) = serde_json::to_string(inputs) else {
@@ -399,13 +400,19 @@ impl OpenHumanRunContext {
         self.workflow_scan_permits
             .lock()
             .unwrap_or_else(|p| p.into_inner())
-            .push((workflow_id.to_owned(), inputs, digest.to_owned()));
+            .push((
+                workflow_id.to_owned(),
+                inputs,
+                call_id.to_owned(),
+                digest.to_owned(),
+            ));
     }
 
     pub(crate) fn take_workflow_scan_permit(
         &self,
         workflow_id: &str,
         inputs: &serde_json::Value,
+        call_id: &str,
         digest: &str,
     ) -> bool {
         let Ok(inputs) = serde_json::to_string(inputs) else {
@@ -417,7 +424,9 @@ impl OpenHumanRunContext {
             .unwrap_or_else(|p| p.into_inner());
         let Some(index) = permits
             .iter()
-            .position(|(id, args, hash)| id == workflow_id && args == &inputs && hash == digest)
+            .position(|(id, args, call, hash)| {
+                id == workflow_id && args == &inputs && call == call_id && hash == digest
+            })
         else {
             return false;
         };
@@ -429,6 +438,7 @@ impl OpenHumanRunContext {
         &self,
         workflow_id: &str,
         inputs: &serde_json::Value,
+        call_id: &str,
     ) -> Option<String> {
         let inputs = serde_json::to_string(inputs).ok()?;
         let mut permits = self
@@ -437,8 +447,10 @@ impl OpenHumanRunContext {
             .unwrap_or_else(|p| p.into_inner());
         let index = permits
             .iter()
-            .rposition(|(id, args, _)| id == workflow_id && args == &inputs)?;
-        Some(permits.remove(index).2)
+            .rposition(|(id, args, call, _)| {
+                id == workflow_id && args == &inputs && call == call_id
+            })?;
+        Some(permits.remove(index).3)
     }
 
     /// Pins the harness tool dialect to the one the session prompt speaks.

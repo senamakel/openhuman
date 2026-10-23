@@ -280,6 +280,11 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
     let mut malformed = policy.clone();
     malformed.action_dir = "relative-root".into();
     assert!(call_register_path_policy(&proxy, malformed).await.is_err());
+    assert_eq!(
+        fixture.host.list()[0].state,
+        tinybus::module::ModuleState::Ready,
+        "rejecting a malformed path policy must not fault TinySecurity"
+    );
     let id = call_register_path_policy(&proxy, policy.clone())
         .await
         .unwrap_or_else(|error| panic!("{error}; module state: {:#?}", fixture.host.list()));

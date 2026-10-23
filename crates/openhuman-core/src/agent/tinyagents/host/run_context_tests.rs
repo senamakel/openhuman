@@ -50,7 +50,7 @@ fn workflow_scan_permit_reaches_the_executing_tool_by_call_id() {
     let context: &dyn tinytools::ToolRunContext = &execution;
 
     assert_eq!(
-        crate::agent::tinyagents::host::take_workflow_scan_permit_for_tool(
+        crate::agent::tinyagents::host::operation_context::take_workflow_scan_permit_for_tool(
             Some(context),
             "workflow",
             &inputs,
@@ -59,7 +59,7 @@ fn workflow_scan_permit_reaches_the_executing_tool_by_call_id() {
         Some("digest-a")
     );
     assert_eq!(
-        crate::agent::tinyagents::host::take_workflow_scan_permit_for_tool(
+        crate::agent::tinyagents::host::operation_context::take_workflow_scan_permit_for_tool(
             Some(context),
             "workflow",
             &inputs,

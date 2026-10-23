@@ -460,7 +460,7 @@ tinyhosts-bus = { path = "../../vendor/tinyhosts/crates/tinyhosts-bus", optional
 # The root crate is still taken under [dev-dependencies], where test fixtures
 # derive a known account. Dev-dependency features are not linked into the
 # shipped binary, so that does not undo the shed.
-tinywallet-bus = { path = "../../vendor/tinywallet/crates/tinywallet-bus", default-features = false, features = ["wire", "storage"], optional = true }
+tinywallet-bus = { path = "../../vendor/tinywallet/crates/tinywallet-bus", default-features = false, features = ["wire"], optional = true }
 
 
 [target.'cfg(windows)'.dependencies]

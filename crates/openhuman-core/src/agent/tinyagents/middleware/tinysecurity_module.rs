@@ -128,7 +128,10 @@ impl VerdictSource for ModuleVerdicts {
         call: &TaToolCall,
     ) -> Result<Verdict, String> {
         let shell = call.name == SHELL_TOOL;
+        #[cfg(feature = "skills")]
         let workflow_run = call.name == crate::skills::run_workflow::RUN_WORKFLOW_TOOL_NAME;
+        #[cfg(not(feature = "skills"))]
+        let workflow_run = false;
         // Unknown name: nothing to reason about, and "unknown" never means fine.
         let Some((resolved_level, declared_external)) =
             self.effects.resolve_tool(&call.name).map(|tool| {
@@ -175,43 +178,49 @@ impl VerdictSource for ModuleVerdicts {
                 command_policy: None,
             };
             let mut checks = vec![check];
+            #[cfg(feature = "skills")]
             if workflow_run {
-                let workflow_id = call
-                    .arguments
-                    .get("workflow_id")
-                    .or_else(|| call.arguments.get("skill_id"))
-                    .and_then(serde_json::Value::as_str)
-                    .filter(|value| !value.trim().is_empty())
-                    .ok_or_else(|| "run_workflow is missing a workflow id".to_string())?;
-                let workspace = crate::skills::schemas::resolve_workspace_dir().await;
-                let (workflow, source) =
-                    crate::skills::registry::get_workflow_with_source(&workspace, workflow_id)
-                        .ok_or_else(|| {
-                            format!("run_workflow references unknown workflow '{workflow_id}'")
-                        })?;
-                let scan =
-                    crate::skills::runtime::skill_scan::scan_workflow(&workflow, source.as_ref())?;
-                ctx.data.record_workflow_scan_permit(
-                    workflow_id,
-                    call.arguments
-                        .get("inputs")
-                        .unwrap_or(&serde_json::Value::Null),
-                    &call.id,
-                    &scan.bundle_sha256,
-                );
-                checks.push(Check::SkillScan {
-                    verdict: match scan.verdict {
-                        tinyskills::Verdict::Pass => SkillScanVerdict::Pass,
-                        tinyskills::Verdict::Warn => SkillScanVerdict::Warn,
-                        tinyskills::Verdict::Block => SkillScanVerdict::Block,
-                    },
-                    bundle_sha256: scan.bundle_sha256,
-                });
+                checks.push(workflow_skill_scan_check(ctx, call).await?);
             }
             (checks, external)
         };
         self.module.ask(ctx, call, checks, redact).await
     }
+}
+
+#[cfg(feature = "skills")]
+async fn workflow_skill_scan_check(
+    ctx: &RunContext<OpenHumanRunContext>,
+    call: &TaToolCall,
+) -> Result<Check, String> {
+    let workflow_id = call
+        .arguments
+        .get("workflow_id")
+        .or_else(|| call.arguments.get("skill_id"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "run_workflow is missing a workflow id".to_string())?;
+    let workspace = crate::skills::schemas::resolve_workspace_dir().await;
+    let (workflow, source) =
+        crate::skills::registry::get_workflow_with_source(&workspace, workflow_id)
+            .ok_or_else(|| format!("run_workflow references unknown workflow '{workflow_id}'"))?;
+    let scan = crate::skills::runtime::skill_scan::scan_workflow(&workflow, source.as_ref())?;
+    ctx.data.record_workflow_scan_permit(
+        workflow_id,
+        call.arguments
+            .get("inputs")
+            .unwrap_or(&serde_json::Value::Null),
+        &call.id,
+        &scan.bundle_sha256,
+    );
+    Ok(Check::SkillScan {
+        verdict: match scan.verdict {
+            tinyskills::Verdict::Pass => SkillScanVerdict::Pass,
+            tinyskills::Verdict::Warn => SkillScanVerdict::Warn,
+            tinyskills::Verdict::Block => SkillScanVerdict::Block,
+        },
+        bundle_sha256: scan.bundle_sha256,
+    })
 }
 
 fn level_acts(level: PermissionLevel) -> bool {

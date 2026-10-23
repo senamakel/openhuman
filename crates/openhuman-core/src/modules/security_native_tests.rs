@@ -57,7 +57,16 @@ impl Drop for NativeFixture {
             drop(host);
             drop(module_name_guard);
         };
-        native_fixture_runtime().spawn(cleanup);
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            if matches!(
+                runtime.runtime_flavor(),
+                tokio::runtime::RuntimeFlavor::MultiThread
+            ) {
+                tokio::task::block_in_place(|| runtime.block_on(cleanup));
+            } else {
+                runtime.spawn(cleanup);
+            }
+        }
     }
 }
 
@@ -66,16 +75,6 @@ fn module_name_lock() -> std::sync::Arc<tokio::sync::Mutex<()>> {
         std::sync::OnceLock::new();
     LOCK.get_or_init(|| std::sync::Arc::new(tokio::sync::Mutex::new(())))
         .clone()
-}
-
-fn native_fixture_runtime() -> &'static tokio::runtime::Runtime {
-    static RUNTIME: std::sync::OnceLock<tokio::runtime::Runtime> = std::sync::OnceLock::new();
-    RUNTIME.get_or_init(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect("native fixture runtime must start")
-    })
 }
 
 pub(crate) async fn lock_module_name() -> tokio::sync::OwnedMutexGuard<()> {
@@ -126,10 +125,7 @@ pub(crate) async fn native_fixture_configured(
     let acting = tempfile::tempdir_in(&target).unwrap();
     let transport = MemoryBus::new();
     let broker = Broker::new();
-    let broker_task = {
-        let _enter = native_fixture_runtime().handle().enter();
-        broker.spawn(transport.clone())
-    };
+    let broker_task = broker.spawn(transport.clone());
     let host = ModuleHost::new(broker);
     // The module accepts privileged members only from the peer named at its
     // first initialization, so the host connection must exist before the load.

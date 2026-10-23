@@ -641,14 +641,16 @@ Linux native resource limits; it is only part of the TinyBox #27 work and does
 not complete cross-platform jail, microVM, Docker, or process-launch coverage.
 TinyBox PR [#112](https://github.com/tinyhumansai/tinybox/pull/112) has since
 merged as `b0b5969ab6d04b64c478e1f012b6af2ac53fc171`, bringing canonical TSD v2
-storage to main. PR #103 was refreshed by merging current TinyBox main into its
-branch; its current head is `98b541c7fb737ee546c6943f524f39823941a058`. The
-refresh also updates its TinyBus dependency and preserves the PR history. The
-exact-head CI run `39889111817` now passes formatting, Clippy, docs, MSRV,
-supply-chain, tests, coverage, all three platform feature/module suites, and
-`native-resource-live`. The full workspace test suite, strict Clippy, formatting,
-locked metadata and diff checks also pass locally. Keep the PR in draft until a
-compatible TinyBox release is available and OpenHuman's host adapter is updated.
+storage to main. PR #103 was refreshed again on 2026-10-23; its current head is
+`d344acd789753746911b31e9c81d4f6ae5f43c81` on base
+`cf37f8bacb66485450c53d334a29f44dc50e71ec`. This update preserves the PR
+history. Exact-head CI run `39923545332` is queued. The previous exact-head run
+`39889111817` passed formatting, Clippy, docs, MSRV, supply-chain, tests,
+coverage, all three platform feature/module suites, and `native-resource-live`.
+The full workspace test suite, strict Clippy, formatting, locked metadata and
+diff checks also passed locally at that previous head. Keep the PR in draft
+until a compatible TinyBox release is available and OpenHuman's host adapter is
+updated.
 The first post-merge CI run passed all 51 native jail unit tests but failed the
 separate resource cancellation proof because it constructed production storage
 without a served host callback. The test now uses TinyBox's testkit-backed
@@ -656,10 +658,10 @@ without a served host callback. The test now uses TinyBox's testkit-backed
 That run exposed that the test's current-thread Tokio runtime cannot service the
 testkit's synchronous storage calls. Commit `5110ce7693f718441a652f3ffd28d90ffb9b3232`
 uses a two-worker runtime for this storage-backed test; the focused test passes
-locally. The current exact-head run passes `native-resource-live`, module tests,
+locally. At the previous head, CI passed `native-resource-live`, module tests,
 coverage, Clippy, formatting, MSRV, supply-chain and Linux/macOS/Windows module
-E2E checks. Keep PR #103 in draft until a compatible TinyBox release is available
-and OpenHuman's host adapter is updated.
+E2E checks. The refreshed head's CI is still pending. Keep PR #103 in draft until
+a compatible TinyBox release is available and OpenHuman's host adapter is updated.
 The spawner inventory distinguishes `sandbox/ops.rs`'s module-planned operator
 host-run mode from an untrusted direct bypass: the module registers that source
 `TrustedHost`, while scheduled/hook text has a separate `UntrustedSkill` source

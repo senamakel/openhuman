@@ -139,6 +139,7 @@
   "service_uninstall",
   "session_state",
   "shell",
+  "shell_process",
   "show_ui",
   "skill_registry_browse",
   "skill_registry_install",

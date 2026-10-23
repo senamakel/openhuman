@@ -594,6 +594,16 @@ pub(super) fn install_turn_middleware(
     // validation error. It never reaches approval/policy wrappers or the tool.
     harness.push_middleware(Arc::new(ArgRecoveryMiddleware::new(tool_sets.clone())));
 
+    // The model's shell `timeout_secs` is when the call comes back, not a kill:
+    // move it aside so the clamp below writes the command's deadline there.
+    let can_follow = harness
+        .tools()
+        .names()
+        .iter()
+        .any(|name| name == "shell_process");
+    harness.push_middleware(Arc::new(middleware::shell_yield::ShellYieldMiddleware {
+        can_follow,
+    }));
     // Clamp shell `timeout_secs` to the turn remainder (#6953), on recovered args.
     harness.push_middleware(Arc::new(shell_turn_budget.clamp()));
 

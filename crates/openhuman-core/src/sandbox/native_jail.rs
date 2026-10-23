@@ -200,6 +200,34 @@ async fn execute_owned(
     super::shell_exec::run(config, run).await
 }
 
+/// Execute a native jail plan that may yield while the command continues.
+/// The confinement settings come from TinySecurity's admitted plan; this
+/// adapter only maps those settings and hands the process lifecycle to TinyBox.
+pub(crate) async fn execute_yielding(
+    ctx: &crate::core::runtime::DispatchCtx,
+    config: &Config,
+    policy: &SandboxPolicy,
+    command: &str,
+    working_dir: &Path,
+    extra_env: &HashMap<OsString, OsString>,
+    timeout: Duration,
+    jail: PlannedJail,
+    preserve_pipeline_status: bool,
+    yield_after: Option<Duration>,
+    meter: Option<super::shell_progress::ShellOutputMeter>,
+) -> anyhow::Result<super::shell_exec::ShellRunOutcome> {
+    let mut run =
+        super::shell_exec::NativeShellRun::new(command, working_dir, &policy.state_dir, timeout);
+    run.workspace = policy.workspace_root.clone();
+    run.env = approved_environment(extra_env)?;
+    run.isolate_network = !jail.config.allow_net;
+    run.preserve_pipeline_status = preserve_pipeline_status;
+    run.meter = meter;
+    run.yield_after = yield_after;
+    run.jail = Some(jail.config);
+    super::shell_exec::run_yielding(ctx, config, run).await
+}
+
 /// The caller's environment overrides, which must be UTF-8 to cross the bus.
 #[cfg(feature = "modules")]
 fn approved_environment(

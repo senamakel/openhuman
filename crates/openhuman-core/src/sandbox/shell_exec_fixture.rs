@@ -10,14 +10,15 @@ use std::time::Duration;
 
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 
-use super::{NativeShellRun, SandboxExecResult};
+use super::{NativeShellRun, SandboxExecResult, ShellRunOutcome};
+use crate::sandbox::shell_live::{LiveHandle, LiveRead, LiveShell, LiveState};
 
 /// Variables the module's safe environment snapshot carries.
 const SNAPSHOT: &[&str] = &[
     "PATH", "HOME", "TERM", "LANG", "LC_ALL", "LC_CTYPE", "USER", "SHELL", "TMPDIR",
 ];
 
-pub(crate) async fn run(run: NativeShellRun) -> anyhow::Result<SandboxExecResult> {
+pub(crate) async fn run(run: NativeShellRun) -> anyhow::Result<ShellRunOutcome> {
     let bash = ["/usr/bin/bash", "/bin/bash"]
         .into_iter()
         .find(|path| std::path::Path::new(path).exists());
@@ -79,7 +80,11 @@ pub(crate) async fn run(run: NativeShellRun) -> anyhow::Result<SandboxExecResult
     // command stopped at its deadline keeps what it printed before.
     let (mut stdout_pipe, mut stderr_pipe) = (child.stdout.take(), child.stderr.take());
     let (mut stdout, mut stderr) = (Vec::new(), Vec::new());
-    let finished = tokio::time::timeout(run.timeout, async {
+    let started = tokio::time::Instant::now();
+    // Like the module: a command still running at its yield point is handed
+    // over running, with what it printed so far.
+    let yield_after = run.yield_after.filter(|after| *after < run.timeout);
+    let finished = tokio::time::timeout(yield_after.unwrap_or(run.timeout), async {
         let send_input = async {
             if let (Some(input), Some(mut stdin)) = (input, stdin_pipe.take()) {
                 let _ = stdin.write_all(&input).await;
@@ -96,6 +101,22 @@ pub(crate) async fn run(run: NativeShellRun) -> anyhow::Result<SandboxExecResult
     .await;
     let (exit_code, timed_out) = match finished {
         Ok(status) => (status?.code().unwrap_or(-1), false),
+        Err(_) if yield_after.is_some() => {
+            return Ok(ShellRunOutcome::Running(LiveShell {
+                stdout: String::from_utf8_lossy(&stdout).into_owned(),
+                stderr: String::from_utf8_lossy(&stderr).into_owned(),
+                handle: LiveHandle::Fixture(FixtureLive {
+                    child,
+                    pid,
+                    stdout_pipe,
+                    stderr_pipe,
+                    stdout: Vec::new(),
+                    stderr: Vec::new(),
+                    deadline: started + run.timeout,
+                    ended: false,
+                }),
+            }));
+        }
         Err(_) => {
             // Stop the command and everything it started, then give the
             // readers a moment to drain what is left in the pipes.
@@ -119,12 +140,104 @@ pub(crate) async fn run(run: NativeShellRun) -> anyhow::Result<SandboxExecResult
         meter.record(&stdout);
         meter.record(&stderr);
     }
-    Ok(SandboxExecResult {
+    Ok(ShellRunOutcome::Finished(SandboxExecResult {
         exit_code,
         stdout: String::from_utf8_lossy(&stdout).into_owned(),
         stderr: String::from_utf8_lossy(&stderr).into_owned(),
         timed_out,
-    })
+    }))
+}
+
+/// A fixture command past its yield point, read and stopped like the module's.
+pub(crate) struct FixtureLive {
+    child: tokio::process::Child,
+    pid: Option<u32>,
+    stdout_pipe: Option<tokio::process::ChildStdout>,
+    stderr_pipe: Option<tokio::process::ChildStderr>,
+    /// Output read since the previous [`LiveRead`].
+    stdout: Vec<u8>,
+    stderr: Vec<u8>,
+    deadline: tokio::time::Instant,
+    ended: bool,
+}
+
+impl FixtureLive {
+    pub(crate) async fn read(&mut self, wait: Duration) -> anyhow::Result<LiveRead> {
+        if self.ended {
+            return Ok(self.take(LiveState::Stopped));
+        }
+        let until = (tokio::time::Instant::now() + wait).min(self.deadline);
+        let finished = tokio::time::timeout_at(until, async {
+            let (status, (), ()) = tokio::join!(
+                self.child.wait(),
+                drain(&mut self.stdout_pipe, &mut self.stdout),
+                drain(&mut self.stderr_pipe, &mut self.stderr),
+            );
+            status
+        })
+        .await;
+        let state = match finished {
+            Ok(status) => {
+                // Ended only once the wait itself succeeded.
+                let code = status?.code().unwrap_or(-1);
+                self.ended = true;
+                LiveState::Exited(code)
+            }
+            Err(_) if tokio::time::Instant::now() >= self.deadline => {
+                self.stop().await;
+                LiveState::TimedOut
+            }
+            Err(_) => LiveState::Running,
+        };
+        Ok(self.take(state))
+    }
+
+    pub(crate) fn finished(&self) -> bool {
+        self.ended
+    }
+
+    pub(crate) async fn kill(&mut self) -> anyhow::Result<LiveRead> {
+        if !self.ended {
+            self.stop().await;
+        }
+        Ok(self.take(LiveState::Stopped))
+    }
+
+    /// Stop the command and everything it started, keeping what is left in
+    /// the pipes.
+    async fn stop(&mut self) {
+        if let Some(pid) = self.pid {
+            tinytools_std::timeout::kill_process_group(pid);
+        }
+        let _ = self.child.start_kill();
+        let _ = tokio::time::timeout(Duration::from_secs(2), async {
+            tokio::join!(
+                drain(&mut self.stdout_pipe, &mut self.stdout),
+                drain(&mut self.stderr_pipe, &mut self.stderr),
+            )
+        })
+        .await;
+        self.ended = true;
+    }
+
+    fn take(&mut self, state: LiveState) -> LiveRead {
+        LiveRead {
+            stdout: String::from_utf8_lossy(&std::mem::take(&mut self.stdout)).into_owned(),
+            stderr: String::from_utf8_lossy(&std::mem::take(&mut self.stderr)).into_owned(),
+            state,
+        }
+    }
+}
+
+impl Drop for FixtureLive {
+    fn drop(&mut self) {
+        if !self.ended {
+            if let Some(pid) = self.pid {
+                tinytools_std::timeout::kill_process_group(pid);
+            }
+            let _ = self.child.start_kill();
+        }
+    }
 }
 
 /// Appends what `pipe` delivers to `into` until it closes. Reads are

@@ -5,6 +5,7 @@
 //! everything else.
 
 use super::docker;
+use super::shell_exec::{ComeBack, ShellRunOutcome};
 use super::types::{
     ElevatedOp, SandboxBackendHandle, SandboxBackendKind, SandboxExecRequest, SandboxExecResult,
     SandboxPolicy, SandboxStatus, ELEVATED_TOOLS,
@@ -247,6 +248,87 @@ pub(crate) async fn execute_in_sandbox_metered(
     }
 }
 
+/// Execute an admitted spawn that may return while its native process keeps
+/// running. TinySecurity remains the authority for the executor and jail
+/// grants; this is only the shell tool's lifecycle adaptation.
+pub(crate) async fn execute_in_sandbox_yielding(
+    ctx: &DispatchCtx,
+    policy: &SandboxPolicy,
+    command: &str,
+    working_dir: &Path,
+    extra_env: HashMap<OsString, OsString>,
+    timeout: Duration,
+    come_back: ComeBack,
+    meter: Option<super::shell_progress::ShellOutputMeter>,
+) -> anyhow::Result<ShellRunOutcome> {
+    let config = ctx
+        .load_config()
+        .await
+        .map_err(|e| anyhow::anyhow!("Cannot read sandbox configuration: {e}"))?;
+    let policy = super::policy::with_configured_backend(policy, &config);
+    let operator_off = super::operator::sandbox_off(ctx, &config);
+    let admitted = admit_spawn(
+        &config,
+        &policy,
+        command,
+        working_dir,
+        &extra_env,
+        operator_off,
+    )
+    .await?;
+    match admitted.executor {
+        Executor::Host => {
+            crate::config::ensure_usable_cwd(working_dir)?;
+            run_on_host_yielding(
+                ctx,
+                &config,
+                &admitted.policy,
+                command,
+                working_dir,
+                &extra_env,
+                timeout,
+                come_back.yield_after,
+                meter,
+            )
+            .await
+        }
+        Executor::Jail => {
+            crate::config::ensure_usable_cwd(working_dir)?;
+            super::native_jail::execute_yielding(
+                ctx,
+                &config,
+                &admitted.policy,
+                command,
+                working_dir,
+                &extra_env,
+                timeout,
+                admitted.jail,
+                false,
+                come_back.yield_after,
+                meter,
+            )
+            .await
+        }
+        Executor::Docker => {
+            if admitted.policy.mount_workspace {
+                crate::config::ensure_usable_cwd(&admitted.policy.workspace_root)?;
+            }
+            let timeout = come_back
+                .deadline_instead
+                .map_or(timeout, |deadline| timeout.min(deadline));
+            let request = SandboxExecRequest {
+                command: command.to_owned(),
+                working_dir: working_dir.to_path_buf(),
+                env: extra_env,
+                timeout,
+            };
+            docker::docker_exec(&config, &admitted.policy, &request)
+                .await
+                .map(ShellRunOutcome::Finished)
+        }
+    }
+}
+
 /// The executor a plan selected, in the host's own terms.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Executor {
@@ -461,6 +543,35 @@ async fn run_on_host(
         meter,
     )
     .await
+}
+
+async fn run_on_host_yielding(
+    ctx: &DispatchCtx,
+    config: &crate::config::Config,
+    policy: &SandboxPolicy,
+    command: &str,
+    working_dir: &Path,
+    extra_env: &HashMap<OsString, OsString>,
+    timeout: Duration,
+    yield_after: Option<Duration>,
+    meter: Option<super::shell_progress::ShellOutputMeter>,
+) -> anyhow::Result<ShellRunOutcome> {
+    let env = extra_env
+        .iter()
+        .map(|(name, value)| match (name.to_str(), value.to_str()) {
+            (Some(name), Some(value)) => Ok((name.to_owned(), value.to_owned())),
+            _ => Err(anyhow::anyhow!("sandbox environment is not UTF-8")),
+        })
+        .collect::<anyhow::Result<_>>()?;
+    std::fs::create_dir_all(&policy.state_dir)
+        .map_err(|error| anyhow::anyhow!("Cannot prepare sandbox state directory: {error}"))?;
+    let mut run =
+        super::shell_exec::NativeShellRun::new(command, working_dir, &policy.state_dir, timeout);
+    run.workspace = policy.workspace_root.clone();
+    run.env = env;
+    run.meter = meter;
+    run.yield_after = yield_after;
+    super::shell_exec::run_yielding(ctx, config, run).await
 }
 
 /// Check whether a tool operation is an elevated op that must run on the

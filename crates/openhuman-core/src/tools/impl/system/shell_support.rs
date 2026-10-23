@@ -7,15 +7,16 @@ use tinytools::ToolResult;
 pub(super) const COMMAND_TIMEOUT_EXIT_CODE: i32 = 124;
 /// Appended to an exit-124 failure: the command's own `timeout` fired, not the
 /// tool's (#6953). Without it, `exit code 124 [stdout] ok` reads like a bug.
-pub(super) const COMMAND_TIMEOUT_NOTE: &str = "[exit 124: the command's own `timeout` limit expired; the shell tool's timeout_secs did not fire]";
+pub(super) const COMMAND_TIMEOUT_NOTE: &str =
+    "[exit 124: the command's own `timeout` limit expired; the shell tool's deadline did not fire]";
 
-/// The result when the tool's own `timeout_secs` deadline killed the command.
-/// It stays the first line of the result: TinyAgents' shell turn-budget note
-/// recognises a fired deadline by this prefix.
+/// The result when the tool's deadline killed the command: in a turn, the
+/// turn's remaining budget (TinyAgents' `ShellTurnBudget` clamp); outside one,
+/// the caller's `timeout_secs`. It stays the first line of the result:
+/// TinyAgents' shell turn-budget note recognises a fired deadline by this
+/// prefix.
 pub(super) fn tool_timeout_message(secs: u64) -> String {
-    format!(
-        "Command timed out after {secs}s and was killed: the shell tool's timeout_secs limit fired."
-    )
+    format!("Command timed out after {secs}s and was killed: the shell tool's deadline fired.")
 }
 
 /// [`tinytools::command_failure`], plus [`COMMAND_TIMEOUT_NOTE`] on exit 124.
@@ -139,6 +140,28 @@ pub(super) fn with_unbuffered_python(
     env
 }
 
+/// Point a native child's temp dir at the agent's granted scratch dir
+/// (`/tmp/openhuman`, a ReadWrite trusted root — see SecurityPolicy
+/// `from_config`) so `python3 tempfile` / `mktemp` / `$TMPDIR` writes land in a
+/// sandboxed, readable location instead of the world-shared /tmp.
+pub(super) fn use_scratch_tmp(env: &mut std::collections::BTreeMap<String, String>) {
+    let scratch_dir = crate::security::openhuman_scratch_dir();
+    if let (true, Some(scratch)) = (scratch_dir.is_dir(), scratch_dir.to_str()) {
+        tracing::debug!(
+            scratch_dir = %scratch_dir.display(),
+            "[shell] overriding TMPDIR/TMP/TEMP to the openhuman scratch dir"
+        );
+        for name in ["TMPDIR", "TMP", "TEMP"] {
+            env.insert(name.to_owned(), scratch.to_owned());
+        }
+    } else {
+        tracing::debug!(
+            scratch_dir = %scratch_dir.display(),
+            "[shell] scratch dir missing — leaving TMPDIR/TMP/TEMP to the module"
+        );
+    }
+}
+
 /// The [`PYTHON_ENV_DEFAULTS`] a child gets, each one the parent's own value
 /// when `lookup` has one.
 pub(super) fn python_env_defaults(
@@ -208,3 +231,115 @@ pub(super) fn extend_explicit_environment(
         }));
     }
 }
+
+/// The argument a turn's `shell` call carries its yield point in. The model
+/// writes it as `timeout_secs`; the turn moves it here before TinyAgents'
+/// turn-budget clamp writes the command's deadline into `timeout_secs`
+/// (`agent::tinyagents::middleware::shell_yield`).
+pub(crate) const YIELD_AFTER_ARG: &str = "yield_after_secs";
+/// When a command still running is handed back as a process, unless the call
+/// says otherwise.
+pub(super) const DEFAULT_YIELD_AFTER_SECS: u64 = 120;
+/// The latest a call may ask to come back.
+pub(super) const MAX_YIELD_AFTER_SECS: u64 = 600;
+/// The earliest the deadline-relative cap brings the yield point forward to.
+pub(super) const MIN_YIELD_AFTER_SECS: u64 = 30;
+
+/// The yield point for `command` with `deadline` to run: the requested time
+/// (default 120 s, at most 600 s), but no later than an eighth of the deadline
+/// (and not earlier than 30 s for that cap), and always before the deadline
+/// itself, so a command started late in a turn still comes back before the
+/// turn's deadline kills it. None for `0`, and none for a deliberate wait
+/// ([`is_deliberate_wait`]), which would only come back with nothing to show.
+pub(super) fn yield_after(
+    requested: Option<u64>,
+    deadline: Duration,
+    command: &str,
+) -> Option<Duration> {
+    let secs = requested
+        .unwrap_or(DEFAULT_YIELD_AFTER_SECS)
+        .min(MAX_YIELD_AFTER_SECS);
+    if secs == 0 || is_deliberate_wait(command) {
+        return None;
+    }
+    let deadline = deadline.as_secs();
+    let cap = (deadline / 8).max(MIN_YIELD_AFTER_SECS).min(deadline / 2);
+    (cap > 0).then(|| Duration::from_secs(secs.min(cap)))
+}
+
+/// Commands that only look at the state a wait led to: reading a log,
+/// listing files, checking a process.
+const QUICK_LOOKS: &[&str] = &[
+    "cat", "date", "df", "du", "echo", "grep", "head", "ls", "pgrep", "printf", "ps", "stat",
+    "tail", "test", "wc",
+];
+
+/// A command that starts with `sleep` and then only looks at what happened
+/// (`sleep 60; tail -20 build.log`). It is meant to wait, so it is not cut
+/// short. `sleep 2; make -j8` starts real work after the sleep and yields as
+/// usual.
+pub(super) fn is_deliberate_wait(command: &str) -> bool {
+    let mut steps = command
+        .split(['\n', ';', '&', '|'])
+        .map(str::trim)
+        .filter(|step| !step.is_empty());
+    let first_word = |step: &str| step.split_whitespace().next().unwrap_or("").to_owned();
+    if steps.next().map(first_word).as_deref() != Some("sleep") {
+        return false;
+    }
+    steps.all(|step| QUICK_LOOKS.contains(&first_word(step).as_str()))
+}
+
+/// The result of a call that came back with its command still running.
+pub(super) fn yielded_output(
+    id: &str,
+    elapsed: Duration,
+    timeout: Duration,
+    stdout: &str,
+    stderr: &str,
+) -> String {
+    let mut out = format!(
+        "Still running as process {id} after {}; it keeps running (it stops at its {} timeout).",
+        human_duration(elapsed),
+        human_duration(timeout),
+    );
+    out.push_str(&printed(stdout, stderr, "Output so far:", "No output yet."));
+    out.push_str(&format!(
+        "\nFollow it with shell_process {{\"process\": \"{id}\"}} to wait for more output or the \
+         end, or {{\"process\": \"{id}\", \"action\": \"kill\"}} to stop it. Do not start the \
+         command again while it runs."
+    ));
+    out
+}
+
+/// `label` and the non-empty streams, or `empty` when both are empty.
+pub(super) fn printed(stdout: &str, stderr: &str, label: &str, empty: &str) -> String {
+    let (stdout, stderr) = (stdout.trim_end(), stderr.trim_end());
+    if stdout.is_empty() && stderr.is_empty() {
+        return format!(" {empty}");
+    }
+    let mut out = format!(" {label}");
+    if !stdout.is_empty() {
+        out.push_str("\n[stdout]\n");
+        out.push_str(stdout);
+    }
+    if !stderr.is_empty() {
+        out.push_str("\n[stderr]\n");
+        out.push_str(stderr);
+    }
+    out
+}
+
+/// `45s`, `2m 0s`, `1h 5m`.
+pub(super) fn human_duration(duration: Duration) -> String {
+    let secs = duration.as_secs();
+    match secs {
+        0..=59 => format!("{secs}s"),
+        60..=3599 => format!("{}m {}s", secs / 60, secs % 60),
+        _ => format!("{}h {}m", secs / 3600, (secs % 3600) / 60),
+    }
+}
+
+#[cfg(test)]
+#[path = "shell_support_tests.rs"]
+mod tests;

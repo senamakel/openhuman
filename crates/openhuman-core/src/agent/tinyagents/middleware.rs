@@ -33,6 +33,7 @@ pub(crate) mod packed_tool_route;
 pub(crate) mod repeated_failure;
 pub(crate) mod sandbox_requirement;
 pub(crate) mod security_gate;
+pub(crate) mod shell_yield;
 #[cfg(feature = "security-module")]
 pub(crate) mod tinysecurity;
 #[cfg(feature = "security-module")]

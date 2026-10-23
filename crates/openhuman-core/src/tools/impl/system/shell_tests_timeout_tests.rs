@@ -2,6 +2,7 @@
 //! tool's `timeout_secs` (#6953).
 
 use super::*;
+use crate::tools::implementations::system::shell_support::exec_result;
 
 #[cfg(not(windows))]
 fn process_is_running(pid: i32) -> bool {
@@ -40,7 +41,7 @@ async fn exit_124_is_attributed_to_the_commands_own_timeout() {
         "exit 124 not attributed: {out}"
     );
     assert!(
-        out.contains("the shell tool's timeout_secs did not fire"),
+        out.contains("the shell tool's deadline did not fire"),
         "{out}"
     );
 }
@@ -65,7 +66,7 @@ async fn the_tools_own_deadline_says_it_was_timeout_secs() {
     let out = result.output();
     assert!(out.contains("timed out after 1s"), "{out}");
     assert!(
-        out.contains("the shell tool's timeout_secs limit fired"),
+        out.contains("the shell tool's deadline fired"),
         "tool timeout not attributed: {out}"
     );
 }
@@ -152,7 +153,7 @@ fn a_timed_out_result_carries_both_streams_after_the_timeout_line() {
     assert!(result.is_error);
     assert_eq!(
         result.output(),
-        "Command timed out after 1331s and was killed: the shell tool's timeout_secs limit fired. \
+        "Command timed out after 1331s and was killed: the shell tool's deadline fired. \
          Output before the kill:\n[stdout]\ntested 40 positions\nFAIL: e1d2\n[stderr]\nwarning: slow"
     );
 }

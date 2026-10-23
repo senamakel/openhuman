@@ -127,6 +127,8 @@ pub fn all_tools_with_runtime_and_pack_handle(
 
     let mut tools: Vec<Box<dyn Tool>> = vec![
         shell,
+        // Follows a `shell` command left running past its yield point.
+        Box::new(ShellProcessTool::new()),
         Box::new(FileReadTool::new(security.clone())),
         file_write,
         // Coding-harness baseline tools (issue #1205): file navigation

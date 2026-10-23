@@ -209,6 +209,7 @@ named = [
     "apply_patch",
     "file_write",
     "shell",
+    "shell_process",
     "git_operations",
     # Versioned artifact surface (vendor/tiny-artifacts): every document the
     # agent creates must land in the artifact pipeline — versioned JSON record

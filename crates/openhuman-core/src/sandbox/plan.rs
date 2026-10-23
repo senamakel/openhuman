@@ -156,6 +156,7 @@ impl BoxPlan {
             read_only,
             read_write,
             allow_net: !matches!(network, NetworkPolicy::Denied),
+            network_allowlist: None,
             allow_subprocess: !artifact
                 .constraints
                 .contains(&SandboxConstraint2::Subprocesses),
@@ -208,6 +209,7 @@ impl BoxPlan {
                 read_only: Vec::new(),
                 read_write: Vec::new(),
                 allow_net: true,
+                network_allowlist: None,
                 allow_subprocess: true,
                 enforcement: JailEnforcement::Declared,
                 require_process_isolation: false,

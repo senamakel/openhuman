@@ -17,8 +17,8 @@ const TURN_SAMPLES: usize = 200;
 pub(crate) struct NativeFixture {
     pub(crate) _fixtures: tempfile::TempDir,
     pub(crate) acting: tempfile::TempDir,
-    pub(crate) host: ModuleHost,
-    pub(crate) _broker_task: tokio::task::JoinHandle<tinybus::Result<()>>,
+    pub(crate) host: Option<Arc<ModuleHost>>,
+    pub(crate) _broker_task: Option<tokio::task::JoinHandle<tinybus::Result<()>>>,
     pub(crate) proxy: tinybus::Proxy,
     pub(crate) client: Connection,
     pub(crate) record: super::super::ModuleRecord,
@@ -27,7 +27,28 @@ pub(crate) struct NativeFixture {
     // Keep the process-global TinySecurity module bus name reserved until all
     // fixture-owned module state has been dropped. This is last so it drops
     // after `host` and the broker task.
-    _module_name_guard: tokio::sync::OwnedMutexGuard<()>,
+    _module_name_guard: Option<tokio::sync::OwnedMutexGuard<()>>,
+}
+
+impl Drop for NativeFixture {
+    fn drop(&mut self) {
+        let (Some(host), Some(broker_task), Some(module_name_guard)) = (
+            self.host.take(),
+            self._broker_task.take(),
+            self._module_name_guard.take(),
+        ) else {
+            return;
+        };
+        let cleanup = async move {
+            host.shutdown(std::time::Duration::from_secs(2)).await;
+            broker_task.abort();
+            let _ = broker_task.await;
+            drop(module_name_guard);
+        };
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            runtime.spawn(cleanup);
+        }
+    }
 }
 
 fn module_name_lock() -> std::sync::Arc<tokio::sync::Mutex<()>> {
@@ -193,13 +214,13 @@ pub(crate) async fn native_fixture_configured(
     NativeFixture {
         _fixtures: fixtures,
         acting,
-        host,
-        _broker_task: broker_task,
+        host: Some(host),
+        _broker_task: Some(broker_task),
         proxy,
         client,
         record,
         transport,
-        _module_name_guard: module_name_guard,
+        _module_name_guard: Some(module_name_guard),
     }
 }
 

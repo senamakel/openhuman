@@ -191,6 +191,11 @@ impl VerdictSource for ModuleVerdicts {
                         })?;
                 let scan =
                     crate::skills::runtime::skill_scan::scan_workflow(&workflow, source.as_ref())?;
+                ctx.data.record_workflow_scan_permit(
+                    workflow_id,
+                    call.arguments.get("inputs").unwrap_or(&serde_json::Value::Null),
+                    &scan.bundle_sha256,
+                );
                 checks.push(Check::SkillScan {
                     verdict: match scan.verdict {
                         tinyskills::Verdict::Pass => SkillScanVerdict::Pass,

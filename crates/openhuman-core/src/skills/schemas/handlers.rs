@@ -170,7 +170,7 @@ pub(super) fn handle_skills_run(ctx: DispatchCtx, params: Map<String, Value>) ->
             .unwrap_or(crate::security::turn_origin::AgentTurnOrigin::Cli);
         let started = match crate::security::turn_origin::with_origin(
             origin.clone(),
-            spawn_workflow_run_background(&ctx, payload.workflow_id, payload.inputs, Some(origin)),
+            spawn_workflow_run_background(&ctx, payload.workflow_id, payload.inputs, Some(origin), None),
         )
         .await
         {

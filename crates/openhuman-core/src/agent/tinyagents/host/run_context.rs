@@ -413,6 +413,17 @@ impl OpenHumanRunContext {
         true
     }
 
+    pub(crate) fn take_workflow_scan_permit_digest(
+        &self,
+        workflow_id: &str,
+        inputs: &serde_json::Value,
+    ) -> Option<String> {
+        let inputs = serde_json::to_string(inputs).ok()?;
+        let mut permits = self.workflow_scan_permits.lock().unwrap_or_else(|p| p.into_inner());
+        let index = permits.iter().rposition(|(id, args, _)| id == workflow_id && args == &inputs)?;
+        Some(permits.remove(index).2)
+    }
+
     /// Pins the harness tool dialect to the one the session prompt speaks.
     #[must_use]
     pub(crate) fn with_tool_dialect(

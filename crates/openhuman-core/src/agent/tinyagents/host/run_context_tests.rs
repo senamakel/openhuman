@@ -17,6 +17,16 @@ fn workflow_scan_permits_bind_workflow_inputs_and_are_single_use() {
 }
 
 #[test]
+fn workflow_scan_permit_returns_the_bound_digest_once() {
+    let host = OpenHumanRunContext::new();
+    let inputs = serde_json::json!({"target": "repo"});
+    host.record_workflow_scan_permit("workflow", &inputs, "digest-a");
+
+    assert_eq!(host.take_workflow_scan_permit_digest("workflow", &inputs).as_deref(), Some("digest-a"));
+    assert_eq!(host.take_workflow_scan_permit_digest("workflow", &inputs), None);
+}
+
+#[test]
 fn converts_explicit_values_to_the_canonical_tinyagents_context() {
     let cancellation = tinyagents_harness::cancel::CancellationToken::new();
     let workspace = tinytools::WorkspaceDescriptor::new("/work/action");

@@ -96,6 +96,23 @@ pub(crate) struct HostOperationContext {
     pub(crate) core: Option<std::sync::Weak<crate::core::runtime::CoreContext>>,
 }
 
+/// Consume the scan snapshot admitted for one workflow invocation. Direct
+/// controller calls have no agent run and therefore no approval permit.
+pub(crate) fn take_workflow_scan_permit_for_tool(
+    context: Option<&dyn tinytools::ToolRunContext>,
+    workflow_id: &str,
+    inputs: &serde_json::Value,
+) -> Option<String> {
+    let host = context?
+        .host_extension()?
+        .downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()?
+        .state::<HostOperationContext>()?;
+    let inputs = serde_json::to_string(inputs).ok()?;
+    let mut permits = host.workflow_scan_permits.lock().unwrap_or_else(|p| p.into_inner());
+    let index = permits.iter().rposition(|(id, args, _)| id == workflow_id && args == &inputs)?;
+    Some(permits.remove(index).2)
+}
+
 /// The dispatch context of the run a tool executes in, from the explicit tool
 /// carrier. Direct tool dispatch (CLI, JSON-RPC, tests) has no run, so it
 /// answers with the calling task's own context, which is what such a call has

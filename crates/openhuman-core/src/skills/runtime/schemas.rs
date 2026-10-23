@@ -273,7 +273,13 @@ fn handle_run(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture 
             .unwrap_or(crate::security::turn_origin::AgentTurnOrigin::Cli);
         let started = crate::security::turn_origin::with_origin(
             origin.clone(),
-            spawn_workflow_run_background(&ctx, payload.skill_id, payload.inputs, Some(origin), None),
+            spawn_workflow_run_background(
+                &ctx,
+                payload.skill_id,
+                payload.inputs,
+                Some(origin),
+                None,
+            ),
         )
         .await?;
         to_json(Outcome::new(

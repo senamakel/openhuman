@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 use tinybus::{broker::Broker, module::ModuleHost, transport::memory::MemoryBus, Connection};
 use tinysecurity_bus::{PathAccess, PathPolicy, PathTrustedRoot, PathValidationResult};
 
@@ -28,6 +29,19 @@ pub(crate) struct NativeFixture {
     // fixture-owned module state has been dropped. This is last so it drops
     // after `host` and the broker task.
     _module_name_guard: Option<tokio::sync::OwnedMutexGuard<()>>,
+}
+
+impl NativeFixture {
+    async fn shutdown(&mut self, timeout: Duration) {
+        if let Some(host) = self.host.take() {
+            host.shutdown(timeout).await;
+        }
+        if let Some(broker_task) = self._broker_task.take() {
+            broker_task.abort();
+            let _ = broker_task.await;
+        }
+        self._module_name_guard.take();
+    }
 }
 
 impl Drop for NativeFixture {
@@ -229,7 +243,7 @@ pub(crate) async fn native_fixture_configured(
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "native-security-tests")]
 async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
-    let fixture = native_fixture().await;
+    let mut fixture = native_fixture().await;
     let proxy = fixture.proxy.clone();
     let root = fixture.acting.path().canonicalize().unwrap();
     let action = root.join("action");
@@ -430,7 +444,7 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
             pct(&per_call, 0.99)
         );
     }
-    host.shutdown(Duration::from_secs(1)).await;
+    fixture.shutdown(Duration::from_secs(1)).await;
     assert!(
         call_validate_path(
             &proxy,
@@ -442,7 +456,6 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
         .is_err(),
         "stopped module must refuse validation without an in-process fallback"
     );
-    broker_task.abort();
 }
 
 #[cfg(unix)]

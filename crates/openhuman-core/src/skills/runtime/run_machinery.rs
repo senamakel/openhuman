@@ -58,14 +58,9 @@ pub async fn spawn_workflow_run_background(
 
     // Scan before any workflow instructions or resources reach the orchestrator.
     let scan = super::skill_scan::scan_workflow(&skill, scan_source.as_ref())?;
-    if scan.verdict == tinyskills::Verdict::Block {
-        return Err("workflow_run: workflow scan blocked this bundle".into());
-    }
-    if let Some(approved_digest) = approved_scan_digest.as_deref() {
-        if approved_digest != scan.bundle_sha256 {
-            return Err("workflow_run: bundle changed after its security scan approval".into());
-        }
-    } else if let Some(reason) = super::skill_scan::unapproved_scan_refusal(&scan) {
+    if let Some(reason) =
+        super::skill_scan::scan_approval_refusal(&scan, approved_scan_digest.as_deref())
+    {
         return Err(format!("workflow_run: {reason}"));
     }
 

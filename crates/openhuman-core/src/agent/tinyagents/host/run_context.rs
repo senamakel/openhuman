@@ -393,8 +393,12 @@ impl OpenHumanRunContext {
         inputs: &serde_json::Value,
         digest: &str,
     ) {
-        let Ok(inputs) = serde_json::to_string(inputs) else { return };
-        self.workflow_scan_permits.lock().unwrap_or_else(|p| p.into_inner())
+        let Ok(inputs) = serde_json::to_string(inputs) else {
+            return;
+        };
+        self.workflow_scan_permits
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
             .push((workflow_id.to_owned(), inputs, digest.to_owned()));
     }
 
@@ -404,11 +408,19 @@ impl OpenHumanRunContext {
         inputs: &serde_json::Value,
         digest: &str,
     ) -> bool {
-        let Ok(inputs) = serde_json::to_string(inputs) else { return false };
-        let mut permits = self.workflow_scan_permits.lock().unwrap_or_else(|p| p.into_inner());
-        let Some(index) = permits.iter().position(|(id, args, hash)|
-            id == workflow_id && args == &inputs && hash == digest
-        ) else { return false };
+        let Ok(inputs) = serde_json::to_string(inputs) else {
+            return false;
+        };
+        let mut permits = self
+            .workflow_scan_permits
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let Some(index) = permits
+            .iter()
+            .position(|(id, args, hash)| id == workflow_id && args == &inputs && hash == digest)
+        else {
+            return false;
+        };
         permits.remove(index);
         true
     }
@@ -419,8 +431,13 @@ impl OpenHumanRunContext {
         inputs: &serde_json::Value,
     ) -> Option<String> {
         let inputs = serde_json::to_string(inputs).ok()?;
-        let mut permits = self.workflow_scan_permits.lock().unwrap_or_else(|p| p.into_inner());
-        let index = permits.iter().rposition(|(id, args, _)| id == workflow_id && args == &inputs)?;
+        let mut permits = self
+            .workflow_scan_permits
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let index = permits
+            .iter()
+            .rposition(|(id, args, _)| id == workflow_id && args == &inputs)?;
         Some(permits.remove(index).2)
     }
 

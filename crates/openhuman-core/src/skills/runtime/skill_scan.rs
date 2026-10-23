@@ -55,6 +55,23 @@ pub(crate) fn unapproved_scan_refusal(snapshot: &SkillScanSnapshot) -> Option<&'
     }
 }
 
+/// Reject blocked bundles and bind any approval to the precise scanned bytes.
+pub(crate) fn scan_approval_refusal(
+    snapshot: &SkillScanSnapshot,
+    approved_digest: Option<&str>,
+) -> Option<&'static str> {
+    if snapshot.verdict == Verdict::Block {
+        return Some("workflow scan blocked this bundle");
+    }
+    if approved_digest.is_some_and(|digest| digest != snapshot.bundle_sha256) {
+        return Some("workflow bundle changed after security approval");
+    }
+    if snapshot.verdict == Verdict::Warn && approved_digest.is_none() {
+        return Some("workflow scan warning requires human approval");
+    }
+    None
+}
+
 /// Scan the document and resources and bind the result to their exact content.
 pub(crate) fn scan_bundle_snapshot(
     document: &str,

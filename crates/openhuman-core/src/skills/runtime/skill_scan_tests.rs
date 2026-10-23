@@ -1,4 +1,4 @@
-use super::skill_scan::{scan_bundle_snapshot, unapproved_scan_refusal};
+use super::skill_scan::{scan_approval_refusal, scan_bundle_snapshot, unapproved_scan_refusal};
 use super::*;
 use tinyskills::Verdict as ScanVerdict;
 
@@ -45,6 +45,36 @@ fn only_a_clean_scan_can_run_without_a_security_approval() {
     );
     assert_eq!(
         unapproved_scan_refusal(&blocked),
+        Some("workflow scan blocked this bundle")
+    );
+}
+
+#[test]
+fn workflow_scan_approval_is_bound_to_the_approved_bundle_digest() {
+    let warning = scan_bundle_snapshot(
+        "ordinary workflow text",
+        &[("scripts/runner.exe", "executable resource")],
+    );
+    let changed = scan_bundle_snapshot(
+        "ordinary workflow text",
+        &[("scripts/runner.exe", "changed executable resource")],
+    );
+    let blocked = scan_bundle_snapshot("text\u{200b}with invisible control", &[]);
+
+    assert_eq!(
+        scan_approval_refusal(&warning, None),
+        Some("workflow scan warning requires human approval")
+    );
+    assert_eq!(
+        scan_approval_refusal(&warning, Some(warning.bundle_sha256.as_str())),
+        None
+    );
+    assert_eq!(
+        scan_approval_refusal(&changed, Some(warning.bundle_sha256.as_str())),
+        Some("workflow bundle changed after security approval")
+    );
+    assert_eq!(
+        scan_approval_refusal(&blocked, Some(blocked.bundle_sha256.as_str())),
         Some("workflow scan blocked this bundle")
     );
 }

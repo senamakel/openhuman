@@ -22,8 +22,15 @@ fn workflow_scan_permit_returns_the_bound_digest_once() {
     let inputs = serde_json::json!({"target": "repo"});
     host.record_workflow_scan_permit("workflow", &inputs, "digest-a");
 
-    assert_eq!(host.take_workflow_scan_permit_digest("workflow", &inputs).as_deref(), Some("digest-a"));
-    assert_eq!(host.take_workflow_scan_permit_digest("workflow", &inputs), None);
+    assert_eq!(
+        host.take_workflow_scan_permit_digest("workflow", &inputs)
+            .as_deref(),
+        Some("digest-a")
+    );
+    assert_eq!(
+        host.take_workflow_scan_permit_digest("workflow", &inputs),
+        None
+    );
 }
 
 #[test]

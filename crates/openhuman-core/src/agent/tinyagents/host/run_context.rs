@@ -729,3 +729,7 @@ impl OpenHumanRunContext {
 #[cfg(test)]
 #[path = "run_context_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "run_context_workflow_scan_tests.rs"]
+mod workflow_scan_tests;

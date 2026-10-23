@@ -46,7 +46,7 @@ if [[ "$(uname -s)" == Linux ]]; then
   if [[ -z "${OPENHUMAN_TEST_TINYCOMPUTER_MODULE:-}" ]]; then
     (
       cd -- "$computer_dir"
-      bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinycomputer --features test-connector
+      bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinycomputer
     )
     strip --strip-debug "$computer_module"
   fi

@@ -11,6 +11,7 @@ use tinysecurity_bus::{PathAccess, PathPolicy, PathTrustedRoot, PathValidationRe
 /// run it with the rest of `modules::security` only through the native lane.
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "native-security-tests")]
+#[ignore = "the process-wide native module runtime must run in isolation"]
 async fn production_client_registers_and_checks_a_path_policy_on_the_released_archive() {
     let _module_name_guard = super::native_tests::lock_module_name().await;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/tmp");
@@ -71,6 +72,7 @@ async fn production_client_registers_and_checks_a_path_policy_on_the_released_ar
 /// `redact_blocking`, and a call with no time to run fails closed.
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "native-security-tests")]
+#[ignore = "the process-wide native module runtime must run in isolation"]
 async fn sync_seam_redacts_through_the_released_archive_from_inside_and_outside_a_runtime() {
     let _module_name_guard = super::native_tests::lock_module_name().await;
     let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/tmp");
@@ -139,6 +141,7 @@ async fn sync_seam_redacts_through_the_released_archive_from_inside_and_outside_
 /// traits do.
 #[cfg(feature = "native-security-tests")]
 #[test]
+#[ignore = "the process-wide native module runtime must run in isolation"]
 fn production_client_gates_shell_and_network_on_the_released_archive() {
     // The debug-only released-module path has a deep async call chain. The
     // Windows test harness gives its test thread a much smaller default stack
@@ -283,6 +286,7 @@ async fn production_client_gates_shell_and_network_on_the_released_archive_inner
 /// `security_crypto` fixture tests.
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "native-security-tests")]
+#[ignore = "the process-wide native module runtime must run in isolation"]
 async fn production_keyring_is_denied_and_creates_no_store_on_the_released_archive() {
     let _consent_test_guard = crypto::KEYRING_CONSENT_TEST_LOCK.lock().await;
     let _module_name_guard = super::native_tests::lock_module_name().await;

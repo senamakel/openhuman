@@ -340,7 +340,7 @@ impl Tool for RunWorkflowTool {
         };
         let inputs = args.get("inputs").cloned();
         let permit_inputs = inputs.clone().unwrap_or(serde_json::Value::Null);
-        let approved_scan_digest = crate::agent::tinyagents::host::operation_context::take_workflow_scan_permit_for_tool(
+        let approved_scan_digest = crate::agent::tinyagents::host::take_workflow_scan_permit_for_tool(
             context,
             &workflow_id,
             &permit_inputs,

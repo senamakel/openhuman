@@ -43,6 +43,7 @@ pub use bundle::{
     OpenHumanHostInvocationInputs,
 };
 pub(crate) use copy::OpenHumanCopyProvider;
+pub(crate) use operation_context::take_workflow_scan_permit_for_tool;
 pub use definition_registry::OpenHumanDefinitionRegistry;
 pub use run_context::{
     decide_dispatch, DispatchDecision, DispatchInputs, LastTurnUsage, OpenHumanRunContext,

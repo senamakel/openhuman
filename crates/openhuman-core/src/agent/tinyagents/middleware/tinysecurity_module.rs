@@ -26,9 +26,10 @@ use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinysecurity_bus::{
-    AccessTier, CallerContext, Check, DenialReason, Origin, SkillScanVerdict, ToolCall,
-    ToolPermission, Verdict,
+    AccessTier, CallerContext, Check, DenialReason, Origin, ToolCall, ToolPermission, Verdict,
 };
+#[cfg(feature = "skills")]
+use tinysecurity_bus::SkillScanVerdict;
 use tinytools::{PermissionLevel, Tool};
 
 use super::approval::{approval_tool_name, ApprovalSecurityMiddleware};

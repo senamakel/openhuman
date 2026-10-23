@@ -422,12 +422,9 @@ impl OpenHumanRunContext {
             .workflow_scan_permits
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        let Some(index) = permits
-            .iter()
-            .position(|(id, args, call, hash)| {
-                id == workflow_id && args == &inputs && call == call_id && hash == digest
-            })
-        else {
+        let Some(index) = permits.iter().position(|(id, args, call, hash)| {
+            id == workflow_id && args == &inputs && call == call_id && hash == digest
+        }) else {
             return false;
         };
         permits.remove(index);
@@ -445,11 +442,9 @@ impl OpenHumanRunContext {
             .workflow_scan_permits
             .lock()
             .unwrap_or_else(|p| p.into_inner());
-        let index = permits
-            .iter()
-            .rposition(|(id, args, call, _)| {
-                id == workflow_id && args == &inputs && call == call_id
-            })?;
+        let index = permits.iter().rposition(|(id, args, call, _)| {
+            id == workflow_id && args == &inputs && call == call_id
+        })?;
         Some(permits.remove(index).3)
     }
 

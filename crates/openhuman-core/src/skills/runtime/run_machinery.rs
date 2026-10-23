@@ -139,10 +139,9 @@ pub async fn spawn_workflow_run_background(
     // before its prompt is exposed to the spawned agent so a changed resource
     // cannot ride an earlier approval.
     let exposure_scan = super::skill_scan::scan_workflow(&skill, scan_source.as_ref())?;
-    if let Some(reason) = super::skill_scan::scan_approval_refusal(
-        &exposure_scan,
-        approved_scan_digest.as_deref(),
-    ) {
+    if let Some(reason) =
+        super::skill_scan::scan_approval_refusal(&exposure_scan, approved_scan_digest.as_deref())
+    {
         return Err(format!("workflow_run: {reason}"));
     }
 

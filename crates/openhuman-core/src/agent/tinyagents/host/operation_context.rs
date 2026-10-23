@@ -106,8 +106,7 @@ pub(crate) fn take_workflow_scan_permit_for_tool(
 ) -> Option<String> {
     let execution = context?
         .host_extension()?
-        .downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()?
-        ;
+        .downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()?;
     let host = execution.state::<HostOperationContext>()?;
     let call_id = execution.call_id.to_string();
     let inputs = serde_json::to_string(inputs).ok()?;
@@ -115,11 +114,9 @@ pub(crate) fn take_workflow_scan_permit_for_tool(
         .workflow_scan_permits
         .lock()
         .unwrap_or_else(|p| p.into_inner());
-    let index = permits
-        .iter()
-        .rposition(|(id, args, call, _)| {
-            id == workflow_id && args == &inputs && call == &call_id
-        })?;
+    let index = permits.iter().rposition(|(id, args, call, _)| {
+        id == workflow_id && args == &inputs && call == &call_id
+    })?;
     Some(permits.remove(index).3)
 }
 

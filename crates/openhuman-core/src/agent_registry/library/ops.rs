@@ -86,7 +86,7 @@ fn direct_tool_names(def: &AgentDefinition) -> Vec<String> {
             names.push(tool.clone());
         }
     }
-    names.retain(|name| !def.disallowed_tools.contains(name));
+    names.retain(|name| !crate::tools::rules::glob_list_matches(&def.disallowed_tools, name));
     names.sort();
     names
 }

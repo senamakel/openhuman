@@ -75,7 +75,7 @@ pub(crate) fn task_recency_window_for_tool(
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HostOperationContext {
     pub(crate) workflow_scan_permits:
-        std::sync::Arc<std::sync::Mutex<Vec<(String, String, String)>>>,
+        std::sync::Arc<std::sync::Mutex<Vec<(String, String, String, String)>>>,
     pub(crate) origin: Option<AgentTurnOrigin>,
     /// Where this run's approvals are surfaced; see
     /// [`OpenHumanRunContext::approval`](super::OpenHumanRunContext::approval).
@@ -104,10 +104,12 @@ pub(crate) fn take_workflow_scan_permit_for_tool(
     workflow_id: &str,
     inputs: &serde_json::Value,
 ) -> Option<String> {
-    let host = context?
+    let execution = context?
         .host_extension()?
         .downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()?
-        .state::<HostOperationContext>()?;
+        ;
+    let host = execution.state::<HostOperationContext>()?;
+    let call_id = execution.call_id.to_string();
     let inputs = serde_json::to_string(inputs).ok()?;
     let mut permits = host
         .workflow_scan_permits
@@ -115,8 +117,10 @@ pub(crate) fn take_workflow_scan_permit_for_tool(
         .unwrap_or_else(|p| p.into_inner());
     let index = permits
         .iter()
-        .rposition(|(id, args, _)| id == workflow_id && args == &inputs)?;
-    Some(permits.remove(index).2)
+        .rposition(|(id, args, call, _)| {
+            id == workflow_id && args == &inputs && call == &call_id
+        })?;
+    Some(permits.remove(index).3)
 }
 
 /// The dispatch context of the run a tool executes in, from the explicit tool

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Build TinySecurity and exercise the authenticated browser-dial host callbacks
-# against that native module.
+# against that native module. TinyComputer's module CI owns the public-socket
+# control because its fixture connector is only present on the epic branch.
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -60,9 +61,4 @@ if [[ "$(uname -s)" == Linux ]]; then
       modules::browser_egress_host::tests::loaded_tinycomputer_uses_tinysecurity_to_block_loopback_dials \
       -- --ignored --exact
 
-  OPENHUMAN_TEST_TINYCOMPUTER_MODULE="$computer_module" \
-    bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib \
-      --no-default-features --features modules,security-module,native-security-tests,legacy-import,storage-sqlite,secret-file \
-      modules::browser_egress_host::tests::loaded_tinycomputer_uses_tinysecurity_to_allow_one_public_socket \
-      -- --ignored --exact
 fi

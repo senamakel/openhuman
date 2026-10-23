@@ -609,6 +609,19 @@ async fn verify_host_translation(proxy: &tinybus::Proxy, root: &std::path::Path)
     ));
 }
 
+/// A released test module must not remain live on its broker after its fixture
+/// drops, otherwise later fixtures can share process-owned native state.
+#[tokio::test(flavor = "multi_thread")]
+#[cfg(feature = "native-security-tests")]
+async fn dropping_a_native_fixture_releases_the_module_before_the_next_load() {
+    let first = native_fixture().await;
+    drop(first);
+
+    // Loading the same cdylib again must produce a fresh attested recipient,
+    // not a still-running module or broker from the previous fixture.
+    let _second = native_fixture().await;
+}
+
 /// A tampered archive digest must be refused at admission, before any code runs.
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "native-security-tests")]

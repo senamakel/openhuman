@@ -229,18 +229,9 @@ pub(crate) async fn native_fixture_configured(
 #[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "native-security-tests")]
 async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
-    let NativeFixture {
-        _fixtures,
-        acting,
-        host,
-        _broker_task: broker_task,
-        proxy,
-        record: _,
-        client: _,
-        transport: _,
-        _module_name_guard,
-    } = native_fixture().await;
-    let root = acting.path().canonicalize().unwrap();
+    let fixture = native_fixture().await;
+    let proxy = fixture.proxy.clone();
+    let root = fixture.acting.path().canonicalize().unwrap();
     let action = root.join("action");
     std::fs::create_dir(&action).unwrap();
     std::fs::write(action.join("readable.txt"), "fixture").unwrap();

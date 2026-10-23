@@ -49,6 +49,10 @@ test("native browser egress fixture runs security and opt-in Chromium tests", ()
   const calls = readFileSync(log, "utf8");
   assert.match(calls, /cargo build -p tinysecurity-module/);
   assert.doesNotMatch(calls, /cargo build -p tinycomputer/);
+  assert.match(
+    readFileSync(fixture, "utf8"),
+    /strip --strip-debug "\$computer_module"/,
+  );
   assert.match(calls, /cargo test -p openhuman --lib/);
   assert.match(calls, /--features[^\n]*native-security-tests/);
   const invocations = calls.split("\n");

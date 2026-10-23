@@ -48,6 +48,7 @@ if [[ "$(uname -s)" == Linux ]]; then
       cd -- "$computer_dir"
       bash "$repo_root/scripts/ci-cancel-aware.sh" cargo build -p tinycomputer --features test-connector
     )
+    strip --strip-debug "$computer_module"
   fi
   test -f "$computer_module" || {
     echo "TinyComputer module artifact was not produced: $computer_module" >&2

@@ -162,6 +162,8 @@ pub use dispatch_control::{decide_dispatch, DispatchDecision, DispatchInputs, Tu
 /// the provider route or cost roll-up subsequently read by its parent.
 #[derive(Clone)]
 pub struct OpenHumanRunContext {
+    /// Single-use authorization snapshots for workflows admitted in this run.
+    pub(crate) workflow_scan_permits: Arc<Mutex<Vec<(String, String, String)>>>,
     /// Explicit shared model-call budget inherited by synchronous children.
     pub model_budget: Option<super::super::budget::ModelBudget>,
     /// Host admission policy shared by this run and its synchronous descendants.
@@ -335,6 +337,7 @@ impl OpenHumanRunContext {
     /// actually owns; `None` is an explicit absence, not an ambient fallback.
     pub fn new() -> Self {
         Self {
+            workflow_scan_permits: Arc::new(Mutex::new(Vec::new())),
             model_budget: None,
             dispatch_admission: None,
             response_shape: None,
@@ -382,6 +385,32 @@ impl OpenHumanRunContext {
             tool_dialect: tinyagents_harness::config::ToolDispatcher::Auto,
             memory_turn: None,
         }
+    }
+
+    pub(crate) fn record_workflow_scan_permit(
+        &self,
+        workflow_id: &str,
+        inputs: &serde_json::Value,
+        digest: &str,
+    ) {
+        let Ok(inputs) = serde_json::to_string(inputs) else { return };
+        self.workflow_scan_permits.lock().unwrap_or_else(|p| p.into_inner())
+            .push((workflow_id.to_owned(), inputs, digest.to_owned()));
+    }
+
+    pub(crate) fn take_workflow_scan_permit(
+        &self,
+        workflow_id: &str,
+        inputs: &serde_json::Value,
+        digest: &str,
+    ) -> bool {
+        let Ok(inputs) = serde_json::to_string(inputs) else { return false };
+        let mut permits = self.workflow_scan_permits.lock().unwrap_or_else(|p| p.into_inner());
+        let Some(index) = permits.iter().position(|(id, args, hash)|
+            id == workflow_id && args == &inputs && hash == digest
+        ) else { return false };
+        permits.remove(index);
+        true
     }
 
     /// Pins the harness tool dialect to the one the session prompt speaks.

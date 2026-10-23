@@ -605,6 +605,7 @@ impl OpenHumanRunContext {
         let workspace = self.workspace.clone();
         let run_ext = OpenHumanRunExt::from_run_context(&self);
         let host_operations = Arc::new(HostOperationContext {
+            workflow_scan_permits: self.workflow_scan_permits.clone(),
             origin: self.origin.clone(),
             approval: self.approval.clone(),
             sandbox_mode: self.sandbox_mode,

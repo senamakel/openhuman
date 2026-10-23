@@ -53,8 +53,7 @@ const RUN_DOCKER_WITHOUT_WORKSPACE: &str = contract::names::RUN_DOCKER_WITHOUT_W
 const SELECT_SHELL: &str = contract::names::SELECT_SHELL;
 const RESOLVE_LOCAL_GRANTS: &str = contract::names::RESOLVE_LOCAL_GRANTS;
 const START_NATIVE_SHELL_EXEC: &str = contract::names::START_NATIVE_SHELL_EXEC;
-const START_JAILED_EXEC_WITH_RESOURCES: &str =
-    contract::names::START_JAILED_EXEC_WITH_RESOURCES;
+const START_JAILED_EXEC_WITH_RESOURCES: &str = contract::names::START_JAILED_EXEC_WITH_RESOURCES;
 const VALIDATE_DOCKER_POLICY: &str = contract::names::VALIDATE_DOCKER_POLICY;
 const DOCKER_CALL_GRACE: Duration = Duration::from_secs(5);
 

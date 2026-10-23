@@ -83,5 +83,8 @@ fn metadata_projection_applies_case_insensitive_glob_denials() {
 
     let display = metadata_from_definition(&definition);
 
-    assert_eq!(display.direct_tool_names, vec!["file_read", "memory_search"]);
+    assert_eq!(
+        display.direct_tool_names,
+        vec!["file_read", "memory_search"]
+    );
 }

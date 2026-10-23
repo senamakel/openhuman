@@ -1,7 +1,8 @@
 //! Background skill run spawning and outcome polling.
 //!
-//! `spawn_workflow_run_background` is re-used by both the `skills_run`
-//! JSON-RPC controller and the `run_workflow` agent tool (skill chaining).
+//! `spawn_workflow_run_background` is reached through the `run_workflow` tool.
+//! The `skills_run` JSON-RPC controllers dispatch that tool through the same
+//! native security middleware before a workflow can start.
 //! `await_run_outcome` lets the model poll a spawned run's log file for a
 //! terminal result without busy-waiting.
 
@@ -28,10 +29,10 @@ pub struct WorkflowRunStarted {
 }
 
 /// Spawn a single autonomous workflow_run as a detached `tokio::spawn`. Used by
-/// both the `openhuman.skills_run` JSON-RPC controller and the `run_workflow`
-/// agent tool (which lets the orchestrator chain one skill into another —
-/// e.g. `github-issue-crusher` → `pr-review-shepherd` once the draft PR is
-/// open).
+/// the `run_workflow` agent tool (which lets the orchestrator chain one skill
+/// into another — e.g. `github-issue-crusher` → `pr-review-shepherd` once the
+/// draft PR is open). Direct skills controllers invoke that tool through the
+/// native security gate instead of calling this function directly.
 ///
 /// Returns immediately with the run handle; the actual work runs in the
 /// background until DONE / STOPPED / DEGENERATE / FAILED. Errors (unknown skill,

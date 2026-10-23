@@ -18,7 +18,7 @@ const TURN_SAMPLES: usize = 200;
 pub(crate) struct NativeFixture {
     pub(crate) _fixtures: tempfile::TempDir,
     pub(crate) acting: tempfile::TempDir,
-    pub(crate) host: Option<Arc<ModuleHost>>,
+    pub(crate) host: Arc<ModuleHost>,
     pub(crate) _broker_task: Option<tokio::task::JoinHandle<tinybus::Result<()>>>,
     pub(crate) proxy: tinybus::Proxy,
     pub(crate) client: Connection,
@@ -33,9 +33,7 @@ pub(crate) struct NativeFixture {
 
 impl NativeFixture {
     async fn shutdown(&mut self, timeout: Duration) {
-        if let Some(host) = self.host.take() {
-            host.shutdown(timeout).await;
-        }
+        self.host.shutdown(timeout).await;
         if let Some(broker_task) = self._broker_task.take() {
             broker_task.abort();
             let _ = broker_task.await;
@@ -46,13 +44,12 @@ impl NativeFixture {
 
 impl Drop for NativeFixture {
     fn drop(&mut self) {
-        let (Some(host), Some(broker_task), Some(module_name_guard)) = (
-            self.host.take(),
-            self._broker_task.take(),
-            self._module_name_guard.take(),
-        ) else {
+        let (Some(broker_task), Some(module_name_guard)) =
+            (self._broker_task.take(), self._module_name_guard.take())
+        else {
             return;
         };
+        let host = self.host.clone();
         let cleanup = async move {
             host.shutdown(std::time::Duration::from_secs(2)).await;
             broker_task.abort();
@@ -228,7 +225,7 @@ pub(crate) async fn native_fixture_configured(
     NativeFixture {
         _fixtures: fixtures,
         acting,
-        host: Some(host),
+        host: Arc::new(host),
         _broker_task: Some(broker_task),
         proxy,
         client,
@@ -316,12 +313,14 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
         .unwrap(),
         PathValidationResult::Denied { .. }
     ));
-    host.reinitialize(
-        "tinysecurity-module",
-        serde_json::to_value(ModuleConfig::default()).unwrap(),
-    )
-    .await
-    .unwrap();
+    fixture
+        .host
+        .reinitialize(
+            "tinysecurity-module",
+            serde_json::to_value(ModuleConfig::default()).unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(
         valid,
         call_validate_path(

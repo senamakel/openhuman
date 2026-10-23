@@ -598,6 +598,13 @@ the adapter only enforces the tool declaration against the run workspace.
 Remaining Task 13 work is the audit of the remaining posture and deny-list
 surfaces plus the full approval UI and cross-path verification.
 
+**Deny-list projection audit (2026-10-23):** the agent-library metadata
+projection now uses `tools::rules::glob_list_matches`, matching runtime
+`disallowed_tools` semantics for case-insensitive `*`/`?` patterns. The new
+`WEB_*` regression failed against exact-match filtering and passes with the
+shared matcher. The `ToolPolicyPosture` diagnostic surface and full approval
+UI/cross-path audit remain open.
+
 ## Task 14 — Every untrusted process uses approved TinyBox execution
 
 **Host files:** sandbox/{ops,types,grants,docker}.rs,

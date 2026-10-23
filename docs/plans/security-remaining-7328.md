@@ -706,8 +706,10 @@ path through it.
 host-derived `SkillScan` verdict and bundle digest to contract 1.29. It binds
 the scan identity into approval evaluation, makes `Warn` require a fresh human
 approval even under broad grants or auto-approval, and makes `Block` a hard
-denial. The owner PR's local bus/policy/approval/module checks pass; Linux,
-macOS, Windows and release-latency CI are running. OpenHuman's runtime adapter
+denial. The owner PR's local bus/policy/approval/module checks pass. Its
+contract spec is now accepted and links the implementation plan; the blocking
+review thread is resolved. Exact-head Linux, macOS, Windows and release-latency
+CI are running. OpenHuman's runtime adapter
 is in progress on draft PR #7331: the workflow registry now returns the
 discovered bundle beside its runnable definition, the host hashes and scans the
 prompt plus bounded resources, and `run_workflow` sends a host-derived
@@ -736,11 +738,10 @@ worker/direct-socket confinement and cross-platform acceptance.
 
 **TinyComputer handshake follow-up (2026-10-23):** upstream PR
 [#159](https://github.com/tinyhumansai/tinycomputer/pull/159) adds focused
-transport-class coverage for the `/socket` WebSocket upgrade headers. The
-current head passes the module test, coverage, formatting, Clippy, docs, MSRV,
-supply-chain and Ubuntu feature-test jobs. Windows/macOS feature tests and
-cross-platform module E2E jobs are still running. This test improvement does
-not close TinyComputer #111 or replace its controlled-DNS and native
+transport-class coverage for the `/socket` WebSocket upgrade headers. It
+merged at `370d0e12affb92f065e9a0b8608564e8a374e8a9` after all 20 checks passed,
+including Windows and macOS feature tests and module E2E. This test improvement
+does not close TinyComputer #111 or replace its controlled-DNS and native
 confinement acceptance.
 
 The consequence gate still lacks a trusted host caller context: the module

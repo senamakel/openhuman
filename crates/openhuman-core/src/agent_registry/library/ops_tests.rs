@@ -75,3 +75,13 @@ fn metadata_projection_omits_prompt_and_paths() {
     assert!(json.get("system_prompt").is_none());
     assert!(json.get("prompt").is_none());
 }
+
+#[test]
+fn metadata_projection_applies_case_insensitive_glob_denials() {
+    let mut definition = definition();
+    definition.disallowed_tools = vec!["WEB_*".to_string()];
+
+    let display = metadata_from_definition(&definition);
+
+    assert_eq!(display.direct_tool_names, vec!["file_read", "memory_search"]);
+}

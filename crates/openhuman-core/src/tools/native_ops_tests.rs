@@ -222,7 +222,8 @@ async fn direct_tool_dispatch_preserves_its_host_turn_origin_through_the_gate() 
         module.clone(),
     )));
     let resolver = Arc::new(ApprovalSecurityMiddleware::new(vec![tools.clone()]));
-    let context = OpenHumanRunContext::new().with_origin(crate::security::turn_origin::AgentTurnOrigin::Cli);
+    let context =
+        OpenHumanRunContext::new().with_origin(crate::security::turn_origin::AgentTurnOrigin::Cli);
 
     run_gated_with_context(
         &tools,
@@ -237,5 +238,8 @@ async fn direct_tool_dispatch_preserves_its_host_turn_origin_through_the_gate() 
 
     let origins = module.origins.lock().unwrap();
     assert_eq!(origins.len(), 1);
-    assert!(matches!(origins[0], Some(crate::security::turn_origin::AgentTurnOrigin::Cli)));
+    assert!(matches!(
+        origins[0],
+        Some(crate::security::turn_origin::AgentTurnOrigin::Cli)
+    ));
 }

@@ -605,6 +605,16 @@ projection now uses `tools::rules::glob_list_matches`, matching runtime
 shared matcher. The `ToolPolicyPosture` diagnostic surface and full approval
 UI/cross-path audit remain open.
 
+**Posture diagnostic ownership audit (2026-10-23):**
+`tools::registry::posture_from_config` builds `ToolPolicyPosture` only for
+`tool_registry.diagnostics`; the settings diagnostics panel is its only
+consumer, and no middleware reads it for authorization. It is therefore a
+read-only config projection rather than a second policy gate. It still exposes
+only five autonomy fields. Replacing that partial UI payload with the complete
+module policy view, or changing the TinyTools-owned diagnostics contract,
+remains open and requires preserving the existing RPC/UI contract during
+migration.
+
 ## Task 14 — Every untrusted process uses approved TinyBox execution
 
 **Host files:** sandbox/{ops,types,grants,docker}.rs,

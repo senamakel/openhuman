@@ -54,6 +54,41 @@ fn a_signed_in_session_still_authenticates_managed_inference() {
     assert_eq!(bearer, "header.payload.signature");
 }
 
+#[test]
+fn inspection_refuses_the_session_token_on_a_plaintext_remote_endpoint() {
+    use openhuman_embed::__host::config::Config;
+
+    let temp = tempfile::tempdir().expect("temporary selected credential workspace");
+    std::fs::write(
+        temp.path().join("auth-profiles.json"),
+        r#"{"schema_version":1,"active_profiles":{"app-session":"app-session:default"},"profiles":{"app-session:default":{"provider":"app-session","profile_name":"default","kind":"token","token":"inspection-session-token"}}}"#,
+    )
+    .expect("seed selected app-session profile");
+    let config_for = |api_url: &str| Config {
+        workspace_dir: temp.path().to_owned(),
+        action_dir: temp.path().to_owned(),
+        config_path: temp.path().join("config.toml"),
+        api_url: Some(api_url.to_owned()),
+        secrets: {
+            let mut secrets = Config::default().secrets;
+            secrets.encrypt = false;
+            secrets
+        },
+        ..Config::default()
+    };
+
+    let error = managed_bearer_for_inspection(&config_for("http://10.0.0.1:1"))
+        .expect_err("plaintext remote endpoint must not receive the session token");
+    assert!(error.to_string().contains("insecure endpoint"), "{error}");
+    assert!(!error.to_string().contains("inspection-session-token"));
+
+    assert_eq!(
+        managed_bearer_for_inspection(&config_for("http://127.0.0.1:1"))
+            .expect("loopback HTTP stays allowed"),
+        "inspection-session-token"
+    );
+}
+
 static SESSION_EXPIRY_EVENT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[tokio::test]

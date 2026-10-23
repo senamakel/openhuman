@@ -505,3 +505,49 @@ async fn a_captured_import_claim_cannot_write_after_profile_lease_takeover() {
     .unwrap();
     assert_eq!(attempt, Some(()));
 }
+
+/// Another process holding the import claim is reported as `ClaimHeld`, so the
+/// lifecycle does not open (and serve no legacy servers) on this call.
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn a_live_foreign_claim_is_reported_as_claim_held() {
+    use crate::storage::import_state;
+    use std::sync::mpsc;
+
+    let backend = crate::storage::test_support::memory_backend();
+    let _installed =
+        crate::storage::test_support::install_for_test("memory:mcp-claim", Arc::clone(&backend));
+    let ctx = DispatchCtx::host_default();
+    let data_dir = tempfile::tempdir().unwrap();
+    let clients = data_dir.path().join(CLIENTS_DB);
+    std::fs::create_dir_all(clients.parent().unwrap()).unwrap();
+    std::fs::write(&clients, b"").unwrap();
+    let scope = super::super::storage_host::current_module_scope(&ctx, MODULE_ID).unwrap();
+    let repo = crate::storage::documents::Repo::on(
+        &backend,
+        &scope,
+        "storage_import",
+        import_state::collection_specs,
+    )
+    .unwrap();
+    let step = import_state::step_id(MARKER_COLLECTION, &marker_id(data_dir.path()));
+    let (held_tx, held_rx) = mpsc::channel::<()>();
+    let (release_tx, release_rx) = mpsc::channel::<()>();
+    let holder = std::thread::spawn(move || {
+        import_state::with_claim(&repo, import_state::HOST_OWNER, &step, |_| {
+            held_tx.send(()).unwrap();
+            release_rx.recv().unwrap();
+            Ok(())
+        })
+        .unwrap()
+    });
+    held_rx.recv().unwrap();
+
+    let imported = crate::modules::import_legacy_mcp(&ctx, data_dir.path()).await;
+    release_tx.send(()).unwrap();
+    holder.join().unwrap();
+
+    assert!(
+        matches!(imported, Err(crate::modules::LegacyImportError::ClaimHeld)),
+        "{imported:?}"
+    );
+}

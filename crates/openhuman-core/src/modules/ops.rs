@@ -332,6 +332,16 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
             serde_json::json!({ "offered_toolkits": super::connectors::offered_toolkits(config) })
         });
     }
+    // TinyMCP keeps its servers, secrets and audit trail in host storage and
+    // refuses to load without the bus name that serves it. That name is the
+    // storage host's interface, attached before any module loads
+    // ([`super::storage_host::install`]); the host still derives the scope and
+    // grant from the authenticated caller, never from this value.
+    if id == super::storage_grant_schemas::tinymcp::MODULE_ID {
+        return serde_json::json!({
+            "storage_callback": tinystoragedrivers_bus::STORAGE_INTERFACE.to_string()
+        });
+    }
     serde_json::json!({})
 }
 

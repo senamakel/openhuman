@@ -98,6 +98,10 @@ Background work runs under the process default context, which names no agent, an
 
 On a shared backend (MongoDB) other processes may write the same records, so boot-time recovery such as the orphaned-run sweep is skipped (`storage::installed_is_shared`).
 
+### The storage runtime
+
+`storage::open` connects the driver on a process-wide tokio runtime of its own (two `openhuman-storage` worker threads, never shut down). MongoDB's connection-time pool and server-monitor tasks live there and not on the host's runtime. Cleanup tasks registered by later object drops can run on the internal `storage::block_on` runtime instead. Synchronous stores reach the ports through `storage::block_on`, which parks the calling thread; with the backend on the storage runtime, any number of parked callers cannot leave the host runtime without the threads the backend needs to answer them. An embedder that wants this isolation passes its storage as a URL (`StorageSource::Url`) rather than a backend it opened on its own runtime.
+
 ## Drivers and on-disk layout
 
 | Driver             | Where the data lives                                                                                                                                                                                                 |

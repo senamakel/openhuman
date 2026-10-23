@@ -376,12 +376,18 @@ impl McpConfiguredClient {
                     // module's idempotent receipt after a cancelled caller.
                     // Servers and audit rows from before the storage contract
                     // move into the module's storage before it reads them.
-                    // Best effort: a failure is retried at the next open.
-                    let _ = crate::modules::import_legacy_mcp(
-                        &crate::core::runtime::DispatchCtx::ambient(),
-                        std::path::Path::new(&self.data_dir),
-                    )
-                    .await;
+                    // Best effort: a failure is retried at the next open. While
+                    // another process holds the import, opening would serve
+                    // none of the legacy servers, so wait for the next call.
+                    if let Err(crate::modules::LegacyImportError::ClaimHeld) =
+                        crate::modules::import_legacy_mcp(
+                            &crate::core::runtime::DispatchCtx::ambient(),
+                            std::path::Path::new(&self.data_dir),
+                        )
+                        .await
+                    {
+                        return Err(ModuleCallError::Unavailable);
+                    }
                     let reply = self.port.open_configured(&self.data_dir, &config).await;
                     state.open_replied(reply.clone().map_err(|_| ()));
                     reply?;

@@ -353,8 +353,8 @@ pub struct OpenHumanSessionHost {
     /// back the identical `Arc`.
     pub(super) session_history_locator_memo:
         std::sync::OnceLock<std::sync::Arc<dyn tinyagents_session::transcript::TranscriptLocator>>,
-    /// Unique transcript key for this session, formatted as
-    /// `"{unix_ts}_{agent_id}"`. Generated once at agent-build time so
+    /// Transcript key for this session, `{unix_ts}_{token}_{agent}`, unique
+    /// per session host. Generated once at agent-build time so
     /// every transcript write in this session uses the same filename
     /// stem. Sub-agents chain their parent's key into the transcript
     /// directory to produce a hierarchical layout —

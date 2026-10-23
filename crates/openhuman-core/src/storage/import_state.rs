@@ -250,11 +250,35 @@ pub fn with_claim<T>(
     with_claim_ttl(repo, owner, step, CLAIM_TTL_MS, body)
 }
 
+/// Runs `body` under a claim like [`with_claim`], but returns `Ok(None)` at
+/// once when another holder's claim is live instead of polling for up to the
+/// claim TTL. For callers on an async path that retry at their next call.
+pub fn try_claim<T>(
+    repo: &Repo,
+    owner: &str,
+    step: &str,
+    body: impl FnOnce(&WriteCondition) -> Result<T>,
+) -> Result<Option<T>> {
+    claim_waiting(repo, owner, step, CLAIM_TTL_MS, Duration::ZERO, body)
+}
+
 fn with_claim_ttl<T>(
     repo: &Repo,
     owner: &str,
     step: &str,
     ttl_ms: i64,
+    body: impl FnOnce(&WriteCondition) -> Result<T>,
+) -> Result<Option<T>> {
+    let max_wait = Duration::from_millis(CLAIM_TTL_MS.max(0) as u64);
+    claim_waiting(repo, owner, step, ttl_ms, max_wait, body)
+}
+
+fn claim_waiting<T>(
+    repo: &Repo,
+    owner: &str,
+    step: &str,
+    ttl_ms: i64,
+    max_wait: Duration,
     body: impl FnOnce(&WriteCondition) -> Result<T>,
 ) -> Result<Option<T>> {
     let started = Instant::now();
@@ -283,7 +307,7 @@ fn with_claim_ttl<T>(
             }
             return result.map(Some);
         }
-        if started.elapsed() >= Duration::from_millis(CLAIM_TTL_MS.max(0) as u64) {
+        if started.elapsed() >= max_wait {
             return Ok(None);
         }
         std::thread::sleep(WAIT_POLL);

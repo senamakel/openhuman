@@ -58,8 +58,8 @@
   {
     "rule": "openhuman-task-local",
     "path": "crates/openhuman-core/src/cron/scheduler/agent_run.rs",
-    "line": 182,
-    "text": "let turn = crate::security::turn_origin::with_origin(",
+    "line": 286,
+    "text": "crate::security::turn_origin::with_origin(origin, Box::pin(agent.run_single(prompt)));",
     "occurrence": 1
   },
   {

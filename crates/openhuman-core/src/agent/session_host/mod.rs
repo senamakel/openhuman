@@ -24,6 +24,7 @@
 //! | [`driver`]    | OpenHuman model/harness `SessionDriver`.                         |
 //! | [`hooks`]     | Product preparation/commit/terminal hooks.                       |
 //! | [`runtime`]   | Public accessors and `run_single` / `run_interactive`.           |
+//! | [`session_key`] | Minting and renaming the per-host transcript key.              |
 //!
 //! External callers should import [`OpenHumanSessionHost`] and [`SessionHostBuilder`] from
 //! `crate::agent`, which re-exports them from this module.
@@ -45,6 +46,7 @@ mod live_tools;
 mod resume_bound_session_tests;
 mod runtime;
 mod runtime_session;
+mod session_key;
 pub(crate) mod stop_summary;
 mod turn;
 // `pub(crate)` since issue #6014: the tool-call-cap instruction is now appended

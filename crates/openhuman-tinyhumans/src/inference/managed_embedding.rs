@@ -105,6 +105,7 @@ fn build_cloud_model(
             return Ok(key);
         }
         resolve_session_bearer(
+            &key_endpoint,
             &state_dir,
             secrets_encrypt,
             None,

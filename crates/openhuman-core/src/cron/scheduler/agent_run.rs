@@ -4,6 +4,7 @@
 use super::delivery::is_morning_briefing_job;
 use super::failure_classification::classify_agent_anyhow_for_user;
 use super::origin_context::build_run_prompt;
+use super::origin_delivery::{fallback_reminder, is_no_reply, job_allows_no_reply};
 use crate::agent::OpenHumanSessionHost;
 use crate::config::Config;
 use {tinyflows_bus::schedule::types::CronJob, tinyflows_bus::schedule::types::SessionTarget};
@@ -174,30 +175,14 @@ pub(super) async fn run_agent_job_for_run(
                             MORNING_BRIEFING_TASK_RECENCY_SECS,
                         )));
                     }
-                    // Scope the run's origin around the turn. A job with no
-                    // channel origin runs as `TrustedAutomation { Cron }`: the
-                    // approval gate treats it as user-authorized automation
-                    // (the user created the job and authorized its prompt
-                    // together). A job created from a channel chat runs as
-                    // that channel's turn instead, so its external-effect
-                    // tools stay gated like its creator's were.
-                    let origin = crate::cron::origin::turn_origin_for_job_run(job, run_id);
-                    let turn = crate::security::turn_origin::with_origin(
-                        origin,
-                        agent.run_single(&prefixed_prompt),
-                    );
-                    // A host agent's turn runs in its own context, so every
-                    // ambient read (config, domains, tool groups, session
-                    // store) sees that agent rather than the process default.
-                    let turn: std::pin::Pin<
-                        Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>,
-                    > = match context {
-                        Some(context) => {
-                            Box::pin(crate::core::runtime::CoreContext::scope(context, turn))
-                        }
-                        None => Box::pin(turn),
-                    };
-                    turn.await
+                    Box::pin(run_with_corrective_turn(
+                        &mut agent,
+                        context.as_ref(),
+                        job,
+                        run_id,
+                        &prefixed_prompt,
+                    ))
+                    .await
                 }
                 Err(e) => Err(e),
             }
@@ -230,6 +215,88 @@ pub(super) async fn run_agent_job_for_run(
             (false, user_message.to_string(), Some(format!("{e:#}")))
         }
     }
+}
+
+/// The whole prompt of a corrective turn: a delivery request only, never the
+/// job prompt, so an action the first turn took is not asked for again.
+pub(super) const NO_REPLY_CORRECTION: &str = "Your last reply was NO_REPLY, which is not allowed for this task. Write the message to send to the user now. Do not call tools or repeat any action.";
+
+/// Run the scheduled turn. A job that must deliver and answers `NO_REPLY`
+/// (or nothing) gets one corrective turn; if that still yields no message the
+/// host's fallback reminder is the run's output.
+async fn run_with_corrective_turn(
+    agent: &mut OpenHumanSessionHost,
+    context: Option<&std::sync::Arc<crate::core::runtime::CoreContext>>,
+    job: &CronJob,
+    run_id: &str,
+    prompt: &str,
+) -> anyhow::Result<String> {
+    let response = Box::pin(run_cron_turn(agent, context, job, run_id, prompt)).await?;
+    if job_allows_no_reply(job) || !needs_correction(&response) {
+        return Ok(response);
+    }
+    tracing::info!(
+        job_id = %job.id,
+        run_id = %run_id,
+        "[cron] run answered NO_REPLY but the job must deliver; running a corrective turn"
+    );
+    agent.set_next_turn_overrides(crate::agent::session_host::TurnOverrides {
+        suppress_tools: true,
+        ..Default::default()
+    });
+    let response = Box::pin(run_cron_turn(
+        agent,
+        context,
+        job,
+        run_id,
+        NO_REPLY_CORRECTION,
+    ))
+    .await?;
+    if !needs_correction(&response) {
+        return Ok(response);
+    }
+    tracing::info!(
+        job_id = %job.id,
+        run_id = %run_id,
+        "[cron] corrective turn still produced no message; delivering the fallback reminder"
+    );
+    Ok(fallback_reminder(job))
+}
+
+fn needs_correction(response: &str) -> bool {
+    response.trim().is_empty() || is_no_reply(response)
+}
+
+/// One scheduled turn under the run's origin, in the host agent's context
+/// when there is one.
+async fn run_cron_turn(
+    agent: &mut OpenHumanSessionHost,
+    context: Option<&std::sync::Arc<crate::core::runtime::CoreContext>>,
+    job: &CronJob,
+    run_id: &str,
+    prompt: &str,
+) -> anyhow::Result<String> {
+    // A job with no channel origin runs as `TrustedAutomation { Cron }`: the
+    // approval gate treats it as user-authorized automation (the user created
+    // the job and authorized its prompt together). A job created from a
+    // channel chat runs as that channel's turn instead, so its external-effect
+    // tools stay gated like its creator's were.
+    let origin = crate::cron::origin::turn_origin_for_job_run(job, run_id);
+    let turn =
+        crate::security::turn_origin::with_origin(origin, Box::pin(agent.run_single(prompt)));
+    // A host agent's turn runs in its own context, so every ambient read
+    // (config, domains, tool groups, session store) sees that agent rather
+    // than the process default.
+    let turn: std::pin::Pin<
+        Box<dyn std::future::Future<Output = anyhow::Result<String>> + Send + '_>,
+    > = match context {
+        Some(context) => Box::pin(crate::core::runtime::CoreContext::scope(
+            context.clone(),
+            turn,
+        )),
+        None => Box::pin(turn),
+    };
+    turn.await
 }
 
 /// Placeholder recorded in run history when an agent job succeeds but returns

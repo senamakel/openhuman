@@ -223,7 +223,7 @@ async-trait = "0.1"
 # rather than reaching for a heavier image stack.
 
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.29", default-features = false, features = ["hostname", "signal", "user"] }
+nix = { version = "0.29", default-features = false, features = ["hostname", "signal", "socket", "user"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"

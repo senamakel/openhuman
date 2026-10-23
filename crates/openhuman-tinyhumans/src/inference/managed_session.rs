@@ -9,8 +9,10 @@ use tinyinference_llm::providers::tinyhumans::{
 
 /// Resolve the persisted app-session token for a managed inference caller.
 /// Both chat and embeddings use this path so signed-out state, expiry checks,
-/// and offline-local credential refusal stay consistent.
+/// offline-local credential refusal, and the plaintext-endpoint refusal stay
+/// consistent.
 pub(super) fn resolve_session_bearer(
+    endpoint: &str,
     state_dir: &std::path::Path,
     secrets_encrypt: bool,
     profile_override: Option<&str>,
@@ -19,6 +21,7 @@ pub(super) fn resolve_session_bearer(
     use openhuman_embed::__host::security::credentials::session_support::classify_session_token;
     use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 
+    ensure_session_endpoint(endpoint)?;
     if openhuman_embed::__host::platform::llm_gate::is_signed_out() {
         anyhow::bail!("SESSION_EXPIRED: backend session not active — sign in to resume LLM work");
     }
@@ -39,14 +42,14 @@ pub(super) fn managed_bearer_for_inspection(
         load_app_session_profile_read_only, SessionTokenCheck,
     };
 
+    let endpoint = format!(
+        "{}/openai/v1",
+        crate::backend::url::effective_api_url(&config.api_url).trim_end_matches('/')
+    );
     if let Some(key) =
         openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only(config)
             .map_err(|_| anyhow::anyhow!("managed API key profile is unavailable or invalid"))?
     {
-        let endpoint = format!(
-            "{}/openai/v1",
-            crate::backend::url::effective_api_url(&config.api_url).trim_end_matches('/')
-        );
         anyhow::ensure!(
             crate::client::endpoint::is_managed_endpoint_for_api_key(&endpoint),
             "managed API key endpoint is not an approved managed endpoint"
@@ -54,6 +57,7 @@ pub(super) fn managed_bearer_for_inspection(
         return Ok(key);
     }
 
+    ensure_session_endpoint(&endpoint)?;
     let profile = load_app_session_profile_read_only(config)
         .map_err(|_| anyhow::anyhow!("managed session profile is unavailable or invalid"))?;
     check_session_backend(config, profile.as_ref())
@@ -66,6 +70,18 @@ pub(super) fn managed_bearer_for_inspection(
         }
         SessionTokenCheck::Absent => anyhow::bail!("managed session credential is unavailable"),
     }
+}
+
+/// Refuse to put the session JWT on a plaintext wire: HTTPS, or HTTP only to
+/// loopback — the same rule every other backend credential caller applies.
+fn ensure_session_endpoint(endpoint: &str) -> anyhow::Result<()> {
+    anyhow::ensure!(
+        crate::client::endpoint::is_safe_endpoint_for_managed_bearer(endpoint),
+        "refusing to send the TinyHumans session token to an insecure endpoint: {} — \
+         use HTTPS, or HTTP only to loopback",
+        super::managed_model::endpoint_origin_for_log(endpoint)
+    );
+    Ok(())
 }
 
 /// The bearer a classified app-session token yields for managed inference.

@@ -1,7 +1,9 @@
 //! The prompt of a `session_target: current` run: a fresh session that is shown
 //! a bounded tail of the conversation that created the job, plus a fixed
-//! preamble saying the run is unattended.
+//! preamble saying the run is unattended. Only a job whose prompt opts into
+//! silence ([`job_allows_no_reply`]) is offered `NO_REPLY`.
 
+use super::origin_delivery::job_allows_no_reply;
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use {
@@ -14,8 +16,12 @@ pub(crate) const CONTEXT_MAX_MESSAGES: usize = 10;
 /// At most this many characters across the whole tail; the newest are kept.
 pub(crate) const CONTEXT_MAX_CHARS: usize = 1400;
 
-/// Fixed preamble for an unattended scheduled run.
-pub(crate) const UNATTENDED_PREAMBLE: &str = "This is a scheduled run, not a live chat. Your final reply is delivered to the user as-is. If there is nothing worth sending, reply exactly NO_REPLY.";
+/// Preamble for an unattended run that must deliver: the user asked to
+/// receive this message.
+pub(crate) const DELIVERING_PREAMBLE: &str = "This is a scheduled run, not a live chat. The user asked to receive this message, and your final reply is delivered to them as-is. Always reply with the message itself.";
+
+/// Preamble for an unattended run whose task allows sending nothing.
+pub(crate) const CONDITIONAL_PREAMBLE: &str = "This is a scheduled run, not a live chat. Your final reply is delivered to the user as-is. When the task's condition is not met, reply exactly NO_REPLY.";
 
 /// Render the newest messages that fit within `max_messages` / `max_chars` as
 /// `role: text` lines, oldest first. A message that does not fit whole is cut
@@ -89,10 +95,22 @@ async fn origin_messages(
     }
 }
 
-/// Prompt for a `current` run: tagged task, unattended preamble, the bounded
-/// context tail (when there is one), then the task itself.
-pub(crate) fn compose_current_prompt(job_id: &str, name: &str, prompt: &str, tail: &str) -> String {
-    let mut out = format!("[cron:{job_id} {name}] {UNATTENDED_PREAMBLE}\n\n");
+/// Prompt for a `current` run: tagged task, unattended preamble (the
+/// conditional one when `allows_no_reply`), the bounded context tail (when
+/// there is one), then the task itself.
+pub(crate) fn compose_current_prompt(
+    job_id: &str,
+    name: &str,
+    prompt: &str,
+    tail: &str,
+    allows_no_reply: bool,
+) -> String {
+    let preamble = if allows_no_reply {
+        CONDITIONAL_PREAMBLE
+    } else {
+        DELIVERING_PREAMBLE
+    };
+    let mut out = format!("[cron:{job_id} {name}] {preamble}\n\n");
     if !tail.is_empty() {
         out.push_str("Recent conversation this task was created in (context only):\n");
         out.push_str(tail);
@@ -129,12 +147,14 @@ pub(crate) async fn build_run_prompt(
                 }
                 None => String::new(),
             };
+            let allows_no_reply = job_allows_no_reply(job);
             tracing::debug!(
                 job_id = %job.id,
                 tail_chars = tail.chars().count(),
+                allows_no_reply,
                 "[cron] composed current-session prompt"
             );
-            compose_current_prompt(&job.id, name, &prompt, &tail)
+            compose_current_prompt(&job.id, name, &prompt, &tail, allows_no_reply)
         }
     }
 }

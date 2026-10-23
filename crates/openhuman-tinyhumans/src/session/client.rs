@@ -264,6 +264,9 @@ impl SessionClient {
 
         let http = openhuman_embed::__host::util::tls::tls_client_builder()
             .http1_only()
+            // `sdk_with` adds `x-api-key` per request. Reqwest does not strip
+            // this custom header when following a cross-origin redirect.
+            .redirect(reqwest::redirect::Policy::none())
             .timeout(REQUEST_TIMEOUT)
             .connect_timeout(CONNECT_TIMEOUT)
             .default_headers(headers.header_map())

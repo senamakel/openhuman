@@ -30,6 +30,9 @@ async fn workspace_fd_lifetime_is_separate_from_catalog_callback_lifetime() {
     crate::modules::runtime::runtime()
         .await
         .expect("process module runtime starts");
+    crate::storage::connect_on_storage_runtime(|| async {})
+        .await
+        .expect("process storage runtime starts");
     let before = open_fd_count();
 
     let mut workspaces = Vec::with_capacity(WORKSPACE_COUNT);

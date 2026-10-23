@@ -4,6 +4,7 @@
 
 mod command_analysis;
 mod command_checks;
+mod command_vocabulary;
 mod enforcement;
 mod module_gate;
 pub(crate) mod native_commands;

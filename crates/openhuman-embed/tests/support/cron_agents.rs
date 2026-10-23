@@ -15,9 +15,15 @@ use std::time::Duration;
 
 use common::{chat_completion, chat_requests, offline_config, runtime, stub_backend};
 use openhuman_embed::{
-    AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, CronError, HostTurnTools, JobSchedule,
-    JobSpec, JobTarget, Provider, ReasoningEffort, Runtime, RuntimeError, RuntimeEventKind,
-    RuntimeEvents, ServiceSet, Tool, ToolScopeSpec, TrustedAutomationSource, Workspace,
+    AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, CronError, HostTurnTools,
+    InMemorySessionStores, JobSchedule, JobSpec, JobTarget, Provider, ReasoningEffort, Runtime,
+    RuntimeError, RuntimeEventKind, RuntimeEvents, ServiceSet, SessionStoreProvider, Tool,
+    ToolScopeSpec, TrustedAutomationSource, Workspace,
+};
+use tinyagents_session::port::AgentStores;
+use tinyagents_session::transcript::{
+    SessionRef, ThreadTranscripts, TranscriptHistory, TranscriptLocator, TranscriptMessage,
+    TranscriptMeta, TranscriptPartial, TranscriptRead,
 };
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -410,6 +416,210 @@ pub fn deferred_services_wait_for_the_host_so_a_due_job_finds_its_handler() {
                 tokio::time::timeout(Duration::from_secs(5), events.recv()).await,
                 Ok(Err(openhuman_embed::EventStreamError::Closed))
             ));
+        })
+        .await
+        .expect("library host task did not panic");
+    });
+}
+
+type Bound = Arc<Mutex<Vec<(String, Arc<dyn TranscriptHistory>)>>>;
+
+/// In-memory session stores that remember every transcript stem a turn binds.
+#[derive(Default)]
+struct RecordingStores {
+    inner: InMemorySessionStores,
+    bound: Bound,
+}
+
+impl SessionStoreProvider for RecordingStores {
+    fn for_agent(&self, agent_id: &str) -> AgentStores {
+        let mut stores = self.inner.for_agent(agent_id);
+        stores.transcripts = Arc::new(RecordingLocator {
+            inner: stores.transcripts,
+            bound: Arc::clone(&self.bound),
+        });
+        stores
+    }
+
+    fn recover(&self) -> anyhow::Result<()> {
+        self.inner.recover()
+    }
+
+    fn destination_key(&self) -> Option<String> {
+        self.inner.destination_key()
+    }
+}
+
+struct RecordingLocator {
+    inner: Arc<dyn TranscriptLocator>,
+    bound: Bound,
+}
+
+impl TranscriptLocator for RecordingLocator {
+    fn destination_key(&self) -> Option<String> {
+        self.inner.destination_key()
+    }
+
+    fn latest_for_agent(&self, agent_name: &str) -> Option<Arc<dyn TranscriptRead>> {
+        self.inner.latest_for_agent(agent_name)
+    }
+
+    fn root_for_thread(&self, thread_id: &str) -> Option<Arc<dyn TranscriptRead>> {
+        self.inner.root_for_thread(thread_id)
+    }
+
+    fn root_for_thread_scoped(
+        &self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+    ) -> Option<Arc<dyn TranscriptRead>> {
+        self.inner.root_for_thread_scoped(thread_id, agent_id)
+    }
+
+    fn thread_transcripts(
+        &self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+    ) -> Option<ThreadTranscripts> {
+        self.inner.thread_transcripts(thread_id, agent_id)
+    }
+
+    fn open_stem(
+        &self,
+        stem: &str,
+        seed: TranscriptMeta,
+    ) -> anyhow::Result<Arc<dyn TranscriptHistory>> {
+        let handle = self.inner.open_stem(stem, seed)?;
+        self.bound
+            .lock()
+            .unwrap()
+            .push((stem.to_string(), Arc::clone(&handle)));
+        Ok(handle)
+    }
+
+    fn append_interrupted_partial(
+        &self,
+        thread_id: &str,
+        agent_id: Option<&str>,
+        partial: &TranscriptPartial,
+        request_id: Option<&str>,
+    ) -> anyhow::Result<bool> {
+        self.inner
+            .append_interrupted_partial(thread_id, agent_id, partial, request_id)
+    }
+
+    fn begin_generation(
+        &self,
+        session: &SessionRef,
+        seed: TranscriptMeta,
+    ) -> anyhow::Result<(SessionRef, Arc<dyn TranscriptHistory>)> {
+        self.inner.begin_generation(session, seed)
+    }
+
+    fn begin_generation_from_baseline(
+        &self,
+        session: &SessionRef,
+        seed: TranscriptMeta,
+        baseline: &[TranscriptMessage],
+    ) -> anyhow::Result<(SessionRef, Arc<dyn TranscriptHistory>)> {
+        self.inner
+            .begin_generation_from_baseline(session, seed, baseline)
+    }
+}
+
+/// Two jobs that target one agent can run at the same time: each run keeps
+/// its own transcript, so neither turn lands in, or overwrites, the other's.
+pub fn overlapping_runs_of_one_agent_keep_separate_transcripts() {
+    let _lock = RUNTIME_LOCK
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner);
+    runtime().block_on(async {
+        tokio::spawn(async {
+            let backend = stub_backend().await;
+            let provider = MockServer::start().await;
+            Mock::given(method("POST"))
+                .and(path("/v1/chat/completions"))
+                .respond_with(
+                    ResponseTemplate::new(200)
+                        .set_body_json(chat_completion("overlap-done"))
+                        .set_delay(Duration::from_millis(300)),
+                )
+                .mount(&provider)
+                .await;
+            let store = Arc::new(RecordingStores::default());
+            let runtime = Runtime::builder()
+                .config(offline_config())
+                .workspace(Workspace::Stateless)
+                .session_store(store.clone())
+                .backend_url(backend.uri())
+                .build()
+                .await
+                .expect("runtime builds");
+            let agent = runtime
+                .agent(
+                    AgentSpec::new("overlap")
+                        .provider(
+                            Provider::openai_compatible(
+                                format!("{}/v1", provider.uri()),
+                                "sk-fixture",
+                            )
+                            .model("fixture"),
+                        )
+                        .definition(AgentDefinitionSpec::new().system_prompt("OVERLAP_PROMPT")),
+                )
+                .expect("agent instantiates");
+
+            let cron = runtime.cron();
+            let jobs = [
+                ("overlap-a", "check in alpha"),
+                ("overlap-b", "check in bravo"),
+            ];
+            for (name, prompt) in jobs {
+                cron.upsert(JobSpec::agent(name, "overlap", prompt, HOURLY).retries(0))
+                    .expect("job created");
+            }
+
+            let (a, b) = tokio::join!(cron.run_now("overlap-a"), cron.run_now("overlap-b"));
+            for run in [a.expect("job a runs"), b.expect("job b runs")] {
+                assert!(run.success, "{}", run.output);
+                assert!(run.output.contains("overlap-done"), "{}", run.output);
+            }
+            for (name, _) in jobs {
+                assert_eq!(cron.runs(name, 1).unwrap()[0].status, "ok", "{name}");
+            }
+
+            let mut written: Vec<(String, String)> = Vec::new();
+            for (stem, handle) in store.bound.lock().unwrap().iter() {
+                if written.iter().any(|(known, _)| known == stem) {
+                    continue;
+                }
+                if let Some(session) = handle.read_session().expect("readable") {
+                    let users: Vec<String> = session
+                        .messages
+                        .iter()
+                        .filter(|row| row.role == "user")
+                        .map(|row| row.content.clone())
+                        .collect();
+                    written.push((stem.clone(), users.join("\n")));
+                }
+            }
+            assert_eq!(written.len(), 2, "one transcript per run: {written:?}");
+            for (_, prompt) in jobs {
+                let holding: Vec<_> = written
+                    .iter()
+                    .filter(|(_, users)| users.contains(prompt))
+                    .collect();
+                assert_eq!(holding.len(), 1, "{prompt:?} in {written:?}");
+                let (_, users) = holding[0];
+                assert_eq!(
+                    users.matches("check in").count(),
+                    1,
+                    "{prompt:?} shares its transcript: {users}"
+                );
+            }
+
+            drop(agent);
+            drop(runtime);
         })
         .await
         .expect("library host task did not panic");

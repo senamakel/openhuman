@@ -1,9 +1,12 @@
 //! `delivery.mode = "origin"`: commit a run's reply into the conversation that
 //! asked for it and send it there once.
 //!
-//! - Empty output, or exactly [`NO_REPLY`], is an intentional "nothing to
-//!   say": recorded as [`DeliveryStatus::Suppressed`], nothing is sent and no
-//!   alert is raised.
+//! - Empty output is recorded as [`DeliveryStatus::Suppressed`]; nothing is
+//!   sent and no alert is raised.
+//! - A [`NO_REPLY`] answer (any spelling [`is_no_reply`] accepts) is suppressed
+//!   the same way only when the job opted into silence by naming the token in
+//!   its own prompt ([`job_allows_no_reply`]). Otherwise the token is never
+//!   sent: the host's [`fallback_reminder`] is delivered in its place.
 //! - Web origin: the reply is stored in the origin thread first, under the
 //!   deterministic id of `run_reply_message_id("cron:<job>:<run>")`, then
 //!   announced on the web channel as a `proactive_message` event addressed to
@@ -20,16 +23,86 @@ use std::path::Path;
 use {
     crate::cron::channel_bridge, tinyflows_bus::schedule::types::CronJob,
     tinyflows_bus::schedule::types::DeliveryStatus, tinyflows_bus::schedule::types::JobOrigin,
+    tinyflows_bus::schedule::types::JobType,
 };
 
 /// What a scheduled run replies when it has nothing worth sending.
 pub(crate) const NO_REPLY: &str = "NO_REPLY";
 
-/// True when a run's output means "deliver nothing": blank, or exactly
-/// [`NO_REPLY`] after trimming (case-sensitive).
-pub(crate) fn is_suppressed_output(output: &str) -> bool {
+/// True when `output` is the [`NO_REPLY`] token in any common spelling: any
+/// case, `_`, `-` or a space between the words, wrapped in quotes, backticks
+/// or emphasis, with trailing punctuation.
+pub(crate) fn is_no_reply(output: &str) -> bool {
+    let core = output.trim_matches(|c: char| {
+        c.is_whitespace()
+            || matches!(
+                c,
+                '"' | '\'' | '`' | '*' | '_' | '.' | '!' | '?' | ',' | ';' | ':'
+            )
+    });
+    let folded: String = core
+        .chars()
+        .filter(|c| !matches!(c, '_' | '-' | ' '))
+        .flat_map(char::to_lowercase)
+        .collect();
+    folded == "noreply"
+}
+
+/// True when the job may end a run with [`NO_REPLY`]: its prompt names the
+/// token (a conditional check such as "otherwise reply NO_REPLY"). Shell and
+/// flow output is not model-written, so those jobs always may.
+pub(crate) fn job_allows_no_reply(job: &CronJob) -> bool {
+    if !matches!(job.job_type, JobType::Agent) {
+        return true;
+    }
+    job.prompt
+        .as_deref()
+        .is_some_and(|prompt| prompt.to_ascii_lowercase().contains("no_reply"))
+}
+
+/// The reminder the host sends when a run that must deliver produced no
+/// message: the job's name, else its prompt.
+pub(crate) fn fallback_reminder(job: &CronJob) -> String {
+    let subject = job
+        .name
+        .as_deref()
+        .map(str::trim)
+        .filter(|name| !name.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            job.prompt
+                .as_deref()
+                .map(str::trim)
+                .filter(|prompt| !prompt.is_empty())
+                .map(|prompt| crate::util::truncate_with_ellipsis(prompt, 200))
+        });
+    match subject {
+        Some(subject) => format!("Reminder: {subject}"),
+        None => "Reminder".to_string(),
+    }
+}
+
+/// The text a run delivers, or `None` when it intentionally sends nothing
+/// (blank output, or [`NO_REPLY`] from a job that allows it). A disallowed
+/// `NO_REPLY` becomes the job's [`fallback_reminder`].
+pub(crate) fn deliverable_reply(job: &CronJob, output: &str) -> Option<String> {
     let trimmed = output.trim();
-    trimmed.is_empty() || trimmed == NO_REPLY
+    if trimmed.is_empty() {
+        return None;
+    }
+    if is_no_reply(trimmed) {
+        return (!job_allows_no_reply(job)).then(|| fallback_reminder(job));
+    }
+    Some(trimmed.to_string())
+}
+
+/// The kind of conversation a job delivers to, for logs.
+pub(crate) fn origin_kind(job: &CronJob) -> &'static str {
+    match job.origin {
+        Some(JobOrigin::Web { .. }) => "web",
+        Some(JobOrigin::Channel { .. }) => "channel",
+        None => "none",
+    }
 }
 
 /// The deterministic request id of one run's delivered reply.
@@ -138,8 +211,9 @@ pub(crate) fn origin_transcripts(
 
 /// Deliver one run's output to the job's origin conversation.
 ///
-/// `Ok(Suppressed)` for an intentional empty/`NO_REPLY` output; `Ok(Delivered)`
-/// when the reply was committed and sent; `Err` when it could not be.
+/// `Ok(Suppressed)` when the run intentionally sends nothing (see
+/// [`deliverable_reply`]); `Ok(Delivered)` when the reply was committed and
+/// sent; `Err` when it could not be.
 pub(crate) async fn deliver_to_origin(
     ctx: &crate::core::runtime::DispatchCtx,
     config: &Config,
@@ -147,20 +221,21 @@ pub(crate) async fn deliver_to_origin(
     run_id: &str,
     output: &str,
 ) -> Result<DeliveryStatus> {
-    if is_suppressed_output(output) {
-        tracing::debug!(
+    let Some(reply) = deliverable_reply(job, output) else {
+        tracing::info!(
             job_id = %job.id,
             run_id = %run_id,
-            "[cron] origin delivery suppressed (empty or NO_REPLY)"
+            origin = origin_kind(job),
+            "[cron] origin delivery suppressed: the run had nothing to send"
         );
         return Ok(DeliveryStatus::Suppressed);
-    }
+    };
     let Some(origin) = job.origin.as_ref() else {
         return Err(anyhow!(
             "delivery mode 'origin' requires the job to have an origin conversation"
         ));
     };
-    let text = output.trim();
+    let text = reply.as_str();
 
     // The job's tenant: a hosted profile's or an embedded agent's host routes
     // the reply itself; otherwise it keys the transcript store below.

@@ -33,7 +33,9 @@ impl Tool for ScheduleTool {
         "Manage scheduled tasks. Actions: create/add/once/list/get/cancel/remove/pause/resume. \
          A task with a `prompt` created inside a conversation replies back into that same \
          conversation automatically on every run; no delivery target is needed. In the \
-         scheduled run your final reply is what gets delivered (`NO_REPLY` skips it)."
+         scheduled run your final reply is what gets delivered. Reminders and recurring \
+         messages always deliver. A conditional check must put its condition and \
+         \"otherwise reply NO_REPLY\" in its `prompt`; only such a task can skip a run."
     }
 
     fn parameters_schema(&self) -> serde_json::Value {

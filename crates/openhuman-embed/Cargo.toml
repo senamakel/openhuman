@@ -118,6 +118,9 @@ tinyflows-bus = { path = "../../vendor/tinyflows/crates/tinyflows-bus" }
 # the scheduler runtime and job store that `cron` reaches over the bus.
 tinyflows-module = { path = "../../vendor/tinyflows/crates/tinyflows-module", features = ["static-link"] }
 env_logger = "0.11"
+# The real tinymcp module, linked into the MCP module smoke test (never the
+# product): `mcp_call_tool` reaches it over the bus.
+tinymcp = { path = "../../vendor/tinymcp/crates/tinymcp", features = ["static-link"] }
 # The profile tests and example implement a stub `BackendTransport`, whose
 # `http_client` hands out a `reqwest::Client`. Same features as the core's, so
 # the dev graph adds no reqwest feature (see the unification note below).
@@ -177,6 +180,11 @@ required-features = ["profiles"]
 name = "profile_cron_sweep"
 required-features = ["profiles"]
 
+# A scheduled reminder always delivers; only a conditional job may stay silent.
+[[test]]
+name = "cron_reminder_no_reply"
+required-features = ["profiles"]
+
 # Operator-admitted cron and time tools, the iteration cap, no backend credential.
 [[test]]
 name = "profile_operator_tools"
@@ -190,3 +198,9 @@ required-features = ["channels"]
 [[example]]
 name = "profiles"
 required-features = ["profiles"]
+
+# One host smoke test for tinymcp: an embedded runtime calls a tool on a
+# scripted HTTP MCP server through the module.
+[[test]]
+name = "mcp_module"
+required-features = ["mcp", "modules", "skills", "storage-sqlite"]

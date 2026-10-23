@@ -84,7 +84,7 @@ e2e-test-support = ["openhuman-tinyhumans/e2e-test-support"]
 
 [dependencies]
 keyring = { version = "3", features = ["apple-native", "windows-native", "linux-native"], optional = true }
-tinystoragedrivers = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "05eaada962decbab33bafa4763d2bd1a67f6b456", default-features = false, features = ["keyring"], optional = true }
+tinystoragedrivers = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039", default-features = false, features = ["keyring"], optional = true }
 zeroize = { version = "1", optional = true }
 hex = { version = "0.4", optional = true }
 # The only openhuman crate this layer depends on. Core internals the server

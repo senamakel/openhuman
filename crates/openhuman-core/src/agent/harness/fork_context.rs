@@ -126,8 +126,8 @@ pub struct ParentExecutionContext {
     /// uncallable P-Format tool_call blocks.
     pub tool_call_format: tinytools_agent::dialect::ToolCallFormat,
 
-    /// Parent's own session-transcript key, formatted as
-    /// `"{unix_ts}_{agent_id}"`. Sub-agents chain this (plus any
+    /// Parent's own session-transcript key, `{unix_ts}_{token}_{agent}`,
+    /// unique per session host. Sub-agents chain this (plus any
     /// ancestor prefixes on the parent) into their own transcript
     /// filename so the hierarchy `orchestrator → planner → critic`
     /// lands on disk as a single flat file name —

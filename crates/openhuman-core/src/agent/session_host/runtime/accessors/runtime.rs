@@ -116,36 +116,15 @@ impl OpenHumanSessionHost {
     /// transcripts per thread so each conversation thread gets its own
     /// transcript namespace instead of sharing one by agent type.
     ///
-    /// Also rebuilds [`Self::session_key`] so the next call to
-    /// `persist_session_transcript` writes to a path keyed by the new
-    /// name. Without this, persist would keep using the builder-time
-    /// name (e.g. `"orchestrator"`) while
-    /// `find_latest_transcript` searches for the post-rename name (e.g.
-    /// `"orchestrator_thread-6ad6d"`), and resume on cold boot would
-    /// silently miss every prior transcript — the LLM would then run
-    /// each new turn with no conversation history.
+    /// Also swaps the agent part of [`Self::session_key`] for the new name,
+    /// keeping its timestamp and token.
     pub fn set_agent_definition_name(&mut self, name: impl Into<String>) {
         let name = name.into();
-        let sanitized: String = name
-            .chars()
-            .map(|c| {
-                if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
-                    c
-                } else {
-                    '_'
-                }
-            })
-            .collect();
-        // Preserve the original unix-timestamp prefix from the builder
-        // so sub-agent spawn collisions remain impossible. Falls back
-        // to "0" if the existing key is in an unexpected shape.
-        let prefix = self
-            .session_key
-            .split_once('_')
-            .map(|(p, _)| p)
-            .filter(|p| !p.is_empty())
-            .unwrap_or("0");
-        self.session_key = format!("{prefix}_{sanitized}");
+        self.session_key = crate::agent::session_host::session_key::rename(
+            &self.session_key,
+            &self.agent_definition_name,
+            &name,
+        );
         self.agent_definition_name = name;
         self.rebuild_tool_policy_session();
         self.sync_runtime_tool_surface();

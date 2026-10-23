@@ -169,6 +169,24 @@ fn managed_bearer_resolves_a_future_expiry_app_session() {
 }
 
 #[test]
+fn managed_session_bearer_refuses_a_plaintext_remote_endpoint() {
+    let tmp = tempfile::TempDir::new().expect("temporary credentials");
+    seed_app_session(tmp.path(), Some("2999-01-01T00:00:00Z"));
+    let options = managed_options_at(tmp.path());
+
+    let error = options
+        .resolve_bearer("http://10.0.0.1:1/openai/v1")
+        .expect_err("plaintext remote endpoint must not receive the session token");
+    assert!(error.to_string().contains("insecure endpoint"), "{error}");
+    assert_eq!(
+        options
+            .resolve_bearer("https://api.example.test/openai/v1")
+            .expect("HTTPS stays allowed"),
+        "test.session.jwt"
+    );
+}
+
+#[test]
 fn managed_bearer_resolves_exp_less_hosted_app_sessions() {
     let tmp = tempfile::TempDir::new().expect("temporary credentials");
     seed_app_session(tmp.path(), None);

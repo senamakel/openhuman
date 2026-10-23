@@ -29,14 +29,18 @@ pub(crate) fn with_fixture_model_name(builder: SessionHostBuilder) -> SessionHos
 /// session through the managed-provider factory. HookSlot test registrations
 /// are thread-local, so each test opts in on the thread that builds its host.
 fn model_fixture_entry() -> ChatModelEntry<ProviderContext> {
+    scripted_model_entry(Arc::new(SessionFixtureModel))
+}
+
+fn scripted_model_entry(scripted: Arc<dyn ChatModel<()>>) -> ChatModelEntry<ProviderContext> {
     ChatModelEntry {
-        build: Arc::new(|request: &ChatModelRequest<'_, ProviderContext>| {
+        build: Arc::new(move |request: &ChatModelRequest<'_, ProviderContext>| {
             let model = request
                 .model_override
                 .or(request.default_model)
                 .or(request.context.config.default_model.as_deref())
                 .unwrap_or("test/session-fixture");
-            Ok((Arc::new(SessionFixtureModel), model.to_string()))
+            Ok((Arc::clone(&scripted), model.to_string()))
         }),
         probe: None,
         models: Some(ProviderModelMetadata {
@@ -96,6 +100,13 @@ fn model_fixture_entry() -> ChatModelEntry<ProviderContext> {
 
 pub(crate) fn install_model_fixture() {
     crate::inference::registry::register_chat_model(PROVIDER_OPENHUMAN, model_fixture_entry());
+}
+
+pub(crate) fn install_scripted_model(model: Arc<dyn ChatModel<()>>) {
+    crate::inference::registry::register_chat_model(
+        PROVIDER_OPENHUMAN,
+        scripted_model_entry(model),
+    );
 }
 
 pub(crate) fn install_model_fixture_in(extensions: &crate::core::slots::Extensions) {

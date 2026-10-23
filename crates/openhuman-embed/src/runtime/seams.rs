@@ -48,7 +48,9 @@ pub enum StorageSource {
     /// A storage URL (`sqlite://…`, `memory`, `mongodb://…`), opened when the
     /// runtime is built. A URL that cannot be opened fails the build.
     Url(String),
-    /// A backend the host already opened.
+    /// A backend the host already opened. Pass a MongoDB backend as a
+    /// [`Url`](Self::Url) instead, so its connection pool runs on the core's
+    /// storage runtime rather than the host's.
     Backend(Arc<dyn StorageBackend>),
 }
 
@@ -119,8 +121,8 @@ impl HostSeams {
         Ok(())
     }
 
-    /// [`open_storage`](Self::open_storage) from synchronous code, on the
-    /// core's dedicated storage runtime thread so the backend outlives the call.
+    /// [`open_storage`](Self::open_storage) from synchronous code. The backend
+    /// is opened on the core's storage runtime, so it outlives the call.
     pub(crate) fn open_storage_blocking(&mut self) -> Result<(), String> {
         let Some(StorageSource::Url(url)) = self.storage.take() else {
             return Ok(());

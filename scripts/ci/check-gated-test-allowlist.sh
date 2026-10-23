@@ -102,6 +102,7 @@ core/agent_cli/debug/mod.rs
 core/agent_cli/debug/mod_tests.rs
 core/runtime/services_tests.rs
 integrations/composio/ops/mod.rs
+integrations/composio/client.rs
 mcp/server/resources_tests.rs
 modules/tinyflows.rs
 doctor/checks/channels.rs

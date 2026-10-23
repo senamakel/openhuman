@@ -356,6 +356,20 @@ impl Config {
         let migration_raw = migration_source(&config_path, &raw).await;
         apply_loaded_config_migrations(&mut config, &migration_raw);
         config.apply_env_overrides_from(env);
+        // Hand callers the same plaintext secrets the first load does. All or
+        // nothing: callers reload, edit and save, so a field that cannot be
+        // opened must stay sealed rather than be cleared and saved as `None`.
+        if let Some(openhuman_dir) = config.config_path.parent().map(Path::to_path_buf) {
+            let mut opened = config.clone();
+            match decrypt_config_secrets_strict(&mut opened, &openhuman_dir) {
+                Ok(()) => config = opened,
+                Err(error) => tracing::warn!(
+                    path = %config.config_path.display(),
+                    %error,
+                    "[config] snapshot reload keeps secrets sealed"
+                ),
+            }
+        }
 
         if config_was_corrupted {
             tracing::warn!(

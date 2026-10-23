@@ -177,13 +177,23 @@ pub fn client(config: crate::config::Config) -> tinybus::module::ModuleClient {
 
 pub use types::{LoadPolicy, ModuleRecord, ModuleSource, ModuleState, ModuleStatus, PlatformAsset};
 
+/// Why a legacy import did not finish on this call.
+#[derive(Debug)]
+pub enum LegacyImportError {
+    /// Another process holds the import claim, so nothing was imported yet.
+    ClaimHeld,
+    /// The import failed; it is retried at the next call.
+    Failed(String),
+}
+
 /// Imports tinymcp's legacy SQLite files under `data_dir` into the module's
-/// storage, once per directory. Never fails the caller: an error is logged and
-/// the import is retried at the next open.
+/// storage, once per directory. A failure is logged and the import is retried
+/// at the next open; [`LegacyImportError::ClaimHeld`] means the caller should
+/// not open yet.
 pub async fn import_legacy_mcp(
     ctx: &crate::core::runtime::DispatchCtx,
     data_dir: &std::path::Path,
-) -> Result<(), String> {
+) -> Result<(), LegacyImportError> {
     #[cfg(all(feature = "modules", feature = "legacy-import"))]
     {
         match storage_import_tinymcp::import_legacy(ctx, data_dir).await {
@@ -196,9 +206,15 @@ pub async fn import_legacy_mcp(
                 .await;
                 Ok(())
             }
+            Err(error) if error.is::<storage_import_support::ImportClaimHeld>() => {
+                log::debug!("[mcp] legacy storage import is held by another process");
+                Err(LegacyImportError::ClaimHeld)
+            }
             Err(error) => {
                 log::warn!("[mcp] legacy storage import failed, will retry: {error:#}");
-                Err(format!("legacy TinyMCP storage import failed: {error:#}"))
+                Err(LegacyImportError::Failed(format!(
+                    "legacy TinyMCP storage import failed: {error:#}"
+                )))
             }
         }
     }
@@ -207,7 +223,7 @@ pub async fn import_legacy_mcp(
         let _ = (ctx, data_dir);
         let error = "legacy storage import is unavailable: enable the `legacy-import` feature";
         log::error!("[mcp] {error}");
-        Err(error.to_owned())
+        Err(LegacyImportError::Failed(error.to_owned()))
     }
     #[cfg(not(feature = "modules"))]
     {

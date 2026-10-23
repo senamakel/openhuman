@@ -564,7 +564,7 @@ async fn native_shell_and_policy_validation_use_their_contract_members() {
     };
     let _: () = call_with_client(
         &client,
-        START_NATIVE_SHELL_EXEC_WITH_RESOURCES,
+        START_JAILED_EXEC_WITH_RESOURCES,
         (shell.clone(), shell_resources),
         false,
     )
@@ -578,7 +578,7 @@ async fn native_shell_and_policy_validation_use_their_contract_members() {
     let expected = [
         ("StartNativeShellExec".to_owned(), json!([shell])),
         (
-            "StartNativeShellExecWithResources".to_owned(),
+            "StartJailedExecWithResources".to_owned(),
             json!([
                 shell,
                 contract::NativeJailResourceRequest {

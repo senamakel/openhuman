@@ -4,31 +4,33 @@ use super::*;
 fn workflow_scan_permits_bind_workflow_inputs_and_are_single_use() {
     let host = OpenHumanRunContext::new();
     let inputs = serde_json::json!({"target": "repo"});
-    host.record_workflow_scan_permit("workflow", &inputs, "digest-a");
+    host.record_workflow_scan_permit("workflow", &inputs, "call-1", "digest-a");
 
-    assert!(!host.take_workflow_scan_permit("workflow", &inputs, "digest-b"));
+    assert!(!host.take_workflow_scan_permit("workflow", &inputs, "call-1", "digest-b"));
     assert!(!host.take_workflow_scan_permit(
         "workflow",
         &serde_json::json!({"target": "other"}),
+        "call-1",
         "digest-a"
     ));
-    assert!(host.take_workflow_scan_permit("workflow", &inputs, "digest-a"));
-    assert!(!host.take_workflow_scan_permit("workflow", &inputs, "digest-a"));
+    assert!(!host.take_workflow_scan_permit("workflow", &inputs, "call-2", "digest-a"));
+    assert!(host.take_workflow_scan_permit("workflow", &inputs, "call-1", "digest-a"));
+    assert!(!host.take_workflow_scan_permit("workflow", &inputs, "call-1", "digest-a"));
 }
 
 #[test]
 fn workflow_scan_permit_returns_the_bound_digest_once() {
     let host = OpenHumanRunContext::new();
     let inputs = serde_json::json!({"target": "repo"});
-    host.record_workflow_scan_permit("workflow", &inputs, "digest-a");
+    host.record_workflow_scan_permit("workflow", &inputs, "call-1", "digest-a");
 
     assert_eq!(
-        host.take_workflow_scan_permit_digest("workflow", &inputs)
+        host.take_workflow_scan_permit_digest("workflow", &inputs, "call-1")
             .as_deref(),
         Some("digest-a")
     );
     assert_eq!(
-        host.take_workflow_scan_permit_digest("workflow", &inputs),
+        host.take_workflow_scan_permit_digest("workflow", &inputs, "call-1"),
         None
     );
 }

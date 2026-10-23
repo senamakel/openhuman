@@ -37,9 +37,8 @@ pub(crate) fn applies(is_subagent: bool, agent_definition_id: Option<&str>) -> b
 ///
 /// A turn that suppresses the thread goal (`goal_suppressed`, from
 /// `TurnOverrides::suppress_active_goal`: a conversational reply, a flow or a
-/// cron run) gets no block: the block reads the goal from the store, and the
-/// goal must not reach that turn. Until TinyAgents' `hide_goal` is pinned, the
-/// plan and notes are left out with it, as on a turn without the block.
+/// cron run) still gets the block, without the goal: the plan, the agent's
+/// notes and the turn's facts show, and the goal does not reach that turn.
 pub(super) fn install<C: Send + Sync + 'static>(
     harness: &mut AgentHarness<(), C>,
     source: Option<(Arc<dyn Store>, String)>,
@@ -47,18 +46,19 @@ pub(super) fn install<C: Send + Sync + 'static>(
     agent_definition_id: Option<&str>,
     goal_suppressed: bool,
 ) {
-    if goal_suppressed {
-        tracing::debug!(
-            agent = agent_definition_id.unwrap_or("<none>"),
-            "[state_block] not installed: this turn suppresses the thread goal"
-        );
-        return;
-    }
     match source {
         Some((store, fallback_thread)) if applies(is_subagent, agent_definition_id) => {
-            harness.push_middleware(Arc::new(
-                StateBlockMiddleware::new(store).with_fallback_thread(fallback_thread),
-            ));
+            if goal_suppressed {
+                tracing::debug!(
+                    agent = agent_definition_id.unwrap_or("<none>"),
+                    "[state_block] installed without the goal: this turn suppresses it"
+                );
+            }
+            harness.push_middleware(Arc::new(middleware(
+                store,
+                fallback_thread,
+                goal_suppressed,
+            )));
         }
         _ => tracing::debug!(
             is_subagent,
@@ -66,6 +66,18 @@ pub(super) fn install<C: Send + Sync + 'static>(
             "[state_block] not installed for this turn"
         ),
     }
+}
+
+/// The block for one turn: the session store, the thread-less fallback key,
+/// and the goal left out when the turn suppresses it.
+fn middleware(
+    store: Arc<dyn Store>,
+    fallback_thread: String,
+    goal_suppressed: bool,
+) -> StateBlockMiddleware {
+    StateBlockMiddleware::new(store)
+        .with_fallback_thread(fallback_thread)
+        .hide_goal(goal_suppressed)
 }
 
 /// A plan that finished this turn, with what it was for.

@@ -108,7 +108,7 @@ async fn a_turn_without_the_state_block_still_carries_the_active_goal() {
 }
 
 /// A turn that suppresses the thread goal tells the run context, so the
-/// run-state block (which reads the goal from the store) stays off that turn.
+/// run-state block (which reads the goal from the store) leaves the goal out.
 #[tokio::test]
 async fn a_suppressed_goal_reaches_the_run_context() {
     let (host, tmp) = host_for("orchestrator");

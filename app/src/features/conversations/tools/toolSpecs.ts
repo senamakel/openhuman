@@ -330,6 +330,7 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   goal_set: spec('setGoal', FlagIcon, 'plan', { chip: chip.text('objective') }),
   goal_get: spec('checkGoal', FlagIcon, 'plan'),
   goal_complete: spec('completeGoal', FlagIcon, 'plan'),
+  goal_resume: spec('resumeGoal', FlagIcon, 'plan'),
 
   // ── Scheduling ──────────────────────────────────────────────────────────
   cron: spec('checkSchedules', CalendarClockIcon, 'schedule'),

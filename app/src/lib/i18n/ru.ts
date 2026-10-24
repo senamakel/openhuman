@@ -4944,6 +4944,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Цель проверена',
   'conversations.tools.completeGoal.active': 'Выполнение цели',
   'conversations.tools.completeGoal.done': 'Цель выполнена',
+  'conversations.tools.resumeGoal.active': 'Возобновление цели',
+  'conversations.tools.resumeGoal.done': 'Цель возобновлена',
   'conversations.tools.scheduleTask.active': 'Планирование задачи',
   'conversations.tools.scheduleTask.done': 'Задача запланирована',
   'conversations.tools.checkSchedules.active': 'Проверка расписаний',

@@ -126,6 +126,10 @@ tempfile = "3"
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false }
 # The managed-model stream tests replay SSE through the real harness loop.
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", default-features = false }
+# The in-memory session stores (`testkit`) the tests hand to a runtime. Same
+# features as openhuman-embed's and openhuman-cli's dev-dependency, so the dev
+# graphs stay equal (see the unification note below).
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["testkit"] }
 futures = "0.3"
 tokio = { version = "1", features = ["full", "test-util"] }
 wiremock = "0.6"

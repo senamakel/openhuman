@@ -83,10 +83,10 @@ mod runtime_adapter_tests;
 mod runtime_adapter_trace_tests;
 #[cfg(test)]
 mod runtime_adapter_usage_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-import"))]
 mod transcript_compat_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-import"))]
 #[path = "transcript_resume_stable_tests.rs"]
 mod transcript_resume_stable_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-import"))]
 mod typed_transcript_compat_tests;

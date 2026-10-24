@@ -1,9 +1,10 @@
 //! Title: Connect an actual MCP protocol stub over loopback
 //! Summary: Connect an actual MCP protocol stub over loopback.
 //! Run: offline with loopback stubs; no live path.
-//! Feature: mcp
+//! Feature: mcp,storage-sqlite
 
 mod support;
+use openhuman_core::config::schema::{ModuleOverride, ModuleSourceMode};
 use openhuman_embed::{AgentSpec, Runtime, Workspace};
 
 fn main() -> anyhow::Result<()> {
@@ -13,8 +14,18 @@ fn main() -> anyhow::Result<()> {
 async fn run() -> anyhow::Result<()> {
     let backend = support::stub_backend().await;
     let provider = support::provider("hello from the stub").await;
+    // MCP runs in the tinymcp module. A released build downloads it; this
+    // offline example links it in instead, and the module keeps its state in
+    // the workspace's default (SQLite) storage.
+    openhuman_embed::modules::register_linked("tinymcp", tinymcp::linked_module);
+    let mut config = support::offline_config();
+    config.modules.allow_download = false;
+    config.modules.overrides.push(ModuleOverride::with_source(
+        "tinymcp",
+        ModuleSourceMode::Linked,
+    ));
     let runtime = Runtime::builder()
-        .config(support::offline_config())
+        .config(config)
         .workspace(Workspace::Ephemeral)
         .backend_url(backend.uri())
         .provider(support::route(&provider, "fixture"))

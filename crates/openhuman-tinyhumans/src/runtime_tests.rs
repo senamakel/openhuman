@@ -148,7 +148,9 @@ fn knobs_and_seams_forward_unchanged() {
             .listen("127.0.0.1", 7791)
             .action_dir("/srv/work")
             .workspace_dir("/srv/state")
-            .session_store(Arc::new(openhuman_embed::InMemorySessionStores::new()))
+            .session_store(Arc::new(
+                tinyagents_session::port::InMemorySessionStores::new(),
+            ))
             .tool_ranker(Arc::new(Ranker)),
     );
     assert!(summary.fixed_token);

@@ -419,10 +419,16 @@ fn read_master_key_file_rejects_other_writable_files() {
 #[test]
 fn key_file_permissions_reject_other_writes_but_allow_read_only_access() {
     for mode in [0o400, 0o600, 0o644, 0o444, 0o604, 0o440, 0o640] {
-        assert!(!key_file_mode_is_other_writable(mode), "{mode:04o}");
+        assert!(
+            !key_source::key_file_mode_is_other_writable(mode),
+            "{mode:04o}"
+        );
     }
     for mode in [0o602, 0o666] {
-        assert!(key_file_mode_is_other_writable(mode), "{mode:04o}");
+        assert!(
+            key_source::key_file_mode_is_other_writable(mode),
+            "{mode:04o}"
+        );
     }
 }
 

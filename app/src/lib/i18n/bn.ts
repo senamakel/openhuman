@@ -4886,6 +4886,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'লক্ষ্য যাচাই করা হয়েছে',
   'conversations.tools.completeGoal.active': 'লক্ষ্য সম্পন্ন করা হচ্ছে',
   'conversations.tools.completeGoal.done': 'লক্ষ্য সম্পন্ন করা হয়েছে',
+  'conversations.tools.resumeGoal.active': 'লক্ষ্য পুনরায় শুরু করা হচ্ছে',
+  'conversations.tools.resumeGoal.done': 'লক্ষ্য পুনরায় শুরু করা হয়েছে',
   'conversations.tools.scheduleTask.active': 'কাজের সময়সূচি নির্ধারণ করা হচ্ছে',
   'conversations.tools.scheduleTask.done': 'কাজের সময়সূচি নির্ধারণ করা হয়েছে',
   'conversations.tools.checkSchedules.active': 'সময়সূচি যাচাই করা হচ্ছে',

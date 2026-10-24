@@ -4837,6 +4837,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': '목표 확인함',
   'conversations.tools.completeGoal.active': '목표 완료 처리 중',
   'conversations.tools.completeGoal.done': '목표 완료함',
+  'conversations.tools.resumeGoal.active': '목표 재개 중',
+  'conversations.tools.resumeGoal.done': '목표 재개함',
   'conversations.tools.scheduleTask.active': '작업 예약 중',
   'conversations.tools.scheduleTask.done': '작업 예약함',
   'conversations.tools.checkSchedules.active': '일정 확인 중',

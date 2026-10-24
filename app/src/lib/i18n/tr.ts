@@ -4935,6 +4935,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Hedef kontrol edildi',
   'conversations.tools.completeGoal.active': 'Hedef tamamlanıyor',
   'conversations.tools.completeGoal.done': 'Hedef tamamlandı',
+  'conversations.tools.resumeGoal.active': 'Hedefe devam ediliyor',
+  'conversations.tools.resumeGoal.done': 'Hedefe devam edildi',
   'conversations.tools.scheduleTask.active': 'Görev zamanlanıyor',
   'conversations.tools.scheduleTask.done': 'Görev zamanlandı',
   'conversations.tools.checkSchedules.active': 'Zamanlamalar kontrol ediliyor',

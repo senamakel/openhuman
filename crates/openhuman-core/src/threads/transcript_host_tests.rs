@@ -296,6 +296,7 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
     );
 }
 
+#[cfg(feature = "legacy-import")]
 /// Transcripts already written while the codec filed a turn's calls on its
 /// final row (calls recorded *after* their own results) still project each call
 /// once, settled, with its real name.

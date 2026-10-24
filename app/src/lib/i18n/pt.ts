@@ -4964,6 +4964,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Meta verificada',
   'conversations.tools.completeGoal.active': 'Concluindo meta',
   'conversations.tools.completeGoal.done': 'Meta concluída',
+  'conversations.tools.resumeGoal.active': 'Retomando meta',
+  'conversations.tools.resumeGoal.done': 'Meta retomada',
   'conversations.tools.scheduleTask.active': 'Agendando tarefa',
   'conversations.tools.scheduleTask.done': 'Tarefa agendada',
   'conversations.tools.checkSchedules.active': 'Verificando agendamentos',

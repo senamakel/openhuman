@@ -76,6 +76,7 @@ Run `cargo run -p openhuman-embed --example storage --features storage-sqlite`. 
     // An explicit environment variable is the only path to a live database.
     if let Ok(url) = std::env::var("OPENHUMAN_EXAMPLE_MONGODB_URL") {
         let live = RuntimeBuilder::library().storage(url).build().await?;
+        assert!(live.storage().is_some(), "MongoDB backend");
         assert_eq!(
             live.capabilities().storage.driver.as_deref(),
             Some("mongodb")

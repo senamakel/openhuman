@@ -20,7 +20,7 @@ use zeroize::Zeroizing;
 
 #[path = "encrypted_file_backend/key_source.rs"]
 pub mod key_source;
-use key_source::{env_value, master_key_from_env};
+use key_source::{env_value, master_key_from_env, read_master_key_file};
 
 /// Environment variable carrying the master key inline as `2 * KEY_LEN` hex
 /// characters (`openssl rand -hex 32`). Lets a headless `openhuman-core
@@ -252,34 +252,6 @@ fn try_load_master_key() -> Result<([u8; KEY_LEN], String), MasterKeyError> {
     key_source::workspace_master_key(&dir)
         .map(|key| (*key, "workspace keyring/master.key".to_string()))
         .map_err(|e| MasterKeyError::Configured(e.to_string()))
-}
-
-/// Reads the file named by [`MASTER_KEY_FILE_ENV`].
-///
-/// On Unix a key file must not be writable by other users. Read-only group or
-/// other permissions are supported for container secret mounts, where the
-/// runtime may add group-read access for a non-root core.
-fn read_master_key_file(path: &Path) -> Result<String, String> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::fs::PermissionsExt;
-        let metadata = std::fs::metadata(path).map_err(|e| {
-            format!("cannot inspect master key file permissions ({MASTER_KEY_FILE_ENV}): {e}")
-        })?;
-        let mode = metadata.permissions().mode() & 0o777;
-        if key_file_mode_is_other_writable(mode) {
-            return Err(format!(
-                "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; \
-                 restrict it to a read-only secret mount"
-            ));
-        }
-    }
-    std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
-}
-
-#[cfg(unix)]
-fn key_file_mode_is_other_writable(mode: u32) -> bool {
-    mode & 0o002 != 0
 }
 
 /// Decodes a master key supplied as exactly `2 * KEY_LEN` hex characters.

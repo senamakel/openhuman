@@ -126,6 +126,10 @@ tinymcp = { path = "../../vendor/tinymcp/crates/tinymcp", features = ["static-li
 # the dev graph adds no reqwest feature (see the unification note below).
 reqwest = { version = "0.12", default-features = false, features = ["json", "blocking", "rustls-tls", "stream", "http2", "multipart", "socks"] }
 wiremock = "0.6"
+# The in-memory session stores (`testkit`) the tests hand to a runtime. Same
+# features as openhuman-tinyhumans' and openhuman-cli's dev-dependency, so the dev
+# graphs stay equal (see the unification note below).
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["testkit"] }
 # Feature unification with openhuman-cli's dev-dependencies. Cargo builds the
 # core once per distinct feature set of its dependencies, and the tests of
 # openhuman-embed, openhuman-tinyhumans and openhuman-cli each pull in the core

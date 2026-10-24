@@ -357,6 +357,8 @@ async fn invalid_module_override_is_reported_without_echoing_its_path() {
     assert!(!warning.message.contains("/private/libmodule.so"));
 }
 
+// Without `modules` there are no module statuses, so no fallback to report.
+#[cfg(feature = "modules")]
 #[tokio::test]
 async fn source_fallback_is_reported_without_loading_modules() {
     use crate::config::schema::ModuleSourceMode;

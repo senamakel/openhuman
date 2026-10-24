@@ -4,10 +4,11 @@ use crate::common;
 use common::{chat_completion, chat_requests, offline_config, runtime, stub_backend};
 use openhuman_embed::session_store::SessionRef;
 use openhuman_embed::{
-    AgentDefinitionSpec, AgentSpec, HostTools, HostTurnTools, InMemorySessionStores, Provider,
-    Runtime, SessionStoreProvider, Tool, ToolScopeSpec, Workspace,
+    AgentDefinitionSpec, AgentSpec, HostTools, HostTurnTools, Provider, Runtime,
+    SessionStoreProvider, Tool, ToolScopeSpec, Workspace,
 };
 use std::sync::Arc;
+use tinyagents_session::port::InMemorySessionStores;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
 // Runtime is process-wide. Keep the guard on the synchronous test caller;

@@ -2,7 +2,7 @@
 //! Summary: Measure retained runtime-owned agents using loopback inference and two worker threads.
 //! Run: offline on Linux; use a fresh constrained cgroup for release measurements.
 //! Profile: release
-//! Feature: default
+//! Feature: storage-sqlite
 //! Default features: disabled
 
 #![recursion_limit = "512"]

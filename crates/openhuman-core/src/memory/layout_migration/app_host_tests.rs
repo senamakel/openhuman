@@ -5,11 +5,13 @@ use tinymemory_api::MemoryEngine;
 
 use super::*;
 use crate::memory::engine::install_test_engine_for_root;
+#[cfg(feature = "storage-sqlite")]
 use crate::memory::layout_migration::ops::scan;
+#[cfg(feature = "storage-sqlite")]
 use crate::memory::layout_migration::test_host::{count, fact};
-use tinymemory_tools::layout_migration::{
-    FsLegacyClaim, LayoutHost, LegacyClaim, Outcome, Trigger,
-};
+use tinymemory_tools::layout_migration::{FsLegacyClaim, LayoutHost, LegacyClaim};
+#[cfg(feature = "storage-sqlite")]
+use tinymemory_tools::layout_migration::{Outcome, Trigger};
 
 const ACCOUNT: &str = "0123456789abcdef01234567";
 
@@ -42,6 +44,7 @@ fn signed_in(tmp: &tempfile::TempDir) -> Config {
     config
 }
 
+#[cfg(feature = "storage-sqlite")] // reads migration state; see `ops.rs`
 #[tokio::test]
 async fn signed_out_there_is_nothing_to_move() {
     let tmp = tempfile::tempdir().unwrap();
@@ -53,6 +56,7 @@ async fn signed_out_there_is_nothing_to_move() {
     assert!(!scan(&AppHost::new(config.clone())).await.unwrap().needed);
 }
 
+#[cfg(feature = "storage-sqlite")] // reads migration state; see `ops.rs`
 #[tokio::test]
 async fn binds_the_legacy_tree_and_the_users_own() {
     let tmp = tempfile::tempdir().unwrap();
@@ -153,6 +157,7 @@ async fn the_switch_writes_the_migrated_persons_own_config_fresh() {
 /// The host hands the module its claim: a self-hosted tree is not moved until
 /// the user consents, and the account that did not claim it has nothing to
 /// move. Fails if the adapter stops passing the claim on.
+#[cfg(feature = "storage-sqlite")] // reads migration state; see `ops.rs`
 #[tokio::test]
 async fn a_shared_tree_reaches_the_module_as_a_claim() {
     let tmp = tempfile::tempdir().unwrap();

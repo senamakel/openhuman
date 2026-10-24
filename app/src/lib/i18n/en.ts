@@ -5211,6 +5211,8 @@ const en: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Checked goal',
   'conversations.tools.completeGoal.active': 'Completing goal',
   'conversations.tools.completeGoal.done': 'Completed goal',
+  'conversations.tools.resumeGoal.active': 'Resuming goal',
+  'conversations.tools.resumeGoal.done': 'Resumed goal',
   'conversations.tools.scheduleTask.active': 'Scheduling task',
   'conversations.tools.scheduleTask.done': 'Scheduled task',
   'conversations.tools.checkSchedules.active': 'Checking schedules',

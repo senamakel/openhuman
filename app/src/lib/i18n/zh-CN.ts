@@ -4612,6 +4612,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': '已检查目标',
   'conversations.tools.completeGoal.active': '正在完成目标',
   'conversations.tools.completeGoal.done': '已完成目标',
+  'conversations.tools.resumeGoal.active': '正在恢复目标',
+  'conversations.tools.resumeGoal.done': '已恢复目标',
   'conversations.tools.scheduleTask.active': '正在安排任务',
   'conversations.tools.scheduleTask.done': '已安排任务',
   'conversations.tools.checkSchedules.active': '正在检查日程安排',

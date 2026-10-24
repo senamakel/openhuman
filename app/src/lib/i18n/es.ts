@@ -4995,6 +4995,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Objetivo comprobado',
   'conversations.tools.completeGoal.active': 'Completando objetivo',
   'conversations.tools.completeGoal.done': 'Objetivo completado',
+  'conversations.tools.resumeGoal.active': 'Reanudando objetivo',
+  'conversations.tools.resumeGoal.done': 'Objetivo reanudado',
   'conversations.tools.scheduleTask.active': 'Programando tarea',
   'conversations.tools.scheduleTask.done': 'Tarea programada',
   'conversations.tools.checkSchedules.active': 'Comprobando programaciones',

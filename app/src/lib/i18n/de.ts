@@ -5069,6 +5069,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Ziel geprüft',
   'conversations.tools.completeGoal.active': 'Ziel wird abgeschlossen',
   'conversations.tools.completeGoal.done': 'Ziel abgeschlossen',
+  'conversations.tools.resumeGoal.active': 'Ziel wird fortgesetzt',
+  'conversations.tools.resumeGoal.done': 'Ziel fortgesetzt',
   'conversations.tools.scheduleTask.active': 'Aufgabe wird geplant',
   'conversations.tools.scheduleTask.done': 'Aufgabe geplant',
   'conversations.tools.checkSchedules.active': 'Zeitpläne werden geprüft',

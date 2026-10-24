@@ -4789,6 +4789,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'تم فحص الهدف',
   'conversations.tools.completeGoal.active': 'جارٍ إكمال الهدف',
   'conversations.tools.completeGoal.done': 'تم إكمال الهدف',
+  'conversations.tools.resumeGoal.active': 'جارٍ استئناف الهدف',
+  'conversations.tools.resumeGoal.done': 'تم استئناف الهدف',
   'conversations.tools.scheduleTask.active': 'جارٍ جدولة المهمة',
   'conversations.tools.scheduleTask.done': 'تمت جدولة المهمة',
   'conversations.tools.checkSchedules.active': 'جارٍ فحص الجداول',

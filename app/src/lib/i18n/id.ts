@@ -4933,6 +4933,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Tujuan diperiksa',
   'conversations.tools.completeGoal.active': 'Menuntaskan tujuan',
   'conversations.tools.completeGoal.done': 'Tujuan dituntaskan',
+  'conversations.tools.resumeGoal.active': 'Melanjutkan tujuan',
+  'conversations.tools.resumeGoal.done': 'Tujuan dilanjutkan',
   'conversations.tools.scheduleTask.active': 'Menjadwalkan tugas',
   'conversations.tools.scheduleTask.done': 'Tugas dijadwalkan',
   'conversations.tools.checkSchedules.active': 'Memeriksa jadwal',

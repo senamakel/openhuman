@@ -4958,6 +4958,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Sprawdzono cel',
   'conversations.tools.completeGoal.active': 'Realizowanie celu',
   'conversations.tools.completeGoal.done': 'Zrealizowano cel',
+  'conversations.tools.resumeGoal.active': 'Wznawianie celu',
+  'conversations.tools.resumeGoal.done': 'Wznowiono cel',
   'conversations.tools.scheduleTask.active': 'Planowanie zadania',
   'conversations.tools.scheduleTask.done': 'Zaplanowano zadanie',
   'conversations.tools.checkSchedules.active': 'Sprawdzanie harmonogramów',

@@ -6,8 +6,9 @@
 
 use super::*;
 use crate::modules::tinybox::host_runtime::{host_shell_flavor, ShellFlavor};
+use crate::tools::system::shell_support::python_env_defaults;
 #[cfg(feature = "modules")]
-use crate::tools::system::shell_support::{python_env_defaults, PYTHON_ENV_DEFAULTS};
+use crate::tools::system::shell_support::PYTHON_ENV_DEFAULTS;
 use std::collections::HashMap;
 use std::ffi::OsString;
 

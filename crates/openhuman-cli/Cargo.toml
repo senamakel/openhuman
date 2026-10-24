@@ -466,6 +466,8 @@ tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", featu
 # The document-port contract for failure injection in cron storage regressions.
 tinystoragedrivers-api = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039" }
 tinystoragedrivers = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039", default-features = false, features = ["sqlite"] }
+# The in-memory host storage backend the integration suites install.
+tinystoragedrivers-testkit = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039" }
 zeroize = "1"
 # The shell command-class vocabulary, for the security policy characterization.
 tinybox-bus = { path = "../../vendor/tinybox/crates/tinybox-bus" }
@@ -491,7 +493,7 @@ tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", f
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = ["sqlite", "multimodal"] }
 tinyagents-harness-tools = { path = "../../vendor/tinyagents/crates/tinyagents-harness-tools", default-features = false, features = ["goals"] }
 tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
-tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["testkit"] }
 tinydocs-bus = { path = "../../vendor/tinydocs/crates/tinydocs-bus" }
 # `inbound_linked_e2e` names the ingest dispositions from the contract.
 tinyeventqueues-bus = { path = "../../vendor/tinyeventqueues/crates/tinyeventqueues-bus" }

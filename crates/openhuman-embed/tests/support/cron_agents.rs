@@ -15,12 +15,12 @@ use std::time::Duration;
 
 use common::{chat_completion, chat_requests, offline_config, runtime, stub_backend};
 use openhuman_embed::{
-    AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, CronError, HostTurnTools,
-    InMemorySessionStores, JobSchedule, JobSpec, JobTarget, Provider, ReasoningEffort, Runtime,
-    RuntimeError, RuntimeEventKind, RuntimeEvents, ServiceSet, SessionStoreProvider, Tool,
-    ToolScopeSpec, TrustedAutomationSource, Workspace,
+    AgentDefinitionSpec, AgentSpec, AgentTurnOrigin, CronError, HostTurnTools, JobSchedule,
+    JobSpec, JobTarget, Provider, ReasoningEffort, Runtime, RuntimeError, RuntimeEventKind,
+    RuntimeEvents, ServiceSet, SessionStoreProvider, Tool, ToolScopeSpec, TrustedAutomationSource,
+    Workspace,
 };
-use tinyagents_session::port::AgentStores;
+use tinyagents_session::port::{AgentStores, InMemorySessionStores};
 use tinyagents_session::transcript::{
     SessionRef, ThreadTranscripts, TranscriptHistory, TranscriptLocator, TranscriptMessage,
     TranscriptMeta, TranscriptPartial, TranscriptRead,

@@ -202,3 +202,7 @@ impl ChannelHostCallbacks {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "callback_tests.rs"]
+mod tests;

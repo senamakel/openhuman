@@ -10,7 +10,7 @@ use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use tinychannels_bus::ChannelInboundEnvelope;
 
-use super::approval::{channel_has_approval_surface, try_route_approval_reply};
+use super::approval::consumes_approval_reply;
 use super::RuntimeChannelMessage;
 
 /// A prepared inbound message that still needs an agent turn: not a runtime
@@ -91,11 +91,8 @@ pub(crate) async fn admit_runtime_message(
 
     // A yes/no reply to an approval parked on this conversation decides it;
     // a fresh turn would cancel the parked tool call.
-    if target_channel
-        .as_ref()
-        .is_some_and(|channel| channel_has_approval_surface(&channel.capabilities()))
-        && try_route_approval_reply(&msg, &history_key).await
-    {
+    let gate = crate::security::approval::ApprovalGate::try_global();
+    if consumes_approval_reply(target_channel.as_ref(), gate.as_deref(), &msg, &history_key) {
         return None;
     }
 

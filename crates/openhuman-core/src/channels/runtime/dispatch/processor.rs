@@ -5,7 +5,7 @@
 //!   context scoping.
 //! * [`admit`] — preparation, the received event, and the runtime-command and
 //!   approval-reply intercepts that run before any debounce.
-//! * [`try_route_approval_reply`] (in [`approval`]) — intercepts yes/no
+//! * [`consumes_approval_reply`] (in [`approval`]) — intercepts yes/no
 //!   approval replies before dispatching a fresh agent turn.
 //! * [`process_channel_message`] — full per-message pipeline: typing, ACK
 //!   reaction, history, agent turn, draft updates, reply.

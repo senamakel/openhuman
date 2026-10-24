@@ -22,19 +22,34 @@ pub(crate) fn channel_has_approval_surface(
     capabilities.chat_approvals
 }
 
+/// Admission's approval intercept: a yes/no reply decides the approval parked
+/// on `thread_id`, but only on a channel instance that reports
+/// `chat_approvals`. A channel missing from the runtime map fails closed, so
+/// the reply goes out as a fresh turn.
+pub(super) fn consumes_approval_reply(
+    target_channel: Option<&std::sync::Arc<dyn crate::channels::Channel>>,
+    gate: Option<&crate::security::approval::ApprovalGate>,
+    msg: &traits::ChannelInboundEnvelope,
+    thread_id: &str,
+) -> bool {
+    target_channel.is_some_and(|channel| channel_has_approval_surface(&channel.capabilities()))
+        && route_approval_reply(gate, msg, thread_id)
+}
+
 /// If the inbound message is a yes/no reply for a parked approval on
 /// this thread, route it to [`ApprovalGate::decide`] and return `true`.
 /// Otherwise return `false` so the caller can dispatch the message as a
 /// fresh turn (which intentionally cancels any parked approval — the
 /// user is redirecting). Mirrors the web channel intercept at
-/// `web_chat/`.
+/// `web_chat/`. With no gate installed nothing is intercepted.
 ///
 /// [`ApprovalGate::decide`]: crate::security::approval::ApprovalGate::decide
-pub(super) async fn try_route_approval_reply(
+fn route_approval_reply(
+    gate: Option<&crate::security::approval::ApprovalGate>,
     msg: &traits::ChannelInboundEnvelope,
     thread_id: &str,
 ) -> bool {
-    let Some(gate) = crate::security::approval::ApprovalGate::try_global() else {
+    let Some(gate) = gate else {
         return false;
     };
     let Some(request_id) = gate.pending_for_thread(thread_id) else {
@@ -77,3 +92,7 @@ pub(super) async fn try_route_approval_reply(
         }
     }
 }
+
+#[cfg(test)]
+#[path = "approval_tests.rs"]
+mod tests;

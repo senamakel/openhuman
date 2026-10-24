@@ -309,42 +309,97 @@ fn a_context_from_before_profile_takeover_cannot_import_under_the_new_lease() {
     assert!(error.to_string().contains("currently admitted context"));
 }
 
+/// A host for `node` over the shared `backend`, with its own fence registry,
+/// as each node of a cluster has.
+fn cluster_node(
+    root: &std::path::Path,
+    node: &str,
+    backend: &Arc<dyn StorageBackend>,
+) -> crate::profiles::ProfileHost {
+    use crate::core::runtime::{CoreContext, DomainSet, SaasConfig};
+    let mut saas = SaasConfig::new(root);
+    saas.node_id = Some(node.to_string());
+    saas.lease_ttl_secs = TAKEOVER_TTL_SECS;
+    saas.idle_evict_secs = 3600;
+    crate::profiles::ProfileHost::with_backend(
+        saas,
+        CoreContext::for_test(DomainSet::full(), None),
+        Some(Arc::clone(backend)),
+    )
+    .unwrap()
+    .with_fences(Arc::new(crate::storage::fence::FenceRegistry::new(
+        crate::profiles::lease::now_ms,
+    )))
+}
+
+const TAKEOVER_TTL_SECS: u64 = 30;
+
+/// An import running on a dispatch context from before a lease takeover can
+/// neither borrow the new holder's fence nor write through its own.
+///
+/// This used to release and reopen the profile on one host while still holding
+/// the old context. `ProfileHost::release` refuses that by contract: the old
+/// context keeps the tenant in use (`CoreContext::tenant_in_use`), and a host
+/// must not close a tenant while that is true. So a stale context outliving
+/// its admission only happens across nodes, when another node takes the lease
+/// over, which is what this test models.
 #[tokio::test]
 async fn an_import_cannot_recapture_a_reopened_profiles_new_fence() {
-    use crate::core::runtime::{CoreContext, DomainSet, SaasConfig};
-    use crate::profiles::{ProfileHost, ProfileId, ProfileIdMode};
+    use crate::core::runtime::{ContextOverlay, DomainSet};
+    use crate::profiles::{ProfileId, ProfileIdMode};
+    use crate::storage::lease::DocumentLeases;
+    use tinystoragedrivers_types::Precondition;
 
     let root = tempfile::tempdir().unwrap();
     let fixture = crate::storage::test_support::sqlite_backend().unwrap();
     let backend: Arc<dyn StorageBackend> = Arc::clone(&fixture.backend);
     let id = ProfileId::for_user("import-takeover", ProfileIdMode::Raw).unwrap();
-    let host = ProfileHost::with_backend(
-        SaasConfig::new(root.path()),
-        CoreContext::for_test(DomainSet::full(), None),
-        Some(Arc::clone(&backend)),
-    )
-    .unwrap()
-    .with_fences(Arc::new(crate::storage::fence::FenceRegistry::new(
-        crate::profiles::lease::now_ms,
-    )));
-    host.provision(&id).await.unwrap();
-
-    let old_profile = host.open(&id).await.unwrap();
-    let old_context = Arc::clone(old_profile.context());
-    let old_turn = old_context.derive_with(crate::core::runtime::ContextOverlay::new(
-        crate::config::Config::default(),
-        DomainSet::full(),
-        Default::default(),
-    ));
-    drop(old_profile);
-    assert!(host.release(&id).await.unwrap());
-    let current_profile = host.open(&id).await.unwrap();
-    let current_context = Arc::clone(current_profile.context());
-    assert!(!Arc::ptr_eq(&old_context, &current_context));
-
     let module_scope = crate::storage::scope_for_module(Some(id.as_str()), MODULE_ID).unwrap();
+    let turn_on = |context: &Arc<crate::core::runtime::CoreContext>| {
+        context.derive_with(ContextOverlay::new(
+            crate::config::Config::default(),
+            DomainSet::full(),
+            Default::default(),
+        ))
+    };
+
+    // Node A admits the profile and starts a turn on it.
+    let node_a = cluster_node(root.path(), "node-a", &backend);
+    node_a.provision(&id).await.unwrap();
+    let old_profile = node_a.open(&id).await.unwrap();
+    let old_turn = turn_on(old_profile.context());
+
+    // Node B takes the lease over (by its clock node A's lease ran out) and
+    // opens the profile under its own, newer fence.
+    let thief = DocumentLeases::cluster(
+        backend.as_ref(),
+        "node-b",
+        None,
+        std::time::Duration::from_secs(TAKEOVER_TTL_SECS),
+    )
+    .unwrap();
+    thief
+        .acquire(
+            id.as_str(),
+            crate::profiles::lease::now_ms() + 2 * TAKEOVER_TTL_SECS * 1_000,
+        )
+        .await
+        .unwrap();
+    let node_b = cluster_node(root.path(), "node-b", &backend);
+    let current_profile = node_b.open(&id).await.unwrap();
+    let current_turn = turn_on(current_profile.context());
+
+    // The old turn cannot borrow node B's fence...
+    assert!(
+        super::super::storage_import_support::require_profile_context(
+            current_profile.context(),
+            &old_turn,
+            id.as_str(),
+        )
+        .is_err()
+    );
     let stale = super::super::storage_import_support::capture_profile_module_storage(
-        &host,
+        &node_b,
         &id,
         id.as_str(),
         &old_turn,
@@ -355,22 +410,51 @@ async fn an_import_cannot_recapture_a_reopened_profiles_new_fence() {
         "old dispatch context cannot borrow the new fence"
     );
 
-    let current_turn = current_context.derive_with(crate::core::runtime::ContextOverlay::new(
-        crate::config::Config::default(),
-        DomainSet::full(),
-        Default::default(),
-    ));
+    // ...and what it can still capture on node A writes nothing: node A's
+    // fence was superseded by the takeover.
+    let old_write = async {
+        let captured = super::super::storage_import_support::capture_profile_module_storage(
+            &node_a,
+            &id,
+            id.as_str(),
+            &old_turn,
+            module_scope.clone(),
+        )
+        .map_err(|_| ())?;
+        let storage = captured
+            .backend
+            .for_scope(&captured.scope)
+            .map_err(|_| ())?;
+        storage
+            .documents()
+            .put("notes", "n", serde_json::json!({}), Precondition::None)
+            .await
+            .map(|_| ())
+            .map_err(|_| ())
+    }
+    .await;
+    assert!(
+        old_write.is_err(),
+        "the superseded holder's import cannot write"
+    );
+
+    // The current turn captures node B's fenced storage and can use it.
     let captured = super::super::storage_import_support::capture_profile_module_storage(
-        &host,
+        &node_b,
         &id,
         id.as_str(),
         &current_turn,
         module_scope,
     )
     .unwrap();
-    // The capture retains the profile object as long as its claim/payload
-    // closure owns it. Its backend is the exact context's fence wrapper.
-    let _scoped = captured.backend.for_scope(&captured.scope).unwrap();
+    captured
+        .backend
+        .for_scope(&captured.scope)
+        .unwrap()
+        .documents()
+        .put("notes", "n", serde_json::json!({}), Precondition::None)
+        .await
+        .unwrap();
 }
 
 #[tokio::test]

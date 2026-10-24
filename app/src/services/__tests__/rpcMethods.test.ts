@@ -212,6 +212,7 @@ describe('rpcMethods catalog', () => {
       // Agent chat is owned by agent_runs; core/all.rs composes these host-side
       // controllers into the inference capability group.
       readWithParts('../../../../crates/openhuman-core/src/agent_runs/schemas.rs'),
+      // `inference_agent_chat` / `_simple` are declared next to their handlers.
       readWithParts('../../../../crates/openhuman-core/src/agent_runs/agent_chat/controllers.rs'),
       // The MCP registry split its schemas module into a directory. Controller
       // definitions (and therefore the mcp_clients literals this guard owns)

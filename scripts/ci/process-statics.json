@@ -492,16 +492,6 @@
   {
     "file": "crates/openhuman-core/src/storage/sessions/mod.rs",
     "scope": "",
-    "name": "OPEN_WORKSPACE_STORES",
-    "type": "LazyLock<Mutex<HashMap<(std::path::PathBuf,String),tinyagents_session::port::WorkspaceStores>>, >",
-    "count": 1,
-    "category": "D",
-    "reason": "Holds open the workspace transcript stores used when no host session store is installed. Each entry is a handle to the SQLite store under one workspace, keyed by that workspace and the session store key (agent_key_for: <profile>~<agent> for a SaaS profile), so two profiles or agents never share an entry; the store under the workspace is the authoritative data. release_workspace_defaults drops them all for a data reset, release_workspace those of one workspace.",
-    "verification": "threads/ops/edit_tests.rs: a_profile_prefixed_key_round_trips_through_edit_and_regenerate; storage/sessions/mod_tests.rs: without_a_store_transcripts_come_from_the_workspace_store_not_files"
-  },
-  {
-    "file": "crates/openhuman-core/src/storage/sessions/mod.rs",
-    "scope": "",
     "name": "PROVIDER",
     "type": "LazyLock<RwLock<Option<Arc<dyn SessionStoreProvider>>>>",
     "count": 1,
@@ -528,16 +518,6 @@
     "category": "D",
     "reason": "Each entry routes one workspace path to its storage backend and DriverSessionStores provider; returned stores still require the caller's tenant session key, while authoritative session data remains in the backend.",
     "verification": "storage/sessions/mod_tests.rs: each_workspace_keeps_its_sessions_in_its_own_database; storage/sessions/mod_tests.rs: two_profiles_default_agents_keep_separate_session_keys_and_stores; threads/ops/edit_tests.rs: a_profile_prefixed_key_round_trips_through_edit_and_regenerate"
-  },
-  {
-    "file": "crates/openhuman-core/src/storage/sessions/workspace.rs",
-    "scope": "",
-    "name": "MEMORY",
-    "type": "LazyLock<Mutex<HashMap<PathBuf,Arc<dyn SessionStoreProvider>>>>",
-    "count": 1,
-    "category": "D",
-    "reason": "The in-memory provider is a workspace-keyed fallback routing handle; its AgentStores are selected with the caller's tenant session key, and an unusable workspace cannot read another workspace's provider.",
-    "verification": "storage/sessions/workspace_tests.rs: an_unusable_workspace_degrades_to_an_in_memory_store; storage/sessions/mod_tests.rs: two_profiles_default_agents_keep_separate_session_keys_and_stores; threads/ops/edit_tests.rs: a_profile_prefixed_key_round_trips_through_edit_and_regenerate"
   },
   {
     "file": "crates/openhuman-core/src/threads/artifact_rows.rs",

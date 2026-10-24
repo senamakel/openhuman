@@ -260,6 +260,9 @@ fn legacy_fixture() -> std::path::PathBuf {
 fn a_legacy_jobs_db_is_imported_by_the_storage_importer_and_left_untouched() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
+    // The importer binds its claim to atomic conditional writes, which the
+    // in-memory test default does not support: use the workspace's sqlite.
+    crate::storage::local::use_persistent_default_for_test(&config.workspace_dir);
     let legacy = crate::storage::import::tinyflows::legacy_jobs_db(
         &crate::core::runtime::agent_scope_dir(&config),
     );

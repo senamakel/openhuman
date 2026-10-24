@@ -52,3 +52,29 @@ fn a_host_pinned_credential_wins_over_a_registered_builder() {
     unregister_composio_route_builder("backend");
     assert!(matches!(route, Ok(ComposioRoute::Direct(_))));
 }
+
+// Plain-http base URLs are allowed only for loopback; userinfo must not smuggle
+// a remote host past that check.
+#[test]
+fn loopback_http_guard_rejects_smuggled_and_remote_hosts() {
+    use super::super::credential::{is_loopback_http_url, DirectCredential};
+    for url in [
+        "http://127.0.0.1:8080@evil.com/api/v3",
+        "http://localhost@evil.com/",
+        "http://evil.com/",
+        "http://[::2]:9/",
+    ] {
+        assert!(!is_loopback_http_url(url), "{url}");
+        assert!(
+            DirectCredential::new_with_base_urls("k", url.into(), url.into()).is_err(),
+            "{url}"
+        );
+    }
+    for url in [
+        "http://[::1]:9/v3",
+        "http://LOCALHOST:9/",
+        "http://127.0.0.1:9/",
+    ] {
+        assert!(is_loopback_http_url(url), "{url}");
+    }
+}

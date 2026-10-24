@@ -43,6 +43,18 @@ impl ApprovalGate {
         }
     }
 
+    /// A gate with an isolated scripted engine for cross-module gate tests.
+    #[cfg(test)]
+    pub(crate) fn for_test(workspace: &std::path::Path) -> Self {
+        let config = Config {
+            workspace_dir: workspace.to_path_buf(),
+            ..Config::default()
+        };
+        let session = format!("session-{}", uuid::Uuid::new_v4());
+        let engine = super::engine_stub::StubEngine::new();
+        Self::with_engine(config, session, None, engine)
+    }
+
     fn new(config: Config, session_id: String, ttl: Option<Duration>) -> Self {
         let engine = Self::engine_for(&config);
         Self::with_engine(config, session_id, ttl, engine)

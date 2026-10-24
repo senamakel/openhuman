@@ -35,6 +35,40 @@ async fn doctor_holder_inspection_does_not_create_a_lock_file() {
 }
 
 #[tokio::test]
+async fn doctor_inspection_sees_a_live_holder_as_live_and_a_dead_one_as_not() {
+    let dir = tempfile::tempdir().unwrap();
+    let a = LocalLeases::new(dir.path(), "a");
+    let doctor = LocalLeases::new(dir.path(), "doctor");
+    let grant = a.acquire("k", 0).await.unwrap();
+
+    let live = doctor.holder_readonly("k").await.unwrap().unwrap();
+    assert_eq!(live.owner, "a");
+    assert!(live.is_live(0), "a held lock is a live holder");
+
+    // The lock is free again but the record says "not released": its holder
+    // died, so the record no longer excludes anyone.
+    a.release(grant).await.unwrap();
+    fs::write(
+        local_dir(dir.path(), "k").join(RECORD_FILE),
+        serde_json::to_vec(&LeaseRecord {
+            owner: "a".into(),
+            endpoint: None,
+            epoch: 1,
+            expires_at_ms: u64::MAX,
+            released: false,
+        })
+        .unwrap(),
+    )
+    .unwrap();
+    let dead = doctor.holder_readonly("k").await.unwrap().unwrap();
+    assert_eq!(dead.owner, "a");
+    assert!(
+        !dead.is_live(0),
+        "a free lock under an unreleased record is dead"
+    );
+}
+
+#[tokio::test]
 async fn a_second_instance_on_one_root_is_held_out() {
     let dir = tempfile::tempdir().unwrap();
     let (a, b) = (

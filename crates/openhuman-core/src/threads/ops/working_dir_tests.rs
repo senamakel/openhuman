@@ -64,10 +64,19 @@ fn thread(id: &str, working_dir: Option<String>) -> conversations::CreateConvers
     }
 }
 
+fn safe_tempdir() -> tempfile::TempDir {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/tmp");
+    std::fs::create_dir_all(&root).unwrap();
+    tempfile::tempdir_in(root).unwrap()
+}
+
 #[tokio::test]
 async fn a_bound_folder_that_disappears_fails_closed() {
     // The thread must not silently fall back to the global folder.
-    let temp = tempfile::tempdir().unwrap();
+    let _port = crate::modules::security::gap::install_port(std::sync::Arc::new(
+        crate::modules::security::gap::stub::StubPort::with_credential_floor(),
+    ));
+    let temp = safe_tempdir();
     let workspace = temp.path().join("internal");
     let folder = temp.path().join("project");
     std::fs::create_dir(&folder).unwrap();
@@ -97,7 +106,10 @@ async fn a_bound_folder_that_disappears_fails_closed() {
 #[tokio::test]
 async fn the_working_folder_is_fixed_after_the_first_message() {
     let _lock = crate::config::TEST_ENV_LOCK.lock().await;
-    let home = tempfile::tempdir().unwrap();
+    let _port = crate::modules::security::gap::install_port(std::sync::Arc::new(
+        crate::modules::security::gap::stub::StubPort::with_credential_floor(),
+    ));
+    let home = safe_tempdir();
     // Cleared on drop, even if an assertion below panics.
     let _workspace = crate::config::test_env::EnvVarGuard::workspace_unlocked(home.path());
     let ctx = DispatchCtx::ambient();

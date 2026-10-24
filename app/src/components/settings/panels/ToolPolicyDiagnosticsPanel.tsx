@@ -44,6 +44,17 @@ type ToolPolicyDiagnostics = {
   }[];
 };
 
+type ModulePolicyInfo = {
+  module?: {
+    status: 'active' | 'unavailable' | 'not_built';
+    generation?: number;
+    enabled?: boolean;
+    allowed_commands?: string[];
+    forbidden_paths?: string[];
+    capabilities?: string[];
+  };
+};
+
 const ToolPolicyDiagnosticsPanel = () => {
   const { t } = useT();
 
@@ -51,6 +62,9 @@ const ToolPolicyDiagnosticsPanel = () => {
     | { kind: 'loading' }
     | { kind: 'ready'; diagnostics: ToolPolicyDiagnostics }
     | { kind: 'error'; message: string }
+  >({ kind: 'loading' });
+  const [moduleStatus, setModuleStatus] = useState<
+    { kind: 'loading' } | { kind: 'ready'; info: ModulePolicyInfo } | { kind: 'error' }
   >({ kind: 'loading' });
 
   useEffect(() => {
@@ -67,6 +81,20 @@ const ToolPolicyDiagnosticsPanel = () => {
       } catch (err) {
         if (cancelled) return;
         setStatus({ kind: 'error', message: err instanceof Error ? err.message : String(err) });
+      }
+    })();
+    (async () => {
+      try {
+        const info = await callCoreRpc<ModulePolicyInfo>({
+          method: 'openhuman.security_policy_info',
+          params: {},
+          timeoutMs: 10_000,
+        });
+        if (cancelled) return;
+        setModuleStatus({ kind: 'ready', info });
+      } catch {
+        if (cancelled) return;
+        setModuleStatus({ kind: 'error' });
       }
     })();
     return () => {
@@ -98,6 +126,17 @@ const ToolPolicyDiagnosticsPanel = () => {
       d.mcp_write_audit.recent_rows === null ? '—' : String(d.mcp_write_audit.recent_rows);
 
     const T = 'devOptions.toolPolicyDiagnostics';
+    const activeModule = moduleStatus.kind === 'ready' ? moduleStatus.info.module : undefined;
+    const moduleValues =
+      activeModule?.status === 'active'
+        ? [
+            [t(`${T}.module.generation`), String(activeModule.generation ?? '—')],
+            [t(`${T}.module.enabled`), String(activeModule.enabled ?? '—')],
+            [t(`${T}.module.allowedCommands`), activeModule.allowed_commands?.join(', ') || '—'],
+            [t(`${T}.module.forbiddenPaths`), activeModule.forbidden_paths?.join(', ') || '—'],
+            [t(`${T}.module.capabilities`), activeModule.capabilities?.join(', ') || '—'],
+          ]
+        : [];
     const stats: [string, number][] = [
       [t(`${T}.inventory.totalTools`), d.total_tools],
       [t(`${T}.inventory.enabledTools`), d.enabled_tools],
@@ -120,6 +159,26 @@ const ToolPolicyDiagnosticsPanel = () => {
     // two-column grid, with the (possibly long) blocked-call list full width.
     return (
       <div className="space-y-4">
+        <Card title={t(`${T}.module.title`)} divided={false}>
+          {moduleStatus.kind === 'loading' ? (
+            <p className="p-4 text-xs text-content-muted">{t(`${T}.module.loading`)}</p>
+          ) : moduleStatus.kind === 'error' ||
+            !activeModule ||
+            activeModule.status === 'unavailable' ? (
+            <p className="p-4 text-xs text-content-muted">{t(`${T}.module.unavailable`)}</p>
+          ) : activeModule.status === 'not_built' ? (
+            <p className="p-4 text-xs text-content-muted">{t(`${T}.module.notBuilt`)}</p>
+          ) : (
+            <dl className="divide-y divide-line-subtle pb-1 pt-2 text-xs">
+              {moduleValues.map(([label, value]) => (
+                <div key={label} className="flex items-start justify-between gap-3 px-4 py-2">
+                  <dt className="shrink-0 text-content-muted">{label}</dt>
+                  <dd className="wrap-break-word text-right font-mono text-content">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </Card>
         <Card title={t(`${T}.inventory.title`)} divided={false}>
           <dl className="grid grid-cols-2 gap-3 p-4 lg:grid-cols-4">
             {stats.map(([label, value]) => (
@@ -219,7 +278,7 @@ const ToolPolicyDiagnosticsPanel = () => {
         </Card>
       </div>
     );
-  }, [status, t]);
+  }, [moduleStatus, status, t]);
 
   return (
     <SettingsPanel description={t('devOptions.toolPolicyDiagnosticsDesc')}>{body}</SettingsPanel>

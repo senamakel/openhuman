@@ -123,6 +123,9 @@ openhuman-embed = { path = "../openhuman-embed", default-features = false, featu
 # tower and tracing features and force a separate core build (see below).
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
 tempfile = "3"
+# The default local store opens as `sqlite:` (the core refuses a memory
+# fallback), so the tests that open one need the driver in every lane.
+openhuman-embed = { path = "../openhuman-embed", default-features = false, features = ["storage-sqlite"] }
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false }
 # The managed-model stream tests replay SSE through the real harness loop.
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", default-features = false }

@@ -339,6 +339,13 @@ impl Tool for RunWorkflowTool {
             }
         };
         let inputs = args.get("inputs").cloned();
+        let permit_inputs = inputs.clone().unwrap_or(serde_json::Value::Null);
+        let approved_scan_digest =
+            crate::agent::tinyagents::host::take_workflow_scan_permit_for_tool(
+                context,
+                &workflow_id,
+                &permit_inputs,
+            );
         let wait_seconds = parse_wait_seconds(&args);
 
         // Fire-and-forget: only the spawn backstop applies — no await, so no
@@ -349,6 +356,7 @@ impl Tool for RunWorkflowTool {
                 workflow_id.clone(),
                 inputs,
                 origin,
+                approved_scan_digest,
             )
             .await
             {
@@ -385,25 +393,32 @@ impl Tool for RunWorkflowTool {
             Err(e) => return Ok(ToolResult::error(format!("run_workflow: {e}"))),
         };
 
-        let started =
-            match spawn_workflow_run_background(&dispatch, workflow_id.clone(), inputs, origin)
-                .await
-            {
-                Ok(s) => {
-                    if let Err(e) = guard::account_spawn(&dispatch) {
-                        return Ok(ToolResult::error(format!("run_workflow: {e}")));
-                    }
-                    s
+        let started = match spawn_workflow_run_background(
+            &dispatch,
+            workflow_id.clone(),
+            inputs,
+            origin,
+            approved_scan_digest,
+        )
+        .await
+        {
+            Ok(s) => {
+                if let Err(e) = guard::account_spawn(&dispatch) {
+                    return Ok(ToolResult::error(format!("run_workflow: {e}")));
                 }
-                Err(e) => return Ok(ToolResult::error(format!("run_workflow: {e}"))),
-            };
+                s
+            }
+            Err(e) => return Ok(ToolResult::error(format!("run_workflow: {e}"))),
+        };
         tracing::debug!(
             workflow_id = %started.workflow_id,
             run_id = %started.run_id,
             wait_seconds,
             "[run_workflow] spawned; awaiting result inline"
         );
+        let workspace = resolve_workspace_dir().await;
         let outcome = await_run_outcome(
+            &workspace,
             &started.log_path,
             std::time::Duration::from_secs(wait_seconds),
         )
@@ -509,8 +524,12 @@ impl Tool for AwaitWorkflowTool {
             Err(e) => return Ok(ToolResult::error(format!("await_workflow: {e}"))),
         };
 
-        let outcome =
-            await_run_outcome(&log_path, std::time::Duration::from_secs(wait_seconds)).await;
+        let outcome = await_run_outcome(
+            &workspace,
+            &log_path,
+            std::time::Duration::from_secs(wait_seconds),
+        )
+        .await;
         Ok(outcome_to_result(
             &run_id,
             &visible_run.workflow_id,

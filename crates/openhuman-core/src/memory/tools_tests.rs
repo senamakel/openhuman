@@ -730,3 +730,8 @@ async fn learning_is_durably_queued_even_when_the_backend_refuses_writes() {
     assert_eq!(value["status"], "queued; not yet saved to memory");
     assert_eq!(super::super::tool_writes::drain(&config).await, 0);
 }
+
+#[path = "tools_bound_dispatch_tests.rs"]
+mod bound_dispatch_tests;
+#[path = "tools_deferred_tests.rs"]
+mod deferred_tests;

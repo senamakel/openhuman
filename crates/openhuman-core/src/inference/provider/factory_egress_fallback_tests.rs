@@ -13,6 +13,7 @@ async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
     use std::time::Duration;
 
     let _guard = crate::inference::inference_test_guard_async().await;
+    super::install_test_managed_provider();
     crate::core::bus::init().await.expect("bus init");
     let mut rx = crate::core::bus::BUS.get().unwrap().receiver();
 
@@ -22,12 +23,15 @@ async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
     let marker = "egress-managed-realpath-marker-v1";
     let mut config = Config::default();
     config.default_model = Some(marker.to_string());
-    let _ = create_chat_model_with_model_id_in(
-        &crate::core::runtime::DispatchCtx::ambient(),
-        "scratch",
-        &config,
-        0.7,
-    );
+    super::with_library_test_context_async(|| async {
+        let _ = create_chat_model_with_model_id_in(
+            &crate::core::runtime::DispatchCtx::ambient(),
+            "scratch",
+            &config,
+            0.7,
+        );
+    })
+    .await;
 
     // Bound the drain with a unique sentinel published AFTER our construction.
     let sentinel = "egress-managed-sentinel-end";
@@ -59,6 +63,9 @@ async fn create_chat_model_managed_emits_exactly_one_egress_realpath() {
     assert_eq!(
         count, 1,
         "managed inference via create_chat_model_with_model_id must emit EXACTLY ONE egress descriptor (no miss, no double)"
+    );
+    crate::inference::registry::unregister_chat_model(
+        crate::inference::provider::factory::PROVIDER_OPENHUMAN,
     );
 }
 
@@ -214,36 +221,32 @@ fn implicit_cloud_fallback_is_claimed_only_when_the_role_has_no_route_of_its_own
 
     // Unset background route: the role genuinely landed on the cloud because
     // the local chat model cannot serve it, so the explanation applies.
-    assert!(role_uses_implicit_cloud_fallback("vision", &config));
+    assert!(fallback_diagnostics_for_role("vision", &config).is_some());
     // The literal "cloud" is the same "route me wherever the cloud is" intent.
     config.embeddings_provider = Some("cloud".to_string());
-    assert!(role_uses_implicit_cloud_fallback("embeddings", &config));
+    assert!(fallback_diagnostics_for_role("embeddings", &config).is_some());
     // Whitespace is not a configured route.
     config.memory_provider = Some("   ".to_string());
-    assert!(role_uses_implicit_cloud_fallback("memory", &config));
+    assert!(fallback_diagnostics_for_role("memory", &config).is_some());
 
     // Explicitly routed to a cloud slug: a credential failure here is about
     // that route, not about the local chat model, so it must not be described
     // as a fallback.
     config.vision_provider = Some("anthropic:claude-3-5-sonnet-latest".to_string());
-    assert!(!role_uses_implicit_cloud_fallback("vision", &config));
+    assert!(fallback_diagnostics_for_role("vision", &config).is_none());
 
     // Chat-tier roles are never described as cloud fallbacks, routed or not.
     for role in ["chat", "reasoning", "coding"] {
-        assert!(!role_uses_implicit_cloud_fallback(role, &config));
+        assert!(fallback_diagnostics_for_role(role, &config).is_none());
     }
 }
 
 #[test]
 fn cloud_fallback_roles_match_the_roles_provider_for_role_actually_falls_back() {
-    // `factory_tests` is a child module of `factory`, so `super` is `factory`,
-    // not `provider` — reach the sibling module by its crate path.
-    use crate::inference::provider::fallback_diagnostics::role_falls_back_to_cloud;
-    let mut config = Config::default();
-    config.chat_provider = Some("ollama:gemma3:1b".to_string());
+    let router = crate::inference::provider::factory::workload_router();
 
-    // The diagnostics module carries its own role list; if the two drift, users
-    // get either a missing explanation or one that names the wrong knob.
+    // The native router's metadata is the source of truth for roles that may
+    // fall back to the primary cloud provider.
     for role in [
         "vision",
         "embeddings",
@@ -253,13 +256,13 @@ fn cloud_fallback_roles_match_the_roles_provider_for_role_actually_falls_back() 
         "burst",
     ] {
         assert!(
-            role_falls_back_to_cloud(role),
-            "'{role}' falls back in provider_for_role but is missing from CLOUD_FALLBACK_ROLES"
+            router.cloud_fallback_role(role).is_some(),
+            "'{role}' falls back in provider_for_role but is missing native fallback metadata"
         );
     }
     for role in ["chat", "reasoning", "coding"] {
         assert!(
-            !role_falls_back_to_cloud(role),
+            router.cloud_fallback_role(role).is_none(),
             "'{role}' is a chat-tier role and must not be described as a cloud fallback"
         );
     }

@@ -95,6 +95,34 @@ pub(super) fn load_or_mint_master_key(
     Ok(key)
 }
 
+/// Reads the file named by [`MASTER_KEY_FILE_ENV`].
+///
+/// On Unix a key file must not be writable by other users. Read-only group or
+/// other permissions are supported for container secret mounts, where the
+/// runtime may add group-read access for a non-root core.
+pub(super) fn read_master_key_file(path: &Path) -> Result<String, String> {
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let metadata = std::fs::metadata(path).map_err(|e| {
+            format!("cannot inspect master key file permissions ({MASTER_KEY_FILE_ENV}): {e}")
+        })?;
+        let mode = metadata.permissions().mode() & 0o777;
+        if key_file_mode_is_other_writable(mode) {
+            return Err(format!(
+                "master key file ({MASTER_KEY_FILE_ENV}) is writable by other users; \
+                 restrict it to a read-only secret mount"
+            ));
+        }
+    }
+    std::fs::read_to_string(path).map_err(|e| format!("cannot read master key file: {e}"))
+}
+
+#[cfg(unix)]
+pub(super) fn key_file_mode_is_other_writable(mode: u32) -> bool {
+    mode & 0o002 != 0
+}
+
 /// Load or durably create the workspace key under the cross-process write
 /// lock. Never replace a malformed or unreadable existing key. The atomic
 /// file writer creates the key with Unix mode `0600` before publication.
@@ -151,12 +179,9 @@ pub(super) fn profile_master_key_read_only(
         .map_err(SecretStorageError::Backend)?;
     let file = env_value(MASTER_KEY_FILE_ENV, std::env::var(MASTER_KEY_FILE_ENV))
         .map_err(SecretStorageError::Backend)?;
-    if let Some((key, _)) = master_key_from_env(
-        inline.as_deref(),
-        file.as_deref(),
-        super::read_master_key_file,
-    )
-    .map_err(SecretStorageError::Backend)?
+    if let Some((key, _)) =
+        master_key_from_env(inline.as_deref(), file.as_deref(), read_master_key_file)
+            .map_err(SecretStorageError::Backend)?
     {
         return Ok(Some(Zeroizing::new(key)));
     }

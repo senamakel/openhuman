@@ -48,7 +48,7 @@ async fn linked_tinyeventqueues_queues_dedupes_and_delivers_a_composio_trigger()
     std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
     std::env::set_var("BACKEND_URL", "http://127.0.0.1:9");
     let previous = openhuman_core::storage::install(std::sync::Arc::new(
-        openhuman_core::storage::MemoryStorage::new(),
+        tinystoragedrivers_testkit::MemoryBackend::new(),
     ));
     assert!(previous.is_none());
     linked_modules::install();

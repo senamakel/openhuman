@@ -42,12 +42,12 @@ use crate::flows::{
 };
 use crate::memory::types::{FetchParams, RecallParams};
 use crate::security::approval::{summarize_action, GateOutcome};
+use crate::security::policy::CommandClass;
 use crate::security::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 use crate::security::SecurityPolicy;
 use tinymemory_api::wrap_untrusted_for_agent;
 use tinymemory_api::Error;
 use tinymemory_api::{Hit, LearningKind, MemoryMeta, MetaFilter, SourceKind};
-use tinysecurity_bus::CommandClass;
 
 use super::{enforce_current_node_tier_gate, gate_call_for_tier, EngineError, Result};
 
@@ -341,7 +341,16 @@ impl OpenHumanMemory {
         // up front rather than spend that approval round-trip on a write
         // that was always going to be rejected (review fix — see #5227).
         let content = value_to_content(&value);
-        if tinyredact::has_likely_secret(&content) {
+        let contains_credentials =
+            super::super::memory_guard::contains_credentials(&self.config, &content)
+                .await
+                .map_err(|_| {
+                    EngineError::Capability(
+                        "memory node: secure credential check unavailable; write refused"
+                            .to_string(),
+                    )
+                })?;
+        if contains_credentials {
             tracing::warn!(
                 target: "flows",
                 key_chars = key.chars().count(),

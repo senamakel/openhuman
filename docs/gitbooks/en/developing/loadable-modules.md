@@ -65,7 +65,7 @@ the host library chain. Asynchronous filesystem checks use immutable scopes
 containing host-authorized roots and internal-state reservations. The client
 requires artifact attestation and fails closed if loading or validation fails.
 
-The production registry pins TinySecurity v0.13.0 (contract 1.20) and its 11
+The production registry pins TinySecurity v0.17.1 (contract 1.28) and its 11
 supported host archives using digests copied from the published checksum
 manifest. Native CI loads these released archives through digest admission.
 Explicit local fixtures remain available for module development and never
@@ -81,10 +81,12 @@ replace production pins. The module now owns:
 - password crypt (`modules/security_crypto.rs`).
 
 The host links only `tinysecurity-bus`. It registers immutable scopes derived
-from its configuration and maps the module's answers; a module that is missing,
-untrusted, faulted or slow denies, and there is no host-side fallback decision.
-The keyring and pairing crypto paths still run through their existing host
-implementations.
+from trusted configuration and authenticated host context, then maps the
+module's answers. Missing, untrusted, faulted or slow module calls fail closed.
+The host still owns product callbacks, execution and UI. The module also
+publishes device-pairing and frame-crypto contracts, but OpenHuman's device
+pairing path has not yet migrated to them; keyring and device crypto migration
+remain tracked by issue #7328.
 Redaction and egress are module calls and fail closed: text and endpoint
 redaction (`Redact`), tool-result credential removal (`CredentialsOnly`, in
 chunks the module accepts), a tenant's exact provider keys for one call

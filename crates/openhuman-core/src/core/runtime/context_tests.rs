@@ -21,6 +21,7 @@ fn ctx(dir: &str) -> Arc<CoreContext> {
         channel_thread: None,
         session_agent: None,
         profile: None,
+        profile_admission: Arc::new(()),
         agent: Default::default(),
         bare: false,
     })
@@ -212,6 +213,44 @@ fn derive_with_defaults_to_visible_user_skill_roots() {
     assert!(ctx("/tmp/ws").derive_with(overlay).user_skill_roots());
 }
 
+#[test]
+fn profile_admission_lineage_is_inherited_only_within_the_same_profile() {
+    let root = ctx("/tmp/profile-root");
+    let profile = root.derive_with(
+        ContextOverlay::new(
+            crate::config::Config::default(),
+            crate::core::runtime::DomainSet::full(),
+            Default::default(),
+        )
+        .profile("profile-a"),
+    );
+    let derived = profile.derive_with(ContextOverlay::new(
+        crate::config::Config::default(),
+        crate::core::runtime::DomainSet::full(),
+        Default::default(),
+    ));
+    let same_profile = profile.derive_with(
+        ContextOverlay::new(
+            crate::config::Config::default(),
+            crate::core::runtime::DomainSet::full(),
+            Default::default(),
+        )
+        .profile("profile-a"),
+    );
+    let switched = profile.derive_with(
+        ContextOverlay::new(
+            crate::config::Config::default(),
+            crate::core::runtime::DomainSet::full(),
+            Default::default(),
+        )
+        .profile("profile-b"),
+    );
+
+    assert!(profile.shares_profile_admission(&derived));
+    assert!(profile.shares_profile_admission(&same_profile));
+    assert!(!profile.shares_profile_admission(&switched));
+}
+
 #[tokio::test]
 async fn two_derived_contexts_serve_their_own_config_to_the_dispatch() {
     // The read path `load_config_with_timeout` uses. Two agents scoped one
@@ -385,6 +424,7 @@ fn degraded_context_rejects_workspace_bound_stores() {
         channel_thread: None,
         session_agent: None,
         profile: None,
+        profile_admission: Arc::new(()),
         agent: Default::default(),
         bare: false,
     };

@@ -5,7 +5,7 @@
 //!   context scoping.
 //! * [`admit`] — preparation, the received event, and the runtime-command and
 //!   approval-reply intercepts that run before any debounce.
-//! * [`try_route_approval_reply`] (in [`approval`]) — intercepts yes/no
+//! * [`consumes_approval_reply`] (in [`approval`]) — intercepts yes/no
 //!   approval replies before dispatching a fresh agent turn.
 //! * [`process_channel_message`] — full per-message pipeline: typing, ACK
 //!   reaction, history, agent turn, draft updates, reply.
@@ -30,7 +30,7 @@ use crate::inbound_debounce::{KeyedDebouncer, Push};
 use in_order::InOrder;
 use std::collections::{HashMap, VecDeque};
 use std::sync::Arc;
-use tinychannels_bus::{ChannelInboundEnvelope, ChannelMessage};
+use tinychannels_bus::ChannelInboundEnvelope;
 use tokio::task::JoinSet;
 use tokio::time::Instant;
 
@@ -39,20 +39,15 @@ use tokio::time::Instant;
 /// callback; it is never reconstructed from envelope metadata.
 #[derive(Clone)]
 pub(crate) struct RuntimeChannelMessage {
-    pub(crate) message: ChannelMessage,
-    pub(crate) inbound_envelope: Option<ChannelInboundEnvelope>,
+    pub(crate) message: ChannelInboundEnvelope,
     pub(crate) authenticated_relay: bool,
     pub(crate) prepared_inbound: Option<tinychannels_bus::module_inbound::PreparedChannelInbound>,
 }
 
 impl RuntimeChannelMessage {
-    pub(crate) fn with_inbound_envelope(
-        message: ChannelMessage,
-        inbound_envelope: ChannelInboundEnvelope,
-    ) -> Self {
+    pub(crate) fn with_inbound_envelope(message: ChannelInboundEnvelope) -> Self {
         Self {
             message,
-            inbound_envelope: Some(inbound_envelope),
             authenticated_relay: false,
             prepared_inbound: None,
         }
@@ -62,22 +57,8 @@ impl RuntimeChannelMessage {
         delivery: tinychannels_bus::module_relay::RelayInboundDelivery,
     ) -> Self {
         Self {
-            // The module's PrepareChannelInbound operation supplies the
-            // normalized legacy projection before the processor consumes it.
-            message: ChannelMessage::default(),
-            inbound_envelope: Some(delivery.envelope),
+            message: delivery.envelope,
             authenticated_relay: delivery.delivered_via_authenticated_relay,
-            prepared_inbound: None,
-        }
-    }
-}
-
-impl From<ChannelMessage> for RuntimeChannelMessage {
-    fn from(message: ChannelMessage) -> Self {
-        Self {
-            message,
-            inbound_envelope: None,
-            authenticated_relay: false,
             prepared_inbound: None,
         }
     }
@@ -87,8 +68,10 @@ use admit::admit_runtime_message;
 pub(crate) use admit::AdmittedInbound;
 #[cfg(test)]
 pub(crate) use approval::channel_has_approval_surface;
+#[cfg(test)]
+pub(crate) use turn::process_channel_message;
+pub(crate) use turn::process_channel_runtime_message;
 use turn::run_admitted_turn;
-pub(crate) use turn::{process_channel_message, process_channel_runtime_message};
 
 /// Run every inbound message through the agent pipeline until `rx` closes.
 ///
@@ -129,8 +112,8 @@ pub(crate) async fn run_message_dispatch_loop(
             match merge_channel_batch(batch) {
                 Some(admitted) => {
                     tracing::debug!(
-                        channel = %admitted.msg.channel,
-                        message_id = %admitted.msg.id,
+                        channel = %admitted.msg.channel.id,
+                        message_id = %admitted.msg.message_id,
                         batch_len,
                         in_flight = turns.len() + 1,
                         held,
@@ -229,9 +212,9 @@ fn buffer_admitted(
     seq: u64,
     inbound: AdmittedInbound,
 ) {
-    let settings = debounce.settings_for(&inbound.msg.channel);
-    let channel = inbound.msg.channel.clone();
-    let reply_target = inbound.msg.reply_target.clone();
+    let settings = debounce.settings_for(&inbound.msg.channel.id);
+    let channel = inbound.msg.channel.id.clone();
+    let reply_target = inbound.msg.conversation.id.clone();
     let key = inbound.history_key.clone();
     let push = debouncer.push(
         key,

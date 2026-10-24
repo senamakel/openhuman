@@ -87,7 +87,9 @@ fn recover_corrupt_file_after_probe(
     // writer did not replace the corrupt bytes with a healthy store.
     let _guard = file_store::lock_for_write(path)?;
     if file_store::fingerprint(path)? != before_probe {
-        log::info!("[keyring:encrypted_file] secrets file changed after the failed probe; not quarantining");
+        log::info!(
+            "[keyring:encrypted_file] secrets file changed after the failed probe; not quarantining"
+        );
         return Ok(());
     }
     log::error!(

@@ -7,9 +7,9 @@ use tinytools::Tool;
 #[tokio::test]
 async fn discovered_parent_config_is_used_to_record_agent_overrides() {
     let tmp = tempfile::tempdir().unwrap();
-    let storage = MemoryStorage::new();
+    let storage = memory_backend();
     let _forced = ForcedDocumentSource::new(
-        scoped(&storage, "tenant-internal-boot-agent"),
+        scoped(storage.as_ref(), "tenant-internal-boot-agent"),
         Scope::new("tenant-internal-boot-agent").unwrap(),
         keys(18),
     );
@@ -19,7 +19,7 @@ async fn discovered_parent_config_is_used_to_record_agent_overrides() {
         .await
         .unwrap();
     assert!(base.mcp_client.enabled);
-    assert!(!base.autonomy.enabled);
+    assert!(!base.security.autonomy.enabled);
     assert!(base.memory.agent_id.is_none());
 
     // Normal core boot discovers its config internally, so its context has no
@@ -27,7 +27,7 @@ async fn discovered_parent_config_is_used_to_record_agent_overrides() {
     // separately loaded base config.
     let parent = CoreContext::for_test(DomainSet::full(), Some(base.workspace_dir.clone()));
     let mut agent_config = base.clone();
-    agent_config.autonomy.enabled = true;
+    agent_config.security.autonomy.enabled = true;
     agent_config.mcp_client.enabled = false;
     agent_config.memory.agent_id = Some("runtime-agent-memory".into());
     let child = parent.derive_with_parent_config(
@@ -56,7 +56,7 @@ async fn discovered_parent_config_is_used_to_record_agent_overrides() {
     .await;
 
     assert_eq!(refreshed.default_model.as_deref(), Some("external-winner"));
-    assert!(refreshed.autonomy.enabled);
+    assert!(refreshed.security.autonomy.enabled);
     assert!(!refreshed.mcp_client.enabled);
     assert_eq!(
         refreshed.memory.agent_id.as_deref(),
@@ -70,7 +70,7 @@ async fn proxy_config_tool_loads_a_versioned_document_before_saving() {
     let previous_proxy = crate::config::runtime_proxy_config();
     let _restore = RuntimeProxyRestore(previous_proxy);
     let tmp = tempfile::tempdir().unwrap();
-    let storage = MemoryStorage::new();
+    let storage = memory_backend();
     let path = tmp.path().join("config.toml");
     let workspace = tmp.path().join("workspace");
 
@@ -84,7 +84,7 @@ async fn proxy_config_tool_loads_a_versioned_document_before_saving() {
     seed.proxy.http_proxy = Some("http://persisted-proxy.invalid:8080".into());
     seed.save().await.unwrap();
     let _forced = ForcedDocumentSource::new(
-        scoped(&storage, "tenant-proxy-tool-revision"),
+        scoped(storage.as_ref(), "tenant-proxy-tool-revision"),
         Scope::new("tenant-proxy-tool-revision").unwrap(),
         keys(19),
     );
@@ -133,7 +133,7 @@ async fn channel_allowlist_store_loads_a_versioned_document_before_saving() {
     let tmp = tempfile::tempdir().unwrap();
     let _env = crate::config::test_env::lock_env_async().await;
     let _home = crate::config::test_env::EnvVarGuard::set("HOME", tmp.path());
-    let storage = MemoryStorage::new();
+    let storage = memory_backend();
     let openhuman_dir = tmp.path().join(".openhuman");
     tokio::fs::create_dir_all(&openhuman_dir).await.unwrap();
     let config_path = openhuman_dir.join("config.toml");
@@ -156,7 +156,7 @@ async fn channel_allowlist_store_loads_a_versioned_document_before_saving() {
     seed.save().await.unwrap();
 
     let _forced = ForcedDocumentSource::new(
-        scoped(&storage, "tenant-channel-allowlist-revision"),
+        scoped(storage.as_ref(), "tenant-channel-allowlist-revision"),
         Scope::new("tenant-channel-allowlist-revision").unwrap(),
         keys(20),
     );
@@ -186,7 +186,7 @@ async fn channel_allowlist_store_loads_a_versioned_document_before_saving() {
 #[tokio::test]
 async fn recovery_restores_the_bootstrap_file_when_document_cas_conflicts() {
     let tmp = tempfile::tempdir().unwrap();
-    let storage = MemoryStorage::new();
+    let storage = memory_backend();
     let mut recovered = config_at(tmp.path(), "recovered-config");
     recovered.storage.url = Some("sqlite:/bootstrap-from-recovered-file".into());
     recovered.save().await.unwrap();
@@ -194,7 +194,7 @@ async fn recovery_restores_the_bootstrap_file_when_document_cas_conflicts() {
     std::fs::rename(&recovered.config_path, &corrupted).unwrap();
 
     let _forced = ForcedDocumentSource::new(
-        scoped(&storage, "tenant-recovery-cas"),
+        scoped(storage.as_ref(), "tenant-recovery-cas"),
         Scope::new("tenant-recovery-cas").unwrap(),
         keys(21),
     );

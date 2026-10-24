@@ -17,5 +17,7 @@ fn a_recorded_key_moves_under_the_threads_owner_keeping_its_body() {
 
 #[test]
 fn the_schema_composes_under_its_owner() {
-    tinystoragedrivers::schema::Registry::compose([storage_schema()]).unwrap();
+    for spec in collection_specs() {
+        spec.validate().unwrap();
+    }
 }

@@ -526,3 +526,20 @@ pub(crate) fn build_deterministic_final_summary(
     out.push_str("\nTell me how you'd like to proceed.");
     out
 }
+
+/// Build a stopped-turn summary using its typed breaker cause when available.
+/// The note remains a compatibility source for old, untyped stops.
+pub(crate) fn build_deterministic_final_summary_with_cause(
+    results: &[CheckpointToolResult],
+    stop_reason: Option<&str>,
+    failure_cause: Option<&tinyagents_harness::no_progress::ClassifiedStopCause>,
+) -> String {
+    if let Some(cause) = failure_cause {
+        return super::stop_summary::render_stop_summary_with_cause(
+            results,
+            stop_reason.unwrap_or_default(),
+            Some(cause),
+        );
+    }
+    build_deterministic_final_summary(results, stop_reason)
+}

@@ -1,6 +1,14 @@
 use super::*;
+#[cfg(feature = "storage-sqlite")]
+use crate::storage::test_support::sqlite_backend;
+#[cfg(feature = "storage-sqlite")]
+use crate::storage::Scope;
 use serde_json::json;
-use tinystoragedrivers::{MemoryStorage, Meta, Precondition, Scope, StorageBackend};
+#[cfg(feature = "storage-sqlite")]
+use std::sync::Arc;
+use tinystoragedrivers::Meta;
+#[cfg(feature = "storage-sqlite")]
+use tinystoragedrivers::Precondition;
 
 #[test]
 fn a_registry_row_loses_its_seconds_field_and_keeps_its_creation_time() {
@@ -20,8 +28,10 @@ fn a_registry_row_loses_its_seconds_field_and_keeps_its_creation_time() {
 }
 
 #[tokio::test]
+#[cfg(feature = "storage-sqlite")]
 async fn migrate_cluster_moves_the_v1_registry_into_the_v2_collection() {
-    let backend = MemoryStorage::new();
+    let fixture = sqlite_backend().unwrap();
+    let backend = Arc::clone(&fixture.backend);
     let scoped = backend.for_scope(&Scope::cluster()).unwrap();
     let docs = scoped.documents();
     docs.ensure_collection(&CollectionSpec::new("profiles"))
@@ -51,13 +61,18 @@ async fn migrate_cluster_moves_the_v1_registry_into_the_v2_collection() {
 
 #[test]
 fn the_schema_composes_under_its_owner() {
-    tinystoragedrivers::schema::Registry::compose([storage_schema()]).unwrap();
+    assert_eq!(
+        collection_specs(),
+        vec![CollectionSpec::new(REGISTRY_COLLECTION)]
+    );
 }
 
 #[tokio::test]
+#[cfg(feature = "storage-sqlite")]
 async fn migrate_cluster_moves_v1_leases_into_tsd_leases_and_keeps_their_epoch() {
     use crate::storage::lease::{DocumentLeases, LeaseStore, LEASE_OWNER};
-    let backend = MemoryStorage::new();
+    let fixture = sqlite_backend().unwrap();
+    let backend = Arc::clone(&fixture.backend);
     let scoped = backend.for_scope(&Scope::cluster()).unwrap();
     let docs = scoped.documents();
     docs.ensure_collection(&CollectionSpec::new("leases"))
@@ -85,7 +100,7 @@ async fn migrate_cluster_moves_v1_leases_into_tsd_leases_and_keeps_their_epoch()
     migrate_cluster(&scoped).await.unwrap();
     assert!(docs.get("leases", "alice").await.unwrap().is_none());
     assert!(docs.get("leases", "bob").await.unwrap().is_none());
-    let id = tinystoragedrivers::Key::of([LEASE_OWNER, "alice"]).unwrap();
+    let id = crate::storage::schema_support::key_of_parts([LEASE_OWNER, "alice"]).unwrap();
     let moved = docs.get("tsd.leases", id.as_str()).await.unwrap().unwrap();
     assert_eq!(
         moved.doc,
@@ -94,8 +109,13 @@ async fn migrate_cluster_moves_v1_leases_into_tsd_leases_and_keeps_their_epoch()
 
     // The host's lease store reads the moved records: alice is still held,
     // bob's released record is taken over cleanly at the next epoch.
-    let b = DocumentLeases::cluster(&backend, "node-b", None, std::time::Duration::from_secs(1))
-        .unwrap();
+    let b = DocumentLeases::cluster(
+        backend.as_ref(),
+        "node-b",
+        None,
+        std::time::Duration::from_secs(1),
+    )
+    .unwrap();
     let held = b.holder("alice").await.unwrap().unwrap();
     assert_eq!((held.owner.as_str(), held.epoch), ("node-a", 4));
     assert!(b.acquire("alice", 1_000).await.is_err());

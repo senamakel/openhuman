@@ -209,6 +209,7 @@ named = [
     "apply_patch",
     "file_write",
     "shell",
+    "shell_process",
     "git_operations",
     # Versioned artifact surface (vendor/tiny-artifacts): every document the
     # agent creates must land in the artifact pipeline — versioned JSON record
@@ -337,6 +338,9 @@ named = [
     "goal_set",
     "goal_get",
     "goal_complete",
+    # Resumes a paused goal when the user's message continues it; the turn
+    # start no longer resumes one on any message.
+    "goal_resume",
     # Workflow composition. `run_workflow` runs another workflow as a
     # subagent and (by default) waits on its result like a function call;
     # `await_workflow` re-attaches to a run that outlived its inline wait.

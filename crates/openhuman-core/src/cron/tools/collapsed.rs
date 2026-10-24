@@ -124,7 +124,10 @@ impl Tool for CronTool {
          reply back to that conversation automatically; do not set `delivery` \
          or copy a reply target for that. Only set `delivery` to override it \
          (`proactive` for an in-app notification, `none` for silent). A job \
-         created with no conversation defaults to `proactive`."
+         created with no conversation defaults to `proactive`. Reminders and \
+         recurring messages always deliver; a conditional check must put its \
+         condition and \"otherwise reply NO_REPLY\" in its `prompt`, and only \
+         such a job can skip a run."
     }
 
     fn parameters_schema(&self) -> Value {

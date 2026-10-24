@@ -37,7 +37,7 @@ impl SecurityPolicy {
         );
         if !autonomy_config.enabled {
             log::info!(
-                "[openhuman:policy] autonomy policy DISABLED ([autonomy] enabled = false) —                  command classification, the approval gate, the command allowlist, the action                  budget and workspace containment are all inert. Credential stores and system                  roots (the protected-path floor) remain blocked."
+                "[openhuman:policy] autonomy policy DISABLED ([security.autonomy] enabled = false) —                  command classification, the approval gate, the command allowlist, the action                  budget and workspace containment are all inert. Credential stores and system                  roots (the protected-path floor) remain blocked."
             );
         }
 
@@ -156,10 +156,10 @@ impl SecurityPolicy {
             enabled: autonomy_config.enabled,
             autonomy: autonomy_config.level,
             // Privacy mode is not carried on `AutonomyConfig` (it lives in the
-            // separate `[privacy]` block), and `from_config` has ~40 call sites
+            // separate `[security.privacy]` block), and `from_config` has ~40 call sites
             // that only hold the autonomy block — so we default to `Standard`
             // here and let the install / reload chokepoints layer the real
-            // `config.privacy.mode` on via [`with_privacy_mode`]. The live-policy
+            // `config.security.privacy.mode` on via [`with_privacy_mode`]. The live-policy
             // paths (`install` seeds from the built policy, `reload_from`
             // re-applies the stored mode, `reload_privacy` swaps it) keep the
             // effective enforcement mode correct without touching every caller.
@@ -170,7 +170,6 @@ impl SecurityPolicy {
             allowed_commands: autonomy_config.allowed_commands.clone(),
             forbidden_paths: autonomy_config.forbidden_paths.clone(),
             max_actions_per_hour: autonomy_config.max_actions_per_hour,
-            max_cost_per_day_cents: 0,
             require_approval_for_medium_risk: autonomy_config.require_approval_for_medium_risk,
             block_high_risk_commands: autonomy_config.block_high_risk_commands,
             trusted_roots,
@@ -186,24 +185,28 @@ impl SecurityPolicy {
     }
 
     /// Build the policy from the whole [`Config`]: autonomy, workspace roots and
-    /// the `[privacy]` mode together, so the egress posture is never silently
+    /// the `[security.privacy]` mode together, so the egress posture is never silently
     /// `Standard`. Prefer this over [`from_config`](Self::from_config) wherever a
     /// `Config` is in hand.
     #[must_use]
     pub fn from_full_config(config: &crate::config::Config) -> Self {
-        Self::from_config(&config.autonomy, &config.workspace_dir, &config.action_dir)
-            .with_privacy_mode(config.privacy.mode)
+        Self::from_config(
+            &config.security.autonomy,
+            &config.workspace_dir,
+            &config.action_dir,
+        )
+        .with_privacy_mode(config.security.privacy.mode)
     }
 
     /// Return a copy of this policy with `privacy_mode` set. Used by the live-
-    /// policy install / reload chokepoints to layer `config.privacy.mode` onto a
+    /// policy install / reload chokepoints to layer `config.security.privacy.mode` onto a
     /// policy that [`from_config`](Self::from_config) built with the `Standard`
     /// default. Builder-style so call sites read as
-    /// `SecurityPolicy::from_config(..).with_privacy_mode(config.privacy.mode)`.
+    /// `SecurityPolicy::from_config(..).with_privacy_mode(config.security.privacy.mode)`.
     #[must_use]
     pub fn with_privacy_mode(mut self, privacy_mode: crate::config::PrivacyMode) -> Self {
         log::debug!(
-            "[privacy][policy] privacy_mode set on SecurityPolicy: {:?} (was {:?})",
+            "[security.privacy][policy] privacy_mode set on SecurityPolicy: {:?} (was {:?})",
             privacy_mode,
             self.privacy_mode
         );

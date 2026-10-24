@@ -7,7 +7,7 @@ use async_trait::async_trait;
 use crate::config::Config;
 use crate::doctor::contract::{DoctorCheck, DoctorCtx, DoctorTier, Finding, FindingSeverity};
 use crate::storage::{StorageUrl, STORAGE_URL_VAR};
-use tinystoragedrivers::{BlobConfig, StorageConfig};
+use tinystoragedrivers::StorageConfig;
 
 const COMPONENTS_ID: &str = "components/referenced-but-disabled";
 const MODULE_FALLBACK_ID: &str = "modules/source-fallback";
@@ -249,8 +249,11 @@ fn referenced_but_disabled(config: &Config) -> Vec<Finding> {
         references.push(("computer", "computer"));
     }
 
-    if config.sandbox.enabled == Some(true)
-        || !matches!(&config.sandbox.backend, crate::config::SandboxBackend::Auto)
+    if config.security.sandbox.enabled == Some(true)
+        || !matches!(
+            &config.security.sandbox.backend,
+            crate::config::SandboxBackend::Auto
+        )
         || explicitly_configured(config, "sandbox.backend")
     {
         references.push(("sandbox", "sandbox"));
@@ -318,7 +321,6 @@ fn tokenjuice_is_custom(config: &Config) -> bool {
         || current.router_enabled != default.router_enabled
         || current.ccr_enabled != default.ccr_enabled
         || current.repl_handle_enabled != default.repl_handle_enabled
-        || current.repl_save_enabled != default.repl_save_enabled
         || current.ccr_disk_enabled != default.ccr_disk_enabled
         || current.max_cache_entries != default.max_cache_entries
         || current.max_cache_bytes != default.max_cache_bytes
@@ -465,17 +467,7 @@ fn missing_storage_feature(config: &StorageConfig) -> Option<&'static str> {
         StorageConfig::MongoDb { .. } => {
             (!cfg!(feature = "storage-mongodb")).then_some("storage-mongodb")
         }
-        StorageConfig::Composite { records, blobs } => {
-            missing_storage_feature(records).or_else(|| missing_blob_feature(blobs))
-        }
         _ => None,
-    }
-}
-
-fn missing_blob_feature(config: &BlobConfig) -> Option<&'static str> {
-    match config {
-        BlobConfig::S3 { .. } => (!cfg!(feature = "storage-s3")).then_some("storage-s3"),
-        BlobConfig::Backend(config) => missing_storage_feature(config),
     }
 }
 

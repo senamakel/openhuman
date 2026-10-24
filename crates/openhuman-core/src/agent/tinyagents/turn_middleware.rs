@@ -21,7 +21,7 @@ use tinyagents_harness::middleware::{
 use tinyagents_harness::middleware::{
     plan_mode_middleware, ArgRecoveryMiddleware, BudgetLimits, BudgetMiddleware,
     ContextCompressionMiddleware, PromptCacheGuardMiddleware, RepeatProgressMiddleware,
-    RunModeHandle, ToolPolicyMiddleware as TaToolPolicyMiddleware,
+    RunModeHandle,
 };
 use tinyagents_harness::runtime::AgentHarness;
 use tinyagents_harness::steering::SteeringHandle;
@@ -35,11 +35,17 @@ use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::middleware;
 use crate::agent::tinyagents::middleware::turn_context::TurnContextMiddleware;
 use crate::agent::tinyagents::observability::{ProviderUsageCarry, SubagentScope, ToolFailureMap};
-use crate::agent::tinyagents::routes;
 use crate::agent::tinyagents::verify_before_finish;
-use crate::inference::provider::model::TurnChatModel;
 
 use super::ToolPolicyEnforcement;
+
+struct OpenHumanCostEstimator;
+
+impl tinyagents_harness::middleware::library::CostEstimator for OpenHumanCostEstimator {
+    fn estimate(&self, model: &str, usage: &tinyinference_llm::usage::BilledUsage) -> Option<f64> {
+        crate::agent::cost::estimate_call_cost_usd(model, usage)
+    }
+}
 
 /// What the middleware stack needs to know about the turn.
 pub(super) struct TurnMiddlewareInputs {
@@ -82,7 +88,7 @@ pub(super) struct TurnMiddlewareInputs {
     /// This turn's memory binding: the compaction summarizer recalls under it.
     pub(super) memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
     /// The context-window summarizer's model.
-    pub(super) summarizer_model: TurnChatModel,
+    pub(super) summarizer_model: Arc<dyn tinyinference_llm::model::ChatModel<()>>,
     /// Shared `call_id -> (success, failure, elapsed_ms, output_chars)` side
     /// channel: middleware records each outcome for the bridge's
     /// `ToolCallCompleted`.
@@ -99,6 +105,13 @@ pub(super) struct TurnMiddlewareInputs {
     /// Called when the turn starts summarizing earlier conversation, so the
     /// client can show it. `None` for a turn nobody watches.
     pub(super) compaction_notice: Option<super::context_wiring::CompactionNotice>,
+    /// The session store the goal and `todo` tools write, whether or not this
+    /// turn has the `todo` tool; the run-state block reads it.
+    /// With the scope the `todo` tool uses on a turn without a thread (the
+    /// session id), so a headless turn's block still finds its plan.
+    pub(super) state_store: Option<(Arc<dyn tinyagents_harness::store::Store>, String)>,
+    /// The turn suppresses the thread goal (`TurnOverrides::suppress_active_goal`).
+    pub(super) goal_suppressed: bool,
 }
 
 /// The handles the run loop reads after the drive returns.
@@ -151,6 +164,8 @@ pub(super) fn install_turn_middleware(
         tool_outcome_sink,
         todo_store,
         compaction_notice,
+        state_store,
+        goal_suppressed,
     } = inputs;
     let super::host::HarnessHostPolicy {
         stop_hooks,
@@ -184,9 +199,7 @@ pub(super) fn install_turn_middleware(
     let usage_carry = provider_usage_carry.clone();
     harness.push_model_middleware(Arc::new(
         tinyagents_harness::middleware::library::UsageCarryMiddleware::new(move |response| {
-            if let Some(usage) =
-                crate::inference::provider::model::usage_info_from_response(response)
-            {
+            if let Some(usage) = tinyinference_llm::usage::usage_info_from_response(response) {
                 usage_carry
                     .lock()
                     .unwrap_or_else(|poisoned| poisoned.into_inner())
@@ -195,14 +208,38 @@ pub(super) fn install_turn_middleware(
         }),
     ));
 
-    // Route audit capture is a typed run-context concern. The canonical
-    // TinyInference decorator attached in `turn_models` stamps the successful
-    // unary response and the streamed terminal response, and this middleware
-    // moves that metadata into the explicit OpenHuman carrier.
-    harness.push_model_middleware(Arc::new(routes::ResolvedRouteMiddleware::new(
-        provider_id,
-        model,
-    )));
+    // Native route enrichment records the canonical resolved route in this
+    // run's explicit host carrier; pricing and cost remain host-owned.
+    harness.push_model_middleware(Arc::new(
+        tinyagents_harness::middleware::library::ResolvedRouteMiddleware::new(
+            provider_id,
+            model,
+            OpenHumanCostEstimator,
+            |data: &OpenHumanRunContext, route| {
+                *data
+                    .resolved_route
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(route);
+            },
+        )
+        .with_pricing_lookup(|model| {
+            if crate::agent::cost::is_free_model(model) {
+                Some(tinyagents_harness::events::GenerationPricing {
+                    input_per_mtok_usd: Some(0.0),
+                    cached_input_per_mtok_usd: Some(0.0),
+                    output_per_mtok_usd: Some(0.0),
+                })
+            } else {
+                tinyagents_registry::pricing::lookup(model).map(|price| {
+                    tinyagents_harness::events::GenerationPricing {
+                        input_per_mtok_usd: Some(price.input_per_mtok_usd),
+                        cached_input_per_mtok_usd: Some(price.cached_input_per_mtok_usd),
+                        output_per_mtok_usd: Some(price.output_per_mtok_usd),
+                    }
+                })
+            }
+        }),
+    ));
 
     // Per-call capability gate (issue #4249, Workstream 02.1): when the turn has
     // derivable capability needs (today: vision for a `hint:vision` turn), stamp
@@ -479,9 +516,14 @@ pub(super) fn install_turn_middleware(
     // it so its `after_model` runs first and the plan check comes first.
     match todo_store {
         Some(store) if verify_before_finish::applies(is_subagent, agent_id) => {
-            harness.push_middleware(Arc::new(
-                tinyagents_harness_tools::todos::TodoSequenceMiddleware::new(store),
-            ));
+            // A thread-less turn's plan sits under the session id (the `todo`
+            // tool's fallback scope); without the same key these rules never
+            // see it.
+            let mut sequence = tinyagents_harness_tools::todos::TodoSequenceMiddleware::new(store);
+            if let Some((_, fallback_thread)) = &state_store {
+                sequence = sequence.with_fallback_thread(fallback_thread.clone());
+            }
+            harness.push_middleware(Arc::new(sequence));
         }
         _ => tracing::debug!(
             is_subagent,
@@ -489,6 +531,10 @@ pub(super) fn install_turn_middleware(
             "[todo_sequence] not installed for this turn"
         ),
     }
+    // The goal, the plan and the turn's tool-call facts on every model call,
+    // request-only. On these turns the goal is not prepended to the user's
+    // message (see `state_block`).
+    super::state_block::install(harness, state_store, is_subagent, agent_id, goal_suppressed);
 
     // Direct web lookup is bounded. Once enough search/fetch results have
     // returned, the web tools leave the request so the run works with what it
@@ -511,17 +557,6 @@ pub(super) fn install_turn_middleware(
             .map(|enforcement| enforcement.session.clone()),
         tool_policy.clone(),
     );
-
-    // SDK-owned tool-policy projection (issue #4249 / tinyagents-full-migration
-    // 01.1). Keep this narrow for now: enforce sandbox requirements declared by
-    // adapter policies without enabling classification/approval/result-byte
-    // gates yet. `require_classification(true)` would currently reject an
-    // unregistered hallucinated tool in `before_tool` before
-    // `RunPolicy::unknown_tool` can return a recoverable tool error, while
-    // OpenHuman's existing wrappers still own HITL approval and output caps.
-    harness.push_middleware(Arc::new(
-        TaToolPolicyMiddleware::new(harness.tools().policies()).require_sandbox(true),
-    ));
 
     // CLI/RPC-only scope gate — a tool restricted to explicit CLI/RPC invocation
     // must not run from the model loop. Intrinsic to the tool, so installed on
@@ -559,6 +594,16 @@ pub(super) fn install_turn_middleware(
     // validation error. It never reaches approval/policy wrappers or the tool.
     harness.push_middleware(Arc::new(ArgRecoveryMiddleware::new(tool_sets.clone())));
 
+    // The model's shell `timeout_secs` is when the call comes back, not a kill:
+    // move it aside so the clamp below writes the command's deadline there.
+    let can_follow = harness
+        .tools()
+        .names()
+        .iter()
+        .any(|name| name == "shell_process");
+    harness.push_middleware(Arc::new(middleware::shell_yield::ShellYieldMiddleware {
+        can_follow,
+    }));
     // Clamp shell `timeout_secs` to the turn remainder (#6953), on recovered args.
     harness.push_middleware(Arc::new(shell_turn_budget.clamp()));
 

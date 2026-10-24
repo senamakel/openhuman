@@ -8,6 +8,7 @@ use super::*;
 /// production.
 #[tokio::test]
 async fn flows_discover_applies_the_flow_discovery_definitions_effective_iteration_cap() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     assert_eq!(config.agent.max_tool_iterations, 10);

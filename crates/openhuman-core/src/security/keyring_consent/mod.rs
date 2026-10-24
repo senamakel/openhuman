@@ -6,6 +6,9 @@ pub mod policy;
 mod schemas;
 pub mod types;
 
+pub(crate) use schemas::all_keyring_consent_controller_entries;
+#[cfg(test)]
+pub(crate) use schemas::keyring_consent_parameter_contracts;
 pub use schemas::{
     all_keyring_consent_controller_schemas, all_keyring_consent_registered_controllers,
 };

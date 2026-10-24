@@ -22,12 +22,17 @@ fn custom_registry_entry(enabled: bool) -> crate::agent_registry::AgentRegistryE
 }
 
 #[test]
-fn harness_model_default_override_normalises_tiers_to_hint_roles() {
+fn harness_model_default_override_preserves_unowned_model_ids() {
     assert_eq!(
         harness_model_default_override("reasoning-v1"),
+        "reasoning-v1"
+    );
+    assert_eq!(harness_model_default_override("chat-v1"), "chat-v1");
+    crate::agent::session_host::test_support::install_model_fixture();
+    assert_eq!(
+        harness_model_default_override("fixture-reasoning"),
         "hint:reasoning"
     );
-    assert_eq!(harness_model_default_override("chat-v1"), "hint:chat");
     assert_eq!(
         harness_model_default_override("hint:reasoning"),
         "hint:reasoning"

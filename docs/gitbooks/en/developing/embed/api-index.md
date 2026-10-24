@@ -106,6 +106,7 @@ Generate the complete local Rust API reference with `cargo doc -p openhuman-embe
 - [`ProfileSummary`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`Provider`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`Provisioned`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
+- [`ReasoningEffort`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`RelayAccepted`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`RelayMessage`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
 - [`RemoveAgent`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-embed/src/lib.rs)
@@ -263,7 +264,7 @@ The compiled capability report describes this build:
       "top_p": null,
       "max_iterations": 200
     },
-    "provider_model": "openrouter/deepseek/deepseek-v4-flash",
+    "provider_model": null,
     "routed_provider": false,
     "sandbox": "None",
     "approval_gate": true,

@@ -509,6 +509,56 @@ async fn composio_enable_trigger_via_mock() {
 }
 
 #[tokio::test]
+async fn enabling_trigger_makes_it_visible_in_list_triggers() {
+    let _serialised = module_guard().await;
+    let active = std::sync::Arc::new(std::sync::Mutex::new(Vec::<Value>::new()));
+    let list_state = active.clone();
+    let enable_state = active.clone();
+    let app = Router::new()
+        .route(
+            "/agent-integrations/composio/triggers",
+            get(move || {
+                let triggers = list_state.lock().unwrap().clone();
+                async move { Json(json!({"success": true, "data": {"triggers": triggers}})) }
+            })
+            .post(move |Json(body): Json<Value>| {
+                let enable_state = enable_state.clone();
+                async move {
+                    let trigger = json!({
+                        "id": "ti_enabled",
+                        "slug": body["slug"],
+                        "toolkit": "gmail",
+                        "connectionId": body["connectionId"],
+                        "state": "active"
+                    });
+                    enable_state.lock().unwrap().push(trigger);
+                    Json(json!({
+                        "success": true,
+                        "data": {"triggerId": "ti_enabled", "slug": body["slug"], "connectionId": body["connectionId"]}
+                    }))
+                }
+            }),
+        );
+    let base = start_mock_backend(app).await;
+    let tmp = tempfile::tempdir().unwrap();
+    let config = config_with_backend(&tmp, base);
+
+    assert!(composio_list_triggers(&config, None)
+        .await
+        .unwrap()
+        .value
+        .triggers
+        .is_empty());
+    composio_enable_trigger(&config, "c1", "GMAIL_NEW_GMAIL_MESSAGE", None)
+        .await
+        .unwrap();
+    let listed = composio_list_triggers(&config, None).await.unwrap();
+    assert_eq!(listed.value.triggers.len(), 1);
+    assert_eq!(listed.value.triggers[0].id, "ti_enabled");
+    assert_eq!(listed.value.triggers[0].slug, "GMAIL_NEW_GMAIL_MESSAGE");
+}
+
+#[tokio::test]
 async fn composio_disable_trigger_via_mock() {
     let _serialised = module_guard().await;
     let app = Router::new().route(

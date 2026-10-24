@@ -3,7 +3,7 @@ use serde_json::{json, Value};
 use std::path::Path;
 use std::sync::Arc;
 use tinyagents_harness::media::MediaOutput;
-use tinystoragedrivers::BlobStore;
+use tinystoragedrivers_api::BlobStore;
 use tinytools::{PermissionLevel, Tool, ToolCategory, ToolContent, ToolResult};
 
 use super::{copy_blob_to_file, has_reusable_files_reference, MediaArtifactTool};
@@ -66,24 +66,6 @@ async fn artifact_history_refresh_failure_fails_closed_for_cached_files() {
         .execute(json!({ "references": [replacement.to_string_lossy()] }))
         .await
         .is_err());
-}
-
-struct PartialThenFail(bool);
-
-impl tokio::io::AsyncRead for PartialThenFail {
-    fn poll_read(
-        self: std::pin::Pin<&mut Self>,
-        _cx: &mut std::task::Context<'_>,
-        buf: &mut tokio::io::ReadBuf<'_>,
-    ) -> std::task::Poll<std::io::Result<()>> {
-        let this = self.get_mut();
-        if this.0 {
-            return std::task::Poll::Ready(Err(std::io::Error::other("reader failed")));
-        }
-        this.0 = true;
-        buf.put_slice(b"partial media");
-        std::task::Poll::Ready(Ok(()))
-    }
 }
 
 /// A minimal stand-in for `GenerateImageTool` / `GenerateVideoTool`: writes
@@ -190,7 +172,10 @@ async fn files_a_blob_backed_generated_artifact() {
     let root = tempfile::tempdir().unwrap();
     let workspace = root.path().join("workspace");
     let files_dir = root.path().join("Files");
-    let blobs = MediaOutput::new(root.path()).blobs.clone();
+    let backend = crate::storage::test_support::memory_backend();
+    let scoped = backend.for_scope(&crate::storage::Scope::local()).unwrap();
+    let blobs: Arc<dyn BlobStore> = Arc::clone(scoped.blobs());
+    let _output = MediaOutput::new(root.path(), Arc::clone(&blobs));
     let wrapped = MediaArtifactTool::new(
         BlobBackedMediaTool {
             blobs: Arc::clone(&blobs),
@@ -304,13 +289,16 @@ async fn removes_partial_destination_when_blob_read_fails() {
     let dest = root.path().join("partial.png");
     std::fs::write(&dest, b"reserved placeholder").unwrap();
 
-    let error = copy_blob_to_file(
-        &mut PartialThenFail(false),
-        &dest,
-        "generated-media/fail.png",
-    )
-    .await
-    .unwrap_err();
+    let mut reader: tinyagents_storage_kit::blob::BlobReader =
+        Box::pin(futures_util::stream::iter([
+            Ok(bytes::Bytes::from_static(b"partial media")),
+            Err(tinystoragedrivers_types::StorageError::backend(
+                "reader failed",
+            )),
+        ]));
+    let error = copy_blob_to_file(&mut reader, &dest, "generated-media/fail.png")
+        .await
+        .unwrap_err();
 
     assert!(error.contains("failed to copy generated media blob"));
     assert!(!dest.exists());
@@ -320,7 +308,9 @@ async fn removes_partial_destination_when_blob_read_fails() {
 async fn keeps_source_blob_when_artifact_finalization_fails() {
     let root = tempfile::tempdir().unwrap();
     let workspace = root.path().join("workspace");
-    let blobs = MediaOutput::new(root.path()).blobs.clone();
+    let backend = crate::storage::test_support::memory_backend();
+    let scoped = backend.for_scope(&crate::storage::Scope::local()).unwrap();
+    let blobs: Arc<dyn BlobStore> = Arc::clone(scoped.blobs());
     let key = "generated-media/finalize-failure.png";
     blobs
         .put(key, b"media bytes".to_vec(), Some("image/png"))

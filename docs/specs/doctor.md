@@ -2,7 +2,7 @@
 
 This is the maintainer contract for the OpenHuman doctor framework and the
 checks delivered by the doctor epic. It defines stable check ids and report
-semantics before the legacy `platform/doctor` code moves. The core owns checks,
+semantics for the `doctor` domain. The core owns checks,
 the registry, runner, and RPC surface; `openhuman-cli` owns command parsing,
 rendering, and process exit codes; `openhuman-tinyhumans` owns hosted checks.
 
@@ -255,8 +255,8 @@ lowercase slash-separated segment grammar and are unique across sources. A
 source may register zero checks when its host capability is absent.
 
 The doctor stays in the existing `DomainGroup::Platform` registration group.
-Moving its Rust module from `platform/doctor` to the top-level `doctor` domain
-does not add a new runtime domain group. `subsystems.status` remains a separate
+Its Rust module lives at the top-level `doctor` domain without adding a new
+runtime domain group. `subsystems.status` remains a separate
 wire projection: it reports driver bindings, health, and capabilities, while
 doctor findings include stable check ids, severity, guidance, provenance, and
 timing. A doctor check may consume subsystem status as evidence, but it does

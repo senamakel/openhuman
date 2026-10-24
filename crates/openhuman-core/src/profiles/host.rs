@@ -157,6 +157,19 @@ impl ProfileHost {
         &self.node
     }
 
+    /// Profile identities known to the host, including profiles that are not
+    /// currently open. Background maintenance uses this inventory so dormant
+    /// profiles are not skipped between requests.
+    pub async fn known_profiles(&self) -> Result<Vec<String>, String> {
+        Ok(self
+            .registry
+            .list()
+            .await?
+            .into_iter()
+            .map(|profile| profile.profile_id.to_string())
+            .collect())
+    }
+
     pub(crate) fn leases(&self) -> &dyn LeaseStore {
         self.leases.as_ref()
     }
@@ -399,6 +412,18 @@ impl ProfileHost {
         self.lock().get(id).map(|slot| Arc::clone(&slot.state))
     }
 
+    /// Snapshot profiles currently leased by this host.
+    ///
+    /// The returned handles keep each slot in use until the caller drops the
+    /// snapshot, so maintenance cannot outlive the lease that fences its
+    /// profile-scoped writes.
+    pub(crate) fn hosted_profiles(&self) -> Vec<Arc<Profile>> {
+        self.lock()
+            .values()
+            .map(|slot| Arc::clone(&slot.state))
+            .collect()
+    }
+
     pub fn is_open(&self, id: &ProfileId) -> bool {
         self.lock().contains_key(id)
     }
@@ -625,7 +650,7 @@ pub(super) fn create_dirs(layout: &ProfileLayout) -> Result<(), String> {
 fn profile_policy(config: &Config) -> Arc<crate::security::SecurityPolicy> {
     Arc::new(
         crate::security::SecurityPolicy::from_full_config(config)
-            .with_privacy_mode(config.privacy.mode),
+            .with_privacy_mode(config.security.privacy.mode),
     )
 }
 

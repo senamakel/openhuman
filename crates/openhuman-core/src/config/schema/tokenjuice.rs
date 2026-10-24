@@ -35,12 +35,6 @@ pub struct TokenjuiceConfig {
     /// `juice_retrieve` round trip.
     #[serde(default = "default_true")]
     pub repl_handle_enabled: bool,
-    /// Also write each stored original to
-    /// `<workspace>/.tokenjuice/repl/<handle>.txt` (mode 0600) so the agent can
-    /// script over it. Off by default: it puts raw tool output on disk, and
-    /// nothing prunes the directory.
-    #[serde(default)]
-    pub repl_save_enabled: bool,
     /// Max number of originals retained in the in-memory CCR store.
     #[serde(default = "default_max_cache_entries")]
     pub max_cache_entries: usize,
@@ -90,7 +84,6 @@ impl Default for TokenjuiceConfig {
             router_enabled: true,
             ccr_enabled: true,
             repl_handle_enabled: true,
-            repl_save_enabled: false,
             ccr_disk_enabled: false,
             max_cache_entries: default_max_cache_entries(),
             max_cache_bytes: default_max_cache_bytes(),

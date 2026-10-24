@@ -52,7 +52,7 @@ async fn a_hook_command_never_runs_when_the_jail_is_unreachable() {
 async fn a_hook_command_gets_stdin_environment_and_exit_code_through_the_gate() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(tmp.path());
-    config.sandbox.enabled = Some(false);
+    config.security.sandbox.enabled = Some(false);
     let mut spawn = request("cat; echo \"$HOOK_VAR\" 1>&2; exit 2", br#"{"event":"x"}"#);
     spawn.env.insert("HOOK_VAR".into(), "from-engine".into());
 

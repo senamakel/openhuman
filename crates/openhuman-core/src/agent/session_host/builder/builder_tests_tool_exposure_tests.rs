@@ -122,6 +122,7 @@ fn build_with(
         std::sync::Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     crate::agent::SessionHostBuilder::new()
         .chat_model(model)
+        .model_name("test/session-fixture".to_string())
         .tools(tools)
         .visible_tool_names(visible)
         .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))

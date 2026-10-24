@@ -71,7 +71,7 @@ impl StorageArtifactPublisher {
 pub fn artifact_publisher(config: &Config) -> Option<Arc<dyn ArtifactPublisher>> {
     let client = crate::integrations::build_client(config)?;
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     ));

@@ -2,10 +2,10 @@ use super::*;
 use tinysecurity_bus::{
     ApprovalBinding2, AuditCorrelation2, AuditEvent2, AuditKind2, CallerContext, Origin,
 };
-use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
+use tinystoragedrivers::{Scope, StorageBackend};
 
 fn rows() -> Rows {
-    let storage = MemoryStorage::new();
+    let storage = tinystoragedrivers_testkit::memory_backend();
     let scoped = storage.for_scope(&Scope::new("local").unwrap()).unwrap();
     Rows::over(Arc::clone(scoped.documents()))
 }

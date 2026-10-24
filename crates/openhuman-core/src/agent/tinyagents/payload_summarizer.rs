@@ -101,7 +101,7 @@ impl HarnessPayloadSummarizer<OpenHumanRunContext> for SubagentPayloadSummarizer
         let thread_id = parent_ctx.data.thread_id.clone();
         let max_output_tokens = definition
             .max_turn_output_tokens
-            .unwrap_or(crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS);
+            .unwrap_or(tinyagents_harness::turn_policy::AGENT_TURN_MAX_OUTPUT_TOKENS);
         let child_context = unary_child_context(
             parent_ctx,
             &definition.id,

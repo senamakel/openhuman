@@ -10,8 +10,9 @@
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::core::Outcome;
 use openhuman_embed::__host::inference_registry::{
-    BoxFuture, CatalogEntry, CatalogLimits, CatalogListing, CatalogRequest, InspectionCatalogError,
-    InspectionCatalogListing, PreparedInspectionCatalog,
+    BoxFuture, CatalogEntry, CatalogHostRequest, CatalogLimits, CatalogListing, CatalogRequest,
+    InspectionCatalogError, InspectionCatalogListing, InspectionCatalogRequest,
+    PreparedInspectionCatalog, ProviderContext,
 };
 use openhuman_embed::__host::security::credentials::session_support::{
     classify_session_token, load_app_session_profile, publish_local_session_expiry,
@@ -21,6 +22,9 @@ use openhuman_embed::__host::util::url::join_url;
 use std::sync::Arc;
 use tinyinference_llm::catalog::{append_query_param, parse_models_response};
 use tinyinference_llm::model::discover::DiscoveryRequest;
+use tinyinference_llm::providers::tinyhumans::{
+    discovery_request, list_models as fetch_model_catalog,
+};
 
 use super::PROVIDER_OPENHUMAN;
 use crate::backend::headers::attribution_headers;
@@ -32,16 +36,30 @@ use crate::client::endpoint::{
 const MODELS_PATH: &str = "/openai/v1/models";
 
 /// The registry entry for the managed catalog.
-pub(super) fn entry() -> CatalogEntry {
-    let list: CatalogListing = Arc::new(
-        |config: Config,
-         request: CatalogRequest|
-         -> BoxFuture<Result<Outcome<serde_json::Value>, String>> {
-            Box::pin(async move { list_models(&config, request).await })
+pub(super) fn entry() -> CatalogEntry<ProviderContext> {
+    let list: CatalogListing<ProviderContext> = Arc::new(
+        |request: CatalogRequest<ProviderContext>| -> BoxFuture<Result<serde_json::Value, String>> {
+            Box::pin(async move {
+                let context = request.context;
+                let host = context.catalog.as_ref().expect("catalog host context");
+                let outcome = list_models(
+                    &context.config,
+                    CatalogHostRequest {
+                        provider_key: host.request.provider_key.clone(),
+                        client: host.request.client.clone(),
+                    },
+                )
+                .await?;
+                host.logs
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .extend(outcome.logs);
+                Ok(outcome.value)
+            })
         },
     );
-    let limits: CatalogLimits =
-        Arc::new(|model: &str, config: &Config| limits_request(model, config));
+    let limits: CatalogLimits<ProviderContext> =
+        Arc::new(|model: &str, context: &ProviderContext| limits_request(model, &context.config));
     CatalogEntry {
         list,
         limits: Some(limits),
@@ -52,7 +70,7 @@ pub(super) fn entry() -> CatalogEntry {
 /// the core consults its cache. This deliberately does not call `list_models`
 /// or any mutable session/catalog path.
 pub(super) fn inspection_entry() -> InspectionCatalogListing {
-    Arc::new(|config, request| {
+    Arc::new(|config: Config, request: InspectionCatalogRequest| {
         Box::pin(async move {
             use openhuman_embed::__host::security::credentials::session_support::{
                 check_session_backend, classify_session_token, load_app_session_profile_read_only,
@@ -162,14 +180,6 @@ pub(super) fn managed_401_means_signed_out(status: u16, session_attached: bool) 
     status == 401 && session_attached
 }
 
-fn truncate(text: &str, max_chars: usize) -> String {
-    if text.chars().count() <= max_chars {
-        return text.to_string();
-    }
-    let cut: String = text.chars().take(max_chars).collect();
-    format!("{cut}...")
-}
-
 /// What authenticates a listing request: the live session token, or the
 /// entry's provider-scoped key when there is no live session.
 #[derive(Debug, PartialEq, Eq)]
@@ -207,7 +217,7 @@ pub(super) fn listing_auth(check: SessionTokenCheck, provider_key: &str) -> List
 /// The `list_configured_models` listing for the managed provider.
 pub(super) async fn list_models(
     config: &Config,
-    request: CatalogRequest,
+    request: CatalogHostRequest,
 ) -> Result<Outcome<serde_json::Value>, String> {
     // Classify the session directly: a store error propagates (a recoverable
     // fault the picker should surface), only an absent or expired session
@@ -235,67 +245,51 @@ pub(super) async fn list_models(
     // request that carried only a provider key describes that key, not the
     // session.
     let session_attached = attach && session_token;
-    let mut request = client.get(&url);
-    if attach {
-        request = request.header("Authorization", format!("Bearer {token}"));
-        if let Ok(headers) = attribution_headers() {
-            request = request.headers(headers);
-        }
+    let extra_headers = if attach {
+        attribution_headers()
+            .ok()
+            .map(|headers| {
+                headers
+                    .iter()
+                    .filter_map(|(name, value)| {
+                        value
+                            .to_str()
+                            .ok()
+                            .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default()
     } else {
         log::warn!(
             "[tinyhumans][inference] refusing to send a bearer token to a non-https, non-loopback URL"
         );
-    }
+        Vec::new()
+    };
+    let request = discovery_request(
+        &effective_backend_api_url(&config.api_url),
+        "",
+        attach.then_some(token.as_str()),
+        &extra_headers,
+    )
+    .with_listing_url(url.clone())
+    .with_timeout(std::time::Duration::from_secs(30));
 
-    let response = request
-        .send()
-        .await
-        .map_err(|e| format!("[providers][list_models] HTTP request failed: {e}"))?;
-    let status = response.status();
-    if !status.is_success() {
-        if managed_401_means_signed_out(status.as_u16(), session_attached) {
-            log::info!(
-                "[tinyhumans][inference] managed catalog unavailable: backend rejected the session token (401)"
-            );
-            return empty_catalog("session not accepted");
+    let models = match fetch_model_catalog(&client, request).await {
+        Ok(models) => models,
+        Err(error) => {
+            if error
+                .http_status()
+                .is_some_and(|status| managed_401_means_signed_out(status, session_attached))
+            {
+                log::info!(
+                    "[tinyhumans][inference] managed catalog unavailable: backend rejected the session token (401)"
+                );
+                return empty_catalog("session not accepted");
+            }
+            return Err(error.to_string());
         }
-        let body = response.text().await.unwrap_or_default();
-        let sanitized = tinyinference_core::sanitize::sanitize_api_error(&body);
-        return Err(format!(
-            "provider returned {}: {}",
-            status.as_u16(),
-            truncate(&sanitized, 300)
-        ));
-    }
-
-    let raw_body = response
-        .text()
-        .await
-        .map_err(|e| format!("[providers][list_models] failed to read response body: {e}"))?;
-    let body: serde_json::Value = serde_json::from_str(&raw_body).map_err(|e| {
-        let snippet = truncate(
-            &tinyinference_core::sanitize::sanitize_api_error(&raw_body),
-            300,
-        );
-        format!("[providers][list_models] failed to parse JSON: {e} (body: {snippet})")
-    })?;
-    if let Some(err_field) = body.get("error") {
-        let msg = err_field
-            .as_str()
-            .map(str::to_string)
-            .or_else(|| {
-                err_field
-                    .get("message")
-                    .and_then(|m| m.as_str())
-                    .map(str::to_string)
-            })
-            .unwrap_or_else(|| err_field.to_string());
-        return Err(format!(
-            "provider returned error payload: {}",
-            tinyinference_core::sanitize::sanitize_api_error(&msg)
-        ));
-    }
-    let models = parse_models_response(&body).map_err(|error| error.to_string())?;
+    };
     log::info!(
         "[tinyhumans][inference] managed catalog fetched {} models",
         models.len()
@@ -316,38 +310,45 @@ pub(super) fn limits_request(model: &str, config: &Config) -> Option<DiscoveryRe
         return None;
     }
     let inference_base = effective_api_url(&config.api_url);
-    let endpoint = format!("{}/openai/v1", inference_base.trim_end_matches('/'));
     let listing_url = catalog_url(config);
-    let mut request = DiscoveryRequest::new(endpoint, model)
-        .with_listing_url(listing_url.clone())
-        .with_single_model_probe(false);
-    match resolve_backend_credential(config) {
+    let auth = match resolve_backend_credential(config) {
         Ok(BackendCredential::ApiKey(key)) if is_managed_endpoint_for_api_key(&listing_url) => {
-            request = request.with_header("Authorization", format!("Bearer {key}"));
+            Some(key)
         }
         Ok(BackendCredential::Session(token))
             if is_safe_endpoint_for_managed_bearer(&listing_url) =>
         {
-            request = request.with_header("Authorization", format!("Bearer {token}"));
+            Some(token)
         }
         Ok(_) => {
             log::warn!(
                 "[tinyhumans][inference] refusing to send the backend credential to an unsafe listing url"
             );
+            None
         }
         Err(_) => {
             log::debug!(
                 "[tinyhumans][inference] no backend credential; managed listing probed anonymously"
             );
+            None
         }
-    }
-    if let Ok(headers) = attribution_headers() {
-        for (name, value) in headers.iter() {
-            if let Ok(value) = value.to_str() {
-                request = request.with_header(name.as_str(), value);
-            }
-        }
-    }
+    };
+    let extra_headers = attribution_headers()
+        .ok()
+        .map(|headers| {
+            headers
+                .iter()
+                .filter_map(|(name, value)| {
+                    value
+                        .to_str()
+                        .ok()
+                        .map(|value| (name.as_str().to_owned(), value.to_owned()))
+                })
+                .collect::<Vec<_>>()
+        })
+        .unwrap_or_default();
+    let request = discovery_request(&inference_base, model, auth.as_deref(), &extra_headers)
+        .with_listing_url(listing_url);
     Some(request)
 }
 

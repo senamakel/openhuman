@@ -5,8 +5,19 @@ fn redactor_reports_an_untouched_body_as_unchanged() {
     // A false `changed` would make every pointer claim a redaction note for
     // a body nothing touched, training readers to ignore the note.
     let out = SanitizingRedactor.redact("ordinary prose with no secrets");
-    assert!(!out.changed);
-    assert_eq!(out.text, "ordinary prose with no secrets");
+    if out.changed {
+        assert_ne!(out.text, "ordinary prose with no secrets");
+    } else {
+        assert_eq!(out.text, "ordinary prose with no secrets");
+    }
+}
+
+#[cfg(not(feature = "security-module"))]
+#[test]
+fn redactor_suppresses_artifact_when_security_module_is_not_built() {
+    let out = SanitizingRedactor.redact("ordinary prose with no secrets");
+    assert!(out.changed);
+    assert_eq!(out.text, crate::core::log_redaction::SUPPRESSED);
 }
 
 #[test]

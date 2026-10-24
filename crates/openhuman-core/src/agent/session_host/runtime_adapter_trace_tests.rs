@@ -73,6 +73,7 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
     let chat_model: Arc<dyn ChatModel<()>> = model.clone();
     let mut host = crate::agent::SessionHostBuilder::new()
         .chat_model_with_config(chat_model, Arc::new(config.clone()))
+        .model_name("test/session-fixture".to_string())
         .config(config.agent.clone())
         .tools(Vec::new())
         .workspace_dir(workspace.clone())
@@ -164,6 +165,7 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
         AgentEvent::RunCompleted { run_id: completed, .. } if completed.as_str() == run_id
     )));
     let status = crate::storage::sessions::status_store_for(&workspace)
+        .expect("status store")
         .get_status(&run_id)
         .await
         .expect("status lookup")

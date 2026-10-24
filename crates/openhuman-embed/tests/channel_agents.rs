@@ -3,7 +3,9 @@
 //! prompt and host tools under the `ExternalChannel` origin, its write tool is
 //! refused at once, and the reply is posted back to the chat.
 
-#![cfg(feature = "channels")]
+// The agent's turn persists its transcript in the ephemeral workspace's
+// default store, which is SQLite: without that driver the turn cannot run.
+#![cfg(all(feature = "channels", feature = "storage-sqlite"))]
 
 mod common;
 

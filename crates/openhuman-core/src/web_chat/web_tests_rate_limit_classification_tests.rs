@@ -424,7 +424,7 @@ fn classify_inference_error_retryable_429_keeps_retry_flag() {
 #[test]
 fn classify_inference_error_extracts_provider_name_lowercase() {
     // The "<provider> API error" envelope from
-    // inference::provider::ops::api_error is the canonical source we
+    // inference::provider::http_error::api_error is the canonical source we
     // pull the provider name from. Lowercased so the wire value is
     // stable across providers' own capitalisation.
     let cases: &[(&str, Option<&str>)] = &[

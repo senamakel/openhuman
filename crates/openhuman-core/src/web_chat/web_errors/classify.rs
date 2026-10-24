@@ -57,7 +57,7 @@ pub(crate) struct ClassifiedError {
     pub(crate) retry_after_ms: Option<u64>,
     /// Provider name extracted from the leading
     /// `"<provider> API error (...)"` envelope emitted by
-    /// `inference::provider::ops::api_error`. `None` for non-provider
+    /// `inference::provider::http_error::api_error`. `None` for non-provider
     /// errors (OpenHuman budget cap, agent loop) and for transport
     /// failures that don't carry an identifiable provider prefix.
     pub(crate) provider: Option<String>,

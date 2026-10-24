@@ -1,3 +1,5 @@
+#![cfg(feature = "testkit")]
+
 //! A refused tool call must not rewrite an earlier turn's result. Providers
 //! reuse tool-call ids across turns (`call_1` again), so a failure in this turn
 //! used to mark the earlier turn's successful `cron` result as failed; the
@@ -103,7 +105,7 @@ async fn scenario() {
         .mount(&managed)
         .await;
     PointedInference::install(&managed.uri());
-    openhuman_core::storage::install(Arc::new(openhuman_core::storage::MemoryStorage::new()));
+    openhuman_core::storage::install(Arc::new(tinystoragedrivers_testkit::MemoryBackend::new()));
 
     let root = tempfile::tempdir().unwrap();
     let store = Arc::new(InMemorySessionStores::new());

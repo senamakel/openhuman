@@ -79,6 +79,7 @@ pub(crate) mod channels;
 pub mod client;
 pub(crate) mod doctor;
 pub mod hosted;
+mod hosted_config;
 pub(crate) mod inference;
 mod install;
 pub mod integrations;

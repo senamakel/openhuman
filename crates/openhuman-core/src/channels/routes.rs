@@ -1,22 +1,39 @@
 //! Per-sender routing and runtime command handling.
 
 use super::context::{clear_sender_history, ChannelRouteSelection, ChannelRuntimeContext};
-use super::{Channel, ChannelSendExt, SendMessage};
-use crate::inference::provider;
+use super::{outbound::text_message, Channel};
 use std::sync::Arc;
 use tinychannels_bus as traits;
 use tinychannels_bus::module_control::{
     ChannelControlRequest, ChannelControlResult, ProviderDescriptor,
 };
 
-fn provider_descriptors() -> Vec<ProviderDescriptor> {
-    provider::list_providers()
-        .into_iter()
+fn provider_descriptors(config: &crate::config::Config) -> Vec<ProviderDescriptor> {
+    config
+        .cloud_providers
+        .iter()
         .map(|provider| ProviderDescriptor {
-            name: provider.name.to_string(),
-            aliases: provider.aliases.iter().map(ToString::to_string).collect(),
+            name: provider.slug.clone(),
+            aliases: if crate::config::schema::cloud_providers::is_hosted_cloud_identity(
+                &provider.slug,
+            ) || crate::config::schema::cloud_providers::is_hosted_auth_style(
+                provider.auth_style,
+            ) {
+                vec!["backend".to_string(), "openhuman-backend".to_string()]
+            } else {
+                Vec::new()
+            },
         })
         .collect()
+}
+
+#[cfg(test)]
+pub(crate) fn register_hosted_route_test_policy() {
+    use crate::config::schema::cloud_providers::AuthStyle;
+    crate::config::schema::cloud_providers::register_hosted_cloud_provider_policy(
+        Arc::new(|slug| slug == "openhuman"),
+        Arc::new(|style| style == AuthStyle::OpenhumanJwt),
+    );
 }
 
 fn default_route_selection(ctx: &ChannelRuntimeContext) -> ChannelRouteSelection {
@@ -83,6 +100,27 @@ struct RouteCallbacks {
     cancellation: tokio_util::sync::CancellationToken,
 }
 
+/// Project the v22 envelope into the legacy shape still required by the
+/// module's `ChannelControlRequest::Route` contract.
+#[allow(
+    deprecated,
+    reason = "TinyChannels v22 Route requests still declare ChannelMessage"
+)]
+pub(crate) fn route_compat_message(msg: &traits::ChannelInboundEnvelope) -> traits::ChannelMessage {
+    traits::ChannelMessage {
+        id: msg.message_id.clone(),
+        sender: msg.sender.id.clone(),
+        reply_target: msg.conversation.id.clone(),
+        content: msg.text.clone(),
+        channel: msg.channel.id.clone(),
+        timestamp: msg.timestamp_unix_ms.unwrap_or_default(),
+        thread_ts: msg.conversation.thread_id.clone(),
+        reply_to_id: msg.reply_to_id.clone(),
+        topic_id: msg.conversation.topic_id.clone(),
+        sender_name: msg.sender.name.clone(),
+    }
+}
+
 impl RouteCallbacks {
     fn new(
         context: ChannelRuntimeContext,
@@ -145,13 +183,13 @@ impl RouteCallbacks {
 
 pub(crate) async fn handle_runtime_command_if_needed(
     ctx: &ChannelRuntimeContext,
-    msg: &traits::ChannelMessage,
+    msg: &traits::ChannelInboundEnvelope,
     target_channel: Option<&Arc<dyn Channel>>,
     sender_key: &str,
 ) -> bool {
     // This is a host dispatch hint; the module alone parses and recognizes
     // commands. Ordinary messages avoid creating a private callback object.
-    if !msg.content.trim_start().starts_with('/') {
+    if !msg.text.trim_start().starts_with('/') {
         return false;
     }
     let current = get_route_selection(ctx, sender_key);
@@ -175,13 +213,18 @@ pub(crate) async fn handle_runtime_command_if_needed(
                 tinychannels_bus::methods::PREPARE_CHANNEL_CONTROL,
                 (ChannelControlRequest::Route {
                     workspace_dir: ctx.workspace_dir.to_string_lossy().into_owned(),
-                    message: Box::new(msg.clone()),
+                    message: Box::new(route_compat_message(msg)),
+                    capabilities: target_channel.map(|channel| Box::new(channel.capabilities())),
                     route: tinychannels_bus::module_remote::RemoteRoute {
                         provider: current.provider,
                         model: current.model,
                     },
                     history_len,
-                    providers: provider_descriptors(),
+                    providers: ctx
+                        .config
+                        .as_deref()
+                        .map(provider_descriptors)
+                        .unwrap_or_default(),
                 },),
             )
             .await;
@@ -204,10 +247,12 @@ pub(crate) async fn handle_runtime_command_if_needed(
         Err(_) => {
             if let Some(channel) = target_channel {
                 let _ = channel
-                    .send_with_outbound_intent(
-                        &SendMessage::new("Channel module unavailable.", &msg.reply_target)
-                            .in_thread(msg.thread_ts.clone()),
-                    )
+                    .send_typed(&text_message(
+                        &msg.channel.id,
+                        &msg.conversation.id,
+                        "Channel module unavailable.",
+                        msg.conversation.thread_id.clone(),
+                    ))
                     .await;
             }
             return true;
@@ -231,9 +276,12 @@ pub(crate) async fn handle_runtime_command_if_needed(
     };
     if let Some(channel) = target_channel {
         if channel
-            .send_with_outbound_intent(
-                &SendMessage::new(reply, &msg.reply_target).in_thread(msg.thread_ts.clone()),
-            )
+            .send_typed(&text_message(
+                &msg.channel.id,
+                &msg.conversation.id,
+                reply,
+                msg.conversation.thread_id.clone(),
+            ))
             .await
             .is_err()
         {

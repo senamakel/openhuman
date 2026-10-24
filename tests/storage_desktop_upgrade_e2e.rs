@@ -23,20 +23,33 @@ use std::time::{Duration, SystemTime};
 
 use openhuman_core::config::Config;
 use openhuman_core::storage::import::{self, Outcome};
-use openhuman_core::storage::{rusqlite, DocumentStoreExt, Scope, ScopedStorage, StorageBackend};
+use openhuman_core::storage::{rusqlite, DocumentStoreExt, Scope, Storage, StorageBackend};
 use sha2::Digest;
 use tinyagents_session::transcript::{session_stem, SessionRef, TranscriptMessage, TranscriptMeta};
 use tinyagents_session::turn_state::TurnState;
-use tinystoragedrivers_core::Query;
+use tinystoragedrivers::Query;
 
 // The classic-transcript fixture writer, shared with the core's unit tests.
 #[path = "../crates/openhuman-core/src/util/classic_transcript_fixture.rs"]
 mod classic_transcript_fixture;
 
+#[path = "support/linked_modules.rs"]
+mod linked_modules;
 #[path = "support/storage_case.rs"]
 mod storage_case;
 
 use storage_case::Case;
+
+#[cfg(unix)]
+fn make_workspace_private(workspace: &Path) {
+    use std::os::unix::fs::PermissionsExt;
+
+    std::fs::set_permissions(workspace, std::fs::Permissions::from_mode(0o700))
+        .expect("make the test workspace private");
+}
+
+#[cfg(not(unix))]
+fn make_workspace_private(_workspace: &Path) {}
 
 /// The committed tinyflows workspace (written by the retired tinyflows-sqlite
 /// writers): flows, revisions, runs, drafts, checkpoints and cron jobs.
@@ -379,13 +392,13 @@ fn desktop_workspace(workspace: &Path) -> Fixture {
     }
 }
 
-fn module_storage(backend: &dyn StorageBackend, module: &str) -> ScopedStorage {
+fn module_storage(backend: &dyn StorageBackend, module: &str) -> Storage {
     backend
         .for_scope(&Scope::local().module(module).unwrap())
         .unwrap()
 }
 
-async fn count(scoped: &ScopedStorage, collection: &str) -> usize {
+async fn count(scoped: &Storage, collection: &str) -> usize {
     scoped
         .documents()
         .query_all(collection, &Query::all())
@@ -399,19 +412,16 @@ async fn host_documents(backend: &dyn StorageBackend) -> usize {
     let docs = backend.for_scope(&Scope::local()).unwrap();
     let mut total = 0;
     // The importers write the v2 collections of the owners behind each source.
-    let owners: Vec<&str> = import::sources()
-        .iter()
-        .map(|source| source.owner)
-        .collect();
-    for schema in openhuman_core::storage::schema::owner_schemas() {
-        if !owners.contains(&schema.owner.as_str()) {
-            continue;
-        }
-        for item in &schema.items {
-            if let tinystoragedrivers_core::schema::Item::Collection { spec, .. } = item {
-                docs.documents().ensure_collection(spec).await.unwrap();
-                total += count(&docs, &spec.name).await;
-            }
+    let owners = openhuman_core::storage::schema::collection_owners().unwrap();
+    for source in import::sources() {
+        let prefix = format!("{}.", source.owner);
+        for spec in owners
+            .iter()
+            .flat_map(|owner| &owner.collections)
+            .filter(|spec| spec.name.starts_with(&prefix))
+        {
+            docs.documents().ensure_collection(spec).await.unwrap();
+            total += count(&docs, &spec.name).await;
         }
     }
     total
@@ -420,7 +430,9 @@ async fn host_documents(backend: &dyn StorageBackend) -> usize {
 async fn import_modules(workspace: &Path) {
     use openhuman_core::modules;
     let ctx = openhuman_core::core::runtime::DispatchCtx::process_default();
-    modules::import_legacy_mcp(&ctx, workspace).await;
+    modules::import_legacy_mcp(&ctx, workspace)
+        .await
+        .expect("import the legacy TinyMCP records");
     modules::import_legacy_connectors(&ctx, workspace).await;
     #[cfg(feature = "web3")]
     assert!(modules::import_legacy_x402(&ctx, workspace).await);
@@ -439,10 +451,16 @@ async fn a_desktop_upgrade_is_lossless_and_leaves_the_legacy_files_untouched() {
     std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "file");
     std::env::set_var("OPENHUMAN_KEYRING_MASTER_KEY", "33".repeat(32));
 
+    let home_dir = tempfile::tempdir().unwrap();
     let workspace_dir = tempfile::tempdir().unwrap();
     let workspace = workspace_dir.path();
+    std::env::set_var("HOME", home_dir.path());
+    std::env::set_var("USERPROFILE", home_dir.path());
     std::env::set_var("OPENHUMAN_WORKSPACE", workspace);
+    std::env::set_var("OPENHUMAN_MODULE_SOURCE", "linked");
+    linked_modules::install_if_requested();
     let fixture = desktop_workspace(workspace);
+    make_workspace_private(workspace);
     let before = tree(workspace);
     assert!(
         before.len() > 15,
@@ -451,10 +469,11 @@ async fn a_desktop_upgrade_is_lossless_and_leaves_the_legacy_files_untouched() {
 
     case.install();
     let backend = case.backend();
-    let config = Config {
+    let mut config = Config {
         workspace_dir: workspace.to_path_buf(),
         ..Config::default()
     };
+    config.modules.source = openhuman_core::config::schema::ModuleSourceMode::Linked;
 
     // First boot: every host importer runs and none is left without a source.
     let reports = import::run(
@@ -471,6 +490,7 @@ async fn a_desktop_upgrade_is_lossless_and_leaves_the_legacy_files_untouched() {
                 assert!(*found > 0, "{} found nothing", report.domain);
                 assert_eq!(found, written, "{} lost records", report.domain);
             }
+            Outcome::NoSource if report.domain == "scope_move" => {}
             other => panic!("{}: expected an import, got {other:?}", report.domain),
         }
     }
@@ -488,15 +508,15 @@ async fn a_desktop_upgrade_is_lossless_and_leaves_the_legacy_files_untouched() {
     // tinymcp: both servers (plus their name claims), the audit log and the
     // env secret, which is never a document.
     let mcp = module_storage(backend.as_ref(), "tinymcp");
-    assert_eq!(count(&mcp, "mcp.servers").await, fixture.mcp_servers);
-    assert_eq!(count(&mcp, "mcp.server_names").await, fixture.mcp_servers);
+    assert_eq!(count(&mcp, "mcp_servers").await, fixture.mcp_servers);
+    assert_eq!(count(&mcp, "mcp_server_names").await, fixture.mcp_servers);
     assert_eq!(
-        mcp.streams().len("mcp.audit").await.unwrap(),
+        mcp.streams().len("mcp_audit").await.unwrap(),
         fixture.mcp_audit as u64
     );
     let stored = mcp
         .documents()
-        .get("mcp.servers", "srv-1")
+        .get("mcp_servers", "srv-1")
         .await
         .unwrap()
         .unwrap();
@@ -525,7 +545,7 @@ async fn a_desktop_upgrade_is_lossless_and_leaves_the_legacy_files_untouched() {
     {
         let wallet = module_storage(backend.as_ref(), "tinywallet");
         assert_eq!(
-            wallet.streams().len("wallet.payments").await.unwrap(),
+            wallet.streams().len("x402.payments").await.unwrap(),
             fixture.x402_payments as u64
         );
     }
@@ -551,7 +571,7 @@ async fn a_desktop_upgrade_is_lossless_and_leaves_the_legacy_files_untouched() {
         assert!(
             juice
                 .blobs()
-                .get(&format!("juice/ccr/{token}"))
+                .get(&format!("tinyjuice_ccr/{token}"))
                 .await
                 .unwrap()
                 .is_some(),
@@ -568,9 +588,14 @@ async fn a_desktop_upgrade_is_lossless_and_leaves_the_legacy_files_untouched() {
     .await;
     assert_eq!(again.len(), reports.len());
     for report in &again {
+        let expected = if report.domain == "scope_move" {
+            Outcome::NoSource
+        } else {
+            Outcome::AlreadyDone
+        };
         assert_eq!(
             report.outcome.as_ref().unwrap(),
-            &Outcome::AlreadyDone,
+            &expected,
             "{} imported twice",
             report.domain
         );

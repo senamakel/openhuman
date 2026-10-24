@@ -12,14 +12,15 @@ use serde_json::{json, Value};
 
 use super::*;
 use crate::config::Config;
-use crate::sandbox::{execute_in_sandbox, spawn_policy, SandboxBackendKind};
+use crate::sandbox::untrusted::{self, UntrustedShell};
+use crate::security::policy::CommandClass;
 use crate::security::SecurityPolicy;
-use tinysecurity_bus::CommandClass;
+use std::collections::BTreeMap;
 
 /// [`CodeRunner`] adapter running sandboxed user code via
-/// `crates/openhuman-core/src/sandbox/ops.rs` (`spawn_policy` +
-/// `execute_in_sandbox`), modeled on
-/// the shell tool sandbox runner.
+/// `crates/openhuman-core/src/sandbox/untrusted.rs`, which requires the
+/// security module to plan and admit an isolated executor before any script
+/// runs.
 ///
 /// **Mismatch handled here:** the sandbox runs a shell command string, not a
 /// `(language, source, input)` triple. `source` is treated as a function body
@@ -95,20 +96,6 @@ impl OpenHumanCode {
 
         let dispatch = self.ctx.clone();
         let outcome: Result<Value> = async {
-        let mut policy = spawn_policy(
-            &self.config.action_dir,
-            &self.config.workspace_dir,
-            &self.config.sandbox,
-            &self.config.runtime,
-            false,
-        );
-        // A code node is always untrusted, even when ordinary commands may run
-        // on the host. Honor an explicit Docker requirement; otherwise request
-        // TinyBox's native jail and fail closed if it is unavailable.
-        if policy.backend == SandboxBackendKind::None {
-            policy.backend = SandboxBackendKind::Local;
-        }
-
         // Work dir lives under `action_dir` (the sandbox workspace root). We keep
         // its path *relative* to `action_dir` so the run command works on every
         // backend: for Local, `execute_in_sandbox`'s `working_dir` is the host
@@ -157,9 +144,9 @@ impl OpenHumanCode {
                 shell_quote(&rel_input.to_string_lossy()),
             );
 
-            let mut extra_env = std::collections::HashMap::new();
+            let mut extra_env = BTreeMap::new();
             if let Ok(host_path) = std::env::var("PATH") {
-                extra_env.insert("PATH".into(), host_path.into());
+                extra_env.insert("PATH".into(), host_path);
             }
 
             tracing::debug!(
@@ -169,14 +156,17 @@ impl OpenHumanCode {
                 "[flows] code: running sandboxed script"
             );
 
-            execute_in_sandbox(
-                &dispatch,
-                &policy,
-                &command,
-                &self.config.action_dir,
-                extra_env,
-                std::time::Duration::from_secs(CODE_RUN_TIMEOUT_SECS),
-            )
+            untrusted::run(UntrustedShell {
+                dispatch_ctx: Some(&dispatch),
+                config: &self.config,
+                command: &command,
+                cwd: &self.config.action_dir,
+                state_dir: &self.config.workspace_dir,
+                timeout: std::time::Duration::from_secs(CODE_RUN_TIMEOUT_SECS),
+                preserve_pipeline_status: false,
+                env: &extra_env,
+                stdin: None,
+            })
             .await
             .map_err(|e| EngineError::Capability(format!("sandbox execution failed: {e}")))
         }

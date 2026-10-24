@@ -68,6 +68,7 @@ async fn env_lock_async() -> tokio::sync::MutexGuard<'static, ()> {
 /// the aggregated binary the first suite to initialise pins the bearer. Use the
 /// token this process actually validates rather than assuming ours won.
 fn ensure_rpc_auth() -> String {
+    crate::tinyhumans_boot::boot();
     AUTH_INIT.get_or_init(|| {
         if std::env::var(CORE_TOKEN_ENV_VAR)
             .ok()

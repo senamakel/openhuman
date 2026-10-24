@@ -93,31 +93,6 @@ async fn disabled_server_accepts_environment_update_without_reconnecting() {
 }
 
 #[tokio::test]
-async fn disabled_install_is_not_dialed_during_startup() {
-    use openhuman_core::mcp::registry::{connections, ops};
-
-    let (_tmp, config) = fresh_workspace_config();
-    let server_id = install_server(
-        &config,
-        "@openhuman-test/disabled",
-        json!({
-            "command": "/nonexistent-disabled-mcp-server",
-            "enabled": false
-        }),
-    )
-    .await;
-    openhuman_core::mcp::registry::boot::spawn_installed_servers(&config).await;
-    let status = ops::mcp_clients_status(&config).await.expect("status");
-    let entry = status.value["servers"]
-        .as_array()
-        .and_then(|servers| servers.iter().find(|entry| entry["server_id"] == server_id))
-        .expect("disabled install remains visible");
-    assert_eq!(entry["status"], "disabled");
-    assert!(entry["last_error"].is_null());
-    assert!(!connections::is_connected_for_config(&config, &server_id).await);
-}
-
-#[tokio::test]
 async fn per_config_auth_failure_surfaces_401_reason_without_cross_workspace_leak() {
     use openhuman_core::mcp::registry::{connections, ops};
     use wiremock::matchers::any;

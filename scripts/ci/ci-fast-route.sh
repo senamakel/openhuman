@@ -3,11 +3,14 @@
 #
 # Writes outsider=true|false and source=ci-fast|fallback to $GITHUB_OUTPUT: false when ci-fast.yml routed
 # the commit to the EX63 (an org member's PR), true otherwise. Used by
-# ci-fast-hosted.yml (run the hosted lanes for outsiders) and ci-lite.yml
-# (skip GitHub-hosted CI when the EX63 runs it). ci-gate.yml then requires
-# whichever of them ran.
+# ci-fast-hosted.yml (run the hosted lanes for outsiders and drafts).
+# ci-gate.yml then requires whichever of them ran.
 #
-# Env: GH_TOKEN, REPO, HEAD_SHA, AUTHOR, ACTOR, ASSOCIATION.
+# Env: GH_TOKEN, REPO, HEAD_SHA, AUTHOR, ACTOR, ASSOCIATION. Optional: DRAFT
+# (the PR is a draft) and SINCE (the PR's updated_at for this event).
+#
+# Draft PRs never run on the EX63 (ci-fast.yml routes them to GitHub-hosted
+# runners), so a draft is an outsider here without asking ci-fast.yml.
 set -euo pipefail
 # ci-fast.yml decides who is an org member: it runs from main with
 # the CI_MEMBERSHIP_TOKEN secret, so it also sees private members.
@@ -17,10 +20,17 @@ set -euo pipefail
 # outcome: EX63 lanes skipped means outsider, anything else means
 # the EX63 is handling it.
 decide_from_ci_fast() {
-  local run_id="" lanes=""
+  local run_id="" lanes="" since=""
+  # SINCE is spliced into the jq filter, so accept only an ISO timestamp.
+  if [[ "${SINCE:-}" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$ ]]; then
+    since="${SINCE}"
+  fi
   for _ in $(seq 1 36); do
+    # Only a run started by this event: marking a draft ready re-runs
+    # ci-fast.yml on the same head commit, and the draft's earlier run (EX63
+    # skipped) must not answer for it.
     run_id="$(gh api "repos/${REPO}/actions/workflows/ci-fast.yml/runs?head_sha=${HEAD_SHA}&per_page=5" \
-      --jq '[.workflow_runs[] | select(.event == "pull_request_target")] | sort_by(.created_at) | last | .id // empty' 2>/dev/null || true)"
+      --jq '[.workflow_runs[] | select(.event == "pull_request_target" and .created_at >= "'"${since}"'")] | sort_by(.created_at) | last | .id // empty' 2>/dev/null || true)"
     if [ -n "${run_id}" ]; then
       # A member run materialises "Lanes / CI Fast (EX63)"; an
       # outsider run leaves the skipped call job "Lanes" alone.
@@ -42,7 +52,10 @@ decide_from_ci_fast() {
   done
   return 1
 }
-if verdict="$(decide_from_ci_fast)"; then
+if [ "${DRAFT:-false}" = "true" ]; then
+  outsider=true
+  reason="draft PR: GitHub-hosted runners"
+elif verdict="$(decide_from_ci_fast)"; then
   outsider="${verdict%% *}"
   reason="${verdict#* }"
 else
@@ -57,5 +70,5 @@ fi
 echo "[ci][route] author=${AUTHOR} actor=${ACTOR} outsider=${outsider} (${reason})"
 echo "outsider=${outsider}" >> "$GITHUB_OUTPUT"
 # Whether ci-fast.yml's own run decided (ci-fast) or the association fallback
-# did (fallback). ci-lite.yml skips only on a ci-fast decision.
-case "${reason}" in fallback*) echo "source=fallback" ;; *) echo "source=ci-fast" ;; esac >> "$GITHUB_OUTPUT"
+# did (fallback), or the PR is a draft (draft).
+case "${reason}" in fallback*) echo "source=fallback" ;; draft*) echo "source=draft" ;; *) echo "source=ci-fast" ;; esac >> "$GITHUB_OUTPUT"

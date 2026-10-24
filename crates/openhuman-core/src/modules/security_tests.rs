@@ -11,7 +11,7 @@ fn config() -> Config {
 #[test]
 fn initialization_does_not_treat_bootstrap_policy_as_an_agents_enabled_policy() {
     let mut config = config();
-    config.autonomy.enabled = true;
+    config.security.autonomy.enabled = true;
     // `trusted_host` names the host's own bus connection, present only once
     // some other test has started the shared runtime; the policy is the claim.
     let actual = ModuleConfig {

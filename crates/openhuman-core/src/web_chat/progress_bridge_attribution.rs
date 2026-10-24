@@ -35,4 +35,3 @@ fn session_profile_user_attribution(config: &crate::config::Config) -> Option<St
         .map(str::to_string)
         .or(state.user_id)
 }
-

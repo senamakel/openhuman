@@ -129,6 +129,7 @@ export const TOOL_PHRASES = {
   setGoal: { active: 'Setting goal', done: 'Set goal' },
   checkGoal: { active: 'Checking goal', done: 'Checked goal' },
   completeGoal: { active: 'Completing goal', done: 'Completed goal' },
+  resumeGoal: { active: 'Resuming goal', done: 'Resumed goal' },
 
   // ── Scheduling ──────────────────────────────────────────────────────────
   scheduleTask: { active: 'Scheduling task', done: 'Scheduled task' },

@@ -167,8 +167,9 @@ impl ProfileRuntimeBuilder {
     /// provisioned profile once a minute for due agent jobs
     /// ([`ProfileRuntime::sweep_cron`]) and hands each reply to
     /// [`CronDelivery::deliver`] with the profile, the thread the job was
-    /// created in and its [`JobOrigin`]. A run that answers `NO_REPLY`, or
-    /// fails, is never delivered. Without one nothing is swept.
+    /// created in and its [`JobOrigin`]. A failed run is never delivered, nor
+    /// is `NO_REPLY` from a job whose prompt allows it; any other job always
+    /// delivers a message. Without one nothing is swept.
     #[must_use]
     pub fn cron_delivery(mut self, delivery: Arc<dyn CronDelivery>) -> Self {
         self.cron_delivery = Some(delivery);

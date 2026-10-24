@@ -163,10 +163,10 @@ pub fn effective_backend_api_url(api_url: &Option<String>) -> String {
         // billing) would 400/404 against the inference host — TAURI-RUST-HW1
         // (4932 `GET /teams/me/usage` 400s from `openrouter.ai`). Cloud analogue
         // of the local-AI guard (OPENHUMAN-TAURI-51/-80/-7Z, Ollama).
-        let is_cloud_inference = openhuman_embed::__host::config::schema::cloud_providers::endpoint_host(u)
-            .is_some_and(|h| {
-                openhuman_embed::__host::config::schema::cloud_providers::host_is_builtin_cloud_provider(&h)
-            });
+        let presets = crate::hosted_config::provider_presets();
+        let is_cloud_inference = presets
+            .endpoint_host(u)
+            .is_some_and(|host| presets.host_is_builtin_cloud_provider(&host));
 
         tracing::debug!(
             api_url = %scrub_secrets(u),

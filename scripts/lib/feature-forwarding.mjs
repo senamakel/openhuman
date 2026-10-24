@@ -466,10 +466,14 @@ export function formatReport(result, { coreDefaults, shell, allowlist = {} }) {
 export const CHAIN_GATES_NOT_FORWARDED = {
   'openhuman-tinyhumans': {
     profiles: 'The headless ProfileRuntime API belongs to openhuman-embed; the TinyHumans layer does not expose a standalone profiles gate. Its channels gate already enables embed profiles for channel relays.',
+    testkit:
+      'Test scaffolding for the session testkit is only used by embed-local tests and is not a TinyHumans or host runtime capability.',
   },
   'openhuman-embed': {
     'rss-bench':
       'Library-side hook for the embedded-RSS benchmark (#5046). Its binaries live in tinyhumansai/openhuman-benchmarks (`profile/`, #6944), which enables the core gate directly; no host in this repository turns it on.',
+    'native-security-tests':
+      'Opt-in fixture tests for released native security artifacts. They are run directly against openhuman-core in CI and do not expose a runtime capability to embedders.',
   },
 };
 
@@ -483,6 +487,8 @@ export const CHAIN_GATES_NOT_FORWARDED = {
 export const CHAIN_LOCAL_GATES = {
   'openhuman-embed': {
     profiles: 'The in-process ProfileRuntime facade is implemented in openhuman-embed and has no core gate; channels also enables it for profile relays.',
+    testkit:
+      'Test-only session-store scaffolding for embed tests; it does not enable a runtime or product capability.',
   },
   'openhuman-tinyhumans': {
     jev: 'This crate owns the gate: the Jev-backed `tool_search` ranker (`tinytools-jev` over the TinyHumans System One proxy).',

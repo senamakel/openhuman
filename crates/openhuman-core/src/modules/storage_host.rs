@@ -29,7 +29,7 @@
 //! * **Audit.** One line per call: module id, scope, object, operation, target
 //!   (a collection or a granted prefix) and outcome. Never a payload.
 //!
-//! The reference `StorageServer` of `tinystoragedrivers-client` answers the
+//! The reference `StorageServer` of `tinystoragedrivers-busproxy` answers the
 //! messages once a call is allowed; this file adds only the host's decisions.
 //!
 //! Blobs over a bus stream (`PutStream`/`GetStream`) and watches (`WatchOpen`)
@@ -46,13 +46,11 @@ use async_trait::async_trait;
 use serde_json::Value;
 use tinybus::BusName;
 use tinystoragedrivers::secrets::{DocumentSecrets, KeyProvider};
-use tinystoragedrivers::BlobReader;
+use tinystoragedrivers_api::BlobReader;
 use tinystoragedrivers_bus::{
     BlobKeyRequest, BlobStreamHead, PutBlobStreamRequest, StorageFailure, StorageKind,
 };
-use tinystoragedrivers_busproxy::HostFailure;
-
-use tinystoragedrivers_client::{Admission, StorageServer};
+use tinystoragedrivers_busproxy::{Admission, HostFailure, StorageServer};
 
 use self::endpoint::HostEndpoint;
 use super::storage_grants::{authorize, declared, filter_reply, Object, Plan, StorageGrant};
@@ -250,7 +248,13 @@ impl StorageHost {
             Ok(plan) => plan,
             Err(denied) => {
                 call.record("", denied.label());
-                return Err(HostError::Denied(denied.label()));
+                return Err(match denied {
+                    super::storage_grants::Denied::QueueNotGranted => {
+                        failure(StorageKind::NotFound)
+                    }
+                    super::storage_grants::Denied::QueueSpec => failure(StorageKind::Conflict),
+                    _ => HostError::Denied(denied.label()),
+                });
             }
         };
         Ok(Admitted {
@@ -416,7 +420,7 @@ impl StorageHost {
         // server takes it; the default keeps the queues in the scope's documents.
         let storage = match (&grant.queues, &grant.queue_backend) {
             (Some(_), Some(backend)) if *backend != tinystoragedrivers::QueueConfig::Storage => {
-                tinystoragedrivers::open_queues(backend, storage, None)
+                tinystoragedrivers::open_queues(backend, storage, &scope)
                     .await
                     .map_err(|error| {
                         tracing::warn!(
@@ -431,29 +435,30 @@ impl StorageHost {
             }
             _ => storage,
         };
-        let mut server = StorageServer::new(storage.clone());
+        let mut storage = storage;
         if let Some(manifest) = &grant.queues {
-            // The queue port of a document backend keeps its messages in the
-            // storage layer's own collections; declare them on this scope
-            // before the server takes its first `Queues` call.
-            tinystoragedrivers::queue::ensure(&storage)
-                .await
-                .map_err(|error| {
-                    tracing::warn!(
-                        target: "openhuman::storage_host",
-                        module,
-                        %error,
-                        "[storage_host] could not declare the queue collections"
-                    );
-                    BindError::Backend(StorageKind::Backend)
-                })?;
+            for declaration in manifest.queues() {
+                storage
+                    .queues()
+                    .ensure_queue(&declaration.name, &declaration.spec())
+                    .await
+                    .map_err(|error| {
+                        tracing::warn!(
+                            target: "openhuman::storage_host",
+                            module,
+                            queue = %declaration.name,
+                            %error,
+                            "[storage_host] could not declare a granted queue"
+                        );
+                        BindError::Backend(StorageKind::Backend)
+                    })?;
+            }
             tracing::debug!(
                 target: "openhuman::storage_host",
                 module,
-                queues = manifest.queues.len(),
+                queues = manifest.queues().len(),
                 "[storage_host] serving the granted queue manifest"
             );
-            server = server.with_queue_manifest(Arc::clone(manifest));
         }
         if !grant.secret_prefixes.is_empty() {
             // A key-provider failure is retryable, so refuse the bind rather
@@ -466,8 +471,22 @@ impl StorageHost {
                 );
                 BindError::Backend(StorageKind::Backend)
             })?;
-            server = server.with_secrets(Arc::new(DocumentSecrets::new(&storage, keys)));
+            let secrets = Arc::new(DocumentSecrets::from_parts(
+                Arc::clone(storage.documents()),
+                tinystoragedrivers_types::Scope::new(scope.as_str())
+                    .map_err(|_| BindError::Backend(StorageKind::Backend))?,
+                keys,
+            ));
+            storage = tinystoragedrivers::Storage::new(
+                Arc::clone(storage.documents()),
+                Arc::clone(storage.streams()),
+                Arc::clone(storage.kv()),
+                Arc::clone(storage.blobs()),
+                Arc::clone(storage.queues()),
+                secrets,
+            );
         }
+        let server = StorageServer::new(storage);
         let binding = Arc::new(Binding {
             backend,
             grant,
@@ -580,7 +599,17 @@ impl CallerDirectory for Live {
 #[async_trait]
 impl Environment for Live {
     fn backend(&self) -> Option<Arc<dyn StorageBackend>> {
-        crate::storage::installed()
+        // A host that installed a backend (the app, or an embedder that passed
+        // one) wins. An embedder that did not gets the workspace default every
+        // other store already opens for itself ([`crate::storage::local::backend_for`]),
+        // so a module is not the one consumer left with no storage.
+        crate::storage::installed().or_else(|| {
+            let workspace = crate::core::runtime::DispatchCtx::ambient()
+                .resolved()?
+                .workspace_dir()
+                .ok()?;
+            crate::storage::local::backend_for(&workspace).ok()
+        })
     }
 
     fn module_scope(&self, module_id: &str) -> Result<Scope, StorageError> {

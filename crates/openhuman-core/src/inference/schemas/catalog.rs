@@ -2,6 +2,9 @@
 //! function, plus the field-shape helpers they are built from.
 
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
+use crate::inference::schema_fields::{
+    json_output, optional_string, optional_u64, required_string,
+};
 
 pub fn schemas(function: &str) -> ControllerSchema {
     match function {
@@ -316,15 +319,6 @@ pub fn schemas(function: &str) -> ControllerSchema {
     }
 }
 
-fn required_string(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::String,
-        comment,
-        required: true,
-    }
-}
-
 fn optional_bool(name: &'static str, comment: &'static str) -> FieldSchema {
     FieldSchema {
         name,
@@ -343,28 +337,10 @@ fn required_bool(name: &'static str, comment: &'static str) -> FieldSchema {
     }
 }
 
-fn optional_u64(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Option(Box::new(TypeSchema::U64)),
-        comment,
-        required: false,
-    }
-}
-
 fn optional_f64(name: &'static str, comment: &'static str) -> FieldSchema {
     FieldSchema {
         name,
         ty: TypeSchema::Option(Box::new(TypeSchema::F64)),
-        comment,
-        required: false,
-    }
-}
-
-fn optional_string(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Option(Box::new(TypeSchema::String)),
         comment,
         required: false,
     }
@@ -376,14 +352,5 @@ fn optional_json(name: &'static str, comment: &'static str) -> FieldSchema {
         ty: TypeSchema::Option(Box::new(TypeSchema::Json)),
         comment,
         required: false,
-    }
-}
-
-fn json_output(name: &'static str, comment: &'static str) -> FieldSchema {
-    FieldSchema {
-        name,
-        ty: TypeSchema::Json,
-        comment,
-        required: true,
     }
 }

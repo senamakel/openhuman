@@ -4,8 +4,8 @@ use crate::agent::prompts::types::IntegrationConnection;
 use crate::integrations::composio::catalog::seed_live_catalog_cache_expired;
 use crate::integrations::composio::catalog::{seed_live_catalog_cache, ToolContract};
 use crate::integrations::composio::{ComposioExecuteResponse, ConnectedIntegration};
+use crate::security::policy::CommandClass;
 use serde_json::json;
-use tinysecurity_bus::CommandClass;
 
 fn integration(
     toolkit: &str,

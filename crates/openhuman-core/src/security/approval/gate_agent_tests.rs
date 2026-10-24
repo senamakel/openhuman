@@ -107,7 +107,9 @@ async fn legacy_auto_approve_lists_are_not_replayed_as_module_grants() {
         !matches!(configured, Some(GateOutcome::Allow)),
         "legacy config must not resurrect a revoked durable grant: {configured:?}"
     );
-    assert!(stub_of(&gate).seen()[0].posture.tool_grants.is_empty());
+    let seen = stub_of(&gate).seen();
+    assert!(seen[0].posture.auto_approve_all == false);
+    assert_eq!(seen[0].legacy_tool_grants, ["shell"]);
 
     let unconfigured = gated_call(
         &gate,

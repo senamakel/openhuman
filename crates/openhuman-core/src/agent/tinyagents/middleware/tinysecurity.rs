@@ -134,6 +134,7 @@ pub(crate) fn combine_decisions(decisions: Vec<PolicyDecision>) -> PolicyDecisio
 /// source is a denial, so a source can only narrow the answer.
 pub(crate) struct TinySecurityPolicy {
     sources: Vec<Arc<dyn VerdictSource>>,
+    policy_sources: Vec<Arc<dyn ToolCallPolicy<OpenHumanRunContext>>>,
 }
 
 impl TinySecurityPolicy {
@@ -142,7 +143,19 @@ impl TinySecurityPolicy {
     }
 
     pub(crate) fn with_sources(sources: Vec<Arc<dyn VerdictSource>>) -> Self {
-        Self { sources }
+        Self {
+            sources,
+            policy_sources: Vec::new(),
+        }
+    }
+
+    /// Add a host policy adapter to the same decision fold as module verdicts.
+    pub(crate) fn with_policy_source(
+        mut self,
+        source: Arc<dyn ToolCallPolicy<OpenHumanRunContext>>,
+    ) -> Self {
+        self.policy_sources.push(source);
+        self
     }
 }
 
@@ -177,6 +190,9 @@ impl ToolCallPolicy<OpenHumanRunContext> for TinySecurityPolicy {
                     };
                 }
             }
+        }
+        for source in &self.policy_sources {
+            decisions.push(source.check(ctx, call).await);
         }
         combine_decisions(decisions)
     }

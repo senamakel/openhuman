@@ -16,9 +16,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 use tinystoragedrivers::{
-    CollectionSpec, DocumentStoreExt, ErrorKind, Precondition, Query, Scope, ScopedStorage,
-    Versioned, WriteOptions,
+    CollectionSpec, ErrorKind, Precondition, Query, Scope, Versioned, WriteOptions,
 };
+use tinystoragedrivers_api::DocumentStore;
 
 use super::layout::{self, ProfileLayout};
 use super::storage_schema::migrate_cluster;
@@ -26,7 +26,7 @@ pub use super::storage_schema::REGISTRY_COLLECTION;
 use super::types::{ProfileId, ProfileMeta};
 use crate::storage::lease::CLUSTER_SCOPE;
 use crate::storage::schema_support::key_of;
-use crate::storage::{DocumentStore, StorageBackend};
+use crate::storage::{DocumentStoreExt, Storage, StorageBackend};
 
 /// The profile a registry document holds: the body's fields, and the creation
 /// time (Unix seconds) from the record's metadata.
@@ -50,7 +50,7 @@ pub enum ProfileRegistry {
     /// One document per profile in the shared backend.
     Documents {
         docs: Arc<dyn DocumentStore>,
-        scoped: ScopedStorage,
+        scoped: Storage,
         declared: tokio::sync::OnceCell<()>,
     },
     /// `profile.toml` under each profile's directory below `root`.

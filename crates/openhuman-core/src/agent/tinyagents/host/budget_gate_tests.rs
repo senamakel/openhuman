@@ -19,12 +19,12 @@ fn seeds_the_attributed_model_from_config() {
     let mut config = Config::default();
     config.default_model = Some("pinned-model".into());
     let gate = OpenHumanBudgetGate::new(Arc::new(config));
-    assert_eq!(gate.attributed_model(), "pinned-model");
+    assert_eq!(gate.attributed_model(), Some("pinned-model".to_string()));
 
     let mut unpinned = Config::default();
     unpinned.default_model = None;
     let gate = OpenHumanBudgetGate::new(Arc::new(unpinned));
-    assert_eq!(gate.attributed_model(), DEFAULT_MODEL);
+    assert_eq!(gate.attributed_model(), None);
 }
 
 #[tokio::test]
@@ -35,7 +35,7 @@ async fn acquire_stamps_the_model_that_record_will_attribute() {
     gate.acquire(&CallEstimate::new("some/model", 10, 5))
         .await
         .expect("no tracker in tests, so nothing can refuse");
-    assert_eq!(gate.attributed_model(), "some/model");
+    assert_eq!(gate.attributed_model(), Some("some/model".to_string()));
 }
 
 #[tokio::test]
@@ -46,7 +46,7 @@ async fn an_empty_model_does_not_erase_the_attribution() {
     gate.acquire(&CallEstimate::new("   ", 1, 1))
         .await
         .expect("grants");
-    assert_eq!(gate.attributed_model(), "pinned-model");
+    assert_eq!(gate.attributed_model(), Some("pinned-model".to_string()));
 }
 
 #[tokio::test]
@@ -310,7 +310,7 @@ fn a_call_is_checked_against_its_own_model() {
     }];
     let gate = OpenHumanBudgetGate::new(Arc::new(config));
     // Another call left a different model in the shared attribution.
-    *gate.last_model.write() = "other".into();
+    *gate.last_model.write() = Some("other".into());
     let policies = gate.live_budgets();
     assert!(gate
         .check_budgets_against(&estimate_for("planner"), &policies, &tracker)

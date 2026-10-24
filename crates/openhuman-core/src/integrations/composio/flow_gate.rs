@@ -122,9 +122,11 @@ pub(crate) async fn is_curated_flow_tool(
 }
 
 /// Classifies a curated action for the autonomy-tier gate.
-pub(crate) fn classify_composio_action_for_tier(slug: &str) -> tinysecurity_bus::CommandClass {
+pub(crate) fn classify_composio_action_for_tier(
+    slug: &str,
+) -> crate::security::policy::CommandClass {
     use crate::integrations::composio::contract::{curated_scope_for, ToolScope};
-    use tinysecurity_bus::CommandClass;
+    use crate::security::policy::CommandClass;
     match curated_scope_for(slug) {
         Some(ToolScope::Read) => CommandClass::Read,
         Some(ToolScope::Write) | Some(ToolScope::Admin) | None => CommandClass::Network,

@@ -57,7 +57,8 @@ async fn scoped_module_file(workspace: &std::path::Path) -> Result<Config, Strin
         // Generic Config reloads can synthesize defaults and apply process env
         // when a source disappears. Parse only module settings from these exact
         // bytes, so a missing/invalid tenant source cannot import operator state.
-        let document = tokio::task::spawn_blocking(move || toml::from_str::<ModuleDocument>(&text))
+        let document = crate::core::runtime::DispatchCtx::ambient()
+            .spawn_blocking(move || toml::from_str::<ModuleDocument>(&text))
             .await
             .map_err(|_| "TinySecurity SaaS configuration parsing failed")?
             .map_err(|_| "TinySecurity SaaS configuration invalid")?;

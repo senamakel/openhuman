@@ -7,6 +7,7 @@
 //! budget and the spawn-depth cap.
 
 use tinyagents_harness::runtime::RunPolicy;
+
 use tinyagents_harness::turn_policy::{
     local_turn_backstop_secs, run_policy, turn_wall_clock_ms, TurnPolicyOptions,
     TurnPolicyOverrides,
@@ -16,7 +17,7 @@ use crate::agent::tinyagents::budget::MAX_SPAWN_DEPTH;
 
 /// The builder-configured [`ToolCallPolicy`](tinyagents_harness::middleware::ToolCallPolicy)
 /// plus the session context a policy check needs, handed to the shared turn seam
-/// so it can install the [`ToolPolicyMiddleware`](super::middleware::tool_policy::ToolPolicyMiddleware).
+/// so it can install the TinySecurity gate.
 /// `None` means "no policy enforcement on this turn" (the channel/CLI + sub-agent
 /// paths, which carry their own gating).
 #[derive(Clone)]
@@ -112,12 +113,16 @@ fn env_str(name: &str) -> Option<String> {
 /// The `OPENHUMAN_*` overrides for the harness ceilings, read from the process
 /// environment.
 fn env_overrides() -> TurnPolicyOverrides {
+    env_overrides_from(env_str)
+}
+
+fn env_overrides_from(mut read: impl FnMut(&str) -> Option<String>) -> TurnPolicyOverrides {
     TurnPolicyOverrides {
-        turn_timeout_secs: env_str("OPENHUMAN_AGENT_TURN_TIMEOUT_SECS"),
-        model_call_timeout_secs: env_str("OPENHUMAN_MODEL_CALL_TIMEOUT_SECS"),
-        stream_idle_timeout_secs: env_str("OPENHUMAN_STREAM_IDLE_TIMEOUT_SECS"),
-        stream_first_event_timeout_secs: env_str("OPENHUMAN_STREAM_FIRST_EVENT_TIMEOUT_SECS"),
-        max_consecutive_stream_idle_timeouts: env_str(
+        turn_timeout_secs: read("OPENHUMAN_AGENT_TURN_TIMEOUT_SECS"),
+        model_call_timeout_secs: read("OPENHUMAN_MODEL_CALL_TIMEOUT_SECS"),
+        stream_idle_timeout_secs: read("OPENHUMAN_STREAM_IDLE_TIMEOUT_SECS"),
+        stream_first_event_timeout_secs: read("OPENHUMAN_STREAM_FIRST_EVENT_TIMEOUT_SECS"),
+        max_consecutive_stream_idle_timeouts: read(
             "OPENHUMAN_MAX_CONSECUTIVE_STREAM_IDLE_TIMEOUTS",
         ),
     }
@@ -140,14 +145,99 @@ pub(crate) fn run_policy_for_provider(
     local_provider: bool,
     tool_call_cap: Option<usize>,
 ) -> RunPolicy {
-    run_policy(&TurnPolicyOptions {
+    run_policy_for_provider_with_backoff(
+        max_iterations,
+        response_cache_enabled,
+        local_provider,
+        tool_call_cap,
+        env_str("OPENHUMAN_MODEL_RETRY_BACKOFF_MS").as_deref(),
+    )
+}
+
+fn run_policy_for_provider_with_overrides(
+    max_iterations: usize,
+    response_cache_enabled: bool,
+    local_provider: bool,
+    tool_call_cap: Option<usize>,
+    overrides: TurnPolicyOverrides,
+) -> RunPolicy {
+    run_policy_for_provider_with_overrides_and_backoff(
+        max_iterations,
+        response_cache_enabled,
+        local_provider,
+        tool_call_cap,
+        overrides,
+        None,
+    )
+}
+
+/// [`run_policy_for_provider`] with the retry-backoff override passed in rather
+/// than read from the process environment.
+pub(crate) fn run_policy_for_provider_with_backoff(
+    max_iterations: usize,
+    response_cache_enabled: bool,
+    local_provider: bool,
+    tool_call_cap: Option<usize>,
+    retry_backoff_ms: Option<&str>,
+) -> RunPolicy {
+    run_policy_for_provider_with_overrides_and_backoff(
+        max_iterations,
+        response_cache_enabled,
+        local_provider,
+        tool_call_cap,
+        env_overrides(),
+        retry_backoff_ms,
+    )
+}
+
+fn run_policy_for_provider_with_overrides_and_backoff(
+    max_iterations: usize,
+    response_cache_enabled: bool,
+    local_provider: bool,
+    tool_call_cap: Option<usize>,
+    overrides: TurnPolicyOverrides,
+    retry_backoff_ms: Option<&str>,
+) -> RunPolicy {
+    let mut policy = run_policy(&TurnPolicyOptions {
         max_model_calls: max_iterations,
         max_tool_calls: tool_call_limit(max_iterations, tool_call_cap),
         max_depth: MAX_SPAWN_DEPTH,
         local_provider,
         response_cache_enabled,
-        overrides: env_overrides(),
-    })
+        overrides,
+    });
+    // A call that dies at its output cap with nothing to show is retried at
+    // the same cap, never a doubled one: a model that reasons past the cap
+    // without answering does the same past twice the cap, at twice the cost.
+    policy.truncated_empty_constant_cap = true;
+    // And the retry (or nudge) after a dead one goes out without reasoning: a
+    // model that thought to the cap without acting tends to do so again at
+    // any cap. Only that call: every new call keeps its reasoning
+    // (`truncated_empty_reasoning_off_sticky_after` stays 0).
+    policy.truncated_empty_reasoning_off = true;
+    apply_retry_backoff_override(&mut policy, retry_backoff_ms);
+    policy
+}
+
+/// Scale the model-call retry schedule down to `initial` milliseconds
+/// (`OPENHUMAN_MODEL_RETRY_BACKOFF_MS`). The attempt count and the doubling
+/// shape are kept; only the waits shrink, so suites that drive a failing
+/// upstream do not sit through the 3/6/12/24 s production schedule. Values
+/// above the production initial wait, as well as unset, empty, `0` or
+/// unparsable values, leave the production schedule untouched.
+pub(crate) fn apply_retry_backoff_override(policy: &mut RunPolicy, raw: Option<&str>) {
+    let Some(ms) = raw
+        .and_then(|v| v.trim().parse::<u64>().ok())
+        .filter(|ms| *ms > 0 && *ms <= policy.retry.initial_backoff_ms)
+    else {
+        return;
+    };
+    policy.retry.initial_backoff_ms = ms;
+    policy.retry.max_backoff_ms = ms.saturating_mul(10);
+    tracing::debug!(
+        initial_backoff_ms = ms,
+        "[turn_policy] model retry backoff overridden"
+    );
 }
 
 /// Default per-turn tool budget, narrowed by an explicit host cap.

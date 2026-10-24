@@ -34,8 +34,15 @@ pub(crate) fn wrap(
         .map(|p| p.modalities)
         .unwrap_or_default();
     if provider == "openhuman" || provider == "managed" {
+        let resolved_context = ctx.resolved();
         profile.modalities.image_in =
-            crate::inference::provider::factory::oh_tier_supports_vision(model);
+            crate::inference::registry::provider_model_supports_vision_for(
+                resolved_context
+                    .as_deref()
+                    .map(crate::core::runtime::CoreContext::extensions),
+                crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                model,
+            );
     }
     let route = if matches!(provider, "openhuman" | "managed") {
         "openhuman".to_string()
@@ -43,7 +50,7 @@ pub(crate) fn wrap(
         format!("{provider}:{model}")
     };
     if let Some(request) =
-        crate::inference::provider::factory::model_limits_request("chat", &route, model, &config)
+        crate::inference::context_window::model_limits_request("chat", &route, model, &config)
     {
         if let Some(inputs) = tinyinference_llm::model::discover::model_limits_cache()
             .get_variant(&request.endpoint, &request.model, &request.cache_variant())
@@ -63,7 +70,7 @@ pub(crate) fn wrap(
     }
     profile.modalities.image_in |=
         crate::inference::model_context::model_vision_enabled(model, &config);
-    owner::wrap(ctx, inner, config, profile)
+    owner::wrap(ctx, inner, config, Some(profile))
 }
 
 /// Injected models supply their own selected-model facts through ModelProfile.
@@ -73,7 +80,7 @@ pub(crate) fn wrap_injected(
     inner: Arc<dyn ChatModel<()>>,
     config: Arc<Config>,
 ) -> Arc<dyn ChatModel<()>> {
-    let profile = inner.profile().cloned().unwrap_or_default();
+    let profile = inner.profile().cloned();
     owner::wrap(ctx, inner, config, profile)
 }
 

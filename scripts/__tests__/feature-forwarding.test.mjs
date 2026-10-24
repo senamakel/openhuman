@@ -855,6 +855,11 @@ test('every chain allow-list entry carries a reason', () => {
   }
 });
 
+test('session testkit stays local to the embed facade', () => {
+  assert.match(CHAIN_LOCAL_GATES['openhuman-embed'].testkit, /test-only/i);
+  assert.match(CHAIN_GATES_NOT_FORWARDED['openhuman-tinyhumans'].testkit, /test scaffolding/i);
+});
+
 test('the checker reports the chain and fails when a layer drops a gate', () => {
   // End-to-end through the CLI: a core gate that embed never took must exit 1
   // with the crate and gate named.

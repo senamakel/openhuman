@@ -9,7 +9,9 @@ pub mod schemas;
 mod storage_schema;
 pub mod store;
 mod store_documents;
-pub use storage_schema::storage_schema;
+pub(crate) use storage_schema::collection_specs;
+#[cfg(feature = "legacy-import")]
+pub(crate) use storage_schema::upgrade_records;
 pub mod tiny_store;
 pub mod types;
 pub mod version_documents;

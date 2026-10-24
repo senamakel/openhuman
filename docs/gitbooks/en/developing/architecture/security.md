@@ -1,148 +1,118 @@
 ---
 description: >-
-  The trust boundary for the autonomous core: the autonomy and risk policy,
-  sandbox selection, the audit log, the encrypted secret store, the pairing
-  guard and the redact() helper.
+  OpenHuman's host adapters for TinySecurity policy, approvals, redaction,
+  sandbox planning and cryptographic services.
 icon: shield-halved
 ---
 
 # Security
 
-`crates/openhuman-core/src/security/` is the trust boundary for the autonomous core. Look here first when you ask "is this agent action allowed, and if so, how is it confined?"
+OpenHuman's security boundary is split between the host and the separately
+loaded TinySecurity module. The host owns product configuration and identity,
+RPC and UI behavior, persistence callbacks, and the actual execution of tools
+and sandbox plans. TinySecurity owns the policy decisions and security state
+that OpenHuman reaches through the `tinysecurity-bus` contract.
 
-It owns:
+The production registry pins TinySecurity v0.17.1 (contract 1.28) and checks
+each released native archive against its published SHA-256 before loading it.
+OpenHuman links only `tinysecurity-bus`; it does not link the module's
+implementation crates. A required call that cannot load, attest or receive a
+valid response fails closed. There is no in-process policy fallback.
 
-- The autonomy and risk policy that decides whether a tool call is allowed.
-- The sandbox selection that confines calls when the host supports it.
-- The append-only audit log of every agent action.
-- The encrypted secret store.
-- The pairing guard that gates public binding of the RPC server.
-- The `redact()` helper every other domain uses to keep plaintext credentials out of logs.
+## Policy and tool admission
 
-The decisions themselves are made by the TinySecurity native module (`vendor/tinysecurity`, pinned at v0.13.0, contract 1.20). The host links only its `tinysecurity-bus` contract, translates configuration into immutable module scopes, and maps the answers. A module that is missing, untrusted, faulted or slow denies; there is no host-side fallback decision.
+`modules/security_policy.rs` is the single translator from the host's
+`Config` to TinySecurity policy types. It derives policy subjects from
+authenticated dispatch context, registers immutable scopes, and keeps
+credentials out of policy payloads. `modules/security.rs` owns module loading,
+attestation, and the typed client.
 
-It does not own the cross-domain `EncryptionEngine` (in `security/encryption/`) or per-channel credential storage (in `security/credentials/`).
+The TinySecurity gate is installed in
+`agent/tinyagents/middleware/tinysecurity_module.rs`. It checks the tool the
+host is about to execute, not a model-supplied assertion about the tool. The
+module decides access tiers, command classes, hourly action limits, protected
+paths, privacy mode, and approval requirements. Denials take precedence over
+approval, which takes precedence over allow.
 
-## Public surface
+The autonomy policy is disabled by default. With it disabled, its command
+allowlist, action budget, workspace boundary and approval gate are inactive.
+The protected-path floor remains active in every configuration and rejects
+credential stores, system roots, traversal and malformed paths.
 
-| Item                                                                                                                          | File         | Purpose                                                                 |
-| ----------------------------------------------------------------------------------------------------------------------------- | ------------ | ----------------------------------------------------------------------- |
-| `SecurityPolicy`                                                                                                              | `policy/types.rs` (module-backed path authorization in `policy/path_checks.rs`, the batched path, budget and tier questions in `policy/module_gate.rs`, the command gate's host client in `policy/native_commands.rs`, construction in `policy/enforcement.rs`) | Assembles runtime policy from `AutonomyConfig` + workspace dir.         |
-| `AutonomyLevel` (`ReadOnly` / `Supervised` / `Full`)                                                                          | `policy/types.rs` | Three-step autonomy ladder.                                             |
-| `PathKind`, `Budget`, `spend_action`                                                                                          | `policy/module_gate.rs` | The host's path and hourly-budget questions to the module.                |
-| `is_protected`, `protected_paths`, `floor`                                                                                    | `floor.rs`   | The unconditional protected-path floor, asked of the module.            |
-| `SecretStore`                                                                                                                 | `secret_storage/encrypted_store.rs` (`secrets.rs` re-exports it) | OS-keychain / encrypted-file secret persistence with round-trip helpers. |
-| `HostAuditEvent`, `HostAuditKind`, `record`                                                                                   | `audit_record.rs` | Host-observed rows (a shell command's result) appended to the module's audit stream. |
-| `PairingGuard`, `constant_time_eq`, `is_public_bind`                                                                          | `pairing.rs` (`PairingGuard` and `constant_time_eq` are re-exported from `tinychannels_bus::security`) | Pairing-token check before binding the RPC server publicly.             |
-| `redact(value: &str) -> String`                                                                                               | `core.rs`    | Uniform 4-char-prefix redaction for logs.                               |
-| `security_policy_info_for_config(&Config) -> Outcome<serde_json::Value>`                                                    | `ops.rs`     | RPC handler for the doctor / settings UI.                               |
+## Approvals and audit
 
-## Policy gate
+TinySecurity owns approval request state, exact-action binding, expiry,
+durable tool and flow grants, and the ordered audit stream. The host keeps the
+parked future and user-facing prompt, emits product events, and serves the
+module's persistence, prompt, audit and human-verification callbacks. A prompt
+that expires or whose decision cannot be committed is denied. The normal
+interactive approval window is ten minutes; copilot and sub-agent requests use
+the shorter three-minute window.
 
-Every tool call passes `ToolPolicyGateMiddleware`, the outermost tool middleware, installed first by `agent/tinyagents/middleware/security_gate.rs::install` so a refused call never reaches another middleware. Turns, sub-agents, flows and the live voice harness all install it through that one function.
+Approval decisions, automatic approvals, judge verdicts and sandbox plans use
+the module's audit stream. The host persists rows through the audit callback
+and records execution results the module cannot observe. There is no separate
+host approval log.
 
-- Each verdict source answers `Allow`, `RequireApproval` or `Deny`. Several sources (the module, plus the channel's "ask a human first" policy when the session has one) combine as deny > require-approval > allow (`combine_decisions` in `middleware/tinysecurity.rs`).
-- A module fault is a denial and is never retried.
-- A required approval settles through the approval resolver and the approval gate, described below.
+## Redaction and egress
 
-Host-tool admission is a question to the module, built from the tool the host will run and never from model arguments (`middleware/tinysecurity_module.rs`):
+Structured arguments, credential values, text redaction, prompt scans and
+egress checks go through the TinySecurity adapters in
+`modules/security_text.rs` and `modules/security_egress.rs`. The host retains a
+bounded synchronous log floor in `core/log_redaction.rs`: logging starts
+before the module loads, and synchronous sinks cannot await a bus call. Once
+available, TinySecurity makes a second pass over that already scrubbed text.
+A missing or faulty module never causes the original text to be emitted.
 
-- `Check::HostAction` carries the tool's permission level and external effect. The module applies the tier check, the hourly action budget and, for a cron turn, the read-only rule. A tool that neither acts nor has an external effect is allowed without a bus call.
-- `Check::HostShell` carries the command string and is checked through the per-subject command scope, the same scope that holds the hourly budget.
-- Typed denials: `read_only_mode`, `rate_limited`, `scheduled_read_only` and `high_risk`, plus the floor, path, command and access categories.
-- Cron turns run read-only: a scheduled turn may use read-only tools only, and anything else is denied with `scheduled_read_only`.
-
-## Approvals
-
-The approval engine is `security/approval/native/`, backed by the module (`EvaluateApproval2`, `Decide2`, `ConsumeApproval2`, `RecordExecution2`, `ExpireApproval2`). The module stores each request bound to the exact action and calls back into the host for its store, audit sink, prompt and human verification. The parking TTL is 10 minutes (`DEFAULT_APPROVAL_TTL` in `approval/gate.rs`). Timeouts and denials fail closed. See [Approval gate](../../features/approval-gate.md) for the user-facing behavior.
+Network tools ask TinySecurity to validate destinations and the resolved
+addresses before connecting. Browser navigation uses the module's browser
+policy as well. Remaining duplicate redaction and URL helpers are being
+removed as callers migrate; issue [#7328](https://github.com/tinyhumansai/openhuman/issues/7328)
+tracks that work.
 
 ## Sandboxing
 
-This module carries no sandbox backends. Per-session sandbox selection lives in `crates/openhuman-core/src/sandbox/`. It delegates local OS confinement and Docker execution to the TinyBox module. Shell command classification, the allowlist, the hidden-execution defence, the protected-path floor, the risk score and the hourly command budget belong to the TinySecurity module. `policy/native_commands.rs` translates the host settings into the module's immutable `CommandPolicy` and projects its answer back; nothing is classified in the host.
+TinySecurity chooses and records a sandbox plan; TinyBox performs the local
+isolation and process execution. The host converts approved plans into TinyBox
+requests and rechecks the executor before spawn. SaaS always retains its
+isolation requirement, even when `OPENHUMAN_SANDBOX=off` is set.
 
-- **Every command is planned through the module.** Before a sandboxed spawn launches, `sandbox/spawn_plan/` registers a runtime scope (`RegisterSandboxScope2`), asks `Plan2` for the concrete operation, and reserves the single-use plan (`ConsumeSandboxPlan2`) immediately before the spawn. The spawn runs under the mounts, network and bounds of the plan. When the module denies or faults, the command does not run.
-- **Native jail floor.** The native jail keeps a deny-read floor over the credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`, `~/.azure`, `~/.kube`, and Keychains on macOS). Grants that reach or contain a credential directory are dropped.
-- **Untrusted text.** Text the host did not author reaches a shell only through `sandbox::untrusted::run`, which refuses a jail that is missing or not suitable for untrusted code. Scheduled shell jobs and hook commands run through it. `sandbox.status` reports `suitable_for_untrusted_code`, true only for a ready container or a ready kernel-isolated jail.
-- **MCP stdio servers** start inside the TinyBox native jail through TinyMCP's `JailedSpawner`. Only servers the operator declares in `[mcp_client.servers]` carry `operator_trusted` and start as ordinary child processes; registry installs, and every server under SaaS, are jailed.
-- **SaaS** ignores `OPENHUMAN_SANDBOX=off`. The host reports the switch to the security module, and the module plans a run on the host only for the trusted operator outside SaaS; it refuses hooks, scheduled jobs and registry MCP servers, which are planned onto a jail or container instead. The configured backend is a preference sent to the module, which picks the executor.
+Some sandbox capabilities are still limited. Local macOS sandboxing is refused
+when Seatbelt can only offer best-effort enforcement, and sandboxed commands
+are denied network access until the host and TinyBox can enforce the requested
+network policy. The remaining capability and spawner work is tracked by
+[TinyBox issue #27](https://github.com/tinyhumansai/tinybox/issues/27) and
+OpenHuman issue #7328. Do not infer that a process is sandboxed merely because
+it was started by an agent.
 
-Current limitations, documented in `crates/openhuman-core/src/sandbox/README.md`:
+## Cryptography and secret storage
 
-- On macOS, Seatbelt reports best-effort enforcement, which the module does not accept as exact, so local sandboxing is refused there.
-- A policy that allows the network is currently planned offline: the host has no surface to ask for the module's host-network approval, so sandboxed commands run without network.
+Password encryption uses TinySecurity's `PasswordCrypt2` contract. The host
+still owns its platform-independent secret-storage port, native OS keyring
+providers and device-tunnel frame handling. TinySecurity publishes
+`KeyringAccess2`, `PairingControl2`, `DevicePairing2`, `Device2` and
+`DeviceFrame2`, but OpenHuman has not migrated all current callers to those
+contracts. The production keyring and pairing module configurations remain
+disabled until their host callers use them. This migration is part of issue
+#7328 phase 8.
 
-Both are fixed in [tinysecurity#27](https://github.com/tinyhumansai/tinysecurity/pull/27), which is waiting on CI and is not yet pinned here.
+The public `encryption.*` RPC names remain host wire contracts. The host adapts
+them to the module-backed password cipher without exposing module types through
+the RPC surface.
 
-## Autonomy ladder
+## Source map
 
-`AutonomyLevel` is a three-step ladder that sets how strictly the policy gates tool calls. It only takes effect while `[autonomy] enabled = true`.
+| Path | Responsibility |
+| --- | --- |
+| `modules/security.rs` | Load, attest and call the TinySecurity module. |
+| `modules/security_policy.rs` | Translate trusted host config and identity into policy scopes. |
+| `modules/security_text.rs`, `modules/security_egress.rs` | Adapt redaction, scanning, privacy and destination checks. |
+| `modules/security_crypto.rs`, `modules/security_sandbox.rs` | Adapt password crypt and sandbox planning. |
+| `security/approval/native/` | Host callbacks, persistence and prompt integration for the module-owned approval engine. |
+| `security/devices/`, `security/secret_storage/` | Existing host-owned device tunnel and secret-storage implementations; migration remains open. |
+| `core/log_redaction.rs` | Bounded synchronous log floor used before module load and when the module cannot answer. |
+| `sandbox/` | Host-side plan validation and TinyBox execution. |
 
-- `ReadOnly` blocks every writing class outright. No approval can authorize one.
-- `Supervised` is the default. It allows reads and parks everything else for an approval round trip.
-- `Full` allows reads and writes. It still parks the network, install and destructive classes.
-
-The wire spellings are lowercase (`readonly`, `supervised`, `full`). The user-facing table is in [Approval gate](../../features/approval-gate.md).
-
-The host keeps no operation kinds and no action counters. The module holds one hourly ledger, and the tool gate asks it for a decision before every executable tool dispatch and spends one action per acting call. This covers direct tool runs too (JS and RPC tool calls, workflow `tool_call` nodes), which pass through the same gate. Callers that are not tools (MCP server dispatch, `mcp_ui`, the workflow `http_request` node) spend through `SecurityPolicy::spend_action`.
-
-All of this applies only when the autonomy policy is on. `[autonomy] enabled = false` is the default, and `SecurityPolicy::from_config` carries that flag through every enforcement entry point. With the policy off, command classification, the approval gate, the command allowlist and the hourly action budget do nothing. `workspace_only`, `forbidden_paths` and the workspace-internal boundary are not enforced either.
-
-One check never turns off. The protected-path floor blocks credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`) and system roots. It also rejects `..` traversal and null bytes in a path. The module owns the floor and keeps it whatever the configuration (`DenialReason::Floor`, `ProtectedPath2`). The host has no copy of it: it asks through `security/floor.rs` and treats a module that cannot answer as protecting the path.
-
-## Audit log
-
-There is one security audit trail, and it is the TinySecurity module's: an ordered, contiguous stream per subject that the module sanitizes and the host persists. Approvals, automatic approvals, judge verdicts and sandbox plans are appended by the module. What only the host observes, a shell command's execution result, is recorded through the module's `RecordAudit2` (`audit_record.rs`). A row the module cannot record is logged at warn level; there is no second log file.
-
-## Pairing guard
-
-`PairingGuard` (in `pairing.rs`) stands between the RPC server and any attempt to bind to a non-loopback address. `is_public_bind` detects that case. `PairingGuard` then requires a pairing token, compared in constant time with `constant_time_eq`, before the bind is allowed. The iOS and LAN-companion pairing flow relies on this to keep an unpaired peer from attaching to the desktop core.
-
-## Secret store
-
-`SecretStore` (implemented in `security/secret_storage/encrypted_store.rs`, re-exported through `secrets.rs`) encrypts config-field secrets with ChaCha20-Poly1305 (`enc2:` prefix). It migrates the legacy XOR `enc:` format when it decrypts. Core owns the platform-independent secret-storage contracts, an in-memory default, and an optional encrypted-file backend. `openhuman-rpc::keyring` owns the native OS providers and installs them through those contracts before host boot. RPC product hosts explicitly select persistent storage; embed uses memory unless a provider or backend override is supplied. Backend selection and migration are described in `crates/openhuman-core/src/security/secret_storage/README.md`.
-
-## `redact()`
-
-`redact(value)` returns a uniform 4-character-prefix string (for example `"sk-a…"`) for use in logs and error messages. Use it whenever a secret, credential, token, or PII string is about to be formatted into a `log::` / `tracing::` call. Other domains call it directly: `credentials/`, `webhooks/`, `composio/`, the integration adapters.
-
-## Layout
-
-| Path                                                          | Role                                                                      |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `policy/` (`mod.rs`, `types.rs`, `path_checks.rs`, `command_checks.rs`, `enforcement.rs`, `module_gate.rs`, `native_paths.rs`, `policy_*_tests.rs`) | `SecurityPolicy`, `AutonomyLevel`, and the host's questions to the module about commands, paths and the hourly budget. |
-| `core.rs`, `core_tests.rs`                                    | `redact()` + small shared helpers.                                        |
-| `audit_record.rs`                                             | Host rows for the module's audit stream.                                  |
-| `secrets.rs`, `secret_storage/`                                      | `SecretStore` (implemented in `secret_storage/encrypted_store.rs`) + round-trip tests. |
-| `pairing.rs`, `pairing_tests.rs`                              | `PairingGuard` + constant-time helpers.                                   |
-| `ops.rs`                                                      | RPC handler (`security_policy_info_for_config`).                          |
-| `schemas.rs`                                                  | Controller schemas + handler dispatch.                                    |
-| `mod.rs`                                                      | Re-exports of the public surface above.                                   |
-| `live_policy.rs`, `scrub.rs`, `tools.rs`                      | Live-policy lookup, the host scrubbing policy (`scrub::host_policy`), and the domain's own agent tools. |
-| `approval/`, `credentials/`, `devices/`, `egress/`, `encryption/`, `keyring_consent/`, `prompt_injection/` | Sibling kernel-security domains under the same module. Each owns its own surface. This page covers the policy core only. |
-
-Local PII detection belongs to [`tinymemory_api::safety`](https://github.com/tinyhumansai/tinymemory/blob/d1b06334faf7f8abb62bd1bd4ec4c4d4862f53a4/crates/tinymemory-api/src/safety/README.md) behind its `local-safety` feature. OpenHuman keeps privacy policy and redaction decisions.
-
-## Calls into
-
-- `crates/openhuman-core/src/config/`: `SecurityConfig`, `AutonomyConfig` for policy + sandbox selection.
-- Workspace filesystem, for the audit stream's storage and the secret store.
-
-## Called by
-
-- `crates/openhuman-core/src/cron/ops.rs`: wraps shell jobs in `SecurityPolicy::from_config`.
-- `crates/openhuman-core/src/tools/ops.rs` and `tools/impl/{browser,document,filesystem,network,presentation,system}/`: every executable tool consults `SecurityPolicy`.
-- `crates/openhuman-core/src/tools/impl/network/{gate,mcp,mcp_server_tools}.rs`: risk-classify outbound calls.
-- `crates/openhuman-core/src/memory/guard.rs`: wraps every memory write in `tinyredact::Policy::corroborated()`.
-- `crates/openhuman-core/src/agent/tools/delegate.rs`: sub-agent dispatch goes through the autonomy gate.
-- `crates/openhuman-core/src/security/credentials/`: uses `SecretStore` and `redact`.
-
-## Tests
-
-- Unit: `pairing_tests.rs`, `policy/policy_tests*.rs`, `policy/module_gate_tests.rs`, `secret_storage/encrypted_store_tests*.rs`.
-- `core_tests.rs` covers `redact()`.
-
-## Related
-
-- [`security/README.md`](https://github.com/tinyhumansai/openhuman/blob/main/crates/openhuman-core/src/security/README.md): the in-repo overview this page mirrors.
-- [Architecture](../architecture.md): the wider system context.
-- [Agent harness](agent-harness.md): where `SecurityPolicy` is consulted on every tool dispatch.
+For user-facing behavior, see [Approval gate](../../features/approval-gate.md)
+and [Privacy and security](../../features/privacy-and-security.md). For module
+admission and release pins, see [Loadable modules](../loadable-modules.md).

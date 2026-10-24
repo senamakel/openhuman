@@ -107,11 +107,17 @@ tinymemes
 # [components] eventqueues and [inbound] enabled.
 inbound-queues
 
-# Storage driver for the default backend, `sqlite:<workspace>/storage`: every
+# Storage drivers for the default backend, `sqlite:<workspace>/storage`: every
 # store, the session store included, lives in it, and older installs' per-domain
 # databases and transcript files are imported into it once. Also serves
-# `sqlite:` in `[storage] url`. MongoDB is not part of the product.
+# `sqlite:` in `[storage] url`. Plain file storage supports local blobs.
+# MongoDB, S3 and RabbitMQ are opt-in deployment features.
 storage-sqlite
+storage-file
+
+# The process keyring's encrypted file backend is independent from storage-file.
+secret-file
+legacy-import
 
 # OS keychain providers owned by the RPC host layer.
 os-keyring

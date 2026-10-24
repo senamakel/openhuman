@@ -25,6 +25,8 @@
 
 #![allow(dead_code)]
 
+#[path = "support/config_auth_harness.rs"]
+pub mod config_auth_harness;
 #[path = "support/env_guard.rs"]
 pub mod env_guard;
 #[path = "support/rpc_auth.rs"]

@@ -5,6 +5,10 @@
 //! `embeddings` module.
 
 use super::*;
+use tinyinference_embeddings::{
+    DEFAULT_CLOUD_DIMENSIONS as DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
+    DEFAULT_CLOUD_MODEL as DEFAULT_CLOUD_EMBEDDING_MODEL,
+};
 
 // ── create_embedding_provider_with_credentials ───────────
 

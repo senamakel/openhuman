@@ -1,9 +1,9 @@
 //! Thin TinyFlows registration and error adapter for native OpenHuman tools.
 
 use super::super::{EngineError, Result};
+use crate::security::policy::CommandClass;
 use async_trait::async_trait;
 use serde_json::Value;
-use tinysecurity_bus::CommandClass;
 
 use super::{ToolBackend, ToolCallCtx};
 

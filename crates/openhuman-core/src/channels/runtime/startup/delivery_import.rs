@@ -17,15 +17,15 @@
 
 use std::collections::BTreeMap;
 use std::path::Path;
-use std::sync::Arc;
 
+use crate::storage::{documents::Repo, Scope};
 use serde_json::{json, Value};
 use sha2::Digest;
 use tinychannels_bus::module_delivery::{
     DeliveryQueueEntry, DeliveryTerminalResult, DELIVERY_PENDING_CAPACITY, DELIVERY_RECORD_BYTES,
     DELIVERY_RESULT_CAPACITY, DELIVERY_RESULT_TTL_SECONDS,
 };
-use tinystoragedrivers::{CollectionSpec, DocumentStore, ErrorKind, Precondition};
+use tinystoragedrivers::{CollectionSpec, ErrorKind, Precondition, StorageBackend};
 
 const LOG_PREFIX: &str = "[channel-delivery-import]";
 const MODULE_ID: &str = "tinychannels";
@@ -56,6 +56,8 @@ pub(super) enum Outcome {
     NoBackend,
     /// The marker says the import already finished.
     AlreadyDone,
+    /// The claim could not be acquired before its wait budget expired.
+    InProgress,
     /// There is no legacy file.
     NoSource,
     /// The legacy file was read and its records written.
@@ -64,36 +66,85 @@ pub(super) enum Outcome {
 
 /// Import the legacy delivery file under `workspace` into the module's scope of
 /// the installed storage backend.
-pub(super) async fn import_legacy_delivery(workspace: &Path) -> anyhow::Result<Outcome> {
+pub(super) async fn import_legacy_delivery(
+    ctx: &crate::core::runtime::DispatchCtx,
+    workspace: &Path,
+) -> anyhow::Result<Outcome> {
     let Some(backend) = crate::storage::installed() else {
         return Ok(Outcome::NoBackend);
     };
-    let scope = crate::modules::storage_host::current_module_scope(
-        &crate::core::runtime::DispatchCtx::ambient(),
-        MODULE_ID,
-    )
-    .map_err(|error| anyhow::anyhow!("resolve the module scope: {:?}", error.kind()))?;
-    let scoped = backend
-        .for_scope(&scope)
-        .map_err(|error| anyhow::anyhow!("open the module scope: {:?}", error.kind()))?;
-    import_into(scoped.documents(), workspace).await
+    let scope = crate::modules::storage_host::current_module_scope(ctx, MODULE_ID)
+        .map_err(|error| anyhow::anyhow!("resolve the module scope: {:?}", error.kind()))?;
+    import_into(&backend, &scope, workspace).await
 }
 
-async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow::Result<Outcome> {
+async fn import_into(
+    backend: &std::sync::Arc<dyn StorageBackend>,
+    scope: &Scope,
+    workspace: &Path,
+) -> anyhow::Result<Outcome> {
     let path = workspace.join(LEGACY_FILE);
     let marker = marker_id(workspace);
-    docs.ensure_collection(&CollectionSpec::new(MARKER_COLLECTION))
+    let markers = Repo::on(
+        backend,
+        scope,
+        "storage::import",
+        crate::storage::import_state::collection_specs,
+    )?;
+    let initial = backend
+        .for_scope(scope)
+        .map_err(|error| anyhow::anyhow!("open the module scope: {:?}", error.kind()))?;
+    if crate::storage::import_state::host_import_done(&initial, MARKER_COLLECTION, &marker)
         .await
-        .map_err(|error| anyhow::anyhow!("declare the marker collection: {:?}", error.kind()))?;
-    if docs
-        .get(MARKER_COLLECTION, &marker)
-        .await
-        .map_err(|error| anyhow::anyhow!("read the marker: {:?}", error.kind()))?
-        .is_some()
+        .map_err(|error| anyhow::anyhow!("read the import state: {:?}", error.kind()))?
     {
         return Ok(Outcome::AlreadyDone);
     }
-    let bytes = match tokio::fs::read(&path).await {
+    let step = crate::storage::import_state::step_id(MARKER_COLLECTION, &marker);
+    let claimed = crate::storage::import_state::with_claim(
+        &markers,
+        crate::storage::import_state::HOST_OWNER,
+        &step,
+        |condition| {
+            let claimed_markers = markers.conditioned(condition)?;
+            let claimed_backend = crate::storage::import_state::backend_with_condition(
+                std::sync::Arc::clone(backend),
+                condition.clone(),
+            );
+            let scoped = claimed_backend.for_scope(scope).map_err(|error| {
+                anyhow::anyhow!("open claimed module scope: {:?}", error.kind())
+            })?;
+            crate::storage::block_on_anyhow(async move {
+                if crate::storage::import_state::host_import_done(
+                    claimed_markers.scoped(),
+                    MARKER_COLLECTION,
+                    &marker,
+                )
+                .await
+                .map_err(|error| anyhow::anyhow!("read the import state: {:?}", error.kind()))?
+                {
+                    return Ok(Outcome::AlreadyDone);
+                }
+                let outcome = import_payload(&scoped, &path).await?;
+                if matches!(outcome, Outcome::NoSource) {
+                    return Ok(outcome);
+                }
+                crate::storage::import_state::host_import_mark(
+                    claimed_markers.scoped(),
+                    MARKER_COLLECTION,
+                    &marker,
+                )
+                .await
+                .map_err(|error| anyhow::anyhow!("write the import state: {:?}", error.kind()))?;
+                Ok(outcome)
+            })
+        },
+    )?;
+    Ok(claimed.unwrap_or(Outcome::InProgress))
+}
+
+async fn import_payload(scoped: &crate::storage::Storage, path: &Path) -> anyhow::Result<Outcome> {
+    let bytes = match tokio::fs::read(path).await {
         Ok(bytes) => bytes,
         Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(Outcome::NoSource),
         Err(error) => return Err(error.into()),
@@ -104,13 +155,12 @@ async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow:
     );
     let legacy: LegacyState = serde_json::from_slice(&bytes)
         .map_err(|error| anyhow::anyhow!("legacy delivery file is unreadable: {error}"))?;
-
+    let docs = scoped.documents();
     for name in [PENDING, FAILED, RESULTS] {
         docs.ensure_collection(&CollectionSpec::new(name))
             .await
             .map_err(|error| anyhow::anyhow!("declare {name}: {:?}", error.kind()))?;
     }
-
     let now = now_unix_ms();
     let ttl_ms = DELIVERY_RESULT_TTL_SECONDS.saturating_mul(1000);
     let mut records: Vec<(&str, String, Value)> = Vec::new();
@@ -136,7 +186,6 @@ async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow:
         });
         records.push((RESULTS, id, doc));
     }
-
     let found = records.len();
     let mut written = 0usize;
     for (collection, id, doc) in records {
@@ -148,18 +197,9 @@ async fn import_into(docs: &Arc<dyn DocumentStore>, workspace: &Path) -> anyhow:
                 return Err(anyhow::anyhow!(
                     "write {collection} record: {:?}",
                     error.kind()
-                ))
+                ));
             }
         }
-    }
-    let body = json!({ "found": found, "written": written, "at": now });
-    match docs
-        .put(MARKER_COLLECTION, &marker, body, Precondition::Absent)
-        .await
-    {
-        Ok(_) => {}
-        Err(error) if matches!(error.kind(), ErrorKind::Conflict | ErrorKind::AlreadyExists) => {}
-        Err(error) => return Err(anyhow::anyhow!("write the marker: {:?}", error.kind())),
     }
     tracing::info!("{LOG_PREFIX} imported found={found} written={written}");
     Ok(Outcome::Imported { found, written })

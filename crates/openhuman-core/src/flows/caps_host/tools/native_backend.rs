@@ -5,9 +5,9 @@
 
 use std::sync::Arc;
 
+use crate::security::policy::CommandClass;
 use async_trait::async_trait;
 use serde_json::{json, Value};
-use tinysecurity_bus::CommandClass;
 use tinytools::ToolResult;
 
 use crate::{config::Config, security::SecurityPolicy};

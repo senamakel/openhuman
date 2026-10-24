@@ -122,6 +122,10 @@ pub struct CoreContext {
     /// The tenant (SaaS profile) this context serves. `None` for booted
     /// contexts and every single-user agent. See [`crate::core::runtime::tenant`].
     profile: Option<String>,
+    /// Private admission generation shared only by contexts derived within
+    /// this profile generation. Profile reopen creates a fresh context from
+    /// the host root and therefore a fresh token.
+    profile_admission: Arc<()>,
     /// What the agent this context was derived for owns.
     agent: agent_parts::AgentParts,
     /// A context that exists only to carry a turn origin where no core was
@@ -195,6 +199,13 @@ impl CoreContext {
         self.derive_with_parent_config_inner(Some(parent_config), overlay, false)
     }
 
+    /// Whether `other` descends from the same admitted profile context
+    /// generation. This differs from context pointer identity: turn contexts
+    /// may be derived while the profile remains admitted.
+    pub(crate) fn shares_profile_admission(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.profile_admission, &other.profile_admission)
+    }
+
     fn derive_with_parent_config_inner(
         &self,
         parent_config: Option<&crate::config::Config>,
@@ -263,6 +274,15 @@ impl CoreContext {
         if let Some(snapshot) = &latest_embedder_config {
             crate::config::Config::bind_context_snapshot(snapshot);
         }
+        let profile_admission = if overlay
+            .profile
+            .as_deref()
+            .is_none_or(|profile| Some(profile) == self.profile())
+        {
+            Arc::clone(&self.profile_admission)
+        } else {
+            Arc::new(())
+        };
         Arc::new(CoreContext {
             host_kind: self.host_kind,
             workspace_binding: RwLock::new(shared_binding),
@@ -284,6 +304,7 @@ impl CoreContext {
             channel_thread: self.channel_thread.clone(),
             session_agent: overlay.session_agent.or_else(|| self.session_agent.clone()),
             profile: overlay.profile.or_else(|| self.profile.clone()),
+            profile_admission,
             agent,
             bare: self.bare,
         })

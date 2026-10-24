@@ -1,5 +1,5 @@
 //! Host-owned approval routing and turn events over the channel module.
-use crate::channels::{Channel, ChannelSendExt, SendMessage};
+use crate::channels::{outbound::text_message, Channel};
 use crate::core::events::DomainEvent;
 use async_trait::async_trait;
 use std::collections::HashMap;
@@ -7,7 +7,6 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use tinybus::module::ModuleClient;
 use tinybus::EventHandler;
-use tinychannels_bus::{capabilities_for, ChannelMessage};
 
 #[derive(Clone)]
 struct ReplyContext {
@@ -74,7 +73,11 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
                 inbound_envelope,
                 workspace_dir,
             } => {
-                if !capabilities_for(channel).chat_approvals {
+                if !self
+                    .channels
+                    .get(channel)
+                    .is_some_and(|channel| channel.capabilities().chat_approvals)
+                {
                     return;
                 }
                 if self
@@ -89,18 +92,32 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
                     tinychannels_bus::module_inbound::PrepareChannelInboundRequest {
                         namespace: "main".into(),
                         session_policy: Default::default(),
-                        source: tinychannels_bus::module_inbound::ChannelInboundSource::Legacy {
-                            message: ChannelMessage {
-                                id: message_id.clone(),
-                                channel: channel.clone(),
-                                sender: sender.clone(),
-                                reply_target: reply_target.clone(),
-                                content: content.clone(),
-                                timestamp: 0,
-                                thread_ts: thread_ts.clone(),
-                                sender_name: None,
-                            },
-                            envelope: inbound_envelope.clone(),
+                        source: tinychannels_bus::module_inbound::ChannelInboundSource::Envelope {
+                            envelope: inbound_envelope.clone().unwrap_or_else(|| {
+                                tinychannels_bus::ChannelInboundEnvelope {
+                                    channel: tinychannels_bus::ChannelRef {
+                                        id: channel.clone(),
+                                        account_id: None,
+                                    },
+                                    message_id: message_id.clone(),
+                                    conversation: tinychannels_bus::ConversationRef {
+                                        id: reply_target.clone(),
+                                        thread_id: thread_ts.clone(),
+                                        ..Default::default()
+                                    },
+                                    sender: tinychannels_bus::SenderRef {
+                                        id: sender.clone(),
+                                        ..Default::default()
+                                    },
+                                    text: content.clone(),
+                                    parts: vec![tinychannels_bus::channel::ContentPart::Text {
+                                        text: content.clone(),
+                                        markdown_dialect: None,
+                                    }],
+                                    ..Default::default()
+                                }
+                            }),
+                            timestamp: 0,
                         },
                     },
                 )
@@ -112,8 +129,8 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
                         .insert(
                             prepared.history_key,
                             ReplyContext {
-                                reply_target: reply_target.clone(),
-                                thread_ts: thread_ts.clone(),
+                                reply_target: prepared.envelope.conversation.id,
+                                thread_ts: prepared.envelope.conversation.thread_id,
                             },
                         );
                 }
@@ -125,7 +142,11 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
                 client_id: Some(channel_name),
                 ..
             } => {
-                if !capabilities_for(channel_name).chat_approvals {
+                if !self
+                    .channels
+                    .get(channel_name)
+                    .is_some_and(|channel| channel.capabilities().chat_approvals)
+                {
                     return;
                 }
                 let reply = self
@@ -158,10 +179,12 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
                             return;
                         }
                         let _ = channel
-                            .send_with_outbound_intent(
-                                &SendMessage::new(body, &reply.reply_target)
-                                    .in_thread(reply.thread_ts),
-                            )
+                            .send_typed(&text_message(
+                                channel.name(),
+                                &reply.reply_target,
+                                body,
+                                reply.thread_ts,
+                            ))
                             .await;
                     }
                     Ok(_) => {
@@ -178,13 +201,18 @@ impl EventHandler<DomainEvent> for ChannelApprovalSurfaceSubscriber {
 /// Projects host turn lifecycle facts into module-owned remote status storage.
 pub struct ChannelTurnStateSubscriber {
     workspace_dir: PathBuf,
+    channels: Arc<HashMap<String, Arc<dyn Channel>>>,
     config: Option<Arc<crate::config::Config>>,
     cancellation: tokio_util::sync::CancellationToken,
 }
 impl ChannelTurnStateSubscriber {
-    pub fn with_config(config: Arc<crate::config::Config>) -> Self {
+    pub fn with_config(
+        channels: Arc<HashMap<String, Arc<dyn Channel>>>,
+        config: Arc<crate::config::Config>,
+    ) -> Self {
         Self {
             workspace_dir: config.workspace_dir.clone(),
+            channels,
             config: Some(config),
             cancellation: super::super::runtime::session::channel_session(),
         }
@@ -193,13 +221,17 @@ impl ChannelTurnStateSubscriber {
     pub fn new(workspace_dir: PathBuf) -> Self {
         Self {
             workspace_dir,
+            channels: Arc::new(HashMap::new()),
             config: None,
             cancellation: tokio_util::sync::CancellationToken::new(),
         }
     }
     async fn mark(&self, channel: &str, reply_target: &str, event_ws: &PathBuf, busy: bool) {
         if self.cancellation.is_cancelled()
-            || !capabilities_for(channel).remote_control
+            || !self
+                .channels
+                .get(channel)
+                .is_some_and(|channel| channel.capabilities().remote_control)
             || *event_ws != self.workspace_dir
         {
             return;

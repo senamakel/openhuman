@@ -25,7 +25,7 @@ fn set_policy(config: &Config, job_id: &str, policy: JobPolicy) -> anyhow::Resul
 
 fn security(config: &Config) -> Arc<SecurityPolicy> {
     Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     ))
@@ -265,6 +265,7 @@ async fn started_agent_scheduler_releases_its_context_after_stop_is_confirmed() 
     .expect("the finite StopScheduler owner releases its context after confirmation");
 }
 
+#[cfg(feature = "legacy-import")]
 /// Upgrade regression: a job whose retry budget and single-flight setting lived
 /// in the old `cron_job_policies` side table keeps firing after the upgrade,
 /// with that policy now on the job itself.

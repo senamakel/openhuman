@@ -21,16 +21,17 @@ use std::time::Duration;
 
 use chrono::Utc;
 use openhuman_core::{
-    agent::turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource},
     config::Config,
     security::{
         approval::{
             gate::ApprovalGate,
-            is_unanswered_approval_reason, store,
+            is_unanswered_approval_reason,
             types::{ApprovalDecision, GateOutcome, PendingApproval},
             ApprovalChatContext, ApprovalTurnContext, FlowRunContext,
         },
-        live_policy, SecurityPolicy,
+        live_policy,
+        turn_origin::{self, AgentTurnOrigin, TrustedAutomationSource},
+        SecurityPolicy,
     },
 };
 use serde_json::json;
@@ -458,14 +459,24 @@ async fn flow_trust_is_scoped_to_the_exact_flow_and_tool() {
     assert!(matches!(outcome, GateOutcome::Allow), "{outcome:?}");
 
     // require_approval flows park unless the exact (flow, tool) pair is trusted.
-    store::insert_flow_trust(&fx.config, "flow-trusted", "char_flow_tool").unwrap();
-    store::insert_flow_trust(&fx.config, "flow-trusted", "char_flow_tool").unwrap(); // idempotent
+    fx.gate
+        .insert_flow_trust("flow-trusted", "char_flow_tool")
+        .unwrap();
+    fx.gate
+        .insert_flow_trust("flow-trusted", "char_flow_tool")
+        .unwrap(); // idempotent
     assert_eq!(
-        store::list_flow_trust(&fx.config, "flow-trusted").unwrap(),
+        fx.gate.list_flow_trust("flow-trusted").unwrap(),
         vec!["char_flow_tool".to_string()]
     );
-    assert!(store::is_flow_tool_trusted(&fx.config, "flow-trusted", "char_flow_tool").unwrap());
-    assert!(!store::is_flow_tool_trusted(&fx.config, "flow-other", "char_flow_tool").unwrap());
+    assert!(fx
+        .gate
+        .is_flow_tool_trusted("flow-trusted", "char_flow_tool")
+        .unwrap());
+    assert!(!fx
+        .gate
+        .is_flow_tool_trusted("flow-other", "char_flow_tool")
+        .unwrap());
     let ctx = || FlowRunContext {
         flow_id: "flow-trusted".into(),
         run_id: "run-char".into(),
@@ -513,20 +524,22 @@ async fn flow_trust_is_scoped_to_the_exact_flow_and_tool() {
     assert!(matches!(handle.await.unwrap(), GateOutcome::Deny { .. }));
 
     // Revocation removes the grant.
-    store::delete_flow_trust(&fx.config, "flow-trusted", None).unwrap();
-    assert!(!store::is_flow_tool_trusted(&fx.config, "flow-trusted", "char_flow_tool").unwrap());
+    fx.gate.delete_flow_trust("flow-trusted", None).unwrap();
+    assert!(!fx
+        .gate
+        .is_flow_tool_trusted("flow-trusted", "char_flow_tool")
+        .unwrap());
 }
 
 #[tokio::test]
 async fn flow_preauthorization_lands_in_the_audit_list_not_pending() {
     let _lock = env_guard::env_lock_async().await;
     let fx = fixture();
-    store::record_flow_preauthorization(
-        &fx.config,
+    openhuman_core::security::approval::rpc::approval_preauthorize_flow(
         "flow-pre",
-        "char_pre_tool",
-        "session-approval-characterization",
+        vec!["char_pre_tool".into()],
     )
+    .await
     .unwrap();
     assert!(fx
         .gate

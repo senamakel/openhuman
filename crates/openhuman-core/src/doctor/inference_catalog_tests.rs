@@ -16,6 +16,7 @@ use std::sync::{
     Arc,
 };
 use std::time::Duration;
+use tinyinference_llm::providers::overrides::{CatalogEntry, CatalogListing};
 
 #[derive(Clone)]
 struct CatalogServerState {
@@ -519,8 +520,7 @@ async fn a_slow_provider_times_out_without_blocking_the_other_catalog() {
 async fn doctor_models_uses_read_only_http_without_calling_the_mutable_catalog() {
     use crate::core::runtime::{CoreContext, DomainSet};
     use crate::core::slots::Extensions;
-    use crate::core::Outcome;
-    use crate::inference::registry::{register_catalog_in, CatalogEntry, CatalogListing};
+    use crate::inference::registry::register_catalog_in;
 
     let (endpoint, server) =
         spawn_catalog_server(StatusCode::OK, catalog_body(&["must-not-be-used"]), true).await;
@@ -531,16 +531,14 @@ async fn doctor_models_uses_read_only_http_without_calling_the_mutable_catalog()
     );
     let normal_calls = Arc::new(AtomicUsize::new(0));
     let call_counter = Arc::clone(&normal_calls);
-    let ordinary_listing: CatalogListing = Arc::new(move |_, _| {
-        let call_counter = Arc::clone(&call_counter);
-        Box::pin(async move {
-            call_counter.fetch_add(1, Ordering::SeqCst);
-            Ok(Outcome::new(
-                serde_json::json!({ "models": [{ "id": "must-not-be-used" }] }),
-                Vec::new(),
-            ))
-        })
-    });
+    let ordinary_listing: CatalogListing<crate::inference::registry::ProviderContext> =
+        Arc::new(move |_| {
+            let call_counter = Arc::clone(&call_counter);
+            Box::pin(async move {
+                call_counter.fetch_add(1, Ordering::SeqCst);
+                Ok(serde_json::json!({ "models": [{ "id": "must-not-be-used" }] }))
+            })
+        });
     let extensions = Extensions::new();
     register_catalog_in(
         &extensions,

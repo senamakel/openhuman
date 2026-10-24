@@ -321,7 +321,7 @@ fn endpoint_discovery_denial_overrides_offline_vision_facts() {
         auth_style: AuthStyle::None,
         ..Default::default()
     }];
-    let request = crate::inference::provider::factory::model_limits_request(
+    let request = crate::inference::context_window::model_limits_request(
         "chat",
         "attachment-probe:gpt-4o",
         "gpt-4o",

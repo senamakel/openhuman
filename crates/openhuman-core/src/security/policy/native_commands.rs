@@ -151,15 +151,9 @@ fn class_query(class: CommandClass) -> CommandQuery<'static> {
 fn block_on_gateway<T: Send + 'static>(
     future: impl std::future::Future<Output = Result<T, Refusal>> + Send + 'static,
 ) -> Result<T, Refusal> {
-    std::thread::spawn(move || {
-        tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|_| Refusal::Unavailable)?
-            .block_on(future)
-    })
-    .join()
-    .map_err(|_| Refusal::Unavailable)?
+    crate::core::runtime::DispatchCtx::ambient()
+        .block_on(future)
+        .map_err(|_| Refusal::Unavailable)?
 }
 
 /// The agent-facing message for a refused command.
@@ -260,7 +254,7 @@ impl SecurityPolicy {
             require_approval_for_medium_risk: self.require_approval_for_medium_risk,
             block_high_risk_commands: self.block_high_risk_commands,
             action_dir,
-            home_dir: dirs::home_dir().filter(|home| home.is_absolute()),
+            home_dir: crate::modules::security::policy_translation::security_home_dir(),
         })
     }
 

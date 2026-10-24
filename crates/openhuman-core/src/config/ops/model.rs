@@ -293,7 +293,10 @@ pub async fn apply_model_settings(
             Some(trimmed.to_string())
         };
         if let Some(ref m) = config.default_model {
-            if crate::inference::provider::factory::is_known_openhuman_tier(m) {
+            if crate::inference::registry::provider_model_is_alias(
+                crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                m,
+            ) {
                 log::warn!(
                     "[config][model-settings] default_model '{}' is a retired tier slug or \
                      role hint, not a catalog model — managed turns run on the platform \
@@ -510,7 +513,7 @@ pub async fn apply_runtime_settings(
         let parsed = if effort.is_empty() {
             None
         } else {
-            let parsed = crate::agent::tinyagents::parse_reasoning_effort(effort)
+            let parsed = tinyinference_llm::model::ReasoningEffort::parse(effort)
                 .ok_or_else(|| format!("unknown reasoning_effort '{effort}'"))?;
             Some(parsed.as_str().to_string())
         };

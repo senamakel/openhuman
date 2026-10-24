@@ -159,6 +159,7 @@ export function withoutAllowed(rel, found) {
 export function isTestFile(rel) {
   return (
     rel.startsWith("crates/openhuman-core/src/storage/") ||
+    rel.includes("/fixtures/generate-") ||
     rel.includes("/tests/") ||
     rel.endsWith("_tests.rs") ||
     rel.includes(`${sep}test_support${sep}`) ||

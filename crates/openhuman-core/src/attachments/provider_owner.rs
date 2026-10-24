@@ -12,7 +12,7 @@ pub(super) fn wrap(
     ctx: &crate::core::runtime::DispatchCtx,
     inner: Arc<dyn ChatModel<()>>,
     config: Arc<Config>,
-    profile: ModelProfile,
+    profile: Option<ModelProfile>,
 ) -> Arc<dyn ChatModel<()>> {
     let host = Arc::new(AttachmentModel {
         config: config.clone(),
@@ -49,11 +49,16 @@ pub(super) fn wrap(
         |_, request| Ok(super::super::take_request_scope(&mut request.metadata)),
         host.clone(),
         extractor,
-    )
-    .with_profile(profile)
-    .with_fallback_renderer(host.clone())
-    .with_fallback_cache(host.clone())
-    .with_history_fallback(host.clone());
+    );
+    let model = if let Some(profile) = profile {
+        model.with_profile(profile)
+    } else {
+        model
+    };
+    let model = model
+        .with_fallback_renderer(host.clone())
+        .with_fallback_cache(host.clone())
+        .with_history_fallback(host.clone());
     Arc::new(model)
 }
 

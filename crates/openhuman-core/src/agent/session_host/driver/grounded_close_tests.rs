@@ -4,6 +4,34 @@ use std::sync::Arc;
 const RECORDS: &str = "\n- `list_directory` — ok\n  > three crates\n";
 const CLEAN_REPLY: &str = "The workspace holds three crates; the build is green.";
 
+fn classified_halt(note: &str, class: &str) -> TinyagentsTurnOutcome {
+    TinyagentsTurnOutcome {
+        deferred_terminal: None,
+        text: String::new(),
+        resolved_route: None,
+        history: Vec::new(),
+        conversation: Vec::new(),
+        model_calls: 1,
+        tool_calls: 1,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_input_tokens: 0,
+        cost: tinyagents_harness::cost::CostTally::default(),
+        early_exit_tool: None,
+        hit_cap: false,
+        wrap_up_injected: false,
+        truncated: false,
+        breaker_halt: Some(note.into()),
+        failure_cause: Some(tinyagents_harness::no_progress::ClassifiedStopCause {
+            class: class.into(),
+            operation: "search".into(),
+            summary: note.into(),
+        }),
+        tool_outcomes: vec![],
+        compaction: None,
+    }
+}
+
 #[test]
 fn classified_halt_returns_partial_work_without_provider_usage() {
     use tinyagents_harness::turn_outcome::ToolCallOutcome;
@@ -649,3 +677,6 @@ fn supplemental_free_route_uses_zero_catalog_rates() {
     assert_eq!(pricing.output_per_mtok_usd, Some(0.0));
     assert_eq!(enrichment.estimated_cost_usd, None);
 }
+
+#[path = "grounded_close_typed_stop_tests.rs"]
+mod typed_stop;

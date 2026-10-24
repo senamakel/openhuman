@@ -34,7 +34,8 @@ pub(crate) async fn complete(
     // `without_reasoning` flag; a BYOK route to OpenRouter needs
     // OpenRouter's own switch. Other endpoints are left untouched, since an
     // unknown field can be rejected.
-    let mut request = provider::openhuman_backend_model::without_reasoning(
+    let mut request = crate::inference::registry::provider_request_without_reasoning(
+        crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         ModelRequest::new(vec![Message::system(system), Message::user(user)])
             .with_temperature(TEMPERATURE),
     );

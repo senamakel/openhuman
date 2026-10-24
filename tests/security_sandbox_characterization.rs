@@ -48,8 +48,8 @@ async fn scratch_config(
     config.workspace_dir = dir.path().to_path_buf();
     config.config_path = dir.path().join("config.toml");
     config.action_dir = dir.path().join("action");
-    config.sandbox.backend = backend;
-    config.sandbox.enabled = enabled;
+    config.security.sandbox.backend = backend;
+    config.security.sandbox.enabled = enabled;
     config.save().await.unwrap();
     (dir, config)
 }
@@ -193,7 +193,7 @@ async fn backend_handles_report_a_defined_status() {
     let _lock = env_guard::env_lock_async().await;
     let none = create_sandbox_backend(
         &DispatchCtx::process_default(),
-        &resolve(SandboxMode::None, &RuntimeConfig::default(), false),
+        &resolve(&RuntimeConfig::default(), false),
     )
     .await;
     assert_eq!(none.kind, SandboxBackendKind::None);

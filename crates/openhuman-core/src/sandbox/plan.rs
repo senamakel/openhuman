@@ -20,9 +20,7 @@ use tinysecurity_bus::{
     SandboxConstraint2,
 };
 
-use crate::modules::tinybox::contract::{
-    JailEnforcement, NativeJailConfig, NativeJailResourceRequest, NetworkPolicy,
-};
+use crate::modules::tinybox::contract::{JailEnforcement, NativeJailConfig, NetworkPolicy};
 
 /// The TinyBox executor a plan selects.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -46,8 +44,6 @@ pub struct BoxPlan {
     pub jail: NativeJailConfig,
     /// Network policy for the box.
     pub network: NetworkPolicy,
-    /// Explicit resource bounds the selected executor can enforce.
-    pub resources: NativeJailResourceRequest,
     /// Whether the executor mounts the workspace. `false` for a plan the module made
     /// with no workspace grant (a container with nothing mounted).
     pub workspace: bool,
@@ -64,10 +60,14 @@ pub enum PlanMappingError {
     EgressProxyUnavailable,
     /// A CPU-time bound; TinyBox enforces CPU throughput only.
     CpuTimeUnenforceable,
+    /// The native shell adapter cannot enforce CPU throughput bounds.
+    CpuLimitUnenforceable,
     /// A zero bound is never a limit.
     ZeroLimit,
     /// TinyBox's native resource backend cannot enforce a disk quota.
     DiskLimitUnenforceable,
+    /// The native shell adapter cannot enforce requested resource limits.
+    NativeResourceLimitsUnenforceable,
     /// The host's one-shot Docker bus request does not expose a PID limit.
     PidsLimitUnenforceable,
     /// The host executor has no path for enforcing resource bounds.
@@ -89,9 +89,15 @@ impl std::fmt::Display for PlanMappingError {
             Self::CpuTimeUnenforceable => {
                 "the sandbox plan bounds CPU time, which TinyBox cannot enforce"
             }
+            Self::CpuLimitUnenforceable => {
+                "the sandbox plan bounds CPU throughput, which the native shell adapter cannot enforce"
+            }
             Self::ZeroLimit => "the sandbox plan carries a zero resource bound",
             Self::DiskLimitUnenforceable => {
                 "the sandbox plan requests a disk quota TinyBox cannot enforce"
+            }
+            Self::NativeResourceLimitsUnenforceable => {
+                "the native shell adapter cannot enforce the requested resource limits"
             }
             Self::PidsLimitUnenforceable => "the Docker sandbox request cannot enforce a PID limit",
             Self::HostResourceLimitUnenforceable => {
@@ -128,10 +134,7 @@ impl BoxPlan {
             PlannedNetwork::Host => NetworkPolicy::Open,
             PlannedNetwork::EgressProxy => return Err(PlanMappingError::EgressProxyUnavailable),
         };
-        let resources = resources(artifact)?;
-        if executor == PlannedExecutor::Docker && resources.pids_max.is_some() {
-            return Err(PlanMappingError::PidsLimitUnenforceable);
-        }
+        validate_resources(artifact, executor)?;
 
         let mut read_only = Vec::new();
         let mut read_write = Vec::new();
@@ -153,6 +156,7 @@ impl BoxPlan {
             read_only,
             read_write,
             allow_net: !matches!(network, NetworkPolicy::Denied),
+            network_allowlist: None,
             allow_subprocess: !artifact
                 .constraints
                 .contains(&SandboxConstraint2::Subprocesses),
@@ -181,7 +185,6 @@ impl BoxPlan {
             executor,
             jail,
             network,
-            resources,
             workspace: !artifact.no_workspace,
         })
     }
@@ -199,19 +202,14 @@ impl BoxPlan {
         {
             return Err(PlanMappingError::MalformedHostRun);
         }
-        let resources = resources(artifact)?;
-        if resources.cpu_millis.is_some()
-            || resources.memory_bytes.is_some()
-            || resources.pids_max.is_some()
-        {
-            return Err(PlanMappingError::HostResourceLimitUnenforceable);
-        }
+        validate_resources(artifact, PlannedExecutor::Host)?;
         Ok(Self {
             executor: PlannedExecutor::Host,
             jail: NativeJailConfig {
                 read_only: Vec::new(),
                 read_write: Vec::new(),
                 allow_net: true,
+                network_allowlist: None,
                 allow_subprocess: true,
                 enforcement: JailEnforcement::Declared,
                 require_process_isolation: false,
@@ -219,16 +217,25 @@ impl BoxPlan {
                 resources: None,
             },
             network: NetworkPolicy::Open,
-            resources,
             workspace: true,
         })
     }
 }
 
-fn resources(artifact: &SandboxArtifact2) -> Result<NativeJailResourceRequest, PlanMappingError> {
+fn validate_resources(
+    artifact: &SandboxArtifact2,
+    executor: PlannedExecutor,
+) -> Result<(), PlanMappingError> {
     let limits = &artifact.limits;
     if limits.cpu_time_ms.is_some() {
         return Err(PlanMappingError::CpuTimeUnenforceable);
+    }
+    if limits.cpu_millicores.is_some() {
+        return Err(if executor == PlannedExecutor::Host {
+            PlanMappingError::HostResourceLimitUnenforceable
+        } else {
+            PlanMappingError::CpuLimitUnenforceable
+        });
     }
     if limits.disk_bytes.is_some() {
         return Err(PlanMappingError::DiskLimitUnenforceable);
@@ -239,12 +246,16 @@ fn resources(artifact: &SandboxArtifact2) -> Result<NativeJailResourceRequest, P
     {
         return Err(PlanMappingError::ZeroLimit);
     }
-    Ok(NativeJailResourceRequest {
-        cpu_millis: limits.cpu_millicores.map(u64::from),
-        memory_bytes: limits.memory_bytes,
-        pids_max: limits.pids_max.map(u64::from),
-        disk_bytes: None,
-    })
+    if limits.memory_bytes.is_some() || limits.pids_max.is_some() {
+        return Err(match executor {
+            PlannedExecutor::Host => PlanMappingError::HostResourceLimitUnenforceable,
+            PlannedExecutor::Docker if limits.pids_max.is_some() => {
+                PlanMappingError::PidsLimitUnenforceable
+            }
+            _ => PlanMappingError::NativeResourceLimitsUnenforceable,
+        });
+    }
+    Ok(())
 }
 
 #[cfg(test)]

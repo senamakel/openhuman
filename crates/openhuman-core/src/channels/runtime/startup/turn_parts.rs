@@ -26,7 +26,7 @@ use tinytools::Tool;
 pub(crate) struct ChannelTurnParts {
     pub(crate) model: String,
     pub(crate) provider_name: String,
-    pub(crate) provider_runtime_options: provider::ProviderRuntimeOptions,
+    pub(crate) provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions,
     pub(crate) tools_registry: Arc<Vec<Box<dyn Tool>>>,
     pub(crate) system_prompt: ChannelSystemPrompt,
     pub(crate) skills: Vec<Workflow>,
@@ -98,7 +98,7 @@ pub(crate) fn build_channel_turn_parts(
     security: &Arc<SecurityPolicy>,
     descs: PromptToolDescs,
 ) -> Result<ChannelTurnParts> {
-    let provider_runtime_options = provider::ProviderRuntimeOptions {
+    let provider_runtime_options = crate::tools::delegate::ProviderRuntimeOptions {
         auth_profile_override: None,
         openhuman_dir: config.config_path.parent().map(std::path::PathBuf::from),
         secrets_encrypt: config.secrets.encrypt,
@@ -112,7 +112,7 @@ pub(crate) fn build_channel_turn_parts(
                 config,
                 config.default_temperature,
             )?;
-            (model, provider::INFERENCE_BACKEND_ID.to_string())
+            (model, provider::factory::INFERENCE_BACKEND_ID.to_string())
         }
         ChatWorkloadResolution::Workload {
             provider_string,

@@ -167,7 +167,7 @@ A session is the live conversation an `Agent` instance is running. The `Agent` s
 - The tool registry visible to the model.
 - The `memory` tool (when a memory engine is on), through which the model recalls, fetches, learns and forgets on demand.
 - Per-turn budgets: max tool iterations, max payload size, max USD cost.
-- Local action budget: a rolling hourly cap for side-effecting tool actions, read from `config.autonomy.max_actions_per_hour` and enforced by the TinySecurity module (`rate_limited` denial).
+- Local action budget: a rolling hourly cap for side-effecting tool actions, read from `config.security.autonomy.max_actions_per_hour` and enforced by the TinySecurity module (`rate_limited` denial).
 
 `Agent::turn(user_message)` is the hot path. In one turn it:
 
@@ -520,7 +520,7 @@ Stop hooks fire between iterations of the tool-call loop. They're the policy lev
 
 - Budget stop hook: caps cumulative turn cost in USD using the per-iteration cost accumulator.
 - Max-iterations stop hook: caps iteration count from outside the agent's persistent config.
-- Action budget policy: the TinySecurity module enforces `config.autonomy.max_actions_per_hour` for side-effecting tool operations, through the policy gate's host-tool admission check. Users can tune it in Settings, Advanced, Agent autonomy, or operators can override it with `OPENHUMAN_MAX_ACTIONS_PER_HOUR`.
+- Action budget policy: the TinySecurity module enforces `config.security.autonomy.max_actions_per_hour` for side-effecting tool operations, through the policy gate's host-tool admission check. Users can tune it in Settings, Advanced, Agent autonomy, or operators can override it with `OPENHUMAN_MAX_ACTIONS_PER_HOUR`.
 
 A hook returning `Stop` aborts the loop with a clear reason the caller can surface to the user. Stop hooks are distinct from interrupts (next section): they're policy-driven, not user-driven.
 
@@ -652,7 +652,7 @@ direct `tinyagents-orchestration::subagent` lifecycle. There is no
 
 | File (`crates/openhuman-core/src/agent/tinyagents/`)          | Role                                                                                                                                                                                                                                                                           |
 | ------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `mod.rs`                                          | The runner (`TurnSpec::run`): installs the native `ChatModel`, host tool adapters, and middleware on an `AgentHarness`; runs one turn; caps output through `MaxTokensModel` (`inference/provider/model.rs`); mirrors progress; forwards steering; and pauses gracefully at the model-call cap. |
+| `mod.rs`                                          | The runner (`TurnSpec::run`): installs the native `ChatModel`, host tool adapters, and middleware on an `AgentHarness`; runs one turn; caps output through the native `MaxTokensModel`; mirrors progress; forwards steering; and pauses gracefully at the model-call cap. |
 | `mod.rs` / `model.rs` / `tools.rs` / `convert.rs` | `RunPolicy` / `ChatModel` / `Tool` / message adapters (incl. unknown-tool policy and out-of-band reasoning forwarding).                                                                                                                                                        |
 | `observability.rs`                                | Harness `AgentEvent` → `AgentProgress` + cost; `GraphTracingSink` for graph events.                                                                                                                                                                                            |
 | `orchestration.rs`                                | Re-exported `graph::orchestration` task-store types; map-reduce fanout uses the TinyAgents SDK surface directly.                                                                                                                                                           |

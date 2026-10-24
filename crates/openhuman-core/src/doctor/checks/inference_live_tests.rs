@@ -6,6 +6,7 @@ use crate::config::Config;
 use crate::core::runtime::{CoreContext, DomainSet};
 use crate::doctor::{DoctorCtx, DoctorOptions, DoctorTier, Finding, FindingSeverity};
 use serde_json::{json, Value};
+use tinyinference_llm::providers::overrides::{ChatModelEntry, ChatModelRequest};
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
@@ -53,6 +54,7 @@ fn config_for(server: &MockServer, model: &str) -> Fixture {
             endpoint: format!("{}/openai/{ENDPOINT_SECRET}", server.uri()),
             api_key: TEST_BEARER.to_string(),
             headers: Vec::new(),
+            ..EphemeralRoute::default()
         },
     );
     fixture.config = config;
@@ -298,7 +300,7 @@ async fn live_probe_uses_selected_doctor_config_inside_another_ambient_context()
 #[tokio::test]
 async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
     use crate::inference::registry::{
-        register_inspection_chat_model_in, ChatModelRequest, InspectionChatModelFactory,
+        register_chat_model_in, register_inspection_chat_model_in, InspectionChatModelFactory,
     };
     use std::sync::{
         atomic::{AtomicUsize, Ordering},
@@ -327,16 +329,37 @@ async fn managed_chat_probe_uses_the_inspection_only_factory_callback() {
     let extensions = crate::core::slots::Extensions::new();
     let calls = Arc::new(AtomicUsize::new(0));
     let model_calls = Arc::clone(&calls);
-    let factory: InspectionChatModelFactory = Arc::new(move |request: &ChatModelRequest<'_>| {
-        assert_eq!(request.role, "chat");
-        Ok(crate::inference::registry::InspectionChatModelBuild {
-            model: Arc::new(CountingModel(Arc::clone(&model_calls))) as Arc<dyn ChatModel<()>>,
-            model_id: "managed-test-model".into(),
-            endpoint: "https://managed.test/openai/v1".into(),
-            credential: "frozen-managed-test-token".into(),
-        })
-    });
+    let factory: InspectionChatModelFactory = Arc::new(
+        move |request: &ChatModelRequest<'_, crate::inference::registry::ProviderContext>| {
+            assert_eq!(request.role, "chat");
+            Ok(crate::inference::registry::InspectionChatModelBuild {
+                model: Arc::new(CountingModel(Arc::clone(&model_calls))) as Arc<dyn ChatModel<()>>,
+                model_id: "managed-test-model".into(),
+                endpoint: "https://managed.test/openai/v1".into(),
+                credential: "frozen-managed-test-token".into(),
+            })
+        },
+    );
     register_inspection_chat_model_in(&extensions, "openhuman", factory);
+    register_chat_model_in(
+        &extensions,
+        "openhuman",
+        ChatModelEntry {
+            build: Arc::new(move |request| {
+                Ok((
+                    Arc::new(CountingModel(Arc::new(AtomicUsize::new(0))))
+                        as Arc<dyn ChatModel<()>>,
+                    request
+                        .model_override
+                        .or(request.default_model)
+                        .unwrap_or("managed-test-model")
+                        .to_owned(),
+                ))
+            }),
+            probe: None,
+            models: None,
+        },
+    );
 
     let mut fixture = isolated_config();
     let config = &mut fixture.config;

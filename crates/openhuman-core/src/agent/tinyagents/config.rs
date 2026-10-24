@@ -19,9 +19,7 @@ use tinyagents_harness::config::{
     RequiredOutput, SessionConfig, ToolConfig, ToolDispatcher, TurnConfig,
 };
 
-use crate::config::{
-    AgentConfig, Config, DelegateAgentConfig, RequiredOutputContract, DEFAULT_MODEL,
-};
+use crate::config::{AgentConfig, Config, DelegateAgentConfig, RequiredOutputContract};
 
 /// Translates OpenHuman's free-form `agent.tool_dispatcher` string into the
 /// crate enum.
@@ -58,19 +56,25 @@ fn dispatcher_from(raw: &str) -> ToolDispatcher {
 /// left at `0` (delegation disabled) because depth is a per-delegate setting;
 /// see [`apply_delegate`]. A caller that wants the plain single-agent case gets
 /// exactly that, with no delegation implied by accident.
-pub fn session_config_from(config: &Config) -> SessionConfig {
+pub fn session_config_from(config: &Config) -> anyhow::Result<SessionConfig> {
+    let model = config
+        .default_model
+        .clone()
+        .or_else(|| {
+            crate::inference::registry::provider_default_model(
+                crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+            )
+        })
+        .ok_or_else(|| anyhow::anyhow!("a model must be selected before building a session"))?;
     let mut session = SessionConfig::new(
         config.workspace_dir.clone(),
         config.action_dir.clone(),
-        config
-            .default_model
-            .clone()
-            .unwrap_or_else(|| DEFAULT_MODEL.to_string()),
+        model,
     );
 
     session.temperature = Some(config.default_temperature);
     apply_agent_config(&mut session, &config.agent);
-    session
+    Ok(session)
 }
 
 /// Overlays one [`AgentConfig`] onto `session`, replacing its turn, tool, and

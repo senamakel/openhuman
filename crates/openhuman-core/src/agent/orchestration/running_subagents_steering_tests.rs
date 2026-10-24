@@ -1,5 +1,5 @@
 use super::*;
-use tinyagents_orchestration::subagent::SteerError;
+use tinyagents_orchestration::steering::SteerError;
 
 #[tokio::test]
 async fn steer_pushes_into_the_subagent_queue() {
@@ -109,25 +109,24 @@ async fn steer_rejects_cross_parent_and_unknown() {
 }
 
 #[tokio::test]
-async fn steer_after_terminal_is_rejected() {
+async fn steer_after_terminal_uses_the_host_fallback_queue() {
     let _guard = test_guard_async().await;
     let rq = run_queue();
-    let tx = register_test("task-term", "session-A", rq);
+    let tx = register_test("task-term", "session-A", rq.clone());
     let _ = tx.send(DetachedSubagentStatus::Failed {
         error: "boom".into(),
     });
 
-    assert_eq!(
-        steer(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            "task-term",
-            "session-A",
-            "x".into(),
-            QueueLane::Steer
-        )
-        .await,
-        Err(SteerError::AlreadyDone)
-    );
+    steer(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        "task-term",
+        "session-A",
+        "x".into(),
+        QueueLane::Steer,
+    )
+    .await
+    .expect("terminal tasks with retained metadata use the host fallback");
+    assert_eq!(rq.status().await.steers, 1);
     prune("task-term");
 }
 

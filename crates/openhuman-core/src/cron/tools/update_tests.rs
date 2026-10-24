@@ -14,6 +14,7 @@ fn channel_origin(reply_target: &str) -> JobOrigin {
         history_key: format!("telegram-user-{reply_target}"),
         sender: Some("alice".into()),
         thread_id: None,
+        session_identity: None,
     }
 }
 
@@ -79,7 +80,7 @@ async fn test_config(tmp: &TempDir) -> Arc<Config> {
 
 fn test_security(cfg: &Config) -> Arc<SecurityPolicy> {
     Arc::new(SecurityPolicy::from_config(
-        &cfg.autonomy,
+        &cfg.security.autonomy,
         &cfg.workspace_dir,
         &cfg.workspace_dir,
     ))
@@ -115,8 +116,8 @@ async fn blocks_disallowed_command_updates() {
     };
     // The allowlist only exists when the policy is on, and the shipped config
     // default is off (`[autonomy] enabled = false`).
-    config.autonomy.enabled = true;
-    config.autonomy.allowed_commands = vec!["echo".into()];
+    config.security.autonomy.enabled = true;
+    config.security.autonomy.allowed_commands = vec!["echo".into()];
     tokio::fs::create_dir_all(&config.workspace_dir)
         .await
         .unwrap();

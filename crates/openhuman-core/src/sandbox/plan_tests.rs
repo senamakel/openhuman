@@ -51,23 +51,20 @@ fn a_jail_plan_maps_grants_network_and_isolation_floor() {
     assert_eq!(plan.jail.enforcement, JailEnforcement::Enforced);
     assert!(plan.jail.require_process_isolation);
     assert_eq!(plan.network, NetworkPolicy::Denied);
-    assert_eq!(plan.resources.cpu_millis, None);
-    assert_eq!(plan.resources.memory_bytes, None);
-    assert_eq!(plan.resources.pids_max, None);
-    assert_eq!(plan.resources.disk_bytes, None);
     assert_eq!(plan.jail.resources, None);
 }
 
 #[test]
 fn an_unbounded_plan_does_not_synthesize_native_resource_limits() {
     let plan = BoxPlan::from_artifact(&artifact(SandboxBackend::Jail), None).unwrap();
-    let resources = serde_json::to_value(plan.resources).unwrap();
-    let resources = resources.as_object().unwrap();
-    assert!(resources.is_empty(), "an absent bound must stay absent");
+    assert!(
+        plan.jail.resources.is_none(),
+        "an absent bound must stay absent"
+    );
 }
 
 #[test]
-fn planned_bounds_override_defaults_and_absent_bounds_keep_them() {
+fn unsupported_planned_bounds_are_refused_instead_of_being_ignored() {
     let mut planned = artifact(SandboxBackend::Docker);
     planned.limits = ResourceLimits2 {
         cpu_time_ms: None,
@@ -77,14 +74,20 @@ fn planned_bounds_override_defaults_and_absent_bounds_keep_them() {
         disk_bytes: None,
     };
     planned.constraints.push(SandboxConstraint2::Subprocesses);
-    let plan = BoxPlan::from_artifact(&planned, None).unwrap();
-    assert_eq!(plan.executor, PlannedExecutor::Docker);
-    assert_eq!(plan.resources.cpu_millis, Some(500_u64));
-    assert_eq!(plan.resources.memory_bytes, Some(64 << 20));
-    assert_eq!(plan.resources.pids_max, None);
-    assert_eq!(plan.resources.disk_bytes, None);
-    assert_eq!(plan.jail.resources, None);
-    assert!(!plan.jail.allow_subprocess);
+    assert_eq!(
+        BoxPlan::from_artifact(&planned, None),
+        Err(PlanMappingError::CpuLimitUnenforceable)
+    );
+}
+
+#[test]
+fn native_memory_limits_are_refused_instead_of_being_dropped() {
+    let mut planned = artifact(SandboxBackend::Jail);
+    planned.limits.memory_bytes = Some(64 << 20);
+    assert_eq!(
+        BoxPlan::from_artifact(&planned, None),
+        Err(PlanMappingError::NativeResourceLimitsUnenforceable)
+    );
 }
 
 #[test]

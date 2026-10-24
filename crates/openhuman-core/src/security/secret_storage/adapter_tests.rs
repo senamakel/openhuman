@@ -8,14 +8,23 @@ use tinystoragedrivers::secrets::crypto;
 const KEY: [u8; 32] = [7; 32];
 
 fn secrets_tempdir() -> tempfile::TempDir {
-    #[cfg(target_os = "macos")]
+    let dir = {
+        #[cfg(target_os = "macos")]
+        {
+            tempfile::tempdir_in("/private/tmp").expect("canonical macOS temp directory")
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            tempfile::tempdir().expect("tempdir")
+        }
+    };
+    #[cfg(unix)]
     {
-        tempfile::tempdir_in("/private/tmp").expect("canonical macOS temp directory")
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700))
+            .expect("make secret fixture directory private");
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        tempfile::tempdir().expect("tempdir")
-    }
+    dir
 }
 
 fn write_private_file(path: &std::path::Path, bytes: &[u8]) {

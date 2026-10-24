@@ -475,6 +475,7 @@ fn the_factory_is_told_the_context_the_session_is_built_under() {
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
     let explicit = CoreContext::for_test(DomainSet::full(), None);
+    crate::agent::session_host::test_support::install_model_fixture_in(explicit.extensions());
     let seen = Arc::new(std::sync::Mutex::new(Vec::<DispatchCtx>::new()));
 
     let host: crate::agent::HostTools = {

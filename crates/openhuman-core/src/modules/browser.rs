@@ -152,7 +152,7 @@ impl BrowserClient {
     /// The module's contract version, from `Describe` (which answers raw
     /// [`Capabilities`], not an envelope).
     pub async fn contract_version(&self) -> Result<(u32, u32), BrowserCallError> {
-        let proxy = super::desktop::proxy(&self.config)
+        let proxy = super::desktop::browser_proxy(&self.config)
             .await
             .map_err(BrowserCallError::Unavailable)?;
         let capabilities: Capabilities = proxy
@@ -534,7 +534,7 @@ impl BrowserClient {
         member: &str,
         request: A,
     ) -> Result<R, BrowserCallError> {
-        let proxy = super::desktop::proxy(&self.config)
+        let proxy = super::desktop::browser_proxy(&self.config)
             .await
             .map_err(BrowserCallError::Unavailable)?;
         tracing::debug!(member, "[browser] tinycomputer call");

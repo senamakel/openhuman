@@ -11,6 +11,10 @@
 # The gate job never checks out or runs PR code. Only the lanes job does, and
 # only for org members; it has a read-only token and no secrets. Everyone else
 # runs the same lanes on GitHub-hosted runners via ci-fast-hosted.yml.
+#
+# Draft PRs never take the EX63, even a member's: they run on GitHub-hosted
+# runners like an outsider's. Marking the PR ready for review re-runs this
+# workflow, which then routes it to the EX63.
 name: CI Fast
 
 on:
@@ -48,6 +52,7 @@ jobs:
           AUTHOR: ${{ github.event.pull_request.user.login }}
           ACTOR: ${{ github.actor }}
           ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          DRAFT: ${{ github.event.pull_request.draft }}
           # Optional fine-grained token with only Organization → Members: Read.
           # Without it, private members may be reported as non-members and
           # simply run on GitHub-hosted runners instead.
@@ -76,10 +81,13 @@ jobs:
             if [ -n "${MEMBERSHIP_TOKEN}" ] && is_member "${ACTOR}"; then
               member=true
             fi
+          elif [ "${DRAFT:-false}" = "true" ]; then
+            # Drafts stay off the EX63 and run on GitHub-hosted runners.
+            echo "[ci][route] draft PR: GitHub-hosted runners"
           elif is_member "${AUTHOR}" && is_member "${ACTOR}"; then
             member=true
           fi
-          echo "[ci][route] author=${AUTHOR} actor=${ACTOR} association=${ASSOCIATION} token=$([ -n "${MEMBERSHIP_TOKEN}" ] && echo yes || echo no) member=${member}"
+          echo "[ci][route] author=${AUTHOR} actor=${ACTOR} association=${ASSOCIATION} draft=${DRAFT:-false} token=$([ -n "${MEMBERSHIP_TOKEN}" ] && echo yes || echo no) member=${member}"
           echo "member=${member}" >> "$GITHUB_OUTPUT"
 
   lanes:

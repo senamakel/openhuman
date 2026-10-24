@@ -1,3 +1,5 @@
+#![cfg(feature = "testkit")]
+
 //! An embedded agent on the harness domains gets the scheduler and clock tools
 //! it names, although their domain family is off, and nothing else from that
 //! family: not the shell or file tools, even when it names them too. `cron` is

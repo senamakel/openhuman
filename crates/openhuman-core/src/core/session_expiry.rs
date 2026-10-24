@@ -20,7 +20,7 @@
 ///   `"GET /teams failed (401 Unauthorized): {"success":false}"`. These always
 ///   start with an HTTP method verb followed by a space and a forward slash.
 /// - **Provider / downstream 401s** (`api_error` in
-///   `crates/openhuman-core/src/inference/provider/ops.rs`): formatted as
+///   `crates/openhuman-core/src/inference/provider/http_error.rs`): formatted as
 ///   `"{ProviderName} API error (401 Unauthorized): {body}"` or
 ///   `"Discord API error: ... (401): Unauthorized"`. These start with a
 ///   provider name, NOT an HTTP method verb.
@@ -37,7 +37,7 @@
 /// - `"invalid token"` — too broad; also matches Discord / OAuth provider tokens.
 ///
 /// Note: for inference-path OpenHuman backend 401s, `api_error` (in
-/// `inference/provider/ops.rs` lines 479–497) ALREADY publishes `SessionExpired`
+/// `inference/provider/http_error.rs`) ALREADY publishes `SessionExpired`
 /// directly, so there is no regression if this predicate misses them — the
 /// subscriber is idempotent and a harmless double-publish would still be correct.
 pub fn is_session_expired_error(msg: &str) -> bool {

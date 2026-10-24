@@ -281,7 +281,7 @@ Its codec converts `ChatMessage`; its hooks own prompt/memory/experience,
 security, BUS/progress, post-turn work, usage and finalization. It creates the
 runtime builder with explicit `OpenHumanRunContext`, resolved tool snapshot and
 session locator. Migrate callers in `agent/mod.rs`,
-`inference/host_runtime/ops/agent_chat.rs`, `web_chat/**`, `channels/**`,
+`agent_runs/agent_chat/session_turn.rs`, `web_chat/**`, `channels/**`,
 `flows/**`, `skills/runtime/**`, `voice/realtime_harness/agent.rs`,
 `openhuman-embed/**`, `openhuman-tui/**`, and session import. Delete the old
 session tree, harness exports, stale README links and tests; locator/history

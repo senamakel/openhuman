@@ -5,8 +5,9 @@
 # group only admits ci-fast.yml / ci-lanes.yml at refs/heads/main, and a fork's
 # `pull_request` run resolves to refs/pull/N/merge.
 #
-# Org members skip this workflow; ci-fast.yml runs theirs on the EX63. The
-# route job follows ci-fast.yml's own decision, so the two never disagree.
+# Org members skip this workflow; ci-fast.yml runs theirs on the EX63. Draft
+# PRs, members' included, always run here. The route job follows ci-fast.yml's
+# own decision, so the two never disagree.
 name: CI Fast (hosted)
 
 on:
@@ -47,6 +48,8 @@ jobs:
           AUTHOR: ${{ github.event.pull_request.user.login }}
           ACTOR: ${{ github.actor }}
           ASSOCIATION: ${{ github.event.pull_request.author_association }}
+          DRAFT: ${{ github.event.pull_request.draft }}
+          SINCE: ${{ github.event.pull_request.updated_at }}
         run: bash scripts/ci/ci-fast-route.sh
 
   lanes:

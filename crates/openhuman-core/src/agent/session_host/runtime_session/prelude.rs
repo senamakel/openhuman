@@ -52,25 +52,12 @@ impl OpenHumanTurnPrelude {
             // the deferred tools beside the advertised ones. The harness
             // still advertises only the `Direct` registrations and reaches
             // the rest through its `tool_search` bridge.
-            ToolSnapshot::new(
-                surface
-                    .visible_tool_specs
-                    .iter()
-                    .chain(
-                        surface
-                            .tool_specs
-                            .iter()
-                            .filter(|spec| surface.deferred_tool_names.contains(&spec.name)),
-                    )
-                    .filter(|spec| {
-                        self.thread_id.is_some()
-                            || !crate::agent::tinyagents::tool_registration::is_thread_goal_tool(
-                                &spec.name,
-                            )
-                    })
-                    .map(|spec| spec.as_ref().clone())
-                    .collect(),
-            )
+            ToolSnapshot::new(granted_tool_specs(
+                &surface.visible_tool_specs,
+                &surface.tool_specs,
+                &surface.deferred_tool_names,
+                self.thread_id.is_some(),
+            ))
             .map_err(|error| anyhow::anyhow!(error.to_string()))?
         };
         let prefix = if cold {
@@ -237,29 +224,29 @@ impl OpenHumanTurnPrelude {
     ) -> String {
         let mut context = String::new();
 
+        // A paused goal stays paused: the model reads the message and resumes,
+        // replaces or leaves it with the goal tools. Turns with the run-state
+        // block see the goal there, current on every call, so it is not also
+        // prepended to the user's message.
+        run_context.goal_suppressed = turn.overrides.suppress_active_goal;
         let active_goal = if turn.overrides.suppress_active_goal {
             None
         } else {
-            let loaded = crate::agent::goals::runtime::load_for_thread(
+            crate::agent::goals::runtime::load_for_thread(
                 &self.workspace_dir,
                 self.thread_id.as_deref(),
             )
-            .await;
-            match loaded {
-                Some(goal) if matches!(goal.status, ThreadGoalStatus::Paused) => {
-                    crate::agent::goals::runtime::resume_for_thread(
-                        &self.workspace_dir,
-                        self.thread_id.as_deref(),
-                    )
-                    .await
-                    .unwrap_or(Some(goal))
-                }
-                other => other,
-            }
+            .await
         };
+        let state_block_shows_goal =
+            crate::agent::tinyagents::state_block::applies(false, Some(&self.agent_definition_id));
         if let Some(goal) = &active_goal {
-            if let Some(block) = tinyagents_harness_tools::goals::active_goal_context_block(goal) {
-                context.push_str(&block);
+            if !state_block_shows_goal {
+                if let Some(block) =
+                    tinyagents_harness_tools::goals::active_goal_context_block(goal)
+                {
+                    context.push_str(&block);
+                }
             }
             if let Some(hook) = tinyagents_hooks::stop::GoalBudgetStopHook::for_goal(
                 crate::storage::sessions::stores_or_ephemeral(&self.workspace_dir).kv,
@@ -362,6 +349,49 @@ impl OpenHumanTurnPrelude {
         &self,
         receipt: &CommitReceipt<OpenHumanRunContext>,
     ) {
-        self.memory_post_turn(receipt);
+        // A plan that finished this turn hands its notes over: they stay for
+        // the thread's next turns and go to long-term memory with the reply.
+        let finished_plan = crate::agent::tinyagents::state_block::close_finished_plan(
+            &self.workspace_dir,
+            self.thread_id.as_deref(),
+        )
+        .await;
+        self.memory_post_turn(receipt, finished_plan);
     }
 }
+
+/// The declarations a turn's snapshot grants: the advertised specs, then the
+/// deferred ones, name-unique.
+///
+/// A deferred name can have two registrations -- a host tool spliced in ahead
+/// of a config-derived built-in of the same name (`HostTurnTools::merge_into`).
+/// The advertised list is already deduplicated, but `tool_specs` is the raw
+/// registry, so both would reach `ToolSnapshot::new`, which refuses two
+/// different declarations under one name and fails the whole turn. The first
+/// occurrence wins, as it does for the advertised list, so the host's tool is
+/// the one granted.
+fn granted_tool_specs(
+    visible: &[Arc<tinytools::ToolSpec>],
+    registered: &[Arc<tinytools::ToolSpec>],
+    deferred: &std::collections::HashSet<String>,
+    has_thread: bool,
+) -> Vec<tinytools::ToolSpec> {
+    let specs = visible
+        .iter()
+        .chain(
+            registered
+                .iter()
+                .filter(|spec| deferred.contains(&spec.name)),
+        )
+        .filter(|spec| {
+            has_thread
+                || !crate::agent::tinyagents::tool_registration::is_thread_goal_tool(&spec.name)
+        })
+        .map(|spec| spec.as_ref().clone())
+        .collect();
+    super::super::builder::dedup_visible_tool_specs(specs)
+}
+
+#[cfg(test)]
+#[path = "prelude_tests.rs"]
+mod tests;

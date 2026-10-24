@@ -32,8 +32,12 @@ const targets = new Set(metadata.packages.flatMap(pkg => pkg.targets.map(target 
 // resource-sensitive binaries, so omit only those inapplicable overrides.
 const source = fs.readFileSync('.config/nextest.toml', 'utf8');
 const configText = source.replace(/\n\[\[profile\.ci\.overrides\]\]\n[\s\S]*?(?=\n\[|$)/g, block => {
-  const binary = block.match(/binary\(\/\^([a-zA-Z0-9_-]+)\$\/\)/) ?? block.match(/binary\(=([a-zA-Z0-9_-]+)\)/);
-  return binary && !targets.has(binary[1]) ? '' : block;
+  const binary = block.match(/binary\(\/([^/]+)\/\)/);
+  const exact = block.match(/binary\(=([a-zA-Z0-9_-]+)\)/);
+  const present = binary
+    ? [...targets].some(name => new RegExp(binary[1]).test(name))
+    : exact && targets.has(exact[1]);
+  return (binary || exact) && !present ? '' : block;
 });
 fs.writeFileSync(config, configText + '\n[profile.ci.junit]\npath = ' + JSON.stringify(report) + '\n');
 JS

@@ -12,7 +12,7 @@ use crate::config::schema::ModuleSourceMode;
 use crate::config::Config;
 use crate::modules::linked::register_linked;
 use crate::modules::{ops, runtime};
-use std::sync::Arc;
+use std::sync::{Arc, MutexGuard};
 use tinybus::module::ModuleClient;
 #[cfg(feature = "e2e-test-support")]
 use tinychannels_bus::methods;
@@ -41,13 +41,16 @@ pub(crate) async fn client() -> ModuleClient {
 
 /// Temporarily install in-memory storage for module callbacks in isolated tests.
 pub(crate) struct MemoryStorageGuard {
+    _slot_lock: MutexGuard<'static, ()>,
     previous: Option<Arc<dyn crate::storage::StorageBackend>>,
 }
 
 /// Give the linked module a writable backend for storage-backed fixture calls.
 pub(crate) fn install_memory_storage() -> MemoryStorageGuard {
+    let slot_lock = crate::storage::test_support::lock_storage_slot();
     MemoryStorageGuard {
-        previous: crate::storage::install(Arc::new(crate::storage::MemoryStorage::new())),
+        _slot_lock: slot_lock,
+        previous: crate::storage::install(crate::storage::test_support::memory_backend()),
     }
 }
 
@@ -106,6 +109,8 @@ async fn linked_module_prepares_legacy_inbound_facts_over_confidential_bus_call(
         timestamp: 42,
         thread_ts: Some("thread/c".into()),
         sender_name: Some("Display".into()),
+        reply_to_id: None,
+        topic_id: None,
     };
     let response: PreparedChannelInbound = client()
         .await

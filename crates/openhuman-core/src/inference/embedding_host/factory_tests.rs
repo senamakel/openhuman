@@ -1,11 +1,12 @@
 use super::*;
-use crate::inference::embedding_host::{
-    DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
-};
 use crate::security::credentials::{AuthService, APP_SESSION_PROVIDER};
 use std::collections::HashMap;
 use tempfile::TempDir;
 use tinyinference_embeddings::factory::validate_custom_endpoint;
+use tinyinference_embeddings::{
+    DEFAULT_CLOUD_DIMENSIONS as DEFAULT_CLOUD_EMBEDDING_DIMENSIONS,
+    DEFAULT_CLOUD_MODEL as DEFAULT_CLOUD_EMBEDDING_MODEL,
+};
 
 fn test_config(tmp: &TempDir) -> Config {
     let mut config = Config::default();

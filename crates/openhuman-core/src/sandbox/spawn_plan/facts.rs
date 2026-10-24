@@ -146,7 +146,7 @@ pub(crate) fn operator_host_network(policy: &SandboxPolicy) -> bool {
 /// Whether the operator's configuration asks for a specific isolation backend.
 fn configured(config: &Config) -> bool {
     matches!(
-        config.sandbox.backend,
+        config.security.sandbox.backend,
         SandboxBackend::Landlock | SandboxBackend::Docker
     )
 }

@@ -265,6 +265,11 @@ for (const rec of active) {
     submodulePath: path,
     actual,
     exemption: exemptById.get(rec.id),
+    sourceParityContext: {
+      repoPath: join(ROOT, path),
+      assets: rec.assets,
+      actualHead: headCommit(path),
+    },
   });
   if (!verdict.ok) {
     fail(verdict.message);

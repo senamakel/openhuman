@@ -154,8 +154,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
         "generate_title" => ControllerSchema {
             namespace: "threads",
             function: "generate_title",
-            description:
-                "Generate a short thread title from the first user message and assistant reply.",
+            description: "Generate a short thread title from the first user message and assistant reply.",
             inputs: vec![
                 FieldSchema {
                     name: "thread_id",
@@ -166,8 +165,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                 FieldSchema {
                     name: "assistant_message",
                     ty: TypeSchema::Option(Box::new(TypeSchema::String)),
-                    comment:
-                        "Optional completed assistant reply to use instead of the stored first agent message.",
+                    comment: "Optional completed assistant reply to use instead of the stored first agent message.",
                     required: false,
                 },
             ],
@@ -310,8 +308,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
         "turn_state_list" => ControllerSchema {
             namespace: "threads",
             function: "turn_state_list",
-            description:
-                "List every persisted turn snapshot — used to surface interrupted turns on cold boot.",
+            description: "List every persisted turn snapshot — used to surface interrupted turns on cold boot.",
             inputs: vec![],
             outputs: vec![FieldSchema {
                 name: "result",
@@ -323,8 +320,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
         "turn_state_history" => ControllerSchema {
             namespace: "threads",
             function: "turn_state_history",
-            description:
-                "List every persisted turn snapshot for one thread, newest first — the per-turn process history.",
+            description: "List every persisted turn snapshot for one thread, newest first — the per-turn process history.",
             inputs: vec![FieldSchema {
                 name: "thread_id",
                 ty: TypeSchema::String,
@@ -400,8 +396,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
         "transcript_get" => ControllerSchema {
             namespace: "threads",
             function: "transcript_get",
-            description:
-                "Project a thread's settled transcript (read from the session store) into typed display items, newest-first paginated.",
+            description: "Project a thread's settled transcript (read from the session store) into typed display items, newest-first paginated.",
             inputs: vec![
                 FieldSchema {
                     name: "thread_id",
@@ -432,8 +427,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
         "goal_get" => ControllerSchema {
             namespace: "threads",
             function: "goal_get",
-            description:
-                "Read a thread's current goal (Codex-style completion contract), or null when it has none.",
+            description: "Read a thread's current goal (Codex-style completion contract), or null when it has none.",
             inputs: vec![FieldSchema {
                 name: "thread_id",
                 ty: TypeSchema::String,
@@ -464,11 +458,28 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
                 required: true,
             }],
         },
+        "state_get" => ControllerSchema {
+            namespace: "threads",
+            function: "state_get",
+            description:
+                "Read a thread's saved run state (goal, plan, agent notes) and the run-state block it renders to.",
+            inputs: vec![FieldSchema {
+                name: "thread_id",
+                ty: TypeSchema::String,
+                comment: "Thread identifier.",
+                required: true,
+            }],
+            outputs: vec![FieldSchema {
+                name: "result",
+                ty: TypeSchema::Json,
+                comment: "Envelope wrapping { state, block } (block is null when nothing is saved).",
+                required: true,
+            }],
+        },
         "edit_message" => ControllerSchema {
             namespace: "threads",
             function: "edit_message",
-            description:
-                "Edit a past user message: cancel the thread's in-flight turn, drop that message and everything after it, and restart the turn with the new content.",
+            description: "Edit a past user message: cancel the thread's in-flight turn, drop that message and everything after it, and restart the turn with the new content.",
             inputs: vec![
                 FieldSchema {
                     name: "thread_id",
@@ -505,8 +516,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
         "regenerate" => ControllerSchema {
             namespace: "threads",
             function: "regenerate",
-            description:
-                "Regenerate a past assistant reply (or, with no message_id, the thread's last turn): cancel the in-flight turn, drop the answer and everything after it, and restart with the same prompt.",
+            description: "Regenerate a past assistant reply (or, with no message_id, the thread's last turn): cancel the in-flight turn, drop the answer and everything after it, and restart with the same prompt.",
             inputs: vec![
                 FieldSchema {
                     name: "thread_id",
@@ -537,8 +547,7 @@ pub(crate) fn schemas(function: &str) -> ControllerSchema {
         "search" => ControllerSchema {
             namespace: "threads",
             function: "search",
-            description:
-                "Search message text across every thread (global search). Hits are newest first, each with a snippet around the match.",
+            description: "Search message text across every thread (global search). Hits are newest first, each with a snippet around the match.",
             inputs: vec![
                 FieldSchema {
                     name: "query",

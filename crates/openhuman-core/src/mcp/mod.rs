@@ -207,6 +207,21 @@ pub fn all_registered_controllers() -> Vec<crate::core::all::RegisteredControlle
     controllers
 }
 
+/// Built-in runtime entries, binding registry_get to its shared parser while
+/// preserving the legacy catalogue above for existing callers.
+pub(crate) fn all_controller_entries() -> Vec<crate::core::all::ControllerEntry> {
+    all_registered_controllers()
+        .into_iter()
+        .map(|controller| {
+            #[cfg(feature = "mcp")]
+            if controller.schema.method_name() == "mcp_clients.registry_get" {
+                return registry::registry_get_controller_entry();
+            }
+            crate::core::all::ControllerEntry::legacy(controller)
+        })
+        .collect()
+}
+
 pub mod audit;
 // Ungated, like the transport below and for the same reason: `tinymcp` is an
 // ordinary dependency, and the startup path calls `host::init` without a `cfg`

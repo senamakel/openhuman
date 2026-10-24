@@ -14,8 +14,9 @@
 use std::sync::{Arc, LazyLock, Mutex, PoisonError, RwLock, Weak};
 
 use super::tenant_router::TenantSessionStores;
-use tinyagents_session::port::{AgentStores, SessionStoreProvider};
-use tinystoragedrivers::{Blocking, StorageBackend, StorageError};
+use tinyagents_session::port::{AgentStorageFactory, AgentStores, SessionStoreProvider};
+use tinyagents_storage_kit::Blocking;
+use tinystoragedrivers::{StorageBackend, StorageError};
 
 /// The live [`ReboundSessionStores`] of one owner, so a rebind reaches the one
 /// a host installed however it was installed (process-wide, per runtime, per
@@ -148,18 +149,18 @@ impl SessionStoreProvider for ReboundSessionStores {
 
     fn bind_actor(
         &self,
-        backend: Arc<dyn StorageBackend>,
+        factory: AgentStorageFactory,
     ) -> Result<Option<Arc<dyn SessionStoreProvider>>, StorageError> {
-        self.current().bind_actor(backend)
+        self.current().bind_actor(factory)
     }
 
     fn bind_actor_with_schema_admission(
         &self,
-        backend: Arc<dyn StorageBackend>,
+        factory: AgentStorageFactory,
         admission: tinyagents_harness::store::SchemaAdmission,
     ) -> Result<Option<Arc<dyn SessionStoreProvider>>, StorageError> {
         self.current()
-            .bind_actor_with_schema_admission(backend, admission)
+            .bind_actor_with_schema_admission(factory, admission)
     }
 
     fn run_ledger_for_agent(

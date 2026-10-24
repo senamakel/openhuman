@@ -10,7 +10,7 @@ use serde_json::json;
 use super::types::{SessionCacheFingerprint, SessionEntry};
 
 pub(super) fn autonomy_signature(config: &Config) -> String {
-    serde_json::to_string(&config.autonomy).unwrap_or_default()
+    serde_json::to_string(&config.security.autonomy).unwrap_or_default()
 }
 
 /// Signature of `config.model_registry` for the session-cache fingerprint.
@@ -61,8 +61,16 @@ pub(crate) fn provider_role_for_model_override(model_override: Option<&str>) -> 
     // A role alias (`hint:coding`) or a retired tier slug (`hint:coding`) picks
     // that workload's route; a concrete model id rides the chat route.
     match model_override.map(str::trim) {
-        Some(value) if value.starts_with("hint:") || crate::config::is_legacy_tier_model(value) => {
-            match crate::inference::provider::factory::role_for_model_tier(value) {
+        Some(value)
+            if crate::inference::provider_model::is_abstract_model(
+                crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                value,
+            ) =>
+        {
+            match crate::inference::provider_model::role_for_provider_model(
+                crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                value,
+            ) {
                 role @ ("agentic" | "coding" | "summarization" | "reasoning") => role,
                 _ => "chat",
             }
@@ -95,7 +103,12 @@ fn effective_session_config(
         .default_model
         .as_deref()
         .map(str::trim)
-        .filter(|model| crate::inference::provider::factory::is_raw_passthrough_model(model))
+        .filter(|model| {
+            crate::inference::provider_model::is_raw_model(
+                crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                model,
+            )
+        })
     {
         if model.starts_with("openrouter/") {
             // The managed backend accepts catalog ids verbatim. This also
@@ -226,7 +239,7 @@ fn first_difference_at(prior: &str, next: &str) -> Option<usize> {
 /// Summarise a differing signature field without printing it.
 ///
 /// `autonomy_signature` and `model_registry_signature` are whole JSON subtrees
-/// of `Config` — `config.autonomy` carries the user's `action_dir` and other
+/// of `Config` — `config.security.autonomy` carries the user's `action_dir` and other
 /// filesystem paths, and the registry is long. Logging either raw would be both
 /// a log bomb on the chat hot path and a needless disclosure, so the log names
 /// the field and gives the reader enough to find the change in their own config:
@@ -329,7 +342,8 @@ pub(super) fn build_session_fingerprint(
     let effective = effective_session_config(config, model_override.as_deref(), temperature);
     SessionCacheFingerprint {
         model_override,
-        effective_model: crate::inference::provider::factory::resolve_model_for_hint(
+        effective_model: crate::inference::provider_model::resolve_provider_model_hint(
+            crate::inference::provider::factory::PROVIDER_OPENHUMAN,
             &format!("hint:{provider_role}"),
             &effective,
         ),

@@ -20,8 +20,15 @@ fn debug_never_prints_credentials() {
         ..StorageConfig::default()
     };
     let shown = format!("{config:?}");
+    assert!(
+        shown.contains("[REDACTED:suppressed]") || shown.contains("mongodb://db.internal"),
+        "{shown}"
+    );
     assert!(!shown.contains("hunter2"), "{shown}");
-    assert!(shown.contains("db.internal/openhuman"), "{shown}");
+    assert!(
+        !shown.contains("/openhuman"),
+        "database names are not logged: {shown}"
+    );
 }
 
 #[test]
@@ -39,12 +46,14 @@ fn debug_drops_query_and_fragment_tokens() {
 }
 
 #[test]
-fn debug_leaves_credential_free_urls_readable() {
+fn debug_suppresses_unsupported_storage_schemes() {
     let config = StorageConfig {
         url: Some("sqlite:/tmp/x".into()),
         ..StorageConfig::default()
     };
-    assert!(format!("{config:?}").contains("sqlite:/tmp/x"));
+    let shown = format!("{config:?}");
+    assert!(shown.contains("[REDACTED:suppressed]"), "{shown}");
+    assert!(!shown.contains("/tmp/x"), "{shown}");
 }
 
 #[test]

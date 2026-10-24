@@ -81,6 +81,7 @@ pub use ops::{
     fetch_connected_integrations_status, invalidate_connected_integrations_cache,
     FetchConnectedIntegrationsStatus,
 };
+pub(crate) use schemas::all_controller_entries as all_composio_controller_entries;
 pub use schemas::{
     all_controller_schemas as all_composio_controller_schemas,
     all_registered_controllers as all_composio_registered_controllers,

@@ -139,9 +139,7 @@ impl NetGate for RoutedGate {
 
 /// The module's authorization for a tool destination, in the gate's terms.
 ///
-/// `None` only where there is no module to ask (a build without
-/// `security-module`): the tool then keeps its own DNS check. With the module
-/// built in, every destination is judged by it, and a module that is missing,
+/// Every destination is judged by the module, and a module that is absent,
 /// untrusted, faulted or slow is a refusal carrying the tool-facing message.
 async fn module_destination(
     policy: &SecurityPolicy,
@@ -166,7 +164,10 @@ async fn module_destination(
     #[cfg(not(feature = "security-module"))]
     {
         let _ = (policy, destination);
-        None
+        Some(Err(format!(
+            "{}TinySecurity egress module is unavailable",
+            tinytools::status::POLICY_BLOCKED_MARKER
+        )))
     }
 }
 

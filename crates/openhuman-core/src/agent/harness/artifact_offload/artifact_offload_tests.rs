@@ -121,10 +121,10 @@ fn workspace_guard_forwards_internal_state_to_the_module_and_fails_closed() {
     assert!(guard.is_internal_state(std::path::Path::new("/action/outputs/report.md")));
 }
 
-fn memory_blobs() -> Arc<dyn tinystoragedrivers::BlobStore> {
-    use tinystoragedrivers::StorageBackend as _;
-    let scoped = tinystoragedrivers::MemoryStorage::new()
-        .for_scope(&tinystoragedrivers::Scope::local())
+fn memory_blobs() -> Arc<dyn tinystoragedrivers_api::BlobStore> {
+    let backend = crate::storage::test_support::memory_backend();
+    let scoped = backend
+        .for_scope(&crate::storage::Scope::local())
         .expect("the memory backend binds the local scope");
     Arc::clone(scoped.blobs())
 }

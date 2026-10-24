@@ -1,6 +1,7 @@
 //! The host's `Channel` seam is the contract crate's trait, not a copy.
 use super::*;
 use std::sync::Mutex;
+use tinychannels_bus::{ChannelSendExt, SendMessage};
 
 #[derive(Default)]
 struct Recorder {
@@ -39,9 +40,5 @@ fn channel_vocabulary_is_the_contract_crates_own_types() {
     assert_eq!(
         TypeId::of::<dyn Channel>(),
         TypeId::of::<dyn tinychannels_bus::Channel>()
-    );
-    assert_eq!(
-        TypeId::of::<SendMessage>(),
-        TypeId::of::<tinychannels_bus::SendMessage>()
     );
 }

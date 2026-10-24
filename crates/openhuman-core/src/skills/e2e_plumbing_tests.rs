@@ -246,8 +246,8 @@ async fn await_run_outcome_returns_terminal_footer_then_auto_detaches() {
 
     // A finished run: header + DONE footer → await returns the outcome.
     let done = run_log::run_log_path(ws.path(), "triage-inbox", "run-done-1234");
-    std::fs::create_dir_all(done.parent().unwrap()).unwrap();
     run_log::write_header(
+        ws.path(),
         &done,
         "triage-inbox",
         "run-done-1234",
@@ -256,10 +256,10 @@ async fn await_run_outcome_returns_terminal_footer_then_auto_detaches() {
     )
     .await
     .unwrap();
-    run_log::write_footer(&done, "DONE", 1234, "inbox triaged: 12 archived")
+    run_log::write_footer(ws.path(), &done, "DONE", 1234, "inbox triaged: 12 archived")
         .await
         .unwrap();
-    let outcome = await_run_outcome(&done, Duration::from_secs(2))
+    let outcome = await_run_outcome(ws.path(), &done, Duration::from_secs(2))
         .await
         .expect("terminal footer must be returned");
     assert_eq!(outcome.status, "DONE");
@@ -269,6 +269,7 @@ async fn await_run_outcome_returns_terminal_footer_then_auto_detaches() {
     // auto-detach with None (what run_workflow turns into a run_id handle).
     let running = run_log::run_log_path(ws.path(), "triage-inbox", "run-live-5678");
     run_log::write_header(
+        ws.path(),
         &running,
         "triage-inbox",
         "run-live-5678",
@@ -277,7 +278,7 @@ async fn await_run_outcome_returns_terminal_footer_then_auto_detaches() {
     )
     .await
     .unwrap();
-    let detached = await_run_outcome(&running, Duration::from_millis(300)).await;
+    let detached = await_run_outcome(ws.path(), &running, Duration::from_millis(300)).await;
     assert!(
         detached.is_none(),
         "a run with no terminal footer must auto-detach (None) past the wait budget"

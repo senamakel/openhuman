@@ -277,8 +277,8 @@ fn reload_from_config_keeps_privacy_and_bumps_generation() {
         action_dir: workspace,
         ..Default::default()
     };
-    config.autonomy.enabled = true;
-    config.privacy.mode = PrivacyMode::LocalOnly;
+    config.security.autonomy.enabled = true;
+    config.security.privacy.mode = PrivacyMode::LocalOnly;
     let after = reload_from_config(&config);
     assert!(after > before);
     let policy = current().expect("policy installed");
@@ -286,7 +286,7 @@ fn reload_from_config_keeps_privacy_and_bumps_generation() {
     assert_eq!(policy.privacy_mode, PrivacyMode::LocalOnly);
     assert_eq!(current_privacy_mode(), PrivacyMode::LocalOnly);
     // An autonomy-only reload afterwards must not drop the stored mode.
-    reload_from(&config.autonomy);
+    reload_from(&config.security.autonomy);
     assert_eq!(current_privacy_mode(), PrivacyMode::LocalOnly);
     let _ = reload_privacy(PrivacyMode::Standard);
 }

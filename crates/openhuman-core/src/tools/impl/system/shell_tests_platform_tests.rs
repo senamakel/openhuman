@@ -6,6 +6,9 @@
 
 use super::*;
 use crate::modules::tinybox::host_runtime::{host_shell_flavor, ShellFlavor};
+use crate::tools::system::shell_support::python_env_defaults;
+#[cfg(feature = "modules")]
+use crate::tools::system::shell_support::PYTHON_ENV_DEFAULTS;
 use std::collections::HashMap;
 use std::ffi::OsString;
 
@@ -72,7 +75,7 @@ fn as_map(env: Vec<(&'static str, OsString)>) -> HashMap<&'static str, String> {
 
 #[test]
 fn a_users_own_python_encoding_settings_win() {
-    let env = as_map(python_utf8_env(parent(&[
+    let env = as_map(python_env_defaults(parent(&[
         ("PYTHONUTF8", "0"),
         ("PYTHONIOENCODING", "latin-1"),
     ])));
@@ -83,14 +86,89 @@ fn a_users_own_python_encoding_settings_win() {
     );
 }
 
+/// A Docker container gets the sandbox allowlist from the turn's environment
+/// plus the Python defaults, and never the rest of it.
+#[cfg(feature = "modules")]
+#[tokio::test]
+async fn the_container_environment_forwards_only_the_allowlist_plus_python_defaults() {
+    let scoped = tinytools_std::timeout::CommandEnvironment::new([
+        ("PATH".to_owned(), "/bin".to_owned()),
+        ("OPENAI_API_KEY".to_owned(), "sk-secret".to_owned()),
+        ("AWS_SECRET_ACCESS_KEY".to_owned(), "secret".to_owned()),
+    ]);
+    let env = scoped
+        .scope(async { container_environment(None) })
+        .await
+        .unwrap();
+    assert_eq!(env.get("PATH").map(String::as_str), Some("/bin"));
+    assert_eq!(env.get("PYTHONUTF8").map(String::as_str), Some("1"));
+    assert!(!env.contains_key("OPENAI_API_KEY"));
+    assert!(!env.contains_key("AWS_SECRET_ACCESS_KEY"));
+    for key in env.keys() {
+        assert!(
+            crate::sandbox::ops::SANDBOX_ENV_PASSTHROUGH.contains(&key.as_str())
+                || PYTHON_ENV_DEFAULTS.iter().any(|(k, _)| k == key),
+            "unexpected {key}"
+        );
+    }
+}
+
+/// Explicit turn variables reach the module-backed shell without inheriting
+/// unrelated host variables.
+#[cfg(feature = "modules")]
+#[test]
+fn the_container_environment_forwards_explicit_turn_variables() {
+    let explicit = std::collections::BTreeMap::from([
+        ("TURN_OWNER".to_owned(), "isolated".to_owned()),
+        ("WORKER_LABEL".to_owned(), "test".to_owned()),
+    ]);
+    let env = container_environment(Some(&explicit)).unwrap();
+    assert_eq!(env.get("TURN_OWNER").map(String::as_str), Some("isolated"));
+    assert_eq!(env.get("WORKER_LABEL").map(String::as_str), Some("test"));
+    assert!(!env.contains_key("PATH"));
+    assert_eq!(env.get("PYTHONUTF8").map(String::as_str), Some("1"));
+
+    let mut sandbox = HashMap::<OsString, OsString>::new();
+    super::super::super::shell_support::extend_explicit_environment(&mut sandbox, Some(&explicit));
+    assert_eq!(
+        sandbox.get(OsString::from("TURN_OWNER").as_os_str()),
+        Some(&OsString::from("isolated"))
+    );
+}
+
 #[test]
 fn sandboxed_calls_get_the_same_python_defaults() {
-    let env = as_map(python_utf8_env(parent(&[])));
+    let env = as_map(python_env_defaults(parent(&[])));
     assert_eq!(env.get("PYTHONUTF8").map(String::as_str), Some("1"));
     assert_eq!(
         env.get("PYTHONIOENCODING").map(String::as_str),
         Some("utf-8")
     );
+    assert_eq!(env.get("PYTHONUNBUFFERED").map(String::as_str), Some("1"));
+}
+
+#[test]
+fn a_parent_can_keep_python_buffering_with_an_empty_value() {
+    let env = as_map(python_env_defaults(parent(&[("PYTHONUNBUFFERED", "")])));
+    assert_eq!(env.get("PYTHONUNBUFFERED").map(String::as_str), Some(""));
+}
+
+#[tokio::test]
+async fn a_spawned_shell_gets_unbuffered_python_output() {
+    // A developer's own setting wins, so expect it when present.
+    let expected = std::env::var("PYTHONUNBUFFERED").unwrap_or_else(|_| "1".to_string());
+    let tool = ShellTool::new(test_security_with_env_cmd(), test_runtime());
+    let command = if cfg!(windows) {
+        "echo [%PYTHONUNBUFFERED%]"
+    } else {
+        "echo [$PYTHONUNBUFFERED]"
+    };
+    let result = tool
+        .execute(serde_json::json!({ "command": command }))
+        .await
+        .unwrap();
+    assert!(!result.is_error, "{}", result.output());
+    assert_eq!(result.output().trim(), format!("[{expected}]"));
 }
 
 #[tokio::test]

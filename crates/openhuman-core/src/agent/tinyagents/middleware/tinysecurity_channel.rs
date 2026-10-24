@@ -6,7 +6,7 @@
 //! host configuration of the channel, not a property of the tool or the caller.
 //! This source feeds it into the same gate as a verdict that "a human must
 //! approve", so the one approval resolver parks it. A channel `Deny` is not
-//! restated here: [`super::tool_policy::ToolPolicyMiddleware`] enforces it.
+//! restated here: the security gate's session ceiling enforces it.
 //!
 //! `agent_tool_policy` files `RequireApproval` under the blocked tools beside
 //! `Deny`, so the only thing that can lift it is a human actually approving.

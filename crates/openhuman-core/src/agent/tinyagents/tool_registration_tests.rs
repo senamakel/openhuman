@@ -73,7 +73,7 @@ fn thread_less_turn_drops_goal_tools_from_the_exposure_candidates() {
 fn threaded_turn_keeps_goal_tools_as_exposure_candidates() {
     let candidates = candidate_names(true);
 
-    for name in ["goal_get", "goal_set", "goal_complete"] {
+    for name in ["goal_get", "goal_set", "goal_complete", "goal_resume"] {
         assert!(
             candidates.iter().any(|candidate| candidate == name),
             "{name} must stay a candidate on a threaded turn: {candidates:?}"

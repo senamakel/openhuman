@@ -87,7 +87,7 @@ pub(super) fn classify_agent_anyhow_for_user(err: &anyhow::Error) -> &'static st
 /// Did this failed agent-job attempt hit the backend session-expired state?
 ///
 /// When the OpenHuman backend returns 401 because the user's app JWT has
-/// lapsed, [`inference::provider::ops::api_error`] already publishes
+/// lapsed, [`inference::provider::http_error::api_error`] already publishes
 /// [`crate::core::events::DomainEvent::SessionExpired`] (via
 /// `publish_backend_session_expired`) and the credentials subscriber clears
 /// the stored session + flips the scheduler-gate `signed_out` override. The

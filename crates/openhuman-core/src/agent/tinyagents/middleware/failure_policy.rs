@@ -235,7 +235,9 @@ pub(super) fn classified_recovery_policy(
         // attempt, steered by a reconcile-first nudge, and halts on a second.
         // Remote actions (`gmail_send`, payments, …) stay at zero: a retry
         // there can repeat an effect the agent cannot observe.
-        Class::Timeout if tool == "shell" => ("uncertain_side_effect", 1),
+        Class::Timeout if tool == "shell" || tool == "shell_process" => {
+            ("uncertain_side_effect", 1)
+        }
         Class::Timeout => ("uncertain_side_effect", 0),
         // The harness's own schema-validation answer, classified from its
         // prefix before any keyword in the echoed schema could read as a

@@ -52,10 +52,18 @@ impl tinychannels::Channel for LegacyListenerFixture {
         self.0.name()
     }
 
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy send method on its provider trait"
+    )]
     async fn send(&self, message: &traits::SendMessage) -> anyhow::Result<()> {
         self.0.send(message).await
     }
 
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy listener method for test fixtures"
+    )]
     async fn listen(
         &self,
         tx: tokio::sync::mpsc::Sender<traits::ChannelMessage>,

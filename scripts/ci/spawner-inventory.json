@@ -81,23 +81,6 @@
       "test": "n/a"
     },
     {
-      "file": "crates/openhuman-core/src/hooks/shell.rs",
-      "spawns": 2,
-      "trust": "untrusted",
-      "plan": "operator-configured command hooks -> TinyBox shell selection, but the TinyAgents hook engine still creates the child process directly",
-      "executor": "direct",
-      "test": "pending",
-      "note": "TinyBox SelectShell chooses argv only; command hooks do not yet pass through the jailed process executor and remain migration backlog"
-    },
-    {
-      "file": "crates/openhuman-core/src/inference/host_runtime/service/speech.rs",
-      "spawns": 1,
-      "trust": "host-probe",
-      "plan": "n/a",
-      "executor": "n/a",
-      "test": "n/a"
-    },
-    {
       "file": "crates/openhuman-core/src/platform/service/linux.rs",
       "spawns": 8,
       "trust": "operator",
@@ -132,20 +115,20 @@
     {
       "file": "crates/openhuman-core/src/sandbox/ops.rs",
       "spawns": 1,
-      "trust": "untrusted",
-      "plan": "model shell tool, host fallback (sandbox off / Noop) -> SandboxPlan (tinysecurity Plan) -> tinybox BoxSpec",
-      "executor": "direct",
-      "test": "pending",
-      "note": "the only direct spawn is the unsandboxed backend an operator or agent mode `none` selects; SaaS refuses it at execute_in_sandbox (ops_tests.rs saas_refuses_an_unsandboxed_spawn)"
+      "trust": "operator",
+      "plan": "Agent shell -> TinySecurity SandboxPlan2/ConsumeSandboxPlan2; module chooses TinyBox or an explicitly operator-disabled host run outside SaaS",
+      "executor": "module-planned",
+      "test": "crates/openhuman-core/src/sandbox/spawn_plan/facts_tests.rs",
+      "note": "Agent is registered TrustedHost; direct host execution is reachable only through a consumed host_run plan after operator-off facts. Untrusted hook/scheduled text uses sandbox::untrusted and the module refuses host_run (untrusted_tests.rs; spawn_plan/integration_tests.rs untrusted_text_never_gets_a_run_on_the_host)."
     },
     {
       "file": "crates/openhuman-core/src/sandbox/untrusted.rs",
       "spawns": 1,
       "trust": "untrusted",
-      "plan": "operator-authorized scheduled shell job and hook commands (hooks/spawner.rs) -> jail policy resolved by sandbox::ops (native jail or Docker), refused below the isolation floor",
+      "plan": "scheduled shell jobs, command hooks and TinyFlows code-node scripts -> TinySecurity SandboxPlan2/ConsumeSandboxPlan2 and TinyBox jail or Docker; refused below the isolation floor",
       "executor": "jailed",
       "test": "crates/openhuman-core/src/sandbox/untrusted_tests.rs",
-      "note": "the one gate, with callers cron scheduler shell jobs and command hooks (hooks/spawner_tests.rs) (sandbox::untrusted::run); it has no unjailed branch: the operator's switch is declared to the module, which plans a run on the host only for the trusted operator, never for this untrusted source or under SaaS"
+      "note": "the shared gate is called by cron shell jobs, command hooks and flows/caps_host/code.rs; flow scripts pass their DispatchCtx explicitly. It has no unjailed branch: the operator's switch is declared to the module, which plans a run on the host only for the trusted operator, never for untrusted source or under SaaS"
     },
     {
       "file": "crates/openhuman-core/src/security/secret_storage/encrypted_store.rs",
@@ -173,15 +156,6 @@
       "note": "fixed argv: `node --version` / `python3 --version`, no skill-supplied text reaches the command"
     },
     {
-      "file": "crates/openhuman-core/src/tools/impl/system/install_tool.rs",
-      "spawns": 1,
-      "trust": "untrusted",
-      "plan": "model-chosen install_tool package commands -> SandboxPlan (tinysecurity Plan) -> tinybox BoxSpec",
-      "executor": "direct",
-      "test": "pending",
-      "note": "operator-approved host mutation by design (interactive human approval + allow_tool_install, fixed manager argv, validated package name); a jail would block the global prefix it exists to write. Refused under SaaS (install_tool_tests.rs). Owner decision whether to scope it to a per-manager prefix"
-    },
-    {
       "file": "crates/openhuman-tui/src/app/artifacts.rs",
       "spawns": 3,
       "trust": "host-probe",
@@ -199,6 +173,14 @@
     }
   ],
   "modules": [
+    {
+      "module": "tinyagents-hooks",
+      "route": "User-authored command hooks -> HookEnvironment CommandSpawner -> OpenHuman SandboxedHookSpawner -> TinySecurity plan -> TinyBox jail; refused when the isolation floor is unavailable",
+      "trust": "untrusted",
+      "executor": "jailed",
+      "test": "crates/openhuman-core/src/hooks/spawner_tests.rs",
+      "note": "OpenHuman does not install the engine's legacy synchronous shell fallback; command hooks require the host spawner"
+    },
     {
       "module": "tinymcp",
       "route": "MCP servers installed from the registry, and every stdio server under SaaS: StdioSpawner -> JailedSpawner -> tinybox StartStdio (tinybox-bus 1.21), enforcement Enforced with the untrusted-code isolation floor and the credential-store deny_read; refused when no backend meets it",

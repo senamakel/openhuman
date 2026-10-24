@@ -2,7 +2,9 @@
 
 use super::*;
 
-pub fn build_channel_context_block_for_test(msg: &traits::ChannelMessage) -> String {
+pub fn build_channel_context_block_for_test(
+    msg: &tinychannels_bus::ChannelInboundEnvelope,
+) -> String {
     build_channel_context_block(msg)
 }
 

@@ -51,6 +51,7 @@ impl CoreContext {
             channel_thread: None,
             session_agent: None,
             profile: None,
+            profile_admission: Arc::new(()),
             agent: Default::default(),
             bare: true,
         })
@@ -116,6 +117,7 @@ impl CoreContext {
             channel_thread: thread.or_else(|| ctx.channel_thread.clone()),
             session_agent: ctx.session_agent.clone(),
             profile: ctx.profile.clone(),
+            profile_admission: Arc::clone(&ctx.profile_admission),
             agent: ctx.agent.clone(),
             bare: ctx.bare,
         })

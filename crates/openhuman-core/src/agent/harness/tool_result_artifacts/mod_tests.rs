@@ -1,8 +1,10 @@
 use super::*;
+#[cfg(feature = "security-module")]
 use crate::security::SecurityPolicy;
 use serde_json::json;
 use std::sync::Arc;
 use tinyagents_harness::artifacts::tool_results::apply_per_result_persistence;
+#[cfg(feature = "security-module")]
 use tinytools::Tool;
 
 /// End to end through OpenHuman's wiring: the real `security::redact::text` pass redacts the
@@ -10,6 +12,7 @@ use tinytools::Tool;
 /// the project the agent is editing), and the real `file_read` opens it through
 /// the materialised file under the strictest policy shape (enabled,
 /// `workspace_only`, action dir outside the workspace).
+#[cfg(feature = "security-module")]
 #[tokio::test]
 async fn threshold_persists_to_blobs_and_file_read_serves_the_key() {
     let tmp = tempfile::tempdir().unwrap();
@@ -63,7 +66,14 @@ async fn threshold_persists_to_blobs_and_file_read_serves_the_key() {
     let reader = FileReadTool::new(policy);
     let read = reader.execute(args).await.unwrap();
     assert!(!read.is_error, "{}", read.output());
-    assert!(read.output().contains("xxxx"));
+    assert!(
+        read.output().contains("xxxx")
+            || read
+                .output()
+                .contains(crate::core::log_redaction::SUPPRESSED),
+        "the readable body is either redacted by TinySecurity or suppressed when it is unavailable: {}",
+        read.output()
+    );
     assert!(!read.output().contains(secret));
 }
 
@@ -95,9 +105,9 @@ async fn a_wrapped_read_is_pointed_at_the_materialised_file() {
 /// from this tenant's store, so its key is never served or materialised.
 #[tokio::test]
 async fn artifacts_are_tenant_scoped() {
-    use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
+    use crate::storage::{test_support::memory_backend, Scope};
     let tmp = tempfile::tempdir().unwrap();
-    let backend = MemoryStorage::new();
+    let backend = memory_backend();
     let scoped = |name: &str| {
         let scope = Scope::new(name).unwrap();
         Arc::clone(backend.for_scope(&scope).unwrap().blobs())

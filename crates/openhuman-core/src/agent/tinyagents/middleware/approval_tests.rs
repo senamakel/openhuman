@@ -115,13 +115,13 @@ fn the_desktop_exception_is_off_when_the_tool_is_unknown() {
 #[test]
 fn a_latched_audit_failure_routes_external_tools_even_when_desktop_approvals_are_off() {
     assert!(ApprovalSecurityMiddleware::requires_resolver(
-        true, true, true,
+        true, true, true, true,
     ));
     assert!(!ApprovalSecurityMiddleware::requires_resolver(
-        true, false, true,
+        true, true, false, true,
     ));
     assert!(!ApprovalSecurityMiddleware::requires_resolver(
-        false, true, false,
+        false, true, true, false,
     ));
 }
 
@@ -237,6 +237,85 @@ async fn ordinary_audit_terminal_writes_use_each_admitting_run_tenant() {
 }
 
 #[tokio::test]
+async fn every_terminal_outcome_is_audited_once_without_recording_payloads() {
+    let _lock = AUDIT_TEST_LOCK.get_or_init(Default::default).lock().await;
+    let _reset_latch = ResetAuditFailureLatch;
+    let resolver = ApprovalSecurityMiddleware::new(vec![Arc::new(vec![
+        Box::new(ExternalAuditTool) as Box<dyn Tool>,
+    ])]);
+    let dispatch = DispatchCtx::ambient();
+    let success = TaToolResult::success("sensitive success payload");
+    let returned_error = TaToolResult::error("sensitive result error");
+    let failed = tinyagents_harness::TinyAgentsError::Middleware("sensitive failure".into());
+    let cancelled = tinyagents_harness::TinyAgentsError::Cancelled;
+    let control = tinyagents_harness::context::MiddlewareControl::StopWithFinal(
+        "sensitive control payload".into(),
+    );
+    let outcomes = [
+        ("success", ApprovalExecutionOutcome::Result(&success)),
+        ("failure", ApprovalExecutionOutcome::Result(&returned_error)),
+        ("failure", ApprovalExecutionOutcome::Failed(&failed)),
+        ("aborted", ApprovalExecutionOutcome::Cancelled(&cancelled)),
+        ("aborted", ApprovalExecutionOutcome::Control(&control)),
+        ("abandoned", ApprovalExecutionOutcome::Abandoned),
+    ];
+    let outcome_count = outcomes.len();
+    let recorded = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let writes = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+
+    for (index, (expected, outcome)) in outcomes.into_iter().enumerate() {
+        let ticket = format!("terminal-{index}");
+        resolver.audit_tickets.lock().unwrap().insert(
+            ticket.clone(),
+            OrdinaryAuditTicket {
+                tool_name: "send_external".into(),
+                dispatch: dispatch.clone(),
+            },
+        );
+        let captured = recorded.clone();
+        let write_count = writes.clone();
+        resolver.record_terminal_with(None, &ticket, outcome, move |_dispatch, event| {
+            write_count.fetch_add(1, Ordering::SeqCst);
+            captured.lock().unwrap().push(event);
+            Ok(())
+        });
+
+        let repeated_count = writes.clone();
+        resolver.record_terminal_with(
+            None,
+            &ticket,
+            ApprovalExecutionOutcome::Abandoned,
+            move |_, _| {
+                repeated_count.fetch_add(1, Ordering::SeqCst);
+                Ok(())
+            },
+        );
+        assert_eq!(writes.load(Ordering::SeqCst), index + 1);
+        let event = recorded.lock().unwrap().last().unwrap().clone();
+        assert_eq!(
+            event.kind,
+            crate::security::audit_record::HostAuditKind::Execution
+        );
+        assert_eq!(event.attribution, "tool:send_external");
+        let arguments = event.arguments.to_string();
+        assert!(arguments.contains(expected), "{arguments}");
+        for secret in [
+            "sensitive success payload",
+            "sensitive result error",
+            "sensitive failure",
+            "sensitive control payload",
+        ] {
+            assert!(
+                !arguments.contains(secret),
+                "audit payload leaked: {arguments}"
+            );
+        }
+    }
+
+    assert_eq!(recorded.lock().unwrap().len(), outcome_count);
+}
+
+#[tokio::test]
 async fn an_external_audit_failure_keeps_the_result_and_denies_later_admissions() {
     let _lock = AUDIT_TEST_LOCK.get_or_init(Default::default).lock().await;
     let _reset_latch = ResetAuditFailureLatch;
@@ -318,6 +397,13 @@ async fn an_external_audit_failure_keeps_the_result_and_denies_later_admissions(
         1,
         "a ticket records only once"
     );
+}
+
+#[test]
+fn a_missing_approval_gate_routes_external_effects_to_the_deny_path() {
+    assert!(ApprovalSecurityMiddleware::requires_resolver(
+        true, false, false, true,
+    ));
 }
 
 #[test]

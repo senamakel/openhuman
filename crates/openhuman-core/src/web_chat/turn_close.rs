@@ -235,7 +235,8 @@ fn close_request(turn: &StoppedTurn<'_>, evidence: &Evidence) -> ModelRequest {
         system.push_str("\n\n");
         system.push_str(&directive);
     }
-    provider::openhuman_backend_model::without_reasoning(
+    crate::inference::registry::provider_request_without_reasoning(
+        crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         ModelRequest::new(vec![Message::system(system), Message::user(user_prompt)])
             .with_temperature(0.2),
     )

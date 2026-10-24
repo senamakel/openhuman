@@ -1,11 +1,12 @@
 use crate::config::DelegateAgentConfig;
 use crate::inference::provider::factory::make_openhuman_backend_model_for_options;
-use crate::inference::provider::{ProviderRuntimeOptions, INFERENCE_BACKEND_ID};
+use crate::inference::provider::factory::INFERENCE_BACKEND_ID;
 use crate::security::SecurityPolicy;
 use crate::tools::timeout::tool_execution_timeout_secs;
 use async_trait::async_trait;
 use serde_json::json;
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::Duration;
 use tinyagents_harness::context::RunContext;
@@ -13,6 +14,26 @@ use tinyagents_harness::tool::ToolDispatch;
 use tinyinference_llm::message::Message;
 use tinyinference_llm::model::ModelRequest;
 use tinytools::{Tool, ToolCallOptions, ToolResult, ToolRunContext};
+
+/// Runtime overrides applied when the delegate tool builds a provider.
+#[derive(Debug, Clone)]
+pub(crate) struct ProviderRuntimeOptions {
+    pub(crate) auth_profile_override: Option<String>,
+    pub(crate) openhuman_dir: Option<PathBuf>,
+    pub(crate) secrets_encrypt: bool,
+    pub(crate) reasoning_enabled: Option<bool>,
+}
+
+impl Default for ProviderRuntimeOptions {
+    fn default() -> Self {
+        Self {
+            auth_profile_override: None,
+            openhuman_dir: None,
+            secrets_encrypt: true,
+            reasoning_enabled: None,
+        }
+    }
+}
 
 /// Tool that delegates a subtask to a named agent with a different
 /// provider/model configuration. Enables multi-agent workflows where

@@ -92,6 +92,46 @@ A delivery is acknowledged once triage has decided, and the decision is applied 
 | `queue_url` | `storage` | where the queues live: the module's storage scope, or `amqp://` / `amqps://` for a RabbitMQ broker in builds with the storage `rabbitmq` driver |
 | `triage_timeout_ms` | `25000` | how long one delivered event's triage may take before the delivery is retried; at most 25 s, below the module's 30 s callback deadline; read at startup |
 
+### External sources and pinned agents
+
+An integration outside the core (an X bot, a feed reader) can push its own events into the same queues and have each batch handled by one agent it names, with no triage. Configure the source under `[inbound.sources."<name>"]`; the name is `<kind>:<name>` (`^[a-z0-9_-]+:[a-z0-9_.*-]+$`), and the prefixes `composio:`, `webhook:`, `web:` and `channel:` are reserved for the core's own paths.
+
+```toml
+[inbound.sources."x:mentions"]
+agent_id = "teeny-mentions"   # required: a built-in or workspace agents/*.toml agent
+debounce_ms = 30000
+max_wait_ms = 300000
+max_batch = 20
+prompt = "Draft a reply to each mention.\n{{events}}"
+result_ttl_days = 7
+```
+
+| `[inbound.sources.<name>]` key | Default | Meaning |
+| --- | --- | --- |
+| `agent_id` | required | the agent every batch runs on |
+| `debounce_ms` | `5000` | flush a batch this long after its last event |
+| `max_wait_ms` | `60000` | flush a batch this long after its first event at the latest |
+| `max_batch` | `25` | the most events one turn carries; a full batch flushes at once |
+| `prompt` | a short instruction | the turn's message; `{{events}}` is replaced with the batch as a JSON array of `{id, text, payload, received_at_ms}` (without the placeholder the JSON is appended) |
+| `result_ttl_days` | `7` | how long a turn's result is kept |
+
+Sources are read at startup, like the rest of `[inbound]`. Each one gets its own policy at the head of the module's pipeline: acknowledged at ingest, weighted into the interactive lane, released at once, and debounced with its own windows (`sources[].coalesce` in `tinyeventqueues`, which needs a module release that has it). Events of one source and key coalesce into one batch; each batch runs as one turn of the pinned agent on a fresh thread, under a non-interactive origin whose external-effect tool calls park for approval (as a remote trigger's do), so the agent should be tool-less or read-only. Each event's text is screened on its own with the prompt-injection guard `inference_agent_chat` applies: a blocked event is left out of the prompt and listed on the result as `blocked: [{event_id, reason}]` (the reason is the guard's verdict and rule codes, never the text), so one injected event cannot fail or hold back its batch. A batch with every event blocked completes with empty `text`, without calling the model, and still publishes `InboundTurnCompleted`. The guard still checks the rendered prompt as a whole; if that fires the turn fails and is retried like any other failure. A turn that fails is retried with the lane's back-off and stored as failed after its last attempt; a turn still running at the delivery budget is acknowledged and stores its result when it ends; a turn left running when the core stopped is run again at the next start.
+
+| RPC | Params | Result |
+| --- | --- | --- |
+| `openhuman.inbound_offer` | `source`, `key`, `event_id`, `text`, `payload?`, `received_at_ms?` | `{disposition}`: `accepted`, or `duplicate` for a redelivered `event_id` (a success); an unconfigured source is an error |
+| `openhuman.inbound_results` | `source?`, `since_ms?`, `limit?` (50, at most 500), `status?` (`running`, `completed`, `failed`) | `{results: [{turn_id, source, key, agent_id, status, text?, error?, event_ids, blocked, created_ms, completed_ms?}]}`, oldest first, acknowledged results left out |
+| `openhuman.inbound_result_ack` | `turn_id` | `{acked: true}`; an unknown turn is an error |
+
+| Event (domain `inbound`) | Fields | When |
+| --- | --- | --- |
+| `InboundTurnCompleted` | `source`, `key`, `turn_id`, `event_ids`, `agent_id` | a batch's agent answered and its text is stored |
+| `InboundTurnFailed` | `source`, `key`, `turn_id`, `detail` | a batch failed for good |
+
+**The SSE stream wakes you; the RPC returns the result.** The events carry no agent text, and `/events/domain` only carries a short detail (`x:mentions/mentions turn <id>: 3 event(s)`). A consumer subscribes to the stream (or polls), calls `inbound_results` when woken, handles each result, and acknowledges it with `inbound_result_ack`.
+
+The queues' gate still applies to an external source: its sender is the source itself, so more than `gate.rate_limits.per_sender` events a minute (30 in the shipped pipeline) spill into the digest, and near-duplicate texts lose salience to habituation. A digest turn of one pinned source's events is still run on its pinned agent.
+
 ## Wallet
 
 `wallet = false` removes the `web3` domain family and tool group, so `wallet.*`, `web3.*` and `x402.*` answer `COMPONENT_DISABLED:wallet`. The x402 payment hook behind `http_request` declines before any quote or signing (the 402 response comes back unpaid), and `tinywallet` is never downloaded, attested or loaded. Keychain material, spending limits (`OPENHUMAN_X402_*_MAX`) and RPC endpoints (`OPENHUMAN_WALLET_RPC_*`) are left as they are, so setting `wallet = true` again restores the wallet on the next core start.

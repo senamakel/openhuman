@@ -5,14 +5,12 @@ use super::super::context::{
 use super::super::runtime::process_channel_message;
 use super::super::Channel;
 use super::common::{
-    IterativeToolModel, MockPriceTool, ModelCaptureModel, RecordingChannel,
+    channel_envelope, IterativeToolModel, MockPriceTool, ModelCaptureModel, RecordingChannel,
     TelegramRecordingChannel, ToolCallingModel,
 };
-use crate::inference::provider;
 use std::collections::HashMap;
 use std::sync::atomic::Ordering;
 use std::sync::{Arc, Mutex};
-use tinychannels_bus as traits;
 use tinyinference_llm::model::ChatModel;
 
 #[tokio::test]
@@ -42,7 +40,7 @@ async fn process_channel_message_executes_native_tool_calls() {
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(std::env::temp_dir()),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
@@ -53,16 +51,16 @@ async fn process_channel_message_executes_native_tool_calls() {
 
     process_channel_message(
         runtime_ctx,
-        traits::ChannelMessage {
-            id: "msg-2".to_string(),
-            sender: "bob".to_string(),
-            reply_target: "chat-84".to_string(),
-            content: "What is the BTC price now?".to_string(),
-            channel: "test-channel".to_string(),
-            timestamp: 2,
-            thread_ts: None,
-            sender_name: None,
-        },
+        channel_envelope(
+            "test-channel",
+            "bob",
+            "chat-84",
+            "What is the BTC price now?",
+            "msg-2",
+            2,
+            None,
+            None,
+        ),
     )
     .await;
 
@@ -75,6 +73,7 @@ async fn process_channel_message_executes_native_tool_calls() {
 
 #[tokio::test]
 async fn process_channel_message_handles_models_command_without_llm_call() {
+    crate::channels::register_hosted_route_test_policy();
     let _bus_guard = super::common::use_real_agent_handler().await;
     let channel_impl = Arc::new(TelegramRecordingChannel::default());
     let channel: Arc<dyn Channel> = channel_impl.clone();
@@ -97,6 +96,18 @@ async fn process_channel_message_handles_models_command_without_llm_call() {
         crate::agent::tinyagents::TurnModelSource::from_model(fallback_provider),
     );
 
+    let mut config = crate::config::Config::default();
+    config
+        .cloud_providers
+        .push(crate::config::schema::CloudProviderCreds {
+            id: "p_managed_models_test".to_string(),
+            slug: "openhuman".to_string(),
+            label: "Managed Backend".to_string(),
+            endpoint: "https://api.openhuman.ai/v1".to_string(),
+            auth_style: crate::config::schema::AuthStyle::OpenhumanJwt,
+            default_model: Some("default-model".to_string()),
+        });
+
     let runtime_ctx = Arc::new(ChannelRuntimeContext {
         relay_thread: None,
         channels_by_name: Arc::new(channels_by_name),
@@ -115,25 +126,25 @@ async fn process_channel_message_handles_models_command_without_llm_call() {
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(std::env::temp_dir()),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
         multimodal_files: crate::config::MultimodalFileConfig::default(),
-        config: None,
+        config: Some(Arc::new(config)),
         core: None,
     });
 
-    let cmd_msg = traits::ChannelMessage {
-        id: "msg-cmd-1".to_string(),
-        sender: "alice".to_string(),
-        reply_target: "chat-1".to_string(),
-        content: "/models openhuman".to_string(),
-        channel: "telegram".to_string(),
-        timestamp: 1,
-        thread_ts: None,
-        sender_name: None,
-    };
+    let cmd_msg = channel_envelope(
+        "telegram",
+        "alice",
+        "chat-1",
+        "/models openhuman",
+        "msg-cmd-1",
+        1,
+        None,
+        None,
+    );
     let route_key = conversation_history_key(&cmd_msg);
     process_channel_message(runtime_ctx.clone(), cmd_msg).await;
 
@@ -179,16 +190,16 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
         crate::agent::tinyagents::TurnModelSource::from_model(routed_provider),
     );
 
-    let routed_msg = traits::ChannelMessage {
-        id: "msg-routed-1".to_string(),
-        sender: "alice".to_string(),
-        reply_target: "chat-1".to_string(),
-        content: "hello routed provider".to_string(),
-        channel: "telegram".to_string(),
-        timestamp: 2,
-        thread_ts: None,
-        sender_name: None,
-    };
+    let routed_msg = channel_envelope(
+        "telegram",
+        "alice",
+        "chat-1",
+        "hello routed provider",
+        "msg-routed-1",
+        2,
+        None,
+        None,
+    );
     let route_key = conversation_history_key(&routed_msg);
     let mut route_overrides = HashMap::new();
     route_overrides.insert(
@@ -217,7 +228,7 @@ async fn process_channel_message_uses_route_override_provider_and_model() {
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(std::env::temp_dir()),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
@@ -269,7 +280,7 @@ async fn process_channel_message_respects_configured_max_tool_iterations_above_d
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(std::env::temp_dir()),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
@@ -280,16 +291,16 @@ async fn process_channel_message_respects_configured_max_tool_iterations_above_d
 
     process_channel_message(
         runtime_ctx,
-        traits::ChannelMessage {
-            id: "msg-iter-success".to_string(),
-            sender: "alice".to_string(),
-            reply_target: "chat-iter-success".to_string(),
-            content: "Loop until done".to_string(),
-            channel: "test-channel".to_string(),
-            timestamp: 1,
-            thread_ts: None,
-            sender_name: None,
-        },
+        channel_envelope(
+            "test-channel",
+            "alice",
+            "chat-iter-success",
+            "Loop until done",
+            "msg-iter-success",
+            1,
+            None,
+            None,
+        ),
     )
     .await;
 
@@ -329,7 +340,7 @@ async fn process_channel_message_reports_configured_max_tool_iterations_limit() 
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(std::env::temp_dir()),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
@@ -340,16 +351,16 @@ async fn process_channel_message_reports_configured_max_tool_iterations_limit() 
 
     process_channel_message(
         runtime_ctx,
-        traits::ChannelMessage {
-            id: "msg-iter-fail".to_string(),
-            sender: "bob".to_string(),
-            reply_target: "chat-iter-fail".to_string(),
-            content: "Loop forever".to_string(),
-            channel: "test-channel".to_string(),
-            timestamp: 2,
-            thread_ts: None,
-            sender_name: None,
-        },
+        channel_envelope(
+            "test-channel",
+            "bob",
+            "chat-iter-fail",
+            "Loop forever",
+            "msg-iter-fail",
+            2,
+            None,
+            None,
+        ),
     )
     .await;
 

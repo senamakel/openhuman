@@ -1,13 +1,14 @@
 //! The workspace default for code that runs with no backend installed.
 //!
 //! Hosts install a backend at startup ([`super::install_for_url`]) and every
-//! store reaches it through [`super::installed`]. A unit test, or an embedder
-//! that never ran the host boot, installs none; rather than keep a second,
-//! file-shaped implementation of each store for them, such a call opens **the
-//! same default a host would**: `sqlite:<workspace>/storage` (v1) or `sqlite:<user dir>/storage.db` (v2)
-//! ([`super::config::default_url`]), once per workspace for the life of the
-//! process. A different workspace is a different database, which is also what
-//! isolates tests that use a temp directory each.
+//! store reaches it through [`super::installed`]. An embedder that never ran
+//! the host boot installs none; such a call opens **the same default a host
+//! would**: `sqlite:<workspace>/storage` (v1) or
+//! `sqlite:<user dir>/storage.db` (v2) ([`super::config::default_url`]), once
+//! per workspace for the life of the process. A different workspace is a
+//! different database. Under `cfg(test)`, ordinary unit tests use the TSD
+//! `MemoryBackend` testkit instead; tests of durable reopen behavior explicitly
+//! opt into the SQLite default.
 //!
 //! A SaaS core with no storage URL lands here too: each profile's workspace is
 //! its own database, so nothing is shared between tenants.
@@ -22,7 +23,7 @@ use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use anyhow::{anyhow, Context, Result};
 
-use super::{current_scope, installed, Scope, ScopedStorage, StorageBackend};
+use super::{current_scope, installed, Scope, Storage, StorageBackend};
 
 /// A backend and the scope a store's records live under in it.
 #[derive(Clone)]
@@ -39,7 +40,7 @@ impl Opened {
     /// # Errors
     ///
     /// When the backend refuses the scope.
-    pub fn scoped(&self) -> Result<ScopedStorage> {
+    pub fn scoped(&self) -> Result<Storage> {
         self.backend
             .for_scope(&self.scope)
             .map_err(|error| anyhow!("open the storage scope: {error}"))
@@ -52,6 +53,21 @@ type WorkspaceBackend = Arc<tokio::sync::OnceCell<Arc<dyn StorageBackend>>>;
 
 static WORKSPACES: LazyLock<Mutex<HashMap<PathBuf, WorkspaceBackend>>> =
     LazyLock::new(Mutex::default);
+
+#[cfg(all(test, feature = "storage-sqlite"))]
+static TEST_WORKSPACE_URLS: LazyLock<Mutex<HashMap<PathBuf, String>>> =
+    LazyLock::new(Mutex::default);
+
+#[cfg(all(test, feature = "storage-sqlite"))]
+pub(crate) fn use_persistent_default_for_test(workspace_dir: &Path) {
+    TEST_WORKSPACE_URLS
+        .lock()
+        .unwrap_or_else(PoisonError::into_inner)
+        .insert(
+            workspace_dir.to_path_buf(),
+            super::config::default_url(workspace_dir),
+        );
+}
 
 #[cfg(test)]
 struct BackendOpenTestGate {
@@ -116,25 +132,56 @@ fn workspace_backend(workspace_dir: &Path) -> WorkspaceBackend {
     )
 }
 
-async fn open_default_backend(workspace_dir: PathBuf) -> Result<Arc<dyn StorageBackend>> {
+async fn open_default_backend(_workspace_dir: PathBuf) -> Result<Arc<dyn StorageBackend>> {
     #[cfg(test)]
     await_test_backend_open_gate().await;
 
-    let url = super::config::default_url(&workspace_dir);
-    super::config::prepare_default_dir(&workspace_dir).with_context(|| {
-        format!(
-            "create the storage directory for {}",
-            workspace_dir.display()
-        )
-    })?;
-    tracing::debug!(
-        target: "openhuman::storage",
-        workspace = %workspace_dir.display(),
-        "[storage::local] opening the workspace default backend (none installed)"
-    );
-    super::open(&url)
-        .await
-        .with_context(|| format!("open the default storage for {}", workspace_dir.display()))
+    #[cfg(all(test, feature = "storage-sqlite"))]
+    {
+        let persistent_url = TEST_WORKSPACE_URLS
+            .lock()
+            .unwrap_or_else(PoisonError::into_inner)
+            .get(&_workspace_dir)
+            .cloned();
+        if let Some(url) = persistent_url {
+            super::config::prepare_default_dir(&_workspace_dir).with_context(|| {
+                format!(
+                    "create the storage directory for {}",
+                    _workspace_dir.display()
+                )
+            })?;
+            return super::open(&url).await.with_context(|| {
+                format!("open the default storage for {}", _workspace_dir.display())
+            });
+        }
+    }
+
+    #[cfg(test)]
+    {
+        let backend: Arc<dyn StorageBackend> =
+            Arc::new(tinystoragedrivers_testkit::MemoryBackend::new());
+        super::boot::prepare_and_migrate(&backend).await?;
+        Ok(super::fenced_backend::wrap(backend))
+    }
+
+    #[cfg(not(test))]
+    {
+        let url = super::config::default_url(&_workspace_dir);
+        super::config::prepare_default_dir(&_workspace_dir).with_context(|| {
+            format!(
+                "create the storage directory for {}",
+                _workspace_dir.display()
+            )
+        })?;
+        tracing::debug!(
+            target: "openhuman::storage",
+            workspace = %_workspace_dir.display(),
+            "[storage::local] opening the workspace default backend (none installed)"
+        );
+        super::open(&url)
+            .await
+            .with_context(|| format!("open the default storage for {}", _workspace_dir.display()))
+    }
 }
 
 async fn initialized_backend(
@@ -161,21 +208,34 @@ pub fn backend_for(workspace_dir: &Path) -> Result<Arc<dyn StorageBackend>> {
     signal_test_sync_backend_entry();
 
     let cell = workspace_backend(workspace_dir);
+    if let Some(backend) = cell.get() {
+        return Ok(Arc::clone(backend));
+    }
     let workspace_dir = workspace_dir.to_path_buf();
     super::block_on_anyhow(async move { initialized_backend(cell, workspace_dir).await })
 }
 
 /// Async counterpart to [`backend_for`] for boot and module-proxy paths that
-/// already run inside a future. Cold initialization is delegated to Tokio's
-/// blocking pool so the shared OnceCell initializer is driven by the storage
-/// bridge rather than by the caller's runtime. A synchronous store may wait for
-/// that same initializer, including from a current-thread runtime, without
+/// already run inside a future. A cached workspace backend is returned without
+/// crossing the synchronous bridge. Cold initialization is delegated to
+/// Tokio's blocking pool so the shared OnceCell initializer is driven by the
+/// storage bridge rather than by the caller's runtime. When already on the
+/// bridge's runtime, initialize directly: queueing a synchronous bridge call
+/// from a bridge worker would wait on itself. A synchronous store may wait for
+/// the same initializer, including from a current-thread runtime, without
 /// preventing it from making progress.
 pub async fn backend_for_async(workspace_dir: &Path) -> Result<Arc<dyn StorageBackend>> {
     if let Some(backend) = installed() {
         return Ok(backend);
     }
+    let cell = workspace_backend(workspace_dir);
+    if let Some(backend) = cell.get() {
+        return Ok(Arc::clone(backend));
+    }
     let workspace_dir = workspace_dir.to_path_buf();
+    if super::ON_STORAGE_RUNTIME.with(std::cell::Cell::get) {
+        return initialized_backend(cell, workspace_dir).await;
+    }
     tokio::task::spawn_blocking(move || backend_for(&workspace_dir))
         .await
         .context("join the workspace storage opener")?

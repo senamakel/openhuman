@@ -10,34 +10,30 @@
 //! legacy JSONL import is a `tsd.migrations` entry
 //! ([`crate::storage::import_state`]).
 
-use tinystoragedrivers::schema::{Schema, ScopeClass, SourceRecord, Step, TargetRecord};
-use tinystoragedrivers::{CollectionSpec, Result};
+use anyhow::Result;
+use tinystoragedrivers::CollectionSpec;
 
-use crate::storage::schema_support::{key_of, owner};
+use crate::storage::schema_support::{
+    key_of, map_legacy_collection, LegacySourceRecord as SourceRecord,
+    LegacyTargetRecord as TargetRecord,
+};
 
 pub(super) const TRANSCRIPT_KEYS: &str = "threads.transcript_keys";
 pub(super) const LEGACY_TRANSCRIPT_KEYS: &str = "threads_transcript_keys";
-const SCHEMA: u32 = 2;
-
-/// What the thread host keeps and the step from the v1 collection.
-#[must_use]
-pub fn storage_schema() -> Schema {
-    Schema::new(owner("threads"))
-        .collection_with(SCHEMA, spec(), ScopeClass::Tenant)
-        .step(
-            Step::new(
-                "transcript_keys_v2",
-                TRANSCRIPT_KEYS,
-                1,
-                SCHEMA,
-                transcript_keys_v2,
-            )
-            .source(LEGACY_TRANSCRIPT_KEYS),
-        )
+/// Converts legacy transcript-key rows into the current owner shape.
+pub(crate) fn upgrade_records(
+    records: Vec<crate::storage::import::Record>,
+) -> Result<Vec<crate::storage::import::Record>> {
+    map_legacy_collection(records, LEGACY_TRANSCRIPT_KEYS, transcript_keys_v2)
 }
 
 pub(super) fn spec() -> CollectionSpec {
     CollectionSpec::new(TRANSCRIPT_KEYS)
+}
+
+/// Collections owned by the thread host alongside TinyAgents' transcript store.
+pub(crate) fn collection_specs() -> Vec<CollectionSpec> {
+    vec![spec()]
 }
 
 fn transcript_keys_v2(batch: Vec<SourceRecord>) -> Result<Vec<TargetRecord>> {

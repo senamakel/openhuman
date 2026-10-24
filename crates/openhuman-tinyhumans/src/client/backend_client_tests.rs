@@ -85,7 +85,7 @@ async fn spawn_header_capture_server() -> (String, CapturedHeaders) {
 async fn authed_json_sends_an_api_key_as_x_api_key_and_no_bearer() {
     // Library mode: the TinyHumans API key rides the SDK REST routes as
     // `x-api-key`, never as `Authorization: Bearer` (that header is the
-    // managed-inference shape, handled by `OpenHumanBackendModel`).
+    // managed-inference shape, handled by `TinyHumansModel` through the host adapter).
     use openhuman_embed::__host::security::credentials::session_support::BackendCredential;
 
     let (base_url, captured) = spawn_header_capture_server().await;

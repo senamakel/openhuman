@@ -150,9 +150,9 @@ fn legacy_host_kv_pause_is_converted_without_rewriting_the_source_record() {
 fn owner_file_pause_is_imported_and_the_original_bytes_stay_unchanged() {
     let workspace = tempfile::tempdir().unwrap();
     let key = task();
-    let file_store =
-        tinyagents_orchestration::subagent::FileSubagentPersistence::new(workspace.path());
-    let file = file_store.pause_path(&key).unwrap();
+    let adapter =
+        super::super::persistence::OpenHumanPersistence::new(workspace.path().to_path_buf());
+    let file = adapter.legacy_pause_path(&key);
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     let bytes = serde_json::to_vec(&paused(&key)).unwrap();
     std::fs::write(&file, &bytes).unwrap();
@@ -256,26 +256,25 @@ async fn a_detached_driver_keeps_its_carried_actor_for_lifecycle_reads_and_commi
     drop(bundle);
 }
 
-async fn assert_legacy_owner_terminal(format: &str) {
+async fn assert_legacy_terminal_fixture(format: &str) {
     use super::super::persistence::OpenHumanPersistence;
     let workspace = tempfile::tempdir().unwrap();
     let key = task();
-    let owner = tinyagents_orchestration::subagent::FileSubagentPersistence::new(workspace.path());
     let mut outcome = SubagentOutcome::cancelled(&key.task_id);
     outcome.output = "legacy terminal".into();
-    owner.record_terminal(&key, &outcome, None).await.unwrap();
-    let file = std::fs::read_dir(workspace.path().join("lifecycle"))
-        .unwrap()
-        .map(|entry| entry.unwrap().path())
-        .find(|path| {
-            path.file_name()
-                .unwrap()
-                .to_string_lossy()
-                .ends_with(".terminal.json")
-        })
-        .unwrap();
-    let mut record: serde_json::Value =
-        serde_json::from_slice(&std::fs::read(&file).unwrap()).unwrap();
+    let file = workspace
+        .path()
+        .join("lifecycle")
+        .join(format!("{}.terminal.json", super::key_component(&key)));
+    std::fs::create_dir_all(file.parent().unwrap()).unwrap();
+    let record = super::TerminalRecord {
+        key: Some(key.clone()),
+        outcome,
+        agent_id: String::new(),
+        elapsed_ms: 0,
+        extensions: Default::default(),
+    };
+    let mut record = serde_json::to_value(record).unwrap();
     if format == "bare" {
         record = record["outcome"].clone();
         record["agent_id"] = serde_json::json!("legacy-owner");
@@ -320,15 +319,15 @@ async fn assert_legacy_owner_terminal(format: &str) {
 
 #[tokio::test]
 async fn legacy_owner_terminal_key_bearing_keeps_flattened_extensions() {
-    assert_legacy_owner_terminal("current").await;
+    assert_legacy_terminal_fixture("current").await;
 }
 
 #[tokio::test]
 async fn legacy_owner_terminal_keyless_keeps_host_metadata() {
-    assert_legacy_owner_terminal("keyless").await;
+    assert_legacy_terminal_fixture("keyless").await;
 }
 
 #[tokio::test]
 async fn legacy_owner_terminal_bare_outcome_keeps_extensions() {
-    assert_legacy_owner_terminal("bare").await;
+    assert_legacy_terminal_fixture("bare").await;
 }

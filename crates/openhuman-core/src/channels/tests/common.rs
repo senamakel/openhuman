@@ -1,4 +1,4 @@
-use crate::channels::{Channel, SendMessage};
+use crate::channels::Channel;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -8,6 +8,38 @@ use tinyinference_llm::message::{AssistantMessage, Message};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelResponse};
 use tinyinference_llm::tool::ToolCall;
 use tinytools::{Tool, ToolResult};
+
+pub(super) fn channel_envelope(
+    channel: &str,
+    sender: &str,
+    reply_target: &str,
+    content: &str,
+    id: &str,
+    timestamp: u64,
+    thread_id: Option<&str>,
+    sender_name: Option<&str>,
+) -> traits::ChannelInboundEnvelope {
+    traits::ChannelInboundEnvelope {
+        channel: traits::ChannelRef {
+            id: channel.to_string(),
+            ..Default::default()
+        },
+        message_id: id.to_string(),
+        timestamp_unix_ms: Some(timestamp),
+        conversation: traits::ConversationRef {
+            id: reply_target.to_string(),
+            thread_id: thread_id.map(str::to_string),
+            ..Default::default()
+        },
+        sender: traits::SenderRef {
+            id: sender.to_string(),
+            name: sender_name.map(str::to_string),
+            ..Default::default()
+        },
+        text: content.to_string(),
+        ..Default::default()
+    }
+}
 
 fn message_role(message: &Message) -> &'static str {
     match message {
@@ -108,7 +140,11 @@ impl Channel for TelegramRecordingChannel {
         "telegram"
     }
 
-    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 adapter for one release"
+    )]
+    async fn send(&self, message: &traits::SendMessage) -> anyhow::Result<()> {
         self.sent_messages
             .lock()
             .await
@@ -116,6 +152,19 @@ impl Channel for TelegramRecordingChannel {
         Ok(())
     }
 
+    async fn send_typed(&self, message: &traits::ChannelOutboundMessage) -> anyhow::Result<()> {
+        self.sent_messages.lock().await.push(format!(
+            "{}:{}",
+            message.conversation_id,
+            message.legacy_text()?
+        ));
+        Ok(())
+    }
+
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 listener for one release"
+    )]
     async fn listen(
         &self,
         _tx: tokio::sync::mpsc::Sender<traits::ChannelMessage>,
@@ -138,7 +187,11 @@ impl Channel for RecordingChannel {
         "test-channel"
     }
 
-    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 adapter for one release"
+    )]
+    async fn send(&self, message: &traits::SendMessage) -> anyhow::Result<()> {
         self.sent_messages
             .lock()
             .await
@@ -146,6 +199,19 @@ impl Channel for RecordingChannel {
         Ok(())
     }
 
+    async fn send_typed(&self, message: &traits::ChannelOutboundMessage) -> anyhow::Result<()> {
+        self.sent_messages.lock().await.push(format!(
+            "{}:{}",
+            message.conversation_id,
+            message.legacy_text()?
+        ));
+        Ok(())
+    }
+
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 listener for one release"
+    )]
     async fn listen(
         &self,
         _tx: tokio::sync::mpsc::Sender<traits::ChannelMessage>,
@@ -355,10 +421,18 @@ impl Channel for AlwaysFailChannel {
         self.name
     }
 
-    async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 adapter for one release"
+    )]
+    async fn send(&self, _message: &traits::SendMessage) -> anyhow::Result<()> {
         Ok(())
     }
 
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 listener for one release"
+    )]
     async fn listen(
         &self,
         _tx: tokio::sync::mpsc::Sender<traits::ChannelMessage>,

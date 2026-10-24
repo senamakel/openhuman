@@ -7,14 +7,12 @@
 //! harness's middleware stack, in the same order as
 //! [`install_turn_middleware`](super::turn_middleware):
 //!
-//! 1. the SDK tool-policy projection (`require_sandbox`),
-//! 2. human-in-the-loop approval (`ApprovalSecurityMiddleware` through the
-//!    global `ApprovalGate`),
-//! 3. the CLI/RPC-only scope gate,
-//! 4. the builder and session tool-policy ceiling (deny / require-approval rules),
-//! 5. credential scrubbing of every tool result,
-//! 6. malformed-argument recovery,
-//! 7. bare packed-tool routing and embedder tool hooks.
+//! 1. TinySecurity policy, including declared sandbox requirements, human
+//!    approval and the builder/session tool-policy ceiling,
+//! 2. the CLI/RPC-only scope gate,
+//! 3. credential scrubbing of every tool result,
+//! 4. malformed-argument recovery,
+//! 5. bare packed-tool routing and embedder tool hooks.
 //!
 //! Model-loop middleware (context ladder, compaction, prompt-cache guard,
 //! budgets, repeat breakers, memory packs) is deliberately absent: nothing in
@@ -23,9 +21,7 @@
 use std::collections::HashSet;
 use std::sync::Arc;
 
-use tinyagents_harness::middleware::{
-    ArgRecoveryMiddleware, ToolPolicyMiddleware as TaToolPolicyMiddleware,
-};
+use tinyagents_harness::middleware::ArgRecoveryMiddleware;
 use tinyagents_harness::runtime::AgentHarness;
 
 use super::host::OpenHumanRunContext;
@@ -97,9 +93,6 @@ pub(crate) fn assemble_live_tool_harness(
             .map(|enforcement| enforcement.session.clone()),
         tool_policy.clone(),
     );
-    harness.push_middleware(Arc::new(
-        TaToolPolicyMiddleware::new(harness.tools().policies()).require_sandbox(true),
-    ));
     harness.push_tool_middleware(Arc::new(
         tinyagents_harness::middleware::CliRpcOnlyMiddleware::new(tool_sets.clone()),
     ));

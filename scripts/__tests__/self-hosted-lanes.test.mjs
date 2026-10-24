@@ -294,6 +294,7 @@ test("the storage area arms the core coverage lane, which covers every storage d
       false,
       profile,
     );
+
     if (profile === "hosted") {
       assert.deepEqual(
         hostedMatrix(plan).map((g) => g.group),
@@ -341,6 +342,33 @@ test("hosted matrix only spins up groups with active lanes", () => {
     buildPlan({ profile: "hosted", areas: { ...NONE, installPs1: true } }),
   );
   assert.equal(pester.find((g) => g.group === "pester").container, "");
+});
+
+test("a browser-spec-only change runs the full-inventory skip guard without scripts area", () => {
+  const frontendOnly = buildPlan({
+    profile: "hosted",
+    areas: { ...NONE, frontend: true },
+  });
+  assert.equal(
+    frontendOnly.lanes
+      .find((lane) => lane.name === "frontend")
+      .checks.find((check) => check.name === "browser-test-skip-guard").run,
+    "node scripts/ci/check-browser-test-skips.mjs",
+  );
+  assert.equal(
+    frontendOnly.lanes
+      .find((lane) => lane.name === "frontend")
+      .checks.find((check) => check.name === "e2e-runner-ownership")?.run,
+    "pnpm e2e:ownership:check",
+  );
+
+  const filters = fs.readFileSync(
+    path.join(repoRoot, ".github/ci-paths-filter.yml"),
+    "utf8",
+  );
+  const frontendFilter = filters.split("\nscripts:\n")[0];
+  assert.match(frontendFilter, /'app\/test\/\*\*'/);
+  assert.match(frontendFilter, /'scripts\/ci\/check-browser-test-skips\.mjs'/);
 });
 
 test("private lanes reuse checkout targets, preserve mold through RUSTFLAGS resets, and omit wrappers", () => {
@@ -419,11 +447,20 @@ test("private gates-off and Tauri execute equivalent coverage suites with nextes
   const checks = Object.fromEntries(
     plan.lanes.flatMap((l) => l.checks.map((c) => [c.name, c])),
   );
+  assert.match(checks["gate-contract-tests"].run, /core::schema_test_support::/);
   assert.match(
     checks["gate-contract-tests-features"].run,
     /--features modules,mcp,e2e-test-support/,
   );
   assert.match(checks["gate-contract-tests-features"].run, /--test-threads=1/);
+  assert.match(
+    checks["gate-contract-tests"].run,
+    /test\(integrations::composio::builder_tools::tests::\).*test\(integrations::composio::flow_gate::tests::\)/,
+  );
+  assert.match(
+    checks["gate-contract-tests-features"].run,
+    /test\(mcp::registry::tests::\)/,
+  );
   assert.equal(
     checks["tauri-coverage"].env.CARGO_BUILD_TARGET_DIR,
     "target/ci-private-coverage",

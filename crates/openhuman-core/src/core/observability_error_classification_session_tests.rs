@@ -3,7 +3,7 @@ use super::*;
 #[test]
 fn couples_list_models_404_source_shape_to_classifier() {
     // TAURI-RUST-8X3 coupling guard. Ties the TYPED SOURCE error shape
-    // emitted by `inference/provider/ops/models.rs` (the
+    // emitted by `inference/provider/models/catalog_listing.rs` (the
     // `provider returned 404: <body>` format) to the classifier, so a
     // wording / prefix drift fails CI instead of silently leaking events.
     //

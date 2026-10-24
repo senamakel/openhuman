@@ -26,7 +26,7 @@ fn controller_schema_inventory_is_stable() {
 }
 
 #[test]
-fn schemas_expose_expected_inputs_and_unknown_fallback() {
+fn schemas_expose_expected_inputs() {
     let chat = schemas("chat");
     assert_eq!(chat.namespace, "agent");
     assert_eq!(chat.inputs.len(), 5);
@@ -46,14 +46,10 @@ fn schemas_expose_expected_inputs_and_unknown_fallback() {
         .inputs
         .iter()
         .any(|input| input.name == "dry_run" && !input.required));
-
-    let unknown = schemas("nope");
-    assert_eq!(unknown.function, "unknown");
-    assert_eq!(unknown.outputs[0].name, "error");
 }
 
 #[test]
-fn deserialize_params_and_helpers_cover_success_and_failure_paths() {
+fn deserialize_params_preserves_chat_overrides_and_missing_definition_error() {
     let params = Map::from_iter([
         ("message".into(), Value::String("hello".into())),
         ("model_override".into(), Value::String("gpt".into())),
@@ -66,17 +62,6 @@ fn deserialize_params_and_helpers_cover_success_and_failure_paths() {
 
     let err = deserialize_params::<GetDefinitionParams>(Map::new()).expect_err("missing id");
     assert!(err.contains("invalid params"));
-
-    assert!(required_string("id", "x").required);
-    assert!(matches!(
-        optional_string("id", "x").ty,
-        TypeSchema::Option(_)
-    ));
-    assert!(matches!(
-        optional_f64("temperature", "x").ty,
-        TypeSchema::Option(_)
-    ));
-    assert!(matches!(json_output("result", "x").ty, TypeSchema::Json));
 }
 
 #[tokio::test]

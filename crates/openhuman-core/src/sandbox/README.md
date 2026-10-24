@@ -239,8 +239,9 @@ Spawn sites that do not reach the gate today, and why:
 - tinyflows' `ProcessCodeRunner`/`ProcessShellRunner` are behind its `host-caps`
   feature, which the host does not enable; the `code` node runs through
   `execute_in_sandbox`.
-- `install_tool` is operator-approved host mutation by design; a jail would block
-  the prefix it exists to write.
+- `install_tool` is currently disabled after its access and approval gates because
+  package-manager scripts are not confined to an approved isolated environment; it
+  does not spawn a host package manager.
 - Browser and tinycomputer helper processes live in the tinycomputer module
   (their own process and OS permission model); the host spawns none of them.
 

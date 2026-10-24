@@ -298,8 +298,7 @@ pub(crate) fn import_all(
     backend: &std::sync::Arc<dyn crate::storage::StorageBackend>,
     workspace_dir: &Path,
 ) -> Result<Vec<String>> {
-    let local = backend.for_scope(&crate::storage::Scope::local())?;
-    let local_kv = StateKv::over(&local, OWNER, NS);
+    let local_kv = StateKv::on_backend(backend, &crate::storage::Scope::local(), OWNER, NS)?;
     let queue_scope = workspace_scope(workspace_dir)?;
     let queue_kv = StateKv::on_backend(backend, &queue_scope, OWNER, NS)?;
     let mut names = Vec::new();

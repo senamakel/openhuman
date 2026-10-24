@@ -97,6 +97,9 @@ openhuman-rpc = { path = "../openhuman-rpc", default-features = false, features 
     "tinymemes",
     "inbound-queues",
     "storage-sqlite",
+    "storage-file",
+    "secret-file",
+    "legacy-import",
 ] }
 # The widget scheme reduces CSP origins with `tinymcp_bus::ui`'s pure rules.
 # The contract, not the module crate: hosts reach modules through `*-bus`.
@@ -220,7 +223,7 @@ async-trait = "0.1"
 # rather than reaching for a heavier image stack.
 
 [target.'cfg(unix)'.dependencies]
-nix = { version = "0.29", default-features = false, features = ["hostname", "signal", "user"] }
+nix = { version = "0.29", default-features = false, features = ["hostname", "signal", "socket", "user"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 objc2 = "0.6"
@@ -285,6 +288,9 @@ gateways = []
 # turns this on automatically for release; do not put it in `default` or
 # every `pnpm dev:app` will silently load the production bundle. DO NOT REMOVE!!
 custom-protocol = ["tauri/custom-protocol"]
+storage-mongodb = ["openhuman-rpc/storage-mongodb"]
+storage-s3 = ["openhuman-rpc/storage-s3"]
+storage-rabbitmq = ["openhuman-rpc/storage-rabbitmq"]
 # Forwarded down the chain (rpc -> tinyhumans -> embed -> core) to expose
 # `openhuman.test_reset`. Off by default; the E2E build flips it on via
 # `cargo tauri build --features e2e-test-support`. See app/scripts/e2e-build.sh.
@@ -322,6 +328,13 @@ tinybus = { path = "../../vendor/tinybus/crates/tinybus" }
 tinybus-macros = { path = "../../vendor/tinybus/crates/tinybus-macros" }
 tinybus-module = { path = "../../vendor/tinybus/crates/tinybus-module" }
 
+[patch."https://github.com/senamakel/tinybus"]
+# The fork-pinned storage packages use this source identity; keep their bus
+# types unified with the host's vendored checkout.
+tinybus = { path = "../../vendor/tinybus/crates/tinybus" }
+tinybus-macros = { path = "../../vendor/tinybus/crates/tinybus-macros" }
+tinybus-module = { path = "../../vendor/tinybus/crates/tinybus-module" }
+
 [patch."https://github.com/tinyhumansai/tinystoragedrivers"]
 # One editable checkout every module resolves onto: each vendor/tiny* manifest
 # names tinystoragedrivers by git tag, and this redirects them all to
@@ -333,13 +346,31 @@ tinybus-module = { path = "../../vendor/tinybus/crates/tinybus-module" }
 # the first dependent. The app world does not link the mongodb or s3 drivers, so
 # those are omitted here too (the root patch carries them).
 tinystoragedrivers = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers" }
+tinystoragedrivers-api = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-api" }
+tinystoragedrivers-blob = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-blob" }
 tinystoragedrivers-bus = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-bus" }
 tinystoragedrivers-busproxy = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-busproxy" }
-tinystoragedrivers-client = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-client" }
-tinystoragedrivers-core = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-core" }
-tinystoragedrivers-file = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-file" }
+tinystoragedrivers-connect = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-connect" }
+tinystoragedrivers-document = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-document" }
+tinystoragedrivers-kv = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-kv" }
+tinystoragedrivers-queue = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-queue" }
 tinystoragedrivers-secrets = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-secrets" }
-tinystoragedrivers-sqlite = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-sqlite" }
+tinystoragedrivers-testkit = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-testkit" }
+tinystoragedrivers-types = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-types" }
+
+[patch."https://github.com/senamakel/tinystoragedrivers"]
+tinystoragedrivers = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers" }
+tinystoragedrivers-api = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-api" }
+tinystoragedrivers-blob = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-blob" }
+tinystoragedrivers-bus = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-bus" }
+tinystoragedrivers-busproxy = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-busproxy" }
+tinystoragedrivers-connect = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-connect" }
+tinystoragedrivers-document = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-document" }
+tinystoragedrivers-kv = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-kv" }
+tinystoragedrivers-queue = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-queue" }
+tinystoragedrivers-secrets = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-secrets" }
+tinystoragedrivers-testkit = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-testkit" }
+tinystoragedrivers-types = { path = "../../vendor/tinystoragedrivers/crates/tinystoragedrivers-types" }
 
 [patch.crates-io]
 # Keep reqwest defaults disabled in this independent Cargo world too. Without

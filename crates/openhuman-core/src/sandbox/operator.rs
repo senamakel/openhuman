@@ -35,7 +35,7 @@ pub(crate) fn component_off(ctx: &DispatchCtx) -> bool {
 /// The saved config says no isolation: the legacy `enabled = false` flag or
 /// `[components] sandbox = false`.
 pub(crate) fn config_off(config: &Config) -> bool {
-    config.sandbox.enabled == Some(false)
+    config.security.sandbox.enabled == Some(false)
         || !crate::core::runtime::ComponentSet::from_config(&config.components).sandbox
 }
 

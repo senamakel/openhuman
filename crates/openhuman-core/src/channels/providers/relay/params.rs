@@ -6,7 +6,9 @@ use serde_json::Value;
 
 #[cfg(test)]
 use crate::channels::bus::derive_inbound_thread_id;
-use tinychannels_bus::ChannelMessage;
+use tinychannels_bus::{
+    channel::ContentPart, ChannelInboundEnvelope, ChannelRef, ConversationRef, SenderRef,
+};
 
 /// Longest channel name: `telegram`, `imessage`, `discord`, ...
 pub const MAX_CHANNEL_LEN: usize = 32;
@@ -136,22 +138,37 @@ impl RelayInboundParams {
     }
 
     /// The message as the channel dispatch pipeline takes it.
-    pub(crate) fn to_channel_message(&self) -> ChannelMessage {
-        ChannelMessage {
-            id: self.message_id.clone(),
-            sender: self.sender_id.clone(),
-            reply_target: self.chat_id.clone(),
-            content: self.text.clone(),
-            channel: self.channel.clone(),
-            timestamp: std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .map(|d| d.as_secs())
-                .unwrap_or_default(),
-            thread_ts: None,
-            sender_name: self
-                .sender_name
-                .clone()
-                .filter(|name| !name.trim().is_empty()),
+    pub(crate) fn to_inbound_envelope(&self) -> ChannelInboundEnvelope {
+        ChannelInboundEnvelope {
+            channel: ChannelRef {
+                id: self.channel.clone(),
+                account_id: None,
+            },
+            message_id: self.message_id.clone(),
+            conversation: ConversationRef {
+                id: self.chat_id.clone(),
+                ..Default::default()
+            },
+            sender: SenderRef {
+                id: self.sender_id.clone(),
+                name: self
+                    .sender_name
+                    .clone()
+                    .filter(|name| !name.trim().is_empty()),
+                ..Default::default()
+            },
+            timestamp_unix_ms: Some(
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .map(|duration| duration.as_millis().min(u64::MAX as u128) as u64)
+                    .unwrap_or_default(),
+            ),
+            text: self.text.clone(),
+            parts: vec![ContentPart::Text {
+                text: self.text.clone(),
+                markdown_dialect: None,
+            }],
+            ..Default::default()
         }
     }
 }

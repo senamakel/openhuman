@@ -77,32 +77,57 @@ async fn composio_get_user_profile_via_mock_returns_provider_profile() {
 }
 
 #[tokio::test]
-async fn composio_list_tools_via_mock_with_filter() {
+async fn composio_list_tools_via_mock_filters_tags_by_toolkit() {
     let _serialised = module_guard().await;
+    let observed_queries = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let handler_queries = std::sync::Arc::clone(&observed_queries);
     let app = Router::new().route(
         "/agent-integrations/composio/tools",
-        get(|Query(_q): Query<HashMap<String, String>>| async move {
-            Json(json!({
-                "success": true,
-                "data": {"tools": [
-                    {"type":"function","function":{"name":"GMAIL_SEND_EMAIL"}},
-                    {"type":"function","function":{"name":"GMAIL_FETCH_EMAILS"}}
-                ]}
-            }))
+        get(move |Query(query): Query<HashMap<String, String>>| {
+            let observed = std::sync::Arc::clone(&handler_queries);
+            async move {
+                observed.lock().unwrap().push(query);
+                Json(json!({
+                    "success": true,
+                    "data": {"tools": [
+                        {"type":"function","function":{"name":"GMAIL_SEND_EMAIL"}},
+                        {"type":"function","function":{"name":"GMAIL_FETCH_EMAILS"}}
+                    ]}
+                }))
+            }
         }),
     );
     let base = start_mock_backend(app).await;
     let tmp = tempfile::tempdir().unwrap();
     let config = config_with_backend(&tmp, base);
-    let outcome = composio_list_tools(
+
+    let gmail = composio_list_tools(
         &crate::core::runtime::DispatchCtx::ambient(),
         &config,
         Some(vec!["gmail".into()]),
-        None,
+        Some(vec!["stars".into()]),
     )
     .await
     .unwrap();
-    assert_eq!(outcome.value.tools.len(), 2);
+    assert_eq!(gmail.value.tools.len(), 2);
+
+    composio_list_tools(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        Some(vec!["github".into()]),
+        Some(vec!["stars".into()]),
+    )
+    .await
+    .unwrap();
+
+    let queries = observed_queries.lock().unwrap();
+    assert_eq!(queries.len(), 2);
+    assert!(
+        !queries[0].contains_key("tags"),
+        "non-GitHub toolkit must not forward tags: {:?}",
+        queries[0]
+    );
+    assert_eq!(queries[1].get("tags").map(String::as_str), Some("stars"));
 }
 
 #[tokio::test]

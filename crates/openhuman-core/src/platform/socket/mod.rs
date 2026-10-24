@@ -19,3 +19,8 @@ pub use schemas::{
     all_controller_schemas as all_socket_controller_schemas,
     all_registered_controllers as all_socket_registered_controllers,
 };
+
+pub(crate) use schemas::all_controller_entries;
+
+#[cfg(test)]
+pub(crate) use schemas::socket_parameter_contracts;

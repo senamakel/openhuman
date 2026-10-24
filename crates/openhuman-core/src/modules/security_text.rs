@@ -74,6 +74,10 @@ fn cache() -> &'static Mutex<RedactCache> {
     CACHE.get_or_init(|| Mutex::new(RedactCache::default()))
 }
 
+fn redaction_cache_enabled(saas: bool) -> bool {
+    !saas
+}
+
 /// Drop every cached redaction: the module's redactor configuration (exact
 /// secrets, generation) may have changed.
 pub(crate) fn flush_cache() {
@@ -168,7 +172,13 @@ pub(crate) async fn redact(
 ) -> Result<String, String> {
     super::require_enabled(config)?;
     let proxy = super::scoped_client::module_proxy(config).await?;
-    redact_on(&proxy, cache(), mode, text).await
+    if redaction_cache_enabled(crate::core::runtime::is_saas()) {
+        redact_on(&proxy, cache(), mode, text).await
+    } else {
+        // Redacted output can still contain tenant text. Do not retain it in
+        // a process-global cache shared by SaaS tenants.
+        redact_on(&proxy, &Mutex::new(RedactCache::default()), mode, text).await
+    }
 }
 
 /// Redact, or return [`SUPPRESSED`] when the module cannot answer. The original
@@ -308,8 +318,10 @@ pub(crate) fn redact_blocking(
     text: &str,
     timeout: std::time::Duration,
 ) -> Result<String, String> {
-    if let Some(hit) = cache().lock().ok().and_then(|c| c.get(&mode, text)) {
-        return Ok(hit);
+    if redaction_cache_enabled(crate::core::runtime::is_saas()) {
+        if let Some(hit) = cache().lock().ok().and_then(|c| c.get(&mode, text)) {
+            return Ok(hit);
+        }
     }
     let config = config.clone();
     let text = text.to_string();

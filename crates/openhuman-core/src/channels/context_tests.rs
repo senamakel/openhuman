@@ -45,7 +45,7 @@ fn runtime_context() -> ChannelRuntimeContext {
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: crate::inference::provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(PathBuf::from("/tmp")),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
@@ -55,16 +55,25 @@ fn runtime_context() -> ChannelRuntimeContext {
     }
 }
 
-fn channel_message(channel: &str) -> traits::ChannelMessage {
-    traits::ChannelMessage {
-        channel: channel.into(),
-        sender: "alice".into(),
-        content: "hello".into(),
-        id: "m1".into(),
-        reply_target: "reply".into(),
-        thread_ts: Some("thread-1".into()),
-        timestamp: 0,
-        sender_name: None,
+fn channel_message(channel: &str) -> traits::ChannelInboundEnvelope {
+    traits::ChannelInboundEnvelope {
+        channel: traits::ChannelRef {
+            id: channel.into(),
+            account_id: None,
+        },
+        sender: traits::SenderRef {
+            id: "alice".into(),
+            ..Default::default()
+        },
+        text: "hello".into(),
+        message_id: "m1".into(),
+        conversation: traits::ConversationRef {
+            id: "reply".into(),
+            thread_id: Some("thread-1".into()),
+            ..Default::default()
+        },
+        timestamp_unix_ms: Some(0),
+        ..Default::default()
     }
 }
 

@@ -2,14 +2,23 @@ use super::*;
 use std::collections::HashMap;
 
 fn secrets_tempdir() -> tempfile::TempDir {
-    #[cfg(target_os = "macos")]
+    let dir = {
+        #[cfg(target_os = "macos")]
+        {
+            tempfile::tempdir_in("/private/tmp").expect("canonical macOS temp directory")
+        }
+        #[cfg(not(target_os = "macos"))]
+        {
+            tempfile::tempdir().expect("tempdir")
+        }
+    };
+    #[cfg(unix)]
     {
-        tempfile::tempdir_in("/private/tmp").expect("canonical macOS temp directory")
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(dir.path(), std::fs::Permissions::from_mode(0o700))
+            .expect("make secret fixture directory private");
     }
-    #[cfg(not(target_os = "macos"))]
-    {
-        tempfile::tempdir().expect("tempdir")
-    }
+    dir
 }
 
 fn legacy_secret_map() -> HashMap<String, String> {
@@ -32,6 +41,10 @@ fn write_profile_key(workspace: &Path, key: &[u8; KEY_LEN]) {
 
 #[test]
 fn profile_read_only_secret_lookup_uses_only_the_selected_store() {
+    let _env = crate::config::test_env::EnvVarGuard::locked_unset_many(&[
+        MASTER_KEY_ENV,
+        MASTER_KEY_FILE_ENV,
+    ]);
     let account_a = secrets_tempdir();
     let account_b = secrets_tempdir();
     let key_a = [0x42; KEY_LEN];
@@ -406,10 +419,16 @@ fn read_master_key_file_rejects_other_writable_files() {
 #[test]
 fn key_file_permissions_reject_other_writes_but_allow_read_only_access() {
     for mode in [0o400, 0o600, 0o644, 0o444, 0o604, 0o440, 0o640] {
-        assert!(!key_file_mode_is_other_writable(mode), "{mode:04o}");
+        assert!(
+            !key_source::key_file_mode_is_other_writable(mode),
+            "{mode:04o}"
+        );
     }
     for mode in [0o602, 0o666] {
-        assert!(key_file_mode_is_other_writable(mode), "{mode:04o}");
+        assert!(
+            key_source::key_file_mode_is_other_writable(mode),
+            "{mode:04o}"
+        );
     }
 }
 

@@ -3,7 +3,21 @@
 mod callback;
 mod chat_workload;
 mod credentials;
+#[cfg(feature = "legacy-import")]
 mod delivery_import;
+#[cfg(not(feature = "legacy-import"))]
+mod delivery_import {
+    use std::path::Path;
+
+    pub(super) async fn import_legacy_delivery(
+        _ctx: &crate::core::runtime::DispatchCtx,
+        _workspace: &Path,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!(
+            "legacy delivery import is unavailable without `legacy-import`; legacy data was not inspected or migrated"
+        )
+    }
+}
 mod module_providers;
 mod prompt;
 #[cfg(test)]

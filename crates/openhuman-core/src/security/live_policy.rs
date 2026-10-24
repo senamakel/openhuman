@@ -2,7 +2,7 @@
 //!
 //! `SecurityPolicy` is otherwise built once per agent session (see
 //! `channels::runtime::startup`) and shared immutably to every tool. That makes
-//! a runtime change to the `[autonomy]` block (via `config.update_autonomy_settings`)
+//! a runtime change to the `[security.autonomy]` block (via `config.update_autonomy_settings`)
 //! invisible until a fresh session starts. This module holds the *current*
 //! policy in a process-global cell so that:
 //!
@@ -328,7 +328,7 @@ pub fn reload_privacy(new_mode: PrivacyMode) -> Result<u64, String> {
 /// Updates the stored `action_dir` (so a subsequent [`reload_from`] keeps the
 /// new root) and rebuilds the current policy with `new` as its `action_dir`,
 /// bumping the generation counter. Unlike [`reload_from`], this does not need
-/// the `[autonomy]` block: it clones the in-flight policy and swaps only the
+/// the `[security.autonomy]` block: it clones the in-flight policy and swaps only the
 /// action root, preserving every other access setting. No-op if nothing has
 /// been [`install`]ed yet.
 ///

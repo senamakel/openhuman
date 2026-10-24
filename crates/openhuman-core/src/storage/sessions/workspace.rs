@@ -19,9 +19,12 @@ use std::sync::{Arc, LazyLock, Mutex, PoisonError};
 
 use super::tenant_router::TenantSessionStores;
 use tinyagents_harness::multimodal::BlobAttachmentStash;
-use tinyagents_session::port::{AgentStores, SessionStoreProvider, TurnStates};
+use tinyagents_session::port::{
+    AgentStorageFactory, AgentStores, DriverSessionStores, SessionStoreProvider, TurnStates,
+};
 use tinyagents_session::run_ledger::{LedgerError, LedgerResult, RunLedgerStore};
-use tinystoragedrivers::{BlobStore, DocumentStore, MemoryStorage, StorageBackend};
+use tinyagents_storage_kit::ScopedStorage;
+use tinystoragedrivers_api::{BlobStore, DocumentStore, StorageBackend};
 
 /// One fallback provider and the backend it was built over.
 struct Fallback {
@@ -38,7 +41,6 @@ pub fn release_workspace_defaults() {
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .clear();
-    super::release_workspace_stores();
     crate::storage::local::release_all();
 }
 
@@ -52,16 +54,14 @@ pub fn release_workspace(workspace_dir: &Path) {
         .lock()
         .unwrap_or_else(PoisonError::into_inner)
         .remove(workspace_dir);
-    super::release_workspace_stores_for(workspace_dir);
     crate::storage::local::forget(workspace_dir);
 }
 
 /// The provider for `workspace_dir`: the installed one, else a
 /// `TenantSessionStores` over the workspace's default backend.
 ///
-/// Never fails: a default that cannot be opened (a read-only workspace) is
-/// logged and replaced by an in-memory backend for that workspace, so a turn
-/// degrades to a session that is not kept rather than to no session at all.
+/// A storage refusal is retained by a refusing session provider. Session
+/// state never silently moves to an in-memory backend.
 pub fn provider_for_workspace(workspace_dir: &Path) -> Arc<dyn SessionStoreProvider> {
     match super::installed() {
         Some(installed) => installed,
@@ -71,6 +71,11 @@ pub fn provider_for_workspace(workspace_dir: &Path) -> Arc<dyn SessionStoreProvi
 
 /// The provider over `workspace_dir`'s default backend, installed or not.
 pub(super) fn fallback_provider(workspace_dir: &Path) -> Arc<dyn SessionStoreProvider> {
+    if crate::core::runtime::is_saas() && crate::storage::installed().is_none() {
+        return refusing_provider(
+            "no host storage backend is installed for this SaaS session".to_owned(),
+        );
+    }
     let backend = match crate::storage::local::backend_for(workspace_dir) {
         Ok(backend) => backend,
         Err(error) => {
@@ -78,7 +83,7 @@ pub(super) fn fallback_provider(workspace_dir: &Path) -> Arc<dyn SessionStorePro
                 "[session_store] no storage backend for workspace={}: {error:#}",
                 workspace_dir.display()
             );
-            return memory_fallback(workspace_dir);
+            return refusing_provider(error.to_string());
         }
     };
     let mut fallbacks = FALLBACKS.lock().unwrap_or_else(PoisonError::into_inner);
@@ -101,25 +106,21 @@ pub(super) fn fallback_provider(workspace_dir: &Path) -> Arc<dyn SessionStorePro
         }
         Err(error) => {
             log::error!("[session_store] could not start the session store bridge: {error}");
-            memory_fallback(workspace_dir)
+            refusing_provider(error.to_string())
         }
     }
 }
 
-fn memory_fallback(workspace_dir: &Path) -> Arc<dyn SessionStoreProvider> {
-    static MEMORY: LazyLock<Mutex<HashMap<PathBuf, Arc<dyn SessionStoreProvider>>>> =
-        LazyLock::new(Mutex::default);
-    let mut memory = MEMORY.lock().unwrap_or_else(PoisonError::into_inner);
-    memory
-        .entry(workspace_dir.to_path_buf())
-        .or_insert_with(|| {
-            let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
-            match TenantSessionStores::new(backend, false) {
-                Ok(provider) => Arc::new(provider),
-                Err(_) => Arc::new(tinyagents_session::port::InMemorySessionStores::new()),
-            }
-        })
-        .clone()
+fn refusing_provider(message: String) -> Arc<dyn SessionStoreProvider> {
+    let factory: AgentStorageFactory = Arc::new(move |_| {
+        Err(tinystoragedrivers_types::StorageError::unavailable(
+            message.clone(),
+        ))
+    });
+    Arc::new(
+        DriverSessionStores::new(factory)
+            .unwrap_or_else(|error| panic!("could not start refusal-only session bridge: {error}")),
+    )
 }
 
 /// The key the calling tenant's stores are under, or `None` for a SaaS task
@@ -141,14 +142,20 @@ pub fn stores_for(workspace_dir: &Path) -> Option<AgentStores> {
     Some(provider_for_workspace(workspace_dir).for_agent(&key))
 }
 
-/// [`stores_for`] `workspace_dir`, or throwaway in-memory stores for a call
-/// that has no tenant to act for (a SaaS task with no scope), so it neither
-/// fails nor reaches another tenant's records.
+/// [`stores_for`] `workspace_dir`, or the local default agent's stores for a
+/// non-SaaS call without an ambient tenant. A SaaS task without a profile gets
+/// refusing stores rather than reaching another tenant's records.
 #[must_use]
 pub fn stores_or_ephemeral(workspace_dir: &Path) -> AgentStores {
     stores_for(workspace_dir).unwrap_or_else(|| {
-        log::warn!("[session_store] no tenant; using throwaway in-memory stores");
-        tinyagents_session::port::InMemorySessionStores::new().for_agent("ephemeral")
+        if crate::core::runtime::is_saas() {
+            log::warn!("[session_store] no tenant in SaaS mode; session access refused");
+            return refusing_provider(
+                "no profile in SaaS mode; refusing session storage".to_owned(),
+            )
+            .for_agent("refused");
+        }
+        provider_for_workspace(workspace_dir).for_agent(super::DEFAULT_AGENT)
     })
 }
 
@@ -202,11 +209,12 @@ pub fn artifact_blobs_for(workspace_dir: &Path) -> Option<Arc<dyn BlobStore>> {
 
 /// The calling tenant's scoped storage on `workspace_dir`'s backend. `what`
 /// only labels the log line when the backend or scope is refused.
-fn tenant_scope_for(
-    workspace_dir: &Path,
-    what: &str,
-) -> Option<(String, tinystoragedrivers::ScopedStorage)> {
-    let key = tenant_agent_key()?;
+fn tenant_scope_for(workspace_dir: &Path, what: &str) -> Option<(String, ScopedStorage)> {
+    let key = match tenant_agent_key() {
+        Some(key) => key,
+        None if !crate::core::runtime::is_saas() => super::DEFAULT_AGENT.to_owned(),
+        None => return None,
+    };
     let backend = match crate::storage::local::backend_for(workspace_dir) {
         Ok(backend) => backend,
         Err(error) => {
@@ -214,8 +222,15 @@ fn tenant_scope_for(
             return None;
         }
     };
-    match backend.for_scope(&session_scope(&key)) {
-        Ok(scoped) => Some((key, scoped)),
+    let scope = session_scope(&key);
+    match backend.for_scope(&scope) {
+        Ok(scoped) => match tinyagents_storage_kit::Scope::new(scope.as_str()) {
+            Ok(port_scope) => Some((key, ScopedStorage::new(scoped, port_scope))),
+            Err(error) => {
+                log::warn!("[session_store] {what} scope invalid agent={key}: {error}");
+                None
+            }
+        },
         Err(error) => {
             log::warn!("[session_store] {what} scope refused agent={key}: {error}");
             None
@@ -275,19 +290,34 @@ pub fn current_documents_for(workspace_dir: &Path) -> Option<Arc<dyn DocumentSto
 
 /// The calling tenant's durable run-status store for `workspace_dir`: the
 /// `harness_run_status` documents of its agent scope, beside its session
-/// stores. A call with no tenant gets a throwaway in-memory store.
-#[must_use]
+/// stores. Non-SaaS calls without an ambient tenant use the local default
+/// agent. SaaS calls without a tenant have no authorized store.
 pub fn status_store_for(
     workspace_dir: &Path,
-) -> tinyagents_harness::observability::DriverStatusStore {
-    let docs = current_documents_for(workspace_dir).unwrap_or_else(|| {
-        log::warn!("[session_store] no tenant; using a throwaway run-status store");
-        let scoped = MemoryStorage::new()
-            .for_scope(&tinystoragedrivers::Scope::local())
-            .expect("the memory backend binds the local scope");
-        Arc::clone(scoped.documents())
-    });
-    tinyagents_harness::observability::DriverStatusStore::new(docs)
+) -> Option<tinyagents_harness::observability::DriverStatusStore> {
+    let docs = current_documents_for(workspace_dir).or_else(|| {
+        if crate::core::runtime::is_saas() {
+            return None;
+        }
+        let backend = match crate::storage::local::backend_for(workspace_dir) {
+            Ok(backend) => backend,
+            Err(error) => {
+                log::warn!("[session_store] run-status backend unavailable: {error:#}");
+                return None;
+            }
+        };
+        let scoped = match backend.for_scope(&session_scope(super::DEFAULT_AGENT)) {
+            Ok(scoped) => scoped,
+            Err(error) => {
+                log::warn!("[session_store] local run-status scope refused: {error}");
+                return None;
+            }
+        };
+        Some(Arc::clone(scoped.documents()))
+    })?;
+    Some(tinyagents_harness::observability::DriverStatusStore::new(
+        docs,
+    ))
 }
 
 /// The calling tenant's run ledger for `workspace_dir` ([`ledger_for`]), or an
@@ -413,6 +443,7 @@ pub fn session_scope(key: &str) -> tinystoragedrivers::Scope {
     crate::storage::tenant_scope(profile.as_deref())
         .agent(&agent)
         .unwrap_or_else(|_| unreachable!("a non-empty agent id is a valid segment"))
+        .to_storage_scope()
 }
 
 #[cfg(test)]

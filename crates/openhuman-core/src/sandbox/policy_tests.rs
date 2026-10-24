@@ -97,7 +97,7 @@ fn a_workspace_less_container_is_asked_for_only_by_the_docker_runtime() {
 #[test]
 fn the_loaded_configuration_fills_in_a_backend_the_caller_did_not_name() {
     let mut config = Config::default();
-    config.sandbox.backend = SandboxBackend::Docker;
+    config.security.sandbox.backend = SandboxBackend::Docker;
     let unnamed = policy(&SandboxConfig::default(), &RuntimeConfig::default(), false);
     assert_eq!(
         with_configured_backend(&unnamed, &config).backend,
@@ -108,7 +108,7 @@ fn the_loaded_configuration_fills_in_a_backend_the_caller_did_not_name() {
 #[test]
 fn a_backend_the_caller_named_is_never_replaced_by_the_configuration() {
     let mut config = Config::default();
-    config.sandbox.backend = SandboxBackend::Landlock;
+    config.security.sandbox.backend = SandboxBackend::Landlock;
     let mut named = policy(&SandboxConfig::default(), &RuntimeConfig::default(), false);
     named.backend = SandboxBackendKind::Docker;
     assert_eq!(

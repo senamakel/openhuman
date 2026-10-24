@@ -24,7 +24,8 @@ pub use edit::{
     edit_message, regenerate, EditMessageRequest, EditOrRegenerateResponse, RegenerateRequest,
 };
 pub use live_state::{
-    goal_get, todos_get, ThreadGoalGetResponse, ThreadLiveStateRequest, ThreadTodosGetResponse,
+    goal_get, state_get, todos_get, ThreadGoalGetResponse, ThreadLiveStateRequest,
+    ThreadStateGetResponse, ThreadTodosGetResponse,
 };
 pub use purge::threads_purge;
 pub use search::{thread_search, ThreadSearchHit, ThreadSearchRequest, ThreadSearchResponse};

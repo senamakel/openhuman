@@ -10,7 +10,7 @@ use crate::core::runtime::{DomainSet, SaasConfig};
 use crate::profiles::credentials::UserCredentialKind;
 use crate::profiles::OpenError;
 use crate::storage::lease::{LeaseRecord, LeaseStore};
-use crate::storage::{MemoryStorage, StorageBackend};
+use crate::storage::{test_support::memory_backend, StorageBackend};
 
 fn saas(root: &std::path::Path, node: &str) -> SaasConfig {
     let mut saas = SaasConfig::new(root);
@@ -213,7 +213,7 @@ async fn a_failed_archive_gives_the_lease_back() {
 #[tokio::test]
 async fn provisioning_waits_out_another_nodes_lease() {
     let tmp = tempfile::tempdir().unwrap();
-    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let backend: Arc<dyn StorageBackend> = memory_backend();
     let (a, b) = (
         clustered(tmp.path(), "node-a", &backend),
         clustered(tmp.path(), "node-b", &backend),

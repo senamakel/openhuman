@@ -14,7 +14,7 @@ use tinychannels_bus::module_runtime::{
     ChannelIngressKind, ChannelMessagePreparation, ConfiguredChannelInfo,
 };
 use tinychannels_bus::module_supervision::ChannelSupervisionPolicy;
-use tinychannels_bus::{Channel, ChannelMessage, SendMessage};
+use tinychannels_bus::Channel;
 use tinychannels_bus::{ChannelInteraction, ChannelInteractionResult};
 use tokio::sync::mpsc;
 
@@ -34,7 +34,7 @@ pub(super) struct ModuleChannelRuntime {
 struct ModuleChannel {
     name: String,
     object: ModuleObjectClient,
-    interaction: tinychannels_bus::ChannelInteractionInfo,
+    interaction: tinychannels_bus::ChannelInteractionInfoV2,
     relay: Option<tinychannels_bus::module_relay::RelayReservation>,
     relay_fronted: bool,
 }
@@ -50,7 +50,9 @@ impl ModuleChannelRuntime {
         // Queued deliveries from before the storage contract move into the
         // module's storage before it starts and reads its queue. Best effort:
         // a failure is retried at the next start, never fatal to channels.
-        match super::delivery_import::import_legacy_delivery(&config.workspace_dir).await {
+        match super::delivery_import::import_legacy_delivery(dispatch_ctx, &config.workspace_dir)
+            .await
+        {
             Ok(outcome) => tracing::debug!("[channels] legacy delivery import: {outcome:?}"),
             Err(error) => {
                 tracing::warn!("[channels] legacy delivery import failed, will retry: {error:#}");
@@ -300,18 +302,37 @@ impl Channel for ModuleChannel {
     }
 
     fn proactive_target(&self) -> Option<String> {
-        self.interaction.proactive_target.clone()
+        self.interaction
+            .capabilities
+            .account
+            .proactive_target
+            .clone()
     }
 
-    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v0.1.39 requires this v21 trait method; production sends use send_typed"
+    )]
+    async fn send(&self, message: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
+        let typed = self.legacy_outbound(message);
+        self.send_typed(&typed).await
+    }
+
+    async fn send_typed(
+        &self,
+        message: &tinychannels_bus::ChannelOutboundMessage,
+    ) -> anyhow::Result<()> {
         self.send_prepared(message).await
     }
 
-    async fn send_idempotent(&self, message: &SendMessage) -> anyhow::Result<()> {
-        self.send_prepared(message).await
-    }
-
-    async fn listen(&self, _tx: mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v0.1.39 still requires the legacy listener method on Channel"
+    )]
+    async fn listen(
+        &self,
+        _tx: mpsc::Sender<tinychannels_bus::ChannelMessage>,
+    ) -> anyhow::Result<()> {
         anyhow::bail!("TinyChannels module owns provider listeners")
     }
 
@@ -376,18 +397,25 @@ impl Channel for ModuleChannel {
     }
 
     fn capabilities(&self) -> tinychannels_bus::ChannelCapabilities {
-        self.interaction.capabilities
+        self.interaction.capabilities.clone()
     }
 
     fn supports_reactions(&self) -> bool {
-        self.interaction.supports_reactions
+        self.interaction.capabilities.reactions
     }
 
     fn supports_draft_updates(&self) -> bool {
-        self.interaction.supports_draft_updates
+        self.interaction.capabilities.streaming_reply_pipeline
     }
 
-    async fn send_draft(&self, message: &SendMessage) -> anyhow::Result<Option<String>> {
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v0.1.39 exposes drafts only through its v21 interaction DTO"
+    )]
+    async fn send_draft(
+        &self,
+        message: &tinychannels_bus::SendMessage,
+    ) -> anyhow::Result<Option<String>> {
         match self
             .object
             .call_confidential::<ChannelInteractionResult>(
@@ -439,15 +467,48 @@ impl Channel for ModuleChannel {
 }
 
 impl ModuleChannel {
-    async fn send_prepared(&self, message: &SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "only the required TinyChannels v21 Channel::send bridge accepts SendMessage"
+    )]
+    fn legacy_outbound(
+        &self,
+        message: &tinychannels_bus::SendMessage,
+    ) -> tinychannels_bus::ChannelOutboundMessage {
+        use tinychannels_bus::channel::{ContentPart, OutboundContentPart};
+        tinychannels_bus::ChannelOutboundMessage {
+            channel_id: self.name.clone(),
+            conversation_id: message.recipient.clone(),
+            channel_ref: None,
+            conversation_ref: Some(tinychannels_bus::ConversationRef {
+                id: message.recipient.clone(),
+                thread_id: message.thread_ts.clone(),
+                topic_id: message.topic_id.clone(),
+                ..Default::default()
+            }),
+            reply_to_id: message.reply_to_id.clone(),
+            thread_id: message.thread_ts.clone(),
+            turn_id: None,
+            idempotency_key: message.idempotency_key.clone().unwrap_or_default(),
+            parts: vec![OutboundContentPart::Content {
+                part: ContentPart::Text {
+                    text: message.content.clone(),
+                    markdown_dialect: None,
+                },
+            }],
+        }
+    }
+
+    async fn send_prepared(
+        &self,
+        message: &tinychannels_bus::ChannelOutboundMessage,
+    ) -> anyhow::Result<()> {
+        let intent = outbound_intent(message);
         let prepared: tinychannels_bus::module_runtime::PreparedChannelIntent = self
             .object
             .call_confidential(
                 tinychannels_bus::methods::PREPARE_OUTBOUND_INTENT,
-                (
-                    self.name.clone(),
-                    ChannelMessagePreparation::Typed(message.clone()),
-                ),
+                (self.name.clone(), ChannelMessagePreparation::Intent(intent)),
             )
             .await
             .map_err(anyhow::Error::new)?;
@@ -489,3 +550,26 @@ impl ModuleChannel {
         }
     }
 }
+
+fn outbound_intent(
+    message: &tinychannels_bus::ChannelOutboundMessage,
+) -> tinychannels_bus::ChannelOutboundIntent {
+    tinychannels_bus::ChannelOutboundIntent {
+        channel_id: message.channel_id.clone(),
+        conversation_id: message.conversation_id.clone(),
+        channel_ref: message.channel_ref.clone(),
+        conversation_ref: message.conversation_ref.clone(),
+        reply_to_id: message.reply_to_id.clone(),
+        thread_id: message.thread_id.clone(),
+        turn_id: message.turn_id.clone(),
+        idempotency_key: message.idempotency_key.clone(),
+        payload: tinychannels_bus::OutboundPayload::Parts {
+            parts: message.parts.clone(),
+        },
+        ..Default::default()
+    }
+}
+
+#[cfg(test)]
+#[path = "module_providers_tests.rs"]
+mod tests;

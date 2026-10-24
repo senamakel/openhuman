@@ -207,10 +207,10 @@ pub struct MemoryAgentConfig {
 /// Default `embedding_provider`: the OpenHuman backend (Voyage-backed).
 pub const DEFAULT_EMBEDDING_PROVIDER: &str = "cloud";
 /// Default `embedding_model`; keep in sync with
-/// `embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_MODEL`.
+/// `tinyinference_embeddings::DEFAULT_CLOUD_MODEL`.
 pub const DEFAULT_EMBEDDING_MODEL: &str = "embedding-v1";
 /// Default `embedding_dimensions`; keep in sync with
-/// `embeddings::cloud::DEFAULT_CLOUD_EMBEDDING_DIMENSIONS`.
+/// `tinyinference_embeddings::DEFAULT_CLOUD_DIMENSIONS`.
 pub const DEFAULT_EMBEDDING_DIMENSIONS: usize = 1024;
 /// Default `embedding_rate_limit_per_min` (cloud backends cap ~60/min).
 pub const DEFAULT_EMBEDDING_RATE_LIMIT_PER_MIN: u32 = 60;

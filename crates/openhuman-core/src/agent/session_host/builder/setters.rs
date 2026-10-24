@@ -71,10 +71,10 @@ impl SessionHostBuilder {
         self
     }
 
-    /// Sets the AI provider as a **crate-native** turn-model source (Phase 3 P3-B):
-    /// `build`/`build_summarizer` construct crate `ChatModel`s from `(role, config)`
-    /// via `create_turn_chat_model` (managed → `OpenHumanBackendModel`, local/cloud →
-    /// crate `OpenAiModel`) instead of wrapping `provider` in `native model adapters.
+    /// Sets the AI provider as a **crate-native** turn-model source:
+    /// `build`/`build_summarizer` use TinyAgents' `TurnModelSet` to construct
+    /// the primary, workload routes, and summarizer through the host model factory,
+    /// rather than wrapping `provider` in generic model adapters.
     /// Used by the production session factory; the plain
     /// [`provider`](Self::provider) setter (Provider path) stays for tests that
     /// inject a mock they observe.

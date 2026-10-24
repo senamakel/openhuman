@@ -29,9 +29,8 @@ impl tinychannels::relay::RelayInboundHandler for RelayInboundMessageHandler {
                     "invalid inbound envelope: {error}"
                 ))
             })?;
-        let msg = tinychannels::legacy_message_from_inbound_envelope(&envelope, 0);
         self.tx
-            .send(RuntimeChannelMessage::with_inbound_envelope(msg, envelope))
+            .send(RuntimeChannelMessage::with_inbound_envelope(envelope))
             .await
             .map_err(|_| tinychannels::relay::RelayTransportError::Closed)
     }

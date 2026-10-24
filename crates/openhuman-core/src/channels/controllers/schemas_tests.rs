@@ -110,12 +110,6 @@ fn deserialize_send_message_params() {
 }
 
 #[test]
-fn to_json_helper() {
-    let outcome = Outcome::single_log(json!({"ok": true}), "log");
-    assert!(to_json(outcome).is_ok());
-}
-
-#[test]
 fn connect_logs_preserve_legacy_envelope_cases() {
     assert!(connect_logs("discord", ChannelAuthMode::OAuth, true).is_empty());
     assert_eq!(

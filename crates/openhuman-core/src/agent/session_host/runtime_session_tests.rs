@@ -124,6 +124,7 @@ async fn committed_progress_carries_the_sidecar_stop_on_turn_completed() {
 
 #[test]
 fn clearing_progress_releases_warm_prelude_sender() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let tmp = tempfile::tempdir().expect("tempdir");
     let config = crate::config::Config {
         workspace_dir: tmp.path().join("workspace"),
@@ -213,6 +214,7 @@ fn spec(name: &str) -> ToolSpec {
 #[cfg(feature = "mcp")]
 #[test]
 fn connected_mcp_actions_enter_search_and_leave_on_disconnect() {
+    crate::agent::session_host::test_support::install_model_fixture();
     crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins()
         .expect("builtin definitions");
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -282,6 +284,7 @@ fn connected_mcp_actions_enter_search_and_leave_on_disconnect() {
 #[cfg(feature = "mcp")]
 #[tokio::test]
 async fn resumed_mcp_snapshot_survives_a_cold_catalog_and_keeps_its_frozen_spec() {
+    crate::agent::session_host::test_support::install_model_fixture();
     crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins()
         .expect("builtin definitions");
     let tmp = tempfile::tempdir().expect("tempdir");
@@ -375,6 +378,7 @@ async fn resumed_mcp_snapshot_survives_a_cold_catalog_and_keeps_its_frozen_spec(
 #[cfg(feature = "modules")]
 #[tokio::test]
 async fn desktop_browser_setting_keeps_deferred_tools_in_fresh_and_resumed_surfaces() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let tmp = tempfile::tempdir().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(workspace.join("state")).expect("state dir");
@@ -461,6 +465,7 @@ async fn a_resumed_orchestrator_keeps_the_integration_actions_it_was_sent() {
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     let mut host = crate::agent::SessionHostBuilder::new()
         .chat_model(model)
+        .model_name("test/session-fixture".to_string())
         .tools(Vec::new())
         .action_dir(action_dir.path().to_path_buf())
         .workspace_dir(action_dir.path().to_path_buf())
@@ -530,6 +535,7 @@ async fn session_locator_is_memoized_across_calls() {
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     let host = crate::agent::SessionHostBuilder::new()
         .chat_model(model)
+        .model_name("test/session-fixture".to_string())
         .tools(Vec::new())
         .action_dir(action_dir.path().to_path_buf())
         .workspace_dir(action_dir.path().to_path_buf())
@@ -547,7 +553,7 @@ async fn session_locator_is_memoized_across_calls() {
     );
 }
 
-const THREAD_GOAL_TOOLS: [&str; 3] = ["goal_get", "goal_set", "goal_complete"];
+const THREAD_GOAL_TOOLS: [&str; 4] = ["goal_get", "goal_set", "goal_complete", "goal_resume"];
 /// The goal tool this fixture's default (non-orchestrator) session surfaces on a
 /// thread; the others are admitted only for agents that list them.
 const SURFACED_GOAL_TOOL: &str = "goal_complete";
@@ -564,6 +570,7 @@ fn text_dialect_host(
     let tools = crate::agent::goals::goal_tools(action_dir.path());
     let mut host = crate::agent::SessionHostBuilder::new()
         .chat_model(model)
+        .model_name("test/session-fixture".to_string())
         .tools(tools)
         .action_dir(action_dir.path().to_path_buf())
         .workspace_dir(action_dir.path().to_path_buf())
@@ -680,6 +687,7 @@ async fn newly_connected_action_cannot_shadow_a_permanent_source() {
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     let mut host = crate::agent::SessionHostBuilder::new()
         .chat_model(model)
+        .model_name("test/session-fixture".to_string())
         .tools(vec![Box::new(AttachedAction)])
         .permanent_tool_names(std::collections::HashSet::from(["GMAIL_SEND_EMAIL".into()]))
         .action_dir(action_dir.path().to_path_buf())

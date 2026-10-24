@@ -13,15 +13,10 @@
 //! - **Custom**: Any OpenAI-compatible endpoint.
 //! - **Noop**: A fallback provider for keyword-only search.
 
-#[path = "cloud_adapter.rs"]
-pub mod cloud;
 mod factory;
 mod rpc;
 mod schemas;
 
-pub use cloud::{
-    UnavailableEmbeddingModel, DEFAULT_CLOUD_EMBEDDING_DIMENSIONS, DEFAULT_CLOUD_EMBEDDING_MODEL,
-};
 pub use factory::{
     create_embedding_provider_for_chat, create_embedding_provider_for_inspection,
     create_embedding_provider_with_config, create_embedding_provider_with_credentials,

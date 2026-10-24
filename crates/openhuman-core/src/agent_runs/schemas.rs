@@ -8,25 +8,7 @@ use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::Outcome;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
-/// Params for `agent.chat` and `agent.chat_simple`.
-///
-/// A near-copy of the params in
-/// [`crate::inference::host_runtime::schemas`], which backs the
-/// `inference.agent_chat*` namespace over the same ops. That surface carries
-/// two fields this one does not — a per-call `inference_url` + `api_key` —
-/// because `agent.chat` describes a turn on the account's own configured
-/// inference.
-#[derive(Debug, Deserialize)]
-struct AgentChatParams {
-    message: String,
-    model_override: Option<String>,
-    temperature: Option<f64>,
-    thread_id: Option<String>,
-    /// Optional per-turn working directory for the agent's filesystem / shell
-    /// tools. Absent or empty keeps the configured `action_dir`. Ignored by the
-    /// `*_simple` variant, which runs a bare provider call with no tools.
-    cwd: Option<String>,
-}
+use crate::agent_runs::agent_chat::params::AgentChatParams;
 
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
@@ -265,7 +247,7 @@ fn handle_chat(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture
         let p = deserialize_params::<AgentChatParams>(params)?;
         let mut config = ctx.load_config().await?;
         to_json(
-            crate::inference::host_runtime::rpc::agent_chat(
+            crate::agent_runs::agent_chat::agent_chat(
                 &mut config,
                 &p.message,
                 p.model_override,
@@ -288,7 +270,7 @@ fn handle_chat_simple(ctx: DispatchCtx, params: Map<String, Value>) -> Controlle
         let p = deserialize_params::<AgentChatParams>(params)?;
         let config = ctx.load_config().await?;
         to_json(
-            crate::inference::host_runtime::rpc::agent_chat_simple(
+            crate::inference::host_runtime::ops::agent_chat_simple(
                 &ctx,
                 &config,
                 &p.message,

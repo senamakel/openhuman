@@ -24,6 +24,7 @@ use std::sync::{Arc, LazyLock, Mutex};
 
 use serde_json::{json, Value};
 use tinyagents_harness::testkit::ScriptedModel;
+use tinyagents_session::port::SessionStoreProvider;
 use tinyagents_session::transcript::{SessionRef, TranscriptLocator};
 use tinyinference_llm::message::{AssistantMessage, ContentBlock};
 use tinyinference_llm::model::{ChatModel, ModelProfile, ModelResponse};
@@ -175,15 +176,19 @@ pub(super) fn model(responses: Vec<ModelResponse>, native: bool) -> Arc<Scripted
 
 /// The transcript store of the workspace under `root`, one per root so that two
 /// hosts built over the same root (two "processes") share the conversation.
-pub(super) fn store_locator(root: &Path) -> Arc<dyn TranscriptLocator> {
-    static STORES: LazyLock<Mutex<HashMap<PathBuf, Arc<dyn TranscriptLocator>>>> =
+fn store_provider(root: &Path) -> Arc<dyn SessionStoreProvider> {
+    static STORES: LazyLock<Mutex<HashMap<PathBuf, Arc<dyn SessionStoreProvider>>>> =
         LazyLock::new(Mutex::default);
     let mut stores = STORES.lock().unwrap_or_else(|e| e.into_inner());
     Arc::clone(
-        stores
-            .entry(root.to_path_buf())
-            .or_insert_with(crate::storage::sessions::splice_fixture_tests::memory_locator),
+        stores.entry(root.to_path_buf()).or_insert_with(
+            crate::storage::sessions::splice_fixture_tests::memory_session_provider,
+        ),
     )
+}
+
+pub(super) fn store_locator(root: &Path) -> Arc<dyn TranscriptLocator> {
+    store_provider(root).for_agent("fixture").transcripts
 }
 
 pub(super) fn build_host(
@@ -196,6 +201,7 @@ pub(super) fn build_host(
     let builder = crate::agent::SessionHostBuilder::new()
         .with_session_history_locator(store_locator(root))
         .chat_model(chat_model)
+        .model_name("test/session-fixture".to_string())
         .tools(tools())
         .workspace_dir(root.join("workspace"))
         .action_dir(root.to_path_buf());
@@ -236,9 +242,9 @@ pub(super) fn classic_path(root: &Path, stem: &str) -> PathBuf {
 /// Imports the classic files placed under the workspace's `session_raw/` into
 /// the root's store, as the first start after an upgrade does.
 pub(super) fn import_placed(root: &Path) {
-    tinyagents_session::legacy::import_transcripts(
+    crate::storage::import::sessions::import_transcript_groups(
+        store_provider(root).as_ref(),
         &root.join("workspace"),
-        store_locator(root).as_ref(),
     )
     .expect("import the placed fixtures");
 }
@@ -463,6 +469,7 @@ fn assert_retired_tool_replay(identity_bound: bool) {
         let mut first = crate::agent::SessionHostBuilder::new()
             .with_session_history_locator(store_locator(root.path()))
             .chat_model(chat_model)
+            .model_name("test/session-fixture".to_string())
             .tools(vec![Box::new(ArchivedAudioTool)])
             .permanent_tool_names(std::collections::HashSet::from([RETIRED.to_string()]))
             .workspace_dir(workspace.clone())
@@ -504,6 +511,7 @@ fn assert_retired_tool_replay(identity_bound: bool) {
             crate::agent::SessionHostBuilder::new()
                 .with_session_history_locator(store_locator(root.path()))
                 .chat_model(chat_model)
+                .model_name("test/session-fixture".to_string())
                 .tools(tools())
                 .workspace_dir(workspace.clone())
                 .action_dir(root.path().to_path_buf())

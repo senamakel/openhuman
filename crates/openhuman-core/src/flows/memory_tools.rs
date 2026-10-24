@@ -508,7 +508,30 @@ impl Tool for FlowMemoryRememberTool {
         if key.is_empty() {
             return Ok(ToolResult::error("key cannot be empty".to_string()));
         }
-        if tinyredact::has_likely_secret(content) {
+        let config =
+            match crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(tool_context)
+                .load_config()
+                .await
+            {
+                Ok(config) => config,
+                Err(_) => {
+                    return Ok(ToolResult::error(
+                        "Secure flow memory content check is unavailable; refusing to store."
+                            .to_string(),
+                    ))
+                }
+            };
+        let contains_credentials =
+            match super::memory_guard::contains_credentials(&config, content).await {
+                Ok(contains_credentials) => contains_credentials,
+                Err(_) => {
+                    return Ok(ToolResult::error(
+                        "Secure flow memory content check is unavailable; refusing to store."
+                            .to_string(),
+                    ))
+                }
+            };
+        if contains_credentials {
             tracing::warn!(
                 target: "flows",
                 key_chars = key.chars().count(),
@@ -520,18 +543,6 @@ impl Tool for FlowMemoryRememberTool {
             ));
         }
 
-        let config =
-            match crate::agent::tinyagents::host::run_context::dispatch_ctx_for_tool(tool_context)
-                .load_config()
-                .await
-            {
-                Ok(config) => config,
-                Err(error) => {
-                    return Ok(ToolResult::error(format!(
-                        "Failed to store flow memory: {error}"
-                    )))
-                }
-            };
         match remember_keyed(&config, &flow_id, key, content, kind).await {
             Ok(_) => Ok(ToolResult::success(format!("Stored flow memory: {key}"))),
             Err(error) => {

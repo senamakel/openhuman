@@ -18,12 +18,15 @@
 
 use std::path::Path;
 
+#[cfg(feature = "legacy-import")]
 use tinystoragedrivers::secrets::SecretStore as _;
 
 use super::state::LayoutError;
+#[cfg(feature = "legacy-import")]
 use super::Target;
 use crate::security::credentials::http_creds::{self, STORAGE_SECRET_NAME, STORE_FILENAME};
 use crate::security::credentials::profiles::{self, PROFILES_FILENAME, PROFILES_SECRET_NAME};
+#[cfg(feature = "legacy-import")]
 use crate::storage;
 
 /// The path prefix a profile-level plan entry carries (`@profile/<file>`),
@@ -102,6 +105,7 @@ pub fn candidates(profile_dir: &Path) -> Result<Vec<String>, LayoutError> {
 ///
 /// A write that does not read back identically, or a stored record that does
 /// not decrypt with the current key. Nothing is deleted then.
+#[cfg(feature = "legacy-import")]
 pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
     let mut files = Vec::new();
     for (file, secret) in FILES {
@@ -122,10 +126,11 @@ pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
     let keys = storage::secrets::keys()
         .map_err(|e| LayoutError::Other(anyhow::anyhow!("master key for credentials: {e}")))?;
     let backend = super::legacy::open_v1(target).await?;
+    let scope = storage::tenant_scope(None);
     let scoped = backend
-        .for_scope(&storage::tenant_scope(None))
+        .for_scope(&scope)
         .map_err(|e| LayoutError::Other(anyhow::anyhow!("open the local scope: {e}")))?;
-    let secrets = storage::secrets::over(&scoped, keys);
+    let secrets = storage::secrets::over(&scoped, scope, keys);
     let mut imported = Vec::new();
     for (file, secret, bytes) in files {
         let stored = secrets.get(secret).await.map_err(|e| {
@@ -153,6 +158,6 @@ pub async fn import(target: &Target) -> Result<Vec<String>, LayoutError> {
     Ok(imported)
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-import", feature = "storage-sqlite"))]
 #[path = "credentials_tests.rs"]
 mod tests;

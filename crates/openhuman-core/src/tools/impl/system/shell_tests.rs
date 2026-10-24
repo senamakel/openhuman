@@ -56,6 +56,8 @@ fn test_security_with_env_cmd() -> Arc<SecurityPolicy> {
     )
 }
 
+#[path = "shell_tests_keep_running_tests.rs"]
+mod keep_running_tests;
 #[path = "shell_tests_platform_tests.rs"]
 mod platform_tests;
 #[path = "shell_tests_runtime_and_sandbox_tests.rs"]
@@ -70,7 +72,7 @@ mod timeout_tests;
 /// anything is launched, and the run spends the module's hourly budget.
 #[cfg(feature = "security-module")]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 async fn shell_tool_gates_commands_on_the_released_module() {
     use crate::modules::security::released_support::Released;
 

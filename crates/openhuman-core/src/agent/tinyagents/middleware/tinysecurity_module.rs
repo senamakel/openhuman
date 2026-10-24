@@ -25,6 +25,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use tinyagents_harness::context::RunContext;
 use tinyinference_llm::tool::ToolCall as TaToolCall;
+#[cfg(feature = "skills")]
+use tinysecurity_bus::SkillScanVerdict;
 use tinysecurity_bus::{
     AccessTier, CallerContext, Check, DenialReason, Origin, ToolCall, ToolPermission, Verdict,
 };
@@ -35,7 +37,7 @@ use super::tinysecurity::{VerdictSource, SHELL_TOOL};
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 #[cfg(test)]
 use crate::security::approval::ApprovalGate;
-use crate::security::policy::{CommandFlow, CommandStage, SecurityPolicy};
+use crate::security::policy::{AutonomyLevel, CommandFlow, CommandStage, SecurityPolicy};
 use crate::security::turn_origin::{AgentTurnOrigin, TrustedAutomationSource};
 
 const LOG: &str = "[tinyagents::mw::tinysecurity]";
@@ -127,22 +129,36 @@ impl VerdictSource for ModuleVerdicts {
         call: &TaToolCall,
     ) -> Result<Verdict, String> {
         let shell = call.name == SHELL_TOOL;
+        #[cfg(feature = "skills")]
+        let workflow_run = call.name == crate::skills::run_workflow::RUN_WORKFLOW_TOOL_NAME;
+        #[cfg(not(feature = "skills"))]
+        let workflow_run = false;
         // Unknown name: nothing to reason about, and "unknown" never means fine.
-        let Some((level, declared_external)) = self.effects.resolve_tool(&call.name).map(|tool| {
-            (
-                tool.permission_level_with_args(&call.arguments),
-                tool.external_effect_with_args(&call.arguments),
-            )
-        }) else {
+        let Some((resolved_level, declared_external)) =
+            self.effects.resolve_tool(&call.name).map(|tool| {
+                (
+                    tool.permission_level_with_args(&call.arguments),
+                    tool.external_effect_with_args(&call.arguments),
+                )
+            })
+        else {
             tracing::warn!(tool = %call.name, "{LOG} denied: tool is not registered in this session");
             return Ok(Verdict::Deny {
                 reason: DenialReason::UnsupportedEffect,
             });
         };
+        // A workflow launches a separate autonomous agent. Its tool declaration
+        // is intentionally `None` because its target policy differs; admission
+        // still needs a host-effect check paired with the exact bundle scan.
+        let level = if workflow_run {
+            PermissionLevel::Execute
+        } else {
+            resolved_level
+        };
         // Approval posture may waive a human prompt, but it must not rewrite
         // the tool's declared external effect. TinySecurity needs the real
         // effect metadata to enforce privacy and policy in every posture.
-        let external = declared_external;
+        let external = declared_external || workflow_run;
         let acts = level_acts(level);
         let (checks, redact) = if shell {
             let Some(check) = shell_check(&call.arguments) else {
@@ -159,17 +175,72 @@ impl VerdictSource for ModuleVerdicts {
                 permission: permission(level),
                 external_effect: external,
                 // An allowed acting call spends one action of the hourly budget.
-                spend: acts,
+                spend: acts && !workflow_run,
                 command_policy: None,
             };
-            (vec![check], external)
+            #[cfg(feature = "skills")]
+            let mut checks = vec![check];
+            #[cfg(not(feature = "skills"))]
+            let checks = vec![check];
+            #[cfg(feature = "skills")]
+            if workflow_run {
+                checks.push(workflow_skill_scan_check(ctx, call).await?);
+            }
+            (checks, external)
         };
         self.module.ask(ctx, call, checks, redact).await
     }
 }
 
+#[cfg(feature = "skills")]
+async fn workflow_skill_scan_check(
+    ctx: &RunContext<OpenHumanRunContext>,
+    call: &TaToolCall,
+) -> Result<Check, String> {
+    let workflow_id = call
+        .arguments
+        .get("workflow_id")
+        .or_else(|| call.arguments.get("skill_id"))
+        .and_then(serde_json::Value::as_str)
+        .filter(|value| !value.trim().is_empty())
+        .ok_or_else(|| "run_workflow is missing a workflow id".to_string())?;
+    let workspace = crate::skills::schemas::resolve_workspace_dir().await;
+    let (workflow, source) =
+        crate::skills::registry::get_workflow_with_source(&workspace, workflow_id)
+            .ok_or_else(|| format!("run_workflow references unknown workflow '{workflow_id}'"))?;
+    let scan = crate::skills::runtime::skill_scan::scan_workflow(&workflow, source.as_ref())?;
+    ctx.data.record_workflow_scan_permit(
+        workflow_id,
+        call.arguments
+            .get("inputs")
+            .unwrap_or(&serde_json::Value::Null),
+        &call.id,
+        &scan.bundle_sha256,
+    );
+    Ok(Check::SkillScan {
+        verdict: match scan.verdict {
+            tinyskills::Verdict::Pass => SkillScanVerdict::Pass,
+            tinyskills::Verdict::Warn => SkillScanVerdict::Warn,
+            tinyskills::Verdict::Block => SkillScanVerdict::Block,
+        },
+        bundle_sha256: scan.bundle_sha256,
+    })
+}
+
 fn level_acts(level: PermissionLevel) -> bool {
     level > PermissionLevel::ReadOnly
+}
+
+/// The module receives the effective host tier: the configured autonomy
+/// level narrowed by any caller-specific ceiling carried by this dispatch.
+fn access_tier(autonomy: AutonomyLevel, ceiling: Option<AutonomyLevel>) -> AccessTier {
+    if autonomy == AutonomyLevel::ReadOnly || ceiling == Some(AutonomyLevel::ReadOnly) {
+        AccessTier::Read
+    } else if autonomy == AutonomyLevel::Supervised || ceiling == Some(AutonomyLevel::Supervised) {
+        AccessTier::Write
+    } else {
+        AccessTier::Full
+    }
 }
 
 /// The shell command gate for `arguments`, or `None` when the call carries no
@@ -209,6 +280,7 @@ impl ModuleAsk for BusModule {
         // settings, so an equal policy reuses the registered scope and its ledger.
         let policy = crate::security::live_policy::effective_in(dispatch)
             .unwrap_or_else(|| Arc::new(SecurityPolicy::from_full_config(&config)));
+        let tier = access_tier(policy.autonomy, dispatch.autonomy_tier_ceiling());
         let scope = crate::modules::security::command::command_scope_id(
             &policy.workspace_dir,
             policy
@@ -246,7 +318,7 @@ impl ModuleAsk for BusModule {
                 .map(|run| run.flow_id.clone()),
             call_id,
             origin: module_origin(ctx),
-            tier: AccessTier::Full,
+            tier,
         })?;
         let tool = approval_tool_name(&call.name, &call.arguments).into_owned();
         // Arguments are only evidence for a human's approval; a call that needs

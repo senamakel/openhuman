@@ -39,6 +39,29 @@ if [[ "${OPENHUMAN_SECURITY_PERF_BUDGET:-}" == "1" ]]; then
   mkdir -p "$(dirname "$OPENHUMAN_SECURITY_PERF_OUT")"
 fi
 
-bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib "$@" \
-  --no-default-features --features inference,web3,modules,security-module \
-  modules::security -- --include-ignored --nocapture
+for test_filter in \
+  modules::security \
+  security::approval \
+  security::egress \
+  security::redact \
+  sandbox::spawn_plan \
+  tools::implementations; do
+  bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib "$@" \
+    --no-default-features \
+    --features inference,web3,modules,security-module,native-security-tests,flows,storage-sqlite,secret-file,legacy-import \
+    "$test_filter" -- --nocapture
+done
+
+# Production clients use the process-wide module runtime, which intentionally
+# has no shutdown/unload path. Run each such test in a fresh process so its
+# loaded native module cannot race the isolated-broker fixture tests above.
+for test_filter in \
+  modules::security::production_tests::production_client_registers_and_checks_a_path_policy_on_the_released_archive \
+  modules::security::production_tests::sync_seam_redacts_through_the_released_archive_from_inside_and_outside_a_runtime \
+  modules::security::production_tests::production_client_gates_shell_and_network_on_the_released_archive \
+  modules::security::production_tests::production_keyring_is_denied_and_creates_no_store_on_the_released_archive; do
+  bash scripts/ci-cancel-aware.sh cargo test -p openhuman --lib "$@" \
+    --no-default-features \
+    --features inference,web3,modules,security-module,native-security-tests,flows,storage-sqlite,secret-file,legacy-import \
+    "$test_filter" -- --ignored --nocapture
+done

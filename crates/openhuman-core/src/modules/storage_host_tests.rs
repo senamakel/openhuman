@@ -4,7 +4,8 @@ use std::sync::Mutex;
 
 use serde_json::json;
 use tinystoragedrivers::secrets::DerivedKeys;
-use tinystoragedrivers::{CollectionSpec, MemoryStorage};
+use tinystoragedrivers::CollectionSpec;
+use tinystoragedrivers_testkit::MemoryBackend as MemoryStorage;
 use zeroize::Zeroizing;
 
 struct Directory(HashMap<String, String>);

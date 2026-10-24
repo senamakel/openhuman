@@ -225,7 +225,7 @@ fn vision_agent_loads_on_its_pinned_multimodal_model() {
     let def = find("vision_agent");
     assert!(matches!(
         def.model,
-        ModelSpec::Exact(ref m) if m == crate::config::MODEL_MEDIA_UNDERSTANDING
+        ModelSpec::Exact(ref m) if m == "openrouter/qwen/qwen3.5-flash-02-23"
     ));
 
     let orchestrator = find("orchestrator");

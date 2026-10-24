@@ -124,8 +124,8 @@ async fn call_tool_judges_the_policy_of_the_explicit_context_across_scopes() {
     let mut denying = crate::config::Config::default();
     denying.workspace_dir = tmp_deny.path().to_path_buf();
     denying.action_dir = tmp_deny.path().to_path_buf();
-    denying.autonomy.enabled = true;
-    denying.autonomy.level = AutonomyLevel::ReadOnly;
+    denying.security.autonomy.enabled = true;
+    denying.security.autonomy.level = AutonomyLevel::ReadOnly;
     let mut allowing = crate::config::Config::default();
     allowing.workspace_dir = tmp_allow.path().to_path_buf();
     allowing.action_dir = tmp_allow.path().to_path_buf();

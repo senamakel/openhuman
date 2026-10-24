@@ -21,12 +21,15 @@ use crate::security::devices::types::PairedDevice;
 use crate::storage::documents::{compare_and_swap, text, Repo};
 use crate::storage::DocumentStoreExt;
 
-use super::storage_schema::{legacy_collections, spec, DEVICES};
+#[cfg(feature = "legacy-import")]
+use super::storage_schema::legacy_collections;
+use super::storage_schema::{spec, DEVICES};
 use crate::storage::schema_support::{key_of, ms_rfc3339};
 
 const DOMAIN: &str = "devices::store";
 
 /// The legacy `devices.db`, as the storage importer reads it.
+#[cfg(feature = "legacy-import")]
 pub(crate) fn import_source() -> crate::storage::import::Source {
     crate::storage::import::Source {
         domain: "devices",
@@ -82,7 +85,7 @@ pub(super) struct Docs(Repo);
 
 impl Docs {
     #[cfg(test)]
-    pub(super) fn over(scoped: &crate::storage::ScopedStorage) -> Self {
+    pub(super) fn over(scoped: &crate::storage::Storage) -> Self {
         Self(Repo::over(scoped, DOMAIN, collections))
     }
 

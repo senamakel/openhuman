@@ -24,6 +24,7 @@ use tinyagents_session::threads::{
     CreateConversationThread, CrossThreadHit, DriverConversationStore, ThreadMessage,
     ThreadMessagePatch,
 };
+use tinyagents_storage_kit::{Scope as AgentScope, ScopedStorage};
 
 use crate::core::runtime::DispatchCtx;
 use crate::storage::documents::Repo;
@@ -81,7 +82,7 @@ fn describe(error: &ConversationError, subject: Subject<'_>) -> String {
             let text = inner.to_string();
             match (subject.thread, subject.message) {
                 (Some(t), Some(m)) if text.contains("message") => {
-                    return format!("message {m} not found in thread {t}")
+                    return format!("message {m} not found in thread {t}");
                 }
                 (Some(t), _) => return format!("thread {t} not found"),
                 _ => {}
@@ -110,14 +111,17 @@ pub(crate) fn import_legacy_into(
         .map_err(|e| format!("{LOG_PREFIX} open the storage scope: {e}"))?;
     let repo = Repo::on(backend, &scope, DOMAIN, super::legacy_import::collections)
         .map_err(|e| format!("{LOG_PREFIX} {e:#}"))?;
-    let store = DriverConversationStore::new(scoped.clone());
+    let _store = DriverConversationStore::new(ScopedStorage::new(
+        scoped.clone(),
+        AgentScope::new(scope.as_str()).map_err(|e| format!("{LOG_PREFIX} invalid scope: {e}"))?,
+    ));
     let docs = Arc::clone(scoped.documents());
     storage::block_on(async move {
         DriverConversationStore::prepare_schema(docs.as_ref()).await?;
         DriverConversationStore::prepare_append_schema(docs.as_ref()).await
     })
     .map_err(|e| format!("{LOG_PREFIX} declare the conversation schema: {e}"))?;
-    super::legacy_import::import_once(workspace_dir, &repo, &store)
+    super::legacy_import::import_once(workspace_dir, &repo)
         .map_err(|e| format!("{LOG_PREFIX} legacy import: {e:#}"))
 }
 
@@ -150,17 +154,44 @@ impl ConversationStore {
             .map_err(|e| format!("{LOG_PREFIX} open the storage scope: {e}"))?;
         let repo = Repo::on(&backend, &scope, DOMAIN, super::legacy_import::collections)
             .map_err(|e| format!("{LOG_PREFIX} {e:#}"))?;
-        let store = DriverConversationStore::new(scoped.clone());
+        let owner_storage = ScopedStorage::new(
+            scoped.clone(),
+            AgentScope::new(scope.as_str())
+                .map_err(|e| format!("{LOG_PREFIX} invalid scope: {e}"))?,
+        );
+        let store = DriverConversationStore::new(owner_storage.clone());
         repo.once_per_backend("schema", || {
-            let docs = Arc::clone(scoped.documents());
+            let leased_storage = owner_storage.clone();
             storage::block_on(async move {
-                DriverConversationStore::prepare_schema(docs.as_ref()).await?;
-                DriverConversationStore::prepare_append_schema(docs.as_ref()).await
+                let migration_storage = leased_storage.clone();
+                tinyagents_storage_kit::with_migration_lease(
+                    &leased_storage,
+                    "conversations",
+                    move |_| async move {
+                        let docs = Arc::clone(migration_storage.documents());
+                        DriverConversationStore::prepare_schema(docs.as_ref()).await?;
+                        DriverConversationStore::prepare_append_schema(docs.as_ref()).await?;
+                        for spec in tinyagents_storage_kit::primitives::collection_specs() {
+                            docs.ensure_collection(&spec).await?;
+                        }
+                        let registry = tinyagents_storage_kit::Registry::compose([
+                            tinyagents_session::threads::conversations_storage_schema(),
+                        ])?;
+                        registry
+                            .migrate(
+                                &migration_storage,
+                                &tinyagents_storage_kit::MigrateOptions::new(),
+                            )
+                            .await?;
+                        Ok(())
+                    },
+                )
+                .await
             })
-            .map_err(|e| anyhow::anyhow!("declare the conversation schema: {e}"))
+            .map_err(|e| anyhow::anyhow!("prepare the conversation schema: {e}"))
         })
         .map_err(|e| format!("{LOG_PREFIX} {e:#}"))?;
-        super::legacy_import::import_once(&self.workspace_dir, &repo, &store)
+        super::legacy_import::import_once(&self.workspace_dir, &repo)
             .map_err(|e| format!("{LOG_PREFIX} legacy import: {e:#}"))?;
         Ok(store)
     }

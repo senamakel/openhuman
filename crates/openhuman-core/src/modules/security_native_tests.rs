@@ -1,4 +1,5 @@
 use super::*;
+use std::sync::Arc;
 use tinybus::{broker::Broker, module::ModuleHost, transport::memory::MemoryBus, Connection};
 use tinysecurity_bus::{PathAccess, PathPolicy, PathTrustedRoot, PathValidationResult};
 
@@ -17,8 +18,8 @@ const TURN_SAMPLES: usize = 200;
 pub(crate) struct NativeFixture {
     pub(crate) _fixtures: tempfile::TempDir,
     pub(crate) acting: tempfile::TempDir,
-    pub(crate) host: ModuleHost,
-    pub(crate) _broker_task: tokio::task::JoinHandle<tinybus::Result<()>>,
+    pub(crate) host: std::mem::ManuallyDrop<Arc<ModuleHost>>,
+    pub(crate) _broker_task: Option<tokio::task::JoinHandle<tinybus::Result<()>>>,
     pub(crate) proxy: tinybus::Proxy,
     pub(crate) client: Connection,
     pub(crate) record: super::super::ModuleRecord,
@@ -27,7 +28,52 @@ pub(crate) struct NativeFixture {
     // Keep the process-global TinySecurity module bus name reserved until all
     // fixture-owned module state has been dropped. This is last so it drops
     // after `host` and the broker task.
-    _module_name_guard: tokio::sync::OwnedMutexGuard<()>,
+    _module_name_guard: Option<tokio::sync::OwnedMutexGuard<()>>,
+}
+
+impl NativeFixture {
+    async fn shutdown(&mut self, timeout: Duration) {
+        self.host.shutdown(timeout).await;
+        if let Some(broker_task) = self._broker_task.take() {
+            broker_task.abort();
+            let _ = broker_task.await;
+        }
+    }
+}
+
+impl Drop for NativeFixture {
+    fn drop(&mut self) {
+        let Some(broker_task) = self._broker_task.take() else {
+            unsafe { std::mem::ManuallyDrop::drop(&mut self.host) };
+            return;
+        };
+        let host = unsafe { std::mem::ManuallyDrop::take(&mut self.host) };
+        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
+            let cleanup = async move {
+                host.shutdown(std::time::Duration::from_secs(2)).await;
+                broker_task.abort();
+                let _ = broker_task.await;
+                drop(host);
+            };
+            if matches!(
+                runtime.runtime_flavor(),
+                tokio::runtime::RuntimeFlavor::MultiThread
+            ) {
+                tokio::task::block_in_place(|| runtime.block_on(cleanup));
+            } else {
+                let Some(module_name_guard) = self._module_name_guard.take() else {
+                    return;
+                };
+                runtime.spawn(async move {
+                    cleanup.await;
+                    drop(module_name_guard);
+                });
+            }
+        } else {
+            broker_task.abort();
+            drop(host);
+        }
+    }
 }
 
 fn module_name_lock() -> std::sync::Arc<tokio::sync::Mutex<()>> {
@@ -179,47 +225,53 @@ pub(crate) async fn native_fixture_configured(
         "native module did not become available: {:#?}",
         host.list()
     );
+    let attested = tokio::time::timeout(LOAD_TIMEOUT, async {
+        loop {
+            if proxy.attestation().await.unwrap().is_some() {
+                break;
+            }
+            tokio::task::yield_now().await;
+        }
+    })
+    .await;
+    assert!(
+        attested.is_ok(),
+        "native module became available without recipient attestation: {:#?}",
+        host.list()
+    );
     if record.version != "test-only" {
         let unpinned = super::super::ModuleRecord {
             assets: &[],
             ..record
         };
+        let attestation = proxy.attestation().await.unwrap();
         assert_eq!(
-            require_attestation(&proxy, &unpinned).await.unwrap_err(),
+            validate_attestation(attestation.clone(), &unpinned).unwrap_err(),
             "TinySecurity recipient does not match a pinned release"
         );
-        require_attestation(&proxy, &record).await.unwrap();
+        validate_attestation(attestation, &record).unwrap();
     }
     NativeFixture {
         _fixtures: fixtures,
         acting,
-        host,
-        _broker_task: broker_task,
+        host: std::mem::ManuallyDrop::new(Arc::new(host)),
+        _broker_task: Some(broker_task),
         proxy,
         client,
         record,
         transport,
-        _module_name_guard: module_name_guard,
+        _module_name_guard: Some(module_name_guard),
     }
 }
 
 /// The native CI lane loads the real release through its compiled archive pin.
 /// An explicitly selected local fixture remains available for module development.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
-    let NativeFixture {
-        _fixtures,
-        acting,
-        host,
-        _broker_task: broker_task,
-        proxy,
-        record: _,
-        client: _,
-        transport: _,
-        _module_name_guard,
-    } = native_fixture().await;
-    let root = acting.path().canonicalize().unwrap();
+    let mut fixture = native_fixture().await;
+    let proxy = fixture.proxy.clone();
+    let root = fixture.acting.path().canonicalize().unwrap();
     let action = root.join("action");
     std::fs::create_dir(&action).unwrap();
     std::fs::write(action.join("readable.txt"), "fixture").unwrap();
@@ -242,9 +294,14 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
     let mut malformed = policy.clone();
     malformed.action_dir = "relative-root".into();
     assert!(call_register_path_policy(&proxy, malformed).await.is_err());
+    assert_eq!(
+        fixture.host.list()[0].state,
+        tinybus::module::ModuleState::Ready,
+        "rejecting a malformed path policy must not fault TinySecurity"
+    );
     let id = call_register_path_policy(&proxy, policy.clone())
         .await
-        .unwrap();
+        .unwrap_or_else(|error| panic!("{error}; module state: {:#?}", fixture.host.list()));
     assert_eq!(
         id,
         call_register_path_policy(&proxy, policy.clone())
@@ -290,12 +347,14 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
         .unwrap(),
         PathValidationResult::Denied { .. }
     ));
-    host.reinitialize(
-        "tinysecurity-module",
-        serde_json::to_value(ModuleConfig::default()).unwrap(),
-    )
-    .await
-    .unwrap();
+    fixture
+        .host
+        .reinitialize(
+            "tinysecurity-module",
+            serde_json::to_value(ModuleConfig::default()).unwrap(),
+        )
+        .await
+        .unwrap();
     assert_eq!(
         valid,
         call_validate_path(
@@ -418,7 +477,7 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
             pct(&per_call, 0.99)
         );
     }
-    host.shutdown(Duration::from_secs(1)).await;
+    fixture.shutdown(Duration::from_secs(1)).await;
     assert!(
         call_validate_path(
             &proxy,
@@ -430,7 +489,6 @@ async fn attested_native_path_policy_resolves_and_denies_through_host_client() {
         .is_err(),
         "stopped module must refuse validation without an in-process fallback"
     );
-    broker_task.abort();
 }
 
 #[cfg(unix)]
@@ -609,9 +667,22 @@ async fn verify_host_translation(proxy: &tinybus::Proxy, root: &std::path::Path)
     ));
 }
 
+/// A released test module must not remain live on its broker after its fixture
+/// drops, otherwise later fixtures can share process-owned native state.
+#[tokio::test(flavor = "multi_thread")]
+#[cfg(feature = "native-security-tests")]
+async fn dropping_a_native_fixture_releases_the_module_before_the_next_load() {
+    let first = native_fixture().await;
+    drop(first);
+
+    // Loading the same cdylib again must produce a fresh attested recipient,
+    // not a still-running module or broker from the previous fixture.
+    let _second = native_fixture().await;
+}
+
 /// A tampered archive digest must be refused at admission, before any code runs.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 async fn released_archive_with_tampered_digest_is_denied() {
     let host_key = std::env::var("OPENHUMAN_TEST_SECURITY_RELEASE_HOST")
         .expect("set OPENHUMAN_TEST_SECURITY_RELEASE_HOST");

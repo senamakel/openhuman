@@ -19,7 +19,7 @@ pub struct SandboxSettingsPatch {
 
 pub async fn get_sandbox_settings(ctx: &DispatchCtx) -> Result<Outcome<serde_json::Value>, String> {
     let config = ctx.load_config().await?;
-    let sandbox = &config.sandbox;
+    let sandbox = &config.security.sandbox;
     let docker = &config.runtime.docker;
 
     // The daemon probe has no timeout of its own; bound it so a wedged
@@ -68,7 +68,7 @@ pub async fn apply_sandbox_settings(
     update: SandboxSettingsPatch,
 ) -> Result<Outcome<serde_json::Value>, String> {
     if let Some(ref backend) = update.backend {
-        config.sandbox.backend = match backend.as_str() {
+        config.security.sandbox.backend = match backend.as_str() {
             "auto" => crate::config::SandboxBackend::Auto,
             "landlock" => crate::config::SandboxBackend::Landlock,
             "docker" => crate::config::SandboxBackend::Docker,
@@ -82,7 +82,7 @@ pub async fn apply_sandbox_settings(
         };
     }
     if let Some(enabled) = update.enabled {
-        config.sandbox.enabled = Some(enabled);
+        config.security.sandbox.enabled = Some(enabled);
     }
     if let Some(ref image) = update.docker_image {
         let trimmed = image.trim();

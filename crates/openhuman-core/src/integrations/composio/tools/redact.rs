@@ -18,6 +18,9 @@ use tinytools::{ToolContent, ToolResult};
 use crate::config::Config;
 
 const MIN_SECRET_LEN: usize = 8;
+const MAX_OUTCOME_STRINGS: usize = 256;
+const MAX_OUTCOME_REDACTION_BYTES: usize = 512 * 1024;
+const OUTCOME_REDACTION_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 
 /// The Composio keys `config` can resolve to: a host-pinned key, the inline
 /// `composio.api_key`, and in unpinned direct mode the stored key.
@@ -43,22 +46,34 @@ pub(crate) fn composio_secrets(config: &Config) -> Vec<String> {
     secrets
 }
 
-/// Only a string that actually contains one of the call's keys is sent to the
-/// module. This decides whether to ask, never what to remove: the module still
-/// removes the key (and anything else it recognizes) from every string it is
-/// given. Most results never mention the key, so most results cost no module
-/// call at all.
-fn mentions_a_key(text: &str, secrets: &[String]) -> bool {
-    secrets.iter().any(|secret| text.contains(secret.as_str()))
-}
-
 /// What a result becomes when the module could not check it.
 pub(crate) const WITHHELD: &str = "Composio result withheld: the security module could not check it for credentials. Do not retry; tell the user the result could not be checked.";
+
+fn contains_configured_secret(text: &str, secrets: &[String]) -> bool {
+    secrets.iter().any(|secret| text.contains(secret))
+}
+
+fn within_redaction_limits<'a>(texts: impl IntoIterator<Item = &'a str>, count: usize) -> bool {
+    if count > MAX_OUTCOME_STRINGS {
+        return false;
+    }
+    let mut bytes = 0usize;
+    for text in texts {
+        let Some(next) = bytes.checked_add(text.len()) else {
+            return false;
+        };
+        if next > MAX_OUTCOME_REDACTION_BYTES {
+            return false;
+        }
+        bytes = next;
+    }
+    true
+}
 
 /// Every string the outcome carries that could contain a key: text, JSON string
 /// values and object keys, follow-up content, the markdown rendering and the
 /// metadata.
-fn strings_of(result: &ToolResult, secrets: &[String]) -> Vec<String> {
+fn strings_of(result: &ToolResult) -> Vec<String> {
     fn json(value: &Value, out: &mut Vec<String>) {
         match value {
             Value::String(text) => out.push(text.clone()),
@@ -88,7 +103,6 @@ fn strings_of(result: &ToolResult, secrets: &[String]) -> Vec<String> {
     if let Some(metadata) = &result.metadata {
         json(metadata, &mut out);
     }
-    out.retain(|text| mentions_a_key(text, secrets));
     out.sort();
     out.dedup();
     out
@@ -152,8 +166,8 @@ fn apply_answers(result: &mut ToolResult, answers: &HashMap<String, String>) {
 pub(crate) type Answers = Result<HashMap<String, String>, String>;
 
 /// [`redact_composio_outcome`] over an explicit redactor, so the walk is
-/// testable without a module. An outcome that mentions a key and that the
-/// redactor could not check is withheld.
+/// testable without a module. Every outcome string is checked; a malformed or
+/// unavailable redactor answer withholds the complete result.
 pub(crate) async fn redact_outcome_with<R, Fut>(
     outcome: anyhow::Result<ToolResult>,
     secrets: &[String],
@@ -165,12 +179,26 @@ where
 {
     match outcome {
         Ok(mut result) => {
-            let strings = strings_of(&result, secrets);
+            let strings = strings_of(&result);
             if strings.is_empty() {
                 return Ok(result);
             }
-            match redactor(strings).await {
+            if !within_redaction_limits(strings.iter().map(String::as_str), strings.len()) {
+                return Err(anyhow::anyhow!(WITHHELD));
+            }
+            match redactor(strings.clone()).await {
                 Ok(answers) => {
+                    if strings.iter().any(|text| {
+                        answers
+                            .get(text)
+                            .is_none_or(|answer| contains_configured_secret(answer, secrets))
+                    }) {
+                        return Err(anyhow::anyhow!(WITHHELD));
+                    }
+                    if !within_redaction_limits(answers.values().map(String::as_str), answers.len())
+                    {
+                        return Err(anyhow::anyhow!(WITHHELD));
+                    }
                     apply_answers(&mut result, &answers);
                     Ok(result)
                 }
@@ -182,16 +210,23 @@ where
         }
         Err(error) => {
             let rendered = format!("{error:#}");
-            if !mentions_a_key(&rendered, secrets) {
-                return Err(error);
+            if !within_redaction_limits(std::iter::once(rendered.as_str()), 1) {
+                return Err(anyhow::anyhow!(WITHHELD));
             }
             match redactor(vec![rendered.clone()]).await {
                 Ok(answers) => match answers.get(&rendered) {
+                    Some(redacted) if contains_configured_secret(redacted, secrets) => {
+                        Err(anyhow::anyhow!(WITHHELD))
+                    }
+                    Some(redacted) if redacted.len() > MAX_OUTCOME_REDACTION_BYTES => {
+                        Err(anyhow::anyhow!(WITHHELD))
+                    }
                     Some(redacted) if *redacted != rendered => {
-                        tracing::debug!("[composio] redacted a credential from a tool error");
+                        tracing::debug!("[composio] redacted credentials from a tool error");
                         Err(anyhow::anyhow!(redacted.clone()))
                     }
-                    _ => Err(error),
+                    Some(_) => Err(error),
+                    None => Err(anyhow::anyhow!(WITHHELD)),
                 },
                 Err(why) => {
                     tracing::warn!("[composio] error text withheld: {why}");
@@ -206,15 +241,24 @@ where
 /// credentials.
 #[cfg(feature = "security-module")]
 async fn module_answers(config: &Config, secrets: &[String], strings: Vec<String>) -> Answers {
-    let answers = futures::future::join_all(strings.iter().map(|text| {
-        crate::modules::security::text::redact_credentials_with(config, text, secrets)
-    }))
-    .await;
-    strings
-        .into_iter()
-        .zip(answers)
+    use futures::StreamExt;
+
+    tokio::time::timeout(
+        OUTCOME_REDACTION_TIMEOUT,
+        futures::stream::iter(strings.into_iter().map(|text| async move {
+            let answer =
+                crate::modules::security::text::redact_credentials_with(config, &text, secrets)
+                    .await;
+            (text, answer)
+        }))
+        .buffer_unordered(8)
         .map(|(text, answer)| answer.map(|redacted| (text, redacted)))
-        .collect()
+        .collect::<Vec<_>>(),
+    )
+    .await
+    .map_err(|_| "TinySecurity Composio result redaction timed out".to_string())?
+    .into_iter()
+    .collect()
 }
 
 /// Without the security module nothing can check a string that mentions a key,
@@ -241,10 +285,12 @@ async fn redact_one(_config: &Config, _text: &str, _secrets: &[String]) -> Resul
 /// and return that same redacted copy for the caller's own error text.
 pub(crate) async fn redact_and_report(config: &Config, operation: &str, rendered: &str) -> String {
     let secrets = composio_secrets(config);
-    let redacted = if !mentions_a_key(rendered, &secrets) {
-        rendered.to_string()
+    let redacted = if !within_redaction_limits(std::iter::once(rendered), 1) {
+        WITHHELD.to_string()
     } else {
         match redact_one(config, rendered, &secrets).await {
+            Ok(redacted) if contains_configured_secret(&redacted, &secrets) => WITHHELD.to_string(),
+            Ok(redacted) if redacted.len() > MAX_OUTCOME_REDACTION_BYTES => WITHHELD.to_string(),
             Ok(redacted) => redacted,
             Err(error) => {
                 tracing::warn!("[composio] error text withheld: {error}");
@@ -263,9 +309,6 @@ pub(crate) async fn redact_composio_outcome(
     outcome: anyhow::Result<ToolResult>,
 ) -> anyhow::Result<ToolResult> {
     let secrets = composio_secrets(config);
-    if secrets.is_empty() {
-        return outcome;
-    }
     redact_outcome_with(outcome, &secrets, |strings| {
         module_answers(config, &secrets, strings)
     })

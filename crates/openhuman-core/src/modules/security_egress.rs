@@ -223,6 +223,205 @@ fn policy_cache() -> &'static std::sync::Mutex<Vec<(EgressPolicy, EgressPolicyId
     CACHE.get_or_init(|| std::sync::Mutex::new(Vec::new()))
 }
 
+#[derive(Clone)]
+struct BrowserDialBinding {
+    policy_id: EgressPolicyId,
+    generation: u64,
+    proxy: tinybus::Proxy,
+}
+
+fn browser_dial_bindings() -> &'static std::sync::Mutex<Vec<BrowserDialBinding>> {
+    static BINDINGS: std::sync::OnceLock<std::sync::Mutex<Vec<BrowserDialBinding>>> =
+        std::sync::OnceLock::new();
+    BINDINGS.get_or_init(|| std::sync::Mutex::new(Vec::new()))
+}
+
+fn remember_browser_dial_binding(binding: BrowserDialBinding) -> Result<(), String> {
+    let mut bindings = browser_dial_bindings()
+        .lock()
+        .map_err(|_| "TinySecurity browser binding registry is unavailable")?;
+    bindings.retain(|current| {
+        current.policy_id != binding.policy_id || current.generation != binding.generation
+    });
+    bindings.push(binding);
+    if bindings.len() > 64 {
+        bindings.remove(0);
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+pub(crate) fn remember_browser_dial_binding_for_test(
+    policy_id: EgressPolicyId,
+    generation: u64,
+    proxy: tinybus::Proxy,
+) {
+    remember_browser_dial_binding(BrowserDialBinding {
+        policy_id,
+        generation,
+        proxy,
+    })
+    .expect("browser binding registry is available");
+}
+
+fn browser_dial_binding(
+    policy_id: &EgressPolicyId,
+    generation: u64,
+) -> Result<BrowserDialBinding, String> {
+    browser_dial_bindings()
+        .lock()
+        .map_err(|_| "TinySecurity browser binding registry is unavailable")?
+        .iter()
+        .find(|binding| binding.policy_id == *policy_id && binding.generation == generation)
+        .cloned()
+        .ok_or_else(|| "browser egress scope was not registered by the host".into())
+}
+
+/// Host-private TinyComputer browser scope. The policy owner is derived from
+/// the authenticated tenant and workspace; neither comes from browser input.
+pub(crate) async fn browser_dial_config(config: &Config) -> Result<(String, u64), String> {
+    let saas = crate::core::runtime::is_saas();
+    let config = super::config::host_config(&config.workspace_dir, saas)
+        .await
+        .map_err(|_| "TinySecurity browser policy configuration unavailable")?;
+    let tenant = crate::core::runtime::tenant::current_tenant()
+        .map_err(|_| "TinySecurity browser policy requires an authenticated tenant")?;
+    let owner = super::policy_translation::subject_scope(&tenant, &config.workspace_dir, saas)
+        .map_err(|_| "TinySecurity browser policy has no verified subject")?;
+    let privacy = super::policy_translation::privacy_mode(
+        crate::security::live_policy::current_privacy_mode(),
+    );
+    let policy = browser_preflight_policy(owner, privacy);
+    let policy_id = cached_policy_id(&config, policy).await?;
+    let proxy = egress_proxy(&config).await?;
+    let info = super::policy_info(&config).await?;
+    if info.generation == 0 {
+        return Err("TinySecurity browser policy generation is unavailable".into());
+    }
+    remember_browser_dial_binding(BrowserDialBinding {
+        policy_id: policy_id.clone(),
+        generation: info.generation,
+        proxy,
+    })?;
+    Ok((policy_id.0, info.generation))
+}
+
+fn browser_request(
+    target: &tinycomputer_bus::browser_egress::BrowserEgressTarget,
+) -> Result<tinysecurity_bus::BrowserDialRequest, String> {
+    Ok(tinysecurity_bus::BrowserDialRequest {
+        policy_id: EgressPolicyId(target.policy_id.clone()),
+        expected_generation: target.expected_generation,
+        session_id: target.session_id.clone(),
+        scheme: target.scheme.clone(),
+        hostname: target.hostname.clone(),
+        port: target.port,
+    })
+}
+
+/// Resolve and authorize one destination using TinySecurity's browser-specific
+/// grant. The response is checked against the exact host-configured scope before
+/// it crosses the TinyComputer callback boundary.
+pub(crate) async fn authorize_browser_dial(
+    target: tinycomputer_bus::browser_egress::BrowserEgressTarget,
+) -> Result<tinycomputer_bus::browser_egress::BrowserEgressGrant, String> {
+    let request = browser_request(&target)?;
+    let binding = browser_dial_binding(&request.policy_id, request.expected_generation)?;
+    let response: tinysecurity_bus::BrowserDialResponse = binding
+        .proxy
+        .call_confidential(
+            tinysecurity_bus::names::methods::AUTHORIZE_BROWSER_DIAL,
+            (request.clone(),),
+        )
+        .await
+        .map_err(|_| "TinySecurity AuthorizeBrowserDial failed")?;
+    if response.generation != request.expected_generation {
+        return Err("TinySecurity browser authorization generation changed".into());
+    }
+    let authorization = match (response.authorization, response.denial) {
+        (Some(authorization), None) => authorization,
+        (None, Some(denial)) => {
+            return Err(format!("TinySecurity denied browser dial: {denial:?}"))
+        }
+        _ => return Err("TinySecurity browser authorization response was ambiguous".into()),
+    };
+    if authorization.policy_id != request.policy_id
+        || authorization.generation != request.expected_generation
+        || authorization.session_id != request.session_id
+        || authorization.scheme != request.scheme
+        || authorization.hostname != request.hostname
+        || authorization.port != request.port
+        || authorization.addresses.is_empty()
+        || authorization.addresses.len() > 64
+        || authorization
+            .addresses
+            .iter()
+            .any(|address| address.port() != request.port)
+    {
+        return Err("TinySecurity returned a mismatched browser authorization".into());
+    }
+    let addresses = authorization
+        .addresses
+        .iter()
+        .map(ToString::to_string)
+        .collect::<Vec<_>>();
+    let authorization = serde_json::to_string(&authorization)
+        .map_err(|_| "TinySecurity browser authorization could not be encoded")?;
+    Ok(tinycomputer_bus::browser_egress::BrowserEgressGrant {
+        generation: request.expected_generation,
+        authorization,
+        addresses,
+    })
+}
+
+pub(crate) async fn consume_browser_dial(
+    request: tinycomputer_bus::browser_egress::BrowserEgressConsumeRequest,
+) -> Result<bool, String> {
+    use std::str::FromStr;
+    let dial = browser_request(&request.target)?;
+    let binding = browser_dial_binding(&dial.policy_id, dial.expected_generation)?;
+    let authorization: tinysecurity_bus::BrowserDialAuthorization =
+        serde_json::from_str(&request.authorization)
+            .map_err(|_| "TinySecurity browser authorization is invalid")?;
+    let address = std::net::SocketAddr::from_str(&request.address)
+        .map_err(|_| "browser socket address is invalid")?;
+    if authorization.policy_id != dial.policy_id
+        || authorization.generation != dial.expected_generation
+        || authorization.session_id != dial.session_id
+        || !authorization.addresses.contains(&address)
+        || address.port() != dial.port
+    {
+        return Ok(false);
+    }
+    binding
+        .proxy
+        .call_confidential(
+            tinysecurity_bus::names::methods::CONSUME_BROWSER_DIAL,
+            (tinysecurity_bus::ConsumeBrowserDialRequest {
+                request: dial,
+                address,
+                authorization,
+            },),
+        )
+        .await
+        .map_err(|_| "TinySecurity ConsumeBrowserDial failed".into())
+}
+
+pub(crate) async fn validate_browser_dial(authorization: String) -> Result<bool, String> {
+    let authorization: tinysecurity_bus::BrowserDialAuthorization =
+        serde_json::from_str(&authorization)
+            .map_err(|_| "TinySecurity browser authorization is invalid")?;
+    let binding = browser_dial_binding(&authorization.policy_id, authorization.generation)?;
+    binding
+        .proxy
+        .call_confidential(
+            tinysecurity_bus::names::methods::VALIDATE_BROWSER_DIAL,
+            (tinysecurity_bus::ValidateBrowserDialRequest { authorization },),
+        )
+        .await
+        .map_err(|_| "TinySecurity ValidateBrowserDial failed".into())
+}
+
 /// The open-public policy for `owner` under `privacy`: any `http(s)` destination
 /// that passes the module's address floor and privacy checks. Nothing local is
 /// registered, so a generic tool URL can never reach a host-local capability.
@@ -242,7 +441,11 @@ pub(crate) fn browser_preflight_policy(
     owner: tinysecurity_bus::SubjectScope,
     privacy: tinysecurity_bus::PrivacyMode,
 ) -> EgressPolicy {
-    policy_for(owner, privacy, vec![EgressTransport::Browser])
+    let mut policy = policy_for(owner, privacy, vec![EgressTransport::Browser]);
+    policy
+        .data_categories
+        .push(tinysecurity_bus::DataCategory::OpaqueBrowserTraffic);
+    policy
 }
 
 fn policy_for(

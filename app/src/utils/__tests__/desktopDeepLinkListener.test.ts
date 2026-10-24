@@ -59,7 +59,13 @@ const waitForAuthSettled = (): Promise<void> =>
   });
 
 vi.mock('../../lib/coreState/store', () => ({
-  getCoreStateSnapshot: () => ({ isBootstrapping: false, snapshot: { sessionToken: null } }),
+  // Report the refreshed snapshot as already committed (currentUser + sessionToken)
+  // so the listener's post-login commit poll observes it at once instead of
+  // running out its real 15 s deadline in every successful-login test.
+  getCoreStateSnapshot: () => ({
+    isBootstrapping: false,
+    snapshot: { sessionToken: 'stored-jwt', currentUser: { id: 'user-1' } },
+  }),
   patchCoreStateSnapshot: vi.fn(),
 }));
 

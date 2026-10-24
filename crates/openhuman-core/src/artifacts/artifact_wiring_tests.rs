@@ -48,7 +48,7 @@ fn stale_session(root: &Path, session: &str) -> std::path::PathBuf {
 async fn the_store_materialises_in_the_workspace_not_the_action_dir() {
     let tmp = tempfile::tempdir().unwrap();
     let workspace = tmp.path().join("workspace");
-    let store = build_artifact_store(&workspace, "s");
+    let store = build_artifact_store(&workspace, "s").expect("workspace backend is available");
     assert_eq!(
         store.materialize_root(),
         tool_result_artifacts_dir(&workspace)
@@ -63,7 +63,8 @@ async fn the_store_materialises_in_the_workspace_not_the_action_dir() {
 async fn a_stored_result_survives_a_session_reload() {
     let tmp = tempfile::tempdir().unwrap();
     let workspace = tmp.path().join("workspace");
-    let first = build_artifact_store(&workspace, "thread-1");
+    let first =
+        build_artifact_store(&workspace, "thread-1").expect("workspace backend is available");
     let raw = "z".repeat(4096);
     let (out, outcome) =
         apply_per_result_persistence(raw, None, Some(&first), "shell", Some("call-1"), 1024).await;
@@ -74,7 +75,8 @@ async fn a_stored_result_survives_a_session_reload() {
         "{key}"
     );
 
-    let reloaded = build_artifact_store(&workspace, "thread-1");
+    let reloaded =
+        build_artifact_store(&workspace, "thread-1").expect("workspace backend is available");
     let mut args = json!({"path": key});
     reloaded
         .resolve_read(
@@ -108,7 +110,7 @@ fn workspace_retention_leaves_legacy_project_artifacts_alone() {
         .build()
         .unwrap();
     let _guard = rt.enter();
-    build_artifact_store(&workspace, "current");
+    let _ = build_artifact_store(&workspace, "current");
 
     assert!(
         stale.exists(),

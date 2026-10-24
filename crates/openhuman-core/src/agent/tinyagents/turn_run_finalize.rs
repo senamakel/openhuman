@@ -112,7 +112,7 @@ pub(super) async fn finalize_turn_outcome(
             // model has a list price, else the turn's cost is unknown.
             let estimate = crate::agent::cost::estimate_call_cost_usd(
                 model,
-                &crate::inference::provider::BilledUsage::from_counts(input, output)
+                &tinyinference_llm::usage::BilledUsage::from_counts(input, output)
                     .with_cached_input_tokens(cached),
             );
             crate::agent::tinyagents::turn_outcome::record_unobserved_turn_usage(

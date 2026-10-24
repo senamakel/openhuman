@@ -36,6 +36,7 @@ fn bare() -> crate::agent::SessionHostBuilder {
         Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
     crate::agent::SessionHostBuilder::new()
         .chat_model(model)
+        .model_name("test/session-fixture".to_string())
         .tools(Vec::new())
         .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
 }

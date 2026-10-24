@@ -1,7 +1,7 @@
 use super::*;
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_listed_whole_tool_grant_can_be_revoked_by_its_opaque_id() {
     let world = world().await;
     let first = crate::core::runtime::Tenant::default();

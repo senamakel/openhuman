@@ -216,8 +216,10 @@ async fn durable_tool_trust_skips_prompt() {
     assert_eq!(ids.len(), 1, "the grant is a recorded approval");
     assert_eq!(stub.attribution(&ids[0]), Some("auto:tool-grant"));
     assert!(
-        stub.seen()[0].posture.tool_grants.is_empty(),
-        "durable grants are resolved by the module, not replayed as posture"
+        !stub.seen()[0]
+            .legacy_tool_grants
+            .contains(&tool.to_string()),
+        "the durable grant is resolved by the module, not imported from legacy config"
     );
 }
 

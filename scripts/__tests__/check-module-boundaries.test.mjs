@@ -16,6 +16,14 @@ function metadata(edges, names = {}) {
 }
 
 test('checked-in inventory has explicit owners and reasoned exceptions', () => validatePolicy(policy));
+test('TinyJuice host adapter is allowed while implementation dependencies remain audited', () => {
+  assert.equal(isImplementation('tinyjuice-host', policy), false);
+  assert.equal(isImplementation('tinyjuice-core', policy), true);
+  const m = metadata({ host: [['tinyjuice-host']], 'tinyjuice-host': [['tinyjuice']] });
+  assert.deepEqual(auditGraph(m, ['host'], policy).violations.map(v => v.path), [
+    ['host', 'tinyjuice-host', 'tinyjuice'],
+  ]);
+});
 test('host traversal rejects direct, wrapper and build dependencies', () => {
   const m = metadata({ host: [['wrapper'], ['tinyvoice', 'build']], wrapper: [['tinyjuice']] });
   const result = auditGraph(m, ['host'], strict);
@@ -47,6 +55,18 @@ test('new implementation packages in owning repositories are forbidden', () => {
 test('contracts permit only the serialization/schema/error closure', () => {
   const m = metadata({ 'tinyjuice-bus': [['serde'], ['thiserror']], serde: [['serde_derive']], serde_derive: [['syn']], thiserror: [['thiserror-impl']] });
   assert.deepEqual(auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations, []);
+});
+test('contracts allow pinned canonical TSD vocabulary and reject other git sources', () => {
+  const m = metadata({ 'tinyjuice-bus': [['tinystoragedrivers-types']] });
+  const types = m.packages.find(pkg => pkg.name === 'tinystoragedrivers-types');
+  const revision = 'a'.repeat(40);
+  types.source = `git+https://github.com/tinyhumansai/tinystoragedrivers?rev=${revision}#${revision.slice(0, 8)}`;
+  assert.deepEqual(auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations, []);
+
+  types.source = `git+https://github.com/senamakel/tinystoragedrivers?rev=${revision}#${revision}`;
+  assert.equal(auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations[0].package, 'tinystoragedrivers-types');
+  types.source = 'git+https://github.com/tinyhumansai/tinystoragedrivers#main';
+  assert.equal(auditGraph(m, ['tinyjuice-bus'], strict, 'tinyjuice-bus').violations[0].package, 'tinystoragedrivers-types');
 });
 test('contracts reject transport, runtime, HTTP, database and native libraries', () => {
   for (const dependency of ['tinybus', 'tokio', 'reqwest', 'rusqlite', 'cpal', 'tinyjuice']) {
@@ -288,6 +308,7 @@ test('a package-scoped normal tree still rejects an activated implementation wri
 
 test('host boundary audit ignores writer features unified only by unrelated workspace dev fixtures', () => {
   const root = resolve(new URL('../..', import.meta.url).pathname);
+  mkdirSync(join(root, 'target'), { recursive: true });
   const harnessRoot = mkdtempSync(join(root, 'target', 'module-boundaries-host-isolation-'));
   try {
     mkdirSync(join(harnessRoot, 'scripts', 'ci'), { recursive: true });

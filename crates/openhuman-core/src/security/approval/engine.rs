@@ -4,7 +4,7 @@
 //! cancelled, reserved, executed), its exact binding to the call, the tool and
 //! flow grants, the 10-minute interactive expiry and the audit trail are the
 //! TinySecurity module's. The gate keeps what is the host's: the verified
-//! origin of a call, which grants and posture the user configured, the parked
+//! origin of a call, the approval posture, the legacy import payload, the parked
 //! tool-call future, chat routing and the product events.
 //!
 //! This file is the seam between the two. It holds no module types, so the gate
@@ -56,16 +56,14 @@ impl Variant {
     }
 }
 
-/// What the user configured for a subject: the module converts a required
-/// approval into an audited automatic one only as far as this allows.
+/// Runtime approval settings registered for a subject; durable tool and flow
+/// grants are kept by the module and are not part of this posture.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct Posture {
     /// An approval is required unless the agent's approvals are off.
     pub require_approval: bool,
     /// The user opted into approving everything.
     pub auto_approve_all: bool,
-    /// Tool names the user chose to always allow.
-    pub tool_grants: Vec<String>,
 }
 
 /// The verified origin class the module sees. The module, not the host, decides
@@ -88,7 +86,7 @@ pub(crate) enum CallOrigin {
     /// module approves it automatically, audited.
     LocalOperator,
     /// A call whose origin nobody labelled: the module denies it unless the
-    /// posture's tool grants name the tool.
+    /// durable whole-tool trust names the tool.
     Unlabelled,
 }
 
@@ -100,6 +98,9 @@ pub(crate) struct CheckInput {
     pub variant: Variant,
     /// The user's configured posture for this subject, read live.
     pub posture: Posture,
+    /// Legacy `auto_approve` entries carried only so the native engine can
+    /// import them once as durable module trust; they are not runtime posture.
+    pub legacy_tool_grants: Vec<String>,
     /// The correlation the prompt surface finds the call by. Eight lowercase hex
     /// characters, which the module's identifier hashing leaves unchanged.
     pub call_id: String,

@@ -127,6 +127,8 @@ pub fn all_tools_with_runtime_and_pack_handle(
 
     let mut tools: Vec<Box<dyn Tool>> = vec![
         shell,
+        // Follows a `shell` command left running past its yield point.
+        Box::new(ShellProcessTool::new()),
         Box::new(FileReadTool::new(security.clone())),
         file_write,
         // Coding-harness baseline tools (issue #1205): file navigation
@@ -275,7 +277,9 @@ pub fn all_tools_with_runtime_and_pack_handle(
     if crate::inference::tokenjuice::enabled(root_config) {
         tools.push(Box::new(retrieve_tool_output_tool()));
         tools.push(Box::new(
-            crate::inference::tokenjuice::TokenjuiceRetrieveTool::new(),
+            tinyjuice_host::retrieve_tool::RetrieveToolOutputTool::new(Arc::new(|token, range| {
+                Box::pin(async move { crate::inference::tokenjuice::retrieve(token, range).await })
+            })),
         ));
     } else {
         tracing::debug!("[tools::ops] juice component off; recovery tools not registered");
@@ -501,7 +505,7 @@ pub fn all_tools_with_runtime_and_pack_handle(
         tools.push(Box::new(DelegateTool::new_with_options(
             delegate_agents,
             security.clone(),
-            crate::inference::provider::ProviderRuntimeOptions {
+            crate::tools::delegate::ProviderRuntimeOptions {
                 auth_profile_override: None,
                 openhuman_dir: root_config
                     .config_path

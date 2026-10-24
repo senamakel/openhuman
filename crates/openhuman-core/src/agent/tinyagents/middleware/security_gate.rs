@@ -15,9 +15,13 @@
 
 use std::sync::Arc;
 
+#[cfg(not(feature = "security-module"))]
 use tinyagents_harness::context::RunContext;
-use tinyagents_harness::middleware::{PolicyDecision, ToolCallPolicy};
+#[cfg(not(feature = "security-module"))]
+use tinyagents_harness::middleware::PolicyDecision;
+use tinyagents_harness::middleware::ToolCallPolicy;
 use tinyagents_harness::runtime::AgentHarness;
+#[cfg(not(feature = "security-module"))]
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::Tool;
 
@@ -25,15 +29,16 @@ use super::approval::ApprovalSecurityMiddleware;
 use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::ToolPolicyEnforcement;
 
-/// Folds independent host and module policies before the single resolver sees
-/// an approval request. A denial from any source dominates an approval from
-/// another source.
-struct CombinedPolicy {
+/// Feature-off policy fold. Without the module, only inert calls can be
+/// admitted, then the host builder policy can further narrow that result.
+#[cfg(not(feature = "security-module"))]
+struct FallbackPolicy {
     policies: Vec<Arc<dyn ToolCallPolicy<OpenHumanRunContext>>>,
 }
 
+#[cfg(not(feature = "security-module"))]
 #[async_trait::async_trait]
-impl ToolCallPolicy<OpenHumanRunContext> for CombinedPolicy {
+impl ToolCallPolicy<OpenHumanRunContext> for FallbackPolicy {
     fn name(&self) -> &str {
         "openhuman_security_gate"
     }
@@ -171,28 +176,25 @@ pub(crate) fn tool_middleware(
         if let Some(session) = channel {
             sources.push(Arc::new(ChannelApprovalVerdicts::new(session)));
         }
-        let security_policy: Arc<dyn ToolCallPolicy<OpenHumanRunContext>> =
-            Arc::new(TinySecurityPolicy::with_sources(sources));
-        let mut policies = vec![security_policy];
+        let mut security_policy = TinySecurityPolicy::with_sources(sources);
+        security_policy = security_policy.with_policy_source(Arc::new(
+            super::sandbox_requirement::SandboxRequirementPolicy::from_tool_sets(&tool_sets),
+        ));
         if let Some(enforcement) = &enforcement {
-            policies.push(super::tool_policy::ToolPolicyMiddleware::builder_policy(
-                enforcement.policy.clone(),
-                tool_sets.clone(),
-            ));
+            security_policy = security_policy.with_policy_source(
+                super::tool_policy::builder_policy(enforcement.policy.clone(), tool_sets.clone()),
+            );
         }
-        let policy: Arc<dyn ToolCallPolicy<OpenHumanRunContext>> =
-            Arc::new(CombinedPolicy { policies });
+        let policy: Arc<dyn ToolCallPolicy<OpenHumanRunContext>> = Arc::new(security_policy);
         let resolver = Arc::new(ApprovalSecurityMiddleware::new(tool_sets.clone()));
         let mut gate = gate(policy, resolver);
         if let Some(enforcement) = enforcement {
-            gate = gate.with_session_ceiling(
-                super::tool_policy::ToolPolicyMiddleware::session_ceiling(
-                    enforcement.session.clone(),
-                    tool_sets.clone(),
-                    enforcement.channel.clone(),
-                ),
-            );
-            gate = gate.with_post_gate(super::tool_policy::ToolPolicyMiddleware::skill_post_gate(
+            gate = gate.with_session_ceiling(super::tool_policy::session_ceiling(
+                enforcement.session.clone(),
+                tool_sets.clone(),
+                enforcement.channel.clone(),
+            ));
+            gate = gate.with_post_gate(super::tool_policy::skill_post_gate_for_session(
                 enforcement.session,
                 tool_sets,
                 enforcement.channel,
@@ -208,22 +210,23 @@ pub(crate) fn tool_middleware(
             vec![Arc::new(MissingModulePolicy {
                 effects: ApprovalSecurityMiddleware::new(tool_sets.clone()),
             })];
+        policies.push(Arc::new(
+            super::sandbox_requirement::SandboxRequirementPolicy::from_tool_sets(&tool_sets),
+        ));
         if let Some(enforcement) = &enforcement {
-            policies.push(super::tool_policy::ToolPolicyMiddleware::builder_policy(
+            policies.push(super::tool_policy::builder_policy(
                 enforcement.policy.clone(),
                 tool_sets.clone(),
             ));
         }
-        let mut gate = gate(Arc::new(CombinedPolicy { policies }), resolver);
+        let mut gate = gate(Arc::new(FallbackPolicy { policies }), resolver);
         if let Some(enforcement) = enforcement {
-            gate = gate.with_session_ceiling(
-                super::tool_policy::ToolPolicyMiddleware::session_ceiling(
-                    enforcement.session.clone(),
-                    tool_sets.clone(),
-                    enforcement.channel.clone(),
-                ),
-            );
-            gate = gate.with_post_gate(super::tool_policy::ToolPolicyMiddleware::skill_post_gate(
+            gate = gate.with_session_ceiling(super::tool_policy::session_ceiling(
+                enforcement.session.clone(),
+                tool_sets.clone(),
+                enforcement.channel.clone(),
+            ));
+            gate = gate.with_post_gate(super::tool_policy::skill_post_gate_for_session(
                 enforcement.session,
                 tool_sets,
                 enforcement.channel,

@@ -122,6 +122,14 @@ mod module_backed {
                 )
                 .unwrap()),
                 names::methods::STATIC_LIST => Ok(json!(self.statics)),
+                names::methods::STATIC_LIST_TOOLS => Ok(json!([{
+                    "name": "show",
+                    "description": "Shows a card",
+                    "input_schema": {},
+                    "_meta": {"ui": {"resourceUri": "ui://card"}},
+                    "annotations": {"readOnlyHint": true}
+                }])),
+                names::methods::STATIC_SCRUB_TOOLS => Ok(args[0]["tools"].clone()),
                 names::methods::LIST_TOOLS => Ok(json!([{
                     "name": "show",
                     "description": "Shows a card",
@@ -237,6 +245,23 @@ mod module_backed {
             },
         )
         .await;
+    }
+
+    #[tokio::test]
+    async fn a_static_tool_descriptor_carries_the_tools_meta_and_annotations() {
+        let fake = Arc::new(ModulePort {
+            statics: vec!["srv-1"],
+            ..ModulePort::default()
+        });
+        let descriptor = port_over(&fake)
+            .tool_descriptor("srv-1", "show")
+            .await
+            .expect("descriptor");
+        assert_eq!(
+            descriptor.meta,
+            Some(json!({"ui": {"resourceUri": "ui://card"}}))
+        );
+        assert_eq!(descriptor.annotations, Some(json!({"readOnlyHint": true})));
     }
 
     #[tokio::test]

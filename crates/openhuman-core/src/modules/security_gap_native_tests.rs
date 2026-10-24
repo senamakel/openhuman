@@ -48,7 +48,7 @@ fn is_allow(decision: &Decision) -> bool {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_floor_vocabulary_is_itself_protected() {
     let native = native_fixture().await;
     let floor: ProtectedFloor2 = native
@@ -103,7 +103,7 @@ async fn the_floor_vocabulary_is_itself_protected() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_path_batch_answers_what_the_single_query_answers() {
     let native = native_fixture().await;
     let workspace = native.acting.path().join("workspace");
@@ -160,7 +160,7 @@ async fn a_path_batch_answers_what_the_single_query_answers() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn spending_and_peeking_share_the_command_ledger() {
     let native = native_fixture().await;
     let scope = super::scoped_client::register_command_policy(
@@ -197,7 +197,7 @@ async fn spending_and_peeking_share_the_command_ledger() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_read_only_scope_refuses_before_spending() {
     let native = native_fixture().await;
     let mut policy = command_policy(native.acting.path(), 5);
@@ -221,7 +221,7 @@ async fn a_read_only_scope_refuses_before_spending() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn privacy_and_host_action_class_answer_as_the_host_expects() {
     let native = native_fixture().await;
     let ask = |privacy, external, class, risk| {

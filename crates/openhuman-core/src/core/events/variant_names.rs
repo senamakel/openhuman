@@ -71,6 +71,8 @@ impl DomainEvent {
             Self::InboundEventDropped { .. } => "InboundEventDropped",
             Self::InboundDeferred { .. } => "InboundDeferred",
             Self::InboundDeadLettered { .. } => "InboundDeadLettered",
+            Self::InboundTurnCompleted { .. } => "InboundTurnCompleted",
+            Self::InboundTurnFailed { .. } => "InboundTurnFailed",
             Self::DevicePaired { .. } => "DevicePaired",
             Self::DeviceRevoked { .. } => "DeviceRevoked",
             Self::DevicePeerOnline { .. } => "DevicePeerOnline",

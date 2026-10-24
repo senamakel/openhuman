@@ -1,5 +1,5 @@
 use super::*;
-use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
+use tinystoragedrivers::{Scope, StorageBackend};
 
 fn subject(agent: &str) -> SubjectScope {
     SubjectScope {
@@ -10,7 +10,7 @@ fn subject(agent: &str) -> SubjectScope {
 }
 
 fn entry(agent: &str) -> Arc<ScopeEntry> {
-    let storage = MemoryStorage::new();
+    let storage = tinystoragedrivers_testkit::memory_backend();
     let scoped = storage.for_scope(&Scope::new("local").unwrap()).unwrap();
     Arc::new(ScopeEntry::new(
         subject(agent),

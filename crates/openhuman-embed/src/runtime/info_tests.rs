@@ -38,6 +38,33 @@ fn capability_json_is_versioned_and_never_contains_credentials() {
         openhuman_core::core::runtime::compiled_features()
     );
 }
+
+#[tokio::test]
+async fn custom_backend_metadata_does_not_infer_a_driver_or_recovery_policy() {
+    let backend = openhuman_core::storage::open("memory")
+        .await
+        .expect("memory backend");
+    let info = StorageInfo::describe(
+        Some(&super::super::StorageSource::Backend(backend)),
+        &openhuman_core::config::Config::default(),
+        None,
+    );
+
+    assert_eq!(info.source, "backend");
+    assert_eq!(info.driver, None);
+    assert!(info.configured);
+    assert!(!info.recover_sessions_on_open());
+}
+
+#[test]
+fn recovery_policy_uses_only_the_resolved_url_driver() {
+    let local = StorageInfo::url("explicit", "memory");
+    let shared = StorageInfo::url("explicit", "mongodb://localhost/test");
+
+    assert!(local.recover_sessions_on_open());
+    assert!(!shared.recover_sessions_on_open());
+    assert!(!StorageInfo::backend(None).recover_sessions_on_open());
+}
 #[test]
 fn describe_includes_effective_host_limits_and_agent_defaults() {
     let info = RuntimeBuilder::new()

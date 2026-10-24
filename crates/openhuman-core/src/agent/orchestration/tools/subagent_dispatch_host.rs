@@ -218,7 +218,10 @@ pub(crate) async fn dispatch_subagent_with_live_parent(
         if crate::attachments::should_forward_parent_images(prompt)
             && !images.is_empty()
             && (agent_id == "vision_agent"
-                || crate::inference::provider::factory::oh_tier_supports_vision(&subagent_model))
+                || crate::inference::registry::provider_model_supports_vision(
+                    crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                    &subagent_model,
+                ))
         {
             log::info!(
                 "[agent] forwarding {} image placeholder(s) to vision sub-agent '{}'",

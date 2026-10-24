@@ -1,4 +1,4 @@
-//! `[autonomy] enabled = false` — the shipped default.
+//! `[security.autonomy] enabled = false` — the shipped default.
 //!
 //! Two halves, and both matter: with the policy disabled a shell is a shell and
 //! a working directory is writable, **but** credential stores and system roots

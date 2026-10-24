@@ -23,15 +23,24 @@ fn every_row_has_a_valid_generated_grant() {
             .validate()
             .unwrap_or_else(|why| panic!("{}: {why}", row.module));
         assert!(grant.writable);
-        let items = module_items(row.owner);
-        assert_eq!(
-            grant.collections.len(),
-            items.collections.len(),
-            "{}",
+        let items = module_collections(row.owner);
+        assert_eq!(grant.collections.len(), items.len(), "{}", row.module);
+    }
+    assert!(declared("not-a-module").is_none());
+}
+
+#[test]
+fn module_grants_exclude_storage_driver_owned_collections() {
+    for row in ROWS {
+        let collections = module_collections(row.owner);
+        assert!(
+            collections
+                .iter()
+                .all(|collection| !collection.name.starts_with("tsd.")),
+            "{} must not grant TSD internal collections",
             row.module
         );
     }
-    assert!(declared("not-a-module").is_none());
 }
 
 #[test]
@@ -46,6 +55,17 @@ fn the_registry_ids_exist() {
             row.module
         );
     }
+}
+
+#[cfg(feature = "inbound-queues")]
+#[test]
+fn event_queue_grants_use_the_owner_name_from_the_v2_contract() {
+    let row = ROWS
+        .iter()
+        .find(|row| row.module == "tinyeventqueues")
+        .expect("event queue grant is declared");
+    assert_eq!(row.owner, "teq");
+    assert!(!module_collections(row.owner).is_empty());
 }
 
 #[test]
@@ -109,12 +129,61 @@ fn tinyjuice_reaches_only_its_blob_prefix() {
         &grant,
         Object::Blobs,
         "Get",
+        json!({"key": "tinyjuice_ccr/abc"})
+    ));
+    assert!(!allowed(
+        &grant,
+        Object::Blobs,
+        "Get",
         json!({"key": "juice/ccr/abc"})
     ));
     assert!(!allowed(
         &grant,
         Object::Blobs,
         "Get",
-        json!({"key": "other/abc"})
+        json!({"key": "tinyjuice_ccr/abc"})
     ));
+}
+
+#[test]
+fn non_document_grants_match_the_owner_contracts_without_broad_prefixes() {
+    let connectors = declared("tinyconnectors").unwrap();
+    assert!(allowed(
+        &connectors,
+        Object::Streams,
+        "Append",
+        json!({"stream": "connectors.triggers/2026-10-21"})
+    ));
+    assert!(allowed(
+        &connectors,
+        Object::Streams,
+        "Append",
+        json!({"stream": "triggers/2026-10-21"})
+    ));
+    assert_eq!(
+        authorize(
+            &connectors,
+            Object::Streams,
+            "Append",
+            &json!({"stream": "other/2026-10-21"})
+        ),
+        Err(Denied::Target)
+    );
+
+    let wallet = declared("tinywallet").unwrap();
+    assert!(allowed(
+        &wallet,
+        Object::Streams,
+        "Append",
+        json!({"stream": "wallet.payments"})
+    ));
+    assert_eq!(
+        authorize(
+            &wallet,
+            Object::Streams,
+            "Append",
+            &json!({"stream": "other.payments"})
+        ),
+        Err(Denied::Target)
+    );
 }

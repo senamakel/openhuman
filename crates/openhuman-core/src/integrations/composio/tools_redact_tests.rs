@@ -124,10 +124,10 @@ async fn colliding_redacted_object_keys_keep_both_values() {
     assert!(object.keys().all(|key| key.starts_with("[REDACTED]")));
 }
 
-/// Only a string that mentions a key is sent for checking, so a result that
-/// never mentions one costs no module call and cannot be withheld.
+/// Every distinct result string is sent for checking, including keys and values
+/// that do not contain this call's Composio credential.
 #[tokio::test]
-async fn only_strings_that_mention_a_key_are_sent_to_the_module() {
+async fn every_result_string_is_sent_to_the_module() {
     use std::sync::Mutex;
     let seen = Mutex::new(Vec::<Vec<String>>::new());
     let redactor = |strings: Vec<String>| {
@@ -153,18 +153,81 @@ async fn only_strings_that_mention_a_key_are_sent_to_the_module() {
     assert!(!serialized.contains(LONG_KEY), "{serialized}");
     let sent = seen.lock().unwrap().clone();
     assert_eq!(sent.len(), 1);
-    assert_eq!(sent[0], vec![format!("has {LONG_KEY} inside")]);
+    assert_eq!(
+        sent[0],
+        vec![
+            "a long enough value".to_string(),
+            "clean".to_string(),
+            "dirty".to_string(),
+            format!("has {LONG_KEY} inside"),
+        ]
+    );
 
-    // A result that never mentions a key does not reach the module at all, so a
-    // module that cannot answer cannot withhold it.
-    let clean = redact_outcome_with(
+    // Even a result with no configured key is withheld if the module cannot
+    // check it for provider credentials.
+    let withheld = redact_outcome_with(
         Ok(tinytools::ToolResult::success("nothing sensitive here")),
         &keys(),
         cannot_answer,
     )
     .await
+    .unwrap_err();
+    assert_eq!(withheld.to_string(), WITHHELD);
+}
+
+#[tokio::test]
+async fn an_oversized_result_is_withheld_before_module_calls() {
+    use std::sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc,
+    };
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let called = Arc::clone(&calls);
+    let values = (0..257).map(|index| format!("result field {index}"));
+    let outcome = redact_outcome_with(
+        Ok(tinytools::ToolResult::json(json!(
+            values.collect::<Vec<_>>()
+        ))),
+        &keys(),
+        move |strings| {
+            called.fetch_add(1, Ordering::SeqCst);
+            async move {
+                Ok(strings
+                    .into_iter()
+                    .map(|text| (text.clone(), text))
+                    .collect())
+            }
+        },
+    )
+    .await;
+
+    assert_eq!(outcome.unwrap_err().to_string(), WITHHELD);
+    assert_eq!(calls.load(Ordering::SeqCst), 0);
+}
+
+#[tokio::test]
+async fn a_result_without_its_composio_key_still_redacts_other_credentials() {
+    const PROVIDER_TOKEN: &str = "bearer provider-token-abcdef";
+    let outcome = redact_outcome_with(
+        Ok(tinytools::ToolResult::success(format!(
+            "provider response: {PROVIDER_TOKEN}"
+        ))),
+        &keys(),
+        |strings| async move {
+            Ok(strings
+                .into_iter()
+                .map(|text| {
+                    let redacted = text.replace(PROVIDER_TOKEN, "bearer [REDACTED]");
+                    (text, redacted)
+                })
+                .collect())
+        },
+    )
+    .await
     .unwrap();
-    assert_eq!(texts(&clean), "nothing sensitive here");
+
+    assert_eq!(texts(&outcome), "provider response: bearer [REDACTED]");
 }
 
 #[tokio::test]
@@ -178,6 +241,25 @@ async fn a_result_the_module_could_not_check_is_withheld() {
     )
     .await
     .unwrap_err();
+    assert_eq!(error.to_string(), WITHHELD);
+    assert!(!error.to_string().contains(LONG_KEY));
+}
+
+#[tokio::test]
+async fn a_module_answer_that_keeps_a_configured_key_is_withheld() {
+    let error = redact_outcome_with(
+        Ok(tinytools::ToolResult::success(format!("key {LONG_KEY}"))),
+        &keys(),
+        |strings| async move {
+            Ok(strings
+                .into_iter()
+                .map(|text| (text.clone(), text))
+                .collect())
+        },
+    )
+    .await
+    .unwrap_err();
+
     assert_eq!(error.to_string(), WITHHELD);
     assert!(!error.to_string().contains(LONG_KEY));
 }
@@ -200,17 +282,16 @@ async fn an_error_text_is_redacted_or_withheld_never_passed_on() {
     .await
     .unwrap_err();
     assert_eq!(withheld.to_string(), WITHHELD);
-    // A short, key-free error is returned unchanged without asking the module.
+    // Key-free error text is still checked and withheld when the module cannot
+    // answer.
     let short = redact_outcome_with(Err(anyhow::anyhow!("nope")), &keys(), cannot_answer)
         .await
         .unwrap_err();
-    assert_eq!(short.to_string(), "nope");
+    assert_eq!(short.to_string(), WITHHELD);
 }
 
-/// With the module switched off in the configuration, the production entry
-/// points refuse to pass a result that mentions a configured key on, and let one
-/// that does not through. The switch (not whatever an earlier test armed in this
-/// process) makes the module unavailable, so the test is order-independent.
+/// With the module switched off, the production entry points withhold all result
+/// and error text, including strings without a configured Composio key.
 #[tokio::test]
 async fn with_the_module_disabled_the_production_entry_points_withhold() {
     let mut config = config_with_overlapping_secrets();
@@ -228,21 +309,37 @@ async fn with_the_module_disabled_the_production_entry_points_withhold() {
     assert!(!reported.contains(LONG_KEY) && !reported.contains(SHORT_KEY));
     let unrelated = redact_composio_outcome(
         &config,
-        Ok(tinytools::ToolResult::success("a result without any key")),
+        Ok(tinytools::ToolResult::success(
+            "provider response: bearer provider-token-abcdef",
+        )),
     )
     .await
-    .unwrap();
-    assert_eq!(texts(&unrelated), "a result without any key");
+    .unwrap_err();
+    assert_eq!(unrelated.to_string(), WITHHELD);
+    let uncredentialed_error = redact_and_report(
+        &config,
+        "test_op",
+        "provider error: bearer provider-token-abcdef",
+    )
+    .await;
+    assert_eq!(uncredentialed_error, WITHHELD);
 }
 
-/// A call with no configured key is not checked: there is nothing exact to remove.
+/// Without a configured key, an unavailable module still means the host cannot
+/// prove that a result contains no other credentials.
 #[tokio::test]
-async fn an_unconfigured_call_passes_through_untouched() {
+async fn an_unconfigured_call_is_withheld_when_the_module_is_unavailable() {
     let mut config = Config::default();
     let tmp = tempfile::tempdir().unwrap();
     config.config_path = tmp.path().join("config.toml");
-    let outcome = redact_composio_outcome(&config, Ok(tinytools::ToolResult::success("plain")))
-        .await
-        .unwrap();
-    assert_eq!(texts(&outcome), "plain");
+    config.modules.enabled = false;
+    let outcome = redact_composio_outcome(
+        &config,
+        Ok(tinytools::ToolResult::success(
+            "provider response: bearer provider-token-abcdef",
+        )),
+    )
+    .await
+    .unwrap_err();
+    assert_eq!(outcome.to_string(), WITHHELD);
 }

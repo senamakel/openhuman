@@ -11,13 +11,10 @@
 //! `<workspace>/artifacts/tool-results` on read; that directory is a cache the
 //! sweep below keeps bounded.
 
-use std::path::Path;
-use std::sync::Arc;
-
 use crate::agent::harness::tool_result_artifacts::{new_tool_result_store, HostArtifactStore};
 use crate::security::policy::tool_result_artifacts_dir;
 use crate::storage::sessions::artifact_blobs_for;
-use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
+use std::path::Path;
 
 /// How long a tool-result artifact survives: the blob lifetime handed to
 /// drivers with blob TTL, and the age past which another session's
@@ -45,28 +42,20 @@ const ARTIFACT_RETENTION: std::time::Duration = std::time::Duration::from_secs(2
 /// other sessions' stale materialised copies on the way.
 ///
 /// With no blob store for the tenant (a SaaS task with no scope, a refused
-/// backend) the artifacts live in a private in-memory store for this process,
-/// so a large result is still stored and readable within the run.
+/// backend), return `None`; the harness keeps the result inline instead of
+/// silently moving it to process-local storage.
 ///
 /// The sweep is best-effort by design: a failed prune must never fail a turn,
 /// because the worst it costs is disk, while failing the turn costs the user
 /// their message.
-pub(crate) fn build_artifact_store(workspace_dir: &Path, session_key: &str) -> HostArtifactStore {
-    let blobs = artifact_blobs_for(workspace_dir).unwrap_or_else(|| {
-        tracing::warn!(
-            "[agent][tool-result-artifacts] no blob store for the acting tenant — artifacts stay in memory for this process"
-        );
-        let scope = Scope::new("local").expect("static scope");
-        Arc::clone(
-            MemoryStorage::new()
-                .for_scope(&scope)
-                .expect("memory scope")
-                .blobs(),
-        )
-    });
+pub(crate) fn build_artifact_store(
+    workspace_dir: &Path,
+    session_key: &str,
+) -> Option<HostArtifactStore> {
+    let blobs = artifact_blobs_for(workspace_dir)?;
     let root = tool_result_artifacts_dir(workspace_dir);
     prune_materialized(&root, ARTIFACT_RETENTION);
-    new_tool_result_store(blobs, root, session_key).with_retention(ARTIFACT_RETENTION)
+    Some(new_tool_result_store(blobs, root, session_key).with_retention(ARTIFACT_RETENTION))
 }
 
 /// The newest modification time anywhere under `path`, itself included.

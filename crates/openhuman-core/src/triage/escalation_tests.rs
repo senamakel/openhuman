@@ -10,6 +10,7 @@ use tokio::time::{sleep, timeout, Duration};
 #[tokio::test]
 async fn build_triage_parent_scopes_allowed_subagents_to_target() {
     let dir = tempfile::tempdir().expect("tempdir");
+    crate::agent::session_host::test_support::install_model_fixture();
     let config = Config {
         workspace_dir: dir.path().to_path_buf(),
         ..Config::default()

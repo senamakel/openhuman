@@ -21,14 +21,19 @@ fn spec(name: &str) -> ToolSpec {
 // `AgentDefinitionRegistry` singleton's init-once state.
 // ─────────────────────────────────────────────────────────────────────────────
 
-fn test_config(tmp: &tempfile::TempDir) -> crate::config::Config {
-    let config = crate::config::Config {
-        workspace_dir: tmp.path().join("workspace"),
-        action_dir: tmp.path().join("workspace"),
-        config_path: tmp.path().join("config.toml"),
-        ..crate::config::Config::default()
-    };
+fn test_config_without_inference(tmp: &tempfile::TempDir) -> crate::config::Config {
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = tmp.path().join("workspace");
+    config.action_dir = tmp.path().join("workspace");
+    config.config_path = tmp.path().join("config.toml");
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
+    config
+}
+
+fn test_config(tmp: &tempfile::TempDir) -> crate::config::Config {
+    let mut config = test_config_without_inference(tmp);
+    crate::agent::session_host::test_support::install_model_fixture();
+    config.default_model = Some("test/session-fixture".to_string());
     config
 }
 
@@ -63,6 +68,8 @@ mod explicit_definition_tests;
 mod host_only_tests;
 #[path = "builder_tests_host_tools_tests.rs"]
 mod host_tools_tests;
+#[path = "builder_tests_model_source_tests.rs"]
+mod model_source_tests;
 #[path = "builder_tests_session_definition_tests.rs"]
 mod session_definition_tests;
 #[path = "builder_tests_tool_exposure_tests.rs"]

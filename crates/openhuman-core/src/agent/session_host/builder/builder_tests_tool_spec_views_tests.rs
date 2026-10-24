@@ -160,12 +160,13 @@ fn dedup_keeps_the_original_allocation_of_the_winning_spec() {
 fn spec_views_stay_consistent_for_a_tool_less_agent() {
     let model: std::sync::Arc<dyn tinyinference_llm::model::ChatModel<()>> =
         std::sync::Arc::new(tinyagents_harness::testkit::ScriptedModel::new(Vec::new()));
-    let agent = crate::agent::SessionHostBuilder::new()
-        .chat_model(model)
-        .tools(Vec::new())
-        .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
-        .build()
-        .expect("a tool-less agent is a legal build");
+    let agent = crate::agent::session_host::test_support::with_fixture_model_name(
+        crate::agent::SessionHostBuilder::new().chat_model(model),
+    )
+    .tools(Vec::new())
+    .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
+    .build()
+    .expect("a tool-less agent is a legal build");
 
     assert!(agent.tool_specs().is_empty());
     assert!(agent.durable_tool_specs_arc().is_empty());

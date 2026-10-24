@@ -83,6 +83,8 @@ pub use openhuman_core::config::{SearchHostCredential, UnknownKeyedSearchProvide
 pub use openhuman_core::core::runtime::{current_tenant, NoTenant, Tenant};
 pub use openhuman_core::security::TrustedAccess;
 pub use openhuman_core::tools::toolpacks::{GroupMode, ToolGroups};
+/// Reasoning effort values accepted by routed inference providers.
+pub use tinyinference_llm::model::ReasoningEffort;
 // The seam `AgentSpec::tools` needs: the belt types, and `Tool` itself from the
 // vendored tinytools. An embedder that took `tinytools` as its own dependency
 // would build tools of a different, incompatible type.
@@ -250,10 +252,13 @@ pub mod session_store {
     pub use tinyagents_harness::observability::AgentObservation;
     pub use tinyagents_harness_tools::todos::TodoList;
     pub use tinyagents_session::port::{AgentStores, SessionStoreProvider};
+    pub use tinyagents_session::port::{AppendStore, Store, TurnStates};
+    /// In-memory provider and contract suites for providers implemented by embedders.
+    #[cfg(feature = "testkit")]
     pub use tinyagents_session::port::{
-        AppendStore, InMemorySessionStores, InMemoryTranscriptLocator, InMemoryTurnStates, Store,
-        TurnStates,
+        InMemorySessionStores, InMemoryTranscriptLocator, InMemoryTurnStates,
     };
+    #[cfg(feature = "testkit")]
     pub use tinyagents_session::testkit::conformance::{
         session_store_conformance, session_store_isolation_conformance,
     };
@@ -273,7 +278,9 @@ pub use complete::{
     PhysicalDispatchOutcome, PhysicalDispatchStatus, PhysicalDispatchTerminal,
     PhysicalDispatchUsage,
 };
-pub use session_store::{InMemorySessionStores, SessionStoreProvider};
+#[cfg(feature = "testkit")]
+pub use session_store::InMemorySessionStores;
+pub use session_store::SessionStoreProvider;
 pub use turn::{absolute, Route, Turn, TurnOutcome, TurnRequest};
 pub use turn_cancellation::TurnCancellation;
 pub use turn_steering::{SteerRefused, TurnSteering};

@@ -19,5 +19,6 @@ their lifecycle integration.
 
 OpenHuman installs command hooks through `SandboxedHookSpawner`, which sends
 them through the untrusted TinyBox jail and fails closed when the isolation
-floor is unavailable. The host also resolves TinyBox's selected shell when
-reloading the hook configuration; it does not run hook commands directly.
+floor is unavailable. The sandbox adapter owns shell selection and process
+launch; the hook engine's legacy synchronous shell fallback is not installed
+by the host.

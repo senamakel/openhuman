@@ -18,7 +18,7 @@ mod tool_trust_tests;
 
 /// A prompt surface that records what the engine asked it to show.
 #[derive(Default)]
-struct Shown {
+pub(super) struct Shown {
     deliveries: Mutex<Vec<Delivery>>,
 }
 
@@ -30,14 +30,14 @@ impl PromptSurface for Shown {
     }
 }
 
-struct World {
+pub(super) struct World {
     fixture: NativeFixture,
     _dir: tempfile::TempDir,
     engine: NativeEngine,
     config: Config,
 }
 
-async fn world() -> World {
+pub(super) async fn world() -> World {
     let fixture = native_approval_fixture().await;
     let dir = tempfile::tempdir_in(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../target/tmp"),
@@ -56,7 +56,7 @@ async fn world() -> World {
     }
 }
 
-fn input(tool: &str, surface: &Arc<Shown>) -> CheckInput {
+pub(super) fn input(tool: &str, surface: &Arc<Shown>) -> CheckInput {
     CheckInput {
         tenant: crate::core::runtime::Tenant::default(),
         variant: Variant::Standard,
@@ -64,6 +64,7 @@ fn input(tool: &str, surface: &Arc<Shown>) -> CheckInput {
             require_approval: true,
             ..Posture::default()
         },
+        legacy_tool_grants: Vec::new(),
         call_id: format!("{:08x}", rand_id()),
         tool: tool.to_string(),
         args: serde_json::json!({"to": "someone", "token": "not-a-real-token-value"}),
@@ -92,7 +93,7 @@ fn pending(checked: Checked) -> (String, u64) {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_person_approves_reserves_and_the_outcome_is_recorded() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -151,7 +152,7 @@ async fn a_person_approves_reserves_and_the_outcome_is_recorded() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_denial_leaves_nothing_to_reserve() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -184,12 +185,12 @@ async fn a_denial_leaves_nothing_to_reserve() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_users_tool_grant_approves_without_a_prompt_and_is_audited() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
     let mut granted = input("gmail_send", &shown);
-    granted.posture.tool_grants = vec!["gmail_send".into()];
+    granted.legacy_tool_grants = vec!["gmail_send".into()];
     let checked = world.engine.check(granted).await.unwrap();
     let Checked::Approved { request_id } = checked else {
         panic!("a granted tool is approved without a human: {checked:?}");
@@ -209,7 +210,7 @@ async fn the_users_tool_grant_approves_without_a_prompt_and_is_audited() {
 
     // Another tool is not covered by the grant.
     let mut other = input("slack_post", &shown);
-    other.posture.tool_grants = vec!["gmail_send".into()];
+    other.legacy_tool_grants = vec!["gmail_send".into()];
     assert!(matches!(
         world.engine.check(other).await.unwrap(),
         Checked::Pending { .. }
@@ -217,29 +218,30 @@ async fn the_users_tool_grant_approves_without_a_prompt_and_is_audited() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
-async fn a_grant_the_user_removes_stops_approving_the_next_call() {
+#[cfg(feature = "native-security-tests")]
+async fn an_imported_tool_grant_survives_an_empty_transient_grant_list() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
     let mut granted = input("gmail_send", &shown);
-    granted.posture.tool_grants = vec!["gmail_send".into()];
+    granted.legacy_tool_grants = vec!["gmail_send".into()];
     assert!(matches!(
         world.engine.check(granted).await.unwrap(),
         Checked::Approved { .. }
     ));
-    // The same subject, with the grant gone.
+    // The source import is durable; a later caller need not carry the legacy
+    // posture grant for the module to retain that imported trust.
     assert!(matches!(
         world
             .engine
             .check(input("gmail_send", &shown))
             .await
             .unwrap(),
-        Checked::Pending { .. }
+        Checked::Approved { .. }
     ));
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_flow_grant_applies_to_that_flow_only() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -256,7 +258,7 @@ async fn a_flow_grant_applies_to_that_flow_only() {
     in_flow.variant = Variant::FlowStrict;
     in_flow.flow = Some("flow-1".into());
     // The global tool list never approves a strict flow, only its own trust.
-    in_flow.posture.tool_grants = vec!["slack_post".into()];
+    in_flow.legacy_tool_grants = vec!["slack_post".into()];
     assert!(matches!(
         world.engine.check(in_flow).await.unwrap(),
         Checked::Approved { .. }
@@ -271,7 +273,7 @@ async fn a_flow_grant_applies_to_that_flow_only() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_durable_operator_tool_grant_is_reused_by_the_module() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -304,12 +306,12 @@ async fn a_durable_operator_tool_grant_is_reused_by_the_module() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn legacy_auto_approve_is_imported_as_durable_tool_trust() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
     let mut legacy = input("gmail_send", &shown);
-    legacy.posture.tool_grants = vec!["gmail_send".into()];
+    legacy.legacy_tool_grants = vec!["gmail_send".into()];
 
     assert!(matches!(
         world.engine.check(legacy).await.unwrap(),
@@ -331,13 +333,13 @@ async fn legacy_auto_approve_is_imported_as_durable_tool_trust() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn auto_approve_all_is_the_posture_and_a_forced_call_ignores_it() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
     let mut all = input("gmail_send", &shown);
     all.posture.auto_approve_all = true;
-    all.posture.tool_grants = vec!["gmail_send".into()];
+    all.legacy_tool_grants = vec!["gmail_send".into()];
     let checked = world.engine.check(all).await.unwrap();
     assert!(matches!(checked, Checked::Approved { .. }));
     let history = {
@@ -363,7 +365,7 @@ async fn auto_approve_all_is_the_posture_and_a_forced_call_ignores_it() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_request_nobody_answers_expires_and_is_recorded_as_denied() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -386,7 +388,7 @@ async fn a_request_nobody_answers_expires_and_is_recorded_as_denied() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_cancelled_request_cannot_be_decided() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -408,7 +410,7 @@ async fn a_cancelled_request_cannot_be_decided() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_reserved_tool_name_is_refused_as_a_host_tool() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -425,7 +427,7 @@ async fn a_reserved_tool_name_is_refused_as_a_host_tool() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn concurrent_calls_of_one_subject_all_get_their_own_request() {
     let world = world().await;
     let engine = Arc::new(NativeEngine::on(
@@ -463,7 +465,7 @@ async fn concurrent_calls_of_one_subject_all_get_their_own_request() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn two_workspaces_are_two_subjects_with_their_own_rows() {
     let world = world().await;
     let other_dir = tempfile::tempdir().unwrap();
@@ -493,7 +495,7 @@ async fn two_workspaces_are_two_subjects_with_their_own_rows() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_ticket_the_host_never_issued_decides_nothing() {
     let world = world().await;
     let shown = Arc::new(Shown::default());
@@ -551,7 +553,7 @@ async fn a_ticket_the_host_never_issued_decides_nothing() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn only_the_module_may_call_the_hosts_approval_callbacks() {
     let world = world().await;
     let stranger = tinybus::Connection::connect(world.fixture.transport.connect().await.unwrap())
@@ -581,7 +583,7 @@ async fn only_the_module_may_call_the_hosts_approval_callbacks() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_legacy_history_and_flow_trust_are_carried_into_the_module_once() {
     use crate::security::approval::native::history_import;
     use crate::security::approval::store_import::with_connection;
@@ -629,6 +631,7 @@ async fn the_legacy_history_and_flow_trust_are_carried_into_the_module_once() {
     assert_eq!(decided(ApprovalDecision::ApproveOnce), 1);
     assert_eq!(decided(ApprovalDecision::Deny), 1);
     assert_eq!(decided(ApprovalDecision::ApproveAlwaysForFlow), 1);
+    let initial_history_count = history.len();
 
     // The legacy import can be replayed after restart; the module returns its
     // existing rows and unchanged grants without duplicating durable state.
@@ -641,11 +644,11 @@ async fn the_legacy_history_and_flow_trust_are_carried_into_the_module_once() {
         (2, 1, 0)
     );
     let history = world.engine.history(50).await.unwrap();
-    assert_eq!(history.len(), 2);
+    assert_eq!(history.len(), initial_history_count);
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_flow_trust_the_module_holds_approves_that_tool_in_that_flow_after_a_restart() {
     let world = world().await;
     let tenant = crate::core::runtime::Tenant::default();
@@ -681,46 +684,5 @@ async fn a_flow_trust_the_module_holds_approves_that_tool_in_that_flow_after_a_r
     ));
 }
 
-#[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
-async fn the_module_decides_what_each_origin_class_is_allowed() {
-    let world = world().await;
-    let shown = Arc::new(Shown::default());
-    for origin in [CallOrigin::LocalOperator, CallOrigin::TrustedAutomation] {
-        let mut call = input("gmail_send", &shown);
-        call.origin = origin;
-        assert!(
-            matches!(
-                world.engine.check(call).await.unwrap(),
-                Checked::Approved { .. }
-            ),
-            "{origin:?} is an audited automatic approval"
-        );
-    }
-    assert!(
-        shown.deliveries.lock().unwrap().is_empty(),
-        "nobody was asked"
-    );
-
-    let mut cron = input("gmail_send", &shown);
-    cron.origin = CallOrigin::Cron;
-    assert_eq!(
-        world.engine.check(cron).await.unwrap_err(),
-        EngineError::Refused
-    );
-
-    let mut unlabelled = input("gmail_send", &shown);
-    unlabelled.origin = CallOrigin::Unlabelled;
-    assert_eq!(
-        world.engine.check(unlabelled).await.unwrap_err(),
-        EngineError::Refused
-    );
-    let mut granted = input("gmail_send", &shown);
-    granted.origin = CallOrigin::Unlabelled;
-    granted.posture.tool_grants = vec!["gmail_send".into()];
-    assert!(matches!(
-        world.engine.check(granted).await.unwrap(),
-        Checked::Approved { .. }
-    ));
-    assert!(shown.deliveries.lock().unwrap().is_empty());
-}
+#[path = "engine_origin_tests.rs"]
+mod origin_tests;

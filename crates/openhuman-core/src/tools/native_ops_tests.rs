@@ -53,18 +53,20 @@ impl Tool for Counting {
 struct Module {
     answer: Result<Verdict, String>,
     asked: Mutex<Vec<Vec<Check>>>,
+    origins: Mutex<Vec<Option<crate::security::turn_origin::AgentTurnOrigin>>>,
 }
 
 #[async_trait]
 impl ModuleAsk for Module {
     async fn ask(
         &self,
-        _ctx: &RunContext<OpenHumanRunContext>,
+        ctx: &RunContext<OpenHumanRunContext>,
         _call: &TaToolCall,
         checks: Vec<Check>,
         _redact: bool,
     ) -> Result<Verdict, String> {
         self.asked.lock().unwrap().push(checks);
+        self.origins.lock().unwrap().push(ctx.data.origin.clone());
         self.answer.clone()
     }
 }
@@ -85,6 +87,7 @@ async fn direct(answer: Result<Verdict, String>, permission: PermissionLevel, fa
     let module = Arc::new(Module {
         answer,
         asked: Mutex::new(Vec::new()),
+        origins: Mutex::new(Vec::new()),
     });
     let policy = TinySecurityPolicy::new(Arc::new(ModuleVerdicts::with_module(
         vec![tools.clone()],
@@ -182,6 +185,7 @@ async fn an_unknown_tool_is_reported_without_asking_anything() {
     let module = Arc::new(Module {
         answer: Ok(Verdict::Allow),
         asked: Mutex::new(Vec::new()),
+        origins: Mutex::new(Vec::new()),
     });
     let policy = TinySecurityPolicy::new(Arc::new(ModuleVerdicts::with_module(
         vec![tools.clone()],
@@ -199,4 +203,43 @@ async fn an_unknown_tool_is_reported_without_asking_anything() {
     .expect_err("unknown tool");
     assert!(error.contains("unknown tool"), "{error}");
     assert!(module.asked.lock().unwrap().is_empty());
+}
+
+#[tokio::test]
+async fn direct_tool_dispatch_preserves_its_host_turn_origin_through_the_gate() {
+    let tools: Arc<Vec<Box<dyn Tool>>> = Arc::new(vec![Box::new(Counting {
+        runs: Arc::new(AtomicUsize::new(0)),
+        permission: PermissionLevel::Write,
+        fails: false,
+    })]);
+    let module = Arc::new(Module {
+        answer: Ok(Verdict::Allow),
+        asked: Mutex::new(Vec::new()),
+        origins: Mutex::new(Vec::new()),
+    });
+    let policy = TinySecurityPolicy::new(Arc::new(ModuleVerdicts::with_module(
+        vec![tools.clone()],
+        module.clone(),
+    )));
+    let resolver = Arc::new(ApprovalSecurityMiddleware::new(vec![tools.clone()]));
+    let context =
+        OpenHumanRunContext::new().with_origin(crate::security::turn_origin::AgentTurnOrigin::Cli);
+
+    run_gated_with_context(
+        &tools,
+        Arc::new(gate(Arc::new(policy), resolver)),
+        "write_something",
+        json!({"path": "a"}),
+        false,
+        context,
+    )
+    .await
+    .expect("the module allows the host action");
+
+    let origins = module.origins.lock().unwrap();
+    assert_eq!(origins.len(), 1);
+    assert!(matches!(
+        origins[0],
+        Some(crate::security::turn_origin::AgentTurnOrigin::Cli)
+    ));
 }

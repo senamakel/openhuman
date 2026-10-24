@@ -227,6 +227,7 @@ fn unknown_qualified_models_keep_the_existing_route() {
 fn selected_managed_route_constructs_with_the_picker_model() {
     // Wait out any test that has a mock chat model installed process-wide.
     let _serial = crate::inference::provider::factory::test_provider_override::exclusive();
+    crate::agent::session_host::test_support::install_model_fixture();
     let config = Config::default();
     let selection = "openrouter/author/picked-model:free";
     let effective = effective_session_config(&config, Some(selection), None);
@@ -324,6 +325,7 @@ fn temperature_override_is_turn_local_and_changes_the_cache_fingerprint() {
 /// sends no model override and the provider binding stays managed.
 #[test]
 fn persisted_managed_model_changes_invalidate_the_session_fingerprint() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let mut config = Config::default();
     config.chat_provider = Some("openhuman".to_string());
     config.default_model = Some("openrouter/author/first-model:free".to_string());

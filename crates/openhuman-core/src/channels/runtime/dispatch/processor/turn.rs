@@ -6,8 +6,8 @@ use crate::agent::bus::AgentTurnResponse;
 use crate::channels::context::{
     compact_sender_history, is_context_window_overflow_error, ChannelRuntimeContext,
 };
+use crate::channels::outbound::text_message;
 use crate::channels::routes::{get_or_create_turn_model_source, get_route_selection};
-use crate::channels::{ChannelSendExt, SendMessage};
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
 use crate::progress::AgentProgress;
@@ -15,8 +15,8 @@ use crate::util::truncate_with_ellipsis;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tinyagents_session::transcript::TranscriptMessage;
-use tinychannels_bus as traits;
 use tinychannels_bus::context::ChatMessage;
+use tinychannels_bus::ChannelInboundEnvelope;
 use tokio_util::sync::CancellationToken;
 use tokio_util::task::AbortOnDropHandle;
 
@@ -32,9 +32,17 @@ use super::RuntimeChannelMessage;
 
 pub(crate) async fn process_channel_message(
     ctx: Arc<ChannelRuntimeContext>,
-    msg: traits::ChannelMessage,
+    msg: ChannelInboundEnvelope,
 ) {
-    process_channel_runtime_message(ctx, RuntimeChannelMessage::from(msg)).await;
+    process_channel_runtime_message(
+        ctx,
+        RuntimeChannelMessage {
+            message: msg,
+            authenticated_relay: false,
+            prepared_inbound: None,
+        },
+    )
+    .await;
 }
 
 pub(crate) async fn process_channel_runtime_message(
@@ -50,11 +58,11 @@ pub(crate) async fn process_channel_runtime_message(
 /// its reply.
 pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted: AdmittedInbound) {
     let AdmittedInbound { msg, history_key } = admitted;
-    let target_channel = ctx.channels_by_name.get(&msg.channel).cloned();
+    let target_channel = ctx.channels_by_name.get(&msg.channel.id).cloned();
 
     // A channel bound to a host agent nobody answers for is refused before
     // any typing or provider work; see `host_agent`.
-    let bound_agent = match host_agent::route(ctx.as_ref(), &msg.channel) {
+    let bound_agent = match host_agent::route(ctx.as_ref(), &msg.channel.id) {
         HostRoute::Unbound => None,
         HostRoute::Agent(host) => Some(host),
         HostRoute::Missing(agent_id) => {
@@ -72,7 +80,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     // Fire typing indicator as early as possible — before any async I/O — so the
     // user sees feedback immediately regardless of how fast the LLM responds.
     if let Some(channel) = target_channel.as_ref() {
-        if let Err(e) = channel.start_typing(&msg.reply_target).await {
+        if let Err(e) = channel.start_typing(&msg.conversation.id).await {
             tracing::debug!(
                 "[dispatch] Early typing start failed on {}: {e}",
                 channel.name()
@@ -86,7 +94,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     // Keep the reaction owned by this worker so logout also aborts a pending send.
     let mut _acknowledgment_task = None;
     if let Some(channel) = target_channel.as_ref() {
-        if channel.supports_reactions() && msg.thread_ts.is_some() {
+        if channel.supports_reactions() && msg.conversation.thread_id.is_some() {
             let ack_result = crate::channels::context::module_client(&ctx)
                 .await
                 .call_confidential::<tinychannels_bus::module_control::ChannelControlResult>(
@@ -94,7 +102,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                     tinychannels_bus::methods::PREPARE_CHANNEL_CONTROL,
                     (
                         tinychannels_bus::module_control::ChannelControlRequest::Acknowledgment {
-                            content: msg.content.clone(),
+                            content: msg.text.clone(),
                         },
                     ),
                 )
@@ -111,19 +119,20 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
             };
             if let Some(ack_emoji) = ack_emoji {
                 tracing::debug!(
-                    channel = msg.channel,
+                    channel = msg.channel.id,
                     emoji = ack_emoji,
                     "[dispatch] Sending acknowledgment reaction"
                 );
                 let react_content = format!("[REACTION:{ack_emoji}]");
                 let channel_for_react = Arc::clone(channel);
-                let react_msg = SendMessage::new(react_content, &msg.reply_target)
-                    .in_thread(msg.thread_ts.clone());
+                let react_msg = text_message(
+                    &msg.channel.id,
+                    &msg.conversation.id,
+                    react_content,
+                    msg.conversation.thread_id.clone(),
+                );
                 _acknowledgment_task = Some(AbortOnDropHandle::new(tokio::spawn(async move {
-                    if let Err(e) = channel_for_react
-                        .send_with_outbound_intent(&react_msg)
-                        .await
-                    {
+                    if let Err(e) = channel_for_react.send_typed(&react_msg).await {
                         tracing::debug!("[dispatch] Acknowledgment reaction failed: {e}");
                     }
                 })));
@@ -141,7 +150,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                     "channels",
                     "provider_init",
                     &[
-                        ("channel", msg.channel.as_str()),
+                        ("channel", msg.channel.id.as_str()),
                         ("provider", route.provider.as_str()),
                     ],
                 );
@@ -152,10 +161,12 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                 );
                 if let Some(channel) = target_channel.as_ref() {
                     let _ = channel
-                        .send_with_outbound_intent(
-                            &SendMessage::new(message, &msg.reply_target)
-                                .in_thread(msg.thread_ts.clone()),
-                        )
+                        .send_typed(&text_message(
+                            &msg.channel.id,
+                            &msg.conversation.id,
+                            message,
+                            msg.conversation.thread_id.clone(),
+                        ))
                         .await;
                 }
                 return;
@@ -170,9 +181,9 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     // committed turn from `ConversationTurnCommitted`.
     let channel_context = build_channel_context_block(&msg);
     let enriched_message = if channel_context.is_empty() {
-        msg.content.clone()
+        msg.text.clone()
     } else {
-        format!("{channel_context}{}", msg.content)
+        format!("{channel_context}{}", msg.text)
     };
 
     println!("  ⏳ Processing message...");
@@ -221,11 +232,13 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     // Send initial draft message if streaming
     let draft_message_id = if use_streaming {
         if let Some(channel) = target_channel.as_ref() {
-            match channel
-                .send_draft(
-                    &SendMessage::new("...", &msg.reply_target).in_thread(msg.thread_ts.clone()),
-                )
-                .await
+            match crate::channels::outbound::send_draft(
+                channel.as_ref(),
+                &msg.conversation.id,
+                "...",
+                msg.conversation.thread_id.clone(),
+            )
+            .await
             {
                 Ok(id) => id,
                 Err(e) => {
@@ -247,7 +260,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
         target_channel.as_ref(),
     ) {
         let channel = Arc::clone(channel_ref);
-        let reply_target = msg.reply_target.clone();
+        let reply_target = msg.conversation.id.clone();
         let draft_id = draft_id_ref.to_string();
         Some(AbortOnDropHandle::new(tokio::spawn(async move {
             let mut accumulated = String::new();
@@ -316,7 +329,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
         (Some(channel), Some(token)) => Some(AbortOnDropHandle::new(spawn_typing_task(
             &ctx.dispatch_ctx(),
             Arc::clone(channel),
-            msg.reply_target.clone(),
+            msg.conversation.id.clone(),
             token.clone(),
         ))),
         _ => None,
@@ -333,11 +346,11 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     // produce distinct origins, and the wallet preparer / parked-approval
     // gates compare these for equality before honouring confirmations.
     let turn_origin = crate::security::turn_origin::AgentTurnOrigin::ExternalChannel {
-        sender_name: msg.sender_name.clone(),
-        channel: msg.channel.clone(),
-        sender: Some(msg.sender.clone()),
-        reply_target: msg.reply_target.clone(),
-        message_id: msg.id.clone(),
+        sender_name: msg.sender.name.clone(),
+        channel: msg.channel.id.clone(),
+        sender: Some(msg.sender.id.clone()),
+        reply_target: msg.conversation.id.clone(),
+        message_id: msg.message_id.clone(),
         history_key: Some(history_key.clone()),
     };
 
@@ -347,12 +360,15 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     // "no chat context -> allow straight through" branch silently bypasses
     // every `Prompt`-class tool call, voiding the `supervised` autonomy tier
     // on the channel.
-    let approval = if channel_has_approval_surface(&msg.channel) {
+    let approval = if target_channel
+        .as_ref()
+        .is_some_and(|channel| channel_has_approval_surface(&channel.capabilities()))
+    {
         crate::security::approval::ApprovalTurnContext::chat(
             crate::security::approval::ApprovalChatContext {
                 thread_id: history_key.clone(),
-                client_id: msg.channel.clone(),
-                request_id: Some(msg.id.clone()),
+                client_id: msg.channel.id.clone(),
+                request_id: Some(msg.message_id.clone()),
             },
         )
     } else {
@@ -368,7 +384,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
             *host,
             HostChannelTurn {
                 relay_thread: ctx.relay_thread.clone(),
-                channel: msg.channel.clone(),
+                channel: msg.channel.id.clone(),
                 history_key: history_key.clone(),
                 prior_turns: seed_rows(&history),
                 message: enriched_message.clone(),
@@ -437,26 +453,30 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                 if let Some(ref draft_id) = draft_message_id {
                     if let Err(e) = channel
                         .finalize_draft(
-                            &msg.reply_target,
+                            &msg.conversation.id,
                             draft_id,
                             &response_text,
-                            msg.thread_ts.as_deref(),
+                            msg.conversation.thread_id.as_deref(),
                         )
                         .await
                     {
                         tracing::warn!("Failed to finalize draft: {e}; sending as new message");
                         let _ = channel
-                            .send_with_outbound_intent(
-                                &SendMessage::new(&response_text, &msg.reply_target)
-                                    .in_thread(msg.thread_ts.clone()),
-                            )
+                            .send_typed(&text_message(
+                                &msg.channel.id,
+                                &msg.conversation.id,
+                                &response_text,
+                                msg.conversation.thread_id.clone(),
+                            ))
                             .await;
                     }
                 } else if let Err(e) = channel
-                    .send_with_outbound_intent(
-                        &SendMessage::new(&response_text, &msg.reply_target)
-                            .in_thread(msg.thread_ts.clone()),
-                    )
+                    .send_typed(&text_message(
+                        &msg.channel.id,
+                        &msg.conversation.id,
+                        &response_text,
+                        msg.conversation.thread_id.clone(),
+                    ))
                     .await
                 {
                     eprintln!("  ❌ Failed to reply on {}: {e}", channel.name());
@@ -484,29 +504,31 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                     if let Some(ref draft_id) = draft_message_id {
                         let _ = channel
                             .finalize_draft(
-                                &msg.reply_target,
+                                &msg.conversation.id,
                                 draft_id,
                                 error_text,
-                                msg.thread_ts.as_deref(),
+                                msg.conversation.thread_id.as_deref(),
                             )
                             .await;
                     } else {
                         let _ = channel
-                            .send_with_outbound_intent(
-                                &SendMessage::new(error_text, &msg.reply_target)
-                                    .in_thread(msg.thread_ts.clone()),
-                            )
+                            .send_typed(&text_message(
+                                &msg.channel.id,
+                                &msg.conversation.id,
+                                error_text,
+                                msg.conversation.thread_id.clone(),
+                            ))
                             .await;
                     }
                 }
 
                 BUS.publish(DomainEvent::ChannelMessageProcessed {
-                    channel: msg.channel.clone(),
-                    message_id: msg.id.clone(),
-                    sender: msg.sender.clone(),
-                    reply_target: msg.reply_target.clone(),
-                    content: msg.content.clone(),
-                    thread_ts: msg.thread_ts.clone(),
+                    channel: msg.channel.id.clone(),
+                    message_id: msg.message_id.clone(),
+                    sender: msg.sender.id.clone(),
+                    reply_target: msg.conversation.id.clone(),
+                    content: msg.text.clone(),
+                    thread_ts: msg.conversation.thread_id.clone(),
                     response: error_text.to_string(),
                     provider: route.provider.clone(),
                     model: route.model.clone(),
@@ -537,7 +559,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                     target: "channels",
                     "[channels.dispatch] suppressed Sentry emission for max-iteration cap \
                      channel={} provider={} message={}",
-                    msg.channel.as_str(),
+                    msg.channel.id.as_str(),
                     route.provider.as_str(),
                     e
                 );
@@ -564,7 +586,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                     "channels",
                     "dispatch_llm_error",
                     &[
-                        ("channel", msg.channel.as_str()),
+                        ("channel", msg.channel.id.as_str()),
                         ("provider", route.provider.as_str()),
                     ],
                 );
@@ -573,18 +595,20 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                 if let Some(ref draft_id) = draft_message_id {
                     let _ = channel
                         .finalize_draft(
-                            &msg.reply_target,
+                            &msg.conversation.id,
                             draft_id,
                             &error_response,
-                            msg.thread_ts.as_deref(),
+                            msg.conversation.thread_id.as_deref(),
                         )
                         .await;
                 } else {
                     let _ = channel
-                        .send_with_outbound_intent(
-                            &SendMessage::new(&error_response, &msg.reply_target)
-                                .in_thread(msg.thread_ts.clone()),
-                        )
+                        .send_typed(&text_message(
+                            &msg.channel.id,
+                            &msg.conversation.id,
+                            &error_response,
+                            msg.conversation.thread_id.clone(),
+                        ))
                         .await;
                 }
             }
@@ -607,7 +631,7 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                 "channels",
                 "dispatch_llm_timeout",
                 &[
-                    ("channel", msg.channel.as_str()),
+                    ("channel", msg.channel.id.as_str()),
                     ("timeout_secs", &ctx.message_timeout_secs.to_string()),
                 ],
             );
@@ -617,18 +641,20 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
                 if let Some(ref draft_id) = draft_message_id {
                     let _ = channel
                         .finalize_draft(
-                            &msg.reply_target,
+                            &msg.conversation.id,
                             draft_id,
                             &error_text,
-                            msg.thread_ts.as_deref(),
+                            msg.conversation.thread_id.as_deref(),
                         )
                         .await;
                 } else {
                     let _ = channel
-                        .send_with_outbound_intent(
-                            &SendMessage::new(&error_text, &msg.reply_target)
-                                .in_thread(msg.thread_ts.clone()),
-                        )
+                        .send_typed(&text_message(
+                            &msg.channel.id,
+                            &msg.conversation.id,
+                            &error_text,
+                            msg.conversation.thread_id.clone(),
+                        ))
                         .await;
                 }
             }
@@ -642,12 +668,12 @@ pub(crate) async fn run_admitted_turn(ctx: Arc<ChannelRuntimeContext>, admitted:
     };
 
     BUS.publish(DomainEvent::ChannelMessageProcessed {
-        channel: msg.channel.clone(),
-        message_id: msg.id.clone(),
-        sender: msg.sender.clone(),
-        reply_target: msg.reply_target.clone(),
-        content: msg.content.clone(),
-        thread_ts: msg.thread_ts.clone(),
+        channel: msg.channel.id.clone(),
+        message_id: msg.message_id.clone(),
+        sender: msg.sender.id.clone(),
+        reply_target: msg.conversation.id.clone(),
+        content: msg.text.clone(),
+        thread_ts: msg.conversation.thread_id.clone(),
         response: response_text,
         provider: response_provider,
         model: response_model,

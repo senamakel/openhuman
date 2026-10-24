@@ -47,9 +47,10 @@ pub mod budget;
 pub mod payload_summarizer;
 mod policy_denial;
 pub(crate) mod reaper;
-mod routes;
+pub(crate) mod state_block;
 mod steering_forwarder;
 mod supplemental_trace;
+pub(crate) mod thread_reasoning;
 pub(crate) mod tool_registration;
 mod turn_exec;
 mod turn_exec_native;
@@ -65,10 +66,10 @@ pub(crate) use crate::agent::message_convert::chat_message_to_message;
 #[cfg(feature = "flows")]
 pub(crate) use crate::agent::message_convert::ta_call_to_oh_call;
 
-pub(crate) use crate::inference::reasoning::{apply_requested_effort, parse_reasoning_effort};
 pub use crate::inference::turn_models::TurnModelSource;
 pub(crate) use observability::SubagentScope;
 pub(crate) use supplemental_trace::SupplementalTrace;
+pub(crate) use thread_reasoning::apply_requested_effort;
 pub(crate) use turn_exec::TurnSpec;
 pub(crate) use turn_exec_native::NativeSubagentRunContext;
 #[cfg(test)]

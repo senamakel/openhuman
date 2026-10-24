@@ -5,8 +5,8 @@ use std::sync::Arc;
 use async_trait::async_trait;
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::doctor::{
-    register_check_source, register_check_source_in, DoctorCheck, DoctorCheckSource, DoctorCtx,
-    DoctorTier, Finding, FindingSeverity,
+    register_check_source, register_check_source_in, ComponentId, DoctorCheck, DoctorCheckSource,
+    DoctorCtx, DoctorTier, Finding, FindingSeverity,
 };
 use openhuman_embed::__host::platform::socket::{global_socket_manager, ConnectionStatus};
 use openhuman_embed::__host::security::credentials::api_key::get_api_key_read_only;
@@ -100,6 +100,10 @@ impl DoctorCheck for BackendReachable {
         DoctorTier::Connect
     }
 
+    fn component_gate(&self) -> Option<ComponentId> {
+        Some(ComponentId::Hosting)
+    }
+
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         vec![match health_check(ctx.config()).await {
             Ok(()) => Finding::pass(self.id(), "The hosted backend is reachable."),
@@ -131,6 +135,10 @@ impl DoctorCheck for BackendCredentialCheck {
 
     fn tier(&self) -> DoctorTier {
         DoctorTier::Connect
+    }
+
+    fn component_gate(&self) -> Option<ComponentId> {
+        Some(ComponentId::Hosting)
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
@@ -183,6 +191,10 @@ impl DoctorCheck for BackendIdentity {
         DoctorTier::Connect
     }
 
+    fn component_gate(&self) -> Option<ComponentId> {
+        Some(ComponentId::Hosting)
+    }
+
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let credential = match doctor_credential(ctx.config()) {
             CredentialState::Usable(credential) => credential,
@@ -214,6 +226,10 @@ impl DoctorCheck for BackendSocket {
 
     fn tier(&self) -> DoctorTier {
         DoctorTier::Connect
+    }
+
+    fn component_gate(&self) -> Option<ComponentId> {
+        Some(ComponentId::Hosting)
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
@@ -289,6 +305,10 @@ impl DoctorCheck for BackendApiUrl {
         DoctorTier::Static
     }
 
+    fn component_gate(&self) -> Option<ComponentId> {
+        Some(ComponentId::Hosting)
+    }
+
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {
         let configured = ctx.config().api_url.as_deref().unwrap_or_default().trim();
         if !configured.is_empty() {
@@ -351,6 +371,10 @@ impl DoctorCheck for ManagedCatalog {
 
     fn tier(&self) -> DoctorTier {
         DoctorTier::Connect
+    }
+
+    fn component_gate(&self) -> Option<ComponentId> {
+        Some(ComponentId::Hosting)
     }
 
     async fn detect(&self, ctx: &DoctorCtx) -> Vec<Finding> {

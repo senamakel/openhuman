@@ -7,6 +7,10 @@ use std::time::Duration;
 use tinychannels_bus as traits;
 
 #[tokio::test]
+#[allow(
+    deprecated,
+    reason = "health test exercises the v21 listener compatibility seam"
+)]
 async fn supervised_listener_marks_error_and_restarts_on_failures() {
     let calls = Arc::new(AtomicUsize::new(0));
     let name = Box::leak(format!("test-supervised-fail-{}", uuid::Uuid::new_v4()).into_boxed_str());

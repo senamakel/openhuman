@@ -16,3 +16,5 @@ fn fresh(thread_id: &str) -> (tempfile::TempDir, TurnStateMirror) {
 mod finish_and_subagent_args_tests;
 #[path = "mirror_observe_tests.rs"]
 mod observe_tests;
+#[path = "mirror_transcript_tests.rs"]
+mod transcript_tests;

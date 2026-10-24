@@ -1,5 +1,5 @@
 use super::*;
-use crate::storage::{MemoryStorage, Scope, StorageBackend};
+use crate::storage::{test_support::memory_backend, Scope, StorageBackend};
 use serde_json::json;
 use tinyflows_bus::schedule::{DOCUMENT_INTERFACE, DOCUMENT_METHOD};
 
@@ -12,7 +12,7 @@ async fn port_with_backend() -> (tinybus::Proxy, CallbackAddress, Arc<dyn Storag
     let config = Config::default();
     // Start the module runtime and attach the module before touching the bus.
     module::proxy(&config).await.expect("module attaches");
-    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let backend = memory_backend();
     let scope = DocScope::on_backend(&config, Arc::clone(&backend), Scope::local());
     let address = address(&scope).await.expect("port is served");
     let runtime = crate::modules::runtime::runtime().await.unwrap();
@@ -143,10 +143,11 @@ async fn schedule_store_migration_moves_legacy_jobs_runs_and_counter_before_read
         );
     }
     assert_eq!(
-        tinystoragedrivers::primitives::Counters::new(docs)
-            .next("cron", "runs")
+        docs.get("tsd.counters", "cron/runs")
             .await
-            .unwrap(),
+            .unwrap()
+            .expect("the imported counter remains readable")
+            .doc["next"],
         8
     );
     for progress in [
@@ -343,7 +344,7 @@ async fn an_unknown_operation_is_refused_not_guessed() {
 async fn one_object_is_served_per_scope_and_reused() {
     let config = Config::default();
     module::proxy(&config).await.unwrap();
-    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let backend: Arc<dyn StorageBackend> = crate::storage::test_support::memory_backend();
     let a = DocScope::on_backend(&config, Arc::clone(&backend), Scope::local());
     let b = DocScope::on_backend(&config, backend, crate::storage::scope_for_agent("other"));
     let (first, again, other) = (

@@ -27,7 +27,7 @@ fn owner_media_wrapper_does_not_keep_a_turn_context_alive() {
         &dispatch,
         Arc::new(Probe::default()),
         Arc::new(Config::default()),
-        ModelProfile::default(),
+        Some(ModelProfile::default()),
     );
     drop(dispatch);
     drop(context);

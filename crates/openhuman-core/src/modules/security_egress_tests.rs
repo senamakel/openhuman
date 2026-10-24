@@ -164,7 +164,7 @@ async fn unreachable_pinned_address_fails_closed_without_falling_back_to_dns() {
 
 /// The released module refuses loopback for a generic agent URL before any DNS.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn module_denies_loopback_for_generic_agent_urls() {
     let fx = super::super::native_tests::native_fixture().await;
     let outcome = scoped_url_guard_on(&fx.proxy, request("http://127.0.0.1:8080/x")).await;
@@ -212,6 +212,9 @@ fn the_browser_policy_adds_only_a_browser_preflight() {
     let policy = browser_preflight_policy(subject(), tinysecurity_bus::PrivacyMode::Standard);
     assert!(policy.open_public);
     assert_eq!(policy.preflight_transports, vec![EgressTransport::Browser]);
+    assert!(policy
+        .data_categories
+        .contains(&tinysecurity_bus::DataCategory::OpaqueBrowserTraffic));
     assert!(policy.destinations.is_empty() && policy.local_capabilities.is_empty());
 }
 
@@ -277,7 +280,7 @@ async fn judge(
 /// builds: a public destination is authorized and pinned to its address, the
 /// grant is spent once, and the address floor refuses everything private.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_authorizes_public_tool_destinations_and_refuses_private_ones() {
     let fx = super::super::native_tests::native_fixture().await;
     let standard = register_open_public(&fx.proxy, tinysecurity_bus::PrivacyMode::Standard).await;
@@ -324,7 +327,7 @@ async fn released_module_authorizes_public_tool_destinations_and_refuses_private
 /// Under Sensitive the module itself refuses a payload the redactor would
 /// change, and under LocalOnly it refuses every external destination.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_applies_the_privacy_mode_to_the_tools_real_payload() {
     let fx = super::super::native_tests::native_fixture().await;
     let sensitive = register_open_public(&fx.proxy, tinysecurity_bus::PrivacyMode::Sensitive).await;
@@ -359,7 +362,7 @@ async fn released_module_applies_the_privacy_mode_to_the_tools_real_payload() {
 /// A browser navigation is judged as a verdict for the `Browser` transport: the
 /// address floor still refuses private destinations, and no grant is spent.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_gives_browser_navigations_a_preflight_verdict() {
     let fx = super::super::native_tests::native_fixture().await;
     let id: EgressPolicyId = fx

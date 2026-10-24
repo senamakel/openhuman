@@ -34,36 +34,6 @@ pub async fn load_for_thread(workspace_dir: &Path, thread_id: Option<&str>) -> O
     }
 }
 
-/// Reactivate a paused goal for an explicit thread (thread-resume semantics).
-/// Best-effort: a failure is logged and surfaced as `Ok(None)`-style `None`.
-pub async fn resume_for_thread(
-    workspace_dir: &Path,
-    thread_id: Option<&str>,
-) -> Option<Option<ThreadGoal>> {
-    let thread_id = normalized_thread(thread_id)?;
-    let store = crate::storage::sessions::stores_or_ephemeral(workspace_dir).kv;
-    match tinyagents_harness_tools::goals::store::resume(&store, &thread_id)
-        .await
-        .map_err(|e| e.to_string())
-    {
-        Ok(goal) => {
-            if goal.status.is_active() {
-                BUS.publish(DomainEvent::ThreadGoalUpdated {
-                    thread_id: goal.thread_id.clone(),
-                    goal_id: goal.goal_id.clone(),
-                    status: goal.status.as_str().to_string(),
-                    goal: Some(super::goal_to_value(&goal)),
-                });
-            }
-            Some(Some(goal))
-        }
-        Err(e) => {
-            tracing::debug!(thread_id = %thread_id, error = %e, "[thread_goals] resume_for_thread failed");
-            None
-        }
-    }
-}
-
 /// Mark the active goal for an explicit thread `Complete` (the originating
 /// task settled successfully). Best-effort; safe to call when there is no goal
 /// or no thread id. Emits `ThreadGoalUpdated` so the UI chip refreshes.

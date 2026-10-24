@@ -6,6 +6,9 @@ use tinyagents_definition::SandboxMode;
 
 use std::{sync::Arc, time::Duration};
 
+type WorkflowScanPermit = (String, String, String, String);
+pub(crate) type WorkflowScanPermits = Arc<std::sync::Mutex<Vec<WorkflowScanPermit>>>;
+
 /// OpenHuman product values that tools read from the run through
 /// `ToolExecutionContext::host::<OpenHumanRunExt>()`, installed by
 /// [`OpenHumanRunContext::into_tinyagents`] with `RunContext::with_host`.
@@ -18,6 +21,8 @@ pub struct OpenHumanRunExt {
     pub task_recency_window: Option<Duration>,
     /// Explicit child-process environment supplied by the embedding host.
     pub command_environment: Option<Arc<std::collections::BTreeMap<String, String>>>,
+    /// The run's shell commands left running past their yield point.
+    pub(crate) shell_processes: Option<Arc<crate::sandbox::shell_processes::ShellProcesses>>,
 }
 
 impl std::fmt::Debug for OpenHumanRunExt {
@@ -34,8 +39,24 @@ impl OpenHumanRunExt {
         Self {
             task_recency_window: context.task_recency_window,
             command_environment: context.command_environment.clone(),
+            shell_processes: Some(context.shell_processes.clone()),
         }
     }
+}
+
+/// The run's registry of shell commands left running past their yield
+/// point. Direct tool dispatch (CLI, JSON-RPC, tests) has none, so its shell
+/// calls always wait for the command to end.
+pub(crate) fn shell_processes_for_tool(
+    context: Option<&dyn tinytools::ToolRunContext>,
+) -> Option<Arc<crate::sandbox::shell_processes::ShellProcesses>> {
+    context
+        .and_then(tinytools::ToolRunContext::host_extension)
+        .and_then(|extension| {
+            extension.downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()
+        })
+        .and_then(|context| context.host::<OpenHumanRunExt>())
+        .and_then(|ext| ext.shell_processes.clone())
 }
 
 /// Reads the explicit command environment from a tool's run context.
@@ -74,6 +95,7 @@ pub(crate) fn task_recency_window_for_tool(
 /// harness's typed state-view seam.
 #[derive(Clone, Debug, Default)]
 pub(crate) struct HostOperationContext {
+    pub(crate) workflow_scan_permits: WorkflowScanPermits,
     pub(crate) origin: Option<AgentTurnOrigin>,
     /// Where this run's approvals are surfaced; see
     /// [`OpenHumanRunContext::approval`](super::OpenHumanRunContext::approval).
@@ -93,6 +115,29 @@ pub(crate) struct HostOperationContext {
     /// The context the run acts under; see
     /// [`OpenHumanRunContext::core`](super::OpenHumanRunContext::core).
     pub(crate) core: Option<std::sync::Weak<crate::core::runtime::CoreContext>>,
+}
+
+/// Consume the scan snapshot admitted for one workflow invocation. Direct
+/// controller calls have no agent run and therefore no approval permit.
+pub(crate) fn take_workflow_scan_permit_for_tool(
+    context: Option<&dyn tinytools::ToolRunContext>,
+    workflow_id: &str,
+    inputs: &serde_json::Value,
+) -> Option<String> {
+    let execution = context?
+        .host_extension()?
+        .downcast_ref::<tinyagents_harness::tool::ToolExecutionContext>()?;
+    let host = execution.state::<HostOperationContext>()?;
+    let call_id = execution.call_id.to_string();
+    let inputs = serde_json::to_string(inputs).ok()?;
+    let mut permits = host
+        .workflow_scan_permits
+        .lock()
+        .unwrap_or_else(|p| p.into_inner());
+    let index = permits.iter().rposition(|(id, args, call, _)| {
+        id == workflow_id && args == &inputs && call == &call_id
+    })?;
+    Some(permits.remove(index).3)
 }
 
 /// The dispatch context of the run a tool executes in, from the explicit tool
@@ -215,4 +260,13 @@ pub(crate) fn tool_context_with_approval(
         &run,
         tinyagents_harness::ids::CallId::new("approval-test-call"),
     )
+}
+
+/// One turn's run, for tests that make several tool calls in the same turn:
+/// each `ToolExecutionContext::from_run_context(&run, …)` shares its state.
+#[cfg(test)]
+pub(crate) fn test_turn_run() -> tinyagents_harness::context::RunContext<super::OpenHumanRunContext>
+{
+    super::OpenHumanRunContext::new()
+        .into_tinyagents(tinyagents_harness::context::RunConfig::new("turn-test"))
 }

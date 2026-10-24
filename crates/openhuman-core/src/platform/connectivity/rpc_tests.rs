@@ -440,3 +440,39 @@ async fn diag_returns_serializable_payload() {
     assert!(diag.get("listen_port").is_some());
     assert!(diag.get("listen_port_in_use").is_some());
 }
+
+#[tokio::test]
+async fn pick_listen_port_identifies_ipv6_openhuman_listener_when_supported() {
+    let Ok(listener) = tokio::net::TcpListener::bind("[::1]:0").await else {
+        return; // IPv6 loopback is optional on CI hosts.
+    };
+    let port = listener.local_addr().expect("IPv6 probe address").port();
+    let (shutdown_tx, mut shutdown_rx) = tokio::sync::oneshot::channel::<()>();
+    let task = tokio::spawn(async move {
+        loop {
+            tokio::select! {
+                _ = &mut shutdown_rx => break,
+                accepted = listener.accept() => {
+                    let Ok((mut stream, _)) = accepted else { break; };
+                    let mut request = [0u8; 1024];
+                    let _ = stream.read(&mut request).await;
+                    let body = r#"{"name":"openhuman","ok":true}"#;
+                    let response = format!(
+                        "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{}",
+                        body.len(), body
+                    );
+                    let _ = stream.write_all(response.as_bytes()).await;
+                    let _ = stream.shutdown().await;
+                }
+            }
+        }
+    });
+
+    let result = pick_listen_port_for_host("::1", port).await;
+    let _ = shutdown_tx.send(());
+    task.abort();
+    let error = result.expect_err("an OpenHuman IPv6 listener should request takeover");
+    assert!(
+        matches!(error, PickListenPortError::WouldTakeOver { preferred, fingerprint } if preferred == port && fingerprint == "openhuman-core")
+    );
+}

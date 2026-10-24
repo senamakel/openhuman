@@ -11,9 +11,15 @@ fn sink() -> RelayChannel {
     )
 }
 
+fn text_message(text: &str, recipient: &str) -> tinychannels_bus::ChannelOutboundMessage {
+    crate::channels::outbound::text_message("telegram", recipient, text, None)
+}
+
 #[test]
 fn the_outbound_event_names_the_chat_and_carries_the_text() {
-    let event = sink().outbound_event(&SendMessage::new("hi there", "-100"));
+    let event = sink()
+        .outbound_event(&text_message("hi there", "-100"))
+        .unwrap();
     assert_eq!(event.event, CHANNEL_OUTBOUND_EVENT);
     assert_eq!(event.client_id, "gw-1");
     assert_eq!(event.thread_id, "channel:telegram/42/-100");
@@ -27,8 +33,12 @@ fn the_outbound_event_names_the_chat_and_carries_the_text() {
     assert!(event.agent.is_none(), "stamped at publish, not here");
     assert!(event.profile.is_none(), "stamped at publish, not here");
 
-    let wire = serde_json::to_value(sink().outbound_event(&SendMessage::new("x", "-100")))
-        .expect("serialize");
+    let wire = serde_json::to_value(
+        sink()
+            .outbound_event(&text_message("x", "-100"))
+            .expect("event"),
+    )
+    .expect("serialize");
     assert!(
         wire.get("agent").is_none(),
         "the routing stamp is not on the wire"
@@ -59,7 +69,7 @@ async fn send_publishes_under_the_callers_stamp_and_records_the_text() {
     let sender = Arc::clone(&channel);
     crate::core::runtime::CoreContext::scope(context, async move {
         sender
-            .send(&SendMessage::new("reply one", "2"))
+            .send_typed(&text_message("reply one", "2"))
             .await
             .expect("send");
     })
@@ -84,7 +94,12 @@ async fn send_publishes_under_the_callers_stamp_and_records_the_text() {
 #[tokio::test]
 async fn a_relay_has_no_listener() {
     let (tx, _rx) = tokio::sync::mpsc::channel(1);
-    assert!(sink().listen(tx).await.is_err());
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v0.1.39 has no typed listener method for a no-listener adapter"
+    )]
+    let result = sink().listen(tx).await;
+    assert!(result.is_err());
     assert_eq!(sink().name(), "telegram");
     assert!(!sink().supports_draft_updates());
 }

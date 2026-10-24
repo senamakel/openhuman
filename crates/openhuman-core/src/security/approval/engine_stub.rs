@@ -30,6 +30,7 @@ pub(crate) struct Seen {
     pub(crate) tenant: Tenant,
     pub(crate) variant: Variant,
     pub(crate) posture: Posture,
+    pub(crate) legacy_tool_grants: Vec<String>,
     pub(crate) call_id: String,
     pub(crate) tool: String,
     pub(crate) args: serde_json::Value,
@@ -199,15 +200,14 @@ fn automatic(input: &CheckInput, trusted_flow: bool, trusted_tool: bool) -> Opti
         CallOrigin::LocalOperator => return Some("auto:local-operator"),
         // Only a whole-tool grant approves an unlabelled call.
         CallOrigin::Unlabelled => {
-            return (trusted_tool || posture.tool_grants.iter().any(|t| t == &input.tool))
-                .then_some("auto:tool-grant");
+            return trusted_tool.then_some("auto:tool-grant");
         }
         _ => {}
     }
     if posture.auto_approve_all || !posture.require_approval {
         return Some("auto:host-policy");
     }
-    if trusted_tool || posture.tool_grants.iter().any(|t| t == &input.tool) {
+    if trusted_tool {
         return Some("auto:tool-grant");
     }
     // The module's durable flow trust approves the exact tool in the exact flow, on
@@ -225,6 +225,7 @@ impl ApprovalEngine for StubEngine {
                 tenant: input.tenant.clone(),
                 variant: input.variant,
                 posture: input.posture.clone(),
+                legacy_tool_grants: input.legacy_tool_grants.clone(),
                 call_id: input.call_id.clone(),
                 tool: input.tool.clone(),
                 args: input.args.clone(),

@@ -52,6 +52,7 @@ async fn resumed_orphaned_tool_head_is_repaired_before_the_request() {
             // Splices rows into the head: the host writes through this store.
             .with_session_history_locator(Arc::clone(&locator))
             .chat_model(chat_model.clone())
+            .model_name("test/session-fixture".to_string())
             .tools(Vec::new())
             .workspace_dir(root.path().join("workspace"))
             .action_dir(root.path().to_path_buf())

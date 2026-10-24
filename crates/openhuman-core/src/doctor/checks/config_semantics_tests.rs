@@ -234,7 +234,7 @@ async fn malformed_storage_url_is_reported_without_echoing_it() {
 // This fixture relies on POSIX mode bits; Windows readonly attributes do not revoke write ACLs.
 #[cfg(unix)]
 #[tokio::test]
-async fn action_directory_without_write_access_is_an_error() {
+async fn action_directory_without_write_mode_bits_reports_effective_writability() {
     let dir = tempfile::tempdir().expect("temporary action directory");
     let mut config = Config::default();
     config.action_dir = dir.path().to_owned();
@@ -246,13 +246,19 @@ async fn action_directory_without_write_access_is_an_error() {
     let findings = run_check(config, "workspace/action-dir").await;
     std::fs::set_permissions(dir.path(), original_permissions).unwrap();
 
+    // Root can still create files in a directory whose POSIX write bits are
+    // clear, so the expected result follows the effective user running the
+    // test rather than the mode bits alone.
+    let expected_severity = if unsafe { libc::geteuid() } == 0 {
+        FindingSeverity::Pass
+    } else {
+        FindingSeverity::Error
+    };
     assert_eq!(
-        finding(&findings, FindingSeverity::Error)
-            .config_path
-            .as_deref(),
-        Some("action_dir")
+        findings[0].severity, expected_severity,
+        "action-directory probe should reflect effective write access"
     );
-    #[cfg(unix)]
+    assert_eq!(findings[0].config_path.as_deref(), Some("action_dir"));
     assert_eq!(std::fs::read_dir(dir.path()).unwrap().count(), 0);
 }
 
@@ -351,6 +357,8 @@ async fn invalid_module_override_is_reported_without_echoing_its_path() {
     assert!(!warning.message.contains("/private/libmodule.so"));
 }
 
+// Without `modules` there are no module statuses, so no fallback to report.
+#[cfg(feature = "modules")]
 #[tokio::test]
 async fn source_fallback_is_reported_without_loading_modules() {
     use crate::config::schema::ModuleSourceMode;

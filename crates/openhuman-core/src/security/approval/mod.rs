@@ -31,8 +31,12 @@ pub mod summary;
 pub use registration_scope::ApprovalScope;
 pub mod rpc;
 pub mod schemas;
-#[cfg(feature = "security-module")]
+mod storage_schema;
+pub mod store;
+mod store_documents;
+#[cfg(all(feature = "security-module", feature = "legacy-import"))]
 mod store_import;
+pub(crate) use storage_schema::{collection_specs, upgrade_records};
 pub mod types;
 
 pub use gate::{
@@ -41,6 +45,8 @@ pub use gate::{
 };
 pub use schemas::all_controller_schemas as all_approval_controller_schemas;
 pub use schemas::all_registered_controllers as all_approval_registered_controllers;
+#[cfg(test)]
+pub(crate) use schemas::approval_parameter_contracts;
 pub use summary::summarize_action;
 pub use types::{
     ApprovalAuditEntry, ApprovalDecision, ApprovalSourceContext, ExecutionOutcome, GateOutcome,

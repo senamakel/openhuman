@@ -748,6 +748,15 @@ const en: TranslationMap = {
     'Tool inventory, policy posture, MCP allowlists, and recent blocks',
   'devOptions.toolPolicyDiagnostics.loading': 'Loading…',
   'devOptions.toolPolicyDiagnostics.unavailable': 'Diagnostics unavailable',
+  'devOptions.toolPolicyDiagnostics.module.title': 'Active module policy',
+  'devOptions.toolPolicyDiagnostics.module.loading': 'Loading active policy…',
+  'devOptions.toolPolicyDiagnostics.module.unavailable': 'Active module policy unavailable',
+  'devOptions.toolPolicyDiagnostics.module.notBuilt': 'Security module is not built',
+  'devOptions.toolPolicyDiagnostics.module.generation': 'Policy generation',
+  'devOptions.toolPolicyDiagnostics.module.enabled': 'Policy enabled',
+  'devOptions.toolPolicyDiagnostics.module.allowedCommands': 'Allowed commands',
+  'devOptions.toolPolicyDiagnostics.module.forbiddenPaths': 'Forbidden paths',
+  'devOptions.toolPolicyDiagnostics.module.capabilities': 'Available capabilities',
 
   // Voice / Dictation
 
@@ -5202,6 +5211,8 @@ const en: TranslationMap = {
   'conversations.tools.checkGoal.done': 'Checked goal',
   'conversations.tools.completeGoal.active': 'Completing goal',
   'conversations.tools.completeGoal.done': 'Completed goal',
+  'conversations.tools.resumeGoal.active': 'Resuming goal',
+  'conversations.tools.resumeGoal.done': 'Resumed goal',
   'conversations.tools.scheduleTask.active': 'Scheduling task',
   'conversations.tools.scheduleTask.done': 'Scheduled task',
   'conversations.tools.checkSchedules.active': 'Checking schedules',

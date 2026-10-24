@@ -159,13 +159,18 @@ async fn writable_probe_succeeds_and_leaves_the_selected_workspace_unchanged() {
 
 #[cfg(unix)]
 #[tokio::test]
-async fn read_only_workspace_is_reported_by_the_native_writable_check() {
+async fn workspace_without_write_mode_bits_reports_effective_writability() {
     let workspace = ReadOnlyWorkspace::new();
     assert!(workspace.path().is_dir(), "the selected workspace exists");
-    assert!(
-        crate::storage::probe_directory_writable(workspace.path()).is_err(),
-        "the selected directory must reject probe-file creation"
-    );
+    let expected_severity = if unsafe { libc::geteuid() } == 0 {
+        FindingSeverity::Pass
+    } else {
+        assert!(
+            crate::storage::probe_directory_writable(workspace.path()).is_err(),
+            "a non-root user must be denied probe-file creation when write bits are clear"
+        );
+        FindingSeverity::Error
+    };
     let before = tree_snapshot(workspace.path());
     let mut config = crate::config::Config::default();
     config.workspace_dir = workspace.path().to_path_buf();
@@ -190,14 +195,16 @@ async fn read_only_workspace_is_reported_by_the_native_writable_check() {
         .iter()
         .find(|finding| finding.check_id == "workspace/writable")
         .expect("native workspace check produces a finding");
-    assert_eq!(finding.severity, FindingSeverity::Error);
+    assert_eq!(finding.severity, expected_severity);
     assert_eq!(finding.config_path.as_deref(), Some("workspace_dir"));
     let serialized = serde_json::to_string(&report).expect("serialize doctor report");
     assert!(
         !serialized.contains(PRIVATE_WORKSPACE_MARKER),
         "the report must not disclose the physical workspace path"
     );
-    assert!(!finding.fix_hint.trim().is_empty());
+    if expected_severity == FindingSeverity::Error {
+        assert!(!finding.fix_hint.trim().is_empty());
+    }
 }
 
 #[tokio::test]

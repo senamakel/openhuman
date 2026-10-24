@@ -19,7 +19,7 @@ fn sample_agents() -> HashMap<String, DelegateAgentConfig> {
     agents.insert(
         "coder".to_string(),
         DelegateAgentConfig {
-            model: crate::config::DEFAULT_MODEL.to_string(),
+            model: "test-model".to_string(),
             system_prompt: None,
             temperature: None,
             max_depth: 2,

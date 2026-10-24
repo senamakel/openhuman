@@ -100,6 +100,9 @@ fn warm_inbound_queues(config: &Config) {
     // Loading a module is process-wide; the host's own context carries it.
     crate::core::runtime::DispatchCtx::host_default().spawn(async move {
         log::debug!("[modules] inbound event queues warm-up starting");
+        // Pinned turns a previous process left running are run again; the
+        // queues acknowledged them, so nothing else would.
+        crate::inbound::pinned::resume_at_boot(&config);
         if let Err(reason) = ops::ensure_loaded(&config, super::event_queues::MODULE_ID).await {
             log::warn!("[modules] inbound event queues did not load at boot: {reason}");
         }

@@ -706,3 +706,18 @@ fn the_ahead_warning_is_silent_for_released_modules_other_ids_and_release_builds
     // A release build never warns.
     assert!(pin_ahead_warning("tinydocs", ModuleSource::Source, Some("tinydocs"), false).is_none());
 }
+
+#[test]
+fn tinymcp_is_told_which_bus_name_serves_its_storage() {
+    // TinyMCP refuses to load without a storage destination, so an empty config
+    // faults the module at startup and every MCP call reports "unavailable".
+    let config = ops::module_config_for_test(&Config::default(), "tinymcp");
+    assert_eq!(
+        config,
+        serde_json::json!({ "storage_callback": "ai.tinyhumans.tinystorage.Storage" })
+    );
+    assert_eq!(
+        ops::module_config_for_test(&Config::default(), "tinybox"),
+        serde_json::json!({})
+    );
+}

@@ -46,8 +46,8 @@ async fn write_policy_logs_and_returns_denial() {
     let tmp = tempfile::TempDir::new().unwrap();
     let mut config = Config::default();
     config.workspace_dir = tmp.path().join("workspace");
-    config.autonomy.enabled = true;
-    config.autonomy.level = crate::security::AutonomyLevel::ReadOnly;
+    config.security.autonomy.enabled = true;
+    config.security.autonomy.level = crate::security::AutonomyLevel::ReadOnly;
 
     // The tier and the budget are the module's; here it answers read-only.
     let stub = std::sync::Arc::new(

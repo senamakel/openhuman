@@ -18,7 +18,7 @@ pub enum LeafCall {
     /// Stateless model request on its explicit route.
     Completion {
         /// The route and completion options.
-        completer: Completer,
+        completer: Box<Completer>,
         /// The model request.
         request: Box<CompletionRequest>,
     },
@@ -29,7 +29,7 @@ impl LeafCall {
     /// A stateless request with owned, boxed options.
     pub fn completion(completer: Completer, request: CompletionRequest) -> Self {
         Self::Completion {
-            completer,
+            completer: Box::new(completer),
             request: Box::new(request),
         }
     }
@@ -85,7 +85,7 @@ type CallFuture =
 fn call(call: LeafCall, budget: ModelBudget, leaf: bool) -> CallFuture {
     match call {
         LeafCall::Completion { completer, request } => Box::pin(async move {
-            Box::pin(completer.budget(budget).complete(*request))
+            Box::pin((*completer).budget(budget).complete(*request))
                 .await
                 .map(CallOutcome::Completion)
         }),

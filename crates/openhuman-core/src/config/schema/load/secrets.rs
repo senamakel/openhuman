@@ -99,7 +99,8 @@ fn encrypt_optional_secret(
     field_name: &str,
 ) -> Result<()> {
     if let Some(raw) = value.clone() {
-        if !crate::security::secret_storage::SecretStore::is_encrypted(&raw) {
+        // An empty value means "no key"; sealing it would make it look set.
+        if !raw.is_empty() && !crate::security::secret_storage::SecretStore::is_encrypted(&raw) {
             *value = Some(
                 store
                     .encrypt(&raw)
@@ -128,7 +129,6 @@ pub(super) fn decrypt_config_secrets(config: &mut Config, openhuman_dir: &Path) 
     migration_flag().store(false, Ordering::Relaxed);
     let store = crate::security::secret_storage::SecretStore::new(openhuman_dir, true);
 
-    decrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
     // A MongoDB URL carries the database password.
     // Fail closed: if the sealed URL cannot be opened, keep the ciphertext so
     // the storage backend fails to open at boot instead of the field being
@@ -139,100 +139,9 @@ pub(super) fn decrypt_config_secrets(config: &mut Config, openhuman_dir: &Path) 
         config.storage.url = sealed_storage_url;
     }
 
-    decrypt_optional_secret(&store, &mut config.seltz.api_key, "seltz.api_key")?;
-    decrypt_optional_secret(
-        &store,
-        &mut config.search.parallel.api_key,
-        "search.parallel.api_key",
-    )?;
-    decrypt_optional_secret(
-        &store,
-        &mut config.search.brave.api_key,
-        "search.brave.api_key",
-    )?;
-    decrypt_optional_secret(
-        &store,
-        &mut config.search.querit.api_key,
-        "search.querit.api_key",
-    )?;
-    decrypt_optional_secret(&store, &mut config.search.exa.api_key, "search.exa.api_key")?;
-    decrypt_optional_secret(
-        &store,
-        &mut config.search.tavily.api_key,
-        "search.tavily.api_key",
-    )?;
-    decrypt_optional_secret(
-        &store,
-        &mut config.search.gemini.api_key,
-        "search.gemini.api_key",
-    )?;
-
-    let ch = &mut config.channels_config;
-    if let Some(ref mut tg) = ch.telegram {
-        let mut tok = Some(tg.bot_token.clone());
-        decrypt_optional_secret(&store, &mut tok, "telegram.bot_token")?;
-        tg.bot_token = tok.unwrap_or_default();
-    }
-    if let Some(ref mut d) = ch.discord {
-        let mut tok = Some(d.bot_token.clone());
-        decrypt_optional_secret(&store, &mut tok, "discord.bot_token")?;
-        d.bot_token = tok.unwrap_or_default();
-    }
-    if let Some(ref mut s) = ch.slack {
-        let mut tok = Some(s.bot_token.clone());
-        decrypt_optional_secret(&store, &mut tok, "slack.bot_token")?;
-        s.bot_token = tok.unwrap_or_default();
-        decrypt_optional_secret(&store, &mut s.app_token, "slack.app_token")?;
-    }
-    if let Some(ref mut m) = ch.mattermost {
-        let mut tok = Some(m.bot_token.clone());
-        decrypt_optional_secret(&store, &mut tok, "mattermost.bot_token")?;
-        m.bot_token = tok.unwrap_or_default();
-    }
-    if let Some(ref mut w) = ch.webhook {
-        decrypt_optional_secret(&store, &mut w.secret, "webhook.secret")?;
-    }
-    if let Some(ref mut mx) = ch.matrix {
-        let mut tok = Some(mx.access_token.clone());
-        decrypt_optional_secret(&store, &mut tok, "matrix.access_token")?;
-        mx.access_token = tok.unwrap_or_default();
-    }
-    if let Some(ref mut wa) = ch.whatsapp {
-        decrypt_optional_secret(&store, &mut wa.access_token, "whatsapp.access_token")?;
-        decrypt_optional_secret(&store, &mut wa.verify_token, "whatsapp.verify_token")?;
-        decrypt_optional_secret(&store, &mut wa.app_secret, "whatsapp.app_secret")?;
-    }
-    if let Some(ref mut lq) = ch.linq {
-        let mut tok = Some(lq.api_token.clone());
-        decrypt_optional_secret(&store, &mut tok, "linq.api_token")?;
-        lq.api_token = tok.unwrap_or_default();
-    }
-    if let Some(ref mut irc) = ch.irc {
-        decrypt_optional_secret(&store, &mut irc.server_password, "irc.server_password")?;
-        decrypt_optional_secret(&store, &mut irc.nickserv_password, "irc.nickserv_password")?;
-        decrypt_optional_secret(&store, &mut irc.sasl_password, "irc.sasl_password")?;
-    }
-    if let Some(ref mut lk) = ch.lark {
-        let mut tok = Some(lk.app_secret.clone());
-        decrypt_optional_secret(&store, &mut tok, "lark.app_secret")?;
-        lk.app_secret = tok.unwrap_or_default();
-        decrypt_optional_secret(&store, &mut lk.encrypt_key, "lark.encrypt_key")?;
-        decrypt_optional_secret(
-            &store,
-            &mut lk.verification_token,
-            "lark.verification_token",
-        )?;
-    }
-    if let Some(ref mut dt) = ch.dingtalk {
-        let mut tok = Some(dt.client_secret.clone());
-        decrypt_optional_secret(&store, &mut tok, "dingtalk.client_secret")?;
-        dt.client_secret = tok.unwrap_or_default();
-    }
-    if let Some(ref mut qq) = ch.qq {
-        let mut tok = Some(qq.app_secret.clone());
-        decrypt_optional_secret(&store, &mut tok, "qq.app_secret")?;
-        qq.app_secret = tok.unwrap_or_default();
-    }
+    for_each_secret(config, &mut |value, name| {
+        decrypt_optional_secret(&store, value, name)
+    })?;
 
     Ok(migration_flag().swap(false, Ordering::Relaxed))
 }
@@ -252,105 +161,106 @@ pub(super) fn encrypt_config_secrets(config: &mut Config) -> Result<()> {
         .context("Config path must have a parent directory")?;
     let store = crate::security::secret_storage::SecretStore::new(parent_dir, true);
 
-    encrypt_optional_secret(&store, &mut config.api_key, "api_key")?;
     // A MongoDB URL carries the database password.
     encrypt_optional_secret(&store, &mut config.storage.url, "storage.url")?;
 
-    encrypt_optional_secret(&store, &mut config.seltz.api_key, "seltz.api_key")?;
-    encrypt_optional_secret(
-        &store,
-        &mut config.search.parallel.api_key,
-        "search.parallel.api_key",
-    )?;
-    encrypt_optional_secret(
-        &store,
-        &mut config.search.brave.api_key,
-        "search.brave.api_key",
-    )?;
-    encrypt_optional_secret(
-        &store,
-        &mut config.search.querit.api_key,
-        "search.querit.api_key",
-    )?;
-    encrypt_optional_secret(&store, &mut config.search.exa.api_key, "search.exa.api_key")?;
-    encrypt_optional_secret(
-        &store,
-        &mut config.search.tavily.api_key,
-        "search.tavily.api_key",
-    )?;
-    encrypt_optional_secret(
-        &store,
-        &mut config.search.gemini.api_key,
-        "search.gemini.api_key",
-    )?;
+    for_each_secret(config, &mut |value, name| {
+        encrypt_optional_secret(&store, value, name)
+    })?;
+
+    Ok(())
+}
+
+/// Every config field that holds a credential, listed once. Save and load both
+/// walk this list, so a field cannot be sealed on one path and missed on the
+/// other. `storage.url` is not here: its decrypt fails closed, so each pass
+/// handles it itself.
+fn for_each_secret(
+    config: &mut Config,
+    f: &mut dyn FnMut(&mut Option<String>, &str) -> Result<()>,
+) -> Result<()> {
+    f(&mut config.api_key, "api_key")?;
+    f(&mut config.seltz.api_key, "seltz.api_key")?;
+    for provider in [
+        "parallel", "brave", "querit", "exa", "tavily", "gemini", "tinyfish",
+    ] {
+        if let Some(creds) = config.search.credentials_mut(provider) {
+            f(&mut creds.api_key, &format!("search.{provider}.api_key"))?;
+        }
+    }
+    f(&mut config.local_ai.api_key, "local_ai.api_key")?;
+    f(&mut config.composio.api_key, "composio.api_key")?;
+    let integrations = &mut config.integrations;
+    for (name, toggle) in [
+        ("google_places", &mut integrations.google_places),
+        ("parallel", &mut integrations.parallel),
+        ("tinyfish", &mut integrations.tinyfish),
+        ("stock_prices", &mut integrations.stock_prices),
+    ] {
+        f(&mut toggle.api_key, &format!("integrations.{name}.api_key"))?;
+    }
+    // Empty means "read the environment", so it stays empty.
+    string_secret(&mut config.hosting.api_key, "hosting.api_key", f)?;
 
     let ch = &mut config.channels_config;
     if let Some(ref mut tg) = ch.telegram {
-        let mut tok = Some(tg.bot_token.clone());
-        encrypt_optional_secret(&store, &mut tok, "telegram.bot_token")?;
-        tg.bot_token = tok.unwrap_or_default();
+        string_secret(&mut tg.bot_token, "telegram.bot_token", f)?;
     }
     if let Some(ref mut d) = ch.discord {
-        let mut tok = Some(d.bot_token.clone());
-        encrypt_optional_secret(&store, &mut tok, "discord.bot_token")?;
-        d.bot_token = tok.unwrap_or_default();
+        string_secret(&mut d.bot_token, "discord.bot_token", f)?;
     }
     if let Some(ref mut s) = ch.slack {
-        let mut tok = Some(s.bot_token.clone());
-        encrypt_optional_secret(&store, &mut tok, "slack.bot_token")?;
-        s.bot_token = tok.unwrap_or_default();
-        encrypt_optional_secret(&store, &mut s.app_token, "slack.app_token")?;
+        string_secret(&mut s.bot_token, "slack.bot_token", f)?;
+        f(&mut s.app_token, "slack.app_token")?;
     }
     if let Some(ref mut m) = ch.mattermost {
-        let mut tok = Some(m.bot_token.clone());
-        encrypt_optional_secret(&store, &mut tok, "mattermost.bot_token")?;
-        m.bot_token = tok.unwrap_or_default();
+        string_secret(&mut m.bot_token, "mattermost.bot_token", f)?;
     }
     if let Some(ref mut w) = ch.webhook {
-        encrypt_optional_secret(&store, &mut w.secret, "webhook.secret")?;
+        f(&mut w.secret, "webhook.secret")?;
     }
     if let Some(ref mut mx) = ch.matrix {
-        let mut tok = Some(mx.access_token.clone());
-        encrypt_optional_secret(&store, &mut tok, "matrix.access_token")?;
-        mx.access_token = tok.unwrap_or_default();
+        string_secret(&mut mx.access_token, "matrix.access_token", f)?;
     }
     if let Some(ref mut wa) = ch.whatsapp {
-        encrypt_optional_secret(&store, &mut wa.access_token, "whatsapp.access_token")?;
-        encrypt_optional_secret(&store, &mut wa.verify_token, "whatsapp.verify_token")?;
-        encrypt_optional_secret(&store, &mut wa.app_secret, "whatsapp.app_secret")?;
+        f(&mut wa.access_token, "whatsapp.access_token")?;
+        f(&mut wa.verify_token, "whatsapp.verify_token")?;
+        f(&mut wa.app_secret, "whatsapp.app_secret")?;
     }
     if let Some(ref mut lq) = ch.linq {
-        let mut tok = Some(lq.api_token.clone());
-        encrypt_optional_secret(&store, &mut tok, "linq.api_token")?;
-        lq.api_token = tok.unwrap_or_default();
+        string_secret(&mut lq.api_token, "linq.api_token", f)?;
     }
     if let Some(ref mut irc) = ch.irc {
-        encrypt_optional_secret(&store, &mut irc.server_password, "irc.server_password")?;
-        encrypt_optional_secret(&store, &mut irc.nickserv_password, "irc.nickserv_password")?;
-        encrypt_optional_secret(&store, &mut irc.sasl_password, "irc.sasl_password")?;
+        f(&mut irc.server_password, "irc.server_password")?;
+        f(&mut irc.nickserv_password, "irc.nickserv_password")?;
+        f(&mut irc.sasl_password, "irc.sasl_password")?;
     }
     if let Some(ref mut lk) = ch.lark {
-        let mut tok = Some(lk.app_secret.clone());
-        encrypt_optional_secret(&store, &mut tok, "lark.app_secret")?;
-        lk.app_secret = tok.unwrap_or_default();
-        encrypt_optional_secret(&store, &mut lk.encrypt_key, "lark.encrypt_key")?;
-        encrypt_optional_secret(
-            &store,
-            &mut lk.verification_token,
-            "lark.verification_token",
-        )?;
+        string_secret(&mut lk.app_secret, "lark.app_secret", f)?;
+        f(&mut lk.encrypt_key, "lark.encrypt_key")?;
+        f(&mut lk.verification_token, "lark.verification_token")?;
     }
     if let Some(ref mut dt) = ch.dingtalk {
-        let mut tok = Some(dt.client_secret.clone());
-        encrypt_optional_secret(&store, &mut tok, "dingtalk.client_secret")?;
-        dt.client_secret = tok.unwrap_or_default();
+        string_secret(&mut dt.client_secret, "dingtalk.client_secret", f)?;
     }
     if let Some(ref mut qq) = ch.qq {
-        let mut tok = Some(qq.app_secret.clone());
-        encrypt_optional_secret(&store, &mut tok, "qq.app_secret")?;
-        qq.app_secret = tok.unwrap_or_default();
+        string_secret(&mut qq.app_secret, "qq.app_secret", f)?;
     }
+    Ok(())
+}
 
+/// Runs `f` on a credential stored as a plain `String`, skipping it when empty.
+fn string_secret(
+    value: &mut String,
+    field_name: &str,
+    f: &mut dyn FnMut(&mut Option<String>, &str) -> Result<()>,
+) -> Result<()> {
+    if value.is_empty() {
+        return Ok(());
+    }
+    let mut slot = Some(value.clone());
+    f(&mut slot, field_name)?;
+    *value = slot.unwrap_or_default();
     Ok(())
 }
 

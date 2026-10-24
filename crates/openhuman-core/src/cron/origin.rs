@@ -41,6 +41,7 @@ pub(crate) fn job_origin_from_turn(origin: &AgentTurnOrigin) -> Option<JobOrigin
                 history_key: history_key.clone(),
                 sender: sender.clone(),
                 thread_id: None,
+                session_identity: None,
             })
         }
         _ => None,

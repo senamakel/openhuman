@@ -29,6 +29,7 @@
 
 pub mod budget_gate;
 mod bundle;
+mod copy;
 pub mod definition_registry;
 mod operation_context;
 pub mod run_context;
@@ -41,7 +42,10 @@ pub use bundle::{
     OpenHumanHostBase, OpenHumanHostBundle, OpenHumanHostBundleFactory, OpenHumanHostBundleInputs,
     OpenHumanHostInvocationInputs,
 };
+pub(crate) use copy::OpenHumanCopyProvider;
 pub use definition_registry::OpenHumanDefinitionRegistry;
+#[cfg(feature = "skills")]
+pub(crate) use operation_context::take_workflow_scan_permit_for_tool;
 pub use run_context::{
     decide_dispatch, DispatchDecision, DispatchInputs, LastTurnUsage, OpenHumanRunContext,
     OpenHumanRunExt, SubagentUsageEntry, TurnDispatchState,

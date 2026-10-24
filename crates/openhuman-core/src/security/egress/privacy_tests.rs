@@ -170,6 +170,7 @@ mod with_module {
         assert!(message.contains("could not confirm"), "{message}");
         let _mode = test_privacy_scope(PrivacyMode::LocalOnly);
         assert!(enforce_egress(&external_composio()).await.is_err());
+        assert!(enforce_egress_blocking(&external_composio()).is_err());
     }
 
     #[tokio::test]
@@ -181,6 +182,7 @@ mod with_module {
         assert!(message.contains("could not confirm"), "{message}");
         let _mode = test_privacy_scope(PrivacyMode::Standard);
         assert!(enforce_egress(&external_composio()).await.is_err());
+        assert!(enforce_egress_blocking(&external_composio()).is_err());
     }
 
     #[tokio::test]

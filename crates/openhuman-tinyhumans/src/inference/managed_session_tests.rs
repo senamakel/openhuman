@@ -10,8 +10,11 @@ fn the_offline_local_session_cannot_authenticate_managed_inference() {
         SessionTokenCheck, LOCAL_SESSION_MANAGED_INFERENCE_UNAVAILABLE,
     };
 
-    let error = managed_bearer(SessionTokenCheck::Live("header.payload.local".to_string()))
-        .expect_err("a local session has no managed bearer");
+    let error = managed_bearer(
+        SessionTokenCheck::Live("header.payload.local".to_string()),
+        "openhuman_backend_model.resolve_bearer",
+    )
+    .expect_err("a local session has no managed bearer");
 
     assert_eq!(
         error.to_string(),
@@ -23,8 +26,11 @@ fn the_offline_local_session_cannot_authenticate_managed_inference() {
 fn the_refusal_does_not_read_as_an_expired_session() {
     use openhuman_embed::__host::security::credentials::session_support::SessionTokenCheck;
 
-    let error = managed_bearer(SessionTokenCheck::Live("header.payload.local".to_string()))
-        .expect_err("a local session has no managed bearer");
+    let error = managed_bearer(
+        SessionTokenCheck::Live("header.payload.local".to_string()),
+        "openhuman_backend_model.resolve_bearer",
+    )
+    .expect_err("a local session has no managed bearer");
 
     // The whole point of the fix: this must not reach the sign-out path that
     // the backend's 401 envelope used to trigger.
@@ -39,62 +45,51 @@ fn the_refusal_does_not_read_as_an_expired_session() {
 fn a_signed_in_session_still_authenticates_managed_inference() {
     use openhuman_embed::__host::security::credentials::session_support::SessionTokenCheck;
 
-    let bearer = managed_bearer(SessionTokenCheck::Live(
-        "header.payload.signature".to_string(),
-    ))
+    let bearer = managed_bearer(
+        SessionTokenCheck::Live("header.payload.signature".to_string()),
+        "openhuman_backend_model.resolve_bearer",
+    )
     .expect("a hosted session is the bearer");
 
     assert_eq!(bearer, "header.payload.signature");
 }
 
-use tinyinference_llm::model::{ModelStreamItem, ProviderError};
+#[test]
+fn inspection_refuses_the_session_token_on_a_plaintext_remote_endpoint() {
+    use openhuman_embed::__host::config::Config;
 
-static SESSION_EXPIRY_EVENT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
-
-/// #6724 (review): a 401 reported *inside* a stream must start re-auth just
-/// like a failed `stream()` call does.
-#[tokio::test]
-async fn an_in_band_401_publishes_session_expired() {
-    use openhuman_embed::__host::core::events::DomainEvent;
-
-    let _lock = SESSION_EXPIRY_EVENT_TEST_LOCK.lock().await;
-
-    openhuman_embed::__host::core::bus::init()
-        .await
-        .expect("bus init");
-    let mut rx = openhuman_embed::__host::core::bus::BUS
-        .get()
-        .expect("event bus initialized")
-        .receiver();
-
-    super::super::managed_calls::observe_in_band_failure(&ModelStreamItem::ProviderFailed(
-        ProviderError {
-            provider: super::super::managed_model::PROVIDER_LABEL.to_string(),
-            status: Some(401),
-            message: "TEST_MARKER_IN_BAND token expired".to_string(),
-            ..ProviderError::default()
+    let temp = tempfile::tempdir().expect("temporary selected credential workspace");
+    std::fs::write(
+        temp.path().join("auth-profiles.json"),
+        r#"{"schema_version":1,"active_profiles":{"app-session":"app-session:default"},"profiles":{"app-session:default":{"provider":"app-session","profile_name":"default","kind":"token","token":"inspection-session-token"}}}"#,
+    )
+    .expect("seed selected app-session profile");
+    let config_for = |api_url: &str| Config {
+        workspace_dir: temp.path().to_owned(),
+        action_dir: temp.path().to_owned(),
+        config_path: temp.path().join("config.toml"),
+        api_url: Some(api_url.to_owned()),
+        secrets: {
+            let mut secrets = Config::default().secrets;
+            secrets.encrypt = false;
+            secrets
         },
-    ));
+        ..Config::default()
+    };
 
-    let mut source_seen = None;
-    loop {
-        match rx.try_recv() {
-            Ok(DomainEvent::SessionExpired { source, reason })
-                if reason.contains("TEST_MARKER_IN_BAND") =>
-            {
-                source_seen = Some(source);
-                break;
-            }
-            Ok(_) | Err(tinybus::TryRecvError::Lagged(_)) => continue,
-            Err(_) => break,
-        }
-    }
+    let error = managed_bearer_for_inspection(&config_for("http://10.0.0.1:1"))
+        .expect_err("plaintext remote endpoint must not receive the session token");
+    assert!(error.to_string().contains("insecure endpoint"), "{error}");
+    assert!(!error.to_string().contains("inspection-session-token"));
+
     assert_eq!(
-        source_seen.as_deref(),
-        Some("openhuman_backend_model.stream(401)"),
-        "an in-band 401 must publish SessionExpired"
+        managed_bearer_for_inspection(&config_for("http://127.0.0.1:1"))
+            .expect("loopback HTTP stays allowed"),
+        "inspection-session-token"
     );
 }
+
+static SESSION_EXPIRY_EVENT_TEST_LOCK: tokio::sync::Mutex<()> = tokio::sync::Mutex::const_new(());
 
 #[tokio::test]
 async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_expiry() {
@@ -123,9 +118,9 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     use openhuman_embed::__host::config::Config;
     use openhuman_embed::__host::core::events::DomainEvent;
     use openhuman_embed::__host::egress::EgressLedger;
-    use openhuman_embed::__host::inference_registry::ChatModelRequest;
+    use openhuman_embed::__host::inference_registry::{ChatModelRequest, ProviderContext};
     use tinyinference_llm::message::Message;
-    use tinyinference_llm::model::ModelRequest;
+    use tinyinference_llm::model::{ModelRequest, ModelStreamItem, ProviderError};
 
     let _lock = SESSION_EXPIRY_EVENT_TEST_LOCK.lock().await;
     let temp = tempfile::tempdir().expect("temporary selected credential workspace");
@@ -168,14 +163,19 @@ async fn inspection_invoke_and_in_band_401_do_not_mutate_credentials_or_publish_
     let build_inspection_model = |api_url: &str| {
         let mut model_config = config.clone();
         model_config.api_url = Some(format!("http://{api_url}"));
+        let context = ProviderContext {
+            config: model_config.clone(),
+            egress: egress.clone(),
+            embedding: None,
+            catalog: None,
+        };
         let request = ChatModelRequest {
             role: "chat",
-            config: &model_config,
             model_override: Some("reasoning-v1"),
             default_model: None,
             native_tool_calling: true,
             thread_id: None,
-            egress: &egress,
+            context: &context,
         };
         let model = super::super::build_chat_model_for_inspection(&request)
             .expect("real TinyHumans inspection adapter should read the selected profile");

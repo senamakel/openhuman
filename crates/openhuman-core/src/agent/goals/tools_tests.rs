@@ -17,7 +17,10 @@ fn exposes_only_the_model_facing_goal_tools() {
         .iter()
         .map(|tool| tool.name().to_string())
         .collect();
-    assert_eq!(names, ["goal_get", "goal_set", "goal_complete"]);
+    assert_eq!(
+        names,
+        ["goal_get", "goal_set", "goal_complete", "goal_resume"]
+    );
 }
 
 #[tokio::test]

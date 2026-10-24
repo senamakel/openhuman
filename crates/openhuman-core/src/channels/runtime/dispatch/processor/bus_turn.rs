@@ -9,14 +9,14 @@ use crate::security::turn_origin::AgentTurnOrigin;
 use std::sync::Arc;
 use tinyagents_session::transcript::TranscriptMessage;
 use tinybus::NativeRequestError;
-use tinychannels_bus as traits;
+use tinychannels_bus::ChannelInboundEnvelope;
 
 use super::super::routing::resolve_target_agent;
 
 /// Run `msg`'s turn as the orchestrator over the bus.
 pub(super) async fn dispatch_bus_turn(
     ctx: &ChannelRuntimeContext,
-    msg: &traits::ChannelMessage,
+    msg: &ChannelInboundEnvelope,
     route: &ChannelRouteSelection,
     history: Vec<TranscriptMessage>,
     active_turn_model_source: Option<crate::agent::tinyagents::TurnModelSource>,
@@ -36,7 +36,7 @@ pub(super) async fn dispatch_bus_turn(
     // Pick the active agent for this turn (always orchestrator) and
     // synthesise its delegation tool surface. Fresh disk read of
     // `Config::onboarding_completed` happens inside `resolve_target_agent`.
-    let scoping = resolve_target_agent(&msg.channel).await;
+    let scoping = resolve_target_agent(&msg.channel.id).await;
 
     // A channel's explicitly-registered `tools_registry` tools are always visible
     // to the model. The resolved agent's visible-tool scope is meant to filter the
@@ -73,7 +73,7 @@ pub(super) async fn dispatch_bus_turn(
         model: route.model.clone(),
         temperature: ctx.temperature,
         silent: true,
-        channel_name: msg.channel.clone(),
+        channel_name: msg.channel.id.clone(),
         multimodal: ctx.multimodal.clone(),
         // Channel-sourced text is untrusted (Slack / Discord / Telegram
         // / WhatsApp / etc. — anyone who can DM the bot can put bytes
@@ -100,7 +100,7 @@ pub(super) async fn dispatch_bus_turn(
         approval,
     };
     tracing::debug!(
-        channel = %msg.channel,
+        channel = %msg.channel.id,
         provider = %route.provider,
         model = %route.model,
         "[channels::dispatch] dispatching {AGENT_RUN_TURN_METHOD} via native bus"

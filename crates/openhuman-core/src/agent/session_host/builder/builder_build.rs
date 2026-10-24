@@ -317,7 +317,19 @@ impl SessionHostBuilder {
 
         let model_name = self
             .model_name
-            .unwrap_or_else(|| crate::config::DEFAULT_MODEL.into());
+            .or_else(|| {
+                self.runtime_config
+                    .as_ref()
+                    .and_then(|config| config.default_model.clone())
+            })
+            .or_else(|| {
+                crate::inference::registry::provider_default_model(
+                    crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                )
+            })
+            .ok_or_else(|| {
+                anyhow::anyhow!("model_name or configured provider default is required")
+            })?;
 
         let context_config = self.context_config.unwrap_or_default();
 
@@ -453,23 +465,7 @@ impl SessionHostBuilder {
             agent_definition_id: agent_definition_name.clone(),
             session_history_locator: self.session_history_locator,
             session_history_locator_memo: std::sync::OnceLock::new(),
-            session_key: {
-                let unix_ts = std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .map(|d| d.as_secs())
-                    .unwrap_or(0);
-                let sanitized: String = agent_definition_name
-                    .chars()
-                    .map(|c| {
-                        if c.is_ascii_alphanumeric() || c == '_' || c == '-' {
-                            c
-                        } else {
-                            '_'
-                        }
-                    })
-                    .collect();
-                format!("{unix_ts}_{sanitized}")
-            },
+            session_key: crate::agent::session_host::session_key::mint(&agent_definition_name),
             session_parent_prefix: self.session_parent_prefix,
             session: None,
             on_progress: None,

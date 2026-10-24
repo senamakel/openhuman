@@ -180,7 +180,7 @@ fn reported_policy(
     let mut policy = super::policy::spawn_policy(
         action_dir,
         state_dir,
-        &config.sandbox,
+        &config.security.sandbox,
         &config.runtime,
         remote,
     );

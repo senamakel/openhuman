@@ -361,7 +361,7 @@ impl Turn {
         });
         // Everything the core honours for this turn rides one explicit value;
         // nothing is recovered from an ambient scope below this point.
-        let chat_env = openhuman_core::inference::host_runtime::ops::AgentChatEnv {
+        let chat_env = openhuman_core::agent_runs::agent_chat::AgentChatEnv {
             progress: self.progress.take(),
             host: openhuman_core::agent::turn_env::HostTurnEnv {
                 command_environment: self.tool_env.take(),

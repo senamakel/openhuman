@@ -37,8 +37,9 @@ async fn run(fx: &Fixture) -> Result<Outcome, LayoutError> {
 async fn stored(fx: &Fixture, secret: &str) -> Option<Vec<u8>> {
     let url = format!("sqlite:{}", fx.target.storage_db().display());
     let backend = storage::open(&url).await.unwrap();
-    let scoped = backend.for_scope(&storage::tenant_scope(None)).unwrap();
-    let secrets = storage::secrets::over(&scoped, storage::secrets::keys().unwrap());
+    let scope = storage::tenant_scope(None);
+    let scoped = backend.for_scope(&scope).unwrap();
+    let secrets = storage::secrets::over(&scoped, scope, storage::secrets::keys().unwrap());
     secrets.get(secret).await.unwrap().map(|b| b.to_vec())
 }
 
@@ -88,9 +89,10 @@ async fn a_stored_record_under_another_key_stops_the_migration_and_keeps_the_fil
     let fx = with_credentials();
     let url = super::super::legacy::v1_url(&fx.target);
     let backend = storage::open(&url).await.unwrap();
-    let scoped = backend.for_scope(&storage::tenant_scope(None)).unwrap();
+    let scope = storage::tenant_scope(None);
+    let scoped = backend.for_scope(&scope).unwrap();
     let other = Arc::new(DerivedKeys::new(Zeroizing::new([0x99; 32])));
-    storage::secrets::over(&scoped, other)
+    storage::secrets::over(&scoped, scope, other)
         .set(PROFILES_SECRET_NAME, b"{}")
         .await
         .unwrap();
@@ -109,8 +111,9 @@ async fn a_record_already_on_the_backend_wins_over_a_stale_file() {
     let fx = with_credentials();
     let url = super::super::legacy::v1_url(&fx.target);
     let backend = storage::open(&url).await.unwrap();
-    let scoped = backend.for_scope(&storage::tenant_scope(None)).unwrap();
-    storage::secrets::over(&scoped, storage::secrets::keys().unwrap())
+    let scope = storage::tenant_scope(None);
+    let scoped = backend.for_scope(&scope).unwrap();
+    storage::secrets::over(&scoped, scope, storage::secrets::keys().unwrap())
         .set(PROFILES_SECRET_NAME, br#"{"newer":true}"#)
         .await
         .unwrap();

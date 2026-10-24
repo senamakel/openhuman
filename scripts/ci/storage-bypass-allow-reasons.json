@@ -28,13 +28,6 @@
     "issue": "https://github.com/tinyhumansai/openhuman/issues/7428"
   },
   {
-    "path": "crates/openhuman-core/src/config/workspace/state.rs",
-    "rule": "sqlite-open",
-    "site": "let conn = Connection::open(db_path)?;",
-    "reason": "vault watcher state is absolute local paths and their mtimes: per-machine filesystem state that is meaningless on, and must not be shared through, another host's database",
-    "issue": "https://github.com/tinyhumansai/openhuman/issues/7434"
-  },
-  {
     "path": "crates/openhuman-core/src/desktop/app_state/ops/state_file.rs",
     "rule": "json-write",
     "site": "let mut temp_file = NamedTempFile::new_in(parent)",

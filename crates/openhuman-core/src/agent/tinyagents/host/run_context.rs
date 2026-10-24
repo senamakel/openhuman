@@ -162,6 +162,8 @@ pub use dispatch_control::{decide_dispatch, DispatchDecision, DispatchInputs, Tu
 /// the provider route or cost roll-up subsequently read by its parent.
 #[derive(Clone)]
 pub struct OpenHumanRunContext {
+    /// Single-use authorization snapshots for workflows admitted in this run.
+    pub(crate) workflow_scan_permits: super::operation_context::WorkflowScanPermits,
     /// Explicit shared model-call budget inherited by synchronous children.
     pub model_budget: Option<super::super::budget::ModelBudget>,
     /// Host admission policy shared by this run and its synchronous descendants.
@@ -184,6 +186,10 @@ pub struct OpenHumanRunContext {
     pub progress: Option<Sender<AgentProgress>>,
     /// Stop policies evaluated after each model call.
     pub stop_hooks: Vec<Arc<dyn StopHook<tinyagents_harness::cost::TurnCost>>>,
+    /// The turn runs with `TurnOverrides::suppress_active_goal`: the thread
+    /// goal must not reach the model this turn. Set by the turn prelude; the
+    /// run-state block (which reads the goal from the store) follows it.
+    pub goal_suppressed: bool,
     /// Agent/turn tool callbacks, registered after the runtime's global ones.
     pub tool_hooks: Vec<Arc<dyn tinyagents_hooks::tool::ToolHook<OpenHumanRunContext>>>,
     /// Host cap on real tool invocations for this turn tree; `None` leaves the
@@ -297,6 +303,10 @@ pub struct OpenHumanRunContext {
     /// binding the compaction summarizer recalls under. A child run has its
     /// own and does not inherit it.
     pub(crate) memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
+    /// Shell commands this turn left running past their yield point
+    /// (`sandbox::shell_processes`). Each run, child runs included, has its
+    /// own; dropping the last copy at the end of the run stops them.
+    pub(crate) shell_processes: Arc<crate::sandbox::shell_processes::ShellProcesses>,
 }
 
 /// The host callbacks and caps a turn's harness assembly installs, taken from
@@ -311,14 +321,15 @@ pub(crate) struct HarnessHostPolicy {
     pub(crate) tool_call_cap: Option<usize>,
 }
 
-#[cfg(test)]
-pub(crate) use super::operation_context::tool_context_with_approval;
 pub use super::operation_context::{approval_for_tool, OpenHumanRunExt};
 pub(crate) use super::operation_context::{
-    dispatch_ctx_for_tool, memory_identity_for_tool, memory_in_prompt_for_tool,
-    parent_agent_id_for_tool, sandbox_mode_for_tool, task_recency_window_for_tool,
-    turn_origin_for_tool, HostOperationContext,
+    command_environment_for_tool, dispatch_ctx_for_tool, memory_identity_for_tool,
+    memory_in_prompt_for_tool, parent_agent_id_for_tool, sandbox_mode_for_tool,
+    shell_processes_for_tool, task_recency_window_for_tool, turn_origin_for_tool,
+    HostOperationContext,
 };
+#[cfg(test)]
+pub(crate) use super::operation_context::{test_turn_run, tool_context_with_approval};
 
 impl Default for OpenHumanRunContext {
     fn default() -> Self {
@@ -331,6 +342,7 @@ impl OpenHumanRunContext {
     /// actually owns; `None` is an explicit absence, not an ambient fallback.
     pub fn new() -> Self {
         Self {
+            workflow_scan_permits: Arc::new(Mutex::new(Vec::new())),
             model_budget: None,
             dispatch_admission: None,
             response_shape: None,
@@ -339,6 +351,7 @@ impl OpenHumanRunContext {
             approval: Default::default(),
             progress: None,
             stop_hooks: Vec::new(),
+            goal_suppressed: false,
             tool_hooks: Vec::new(),
             tool_call_limit: None,
             untrusted_input_turn: false,
@@ -376,7 +389,69 @@ impl OpenHumanRunContext {
             required_output: None,
             tool_dialect: tinyagents_harness::config::ToolDispatcher::Auto,
             memory_turn: None,
+            shell_processes: crate::sandbox::shell_processes::ShellProcesses::new(),
         }
+    }
+
+    pub(crate) fn record_workflow_scan_permit(
+        &self,
+        workflow_id: &str,
+        inputs: &serde_json::Value,
+        call_id: &str,
+        digest: &str,
+    ) {
+        let Ok(inputs) = serde_json::to_string(inputs) else {
+            return;
+        };
+        self.workflow_scan_permits
+            .lock()
+            .unwrap_or_else(|p| p.into_inner())
+            .push((
+                workflow_id.to_owned(),
+                inputs,
+                call_id.to_owned(),
+                digest.to_owned(),
+            ));
+    }
+
+    pub(crate) fn take_workflow_scan_permit(
+        &self,
+        workflow_id: &str,
+        inputs: &serde_json::Value,
+        call_id: &str,
+        digest: &str,
+    ) -> bool {
+        let Ok(inputs) = serde_json::to_string(inputs) else {
+            return false;
+        };
+        let mut permits = self
+            .workflow_scan_permits
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let Some(index) = permits.iter().position(|(id, args, call, hash)| {
+            id == workflow_id && args == &inputs && call == call_id && hash == digest
+        }) else {
+            return false;
+        };
+        permits.remove(index);
+        true
+    }
+
+    pub(crate) fn take_workflow_scan_permit_digest(
+        &self,
+        workflow_id: &str,
+        inputs: &serde_json::Value,
+        call_id: &str,
+    ) -> Option<String> {
+        let inputs = serde_json::to_string(inputs).ok()?;
+        let mut permits = self
+            .workflow_scan_permits
+            .lock()
+            .unwrap_or_else(|p| p.into_inner());
+        let index = permits.iter().rposition(|(id, args, call, _)| {
+            id == workflow_id && args == &inputs && call == call_id
+        })?;
+        Some(permits.remove(index).3)
     }
 
     /// Pins the harness tool dialect to the one the session prompt speaks.
@@ -393,6 +468,13 @@ impl OpenHumanRunContext {
     #[must_use]
     pub fn with_core(mut self, core: Option<Arc<crate::core::runtime::CoreContext>>) -> Self {
         self.core = core.as_ref().map(Arc::downgrade);
+        self
+    }
+
+    /// Binds the trusted source of this run's actions.
+    #[must_use]
+    pub fn with_origin(mut self, origin: AgentTurnOrigin) -> Self {
+        self.origin = Some(origin);
         self
     }
 
@@ -518,6 +600,7 @@ impl OpenHumanRunContext {
         child.resolved_route = Arc::new(Mutex::new(None));
         child.memory_turn = None;
         child.response_shape = None;
+        child.shell_processes = crate::sandbox::shell_processes::ShellProcesses::new();
         child
     }
 
@@ -571,6 +654,7 @@ impl OpenHumanRunContext {
         let workspace = self.workspace.clone();
         let run_ext = OpenHumanRunExt::from_run_context(&self);
         let host_operations = Arc::new(HostOperationContext {
+            workflow_scan_permits: self.workflow_scan_permits.clone(),
             origin: self.origin.clone(),
             approval: self.approval.clone(),
             sandbox_mode: self.sandbox_mode,
@@ -645,3 +729,7 @@ impl OpenHumanRunContext {
 #[cfg(test)]
 #[path = "run_context_tests.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "run_context_workflow_scan_tests.rs"]
+mod workflow_scan_tests;

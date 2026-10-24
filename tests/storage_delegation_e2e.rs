@@ -139,9 +139,11 @@ async fn the_delegation_checkpointer_resumes_and_keeps_scopes_apart() {
     assert!(local.list_threads().await.unwrap().is_empty());
     assert_eq!(plan_of(&local, "run-1").await, None);
 
-    // The checkpoint resumes after the backend is reopened, as a restarted
-    // process would.
-    {
+    // The checkpoint resumes after a durable backend is reopened, as a
+    // restarted process would. The memory driver is intentionally volatile:
+    // opening it again creates a new, empty backend, so it cannot exercise
+    // restart persistence.
+    if case.url != "memory" {
         let url = case.url.clone();
         let reopened =
             openhuman_core::storage::block_on(

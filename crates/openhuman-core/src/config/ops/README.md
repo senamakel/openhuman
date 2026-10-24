@@ -14,10 +14,12 @@ fn, which returns `Outcome<T>`.
 | File | Responsibility |
 | --- | --- |
 | [`agent.rs`](./agent.rs) | Autonomy, agent, agent-paths, and memory-sync settings. |
+| [`cloud_providers.rs`](./cloud_providers.rs) | Cloud-provider RPC input conversion and validation. |
 | [`loader.rs`](./loader.rs) | Config loading/snapshotting and runtime flags; split into submodules [`loader/load.rs`](./loader/load.rs), [`loader/paths.rs`](./loader/paths.rs), [`loader/reset_local_data.rs`](./loader/reset_local_data.rs), [`loader/runtime_flags.rs`](./loader/runtime_flags.rs), [`loader/snapshot.rs`](./loader/snapshot.rs). |
 | [`model.rs`](./model.rs) | AI-provider, memory, runtime, local-AI, and Composio-trigger settings. |
-| [`privacy.rs`](./privacy.rs) | Privacy Mode (`[privacy]`) get/set. |
-| [`sandbox.rs`](./sandbox.rs) | Sandbox / Docker runtime (`[sandbox]`, `[runtime.docker]`) settings. |
+| [`primary_cloud.rs`](./primary_cloud.rs) | Primary cloud selection and legacy direct-inference compatibility. |
+| [`privacy.rs`](./privacy.rs) | Privacy Mode (`[security.privacy]`) get/set. |
+| [`sandbox.rs`](./sandbox.rs) | Sandbox / Docker runtime (`[security.sandbox]`, `[runtime.docker]`) settings. |
 | [`ui.rs`](./ui.rs) | Browser, analytics, and onboarding-flag settings. |
 | [`search.rs`](./search.rs) | Search settings: providers, routes, role order, keys, limits, and the web-access allowlist. |
 
@@ -45,6 +47,10 @@ section back out, usually as `Outcome<serde_json::Value>`. `ui.rs`'s
 - `model.rs`: `apply_model_settings`, `apply_memory_settings`,
   `apply_runtime_settings`, `apply_local_ai_settings`,
   `apply_composio_trigger_settings`, `load_and_resolve_api_url`.
+- `cloud_providers.rs`: `build_cloud_provider_creds` converts settings RPC
+  inputs into validated cloud-provider config entries.
+- `primary_cloud.rs`: primary cloud selection and matching legacy
+  `inference_url` compatibility used by inference routing and credentials.
 - `privacy.rs`: `apply_privacy_settings`, `get_privacy_mode`.
 - `sandbox.rs`: `apply_sandbox_settings`, `get_sandbox_settings`.
 - `search.rs`: `apply_search_settings` / `get_search_settings`,
@@ -70,13 +76,13 @@ After saving, a loaded TinySearch module is refreshed privately.
 
 ## Security-relevant behavior
 
-- `apply_autonomy_settings` is the single write path for `[autonomy]`: after
+- `apply_autonomy_settings` is the single write path for `[security.autonomy]`: after
   `Config::save()` it calls
-  `crate::security::live_policy::reload_from(&config.autonomy)` and publishes
+  `crate::security::live_policy::reload_from(&config.security.autonomy)` and publishes
   `DomainEvent::AutonomyConfigChanged`, so the live `SecurityPolicy` and any
   running agent sessions pick up the change without a core restart.
   `add_auto_approve_tool` (backing the `ApproveAlwaysForTool` approval
-  decision) appends to `config.autonomy.auto_approve` under a process-wide
+  decision) appends to `config.security.autonomy.auto_approve` under a process-wide
   lock and delegates to `apply_autonomy_settings`, so the same reload
   happens. `apply_agent_paths_settings` calls
   `crate::security::live_policy::set_action_dir` when `action_dir` changes.

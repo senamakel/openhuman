@@ -1,12 +1,13 @@
 use super::*;
-use crate::storage::{MemoryStorage, Scope, StorageBackend};
+use crate::storage::{test_support::memory_backend, Scope, StorageBackend};
 
-fn docs_in(storage: &MemoryStorage, scope: &str) -> Docs {
+fn docs_in(storage: &dyn StorageBackend, scope: &str) -> Docs {
     Docs::over(&storage.for_scope(&Scope::new(scope).unwrap()).unwrap())
 }
 
 fn docs() -> Docs {
-    docs_in(&MemoryStorage::new(), "local")
+    let storage = memory_backend();
+    docs_in(storage.as_ref(), "local")
 }
 
 #[test]
@@ -84,11 +85,11 @@ fn devices_list_oldest_first() {
 
 #[test]
 fn scopes_keep_devices_apart() {
-    let storage = MemoryStorage::new();
-    docs_in(&storage, "alice")
+    let storage = memory_backend();
+    docs_in(storage.as_ref(), "alice")
         .insert_device("ch-1", "a", "pk", "h")
         .unwrap();
-    let bob = docs_in(&storage, "bob");
+    let bob = docs_in(storage.as_ref(), "bob");
     assert!(bob.list_devices().unwrap().is_empty());
     assert!(!bob.revoke_device("ch-1").unwrap());
 }

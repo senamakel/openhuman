@@ -18,6 +18,7 @@
 pub mod date_hint;
 pub mod hooks;
 pub mod jobs;
+pub mod plan_notes;
 pub(crate) mod prefetch;
 pub mod sender;
 pub mod views;

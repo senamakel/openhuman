@@ -93,9 +93,9 @@ mod imp {
     }
 
     async fn ensure_workflow_ready(config: &Config) -> Result<(), String> {
-        #[cfg(feature = "flows")]
+        #[cfg(all(feature = "flows", feature = "legacy-import"))]
         crate::storage::import::tinyflows::ensure_flow_scope_ready(config).await?;
-        #[cfg(not(feature = "flows"))]
+        #[cfg(not(all(feature = "flows", feature = "legacy-import")))]
         let _ = config;
         Ok(())
     }

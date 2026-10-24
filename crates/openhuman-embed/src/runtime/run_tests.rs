@@ -53,6 +53,7 @@ fn the_launcher_takes_the_handed_over_builder_once() {
 }
 
 #[test]
+#[cfg(feature = "testkit")]
 fn split_for_cli_keeps_the_session_store_for_a_stateless_workspace() {
     use crate::session_store::InMemorySessionStores;
     let store: Arc<dyn SessionStoreProvider> = Arc::new(InMemorySessionStores::new());

@@ -17,6 +17,7 @@ fn config_in(root: &Path) -> Config {
 
 fn shell<'a>(config: &'a Config, command: &'a str) -> UntrustedShell<'a> {
     UntrustedShell {
+        dispatch_ctx: None,
         config,
         command,
         cwd: &config.action_dir,
@@ -52,7 +53,7 @@ async fn an_untrusted_command_never_runs_when_the_jail_is_unreachable() {
 async fn the_operator_opt_out_never_runs_untrusted_text_without_a_module_plan() {
     let tmp = tempfile::tempdir().unwrap();
     let mut config = config_in(tmp.path());
-    config.sandbox.enabled = Some(false);
+    config.security.sandbox.enabled = Some(false);
     let marker = tmp.path().join("ran");
     let command = format!("touch '{}'", marker.display());
 
@@ -77,7 +78,7 @@ async fn saas_refuses_an_untrusted_command_even_when_the_operator_opted_out() {
         crate::core::runtime::mode::lock_mode(crate::core::runtime::Mode::Saas).unwrap();
         let tmp = tempfile::tempdir().unwrap();
         let mut config = config_in(tmp.path());
-        config.sandbox.enabled = Some(false);
+        config.security.sandbox.enabled = Some(false);
         let marker = tmp.path().join("ran");
         let command = format!("touch '{}'", marker.display());
 
@@ -157,6 +158,7 @@ async fn untrusted_gate_follows_the_released_jail() {
         .expect("the released module reports its jail");
 
     let inside = run(UntrustedShell {
+        dispatch_ctx: None,
         config: &config,
         command: "echo jailed > inside.txt && cat inside.txt",
         cwd: &workspace,
@@ -170,6 +172,7 @@ async fn untrusted_gate_follows_the_released_jail() {
     let escape = outside.join("escaped.txt");
     let command = format!("echo escaped > '{}'", escape.display());
     let escaped = run(UntrustedShell {
+        dispatch_ctx: None,
         config: &config,
         command: &command,
         cwd: &workspace,

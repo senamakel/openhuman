@@ -1,3 +1,5 @@
+#![cfg(feature = "testkit")]
+
 //! A library agent's scheduled reply reaches the host's `CronDelivery`.
 //!
 //! The agent makes a one-shot job through the `cron` tool in a chat turn on a

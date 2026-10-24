@@ -48,7 +48,9 @@ pub enum StorageSource {
     /// A storage URL (`sqlite://…`, `memory`, `mongodb://…`), opened when the
     /// runtime is built. A URL that cannot be opened fails the build.
     Url(String),
-    /// A backend the host already opened.
+    /// A backend the host already opened. Pass a MongoDB backend as a
+    /// [`Url`](Self::Url) instead, so its connection pool runs on the core's
+    /// storage runtime rather than the host's.
     Backend(Arc<dyn StorageBackend>),
 }
 
@@ -57,7 +59,7 @@ impl std::fmt::Debug for StorageSource {
         // A URL can carry credentials: never print it.
         match self {
             Self::Url(_) => f.write_str("StorageSource::Url(<redacted>)"),
-            Self::Backend(backend) => write!(f, "StorageSource::Backend({})", backend.driver()),
+            Self::Backend(_) => f.write_str("StorageSource::Backend(<custom>)"),
         }
     }
 }
@@ -91,6 +93,9 @@ pub(crate) struct HostSeams {
     pub(crate) server_launcher: Option<ServerLauncher>,
     pub(crate) live_policy: Option<Arc<SecurityPolicy>>,
     pub(crate) storage: Option<StorageSource>,
+    /// Driver metadata from a configured URL, retained after it is opened.
+    /// Custom backends have no inferred driver identity.
+    pub(crate) storage_driver: Option<String>,
 }
 
 impl HostSeams {
@@ -102,6 +107,12 @@ impl HostSeams {
     /// The URL could not be parsed or opened.
     pub(crate) async fn open_storage(&mut self) -> Result<(), String> {
         if let Some(StorageSource::Url(url)) = &self.storage {
+            self.storage_driver = Some(
+                openhuman_core::storage::StorageUrl::parse(url)
+                    .map_err(|_| String::from("invalid storage URL"))?
+                    .driver()
+                    .to_string(),
+            );
             let backend = openhuman_core::storage::open(url)
                 .await
                 .map_err(|error| format!("opening the storage backend: {error}"))?;
@@ -110,12 +121,18 @@ impl HostSeams {
         Ok(())
     }
 
-    /// [`open_storage`](Self::open_storage) from synchronous code, on the
-    /// core's dedicated storage runtime thread so the backend outlives the call.
+    /// [`open_storage`](Self::open_storage) from synchronous code. The backend
+    /// is opened on the core's storage runtime, so it outlives the call.
     pub(crate) fn open_storage_blocking(&mut self) -> Result<(), String> {
         let Some(StorageSource::Url(url)) = self.storage.take() else {
             return Ok(());
         };
+        self.storage_driver = Some(
+            openhuman_core::storage::StorageUrl::parse(&url)
+                .map_err(|_| String::from("invalid storage URL"))?
+                .driver()
+                .to_string(),
+        );
         let backend =
             openhuman_core::storage::block_on(
                 async move { openhuman_core::storage::open(&url).await },
@@ -207,8 +224,8 @@ impl HostSeams {
             Some(StorageSource::Backend(backend)) => {
                 let previous = openhuman_core::storage::install(Arc::clone(&backend));
                 log::debug!(
-                    "[embed][seams] storage backend installed driver={} replaced={}",
-                    backend.driver(),
+                    "[embed][seams] storage backend installed source_driver={:?} replaced={}",
+                    self.storage_driver,
                     previous.is_some()
                 );
                 Some((backend, previous))

@@ -25,7 +25,7 @@ pub(super) fn config(tmp: &TempDir) -> Config {
 async fn host(config: &Config, agent_only: bool) -> (HostRegistration, tinybus::Proxy) {
     module::proxy(config).await.expect("module attaches");
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     ));
@@ -49,15 +49,18 @@ async fn host(config: &Config, agent_only: bool) -> (HostRegistration, tinybus::
 }
 
 fn shell_job(config: &Config, command: &str) -> CronJob {
-    crate::cron::add_shell_job(
+    let result = crate::cron::add_shell_job(
         config,
         None,
         Schedule::Every {
             every_ms: 3_600_000,
         },
         command,
-    )
-    .unwrap()
+    );
+    if let Err(error) = &result {
+        eprintln!("add_shell_job failed: {error:#}");
+    }
+    result.unwrap()
 }
 
 pub(super) fn flow_job(config: &Config, flow_id: &str) -> CronJob {
@@ -384,7 +387,7 @@ async fn refreshing_binding_config_updates_existing_flow_subscriber() {
         &DispatchCtx::ambient(),
         &initial,
         Arc::new(SecurityPolicy::from_config(
-            &initial.autonomy,
+            &initial.security.autonomy,
             &initial.workspace_dir,
             &initial.action_dir,
         )),
@@ -472,7 +475,7 @@ async fn triggered_run_guard_keeps_a_long_lived_run_deduplicated_past_1024_start
         &DispatchCtx::ambient(),
         &config,
         Arc::new(SecurityPolicy::from_config(
-            &config.autonomy,
+            &config.security.autonomy,
             &config.workspace_dir,
             &config.action_dir,
         )),

@@ -220,6 +220,14 @@ const MUTATIONS = [
     (a) => script(join(a, "apprun-hooks/orphan.sh"), "#!/bin/sh\n"),
   ],
   [
+    "the system WebKit hook has no versioned bundled library stamp",
+    (a) =>
+      script(
+        join(a, "apprun-hooks/openhuman-system-webkit.sh"),
+        "OPENHUMAN_BUNDLED_WEBKIT='libwebkit2gtk-4.1.so.0'\n",
+      ),
+  ],
+  [
     "the desktop entry has no Exec=",
     (a) => {
       const p = join(a, "usr/share/applications/OpenHuman.desktop");

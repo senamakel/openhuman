@@ -102,7 +102,7 @@ async fn session_pre_and_post_turn_use_the_external_channel_origin_not_event_lab
             },
             transcript: None,
         };
-        prelude.memory_post_turn(&receipt);
+        prelude.memory_post_turn(&receipt, None);
 
         tokio::time::timeout(std::time::Duration::from_secs(5), async {
             loop {

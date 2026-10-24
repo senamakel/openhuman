@@ -1,5 +1,5 @@
 use super::approval::approval_tool_name;
-use super::repeated_failure::{is_body_level_failure, user_actionable_escalation};
+use super::repeated_failure::is_body_level_failure;
 use super::tool_output::{
     is_compaction_exempt, is_truncation_exempt, COMPACTION_EXEMPT_TOOLS, SAMPLING_TOOLS,
 };

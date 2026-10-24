@@ -1,18 +1,13 @@
-//! [`ToolPolicyMiddleware`]: enforce the builder-configured `ToolCallPolicy` and
-//! the session's channel-permission ceiling at the tool boundary, and render
-//! session-scoped `use_skill` listings.
+//! Session-scoped tool permissions, skill routing and policy adaptation for the
+//! TinySecurity gate.
 
 use std::sync::Arc;
 
 use async_trait::async_trait;
 
 use tinyagents_harness::context::RunContext;
-use tinyagents_harness::error::Result as TaResult;
-use tinyagents_harness::middleware::{
-    DenialRenderer, MiddlewareToolOutcome, PolicyDecision, ToolCallPolicy, ToolHandler,
-    ToolMiddleware, ToolPolicyGateMiddleware,
-};
-use tinyagents_harness_tools::skills::PackRegistryHandle;
+use tinyagents_harness::middleware::{PolicyDecision, ToolCallPolicy};
+use tinyagents_harness_tools::skills::{PackRegistryHandle, USE_SKILL};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
@@ -20,23 +15,7 @@ use crate::agent::tinyagents::host::OpenHumanRunContext;
 use crate::agent::tinyagents::policy_denial::PolicyDenial;
 use tinytools::Tool;
 
-/// `wrap_tool`: enforce the agent's builder-configured `ToolCallPolicy` at the tool
-/// boundary (issue #4249). The in-house engine ran this check in
-/// `agent_tool_exec` (`ctx.tool_policy.check(...)`); the tinyagents path bypassed
-/// it, so a `.tool_policy()` deny/require-approval silently no-opped and the tool
-/// executed anyway — a security regression. This middleware restores it: a
-/// blocking decision short-circuits with a model-consumable result carrying the
-/// same `"Tool '<name>' <denied|requires approval> by policy '<policy>': <reason>"`
-/// wording the engine produced.
-pub(crate) struct ToolPolicyMiddleware {
-    /// TinyAgents owns evaluation and denial short-circuiting.
-    gate: ToolPolicyGateMiddleware<OpenHumanRunContext>,
-    /// OpenHuman's concrete channel ceiling and disclosure snapshot.
-    #[cfg(test)]
-    host: Arc<ToolPolicyHostState>,
-}
-
-struct ToolPolicyHostState {
+pub(crate) struct ToolPolicyHostState {
     session: tinytools::ToolPolicySession,
     /// Shared tool sets (same `Arc`s the runner registers) so a call's OpenHuman
     /// `Tool` can be resolved for its generated-tool runtime context and its
@@ -45,7 +24,7 @@ struct ToolPolicyHostState {
     channel: String,
 }
 
-/// The session-less allow-all gate for sessions with no builder policy.
+/// The session-less allow-all policy used when the builder has no custom rule.
 #[derive(Debug, Default)]
 pub(crate) struct AllowAllToolPolicy;
 
@@ -64,115 +43,7 @@ impl ToolCallPolicy<OpenHumanRunContext> for AllowAllToolPolicy {
     }
 }
 
-impl ToolPolicyMiddleware {
-    pub(crate) fn new(
-        policy: Arc<dyn ToolCallPolicy<OpenHumanRunContext>>,
-        session: tinytools::ToolPolicySession,
-        tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
-        channel: String,
-    ) -> Self {
-        let host = session_policy_host(session, tool_sets, channel);
-        let desktop_policy = builder_policy(policy, host.tool_sets.clone());
-        let session_ceiling = session_ceiling_policy(host.clone());
-        let denial: DenialRenderer = Arc::new(|call, policy, decision| {
-            let (action, reason) = match decision {
-                PolicyDecision::RequireApproval { reason } => {
-                    ("requires approval", reason.as_str())
-                }
-                PolicyDecision::Deny { reason } => ("denied", reason.as_str()),
-                PolicyDecision::Allow => ("allowed", ""),
-            };
-            tinytools::registry::denials::record(call.name.as_str(), policy, action, reason);
-            if policy == "openhuman_session_ceiling" {
-                return reason.to_owned();
-            }
-            match decision {
-                PolicyDecision::RequireApproval { reason } => PolicyDenial::ApprovalRequired {
-                    tool: &call.name,
-                    policy,
-                    reason,
-                }
-                .render(),
-                PolicyDecision::Deny { reason } => PolicyDenial::PolicyDenied {
-                    tool: &call.name,
-                    policy,
-                    reason,
-                }
-                .render(),
-                PolicyDecision::Allow => String::new(),
-            }
-        });
-        let gate = ToolPolicyGateMiddleware::new(desktop_policy)
-            .with_session_ceiling(session_ceiling)
-            .with_denial_renderer(denial)
-            .with_post_gate(skill_post_gate(host.clone()));
-        Self {
-            gate,
-            #[cfg(test)]
-            host,
-        }
-    }
-
-    // Keep focused host-adapter tests on the concrete disclosure callbacks
-    // after execution gating moves to TinyAgents. Production calls reach these
-    // callbacks through `with_post_gate` and the session-ceiling policy above.
-    #[cfg(test)]
-    pub(crate) fn render_skill_for_session(&self, call: &TaToolCall) -> Option<TaToolResult> {
-        self.host.render_skill_for_session(call)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn channel_permission_block(
-        &self,
-        call: &TaToolCall,
-        desktop_approval_disabled: bool,
-    ) -> Option<String> {
-        self.host
-            .channel_permission_block(call, desktop_approval_disabled)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn route_for_pack(
-        &self,
-        pack: &tinyagents_harness_tools::skills::ToolPack,
-    ) -> String {
-        self.host.route_for_pack(pack)
-    }
-
-    #[cfg(test)]
-    pub(crate) fn no_such_pack_tool<'a>(
-        &self,
-        pack: &'static tinyagents_harness_tools::skills::ToolPack,
-        tool: &'a str,
-    ) -> tinyagents_harness_tools::skills::NoSuchPackTool<'a> {
-        self.host.no_such_pack_tool(pack, tool)
-    }
-
-    pub(crate) fn builder_policy(
-        policy: Arc<dyn ToolCallPolicy<OpenHumanRunContext>>,
-        tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
-    ) -> Arc<dyn ToolCallPolicy<OpenHumanRunContext>> {
-        builder_policy(policy, tool_sets)
-    }
-
-    pub(crate) fn session_ceiling(
-        session: tinytools::ToolPolicySession,
-        tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
-        channel: String,
-    ) -> Arc<dyn ToolCallPolicy<OpenHumanRunContext>> {
-        session_ceiling_policy(session_policy_host(session, tool_sets, channel))
-    }
-
-    pub(crate) fn skill_post_gate(
-        session: tinytools::ToolPolicySession,
-        tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
-        channel: String,
-    ) -> tinyagents_harness::middleware::ToolPolicyPostGate<OpenHumanRunContext> {
-        skill_post_gate(session_policy_host(session, tool_sets, channel))
-    }
-}
-
-fn session_policy_host(
+pub(crate) fn session_policy_host(
     session: tinytools::ToolPolicySession,
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
     channel: String,
@@ -184,7 +55,7 @@ fn session_policy_host(
     })
 }
 
-fn builder_policy(
+pub(crate) fn builder_policy(
     policy: Arc<dyn ToolCallPolicy<OpenHumanRunContext>>,
     tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
 ) -> Arc<dyn ToolCallPolicy<OpenHumanRunContext>> {
@@ -197,10 +68,26 @@ fn session_ceiling_policy(
     Arc::new(SessionCeilingPolicy { host })
 }
 
+pub(crate) fn session_ceiling(
+    session: tinytools::ToolPolicySession,
+    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+    channel: String,
+) -> Arc<dyn ToolCallPolicy<OpenHumanRunContext>> {
+    session_ceiling_policy(session_policy_host(session, tool_sets, channel))
+}
+
 fn skill_post_gate(
     host: Arc<ToolPolicyHostState>,
 ) -> tinyagents_harness::middleware::ToolPolicyPostGate<OpenHumanRunContext> {
     Arc::new(move |_ctx, call| host.render_skill_for_session(call))
+}
+
+pub(crate) fn skill_post_gate_for_session(
+    session: tinytools::ToolPolicySession,
+    tool_sets: Vec<Arc<Vec<Box<dyn Tool>>>>,
+    channel: String,
+) -> tinyagents_harness::middleware::ToolPolicyPostGate<OpenHumanRunContext> {
+    skill_post_gate(session_policy_host(session, tool_sets, channel))
 }
 
 impl ToolPolicyHostState {
@@ -305,10 +192,15 @@ impl ToolPolicyHostState {
     /// has no idea who is calling it. Only the disclosure half is rendered here:
     /// a call that names a `tool` is the execution half, which
     /// `channel_permission_block` has already gated and the tool's own
-    /// `execute` dispatches. Returns `None` when there is nothing to scope (a
-    /// tool named, no `skill` argument, no pack handle), so the call falls
+    /// `execute` dispatches. Returns `None` when there is nothing to scope (not
+    /// `use_skill`, a tool named, no `skill` argument), so the call falls
     /// through to the tool's own `execute` unchanged.
     pub(crate) fn render_skill_for_session(&self, call: &TaToolCall) -> Option<TaToolResult> {
+        // Only `use_skill` discloses a pack. Another tool whose arguments carry
+        // a `skill` key (an MCP schema, a stray key) must run as itself.
+        if call.name != USE_SKILL {
+            return None;
+        }
         if tinyagents_harness_tools::skills::named_tool(&call.arguments).is_some() {
             return None;
         }
@@ -379,7 +271,7 @@ impl ToolPolicyHostState {
         // channel sitting under that ceiling, an invented name came back as
         // `PermissionTooLow`: a permission denial for a tool that does not
         // exist. Existence is not a policy question (#6302).
-        if call.name == "use_skill" {
+        if call.name == USE_SKILL {
             if let Some(inner_tool) = call
                 .arguments
                 .get("tool")
@@ -514,24 +406,5 @@ impl ToolCallPolicy<OpenHumanRunContext> for DesktopApprovalPolicy {
         } else {
             decision
         }
-    }
-}
-
-#[async_trait]
-impl ToolMiddleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
-    for ToolPolicyMiddleware
-{
-    fn name(&self) -> &str {
-        "tool_policy"
-    }
-
-    async fn wrap_tool(
-        &self,
-        ctx: &RunContext<crate::agent::tinyagents::host::OpenHumanRunContext>,
-        state: &(),
-        call: TaToolCall,
-        next: ToolHandler<'_, (), crate::agent::tinyagents::host::OpenHumanRunContext>,
-    ) -> TaResult<MiddlewareToolOutcome> {
-        self.gate.wrap_tool(ctx, state, call, next).await
     }
 }

@@ -8,7 +8,7 @@ use axum::{
 };
 use openhuman_embed::__host::config::Config;
 use openhuman_embed::__host::inference_registry::{
-    CatalogRequest, InspectionCatalogError, PreparedInspectionCatalog,
+    InspectionCatalogError, InspectionCatalogRequest, PreparedInspectionCatalog,
 };
 use openhuman_embed::__host::security::credentials::session_support::{
     SESSION_EXPIRES_AT_META, SESSION_ISSUING_BACKEND_META,
@@ -181,7 +181,7 @@ async fn prepare_managed_catalog(
     let inspect = inspection_entry();
     inspect(
         config,
-        CatalogRequest {
+        InspectionCatalogRequest {
             provider_key: String::new(),
             client: reqwest::Client::new(),
         },

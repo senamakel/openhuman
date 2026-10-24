@@ -8,8 +8,9 @@
 
 use std::sync::Arc;
 
-use crate::storage::sessions::splice_fixture_tests::memory_locator;
+use crate::storage::sessions::splice_fixture_tests::{memory_locator, memory_session_provider};
 use tempfile::TempDir;
+use tinyagents_session::port::SessionStoreProvider;
 use tinyagents_session::transcript::view::{
     project_records, project_thread_in, DisplayItem, ToolCallStatus,
 };
@@ -295,6 +296,7 @@ fn text_dialect_tool_turn_projects_calls_on_their_issuing_row_as_settled() {
     );
 }
 
+#[cfg(feature = "legacy-import")]
 /// Transcripts already written while the codec filed a turn's calls on its
 /// final row (calls recorded *after* their own results) still project each call
 /// once, settled, with its real name.
@@ -314,8 +316,12 @@ fn calls_recorded_after_their_results_project_as_settled() {
         ],
     );
 
-    let locator = memory_locator();
-    tinyagents_session::legacy::import_transcripts(dir.path(), locator.as_ref()).unwrap();
+    let provider = memory_session_provider();
+    let locator = provider
+        .for_agent(crate::storage::sessions::DEFAULT_AGENT)
+        .transcripts;
+    crate::storage::import::sessions::import_transcript_groups(provider.as_ref(), dir.path())
+        .unwrap();
     let items = project_thread_in(locator.as_ref(), thread, None, None)
         .expect("transcript")
         .items;

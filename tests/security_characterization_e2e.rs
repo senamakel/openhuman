@@ -24,11 +24,11 @@ use axum::{
     Router,
 };
 use openhuman_core::{
-    agent::turn_origin::{self, AgentTurnOrigin},
     config::Config,
     security::approval::{
         gate::ApprovalGate, ApprovalChatContext, ApprovalTurnContext, GateOutcome,
     },
+    security::turn_origin::{self, AgentTurnOrigin},
 };
 use serde_json::{json, Value};
 use tower::ServiceExt;
@@ -213,12 +213,12 @@ async fn approval_policy_sandbox_and_secret_wire_contracts() {
 
     let policy = rpc(&router, "openhuman.security_policy_info", json!({})).await;
     let expected = json!({
-        "autonomy": config.autonomy.level,
-        "workspace_only": config.autonomy.workspace_only,
-        "allowed_commands": config.autonomy.allowed_commands,
-        "max_actions_per_hour": config.autonomy.max_actions_per_hour,
-        "require_approval_for_medium_risk": config.autonomy.require_approval_for_medium_risk,
-        "block_high_risk_commands": config.autonomy.block_high_risk_commands,
+        "autonomy": config.security.autonomy.level,
+        "workspace_only": config.security.autonomy.workspace_only,
+        "allowed_commands": config.security.autonomy.allowed_commands,
+        "max_actions_per_hour": config.security.autonomy.max_actions_per_hour,
+        "require_approval_for_medium_risk": config.security.autonomy.require_approval_for_medium_risk,
+        "block_high_risk_commands": config.security.autonomy.block_high_risk_commands,
     });
     // The legacy six-field payload is a stable prefix of the response; the
     // security module adds diagnostic fields beside it (`module`, `enabled`, ...).

@@ -76,6 +76,10 @@ jobs:
       - name: Verify private runner contract
         run: bash scripts/ci/self-hosted/verify-runner.sh
 
+      - name: Set Tinymold diagnostic log path
+        # RUNNER_TEMP is available to steps, but not to the job-level env block.
+        run: echo "TINYMOLD_LOG=$RUNNER_TEMP/tinymold.log" >> "$GITHUB_ENV"
+
       - name: Setup Tinymold
         id: tinymold
         uses: tinyhumansai/tinymold@c4a7ea77ce4a95bf0a65fb403de310bd624197d4

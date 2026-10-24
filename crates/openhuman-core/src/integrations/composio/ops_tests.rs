@@ -12,6 +12,26 @@ fn test_config(tmp: &tempfile::TempDir) -> Config {
     c
 }
 
+#[test]
+fn list_tools_tag_filter_policy_matches_supported_toolkits() {
+    let cases: Vec<(Option<Vec<String>>, bool)> = vec![
+        (None, true),
+        (Some(vec![]), true),
+        (Some(vec!["GitHub".into()]), true),
+        (Some(vec![" \tGiThUb\n ".into()]), true),
+        (Some(vec!["gmail".into()]), false),
+        (Some(vec!["gmail".into(), "github".into()]), true),
+    ];
+
+    for (toolkits, expected) in cases {
+        assert_eq!(
+            should_forward_tags(toolkits.as_deref()),
+            expected,
+            "toolkits={toolkits:?}"
+        );
+    }
+}
+
 // ── cache_key / invalidate_connected_integrations_cache ───────
 
 /// Per-module alias so call sites don't need to spell out the path.

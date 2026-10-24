@@ -20,6 +20,8 @@ pub mod plan;
 pub mod policy;
 pub mod schemas;
 pub(crate) mod shell_exec;
+pub(crate) mod shell_live;
+pub(crate) mod shell_processes;
 pub(crate) mod shell_progress;
 #[cfg(feature = "security-module")]
 pub(crate) mod spawn_plan;

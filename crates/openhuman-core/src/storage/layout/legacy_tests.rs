@@ -4,7 +4,12 @@ use crate::storage::layout::test_fixtures::{fixture_docs, v1_profile};
 #[tokio::test(flavor = "multi_thread")]
 async fn the_import_brings_legacy_files_into_the_v1_database() {
     let fx = v1_profile();
-    let summary = import(&fx.target, &fx.config).await.unwrap();
+    let summary = import(&fx.target, &fx.config)
+        .await
+        .unwrap_or_else(|error| {
+            eprintln!("profile legacy import failed: {error:#}");
+            panic!("profile legacy import did not complete");
+        });
     assert_eq!(summary.memory_state, vec!["jobs".to_owned()]);
     assert!(
         summary.domains >= 3,

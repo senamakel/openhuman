@@ -463,6 +463,24 @@ fn backend_url_falls_back_for_cloud_inference_base() {
 }
 
 #[test]
+fn backend_url_recognizes_hosted_openhuman_inference_host() {
+    let _guard = env_lock();
+    let _env = EnvSnapshot::clear_backend_env();
+    let fallback = fallback_backend_base_for_current_build();
+
+    for api_url in [
+        "https://api.openhuman.ai/v1",
+        "https://api.openhuman.ai/custom/inference",
+    ] {
+        assert_eq!(
+            effective_backend_api_url(&Some(api_url.to_string())),
+            fallback,
+            "hosted inference host must not become the backend API base: {api_url}"
+        );
+    }
+}
+
+#[test]
 fn backend_url_falls_back_to_env_when_override_is_local_ai() {
     let _guard = env_lock();
     let _env = EnvSnapshot::clear_backend_env();

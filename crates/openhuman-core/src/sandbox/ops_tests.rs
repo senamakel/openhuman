@@ -48,14 +48,13 @@ async fn run_unsandboxed(
 ) -> anyhow::Result<SandboxExecResult> {
     let state = tempfile::tempdir()?;
     let policy = unsandboxed_policy(workspace, state.path());
-    run_on_host(
-        &crate::config::Config::default(),
+    execute_in_sandbox(
+        &crate::core::runtime::DispatchCtx::host_default(),
         &policy,
         command,
         workspace,
-        env,
+        env.clone(),
         timeout,
-        None,
     )
     .await
 }

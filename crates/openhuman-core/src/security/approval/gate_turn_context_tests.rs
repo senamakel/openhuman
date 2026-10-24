@@ -317,7 +317,7 @@ async fn supervised_write_runs_once_after_approval_and_records_the_exact_call() 
 #[tokio::test]
 async fn terminal_audit_failure_preserves_completed_result_and_denies_later_writes() {
     let (mut gate, _dir) = test_gate();
-    gate.config.autonomy.auto_approve_all = true;
+    gate.config.security.autonomy.auto_approve_all = true;
     let gate = Arc::new(gate);
     stub_of(&gate).fail_record_execution(true);
     let mut run = OpenHumanRunContext::new();

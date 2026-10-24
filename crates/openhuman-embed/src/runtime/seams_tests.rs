@@ -327,6 +327,19 @@ async fn a_storage_url_is_opened_installed_and_the_previous_backend_restored() {
     openhuman_core::storage::clear();
 }
 
+#[test]
+fn blocking_url_open_retains_driver_metadata_for_the_cli_handoff() {
+    let mut seams = HostSeams {
+        storage: Some(StorageSource::from("memory")),
+        ..HostSeams::default()
+    };
+
+    seams.open_storage_blocking().expect("open storage URL");
+
+    assert_eq!(seams.storage_driver.as_deref(), Some("memory"));
+    assert!(matches!(seams.storage, Some(StorageSource::Backend(_))));
+}
+
 #[tokio::test]
 async fn a_backend_with_no_predecessor_is_cleared_and_a_replaced_one_left_alone() {
     let _lock = STORAGE_LOCK.lock().await;

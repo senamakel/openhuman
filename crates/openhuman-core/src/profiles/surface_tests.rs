@@ -152,6 +152,19 @@ fn delete_purge_and_the_channel_relay_are_open_to_users() {
     }
 }
 
+/// A user reads their own threads' live agent state: the goal, the plan, and
+/// the whole run state (goal, plan and the agent's notes) in one call.
+#[test]
+fn the_live_agent_state_reads_are_open_to_users() {
+    for method in [
+        "openhuman.threads_goal_get",
+        "openhuman.threads_todos_get",
+        "openhuman.threads_state_get",
+    ] {
+        assert!(visible_in(true, Scope::User, method, false), "{method}");
+    }
+}
+
 #[cfg(feature = "channels")]
 #[test]
 fn users_still_cannot_mint_channel_threads() {

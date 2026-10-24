@@ -1,17 +1,17 @@
 use super::*;
+use crate::storage::{Scope, StorageBackend, StorageError};
 use async_trait::async_trait;
 use serde_json::json;
 use tinybus::broker::Broker;
 use tinybus::transport::memory::MemoryBus;
 use tinybus::{BusName, Connection};
 use tinystoragedrivers::secrets::{DerivedKeys, KeyProvider};
-use tinystoragedrivers::{MemoryStorage, Scope, StorageError};
 use tinystoragedrivers_bus::{SecretNameRequest, SecretValue, SetSecretRequest};
+use tinystoragedrivers_testkit::MemoryBackend as MemoryStorage;
 use zeroize::Zeroizing;
 
 use super::super::storage_grants::StorageGrant;
 use super::super::storage_host::{module_scope, CallerDirectory, Environment, StorageHost};
-use crate::storage::StorageBackend;
 
 use super::TEST_TURN as TURN;
 

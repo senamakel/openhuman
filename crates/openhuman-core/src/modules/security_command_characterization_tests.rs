@@ -105,7 +105,7 @@ fn with_allowlist(autonomy: AutonomyLevel, allowed: &[&str]) -> SecurityPolicy {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_command_class_table_is_the_pinned_one() {
     let mut m = Module::start().await;
     let sup = policy(AutonomyLevel::Supervised);
@@ -138,7 +138,7 @@ async fn released_module_command_class_table_is_the_pinned_one() {
 
 #[cfg(unix)]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_treats_quoted_heredoc_bodies_as_data() {
     let mut m = Module::start().await;
     let sup = policy(AutonomyLevel::Supervised);
@@ -164,7 +164,7 @@ async fn released_module_treats_quoted_heredoc_bodies_as_data() {
 
 #[cfg(windows)]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_does_not_treat_posix_heredoc_bodies_as_windows_data() {
     let mut m = Module::start().await;
     let sup = policy(AutonomyLevel::Supervised);
@@ -178,7 +178,7 @@ async fn released_module_does_not_treat_posix_heredoc_bodies_as_windows_data() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_gated_flow_blocks_reads_only_tiers_and_hidden_execution() {
     let mut m = Module::start().await;
     let ro = policy(AutonomyLevel::ReadOnly);
@@ -213,7 +213,7 @@ async fn released_module_gated_flow_blocks_reads_only_tiers_and_hidden_execution
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_disabled_policy_keeps_only_the_literal_floor() {
     let mut m = Module::start().await;
     let off = SecurityPolicy {
@@ -245,7 +245,7 @@ async fn released_module_disabled_policy_keeps_only_the_literal_floor() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_allowlist_per_tier_and_executor_rules() {
     let mut m = Module::start().await;
     let sup = with_allowlist(AutonomyLevel::Supervised, &["ls", "git"]);
@@ -351,7 +351,7 @@ async fn released_module_allowlist_per_tier_and_executor_rules() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_risk_levels_and_approval_requirements() {
     let mut m = Module::start().await;
     let mut p = with_allowlist(AutonomyLevel::Supervised, &["ls", "curl", "rm", "mkfs"]);
@@ -427,7 +427,7 @@ async fn released_module_risk_levels_and_approval_requirements() {
 /// argument text, because arguments carry secrets. The host message is fixed
 /// per reason and the module reports a category, not text.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_refusals_do_not_echo_command_arguments() {
     let mut m = Module::start().await;
     let p = with_allowlist(AutonomyLevel::Supervised, &["ls"]);

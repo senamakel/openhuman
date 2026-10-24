@@ -70,13 +70,17 @@ impl ApprovalGate {
         // overrides.
         let turn_ctx = crate::core::runtime::DispatchCtx::ambient_turn();
         let origin = turn_ctx.turn_origin().unwrap_or(AgentTurnOrigin::Unknown);
-        // SaaS has no per-user approval surface: never park, allow only what
-        // the deployment's sandboxed tool groups open. What they open is the
-        // pre-authorization, and the engine records it as an audited automatic
-        // approval under the tenant's own subject and audit stream.
+        let dispatch = crate::core::runtime::DispatchCtx::ambient();
+        let saas = crate::core::runtime::is_saas();
+        let saas_human_approval = saas_prompt_needed(&dispatch, saas, &origin, tool_name, forced);
+        // Deployment-allowlisted tools retain their audited automatic path.
+        // A rejected tool can reach the normal approval engine only when this
+        // exact SaaS WebChat turn has an authenticated, routable user surface.
         match saas_outcome_with(
-            &crate::core::runtime::DispatchCtx::ambient(),
-            crate::core::runtime::is_saas(),
+            &dispatch,
+            saas,
+            &origin,
+            forced,
             tool_name,
         ) {
             Some(GateOutcome::Allow) => {
@@ -181,6 +185,11 @@ impl ApprovalGate {
             | AgentTurnOrigin::DirectChat
             | AgentTurnOrigin::Unknown => (Variant::Standard, None),
         };
+        // The deployment allowlist was not enough to authorize this call.
+        // The one-time variant prevents configured or durable auto-grants
+        // from bypassing the per-user decision.
+        let (variant, approval_forced) =
+            one_time_approval_mode(variant, forced, saas_human_approval);
 
         // Chat context (thread/client id) for routing the yes/no reply — handed
         // to the turn by the web channel; absent for non-chat callers.
@@ -295,7 +304,7 @@ impl ApprovalGate {
                 chat_thread_id: chat_thread_id.clone(),
                 chat_client_id,
                 tool_call_id: tool_call_id.map(str::to_string),
-                forced,
+                forced: approval_forced,
                 variant,
                 agent_id,
                 approval_scope: scope.clone(),
@@ -320,6 +329,11 @@ impl ApprovalGate {
             tenant: route_tenant,
             variant,
             posture: self.posture(&turn_ctx, variant),
+            legacy_tool_grants: if variant == Variant::Standard {
+                self.live_auto_approve(&turn_ctx)
+            } else {
+                Vec::new()
+            },
             call_id: fresh_call_id(),
             tool: tool_name.to_string(),
             args: object_arguments(args_redacted),
@@ -439,10 +453,9 @@ impl ApprovalGate {
         }
     }
 
-    /// A call the SaaS deployment's tool groups allow: no person is asked (there
-    /// is no per-user prompt channel), so the engine records an automatic
-    /// approval for the tenant's subject, and a request that would need a person
-    /// is refused rather than parked.
+    /// A call the SaaS deployment's tool groups pre-authorize. This branch
+    /// records an automatic approval for the tenant's subject; the outer gate
+    /// sends rejected WebChat calls through the per-user approval surface.
     async fn saas_approved(
         &self,
         tool_name: &str,
@@ -458,6 +471,7 @@ impl ApprovalGate {
                 require_approval: false,
                 ..Posture::default()
             },
+            legacy_tool_grants: Vec::new(),
             call_id: fresh_call_id(),
             tool: tool_name.to_string(),
             args: object_arguments(args_redacted),

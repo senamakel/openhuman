@@ -289,6 +289,7 @@ async fn static_tool_metadata_scrubbing_uses_confidential_module_delivery() {
         description: Some("Search docs".to_owned()),
         input_schema: serde_json::json!({"type":"object"}),
         meta: Some(serde_json::json!({"ui":{"resourceUri":"ui://search"}})),
+        annotations: Some(serde_json::json!({"readOnlyHint": true, "openWorldHint": false})),
     };
 
     let returned = client
@@ -302,6 +303,10 @@ async fn static_tool_metadata_scrubbing_uses_confidential_module_delivery() {
     assert_eq!(calls[0].1, names::methods::STATIC_SCRUB_TOOLS);
     assert_eq!(calls[0].2[0]["server"], "docs");
     assert_eq!(calls[0].2[0]["tools"][0]["name"], "search");
+    assert_eq!(
+        calls[0].2[0]["tools"][0]["annotations"],
+        serde_json::json!({"readOnlyHint": true, "openWorldHint": false})
+    );
     assert!(calls[0].3, "raw remote metadata must cross confidentially");
 }
 

@@ -10,7 +10,7 @@ pub mod contract_schema;
 #[cfg(any(feature = "voice", feature = "channels"))]
 pub(crate) mod credentials;
 
-pub use tinychannels_bus::{Channel, ChannelSendExt, SendMessage};
+pub use tinychannels_bus::Channel;
 
 #[cfg(feature = "channels")]
 pub mod bus;
@@ -27,12 +27,16 @@ pub mod controllers;
 #[cfg(feature = "channels")]
 pub mod host;
 #[cfg(feature = "channels")]
+mod outbound;
+#[cfg(feature = "channels")]
 pub mod proactive;
 pub(crate) mod prompt;
 #[cfg(feature = "channels")]
 pub mod providers;
 #[cfg(feature = "channels")]
 mod routes;
+#[cfg(all(test, feature = "channels"))]
+pub(crate) use routes::register_hosted_route_test_policy;
 #[cfg(feature = "channels")]
 mod runtime;
 #[cfg(feature = "channels")]

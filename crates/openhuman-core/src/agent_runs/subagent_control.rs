@@ -16,7 +16,7 @@
 
 use crate::core::runtime::DispatchCtx;
 use serde_json::{json, Map, Value};
-use tinyagents_orchestration::subagent::SteerError;
+use tinyagents_orchestration::steering::SteerError;
 
 use crate::agent::orchestration::running_subagents::CancelledSubagent;
 use crate::agent::orchestration::{background_completions, running_subagents, subagent_sessions};
@@ -270,7 +270,6 @@ fn handle_subagent_steer(ctx: DispatchCtx, params: Map<String, Value>) -> Contro
             Err(err) => {
                 let reason = match err {
                     SteerError::Unknown => "unknown",
-                    SteerError::AlreadyDone => "already_done",
                     // SaaS user controls check the captured worker profile,
                     // independently of the caller-supplied task ID.
                     SteerError::NotOwned => "not_owned",

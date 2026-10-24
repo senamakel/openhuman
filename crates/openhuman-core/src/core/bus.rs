@@ -100,7 +100,9 @@ pub const EVENTS_INTERFACE: &str = "ai.tinyhumans.openhuman.Events";
 /// `3.0.0` removes `CronDeliveryRequested` (announce delivery now sends
 /// synchronously through the cron channel bridge) and includes optional
 /// `CronJobCompleted` tenant ownership.
-pub const EVENTS_VERSION: Version = Version::new(3, 0, 0);
+/// `3.1.0` adds `InboundTurnCompleted` and `InboundTurnFailed` (additive): a
+/// pinned inbound source's batch ran on its agent.
+pub const EVENTS_VERSION: Version = Version::new(3, 1, 0);
 
 /// The bus. Initialised once by [`init`]; safe to touch before that.
 pub static BUS: OnceBus<DomainEvent> = OnceBus::new();

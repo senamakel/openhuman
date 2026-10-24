@@ -18,10 +18,10 @@ is mounted as a submodule of [`load/dirs.rs`](./load/dirs.rs) via `#[path]`.
 | `config.toml` section | File | Struct |
 | --- | --- | --- |
 | `[agent]`, `[orchestrator]`, `[teams.*]`, `[agents.*]` | [`agent.rs`](./agent.rs) | `AgentConfig`, `OrchestratorModelConfig`, `TeamModelConfig`, `DelegateAgentConfig` |
-| `[autonomy]` | [`autonomy.rs`](./autonomy.rs) | `AutonomyConfig`: feeds `security::SecurityPolicy` |
+| `[security.autonomy]` | [`autonomy.rs`](./autonomy.rs) | `AutonomyConfig`: feeds `security::SecurityPolicy` |
 | `[[capability_providers]]` | [`capability_providers.rs`](./capability_providers.rs) | `CapabilityProviderConfig` |
 | `[channels_config]` | [`channels.rs`](./channels.rs) | `ChannelsConfig` and per-provider configs re-exported from `tinychannels_bus` |
-| `[security]`, `[sandbox]` | [`security.rs`](./security.rs) | `SecurityConfig`, approval settings, and `SandboxConfig` |
+| `[security]` (`autonomy`, `sandbox`, `privacy`) | [`security.rs`](./security.rs) | `SecurityConfig`, policy settings, and approval settings |
 | `[claude_agent_sdk]` | [`claude_agent_sdk.rs`](./claude_agent_sdk.rs) | `ClaudeAgentSdkConfig` |
 | `[[cloud_providers]]`, `primary_cloud`, `*_provider` slugs | [`cloud_providers.rs`](./cloud_providers.rs) | `CloudProviderCreds`, `AuthStyle` |
 | `[context]` | [`context.rs`](./context.rs) | `ContextConfig` |
@@ -36,7 +36,7 @@ is mounted as a submodule of [`load/dirs.rs`](./load/dirs.rs) via `#[path]`.
 | `[local_ai]` | [`local_ai.rs`](./local_ai.rs) | `LocalAiConfig`, `LocalAiUsage` |
 | `[modules]` | [`modules.rs`](./modules.rs) | `ModulesConfig`, `ModuleOverride`: controls only whether compiled-in modules load. The loadable *set* is fixed by `crate::modules::registry` |
 | `[observability]` | [`observability.rs`](./observability.rs) | `ObservabilityConfig`, `AgentTracingConfig` |
-| `[privacy]` | [`privacy.rs`](./privacy.rs) | `PrivacyConfig`, `PrivacyMode` |
+| `[security.privacy]` | [`privacy.rs`](./privacy.rs) | `PrivacyConfig`, `PrivacyMode` |
 | `[proxy]` | [`proxy.rs`](./proxy.rs) | `ProxyConfig`, `ProxyScope`, plus `runtime_proxy_config()` / `set_runtime_proxy_config()` process-wide accessors |
 | `[[model_routes]]`, `[[embedding_routes]]` | [`routes.rs`](./routes.rs) | `ModelRouteConfig`, `EmbeddingRouteConfig` |
 | `[runtime]` (+ `[runtime.docker]`), `[shell]`, `[reliability]`, `[scheduler]` | [`runtime.rs`](./runtime.rs) | `RuntimeConfig`, `DockerRuntimeConfig`, `ShellConfig`, `ReliabilityConfig`, `SchedulerConfig` |
@@ -49,7 +49,7 @@ is mounted as a submodule of [`load/dirs.rs`](./load/dirs.rs) via `#[path]`.
 | `[update]` | [`update.rs`](./update.rs) | `UpdateConfig`, `UpdateRestartStrategy` |
 | `[voice_server]` | [`voice_server.rs`](./voice_server.rs) | `VoiceServerConfig`, `SttEngine` |
 | `[[voice_providers]]`, `stt_provider` / `tts_provider` | [`voice_providers.rs`](./voice_providers.rs) | `VoiceProviderCreds`, `BuiltinVoiceProvider`, `BUILTIN_VOICE_PROVIDERS` |
-| top-level `Config` and its scalar keys | `types.rs` (+ `types/config.rs`, `types/model_ids.rs`) | `Config`, `ModelRegistryEntry`, `MODEL_*` / `DEFAULT_MODEL` constants |
+| top-level `Config` and its scalar keys | `types.rs` (+ `types/config.rs`, `types/model_ids.rs`) | `Config`, `ModelRegistryEntry`, provider-neutral workload roles |
 | built-in defaults | [`defaults.rs`](./defaults.rs) | `impl Default for Config` and per-field `default_*` fns |
 
 [`tools/mod.rs`](./tools/mod.rs) groups the tool-facing sections: `browser.rs` (`BrowserConfig`,

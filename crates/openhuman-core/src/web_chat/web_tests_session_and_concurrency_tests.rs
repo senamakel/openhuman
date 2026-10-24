@@ -23,21 +23,21 @@ fn fingerprint_provider_binding_variants_differ() {
 
 #[test]
 fn provider_role_override_routes_hint_workloads() {
+    crate::agent::session_host::test_support::install_model_fixture();
     assert_eq!(
         provider_role_for_model_override(Some("hint:agentic")),
         "agentic"
     );
-    assert_eq!(
-        provider_role_for_model_override(Some("agentic-v1")),
-        "agentic"
-    );
+    // Hosted vocabulary is supplied by the installed provider policy. With
+    // no hosted policy in bare core, an arbitrary model id stays concrete.
+    assert_eq!(provider_role_for_model_override(Some("agentic-v1")), "chat");
     assert_eq!(
         provider_role_for_model_override(Some("hint:coding")),
         "coding"
     );
     assert_eq!(
         provider_role_for_model_override(Some("summarization-v1")),
-        "summarization"
+        "chat"
     );
     assert_eq!(
         provider_role_for_model_override(Some("hint:reasoning")),
@@ -45,13 +45,17 @@ fn provider_role_override_routes_hint_workloads() {
     );
     assert_eq!(
         provider_role_for_model_override(Some("reasoning-v1")),
-        "reasoning"
+        "chat"
     );
     assert_eq!(
         provider_role_for_model_override(Some("gpt-4.1-mini")),
         "chat"
     );
     assert_eq!(provider_role_for_model_override(None), "chat");
+    assert_eq!(
+        provider_role_for_model_override(Some("fixture-reasoning")),
+        "reasoning"
+    );
 }
 
 #[test]
@@ -528,8 +532,8 @@ fn classify_connection_drop_routes_to_network_retryable() {
         "error sending request for url (https://api.tinyhumans.ai/openai/v1/chat/completions): \
          connection closed before message completed",
         "request or response body error: unexpected end of file",
-        // Raw mid-stream SSE drop: managed backend leaves OFF the errorCode, so
-        // it reaches the ladder as a streaming error with a transport body.
+        // Raw mid-stream SSE drop reaches generic classification as a
+        // streaming transport failure.
         "OpenHuman streaming API error: error reading a body from connection: \
          end of file before message length reached",
     ] {
@@ -546,12 +550,12 @@ fn classify_connection_drop_routes_to_network_retryable() {
 
 #[test]
 fn classify_managed_sse_badrequest_not_misread_as_network() {
-    // A managed 400 frame carries errorCode → must stay provider_request_rejected
-    // (claimed by the errorCode short-circuit before the transport arm).
-    let c = classify_inference_error(
-        "OpenHuman streaming API error: {\"error\":{\"message\":\"Message has tool role, \
-         but there was no previous assistant message with a tool call!\",\
-         \"type\":\"stream_error\",\"errorCode\":\"BAD_REQUEST\"}}",
+    // Host classification supplies the semantic kind before generic transport
+    // copy selection, so a streaming rejection is not mistaken for a drop.
+    let c = classify_with_backend_metadata(
+        "generic streaming response: Message has tool role, but there was no previous assistant message with a tool call!",
+        BackendErrorKind::BadRequest,
+        false,
     );
     assert_eq!(c.error_type, "provider_request_rejected");
 }
@@ -569,10 +573,10 @@ fn classify_managed_tool_ordering_400_gets_cleared_resend_copy() {
     // message) arrives as a BAD_REQUEST SSE frame — must read "we cleared it,
     // send again" (not "try a different model") and be retryable, since the
     // de-poison guard already evicted the bad warm session.
-    let c = classify_inference_error(
-        "OpenHuman streaming API error: {\"error\":{\"message\":\"Message at index 3 has role \
-         'tool' but is not preceded by an assistant message with a matching tool_call\",\
-         \"type\":\"stream_error\",\"errorCode\":\"BAD_REQUEST\"}}",
+    let c = classify_with_backend_metadata(
+        "generic streaming response: Message at index 3 has role 'tool' but is not preceded by an assistant message with a matching tool_call",
+        BackendErrorKind::BadRequest,
+        false,
     );
     assert_eq!(c.error_type, "provider_request_rejected");
     assert!(c.retryable, "post-eviction resend works → retryable");

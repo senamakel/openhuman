@@ -122,7 +122,14 @@ test("bumpVersion and parseArgs", () => {
   assert.equal(bumpVersion("0.2.9", "minor"), "0.3.0");
   assert.equal(bumpVersion("0.2.9", "major"), "1.0.0");
   assert.throws(() => bumpVersion("0.2.9", "huge"), /--bump/);
-  assert.deepEqual(parseArgs(["tinyx", "--bump", "minor", "--yes"]), { bump: "minor", yes: true, dryRun: false, id: "tinyx" });
+  assert.deepEqual(parseArgs(["tinyx", "--bump", "minor", "--yes"]), {
+    bump: "minor",
+    yes: true,
+    dryRun: false,
+    owner: "tinyhumansai",
+    workflowInput: "bump",
+    id: "tinyx",
+  });
   assert.throws(() => parseArgs([]), /usage/);
   assert.throws(() => parseArgs(["x", "--bump", "no"]), /--bump/);
 });
@@ -207,6 +214,64 @@ test("dispatching a release asks first and a refusal dispatches nothing", async 
     const dispatch = calls.find((c) => c[1] === "workflow");
     assert.deepEqual(dispatch, ["gh", "workflow", "run", "release.yml", "-R", "tinyhumansai/tinyx", "-f", "bump=minor"]);
     assert.ok(calls.findIndex((c) => c[1] === "workflow") < calls.findIndex((c) => c[1] === "release" && c[2] === "download"));
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test("fork release dispatch targets the selected owner and ref", async () => {
+  const root = tree();
+  const calls = [];
+  const ref = "epic/8131-storage-primitives";
+  try {
+    const res = await repin(
+      {
+        id: "tinyx",
+        owner: "senamakel",
+        ref,
+        workflowInput: "tag",
+        version: "0.3.0",
+        root,
+      },
+      { run: fakeRun(calls), confirm: async () => true, log: () => {} },
+    );
+    assert.equal(res.version, "0.3.0");
+    assert.deepEqual(res.failed, []);
+    assert.ok(
+      calls.some((call) =>
+        JSON.stringify(call) ===
+        JSON.stringify([
+          "gh",
+          "workflow",
+          "run",
+          "release.yml",
+          "-R",
+          "senamakel/tinyx",
+          "--ref",
+          ref,
+          "-f",
+          "tag=v0.3.0",
+        ]),
+      ),
+    );
+    assert.ok(
+      calls.some((call) =>
+        call[0] === "gh" &&
+        call[1] === "run" &&
+        call.includes("--branch") &&
+        call.includes(ref),
+      ),
+      "the helper watches the dispatched fork branch rather than the fork default branch",
+    );
+    assert.ok(
+      calls.some((call) =>
+        call[0] === "gh" &&
+        call[1] === "release" &&
+        call[2] === "download" &&
+        call.includes("senamakel/tinyx"),
+      ),
+      "checksums come from the selected fork repository",
+    );
   } finally {
     rmSync(root, { recursive: true, force: true });
   }

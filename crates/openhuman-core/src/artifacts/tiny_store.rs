@@ -306,10 +306,20 @@ pub fn artifacts_service(
     chat: Option<&ApprovalChatContext>,
 ) -> Artifacts {
     let roots = file_roots(workspace_dir, &files, action_dir);
-    Artifacts::new(Arc::new(versioned_store(workspace_dir)))
+    let service = Artifacts::new(Arc::new(versioned_store(workspace_dir)))
         .with_observer(Arc::new(LegacyUiBridge::new(workspace_dir, files, chat)))
-        .with_file_roots(guarded_roots(roots))
-        .with_version_files(version_files_dir(workspace_dir))
+        .with_file_roots(guarded_roots(roots));
+    match crate::storage::local::open("artifacts::files", workspace_dir)
+        .and_then(|opened| opened.scoped())
+    {
+        Ok(scoped) => {
+            service.with_file_store(Arc::new(tiny_artifacts::BlobFileStore::new(&scoped)))
+        }
+        Err(error) => {
+            log::warn!("[artifacts] file storage unavailable: {error:#}");
+            service
+        }
+    }
 }
 
 /// Where each file version keeps its own copy:

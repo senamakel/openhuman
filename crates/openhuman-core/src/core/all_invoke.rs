@@ -69,7 +69,6 @@ async fn invoke_registered(
         return None;
     }
 
-    let handler = grouped.controller.handler;
-    let fut: ControllerFuture = handler(ctx, params);
+    let fut: ControllerFuture = grouped.controller.invoke(ctx, params);
     Some(fut.await)
 }

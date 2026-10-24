@@ -46,7 +46,7 @@ fn identical_recoverable_halt_uses_openhuman_copy() {
     let summary = summary.expect("eighth identical failure halts");
     assert_eq!(
         summary,
-        recoverable_identical_halt_summary("web_fetch", 8, "connection reset")
+        "Stopping: the `web_fetch` call was retried 8 times with identical arguments and kept failing — repeating it will not help. Last error:\nconnection reset\n\nThis looked recoverable at first, but the same call exhausted the extended transient-failure headroom. Report this back instead of retrying."
     );
 }
 

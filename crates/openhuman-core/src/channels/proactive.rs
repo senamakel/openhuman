@@ -19,7 +19,8 @@
 //! (step 1). This avoids double-delivering to a channel that doesn't
 //! exist.
 
-use crate::channels::{Channel, ChannelSendExt, SendMessage};
+use crate::channels::outbound::text_message;
+use crate::channels::Channel;
 use crate::core::events::DomainEvent;
 use crate::web_chat::publish_web_channel_event;
 use crate::web_chat::WebChannelEvent;
@@ -336,7 +337,7 @@ impl EventHandler<DomainEvent> for ProactiveMessageSubscriber {
                 }
 
                 let send_result = ch
-                    .send_with_outbound_intent(&SendMessage::new(message, &recipient))
+                    .send_typed(&text_message(&key, &recipient, message, None))
                     .await;
                 // Record the terminal status on the approval audit
                 // row before we log the outcome — best-effort, see

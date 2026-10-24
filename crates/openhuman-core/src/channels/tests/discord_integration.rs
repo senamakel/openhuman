@@ -27,8 +27,8 @@ use super::super::context::{
     conversation_history_key, ChannelRuntimeContext, CHANNEL_MESSAGE_TIMEOUT_SECS,
 };
 use super::super::runtime::process_channel_message;
-use super::super::{Channel, SendMessage};
-use super::common::HistoryCaptureModel;
+use super::super::Channel;
+use super::common::{channel_envelope, HistoryCaptureModel};
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -43,7 +43,7 @@ use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 /// real `DiscordChannel`. No HTTP is involved.
 #[derive(Default)]
 struct DiscordRecordingChannel {
-    sent: tokio::sync::Mutex<Vec<SendMessage>>,
+    sent: tokio::sync::Mutex<Vec<traits::ChannelOutboundMessage>>,
     start_typing_calls: AtomicUsize,
     stop_typing_calls: AtomicUsize,
 }
@@ -54,11 +54,27 @@ impl Channel for DiscordRecordingChannel {
         "discord"
     }
 
-    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 adapter for one release"
+    )]
+    async fn send(&self, message: &traits::SendMessage) -> anyhow::Result<()> {
+        self.send_typed(&traits::ChannelOutboundMessage::from_legacy_message(
+            self.name(),
+            message,
+        ))
+        .await
+    }
+
+    async fn send_typed(&self, message: &traits::ChannelOutboundMessage) -> anyhow::Result<()> {
         self.sent.lock().await.push(message.clone());
         Ok(())
     }
 
+    #[allow(
+        deprecated,
+        reason = "Channel still requires its v21 listener for one release"
+    )]
     async fn listen(
         &self,
         _tx: tokio::sync::mpsc::Sender<traits::ChannelMessage>,
@@ -120,7 +136,7 @@ fn make_discord_ctx(
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: crate::inference::provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(std::env::temp_dir()),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
@@ -149,16 +165,16 @@ async fn discord_inbound_dispatches_through_full_pipeline() {
 
     process_channel_message(
         ctx,
-        traits::ChannelMessage {
-            id: "discord_msg_1".to_string(),
-            sender: "user-123".to_string(),
-            reply_target: "channel-456".to_string(),
-            content: "what's up?".to_string(),
-            channel: "discord".to_string(),
-            timestamp: 1,
-            thread_ts: None,
-            sender_name: None,
-        },
+        channel_envelope(
+            "discord",
+            "user-123",
+            "channel-456",
+            "what's up?",
+            "discord_msg_1",
+            1,
+            None,
+            None,
+        ),
     )
     .await;
 
@@ -169,16 +185,16 @@ async fn discord_inbound_dispatches_through_full_pipeline() {
         "expected exactly one send for discord dispatch"
     );
     assert_eq!(
-        sent[0].recipient, "channel-456",
+        sent[0].conversation_id, "channel-456",
         "recipient must match reply_target"
     );
     assert!(
-        sent[0].content.contains("hi from discord"),
+        sent[0].legacy_text().unwrap().contains("hi from discord"),
         "dispatch must forward the stubbed provider response verbatim, got {:?}",
-        sent[0].content
+        sent[0].legacy_text().unwrap()
     );
     assert!(
-        sent[0].thread_ts.is_none(),
+        sent[0].thread_id.is_none(),
         "absent inbound thread_ts must not be fabricated on discord send"
     );
 }
@@ -200,16 +216,16 @@ async fn discord_threaded_message_does_not_emit_reaction_ack() {
 
     process_channel_message(
         ctx,
-        traits::ChannelMessage {
-            id: "discord_msg_2".to_string(),
-            sender: "user-123".to_string(),
-            reply_target: "channel-456".to_string(),
-            content: "in-thread message".to_string(),
-            channel: "discord".to_string(),
-            timestamp: 1,
-            thread_ts: Some("thread-42".to_string()),
-            sender_name: None,
-        },
+        channel_envelope(
+            "discord",
+            "user-123",
+            "channel-456",
+            "in-thread message",
+            "discord_msg_2",
+            1,
+            Some("thread-42"),
+            None,
+        ),
     )
     .await;
 
@@ -221,14 +237,14 @@ async fn discord_threaded_message_does_not_emit_reaction_ack() {
         "Discord must not receive an ack reaction alongside the reply"
     );
     assert!(
-        !sent[0].content.starts_with("[REACTION:"),
+        !sent[0].legacy_text().unwrap().starts_with("[REACTION:"),
         "discord send must not contain a reaction marker, got {:?}",
-        sent[0].content
+        sent[0].legacy_text().unwrap()
     );
     assert!(
-        sent[0].content.contains("roger"),
+        sent[0].legacy_text().unwrap().contains("roger"),
         "expected the normal reply content, got {:?}",
-        sent[0].content
+        sent[0].legacy_text().unwrap()
     );
 }
 
@@ -249,23 +265,21 @@ async fn discord_thread_ts_splits_conversation_history_end_to_end() {
     let provider: Arc<dyn ChatModel<()>> = provider_impl.clone();
     let ctx = make_discord_ctx(channel, provider);
 
-    let first = traits::ChannelMessage {
-        id: "discord_msg_a".to_string(),
-        sender: "user-123".to_string(),
-        reply_target: "channel-456".to_string(),
-        content: "first thread message".to_string(),
-        channel: "discord".to_string(),
-        timestamp: 1,
-        thread_ts: Some("thread-A".to_string()),
-        sender_name: None,
-    };
+    let first = channel_envelope(
+        "discord",
+        "user-123",
+        "channel-456",
+        "first thread message",
+        "discord_msg_a",
+        1,
+        Some("thread-A"),
+        None,
+    );
 
-    let second = traits::ChannelMessage {
-        id: "discord_msg_b".to_string(),
-        thread_ts: Some("thread-B".to_string()),
-        content: "second thread message".to_string(),
-        ..first.clone()
-    };
+    let mut second = first.clone();
+    second.message_id = "discord_msg_b".to_string();
+    second.conversation.thread_id = Some("thread-B".to_string());
+    second.text = "second thread message".to_string();
 
     // Sanity: the key function itself must split these. Without this, the
     // end-to-end expectations below would be ambiguous — is the split

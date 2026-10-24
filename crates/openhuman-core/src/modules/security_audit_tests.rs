@@ -86,7 +86,7 @@ fn a_host_row_maps_to_the_module_kind_and_carries_the_streams_identity() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn shell_rows_extend_the_subjects_one_ordered_stream() {
     let fixture = native_approval_fixture().await;
     let config = Config {
@@ -118,7 +118,7 @@ async fn shell_rows_extend_the_subjects_one_ordered_stream() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn audit_record_uses_the_admitting_dispatch_tenant() {
     use crate::core::runtime::{ContextOverlay, CoreContext, DispatchCtx, DomainSet};
 
@@ -189,7 +189,7 @@ async fn audit_record_uses_the_admitting_dispatch_tenant() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_row_the_module_cannot_commit_fails_instead_of_vanishing() {
     let fixture = native_approval_fixture().await;
     let config = Config {

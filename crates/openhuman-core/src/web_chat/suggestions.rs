@@ -207,7 +207,8 @@ fn build_suggestions_request(user_message: &str, assistant_message: &str) -> Mod
         format!("User's last message:\n{user_message}\n\nAssistant's reply:\n{assistant_message}");
     // A 2-3 item JSON list needs no thinking: with reasoning on, the managed
     // default spent 700-1,200 reasoning tokens and 7-14 s on this call.
-    crate::inference::provider::openhuman_backend_model::without_reasoning(
+    crate::inference::registry::provider_request_without_reasoning(
+        crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         ModelRequest::new(vec![
             Message::system(SUGGESTIONS_SYSTEM_PROMPT),
             Message::user(user_prompt),

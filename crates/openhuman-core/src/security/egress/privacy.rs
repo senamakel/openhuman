@@ -150,6 +150,18 @@ pub async fn enforce_egress(desc: &EgressDescriptor) -> anyhow::Result<()> {
     }
 }
 
+/// Synchronous counterpart for owner contracts whose guard callbacks cannot await.
+///
+/// # Errors
+/// The transfer is refused by the registered privacy mode, or the module could not
+/// answer under a restrictive mode.
+pub fn enforce_egress_blocking(desc: &EgressDescriptor) -> anyhow::Result<()> {
+    match egress_blocks_message_blocking(current_privacy_mode(), desc) {
+        Some(message) => anyhow::bail!("{message}"),
+        None => Ok(()),
+    }
+}
+
 /// Enforce the live privacy policy for an agent tool whose `execute` returns
 /// `Ok(ToolResult::error(..))` on a denied action. The message carries
 /// [`POLICY_BLOCKED_MARKER`] so the agent loop treats it as a hard cross-turn block.

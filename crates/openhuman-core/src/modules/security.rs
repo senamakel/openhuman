@@ -121,20 +121,6 @@ pub(crate) fn production_crypto_config(_config: &Config) -> tinysecurity_bus::Cr
     }
 }
 
-/// Caller identity supplied exclusively by trusted host dispatch. This wrapper
-/// intentionally has no Deserialize implementation or model-facing controller.
-pub(crate) struct VerifiedCaller(CallerContext);
-
-impl VerifiedCaller {
-    /// Wrap already authenticated identity and authority, never model arguments.
-    pub(crate) fn from_host(context: CallerContext) -> Result<Self, String> {
-        if context.agent.trim().is_empty() || context.call_id.trim().is_empty() {
-            return Err("TinySecurity caller identity is missing".into());
-        }
-        Ok(Self(context))
-    }
-}
-
 #[derive(Default)]
 struct ClientState {
     generation: Option<u64>,
@@ -161,55 +147,6 @@ impl ClientState {
             return;
         }
         self.faulted = true;
-    }
-}
-
-/// A failed module call, and whether it must latch the shared client.
-///
-/// Only a failure of the channel (transport, attestation, timeout, a vanished
-/// peer) latches: nothing it says can be trusted afterwards. The module
-/// answering that it refused this one request does not, so one hostile or odd
-/// request cannot disable the module for everyone.
-#[derive(Debug)]
-pub(crate) struct CallError {
-    pub(crate) message: String,
-    pub(crate) fault: bool,
-}
-
-impl CallError {
-    /// A host-side refusal of one request; the client stays usable.
-    pub(crate) fn refused(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-            fault: false,
-        }
-    }
-
-    /// A channel failure.
-    pub(crate) fn faulted(message: impl Into<String>) -> Self {
-        Self {
-            message: message.into(),
-            fault: true,
-        }
-    }
-
-    /// Classify a bus error: a method that ran and failed, or arguments the
-    /// module could not accept, refuse the request; anything else faults.
-    pub(crate) fn from_bus(message: &'static str, error: &tinybus::Error) -> Self {
-        let refused = matches!(
-            error,
-            tinybus::Error::MethodFailed { .. } | tinybus::Error::BadArguments { .. }
-        );
-        Self {
-            message: message.to_owned(),
-            fault: !refused,
-        }
-    }
-}
-
-impl From<CallError> for String {
-    fn from(error: CallError) -> Self {
-        error.message
     }
 }
 
@@ -306,8 +243,15 @@ async fn require_attestation(
     let attestation = tokio::time::timeout(CALL_TIMEOUT, proxy.attestation())
         .await
         .map_err(|_| "TinySecurity attestation timed out")?
-        .map_err(|_| "TinySecurity attestation failed")?
-        .ok_or("TinySecurity recipient is not attested")?;
+        .map_err(|_| "TinySecurity attestation failed")?;
+    validate_attestation(attestation, record)
+}
+
+fn validate_attestation(
+    attestation: Option<tinybus::attest::Attestation>,
+    record: &super::ModuleRecord,
+) -> Result<(), String> {
+    let attestation = attestation.ok_or("TinySecurity recipient is not attested")?;
     if attestation.name.as_str() != record.bus_name || !pinned(record, &attestation.sha256) {
         return Err("TinySecurity recipient does not match a pinned release".into());
     }
@@ -666,7 +610,7 @@ pub(super) async fn call_register_path_policy(
     let id: tinysecurity_bus::PathPolicyId = proxy
         .call_confidential(names::methods::REGISTER_PATH_POLICY, (policy,))
         .await
-        .map_err(|_| "TinySecurity RegisterPathPolicy failed")?;
+        .map_err(|error| format!("TinySecurity RegisterPathPolicy failed: {error}"))?;
     if id.0.is_empty() {
         return Err("TinySecurity returned an empty path scope".into());
     }
@@ -757,3 +701,7 @@ pub(crate) mod sandbox;
 
 #[path = "security_audit.rs"]
 pub(crate) mod audit;
+
+#[path = "security_client_types.rs"]
+mod client_types;
+pub(crate) use client_types::{CallError, VerifiedCaller};

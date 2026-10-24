@@ -106,13 +106,17 @@ async fn configured_storage_url() -> anyhow::Result<Option<String>> {
                 anyhow::anyhow!("loading the config to resolve the storage url: {error}")
             })
     };
-    let mut config = load().await?;
+    let config = load().await?;
     // `[storage] auto_migrate_layout`: move a layout-v1 profile to v2 before
     // the backend opens, then re-read the config, whose workspace is now the
-    // profile's `files/` directory.
-    if crate::core_host::storage::layout::auto_migrate(&config).await {
-        config = load().await?;
-    }
+    // profile's `files/` directory. The migration exists only with
+    // `legacy-import`.
+    #[cfg(feature = "legacy-import")]
+    let config = if crate::core_host::storage::layout::auto_migrate(&config).await {
+        load().await?
+    } else {
+        config
+    };
     Ok(storage_url_from(env, &config))
 }
 
@@ -179,11 +183,14 @@ async fn provider_for_url_with(
         log::debug!("[rpc:session_store] no storage url; one default database per workspace");
         return Ok(Arc::new(WorkspaceSessionStores));
     };
+    let driver = crate::core_host::storage::StorageUrl::parse(&url)
+        .context("parsing the configured storage URL")?
+        .driver();
     let backend = crate::core_host::storage::open(&url)
         .await
         .context("opening the configured storage backend")?;
-    let recover = recover_on_open
-        .unwrap_or_else(|| !crate::core_host::storage::driver_is_shared(backend.driver()));
+    let recover =
+        recover_on_open.unwrap_or_else(|| !crate::core_host::storage::driver_is_shared(driver));
     let provider = ReboundSessionStores::new(Arc::clone(&backend), recover)
         .context("starting the session store bridge")?;
     // Only a fully working bridge makes the backend the process's storage.

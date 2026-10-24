@@ -25,7 +25,7 @@ async fn seed_status(store: &DriverStatusStore, status_kind: ExecutionStatus) ->
 async fn workspace_adapter_reaps_and_empty_workspace_is_a_noop() {
     let tmp = std::env::temp_dir().join(format!("oh-reaper-{}", uuid::Uuid::new_v4()));
     assert_eq!(reap_orphaned_runs(&tmp).await, 0);
-    let store = crate::storage::sessions::status_store_for(&tmp);
+    let store = crate::storage::sessions::status_store_for(&tmp).expect("status store");
     let run = seed_status(&store, ExecutionStatus::Running).await;
     assert_eq!(reap_orphaned_runs(&tmp).await, 1);
     let status = store.get_status(&run).await.unwrap().expect("present");
@@ -38,7 +38,7 @@ async fn workspace_adapter_reaps_and_empty_workspace_is_a_noop() {
 #[tokio::test]
 async fn a_shared_backend_leaves_running_work_alone() {
     let tmp = std::env::temp_dir().join(format!("oh-reaper-{}", uuid::Uuid::new_v4()));
-    let store = crate::storage::sessions::status_store_for(&tmp);
+    let store = crate::storage::sessions::status_store_for(&tmp).expect("status store");
     let run = seed_status(&store, ExecutionStatus::Running).await;
     assert_eq!(reap_unless_shared(&tmp, true).await, 0);
     let status = store.get_status(&run).await.unwrap().expect("present");
@@ -79,7 +79,7 @@ async fn a_build_only_runtime_is_swept_before_it_can_be_invoked() {
     // `OPENHUMAN_WORKSPACE` names the root; the resolved workspace is the
     // `workspace` directory under it, which is what the sweep will read.
     let workspace = tmp.join("workspace");
-    let store = crate::storage::sessions::status_store_for(&workspace);
+    let store = crate::storage::sessions::status_store_for(&workspace).expect("status store");
     let orphan = seed_status(&store, ExecutionStatus::Running).await;
     assert_eq!(store.list_active().await.unwrap().len(), 1);
 
@@ -107,7 +107,7 @@ async fn a_build_only_runtime_is_swept_before_it_can_be_invoked() {
     // The child writes the durable store in a separate process. Reopen it for
     // verification instead of reading through the parent's handle, whose
     // refactored KV layer may still serve the status it cached while seeding.
-    let after_store = crate::storage::sessions::status_store_for(&workspace);
+    let after_store = crate::storage::sessions::status_store_for(&workspace).expect("status store");
     let after = after_store
         .get_status(&orphan)
         .await

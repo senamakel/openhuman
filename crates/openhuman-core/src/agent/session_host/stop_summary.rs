@@ -19,7 +19,7 @@
 use std::fmt::Write as _;
 
 use super::turn_checkpoint::CheckpointToolResult;
-use tinyagents_harness::turn_stop::TurnStop;
+use tinyagents_harness::turn_stop::{CopyRequest, TurnStop, TurnStopCopyKey};
 
 /// Longest error line shown for one tool, in characters.
 const ERROR_LINE_CHARS: usize = 120;
@@ -149,14 +149,41 @@ impl StopReasonKind {
     }
 
     /// English copy completing "I stopped this turn early because …".
-    pub(crate) fn copy(self) -> &'static str {
-        crate::inference::failure_copy::stop_summary_copy(self.key())
+    pub(crate) fn copy(self) -> String {
+        // Render through TinyAgents' neutral copy table while preserving the
+        // OpenHuman settings destinations for the two actionable classes.
+        let key = match self {
+            Self::Transient => TurnStopCopyKey::Transient,
+            Self::UncertainSideEffect => TurnStopCopyKey::UncertainSideEffect,
+            Self::Authentication => TurnStopCopyKey::Authentication,
+            Self::Permission => TurnStopCopyKey::Permission,
+            Self::Policy => TurnStopCopyKey::Policy,
+            Self::MissingProgram => TurnStopCopyKey::MissingProgram,
+            Self::NotFound => TurnStopCopyKey::NotFound,
+            Self::InvalidCalls => TurnStopCopyKey::InvalidCalls,
+            Self::Unavailable => TurnStopCopyKey::Unavailable,
+            Self::SiteRefused => TurnStopCopyKey::SiteRefused,
+            Self::RepeatedFailure => TurnStopCopyKey::RepeatedFailure,
+            Self::VariedFailures => TurnStopCopyKey::VariedFailures,
+            Self::RepeatingStep => TurnStopCopyKey::RepeatingStep,
+            Self::OutOfCredits => TurnStopCopyKey::OutOfCredits,
+            Self::ProviderConfig => TurnStopCopyKey::ProviderConfig,
+            Self::MissingConnection => TurnStopCopyKey::MissingConnection,
+            Self::Generic => TurnStopCopyKey::Generic,
+        };
+        tinyagents_harness::turn_stop::render_copy(
+            &crate::agent::tinyagents::host::OpenHumanCopyProvider,
+            &CopyRequest::TurnStop {
+                key,
+                operation: None,
+            },
+        )
     }
 
     /// Read the kind from a breaker stop note. The notes come from a fixed
     /// set of host and harness templates (`ClassifiedFailureTracker`,
     /// `NoProgressTracker`, `RepeatProgressMiddleware`,
-    /// `inference::failure_copy::halt`), so this matches
+    /// `agent::tinyagents::middleware::repeated_failure`), so this matches
     /// their fixed wording, never the tool output they quote.
     pub(crate) fn from_stop_note(note: &str) -> Self {
         let note = note.trim();
@@ -207,11 +234,19 @@ impl StopReasonKind {
             // used to fall through to `Generic` ("my tool calls were not
             // getting anywhere").
             "policy" | "blocked_by_policy" => Self::Policy,
+            "missing_program" => Self::MissingProgram,
             "unsupported" | "missing_app" => Self::MissingProgram,
             "not_found" | "missing_window" => Self::NotFound,
+            "invalid_calls" => Self::InvalidCalls,
             "validation" | "invalid_arguments" => Self::InvalidCalls,
             "unavailable" | "service_refused" => Self::Unavailable,
             "site_refused" => Self::SiteRefused,
+            "repeated_failure" => Self::RepeatedFailure,
+            "varied_failures" => Self::VariedFailures,
+            "repeating_step" => Self::RepeatingStep,
+            "out_of_credits" => Self::OutOfCredits,
+            "provider_config" => Self::ProviderConfig,
+            "missing_connection" => Self::MissingConnection,
             _ => Self::Generic,
         }
     }
@@ -262,7 +297,19 @@ fn times(count: usize) -> String {
 
 /// The user-facing reply for a turn the breaker stopped with `stop_note`.
 pub(crate) fn render_stop_summary(results: &[CheckpointToolResult], stop_note: &str) -> String {
-    let kind = StopReasonKind::from_stop_note(stop_note);
+    render_stop_summary_with_cause(results, stop_note, None)
+}
+
+/// Render a stopped-turn summary from its typed cause when the harness has
+/// one. The note is only a compatibility source for old, untyped stops.
+pub(crate) fn render_stop_summary_with_cause(
+    results: &[CheckpointToolResult],
+    stop_note: &str,
+    failure_cause: Option<&tinyagents_harness::no_progress::ClassifiedStopCause>,
+) -> String {
+    let kind = failure_cause
+        .map(|cause| StopReasonKind::from_failure_class(&cause.class))
+        .unwrap_or_else(|| StopReasonKind::from_stop_note(stop_note));
     tracing::debug!(
         reason = kind.key(),
         results = results.len(),

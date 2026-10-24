@@ -1,6 +1,7 @@
+#![cfg(feature = "storage-sqlite")]
+
 use super::*;
 use crate::core::runtime::{CoreContext, DomainSet, SaasConfig};
-use crate::storage::MemoryStorage;
 
 const TTL_SECS: u64 = 30;
 
@@ -29,8 +30,8 @@ fn node(
     )
 }
 
-fn shared() -> Arc<dyn StorageBackend> {
-    Arc::new(MemoryStorage::new())
+fn shared() -> crate::storage::test_support::SqliteBackend {
+    crate::storage::test_support::sqlite_backend().unwrap()
 }
 
 fn profile(name: &str) -> ProfileId {
@@ -54,8 +55,8 @@ async fn a_profile_open_on_one_node_is_refused_on_another_naming_the_holder() {
     let tmp = tempfile::tempdir().unwrap();
     let backend = shared();
     let (a, b) = (
-        node(tmp.path(), "node-a", Some(&backend)),
-        node(tmp.path(), "node-b", Some(&backend)),
+        node(tmp.path(), "node-a", Some(&backend.backend)),
+        node(tmp.path(), "node-b", Some(&backend.backend)),
     );
     let alice = profile("alice");
     assert!(a.provision(&alice).await.unwrap());
@@ -92,8 +93,8 @@ async fn release_hands_a_profile_to_another_node_at_once() {
     let tmp = tempfile::tempdir().unwrap();
     let backend = shared();
     let (a, b) = (
-        node(tmp.path(), "node-a", Some(&backend)),
-        node(tmp.path(), "node-b", Some(&backend)),
+        node(tmp.path(), "node-a", Some(&backend.backend)),
+        node(tmp.path(), "node-b", Some(&backend.backend)),
     );
     let alice = profile("alice");
     a.provision(&alice).await.unwrap();
@@ -125,10 +126,10 @@ async fn eviction_and_shutdown_release_the_lease() {
     let a = ProfileHost::with_backend(
         config,
         CoreContext::for_test(DomainSet::full(), None),
-        Some(Arc::clone(&backend)),
+        Some(Arc::clone(&backend.backend)),
     )
     .unwrap();
-    let b = node(tmp.path(), "node-b", Some(&backend));
+    let b = node(tmp.path(), "node-b", Some(&backend.backend));
     let (alice, bob) = (profile("alice"), profile("bob"));
     a.provision(&alice).await.unwrap();
     a.provision(&bob).await.unwrap();
@@ -154,7 +155,7 @@ async fn eviction_and_shutdown_release_the_lease() {
 async fn renewal_keeps_the_lease_and_a_lost_lease_fences_the_profile() {
     let tmp = tempfile::tempdir().unwrap();
     let backend = shared();
-    let a = node(tmp.path(), "node-a", Some(&backend));
+    let a = node(tmp.path(), "node-a", Some(&backend.backend));
     let alice = profile("alice");
     a.provision(&alice).await.unwrap();
     let state = a.open(&alice).await.unwrap();
@@ -187,7 +188,7 @@ async fn renewal_keeps_the_lease_and_a_lost_lease_fences_the_profile() {
     // Another node takes the profile over once the lease has (by its clock)
     // run out.
     let thief = crate::storage::lease::DocumentLeases::cluster(
-        backend.as_ref(),
+        backend.backend.as_ref(),
         "node-b",
         None,
         Duration::from_secs(TTL_SECS),
@@ -309,7 +310,7 @@ async fn a_release_during_a_heartbeat_renewal_releases_the_renewed_grant() {
     let mut a = ProfileHost::with_backend(
         saas(tmp.path(), "node-a"),
         CoreContext::for_test(DomainSet::full(), None),
-        Some(Arc::clone(&backend)),
+        Some(Arc::clone(&backend.backend)),
     )
     .unwrap();
     let pausing = Arc::new(PausingRenewals {
@@ -320,7 +321,7 @@ async fn a_release_during_a_heartbeat_renewal_releases_the_renewed_grant() {
     });
     a.leases = Arc::clone(&pausing) as Arc<dyn LeaseStore>;
     let a = Arc::new(a);
-    let b = node(tmp.path(), "node-b", Some(&backend));
+    let b = node(tmp.path(), "node-b", Some(&backend.backend));
     let alice = profile("alice");
     a.provision(&alice).await.unwrap();
     drop(a.open(&alice).await.unwrap());

@@ -347,10 +347,10 @@ async fn load_or_init_falls_back_to_defaults_when_backup_also_corrupted() {
 
     let config = load_or_init_for_workspace(root).await;
 
-    // Config::default() sets default_model = Some("reasoning-v1").
+    // A bare core has no provider policy that can supply a default model.
     assert_eq!(
         config.default_model.as_deref(),
-        Some(crate::config::schema::DEFAULT_MODEL),
+        None,
         "must fall back to defaults when backup is also corrupted"
     );
 
@@ -382,7 +382,7 @@ async fn load_or_init_falls_back_to_defaults_when_no_backup() {
 
     assert_eq!(
         config.default_model.as_deref(),
-        Some(crate::config::schema::DEFAULT_MODEL),
+        None,
         "must fall back to defaults when no backup exists"
     );
 
@@ -596,8 +596,8 @@ async fn load_or_init_recovers_from_non_utf8_config() {
 
     // Should have loaded defaults (not crashed).
     assert!(
-        config.default_model.is_some(),
-        "must load defaults from non-UTF-8 config"
+        config.default_model.is_none(),
+        "bare core has no provider-owned default model"
     );
 
     // The runtime recovery flag must be set so the boot path can surface a

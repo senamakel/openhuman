@@ -1,5 +1,6 @@
 //! Credential-safe routes, wire turn requests and their typed outcomes.
 use serde::{Deserialize, Serialize};
+use tinyinference_llm::model::ReasoningEffort;
 
 #[cfg(test)]
 #[path = "../tests/unit/turn_usage.rs"]
@@ -55,11 +56,12 @@ pub(super) fn overlay_response_usage(
 /// strictly less capable, so the facade uses the wider surface and lets
 /// [`Route`] be `None` when the account's own route is what is wanted.
 ///
-/// `INFERENCE_AGENT_CHAT` is owned by the inference domain; referencing it
+/// `INFERENCE_AGENT_CHAT` is owned by the agent-runs domain; referencing it
 /// keeps this facade's dispatch string in lockstep with the registered
 /// controller rather than duplicating the wire name.
 ///
-/// Where one turn's inference should go.
+/// Where one turn's inference should go, including provider defaults and
+/// reasoning effort for the selected model.
 ///
 /// Both halves are required together: an endpoint with no credential and a
 /// credential with no endpoint are each half a statement, and the core ignores
@@ -73,6 +75,11 @@ pub struct Route {
     pub api_key: String,
     /// Headers scoped to this route and never persisted or logged as values.
     pub headers: Vec<(String, String)>,
+    /// Provider-specific options sent with every request on this route. A
+    /// request's own options override these recursively by key.
+    pub provider_options: Option<serde_json::Value>,
+    /// Reasoning effort configured for this route's model.
+    pub reasoning_effort: Option<ReasoningEffort>,
 }
 
 impl std::fmt::Debug for Route {
@@ -85,6 +92,8 @@ impl std::fmt::Debug for Route {
             .field("base_url", &sanitize_url_for_display(&self.base_url))
             .field("api_key", &"<redacted>")
             .field("headers", &self.headers.len())
+            .field("provider_options", &self.provider_options.is_some())
+            .field("reasoning_effort", &self.reasoning_effort)
             .finish()
     }
 }
@@ -143,11 +152,27 @@ impl Route {
             base_url: base_url.into(),
             api_key: api_key.into(),
             headers: Vec::new(),
+            provider_options: None,
+            reasoning_effort: None,
         }
     }
     /// Add a header sent only to this route's endpoint.
     pub fn header(mut self, name: impl Into<String>, value: impl Into<String>) -> Self {
         self.headers.push((name.into(), value.into()));
+        self
+    }
+
+    /// Set provider-specific defaults for this route. Per-request options
+    /// override these values by key.
+    pub fn provider_options(mut self, options: serde_json::Value) -> Self {
+        self.provider_options = Some(options);
+        self
+    }
+
+    /// Set the reasoning effort used for this route's model across agent,
+    /// scheduled, and other runtime-owned calls.
+    pub fn reasoning_effort(mut self, effort: ReasoningEffort) -> Self {
+        self.reasoning_effort = Some(effort);
         self
     }
 }
@@ -182,6 +207,12 @@ pub struct TurnRequest {
     /// Additional headers owned by this turn route.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub inference_headers: Vec<(String, String)>,
+    /// Provider-specific defaults for the per-turn route.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inference_provider_options: Option<serde_json::Value>,
+    /// Reasoning effort for the per-turn route's model.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub inference_reasoning_effort: Option<String>,
     /// Bearer half of the per-call route. Paired with `inference_url`.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub api_key: Option<String>,
@@ -202,6 +233,8 @@ impl TurnRequest {
             cwd: None,
             inference_url: None,
             inference_headers: Vec::new(),
+            inference_provider_options: None,
+            inference_reasoning_effort: None,
             api_key: None,
             agent_id: None,
         }

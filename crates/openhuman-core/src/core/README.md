@@ -251,9 +251,9 @@ subcommands fail with an explanation.
 [`logging.rs`](./logging.rs) sets up the logger per host: `init_for_cli_run`,
 `init_for_embedded` and `init_for_tui` (which also buffers lines for the TUI
 through `tui_log_lines`). Two redaction passes keep secrets out of logs.
-`rpc_log::redact_params_for_log` strips sensitive keys (`api_key`, `token`,
-`authorization`, `password`, `client_secret` and similar) from structured
-params before the `[rpc:dispatch]` trace line. `log_redaction::scrub_secrets`
+`rpc_log::redact_params_for_log` uses TinySecurity's structured-argument
+redactor before the `[rpc:dispatch]` trace line and suppresses the whole value
+when the module cannot answer. `log_redaction::scrub_secrets`
 pattern-matches secrets in free text and is shared by the Sentry path and the
 always-on log path, so the two cannot drift.
 
@@ -340,7 +340,7 @@ Process plumbing:
 | Path | What it does |
 | --- | --- |
 | `logging.rs` | Logger setup per host kind, log directory, file-guard shutdown. |
-| [`rpc_log.rs`](./rpc_log.rs) | `redact_params_for_log`, key-name redaction for dispatch trace logs. |
+| [`rpc_log.rs`](./rpc_log.rs) | `redact_params_for_log`, TinySecurity structured redaction for dispatch trace logs. |
 | [`log_redaction.rs`](./log_redaction.rs) | `scrub_secrets`, pattern-based secret scrubbing for free-text log and Sentry messages. |
 | `observability.rs` | Error reporting, expected-error classification, Sentry `before_send` filters, shared error prefixes. |
 | `sentry_transport.rs` | Sentry transport over reqwest (`crash-reporting` feature). |
@@ -415,9 +415,10 @@ surface.
 - `openhuman.auth_clear_session` is a legacy alias whose params get
   `kind: "session"` filled in during dispatch, preserving its session-only
   contract while the canonical method clears every kind by default.
-- Registry lookups for validation and CLI routing search the full,
-  unfiltered registry; only dispatch applies the `DomainSet` gate. A gated
-  method therefore passes validation and then reports as unknown.
+- CLI routing (`rpc_method_from_parts`) searches the full registry minus the
+  SaaS surface filter; the `DomainSet` gate applies at dispatch. Parameter
+  validation (`schema_for_rpc_method`) applies the same `visible` gate as
+  dispatch, so a gated method is unknown before its params are checked.
 - The log-dependent response shape from `apply_log_envelope` is deliberate.
   Adding a log line to a handler that had none changes its wire shape.
 - `http_server_status::HTTP_SERVER_COMPILED_IN` is ungated on purpose: the

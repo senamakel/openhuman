@@ -469,10 +469,10 @@ async fn manual_runs_use_each_invocations_config_and_security_snapshot() {
     crate::core::bus::init().await.unwrap();
     let tmp = TempDir::new().unwrap();
     let mut first_config = tests::test_config(&tmp);
-    first_config.autonomy.enabled = true;
-    first_config.autonomy.level = crate::security::AutonomyLevel::ReadOnly;
+    first_config.security.autonomy.enabled = true;
+    first_config.security.autonomy.level = crate::security::AutonomyLevel::ReadOnly;
     let mut second_config = first_config.clone();
-    second_config.autonomy.enabled = false;
+    second_config.security.autonomy.enabled = false;
     second_config.action_dir = tmp.path().join("second-action-root");
 
     struct ConfigSecurityProbe;

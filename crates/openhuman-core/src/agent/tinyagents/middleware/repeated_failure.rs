@@ -17,18 +17,44 @@ use tinyagents_harness::middleware::{
 use tinyagents_harness::no_progress::FailurePolicy;
 use tinyagents_harness::steering::SteeringHandle;
 use tinyagents_hooks::stop::StopLatch;
+use tinyagents_hooks::stop::{self, TerminalInferenceFailureKind};
 use tinyinference_llm::tool::ToolCall as TaToolCall;
 use tinytools::ToolResult as TaToolResult;
 
 use super::fetched_site::{fetch_host_scope, heuristic_text};
 use crate::agent::tinyagents::host::OpenHumanRunContext;
-pub(crate) use crate::inference::failure_copy::user_actionable_escalation;
-use crate::inference::failure_copy::{
-    recoverable_identical_halt_summary, recoverable_no_progress_halt_summary,
-    terminal_inference_failure_kind, terminal_inference_halt_summary,
-};
+use crate::util::truncate_with_ellipsis;
 use tinyagents_harness::middleware::EphemeralInstructionMiddleware;
 use tinyinference_llm::failure::is_recoverable_failure_text as is_recoverable_tool_failure;
+
+pub(crate) fn user_actionable_escalation(tool: &str, error: &str) -> Option<String> {
+    let lower = error.to_lowercase();
+    let permission_or_scope_failure = lower.contains("[composio:error:insufficient_scope]")
+        || lower.contains("[composio:error:trigger_permission]")
+        || lower.contains("insufficient scope")
+        || lower.contains("insufficient authentication scopes")
+        || lower.contains("insufficient permissions")
+        || lower.contains("missing required permissions")
+        || lower.contains("permission to manage triggers");
+    if permission_or_scope_failure {
+        return None;
+    }
+    let missing_connection = lower.contains("[composio:error:composio_platform]")
+        || lower.contains("not connected")
+        || lower.contains("isn't connected")
+        || lower.contains("is not connected")
+        || lower.contains("not enabled")
+        || lower.contains("token revoked")
+        || lower.contains("connection error, try to authenticate");
+    missing_connection.then(|| {
+        format!(
+            "I can't continue without your input: the `{tool}` action needs a service that isn't \
+             connected. {}\n\nConnect it (Connections), then tell me to retry — or \
+             tell me how you'd like to proceed instead.",
+            truncate_with_ellipsis(error, 400),
+        )
+    })
+}
 
 #[cfg(test)]
 use tinyagents_harness::no_progress::{
@@ -134,11 +160,23 @@ struct HaltCopy;
 
 impl FailurePolicy for HaltCopy {
     fn identical_halt_summary(&self, tool: &str, count: u32, failure_text: &str) -> String {
-        recoverable_identical_halt_summary(tool, count, failure_text)
+        stop::halt_summary::retry_exhausted(
+            &crate::agent::tinyagents::host::OpenHumanCopyProvider,
+            tool,
+            count,
+            failure_text,
+        )
+        .summary
     }
 
     fn no_progress_halt_summary(&self, consecutive: u32, tool: &str, failure_text: &str) -> String {
-        recoverable_no_progress_halt_summary(consecutive, tool, failure_text)
+        stop::halt_summary::no_progress(
+            &crate::agent::tinyagents::host::OpenHumanCopyProvider,
+            consecutive,
+            tool,
+            failure_text,
+        )
+        .summary
     }
 }
 
@@ -285,17 +323,27 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
         let failure_text = sanitized_failure(&content);
         let heuristic = heuristic_text(&call.name, &failure_text);
         if result.is_error && !is_command_exit_report(&failure_text) {
-            if let Some(kind) = terminal_inference_failure_kind(heuristic) {
-                let summary = terminal_inference_halt_summary(kind, &call.name, &failure_text);
+            if let Some(kind) = stop::terminal_inference_failure_kind(heuristic) {
+                let halt = match kind {
+                    TerminalInferenceFailureKind::BudgetExhausted => stop::halt_summary::budget(
+                        &crate::agent::tinyagents::host::OpenHumanCopyProvider,
+                        &call.name,
+                        &failure_text,
+                    ),
+                    TerminalInferenceFailureKind::ProviderConfig => {
+                        stop::halt_summary::provider_config(
+                            &crate::agent::tinyagents::host::OpenHumanCopyProvider,
+                            &call.name,
+                            &failure_text,
+                        )
+                    }
+                };
                 return FailureAssessment::Halt {
-                    summary: summary.clone(),
+                    summary: halt.summary.clone(),
                     cause: Some(tinyagents_harness::no_progress::ClassifiedStopCause {
-                        class: match kind {
-                            crate::inference::failure_copy::TerminalInferenceFailure::BudgetExhausted => "out_of_credits",
-                            crate::inference::failure_copy::TerminalInferenceFailure::ProviderConfig => "provider_config",
-                        }.to_owned(),
+                        class: halt.class.as_str().to_owned(),
                         operation: call.name.clone(),
-                        summary,
+                        summary: halt.summary,
                     }),
                 };
             }

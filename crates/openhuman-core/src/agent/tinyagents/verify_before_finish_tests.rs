@@ -14,6 +14,8 @@ fn activity(rounds: usize, tools: &[&str]) -> FinishActivity {
     FinishActivity {
         tool_rounds: rounds,
         tools_called: tools.iter().map(|t| (*t).to_string()).collect(),
+        tools_executed: Default::default(),
+        tools_with_side_effects: Default::default(),
     }
 }
 
@@ -268,13 +270,8 @@ async fn subagent_turn_is_not_checked() {
 const BUDGET_ROUNDS: usize = 7;
 const BUDGET_CALLS: usize = 12;
 
-/// tinyagents#301: once the wrap-up has announced a budget notice the check
-/// stays quiet. This only holds when `install` is handed the SAME `Arc` that is
-/// installed as the wrap-up middleware, which is what the harness assembly does.
 #[tokio::test]
 async fn a_linked_wrap_up_budget_notice_silences_the_check() {
-    // 7 tool rounds + the draft = 8 calls of a budget of 12: the 0.5 notice
-    // fires on the 6th call, before the draft, and leaves room for a check.
     let rounds = BUDGET_ROUNDS;
     let (checks, text) = drive_with(
         rounds,

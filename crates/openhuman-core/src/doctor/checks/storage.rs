@@ -45,18 +45,11 @@ impl DoctorCheck for StorageConnect {
                 )];
             }
         };
-        inspect_storage_config(self.id(), parsed, 0).await
+        inspect_storage_config(self.id(), parsed).await
     }
 }
 
-async fn inspect_storage_config(check_id: &str, config: StorageConfig, depth: u8) -> Vec<Finding> {
-    if depth > 2 {
-        return vec![Finding::skipped(
-            check_id,
-            "The selected composite storage configuration is nested beyond the inspection limit.",
-            "Simplify the storage configuration and rerun doctor.",
-        )];
-    }
+async fn inspect_storage_config(check_id: &str, config: StorageConfig) -> Vec<Finding> {
     match config {
         StorageConfig::Sqlite { path } => {
             match tokio::task::spawn_blocking(move || sqlite_probe(&path)).await {
@@ -91,14 +84,29 @@ async fn inspect_storage_config(check_id: &str, config: StorageConfig, depth: u8
         StorageConfig::MongoDb { uri, database } => {
             #[cfg(feature = "storage-mongodb")]
             {
-                match tinystoragedrivers::MongoStorage::connect(&uri, &database).await {
+                // `hello`, then a collection listing to prove the credential
+                // can read the selected database. `tinystoragedrivers::open`
+                // would create the driver's collections and indexes, which a
+                // read-only probe must not do and a read-only credential can't.
+                let probe = async {
+                    let connection =
+                        tinystoragedrivers_connect::MongoConnection::connect(&uri, &database)
+                            .await
+                            .map_err(|_| ())?;
+                    connection
+                        .database()
+                        .list_collection_names()
+                        .await
+                        .map_err(|_| ())
+                };
+                match probe.await {
                     Ok(_) => vec![Finding::pass(
                         check_id,
-                        "The selected MongoDB server answered a read-only hello request.",
+                        "The selected MongoDB database answered read-only hello and listing requests.",
                     )],
                     Err(_) => vec![Finding::error(
                         check_id,
-                        "The selected MongoDB server could not be reached.",
+                        "The selected MongoDB database could not be reached or read.",
                         "Check the selected MongoDB endpoint and credentials.",
                     )],
                 }
@@ -113,21 +121,6 @@ async fn inspect_storage_config(check_id: &str, config: StorageConfig, depth: u8
                 )]
             }
         }
-        StorageConfig::Composite { records, blobs } => {
-            let mut findings =
-                Box::pin(inspect_storage_config(check_id, *records, depth + 1)).await;
-            findings.extend(match *blobs {
-                tinystoragedrivers::BlobConfig::Backend(config) => {
-                    Box::pin(inspect_storage_config(check_id, config, depth + 1)).await
-                }
-                tinystoragedrivers::BlobConfig::S3 { .. } => vec![Finding::skipped(
-                    check_id,
-                    "The S3 blob backend has no bounded read-only connectivity probe.",
-                    "Check the configured S3 endpoint with its provider's read-only diagnostics.",
-                )],
-            });
-            findings
-        }
         #[allow(unreachable_patterns)]
         _ => vec![Finding::skipped(
             check_id,
@@ -138,7 +131,20 @@ async fn inspect_storage_config(check_id: &str, config: StorageConfig, depth: u8
 }
 
 fn sqlite_probe(path: &std::path::Path) -> bool {
-    tinystoragedrivers::sqlite::SqliteStorage::probe_read_only(path).is_ok()
+    let file = if path
+        .extension()
+        .is_some_and(|ext| ext == "db" || ext == "sqlite")
+    {
+        path.to_path_buf()
+    } else {
+        path.join("storage.db")
+    };
+    let Ok(mut file) = std::fs::File::open(file) else {
+        return false;
+    };
+    let mut header = [0; 16];
+    use std::io::Read;
+    file.read_exact(&mut header).is_ok() && &header == b"SQLite format 3\0"
 }
 
 fn file_probe(path: &std::path::Path) -> bool {

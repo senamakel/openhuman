@@ -686,7 +686,7 @@ impl EventListener for OpenhumanEventBridge {
             // attempt (`RunPolicy.retry.max_attempts = 1`, pending `ReliableProvider`
             // removal) it will not fire on the live path yet, but the bridge is wired
             // for when it does. `FallbackSelected` is emitted by
-            // [`FallbackObserverMiddleware`](super::routes::FallbackObserverMiddleware)
+            // `tinyagents_harness::middleware::library::FallbackObserverMiddleware`
             // whenever the harness fails over to a sibling workload-tier route.
             AgentEvent::RetryScheduled { call_id, attempt } => {
                 tracing::info!(

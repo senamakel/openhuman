@@ -1,3 +1,6 @@
+/// Defense-in-depth `before_send` filter for connectivity and network failures.
+/// Primary suppression lives at the caller sites; this remains an outer guard
+/// for any future call site that bypasses those classifiers.
 pub fn is_connectivity_event(event: &sentry::protocol::Event<'_>) -> bool {
     let texts: Vec<&str> = {
         let mut v = Vec::with_capacity(2 + event.exception.values.len());
@@ -94,4 +97,3 @@ pub fn is_stale_release_event(event: &sentry::protocol::Event<'_>) -> bool {
         })
     })
 }
-

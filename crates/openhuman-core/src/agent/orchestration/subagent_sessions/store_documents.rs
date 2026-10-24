@@ -182,7 +182,7 @@ pub(super) struct Docs(Repo);
 
 impl Docs {
     #[cfg(test)]
-    pub(super) fn over(scoped: &crate::storage::ScopedStorage) -> Self {
+    pub(super) fn over(scoped: &crate::storage::Storage) -> Self {
         Self(Repo::over(scoped, DOMAIN, collections))
     }
 
@@ -232,12 +232,8 @@ impl Docs {
     {
         let id = key_of(subagent_session_id)?;
         let updated = self.0.run(|docs| async move {
-            let repo = tinystoragedrivers::Repo::<Value>::new(&docs, SESSIONS)?;
-            repo.update(&id, move |current| {
-                let Some(current) = current else {
-                    return Ok(None);
-                };
-                let stored: StoredSession = serde_json::from_value(current)
+            crate::storage::documents::update_document(&docs, SESSIONS, &id, move |current| {
+                let stored: StoredSession = serde_json::from_value(current.clone())
                     .map_err(|error| crate::storage::StorageError::backend(error.to_string()))?;
                 let mut session = DurableSubagentSession::from(stored);
                 if !update(&mut session, chrono::Utc::now().to_rfc3339()) {
@@ -248,7 +244,7 @@ impl Docs {
                 Ok(Some(next))
             })
             .await
-            .map(|updated| updated.map(|(value, _)| value))
+            .map(|updated| updated.map(|record| record.doc))
         })?;
         Ok(updated
             .map(|value| {
@@ -270,13 +266,14 @@ impl Docs {
         sessions: &[DurableSubagentSession],
     ) -> Result<()> {
         let step = import_step(source);
-        let claimed = import_state::with_claim(&self.0, OWNER, &step, || {
+        let claimed = import_state::with_claim(&self.0, OWNER, &step, |condition| {
+            let claimed_repo = self.0.conditioned(condition)?;
             // The process that held the claim before us may have finished.
-            if self.legacy_imported(source)? {
+            if import_state::is_done(&claimed_repo, OWNER, &step)? {
                 return Ok(());
             }
-            self.save(sessions)?;
-            import_state::set_done(&self.0, OWNER, &step)
+            Self(claimed_repo.clone()).save(sessions)?;
+            import_state::set_done(&claimed_repo, OWNER, &step)
         })?;
         if claimed.is_none() {
             log::debug!(
@@ -316,17 +313,15 @@ async fn write_if_newer(
 ) -> Result<(), crate::storage::StorageError> {
     // A missing session is inserted; an existing one is replaced only while it
     // is older than ours. Both go through tsd's one retrying compare-and-swap.
-    let repo = tinystoragedrivers::Repo::<Value>::new(docs, SESSIONS)?;
-    repo.update(id, |stored| {
+    crate::storage::documents::update_or_insert(docs, SESSIONS, id, |stored| {
         if stored
-            .as_ref()
             .and_then(|stored| stored.get("updated_ms"))
             .and_then(Value::as_i64)
             .is_some_and(|have| have >= updated_ms)
         {
-            return Ok(None);
+            return None;
         }
-        Ok(Some(doc.clone()))
+        Some(doc.clone())
     })
     .await
     .map(|_| ())

@@ -386,7 +386,7 @@ async fn git_write_operations_are_policy_blocked_in_read_only_mode() {
 /// The filesystem write gate on the released module, with no gateway stub.
 #[cfg(feature = "security-module")]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 async fn the_write_gate_is_answered_by_the_released_module() {
     use crate::modules::security::released_support::Released;
 

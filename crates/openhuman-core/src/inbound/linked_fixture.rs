@@ -24,6 +24,9 @@ use tinyeventqueues_bus::storage::SHIPPED_PIPELINE_JSON;
 
 use super::deliver::Deliverer;
 use super::host::InboundHost;
+use super::pinned::{Pinned, PinnedAgent, PinnedRun};
+use super::results::Results;
+use crate::config::schema::{InboundConfig, InboundSourceConfig};
 use crate::core::runtime::DispatchCtx;
 use crate::triage::{
     TriageAction, TriageDecision, TriageOutcome, TriageResolutionPath, TriageRun, TriageRunner,
@@ -178,6 +181,106 @@ impl TriageRunner for ScriptedTriage {
     }
 }
 
+/// One scripted pinned-agent answer.
+#[derive(Debug, Clone)]
+pub(crate) enum Reply {
+    /// Answer this text.
+    Text(&'static str),
+    /// Fail with this message.
+    Fail(&'static str),
+    /// Answer this text after this long.
+    Slow(Duration, &'static str),
+    /// Fail with this message after this long.
+    SlowFail(Duration, &'static str),
+}
+
+/// A pinned agent that answers from a script (then `"ok"`) and records its
+/// runs.
+#[derive(Debug, Default)]
+pub(crate) struct ScriptedAgent {
+    script: Mutex<VecDeque<Reply>>,
+    runs: Mutex<Vec<PinnedRun>>,
+}
+
+impl ScriptedAgent {
+    pub(crate) fn new(replies: impl IntoIterator<Item = Reply>) -> Arc<Self> {
+        Arc::new(Self {
+            script: Mutex::new(replies.into_iter().collect()),
+            ..Self::default()
+        })
+    }
+
+    /// The runs so far.
+    pub(crate) fn runs(&self) -> Vec<PinnedRun> {
+        self.runs.lock().unwrap().clone()
+    }
+}
+
+#[async_trait]
+impl PinnedAgent for ScriptedAgent {
+    async fn run(&self, _ctx: &DispatchCtx, run: &PinnedRun) -> anyhow::Result<String> {
+        self.runs.lock().unwrap().push(run.clone());
+        let next = self.script.lock().unwrap().pop_front();
+        match next {
+            Some(Reply::Text(text)) => Ok(text.to_owned()),
+            Some(Reply::Fail(message)) => Err(anyhow::anyhow!(message)),
+            Some(Reply::Slow(delay, text)) => {
+                tokio::time::sleep(delay).await;
+                Ok(text.to_owned())
+            }
+            Some(Reply::SlowFail(delay, message)) => {
+                tokio::time::sleep(delay).await;
+                Err(anyhow::anyhow!(message))
+            }
+            None => Ok("ok".to_owned()),
+        }
+    }
+}
+
+/// A results store in fresh memory storage.
+pub(crate) fn memory_results() -> Results {
+    let storage =
+        tinystoragedrivers_testkit::memory_storage(&crate::storage::Scope::new("local").unwrap());
+    Results::over(&storage)
+}
+
+/// `[inbound]` with `x:mentions` pinned to `teeny-mentions`, flushing after
+/// `debounce_ms` and carrying at most `max_batch` events a turn.
+pub(crate) fn mentions_inbound(debounce_ms: u64, max_batch: u32) -> InboundConfig {
+    let mut inbound = InboundConfig::default();
+    inbound.sources.insert(
+        "x:mentions".to_owned(),
+        InboundSourceConfig {
+            agent_id: "teeny-mentions".to_owned(),
+            debounce_ms,
+            max_wait_ms: debounce_ms * 20,
+            max_batch,
+            ..InboundSourceConfig::default()
+        },
+    );
+    inbound
+}
+
+/// Wait until `results` holds a finished result for `turn_id`, or `within`
+/// passed.
+pub(crate) async fn until_finished(
+    results: &Results,
+    turn_id: &str,
+    within: Duration,
+) -> Option<super::results::Stored> {
+    let deadline = tokio::time::Instant::now() + within;
+    loop {
+        let found = results.get(turn_id).unwrap();
+        let finished = found
+            .as_ref()
+            .is_some_and(|stored| stored.result.status != super::results::ResultStatus::Running);
+        if finished || tokio::time::Instant::now() >= deadline {
+            return found;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
 /// The shipped pipeline with a short debounce, so a test does not wait the
 /// production 1.5 s per flush.
 fn fast_pipeline() -> Value {
@@ -200,6 +303,20 @@ pub(crate) struct Rig {
 impl Rig {
     /// Attach the module and serve the host with `triage`.
     pub(crate) async fn new(triage: Arc<ScriptedTriage>) -> Self {
+        Self::build(triage, None).await
+    }
+
+    /// Attach the module with `inbound`'s sources in its pipeline, and serve
+    /// the host with `pinned` running them.
+    pub(crate) async fn pinned(inbound: InboundConfig, pinned: Pinned) -> Self {
+        Self::build(
+            ScriptedTriage::new(Vec::<Step>::new()),
+            Some((inbound, pinned)),
+        )
+        .await
+    }
+
+    async fn build(triage: Arc<ScriptedTriage>, pinned: Option<(InboundConfig, Pinned)>) -> Self {
         let bus = MemoryBus::new();
         let broker = Broker::new();
         broker.clone().spawn(bus.clone());
@@ -212,6 +329,14 @@ impl Rig {
             Duration::from_secs(5),
         )
         .with_max_attempts(|_| Some(5));
+        let mut pipeline = fast_pipeline();
+        let deliverer = match pinned {
+            Some((inbound, pinned)) => {
+                pipeline = super::settings::with_sources(pipeline, &inbound);
+                deliverer.with_inbound(inbound).with_pinned(pinned)
+            }
+            None => deliverer,
+        };
         host.serve_at(
             ObjectPath::new(names::host::OBJECT_PATH).unwrap(),
             InboundHost::new(Arc::new(deliverer)),
@@ -225,7 +350,7 @@ impl Rig {
             .attach_linked_with_config(
                 tinyeventqueues::linked_module().unwrap(),
                 json!({
-                    "pipeline": fast_pipeline(),
+                    "pipeline": pipeline,
                     "timer": { "min_interval_ms": 5, "max_interval_ms": 25 },
                 }),
             )

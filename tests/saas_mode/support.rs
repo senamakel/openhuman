@@ -42,6 +42,7 @@ pub struct Deployment {
 
 pub fn deployment(write_token: bool) -> Deployment {
     let tmp = tempfile::tempdir().expect("temp dir");
+    set_mode(tmp.path(), 0o700);
     let root = tmp.path().join("saas");
     std::fs::create_dir(&root).unwrap();
     set_mode(&root, 0o700);

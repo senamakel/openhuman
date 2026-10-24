@@ -22,12 +22,12 @@ use crate::agent::subagent_host::types::{
 };
 use crate::agent::tinyagents::budget::MAX_SPAWN_DEPTH;
 use crate::agent_registry::host_definition::{AgentDefinition, AgentDefinitionRegistry};
-use crate::inference::provider::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use tinyagents_definition::{
     validate_tier_transition, AgentTier, IterationPolicy, PromptSource,
     SandboxMode as AgentSandboxMode,
 };
 use tinyagents_harness::context::{current_run_depth, with_run_depth, RunConfig, RunDepth};
+use tinyagents_harness::turn_policy::AGENT_TURN_MAX_OUTPUT_TOKENS;
 use tinytools::{SandboxMode as TinyagentsSandboxMode, ToolSpec, WorkspaceDescriptor};
 use tinytools_std::file_state::with_file_state_agent_id;
 

@@ -7,8 +7,8 @@
 //!
 //! * managed inference (`{api_url}` + the inference path) sends it as
 //!   `Authorization: Bearer <key>` — the OpenAI-compatible endpoint takes a
-//!   bearer, and `OpenHumanBackendModel::resolve_bearer` prefers this profile
-//!   over the app session;
+//!   bearer, and the managed-inference host resolver prefers this profile over
+//!   the app session;
 //! * SDK REST clients send it as `x-api-key` — `BackendClient` and
 //!   `IntegrationClient` pick the header from [`BackendCredential`];
 //! * bearer-only callers (cloud STT and embeddings, the connector proxy

@@ -8,16 +8,12 @@ Binding owner design: `vendor/tinysecurity/docs/specs/security-module.md`,
 
 ## Delivery boundary and starting evidence
 
-Bootstrap plus immutable path scopes exist. TinySecurity #4 merged at
-`f2b7ebd77c1f1109e08f6f38de87ad594841a0e3`. The module currently advertises
-Evaluate, Check, PolicyInfo and four immutable path members. Its command engine
-only allows argument-free diagnostics. `future.rs` contains reserved payloads,
-not working approvals, scans, egress, audit or sandbox engines. The host's
-`modules/security.rs::module_config` deliberately returns bootstrap defaults.
-Do not treat any reserved type or passing bootstrap test as tracker completion.
-Root is releasing that path milestone as v0.2.3 (run 38080694935). The next owner
-implementer is already executing Task 3's immutable command registry. Finish and
-review that task first; do not restart it or wait for the full migration plan.
+TinySecurity v0.17.0 is published and pinned. It includes immutable command
+policy registration, command classification and execution checks with atomic
+hourly reservations, plus scoped policy and durable approval operations. OpenHuman
+has host clients for those contracts. The remaining owner engines and host
+consumers listed below are still required; a reserved bus type or a passing
+bootstrap test is not evidence that its engine is implemented.
 
 Deliver **one further cumulative TinySecurity PR**, against canonical upstream,
 containing all owner work below. Continue the existing OpenHuman #7331 for host
@@ -33,6 +29,12 @@ Do not place missing TinyBox/TinyMCP/TinyRuntime/TinyFlows capabilities into the
 host or TinySecurity as workarounds. Their upstream changes must merge/release
 before dependent production pins. One TinySecurity PR does not prohibit required
 PRs in those other owners.
+
+**Base verification (2026-10-23):** fetched canonical `upstream/main`. The
+`epic-7328-continue` worktree's base is exactly `74d2a79612`, the fetched
+upstream head. The primary checkout's `main` has an extra local checkpoint
+commit updating 21 submodule pointers and untracked submodule state, so it was
+left untouched rather than force-reset or fast-forwarded over that commit.
 
 ## Invariants for every task
 
@@ -162,7 +164,7 @@ missing behaviors are RED, not removed or marked successful.
    config/env fallback for SaaS. Secret settings never enter PolicyInfo or logs.
 **Exit:** round-trip old config fixtures and isolated new effective policies pass.
 
-**Host status (tinysecurity v0.4.0 repinned):** done: `[security]` table
+**Host status (TinySecurity v0.17.0, published 2026-10-22):** done: `[security]` table
 (`config/schema/security.rs`, audit and approval TTL wired from it, folded
 `[security.autonomy|sandbox|privacy]` overlay), migration 14->15
 (`security_policy.rs`, `max_cost_per_day_cents` deleted with a notice), single
@@ -170,16 +172,34 @@ translator (`modules/security_policy.rs`), scoped client with generation-keyed
 decision cache (`modules/security_scoped.rs`), `live_policy::reload_from_config`
 driver, `SecurityPolicy::from_full_config` (privacy no longer hard-coded), the
 trusted-host binding in `module_config`, and a released-module two-tenant test.
-Open: routing shell/filesystem/network gates through the client and deleting the
-`tinybox_core::shell` calls in `command_checks.rs` (needs `security-module`
-default-on and a sync-to-async seam), a `PolicyChanged` signal subscriber,
-scoped audited variants, and physically moving `[autonomy]/[sandbox]/[privacy]`
-under `[security]` in `Config`.
+Host follow-up is done: `Config.security` owns typed autonomy, sandbox and
+privacy fields; the pre-decode rewrite folds legacy top-level tables into the
+canonical nested shape with nested values taking precedence. Save emits only
+`[security.*]`. Config consumers across core/embed/TinyHumans and profile-owned
+config overlays use the nested fields. The config RPC snapshot now uses
+TinySecurity endpoint-origin redaction for storage URLs as well as inbound queue
+URLs, suppressing unsupported schemes and database names. Stale characterization
+imports were updated to current security-owned turn-origin, approval-gate and
+prompt-scan APIs. Regression coverage checks legacy decode, precedence, save
+shape, sandbox retirement, profile refresh and endpoint suppression.
+Filesystem, network and shell gates route through TinySecurity clients; the
+former TinyBox shell calls are gone from `command_checks.rs`, which now only
+parses the model's escalate-only class hint. The host subscribes to
+`PolicyChanged`. Still open: scoped audited variants and completing the
+redaction/egress consumers in Task 12. Task 7's released durable whole-tool
+grant support is tracked below.
+
+**Windows native redaction follow-up (2026-10-23):** OpenHuman's Windows
+`moved_text_callers_redact_through_the_released_archive` test caught that
+TinySecurity's redacted home path retained Windows backslashes while the host
+display contract uses `~/...`. `normalize_redacted_path` now normalizes
+separators only after the home marker; both the focused display test and the
+released-archive caller test pass locally. The fix is on OpenHuman PR #7331;
+the refreshed hosted native matrix is running.
 
 ## Task 3 — Command grammar, tool rules and action accounting
 
-**In progress:** root has dispatched this task; resume its result/review instead
-of dispatching a second implementer. The agreed contract is immutable
+**Released and integrated (TinySecurity v0.17.0):** the owner implements immutable
 `CommandPolicy { enabled, autonomy, allowed_commands, max_actions_per_hour,
 require_approval_for_medium_risk, block_high_risk_commands, action_dir, home_dir,
 execution_mode }`, opaque `CommandPolicyId`, RegisterCommandPolicy,
@@ -210,7 +230,12 @@ context. Keep these distinctions in characterization and native tests.
    reserve. Reinit/cache cannot replenish or bypass active reservations.
 5. Preserve merged path registry tests, adding full-policy binding and real native
    Windows/APFS/Linux cases; no second path normalizer.
-**Exit:** complete command/rule/rate parity through native Evaluate/Check.
+**Evidence:** the `command_registry` filter passes 12 tests, and the full
+`tinysecurity-policy` package suite passes at v0.17.0. OpenHuman's
+`modules/security_command.rs` registers immutable host-derived scopes and uses
+`ClassifyCommand` for authorization and `CheckCommand` for execution; native
+production tests exercise the released adapter. Remaining duplicate host
+redaction and egress consumers are tracked under Task 12, not this command task.
 
 ## Task 4 — One redactor and integrated scans
 
@@ -255,6 +280,46 @@ Composio loopback gates and `util/url.rs` callers.
    explicit approved transformation removes it and descriptor is rechecked.
    All inference/embedding/memory/integration/browser paths supply descriptors.
 **Exit:** native URL/privacy tests and real pinned-transport tests pass.
+
+**Native DNS fixture progress (2026-10-23):** TinySecurity PR
+[#46](https://github.com/tinyhumansai/tinysecurity/pull/46) adds a bounded,
+debug-test-only resolver with per-host answer sequences for native module tests.
+Its parser rejects missing, malformed, exhausted, case-colliding, and exact
+duplicate hostname entries. The exact-duplicate regression was observed failing
+before the duplicate-aware visitor was added. The focused resolver tests pass
+(7), Clippy and format checks pass, and
+`scripts/ci/security-browser-egress-fixture.sh` passes against the native module,
+including the real host callback's public-to-loopback DNS-rebinding denial. PR
+checks and reviewer re-review are still pending; this does not change the
+production module pin.
+
+**Coverage follow-up (2026-10-23):** PR #46's Linux per-file coverage gate
+identified `native_test_resolver.rs` at 79.67%. The owner branch now exercises
+fixture bounds, malformed shapes, hostname validation, resolver argument
+limits, normalized-key collisions and valid/invalid configuration selection.
+The resolver-specific suite passes 7/7; a focused `cargo llvm-cov` report shows
+94.44% line coverage for that source file, and strict module Clippy plus format
+checks pass. The update was pushed as `ed63e62`; subsequent Windows CI exposed
+that coverage-instrumented cipher fixtures were using 50 ms backend and
+5-second bus deadlines. Test-only timeout adjustments are now pushed to PR #46
+through `d8707a0` and `c18b56f`. The focused resolver command
+(`cargo test -p tinysecurity-module --features native-security-tests
+native_test_resolver --lib`) passes 7/7 locally. A broad `--all-features`
+invocation still hits the existing `needs_drop::<ghash::GHash>()` assertion in
+`tinysecurity-crypto/src/password.rs`; it does not affect the focused resolver
+build. This remains test-fixture work and does not change the production pin.
+
+**Hosted Windows follow-up (2026-10-23):** one PR #46 Windows Rust job failed
+in `secret_cipher_native_contract` at mode 13, where `ExecuteSecretCipher2`
+exceeded the fixture's 5-second bus timeout while secret-cipher encryption was
+disabled. A second Windows coverage run failed the confidential-cipher fixture
+with a generic authority denial. Both failures are covered by the test-only
+timeout adjustment pushed as `d8707a0`; its Windows and other platform checks
+are pending, so it is not yet verified green. A follow-up at `c18b56f` gives the
+fixture proxy a 35-second timeout so the duplicate-execution assertion observes
+the module's replay rejection instead of a client timeout. This also addresses
+CodeRabbit's specific review request on that assertion. The change is on PR #46;
+the current CI runs are `39889136776` and `39889142841` and are still running.
 
 ## Task 6 — Audit engine and callback infrastructure
 
@@ -304,9 +369,22 @@ imports legacy `autonomy.auto_approve` entries through `ImportTrustSource2`, and
 registers no transient whole-tool grants in each call's approval scope. A native
 test against the published Linux archive verifies an imported grant still
 authorizes a fresh engine with an empty transient grant list. Host list/revoke
-surfaces and the wider approval/SaaS cases remain open. These changes are on
-the existing draft PR #7331; its cross-platform native-policy and release
-latency jobs are running.
+surfaces were completed in the v0.17.0 follow-up below; the wider approval/SaaS
+cases remain open. These changes are on the existing draft PR #7331; its
+cross-platform native-policy and release latency jobs are running.
+
+**Follow-up (2026-10-22):** TinySecurity v0.17.0 is now published and pinned
+with all eleven host checksums from its release manifest. The v0.17 bus adds
+`RevokeToolById2`; the host approval engine and `approval.list_tool_trust` /
+`approval.revoke_tool_trust` controllers now expose the tenant-scoped durable
+grant lifecycle. The new native regression passes against the published Linux
+archive. The settings history panel now lists those grants and revokes the
+selected opaque grant id, with translations in all supported locales and a
+passing component/API test. A Windows native run also exposed a Unix-only
+absolute-path fixture; it now uses the platform temp directory and its focused
+test passes locally. That required TinyBus's already-merged secure-extraction
+fix at `11b0a72`, because v0.17 release archives mark their root directory
+group writable. A fresh three-OS released-artifact run remains open.
 
 ## Task 8 — Rules and optional Jev judge
 
@@ -383,6 +461,32 @@ encrypted_store,encrypted_file_backend,backend}.rs`, `security/devices/crypto.rs
    dispatch semantic release workflow. Verify published artifacts by real loader
    allow/deny/callback flow. Only now can production host pins change.
 
+**Upstream checkpoint (2026-10-23):** TinySecurity PR #42 (redaction) merged as
+`0990d97159ddb12a214749d6aa03a4fbf022779f` and is included in the published
+v0.17.1 release (`b62ad69ce28bc3178ad91e12f3074f21007055c4`). The host's
+registry version and checksums already pin v0.17.1, so the short-key redaction
+parity gap recorded under Task 12 is resolved by the released module. PR #43
+([abandoned execution outcome](https://github.com/tinyhumansai/tinysecurity/pull/43))
+adds the incompatible `ExecutionOutcome::Abandoned` bus variant and bumps the
+contract to 2.0. Its CI exposed and fixed an old-major reinit fixture and a
+Windows native verifier assumption. The currently open review requests are
+addressed, but CodeRabbit's changes-requested verdict remains pending a fresh
+review. PR #43 is a focused slice, not the cumulative owner migration required
+by this task; Tasks 1–10 remain prerequisites before the next production host
+pin changes.
+
+**Runtime secret scopes (2026-10-23):** TinySecurity PR #47 is stacked on #46
+and adds host-only runtime secret registration for live approval scopes. Review
+exposed that a revoked native registration ID could be re-accepted after an
+approval generation replacement when the policy reference stayed the same. A
+regression first failed against that path; revoked IDs are now tombstoned for
+the native registry lifetime, while the trusted static-scope replacement path
+can reactivate configured scopes after fencing old handles. Native registry
+tests (29), the module lifecycle regression, strict crypto/module Clippy and
+format checks pass locally. The refreshed Linux/macOS/Windows owner checks are
+running. OpenHuman remains pinned to released v0.17.1 until the owner change is
+merged and released.
+
 ## Task 12 — Host pins and config/command/redaction migration
 
 **Files:** registry security record, `scripts/ci/check-module-pins.mjs`,
@@ -404,6 +508,48 @@ encrypted_store,encrypted_file_backend,backend}.rs`, `security/devices/crypto.rs
    agent/bus.rs, session_host/runtime/run_loop.rs, mcp/registry. Verify secret
    suppression in Sentry/logs/approval/audit and real redirect/rebinding denial.
 
+**Host follow-up (2026-10-22):** storage open and workspace-rebind logs use
+TinySecurity `EndpointOrigin`, so database names and local SQLite paths do not
+reach logs or the `Rebound` display fields. Inference URL migration logs use the
+same mode; regressions assert paths and credentials stay out of captured logs.
+Config snapshot URL suppression is covered under Task 2.
+RPC dispatch parameter logs now use TinySecurity `StructuredLogArguments`;
+unavailable or malformed responses suppress the complete parameter value.
+`core::rpc_log` regression tests cover valid JSON projection and suppression.
+Flow memory writes now route both agent-tool and TinyFlows node guards through
+the released module's `CredentialsOnly` redactor and fail closed when it cannot
+answer. The existing `api_key=abc123` characterization exposed a short-value
+parity gap in v0.17.0. TinySecurity PR [#42](https://github.com/tinyhumansai/tinysecurity/pull/42)
+merged upstream at `0990d97159ddb12a214749d6aa03a4fbf022779f`, adding the short-key
+case while preserving source identifiers. A release containing that merge is
+still required before the host integration is publishable. The host guard tests
+and no-security-module RPC-log suppression test pass locally;
+the flow-node short-key test remains red against the currently pinned archive.
+Network destination gates also deny when `security-module` is compiled out;
+regressions cover both direct and routed gates, and the enabled native gate
+suite passes.
+Composio result and error handling now sends every distinct string (including
+object keys and strings without the configured Composio credential) through the
+shared redactor. It withholds results on unavailable, incomplete, oversized or
+credential-preserving answers; batches are bounded to 256 strings, 512 KiB and
+15 seconds. Regressions cover unrelated bearer credentials, incomplete module
+answers and the size limit.
+Tool-result credential scrubbing also withholds when TinySecurity is not built
+or armed; the diagnostic floor no longer authorizes unverified model-visible
+tool output. A feature-off regression first failed by returning the unchanged
+result, then passed after removing the harness scrubber fallback.
+The synchronous `Text` redactor now suppresses the complete value when the
+module cannot answer. Its consumers persist artifact bodies or put failure text
+back into model context, so the log-only floor no longer substitutes for the
+module there; the feature-off regression pins the suppression marker.
+The skill installer now routes URL diagnostics through TinySecurity's
+`Endpoint` mode, retaining safe paths while stripping credentials, queries and
+fragments. Startup path logging also uses the shared `Text` facade instead of a
+host-owned home-prefix redactor: it retains the conventional `~/...` display
+when the released module answers and suppresses the full path while unavailable.
+The unavailable-module regression failed against the old helper, then passed;
+the released-archive redaction test passes for the module-backed path.
+
 ## Task 13 — Host approval adapter, middleware and frontend
 
 **Files:** `security/approval/{gate,gate_intercept,store,schemas,rpc}.rs` and
@@ -424,14 +570,57 @@ related fragments; `agent/tinyagents/middleware/tinysecurity.rs`, middleware.rs,
    mocked desktop E2E helpers and existing approval component/API suites.
 4. Run i18n:check, i18n:english:check and i18n coverage; no user text/IDs in analytics.
 
+**SaaS approval progress (2026-10-22):** A routable, authenticated WebChat call
+that falls outside the deployment's tool allowlist now continues through the
+tenant-scoped approval engine and existing `ApprovalRequested` surface. Its
+approval is one-time and cannot be auto-approved by profile posture or durable
+grants. Allowlisted tools retain their audited automatic path; non-chat SaaS
+origins remain denied. Durable tool-grant list/revoke, the localized history
+panel, and judged-verdict scores/expiry are implemented; component tests cover
+those states, and a Playwright browser test now exercises judged history and
+grant revocation through mocked core RPC. The targeted SaaS gate/profile tests
+pass. The existing interactive browser harness covers the approval prompt,
+approve-once execution and denial without execution
+(`app/test/e2e/specs/agent-harness-behaviors.spec.ts`). Task 13's
+single-middleware consolidation remains open. The unused OpenHuman
+`ToolPolicyMiddleware` wrapper and trait implementation are removed; the
+security gate now calls the session policy adapters directly, and their tests
+exercise the session host state without constructing a second middleware.
+Builder policy decisions are now folded into `TinySecurityPolicy` as another
+source, removing the separate `CombinedPolicy` wrapper while retaining the
+shared approval resolver. The SDK's `ToolPolicyMiddleware(require_sandbox)`
+has now been removed from both the normal and live harnesses. Its declared
+`SandboxMode::Required` check is folded into the shared TinySecurity gate as a
+host adapter, with tests for denial without a sandboxed workspace, allowance
+with one, and tools that do not require a sandbox. The actual process plan and
+execution remain owned by TinySecurity's released `Plan2` contract and TinyBox;
+the adapter only enforces the tool declaration against the run workspace.
+Remaining Task 13 work is the audit of the remaining posture and deny-list
+surfaces plus the full approval UI and cross-path verification.
+
+**Deny-list projection audit (2026-10-23):** the agent-library metadata
+projection now uses `tools::rules::glob_list_matches`, matching runtime
+`disallowed_tools` semantics for case-insensitive `*`/`?` patterns. The new
+`WEB_*` regression failed against exact-match filtering and passes with the
+shared matcher. The `ToolPolicyPosture` diagnostic surface and full approval
+UI/cross-path audit remain open.
+
+**Posture diagnostic ownership audit (2026-10-23):**
+`tools::registry::posture_from_config` builds `ToolPolicyPosture` only for
+`tool_registry.diagnostics`; the settings diagnostics panel is its only
+consumer, and no middleware reads it for authorization. It is therefore a
+read-only config projection rather than a second policy gate. It still exposes
+only five autonomy fields. Replacing that partial UI payload with the complete
+module policy view, or changing the TinyTools-owned diagnostics contract,
+remains open and requires preserving the existing RPC/UI contract during
+migration.
+
 ## Task 14 — Every untrusted process uses approved TinyBox execution
 
 **Host files:** sandbox/{ops,types,grants,docker}.rs,
-`agent/host_runtime.rs`, `cron/scheduler/shell_job.rs`, `hooks/host.rs`,
-`runtime/python_server/{server,kompress}.rs`, `runtime/pool/`,
-`tools/impl/system/install_tool.rs`, MCP/runtime/flow host adapters.
-**Owner seams:** TinyMCP transport/stdio/mod.rs; TinyRuntime pool/worker.rs and
-tinyruntime-pyserver/src/server.rs; TinyFlows caps/host/script/runner.rs;
+`cron/scheduler/shell_job.rs`, `hooks/host.rs`,
+`tools/impl/system/install_tool.rs`, MCP and flow host adapters.
+**Owner seams:** TinyMCP transport/stdio/mod.rs; TinyFlows caps/host/script/runner.rs;
 TinyComputer browser process startup/egress contracts.
 
 1. Replace resolve_* with module Plan→TinyBox BoxSpec/Placement conversion.
@@ -450,6 +639,59 @@ TinyComputer browser process startup/egress contracts.
    SaaS+env off ordering/boot_guard stays pinned. Explicit unsupported platforms
    deny instead of silently skipping product behavior.
 
+**TinyBox dependency status (2026-10-22):** upstream PR
+[#100](https://github.com/tinyhumansai/tinybox/pull/100) merged at
+`83ca264fbc41d603119e58e162cd990a961c5621`, removing TinyBox-owned command
+classification from contract 2.0. OpenHuman no longer imports that removed
+command-policy API, but TinyBox v0.2.0 has not been released and OpenHuman still
+pins the released v0.1.42 / contract 1.22 module. Do not update the host pin or
+registry until the owner publishes the new artifact and checksum.
+[#103](https://github.com/tinyhumansai/tinybox/pull/103) remains draft and adds
+Linux native resource limits; it is only part of the TinyBox #27 work and does
+not complete cross-platform jail, microVM, Docker, or process-launch coverage.
+TinyBox PR [#112](https://github.com/tinyhumansai/tinybox/pull/112) has since
+merged as `b0b5969ab6d04b64c478e1f012b6af2ac53fc171`, bringing canonical TSD v2
+storage to main. PR #103 was refreshed again on 2026-10-23; its current head is
+`d344acd789753746911b31e9c81d4f6ae5f43c81` on base
+`cf37f8bacb66485450c53d334a29f44dc50e71ec`. This update preserves the PR
+history. Exact-head CI run `39923545332` is queued. The previous exact-head run
+`39889111817` passed formatting, Clippy, docs, MSRV, supply-chain, tests,
+coverage, all three platform feature/module suites, and `native-resource-live`.
+The full workspace test suite, strict Clippy, formatting, locked metadata and
+diff checks also passed locally at that previous head. Keep the PR in draft
+until a compatible TinyBox release is available and OpenHuman's host adapter is
+updated.
+The first post-merge CI run passed all 51 native jail unit tests but failed the
+separate resource cancellation proof because it constructed production storage
+without a served host callback. The test now uses TinyBox's testkit-backed
+`Resources::test_resources()` fixture (`586e883bf81bda850c5358de4c2755cc77413736`).
+That run exposed that the test's current-thread Tokio runtime cannot service the
+testkit's synchronous storage calls. Commit `5110ce7693f718441a652f3ffd28d90ffb9b3232`
+uses a two-worker runtime for this storage-backed test; the focused test passes
+locally. At the previous head, CI passed `native-resource-live`, module tests,
+coverage, Clippy, formatting, MSRV, supply-chain and Linux/macOS/Windows module
+E2E checks. The refreshed head's CI is still pending. Keep PR #103 in draft until
+a compatible TinyBox release is available and OpenHuman's host adapter is updated.
+The spawner inventory distinguishes `sandbox/ops.rs`'s module-planned operator
+host-run mode from an untrusted direct bypass: the module registers that source
+`TrustedHost`, while scheduled/hook text has a separate `UntrustedSkill` source
+that cannot receive a host-run plan. `install_tool` currently returns an
+unavailable result after its access and approval gates and contains no process
+spawn; the sandbox README now records that accurately. Installing packages
+remains an unimplemented capability until a safe scoped installer can run through
+the TinySecurity plan and TinyBox executor.
+
+**Process inventory scope check (2026-10-23):** rechecked the current tracked
+tree and Cargo manifests. This checkout has no `tinyruntime` submodule or
+dependency, `runtime/python_server/{server,kompress}.rs`, `runtime/pool/`, or
+`agent/host_runtime.rs`; those paths from the original task list are not current
+OpenHuman spawn sites. TinyFlows' direct `ProcessCodeRunner` and
+`ProcessShellRunner` are behind its `host-caps` feature, which OpenHuman does not
+enable. The linked module's `CapsHostPorts` instead delegates code execution to
+OpenHuman's `OpenHumanCode`, which runs through `sandbox::untrusted::run` and is
+covered by the committed spawner inventory. TinyComputer's worker and browser
+processes remain module-owned and require the owner-side acceptance tracked below.
+
 ## Task 15 — Host audit, scan/consequence gates and crypto facades
 
 **Files:** shell audit consumers, `mcp/audit/`, security encryption/keyring/device/
@@ -466,6 +708,84 @@ pairing adapters, web3/seams.rs, x402/seams.rs, TinyComputer/TinySkills adapters
    deleting old code; device networking/credentials/consent surface remain host.
 4. Remove obsolete aliases, unused redaction/PII helpers, unused_import allowances,
    config fields and old tests only together with passing replacement coverage.
+
+**Keyring and legacy import audit (2026-10-23):** `OsMasterKeySource` treats
+only `NoEntry` as absence; denied and platform failures return errors and do not
+mint or fall back to a workspace key. The OS availability probe fails closed
+when a write is denied and retries after its backend is replaced. Legacy
+`dev-keychain.json` data is retained when invalid, and is removed only after
+the encrypted copy is durable and verified. Focused suites pass: keyring
+backend 9/9, master-key source 7/7, and encrypted-file migration 29/29. The
+generic OS backend's historical `Unavailable` read/delete mapping remains
+unchanged; this audit found no master-key replacement or legacy-import data-loss
+path through it.
+
+**TinySkills scan policy contract (2026-10-23):** TinySecurity PR
+[#48](https://github.com/tinyhumansai/tinysecurity/pull/48) adds the trusted
+host-derived `SkillScan` verdict and bundle digest to contract 1.29. It binds
+the scan identity into approval evaluation, makes `Warn` require a fresh human
+approval even under broad grants or auto-approval, and makes `Block` a hard
+denial. The owner PR's local bus/policy/approval/module checks pass. Its
+contract spec is now accepted and links the implementation plan; the blocking
+review thread is resolved. Exact-head Linux, macOS, Windows and release-latency
+CI are running. OpenHuman's runtime adapter
+is in progress on draft PR #7331: the workflow registry now returns the
+discovered bundle beside its runnable definition, the host hashes and scans the
+prompt plus bounded resources, and `run_workflow` sends a host-derived
+`SkillScan` check with an Execute effect check through TinySecurity. Scan
+permits are one-use and bound to the workflow id, inputs, tool call id and
+bundle digest; the spawn boundary re-scans after preflight and rejects changed
+or blocked content. Both direct skills controllers dispatch `run_workflow`
+through the native policy and approval middleware. The released registry pin
+remains unchanged until the TinySecurity 1.29 owner change is merged and
+released. The broader Task 15 audit and final cross-platform/owner-release
+verification remain open.
+
+**TinyComputer progress (2026-10-22):** upstream PR [#152](https://github.com/tinyhumansai/tinycomputer/pull/152)
+merged at `82d0aa6`. Its live Chromium test exercises the TinyComputer module's
+host authorization callback and verifies that changed policy produces no new
+socket to either the old allowed listener or the denied rebound listener. This
+does not supply TinyComputer consequence/payment gates or prove native OS process
+confinement; both remain open under Tasks 14–15.
+
+**TinyComputer transport follow-up (2026-10-23):** PR [#158](https://github.com/tinyhumansai/tinycomputer/pull/158)
+merged at `6b0a3c8`. Its live Chromium test confirms the browser transport dials
+only the exact host-authorized socket, even when a denied host shares the same
+port. All module CI checks passed. This is transport evidence only; TinyComputer
+#111 remains open for controlled DNS rebinding, TinySecurity-backed authority,
+worker/direct-socket confinement and cross-platform acceptance.
+
+**TinyComputer handshake follow-up (2026-10-23):** upstream PR
+[#159](https://github.com/tinyhumansai/tinycomputer/pull/159) adds focused
+transport-class coverage for the `/socket` WebSocket upgrade headers. It
+merged at `370d0e12affb92f065e9a0b8608564e8a374e8a9` after all 20 checks passed,
+including Windows and macOS feature tests and module E2E. This test improvement
+does not close TinyComputer #111 or replace its controlled-DNS and native
+confinement acceptance.
+
+The consequence gate still lacks a trusted host caller context: the module
+callback knows the paused task and action, but not the tenant-bound dispatch
+context that initiated `ContinueTask`. TinyComputer PR
+[#153](https://github.com/tinyhumansai/tinycomputer/pull/153) adds an opaque,
+redacted `HostContext` field to `ContinueTask`, relays it to
+`ConsequenceHost.Review`, and bumps the wire contract to 2.27. It merged to
+canonical `main` at `e52203cc`, but the latest published release is still
+v0.15.0 and predates the contract change. OpenHuman must wait for a release
+containing it before adding the host adapter; the adapter must validate and
+consume the short-lived host-issued context, bind the exact task/action, and
+fail closed on missing, stale, mismatched or reused context.
+
+**TinySecurity runtime secret-scope lifecycle review (2026-10-23):** TinySecurity
+PR [#47](https://github.com/tinyhumansai/tinysecurity/pull/47) now serializes
+`RegisterSecretScope2`, approval-scope replacement, and retirement through one
+module lifecycle lock. Secret registrations are retired only after the approval
+engine accepts the replacement or retirement, so rejected changes preserve the
+live resolver. Regression coverage exercises invalid replacement, initialized
+scope retirement followed by valid replacement, and queued registration during
+replacement. The owner branch is pushed at `3eb7e6a`; focused module tests and
+all-target Clippy pass locally. Cross-platform CI and a fresh review are
+pending. OpenHuman remains pinned to released TinySecurity `c18b56f` until the
+owner change is merged and released.
 
 ## Task 16 — Final matrix, documentation and completion evidence
 

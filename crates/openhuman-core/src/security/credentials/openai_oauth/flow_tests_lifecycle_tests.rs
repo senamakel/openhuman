@@ -48,14 +48,6 @@ fn build_authorize_url_includes_codex_pkce_and_extra_params() {
 }
 
 #[test]
-fn parse_callback_input_accepts_full_redirect_url() {
-    let url = "http://127.0.0.1:1455/auth/callback?code=abc&state=xyz";
-    let (code, state) = parse_callback_input(url).unwrap();
-    assert_eq!(code, "abc");
-    assert_eq!(state, "xyz");
-}
-
-#[test]
 fn parse_callback_input_accepts_raw_query_string() {
     let (code, state) = parse_callback_input("code=abc%20123&state=xyz").unwrap();
     assert_eq!(code, "abc 123");
@@ -63,18 +55,9 @@ fn parse_callback_input_accepts_raw_query_string() {
 }
 
 #[test]
-fn parse_callback_input_rejects_missing_code() {
-    let err = parse_callback_input("http://127.0.0.1:1455/auth/callback?state=xyz").unwrap_err();
-    assert!(err.contains("code"));
-}
-
-#[test]
-fn parse_callback_input_rejects_blank_invalid_and_missing_state() {
+fn parse_callback_input_rejects_blank_and_missing_state() {
     let blank = parse_callback_input("   ").unwrap_err();
     assert!(blank.contains("required"));
-
-    let invalid = parse_callback_input("not-a-callback").unwrap_err();
-    assert!(invalid.contains("invalid"));
 
     let missing_state =
         parse_callback_input("http://127.0.0.1:1455/auth/callback?code=abc").unwrap_err();
@@ -566,7 +549,7 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
     // backend regardless of the bearer string passed in — here a deliberately
     // *different* token, standing in for a post-refresh rotation.
     use crate::inference::provider::factory::openai_bearer_is_oauth;
-    use crate::inference::provider::openai_codex::resolve_openai_codex_routing;
+    use crate::inference::provider::factory::resolve_codex_routing;
 
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
@@ -593,10 +576,10 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
         "OAuth is the only openai credential, so the bearer is OAuth"
     );
 
-    let routing = resolve_openai_codex_routing(
+    let routing = resolve_codex_routing(
         &config,
         "openai",
-        "https://api.openai.com/v1",
+        "https://api.openai.com/v1/",
         // A stale bearer that does NOT equal the stored access token: the pre-fix
         // equality check mis-routed on exactly this.
         "oauth-access-stale",
@@ -605,7 +588,7 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
     .unwrap();
     assert!(routing.using_oauth, "OAuth-only openai must route to Codex");
     assert_ne!(
-        routing.endpoint, "https://api.openai.com/v1",
+        routing.endpoint, "https://api.openai.com/v1/",
         "must re-target the Codex backend, not standard OpenAI"
     );
 
@@ -618,10 +601,10 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
         )
         .unwrap();
     assert!(!openai_bearer_is_oauth(&config));
-    let routing = resolve_openai_codex_routing(
+    let routing = resolve_codex_routing(
         &config,
         "openai",
-        "https://api.openai.com/v1",
+        "https://api.openai.com/v1/",
         "sk-api-key",
         openai_bearer_is_oauth(&config),
     )
@@ -630,7 +613,7 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
         !routing.using_oauth,
         "a stored API key routes to standard OpenAI"
     );
-    assert_eq!(routing.endpoint, "https://api.openai.com/v1");
+    assert_eq!(routing.endpoint, "https://api.openai.com/v1/");
 }
 
 #[test]

@@ -88,6 +88,7 @@ fn open_jail() -> contract::NativeJailConfig {
         read_only: Vec::new(),
         read_write: Vec::new(),
         allow_net: true,
+        network_allowlist: None,
         allow_subprocess: true,
         enforcement: contract::JailEnforcement::Enforced,
         require_process_isolation: true,
@@ -100,12 +101,6 @@ fn open_jail() -> contract::NativeJailConfig {
 fn open_planned_jail() -> PlannedJail {
     PlannedJail {
         config: open_jail(),
-        resources: contract::NativeJailResourceRequest {
-            cpu_millis: None,
-            memory_bytes: None,
-            pids_max: None,
-            disk_bytes: None,
-        },
     }
 }
 
@@ -255,6 +250,7 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
         None,
     )
     .await?;
+    let output = output;
     assert!(output.success());
     assert_eq!(output.stdout, "tinybox-jailed-ok");
     assert_eq!(output.stderr, "safe-error");
@@ -271,6 +267,7 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
         None,
     )
     .await?;
+    let output = output;
     assert!(output.success());
     assert_eq!(
         output.stdout.len(),
@@ -319,4 +316,16 @@ async fn released_tinybox_runs_a_native_jail_through_the_pinned_loader() -> anyh
     .await?;
     assert!(output.timed_out, "cron timeout is acknowledged by TinyBox");
     Ok(())
+}
+
+/// The result of a jailed run that was not asked to yield.
+fn finished(
+    outcome: super::super::shell_exec::ShellRunOutcome,
+) -> super::super::types::SandboxExecResult {
+    match outcome {
+        super::super::shell_exec::ShellRunOutcome::Finished(result) => result,
+        super::super::shell_exec::ShellRunOutcome::Running(_) => {
+            panic!("a run without a yield point came back while running")
+        }
+    }
 }

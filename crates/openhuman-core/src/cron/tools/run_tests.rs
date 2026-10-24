@@ -13,7 +13,7 @@ async fn test_config(tmp: &TempDir) -> Arc<Config> {
     // Shell jobs run under the untrusted-spawn gate (the TinyBox jail). A unit
     // test that loads no jail takes the operator's explicit opt-out, as the
     // scheduler tests do; the gate itself is pinned in `shell_job_jail_tests`.
-    config.sandbox.enabled = Some(false);
+    config.security.sandbox.enabled = Some(false);
     tokio::fs::create_dir_all(&config.workspace_dir)
         .await
         .unwrap();

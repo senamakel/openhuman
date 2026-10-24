@@ -46,6 +46,10 @@ pub mod supervisor_events;
 pub mod tools;
 
 #[cfg(feature = "mcp")]
+pub(crate) use schemas::registry_get_controller_entry;
+#[cfg(all(test, feature = "mcp"))]
+pub(crate) use schemas::registry_get_parameter_contract;
+#[cfg(feature = "mcp")]
 pub use schemas::{
     all_controller_schemas as all_mcp_registry_controller_schemas,
     all_registered_controllers as all_mcp_registry_registered_controllers,

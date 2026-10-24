@@ -42,5 +42,7 @@ fn a_camel_case_session_becomes_a_snake_case_body_with_millisecond_times() {
 
 #[test]
 fn the_schema_composes_under_its_owner() {
-    tinystoragedrivers::schema::Registry::compose([storage_schema()]).unwrap();
+    for spec in collection_specs() {
+        spec.validate().unwrap();
+    }
 }

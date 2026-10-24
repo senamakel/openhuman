@@ -6,6 +6,115 @@ use tempfile::TempDir;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
 
+fn with_library_test_context<T>(f: impl FnOnce() -> T) -> T {
+    let context = crate::core::runtime::CoreContext::for_test_with_host_kind(
+        crate::core::types::HostKind::Library,
+        crate::core::runtime::DomainSet::full(),
+        None,
+    );
+    crate::core::runtime::CoreContext::sync_scope(context, f)
+}
+
+async fn with_library_test_context_async<F: std::future::Future>(
+    f: impl FnOnce() -> F,
+) -> F::Output {
+    let context = crate::core::runtime::CoreContext::for_test_with_host_kind(
+        crate::core::types::HostKind::Library,
+        crate::core::runtime::DomainSet::full(),
+        None,
+    );
+    crate::core::runtime::CoreContext::scope(context, f()).await
+}
+
+struct ManagedRouteFixtureModel(tinyinference_llm::model::ModelProfile);
+
+#[async_trait::async_trait]
+impl ChatModel<()> for ManagedRouteFixtureModel {
+    fn profile(&self) -> Option<&tinyinference_llm::model::ModelProfile> {
+        Some(&self.0)
+    }
+
+    async fn invoke(
+        &self,
+        _state: &(),
+        _request: tinyinference_llm::model::ModelRequest,
+    ) -> tinyinference_llm::Result<tinyinference_llm::model::ModelResponse> {
+        Ok(tinyinference_llm::model::ModelResponse::assistant(
+            "fixture",
+        ))
+    }
+}
+
+fn install_test_managed_provider() -> Arc<std::sync::Mutex<Vec<bool>>> {
+    use crate::config::schema::cloud_providers::AuthStyle;
+    use std::sync::Mutex;
+    use tinyinference_llm::providers::overrides::{ChatModelEntry, ProviderModelMetadata};
+
+    let native_modes = Arc::new(Mutex::new(Vec::new()));
+    let seen = Arc::clone(&native_modes);
+    crate::inference::registry::register_chat_model(
+        crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+        ChatModelEntry {
+            build: Arc::new(move |request| {
+                seen.lock().unwrap().push(request.native_tool_calling);
+                let mut profile = tinyinference_llm::model::ModelProfile::default();
+                profile.provider = Some("managed".to_string());
+                profile.tool_calling = request.native_tool_calling;
+                profile.parallel_tool_calls = request.native_tool_calling;
+                profile.streaming_tool_chunks = request.native_tool_calling;
+                Ok((
+                    Arc::new(ManagedRouteFixtureModel(profile)),
+                    request
+                        .model_override
+                        .or(request.default_model)
+                        .unwrap_or("fixture/managed-default")
+                        .to_string(),
+                ))
+            }),
+            probe: None,
+            models: Some(ProviderModelMetadata {
+                default_model: Arc::new(|| Some("fixture/managed-default".into())),
+                role_for_model: Arc::new(|model| {
+                    (model == "hint:reasoning").then(|| "reasoning".into())
+                }),
+                is_alias: Arc::new(|model| model == "hint:reasoning"),
+                is_raw_model: Arc::new(|model| !model.starts_with("hint:")),
+                supports_vision: Arc::new(|_| false),
+                resolve_model: Arc::new(|_, config, model| match model {
+                    Some("hint:reasoning") => Some("fixture/managed-default".into()),
+                    Some("reasoning-v1") => Some("fixture/managed-default".into()),
+                    Some(model) if !model.starts_with("hint:") => Some(model.into()),
+                    Some(_) => None,
+                    None => config
+                        .config
+                        .default_model
+                        .clone()
+                        .or_else(|| Some("fixture/managed-default".into())),
+                }),
+                context_window: Arc::new(|_| None),
+                default_pricing: Arc::new(|| None),
+                without_reasoning: Arc::new(|request| request),
+            }),
+        },
+    );
+    crate::config::schema::cloud_providers::register_hosted_cloud_provider_policy(
+        Arc::new(|slug| slug == "fixture-managed"),
+        Arc::new(|style| style == AuthStyle::OpenhumanJwt),
+    );
+    native_modes
+}
+
+fn fixture_managed_entry(id: &str) -> CloudProviderCreds {
+    CloudProviderCreds {
+        id: id.to_string(),
+        slug: "fixture-managed".to_string(),
+        label: "Managed fixture".to_string(),
+        endpoint: "https://fixture.managed.test/v1".to_string(),
+        auth_style: AuthStyle::OpenhumanJwt,
+        default_model: Some("fixture/managed-default".into()),
+    }
+}
+
 use crate::inference::provider::factory::access_gates::host_requires_session;
 
 #[test]
@@ -35,7 +144,9 @@ fn create_test_chat_model_from_string(
     provider: &str,
     config: &Config,
 ) -> anyhow::Result<(Arc<dyn ChatModel<()>>, String)> {
-    create_chat_model_from_string_with_model_id(role, provider, config, 0.7)
+    with_library_test_context(|| {
+        create_chat_model_from_string_with_model_id(role, provider, config, 0.7)
+    })
 }
 
 fn create_test_local_chat_model_from_string(
@@ -68,58 +179,61 @@ fn config_with_providers_in_tempdir(tmp: &TempDir, providers: Vec<CloudProviderC
 
 #[test]
 fn inspection_requires_credentials_for_explicit_authenticated_cloud_routes() {
-    let tmp = TempDir::new().expect("temporary provider workspace");
-    let mut provider = openai_entry("p_missing_key", "factory-missing-key-test");
-    let mut config = config_with_providers_in_tempdir(&tmp, vec![provider.clone()]);
-    config.chat_provider = Some("factory-missing-key-test:gpt-4o".to_string());
+    with_library_test_context(|| {
+        let tmp = TempDir::new().expect("temporary provider workspace");
+        let mut provider = openai_entry("p_missing_key", "factory-missing-key-test");
+        let mut config = config_with_providers_in_tempdir(&tmp, vec![provider.clone()]);
+        config.chat_provider = Some("factory-missing-key-test:gpt-4o".to_string());
 
-    let inspection = super::chat_model::create_chat_model_with_model_id_in_for_inspection(
-        &crate::core::runtime::DispatchCtx::ambient(),
-        "chat",
-        &config,
-        0.0,
-    );
-    assert!(
-        inspection.is_err(),
-        "inspection must reject explicit Bearer routes without credentials"
-    );
-
-    let runtime = super::chat_model::create_chat_model_with_model_id_in(
-        &crate::core::runtime::DispatchCtx::ambient(),
-        "chat",
-        &config,
-        0.0,
-    );
-    assert!(
-        runtime.is_ok(),
-        "runtime construction preserves explicit routes before a key is saved"
-    );
-
-    provider.auth_style = AuthStyle::Anthropic;
-    config.cloud_providers = vec![provider.clone()];
-    assert!(
-        super::chat_model::create_chat_model_with_model_id_in_for_inspection(
+        let inspection = super::inspection::create_chat_model_with_model_id_in_for_inspection(
             &crate::core::runtime::DispatchCtx::ambient(),
             "chat",
             &config,
             0.0,
-        )
-        .is_err(),
-        "inspection must reject explicit Anthropic routes without credentials"
-    );
+        );
+        assert!(
+            inspection.is_err(),
+            "inspection must reject explicit Bearer routes without credentials"
+        );
 
-    provider.auth_style = AuthStyle::None;
-    config.cloud_providers = vec![provider];
-    assert!(
-        super::chat_model::create_chat_model_with_model_id_in_for_inspection(
+        let runtime = super::chat_model::create_chat_model_with_model_id_in(
             &crate::core::runtime::DispatchCtx::ambient(),
             "chat",
             &config,
             0.0,
-        )
-        .is_ok(),
-        "unauthenticated proxy routes do not require a stored credential"
-    );
+        );
+        assert!(
+            runtime.is_ok(),
+            "runtime construction preserves explicit routes before a key is saved: {:?}",
+            runtime.err()
+        );
+
+        provider.auth_style = AuthStyle::Anthropic;
+        config.cloud_providers = vec![provider.clone()];
+        assert!(
+            super::inspection::create_chat_model_with_model_id_in_for_inspection(
+                &crate::core::runtime::DispatchCtx::ambient(),
+                "chat",
+                &config,
+                0.0,
+            )
+            .is_err(),
+            "inspection must reject explicit Anthropic routes without credentials"
+        );
+
+        provider.auth_style = AuthStyle::None;
+        config.cloud_providers = vec![provider];
+        assert!(
+            super::inspection::create_chat_model_with_model_id_in_for_inspection(
+                &crate::core::runtime::DispatchCtx::ambient(),
+                "chat",
+                &config,
+                0.0,
+            )
+            .is_ok(),
+            "unauthenticated proxy routes do not require a stored credential"
+        );
+    });
 }
 
 fn oh_entry(id: &str) -> CloudProviderCreds {
@@ -317,7 +431,7 @@ async fn inspection_construction_does_not_refresh_unselected_expired_codex_oauth
     provider.endpoint = "https://api.openai.example.test/v1".into();
     config.cloud_providers = vec![provider];
     config.chat_provider = Some("openai:gpt-4o".into());
-    let inspected = super::chat_model::create_chat_model_with_model_id_in_for_inspection(
+    let inspected = super::inspection::create_chat_model_with_model_id_in_for_inspection(
         &crate::core::runtime::DispatchCtx::ambient(),
         "chat",
         &config,
@@ -490,6 +604,7 @@ fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
             endpoint: endpoint.to_string(),
             api_key: api_key.to_string(),
             headers: Vec::new(),
+            ..EphemeralRoute::default()
         },
     );
     config
@@ -507,6 +622,8 @@ fn only_library_hosts_are_exempt_from_app_login() {
 
 #[path = "factory_crate_native_diagnostics_tests.rs"]
 mod crate_native_diagnostics_tests;
+#[path = "factory_crate_native_jwt_tests.rs"]
+mod crate_native_jwt_tests;
 #[path = "factory_crate_native_tests.rs"]
 mod crate_native_tests;
 #[path = "factory_egress_fallback_tests.rs"]
@@ -515,5 +632,7 @@ mod egress_fallback_tests;
 mod explicit_ctx_tests;
 #[path = "factory_managed_ledger_tests.rs"]
 mod managed_ledger_tests;
+#[path = "factory_model_gate_tests.rs"]
+mod model_gate_tests;
 #[path = "factory_route_resolution_tests.rs"]
 mod route_resolution_tests;

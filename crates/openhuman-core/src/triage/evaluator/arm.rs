@@ -11,7 +11,6 @@ use crate::agent::bus::{AgentTurnRequest, AgentTurnResponse, AGENT_RUN_TURN_METH
 use crate::agent_registry::host_definition::AgentDefinitionRegistry;
 use crate::config::MultimodalConfig;
 use crate::core::bus::BUS;
-use crate::inference::provider::error_classify::parse_retry_after_ms;
 use tinyagents_harness::retry::{decide, FailoverDecision, FailoverReason, FailoverState};
 use tinyagents_session::transcript::TranscriptMessage;
 use tinybus::NativeRequestError;
@@ -245,18 +244,41 @@ pub(crate) fn classify_error(message: String) -> ArmError {
     if is_prompt_guard_rejection(&message) {
         return ArmError::SafetyFlagged(err);
     }
+    let failure =
+        tinyinference_llm::failure::classify_provider_failure_with(None, None, &message, |value| {
+            crate::core::observability::is_session_expired_message(value)
+                || tinyinference_llm::failure::is_context_window_exceeded_message(value)
+                || tinyinference_llm::failure::body_indicates_quota_exhausted(value)
+        });
+    // Keep the harness's detailed failover reason mapping while using the
+    // provider-neutral classifier to distinguish retryable and exhausted
+    // rate limits and preserve terminal account/context failures.
     let reason = FailoverReason::classify_unstructured(&message);
-    match decide(
+    let decision = decide(
         reason,
         FailoverState {
-            retryable: reason != FailoverReason::Unknown,
+            retryable: failure.is_retryable() && reason != FailoverReason::Unknown,
             attempts_remaining: true,
             larger_window_available: false,
         },
-    ) {
+    );
+    match decision {
         FailoverDecision::RetrySame => ArmError::Retryable {
             retry_after_ms: (reason == FailoverReason::RateLimit)
-                .then(|| parse_retry_after_ms(&err))
+                .then(|| {
+                    tinyinference_llm::failure::parse_retry_after_ms(&message).or_else(|| {
+                        message.lines().find_map(|line| {
+                            line.trim()
+                                .strip_prefix("Retry-After:")
+                                .or_else(|| line.trim().strip_prefix("retry-after:"))
+                                .and_then(|value| {
+                                    tinyinference_core::retry_after::parse_retry_after_ms(Some(
+                                        value,
+                                    ))
+                                })
+                        })
+                    })
+                })
                 .flatten(),
             source: err,
         },

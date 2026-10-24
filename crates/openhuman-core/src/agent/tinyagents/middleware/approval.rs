@@ -135,18 +135,27 @@ impl ApprovalSecurityMiddleware {
         if !external_effect {
             return false;
         }
+        let gate = ApprovalGate::try_global();
         let audit_failed = REQUIRED_AUDIT_FAILURE.load(Ordering::SeqCst)
-            || ApprovalGate::try_global().is_some_and(|gate| gate.audit_failure_latched());
+            || gate
+                .as_ref()
+                .is_some_and(|gate| gate.audit_failure_latched());
         let approvals_disabled = self.desktop_approvals_disabled(dispatch, name).await;
-        Self::requires_resolver(external_effect, audit_failed, approvals_disabled)
+        Self::requires_resolver(
+            external_effect,
+            gate.is_some(),
+            audit_failed,
+            approvals_disabled,
+        )
     }
 
     fn requires_resolver(
         external_effect: bool,
+        gate_available: bool,
         audit_failed: bool,
         approvals_disabled: bool,
     ) -> bool {
-        external_effect && (audit_failed || !approvals_disabled)
+        external_effect && (!gate_available || audit_failed || !approvals_disabled)
     }
 }
 

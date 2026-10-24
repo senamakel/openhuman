@@ -33,6 +33,14 @@ use super::OpenHumanTurnPrelude;
 use crate::agent::message_convert::{user_message_from_text, user_text_with_markers};
 use crate::agent::tinyagents::middleware::turn_context::TranscriptSnapshotSink;
 
+fn prompt_refresh_log_fields(prompt_changed: bool) -> (&'static str, &'static str) {
+    if prompt_changed {
+        ("refreshed", "prompt_changed")
+    } else {
+        ("kept", "unchanged")
+    }
+}
+
 /// Prepended to the user's message on the turn a resumed thread's prompt is
 /// replaced; the turn's record keeps it, so later turns see where the change
 /// happened.
@@ -79,18 +87,23 @@ impl OpenHumanTurnPrelude {
                 .prefix
                 .as_ref()
                 .is_some_and(|prefix| prefix.messages() != view.prefix.messages());
+            let (prefix_in_use, reason) = prompt_refresh_log_fields(changed);
             if changed {
                 tracing::info!(
                     thread_id = ?self.thread_id,
+                    prefix_in_use,
+                    reason,
                     recorded_segments = view.prefix.messages().len(),
-                    "[session] refresh_prompt_on_resume: the resumed thread's prompt is out of date; it continues under the current one"
+                    "[session] refresh_prompt_on_resume"
                 );
                 let text = user_text_with_markers(&request.input);
                 request.input = user_message_from_text(&format!("{PROMPT_UPDATE_NOTE}\n\n{text}"));
             } else {
-                tracing::debug!(
+                tracing::info!(
                     thread_id = ?self.thread_id,
-                    "[session] refresh_prompt_on_resume: the resumed thread keeps its prompt"
+                    prefix_in_use,
+                    reason,
+                    "[session] refresh_prompt_on_resume"
                 );
             }
         }
@@ -115,9 +128,9 @@ impl OpenHumanTurnPrelude {
     ///   the extent of the recorded prompt could not be recovered (a
     ///   compacted legacy head), so its old instructions are still part of
     ///   the history, and a new prompt beside them would leave them in place;
-    /// - the prompt renders live state (anything but a verbatim prompt) and
-    ///   the connected integrations have not been read this session: a prompt
-    ///   rendered without them would replace a complete one;
+    /// - a dynamic prompt can render connected integrations and they have not
+    ///   been read this session: a prompt rendered without them could replace
+    ///   a complete one;
     /// - the prompt cannot be rendered: the thread goes on under the one it
     ///   has rather than failing its turn.
     ///
@@ -130,22 +143,26 @@ impl OpenHumanTurnPrelude {
         if unknown_extent {
             tracing::warn!(
                 thread_id = ?self.thread_id,
-                "[session] refresh_prompt_on_resume: the resumed thread's recorded prompt has no known extent; keeping it"
+                prefix_in_use = "kept",
+                reason = "unknown_extent",
+                "[session] refresh_prompt_on_resume"
             );
             return None;
         }
-        let verbatim = self.definition.as_ref().is_some_and(|definition| {
-            matches!(definition.system_prompt, PromptSource::Verbatim(_))
+        let uses_live_integrations = self.definition.as_ref().is_some_and(|definition| {
+            matches!(definition.system_prompt, PromptSource::Dynamic(()))
         });
         let hydrated = {
             let mutable = self.mutable.lock().unwrap_or_else(PoisonError::into_inner);
             mutable.connected_integrations_initialized
                 && mutable.connected_integrations_authoritative
         };
-        if !verbatim && !hydrated {
-            tracing::debug!(
+        if uses_live_integrations && !hydrated {
+            tracing::info!(
                 thread_id = ?self.thread_id,
-                "[session] refresh_prompt_on_resume: integrations not read yet; keeping the recorded prompt"
+                prefix_in_use = "kept",
+                reason = "integrations_not_read",
+                "[session] refresh_prompt_on_resume"
             );
             return None;
         }
@@ -154,8 +171,10 @@ impl OpenHumanTurnPrelude {
             Err(error) => {
                 tracing::warn!(
                     thread_id = ?self.thread_id,
+                    prefix_in_use = "kept",
+                    reason = "render_failed",
                     %error,
-                    "[session] refresh_prompt_on_resume: the current prompt did not render; keeping the recorded one"
+                    "[session] refresh_prompt_on_resume"
                 );
                 None
             }

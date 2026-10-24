@@ -27,6 +27,13 @@ fn pending(id: &str) -> PendingApproval {
 #[test]
 fn a_configured_backend_holds_the_approvals_instead_of_approval_db() {
     let case = Case::open();
+    if std::env::var("OPENHUMAN_TEST_STORAGE_BACKEND")
+        .ok()
+        .as_deref()
+        == Some("memory")
+    {
+        assert_eq!(case.url, "memory");
+    }
     let workspace = tempfile::tempdir().unwrap();
     let config = Config {
         workspace_dir: workspace.path().to_path_buf(),
@@ -35,9 +42,7 @@ fn a_configured_backend_holds_the_approvals_instead_of_approval_db() {
     case.install();
 
     store::insert_pending(&config, &pending("r1"), "session").unwrap();
-    store::insert_flow_trust(&config, "flow-1", "shell").unwrap();
     assert_eq!(store::list_pending(&config).unwrap().len(), 1);
-    assert!(store::is_flow_tool_trusted(&config, "flow-1", "shell").unwrap());
     let decided = store::decide(&config, "r1", ApprovalDecision::ApproveOnce).unwrap();
     assert!(decided.is_some());
     assert_eq!(

@@ -76,7 +76,7 @@ fn controlled_wrapper(
         &crate::core::runtime::DispatchCtx::default(),
         inner,
         config,
-        profile,
+        Some(profile),
     )
 }
 fn user_request(blocks: Vec<ContentBlock>) -> ModelRequest {

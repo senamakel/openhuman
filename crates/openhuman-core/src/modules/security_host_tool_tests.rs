@@ -108,7 +108,7 @@ fn deny(reason: DenialReason) -> Verdict {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_read_only_tier_refuses_an_acting_tool_but_not_a_read() {
     let mut gate = Gate::start().await;
     let scope = gate
@@ -127,7 +127,7 @@ async fn the_read_only_tier_refuses_an_acting_tool_but_not_a_read() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn an_exhausted_hourly_budget_denies_acting_tools_but_not_reads() {
     let mut gate = Gate::start().await;
     let scope = gate.scope(&policy(AutonomyLevel::Full, true, 2)).await;
@@ -151,7 +151,7 @@ async fn an_exhausted_hourly_budget_denies_acting_tools_but_not_reads() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_budget_is_inert_while_the_autonomy_policy_is_disabled() {
     let mut gate = Gate::start().await;
     let scope = gate.scope(&policy(AutonomyLevel::ReadOnly, false, 1)).await;
@@ -165,7 +165,7 @@ async fn the_budget_is_inert_while_the_autonomy_policy_is_disabled() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_scheduled_turn_may_use_read_only_tools_only() {
     let mut gate = Gate::start().await;
     let scope = gate.scope(&policy(AutonomyLevel::Full, true, 100)).await;
@@ -193,7 +193,7 @@ async fn a_scheduled_turn_may_use_read_only_tools_only() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_shell_decision_comes_from_the_registered_command_scope() {
     let mut gate = Gate::start().await;
     let read_only = gate
@@ -239,7 +239,7 @@ async fn the_shell_decision_comes_from_the_registered_command_scope() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn shell_runs_and_acting_tools_spend_one_ledger() {
     let mut gate = Gate::start().await;
     let host = policy(AutonomyLevel::Full, true, 2);

@@ -17,33 +17,28 @@ fn openai_entry(id: &str, slug: &str) -> CloudProviderCreds {
 }
 
 #[test]
-fn build_remote_provider_managed_uses_backend_id_and_default_model() {
-    // Default config → chat workload resolves to the managed backend →
-    // the managed default model.
+fn managed_route_without_a_registered_provider_fails_closed() {
     let config = test_config();
-    let resolved = build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
-        .expect("remote provider should build");
-    assert_eq!(resolved.provider_name, INFERENCE_BACKEND_ID);
-    assert_eq!(resolved.model, crate::config::MODEL_MANAGED_DEFAULT);
-    assert!(!resolved.used_local, "used_local is always false");
+    let error = build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
+        .err()
+        .expect("bare core has no hosted model source");
+    assert!(error.to_string().contains("BACKEND_UNAVAILABLE"));
 }
 
 #[test]
-fn build_remote_provider_managed_follows_the_pinned_default_model() {
-    // Triage's managed arm runs on the managed default model: a retired tier
-    // slug in `default_model` is not a pin, a catalog id is.
+fn managed_route_does_not_invent_a_model_when_provider_policy_is_absent() {
     let mut config = test_config();
     config.default_model = Some("reasoning-v1".to_string());
-    let resolved = build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
-        .expect("remote provider should build");
-    assert_eq!(resolved.provider_name, INFERENCE_BACKEND_ID);
-    assert_eq!(resolved.model, crate::config::MODEL_MANAGED_DEFAULT);
+    let error = build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
+        .err()
+        .expect("retired pin is not a concrete model source");
+    assert!(error.to_string().contains("BACKEND_UNAVAILABLE"));
 
     config.default_model = Some("openrouter/deepseek/deepseek-v4-pro".to_string());
-    let resolved = build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
-        .expect("remote provider should build");
-    assert_eq!(resolved.model, "openrouter/deepseek/deepseek-v4-pro");
-    assert!(!resolved.used_local);
+    assert!(
+        build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config).is_err(),
+        "an explicit pin still needs a registered hosted constructor"
+    );
 }
 
 #[test]
@@ -53,11 +48,10 @@ fn build_remote_provider_falls_back_to_managed_when_chat_local() {
     // never errors because Ollama is down.
     let mut config = test_config();
     config.chat_provider = Some("ollama:llama3.2:3b".to_string());
-    let resolved = build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
-        .expect("remote provider should build");
-    assert_eq!(resolved.provider_name, INFERENCE_BACKEND_ID);
-    assert_eq!(resolved.model, crate::config::MODEL_MANAGED_DEFAULT);
-    assert!(!resolved.used_local, "triage never goes local");
+    assert!(
+        build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config).is_err(),
+        "triage's managed fallback requires an installed provider"
+    );
 }
 
 #[test]
@@ -72,19 +66,10 @@ fn build_remote_provider_forces_managed_for_local_cli_routes() {
     ] {
         let mut config = test_config();
         config.chat_provider = Some(route.to_string());
-        let resolved =
-            build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
-                .unwrap_or_else(|e| panic!("route {route} should build, got {e}"));
-        assert_eq!(
-            resolved.provider_name, INFERENCE_BACKEND_ID,
-            "route {route} must force managed backend"
+        assert!(
+            build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config).is_err(),
+            "route {route} must fail closed without hosted construction policy"
         );
-        assert_eq!(
-            resolved.model,
-            crate::config::MODEL_MANAGED_DEFAULT,
-            "route {route} must run the managed default"
-        );
-        assert!(!resolved.used_local);
     }
 }
 
@@ -112,40 +97,37 @@ fn build_remote_provider_routes_through_byok_chat() {
 }
 
 #[test]
-fn build_remote_provider_falls_back_when_byok_build_fails() {
+fn build_remote_provider_reports_missing_managed_fallback_policy() {
     // A non-local, non-managed chat provider whose slug has no matching
     // `cloud_providers` entry fails to build — triage falls back to the managed
     // backend rather than erroring the turn.
     let mut config = test_config();
     config.chat_provider = Some("groq:llama3".to_string());
-    let resolved = build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config)
-        .expect("remote provider should build");
-    assert_eq!(resolved.provider_name, INFERENCE_BACKEND_ID);
-    assert_eq!(resolved.model, crate::config::MODEL_MANAGED_DEFAULT);
-    assert!(!resolved.used_local);
+    assert!(
+        build_remote_provider(&crate::core::runtime::DispatchCtx::ambient(), &config).is_err(),
+        "fallback cannot fabricate a managed model"
+    );
 }
 
 #[tokio::test]
-async fn resolve_provider_with_config_always_returns_remote() {
+async fn resolve_provider_with_config_requires_a_registered_remote_model_source() {
     // Even when runtime_enabled is true, triage must always use remote.
     let mut config = test_config();
     config.local_ai.runtime_enabled = true;
-    let resolved =
+    assert!(
         resolve_provider_with_config(&crate::core::runtime::DispatchCtx::ambient(), &config)
             .await
-            .expect("resolve should succeed");
-    assert!(!resolved.used_local, "triage must never use local AI");
-    assert_eq!(resolved.provider_name, INFERENCE_BACKEND_ID);
+            .is_err()
+    );
 }
 
 #[tokio::test]
-async fn resolve_provider_with_config_returns_remote_when_local_disabled() {
+async fn resolve_provider_with_config_without_provider_does_not_invent_a_route() {
     let mut config = test_config();
     config.local_ai.runtime_enabled = false;
-    let resolved =
+    assert!(
         resolve_provider_with_config(&crate::core::runtime::DispatchCtx::ambient(), &config)
             .await
-            .expect("resolve should succeed");
-    assert!(!resolved.used_local);
-    assert_eq!(resolved.provider_name, INFERENCE_BACKEND_ID);
+            .is_err()
+    );
 }

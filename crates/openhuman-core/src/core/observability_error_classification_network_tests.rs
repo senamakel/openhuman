@@ -263,7 +263,7 @@ fn wrong_http_version_anchor_does_not_silence_unrelated_log_lines() {
 #[test]
 fn classifies_transient_upstream_http_errors() {
     // OPENHUMAN-TAURI-5Z: the canonical shape emitted by
-    // `providers::ops::api_error` and re-raised through `agent.run_single`.
+    // `provider::http_error::api_error` and re-raised through `agent.run_single`.
     assert_eq!(
         expected_error_kind("OpenHuman API error (504 Gateway Timeout): error code: 504"),
         Some(ExpectedErrorKind::TransientUpstreamHttp)
@@ -440,7 +440,7 @@ fn channels_dispatch_re_emit_of_provider_502_classifies_as_transient() {
     //
     // The wrapping shape at the dispatch site is the agent error
     // chain rendered via `format!("{e:#}")`. For a backend 502 from
-    // `providers::ops::api_error`, that resolves to:
+    // `provider::http_error::api_error`, that resolves to:
     //   "OpenHuman API error (502 Bad Gateway): error code: 502"
     // possibly prepended with a runner / iteration prefix. Both
     // shapes must classify as transient so the dispatch re-emit

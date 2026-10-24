@@ -20,7 +20,7 @@ use std::sync::Arc;
 
 use crate::agent::host_agents::HostAgent;
 use crate::channels::context::ChannelRuntimeContext;
-use crate::channels::{ChannelSendExt, SendMessage};
+use crate::channels::outbound::text_message;
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;
@@ -111,28 +111,32 @@ pub(crate) const AGENT_UNAVAILABLE_REPLY: &str =
 /// Answer `msg` with [`AGENT_UNAVAILABLE_REPLY`] and record the refusal.
 pub(crate) async fn refuse_missing_agent(
     ctx: &ChannelRuntimeContext,
-    msg: &traits::ChannelMessage,
+    msg: &traits::ChannelInboundEnvelope,
     target_channel: Option<&Arc<dyn crate::channels::Channel>>,
     agent_id: &str,
 ) {
     if let Some(channel) = target_channel {
-        let reply = SendMessage::new(AGENT_UNAVAILABLE_REPLY, &msg.reply_target)
-            .in_thread(msg.thread_ts.clone());
-        if let Err(error) = channel.send_with_outbound_intent(&reply).await {
+        let reply = text_message(
+            &msg.channel.id,
+            &msg.conversation.id,
+            AGENT_UNAVAILABLE_REPLY,
+            msg.conversation.thread_id.clone(),
+        );
+        if let Err(error) = channel.send_typed(&reply).await {
             tracing::warn!(
-                channel = %msg.channel,
+                channel = %msg.channel.id,
                 %error,
                 "[channels::dispatch::host_agent] failed to send the unavailable reply"
             );
         }
     }
     BUS.publish(DomainEvent::ChannelMessageProcessed {
-        channel: msg.channel.clone(),
-        message_id: msg.id.clone(),
-        sender: msg.sender.clone(),
-        reply_target: msg.reply_target.clone(),
-        content: msg.content.clone(),
-        thread_ts: msg.thread_ts.clone(),
+        channel: msg.channel.id.clone(),
+        message_id: msg.message_id.clone(),
+        sender: msg.sender.id.clone(),
+        reply_target: msg.conversation.id.clone(),
+        content: msg.text.clone(),
+        thread_ts: msg.conversation.thread_id.clone(),
         response: AGENT_UNAVAILABLE_REPLY.to_string(),
         provider: format!("agent:{agent_id}"),
         model: String::new(),

@@ -204,6 +204,7 @@ async fn add_uses_the_explicit_channel_origin_without_ambient_turn_state() {
             history_key: "telegram-alice-42".into(),
             sender: Some("alice".into()),
             thread_id: None,
+            session_identity: None,
         })
     );
     assert_eq!(jobs[0].delivery.mode, "origin");

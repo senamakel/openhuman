@@ -1,6 +1,10 @@
 use super::*;
-use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
-use tinystoragedrivers::Precondition;
+use crate::storage::test_support::memory_backend;
+#[cfg(feature = "storage-sqlite")]
+use crate::storage::test_support::sqlite_backend;
+#[cfg(feature = "storage-sqlite")]
+use tinystoragedrivers_types::Precondition;
+use tinystoragedrivers_types::{CollectionSpec, Scope};
 
 fn meta(id: &str, created_at: u64) -> ProfileMeta {
     ProfileMeta {
@@ -32,13 +36,13 @@ async fn exercise(registry: &ProfileRegistry) {
 
 #[tokio::test]
 async fn the_shared_registry_records_lists_and_forgets() {
-    let storage = MemoryStorage::new();
-    let registry = ProfileRegistry::cluster(&storage).unwrap();
+    let storage = memory_backend();
+    let registry = ProfileRegistry::cluster(storage.as_ref()).unwrap();
     assert!(registry.is_shared());
     exercise(&registry).await;
 
     // A second node over the same backend sees the same profiles.
-    let other = ProfileRegistry::cluster(&storage).unwrap();
+    let other = ProfileRegistry::cluster(storage.as_ref()).unwrap();
     assert_eq!(other.list().await.unwrap().len(), 2);
 
     let alice = ProfileId::parse("alice").unwrap();
@@ -81,8 +85,8 @@ async fn an_empty_root_lists_nothing() {
 
 #[tokio::test]
 async fn doctor_lookup_of_an_unknown_profile_does_not_declare_cluster_schema() {
-    let storage = MemoryStorage::new();
-    let registry = ProfileRegistry::cluster(&storage).unwrap();
+    let storage = memory_backend();
+    let registry = ProfileRegistry::cluster(storage.as_ref()).unwrap();
     let docs = storage
         .for_scope(&Scope::new(crate::storage::lease::CLUSTER_SCOPE).unwrap())
         .unwrap();
@@ -108,10 +112,12 @@ async fn doctor_lookup_of_an_unknown_profile_does_not_declare_cluster_schema() {
 }
 
 #[tokio::test]
+#[cfg(feature = "storage-sqlite")]
 async fn doctor_lookup_does_not_migrate_legacy_profile_or_lease_records() {
-    let storage = MemoryStorage::new();
-    let registry = ProfileRegistry::cluster(&storage).unwrap();
+    let storage = sqlite_backend().unwrap();
+    let registry = ProfileRegistry::cluster(storage.backend.as_ref()).unwrap();
     let scoped = storage
+        .backend
         .for_scope(&Scope::new(crate::storage::lease::CLUSTER_SCOPE).unwrap())
         .unwrap();
     let docs = scoped.documents();

@@ -7,7 +7,6 @@ pub mod host;
 pub mod ops;
 pub mod prompt_eval;
 pub mod schemas;
-mod shell;
 mod spawner;
 
 pub use ops::{init, PromptVerdict};

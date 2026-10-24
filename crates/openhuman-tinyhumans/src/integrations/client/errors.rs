@@ -80,7 +80,7 @@ pub(crate) fn extract_error_detail(body: &str, max_bytes: usize) -> String {
 ///
 /// What this does, mirroring `api/rest.rs::flatten_authed_error` (typed-401 →
 /// `SESSION_EXPIRED:` sentinel) and
-/// `inference/provider/ops/http_error.rs::publish_backend_session_expired`
+/// `inference/provider/http_error.rs::publish_backend_session_expired`
 /// (direct publish for paths whose error is consumed inline / swallowed):
 ///
 /// 1. Build a `SESSION_EXPIRED:`-prefixed message so it (a) classifies as

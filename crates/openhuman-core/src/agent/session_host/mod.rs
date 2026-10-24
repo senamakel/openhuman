@@ -24,6 +24,7 @@
 //! | [`driver`]    | OpenHuman model/harness `SessionDriver`.                         |
 //! | [`hooks`]     | Product preparation/commit/terminal hooks.                       |
 //! | [`runtime`]   | Public accessors and `run_single` / `run_interactive`.           |
+//! | [`session_key`] | Minting and renaming the per-host transcript key.              |
 //!
 //! External callers should import [`OpenHumanSessionHost`] and [`SessionHostBuilder`] from
 //! `crate::agent`, which re-exports them from this module.
@@ -45,6 +46,7 @@ mod live_tools;
 mod resume_bound_session_tests;
 mod runtime;
 mod runtime_session;
+mod session_key;
 pub(crate) mod stop_summary;
 mod turn;
 // `pub(crate)` since issue #6014: the tool-call-cap instruction is now appended
@@ -54,6 +56,10 @@ mod turn;
 // same thing.
 pub(crate) mod turn_checkpoint;
 mod types;
+
+#[cfg(test)]
+#[path = "test_support.rs"]
+pub(crate) mod test_support;
 
 pub use codec::OpenHumanTranscriptCodec;
 pub type OpenHumanSessionHooks =
@@ -77,10 +83,10 @@ mod runtime_adapter_tests;
 mod runtime_adapter_trace_tests;
 #[cfg(test)]
 mod runtime_adapter_usage_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-import"))]
 mod transcript_compat_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-import"))]
 #[path = "transcript_resume_stable_tests.rs"]
 mod transcript_resume_stable_tests;
-#[cfg(test)]
+#[cfg(all(test, feature = "legacy-import"))]
 mod typed_transcript_compat_tests;

@@ -126,7 +126,7 @@ fn request<'a>(
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_kernel_jail_spawn_is_planned_reserved_once_and_audited() {
     let _ = IGNORE;
     let world = world(executor(
@@ -169,7 +169,7 @@ async fn a_kernel_jail_spawn_is_planned_reserved_once_and_audited() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_changed_operation_never_reuses_a_plan() {
     let world = world(executor(
         IsolationLevel2::Kernel,
@@ -186,7 +186,7 @@ async fn a_changed_operation_never_reuses_a_plan() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_policy_that_allows_the_network_gets_it_without_a_per_command_approval() {
     let world = world(executor(
         IsolationLevel2::Kernel,
@@ -215,7 +215,7 @@ async fn a_policy_that_allows_the_network_gets_it_without_a_per_command_approval
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_best_effort_jail_runs_the_agents_own_commands_but_never_untrusted_text() {
     let world = world(executor(
         IsolationLevel2::Process,
@@ -240,7 +240,7 @@ async fn a_best_effort_jail_runs_the_agents_own_commands_but_never_untrusted_tex
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn text_the_host_did_not_write_needs_kernel_isolation_whatever_the_switches_say() {
     let world = world(executor(
         IsolationLevel2::Process,
@@ -260,7 +260,7 @@ async fn text_the_host_did_not_write_needs_kernel_isolation_whatever_the_switche
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_grant_outside_the_host_chosen_roots_or_inside_a_credential_store_is_refused() {
     let world = world(executor(
         IsolationLevel2::Kernel,
@@ -277,7 +277,7 @@ async fn a_grant_outside_the_host_chosen_roots_or_inside_a_credential_store_is_r
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn container_bounds_come_from_the_plan() {
     let world = world(executor(
         IsolationLevel2::Kernel,
@@ -319,7 +319,7 @@ async fn container_bounds_come_from_the_plan() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn another_subject_gets_its_own_scope_and_ledger() {
     let world = world(executor(
         IsolationLevel2::Kernel,
@@ -382,7 +382,7 @@ async fn a_module_that_cannot_be_reached_refuses_the_spawn() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_host_retires_the_least_recently_used_scope_instead_of_growing_without_bound() {
     use tinysecurity_bus::{RegisterSandboxScopeRequest2, SandboxScopeOutcome2};
 
@@ -439,7 +439,7 @@ fn jail(isolation: IsolationLevel2, enforcement: ConstraintEnforcement2) -> Sand
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_module_chooses_the_jail_when_the_policy_names_no_executor() {
     let world = world_with(vec![
         jail(IsolationLevel2::Kernel, ConstraintEnforcement2::Enforced),
@@ -456,7 +456,7 @@ async fn the_module_chooses_the_jail_when_the_policy_names_no_executor() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_module_falls_back_to_the_container_when_the_jail_is_below_the_floor() {
     // Untrusted text needs kernel isolation: a folder-confined jail cannot run it, so the
     // module plans the container instead of the host refusing or degrading.
@@ -475,7 +475,7 @@ async fn the_module_falls_back_to_the_container_when_the_jail_is_below_the_floor
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_named_container_is_planned_even_when_a_jail_is_declared_first() {
     let world = world_with(vec![
         jail(IsolationLevel2::Kernel, ConstraintEnforcement2::Enforced),
@@ -509,7 +509,7 @@ async fn a_named_container_is_planned_even_when_a_jail_is_declared_first() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_workspace_less_container_is_planned_with_no_workspace_grant() {
     let world = world_with(vec![executors::docker(true)]).await;
     let mut policy = policy(&world, false);
@@ -527,7 +527,7 @@ async fn a_workspace_less_container_is_planned_with_no_workspace_grant() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn the_operator_with_the_sandbox_off_gets_a_module_planned_run_on_the_host() {
     let world = world_with(vec![]).await;
     let policy = policy(&world, false);
@@ -561,7 +561,7 @@ async fn the_operator_with_the_sandbox_off_gets_a_module_planned_run_on_the_host
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn untrusted_text_never_gets_a_run_on_the_host() {
     let world = world_with(vec![]).await;
     let policy = policy(&world, false);
@@ -580,7 +580,7 @@ async fn untrusted_text_never_gets_a_run_on_the_host() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn a_run_on_the_host_needs_the_operators_setting_in_the_scope() {
     let world = world_with(vec![]).await;
     let policy = policy(&world, false);

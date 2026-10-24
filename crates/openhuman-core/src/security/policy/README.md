@@ -12,7 +12,7 @@ come from TinySecurity's bus contract; TinyBox owns no command-policy vocabulary
 
 ## Autonomy is off by default
 
-`SecurityPolicy::enabled` mirrors `[autonomy] enabled` in config and defaults
+`SecurityPolicy::enabled` mirrors `[security.autonomy] enabled` in config and defaults
 to `false`. With the policy disabled, `SecurityPolicy::from_config`
 ([`enforcement.rs`](./enforcement.rs)) still builds the struct and hands the
 flag to the module, which then answers permissively: command classification,
@@ -22,7 +22,7 @@ all inert. The protected-path floor is not gated on `enabled` and still applies
 either way: credential stores (`~/.ssh`, `~/.gnupg`, `~/.aws`, and platform
 equivalents) and system roots stay unreachable, and so do `..` traversal and
 null bytes in a path. The floor is the module's (`ProtectedPath2`); the host
-asks it through [`../floor.rs`](../floor.rs). Setting `[autonomy] enabled = true`
+asks it through [`../floor.rs`](../floor.rs). Setting `[security.autonomy] enabled = true`
 restores the full policy. Note the asymmetry with `Default`: a policy built
 from config defaults to disabled, while a policy built with no config at all
 (`SecurityPolicy::default()`) defaults to enabled; see the comment on that
@@ -157,7 +157,7 @@ Each of these must not be weakened to make a feature work:
   [`policy_trusted_roots_tests.rs`](./policy_trusted_roots_tests.rs) and
   [`policy_action_dir_tests.rs`](./policy_action_dir_tests.rs): behavior tests for
   policy construction, trusted roots, the acting directory and tier handling.
-- [`policy_disabled_tests.rs`](./policy_disabled_tests.rs): behavior with `[autonomy] enabled = false`.
+- [`policy_disabled_tests.rs`](./policy_disabled_tests.rs): behavior with `[security.autonomy] enabled = false`.
 - [`module_gate_tests.rs`](./module_gate_tests.rs): the projection of the module's path and
   budget answers, with a scripted `GapPort` (`modules/security/gap`) standing in for the module.
   Unit tests install a scripted `StubPort` for the current thread; there is no local policy to

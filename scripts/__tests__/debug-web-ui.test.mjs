@@ -118,7 +118,6 @@ test("core RPC client bounds a stalled request and propagates its timeout", asyn
     hangingFetch,
     5,
   );
-
   // AbortSignal.timeout uses an unreferenced timer; keep the test process alive
   // until that timeout fires even when no other handles are open.
   const keepAlive = setTimeout(() => {}, 50);

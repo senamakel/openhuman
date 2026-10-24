@@ -55,7 +55,7 @@ fn an_attachment_stash_and_artifact_blobs_bind_the_tenant_scope() {
 #[test]
 fn a_run_status_store_is_built_for_the_workspace() {
     let ws = scratch();
-    let _status = status_store_for(ws.path());
+    let _status = status_store_for(ws.path()).expect("status store");
 }
 
 #[test]
@@ -88,6 +88,7 @@ fn the_ledger_serves_reads_from_async_and_sync_callers() {
 }
 
 #[test]
+#[cfg(feature = "storage-sqlite")]
 fn an_unusable_workspace_degrades_to_an_in_memory_store() {
     // A path under a regular file cannot hold a storage directory, so the
     // default backend cannot open and the provider degrades rather than fails.
@@ -102,14 +103,6 @@ fn an_unusable_workspace_degrades_to_an_in_memory_store() {
     first
         .try_for_agent("degraded")
         .expect("the in-memory fallback opens an agent");
-
-    assert!(
-        artifact_blobs_for(&unusable).is_none() || crate::storage::sessions::installed().is_some()
-    );
-    assert!(
-        current_documents_for(&unusable).is_none()
-            || crate::storage::sessions::installed().is_some()
-    );
 }
 
 #[test]

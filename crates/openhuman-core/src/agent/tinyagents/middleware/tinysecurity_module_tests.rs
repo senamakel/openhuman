@@ -56,6 +56,7 @@ fn registry() -> Vec<Arc<Vec<Box<dyn Tool>>>> {
         tool("wipe_disk", PermissionLevel::Dangerous, false),
         tool("gmail_send", PermissionLevel::Write, true),
         tool("web_fetch", PermissionLevel::ReadOnly, true),
+        tool("run_workflow", PermissionLevel::None, false),
         tool(SHELL_TOOL, PermissionLevel::Execute, false),
         Box::new(FakeTool {
             name: "desktop_launch",
@@ -154,6 +155,19 @@ fn host_action(permission: ToolPermission, external_effect: bool, spend: bool) -
     }
 }
 
+#[test]
+fn caller_access_tier_uses_policy_and_never_exceeds_the_dispatch_ceiling() {
+    use crate::security::AutonomyLevel::{Full, ReadOnly, Supervised};
+    use tinysecurity_bus::AccessTier::{Full as FullAccess, Read, Write};
+
+    assert_eq!(access_tier(ReadOnly, None), Read);
+    assert_eq!(access_tier(Supervised, None), Write);
+    assert_eq!(access_tier(Full, None), FullAccess);
+    assert_eq!(access_tier(Full, Some(ReadOnly)), Read);
+    assert_eq!(access_tier(Full, Some(Supervised)), Write);
+    assert_eq!(access_tier(ReadOnly, Some(Full)), Read);
+}
+
 #[tokio::test]
 async fn an_unregistered_tool_is_denied_and_never_asked() {
     let module = Recorder::answering(Ok(Verdict::Allow));
@@ -186,6 +200,18 @@ async fn a_tool_that_only_reads_is_allowed_without_asking_the_module() {
         let answer = verdict(&module, registry(), call(name, json!({"path": "a"}))).await;
         assert_eq!(answer, Ok(Verdict::Allow), "{name}");
     }
+    assert!(module.asked().is_empty());
+}
+
+#[tokio::test]
+async fn workflow_launch_is_not_skipped_as_a_no_permission_read() {
+    let module = Recorder::answering(Ok(Verdict::Allow));
+    let answer = verdict(&module, registry(), call("run_workflow", json!({}))).await;
+
+    assert!(
+        answer.is_err(),
+        "a workflow launch must validate and scan its target"
+    );
     assert!(module.asked().is_empty());
 }
 

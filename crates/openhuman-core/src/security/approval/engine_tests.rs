@@ -17,6 +17,7 @@ fn input() -> CheckInput {
             require_approval: true,
             ..Posture::default()
         },
+        legacy_tool_grants: Vec::new(),
         call_id: "00000001".into(),
         tool: "gmail_send".into(),
         args: serde_json::json!({}),
@@ -45,7 +46,6 @@ fn each_posture_variant_is_its_own_subject() {
 fn the_default_posture_requires_approval_for_nothing_it_does_not_name() {
     let posture = Posture::default();
     assert!(!posture.auto_approve_all);
-    assert!(posture.tool_grants.is_empty());
 }
 
 #[tokio::test]

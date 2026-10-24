@@ -1,5 +1,15 @@
 use super::*;
 
+#[test]
+fn model_call_timeout_environment_override_reaches_run_limits() {
+    let overrides = env_overrides_from(|name| {
+        (name == "OPENHUMAN_MODEL_CALL_TIMEOUT_SECS").then(|| "2".to_owned())
+    });
+    let policy = run_policy_for_provider_with_overrides(10, false, false, None, overrides);
+
+    assert_eq!(policy.limits.max_model_call_ms, Some(2_000));
+}
+
 #[tokio::test]
 async fn per_turn_tool_limit_reaches_the_execution_policy() {
     let policy = run_policy_for_provider(10, false, false, Some(2));
@@ -104,4 +114,52 @@ fn hosted_openai_keeps_the_hosted_ceilings_in_the_policy() {
     let policy = run_policy_for_provider(10, false, local, None);
     assert_eq!(policy.limits.max_model_call_ms, Some(900_000));
     assert_eq!(policy.limits.max_wall_clock_ms, Some(3_600_000));
+}
+
+#[test]
+fn retry_backoff_override_shrinks_the_schedule_and_ignores_junk() {
+    let production = run_policy_for_provider_with_backoff(8, false, false, None, None).retry;
+    for raw in [
+        None,
+        Some(""),
+        Some("0"),
+        Some("abc"),
+        Some("-5"),
+        Some("60000"),
+    ] {
+        let mut policy = run_policy_for_provider_with_backoff(8, false, false, None, None);
+        apply_retry_backoff_override(&mut policy, raw);
+        assert_eq!(
+            policy.retry.initial_backoff_ms, production.initial_backoff_ms,
+            "{raw:?}"
+        );
+        assert_eq!(
+            policy.retry.max_backoff_ms, production.max_backoff_ms,
+            "{raw:?}"
+        );
+    }
+    let mut policy = run_policy_for_provider_with_backoff(8, false, false, None, None);
+    apply_retry_backoff_override(&mut policy, Some(" 20 "));
+    assert_eq!(policy.retry.initial_backoff_ms, 20);
+    assert_eq!(policy.retry.max_backoff_ms, 200);
+    assert_eq!(policy.retry.max_attempts, production.max_attempts);
+}
+
+#[test]
+fn a_dead_call_is_retried_at_the_same_cap_without_reasoning_and_new_calls_keep_it() {
+    for local_provider in [false, true] {
+        let policy = run_policy_for_provider(50, false, local_provider, None);
+        assert!(
+            policy.truncated_empty_constant_cap,
+            "no doubling past the cap"
+        );
+        assert!(
+            policy.truncated_empty_reasoning_off,
+            "the retry after a dead one runs without reasoning"
+        );
+        assert_eq!(
+            policy.truncated_empty_reasoning_off_sticky_after, 0,
+            "new calls keep their reasoning"
+        );
+    }
 }

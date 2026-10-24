@@ -164,12 +164,43 @@ async fn legacy_tinyflows_files_are_imported_into_a_configured_backend() {
     let before = digest(workspace.path());
     case.install();
 
-    for report in openhuman_core::storage::import::run(
+    let reports = openhuman_core::storage::import::run(
         &openhuman_core::core::runtime::DispatchCtx::process_default(),
         &config,
     )
-    .await
-    {
+    .await;
+    if case.url == "memory" {
+        let mut flow_error = None;
+        for report in reports {
+            if let Err(error) = report.outcome {
+                assert!(
+                    format!("{error:#}").contains("conditional_writes"),
+                    "memory backend should explain why the {} import was refused: {error:#}",
+                    report.domain
+                );
+                if report.domain == "flows" {
+                    flow_error = Some(error);
+                }
+            }
+        }
+        flow_error.expect("flow importer should report its capability refusal");
+        let cron_config = config.clone();
+        tokio::task::spawn_blocking(move || {
+            assert!(
+                cron::list_jobs(&cron_config).unwrap().is_empty(),
+                "memory import refusals must not leave a partial cron import"
+            );
+        })
+        .await
+        .unwrap();
+        assert_eq!(
+            digest(workspace.path()),
+            before,
+            "a legacy file was modified"
+        );
+        return;
+    }
+    for report in reports {
         report.outcome.unwrap();
     }
 

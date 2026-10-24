@@ -1,17 +1,26 @@
 use super::*;
 
+#[cfg(feature = "storage-sqlite")]
 #[tokio::test]
 async fn profile_context_conflict_refresh_keeps_host_owned_restrictions() {
     let tmp = tempfile::tempdir().unwrap();
-    let storage = MemoryStorage::new();
+    let storage = memory_backend();
     let _forced = ForcedDocumentSource::new(
-        scoped(&storage, "tenant-profile-refresh"),
+        scoped(storage.as_ref(), "tenant-profile-refresh"),
         Scope::new("tenant-profile-refresh").unwrap(),
         keys(16),
     );
     let operator = CoreContext::for_test(DomainSet::full(), None);
     let saas = crate::core::runtime::SaasConfig::new(tmp.path());
-    let host = crate::profiles::ProfileHost::new(saas, operator);
+    // A storage-backed lease, so the profile fence carries an atomic write
+    // condition: the fenced backend refuses unguarded (file-lease) handles.
+    let fixture = crate::storage::test_support::sqlite_backend().unwrap();
+    let backend: Arc<dyn tinystoragedrivers::StorageBackend> = Arc::clone(&fixture.backend);
+    let host = crate::profiles::ProfileHost::with_backend(saas, operator, Some(backend))
+        .unwrap()
+        .with_fences(Arc::new(crate::storage::fence::FenceRegistry::new(
+            crate::profiles::lease::now_ms,
+        )));
     let id = crate::profiles::ProfileId::for_user(
         "profile-refresh",
         crate::profiles::ProfileIdMode::Raw,
@@ -28,8 +37,8 @@ async fn profile_context_conflict_refresh_keeps_host_owned_restrictions() {
             .unwrap()
     })
     .await;
-    assert!(initial.autonomy.enabled);
-    assert!(initial.autonomy.workspace_only);
+    assert!(initial.security.autonomy.enabled);
+    assert!(initial.security.autonomy.workspace_only);
     assert_eq!(initial.memory.agent_id.as_deref(), Some(id.as_str()));
     assert_eq!(
         initial.memory.layout,
@@ -51,8 +60,8 @@ async fn profile_context_conflict_refresh_keeps_host_owned_restrictions() {
         .await
         .unwrap();
     external.default_model = Some("external-winner".into());
-    external.autonomy.enabled = false;
-    external.autonomy.workspace_only = false;
+    external.security.autonomy.enabled = false;
+    external.security.autonomy.workspace_only = false;
     external.memory.agent_id = Some("external-agent".into());
     external.memory.root = Some("team:external".into());
     external.memory.layout = crate::config::schema::MemoryLayoutMode::V3;
@@ -78,8 +87,8 @@ async fn profile_context_conflict_refresh_keeps_host_owned_restrictions() {
     })
     .await;
     assert_eq!(refreshed.default_model.as_deref(), Some("external-winner"));
-    assert!(refreshed.autonomy.enabled);
-    assert!(refreshed.autonomy.workspace_only);
+    assert!(refreshed.security.autonomy.enabled);
+    assert!(refreshed.security.autonomy.workspace_only);
     assert_eq!(refreshed.memory.agent_id.as_deref(), Some(id.as_str()));
     assert_eq!(
         refreshed.memory.layout,
@@ -104,7 +113,7 @@ async fn profile_context_conflict_refresh_keeps_host_owned_restrictions() {
             .await
             .unwrap();
     later_external.default_model = Some("external-after-nested".into());
-    later_external.autonomy.enabled = false;
+    later_external.security.autonomy.enabled = false;
     later_external.memory.agent_id = Some("later-external-agent".into());
     later_external.agent.channel_permissions.clear();
     later_external.save().await.unwrap();
@@ -124,7 +133,7 @@ async fn profile_context_conflict_refresh_keeps_host_owned_restrictions() {
         nested_refreshed.default_model.as_deref(),
         Some("external-after-nested")
     );
-    assert!(nested_refreshed.autonomy.enabled);
+    assert!(nested_refreshed.security.autonomy.enabled);
     assert_eq!(
         nested_refreshed.memory.agent_id.as_deref(),
         Some(id.as_str())

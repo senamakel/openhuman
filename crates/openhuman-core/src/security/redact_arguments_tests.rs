@@ -237,6 +237,8 @@ fn multiple_home_paths_in_same_string_all_scrubbed() {
     assert_eq!(summary.matches("<HOME>").count(), 2);
 }
 
+// Kept as a case in `approval_argument_contract_holds_on_the_released_archive`:
+// this host entry point deliberately suppresses content until the module is armed.
 fn file_handoff_links_are_redacted() {
     // A presigned storage link is a bearer capability: anyone holding the
     // URL can fetch the file until it expires. Redacted args are shown on
@@ -338,7 +340,7 @@ fn non_string_sensitive_values_redact_to_kind_markers_and_nested_values_recurse(
 /// Every ported case through the released module, from a runtime worker.
 #[cfg(feature = "security-module")]
 #[test]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 fn approval_argument_contract_holds_on_the_released_archive() {
     super::tests::shared_runtime().block_on(async {
         let (_dir, config) = super::tests::released_config();

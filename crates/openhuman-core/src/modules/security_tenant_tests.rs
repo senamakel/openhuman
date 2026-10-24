@@ -11,8 +11,8 @@ fn two_tenant_config(root: &std::path::Path, name: &str, enabled: bool, deny: &s
         action_dir: action,
         ..Config::default()
     };
-    config.autonomy.enabled = enabled;
-    config.autonomy.level = crate::security::AutonomyLevel::Supervised;
+    config.security.autonomy.enabled = enabled;
+    config.security.autonomy.level = crate::security::AutonomyLevel::Supervised;
     config.tool_rules.rules = vec![tinytools::rules::ToolRule::names(
         tinytools::rules::RuleEffect::Deny,
         [deny],
@@ -44,7 +44,7 @@ fn tool(name: &str) -> tinysecurity_bus::ToolCall {
 /// from that tenant's own registered policy, a tenant cannot use the other's
 /// policy id, and the settings the module reports match the translation.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn two_tenants_get_isolated_decisions_through_the_scoped_client() {
     use super::super::security::scoped_client::{
         activate_on, evaluate_on, Activation, ScopedState,
@@ -276,7 +276,7 @@ async fn two_tenants_get_isolated_decisions_through_the_scoped_client() {
 /// audited member answers with evidence and a never-cacheable decision. The
 /// fixture configures no audit client, so the audited call must not allow.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn audited_scoped_members_never_allow_without_committed_evidence() {
     use super::super::security::scoped_client::{
         activate_on, check_audited_on, evaluate_audited_on, Activation, AuditCorrelation,
@@ -347,7 +347,7 @@ async fn audited_scoped_members_never_allow_without_committed_evidence() {
 /// The operator's real forbidden list registers (tilde, relative, floor entries)
 /// instead of an empty one.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn real_forbidden_paths_register_with_the_module() {
     use super::super::security::scoped_client::{activate_on, Activation, ScopedState};
     use tinysecurity_bus::{CommandExecutionMode, SubjectScope};
@@ -356,7 +356,8 @@ async fn real_forbidden_paths_register_with_the_module() {
     let root = fixture.acting.path().canonicalize().unwrap();
     let state = tokio::sync::Mutex::new(ScopedState::default());
     let mut config = two_tenant_config(&root, "forbid", false, "unused_tool");
-    config.autonomy.forbidden_paths = vec!["~/.ssh".into(), "private".into(), "/etc".into()];
+    config.security.autonomy.forbidden_paths =
+        vec!["~/.ssh".into(), "private".into(), "/etc".into()];
     let activation = activate_on(
         &fixture.proxy,
         &state,

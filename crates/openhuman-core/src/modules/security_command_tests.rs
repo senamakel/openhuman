@@ -70,7 +70,7 @@ impl Native {
 /// (extracted from them before they were removed) gets the answer they pinned,
 /// from the released module, through the policy translation production uses.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_gives_the_answers_the_deleted_host_command_tests_pinned() {
     let corpus: Vec<serde_json::Value> =
         serde_json::from_str(include_str!("fixtures/security_command_corpus.json")).unwrap();
@@ -152,7 +152,7 @@ fn expected_tier_gate(
 /// The module's tier table is the one written out below (and in the test
 /// stub): every autonomy, enabled flag and class gives that gate.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_tier_gate_matches_the_inlined_table() {
     let mut native = Native::start().await;
     for autonomy in [
@@ -193,7 +193,7 @@ async fn released_module_tier_gate_matches_the_inlined_table() {
 /// body is data and an unquoted one is code; hidden execution is refused below
 /// Full access; the model's category only raises the class.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_enforces_the_command_floor_and_structure_rules() {
     let mut native = Native::start().await;
     let off = policy(AutonomyLevel::Supervised, false);
@@ -305,7 +305,7 @@ async fn released_module_enforces_the_command_floor_and_structure_rules() {
 /// The execute stage spends the scope's hourly budget and the authorize stage
 /// never does, so asking before and again at the run counts the run once.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_budget_is_spent_by_the_run_and_not_by_the_gate() {
     let mut native = Native::start().await;
     let host = SecurityPolicy {
@@ -336,7 +336,7 @@ async fn released_module_budget_is_spent_by_the_run_and_not_by_the_gate() {
 /// Legacy scheduled admission: the curated allowlist, high-risk restriction and
 /// the read-only refusal, on the real module.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_scheduled_flow_applies_the_allowlist() {
     let mut native = Native::start().await;
     let on = policy(AutonomyLevel::Supervised, true);
@@ -476,7 +476,7 @@ fn only_a_channel_failure_latches_the_client() {
 /// Thousands of distinct per-run scopes must not disable command gating: the
 /// cache stays bounded and the client is never latched by a refused request.
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key or an explicitly selected local native fixture"]
+#[cfg(feature = "native-security-tests")]
 async fn released_module_still_answers_after_the_scope_cache_fills() {
     let mut native = Native::start().await;
     let host = policy(AutonomyLevel::Supervised, true);

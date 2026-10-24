@@ -1,8 +1,55 @@
 use super::*;
+use axum::{
+    http::{HeaderMap, StatusCode},
+    routing::get,
+    Router,
+};
+use openhuman_embed::__host::security::credentials::{AuthService, APP_SESSION_PROVIDER};
+use std::sync::{Arc, Mutex};
+use tempfile::TempDir;
+
+async fn catalog_server(
+    status: StatusCode,
+    body: &'static str,
+) -> (String, Arc<Mutex<Vec<Option<String>>>>) {
+    let authorization = Arc::new(Mutex::new(Vec::new()));
+    let captured = Arc::clone(&authorization);
+    let app = Router::new().route(
+        "/openai/v1/models",
+        get(move |headers: HeaderMap| {
+            let captured = Arc::clone(&captured);
+            async move {
+                captured.lock().unwrap().push(
+                    headers
+                        .get(axum::http::header::AUTHORIZATION)
+                        .and_then(|value| value.to_str().ok())
+                        .map(str::to_owned),
+                );
+                (status, body)
+            }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    (format!("http://{address}"), authorization)
+}
+
+fn catalog_config(tmp: &TempDir, base_url: &str) -> Config {
+    crate::hosted::test_support::config(tmp, base_url)
+}
+
+fn without_session(config: &Config) {
+    crate::hosted::test_support::store_session(config, "fixture-session-to-remove");
+    AuthService::from_config(config)
+        .remove_profile(APP_SESSION_PROVIDER, "default")
+        .expect("remove fixture session");
+}
 
 #[test]
 fn a_managed_401_on_an_attached_session_reads_as_signed_out() {
     assert!(managed_401_means_signed_out(401, true));
+    assert!(!managed_401_means_signed_out(200, true));
 }
 
 /// A 401 on a request that never carried the session token describes the
@@ -55,12 +102,6 @@ fn limits_request_lists_the_catalog_keyed_by_the_inference_base() {
 }
 
 #[test]
-fn truncate_caps_long_text_with_an_ellipsis() {
-    assert_eq!(truncate("abc", 5), "abc");
-    assert_eq!(truncate("abcdef", 3), "abc...");
-}
-
-#[test]
 fn a_live_session_wins_over_the_provider_key() {
     assert_eq!(
         listing_auth(SessionTokenCheck::Live("jwt".into()), "provider-key"),
@@ -92,6 +133,78 @@ fn with_neither_credential_the_catalog_is_empty() {
         listing_auth(SessionTokenCheck::Expired, "  "),
         ListingAuth::Empty("session expired")
     );
+}
+
+#[tokio::test]
+async fn managed_catalog_treats_http_401_as_signed_out_only_for_an_attached_session() {
+    let (base_url, authorization) =
+        catalog_server(StatusCode::UNAUTHORIZED, "session token rejected").await;
+    let tmp = TempDir::new().unwrap();
+    let config = catalog_config(&tmp, &base_url);
+    crate::hosted::test_support::store_session(&config, "fixture-live-session");
+
+    let result = list_models(
+        &config,
+        CatalogHostRequest {
+            provider_key: String::new(),
+            client: reqwest::Client::new(),
+        },
+    )
+    .await
+    .expect("a rejected attached session degrades to an empty catalog");
+
+    assert_eq!(result.value["models"], serde_json::json!([]));
+    assert_eq!(
+        authorization.lock().unwrap().as_slice(),
+        [Some("Bearer fixture-live-session".to_string())]
+    );
+}
+
+#[tokio::test]
+async fn managed_catalog_keeps_provider_key_401_as_a_provider_error() {
+    let (base_url, authorization) =
+        catalog_server(StatusCode::UNAUTHORIZED, "provider key rejected").await;
+    let tmp = TempDir::new().unwrap();
+    let config = catalog_config(&tmp, &base_url);
+    without_session(&config);
+
+    let error = list_models(
+        &config,
+        CatalogHostRequest {
+            provider_key: "fixture-provider-key".into(),
+            client: reqwest::Client::new(),
+        },
+    )
+    .await
+    .expect_err("a 401 for a provider key remains actionable");
+
+    assert!(error.contains("provider returned 401"), "{error}");
+    assert_eq!(
+        authorization.lock().unwrap().as_slice(),
+        [Some("Bearer fixture-provider-key".to_string())]
+    );
+}
+
+#[tokio::test]
+async fn managed_catalog_does_not_infer_http_status_from_error_payload_text() {
+    let (base_url, _authorization) =
+        catalog_server(StatusCode::OK, r#"{"error":"401 session expired"}"#).await;
+    let tmp = TempDir::new().unwrap();
+    let config = catalog_config(&tmp, &base_url);
+    crate::hosted::test_support::store_session(&config, "fixture-live-session");
+
+    let error = list_models(
+        &config,
+        CatalogHostRequest {
+            provider_key: String::new(),
+            client: reqwest::Client::new(),
+        },
+    )
+    .await
+    .expect_err("a successful error envelope is not an HTTP 401");
+
+    assert!(error.contains("provider returned error payload"), "{error}");
+    assert!(error.contains("401 session expired"), "{error}");
 }
 
 #[cfg(test)]

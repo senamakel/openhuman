@@ -104,8 +104,8 @@ async fn load_or_init_non_utf8_falls_back_to_defaults_when_backup_also_non_utf8(
 
     assert_eq!(
         config.default_model.as_deref(),
-        Some(crate::config::schema::DEFAULT_MODEL),
-        "must fall back to defaults when both config and backup have non-UTF-8 content"
+        None,
+        "bare core fallback keeps default_model absent when no provider is installed"
     );
 
     // The primary should be renamed.
@@ -314,6 +314,9 @@ fn migrate_legacy_inference_url_moves_external_chat_completions() {
         Some("https://api.openai.com/v1/chat/completions")
     );
 }
+
+#[path = "load_migration_redaction_tests.rs"]
+mod redaction_tests;
 
 #[test]
 fn migrate_legacy_inference_url_clears_managed_backend_form() {

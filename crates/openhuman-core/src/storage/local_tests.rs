@@ -25,14 +25,15 @@ fn get_thing(opened: &Opened, id: &'static str) -> Option<i64> {
 }
 
 #[test]
+// Ordinary unit test: the cfg(test) default must use the real driver testkit,
+// not create a workspace database as a side effect.
 fn an_uninstalled_call_opens_the_default_for_its_workspace() {
     let dir = tempfile::tempdir().unwrap();
     let opened = open("things", dir.path()).unwrap();
-    assert_eq!(opened.backend.driver(), "sqlite");
     put_thing(&opened, "a", 1);
     assert!(
-        dir.path().join("storage").is_dir(),
-        "the default lives in <workspace>/storage"
+        !dir.path().join("storage").exists(),
+        "ordinary unit tests use an in-memory testkit backend"
     );
     // The same workspace reuses the one backend.
     let again = open("things", dir.path()).unwrap();
@@ -41,6 +42,7 @@ fn an_uninstalled_call_opens_the_default_for_its_workspace() {
 }
 
 #[test]
+// Ordinary unit test: separate workspace defaults must remain isolated.
 fn workspaces_do_not_share_a_default() {
     let one = tempfile::tempdir().unwrap();
     let two = tempfile::tempdir().unwrap();
@@ -51,8 +53,12 @@ fn workspaces_do_not_share_a_default() {
 }
 
 #[test]
+#[cfg(feature = "storage-sqlite")]
+// Persistence test: forgetting the process cache models a restart and must
+// reopen the same durable workspace data.
 fn forgetting_a_workspace_reopens_the_same_data() {
     let dir = tempfile::tempdir().unwrap();
+    super::use_persistent_default_for_test(dir.path());
     let first = open("things", dir.path()).unwrap();
     put_thing(&first, "kept", 3);
     forget(dir.path());

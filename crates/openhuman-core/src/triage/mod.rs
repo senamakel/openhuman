@@ -46,6 +46,6 @@ pub use decision::{parse_triage_decision, ParseError, TriageAction, TriageDecisi
 pub use envelope::{TriggerEnvelope, TriggerSource};
 pub use escalation::apply_decision;
 pub use evaluator::{run_triage, TriageOutcome, TriageResolutionPath, TriageRun};
-pub use origin::{local_trigger_origin, remote_trigger_origin};
+pub use origin::{external_inbound_origin, local_trigger_origin, remote_trigger_origin};
 pub use routing::{build_local_provider_with_config, ResolvedProvider};
 pub use runner::{RemoteTriage, TriageRunner};

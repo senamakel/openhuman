@@ -52,7 +52,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use tinyagents_harness::artifacts::ArtifactOffload;
-use tinystoragedrivers::BlobStore;
+use tinystoragedrivers_api::BlobStore;
 
 use crate::security::SecurityPolicy;
 

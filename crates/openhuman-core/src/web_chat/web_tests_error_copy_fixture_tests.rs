@@ -54,16 +54,16 @@ const EXPECTED: &[(
     ("transient_529", "anthropic API error (529): overloaded", "provider_error", "provider", true, None, Some("anthropic"), None, "The AI provider is temporarily unavailable. Please try again later."),
     ("generic", "kaboom", "inference", "provider", true, None, None, None, "Something went wrong. Please try again."),
     ("fallback_chain", "All providers/models failed. Attempts: x", "inference", "provider", true, None, None, Some(false), "Something went wrong. Please try again."),
-    ("be_rate_limited", "OpenHuman API error (429): {\"error\":{\"errorCode\":\"RATE_LIMITED\",\"retryAfter\":30}}", "rate_limited", "provider", true, Some(30000), Some("openhuman"), None, "Your AI provider is rate-limiting requests. You can retry in this thread. Try again in 30 seconds."),
-    ("be_credits", "OpenHuman API error (402): {\"error\":{\"errorCode\":\"USER_INSUFFICIENT_CREDITS\"}}", "budget_exhausted", "openhuman_billing", false, None, Some("openhuman"), None, "You're out of credits. Top up, or switch to 'Use Your Own Models' in Settings."),
-    ("be_upstream", "OpenHuman API error (502): {\"error\":{\"errorCode\":\"UPSTREAM_UNAVAILABLE\"}}", "provider_error", "provider", true, None, Some("openhuman"), None, "The AI service is temporarily unavailable — we've been notified. Please try again shortly."),
-    ("be_model_unavailable", "OpenHuman API error (503): {\"error\":{\"errorCode\":\"MODEL_UNAVAILABLE\"}}", "provider_error", "provider", true, None, Some("openhuman"), None, "The AI service is temporarily unavailable — we've been notified. Please try again shortly."),
-    ("be_payload", "OpenHuman API error (413): {\"error\":{\"errorCode\":\"PAYLOAD_TOO_LARGE\"}}", "payload_too_large", "config", false, None, Some("openhuman"), None, "Your message or attachment is too large for this model. Shorten it or remove the attachment — or start a new thread."),
-    ("be_context", "OpenHuman API error (400): {\"error\":{\"errorCode\":\"CONTEXT_LENGTH_EXCEEDED\"}}", "context_overflow", "config", false, None, Some("openhuman"), None, "The conversation is too long. Please start a new chat."),
-    ("be_bad_request", "OpenHuman API error (400): {\"error\":{\"errorCode\":\"BAD_REQUEST\",\"message\":\"x\"}}", "provider_request_rejected", "provider", false, None, Some("openhuman"), None, "The request was rejected — usually a model or parameter mismatch. Try a different model in Connections → API keys → LLM."),
-    ("be_bad_request_malformed", "OpenHuman API error (400): {\"error\":{\"errorCode\":\"BAD_REQUEST\",\"malformed\":true}}", "provider_request_rejected", "provider", false, None, Some("openhuman"), None, "Something went wrong with this message. Try rephrasing it — or start a new thread if it keeps happening."),
-    ("be_bad_request_history", "OpenHuman API error (400): {\"error\":{\"errorCode\":\"BAD_REQUEST\",\"message\":\"messages with role 'tool' must be a response to a preceding message with 'tool_calls'\"}}", "provider_request_rejected", "provider", true, None, Some("openhuman"), None, "We hit a temporary glitch in this conversation — we've cleared it. Please send your message again."),
-    ("be_internal", "OpenHuman API error (500): {\"error\":{\"errorCode\":\"INTERNAL_ERROR\"}}", "inference", "provider", true, None, Some("openhuman"), None, "Something went wrong — we've been notified. Please try again."),
+    ("be_rate_limited", "openhuman API error (429): transient limit; Retry-After: 30", "rate_limited", "provider", true, Some(30000), Some("openhuman"), None, "Your AI provider is rate-limiting requests. You can retry in this thread. Try again in 30 seconds."),
+    ("be_credits", "openhuman API error (402): account has no credits", "budget_exhausted", "openhuman_billing", false, None, Some("openhuman"), None, "You're out of credits. Top up, or switch to 'Use Your Own Models' in Settings."),
+    ("be_upstream", "openhuman API error (502): service temporarily unavailable", "provider_error", "provider", true, None, Some("openhuman"), None, "The AI service is temporarily unavailable — we've been notified. Please try again shortly."),
+    ("be_model_unavailable", "openhuman API error (503): selected model unavailable", "provider_error", "provider", true, None, Some("openhuman"), None, "The AI service is temporarily unavailable — we've been notified. Please try again shortly."),
+    ("be_payload", "openhuman API error (413): request payload exceeds limit", "payload_too_large", "config", false, None, Some("openhuman"), None, "Your message or attachment is too large for this model. Shorten it or remove the attachment — or start a new thread."),
+    ("be_context", "openhuman API error (400): conversation context limit exceeded", "context_overflow", "config", false, None, Some("openhuman"), None, "The conversation is too long. Please start a new chat."),
+    ("be_bad_request", "openhuman API error (400): parameters rejected", "provider_request_rejected", "provider", false, None, Some("openhuman"), None, "The request was rejected — usually a model or parameter mismatch. Try a different model in Connections → API keys → LLM."),
+    ("be_bad_request_malformed", "openhuman API error (400): malformed request", "provider_request_rejected", "provider", false, None, Some("openhuman"), None, "Something went wrong with this message. Try rephrasing it — or start a new thread if it keeps happening."),
+    ("be_bad_request_history", "openhuman API error (400): messages with role 'tool' must be a response to a preceding message with 'tool_calls'", "provider_request_rejected", "provider", true, None, Some("openhuman"), None, "We hit a temporary glitch in this conversation — we've cleared it. Please send your message again."),
+    ("be_internal", "openhuman API error (500): internal service failure", "inference", "provider", true, None, Some("openhuman"), None, "Something went wrong — we've been notified. Please try again."),
 ];
 
 #[test]
@@ -72,7 +72,7 @@ fn every_failure_class_keeps_its_exact_copy_and_wire_values() {
     for (case, input, error_type, source, retryable, retry_after_ms, provider, fallback, message) in
         EXPECTED
     {
-        let got = classify_inference_error(input);
+        let got = classify_failure_fixture(case, input);
         assert_eq!(got.error_type, *error_type, "{case}: error_type");
         assert_eq!(got.source, *source, "{case}: source");
         assert_eq!(got.retryable, *retryable, "{case}: retryable");
@@ -255,8 +255,8 @@ fn shared_budget_matcher_reproduces_each_legacy_matcher_on_the_corpus() {
         );
         let delegated = format!("All providers/models failed: {message}");
         assert_eq!(
-            crate::inference::failure_copy::terminal_inference_failure_kind(&delegated)
-                == Some(crate::inference::failure_copy::TerminalInferenceFailure::BudgetExhausted),
+            tinyagents_hooks::stop::terminal_inference_failure_kind(&delegated)
+                == Some(tinyagents_hooks::stop::TerminalInferenceFailureKind::BudgetExhausted),
             legacy_billing_matcher(message),
             "loop-guard matcher drifted on {message:?}"
         );
@@ -272,24 +272,23 @@ fn shared_budget_matcher_reproduces_each_legacy_matcher_on_the_corpus() {
 
 #[test]
 fn loop_guard_halt_summaries_are_byte_identical() {
-    use crate::inference::failure_copy::{
-        recoverable_identical_halt_summary, recoverable_no_progress_halt_summary,
-        terminal_inference_halt_summary, user_actionable_escalation, TerminalInferenceFailure,
-    };
+    use crate::agent::tinyagents::host::OpenHumanCopyProvider;
+    use crate::agent::tinyagents::middleware::repeated_failure::user_actionable_escalation;
+    use tinyagents_hooks::stop;
     assert_eq!(
-        terminal_inference_halt_summary(TerminalInferenceFailure::BudgetExhausted, "delegate", "boom"),
+        stop::halt_summary::budget(&OpenHumanCopyProvider, "delegate", "boom").summary,
         "Stopping: the `delegate` step failed because the account is out of inference budget/credits \u{2014} every retry hits the same wall. Add credits to your account (or, when using a custom/BYO provider, top up that provider's own account) and try again. Details:\nboom"
     );
     assert_eq!(
-        terminal_inference_halt_summary(TerminalInferenceFailure::ProviderConfig, "delegate", "boom"),
+        stop::halt_summary::provider_config(&OpenHumanCopyProvider, "delegate", "boom").summary,
         "Stopping: the `delegate` step failed because the configured model/provider rejected the request (e.g. an unknown model, a non-chat/embedding model, a missing credential, or a region block) \u{2014} retrying will not help. Fix the model or API key in Connections \u{2192} API keys \u{2192} LLM. Details:\nboom"
     );
     assert_eq!(
-        recoverable_identical_halt_summary("curl", 8, "boom"),
+        stop::halt_summary::retry_exhausted(&OpenHumanCopyProvider, "curl", 8, "boom").summary,
         "Stopping: the `curl` call was retried 8 times with identical arguments and kept failing \u{2014} repeating it will not help. Last error:\nboom\n\nThis looked recoverable at first, but the same call exhausted the extended transient-failure headroom. Report this back instead of retrying."
     );
     assert_eq!(
-        recoverable_no_progress_halt_summary(12, "curl", "boom"),
+        stop::halt_summary::no_progress(&OpenHumanCopyProvider, 12, "curl", "boom").summary,
         "Stopping: 12 recoverable-looking tool failures happened in a row with no successful progress. Last error (from `curl`):\nboom\n\nThe turn is still bounded by the iteration/cost limits, but this many consecutive transient failures means the goal is not currently reachable. Report this back instead of retrying."
     );
     assert_eq!(
@@ -300,10 +299,13 @@ fn loop_guard_halt_summaries_are_byte_identical() {
         user_actionable_escalation("gmail", "insufficient scope"),
         None
     );
-    let long = "x".repeat(700);
-    let summary =
-        terminal_inference_halt_summary(TerminalInferenceFailure::BudgetExhausted, "t", &long);
-    assert!(summary.ends_with(&format!("{}\n\u{2026} [truncated]", "x".repeat(600))));
+    let at_limit = "é".repeat(600);
+    let exact = stop::halt_summary::provider_config(&OpenHumanCopyProvider, "t", &at_limit).summary;
+    assert!(exact.ends_with(&format!("Details:\n{at_limit}")));
+    let over_limit = "🦀".repeat(601);
+    let truncated =
+        stop::halt_summary::provider_config(&OpenHumanCopyProvider, "t", &over_limit).summary;
+    assert!(truncated.ends_with(&format!("{}\n\u{2026} [truncated]", "🦀".repeat(600))));
 }
 
 // ── i18n key + params (follow-up of the copy table) ─────────────────────────
@@ -450,7 +452,7 @@ fn every_failure_class_carries_its_i18n_key_and_params() {
         EXPECTED.iter().zip(EXPECTED_COPY_KEYS.iter())
     {
         assert_eq!(case, key_case, "fixture rows out of order");
-        let got = classify_inference_error(input);
+        let got = classify_failure_fixture(case, input);
         assert_eq!(got.copy_key, *copy_key, "{case}: copy_key");
         let got_params = got
             .copy_params

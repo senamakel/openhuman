@@ -180,7 +180,7 @@ impl Drop for RegisterVoiceProviders {
 
 #[tokio::test]
 async fn a_byok_cloud_fallback_without_a_key_reports_construction_failure() {
-    use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+    use crate::config::schema::cloud_providers::CloudProviderCreds;
     use crate::config::test_env::EnvVarGuard;
 
     let _inference_guard = crate::inference::inference_test_guard_async().await;
@@ -391,10 +391,13 @@ async fn inspection_reports_refresh_required_without_refreshing_or_publishing_se
 
 #[tokio::test]
 async fn a_fully_configured_managed_default_constructs_cleanly() {
-    use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
+    use crate::config::schema::cloud_providers::{
+        register_hosted_cloud_provider_policy_in, AuthStyle, CloudProviderCreds,
+    };
     use crate::config::test_env::EnvVarGuard;
     use crate::inference::provider::factory::PROVIDER_OPENHUMAN;
-    use crate::inference::registry::{register_inspection_chat_model, InspectionChatModelFactory};
+    use crate::inference::registry::InspectionChatModelFactory;
+    use tinyinference_llm::providers::overrides::{ChatModelEntry, ProviderModelMetadata};
 
     struct ManagedModel {
         generations: Arc<AtomicUsize>,
@@ -421,6 +424,12 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         .without("OPENHUMAN_ACTION_DIR")
         .without("OPENAI_API_KEY")
         .without("OPENHUMAN_CORE_TOKEN");
+    let extensions = crate::core::slots::Extensions::new();
+    register_hosted_cloud_provider_policy_in(
+        &extensions,
+        Arc::new(|slug| slug == "openhuman"),
+        Arc::new(|style| style == AuthStyle::OpenhumanJwt),
+    );
     let constructions = Arc::new(AtomicUsize::new(0));
     let generations = Arc::new(AtomicUsize::new(0));
     let build_constructions = Arc::clone(&constructions);
@@ -436,7 +445,51 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
             credential: "doctor-test-session-token".to_owned(),
         })
     });
-    register_inspection_chat_model(PROVIDER_OPENHUMAN, inspection_factory);
+    crate::inference::registry::register_inspection_chat_model_in(
+        &extensions,
+        PROVIDER_OPENHUMAN,
+        inspection_factory,
+    );
+    crate::inference::registry::register_chat_model_in(
+        &extensions,
+        PROVIDER_OPENHUMAN,
+        ChatModelEntry {
+            build: Arc::new(|request| {
+                Ok((
+                    Arc::new(ManagedModel {
+                        generations: Arc::new(AtomicUsize::new(0)),
+                    }) as Arc<dyn ChatModel<()>>,
+                    request
+                        .model_override
+                        .or(request.default_model)
+                        .unwrap_or("managed-test-model")
+                        .to_owned(),
+                ))
+            }),
+            probe: None,
+            models: Some(ProviderModelMetadata {
+                default_model: Arc::new(|| Some("managed-test-model".to_owned())),
+                role_for_model: Arc::new(|model| {
+                    (model == "hint:reasoning").then(|| "reasoning".to_owned())
+                }),
+                is_alias: Arc::new(|model| model.starts_with("hint:")),
+                is_raw_model: Arc::new(|model| !model.starts_with("hint:")),
+                supports_vision: Arc::new(|_| false),
+                resolve_model: Arc::new(|_, config, model| match model {
+                    Some(model) if !model.starts_with("hint:") => Some(model.to_owned()),
+                    Some(_) => Some("managed-test-model".to_owned()),
+                    None => config
+                        .config
+                        .default_model
+                        .clone()
+                        .or_else(|| Some("managed-test-model".to_owned())),
+                }),
+                context_window: Arc::new(|_| None),
+                default_pricing: Arc::new(|| None),
+                without_reasoning: Arc::new(|request| request),
+            }),
+        },
+    );
     let _registered_model = RegisterManagedModel;
 
     let mut config = isolated_config(temp.path());
@@ -452,7 +505,13 @@ async fn a_fully_configured_managed_default_constructs_cleanly() {
         default_model: Some("managed-test-model".to_owned()),
     }];
     let before = filesystem_snapshot(temp.path());
-    let findings = run_only(config, CONSTRUCT).await;
+    let core_context = crate::core::runtime::CoreContext::for_test_with_extensions(
+        crate::core::runtime::DomainSet::full(),
+        Some(temp.path().to_path_buf()),
+        extensions,
+    );
+    let findings =
+        crate::core::runtime::CoreContext::scope(core_context, run_only(config, CONSTRUCT)).await;
     assert_eq!(filesystem_snapshot(temp.path()), before);
 
     assert!(
@@ -508,7 +567,14 @@ struct RegisterManagedModel;
 
 impl Drop for RegisterManagedModel {
     fn drop(&mut self) {
+        crate::config::schema::cloud_providers::register_hosted_cloud_provider_policy(
+            Arc::new(|_| false),
+            Arc::new(|_| false),
+        );
         crate::inference::registry::unregister_inspection_chat_model(
+            crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+        );
+        crate::inference::registry::unregister_chat_model(
             crate::inference::provider::factory::PROVIDER_OPENHUMAN,
         );
     }

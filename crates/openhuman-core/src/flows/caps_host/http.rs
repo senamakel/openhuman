@@ -17,9 +17,9 @@ use super::*;
 use crate::config::{Config, HttpRequestConfig};
 use crate::modules::tinyflows as module;
 use crate::security::credentials::{HttpCredential, HttpCredentialsStore};
+use crate::security::policy::CommandClass;
 use crate::security::SecurityPolicy;
 use crate::tools::http_request_tool;
-use tinysecurity_bus::CommandClass;
 use tinytools::Tool as _;
 
 use super::{
@@ -109,6 +109,30 @@ pub(crate) fn resolve_http_credential(
     }
 }
 
+/// Refuse a request that would carry a stored credential over plain HTTP to a
+/// remote host. Only `https` and loopback `http` are allowed; an unparsable or
+/// missing URL fails closed.
+pub(crate) fn refuse_credential_over_plain_http(request: &Value) -> Result<()> {
+    let url = request
+        .get("url")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    let https = url::Url::parse(url).is_ok_and(|parsed| parsed.scheme() == "https");
+    if https || crate::integrations::composio::client::is_loopback_http_url(url) {
+        return Ok(());
+    }
+    tracing::warn!(
+        target: "flows",
+        "[flows] http_request: refusing to send a stored credential over plain http to a \
+         non-loopback host"
+    );
+    Err(EngineError::Capability(
+        "http_request refuses to send a stored credential over plain http to a non-loopback \
+         host; use https"
+            .to_owned(),
+    ))
+}
+
 impl OpenHumanHttp {
     pub(crate) async fn request(&self, mut request: Value, conn: Option<&str>) -> Result<Value> {
         const TOOL_NAME: &str = "flows_http_request";
@@ -137,6 +161,12 @@ impl OpenHumanHttp {
             )
             .await
             .map_err(|error| EngineError::Capability(error.to_string()))?;
+
+        // Check before the approval prompt and before any dispatch, so a request
+        // that can never be sent safely is neither prompted for nor attempted.
+        if inspected.credential_name.is_some() {
+            refuse_credential_over_plain_http(&request)?;
+        }
 
         // The approval gate summarizes/redacts the request BEFORE any credential
         // is injected, so a stored secret never lands in the approval UI or

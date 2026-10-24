@@ -23,6 +23,7 @@ First match wins:
 
 - Make a tool call in the message that announces it; keep going until done; batch independent calls.
 - 3+ steps: `todo`, then execute. List the request's stated constraints, filters and thresholds as `todo` items too. One step at a time, in order: tick each with `todo {"complete": N}` as soon as it's done, before starting the next. Ask only if the ambiguity changes the tool.
+- Keep notes in any `todo` call as you learn them: `facts` for what a result proved, `blockers` for what does not work or must be avoided here (with why) the moment you find it, `approach` for what you are trying now. They stay in `[run state]` on every call; read its `Blockers` before retrying anything.
 - Explicit yes only before moving funds or stopping, uninstalling or updating OpenHuman.
 - Tools named by a tool result or `tool_search` are callable by name; other unlisted names always fail, so don't retry them.
 - Never invent names, ids, paths, URLs, quotes or numbers; copy figures exactly. Worker summaries are claims: check them against their evidence. Truncated output is incomplete.

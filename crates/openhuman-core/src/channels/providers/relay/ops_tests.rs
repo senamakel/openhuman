@@ -99,6 +99,7 @@ struct Seen {
 
 #[tokio::test]
 async fn a_relayed_turn_runs_as_an_external_channel_and_keeps_its_thread() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let seen = Arc::new(Mutex::new(Seen::default()));
     let stub_seen = Arc::clone(&seen);
     let relayed_thread = params("m1", "x").thread_id();
@@ -122,6 +123,14 @@ async fn a_relayed_turn_runs_as_an_external_channel_and_keeps_its_thread() {
     .await;
     let tmp = tempfile::tempdir().unwrap();
     let config = config(&tmp);
+    let security = Arc::new(crate::security::SecurityPolicy::from_full_config(&config));
+    crate::channels::runtime::build_channel_turn_parts(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &security,
+        crate::channels::runtime::PromptToolDescs::Registered,
+    )
+    .expect("relay test provider constructs");
     let workspace = config.workspace_dir.clone();
     let mut events = crate::web_chat::subscribe_web_channel_events();
 

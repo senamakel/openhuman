@@ -7,7 +7,7 @@ use crate::agent::bus::{mock_agent_run_turn, AgentTurnRequest, AgentTurnResponse
 use crate::agent::host_agents::{self, HostAgent, HostAgentResolver};
 use crate::channels::context::{ChannelRuntimeContext, CHANNEL_MESSAGE_TIMEOUT_SECS};
 use crate::channels::runtime::process_channel_message;
-use crate::channels::{Channel, SendMessage};
+use crate::channels::Channel;
 use crate::core::runtime::{CoreContext, DomainSet};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -28,10 +28,18 @@ impl Channel for Telegram {
     fn name(&self) -> &str {
         "telegram"
     }
-    async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy send trait method"
+    )]
+    async fn send(&self, message: &traits::SendMessage) -> anyhow::Result<()> {
         self.sent.lock().unwrap().push(message.content.clone());
         Ok(())
     }
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy listener trait method"
+    )]
     async fn listen(
         &self,
         _tx: tokio::sync::mpsc::Sender<traits::ChannelMessage>,
@@ -58,7 +66,7 @@ fn context(channel: Arc<Telegram>, config: Config) -> Arc<ChannelRuntimeContext>
         api_url: None,
         inference_url: None,
         reliability: Arc::new(crate::config::ReliabilityConfig::default()),
-        provider_runtime_options: crate::inference::provider::ProviderRuntimeOptions::default(),
+        provider_runtime_options: crate::tools::delegate::ProviderRuntimeOptions::default(),
         workspace_dir: Arc::new(config.workspace_dir.clone()),
         message_timeout_secs: CHANNEL_MESSAGE_TIMEOUT_SECS,
         multimodal: crate::config::MultimodalConfig::default(),
@@ -68,16 +76,23 @@ fn context(channel: Arc<Telegram>, config: Config) -> Arc<ChannelRuntimeContext>
     })
 }
 
-fn message(text: &str) -> traits::ChannelMessage {
-    traits::ChannelMessage {
-        id: "m1".into(),
-        sender: "alice".into(),
-        sender_name: None,
-        reply_target: "42".into(),
-        content: text.into(),
-        channel: "telegram".into(),
-        timestamp: 0,
-        thread_ts: None,
+fn message(text: &str) -> traits::ChannelInboundEnvelope {
+    traits::ChannelInboundEnvelope {
+        message_id: "m1".into(),
+        sender: traits::SenderRef {
+            id: "alice".into(),
+            ..Default::default()
+        },
+        conversation: traits::ConversationRef {
+            id: "42".into(),
+            ..Default::default()
+        },
+        text: text.into(),
+        channel: traits::ChannelRef {
+            id: "telegram".into(),
+            ..Default::default()
+        },
+        ..Default::default()
     }
 }
 

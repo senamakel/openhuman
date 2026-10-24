@@ -127,10 +127,10 @@ pub fn release_records() -> Vec<&'static tinybus::module::ReleaseRecord> {
 
 /// Which `[components]` switch owns each module id.
 ///
-/// Every record in [`ALL`] has an entry (`registry_tests` enforces it), so a
-/// module is never exempt from a disabled component by omission. The one
-/// deliberate exception is `tinysecurity`: security enforcement has no
-/// `[components]` switch, so configuration cannot turn it off.
+/// Every component-gated record in [`ALL`] has an entry (`registry_tests`
+/// enforces it), so no product module can bypass a disabled component by
+/// omission. `tinysecurity` is deliberately absent: security enforcement has
+/// no `[components]` switch, so configuration cannot turn it off.
 pub const COMPONENT_OF: &[(&str, &str)] = &[
     ("tinycomputer", "computer"),
     ("tinysearch", "search"),

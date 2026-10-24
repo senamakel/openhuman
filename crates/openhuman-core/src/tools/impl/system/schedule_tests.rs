@@ -13,7 +13,7 @@ async fn test_setup() -> (TempDir, Config, Arc<SecurityPolicy>) {
         .await
         .unwrap();
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.workspace_dir,
     ));
@@ -139,7 +139,7 @@ fn schedule_mutating_actions_are_external_effect() {
     };
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.workspace_dir,
     ));
@@ -166,7 +166,7 @@ fn schedule_readonly_actions_are_not_external_effect() {
     };
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.workspace_dir,
     ));
@@ -194,7 +194,7 @@ fn schedule_permission_level_is_read_only() {
     };
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.workspace_dir,
     ));
@@ -213,7 +213,7 @@ fn schedule_permission_level_with_args_is_args_aware() {
     };
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.workspace_dir,
     ));
@@ -258,7 +258,7 @@ fn schedule_unknown_action_treated_as_external_effect() {
     };
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.workspace_dir,
     ));

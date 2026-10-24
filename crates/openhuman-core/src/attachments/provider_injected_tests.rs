@@ -51,6 +51,7 @@ async fn configured_injected_builder_stages_and_resolves_in_explicit_acting_work
     let probe = Arc::new(probe);
     let agent = crate::agent::SessionHostBuilder::new()
         .chat_model_with_config(probe.clone(), Arc::new(config.clone()))
+        .model_name("fixture/injected".to_string())
         .action_dir(acting.clone())
         .tools(Vec::new())
         .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
@@ -102,6 +103,7 @@ async fn configured_injected_builder_stages_and_resolves_in_explicit_acting_work
 fn bare_injected_builder_does_not_load_operator_config() {
     let agent = crate::agent::SessionHostBuilder::new()
         .chat_model(Arc::new(Probe::default()))
+        .model_name("fixture/injected".to_string())
         .tools(Vec::new())
         .tool_dispatcher(Box::new(tinytools_agent::dialect::XmlDialect))
         .build()

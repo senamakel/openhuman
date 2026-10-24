@@ -12,7 +12,7 @@
 use std::sync::Arc;
 
 use crate::config::Config;
-use crate::inference::provider::{self, INFERENCE_BACKEND_ID};
+use crate::inference::provider::{self, factory::INFERENCE_BACKEND_ID};
 
 /// Workload role every triage arm runs under. Triage classification is a
 /// short chat-shaped call, so it follows the user's `chat` route.

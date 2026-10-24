@@ -155,7 +155,8 @@ pub(super) fn recent_decided(history: &LegacyHistory) -> Vec<&LegacyApproval> {
 }
 
 async fn read(config: Config) -> Result<Option<LegacyHistory>, EngineError> {
-    tokio::task::spawn_blocking(move || read_legacy(&config))
+    crate::core::runtime::DispatchCtx::ambient()
+        .spawn_blocking(move || read_legacy(&config))
         .await
         .map_err(|error| {
             EngineError::Unavailable(format!("the legacy read did not finish: {error}"))

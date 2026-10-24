@@ -242,8 +242,8 @@ impl RuntimeBuilder {
     ///
     /// For a host serving many users from one process out of its own
     /// database; pair it with [`Workspace::Stateless`] so nothing durable is
-    /// left on disk. [`InMemorySessionStores`](crate::InMemorySessionStores)
-    /// keeps everything in memory. It is process-wide, as the runtime is, and
+    /// left on disk. A provider from the `testkit` feature can keep everything
+    /// in memory. It is process-wide, as the runtime is, and
     /// is removed with the runtime.
     pub fn session_store(mut self, provider: Arc<dyn SessionStoreProvider>) -> Self {
         self.session_store = Some(provider);
@@ -256,7 +256,8 @@ impl RuntimeBuilder {
     /// [`CronDelivery::deliver`](crate::CronDelivery::deliver) with the agent
     /// id, the thread the job was created in and its
     /// [`JobOrigin`](crate::JobOrigin), instead of writing into a local thread
-    /// or channel; a run that answers `NO_REPLY`, or fails, is never delivered.
+    /// or channel. A failed run is never delivered, nor is `NO_REPLY` from a
+    /// job whose prompt allows it; any other job always delivers a message.
     /// Jobs still run only while their agent is live (the scheduler service
     /// must be on). It is process-wide, as the runtime is, and the core has no
     /// uninstall for it: it stays installed for the life of the process.

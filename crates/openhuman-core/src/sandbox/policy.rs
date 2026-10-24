@@ -84,7 +84,7 @@ pub fn spawn_policy(
 pub(crate) fn with_configured_backend(policy: &SandboxPolicy, config: &Config) -> SandboxPolicy {
     let mut policy = policy.clone();
     if policy.backend == SandboxBackendKind::None {
-        policy.backend = named_backend(&config.sandbox, &config.runtime, false);
+        policy.backend = named_backend(&config.security.sandbox, &config.runtime, false);
         if policy.backend == SandboxBackendKind::Docker {
             policy.mount_workspace =
                 config.runtime.docker.mount_workspace || config.runtime.kind != "docker";
@@ -105,7 +105,7 @@ pub(crate) fn command_policy(
     Ok(spawn_policy(
         action_dir,
         state_dir,
-        &config.sandbox,
+        &config.security.sandbox,
         &config.runtime,
         false,
     ))

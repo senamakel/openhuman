@@ -272,17 +272,16 @@ impl Middleware<(), crate::agent::tinyagents::host::OpenHumanRunContext>
                 .as_ref()
                 .filter(|_| !response.served_from_cache)
             {
-                let host_usage =
-                    crate::inference::provider::model::usage_info_from_response(response)
-                        .unwrap_or(
-                            crate::inference::provider::BilledUsage::from_counts(
-                                usage.input_tokens,
-                                usage.output_tokens,
-                            )
-                            .with_cached_input_tokens(usage.cache_read_tokens)
-                            .with_cache_creation_tokens(usage.cache_creation_tokens)
-                            .with_reasoning_tokens(usage.reasoning_tokens),
-                        );
+                let host_usage = tinyinference_llm::usage::usage_info_from_response(response)
+                    .unwrap_or(
+                        tinyinference_llm::usage::BilledUsage::from_counts(
+                            usage.input_tokens,
+                            usage.output_tokens,
+                        )
+                        .with_cached_input_tokens(usage.cache_read_tokens)
+                        .with_cache_creation_tokens(usage.cache_creation_tokens)
+                        .with_reasoning_tokens(usage.reasoning_tokens),
+                    );
                 // Use the host's per-call pricing helper whenever the provider
                 // omitted an authoritative amount. `route` is preferred over a
                 // construction-time model because it preserves fallback pricing.

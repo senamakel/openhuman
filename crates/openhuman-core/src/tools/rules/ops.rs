@@ -149,6 +149,7 @@ pub fn child_rule_policy(
     Some(Arc::new(ToolRulePolicy {
         rules: Arc::new(set),
         context,
+        permission_ceiling: parent.and_then(|parent| parent.permission_ceiling),
     }))
 }
 
@@ -184,5 +185,9 @@ impl crate::agent::tinyagents::host::OpenHumanRunContext {
 /// The harness policy for one turn: `rules` evaluated in `context`.
 #[must_use]
 pub fn turn_rule_policy(rules: Arc<ToolRuleSet>, context: RuleContext) -> ToolRulePolicy {
-    ToolRulePolicy { rules, context }
+    ToolRulePolicy {
+        rules,
+        context,
+        permission_ceiling: None,
+    }
 }

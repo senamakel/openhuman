@@ -57,6 +57,7 @@ async fn run_in(config: &Config, request: CommandRequest) -> Result<CommandOutpu
         stdin.len()
     );
     let result = untrusted::run(UntrustedShell {
+        dispatch_ctx: None,
         config,
         command: &command,
         cwd: &cwd,

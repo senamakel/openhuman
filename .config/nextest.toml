@@ -32,7 +32,7 @@ test-group = 'agent-harness-e2e'
 # RPC bootstrap writes a fixed temporary token path across processes. Retain
 # the original serial contract of both resource-sensitive integration suites.
 [[profile.ci.overrides]]
-filter = 'binary(/^json_rpc_e2e$/)'
+filter = 'binary(/^json_rpc_.*_e2e$/)'
 test-group = 'json-rpc-e2e'
 
 [[profile.ci.overrides]]

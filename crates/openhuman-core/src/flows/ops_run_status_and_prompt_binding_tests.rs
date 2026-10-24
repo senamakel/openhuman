@@ -133,6 +133,7 @@ fn agent_prompt_binding_unaffected() {
 /// tools in place so the turn still functions (never fail-closes).
 #[tokio::test]
 async fn flows_build_hides_the_live_run_tool_from_the_builder_belt() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
@@ -268,6 +269,7 @@ fn flows_build_hide_lists_have_the_expected_contents() {
 /// run — a product decision, deliberately not taken here.
 #[tokio::test]
 async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 
@@ -374,6 +376,7 @@ async fn flows_build_copilot_toolset_unhides_the_live_run_tools() {
 /// override needed (that function was deleted as part of #4868).
 #[tokio::test]
 async fn flows_build_applies_the_builder_definitions_effective_iteration_cap() {
+    crate::agent::session_host::test_support::install_model_fixture();
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
 

@@ -12,7 +12,6 @@ import {
 import { handleAuth } from "./routes/auth.mjs";
 import { handleAudio } from "./routes/audio.mjs";
 import { handleConversations } from "./routes/conversations.mjs";
-import { handleCron } from "./routes/cron.mjs";
 import { handleIntegrations } from "./routes/integrations.mjs";
 import { handleInvites } from "./routes/invites.mjs";
 import { handleLlmCompletions, handleModelListing } from "./routes/llm.mjs";
@@ -20,7 +19,6 @@ import { handleMedia } from "./routes/media.mjs";
 import { handleMemory } from "./routes/memory.mjs";
 import { handleOAuth } from "./routes/oauth.mjs";
 import { handlePayments } from "./routes/payments.mjs";
-import { handleTelegram } from "./routes/telegram.mjs";
 import { handleUser } from "./routes/user.mjs";
 import { handleVersion } from "./routes/version.mjs";
 import { handleWebhooks } from "./routes/webhooks.mjs";
@@ -42,9 +40,6 @@ let server = null;
 // Order matters: admin & socket.io short-circuit early; the rest fall through
 // in domain order so the cheapest predicates run first.
 const ROUTE_HANDLERS = [
-  // Telegram Bot API paths start with /bot<token>/… — check before the
-  // general-purpose handlers so the distinctive prefix routes cleanly.
-  handleTelegram,
   handleYuanbao,
   handleOAuth,
   handleAuth,
@@ -63,7 +58,6 @@ const ROUTE_HANDLERS = [
   handleMemory,
   handleIntegrations,
   handleWebhooks,
-  handleCron,
   handleConversations,
   handleVersion,
 ];

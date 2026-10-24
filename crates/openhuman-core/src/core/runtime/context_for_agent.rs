@@ -41,6 +41,7 @@ impl CoreContext {
             channel_thread: self.channel_thread.clone(),
             session_agent: Some(agent.to_string()),
             profile: self.profile.clone(),
+            profile_admission: Arc::clone(&self.profile_admission),
             agent: parts,
             bare: self.bare,
         })

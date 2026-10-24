@@ -2,6 +2,8 @@
 //! OpenAI OAuth fallback and the scoped legacy `config.api_key` fallback.
 
 use super::*;
+use crate::config::ops::legacy_inference_slug;
+use crate::security::credentials::AuthService;
 
 type ReadOnlyProfileCredential = (
     String,
@@ -200,6 +202,18 @@ pub fn auth_key_for_slug(slug: &str) -> String {
     format!("provider:{slug}")
 }
 
+/// Redact a configured endpoint to its origin for host diagnostics.
+///
+/// TinyInference's sanitizer keeps URL paths for routing diagnostics, while
+/// OpenHuman endpoints may carry credentials in path segments. Keep this host
+/// log policy origin-only and never fall back to the unparsed input.
+pub(crate) fn redact_endpoint_origin(endpoint: &str) -> String {
+    let Ok(url) = reqwest::Url::parse(endpoint.trim()) else {
+        return "<endpoint>".to_string();
+    };
+    tinyinference_core::sanitize::redact_url(&url.origin().ascii_serialization())
+}
+
 /// Whether the openai bearer that [`lookup_key_for_slug`] resolves is an OAuth
 /// (Codex-subscription) credential rather than a standard API key.
 ///
@@ -240,6 +254,50 @@ pub(crate) fn openai_bearer_is_oauth(config: &Config) -> bool {
         .ok()
         .flatten()
         .is_some()
+}
+
+/// Resolve host-selected Codex OAuth metadata through TinyInference's shared
+/// routing decision while preserving the configured endpoint for standard
+/// requests.
+pub(crate) fn resolve_codex_routing(
+    config: &Config,
+    slug: &str,
+    endpoint: &str,
+    bearer_key: &str,
+    bearer_is_oauth: bool,
+) -> std::result::Result<tinyinference_llm::providers::openai::codex::OpenAiCodexRouting, String> {
+    let credentials = if slug == "openai" {
+        match crate::security::credentials::openai_oauth::lookup_openai_oauth_credentials(config) {
+            Ok(credentials) => credentials,
+            Err(error) if !bearer_key.trim().is_empty() => {
+                log::warn!(
+                    "[providers][openai-codex] oauth metadata unavailable; continuing with standard bearer key: {error}"
+                );
+                None
+            }
+            Err(error) => {
+                return Err(format!(
+                    "[chat-factory] openai oauth lookup failed: {error}"
+                ));
+            }
+        }
+    } else {
+        None
+    };
+    let use_oauth = bearer_is_oauth && credentials.is_some();
+    let account_id = credentials
+        .filter(|_| use_oauth)
+        .and_then(|credentials| credentials.account_id);
+    let mut route = tinyinference_llm::providers::openai::codex::resolve_codex_routing(
+        slug,
+        endpoint,
+        use_oauth,
+        account_id.as_deref(),
+    );
+    if !route.using_oauth {
+        route.endpoint = endpoint.to_string();
+    }
+    Ok(route)
 }
 
 /// Fetch the bearer token for a slug from the workspace `auth-profiles.json`.

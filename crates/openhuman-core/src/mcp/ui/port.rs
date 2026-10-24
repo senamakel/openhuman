@@ -138,6 +138,10 @@ impl UiServerPort for HostUiPort {
             .iter()
             .find(|remote| remote.name == tool)
             .and_then(|remote| remote.meta.clone());
+        let annotations = listed
+            .iter()
+            .find(|remote| remote.name == tool)
+            .and_then(|remote| remote.annotations.clone());
         let safe = crate::mcp::registry::tools_safe_for_agent(
             server_id,
             listed
@@ -152,10 +156,7 @@ impl UiServerPort for HostUiPort {
         )
         .await;
         safe.iter().find(|candidate| candidate.name == tool)?;
-        Some(UiToolDescriptor {
-            meta,
-            annotations: None,
-        })
+        Some(UiToolDescriptor { meta, annotations })
     }
 
     async fn read_resource(&self, server_id: &str, uri: &str) -> Result<Vec<Value>, String> {

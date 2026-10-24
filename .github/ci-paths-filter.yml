@@ -27,6 +27,9 @@ frontend:
   # job exists to check them, so a PR that touches only a spec has to
   # match this filter or the job skips and the check reads as green.
   - 'app/test/**'
+  # The skip policy checker is part of browser-test validation; changing it
+  # must also arm the frontend lane that invokes it.
+  - 'scripts/ci/check-browser-test-skips.mjs'
   - 'app/tsconfig*.json'
   - 'app/vite.config.*'
   - 'app/tailwind.config.*'
@@ -154,6 +157,7 @@ scripts:
   - 'scripts/ci/nextest-coverage.sh'
   - 'scripts/ci/nextest-report.mjs'
   - 'scripts/ci/check-module-boundaries.mjs'
+  - 'scripts/ci/check-browser-test-skips.mjs'
   - 'scripts/ci/module-boundaries.json'
   - 'scripts/ci/check-storage-bypass.mjs'
   - 'scripts/ci/storage-bypass-debt.mjs'
@@ -186,6 +190,10 @@ scripts:
   - 'app/scripts/e2e-ports.sh'
   - 'app/scripts/e2e-web-build.sh'
   - 'app/scripts/e2e-web-session.sh'
+  # The native E2E runners, whose schedule and shard lists
+  # scripts/__tests__/e2e-run-shards.test.mjs cross-checks.
+  - 'app/scripts/e2e-run-all-flows.sh'
+  - 'app/scripts/e2e-run-shards.sh'
   # Shared logic behind the gate CLIs, and the module-pin gate's own
   # files. Without these a change to the checking logic would skip
   # the lane that tests it — the gate would stop watching itself.

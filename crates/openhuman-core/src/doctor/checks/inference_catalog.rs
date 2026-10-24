@@ -14,7 +14,7 @@ use crate::doctor::{
     core::{ModelProbeEntry, ModelProbeOutcome, ModelProbeReport, ModelProbeSummary},
 };
 use crate::inference::registry::{
-    inspection_catalog, CatalogRequest, InspectionCatalogError, PreparedInspectionCatalog,
+    inspection_catalog, InspectionCatalogError, InspectionCatalogRequest, PreparedInspectionCatalog,
 };
 
 const CACHE_TTL: Duration = Duration::from_secs(60);
@@ -105,7 +105,7 @@ async fn prepare(
         );
         return listing(
             config.clone(),
-            CatalogRequest {
+            InspectionCatalogRequest {
                 provider_key: String::new(),
                 client,
             },

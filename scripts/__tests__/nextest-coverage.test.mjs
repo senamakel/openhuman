@@ -65,7 +65,7 @@ test("nextest serialization retains JSON-RPC and multi-server suites", () => {
     path.join(root, ".config/nextest.toml"),
     "utf8",
   );
-  assert.match(config, /binary\(\/\^json_rpc_e2e\$\/\)/);
+  assert.match(config, /binary\(\/\^json_rpc_\.\*_e2e\$\/\)/);
   assert.match(config, /binary\(\/\^mcp_registry_multi_server\$\/\)/);
 });
 
@@ -122,7 +122,7 @@ if (args[0] === 'metadata') {
     );
     for (const targets of [
       [],
-      ["agent_harness_e2e", "json_rpc_e2e", "mcp_registry_multi_server"],
+      ["agent_harness_e2e", "json_rpc_threads_e2e", "mcp_registry_multi_server"],
     ]) {
       execFileSync(
         "bash",
@@ -159,10 +159,10 @@ if (args[0] === 'metadata') {
 
 test("storage coverage fails when one expected target is absent despite another running", () => {
   const xml =
-    '<testsuites><testsuite name="openhuman-cli::storage_approvals_e2e" tests="3"/></testsuites>';
-  assert.equal(report(xml, ["storage_approvals_e2e"]).status, 0);
+    '<testsuites><testsuite name="openhuman-cli::storage_default_import_e2e" tests="2"/></testsuites>';
+  assert.equal(report(xml, ["storage_default_import_e2e"]).status, 0);
   assert.equal(
-    report(xml, ["storage_approvals_e2e", "storage_domains_e2e"]).status,
+    report(xml, ["storage_default_import_e2e", "storage_domains_e2e"]).status,
     1,
   );
 });

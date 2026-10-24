@@ -9,11 +9,10 @@
 //!
 //! [`PromptScanner`] is the seam. Production asks the module
 //! ([`super::module_scanner`]); a build without the module asks nothing and holds
-//! everything; a test installs a stub with [`with_scanner`] (task scope) or
-//! [`install`] (process), so no production path branches on `cfg(test)`.
+//! everything; tests use a task-scoped stub without task-local state in the
+//! production scanner.
 
-use std::future::Future;
-use std::sync::{Arc, RwLock};
+use std::sync::Arc;
 use std::time::Duration;
 
 use async_trait::async_trait;
@@ -112,40 +111,11 @@ pub const CALL_DEADLINE: Duration = Duration::from_secs(2);
 /// How long the whole screen of one text may take before it is held.
 pub const TOTAL_DEADLINE: Duration = Duration::from_secs(10);
 
-tokio::task_local! {
-    static SCOPED: Arc<dyn PromptScanner>;
-}
-
-fn installed() -> &'static RwLock<Option<Arc<dyn PromptScanner>>> {
-    static INSTALLED: std::sync::OnceLock<RwLock<Option<Arc<dyn PromptScanner>>>> =
-        std::sync::OnceLock::new();
-    INSTALLED.get_or_init(|| RwLock::new(None))
-}
-
-/// Replace the process's scanner. A host that boots its own never needs this; it
-/// is the seam a suite without the module uses.
-pub fn install(scanner: Arc<dyn PromptScanner>) {
-    *installed()
-        .write()
-        .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(scanner);
-}
-
-/// Run `future` with `scanner` answering every screen inside it.
-pub async fn with_scanner<F: Future>(scanner: Arc<dyn PromptScanner>, future: F) -> F::Output {
-    SCOPED.scope(scanner, future).await
-}
-
-/// The scanner in force: the task's, then the process's, then the module's.
+/// The production scanner is always the TinySecurity module.
 pub(super) fn current() -> Arc<dyn PromptScanner> {
-    if let Ok(scoped) = SCOPED.try_with(Arc::clone) {
-        return scoped;
-    }
-    if let Some(installed) = installed()
-        .read()
-        .unwrap_or_else(std::sync::PoisonError::into_inner)
-        .clone()
-    {
-        return installed;
+    #[cfg(test)]
+    if let Some(scanner) = tests::current_scoped() {
+        return scanner;
     }
     super::module_scanner::production()
 }
@@ -247,4 +217,4 @@ pub async fn screen_tool_definition(
 
 #[cfg(test)]
 #[path = "scanner_tests.rs"]
-mod tests;
+pub(crate) mod tests;

@@ -63,7 +63,7 @@ async fn insecure_transport_refusal_redacts_url() {
         "raw path leaked into refusal error: {err}"
     );
     assert!(
-        err.contains("http://192.168.1.74:7788/"),
-        "redacted host should remain for diagnostics: {err}"
+        !err.contains("192.168.1.74"),
+        "module-unavailable redaction must suppress the host too: {err}"
     );
 }

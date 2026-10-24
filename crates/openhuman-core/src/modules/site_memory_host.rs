@@ -74,7 +74,7 @@ impl SiteStore {
         let kv = crate::storage::state_kv::StateKv::open(workspace, "computer", "site_memory")
             .map_err(storage_error)?;
         let legacy = sites_dir(workspace);
-        kv.import_once("sites_dir", || import_legacy(&kv, &legacy))
+        kv.import_once("sites_dir", |_| import_legacy(&kv, &legacy))
             .map_err(storage_error)?;
         Ok(Self { kv })
     }

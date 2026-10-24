@@ -41,7 +41,7 @@ pub(crate) trait FlowCallPolicy: Send + Sync {
         captured: &Config,
         live: &Config,
         security: &SecurityPolicy,
-        class: tinysecurity_bus::CommandClass,
+        class: crate::security::policy::CommandClass,
     ) -> Result<GateDecision, String>;
     async fn approve(
         &self,

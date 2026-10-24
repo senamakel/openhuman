@@ -52,6 +52,7 @@ pub const USER_METHODS: &[&str] = &[
     "openhuman.threads_transcript_get",
     "openhuman.threads_goal_get",
     "openhuman.threads_todos_get",
+    "openhuman.threads_state_get",
     // Turns on a user's own threads. Their events carry the user's agent and
     // reach only that user's `/events` stream.
     "openhuman.threads_generate_title",

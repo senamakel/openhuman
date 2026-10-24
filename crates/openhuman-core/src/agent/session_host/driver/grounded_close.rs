@@ -17,13 +17,14 @@ use tinyagents_harness::middleware::wrap_harness_instruction;
 
 use crate::agent::{
     session_host::turn_checkpoint::{
-        self, build_deterministic_checkpoint, build_deterministic_final_summary,
+        self, build_deterministic_checkpoint, build_deterministic_final_summary_with_cause,
         close_verification_prompt, final_answer_instruction, harness_instruction_needles,
         render_tool_results, results_from_tool_outcomes,
     },
     tinyagents::{SupplementalTrace, TinyagentsTurnOutcome, TurnModelSource},
 };
-use crate::inference::provider::{BilledUsage, AGENT_TURN_MAX_OUTPUT_TOKENS};
+use tinyagents_harness::turn_policy::AGENT_TURN_MAX_OUTPUT_TOKENS;
+use tinyinference_llm::usage::BilledUsage;
 
 /// Accounting from model calls performed after the harness loop has ended.
 #[derive(Default)]
@@ -85,7 +86,7 @@ impl RepairUsage {
         trace: Option<&SupplementalTrace>,
     ) {
         self.record(
-            response.and_then(crate::inference::provider::model::usage_info_from_response),
+            response.and_then(tinyinference_llm::usage::usage_info_from_response),
             kind != tinyagents_harness::close::CloseRequestKind::Verification,
             trace,
         );
@@ -239,13 +240,17 @@ pub(super) struct GroundedClose {
 /// Keeping this separate from the model-driven repair path guarantees zero
 /// additional provider calls once its recovery budget is exhausted.
 fn classified_halt_close(outcome: &TinyagentsTurnOutcome) -> Option<GroundedClose> {
-    let reason = outcome.breaker_halt.as_deref()?;
-    if !reason.starts_with("Stopping after ") {
+    let reason = outcome.breaker_halt.as_deref().unwrap_or_default();
+    if outcome.failure_cause.is_none() && !reason.starts_with("Stopping after ") {
         return None;
     }
     let records = results_from_tool_outcomes(&outcome.tool_outcomes);
     Some(GroundedClose {
-        output: build_deterministic_final_summary(&records, Some(reason)),
+        output: build_deterministic_final_summary_with_cause(
+            &records,
+            Some(reason),
+            outcome.failure_cause.as_ref(),
+        ),
         usage: RepairUsage::default(),
     })
 }
@@ -381,7 +386,9 @@ pub(super) async fn close_if_needed(
     trace: Option<&Arc<SupplementalTrace>>,
 ) -> Option<GroundedClose> {
     let needs_cap_close = outcome.hit_cap && !outcome.wrap_up_injected;
-    let needs_final_close = outcome.text.trim().is_empty() || outcome.breaker_halt.is_some();
+    let needs_final_close = outcome.text.trim().is_empty()
+        || outcome.breaker_halt.is_some()
+        || outcome.failure_cause.is_some();
     if !needs_cap_close && !needs_final_close {
         return None;
     }
@@ -404,7 +411,11 @@ pub(super) async fn close_if_needed(
         if needs_cap_close {
             build_deterministic_checkpoint(&records, outcome.model_calls)
         } else {
-            build_deterministic_final_summary(&records, stop_reason)
+            build_deterministic_final_summary_with_cause(
+                &records,
+                stop_reason,
+                outcome.failure_cause.as_ref(),
+            )
         }
     };
 

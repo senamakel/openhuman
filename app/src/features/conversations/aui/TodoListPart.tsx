@@ -81,7 +81,9 @@ interface TodoToolArgs {
 export const TodoListPart: ToolCallMessagePartComponent = ({ args, result, toolCallId }) => {
   const { t } = useT();
   const [open, setOpen] = useDisclosure(toolCallId ? `todo:${toolCallId}` : undefined, false);
-  const payload = (result ?? args) as TodoToolArgs | undefined;
+  const resultPayload = result as TodoToolArgs | undefined;
+  const argsPayload = args as TodoToolArgs | undefined;
+  const payload = Array.isArray(resultPayload?.todos) ? resultPayload : argsPayload;
   const items = toAuiTodoItems(payload?.todos);
   if (items.length === 0) return null;
   const progress = todoProgress(items);

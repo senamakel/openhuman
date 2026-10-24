@@ -59,9 +59,9 @@ Namespace `approval` (registered via `all_approval_registered_controllers`, cons
 | `approval.decide` | `request_id: string`, `decision: string` (`approve_once` / `approve_always_for_tool` / `approve_always_for_flow` / `deny`) | `decided: PendingApproval` |
 | `approval.preauthorize_flow` | `flow_id: string`, `tool_names: string[]` | `result: FlowPreauthorizationResult` (idempotent flow-scoped trust grants; succeeds with `gate_installed=false` when the gate is off) |
 
-`list_pending` / `list_recent_decisions` return empty (not an error) when the gate is not installed; `decide` errors when the gate is absent or the `request_id` is unknown/already decided. `list_pending` lists the requests parked in this process; `list_recent_decisions` is the module's decided rows plus the history older installs wrote.
+`list_pending` / `list_recent_decisions` / `list_tool_trust` return empty (not an error) when the gate is not installed; `decide` and `revoke_tool_trust` error when the gate is absent. `list_pending` lists the requests parked in this process; `list_recent_decisions` is the module's decided rows plus the history older installs wrote. Tool-grant revocation uses TinySecurity's opaque durable row id and is tenant-scoped; the caller cannot name another tenant's scope or tool.
 
-Whole-tool grants can be listed and revoked through the core approval JSON-RPC controllers. The current UI does not yet expose grant management; that frontend follow-up remains open.
+Whole-tool grants can be listed and revoked through the core approval JSON-RPC controllers and the Security settings panel. The approval history panel also displays Jev verdict evidence when present.
 
 ## Agent tools
 
@@ -125,7 +125,7 @@ The module's rows live in the document store of the current call's storage scope
 - **Orphan requests are not resumable** (see Persistence). The old gate kept them to show and dismiss; the module's engine refuses to resume another instance's request, so the gate does not list them.
 - **`approve_always_for_tool` persistence is the RPC handler's job**, not the gate's: `gate.decide` releases this call first; `rpc::approval_decide` then calls TinySecurity `GrantTool2` for the parked request's exact scope. A failed write warns and later calls prompt again. The module owns the durable grant and applies it on the next check.
 - `OPENHUMAN_APPROVAL_GATE=0`/`false` skips installing the gate for CLI, Docker, and library hosts only (`approval_gate_boot_decision` in `crates/openhuman-core/src/core/types.rs`, applied in `core/runtime/bootstrap.rs`); the Tauri shell always installs it and ignores the override. Where honored, `Prompt`-class calls run unprompted.
-- **A disabled autonomy policy parks nothing.** With `[autonomy] enabled = false` (the shipped default, see `security/README.md`) the module's class gate (`SecurityPolicy::command_class_gate`) answers `Allow` for every class, so the acting tools' `external_effect_with_args` (which asks for `GateDecision::Prompt`) is `false` and the gate is never reached. The gate is still installed and still works the moment the policy is turned on; nothing here is special-cased on the flag.
+- **A disabled autonomy policy parks nothing.** With `[security.autonomy] enabled = false` (the shipped default, see `security/README.md`) the module's class gate (`SecurityPolicy::command_class_gate`) answers `Allow` for every class, so the acting tools' `external_effect_with_args` (which asks for `GateDecision::Prompt`) is `false` and the gate is never reached. The gate is still installed and still works the moment the policy is turned on; nothing here is special-cased on the flag.
 - A tool name the module reserves (its own effect classes, the human-only tools, `native_*`) cannot be gated as a host tool and is refused rather than approved.
 
 ## Tests

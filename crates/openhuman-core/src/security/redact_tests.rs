@@ -81,7 +81,7 @@ fn corpus(name: &str) -> serde_json::Value {
 /// forms are the ones the removed host helpers produced.
 #[cfg(feature = "security-module")]
 #[test]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 fn endpoint_helpers_match_the_url_corpus_on_the_released_archive() {
     shared_runtime().block_on(async {
         let (_dir, config) = released_config();
@@ -117,6 +117,10 @@ fn endpoint_helpers_match_the_url_corpus_on_the_released_archive() {
             endpoint_origin("http://example.com:8080/path?token=secret"),
             "http://example.com:8080"
         );
+        assert_eq!(
+            endpoint("https://user:pass@example.com/v1/skills?apiKey=123#private"),
+            "https://example.com/v1/skills"
+        );
     });
 }
 
@@ -124,7 +128,7 @@ fn endpoint_helpers_match_the_url_corpus_on_the_released_archive() {
 /// keeps ordinary text, from a plain thread and from a runtime worker.
 #[cfg(feature = "security-module")]
 #[test]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 fn text_helper_redacts_the_text_corpus_on_the_released_archive() {
     shared_runtime().block_on(async {
         let (_dir, config) = released_config();
@@ -161,7 +165,7 @@ fn text_helper_redacts_the_text_corpus_on_the_released_archive() {
 /// card with an issuer prefix does not.
 #[cfg(feature = "security-module")]
 #[test]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 fn text_helper_keeps_timestamps_and_removes_corroborated_cards() {
     shared_runtime().block_on(async {
         let (_dir, config) = released_config();
@@ -173,22 +177,15 @@ fn text_helper_keeps_timestamps_and_removes_corroborated_cards() {
 }
 
 #[test]
-fn text_falls_back_to_the_floor_never_the_original_or_a_blank() {
-    let out = answer_or_floor(
-        None,
-        "retry failed: Authorization: Bearer abcdefghijklmnop\nok",
-    );
-    assert!(!out.contains("abcdefghijklmnop"), "{out}");
-    assert!(
-        out.starts_with("retry failed:") && out.ends_with("\nok"),
-        "{out}"
-    );
+fn text_suppresses_the_whole_value_when_module_cannot_answer() {
+    let out = answer_or_suppress(None);
+    assert_eq!(out, crate::core::log_redaction::SUPPRESSED);
 }
 
 #[test]
 fn text_prefers_the_module_answer() {
     assert_eq!(
-        answer_or_floor(Some("module said".into()), "raw"),
+        answer_or_suppress(Some("module said".into())),
         "module said"
     );
 }
@@ -198,7 +195,7 @@ fn text_prefers_the_module_answer() {
 /// body unchanged, and the halt-summary error line loses the secret.
 #[cfg(feature = "security-module")]
 #[test]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 fn moved_text_callers_redact_through_the_released_archive() {
     shared_runtime().block_on(async {
         use tinyagents_harness::artifacts::ArtifactRedactor;
@@ -224,6 +221,16 @@ fn moved_text_callers_redact_through_the_released_archive() {
         let line = crate::agent::session_host::stop_summary::short_error_line(&failure);
         assert!(!line.contains("abcdefghijklmnopqrstuvwxyz"), "{line}");
         assert!(line.contains("request failed"), "{line}");
+
+        let home = dirs::home_dir().expect("home dir resolvable in native test");
+        let path = home.join("OpenHuman").join("projects");
+        let redacted = crate::config::redact_home(&path);
+        assert!(redacted.starts_with("~/"), "{redacted}");
+        assert!(
+            !redacted.contains(&*home.to_string_lossy()),
+            "home path leaked: {redacted}"
+        );
+        assert!(redacted.contains("OpenHuman/projects"), "{redacted}");
     });
 }
 
@@ -287,7 +294,7 @@ fn arguments_without_an_armed_module_never_return_the_original() {
 /// so this is pinned on the released archive rather than assumed.
 #[cfg(feature = "security-module")]
 #[test]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 fn whole_url_log_fields_lose_their_credentials_with_the_module_armed() {
     shared_runtime().block_on(async {
         let (_dir, config) = released_config();
@@ -346,14 +353,10 @@ fn credentials_fail_when_any_chunk_cannot_be_answered() {
     assert!(out.is_none());
 }
 
-/// With no module serving (this unit-test process never arms the bridge), a
-/// tool result is answered by the floor scrub: a credential goes, ordinary text
-/// stays, and the original secret is never returned.
+/// Tool results are withheld when TinySecurity is not built: the diagnostic
+/// floor is not the authority for model-visible tool output.
+#[cfg(not(feature = "security-module"))]
 #[test]
-fn credentials_without_a_serving_module_use_the_floor_never_the_original() {
-    // Built at runtime so no credential-shaped literal sits in the source.
-    let key = format!("{}-{}", "sk", "abcdefghijklmnopqrstuvwxyz123456");
-    let out = credentials(&format!("deploy with api_key={key} now")).unwrap();
-    assert!(!out.contains(&key), "{out}");
-    assert_eq!(credentials("hello world").unwrap(), "hello world");
+fn credentials_without_security_module_withholds_tool_results() {
+    assert_eq!(credentials("hello world"), None);
 }

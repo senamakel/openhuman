@@ -142,3 +142,54 @@ async fn announce_success_is_reported_and_uses_a_run_idempotency_key() {
         vec![("target".into(), Some(format!("cron:{}:run-3", job.id)))]
     );
 }
+
+fn agent_announce_job(channel: String, prompt: &str) -> CronJob {
+    let mut job = test_job("");
+    job.job_type = JobType::Agent;
+    job.prompt = Some(prompt.into());
+    job.delivery = DeliveryConfig {
+        mode: "announce".into(),
+        channel: Some(channel),
+        to: Some("target".into()),
+        best_effort: false,
+    };
+    job
+}
+
+#[tokio::test]
+async fn announce_skips_an_allowed_no_reply_and_never_sends_the_token() {
+    let _bridge_lock = crate::cron::channel_bridge::TEST_BRIDGE_LOCK.lock().await;
+    let tmp = TempDir::new().unwrap();
+    let config = test_config(&tmp).await;
+    let channel = format!("quiet-{}", uuid::Uuid::new_v4());
+    let sends = install_mock_channel(channel.clone(), false);
+
+    let conditional = agent_announce_job(channel.clone(), "Report changes, otherwise NO_REPLY");
+    let status = deliver_run(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &conditional,
+        "run-4",
+        "NO_REPLY",
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!(status, DeliveryStatus::Suppressed);
+    assert!(sends.lock().unwrap().is_empty());
+    assert_eq!(cron_alerts(&config).await, 0);
+
+    let reminder = agent_announce_job(channel, "Remind the user to stretch");
+    let status = deliver_run(
+        &crate::core::runtime::DispatchCtx::ambient(),
+        &config,
+        &reminder,
+        "run-5",
+        "No_reply.",
+        true,
+    )
+    .await
+    .unwrap();
+    assert_eq!(status, DeliveryStatus::Delivered);
+    assert_eq!(sends.lock().unwrap().len(), 1);
+}

@@ -42,7 +42,7 @@ pub(crate) use native::{NativeToolBackend, NATIVE_TOOL_PREFIX};
 
 pub(crate) async fn classify_composio_action_for_tier(
     slug: &str,
-) -> tinysecurity_bus::CommandClass {
+) -> crate::security::policy::CommandClass {
     crate::integrations::composio::flow_gate::classify_composio_action_for_tier(slug)
 }
 

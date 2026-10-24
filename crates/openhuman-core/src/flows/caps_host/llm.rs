@@ -12,14 +12,17 @@ use serde_json::{json, Value};
 use super::prompt::build_completion_messages;
 use super::*;
 use crate::config::Config;
-use crate::inference::provider::{
-    create_chat_model_with_model_id_in, is_raw_passthrough_model, role_for_model_tier,
-};
+use crate::inference::provider::create_chat_model_with_model_id_in;
 use crate::modules::tinyflows as module;
 use tinyinference_llm::model::ModelRequest;
 
 pub(crate) fn resolve_host_model(node_model: Option<&str>, provider_model: String) -> String {
-    match node_model.filter(|model| is_raw_passthrough_model(model)) {
+    match node_model.filter(|model| {
+        crate::inference::provider_model::is_raw_model(
+            crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+            model,
+        )
+    }) {
         Some(model) => model.to_owned(),
         None => provider_model,
     }
@@ -85,7 +88,10 @@ impl OpenHumanLlm {
             .filter(|s| !s.is_empty());
         let role = match node_model {
             Some(model) => {
-                let mapped = role_for_model_tier(model);
+                let mapped = crate::inference::provider_model::role_for_provider_model(
+                    crate::inference::provider::factory::PROVIDER_OPENHUMAN,
+                    model,
+                );
                 tracing::debug!(
                     target: "flows",
                     node_model = model,

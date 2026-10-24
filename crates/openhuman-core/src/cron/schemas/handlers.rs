@@ -82,7 +82,7 @@ pub(super) fn handle_add(ctx: DispatchCtx, params: Map<String, Value>) -> Contro
             "shell" => {
                 let cmd = command.ok_or("'command' is required for shell jobs")?;
                 let security = crate::security::SecurityPolicy::from_config(
-                    &config.autonomy,
+                    &config.security.autonomy,
                     &config.workspace_dir,
                     &config.action_dir,
                 );

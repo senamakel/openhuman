@@ -281,7 +281,16 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
             Some(route.base_url.clone()),
             Some(route.api_key.clone()),
         )
-        .map(|scoped| scoped.with_headers(route.headers.clone()))
+        .map(|scoped| {
+            scoped
+                .with_headers(route.headers.clone())
+                .with_provider_options(route.provider_options.clone())
+                .with_reasoning_effort(
+                    route
+                        .reasoning_effort
+                        .map(|effort| effort.as_str().to_string()),
+                )
+        })
     });
     let mut overrides = openhuman_core::agent::host_overrides::HostOverrides::default();
     overrides.parent = runtime.core_runtime().context().host_overrides();
@@ -311,7 +320,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         profile: None,
         agent_policy: Some(std::sync::Arc::new(
             openhuman_core::security::SecurityPolicy::from_full_config(&config)
-                .with_privacy_mode(config.privacy.mode),
+                .with_privacy_mode(config.security.privacy.mode),
         )),
         autonomy_tier_source: Some(openhuman_core::core::runtime::AutonomyTierSource::Captured),
         autonomy_tier_ceiling: host_only
@@ -341,7 +350,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         provider.is_routed(),
         access.turn_origin().is_some(),
         include_user_skills,
-        config.autonomy.level,
+        config.security.autonomy.level,
         access.approval_gate_enabled()
     );
 

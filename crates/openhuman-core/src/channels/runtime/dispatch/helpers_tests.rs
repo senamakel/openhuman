@@ -13,9 +13,17 @@ impl crate::channels::Channel for DeferredTyping {
     fn name(&self) -> &str {
         "fixture"
     }
-    async fn send(&self, _: &crate::channels::SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy send trait method"
+    )]
+    async fn send(&self, _: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
         Ok(())
     }
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy listener trait method"
+    )]
     async fn listen(
         &self,
         _: tokio::sync::mpsc::Sender<traits::ChannelMessage>,
@@ -69,9 +77,17 @@ impl crate::channels::Channel for ProbeTyping {
     fn name(&self) -> &str {
         "probe"
     }
-    async fn send(&self, _: &crate::channels::SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy send trait method"
+    )]
+    async fn send(&self, _: &tinychannels_bus::SendMessage) -> anyhow::Result<()> {
         Ok(())
     }
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy listener trait method"
+    )]
     async fn listen(
         &self,
         _: tokio::sync::mpsc::Sender<traits::ChannelMessage>,

@@ -13,9 +13,7 @@ pub(super) fn is_safe_socket_endpoint(endpoint: &str) -> bool {
             if url.set_scheme("http").is_err() {
                 return false;
             }
-            crate::inference::provider::openhuman_backend_model::is_safe_endpoint_for_managed_bearer(
-                url.as_str(),
-            )
+            crate::security::transport::is_safe_endpoint_for_bearer(url.as_str())
         }
         _ => false,
     }

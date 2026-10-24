@@ -1,9 +1,9 @@
 use super::super::tier::tier_policy_from_config;
 use super::*;
+use crate::security::policy::CommandClass;
 use crate::security::GateDecision;
 use serde_json::json;
 use std::sync::Arc;
-use tinysecurity_bus::CommandClass;
 
 fn live_tier_context(config: &Config) -> crate::core::runtime::DispatchCtx {
     let parent = crate::core::runtime::CoreContext::for_test(
@@ -27,8 +27,8 @@ fn persisted_tier_config(
     config.config_path = dir.join("config.toml");
     config.workspace_dir = dir.join("workspace");
     config.action_dir = dir.join("action");
-    config.autonomy.enabled = enabled;
-    config.autonomy.level = level;
+    config.security.autonomy.enabled = enabled;
+    config.security.autonomy.level = level;
     config
 }
 
@@ -40,7 +40,7 @@ async fn save_tier_config(config: &Config) {
 
 fn tiered_policy(config: &Config) -> crate::security::SecurityPolicy {
     crate::security::SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.action_dir,
     )
@@ -114,7 +114,7 @@ async fn one_live_capability_observes_full_readonly_full_updates() {
         has_issue48_workflow_origin(&ctx),
         "refreshing the policy must retain the dispatch's workflow origin"
     );
-    config.autonomy.level = AutonomyLevel::ReadOnly;
+    config.security.autonomy.level = AutonomyLevel::ReadOnly;
     save_tier_config(&config).await;
     assert!(
         enforce_current_node_tier_gate(&ctx, &config, &baseline, CommandClass::Write, "code")
@@ -122,7 +122,7 @@ async fn one_live_capability_observes_full_readonly_full_updates() {
             .is_err()
     );
 
-    config.autonomy.level = AutonomyLevel::Full;
+    config.security.autonomy.level = AutonomyLevel::Full;
     save_tier_config(&config).await;
     assert_eq!(
         enforce_current_node_tier_gate(&ctx, &config, &baseline, CommandClass::Write, "code")
@@ -186,7 +186,7 @@ async fn captured_agent_and_config_fn_tiers_are_not_replaced_by_parent_file() {
     let mut captured = parent_file.clone();
     // This is the effective autonomy after AgentSpec's config_fn escape hatch;
     // embed construction marks that final in-memory config as Captured.
-    captured.autonomy.level = AutonomyLevel::ReadOnly;
+    captured.security.autonomy.level = AutonomyLevel::ReadOnly;
     let parent = crate::core::runtime::CoreContext::for_test(
         crate::core::runtime::DomainSet::full(),
         Some(captured.workspace_dir.clone()),
@@ -211,8 +211,8 @@ async fn captured_agent_and_config_fn_tiers_are_not_replaced_by_parent_file() {
     .is_err());
 
     // A fixed ceiling contributes independently of a disabled file tier.
-    parent_file.autonomy.enabled = false;
-    parent_file.autonomy.level = AutonomyLevel::ReadOnly;
+    parent_file.security.autonomy.enabled = false;
+    parent_file.security.autonomy.level = AutonomyLevel::ReadOnly;
     let mut capped_overlay = crate::core::runtime::ContextOverlay::new(
         captured.clone(),
         crate::core::runtime::DomainSet::full(),
@@ -244,7 +244,7 @@ async fn captured_agent_and_config_fn_tiers_are_not_replaced_by_parent_file() {
         "a disabled file tier must not contribute its stale ReadOnly level"
     );
 
-    parent_file.autonomy.level = AutonomyLevel::Full;
+    parent_file.security.autonomy.level = AutonomyLevel::Full;
     let mut host_only_overlay = crate::core::runtime::ContextOverlay::new(
         captured.clone(),
         crate::core::runtime::DomainSet::full(),
@@ -278,7 +278,7 @@ async fn code_adapter_observes_file_backed_tier_changes_between_calls() {
         "blocks code staging after the tier gate",
     )
     .unwrap();
-    config.autonomy = AutonomyConfig {
+    config.security.autonomy = AutonomyConfig {
         enabled: true,
         level: AutonomyLevel::Full,
         ..AutonomyConfig::default()
@@ -304,7 +304,7 @@ async fn code_adapter_observes_file_backed_tier_changes_between_calls() {
     // Simulate Settings changing the same persisted config after the run has
     // already captured Full. No global policy hooks or timing are involved.
     let mut changed = config;
-    changed.autonomy.level = AutonomyLevel::ReadOnly;
+    changed.security.autonomy.level = AutonomyLevel::ReadOnly;
     changed.save().await.unwrap();
 
     let err = code
@@ -331,7 +331,7 @@ async fn native_adapter_uses_live_upgrade_for_filesystem_write() {
     save_tier_config(&captured).await;
     let _path_port = crate::modules::security::path_stub::install_port(captured.action_dir.clone());
     let mut live = captured.clone();
-    live.autonomy.level = AutonomyLevel::Full;
+    live.security.autonomy.level = AutonomyLevel::Full;
     save_tier_config(&live).await;
 
     let tools = OpenHumanTools {
@@ -382,7 +382,7 @@ async fn native_adapter_downgrade_blocks_a_write_on_the_same_capability() {
     let path = captured.action_dir.join("tier-downgrade.txt");
     assert_eq!(std::fs::read_to_string(&path).unwrap(), "before");
 
-    captured.autonomy.level = AutonomyLevel::ReadOnly;
+    captured.security.autonomy.level = AutonomyLevel::ReadOnly;
     save_tier_config(&captured).await;
     let error = tools
         .invoke(
@@ -412,7 +412,7 @@ async fn http_adapter_passes_its_live_upgrade_to_the_http_gate_without_egress() 
     let captured = persisted_tier_config(dir.path(), true, AutonomyLevel::ReadOnly);
     save_tier_config(&captured).await;
     let mut live = captured.clone();
-    live.autonomy.level = AutonomyLevel::Full;
+    live.security.autonomy.level = AutonomyLevel::Full;
     save_tier_config(&live).await;
     let http = OpenHumanHttp {
         ctx: live_tier_context(&captured),

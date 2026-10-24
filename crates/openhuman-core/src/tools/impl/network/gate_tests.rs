@@ -318,7 +318,7 @@ fn egress_descriptor_reports_both_body_and_headers() {
 /// can and asks for approval.
 #[cfg(feature = "security-module")]
 #[tokio::test(flavor = "multi_thread")]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 async fn the_network_gate_is_answered_by_the_released_module() {
     use crate::modules::security::released_support::Released;
 
@@ -413,7 +413,7 @@ fn other_modes_never_assess_the_arguments() {
 /// under Sensitive, one whose headers carry a credential is refused.
 #[cfg(feature = "security-module")]
 #[test]
-#[ignore = "requires a released host key (downloads the published archive)"]
+#[cfg(feature = "native-security-tests")]
 fn sensitive_network_gate_on_the_released_archive() {
     crate::security::redact::tests::shared_runtime().block_on(async {
         use crate::config::PrivacyMode;
@@ -487,13 +487,24 @@ async fn a_destination_the_module_refuses_is_a_policy_message_not_addresses() {
     }
 }
 
-/// A build without the module leaves the tool's own DNS check in force.
+/// A build without the module denies network destinations; it cannot bypass the
+/// module's destination policy by falling back to a tool-local DNS check.
 #[cfg(not(feature = "security-module"))]
 #[tokio::test]
-async fn without_the_module_the_tool_keeps_its_own_destination_check() {
+async fn without_the_module_network_destination_is_denied() {
     let security = SecurityPolicy::default();
     let destination = destination_of("https://example.com/");
-    assert!(NetGate::authorize_destination(&security, &destination)
-        .await
-        .is_none());
+    let routed = RoutedGate::new(Arc::new(security.clone()), None, &json!({}));
+    for answer in [
+        NetGate::authorize_destination(&security, &destination).await,
+        routed.authorize_destination(&destination).await,
+    ] {
+        let refusal = answer
+            .expect("missing module must not fall back to tool-local DNS")
+            .expect_err("missing module must deny");
+        assert!(
+            refusal.starts_with(tinytools::status::POLICY_BLOCKED_MARKER),
+            "missing module refusal must carry the policy marker: {refusal}"
+        );
+    }
 }

@@ -9,9 +9,10 @@ use super::channel::RelayChannel;
 use super::params::RelayInboundParams;
 use super::store::{self, Recorded};
 use crate::channels::context::MAX_CHANNEL_HISTORY;
+use crate::channels::outbound::text_message;
 use crate::channels::runtime::{
     build_channel_turn_parts, prepare_runtime_limits, process_channel_runtime_message,
-    runtime_context, PromptToolDescs,
+    runtime_context, PromptToolDescs, RuntimeChannelMessage,
 };
 use crate::config::Config;
 use crate::core::Outcome;
@@ -133,9 +134,9 @@ pub(crate) async fn run_relay_turn(
                 tracing::warn!("relayed channel runtime limits unavailable: {error}");
                 let reply =
                     "⚠️ This chat's assistant is not available right now. Please try again later.";
-                let _ = tinychannels_bus::Channel::send(
+                let _ = tinychannels_bus::Channel::send_typed(
                     channel.as_ref(),
-                    &crate::channels::SendMessage::new(reply, &params.chat_id),
+                    &text_message(&params.channel, &params.chat_id, reply, None),
                 )
                 .await;
                 record(
@@ -150,8 +151,9 @@ pub(crate) async fn run_relay_turn(
             }
         };
 
-    let security =
-        Arc::new(SecurityPolicy::from_full_config(&config).with_privacy_mode(config.privacy.mode));
+    let security = Arc::new(
+        SecurityPolicy::from_full_config(&config).with_privacy_mode(config.security.privacy.mode),
+    );
     let parts = match build_channel_turn_parts(
         &dispatch_ctx,
         &config,
@@ -168,9 +170,9 @@ pub(crate) async fn run_relay_turn(
             );
             let reply =
                 "⚠️ This chat's assistant is not available right now. Please try again later.";
-            let _ = tinychannels_bus::Channel::send(
+            let _ = tinychannels_bus::Channel::send_typed(
                 channel.as_ref(),
-                &crate::channels::SendMessage::new(reply, &params.chat_id),
+                &text_message(&params.channel, &params.chat_id, reply, None),
             )
             .await;
             record(
@@ -199,13 +201,13 @@ pub(crate) async fn run_relay_turn(
 
     // The thread is the conversation's memory: seed the pipeline's per-chat
     // history from it, since this runtime context lives for one message.
-    let message = params.to_channel_message();
+    let message = params.to_inbound_envelope();
     let prepared = match crate::modules::channel_controller::prepare_inbound(
         &crate::modules::client(config.clone()),
         tinychannels_bus::module_inbound::PrepareChannelInboundRequest {
-            source: tinychannels_bus::module_inbound::ChannelInboundSource::Legacy {
-                message: message.clone(),
-                envelope: None,
+            source: tinychannels_bus::module_inbound::ChannelInboundSource::Envelope {
+                envelope: message.clone(),
+                timestamp: 0,
             },
             namespace: "main".into(),
             session_policy: Default::default(),
@@ -248,8 +250,11 @@ pub(crate) async fn run_relay_turn(
         request_id = %request_id,
         "[channels::relay] dispatching relayed turn"
     );
-    let mut runtime_message = crate::channels::runtime::RuntimeChannelMessage::from(message);
-    runtime_message.prepared_inbound = Some(prepared);
+    let runtime_message = RuntimeChannelMessage {
+        message,
+        authenticated_relay: false,
+        prepared_inbound: Some(prepared),
+    };
     let turn = process_channel_runtime_message(ctx, runtime_message);
     if let Some(context) = dispatch_ctx.core() {
         crate::core::runtime::CoreContext::scope(

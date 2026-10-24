@@ -2,8 +2,10 @@
 
 mod agent;
 mod agent_paths;
+mod cloud_providers;
 mod loader;
 mod model;
+mod primary_cloud;
 mod privacy;
 mod sandbox;
 mod search;
@@ -113,6 +115,9 @@ pub use model::{
     ComposioTriggerSettingsPatch, LocalAiSettingsPatch, MemorySettingsPatch, ModelSettingsPatch,
     RuntimeSettingsPatch,
 };
+
+pub use cloud_providers::{build_cloud_provider_creds, CloudProviderUpdate};
+pub(crate) use primary_cloud::{legacy_inference_slug, resolve_primary_cloud_provider_string};
 
 pub use privacy::{
     apply_privacy_settings, get_privacy_mode, load_and_apply_privacy_settings, PrivacySettingsPatch,

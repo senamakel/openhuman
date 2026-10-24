@@ -13,9 +13,12 @@ use std::collections::HashMap;
 use std::sync::{Arc, Mutex, PoisonError};
 
 use tinyagents_harness::store::SchemaAdmission;
-use tinyagents_session::port::{AgentStores, SessionStoreProvider};
+use tinyagents_session::port::{AgentStorageFactory, AgentStores, SessionStoreProvider};
 use tinyagents_session::DriverSessionStores;
-use tinystoragedrivers::{Blocking, Scope, StorageBackend, StorageError};
+use tinyagents_storage_kit::{Blocking, Scope as PortScope, ScopedStorage};
+use tinystoragedrivers::{StorageBackend, StorageError};
+
+use crate::storage::Scope;
 
 /// Session stores over one backend, routed to a per-tenant provider.
 pub struct TenantSessionStores {
@@ -32,7 +35,6 @@ impl std::fmt::Debug for TenantSessionStores {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let tenants = self.tenants.lock().unwrap_or_else(PoisonError::into_inner);
         f.debug_struct("TenantSessionStores")
-            .field("driver", &self.backend.driver())
             .field("tenants", &tenants.len())
             .finish_non_exhaustive()
     }
@@ -91,10 +93,22 @@ impl TenantSessionStores {
         if let Some(provider) = tenants.get(&tenant) {
             return (Arc::clone(provider), agent);
         }
+        let backend = Arc::clone(&self.backend);
+        let tenant_for_factory = tenant.clone();
+        let factory: AgentStorageFactory = Arc::new(move |agent_id| {
+            let owner_scope =
+                crate::storage::scope::Scope::new(tenant_for_factory.as_str())?.agent(agent_id)?;
+            let scope = PortScope::new(owner_scope.as_str())?;
+            let storage = backend.for_scope(&owner_scope)?;
+            let prepare_storage = storage.clone();
+            super::super::block_on(async move {
+                crate::storage::boot::prepare_scope(&prepare_storage).await
+            })?;
+            Ok(ScopedStorage::new(storage, scope))
+        });
         let provider = Arc::new(
             DriverSessionStores::with_bridge_and_schema_admission(
-                Arc::clone(&self.backend),
-                tenant.clone(),
+                factory,
                 self.bridge.clone(),
                 self.admission,
             )
@@ -132,22 +146,24 @@ impl SessionStoreProvider for TenantSessionStores {
 
     fn bind_actor(
         &self,
-        backend: Arc<dyn StorageBackend>,
+        factory: AgentStorageFactory,
     ) -> Result<Option<Arc<dyn SessionStoreProvider>>, StorageError> {
-        self.bind_actor_with_schema_admission(backend, self.admission)
+        self.bind_actor_with_schema_admission(factory, self.admission)
     }
 
     fn bind_actor_with_schema_admission(
         &self,
-        backend: Arc<dyn StorageBackend>,
+        factory: AgentStorageFactory,
         admission: SchemaAdmission,
     ) -> Result<Option<Arc<dyn SessionStoreProvider>>, StorageError> {
-        Ok(Some(Arc::new(Self::with_admission(
-            backend,
-            self.bridge.clone(),
-            self.recover_on_open,
-            admission,
-        ))))
+        Ok(Some(Arc::new(
+            DriverSessionStores::with_bridge_and_schema_admission(
+                factory,
+                self.bridge.clone(),
+                admission,
+            )
+            .recover_on_open(self.recover_on_open),
+        )))
     }
 
     fn run_ledger_for_agent(
@@ -178,7 +194,7 @@ impl SessionStoreProvider for TenantSessionStores {
     }
 
     fn destination_key(&self) -> Option<String> {
-        Some(format!("{}://{}", self.backend.driver(), self.id))
+        Some(format!("openhuman-storage://{}", self.id))
     }
 }
 

@@ -3,7 +3,9 @@
 use crate::core::runtime::DispatchCtx;
 use serde_json::{Map, Value};
 
-use crate::core::all::{ControllerFuture, RegisteredController};
+use crate::core::all::{
+    BoundRegisteredController, ControllerEntry, ControllerFuture, RegisteredController,
+};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 pub fn all_keyring_consent_controller_schemas() -> Vec<ControllerSchema> {
@@ -29,6 +31,20 @@ pub fn all_keyring_consent_registered_controllers() -> Vec<RegisteredController>
             handler: handle_retry_probe,
         },
     ]
+}
+
+pub(crate) fn all_keyring_consent_controller_entries() -> Vec<ControllerEntry> {
+    vec![
+        ControllerEntry::bound(status_controller()),
+        ControllerEntry::bound(decide_controller()),
+        ControllerEntry::bound(retry_probe_controller()),
+    ]
+}
+
+#[cfg(test)]
+pub(crate) fn keyring_consent_parameter_contracts() -> Vec<crate::core::all::ControllerParamContract>
+{
+    tests::parameter_contracts()
 }
 
 fn keyring_consent_schema(function: &str) -> ControllerSchema {
@@ -90,6 +106,49 @@ fn keyring_consent_schema(function: &str) -> ControllerSchema {
 }
 
 fn handle_status(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
+    status_controller().invoke(_ctx, _params)
+}
+
+fn handle_decide(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    decide_controller().invoke(ctx, params)
+}
+
+fn handle_retry_probe(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
+    retry_probe_controller().invoke(_ctx, _params)
+}
+
+fn status_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(keyring_consent_schema("status"), parse_status, run_status)
+}
+
+fn decide_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(keyring_consent_schema("decide"), parse_decide, run_decide)
+}
+
+fn retry_probe_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(
+        keyring_consent_schema("retry_probe"),
+        parse_retry_probe,
+        run_retry_probe,
+    )
+}
+
+fn parse_status(_params: Map<String, Value>) -> Result<(), String> {
+    Ok(())
+}
+
+fn parse_decide(params: Map<String, Value>) -> Result<String, String> {
+    match params.get("mode") {
+        Some(Value::String(mode)) => Ok(mode.clone()),
+        _ => Err("missing required param 'mode'".into()),
+    }
+}
+
+fn parse_retry_probe(_params: Map<String, Value>) -> Result<(), String> {
+    Ok(())
+}
+
+fn run_status(_ctx: DispatchCtx, (): ()) -> ControllerFuture {
     Box::pin(async move {
         super::ops::keyring_status()
             .await?
@@ -97,20 +156,15 @@ fn handle_status(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFu
     })
 }
 
-fn handle_decide(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+fn run_decide(ctx: DispatchCtx, mode: String) -> ControllerFuture {
     Box::pin(async move {
-        let mode = params
-            .get("mode")
-            .and_then(|v| v.as_str())
-            .ok_or("missing required param 'mode'")?
-            .to_string();
         super::ops::keyring_consent_decide(&ctx, mode)
             .await?
             .into_cli_compatible_json()
     })
 }
 
-fn handle_retry_probe(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
+fn run_retry_probe(_ctx: DispatchCtx, (): ()) -> ControllerFuture {
     Box::pin(async move {
         super::ops::keyring_retry_probe()
             .await?

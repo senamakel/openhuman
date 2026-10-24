@@ -44,6 +44,7 @@ fn channel_turn_maps_to_channel_origin_with_history_key() {
             history_key: "telegram_alice_42".into(),
             sender: Some("alice".into()),
             thread_id: None,
+            session_identity: None,
         })
     );
 }
@@ -116,6 +117,7 @@ fn channel_origin_job_runs_as_external_channel_turn() {
         history_key: "k".into(),
         sender: Some("alice".into()),
         thread_id: None,
+        session_identity: None,
     }));
     match turn_origin_for_job_run(&job, "run-1") {
         AgentTurnOrigin::ExternalChannel {
@@ -227,7 +229,7 @@ async fn tools_report_external_effect_from_the_live_turn() {
         ..Config::default()
     });
     let security = Arc::new(SecurityPolicy::from_config(
-        &config.autonomy,
+        &config.security.autonomy,
         &config.workspace_dir,
         &config.workspace_dir,
     ));

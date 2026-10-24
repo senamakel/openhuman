@@ -63,7 +63,7 @@ impl SecurityPolicy {
             workspace_only: self.workspace_only,
             workspace_dir: self.workspace_dir.clone(),
             action_dir: self.action_dir.clone(),
-            home_dir: dirs::home_dir(),
+            home_dir: crate::modules::security::policy_translation::security_home_dir(),
             forbidden_paths: self.forbidden_paths.clone(),
             trusted_roots,
             reserved_paths,

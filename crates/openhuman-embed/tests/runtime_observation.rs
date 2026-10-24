@@ -1,3 +1,5 @@
+#![cfg(feature = "testkit")]
+
 //! Isolation and lifecycle checks for custom inference and runtime observation.
 mod common;
 use async_trait::async_trait;

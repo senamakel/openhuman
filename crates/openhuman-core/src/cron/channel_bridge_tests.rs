@@ -1,7 +1,12 @@
 use super::*;
 use async_trait::async_trait;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tinychannels_bus::ChannelMessage;
+use tinychannels_bus::ChannelOutboundMessage;
+#[allow(
+    deprecated,
+    reason = "the v22 Channel trait retains these required compatibility signatures"
+)]
+use tinychannels_bus::{ChannelMessage, SendMessage};
 use tokio::sync::mpsc;
 
 struct MockChannel {
@@ -14,6 +19,10 @@ impl Channel for MockChannel {
     fn name(&self) -> &str {
         "telegram"
     }
+    #[allow(
+        deprecated,
+        reason = "the v22 Channel trait retains this required compatibility method"
+    )]
     async fn send(&self, message: &SendMessage) -> anyhow::Result<()> {
         self.sends.fetch_add(1, Ordering::SeqCst);
         *self.last_target.lock().unwrap() = format!(
@@ -23,6 +32,21 @@ impl Channel for MockChannel {
         );
         Ok(())
     }
+    async fn send_typed(&self, message: &ChannelOutboundMessage) -> anyhow::Result<()> {
+        self.sends.fetch_add(1, Ordering::SeqCst);
+        *self.last_target.lock().unwrap() = format!(
+            "{}|{}|{}|{}",
+            message.conversation_id,
+            message.thread_id.as_deref().unwrap_or_default(),
+            message.idempotency_key,
+            message.channel_id,
+        );
+        Ok(())
+    }
+    #[allow(
+        deprecated,
+        reason = "the v22 Channel trait retains this required compatibility method"
+    )]
     async fn listen(&self, _tx: mpsc::Sender<ChannelMessage>) -> anyhow::Result<()> {
         Ok(())
     }
@@ -68,8 +92,8 @@ async fn bridge_reads_appends_trims_and_sends() {
     assert_eq!(sends.load(Ordering::SeqCst), 1);
     assert_eq!(
         *last_target.lock().unwrap(),
-        "42|cron:j:r1",
-        "the send carries the run-specific idempotency key"
+        "42||cron:j:r1|telegram",
+        "the typed send carries its address and run-specific idempotency key"
     );
     assert!(send_to_channel("slack", "42", None, "hi", "k")
         .await

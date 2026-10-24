@@ -29,6 +29,7 @@ use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use async_trait::async_trait;
+use futures_util::StreamExt;
 use serde_json::{json, Value};
 use tinytools::{
     PermissionLevel, Tool, ToolCallOptions, ToolCategory, ToolContent, ToolPolicy, ToolResult,
@@ -41,6 +42,7 @@ use crate::artifacts::ArtifactKind;
 use crate::security::approval::ApprovalChatContext;
 use crate::tools::host_extensions::tool_call_id;
 use tinyagents_harness::tinyinference_video::ProgressFn;
+use tinystoragedrivers_api::BlobStore;
 
 use super::progress::{video_status_observer, JobStateSlot};
 
@@ -90,7 +92,7 @@ pub struct MediaArtifactTool<T: Tool> {
     workspace_dir: PathBuf,
     /// Visible folder each generated file is moved into (#5505).
     files_dir: crate::artifacts::FileRoots,
-    blobs: Option<Arc<dyn tinystoragedrivers::BlobStore>>,
+    blobs: Option<Arc<dyn BlobStore>>,
     allowed_references: Option<super::tools::MediaReferenceAllowlist>,
     /// Builds the inner tool for one call around that call's poll observer.
     /// Set for the video tool, whose `WaitPolicy::progress` hook is fixed at
@@ -128,7 +130,7 @@ impl<T: Tool> MediaArtifactTool<T> {
     /// backing store. This keeps TinyAgents' blob-backed output contract
     /// separate from the host's visible Files-folder artifact store.
     #[must_use]
-    pub fn with_blobs(mut self, blobs: Arc<dyn tinystoragedrivers::BlobStore>) -> Self {
+    pub fn with_blobs(mut self, blobs: Arc<dyn BlobStore>) -> Self {
         self.blobs = Some(blobs);
         self
     }
@@ -416,14 +418,15 @@ impl<T: Tool> MediaArtifactTool<T> {
             .await
             .map_err(|error| format!("failed to read generated media blob {key:?}: {error}"))?
             .ok_or_else(|| format!("generated media blob {key:?} was not found"))?;
-        copy_blob_to_file(&mut *blob.reader, dest, key).await
+        copy_blob_to_file(&mut blob.reader, dest, key).await
     }
 }
 
-async fn copy_blob_to_file<R>(reader: &mut R, dest: &Path, key: &str) -> Result<u64, String>
-where
-    R: tokio::io::AsyncRead + Unpin + ?Sized,
-{
+async fn copy_blob_to_file(
+    reader: &mut tinyagents_storage_kit::blob::BlobReader,
+    dest: &Path,
+    key: &str,
+) -> Result<u64, String> {
     let mut file = tokio::fs::OpenOptions::new()
         .write(true)
         .truncate(true)
@@ -435,16 +438,27 @@ where
                 dest.display()
             )
         })?;
-    let size = match tokio::io::copy(reader, &mut file).await {
-        Ok(size) => size,
-        Err(error) => {
+    let mut size = 0_u64;
+    while let Some(chunk) = reader.next().await {
+        let chunk = match chunk {
+            Ok(chunk) => chunk,
+            Err(error) => {
+                drop(file);
+                let _ = tokio::fs::remove_file(dest).await;
+                return Err(format!(
+                    "failed to copy generated media blob {key:?}: {error}"
+                ));
+            }
+        };
+        if let Err(error) = file.write_all(&chunk).await {
             drop(file);
             let _ = tokio::fs::remove_file(dest).await;
             return Err(format!(
-                "failed to copy generated media blob {key:?}: {error}"
+                "failed to write generated media blob {key:?}: {error}"
             ));
         }
-    };
+        size = size.saturating_add(chunk.len() as u64);
+    }
     if let Err(error) = file.flush().await {
         drop(file);
         let _ = tokio::fs::remove_file(dest).await;

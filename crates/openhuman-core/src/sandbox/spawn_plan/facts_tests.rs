@@ -178,7 +178,7 @@ fn a_configured_backend_enables_the_configured_switch() {
         (SandboxBackend::Docker, SandboxSetting2::Enabled),
     ] {
         let mut config = Config::default();
-        config.sandbox.backend = backend;
+        config.security.sandbox.backend = backend;
         assert_eq!(facts(&config, &base, |_| {}).configured, expected);
     }
 }

@@ -43,6 +43,9 @@ impl HostAgentResolver for Host {
                 .unwrap();
         definition.id = agent_id.to_string();
         let builds = Arc::clone(&self.belt_builds);
+        let context =
+            CoreContext::for_test(DomainSet::full(), Some(self.config.workspace_dir.clone()));
+        crate::agent::session_host::test_support::install_model_fixture_in(context.extensions());
         Some(HostAgent {
             definition,
             config: self.config.clone(),
@@ -52,10 +55,7 @@ impl HostAgentResolver for Host {
                 crate::agent::HostTurnTools::advertised(vec![Box::new(Marker)])
             })),
             hooks: Default::default(),
-            context: CoreContext::for_test(
-                DomainSet::full(),
-                Some(self.config.workspace_dir.clone()),
-            ),
+            context,
         })
     }
 }
@@ -121,6 +121,7 @@ fn an_id_the_host_does_not_know_falls_back_to_the_registries() {
     let _slot = crate::agent::host_agents::tests::lock();
     let tmp = TempDir::new().unwrap();
     let config = config(&tmp);
+    crate::agent::session_host::test_support::install_model_fixture();
     let installed: Arc<dyn HostAgentResolver> = Arc::new(Host {
         config: config.clone(),
         belt_builds: Arc::new(AtomicUsize::new(0)),

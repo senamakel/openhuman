@@ -20,7 +20,7 @@ pub(super) fn handle_inference_openai_oauth_start(
 ) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::inference::rpc::inference_openai_oauth_start(&config).await?)
+        to_json(crate::inference::ops::inference_openai_oauth_start(&config).await?)
     })
 }
 
@@ -32,7 +32,7 @@ pub(super) fn handle_inference_openai_oauth_complete(
         let config = ctx.load_config().await?;
         let payload = deserialize_params::<InferenceOpenAiOAuthCompleteParams>(params)?;
         to_json(
-            crate::inference::rpc::inference_openai_oauth_complete(
+            crate::inference::ops::inference_openai_oauth_complete(
                 &config,
                 payload.callback_url.trim(),
             )
@@ -47,7 +47,7 @@ pub(super) fn handle_inference_openai_oauth_import_codex_cli(
 ) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::inference::rpc::inference_openai_oauth_import_codex_cli(&config).await?)
+        to_json(crate::inference::ops::inference_openai_oauth_import_codex_cli(&config).await?)
     })
 }
 
@@ -57,7 +57,7 @@ pub(super) fn handle_inference_openai_oauth_status(
 ) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::inference::rpc::inference_openai_oauth_status(&config).await?)
+        to_json(crate::inference::ops::inference_openai_oauth_status(&config).await?)
     })
 }
 
@@ -67,6 +67,6 @@ pub(super) fn handle_inference_openai_oauth_disconnect(
 ) -> ControllerFuture {
     Box::pin(async move {
         let config = ctx.load_config().await?;
-        to_json(crate::inference::rpc::inference_openai_oauth_disconnect(&config).await?)
+        to_json(crate::inference::ops::inference_openai_oauth_disconnect(&config).await?)
     })
 }

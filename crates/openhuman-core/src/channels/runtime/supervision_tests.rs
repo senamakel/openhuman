@@ -2,6 +2,7 @@ use super::super::super::Channel;
 use super::{jitter_millis, spawn_supervised_listener, MAX_JITTER_MS};
 use std::sync::{Arc, Mutex};
 use tinychannels_bus as traits;
+use tinychannels_bus::SendMessage;
 use tokio::time::Instant;
 
 #[test]
@@ -20,19 +21,12 @@ fn supervision_discord_gateway_reqwest_failure_classifies_as_expected() {
 
 #[test]
 fn jitter_millis_is_bounded_by_backoff_and_max() {
-    // Sub-second backoff windows scale with the backoff; large ones clamp.
+    // The pinned tinychannels runtime tests do not assert this helper's bounds.
     for _ in 0..256 {
-        assert!(
-            jitter_millis(1) < 1_000,
-            "1s backoff jitters within [0,1000)"
-        );
-        assert!(
-            jitter_millis(60) < MAX_JITTER_MS,
-            "large backoff jitter must clamp to MAX_JITTER_MS"
-        );
+        assert!(jitter_millis(1) < 1_000);
+        assert!(jitter_millis(60) < MAX_JITTER_MS);
     }
-    // Degenerate window: no room to sample, must not panic on `0..0`.
-    assert_eq!(jitter_millis(0), 0, "zero backoff yields zero jitter");
+    assert_eq!(jitter_millis(0), 0);
 }
 
 /// Fake channel whose `listen()` returns `Ok(())` immediately — mirroring
@@ -55,10 +49,18 @@ impl Channel for ReconnectOkChannel {
         "reconnect-ok"
     }
 
-    async fn send(&self, _message: &super::super::super::SendMessage) -> anyhow::Result<()> {
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy send method on focused listener fixtures"
+    )]
+    async fn send(&self, _message: &SendMessage) -> anyhow::Result<()> {
         Ok(())
     }
 
+    #[allow(
+        deprecated,
+        reason = "TinyChannels v22 still requires the legacy listener method on focused fixtures"
+    )]
     async fn listen(
         &self,
         _tx: tokio::sync::mpsc::Sender<traits::ChannelMessage>,

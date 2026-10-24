@@ -8,7 +8,7 @@ use tinysecurity_bus::{
     ApprovalBinding2, ApprovalLifecycle2, ApprovalRow2, AuditCorrelation2, CallerContext, Check,
     EvaluateRequest, Origin, SubjectScope, ToolCall,
 };
-use tinystoragedrivers::{MemoryStorage, Scope, StorageBackend};
+use tinystoragedrivers::{Scope, StorageBackend};
 
 #[derive(Default)]
 struct Surface {
@@ -44,7 +44,7 @@ fn handle(name: &str) -> SubjectScope {
 }
 
 async fn bound(name: &str) -> Arc<ScopeEntry> {
-    let storage = MemoryStorage::new();
+    let storage = tinystoragedrivers_testkit::memory_backend();
     let scoped = storage.for_scope(&Scope::new("local").unwrap()).unwrap();
     let entry = Arc::new(ScopeEntry::new(
         subject(name),

@@ -41,9 +41,9 @@ fn the_component_switch_reads_the_context_the_call_runs_under() {
 fn the_saved_configuration_turns_the_sandbox_off_by_flag_or_component() {
     let mut config = Config::default();
     assert!(!config_off(&config));
-    config.sandbox.enabled = Some(false);
+    config.security.sandbox.enabled = Some(false);
     assert!(config_off(&config));
-    config.sandbox.enabled = None;
+    config.security.sandbox.enabled = None;
     config.components.sandbox = false;
     assert!(config_off(&config));
 }
@@ -54,6 +54,6 @@ fn the_setting_is_read_without_asking_for_the_deployment() {
     let config = Config::default();
     let ctx = DispatchCtx::unbound();
     let mut disabled = config.clone();
-    disabled.sandbox.enabled = Some(false);
+    disabled.security.sandbox.enabled = Some(false);
     assert!(sandbox_off(&ctx, &disabled));
 }

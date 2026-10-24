@@ -86,8 +86,8 @@ async fn the_users_configuration_reaches_the_engine_as_the_calls_posture() {
     assert!(seen.posture.require_approval);
     assert!(!seen.posture.auto_approve_all);
     assert!(
-        seen.posture.tool_grants.is_empty(),
-        "legacy config grants must not be replayed into TinySecurity posture"
+        seen.legacy_tool_grants.contains(&tool.to_string()),
+        "legacy grants travel only as one-time import data, outside the posture"
     );
     assert_eq!(seen.tool, "not_on_the_list");
     assert_eq!(seen.origin, CallOrigin::Operator);
@@ -116,7 +116,6 @@ async fn an_agent_whose_approvals_are_off_reaches_the_engine_as_no_requirement()
     let forced = gate.posture(&ctx, Variant::Forced);
     assert!(forced.require_approval);
     assert!(!forced.auto_approve_all);
-    assert!(forced.tool_grants.is_empty());
 }
 
 #[tokio::test]
@@ -156,8 +155,8 @@ async fn a_forced_call_is_its_own_posture_and_ignores_every_shortcut() {
     assert!(seen.posture.require_approval);
     assert!(!seen.posture.auto_approve_all, "auto-approve is ignored");
     assert!(
-        seen.posture.tool_grants.is_empty(),
-        "the always list is ignored"
+        seen.legacy_tool_grants.is_empty(),
+        "forced decisions do not import legacy grants"
     );
     decide_parked(&gate, &request_id, ApprovalDecision::ApproveOnce);
     assert!(matches!(handle.await.unwrap(), GateOutcome::Allow));
@@ -193,8 +192,8 @@ async fn a_workflow_that_requires_approval_is_never_approved_by_the_global_tool_
     let seen = stub_of(&gate).seen().remove(0);
     assert_eq!(seen.variant, Variant::FlowStrict);
     assert!(
-        seen.posture.tool_grants.is_empty(),
-        "the global list is withheld"
+        seen.legacy_tool_grants.is_empty(),
+        "strict-flow calls do not import global legacy grants"
     );
     assert_eq!(seen.flow.as_deref(), Some("flow-strict"));
     // The flow's own trust is the engine's durable state, not the posture's.
@@ -276,7 +275,7 @@ async fn an_unlabelled_call_is_approved_only_by_the_users_grant_of_that_exact_to
     // whole-tool state is the only reason an unlabelled call is approved.
     let seen = stub.seen().remove(0);
     assert_eq!(seen.origin, CallOrigin::Unlabelled);
-    assert!(seen.posture.tool_grants.is_empty());
+    assert!(!seen.legacy_tool_grants.contains(&tool.to_string()));
 
     // Auto-approve-everything does not approve an unlabelled call to any other tool.
     let (outcome, id) = gate
@@ -296,8 +295,7 @@ async fn an_unlabelled_call_is_approved_only_by_the_users_grant_of_that_exact_to
     assert_eq!(asked.len(), 2, "the engine decides, not the gate");
     assert_eq!(asked[1].origin, CallOrigin::Unlabelled);
     assert!(!asked[1]
-        .posture
-        .tool_grants
+        .legacy_tool_grants
         .iter()
         .any(|t| t == "some_other_tool"));
 }
@@ -601,7 +599,7 @@ async fn a_saas_call_the_deployment_allows_is_recorded_as_an_automatic_approval(
 }
 
 #[tokio::test]
-async fn a_saas_call_that_would_need_a_person_is_refused_not_parked() {
+async fn the_saas_automatic_path_refuses_when_the_engine_needs_a_person() {
     let (gate, _dir) = test_gate();
     let stub = stub_of(&gate);
     // An engine that insists on a person gets a surface that refuses to ask one.

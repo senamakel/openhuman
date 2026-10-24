@@ -82,13 +82,13 @@ impl ChannelHostCallbacks {
             return Ok(());
         }
 
-        let message: tinychannels_bus::ChannelMessage = serde_json::from_value(message)
+        let message: tinychannels_bus::ChannelInboundEnvelope = serde_json::from_value(message)
             .map_err(|_| Error::failed("invalid inbound message"))?;
-        if message.channel != channel {
+        if message.channel.id != channel {
             return Err(Error::failed("callback channel does not match message"));
         }
         self.dispatch
-            .send(RuntimeChannelMessage::from(message))
+            .send(RuntimeChannelMessage::with_inbound_envelope(message))
             .await
             .map_err(|_| Error::failed("channel dispatch is closed"))
     }
@@ -202,3 +202,7 @@ impl ChannelHostCallbacks {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "callback_tests.rs"]
+mod tests;

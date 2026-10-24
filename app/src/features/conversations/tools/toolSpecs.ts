@@ -173,6 +173,8 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
 
   // ── Shell and system ────────────────────────────────────────────────────
   shell: spec('runCommand', SquareTerminalIcon, 'shell', { chip: chip.command(), body: 'shell' }),
+  // Follows a `shell` command left running past its yield point.
+  shell_process: spec('wait', SquareTerminalIcon, 'shell', { chip: chip.text('process') }),
   detect_tools: spec('checkInstalledTools', ScanSearchIcon, 'system'),
   install_tool: spec('installTool', PackagePlusIcon, 'system', {
     chip: chip.text('package', 'tool_name'),
@@ -328,6 +330,7 @@ export const EXACT_TOOL_SPECS: Record<string, ToolSpec> = {
   goal_set: spec('setGoal', FlagIcon, 'plan', { chip: chip.text('objective') }),
   goal_get: spec('checkGoal', FlagIcon, 'plan'),
   goal_complete: spec('completeGoal', FlagIcon, 'plan'),
+  goal_resume: spec('resumeGoal', FlagIcon, 'plan'),
 
   // ── Scheduling ──────────────────────────────────────────────────────────
   cron: spec('checkSchedules', CalendarClockIcon, 'schedule'),

@@ -25,7 +25,7 @@ pub struct AutonomyConfig {
     /// unreachable. Deliberate floor, documented on
     /// [`crate::security::SecurityPolicy::enabled`].
     ///
-    /// Set `[autonomy] enabled = true` to restore the full policy; `level`,
+    /// Set `[security.autonomy] enabled = true` to restore the full policy; `level`,
     /// `workspace_only` and the rest then behave exactly as they always have.
     #[serde(default)]
     pub enabled: bool,
@@ -55,7 +55,7 @@ pub struct AutonomyConfig {
     /// flow, not just the per-tool `auto_approve` allowlist above. An
     /// unlabelled call site is still hard-denied regardless of this flag (see `ApprovalGate::intercept_audited_inner`).
     /// Hard security blocks (the protected-path floor, the internal-state reservation,
-    /// `ToolPolicyMiddleware`) live on independent code paths inside the tool
+    /// the TinySecurity tool gate) live on independent code paths inside the tool
     /// implementations themselves and are unaffected by this setting.
     ///
     /// It also bypasses **parking**, which is worth knowing before enabling it.
@@ -77,8 +77,8 @@ pub struct AutonomyConfig {
     /// which stay blocked regardless.
     #[serde(default)]
     pub trusted_roots: Vec<TrustedRoot>,
-    /// Whether the agent may install OS packages via the `install_tool` tool.
-    /// Intended to be enabled only in Full access mode.
+    /// Legacy compatibility field. Host package installation remains disabled
+    /// until package-manager scripts can run in an approved isolated environment.
     #[serde(default)]
     pub allow_tool_install: bool,
 }

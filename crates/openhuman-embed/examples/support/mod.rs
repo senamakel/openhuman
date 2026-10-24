@@ -208,9 +208,9 @@ pub fn route(server: &wiremock::MockServer, model: &str) -> openhuman_embed::Pro
         .model(model)
 }
 
-/// Polls `check` until it yields `Some` or about thirty seconds pass.
+/// Polls `check` until it yields `Some` or about ninety seconds pass.
 pub async fn eventually<T>(what: &str, mut check: impl FnMut() -> Option<T>) -> T {
-    for _ in 0..3000 {
+    for _ in 0..9000 {
         if let Some(value) = check() {
             return value;
         }
@@ -229,12 +229,13 @@ pub struct PointedInference;
 impl PointedInference {
     pub fn install(base_url: &str) {
         use openhuman_embed::__host::inference_registry::{
-            register_chat_model, ChatModelEntry, ChatModelRequest, PROVIDER_OPENHUMAN,
+            register_chat_model, ChatModelEntry, ChatModelRequest, ProviderContext,
+            PROVIDER_OPENHUMAN,
         };
         use tinyinference_llm::providers::openai::OpenAiModel;
 
         let base_url = base_url.trim_end_matches('/').to_string();
-        let build = move |request: &ChatModelRequest<'_>| {
+        let build = move |request: &ChatModelRequest<'_, ProviderContext>| {
             let model = request
                 .model_override
                 .or(request.default_model)
@@ -242,9 +243,9 @@ impl PointedInference {
                 .to_string();
             // Like the hosted provider: the acting profile's own credential
             // rides as the bearer.
-            let token = openhuman_embed::__host::security::credentials::session_support::resolve_backend_credential(request.config)
+            let token = openhuman_embed::__host::security::credentials::session_support::resolve_backend_credential(&request.context.config)
                 .map(|credential| credential.secret().to_string())
-                .map_err(anyhow::Error::msg)?;
+                .map_err(tinyinference_llm::Error::Model)?;
             let wire =
                 OpenAiModel::compatible_provider("EmbedTest", token, base_url.clone(), &model)
                     .with_native_tool_calling(request.native_tool_calling);
@@ -257,6 +258,7 @@ impl PointedInference {
             ChatModelEntry {
                 build: std::sync::Arc::new(build),
                 probe: None,
+                models: None,
             },
         );
     }

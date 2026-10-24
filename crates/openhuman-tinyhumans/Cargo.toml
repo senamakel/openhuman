@@ -34,6 +34,9 @@ storage-sqlite = ["openhuman-embed/storage-sqlite"]
 storage-mongodb = ["openhuman-embed/storage-mongodb"]
 storage-s3 = ["openhuman-embed/storage-s3"]
 storage-file = ["openhuman-embed/storage-file"]
+storage-rabbitmq = ["openhuman-embed/storage-rabbitmq"]
+secret-file = ["openhuman-embed/secret-file"]
+legacy-import = ["openhuman-embed/legacy-import"]
 media = ["openhuman-embed/media", "dep:tinyinference-image", "dep:tinyinference-video"]
 flows = ["openhuman-embed/flows"]
 skills = ["openhuman-embed/skills"]
@@ -119,9 +122,17 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "mul
 # tower and tracing features and force a separate core build (see below).
 axum = { version = "0.8", default-features = false, features = ["http1", "json", "tokio", "query", "ws", "macros"] }
 tempfile = "3"
+# The default local store opens as `sqlite:` (the core refuses a memory
+# fallback), so the tests that open one need the driver in every lane. The
+# `testkit` feature also provides the in-memory session stores used by tests.
+openhuman-embed = { path = "../openhuman-embed", default-features = false, features = ["storage-sqlite", "testkit"] }
 tinybus = { path = "../../vendor/tinybus/crates/tinybus", default-features = false }
 # The managed-model stream tests replay SSE through the real harness loop.
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", default-features = false }
+# The in-memory session stores (`testkit`) the tests hand to a runtime. Same
+# features as openhuman-embed's and openhuman-cli's dev-dependency, so the dev
+# graphs stay equal (see the unification note below).
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["testkit"] }
 futures = "0.3"
 tokio = { version = "1", features = ["full", "test-util"] }
 wiremock = "0.6"

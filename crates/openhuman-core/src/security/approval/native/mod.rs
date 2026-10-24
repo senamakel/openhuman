@@ -26,6 +26,7 @@ use sha2::{Digest, Sha256};
 pub(crate) mod audit_stream;
 pub(crate) mod callbacks;
 mod engine;
+#[cfg(feature = "legacy-import")]
 mod history_import;
 mod rows;
 mod scopes;

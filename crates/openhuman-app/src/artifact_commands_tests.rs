@@ -22,6 +22,39 @@ fn sanitize_accepts_plain_names() {
     assert_eq!(sanitize_filename("  trim me  ").unwrap(), "trim me");
 }
 
+#[test]
+fn sanitize_maps_windows_special_names_to_one_plain_component() {
+    for (input, expected) in [
+        ("C:evil.dll", "C_evil.dll"),
+        ("notes.txt:hidden", "notes.txt_hidden"),
+        ("Q3: plan <draft>?.pptx", "Q3_ plan _draft__.pptx"),
+        ("a\"b|c*.txt", "a_b_c_.txt"),
+        ("tab\there.txt", "tab_here.txt"),
+        ("evil.dll. . ", "evil.dll"),
+        ("CON", "_CON"),
+        ("nul.txt", "_nul.txt"),
+        ("com1.log", "_com1.log"),
+        ("LPT9", "_LPT9"),
+        ("CON .txt", "_CON .txt"),
+        ("conin$", "_conin$"),
+        ("CONOUT$.log", "_CONOUT$.log"),
+        ("COM¹.txt", "_COM¹.txt"),
+        ("lpt³.pdf", "_lpt³.pdf"),
+        ("COM⁴.txt", "COM⁴.txt"),
+        ("COM10.log", "COM10.log"),
+        ("Console.txt", "Console.txt"),
+    ] {
+        let out = sanitize_filename(input).unwrap();
+        assert_eq!(out, expected, "{input:?}");
+        assert_eq!(
+            std::path::Path::new(&out).components().count(),
+            1,
+            "{input:?}"
+        );
+    }
+    assert!(sanitize_filename("...").is_err());
+}
+
 async fn ready_artifact(workspace: &Path, files_dir: &Path) -> String {
     use openhuman_rpc::embed::artifacts::{create_artifact, finalize_artifact, ArtifactKind};
     let (meta, path) = create_artifact(
@@ -45,20 +78,15 @@ async fn ready_artifact(workspace: &Path, files_dir: &Path) -> String {
 // that change process-wide backend configuration cannot race this lookup.
 #[allow(clippy::await_holding_lock)]
 #[tokio::test]
-async fn resolve_source_returns_the_file_in_the_files_folder() {
-    // Core-process tests can install a process-global storage backend while
-    // the artifact API resolves the record. Keep both operations on the same
-    // stable host context, as in the other workspace-bound shell tests.
+async fn resolve_source_fails_closed_when_the_security_module_is_unavailable() {
     let _env_lock = env_lock();
     let temp = tempfile::tempdir().unwrap();
     let files_dir = temp.path().join("Files");
     let id = ready_artifact(temp.path(), &files_dir).await;
-    assert_eq!(
-        resolve_source(temp.path(), &FileRoots::new(&files_dir), &id)
-            .await
-            .unwrap(),
-        files_dir.join("deck.pptx")
-    );
+    let error = resolve_source(temp.path(), &FileRoots::new(&files_dir), &id)
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("protected location"));
 }
 
 #[tokio::test]
@@ -283,26 +311,14 @@ async fn save_as_refuses_before_the_dialog_opens() {
 }
 
 #[tokio::test]
-async fn save_as_copies_to_the_chosen_path_and_reports_a_cancel() {
+async fn save_as_fails_closed_when_the_security_module_is_unavailable() {
     let temp = tempfile::tempdir().unwrap();
     let files_dir = temp.path().join("Files");
     let id = ready_artifact(temp.path(), &files_dir).await;
     let roots = FileRoots::new(&files_dir);
 
-    let cancelled = save_to_chosen_path(temp.path(), &roots, &id, "Deck.pptx", |_| async { None })
+    let error = save_to_chosen_path(temp.path(), &roots, &id, "Deck.pptx", |_| async { None })
         .await
-        .unwrap();
-    assert_eq!(cancelled, None);
-
-    let dest = temp.path().join("chosen").join("Deck.pptx");
-    std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
-    let chosen = dest.clone();
-    let saved = save_to_chosen_path(temp.path(), &roots, &id, "Deck.pptx", |name| async move {
-        assert_eq!(name, "Deck.pptx");
-        Some(chosen)
-    })
-    .await
-    .unwrap();
-    assert_eq!(saved.as_deref(), Some(dest.display().to_string().as_str()));
-    assert_eq!(std::fs::read(&dest).unwrap(), b"deck");
+        .unwrap_err();
+    assert!(error.to_string().contains("protected location"));
 }

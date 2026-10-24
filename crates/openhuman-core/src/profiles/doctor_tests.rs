@@ -252,11 +252,12 @@ async fn dispatch_report_runs_registered_provisioned_check_without_creating_stat
     }
 
     use crate::core::runtime::{mode, CoreContext, DomainSet, Mode, SaasConfig};
-    use crate::storage::{CollectionSpec, MemoryStorage, Scope, StorageBackend};
+    use crate::storage::test_support::memory_backend;
+    use crate::storage::{CollectionSpec, Scope, StorageBackend};
 
     mode::lock_mode(Mode::Saas).expect("isolated test process uses SaaS mode");
     let temp = tempfile::tempdir().unwrap();
-    let backend: Arc<dyn StorageBackend> = Arc::new(MemoryStorage::new());
+    let backend: Arc<dyn StorageBackend> = memory_backend();
     let operator = CoreContext::for_test(DomainSet::saas(), None);
     let host = crate::profiles::ProfileHost::with_backend(
         SaasConfig::new(temp.path()),

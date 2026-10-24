@@ -99,6 +99,7 @@ pub(super) async fn run_job_command_with_timeout(
     // stays available and a pipeline keeps its default exit status, because
     // retries are spent on it.
     let output = match crate::sandbox::untrusted::run(crate::sandbox::untrusted::UntrustedShell {
+        dispatch_ctx: None,
         config,
         command: &job.command,
         cwd: &config.action_dir,

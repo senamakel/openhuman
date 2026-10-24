@@ -1,10 +1,10 @@
 use super::*;
 use crate::agent::orchestration::subagent_sessions::types::DurableSubagentStatus;
 use crate::agent::orchestration::subagent_sessions::types::SubagentSessionStore;
-use crate::storage::{MemoryStorage, Scope, StorageBackend};
+use crate::storage::{test_support::memory_backend, Scope, StorageBackend};
 use serde_json::json;
 
-fn docs_in(storage: &MemoryStorage, scope: &str) -> Docs {
+fn docs_in(storage: &dyn StorageBackend, scope: &str) -> Docs {
     Docs::over(&storage.for_scope(&Scope::new(scope).unwrap()).unwrap())
 }
 
@@ -35,7 +35,7 @@ fn session(id: &str) -> DurableSubagentSession {
 
 #[test]
 fn a_missing_list_loads_empty() {
-    assert!(docs_in(&MemoryStorage::new(), "local")
+    assert!(docs_in(memory_backend().as_ref(), "local")
         .load()
         .unwrap()
         .is_empty());
@@ -43,7 +43,7 @@ fn a_missing_list_loads_empty() {
 
 #[test]
 fn save_upserts_sessions_and_keeps_the_others() {
-    let docs = docs_in(&MemoryStorage::new(), "local");
+    let docs = docs_in(memory_backend().as_ref(), "local");
     docs.save(&[session("a"), session("b")]).unwrap();
     let loaded = docs.load().unwrap();
     assert_eq!(loaded.len(), 2);
@@ -67,10 +67,12 @@ fn save_upserts_sessions_and_keeps_the_others() {
 
 #[test]
 fn scopes_do_not_see_each_others_sessions() {
-    let storage = MemoryStorage::new();
-    docs_in(&storage, "alice").save(&[session("a")]).unwrap();
-    assert!(docs_in(&storage, "bob").load().unwrap().is_empty());
-    assert_eq!(docs_in(&storage, "alice").load().unwrap().len(), 1);
+    let storage = memory_backend();
+    docs_in(storage.as_ref(), "alice")
+        .save(&[session("a")])
+        .unwrap();
+    assert!(docs_in(storage.as_ref(), "bob").load().unwrap().is_empty());
+    assert_eq!(docs_in(storage.as_ref(), "alice").load().unwrap().len(), 1);
 }
 
 #[test]
@@ -90,7 +92,7 @@ fn the_store_uses_the_workspace_default_with_no_backend_installed() {
 
 #[test]
 fn sessions_come_back_in_creation_order() {
-    let docs = docs_in(&MemoryStorage::new(), "local");
+    let docs = docs_in(memory_backend().as_ref(), "local");
     let mut early = session("z");
     early.created_at = "2026-01-01T00:00:00Z".into();
     let mut late = session("a");
@@ -107,10 +109,10 @@ fn sessions_come_back_in_creation_order() {
 
 #[test]
 fn the_store_dispatches_to_documents_when_a_backend_is_pinned() {
-    let storage = MemoryStorage::new();
+    let storage = memory_backend();
     let dir = tempfile::tempdir().unwrap();
     let store = SubagentSessionStore::new(dir.path().to_path_buf());
-    let docs = docs_in(&storage, "local");
+    let docs = docs_in(storage.as_ref(), "local");
     with_override(docs.clone(), || {
         assert!(store.load().unwrap().is_empty());
         store.save(&[session("a")]).unwrap();
@@ -125,7 +127,7 @@ fn the_store_dispatches_to_documents_when_a_backend_is_pinned() {
 
 #[test]
 fn a_stale_snapshot_does_not_revert_a_newer_session() {
-    let docs = docs_in(&MemoryStorage::new(), "local");
+    let docs = docs_in(memory_backend().as_ref(), "local");
     let old = session("a");
     docs.save(std::slice::from_ref(&old)).unwrap();
 
@@ -177,7 +179,7 @@ fn a_legacy_session_file_is_imported_once_and_left_byte_identical() {
 
 #[test]
 fn workspaces_sharing_a_backend_each_import_their_own_legacy_file() {
-    let docs = docs_in(&MemoryStorage::new(), "local");
+    let docs = docs_in(memory_backend().as_ref(), "local");
     let (one, two) = (
         std::path::Path::new("/ws/one"),
         std::path::Path::new("/ws/two"),
@@ -195,7 +197,7 @@ fn workspaces_sharing_a_backend_each_import_their_own_legacy_file() {
 
 #[test]
 fn a_late_importer_rechecks_the_marker_under_the_claim() {
-    let docs = docs_in(&MemoryStorage::new(), "local");
+    let docs = docs_in(memory_backend().as_ref(), "local");
     let source = std::path::Path::new("/legacy/subagent_sessions.json");
     docs.import_legacy(source, &[session("first")]).unwrap();
     assert!(docs.legacy_imported(source).unwrap());
@@ -213,7 +215,7 @@ fn a_late_importer_rechecks_the_marker_under_the_claim() {
 
 #[test]
 fn a_durable_session_keeps_its_scoped_lifecycle_key_after_document_reopen() {
-    let storage = MemoryStorage::new();
+    let storage = memory_backend();
     let mut saved = session("scoped-lifecycle");
     let key = tinyagents_orchestration::subagent::SubagentTaskKey {
         root_run_id: "root".into(),
@@ -222,7 +224,7 @@ fn a_durable_session_keeps_its_scoped_lifecycle_key_after_document_reopen() {
         task_id: "task".into(),
     };
     saved.lifecycle_key = Some(key.clone());
-    docs_in(&storage, "local").save(&[saved]).unwrap();
-    let loaded = docs_in(&storage, "local").load().unwrap();
+    docs_in(storage.as_ref(), "local").save(&[saved]).unwrap();
+    let loaded = docs_in(storage.as_ref(), "local").load().unwrap();
     assert_eq!(loaded[0].lifecycle_key, Some(key));
 }

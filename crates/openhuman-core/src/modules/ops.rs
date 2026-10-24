@@ -90,7 +90,8 @@ pub(crate) fn resolve_bundled_dir(
 }
 
 /// Library file stems of every module whose component is off, for skipping
-/// their search-path artifacts. Both `name` and `libname` spellings.
+/// their search-path artifacts. Both `name` and `libname` spellings, for the
+/// source build (`lib_name`) and the release download (`<id>_module`).
 #[must_use]
 pub fn disabled_lib_stems(config: &Config) -> Vec<String> {
     registry::ALL
@@ -98,7 +99,13 @@ pub fn disabled_lib_stems(config: &Config) -> Vec<String> {
         .filter(|record| disabled_component(config, record.id).is_some())
         .flat_map(|record| {
             let stem = record.source.lib_name.to_string();
-            [format!("lib{stem}"), stem]
+            let released = format!("{}_module", record.id);
+            [
+                format!("lib{stem}"),
+                stem,
+                format!("lib{released}"),
+                released,
+            ]
         })
         .collect()
 }
@@ -330,6 +337,16 @@ fn module_config(config: &Config, id: &str) -> serde_json::Value {
                 "[connectors] no route configured; loading with the capability surface only"
             );
             serde_json::json!({ "offered_toolkits": super::connectors::offered_toolkits(config) })
+        });
+    }
+    // TinyMCP keeps its servers, secrets and audit trail in host storage and
+    // refuses to load without the bus name that serves it. That name is the
+    // storage host's interface, attached before any module loads
+    // ([`super::storage_host::install`]); the host still derives the scope and
+    // grant from the authenticated caller, never from this value.
+    if id == super::storage_grant_schemas::tinymcp::MODULE_ID {
+        return serde_json::json!({
+            "storage_callback": tinystoragedrivers_bus::STORAGE_INTERFACE.to_string()
         });
     }
     serde_json::json!({})

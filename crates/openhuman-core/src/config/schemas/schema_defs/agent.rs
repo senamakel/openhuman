@@ -11,7 +11,7 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
             function: "get_autonomy_settings",
             description: "Get the agent access-mode settings (autonomy level, workspace confinement, trusted roots, command allow-list, forbidden paths).",
             inputs: vec![],
-            outputs: vec![json_output("autonomy", "Current [autonomy] config block.")],
+            outputs: vec![json_output("autonomy", "Current [security.autonomy] config block.")],
         }),
 "update_autonomy_settings" => Some( ControllerSchema {
             namespace: "config",
@@ -39,7 +39,7 @@ pub(super) fn lookup(function: &str) -> Option<ControllerSchema> {
                     comment: "Replace the trusted-roots allow-list: array of {path, access: read|readwrite}. Grants access outside the workspace; credential dirs (~/.ssh, ~/.gnupg, ~/.aws) stay blocked regardless.",
                     required: false,
                 },
-                optional_bool("allow_tool_install", "Allow the agent to install OS packages via install_tool (intended for Full mode)."),
+                optional_bool("allow_tool_install", "Legacy compatibility setting; install_tool is disabled until package-manager scripts can run in an approved isolated environment."),
                 FieldSchema {
                     name: "max_actions_per_hour",
                     // A non-zero `u32`: 0 is refused by the apply path, and

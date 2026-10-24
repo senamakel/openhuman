@@ -79,8 +79,9 @@ name = "storage_schema_dump"
 path = "../../examples/storage_schema_dump.rs"
 
 [[test]]
-# Loads the tinydocs module from the linked executable and calls GenerateDocx
-# end to end. Local only: needs `--features linked-modules,documents`.
+# Loads tinydocs from the linked executable and calls GenerateDocx end to end.
+# `scripts/test-rust-e2e.sh --suite tinydocs_linked_e2e` enables its local-only
+# `linked-modules,documents` feature requirements explicitly.
 name = "tinydocs_linked_e2e"
 path = "../../tests/tinydocs_linked_e2e.rs"
 required-features = ["linked-modules", "documents"]
@@ -123,14 +124,7 @@ name = "cost_report_e2e"
 path = "../../tests/cost_report_e2e.rs"
 
 [[test]]
-# Installs a backend into the process-wide storage slot, so it needs its own
-# process: in a shared one it would reroute other suites' approvals.
-name = "storage_approvals_e2e"
-path = "../../tests/storage_approvals_e2e.rs"
-
-[[test]]
-# Its own binary for the same reason as storage_approvals_e2e: it installs a
-# storage backend into the process-wide slot.
+# Its own binary: it installs a storage backend into the process-wide slot.
 name = "storage_domains_e2e"
 path = "../../tests/storage_domains_e2e.rs"
 
@@ -143,6 +137,13 @@ path = "../../tests/storage_layout_migration_e2e.rs"
 # Its own binary: it installs a storage backend into the process-wide slot.
 name = "storage_flows_e2e"
 path = "../../tests/storage_flows_e2e.rs"
+
+[[test]]
+# Starts with no configured backend to exercise TinyFlows' workspace fallback
+# in an isolated module runtime.
+name = "storage_flows_fallback_e2e"
+path = "../../tests/storage_flows_fallback_e2e.rs"
+required-features = ["flows", "modules", "linked-modules", "storage-sqlite"]
 
 [[test]]
 # Its own binary: it installs a storage backend into the process-wide slot and
@@ -170,6 +171,13 @@ path = "../../tests/storage_delegation_e2e.rs"
 # Its own binary: it boots a core with `[components]` switches off.
 name = "components_e2e"
 path = "../../tests/components_e2e.rs"
+
+[[test]]
+# Boots a signed-in profile through the desktop host's storage migration and
+# reads its historical records through their owning domains.
+name = "storage_legacy_profile_boot_e2e"
+path = "../../tests/storage_legacy_profile_boot_e2e.rs"
+required-features = ["storage-sqlite", "modules", "flows", "linked-modules"]
 
 [[test]]
 name = "embedded_server_shutdown_e2e"
@@ -203,8 +211,8 @@ path = "../../tests/memory_v2_e2e.rs"
 name = "memory_cortexdb_live"
 path = "../../tests/memory_cortexdb_live.rs"
 # Memory v2 through the real `openhuman-core` binary against a live CortexDB.
-# Skips unless OPENHUMAN_LIVE_CORTEXDB_URL is set; run it with
-# scripts/test-memory-cortexdb-live.sh, which boots the server in Docker.
+# Explicitly ignored; run it with scripts/test-memory-cortexdb-live.sh, which
+# boots the server in Docker and sets OPENHUMAN_LIVE_CORTEXDB_URL.
 
 [[test]]
 name = "security_characterization_e2e"
@@ -231,10 +239,53 @@ name = "security_crypto_characterization"
 path = "../../tests/security_crypto_characterization.rs"
 
 [[test]]
-name = "json_rpc_e2e"
-path = "../../tests/json_rpc_e2e.rs"
-# `openhuman_tinyhumans::voice::reply_speech::{test_seam, TEST_SEAM_ENV}` — the
-# reply-speech seam only exists with the voice feature (hosted TTS provider).
+name = "json_rpc_threads_e2e"
+path = "../../tests/json_rpc_threads_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_wallet_e2e"
+path = "../../tests/json_rpc_wallet_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_flows_e2e"
+path = "../../tests/json_rpc_flows_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_mcp_e2e"
+path = "../../tests/json_rpc_mcp_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_inference_e2e"
+path = "../../tests/json_rpc_inference_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_auth_security_e2e"
+path = "../../tests/json_rpc_auth_security_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_config_e2e"
+path = "../../tests/json_rpc_config_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_agent_team_e2e"
+path = "../../tests/json_rpc_agent_team_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_web_chat_e2e"
+path = "../../tests/json_rpc_web_chat_e2e.rs"
+required-features = ["voice", "http-server"]
+
+[[test]]
+name = "json_rpc_misc_e2e"
+path = "../../tests/json_rpc_misc_e2e.rs"
 required-features = ["voice", "http-server"]
 
 [[test]]
@@ -289,7 +340,7 @@ required-features = ["voice", "http-server"]
 # installs a storage backend into the process-wide slot.
 name = "storage_desktop_upgrade_e2e"
 path = "../../tests/storage_desktop_upgrade_e2e.rs"
-required-features = ["storage-sqlite", "modules"]
+required-features = ["storage-sqlite", "modules", "flows", "linked-modules"]
 
 [[test]]
 # The released TinyMCP cdylib under the real host: add a server, restart the
@@ -413,8 +464,11 @@ tinyinference-llm = { path = "../../vendor/tinyagents/vendor/tinyinference/crate
 # The owning PII safety contract, for the shared security redaction corpus.
 tinymemory-api = { path = "../../vendor/tinymemory/crates/tinymemory-api", features = ["local-safety"] }
 # The document-port contract for failure injection in cron storage regressions.
-tinystoragedrivers-core = { git = "https://github.com/tinyhumansai/tinystoragedrivers", tag = "v1.0.0" }
-tinystoragedrivers = { git = "https://github.com/tinyhumansai/tinystoragedrivers", tag = "v1.0.0", default-features = false, features = ["sqlite"] }
+tinystoragedrivers-api = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039" }
+tinystoragedrivers = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039", default-features = false, features = ["sqlite"] }
+# The in-memory host storage backend the integration suites install.
+tinystoragedrivers-testkit = { git = "https://github.com/tinyhumansai/tinystoragedrivers", rev = "f05fbd230c2c403c8dcdef57316fa55265379039" }
+zeroize = "1"
 # The shell command-class vocabulary, for the security policy characterization.
 tinybox-bus = { path = "../../vendor/tinybox/crates/tinybox-bus" }
 tinytools = { path = "../../vendor/tinyagents/vendor/tinytools/crates/tinytools" }
@@ -439,7 +493,7 @@ tinyagents-graph = { path = "../../vendor/tinyagents/crates/tinyagents-graph", f
 tinyagents-harness = { path = "../../vendor/tinyagents/crates/tinyagents-harness", features = ["sqlite", "multimodal"] }
 tinyagents-harness-tools = { path = "../../vendor/tinyagents/crates/tinyagents-harness-tools", default-features = false, features = ["goals"] }
 tinyagents-definition = { path = "../../vendor/tinyagents/crates/tinyagents-definition" }
-tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session" }
+tinyagents-session = { path = "../../vendor/tinyagents/crates/tinyagents-session", features = ["testkit"] }
 tinydocs-bus = { path = "../../vendor/tinydocs/crates/tinydocs-bus" }
 # `inbound_linked_e2e` names the ingest dispositions from the contract.
 tinyeventqueues-bus = { path = "../../vendor/tinyeventqueues/crates/tinyeventqueues-bus" }
@@ -484,6 +538,9 @@ default = [
     "tinymemes",
     "inbound-queues",
     "storage-sqlite",
+    "storage-file",
+    "secret-file",
+    "legacy-import",
 ]
 # Every gate forwards to `openhuman-rpc` alone (chain: rpc -> tinyhumans ->
 # embed -> core); `scripts/ci/check-feature-forwarding.mjs` checks the link.
@@ -504,6 +561,9 @@ storage-sqlite = ["openhuman-rpc/storage-sqlite"]
 storage-mongodb = ["openhuman-rpc/storage-mongodb"]
 storage-s3 = ["openhuman-rpc/storage-s3"]
 storage-file = ["openhuman-rpc/storage-file"]
+storage-rabbitmq = ["openhuman-rpc/storage-rabbitmq"]
+secret-file = ["openhuman-rpc/secret-file"]
+legacy-import = ["openhuman-rpc/legacy-import"]
 media = ["openhuman-rpc/media"]
 flows = ["openhuman-rpc/flows"]
 skills = ["openhuman-rpc/skills"]
@@ -534,3 +594,12 @@ path = "../../tests/doctor_e2e.rs"
 [[test]]
 name = "embeddings_opt_out"
 path = "../../tests/embeddings_opt_out.rs"
+
+[[test]]
+name = "storage_backend_capabilities"
+path = "../../tests/storage_backend_capabilities.rs"
+required-features = ["storage-sqlite"]
+
+[[test]]
+name = "storage_approvals_e2e"
+path = "../../tests/storage_approvals_e2e.rs"

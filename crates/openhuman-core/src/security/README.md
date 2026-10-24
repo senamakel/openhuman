@@ -35,7 +35,7 @@ that cannot be `async`. Unit tests install a scripted `GapPort`
 (`modules/security/gap`, `StubPort`) for the current thread; there is no local
 policy to fall back on.
 
-Production admission pins TinySecurity v0.13.0 and its published archive checksums
+Production admission pins TinySecurity v0.17.1 and its published archive checksums
 in the module registry. `scripts/ci/security-native-fixture.sh` loads those
 released archives and invokes their admission, path, and latency tests. Explicit
 local fixtures remain available for development; their digests never become
@@ -56,17 +56,18 @@ tightened to the measurement; the numbers are committed here as the reference. T
 `latency-budget` job in `.github/workflows/security-native.yml` records each
 run's JSON as an artifact; tighten the constants if a controlled runner is added.
 
-Crypto (contract 1.16): `modules/security_crypto.rs` calls the confidential
+Crypto (contract 1.28): `modules/security_crypto.rs` calls the confidential
 `PasswordCrypt2`, `KeyringAccess2` and `PairingControl2` members, and
 `modules/security_host.rs` serves the `KeyringConsent2` callback from the
 existing keychain consent policy (`keyring_consent::policy::check_secret_access`;
 the prompt UX stays host-side). `modules/fixtures/legacy_password_payload.json`
 pins the legacy Argon2id/AES-GCM payload the module must keep opening. The host
-`encryption/core.rs` is deleted (password crypt is module-owned, production
-`CryptoConfig2` enables it with keyring and pairing unset); `secret_storage/*`,
-`devices/crypto.rs` and `pairing.rs` still serve production callers until the
-sync-to-async seam lands and the module gains a Secret Service backend and
-pairing Begin/Verify (see issue #7328 phase 8).
+`encryption/core.rs` is deleted and password crypt is module-owned. Production
+`CryptoConfig2` keeps keyring and pairing disabled because current production
+callers still use the host stores and device-pairing implementation. TinySecurity
+now provides `DevicePairing2`, `Device2` and `DeviceFrame2`; OpenHuman has not yet
+migrated `security/devices/` to those contracts. The remaining host crypto and
+keyring migration is tracked in issue #7328 phase 8.
 
 Callers are spread across the core. Every acting tool consults
 `SecurityPolicy` before it runs, the agent harness asks the approval gate
@@ -79,7 +80,7 @@ namespace, and the RPC server asks [`pairing.rs`](./pairing.rs) whether a bind n
 
 `SecurityPolicy` ([`policy/types.rs`](./policy/types.rs)) is the value every tool receives. It is
 built once per agent session by `SecurityPolicy::from_config`
-([`policy/enforcement.rs`](./policy/enforcement.rs)) from the `[autonomy]` config block, the workspace dir
+([`policy/enforcement.rs`](./policy/enforcement.rs)) from the `[security.autonomy]` config block, the workspace dir
 and the action dir. That constructor is the single chokepoint between config
 and policy, so it also injects the default trusted roots: the projects home
 (`~/OpenHuman/projects`) as read-write, the configured `action_dir` as
@@ -138,7 +139,7 @@ Only `from_config` carries the shipped `false`.
 
 ### With the policy enabled
 
-Set `[autonomy] enabled = true` and the full policy applies. Commands are
+Set `[security.autonomy] enabled = true` and the full policy applies. Commands are
 classified, then gated by tier:
 
 ```text
@@ -235,7 +236,7 @@ settings change would otherwise wait for a new session. [`live_policy.rs`](./liv
 the current policy in a process-global cell. `install` is called at bootstrap
 (`core/runtime/bootstrap.rs`) and at channel startup, and `reload_from` is
 called by the config save path (`config/ops/agent.rs`) so `current()` reflects
-the new `[autonomy]` block immediately. The approval gate reads the user's
+the new `[security.autonomy]` block immediately. The approval gate reads the user's
 "Always allow" list (`autonomy.auto_approve`) through `current()`. Today tools
 observe the swap at the next session boundary.
 

@@ -15,6 +15,10 @@
 mod env_guard;
 #[path = "support/linked_modules.rs"]
 mod linked_modules;
+#[cfg(feature = "mcp")]
+#[path = "support/local_mcp_http.rs"]
+mod local_mcp_http;
+#[cfg(feature = "mcp")]
 #[path = "support/mcp_stub_trusted.rs"]
 mod mcp_stub_trusted;
 #[path = "support/scripted_stack.rs"]
@@ -25,8 +29,10 @@ use env_guard::EnvVarGuard;
 use scripted_stack::{
     assert_no_jsonrpc_error, current_user, lock_or_recover, text_completion, tool_calls_completion,
 };
+use std::io::{BufRead, BufReader};
 use std::net::SocketAddr;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+use std::process::{Child, Command, Stdio};
 use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
 
@@ -46,6 +52,7 @@ use openhuman_core::core::auth::{init_rpc_token, CORE_TOKEN_ENV_VAR};
 use openhuman_rpc::server::build_core_http_router;
 
 const TEST_RPC_TOKEN: &str = "json-rpc-e2e-local-token";
+const MANAGED_CAPTURE_PROMPT_CLOCK: &str = "2024-01-15T12:00:00Z";
 
 // ─── Env serialization (same rationale as json_rpc_e2e.rs:61-79) ───────────
 
@@ -81,6 +88,8 @@ fn env_lock() -> std::sync::MutexGuard<'static, ()> {
 
 static SCRIPTED_COMPLETIONS: OnceLock<Mutex<std::collections::VecDeque<Value>>> = OnceLock::new();
 static CAPTURED_COMPLETION_REQUESTS: OnceLock<Mutex<Vec<Value>>> = OnceLock::new();
+static CAPTURED_MANAGED_GEMINI_REQUESTS: OnceLock<Mutex<Vec<Value>>> = OnceLock::new();
+static CAPTURED_PROXY_REQUESTS: OnceLock<Mutex<Vec<Value>>> = OnceLock::new();
 const SCRIPT_DISCOVERED_MCP_TOOL: &str = "__script_discovered_mcp_tool__";
 
 fn with_scripted<T>(f: impl FnOnce(&mut std::collections::VecDeque<Value>) -> T) -> T {
@@ -101,6 +110,24 @@ fn with_captured<T>(f: impl FnOnce(&mut Vec<Value>) -> T) -> T {
     f(&mut guard)
 }
 
+fn with_captured_managed_gemini<T>(f: impl FnOnce(&mut Vec<Value>) -> T) -> T {
+    let m = CAPTURED_MANAGED_GEMINI_REQUESTS.get_or_init(|| Mutex::new(Vec::new()));
+    let mut guard = match m.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    f(&mut guard)
+}
+
+fn with_captured_proxy_requests<T>(f: impl FnOnce(&mut Vec<Value>) -> T) -> T {
+    let m = CAPTURED_PROXY_REQUESTS.get_or_init(|| Mutex::new(Vec::new()));
+    let mut guard = match m.lock() {
+        Ok(g) => g,
+        Err(p) => p.into_inner(),
+    };
+    f(&mut guard)
+}
+
 /// Reset scripted queue + captures. Call at the start of every test, under the env lock.
 fn reset_script(responses: Vec<Value>) {
     with_scripted(|q| {
@@ -108,6 +135,7 @@ fn reset_script(responses: Vec<Value>) {
         q.extend(responses);
     });
     with_captured(|c| c.clear());
+    with_captured_managed_gemini(|requests| requests.clear());
 }
 
 fn tool_call_completion(name: &str, arguments: Value) -> Value {
@@ -116,10 +144,6 @@ fn tool_call_completion(name: &str, arguments: Value) -> Value {
         "name": name,
         "arguments": arguments.to_string(),
     }]})
-}
-
-fn error_completion(status: u16, message: &str) -> Value {
-    json!({ "status": status, "error": message })
 }
 
 /// True when any captured upstream request carries the engine's unknown-tool
@@ -186,35 +210,6 @@ fn captured_requests_reject_tool_as_unknown(requests: &[Value], tool: &str) -> b
 // wait expires and never sets [`CANARY_OVERLAP`].
 
 /// Canary substrings whose worker requests must overlap. Empty = disarmed.
-/// Milliseconds every scripted upstream reply is held before it is served, or
-/// `0` for "answer immediately". Armed by the per-model-call ceiling test
-/// (#5766/#5767): the ceiling can only be observed against a call that is still
-/// in flight when the ceiling elapses, and it must apply to *every* attempt —
-/// a queue entry would stall only the first, and the retry would be answered
-/// instantly by the default completion, hiding the timeout.
-static SCRIPTED_STALL_MS: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
-
-/// Arms the stall and disarms it on drop.
-///
-/// The guard exists because the atomic is process-global and the env lock is
-/// deliberately recovered from poisoning: if a test panicked between arming and
-/// a bare `disarm`, every later test sharing this scripted handler would inherit
-/// a 25s delay on every completion, turning one failure into a cascade of
-/// unrelated timeouts.
-struct ScriptedStallGuard;
-
-impl Drop for ScriptedStallGuard {
-    fn drop(&mut self) {
-        SCRIPTED_STALL_MS.store(0, std::sync::atomic::Ordering::SeqCst);
-    }
-}
-
-#[must_use = "the stall is disarmed when the guard drops; binding it to `_` disarms it immediately"]
-fn arm_scripted_stall(ms: u64) -> ScriptedStallGuard {
-    SCRIPTED_STALL_MS.store(ms, std::sync::atomic::Ordering::SeqCst);
-    ScriptedStallGuard
-}
-
 static CANARY_BARRIER: OnceLock<Mutex<Vec<String>>> = OnceLock::new();
 /// Worker requests currently parked at the barrier.
 static CANARY_IN_FLIGHT: OnceLock<Mutex<std::collections::HashSet<String>>> = OnceLock::new();
@@ -292,12 +287,26 @@ async fn hold_for_canary_peer(canary: String) {
 
 async fn scripted_chat_completions(
     uri: Uri,
-    _headers: HeaderMap,
+    headers: HeaderMap,
     Json(body): Json<Value>,
 ) -> axum::response::Response {
     use axum::response::IntoResponse;
 
     let streaming = body.get("stream").and_then(Value::as_bool).unwrap_or(false);
+    let authorization = headers
+        .get(AUTHORIZATION)
+        .and_then(|value| value.to_str().ok());
+    with_captured_proxy_requests(|requests| {
+        requests.push(json!({
+            "path": uri.path(),
+            "authorization_present": authorization.is_some(),
+            "authorization_bearer": authorization.is_some_and(|value| {
+                value
+                    .get(..7)
+                    .is_some_and(|prefix| prefix.eq_ignore_ascii_case("Bearer "))
+            }),
+        }));
+    });
     // Web chat also asks for follow-up suggestions in a separate model call.
     // Answer it without consuming the turn's scripted agent completions.
     if body
@@ -315,13 +324,6 @@ async fn scripted_chat_completions(
             "body": body.clone(),
         }))
     });
-
-    // Hold every reply while the stall is armed, so a model call is still
-    // in flight when a per-call ceiling elapses (#5766/#5767).
-    let stall_ms = SCRIPTED_STALL_MS.load(std::sync::atomic::Ordering::SeqCst);
-    if stall_ms > 0 {
-        tokio::time::sleep(Duration::from_millis(stall_ms)).await;
-    }
 
     // Park an armed fan-out worker before it is answered, so a peer has a
     // chance to arrive. Before the queue pop, not after: holding the popped
@@ -440,6 +442,42 @@ fn completion_response(streaming: bool, message: Value) -> axum::response::Respo
         .into_response()
 }
 
+/// Test-owned managed Gemini endpoint used to prove the released TinySearch
+/// module's grounded answer and citation cross back into the next model turn.
+async fn scripted_managed_gemini_generate_content(Json(body): Json<Value>) -> Json<Value> {
+    with_captured_managed_gemini(|requests| requests.push(body.clone()));
+    let query = body
+        .pointer("/contents/0/parts/0/text")
+        .and_then(Value::as_str)
+        .unwrap_or_default();
+    Json(json!({
+        "success": true,
+        "data": {
+            "modelVersion": "gemini-3.8-flash",
+            "responseId": "agent-harness-managed-gemini-fixture",
+            "candidates": [{
+                "content": {
+                    "role": "model",
+                    "parts": [{ "text": "The fixture's distinct grounded answer is cerulean." }]
+                },
+                "groundingMetadata": {
+                    "webSearchQueries": [query],
+                    "groundingChunks": [{
+                        "web": {
+                            "uri": "https://fixture.invalid/source",
+                            "title": "Test-owned source"
+                        }
+                    }],
+                    "groundingSupports": [{
+                        "segment": { "startIndex": 0, "endIndex": 10 },
+                        "groundingChunkIndices": [0]
+                    }]
+                }
+            }]
+        }
+    }))
+}
+
 fn scripted_upstream_router() -> Router {
     Router::new()
         .route("/settings", get(current_user))
@@ -447,6 +485,10 @@ fn scripted_upstream_router() -> Router {
         .route(
             "/openai/v1/chat/completions",
             post(scripted_chat_completions),
+        )
+        .route(
+            "/agent-integrations/gemini/models/gemini-3.8-flash/generate-content",
+            post(scripted_managed_gemini_generate_content),
         )
         .route("/v1/chat/completions", post(scripted_chat_completions))
         .route("/chat/completions", post(scripted_chat_completions))
@@ -460,6 +502,40 @@ async fn serve_on_ephemeral(
     SocketAddr,
     tokio::task::JoinHandle<Result<(), std::io::Error>>,
 ) {
+    ensure_test_rpc_auth();
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind");
+    serve_on_listener(app, listener).await
+}
+
+async fn serve_on_address(
+    app: Router,
+    address: SocketAddr,
+) -> (
+    SocketAddr,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    ensure_test_rpc_auth();
+    let listener = tokio::net::TcpListener::bind(address)
+        .await
+        .unwrap_or_else(|error| panic!("bind {address}: {error}"));
+    serve_on_listener(app, listener).await
+}
+
+async fn serve_on_listener(
+    app: Router,
+    listener: tokio::net::TcpListener,
+) -> (
+    SocketAddr,
+    tokio::task::JoinHandle<Result<(), std::io::Error>>,
+) {
+    let addr = listener.local_addr().expect("addr");
+    let handle = tokio::spawn(async move { axum::serve(listener, app).await });
+    (addr, handle)
+}
+
+fn ensure_test_rpc_auth() {
     // Mirrors json_rpc_e2e.rs::ensure_test_rpc_auth — init the shared RPC bearer once.
     static AUTH_INIT: OnceLock<()> = OnceLock::new();
     AUTH_INIT.get_or_init(|| {
@@ -468,12 +544,6 @@ async fn serve_on_ephemeral(
         let token_dir = std::env::temp_dir().join("openhuman-agent-harness-e2e-auth");
         init_rpc_token(&token_dir).expect("init rpc auth token for agent_harness_e2e");
     });
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
-        .await
-        .expect("bind");
-    let addr = listener.local_addr().expect("addr");
-    let handle = tokio::spawn(async move { axum::serve(listener, app).await });
-    (addr, handle)
 }
 
 async fn post_json_rpc(rpc_base: &str, id: i64, method: &str, params: Value) -> Value {
@@ -509,10 +579,10 @@ default_model = "e2e-mock-model"
 default_temperature = 0.7
 chat_onboarding_completed = true
 
+{extra_config}
+
 [secrets]
 encrypt = false
-
-{extra_config}
 "#
     );
     fn write_config_file(config_dir: &Path, cfg: &str) {
@@ -526,8 +596,11 @@ encrypt = false
     {
         write_config_file(&openhuman_dir.join("users").join("local"), &cfg);
     }
-    let _: openhuman_core::config::Config =
+    let parsed: openhuman_core::config::Config =
         toml::from_str(&cfg).expect("config toml must match Config schema");
+    if extra_config.contains("user_timezone = \"UTC\"") {
+        assert_eq!(parsed.user_timezone.as_deref(), Some("UTC"));
+    }
 }
 
 // ─── SSE collector ──────────────────────────────────────────────────────────
@@ -668,22 +741,41 @@ struct Stack {
     _backend_guard: EnvVarGuard,
     _vite_guard: EnvVarGuard,
     _tmp: tempfile::TempDir,
-    mock_join: tokio::task::JoinHandle<Result<(), std::io::Error>>,
-    rpc_join: tokio::task::JoinHandle<Result<(), std::io::Error>>,
+    mock_join: Option<tokio::task::JoinHandle<Result<(), std::io::Error>>>,
+    rpc_join: Option<tokio::task::JoinHandle<Result<(), std::io::Error>>>,
 }
 
 impl Stack {
     fn shutdown(&self) {
-        self.mock_join.abort();
-        self.rpc_join.abort();
+        if let Some(mock_join) = &self.mock_join {
+            mock_join.abort();
+        }
+        if let Some(rpc_join) = &self.rpc_join {
+            rpc_join.abort();
+        }
+    }
+
+    async fn shutdown_and_wait(mut self) {
+        if let Some(mock_join) = self.mock_join.take() {
+            mock_join.abort();
+            let _ = mock_join.await;
+        }
+        if let Some(rpc_join) = self.rpc_join.take() {
+            rpc_join.abort();
+            let _ = rpc_join.await;
+        }
     }
 }
 
 // Abort server tasks even when a test assertion panics before shutdown().
 impl Drop for Stack {
     fn drop(&mut self) {
-        self.mock_join.abort();
-        self.rpc_join.abort();
+        if let Some(mock_join) = &self.mock_join {
+            mock_join.abort();
+        }
+        if let Some(rpc_join) = &self.rpc_join {
+            rpc_join.abort();
+        }
     }
 }
 
@@ -699,6 +791,18 @@ async fn boot_stack() -> Stack {
 const SUPERVISED_AUTONOMY_CONFIG: &str = "[autonomy]\nenabled = true\nlevel = \"supervised\"\n";
 
 async fn boot_stack_with_config(extra_config: &str) -> Stack {
+    boot_stack_with_options(extra_config, None, None).await
+}
+
+async fn boot_stack_with_capture_endpoint(api_origin: String, home: PathBuf) -> Stack {
+    boot_stack_with_options("user_timezone = \"UTC\"\n", Some(api_origin), Some(home)).await
+}
+
+async fn boot_stack_with_options(
+    extra_config: &str,
+    api_origin_override: Option<String>,
+    home_override: Option<PathBuf>,
+) -> Stack {
     // This suite boots the core in-process, so install the hosted backend
     // transport before any RPC can reach backend-backed providers.
     tinyhumans_boot::boot();
@@ -714,20 +818,36 @@ async fn boot_stack_with_config(extra_config: &str) -> Stack {
     // it every turn fails with `chat_error.inference`.
     tinyhumans_boot::boot();
 
+    let home_is_override = home_override.is_some();
     let tmp = tempdir().expect("tempdir");
-    let home = tmp.path().to_path_buf();
+    let home = home_override.unwrap_or_else(|| tmp.path().to_path_buf());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&home, std::fs::Permissions::from_mode(0o700))
+            .expect("make test HOME private");
+    }
     let openhuman_home = home.join(".openhuman");
     let action_dir = home.join("OpenHuman/projects");
     std::fs::create_dir_all(&action_dir).expect("create action directory");
 
     let home_guard = EnvVarGuard::set_to_path("HOME", &home);
     let action_dir_guard = EnvVarGuard::set_to_path("OPENHUMAN_ACTION_DIR", &action_dir);
-    let workspace_guard = EnvVarGuard::unset("OPENHUMAN_WORKSPACE");
+    let workspace_guard = if home_is_override {
+        EnvVarGuard::set_to_path("OPENHUMAN_WORKSPACE", &home.join("workspace"))
+    } else {
+        EnvVarGuard::unset("OPENHUMAN_WORKSPACE")
+    };
     let backend_guard = EnvVarGuard::unset("BACKEND_URL");
     let vite_guard = EnvVarGuard::unset("VITE_BACKEND_URL");
 
-    let (mock_addr, mock_join) = serve_on_ephemeral(scripted_upstream_router()).await;
-    let mock_origin = format!("http://{mock_addr}");
+    let (mock_origin, mock_join) = match api_origin_override {
+        Some(api_origin) => (api_origin, None),
+        None => {
+            let (mock_addr, mock_join) = serve_on_ephemeral(scripted_upstream_router()).await;
+            (format!("http://{mock_addr}"), Some(mock_join))
+        }
+    };
     write_min_config(&openhuman_home, &mock_origin, extra_config);
     // Pre-write user-scoped config so it's found after auth_store_session activates "e2e-user".
     write_min_config(
@@ -764,7 +884,7 @@ async fn boot_stack_with_config(extra_config: &str) -> Stack {
         _vite_guard: vite_guard,
         _tmp: tmp,
         mock_join,
-        rpc_join,
+        rpc_join: Some(rpc_join),
     }
 }
 
@@ -799,6 +919,432 @@ async fn send_web_chat(
         .and_then(Value::as_str)
         .unwrap_or_else(|| panic!("accepted web chat has no request_id: {result}"))
         .to_owned()
+}
+
+struct CaptureProxy {
+    child: Child,
+    stdout_drain: Option<std::thread::JoinHandle<()>>,
+    port: u16,
+}
+
+struct AbortOnDropMock {
+    join: Option<tokio::task::JoinHandle<Result<(), std::io::Error>>>,
+}
+
+impl AbortOnDropMock {
+    async fn shutdown_and_wait(mut self) {
+        if let Some(join) = self.join.take() {
+            join.abort();
+            let _ = join.await;
+        }
+    }
+}
+
+impl Drop for AbortOnDropMock {
+    fn drop(&mut self) {
+        if let Some(join) = &self.join {
+            join.abort();
+        }
+    }
+}
+
+impl Drop for CaptureProxy {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+        if let Some(stdout_drain) = self.stdout_drain.take() {
+            let _ = stdout_drain.join();
+        }
+    }
+}
+
+fn start_capture_proxy(
+    upstream: &str,
+    capture_dir: &Path,
+    requested_port: Option<u16>,
+) -> CaptureProxy {
+    let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    let script = manifest_dir.join("../../scripts/debug/capture-first-inference.mjs");
+    let mut child = Command::new("node")
+        .arg(script)
+        .env("CAPTURE_HOST", "127.0.0.1")
+        .env(
+            "CAPTURE_PORT",
+            requested_port.map_or_else(|| "0".into(), |p| p.to_string()),
+        )
+        .env("CAPTURE_UPSTREAM", upstream)
+        .env("CAPTURE_ALL", "1")
+        .env("CAPTURE_ALL_DIR", capture_dir.join("requests"))
+        .env("CAPTURE_OUTPUT", capture_dir.join("first-request.json"))
+        .env("CAPTURE_LOG", capture_dir.join("summary.ndjson"))
+        .stdout(Stdio::piped())
+        .stderr(Stdio::inherit())
+        .spawn()
+        .expect("start capture-first-inference.mjs");
+    let stdout = child.stdout.take().expect("capture proxy stdout");
+    let (startup_tx, startup_rx) = std::sync::mpsc::sync_channel(1);
+    let stdout_drain = std::thread::spawn(move || {
+        let mut stdout = BufReader::new(stdout);
+        let mut startup = String::new();
+        let startup_result = match stdout.read_line(&mut startup) {
+            Ok(0) => Err("stdout closed before the proxy announced its port".to_owned()),
+            Ok(_) => Ok(startup),
+            Err(error) => Err(format!("reading proxy startup line failed: {error}")),
+        };
+        if startup_tx.send(startup_result).is_err() {
+            return;
+        }
+        let mut discarded = String::new();
+        while stdout
+            .read_line(&mut discarded)
+            .is_ok_and(|count| count > 0)
+        {
+            discarded.clear();
+        }
+    });
+    let mut proxy = CaptureProxy {
+        child,
+        stdout_drain: Some(stdout_drain),
+        port: 0,
+    };
+    let startup = match startup_rx.recv_timeout(Duration::from_secs(10)) {
+        Ok(Ok(startup)) => startup,
+        Ok(Err(error)) => panic!("capture proxy failed during startup: {error}"),
+        Err(error) => {
+            let status = proxy.child.try_wait().ok().flatten();
+            panic!("capture proxy did not report startup within 10s ({error}; exit={status:?})")
+        }
+    };
+    let address = startup
+        .split_whitespace()
+        .find_map(|word| word.strip_prefix("http://127.0.0.1:"))
+        .and_then(|value| value.split(';').next())
+        .unwrap_or_else(|| panic!("capture proxy did not report a loopback port: {startup}"));
+    proxy.port = address
+        .parse()
+        .unwrap_or_else(|_| panic!("capture proxy reported an invalid port: {startup}"));
+    if let Some(expected) = requested_port {
+        assert_eq!(
+            proxy.port, expected,
+            "capture proxy changed the configured port"
+        );
+    }
+    proxy
+}
+
+fn capture_request_files(directory: &Path) -> Vec<PathBuf> {
+    let mut files: Vec<_> = std::fs::read_dir(directory)
+        .unwrap_or_else(|error| panic!("read captures in {}: {error}", directory.display()))
+        .map(|entry| entry.expect("capture dir entry").path())
+        .filter(|path| {
+            path.file_name()
+                .and_then(|name| name.to_str())
+                .is_some_and(|name| name.starts_with("req-") && name.ends_with(".json"))
+        })
+        .collect();
+    files.sort();
+    files
+}
+
+fn capture_request_bodies(files: &[PathBuf]) -> Vec<Vec<u8>> {
+    files
+        .iter()
+        .map(|path| {
+            std::fs::read(path)
+                .unwrap_or_else(|error| panic!("read capture {}: {error}", path.display()))
+        })
+        .collect()
+}
+
+fn managed_capture_identity() -> Value {
+    json!({
+        "thread_id": "managed-capture-thread",
+        "model": "e2e-mock-model",
+        "message": "Compare the managed inference request shape.",
+        "profile_path": "state/home",
+        "workspace_path": "state/home/workspace",
+        "config": "default_model=e2e-mock-model; temperature=0.7; user_timezone=UTC",
+        "time_zone": "UTC",
+        "prompt_clock": MANAGED_CAPTURE_PROMPT_CLOCK,
+        "session": "same synthetic e2e user and JWT",
+    })
+}
+
+async fn wait_for_capture_summaries(directory: &Path, expected_count: usize) -> Vec<Value> {
+    let summary_path = directory.join("summary.ndjson");
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(30);
+    loop {
+        let summaries = std::fs::read_to_string(&summary_path)
+            .unwrap_or_default()
+            .lines()
+            .map(|line| serde_json::from_str(line).expect("valid capture summary JSON"))
+            .collect::<Vec<Value>>();
+        if summaries.len() >= expected_count {
+            return summaries;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for {expected_count} completed proxy responses; saw {}",
+            summaries.len()
+        );
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+}
+
+async fn run_managed_capture_turn(
+    api_origin: String,
+    home: PathBuf,
+    capture_dir: &Path,
+    expected_summary_count: usize,
+) -> Vec<Value> {
+    reset_script(vec![text_completion(
+        "The managed gateway request is stable.",
+    )]);
+    with_captured_proxy_requests(|requests| requests.clear());
+    let workspace_dir = home.join("workspace");
+    let stack = boot_stack_with_capture_endpoint(api_origin, home).await;
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=managed-capture-client",
+        stack.rpc_base
+    ))
+    .await;
+    let request_id = send_web_chat(
+        &stack.rpc_base,
+        702,
+        "managed-capture-client",
+        "managed-capture-thread",
+        "Compare the managed inference request shape.",
+    )
+    .await;
+    let terminal =
+        wait_for_terminal_request(&mut events, Duration::from_secs(60), Some(&request_id)).await;
+    assert_eq!(
+        terminal.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "managed capture turn failed: {}",
+        terminal
+            .get("event")
+            .and_then(Value::as_str)
+            .unwrap_or("missing")
+    );
+    let completed = wait_for_capture_summaries(capture_dir, expected_summary_count).await;
+    assert!(
+        completed[..expected_summary_count]
+            .iter()
+            .all(|summary| summary.get("status").and_then(Value::as_u64) == Some(200)),
+        "mock inference responses did not all complete successfully: {completed:?}"
+    );
+    drop(events);
+    stack.shutdown_and_wait().await;
+    // The bare test router dispatches RPC with DispatchCtx::unbound(). Its
+    // cached web-chat agent outlives a router shutdown, so remove that session
+    // from the same process-default slot before the fixture resets its files.
+    openhuman_core::web_chat::invalidate_thread_sessions(
+        &openhuman_core::core::runtime::DispatchCtx::unbound(),
+        "managed-capture-thread",
+    )
+    .await;
+    // Session transcript stores and their SQLite backend are also cached by
+    // workspace path; release them before the next repetition removes it.
+    openhuman_core::storage::sessions::release_workspace(&workspace_dir);
+
+    with_captured_proxy_requests(|requests| requests.clone())
+}
+
+#[test]
+fn managed_host_requests_repeat_with_the_same_capture_identity() {
+    run_on_agent_stack(
+        "managed_host_requests_repeat_with_the_same_capture_identity",
+        managed_host_requests_repeat_with_the_same_capture_identity_inner,
+    );
+}
+
+async fn managed_host_requests_repeat_with_the_same_capture_identity_inner() {
+    let _lock = env_lock();
+    let _prompt_clock = openhuman_core::prompts::register_prompt_clock(|| {
+        chrono::DateTime::parse_from_rfc3339(MANAGED_CAPTURE_PROMPT_CLOCK)
+            .expect("fixed capture instant")
+            .with_timezone(&chrono::Utc)
+    });
+    let phase = std::env::var("OPENHUMAN_MANAGED_CAPTURE_PHASE")
+        .unwrap_or_else(|_| "self-contained".to_owned());
+    let (capture_root, _temp_guard) = match std::env::var_os("OPENHUMAN_MANAGED_CAPTURE_DIR") {
+        Some(path) => (PathBuf::from(path), None),
+        None => {
+            assert_eq!(
+                phase, "self-contained",
+                "capture phases need a persistent artifact root"
+            );
+            let temp = tempdir().expect("managed capture artifact tempdir");
+            (temp.path().to_path_buf(), Some(temp))
+        }
+    };
+    assert!(
+        matches!(phase.as_str(), "before" | "after" | "self-contained"),
+        "capture phase must be before, after, or self-contained"
+    );
+    std::fs::create_dir_all(&capture_root).expect("create managed capture artifact root");
+    let endpoint_file = capture_root.join("endpoints.json");
+    let identity = managed_capture_identity();
+
+    let endpoints = if phase == "after" {
+        let endpoints: Value = serde_json::from_slice(
+            &std::fs::read(&endpoint_file).expect("before phase endpoint metadata"),
+        )
+        .expect("before phase endpoint metadata JSON");
+        assert_eq!(endpoints.get("identity"), Some(&identity));
+        Some(endpoints)
+    } else {
+        let mut entries = std::fs::read_dir(&capture_root).expect("read fresh capture root");
+        assert!(
+            entries.next().is_none(),
+            "before capture root must start empty"
+        );
+        None
+    };
+    let (actual_mock_addr, mock_join) = match endpoints.as_ref() {
+        Some(endpoints) => {
+            let address = endpoints
+                .get("mock_origin")
+                .and_then(Value::as_str)
+                .and_then(|origin| origin.strip_prefix("http://"))
+                .and_then(|address| address.parse::<SocketAddr>().ok())
+                .expect("recorded loopback mock origin");
+            serve_on_address(scripted_upstream_router(), address).await
+        }
+        None => serve_on_ephemeral(scripted_upstream_router()).await,
+    };
+    let mock_join = AbortOnDropMock {
+        join: Some(mock_join),
+    };
+    let mock_origin = format!("http://{actual_mock_addr}");
+    if let Some(endpoints) = endpoints.as_ref() {
+        assert_eq!(
+            endpoints.get("mock_origin").and_then(Value::as_str),
+            Some(mock_origin.as_str())
+        );
+    }
+    let requested_proxy_port = endpoints.as_ref().map(|endpoints| {
+        endpoints
+            .get("proxy_port")
+            .and_then(Value::as_u64)
+            .expect("recorded capture proxy port") as u16
+    });
+
+    let capture_phase = match phase.as_str() {
+        "before" => "before",
+        "after" => "after",
+        _ => "self-contained",
+    };
+    let capture_dir = capture_root.join("captures").join(capture_phase);
+    let request_dir = capture_dir.join("requests");
+    if request_dir.exists() {
+        assert!(
+            std::fs::read_dir(&request_dir)
+                .expect("read fresh request capture directory")
+                .next()
+                .is_none(),
+            "capture phase request directory must start empty"
+        );
+    }
+    std::fs::create_dir_all(&request_dir).expect("create raw request capture directory");
+    let proxy = start_capture_proxy(&mock_origin, &capture_dir, requested_proxy_port);
+    let proxy_origin = format!("http://127.0.0.1:{}", proxy.port);
+    if phase != "after" {
+        std::fs::write(
+            &endpoint_file,
+            serde_json::to_vec_pretty(&json!({
+                "identity": identity,
+                "mock_origin": mock_origin,
+                "proxy_port": proxy.port,
+            }))
+            .expect("serialize capture endpoint metadata"),
+        )
+        .expect("persist capture endpoint metadata");
+    }
+
+    let mut batches = Vec::new();
+    let mut prior_count = 0;
+    for _ in 0..2 {
+        let home = capture_root.join("state/home");
+        if home.exists() {
+            std::fs::remove_dir_all(&home).expect("reset only the managed capture profile");
+        }
+        std::fs::create_dir_all(&home).expect("create managed capture profile");
+        let expected_summary_count = prior_count + 2;
+        let metadata = run_managed_capture_turn(
+            proxy_origin.clone(),
+            home,
+            &capture_dir,
+            expected_summary_count,
+        )
+        .await;
+        assert_eq!(
+            metadata.len(),
+            2,
+            "expected one managed turn and one completed follow-up-suggestions request"
+        );
+        assert!(
+            !metadata.is_empty(),
+            "the mock saw no managed inference requests"
+        );
+        assert!(
+            metadata.iter().all(|request| {
+                request.get("path").and_then(Value::as_str) == Some("/openai/v1/chat/completions")
+                    && request.get("authorization_present") == Some(&json!(true))
+                    && request.get("authorization_bearer") == Some(&json!(true))
+            }),
+            "the proxy did not forward the managed path and bearer presence"
+        );
+
+        let files = capture_request_files(&request_dir);
+        assert!(
+            files.len() > prior_count,
+            "the host turn produced no raw inference capture"
+        );
+        let batch = capture_request_bodies(&files[prior_count..]);
+        assert!(!batch.is_empty());
+        assert!(
+            batch.iter().any(|body| {
+                let request: Value = serde_json::from_slice(body).expect("captured request JSON");
+                request.get("thread_id").and_then(Value::as_str) == Some("managed-capture-thread")
+                    && request
+                        .get("prompt_cache_key")
+                        .and_then(Value::as_str)
+                        .is_some_and(|key| !key.is_empty())
+            }),
+            "the captured turn did not carry its generated thread and prompt-cache identity"
+        );
+        prior_count = files.len();
+        batches.push(batch);
+    }
+    assert!(
+        batches[0] == batches[1],
+        "raw request bytes changed between restored identical turns"
+    );
+    if phase == "after" {
+        let before = capture_request_bodies(&capture_request_files(
+            &capture_root.join("captures/before/requests"),
+        ));
+        assert!(
+            before.len() == batches[0].len() * 2
+                && before
+                    .chunks_exact(batches[0].len())
+                    .all(|batch| batch == batches[0]),
+            "before baseline batches were not two identical captures"
+        );
+        let after = capture_request_bodies(&capture_request_files(&request_dir));
+        assert!(
+            after.len() == batches[1].len() * 2
+                && after
+                    .chunks_exact(batches[1].len())
+                    .all(|batch| batch == batches[1])
+                && before == after,
+            "managed request bytes changed between before and after migration"
+        );
+    }
+    drop(proxy);
+    mock_join.shutdown_and_wait().await;
 }
 
 async fn bind_thread_action_dir(stack: &Stack, thread_id: &str, action_dir: &Path) {
@@ -854,6 +1400,154 @@ where
 }
 
 // ─── Task 2: Multi-turn state persistence ────────────────────────────────────
+
+/// A released TinySearch module calls the managed Gemini route and returns its
+/// grounded answer to the following model request through the host tool seam.
+/// The standard Rust E2E runners stage the registry-pinned release on
+/// `OPENHUMAN_MODULE_PATH`; on Linux x86_64 that uses the Ubuntu 22.04 asset.
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    feature = "modules",
+    any(feature = "mcp", feature = "skills")
+))]
+#[test]
+fn managed_tinysearch_answer_reaches_followup_model_request() {
+    run_on_agent_stack(
+        "managed_tinysearch_answer_reaches_followup_model_request",
+        managed_tinysearch_answer_reaches_followup_model_request_inner,
+    );
+}
+
+#[cfg(all(
+    target_os = "linux",
+    target_arch = "x86_64",
+    feature = "modules",
+    any(feature = "mcp", feature = "skills")
+))]
+async fn managed_tinysearch_answer_reaches_followup_model_request_inner() {
+    let _lock = env_lock();
+    let pinned = openhuman_core::modules::registry::find("tinysearch")
+        .expect("TinySearch is registered in the module asset registry");
+    assert_eq!(pinned.version, "0.5.1", "use the pinned module release");
+    assert!(
+        std::env::var_os("OPENHUMAN_MODULE_SOURCE").is_none()
+            && std::env::var_os("OPENHUMAN_MODULE_SOURCE_DIR").is_none()
+            && std::env::var_os("OPENHUMAN_MODULE_SOURCE_TINYSEARCH").is_none(),
+        "the integration must use the staged release, not a source or linked override"
+    );
+    let module_paths_env = std::env::var_os("OPENHUMAN_MODULE_PATH")
+        .expect("the standard Rust test runner must stage TinySearch on OPENHUMAN_MODULE_PATH");
+    let module_paths = std::env::split_paths(&module_paths_env).collect::<Vec<_>>();
+    let artifact = openhuman_core::modules::local_artifact("tinysearch")
+        .expect("the standard Rust test runner must stage the pinned TinySearch library");
+    let artifact_dir = artifact
+        .parent()
+        .expect("the staged TinySearch artifact has a parent directory");
+    assert!(
+        module_paths.iter().any(|path| path == artifact_dir),
+        "TinySearch must resolve to the standard runner's staged release path: {artifact:?}"
+    );
+    let module_cache = tempdir().expect("isolated module cache");
+    let _module_cache_guard = EnvVarGuard::set_to_path("XDG_CACHE_HOME", module_cache.path());
+    let module_data = tempdir().expect("isolated module data directory");
+    let _module_data_guard = EnvVarGuard::set_to_path("XDG_DATA_HOME", module_data.path());
+
+    const QUERY: &str = "What color is the fixture's named answer?";
+    const ANSWER: &str = "The fixture's distinct grounded answer is cerulean.";
+    reset_script(vec![
+        tool_call_completion("web_answer_tool", json!({ "query": QUERY })),
+        text_completion("I received the grounded answer and its source."),
+    ]);
+    let stack = boot_stack_with_config(
+        "[search]\nenabled = true\n\n[search.providers.gemini]\nenabled = true\nroute = \"managed\"\n\n[search.roles]\nanswer = [\"gemini\"]\n\n[modules]\nsource = \"release\"\nallow_download = false\n",
+    )
+    .await;
+    let mut events = spawn_sse_collector(format!(
+        "{}/events?client_id=tinysearch-managed-wire",
+        stack.rpc_base
+    ))
+    .await;
+    let request_id = send_web_chat(
+        &stack.rpc_base,
+        8_233,
+        "tinysearch-managed-wire",
+        "thread-tinysearch-managed-wire",
+        "Find the fixture's named answer and tell me what it says.",
+    )
+    .await;
+    let done =
+        wait_for_terminal_request(&mut events, Duration::from_secs(120), Some(&request_id)).await;
+    assert_eq!(
+        done.get("event").and_then(Value::as_str),
+        Some("chat_done"),
+        "the module-backed answer turn must finish: {done}"
+    );
+
+    let modules_response =
+        post_json_rpc(&stack.rpc_base, 8_234, "openhuman.modules_list", json!({})).await;
+    let modules_response = assert_no_jsonrpc_error(&modules_response, "modules_list after search");
+    let tinysearch = modules_response
+        .get("modules")
+        .or_else(|| modules_response.pointer("/result/modules"))
+        .and_then(Value::as_array)
+        .and_then(|modules| {
+            modules
+                .iter()
+                .find(|module| module.get("id").and_then(Value::as_str) == Some("tinysearch"))
+        })
+        .unwrap_or_else(|| panic!("modules_list omitted TinySearch: {modules_response}"));
+    assert_eq!(
+        tinysearch.get("version").and_then(Value::as_str),
+        Some("0.5.1")
+    );
+    assert_eq!(
+        tinysearch.get("state").and_then(Value::as_str),
+        Some("ready")
+    );
+    assert_eq!(
+        tinysearch.get("source").and_then(Value::as_str),
+        Some("release")
+    );
+
+    let managed_requests = with_captured_managed_gemini(|requests| requests.clone());
+    assert_eq!(
+        managed_requests.len(),
+        1,
+        "TinySearch must call managed Gemini once"
+    );
+    let managed_request = &managed_requests[0];
+    let request_text = managed_request
+        .pointer("/contents/0/parts/0/text")
+        .and_then(Value::as_str)
+        .expect("managed Gemini request has a text prompt");
+    assert!(
+        request_text.contains(QUERY),
+        "the module must forward the requested query to managed Gemini: {managed_request}"
+    );
+    assert_eq!(
+        managed_request.get("tools"),
+        Some(&json!([{ "googleSearch": {} }])),
+        "grounded answers must request Gemini search grounding"
+    );
+
+    let completions = with_captured(|requests| requests.clone());
+    assert_eq!(
+        completions.len(),
+        2,
+        "the tool result must reach a follow-up model turn"
+    );
+    let delivered = tool_result_text(&completions[1..], "web_answer_tool")
+        .expect("the next model request must contain web_answer_tool's result");
+    assert!(
+        delivered.contains(ANSWER),
+        "the host must forward TinySearch's grounded answer: {delivered}"
+    );
+    assert!(
+        delivered.contains("https://fixture.invalid/source"),
+        "the host must forward TinySearch's grounded source: {delivered}"
+    );
+}
 
 /// Turn 2's upstream request must include turn 1's user message and assistant
 /// reply — proves transcript/history persistence across turns on one thread.
@@ -1961,70 +2655,6 @@ async fn empty_provider_response_inner() {
     stack.shutdown();
 }
 
-// ─── Task 8: Provider error retry ────────────────────────────────────────────
-//
-// ReliableProvider retries on 5xx (reliable.rs:426-507).
-// Default provider_retries = 2 (runtime.rs:107-109) → max_retries = 2.
-// Loop: attempt 0..=2 (3 attempts total). On attempt 0 the mock returns 500;
-// on attempt 1 it returns the canary text. The harness does NOT use
-// provider_backoff_ms = 500ms with backoff; the minimum is 50ms
-// (reliable.rs:352, base_backoff_ms.max(50)). Both requests appear in the
-// CAPTURED_COMPLETION_REQUESTS queue because each attempt calls the mock.
-
-/// First upstream call 500s; ReliableProvider retries (provider_retries=2,
-/// reliable.rs:426-507); second attempt succeeds with RETRY_SUCCESS_CANARY.
-/// ≥2 captured upstream requests confirm the retry path was actually exercised.
-#[test]
-fn provider_error_retry() {
-    run_on_agent_stack("provider_error_retry", provider_error_retry_inner);
-}
-
-async fn provider_error_retry_inner() {
-    let _lock = env_lock();
-    reset_script(vec![
-        // Attempt 0: scripted upstream returns 500.
-        error_completion(500, "scripted transient upstream failure"),
-        // Attempt 1 (first retry): scripted upstream returns the canary.
-        text_completion("RETRY_SUCCESS_CANARY"),
-    ]);
-    let stack = boot_stack().await;
-
-    let mut events =
-        spawn_sse_collector(format!("{}/events?client_id=harness-retry", stack.rpc_base)).await;
-    send_web_chat(
-        &stack.rpc_base,
-        700,
-        "harness-retry",
-        "thread-retry",
-        "hello",
-    )
-    .await;
-
-    let done = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
-    assert_eq!(
-        done.get("event").and_then(Value::as_str),
-        Some("chat_done"),
-        "expected chat_done after retry; got: {done}"
-    );
-    let full_response = done
-        .get("full_response")
-        .and_then(Value::as_str)
-        .unwrap_or_else(|| panic!("chat_done missing full_response: {done}"));
-    assert!(
-        full_response.contains("RETRY_SUCCESS_CANARY"),
-        "full_response must contain RETRY_SUCCESS_CANARY after retry; got: {full_response}"
-    );
-
-    // Both the 500 attempt and the successful retry hit the upstream mock.
-    let count = with_captured(|c| c.len());
-    assert!(
-        count >= 2,
-        "expected ≥2 upstream attempts (500 + retry), got {count}"
-    );
-
-    stack.shutdown();
-}
-
 // ─── Task 9: Parallel fan-out + multi-hop chain ───────────────────────────────
 //
 // parallel_subagent_fanout:
@@ -2860,406 +3490,6 @@ async fn streaming_tool_call_accumulation() {
 /// Needed for streaming_tool_call_accumulation.
 use openhuman_core::config::AgentConfig;
 
-// ─── Case 13 (provider-level): SSE tool-arg accumulation ──────────────────────
-//
-// The `streaming_tool_call_accumulation` test above drives the engine + UI
-// delta forwarding through a ScriptedProvider that returns a *pre-assembled*
-// ChatResponse — it never exercises the real provider's chunk-by-chunk
-// accumulation. The accumulation that issue #3471 case 13 targets lives in
-// TinyAgents' `OpenAiModel` SSE transport: its accumulator glues partial
-// `function.arguments`
-// fragments from successive SSE chunks into one JSON string, which only parses
-// once the stream completes. Nothing else covers that path beyond its error-frame
-// unit tests.
-//
-// This test stands up a real axum SSE upstream that emits OpenAI-style
-// `chat.completion.chunk` frames whose `function.arguments` fragments are split
-// at awkward byte offsets (mid-key, mid-value), points a real
-// crate-native `OpenAiModel` at it, and drives `ChatModel::stream`. It asserts
-// the model:
-//   - reassembles exactly one tool call with `name == "echo_tool"`,
-//   - produces an `arguments` string that parses AND equals the canonical JSON,
-//   - forwards ≥3 correlated `ToolCallDelta`s whose concatenation is the full
-//     JSON and whose tool name remains available to streaming consumers.
-
-/// The JSON the upstream streams back, split across SSE chunks. Chosen so the
-/// splits land mid-key and mid-value, the worst case for naive accumulation.
-const SSE_TOOL_ARGS_JSON: &str = r#"{"value":"SSE_STREAM_CANARY","n":42}"#;
-
-/// Build the four awkward `function.arguments` fragments from
-/// [`SSE_TOOL_ARGS_JSON`]. Concatenated they reproduce the JSON byte-for-byte;
-/// individually each is invalid JSON, forcing the provider to accumulate before
-/// parsing. Returned as owned Strings so the SSE task can take them by value.
-fn sse_tool_arg_fragments() -> [String; 4] {
-    let s = SSE_TOOL_ARGS_JSON;
-    // Byte offsets land mid-key (`{"valu`), across the key→value boundary,
-    // mid-value, and the tail. len = 36.
-    //   0..6   {"valu
-    //   6..18  e":"SSE_STRE
-    //   18..30 AM_CANARY","
-    //   30..36 n":42}
-    [
-        s[0..6].to_string(),
-        s[6..18].to_string(),
-        s[18..30].to_string(),
-        s[30..].to_string(),
-    ]
-}
-
-/// One OpenAI-style `chat.completion.chunk` SSE frame for a tool-call delta.
-/// `id`/`name` are only set on the first fragment (`include_header`); later
-/// fragments carry just the `function.arguments` continuation, exactly as real
-/// providers stream them.
-fn sse_tool_chunk_frame(arguments: &str, include_header: bool) -> String {
-    let function = if include_header {
-        json!({ "name": "echo_tool", "arguments": arguments })
-    } else {
-        json!({ "arguments": arguments })
-    };
-    let mut tool_call = json!({
-        "index": 0,
-        "function": function,
-    });
-    if include_header {
-        tool_call["id"] = json!("call_sse_canary");
-        tool_call["type"] = json!("function");
-    }
-    let chunk = json!({
-        "id": "chatcmpl-sse-canary",
-        "object": "chat.completion.chunk",
-        "choices": [{ "index": 0, "delta": { "tool_calls": [tool_call] }, "finish_reason": null }],
-    });
-    format!("data: {chunk}\n\n")
-}
-
-/// The terminal `finish_reason: "tool_calls"` frame followed by `[DONE]`.
-fn sse_tool_finish_frames() -> String {
-    let finish = json!({
-        "id": "chatcmpl-sse-canary",
-        "object": "chat.completion.chunk",
-        "choices": [{ "index": 0, "delta": {}, "finish_reason": "tool_calls" }],
-    });
-    format!("data: {finish}\n\ndata: [DONE]\n\n")
-}
-
-/// axum handler: assert the provider asked for streaming with native tools, then
-/// stream the split tool-arg fragments back as `text/event-stream`.
-async fn sse_tool_args_handler(Json(body): Json<Value>) -> axum::response::Response {
-    use axum::body::Body;
-    use axum::http::header::CONTENT_TYPE;
-    use axum::response::IntoResponse;
-
-    // The streaming path is only taken when the provider set stream:true and
-    // forwarded the native tool spec; assert both so a regression that drops
-    // either can't make this test silently pass through a non-streaming branch.
-    assert_eq!(
-        body.get("stream").and_then(Value::as_bool),
-        Some(true),
-        "provider must request stream:true on the native streaming path; body: {body}"
-    );
-    let tool_names: Vec<&str> = body
-        .get("tools")
-        .and_then(Value::as_array)
-        .map(|tools| {
-            tools
-                .iter()
-                .filter_map(|t| t.pointer("/function/name").and_then(Value::as_str))
-                .collect()
-        })
-        .unwrap_or_default();
-    assert!(
-        tool_names.contains(&"echo_tool"),
-        "provider must forward the native echo_tool spec; tools in body: {tool_names:?}; body: {body}"
-    );
-
-    let [f0, f1, f2, f3] = sse_tool_arg_fragments();
-    // First fragment carries id+name; the remaining three are pure arg
-    // continuations. A finish frame + [DONE] close the stream.
-    let frames: Vec<String> = vec![
-        sse_tool_chunk_frame(&f0, true),
-        sse_tool_chunk_frame(&f1, false),
-        sse_tool_chunk_frame(&f2, false),
-        sse_tool_chunk_frame(&f3, false),
-        sse_tool_finish_frames(),
-    ];
-    let body_stream = tokio_stream::iter(
-        frames
-            .into_iter()
-            .map(|frame| Ok::<_, std::convert::Infallible>(axum::body::Bytes::from(frame))),
-    );
-
-    (
-        StatusCode::OK,
-        [(CONTENT_TYPE, "text/event-stream")],
-        Body::from_stream(body_stream),
-    )
-        .into_response()
-}
-
-fn sse_tool_args_router() -> Router {
-    Router::new().route("/chat/completions", post(sse_tool_args_handler))
-}
-
-/// Provider-level coverage for issue #3471 case 13: the real
-/// TinyAgents' `OpenAiModel` accumulates `function.arguments` fragments split
-/// across SSE chunks into one valid JSON string, and forwards the ordered
-/// `ToolCallStart` → `ToolCallArgsDelta*` events to the live receiver.
-///
-/// Unlike `streaming_tool_call_accumulation` (which uses a ScriptedProvider that
-/// returns a pre-assembled response), this drives the actual provider HTTP +
-/// SSE-parse path against an in-test upstream, so the `entry.arguments.push_str`
-/// accumulation in its SSE transport is what assembles the final tool call.
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn provider_sse_tool_args_accumulation() {
-    use tinyinference_llm::message::Message;
-    use tinyinference_llm::model::{ChatModel, ModelRequest, ModelStreamItem};
-    use tinyinference_llm::providers::openai::{AuthStyle, OpenAiModel};
-    use tinyinference_llm::tool::ToolSchema;
-
-    let _lock = env_lock();
-
-    // Stand up the SSE upstream on an ephemeral port.
-    let (addr, server) = serve_on_ephemeral(sse_tool_args_router()).await;
-    let base_url = format!("http://{addr}");
-
-    // Real provider, Bearer auth with a non-empty credential so
-    // credential_for_request() does not short-circuit. base_url has no path, so
-    // chat_completions_url() targets `<base_url>/chat/completions` — the route
-    // the upstream serves.
-    let model = OpenAiModel::new("test-key")
-        .with_provider("e2e-sse-canary")
-        .with_base_url(&base_url)
-        .with_auth_style(AuthStyle::Bearer);
-
-    // A native tool spec so the streaming request carries `tools` (and the
-    // handler's assertion that the provider forwarded echo_tool passes).
-    let tools = vec![ToolSchema::new(
-        "echo_tool",
-        "Echo the provided value back.",
-        json!({
-            "type": "object",
-            "properties": { "value": { "type": "string" }, "n": { "type": "number" } },
-            "required": ["value"],
-        }),
-    )];
-    let request = ModelRequest::new(vec![Message::user("call echo_tool")])
-        .with_tools(tools)
-        .with_model("e2e-sse-model")
-        .with_temperature(0.0);
-    let mut stream = model
-        .stream(&(), request)
-        .await
-        .unwrap_or_else(|e| panic!("model stream over SSE failed: {e:#}"));
-    let mut deltas = Vec::new();
-    let mut response = None;
-    while let Some(item) = stream.next().await {
-        match item {
-            ModelStreamItem::ToolCallDelta(delta) => deltas.push(delta),
-            ModelStreamItem::Completed(completed) => response = Some(completed),
-            ModelStreamItem::Failed(error) => panic!("model stream failed: {error}"),
-            ModelStreamItem::ProviderFailed(error) => {
-                panic!("provider stream failed: {}", error.message)
-            }
-            _ => {}
-        }
-    }
-    let response = response.expect("stream must emit its completed response");
-
-    // ── Assert 1: exactly one tool call, name echo_tool ───────────────────────
-    assert_eq!(
-        response.message.tool_calls.len(),
-        1,
-        "expected exactly one accumulated tool call; got {}: {:?}",
-        response.message.tool_calls.len(),
-        response.message.tool_calls
-    );
-    let tool_call = &response.message.tool_calls[0];
-    assert_eq!(
-        tool_call.name, "echo_tool",
-        "accumulated tool call must be echo_tool; got {:?}",
-        tool_call.name
-    );
-
-    // ── Assert 2: accumulated arguments parse AND equal the canonical JSON ─────
-    let expected: Value = json!({ "value": "SSE_STREAM_CANARY", "n": 42 });
-    let parsed = tool_call.arguments.clone();
-    assert_eq!(
-        parsed, expected,
-        "accumulated arguments must equal the canonical JSON exactly; \
-         got {parsed} from raw {:?}",
-        tool_call.arguments
-    );
-
-    // ── Assert 3: correlated ToolCallDelta stream concatenates to the JSON ────
-    let named_delta_count = deltas
-        .iter()
-        .filter(|d| d.tool_name.as_deref() == Some("echo_tool"))
-        .count();
-    assert!(
-        named_delta_count >= 1,
-        "expected the streamed tool name to be available; deltas: {deltas:?}"
-    );
-    assert!(
-        deltas
-            .iter()
-            .all(|delta| delta.call_id == "call_sse_canary"),
-        "every argument fragment must retain the provider call id; deltas: {deltas:?}"
-    );
-
-    let arg_deltas: Vec<String> = deltas.iter().map(|delta| delta.content.clone()).collect();
-    assert!(
-        arg_deltas.len() >= 3,
-        "expected ≥3 ToolCallDelta events (split fragments); got {}: {arg_deltas:?}",
-        arg_deltas.len()
-    );
-    let concatenated: String = arg_deltas.concat();
-    assert_eq!(
-        concatenated, SSE_TOOL_ARGS_JSON,
-        "concatenated ToolCallArgsDelta deltas must reproduce the full arguments JSON exactly; \
-         got {concatenated:?}"
-    );
-
-    server.abort();
-}
-
-// ─── Per-model-call wall-clock ceiling (#5766 / PR #5767) ────────────────────
-//
-// Before #5767 a model call was bounded only by the *turn's remaining* wall
-// clock, so hang detection rode the turn deadline: a turn that had legitimately
-// spent most of its budget across many successful calls handed the next call
-// whatever was left and died. #5767 demoted the turn deadline to a runaway
-// guard (600s → 3600s) and introduced a per-call ceiling
-// (`RunLimits::max_model_call_ms`, default 900s,
-// `OPENHUMAN_MODEL_CALL_TIMEOUT_SECS`, `0` disables) that is recomputed afresh
-// for every call and every retry attempt.
-//
-// The harness names which bound fired in the timeout message
-// (`tinyagents-harness/src/agent_loop/model_call.rs:11,17` —
-// "per-model-call ceiling" vs "remaining wall-clock budget") precisely so field
-// triage can tell "this one call wedged" from "the run is out of time". That
-// label is what this test asserts on: it is the only externally visible signal
-// that distinguishes the two ceilings, so asserting merely "the turn failed"
-// would pass with the fix reverted.
-
-/// A wedged model call is cut off by the PER-CALL ceiling, not by the turn
-/// deadline: with a 2s per-call ceiling under a 600s turn deadline, an upstream
-/// that never answers in time must end the turn as a `turn_timeout` once its
-/// retries (each also cut at the ceiling) are spent, long before the 600s turn
-/// deadline.
-#[test]
-fn model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline() {
-    run_on_agent_stack(
-        "model_call_ceiling",
-        model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline_inner,
-    );
-}
-
-async fn model_call_ceiling_bounds_a_wedged_call_below_the_turn_deadline_inner() {
-    let _lock = env_lock();
-
-    // Per-call ceiling far tighter than the turn deadline, so whichever bound
-    // fires is unambiguous. Both are read per turn by `run_policy_for`.
-    let _per_call = EnvVarGuard::set("OPENHUMAN_MODEL_CALL_TIMEOUT_SECS", "2");
-    let _turn = EnvVarGuard::set("OPENHUMAN_AGENT_TURN_TIMEOUT_SECS", "600");
-    // There is a THIRD wall clock, and pinning only the two above leaves this
-    // test's conclusion resting on the ambient environment. `web_turn_deadline()`
-    // (`web_chat/ops_part_01.rs:79`) applies its own backstop from
-    // `OPENHUMAN_WEB_TURN_TIMEOUT_SECS`, and the web layer maps every harness
-    // `Timeout` onto the same generic `turn_timeout` copy — so an inherited
-    // value below the 8s bound asserted here would fire first, produce an
-    // identical terminal, and let the whole test pass with the per-call ceiling
-    // unwired. Cleared, not set, so it falls back to its 3600s default and can
-    // play no part in the outcome. The web idle guard reads its own variable;
-    // it is cleared for the same reason.
-    let _web_backstop = EnvVarGuard::unset("OPENHUMAN_WEB_TURN_TIMEOUT_SECS");
-    let _web_idle = EnvVarGuard::unset("OPENHUMAN_WEB_TURN_IDLE_SECS");
-
-    // Every upstream reply is held for 25s — comfortably past the 2s per-call
-    // ceiling and comfortably short of the 600s turn deadline. Armed globally
-    // so retry attempts stall too.
-    let _stall = arm_scripted_stall(25_000);
-    reset_script(vec![text_completion(
-        "this reply is never delivered in time",
-    )]);
-    let stack = boot_stack().await;
-
-    let mut events = spawn_sse_collector(format!(
-        "{}/events?client_id=harness-call-ceiling",
-        stack.rpc_base
-    ))
-    .await;
-    let started = std::time::Instant::now();
-    send_web_chat(
-        &stack.rpc_base,
-        910,
-        "harness-call-ceiling",
-        "thread-call-ceiling",
-        "stall please",
-    )
-    .await;
-
-    // 120s is a generous outer bound: the point is that the turn ends long
-    // before its own 600s deadline, and this wait would itself expire if the
-    // per-call ceiling were not in force.
-    // 120s is a generous outer bound: the point is that the turn ends long
-    // before its own 600s deadline, and this wait would itself expire if the
-    // per-call ceiling were not in force.
-    let terminal = wait_for_terminal(&mut events, Duration::from_secs(120)).await;
-    let elapsed = started.elapsed();
-
-    // The turn is stopped rather than completing.
-    assert_eq!(
-        terminal.get("event").and_then(Value::as_str),
-        Some("chat_error"),
-        "a wedged model call must terminate the turn; got: {terminal}"
-    );
-    assert_eq!(
-        terminal.get("error_type").and_then(Value::as_str),
-        Some("turn_timeout"),
-        "the stop must be a timeout, not some other failure; got: {terminal}"
-    );
-
-    // THE assertion, and the one that distinguishes the two ceilings. The
-    // upstream holds every reply for 25s. Bounded only by the turn's remainder
-    // — the pre-#5767 behaviour — that stall completes well inside the 600s
-    // budget and the turn SUCCEEDS with `chat_done`; only a per-call ceiling
-    // can end it in `chat_error`, which the assertions above already pinned.
-    //
-    // A per-call timeout is a retryable `CallTimeout` ("this one call wedged",
-    // tinyagents `retry::is_retryable`), and the turn policy retries a
-    // retryable call on a 5-attempt schedule with 3/6/12/24s backoff (#6413). So
-    // the turn does NOT end at ~2s any more: each of the attempts is cut at the
-    // 2s ceiling and the turn fails after the last one, about 10s of ceilings
-    // plus 34-56s of backoff. Pin that shape rather than a latency from before
-    // the retry schedule existed:
-    //  * the ceiling cut the FIRST attempt (the call was retried at all — it
-    //    would have returned at 25s otherwise);
-    //  * no attempt was allowed to run its full 25s stall, so the whole turn
-    //    is far shorter than even two un-bounded attempts would take.
-    let upstream_calls = with_captured(|c| c.len());
-    assert!(
-        upstream_calls >= 2,
-        "the 2s per-call ceiling must cut the wedged call and the harness must retry it; \
-         saw {upstream_calls} upstream call(s)"
-    );
-    assert!(
-        elapsed < Duration::from_secs(90),
-        "every attempt must be cut off by the 2s per-call ceiling, not left to run out the 25s \
-         stall; the retry schedule alone is about 45s, but the turn took {elapsed:?}"
-    );
-
-    // Deliberately NOT asserted: that the event names *which* ceiling fired.
-    // The harness distinguishes them internally ("per-model-call ceiling" vs
-    // "remaining wall-clock budget", `model_call.rs:11,17`) precisely so field
-    // triage can tell "this one call wedged" from "the run is out of time", but
-    // the host collapses both into `turn_timeout` with a message that says the
-    // turn "ran past its time budget" and blames a stalled tool or sub-agent.
-    // Here the turn had 598 of its 600 seconds left and no tool ran at all.
-    // Pinning that text would pin a misattribution — see W5-test-findings.md.
-
-    stack.shutdown();
-}
-
 // ─── Skills + MCP servers: installed from a registry, then used by the agent ─
 //
 // The registry suites (`skill_registry_e2e`, `mcp_registry_e2e`) stop at
@@ -3900,44 +4130,49 @@ const REGISTRY_MCP_SERVER: &str = "io.github.harness/echo";
 #[cfg(feature = "mcp")]
 const MCP_ECHO_CANARY: &str = "MCP_ECHO_CANARY_91c2";
 
-/// An official-registry record whose npm package launches the hermetic stub.
-///
-/// `runtimeHint` replaces the `npx` launcher (`official/types.rs`
-/// `to_example_config`), and the stub ignores the `-y <identifier>` it is given.
+/// An official-registry record pointing to the local, protocol-speaking fixture.
 #[cfg(feature = "mcp")]
-fn registry_mcp_record() -> Value {
+fn registry_mcp_record(endpoint: &str) -> Value {
     json!({
         "name": REGISTRY_MCP_SERVER,
         "title": "Harness Echo",
         "description": "Echoes a message back.",
-        "remotes": [],
-        "packages": [{
-            "registryType": "npm",
-            "identifier": "@harness/echo",
-            "runtimeHint": env!("CARGO_BIN_EXE_test-mcp-stub"),
-            "environmentVariables": []
-        }]
+        "remotes": [{ "type": "streamable-http", "url": endpoint }]
     })
 }
 
 /// The official registry's list and versions endpoints, serving one server.
 #[cfg(feature = "mcp")]
-async fn serve_mcp_registry_fixture() -> (
+async fn serve_mcp_registry_fixture(
+    endpoint: &str,
+) -> (
     SocketAddr,
     tokio::task::JoinHandle<Result<(), std::io::Error>>,
 ) {
-    async fn list() -> Json<Value> {
+    async fn list(endpoint: String) -> Json<Value> {
         Json(json!({
-            "servers": [{ "server": registry_mcp_record() }],
+            "servers": [{ "server": registry_mcp_record(&endpoint) }],
             "metadata": { "nextCursor": "" }
         }))
     }
-    async fn versions() -> Json<Value> {
-        Json(json!({ "servers": [{ "server": registry_mcp_record() }] }))
+    async fn versions(endpoint: String) -> Json<Value> {
+        Json(json!({ "servers": [{ "server": registry_mcp_record(&endpoint) }] }))
     }
     let app = Router::new()
-        .route("/v0/servers", get(list))
-        .route("/v0/servers/{name}/versions", get(versions));
+        .route(
+            "/v0/servers",
+            get({
+                let endpoint = endpoint.to_owned();
+                move || list(endpoint.clone())
+            }),
+        )
+        .route(
+            "/v0/servers/{name}/versions",
+            get({
+                let endpoint = endpoint.to_owned();
+                move || versions(endpoint.clone())
+            }),
+        );
     serve_on_ephemeral(app).await
 }
 
@@ -3969,7 +4204,8 @@ fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry() {
 #[cfg(feature = "mcp")]
 async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner() {
     let _lock = env_lock();
-    let (registry_addr, registry_join) = serve_mcp_registry_fixture().await;
+    let mcp_server = local_mcp_http::LocalMcpHttpServer::start_echo().await;
+    let (registry_addr, registry_join) = serve_mcp_registry_fixture(mcp_server.endpoint()).await;
     let _registry = EnvVarGuard::set(
         "MCP_OFFICIAL_REGISTRY_BASE",
         format!("http://{registry_addr}"),
@@ -3995,7 +4231,8 @@ async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner()
     );
 
     // Declared in mcp.json (the registry is browse-only) and connected.
-    let server_id = declare_and_connect_registry_echo_server(&stack.rpc_base, 801).await;
+    let server_id =
+        declare_and_connect_registry_echo_server(&stack.rpc_base, 801, mcp_server.endpoint()).await;
 
     // Used: the orchestrator discovers the schema, then calls the tool itself.
     reset_script(vec![
@@ -4048,22 +4285,27 @@ async fn agent_calls_a_tool_on_an_mcp_server_installed_from_the_registry_inner()
         result.contains(MCP_ECHO_CANARY),
         "the MCP server's answer did not reach the model: {result}"
     );
+    assert_echo_call(&mcp_server, MCP_ECHO_CANARY);
 
     registry_join.abort();
     stack.shutdown();
 }
 
-/// Declare the registry's echo server in `mcp.json` the way a user who found
-/// it in the registry tab would — by its command, pointed at the stub — through
-/// the settings RPCs, connect it, and return its server id.
+/// Declare the registry's echo server in `mcp.json` by its discovered endpoint,
+/// connect it through settings RPCs, and return its server id. Registry data
+/// remains browse-only and never grants operator trust.
 #[cfg(feature = "mcp")]
-async fn declare_and_connect_registry_echo_server(rpc_base: &str, first_rpc_id: i64) -> String {
+async fn declare_and_connect_registry_echo_server(
+    rpc_base: &str,
+    first_rpc_id: i64,
+    endpoint: &str,
+) -> String {
     let declared = post_json_rpc(
         rpc_base,
         first_rpc_id,
         "openhuman.mcp_clients_config_set",
         json!({ "mcpServers": { REGISTRY_MCP_SERVER: {
-            "command": env!("CARGO_BIN_EXE_test-mcp-stub"),
+            "url": endpoint,
             // Off until the explicit connect below, so the background connect
             // config_set would otherwise start cannot race it.
             "enabled": false
@@ -4300,8 +4542,25 @@ async fn orchestrator_calls_an_operator_trusted_mcp_tool_directly_inner() {
         !result.contains("\"is_error\":true"),
         "the direct MCP call failed: {result}"
     );
-
     stack.shutdown();
+}
+
+#[cfg(feature = "mcp")]
+fn assert_echo_call(server: &local_mcp_http::LocalMcpHttpServer, expected: &str) {
+    let calls = server.tool_calls();
+    assert_eq!(
+        calls.len(),
+        1,
+        "expected one actual MCP tools/call: {calls:?}"
+    );
+    assert_eq!(calls[0].get("name").and_then(Value::as_str), Some("echo"));
+    assert_eq!(
+        calls[0]
+            .pointer("/arguments/message")
+            .and_then(Value::as_str),
+        Some(expected),
+        "the actual MCP server must receive the model's argument"
+    );
 }
 
 #[cfg(feature = "mcp")]

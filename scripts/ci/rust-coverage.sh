@@ -241,7 +241,7 @@ run_integration_target() {
     # as scripts/test-rust-with-mock.sh does.
     suite "${target}" llvm_cov --no-report --no-fail-fast -p openhuman-cli \
       --test "${target}" -- --test-threads=1
-  elif [ "${target}" = "json_rpc_e2e" ]; then
+  elif [[ "${target}" =~ ^json_rpc_.*_e2e$ ]]; then
     # JSON-RPC tests share runtime/config globals and must remain serial.
     suite "${target}" llvm_cov --no-report --no-fail-fast -p openhuman-cli \
       --test "${target}" -- --test-threads=1
@@ -263,6 +263,13 @@ if [ "${OH_COV_RUNNER:-cargo}" = "nextest" ]; then
   # process's counters online into a pool of 8 files per instrumented binary as
   # it exits. cargo-llvm-cov reads the pattern from LLVM_PROFILE_FILE_NAME.
   export LLVM_PROFILE_FILE_NAME="${LLVM_PROFILE_FILE_NAME:-openhuman-%8m.profraw}"
+  # The harness retries a failing model call on a 3/6/12/24 s schedule (about
+  # 45 s per turn). Suites that drive an unreachable or erroring upstream sat
+  # through it on a worker slot doing nothing: 9 of the 10 slowest tests in the
+  # warm EX63 run (60-90 s each) were that wait. The same schedule, with the
+  # waits scaled to 100 ms, keeps every retry and every assertion. The
+  # schedule itself is pinned by a unit test that ignores this variable.
+  export OPENHUMAN_MODEL_RETRY_BACKOFF_MS="${OPENHUMAN_MODEL_RETRY_BACKOFF_MS:-100}"
 fi
 
 log "running complete instrumented Rust suite (runner: ${OH_COV_RUNNER:-cargo})"

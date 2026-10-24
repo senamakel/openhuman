@@ -24,15 +24,6 @@ use oauth_handlers::*;
 use prompt_handlers::*;
 use settings_handlers::*;
 
-/// The canonical RPC method name for `inference.agent_chat`.
-///
-/// The controller's `namespace` + `function` combine into the wire method
-/// `openhuman.inference_agent_chat` ([`rpc_method_name`](crate::core::ControllerSchema)).
-/// Host facades (the embed library) reference this constant rather than
-/// spelling the string out, so a rename upstream cannot silently drift an
-/// embedder's dispatch string away from the registered controller.
-pub const INFERENCE_AGENT_CHAT: &str = "openhuman.inference_agent_chat";
-
 pub fn all_controller_schemas() -> Vec<ControllerSchema> {
     vec![
         schemas("resolve_model"),

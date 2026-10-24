@@ -727,6 +727,16 @@ const messages: TranslationMap = {
     'ツールインベントリ、ポリシー状態、MCP 許可リスト、および最近のブロック',
   'devOptions.toolPolicyDiagnostics.loading': '読み込み中…',
   'devOptions.toolPolicyDiagnostics.unavailable': '診断情報は利用できません',
+  'devOptions.toolPolicyDiagnostics.module.title': '有効なモジュールポリシー',
+  'devOptions.toolPolicyDiagnostics.module.loading': '有効なポリシーを読み込み中…',
+  'devOptions.toolPolicyDiagnostics.module.unavailable': '有効なモジュールポリシーを利用できません',
+  'devOptions.toolPolicyDiagnostics.module.notBuilt':
+    'セキュリティモジュールがビルドに含まれていません',
+  'devOptions.toolPolicyDiagnostics.module.generation': 'ポリシー世代',
+  'devOptions.toolPolicyDiagnostics.module.enabled': 'ポリシー有効',
+  'devOptions.toolPolicyDiagnostics.module.allowedCommands': '許可されたコマンド',
+  'devOptions.toolPolicyDiagnostics.module.forbiddenPaths': '禁止されたパス',
+  'devOptions.toolPolicyDiagnostics.module.capabilities': '利用可能な機能',
 
   // Voice / Dictation
 
@@ -5278,6 +5288,8 @@ const messages: TranslationMap = {
   'conversations.tools.checkGoal.done': '目標を確認しました',
   'conversations.tools.completeGoal.active': '目標を達成中',
   'conversations.tools.completeGoal.done': '目標を達成しました',
+  'conversations.tools.resumeGoal.active': '目標を再開中',
+  'conversations.tools.resumeGoal.done': '目標を再開しました',
   'conversations.tools.scheduleTask.active': 'タスクをスケジュール中',
   'conversations.tools.scheduleTask.done': 'タスクをスケジュールしました',
   'conversations.tools.checkSchedules.active': 'スケジュールを確認中',

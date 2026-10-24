@@ -22,6 +22,7 @@ pub mod prompt_injection;
 pub mod redact;
 pub mod secret_storage;
 pub(crate) mod secure_open;
+pub(crate) mod transport;
 pub mod turn_origin;
 
 pub use self::secret_storage::SecretStore;

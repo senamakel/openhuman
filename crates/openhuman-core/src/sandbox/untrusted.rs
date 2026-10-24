@@ -22,6 +22,9 @@ use crate::config::Config;
 
 /// One untrusted shell command, already authorized by the security module.
 pub(crate) struct UntrustedShell<'a> {
+    /// The dispatch that owns the policy context. `None` uses the ambient
+    /// context for legacy scheduler and hook callers.
+    pub(crate) dispatch_ctx: Option<&'a crate::core::runtime::DispatchCtx>,
     /// Loaded configuration of the scope the command belongs to.
     pub(crate) config: &'a Config,
     /// Shell text.
@@ -71,6 +74,7 @@ pub(crate) async fn run(spawn: UntrustedShell<'_>) -> anyhow::Result<SandboxExec
     use super::ops::Executor;
 
     let UntrustedShell {
+        dispatch_ctx,
         config,
         command,
         cwd,
@@ -82,8 +86,15 @@ pub(crate) async fn run(spawn: UntrustedShell<'_>) -> anyhow::Result<SandboxExec
     } = spawn;
     // The scheduler has no dispatch context of its own; the task's ambient one
     // answers the component question (#7801 transitional).
-    let ctx = crate::core::runtime::DispatchCtx::ambient();
-    let operator_off = super::operator::sandbox_off(&ctx, config);
+    let ambient_ctx;
+    let ctx = match dispatch_ctx {
+        Some(ctx) => ctx,
+        None => {
+            ambient_ctx = crate::core::runtime::DispatchCtx::ambient();
+            &ambient_ctx
+        }
+    };
+    let operator_off = super::operator::sandbox_off(ctx, config);
     let policy = super::policy::command_policy(config, cwd, state_dir)
         .map_err(|error| anyhow::anyhow!(error))?;
     // The module binds the command text and a digest of its stdin. A container has no

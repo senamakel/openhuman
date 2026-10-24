@@ -9,7 +9,9 @@ use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use serde_json::{Map, Value};
 
-use crate::core::all::{ControllerFuture, RegisteredController};
+use crate::core::all::{
+    BoundRegisteredController, ControllerEntry, ControllerFuture, RegisteredController,
+};
 use crate::core::Outcome;
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
@@ -76,6 +78,18 @@ pub fn all_profiles_registered_controllers() -> Vec<RegisteredController> {
             schema: profiles_schemas("release"),
             handler: handle_release,
         },
+    ]
+}
+
+pub(crate) fn all_profiles_controller_entries() -> Vec<ControllerEntry> {
+    vec![
+        ControllerEntry::bound(provision_controller()),
+        ControllerEntry::bound(deprovision_controller()),
+        ControllerEntry::bound(list_controller()),
+        ControllerEntry::bound(status_controller()),
+        ControllerEntry::bound(set_credential_controller()),
+        ControllerEntry::bound(clear_credential_controller()),
+        ControllerEntry::bound(release_controller()),
     ]
 }
 
@@ -195,34 +209,108 @@ pub fn profiles_schemas(function: &str) -> ControllerSchema {
     }
 }
 
-fn handle_provision(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let payload = deserialize_params::<UserParams>(params)?;
-        to_json(super::ops::provision(&payload.user_id).await?)
-    })
+fn provision_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(profiles_schemas("provision"), parse_user, run_provision)
 }
 
-fn handle_deprovision(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::deprovision(&payload.profile_id).await?)
-    })
+fn deprovision_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(
+        profiles_schemas("deprovision"),
+        parse_profile,
+        run_deprovision,
+    )
 }
 
-fn handle_list(_ctx: DispatchCtx, _params: Map<String, Value>) -> ControllerFuture {
+fn list_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(profiles_schemas("list"), parse_list, run_list)
+}
+
+fn status_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(profiles_schemas("status"), parse_profile, run_status)
+}
+
+fn set_credential_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(
+        profiles_schemas("set_credential"),
+        parse_credential,
+        run_set_credential,
+    )
+}
+
+fn clear_credential_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(
+        profiles_schemas("clear_credential"),
+        parse_profile,
+        run_clear_credential,
+    )
+}
+
+fn release_controller() -> BoundRegisteredController {
+    BoundRegisteredController::typed(profiles_schemas("release"), parse_profile, run_release)
+}
+
+fn handle_provision(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    provision_controller().invoke(ctx, params)
+}
+
+fn handle_deprovision(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    deprovision_controller().invoke(ctx, params)
+}
+
+fn handle_list(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    list_controller().invoke(ctx, params)
+}
+
+fn handle_status(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    status_controller().invoke(ctx, params)
+}
+
+fn handle_set_credential(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    set_credential_controller().invoke(ctx, params)
+}
+
+fn handle_clear_credential(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    clear_credential_controller().invoke(ctx, params)
+}
+
+fn handle_release(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+    release_controller().invoke(ctx, params)
+}
+
+fn parse_user(params: Map<String, Value>) -> Result<UserParams, String> {
+    deserialize_params(params)
+}
+
+fn parse_profile(params: Map<String, Value>) -> Result<ProfileParams, String> {
+    deserialize_params(params)
+}
+
+fn parse_list(_params: Map<String, Value>) -> Result<(), String> {
+    Ok(())
+}
+
+fn parse_credential(params: Map<String, Value>) -> Result<CredentialParams, String> {
+    deserialize_params(params)
+}
+
+fn run_provision(_ctx: DispatchCtx, payload: UserParams) -> ControllerFuture {
+    Box::pin(async move { to_json(super::ops::provision(&payload.user_id).await?) })
+}
+
+fn run_deprovision(_ctx: DispatchCtx, payload: ProfileParams) -> ControllerFuture {
+    Box::pin(async move { to_json(super::ops::deprovision(&payload.profile_id).await?) })
+}
+
+fn run_list(_ctx: DispatchCtx, _payload: ()) -> ControllerFuture {
     Box::pin(async move { to_json(super::ops::list().await?) })
 }
 
-fn handle_status(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::status(&payload.profile_id).await?)
-    })
+fn run_status(_ctx: DispatchCtx, payload: ProfileParams) -> ControllerFuture {
+    Box::pin(async move { to_json(super::ops::status(&payload.profile_id).await?) })
 }
 
-fn handle_set_credential(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
+fn run_set_credential(_ctx: DispatchCtx, payload: CredentialParams) -> ControllerFuture {
     Box::pin(async move {
-        let payload = deserialize_params::<CredentialParams>(params)?;
         to_json(
             super::ops::set_credential(
                 &payload.profile_id,
@@ -235,18 +323,12 @@ fn handle_set_credential(_ctx: DispatchCtx, params: Map<String, Value>) -> Contr
     })
 }
 
-fn handle_clear_credential(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::clear_credential(&payload.profile_id).await?)
-    })
+fn run_clear_credential(_ctx: DispatchCtx, payload: ProfileParams) -> ControllerFuture {
+    Box::pin(async move { to_json(super::ops::clear_credential(&payload.profile_id).await?) })
 }
 
-fn handle_release(_ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture {
-    Box::pin(async move {
-        let payload = deserialize_params::<ProfileParams>(params)?;
-        to_json(super::ops::release(&payload.profile_id).await?)
-    })
+fn run_release(_ctx: DispatchCtx, payload: ProfileParams) -> ControllerFuture {
+    Box::pin(async move { to_json(super::ops::release(&payload.profile_id).await?) })
 }
 
 fn deserialize_params<T: DeserializeOwned>(params: Map<String, Value>) -> Result<T, String> {
@@ -273,6 +355,11 @@ fn bool_field(name: &'static str, comment: &'static str) -> FieldSchema {
         comment,
         required: true,
     }
+}
+
+#[cfg(test)]
+pub(crate) fn profile_parameter_contracts() -> Vec<crate::core::all::ControllerParamContract> {
+    tests::profile_parameter_contracts()
 }
 
 #[cfg(test)]

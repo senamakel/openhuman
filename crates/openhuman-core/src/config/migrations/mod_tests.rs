@@ -16,7 +16,7 @@ fn durable_messages(
 /// and the old hard-coded `max_actions_per_hour = 20`.
 fn simulate_v3_autonomy(config: &mut Config) {
     config.schema_version = 3;
-    config.autonomy.allowed_commands = vec![
+    config.security.autonomy.allowed_commands = vec![
         "git".into(),
         "npm".into(),
         "cargo".into(),
@@ -30,14 +30,14 @@ fn simulate_v3_autonomy(config: &mut Config) {
         "head".into(),
         "tail".into(),
     ];
-    config.autonomy.auto_approve = vec![
+    config.security.autonomy.auto_approve = vec![
         "file_read".into(),
         "memory_search".into(),
         "memory_list".into(),
         "get_time".into(),
         "list_dir".into(),
     ];
-    config.autonomy.max_actions_per_hour = 20;
+    config.security.autonomy.max_actions_per_hour = 20;
 }
 
 fn tainted_prompt() -> String {
@@ -223,15 +223,14 @@ async fn run_pending_rolls_back_schema_version_when_save_fails() {
 }
 
 #[tokio::test]
-async fn run_pending_v7_to_v8_rolls_back_default_model_when_save_fails() {
+async fn run_pending_v7_to_v8_rolls_back_schema_version_when_save_fails() {
     let tmp = TempDir::new().unwrap();
     fs::create_dir_all(tmp.path().join("workspace")).unwrap();
 
     let mut config = config_in(&tmp);
     config.schema_version = 7;
     config.default_model = Some("reasoning-v1".to_string());
-    // Force save() to fail after normalize_default_model_tier mutates
-    // default_model, so the 7->8 rollback path runs.
+    // Force save() to fail so the generic 7->8 schema gate remains retryable.
     let blocker = tmp.path().join("blocker");
     fs::write(&blocker, "not a directory").unwrap();
     config.config_path = blocker.join("nested").join("config.toml");
@@ -250,7 +249,7 @@ async fn run_pending_v7_to_v8_rolls_back_default_model_when_save_fails() {
 }
 
 #[tokio::test]
-async fn run_pending_v12_to_v13_retires_persisted_tier_slugs() {
+async fn bare_core_v12_to_v13_preserves_provider_model_values() {
     let tmp = TempDir::new().unwrap();
     fs::create_dir_all(tmp.path().join("workspace")).unwrap();
 
@@ -262,20 +261,17 @@ async fn run_pending_v12_to_v13_retires_persisted_tier_slugs() {
     run_pending(&mut config).await;
 
     assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
-    assert_eq!(
-        config.default_model.as_deref(),
-        Some(crate::config::MODEL_MANAGED_DEFAULT)
-    );
-    assert_eq!(
-        config.orchestrator.model.as_deref(),
-        Some(crate::config::MODEL_MANAGED_DEFAULT)
-    );
+    assert_eq!(config.default_model.as_deref(), Some("chat-v1"));
+    assert_eq!(config.orchestrator.model.as_deref(), Some("reasoning-v1"));
     let on_disk = std::fs::read_to_string(&config.config_path).unwrap();
     assert!(
-        !on_disk.contains("chat-v1") && !on_disk.contains("reasoning-v1"),
-        "no retired tier slug may survive on disk, got:\n{on_disk}"
+        on_disk.contains("chat-v1") && on_disk.contains("reasoning-v1"),
+        "bare core must leave provider-owned values unchanged, got:\n{on_disk}"
     );
 }
+
+#[path = "config_normalizer_tests.rs"]
+mod config_normalizer;
 
 #[tokio::test]
 async fn run_pending_v12_to_v13_rolls_back_when_save_fails() {
@@ -382,9 +378,19 @@ async fn run_pending_expands_autonomy_defaults_from_v3() {
     simulate_v3_autonomy(&mut config);
 
     assert_eq!(config.schema_version, 3);
-    assert_eq!(config.autonomy.max_actions_per_hour, 20);
-    assert!(!config.autonomy.allowed_commands.iter().any(|c| c == "pnpm"));
-    assert!(!config.autonomy.auto_approve.iter().any(|t| t == "glob"));
+    assert_eq!(config.security.autonomy.max_actions_per_hour, 20);
+    assert!(!config
+        .security
+        .autonomy
+        .allowed_commands
+        .iter()
+        .any(|c| c == "pnpm"));
+    assert!(!config
+        .security
+        .autonomy
+        .auto_approve
+        .iter()
+        .any(|t| t == "glob"));
 
     run_pending(&mut config).await;
 
@@ -396,7 +402,12 @@ async fn run_pending_expands_autonomy_defaults_from_v3() {
     // New commands must be present after the migration.
     for cmd in &["pnpm", "yarn", "make", "sort", "diff", "mkdir", "cp"] {
         assert!(
-            config.autonomy.allowed_commands.iter().any(|c| c == *cmd),
+            config
+                .security
+                .autonomy
+                .allowed_commands
+                .iter()
+                .any(|c| c == *cmd),
             "expected {:?} in allowed_commands after v3→v4 migration",
             cmd
         );
@@ -404,7 +415,12 @@ async fn run_pending_expands_autonomy_defaults_from_v3() {
     // Original commands must be preserved.
     for cmd in &["git", "npm", "cargo", "ls", "cat"] {
         assert!(
-            config.autonomy.allowed_commands.iter().any(|c| c == *cmd),
+            config
+                .security
+                .autonomy
+                .allowed_commands
+                .iter()
+                .any(|c| c == *cmd),
             "expected original command {:?} preserved",
             cmd
         );
@@ -413,7 +429,12 @@ async fn run_pending_expands_autonomy_defaults_from_v3() {
     // New read-only auto-approve tools must be present.
     for tool in &["glob", "grep"] {
         assert!(
-            config.autonomy.auto_approve.iter().any(|t| t == *tool),
+            config
+                .security
+                .autonomy
+                .auto_approve
+                .iter()
+                .any(|t| t == *tool),
             "expected {:?} in auto_approve after v3→v4 migration",
             tool
         );
@@ -421,7 +442,12 @@ async fn run_pending_expands_autonomy_defaults_from_v3() {
     // Write tools must keep Supervised mode's ask-before-edit contract.
     for tool in &["file_write", "edit_file"] {
         assert!(
-            !config.autonomy.auto_approve.iter().any(|t| t == *tool),
+            !config
+                .security
+                .autonomy
+                .auto_approve
+                .iter()
+                .any(|t| t == *tool),
             "expected {:?} to require approval after v3→v4 migration",
             tool
         );
@@ -429,7 +455,12 @@ async fn run_pending_expands_autonomy_defaults_from_v3() {
     // Original auto-approve tools must be preserved.
     for tool in &["file_read", "memory_search", "memory_list"] {
         assert!(
-            config.autonomy.auto_approve.iter().any(|t| t == *tool),
+            config
+                .security
+                .autonomy
+                .auto_approve
+                .iter()
+                .any(|t| t == *tool),
             "expected original tool {:?} preserved",
             tool
         );
@@ -437,7 +468,7 @@ async fn run_pending_expands_autonomy_defaults_from_v3() {
 
     // max_actions_per_hour must be bumped from the old default of 20.
     assert_eq!(
-        config.autonomy.max_actions_per_hour,
+        config.security.autonomy.max_actions_per_hour,
         u32::MAX,
         "max_actions_per_hour must be bumped to u32::MAX"
     );
@@ -461,7 +492,7 @@ async fn run_pending_v4_to_v5_removes_write_tools_from_auto_approve() {
 
     let mut config = config_in(&tmp);
     config.schema_version = 4;
-    config.autonomy.auto_approve = vec![
+    config.security.autonomy.auto_approve = vec![
         "file_read".into(),
         "file_write".into(),
         "edit_file".into(),
@@ -472,7 +503,7 @@ async fn run_pending_v4_to_v5_removes_write_tools_from_auto_approve() {
 
     assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
     assert_eq!(
-        config.autonomy.auto_approve,
+        config.security.autonomy.auto_approve,
         vec!["file_read".to_string(), "glob".to_string()]
     );
 
@@ -564,13 +595,13 @@ async fn run_pending_v3_to_v4_preserves_custom_max_actions() {
     let mut config = config_in(&tmp);
     simulate_v3_autonomy(&mut config);
     // User has deliberately configured a specific ceiling.
-    config.autonomy.max_actions_per_hour = 50;
+    config.security.autonomy.max_actions_per_hour = 50;
 
     run_pending(&mut config).await;
 
     assert_eq!(config.schema_version, CURRENT_SCHEMA_VERSION);
     assert_eq!(
-        config.autonomy.max_actions_per_hour, 50,
+        config.security.autonomy.max_actions_per_hour, 50,
         "user-customised max_actions_per_hour must not be overwritten"
     );
 }
@@ -597,7 +628,7 @@ async fn run_pending_widens_a_hand_written_v0_allowlist_and_that_is_visible() {
     let mut config = config_in(&tmp);
     // A hand-written file: no `schema_version` key at all -> serde default 0.
     config.schema_version = 0;
-    config.autonomy.allowed_commands = vec!["ls".to_string(), "cat".to_string()];
+    config.security.autonomy.allowed_commands = vec!["ls".to_string(), "cat".to_string()];
 
     run_pending(&mut config).await;
 
@@ -609,7 +640,12 @@ async fn run_pending_widens_a_hand_written_v0_allowlist_and_that_is_visible() {
     // The user's own entries survive — the merge is additive.
     for kept in &["ls", "cat"] {
         assert!(
-            config.autonomy.allowed_commands.iter().any(|c| c == kept),
+            config
+                .security
+                .autonomy
+                .allowed_commands
+                .iter()
+                .any(|c| c == kept),
             "{kept} was configured explicitly and must survive"
         );
     }
@@ -618,15 +654,20 @@ async fn run_pending_widens_a_hand_written_v0_allowlist_and_that_is_visible() {
     // filesystem. This is the security-relevant half.
     for added in &["mkdir", "touch", "cp", "mv", "ln"] {
         assert!(
-            config.autonomy.allowed_commands.iter().any(|c| c == added),
+            config
+                .security
+                .autonomy
+                .allowed_commands
+                .iter()
+                .any(|c| c == added),
             "current behaviour: the v3->v4 migration adds {added} to a hand-written \
              allowlist that never contained it"
         );
     }
     assert!(
-        config.autonomy.allowed_commands.len() > 2,
+        config.security.autonomy.allowed_commands.len() > 2,
         "the configured list of 2 is widened, not preserved: {:?}",
-        config.autonomy.allowed_commands
+        config.security.autonomy.allowed_commands
     );
 }
 
@@ -638,12 +679,12 @@ async fn an_explicit_schema_version_stops_the_allowlist_being_widened() {
 
     let mut config = config_in(&tmp);
     config.schema_version = CURRENT_SCHEMA_VERSION;
-    config.autonomy.allowed_commands = vec!["ls".to_string(), "cat".to_string()];
+    config.security.autonomy.allowed_commands = vec!["ls".to_string(), "cat".to_string()];
 
     run_pending(&mut config).await;
 
     assert_eq!(
-        config.autonomy.allowed_commands,
+        config.security.autonomy.allowed_commands,
         vec!["ls".to_string(), "cat".to_string()],
         "with the gate satisfied no migration runs, so the curated list is untouched"
     );
@@ -663,17 +704,22 @@ async fn a_hand_written_empty_allowlist_is_also_widened() {
 
     let mut config = config_in(&tmp);
     config.schema_version = 0;
-    config.autonomy.allowed_commands = Vec::new();
+    config.security.autonomy.allowed_commands = Vec::new();
 
     run_pending(&mut config).await;
 
     assert!(
-        !config.autonomy.allowed_commands.is_empty(),
+        !config.security.autonomy.allowed_commands.is_empty(),
         "current behaviour: a deny-all list is widened by the v3->v4 migration"
     );
     for added in &["mkdir", "touch", "cp", "mv", "ln"] {
         assert!(
-            config.autonomy.allowed_commands.iter().any(|c| c == added),
+            config
+                .security
+                .autonomy
+                .allowed_commands
+                .iter()
+                .any(|c| c == added),
             "an explicitly empty allowlist still gains {added}"
         );
     }
@@ -688,57 +734,10 @@ async fn a_hand_written_empty_allowlist_is_also_widened() {
 /// production users and one staging), all at `schema_version = 10` with
 /// `cloud_providers = []`.
 ///
-/// The user-visible consequence is that `inference_list_models("openhuman")`
-/// fails its provider lookup before making any HTTP request, so the model
-/// picker's managed pane renders "Could not load models from this provider."
-#[tokio::test]
-async fn a_v10_workspace_with_no_cloud_providers_is_reseeded() {
-    let tmp = TempDir::new().unwrap();
-    fs::create_dir_all(tmp.path().join("workspace")).unwrap();
+#[path = "mod_tests/provider_migration_tests.rs"]
+mod provider_migration_tests;
 
-    let mut config = config_in(&tmp);
-    config.schema_version = 10;
-    config.cloud_providers = Vec::new();
-
-    run_pending(&mut config).await;
-
-    assert!(
-        config.cloud_providers.iter().any(|e| e.slug == "openhuman"),
-        "a v10 workspace with an empty provider list must gain the managed entry, \
-         otherwise the model picker can never load the managed catalog"
-    );
-    assert_eq!(
-        config.schema_version, CURRENT_SCHEMA_VERSION,
-        "the re-seed step must advance the schema version"
-    );
-}
-
-/// The re-seed must not touch a workspace that already has providers.
-///
-/// `seed_cloud_providers` early-returns on a non-empty list, so this is the
-/// guard that keeps the new step a no-op for every healthy install — including
-/// one whose only entry is a BYO provider the user configured themselves.
-#[tokio::test]
-async fn a_v10_workspace_that_already_has_providers_is_left_alone() {
-    let tmp = TempDir::new().unwrap();
-    fs::create_dir_all(tmp.path().join("workspace")).unwrap();
-
-    let mut config = config_in(&tmp);
-    config.schema_version = 10;
-    config.cloud_providers = vec![crate::config::schema::cloud_providers::CloudProviderCreds {
-        id: "prov_user_owned".to_string(),
-        slug: "custom".to_string(),
-        label: "My own endpoint".to_string(),
-        endpoint: "https://llm.example.com/v1".to_string(),
-        ..Default::default()
-    }];
-
-    run_pending(&mut config).await;
-
-    assert_eq!(
-        config.cloud_providers.len(),
-        1,
-        "an existing provider list must not be added to"
-    );
-    assert_eq!(config.cloud_providers[0].id, "prov_user_owned");
-}
+#[path = "mod_policy_tests.rs"]
+mod policy_tests;
+#[path = "mod_tests_user_provider_tests.rs"]
+mod user_provider_tests;

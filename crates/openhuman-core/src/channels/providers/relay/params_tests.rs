@@ -134,15 +134,15 @@ fn every_field_is_checked() {
 }
 
 #[test]
-fn the_channel_message_carries_the_relayed_facts() {
-    let msg = params().to_channel_message();
-    assert_eq!(msg.channel, "telegram");
-    assert_eq!(msg.id, "m-1");
-    assert_eq!(msg.sender, "42");
-    assert_eq!(msg.reply_target, "-100123");
-    assert_eq!(msg.content, "hello");
-    assert_eq!(msg.sender_name.as_deref(), Some("Ada"));
-    assert!(msg.thread_ts.is_none());
+fn the_inbound_envelope_carries_the_relayed_facts() {
+    let msg = params().to_inbound_envelope();
+    assert_eq!(msg.channel.id, "telegram");
+    assert_eq!(msg.message_id, "m-1");
+    assert_eq!(msg.sender.id, "42");
+    assert_eq!(msg.conversation.id, "-100123");
+    assert_eq!(msg.text, "hello");
+    assert_eq!(msg.sender.name.as_deref(), Some("Ada"));
+    assert!(msg.conversation.thread_id.is_none());
 }
 
 #[test]

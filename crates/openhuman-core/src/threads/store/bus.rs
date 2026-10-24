@@ -32,9 +32,11 @@ use serde_json::json;
 use crate::core::events::DomainEvent;
 use tinybus::EventHandler;
 use tinybus::SubscriptionHandle;
-use tinychannels_bus::ChannelMessage;
+use tinychannels_bus::{
+    ChannelInboundEnvelope, ChannelRef, ContentPart, ConversationRef, SenderRef,
+};
 #[cfg(test)]
-use tinychannels_runtime::context::conversation_history_key;
+use tinychannels_runtime::context::conversation_history_key_parts;
 
 use super::{
     append_message, ensure_thread, get_messages, ConversationMessage, CreateConversationThread,
@@ -340,7 +342,7 @@ struct ChannelTurnDescriptor<'a> {
     sender: &'a str,
     reply_target: &'a str,
     thread_ts: Option<&'a str>,
-    inbound_envelope: Option<&'a tinychannels_bus::ChannelInboundEnvelope>,
+    inbound_envelope: Option<&'a ChannelInboundEnvelope>,
     content: &'a str,
     role: &'a str,
     success: Option<bool>,
@@ -350,11 +352,61 @@ struct ChannelTurnDescriptor<'a> {
     source: &'a str,
 }
 
+/// Project the older event fields into the v22 envelope used by the module
+/// persistence contract. Match TinyChannels' legacy projection, including its
+/// Telegram topic interpretation, while keeping deprecated wire DTOs out of
+/// the host call.
+fn legacy_descriptor_envelope(descriptor: &ChannelTurnDescriptor<'_>) -> ChannelInboundEnvelope {
+    let thread_ts = descriptor
+        .thread_ts
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(str::to_owned);
+    let provider = descriptor.channel.split(':').next().unwrap_or_default();
+    let (thread_id, topic_id) = if matches!(provider, "telegram" | "tg") {
+        (None, thread_ts)
+    } else {
+        (thread_ts, None)
+    };
+    ChannelInboundEnvelope {
+        channel: ChannelRef {
+            id: descriptor.channel.to_owned(),
+            account_id: None,
+        },
+        message_id: descriptor.message_id.to_owned(),
+        conversation: ConversationRef {
+            id: descriptor.reply_target.to_owned(),
+            thread_id,
+            topic_id,
+            ..Default::default()
+        },
+        sender: SenderRef {
+            id: descriptor.sender.to_owned(),
+            ..Default::default()
+        },
+        text: descriptor.content.to_owned(),
+        parts: vec![ContentPart::Text {
+            text: descriptor.content.to_owned(),
+            markdown_dialect: None,
+        }],
+        ..Default::default()
+    }
+}
+
 async fn persist_channel_turn(
     _ctx: &DispatchCtx,
     workspace_dir: &Path,
     descriptor: ChannelTurnDescriptor<'_>,
 ) -> Result<(), String> {
+    if let Some(envelope) = descriptor.inbound_envelope {
+        if envelope.channel.id != descriptor.channel
+            || envelope.message_id != descriptor.message_id
+            || envelope.sender.id != descriptor.sender
+            || envelope.conversation.id != descriptor.reply_target
+        {
+            return Err("inbound envelope identity does not match message".into());
+        }
+    }
     // The fixture exists only where both features compile it (channels/mod.rs).
     #[cfg(all(test, feature = "channels", feature = "modules"))]
     let client = {
@@ -377,18 +429,14 @@ async fn persist_channel_turn(
                 tinychannels_bus::module_inbound::PrepareChannelInboundRequest {
                     namespace: "main".into(),
                     session_policy: Default::default(),
-                    source: tinychannels_bus::module_inbound::ChannelInboundSource::Legacy {
-                        message: ChannelMessage {
-                            id: descriptor.message_id.into(),
-                            sender: descriptor.sender.into(),
-                            reply_target: descriptor.reply_target.into(),
-                            content: descriptor.content.into(),
-                            channel: descriptor.channel.into(),
-                            timestamp: 0,
-                            thread_ts: descriptor.thread_ts.map(ToOwned::to_owned),
-                            sender_name: None,
-                        },
-                        envelope: descriptor.inbound_envelope.cloned(),
+                    source: tinychannels_bus::module_inbound::ChannelInboundSource::Envelope {
+                        envelope: descriptor
+                            .inbound_envelope
+                            .cloned()
+                            .unwrap_or_else(|| legacy_descriptor_envelope(&descriptor)),
+                        // The old host-side projection used timestamp 0; keep that value when
+                        // reconstructing the module's prepared legacy message.
+                        timestamp: 0,
                     },
                 },
             ),
@@ -396,12 +444,14 @@ async fn persist_channel_turn(
         .await
         .map_err(|error| error.to_string())?;
     let thread_id = format!("channel:{}", prepared.history_key);
+    let history_key_ignores_thread = prepared.history_key_ignores_thread;
     let session_key = descriptor.inbound_envelope.map(|_| prepared.session_key);
     let title = channel_thread_title(
         descriptor.channel,
         descriptor.sender,
         descriptor.reply_target,
         descriptor.thread_ts,
+        history_key_ignores_thread,
     );
     let created_at = Utc::now().to_rfc3339();
 
@@ -479,16 +529,7 @@ fn persisted_channel_thread_id(
     reply_target: &str,
     thread_ts: Option<&str>,
 ) -> String {
-    let key = conversation_history_key(&ChannelMessage {
-        id: String::new(),
-        sender: sender.to_string(),
-        reply_target: reply_target.to_string(),
-        content: String::new(),
-        channel: channel.to_string(),
-        timestamp: 0,
-        thread_ts: thread_ts.map(ToOwned::to_owned),
-        sender_name: None,
-    });
+    let key = conversation_history_key_parts(channel, sender, reply_target, thread_ts);
     format!("channel:{key}")
 }
 
@@ -497,13 +538,12 @@ fn channel_thread_title(
     sender: &str,
     reply_target: &str,
     thread_ts: Option<&str>,
+    history_key_ignores_thread: bool,
 ) -> String {
     match thread_ts.and_then(non_empty_trimmed) {
         // Providers whose thread_ts is only a reply target (Telegram topics)
         // share one conversation, so the title leaves it out too.
-        Some(thread_ts)
-            if !tinychannels_bus::capabilities_for(channel).history_key_ignores_thread =>
-        {
+        Some(thread_ts) if !history_key_ignores_thread => {
             format!("{channel} · {sender} · {reply_target} · thread {thread_ts}")
         }
         _ => format!("{channel} · {sender} · {reply_target}"),

@@ -38,7 +38,7 @@ use std::time::Duration;
 
 use serde::de::DeserializeOwned;
 use serde::Serialize;
-use tinybus::module::{ModuleRuntime, RuntimeNames};
+use tinybus::module::{ModuleRuntime, RuntimeNames, RuntimeOptions};
 
 /// The module bus, built once on first use.
 static RUNTIME: OnceLock<Result<ModuleRuntime, String>> = OnceLock::new();
@@ -86,7 +86,14 @@ fn runtime_now() -> tinybus::Result<&'static ModuleRuntime> {
             thread: "openhuman-module-bus".to_string(),
             worker: "openhuman-module-worker".to_string(),
         };
-        ModuleRuntime::start(&names, None).map_err(|error| error.to_string())
+        ModuleRuntime::start_with_options(
+            &names,
+            None,
+            RuntimeOptions {
+                thread_stack_size: Some(crate::core::runtime::AGENT_WORKER_STACK_BYTES),
+            },
+        )
+        .map_err(|error| error.to_string())
     });
     let runtime = started
         .as_ref()
@@ -110,6 +117,8 @@ async fn install_callbacks(runtime: &'static ModuleRuntime) -> tinybus::Result<(
     // Production configures no module keyring (`security::production_crypto_config`),
     // so the consent callback is bound to none and refuses every request.
     super::security_host::install(connection, None).await?;
+    #[cfg(feature = "security-module")]
+    super::browser_egress_host::install(connection).await?;
     super::site_memory_host::install(connection).await?;
     super::storage_host::install(connection, runtime.host()).await?;
     #[cfg(feature = "tinymemes")]

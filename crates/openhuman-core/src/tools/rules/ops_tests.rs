@@ -6,7 +6,7 @@ use crate::agent_registry::host_definition::AgentDefinition;
 use crate::config::Config;
 use tinytools::ToolRuleSet;
 
-use tinytools::{Surface, ToolSubject};
+use tinytools::{PermissionLevel, Surface, ToolSubject};
 
 fn definition(id: &str) -> AgentDefinition {
     crate::agent_registry::agents::load_builtins()
@@ -165,11 +165,13 @@ fn a_child_inherits_operator_layers_but_not_its_parents_agent_layer() {
             Some("orchestrator"),
             Some("ExternalChannel(telegram)"),
         ),
-    );
+    )
+    .with_permission_ceiling(PermissionLevel::ReadOnly);
     let mut worker = definition("code_executor");
     worker.disallowed_tools = vec!["web_*".into()];
 
     let child = child_rule_policy(Some(&parent), None, &worker).expect("child rules");
+    assert_eq!(child.permission_ceiling, Some(PermissionLevel::ReadOnly));
     assert_eq!(child.context.get("agent"), Some("code_executor"));
     assert_eq!(child.context.get("channel"), Some("telegram"));
     assert!(

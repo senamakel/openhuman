@@ -219,6 +219,7 @@ impl CoreContext {
                 channel_thread: None,
                 session_agent: None,
                 profile: None,
+                profile_admission: Arc::new(()),
                 agent: Default::default(),
                 bare: false,
             });

@@ -37,24 +37,14 @@ mod attribution {
     #[tokio::test]
     async fn session_profile_attribution_none_when_signed_out() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let config = crate::config::Config {
-            workspace_dir: tmp.path().join("workspace"),
-            action_dir: tmp.path().join("workspace"),
-            config_path: tmp.path().join("config.toml"),
-            ..Default::default()
-        };
+        let config = super::drain_test_config(&tmp);
         assert!(session_profile_user_attribution(&config).await.is_none());
     }
 
     #[tokio::test]
     async fn session_profile_attribution_prefers_email_from_stored_session() {
         let tmp = tempfile::TempDir::new().unwrap();
-        let config = crate::config::Config {
-            workspace_dir: tmp.path().join("workspace"),
-            action_dir: tmp.path().join("workspace"),
-            config_path: tmp.path().join("config.toml"),
-            ..Default::default()
-        };
+        let config = super::drain_test_config(&tmp);
         let service = crate::security::credentials::AuthService::from_config(&config);
         let mut metadata = std::collections::HashMap::new();
         metadata.insert(
@@ -87,12 +77,7 @@ mod attribution {
 #[tokio::test]
 async fn tool_call_completed_forwards_real_output_on_tool_result() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let config = crate::config::Config {
-        workspace_dir: tmp.path().join("workspace"),
-        action_dir: tmp.path().join("workspace"),
-        config_path: tmp.path().join("config.toml"),
-        ..Default::default()
-    };
+    let config = drain_test_config(&tmp);
     let store = std::sync::Arc::new(tinyagents_session::port::InMemoryTurnStates::default())
         as std::sync::Arc<dyn tinyagents_session::port::TurnStates>;
     let (tx, rx) = tokio::sync::mpsc::channel(16);
@@ -158,12 +143,15 @@ async fn tool_call_completed_forwards_real_output_on_tool_result() {
 }
 
 fn drain_test_config(tmp: &tempfile::TempDir) -> Config {
-    Config {
+    let mut config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
         ..Default::default()
-    }
+    };
+    config.modules.source = crate::config::schema::ModuleSourceMode::Source;
+    config.secrets.encrypt = false;
+    config
 }
 
 // ── #4270 inference heartbeat ────────────────────────────────────────────
@@ -488,12 +476,7 @@ async fn short_narration_is_flushed_on_the_rounds_first_tool_call() {
 #[tokio::test]
 async fn hold_text_stream_suppresses_text_delta_but_keeps_interim() {
     let tmp = tempfile::TempDir::new().unwrap();
-    let config = crate::config::Config {
-        workspace_dir: tmp.path().join("workspace"),
-        action_dir: tmp.path().join("workspace"),
-        config_path: tmp.path().join("config.toml"),
-        ..Default::default()
-    };
+    let config = drain_test_config(&tmp);
     let store = std::sync::Arc::new(tinyagents_session::port::InMemoryTurnStates::default())
         as std::sync::Arc<dyn tinyagents_session::port::TurnStates>;
     let (tx, rx) = tokio::sync::mpsc::channel(16);

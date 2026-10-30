@@ -4,6 +4,7 @@ use crate::core::runtime::NoTenant;
 use scripted_driver::ScriptedDriver;
 use std::collections::HashMap;
 use std::ffi::OsString;
+use std::sync::Arc;
 
 fn embedded(id: &str) -> Tenant {
     Tenant {

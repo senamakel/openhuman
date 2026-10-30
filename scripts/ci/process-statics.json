@@ -673,7 +673,7 @@
     "file": "crates/openhuman-core/src/sandbox/openshell/mod.rs",
     "scope": "",
     "name": "REGISTRY",
-    "type": "std::sync::OnceLock<Arc<BoxRegistry<BusBoxDriver>>>",
+    "type": "std::sync::OnceLock<std::sync::Arc<BoxRegistry<BusBoxDriver>>>",
     "count": 1,
     "category": "B",
     "reason": "The process's OpenShell box registry holds one box per tenant, keyed on the whole authenticated Tenant (profile and agent), never the profile alone; a call with no tenant is refused before the registry is touched, so no two tenants can share a box.",

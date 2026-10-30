@@ -30,7 +30,6 @@ mod types;
 
 use std::collections::{BTreeMap, HashMap};
 use std::ffi::OsString;
-use std::sync::Arc;
 use std::time::Duration;
 
 #[cfg(feature = "modules")]
@@ -96,14 +95,15 @@ pub async fn run_command<D: BoxDriver>(
 }
 
 #[cfg(feature = "modules")]
-static REGISTRY: std::sync::OnceLock<Arc<BoxRegistry<BusBoxDriver>>> = std::sync::OnceLock::new();
+static REGISTRY: std::sync::OnceLock<std::sync::Arc<BoxRegistry<BusBoxDriver>>> =
+    std::sync::OnceLock::new();
 
 /// The process's registry, built (and its reaper started) on first use.
 #[cfg(feature = "modules")]
-fn registry(config: &Config) -> &'static Arc<BoxRegistry<BusBoxDriver>> {
+fn registry(config: &Config) -> &'static std::sync::Arc<BoxRegistry<BusBoxDriver>> {
     let registry = REGISTRY.get_or_init(|| {
         BoxRegistry::new(
-            Arc::new(BusBoxDriver::new(config.clone())),
+            std::sync::Arc::new(BusBoxDriver::new(config.clone())),
             RegistryLimits::from_config(&config.runtime.openshell),
         )
     });

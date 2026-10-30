@@ -7,21 +7,6 @@
 use super::*;
 use std::fs;
 
-#[cfg(feature = "security-module")]
-async fn with_security_fixture(future: impl std::future::Future<Output = ()>) {
-    let mut config = crate::config::Config::default();
-    config.modules.enabled = true;
-    config.modules.source = crate::config::schema::ModuleSourceMode::Source;
-    crate::modules::security::ensure_loaded(&config)
-        .await
-        .expect("the TinySecurity module should load for enabled policy tests");
-    let core = crate::core::runtime::CoreContext::for_test_with_config(
-        crate::core::runtime::DomainSet::full(),
-        config,
-    );
-    crate::core::runtime::CoreContext::scope(core, future).await;
-}
-
 /// The configured `action_dir` must be a read-write trusted root.
 ///
 /// It is the base `validate_path` joins every relative tool path onto, but it
@@ -59,13 +44,6 @@ fn from_config_grants_the_configured_action_dir_as_readwrite_root() {
 /// containment this proves is exactly what `enabled = false` turns off.
 #[tokio::test]
 async fn an_enabled_policy_can_write_into_its_action_dir_outside_the_workspace() {
-    #[cfg(feature = "security-module")]
-    return with_security_fixture(async { enabled_action_dir_write_is_allowed().await }).await;
-    #[cfg(not(feature = "security-module"))]
-    enabled_action_dir_write_is_allowed().await;
-}
-
-async fn enabled_action_dir_write_is_allowed() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     let action = tmp.path().join("elsewhere/action");
@@ -110,13 +88,6 @@ fn from_config_does_not_grant_an_action_dir_covering_the_workspace() {
 /// directory — read-only — and nothing else under the workspace.
 #[tokio::test]
 async fn tool_result_artifacts_are_readable_by_absolute_path_under_workspace_only() {
-    #[cfg(feature = "security-module")]
-    return with_security_fixture(async { tool_result_artifact_policy_is_enforced().await }).await;
-    #[cfg(not(feature = "security-module"))]
-    tool_result_artifact_policy_is_enforced().await;
-}
-
-async fn tool_result_artifact_policy_is_enforced() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     let action = tmp.path().join("project");

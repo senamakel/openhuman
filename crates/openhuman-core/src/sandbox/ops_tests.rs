@@ -405,3 +405,59 @@ fn config_disables_sandbox_for_legacy_flag_or_component() {
     config.components.sandbox = false;
     assert!(config_disables_sandbox(&config));
 }
+
+#[tokio::test]
+async fn an_openshell_selection_routes_to_openshell_without_docker_or_host_mounts() {
+    let config = crate::config::Config::default();
+    let mut sandbox = config.sandbox.clone();
+    sandbox.backend = SandboxBackend::OpenShell;
+    let mut policy = resolve_sandbox_policy(
+        &DispatchCtx::unbound(),
+        SandboxMode::Sandboxed,
+        Path::new("/tmp/action"),
+        Path::new("/tmp/state"),
+        &RuntimeConfig {
+            kind: "docker".into(),
+            ..RuntimeConfig::default()
+        },
+        false,
+    );
+    policy.read_only_mounts.push("/usr/lib".into());
+    policy.read_write_mounts.push("/home/u/.cargo".into());
+    assert!(policy.docker_overrides.is_some());
+
+    let explicit = apply_requested_backend(&mut policy, &sandbox, &config.runtime, &config)
+        .await
+        .unwrap();
+
+    assert!(explicit);
+    assert_eq!(policy.backend, SandboxBackendKind::OpenShell);
+    assert!(policy.docker_overrides.is_none());
+    assert!(policy.read_only_mounts.is_empty());
+    assert!(policy.read_write_mounts.is_empty());
+}
+
+#[test]
+fn an_explicit_openshell_backend_requires_the_sandbox() {
+    assert!(backend_requires_sandbox(&SandboxBackend::OpenShell));
+    assert!(backend_requires_sandbox(&SandboxBackend::Docker));
+    assert!(!backend_requires_sandbox(&SandboxBackend::Auto));
+    assert!(!backend_requires_sandbox(&SandboxBackend::None));
+}
+
+#[tokio::test]
+async fn the_openshell_handle_is_ready_without_pretending_to_be_a_container() {
+    let policy = SandboxPolicy {
+        backend: SandboxBackendKind::OpenShell,
+        ..unsandboxed_policy(Path::new("/tmp/action"), Path::new("/tmp/state"))
+    };
+
+    let handle = create_sandbox_backend_with_config(&policy, &crate::config::Config::default())
+        .await
+        .unwrap();
+
+    assert_eq!(handle.kind, SandboxBackendKind::OpenShell);
+    assert_eq!(handle.status, SandboxStatus::Ready);
+    assert_eq!(handle.backend_id, None);
+    assert_eq!(handle.isolation, None);
+}

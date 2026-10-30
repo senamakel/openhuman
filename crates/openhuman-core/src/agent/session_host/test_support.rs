@@ -116,6 +116,25 @@ pub(crate) async fn install_managed_model_fixture(config: &crate::config::Config
         .expect("store the managed inference fixture credential");
 }
 
+/// Bootstrap a managed model from a synchronous test fixture without using the
+/// storage bridge as a general executor. Profile persistence uses that bridge
+/// itself, and model registrations must also exist on the test's own thread.
+pub(crate) fn install_managed_model_fixture_sync(config: &crate::config::Config) {
+    install_model_fixture();
+    std::thread::scope(|scope| {
+        scope
+            .spawn(|| {
+                tokio::runtime::Builder::new_current_thread()
+                    .enable_all()
+                    .build()
+                    .expect("managed fixture runtime")
+                    .block_on(install_managed_model_fixture(config));
+            })
+            .join()
+            .expect("managed fixture bootstrap thread");
+    });
+}
+
 pub(crate) fn install_scripted_model(model: Arc<dyn ChatModel<()>>) {
     crate::inference::registry::register_chat_model(
         PROVIDER_OPENHUMAN,

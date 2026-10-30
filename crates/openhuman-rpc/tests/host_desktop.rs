@@ -53,7 +53,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     };
                     let shutdown = CancellationToken::new();
                     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
-                    let server = tokio::spawn(desktop(options, shutdown.clone(), ready_tx));
+                    let mut server = tokio::spawn(desktop(options, shutdown.clone(), ready_tx));
                     eprintln!("host_desktop: waiting for ready");
                     let EmbeddedReadySignal { port, .. } =
                         tokio::time::timeout(Duration::from_secs(120), ready_rx)
@@ -64,20 +64,15 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     // The listener may fall back to another port if the one we
                     // probed was taken in between; use what it reports.
 
-                    let health = match tokio::time::timeout(
-                        Duration::from_secs(10),
-                        reqwest::Client::new()
-                            .get(format!("http://127.0.0.1:{port}/health"))
-                            .send(),
-                    )
-                    .await
-                    {
-                        Ok(result) => result.expect("GET /health"),
-                        Err(_) => {
-                            shutdown.cancel();
-                            let _ = tokio::time::timeout(Duration::from_secs(10), server).await;
-                            panic!("GET /health completes during startup preflight");
-                        }
+                    let health = tokio::select! {
+                        result = tokio::time::timeout(
+                            Duration::from_secs(10),
+                            reqwest::Client::new()
+                                .get(format!("http://127.0.0.1:{port}/health"))
+                                .send(),
+                        ) => result.expect("GET /health completes during startup preflight")
+                            .expect("GET /health"),
+                        result = &mut server => panic!("desktop server ended before health: {result:?}"),
                     };
                     assert_eq!(health.status(), 200);
 

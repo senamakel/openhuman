@@ -97,7 +97,7 @@ async fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
     let json_before = std::fs::read_to_string(f.store.path()).unwrap();
 
     assert!(
-        f.store.load().is_err(),
+        f.store.load().await.is_err(),
         "a keychain read error must fail the load"
     );
 
@@ -106,7 +106,11 @@ async fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
         json_before
     );
     f.keychain.fail_reads.store(false, Ordering::SeqCst);
-    let data = f.store.load().expect("load after the keychain unlocks");
+    let data = f
+        .store
+        .load()
+        .await
+        .expect("load after the keychain unlocks");
     assert!(
         data.profiles.contains_key(&f.oauth_id),
         "profile was purged"
@@ -159,7 +163,7 @@ async fn keychain_read_error_with_undecryptable_json_keeps_the_profile() {
     let json_before = std::fs::read_to_string(f.store.path()).unwrap();
 
     assert!(
-        f.store.load().is_err(),
+        f.store.load().await.is_err(),
         "an undecryptable fallback must fail the load"
     );
     assert_eq!(
@@ -184,7 +188,7 @@ async fn an_unavailable_keychain_carries_keychain_only_profiles_untouched() {
     f.store.use_keychain = false;
     let entry_before = persisted_entry(&f.store, &f.oauth_id);
 
-    let data = f.store.load().expect("load without the keychain");
+    let data = f.store.load().await.expect("load without the keychain");
     assert!(
         !data.profiles.contains_key(&f.oauth_id),
         "an unresolved profile is not handed out"
@@ -204,7 +208,7 @@ async fn an_unavailable_keychain_carries_keychain_only_profiles_untouched() {
 
     f.store.use_keychain = true;
     f.keychain.fail_reads.store(false, Ordering::SeqCst);
-    let data = f.store.load().expect("load once the keychain reads");
+    let data = f.store.load().await.expect("load once the keychain reads");
     assert_eq!(
         data.profiles[&f.oauth_id]
             .token_set

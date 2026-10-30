@@ -204,7 +204,7 @@ async fn write_stage_retries_one_shot_transient() {
     assert_eq!(store.remaining_forced_write_failures(), 0);
     assert_eq!(store.remaining_forced_rename_failures(), 0);
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(data.profiles.contains_key(&profile.id));
 }
 
@@ -228,7 +228,7 @@ async fn write_stage_absorbs_burst_of_transients() {
     assert_eq!(store.remaining_forced_write_failures(), 0);
     assert_eq!(store.remaining_forced_rename_failures(), 0);
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let loaded = data
         .profiles
         .get(&profile.id)
@@ -311,7 +311,7 @@ async fn load_unlocked_readonly_matches_locked_load() {
     let profile = AuthProfile::new_token("slack", "default", "tok-xyz".into());
     store.upsert_profile(profile.clone(), true).await.unwrap();
 
-    let locked = store.load().unwrap();
+    let locked = store.load().await.unwrap();
     let unlocked = store.load_unlocked_readonly().unwrap();
 
     assert_eq!(
@@ -402,7 +402,7 @@ async fn rename_stage_retries_one_shot_transient() {
     assert_eq!(store.remaining_forced_write_failures(), 0);
     assert_eq!(store.remaining_forced_rename_failures(), 0);
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(data.profiles.contains_key(&profile.id));
 
     // Successful rename consumes the tmp; directory should hold only the
@@ -501,8 +501,8 @@ async fn load_migrates_un_lowercased_active_profiles_keys_and_providers() {
 
     std::fs::write(store.path(), serde_json::to_vec_pretty(&raw_json).unwrap()).unwrap();
 
-    // Call store.load() to trigger automatic migration on load
-    let data = store.load().unwrap();
+    // Call store.load().await to trigger automatic migration on load
+    let data = store.load().await.unwrap();
 
     // 1. Assert memory representation is normalized for active_profiles
     assert!(data.active_profiles.contains_key("provider:deepseek"));
@@ -532,7 +532,7 @@ async fn load_migrates_un_lowercased_active_profiles_keys_and_providers() {
             .await
             .unwrap()
     );
-    let reloaded = store.load().unwrap();
+    let reloaded = store.load().await.unwrap();
     assert!(reloaded.profiles.is_empty());
     assert!(reloaded.active_profiles.is_empty());
 }
@@ -560,7 +560,7 @@ async fn migration_normalizes_provider_but_preserves_profile_name_casing() {
     });
     std::fs::write(store.path(), serde_json::to_vec_pretty(&raw_json).unwrap()).unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let profile = data.profiles.get("provider:deepseek:Work").unwrap();
     assert_eq!(profile.id, "provider:deepseek:Work");
     assert_eq!(profile.provider, "provider:deepseek");
@@ -604,7 +604,7 @@ async fn migration_collision_prefers_existing_lowercase_key() {
 
     std::fs::write(store.path(), serde_json::to_vec_pretty(&raw_json).unwrap()).unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
 
     assert_eq!(
         data.active_profiles.get("provider:deepseek").unwrap(),
@@ -647,7 +647,7 @@ async fn migration_profile_id_collision_prefers_canonical_lowercase() {
 
     std::fs::write(store.path(), serde_json::to_vec_pretty(&raw_json).unwrap()).unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
 
     assert_eq!(data.profiles.len(), 1);
     let profile = data.profiles.get("provider:deepseek:default").unwrap();

@@ -44,7 +44,7 @@ async fn store_roundtrip_with_encryption() {
 
     store.upsert_profile(profile.clone(), true).await.unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let loaded = data.profiles.get(&profile.id).unwrap();
 
     assert_eq!(loaded.provider, "openai-codex");
@@ -138,7 +138,7 @@ async fn corrupt_store_is_quarantined_and_reset() {
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     std::fs::write(&path, b"{ not valid json").unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(data.profiles.is_empty());
     assert_eq!(data.schema_version, CURRENT_SCHEMA_VERSION);
 
@@ -152,7 +152,7 @@ async fn corrupt_store_is_quarantined_and_reset() {
 
     let profile = AuthProfile::new_token("openai", "default", "tok".into());
     store.upsert_profile(profile, true).await.unwrap();
-    let reloaded = store.load().unwrap();
+    let reloaded = store.load().await.unwrap();
     assert_eq!(reloaded.profiles.len(), 1);
 }
 
@@ -207,7 +207,7 @@ async fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
 
     // First load: should silently drop the doomed profile rather than
     // bubbling the decrypt error and breaking every poll.
-    let loaded = store.load().expect(
+    let loaded = store.load().await.expect(
         "load must succeed by dropping unrecoverable profiles, not by propagating decrypt errors",
     );
     assert!(
@@ -221,7 +221,7 @@ async fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
 
     // Subsequent load: file was rewritten without the bad profile, so
     // there's nothing to drop on the second pass — same clean state.
-    let loaded2 = store.load().unwrap();
+    let loaded2 = store.load().await.unwrap();
     assert!(!loaded2.profiles.contains_key(&profile_id));
 }
 
@@ -322,7 +322,7 @@ async fn remove_existing_profile_returns_true() {
     let removed = store.remove_profile(&id).await.unwrap();
     assert!(removed);
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(!data.profiles.contains_key(&id));
     assert!(!data.active_profiles.values().any(|v| v == &id));
 }
@@ -347,7 +347,7 @@ async fn set_active_profile_succeeds_for_existing_profile() {
     store.upsert_profile(profile, false).await.unwrap();
 
     store.set_active_profile("openai", &id).await.unwrap();
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert_eq!(data.active_profiles.get("openai"), Some(&id));
 }
 
@@ -359,7 +359,7 @@ async fn clear_active_profile() {
     store.upsert_profile(profile, true).await.unwrap();
 
     store.clear_active_profile("openai").await.unwrap();
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(!data.active_profiles.contains_key("openai"));
 }
 
@@ -370,7 +370,7 @@ async fn auth_profile_lock_errors_do_not_include_local_paths() {
     std::fs::write(&invalid_state_dir, "occupied").unwrap();
 
     let store = AuthProfilesStore::new(&invalid_state_dir, false);
-    let err = store.load().unwrap_err().to_string();
+    let err = store.load().await.unwrap_err().to_string();
 
     assert!(err.contains("Failed to create auth profile lock directory"));
     assert!(!err.contains(&tmp.path().display().to_string()));
@@ -422,7 +422,7 @@ async fn upsert_preserves_created_at_on_update() {
     let updated = AuthProfile::new_token("openai", "prod", "tok2".into());
     store.upsert_profile(updated, false).await.unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let loaded = data.profiles.get(&id).unwrap();
     assert_eq!(loaded.created_at, created);
 }
@@ -448,7 +448,7 @@ async fn acquire_lock_clears_stale_lock_with_dead_pid() {
 
     // A no-op call that goes through acquire_lock should succeed quickly
     // by recognising the previous lock as stale and removing it.
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(data.profiles.is_empty());
     assert!(
         !lock_path.exists(),
@@ -469,7 +469,7 @@ async fn acquire_lock_recovers_after_upsert_when_dead_pid_lock_left_behind() {
     let id = profile.id.clone();
     store.upsert_profile(profile, true).await.unwrap();
 
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     assert!(data.profiles.contains_key(&id));
     assert!(!lock_path.exists());
 }
@@ -540,7 +540,7 @@ async fn acquire_lock_recovers_immediately_from_leaked_self_pid_lock() {
     std::fs::write(&lock_path, format!("pid={}\n", std::process::id())).unwrap();
 
     let started = std::time::Instant::now();
-    let data = store.load().unwrap();
+    let data = store.load().await.unwrap();
     let elapsed = started.elapsed();
 
     assert!(data.profiles.is_empty());

@@ -209,7 +209,6 @@ async fn store_provider_token_and_remove_profile_roundtrip_with_mixed_case() {
             true,
         )
         .await
-        .await
         .unwrap();
 
     assert_eq!(stored.provider, "deepseek");
@@ -219,11 +218,7 @@ async fn store_provider_token_and_remove_profile_roundtrip_with_mixed_case() {
     assert!(profile.is_some());
     assert_eq!(profile.unwrap().id, "deepseek:default");
 
-    let removed = service
-        .remove_profile("deepseek", "default")
-        .await
-        .await
-        .unwrap();
+    let removed = service.remove_profile("deepseek", "default").await.unwrap();
     assert!(removed);
 
     let profile_after = service.get_profile("deepseek", None).await.unwrap();
@@ -244,14 +239,9 @@ async fn remove_profile_namespace_fallback_removes_namespaced_profile() {
             true,
         )
         .await
-        .await
         .unwrap();
 
-    let removed = service
-        .remove_profile("deepseek", "default")
-        .await
-        .await
-        .unwrap();
+    let removed = service.remove_profile("deepseek", "default").await.unwrap();
     assert!(removed);
 
     let profile = service.get_profile("deepseek", None).await.unwrap();

@@ -41,10 +41,10 @@ mod corrective_turn {
             definition.system_prompt =
                 tinyagents_definition::PromptSource::Inline("CRON_NO_REPLY_AGENT".into());
             definition.tools = tinyagents_definition::ToolScope::Named(Vec::new());
-            let context = CoreContext::for_test_with_host_kind(
+            let context = CoreContext::for_test_with_host_kind_and_config(
                 crate::core::types::HostKind::Library,
                 DomainSet::full(),
-                Some(self.0.workspace_dir.clone()),
+                self.0.clone(),
             );
             Some(HostAgent {
                 definition,

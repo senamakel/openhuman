@@ -105,10 +105,19 @@ impl CoreContext {
         domains: crate::core::runtime::DomainSet,
         config: crate::config::Config,
     ) -> Arc<CoreContext> {
+        Self::for_test_with_host_kind_and_config(HostKind::Cli, domains, config)
+    }
+
+    /// Test-only constructor with both an explicit host identity and config.
+    pub(crate) fn for_test_with_host_kind_and_config(
+        host_kind: HostKind,
+        domains: crate::core::runtime::DomainSet,
+        config: crate::config::Config,
+    ) -> Arc<CoreContext> {
         let latest_embedder_config = Arc::new(std::sync::Mutex::new(config.clone()));
         crate::config::Config::bind_context_snapshot(&latest_embedder_config);
         Arc::new(CoreContext {
-            host_kind: HostKind::Cli,
+            host_kind,
             workspace_binding: RwLock::new(Arc::new(RwLock::new(WorkspaceBinding {
                 workspace_dir: Some(config.workspace_dir.clone()),
                 config_path: Some(config.config_path.clone()),

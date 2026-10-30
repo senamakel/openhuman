@@ -21,8 +21,12 @@ fn policy_denial_keeps_its_class_when_error_details_are_withheld() {
     ));
     let assessment = policy.assess(&context, &invocation, &call, &scope, &result);
     let tinyagents_harness::middleware::FailureAssessment::ClassifiedFailure {
-        class, budget, error, ..
-    } = assessment else {
+        class,
+        budget,
+        error,
+        ..
+    } = assessment
+    else {
         panic!("a policy denial must retain its terminal class when details are withheld");
     };
     assert_eq!(class, "policy");

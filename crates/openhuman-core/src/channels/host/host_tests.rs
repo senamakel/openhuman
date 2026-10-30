@@ -41,7 +41,7 @@ async fn typed_channel_projection_uses_scoped_persisted_row_bindings_after_resta
     use crate::core::runtime::{ContextOverlay, CoreContext, DispatchCtx, DomainSet};
     use tinychannels_bus::{
         ChannelEvent, ChannelEventKind, ChannelReaction, ChannelRef, ConversationKind,
-        ConversationRef, SenderRef,
+        ConversationRef,
     };
 
     let tmp = tempfile::TempDir::new().unwrap();

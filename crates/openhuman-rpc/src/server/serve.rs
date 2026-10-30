@@ -252,10 +252,9 @@ pub async fn serve(
         let preflight_runtime = Arc::clone(&runtime);
         let mut preflight =
             tokio::spawn(async move { preflight_runtime.complete_secret_preflight().await });
-        // Start polling Axum before the preflight future is first polled. Some
-        // secret providers perform synchronous work before their first await.
-        tokio::task::yield_now().await;
-        eprintln!("serve-debug: polling preflight select");
+        // Enter the shutdown select before the preflight task can run. A
+        // preflight may do synchronous work before its first await, and must
+        // not monopolize a runtime worker before cancellation is observed.
         tokio::select! {
             result = await_http_server(&mut server, server_shutdown.as_ref()) => {
                 eprintln!("serve-debug: HTTP ended during preflight");

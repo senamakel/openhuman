@@ -14,6 +14,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import {
   validateCoverageDebt,
   validateAllowances,
+  validateRelocations,
   historicalFindings,
 } from "../ci/storage-bypass-debt.mjs";
 import {
@@ -32,6 +33,40 @@ const row = {
   issue: "https://github.com/tinyhumansai/openhuman/issues/7428",
 };
 const history = { baseline: [], extension: null, findings: [row] };
+test("only credential sites with pinned historical source proof relocate", () => {
+  const historical = {
+    rule: "file-mutation",
+    path: "crates/openhuman-core/src/security/credentials/profiles/persistence.rs",
+    text: "fs::rename(&tmp_path, &self.path).context(\"rename auth profile tmp -> store\")",
+    occurrence: 1,
+  };
+  const current = { ...historical };
+  const relocation = {
+    ...current,
+    source: {
+      commit: "5f01951c9c585c393ea4e8c3ba2907c25809663d",
+      path: historical.path,
+      text: historical.text,
+    },
+    issue: "https://github.com/tinyhumansai/openhuman/issues/7421",
+  };
+  const proof = { findings: [historical] };
+  assert.deepEqual(validateRelocations([current], [relocation], proof), []);
+
+  const arbitrary = {
+    ...relocation,
+    path: "crates/openhuman-core/src/new_store.rs",
+    text: "fs::write(path, bytes)",
+  };
+  assert.match(
+    validateRelocations([arbitrary], [arbitrary], proof).join("\n"),
+    /no matching historical source proof/,
+  );
+  assert.match(
+    validateRelocations([current], [relocation], { findings: [] }).join("\n"),
+    /no matching historical source proof/,
+  );
+});
 test("initial extension admits only exact existing canonical coverage", () => {
   assert.deepEqual(validateCoverageDebt([row], [], [row], history), []);
   const added = { ...row, path: "crates/openhuman-embed/src/new.rs" };

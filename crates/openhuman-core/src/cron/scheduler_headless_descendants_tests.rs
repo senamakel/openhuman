@@ -20,6 +20,7 @@ struct CronChildModel {
     accepted_followup: tokio::sync::Notify,
     child_attempts_dangerous_tool: bool,
     child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool,
+    child_dangerous_tool_requests: std::sync::atomic::AtomicUsize,
     child_started: std::sync::Mutex<Option<tokio::sync::oneshot::Sender<()>>>,
     child_release: tokio::sync::Notify,
     child_released: std::sync::atomic::AtomicBool,
@@ -196,6 +197,8 @@ impl ChatModel<()> for CronChildModel {
                         .any(|tool| tool.name == "delete_artifact"),
                     std::sync::atomic::Ordering::SeqCst,
                 );
+                self.child_dangerous_tool_requests
+                    .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
                 let mut response = ModelResponse::assistant("");
                 response.message.tool_calls = vec![tinyinference_llm::tool::ToolCall::new(
                     "headless-cron-forbidden-write",
@@ -263,6 +266,7 @@ async fn scheduled_agent_history_includes_its_spawned_child_result() {
         accepted_followup: tokio::sync::Notify::new(),
         child_attempts_dangerous_tool: false,
         child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool::new(false),
+        child_dangerous_tool_requests: std::sync::atomic::AtomicUsize::new(0),
         child_started: std::sync::Mutex::new(None),
         child_release: tokio::sync::Notify::new(),
         child_released: std::sync::atomic::AtomicBool::new(false),
@@ -359,6 +363,7 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
         accepted_followup: tokio::sync::Notify::new(),
         child_attempts_dangerous_tool: false,
         child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool::new(false),
+        child_dangerous_tool_requests: std::sync::atomic::AtomicUsize::new(0),
         child_started: std::sync::Mutex::new(None),
         child_release: tokio::sync::Notify::new(),
         child_released: std::sync::atomic::AtomicBool::new(false),
@@ -483,6 +488,7 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
         accepted_followup: tokio::sync::Notify::new(),
         child_attempts_dangerous_tool: true,
         child_dangerous_tool_schema_seen: std::sync::atomic::AtomicBool::new(false),
+        child_dangerous_tool_requests: std::sync::atomic::AtomicUsize::new(0),
         child_started: std::sync::Mutex::new(None),
         child_release: tokio::sync::Notify::new(),
         child_released: std::sync::atomic::AtomicBool::new(false),
@@ -541,9 +547,11 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
         1
     );
     assert_eq!(
-        model.child_calls.load(std::sync::atomic::Ordering::SeqCst),
+        model
+            .child_dangerous_tool_requests
+            .load(std::sync::atomic::Ordering::SeqCst),
         1,
-        "the child model requested the declared destructive tool"
+        "the child requests the declared destructive tool exactly once"
     );
     assert!(
         model

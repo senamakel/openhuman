@@ -27,7 +27,12 @@ pub fn policy_config(config: &Config) -> tinysecurity_bus::PolicyConfig {
             Vec::new()
         },
         forbidden_paths: if config.autonomy.enabled {
-            config.autonomy.forbidden_paths.clone()
+            config
+                .autonomy
+                .forbidden_paths
+                .iter()
+                .map(|path| crate::config::expand_tilde(path))
+                .collect()
         } else {
             Vec::new()
         },
@@ -51,8 +56,7 @@ pub fn validate(config: &Config) -> Result<(), &'static str> {
     {
         return Err("enabled policy allows only argument-free command names");
     }
-    if config
-        .autonomy
+    if policy_config(config)
         .forbidden_paths
         .iter()
         .any(|path| !std::path::Path::new(path).is_absolute())

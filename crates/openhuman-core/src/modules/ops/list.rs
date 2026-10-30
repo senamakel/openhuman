@@ -1,7 +1,7 @@
 use super::{disabled_component, resolver};
 use crate::config::Config;
-use crate::modules::source;
 use crate::modules::registry;
+use crate::modules::source;
 use crate::modules::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
 use tinybus::module::Availability;
 
@@ -42,8 +42,8 @@ fn status_of(config: &Config, record: &ModuleRecord) -> ModuleStatus {
         }
     };
     let plan = source::plan(config, record.id);
-    let module_source = (!matches!(state, ModuleState::Unsupported | ModuleState::Disabled))
-        .then_some(plan.served);
+    let module_source =
+        (!matches!(state, ModuleState::Unsupported | ModuleState::Disabled)).then_some(plan.served);
     let detail = detail.or_else(|| plan.fallback.map(str::to_string));
     ModuleStatus {
         id: record.id.to_string(),

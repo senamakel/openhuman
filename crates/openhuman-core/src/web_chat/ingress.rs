@@ -111,7 +111,8 @@ impl WebIngress {
                 user_id: Some(&request.payload.client_id),
                 session_id: Some(&request.thread_id),
             },
-        ).await;
+        )
+        .await;
         let verdict = match decision.action {
             PromptEnforcementAction::Allow => return IngressDecision::Continue,
             PromptEnforcementAction::Blocked => "block",

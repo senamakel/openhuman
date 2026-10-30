@@ -178,7 +178,7 @@ impl OpenHumanRunContext {
             stop_hooks: self.stop_hooks.clone(),
             tool_hooks: self.tool_hooks.clone(),
             tool_call_cap: self.tool_call_limit,
-            close_copy: self.close_copy,
+            close_copy: self.close_copy(),
         }
     }
 

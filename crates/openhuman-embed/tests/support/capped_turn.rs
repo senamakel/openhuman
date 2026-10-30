@@ -20,12 +20,14 @@ use openhuman_embed::{
 };
 use serde_json::{json, Value};
 
-struct Probe;
+/// A host tool the turn's provider calls; `file_write` is one the harness
+/// keeps on the belt for the call before a turn's last.
+struct Probe(&'static str);
 
 #[async_trait::async_trait]
 impl Tool for Probe {
     fn name(&self) -> &str {
-        "probe"
+        self.0
     }
     fn description(&self) -> &str {
         "Perform a host operation"
@@ -50,6 +52,13 @@ impl CappedTurn {
     /// Whether any request the model received contains `needle`.
     pub fn model_saw(&self, needle: &str) -> bool {
         self.requests.iter().any(|body| body.contains(needle))
+    }
+
+    /// Whether the `index`th request the model received contains `needle`.
+    pub fn request_has(&self, index: usize, needle: &str) -> bool {
+        self.requests
+            .get(index)
+            .is_some_and(|body| body.contains(needle))
     }
 }
 
@@ -84,7 +93,49 @@ pub async fn capped_agent(runtime: &Runtime, id: &str) -> (Agent, wiremock::Mock
                         .tools(ToolScopeSpec::Named(vec!["probe".into()]))
                         .max_iterations(1),
                 )
-                .tools(|_| HostTurnTools::advertised(vec![Box::new(Probe)])),
+                .tools(|_| {
+                    Box::pin(async { HostTurnTools::advertised(vec![Box::new(Probe("probe"))]) })
+                }),
+        )
+        .expect("the agent is created");
+    (agent, provider)
+}
+
+/// An agent allowed four model calls whose provider keeps calling tools until
+/// the cap: `probe`, `probe`, then `file_write` on the call before the last.
+/// The harness closes such a turn with its wrap-up instructions rather than
+/// with the cap checkpoint, so the model's last call is a text answer.
+pub async fn wrapped_up_agent(runtime: &Runtime, id: &str) -> (Agent, wiremock::MockServer) {
+    let provider = scripted_provider(
+        vec![
+            tool_call_completion("probe", r#"{"n":1}"#),
+            tool_call_completion("probe", r#"{"n":2}"#),
+            tool_call_completion("file_write", r#"{"n":3}"#),
+        ],
+        "wrapped up",
+    )
+    .await;
+    let agent = runtime
+        .agent(
+            AgentSpec::new(id)
+                .provider(route(&provider, "fixture"))
+                .definition(
+                    AgentDefinitionSpec::new()
+                        .bare_prompt("Use the tools then answer")
+                        .tools(ToolScopeSpec::Named(vec![
+                            "probe".into(),
+                            "file_write".into(),
+                        ]))
+                        .max_iterations(4),
+                )
+                .tools(|_| {
+                    Box::pin(async {
+                        HostTurnTools::advertised(vec![
+                            Box::new(Probe("probe")),
+                            Box::new(Probe("file_write")),
+                        ])
+                    })
+                }),
         )
         .expect("the agent is created");
     (agent, provider)

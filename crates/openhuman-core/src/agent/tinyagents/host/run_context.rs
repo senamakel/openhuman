@@ -328,7 +328,7 @@ pub struct OpenHumanRunContext {
 
 /// The host callbacks and caps a turn's harness assembly installs, taken from
 /// the explicit run context.
-#[derive(Clone, Default)]
+#[derive(Clone)]
 pub(crate) struct HarnessHostPolicy {
     /// Stop policies evaluated after each model call.
     pub(crate) stop_hooks: Vec<Arc<dyn StopHook<tinyagents_harness::cost::TurnCost>>>,
@@ -336,8 +336,8 @@ pub(crate) struct HarnessHostPolicy {
     pub(crate) tool_hooks: Vec<Arc<dyn tinyagents_hooks::tool::ToolHook<OpenHumanRunContext>>>,
     /// The host's cap on real tool invocations.
     pub(crate) tool_call_cap: Option<usize>,
-    /// The host's wording for closing the turn at its call cap.
-    pub(crate) close_copy: Option<tinyagents_harness::close::CloseCopy>,
+    /// The wording the turn closes with: the host's, or OpenHuman's default.
+    pub(crate) close_copy: tinyagents_harness::close::CloseCopy,
 }
 
 pub use super::operation_context::{approval_for_tool, OpenHumanRunExt};

@@ -142,7 +142,7 @@ impl OpenHumanSessionHost {
             self.temperature,
             context_window,
             Some(&thread_id),
-        )?;
+        ).await?;
         let summarizer = CompactionSummarizer {
             model: models.summarizer.clone(),
             model_id: models.summarizer_model_id().to_owned(),

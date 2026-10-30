@@ -80,6 +80,7 @@ async fn wire_models(summarizer_model: Option<&str>) -> WireModels {
     );
     let models = TurnModelSource::new_crate_native(&dispatch, "chat", Arc::new(config))
         .build(TURN_MODEL, 0.0, None, None)
+        .await
         .expect("a BYOK cloud turn builds");
     let request = || ModelRequest::new(vec![Message::user("condense this")]);
     models
@@ -177,6 +178,7 @@ async fn a_configured_summarizer_model_is_pinned_on_the_managed_route() {
     let models =
         TurnModelSource::new_crate_native(&DispatchCtx::new(context), "chat", Arc::new(config))
             .build(TURN_MODEL, 0.0, None, None)
+            .await
             .expect("a managed turn builds");
     let set = models
         .native_model_set

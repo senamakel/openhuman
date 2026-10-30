@@ -42,6 +42,10 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
     std::env::set_var("HOME", workspace.path());
     std::env::set_var("USERPROFILE", workspace.path());
     std::env::set_var("TOKIO_WORKER_THREADS", "2");
+    std::env::set_var(
+        "OPENHUMAN_KEYRING_MASTER_KEY",
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    );
     std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
     // Isolate from the operator's environment: a storage URL would route the
     // session store to a real backend, and a backend URL to a real host.
@@ -59,7 +63,6 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                 .build()
                 .expect("tokio runtime")
                 .block_on(async {
-                    eprintln!("desktop host test: constructing builder");
                     let options = DesktopOptions {
                         host: Some("127.0.0.1".into()),
                         port: Some(free_loopback_port()),
@@ -70,14 +73,11 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     let shutdown = CancellationToken::new();
                     let (ready_tx, ready_rx) = tokio::sync::oneshot::channel();
                     let server = tokio::spawn(serve_desktop(builder, shutdown.clone(), ready_tx));
-                    eprintln!("desktop host test: waiting for ready signal");
-
                     let EmbeddedReadySignal { port, .. } =
                         tokio::time::timeout(Duration::from_secs(120), ready_rx)
                             .await
                             .expect("ready signal within the timeout")
                             .expect("ready signal sent");
-                    eprintln!("desktop host test: ready on {port}");
                     // The listener may fall back to another port if the one we
                     // probed was taken in between; use what it reports.
 
@@ -87,7 +87,6 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                         .await
                         .expect("GET /health");
                     assert_eq!(health.status(), 200);
-                    eprintln!("desktop host test: health served, shutting down");
 
                     shutdown.cancel();
                     let finished = tokio::time::timeout(Duration::from_secs(60), server)
@@ -95,7 +94,6 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                         .expect("server stops after shutdown")
                         .expect("server task joins");
                     finished.expect("server exits cleanly");
-                    eprintln!("desktop host test: shutdown complete");
                 });
         })
         .expect("test thread")

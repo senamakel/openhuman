@@ -76,6 +76,12 @@ fn server_shim_refuses_public_bind_without_operator_token() {
                         ("HOME", workspace.path().as_os_str().to_os_string()),
                         ("USERPROFILE", workspace.path().as_os_str().to_os_string()),
                         ("TOKIO_WORKER_THREADS", OsString::from("2")),
+                        (
+                            "OPENHUMAN_KEYRING_MASTER_KEY",
+                            OsString::from(
+                                "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                            ),
+                        ),
                         ("OPENHUMAN_CORE_TOKEN", OsString::from("")),
                     ]);
                     let services = ServiceSet::headless_api();

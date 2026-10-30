@@ -7,6 +7,35 @@ const key = (x) => JSON.stringify([x.rule, x.path, x.text, x.occurrence]);
 const original = (x) =>
   x.path.startsWith(CORE) && ["sqlite-open", "json-write"].includes(x.rule);
 
+/** Exact source identity for the one-time credential fallback relocation ledger. */
+export function validateRelocations(findings, relocations, proof) {
+  if (!Array.isArray(relocations)) return ["Storage relocation ledger must be an array"];
+  const errors = [];
+  const actual = new Set(findings.map(key));
+  const historical = new Set((proof?.findings ?? []).map(key));
+  const seen = new Set();
+  for (const record of relocations) {
+    const id = key(record);
+    if (seen.has(id)) errors.push(`Duplicate storage relocation: ${record.path}`);
+    seen.add(id);
+    if (!actual.has(id))
+      errors.push(`Stale storage relocation: ${record.path}: ${record.text}`);
+    if (
+      !record.path.startsWith(`${CORE}security/credentials/`) ||
+      record.issue !== "https://github.com/tinyhumansai/openhuman/issues/7421"
+    )
+      errors.push(`Invalid credential relocation scope: ${record.path}`);
+    if (!record.source || !historical.has(key(record.source)))
+      errors.push(`Storage relocation has no matching historical source proof: ${record.path}`);
+    if (
+      record.trackedBefore &&
+      !proof?.trackedBefore?.has(key(record.trackedBefore))
+    )
+      errors.push(`Storage relocation has no pre-refresh debt proof: ${record.path}`);
+  }
+  return errors;
+}
+
 /** Exact existing-debt records never authorize another site or later growth. */
 export function validateCoverageDebt(findings, baseline, extension, history) {
   if (!Array.isArray(baseline) || !Array.isArray(extension))

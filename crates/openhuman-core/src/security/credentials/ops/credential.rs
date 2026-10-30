@@ -213,7 +213,7 @@ pub async fn set_credential(
         if !was_authenticated {
             start_credential_gated_services(ctx, config).await;
         } else {
-            spawn_integrations_cache_warm(config);
+            spawn_integrations_cache_warm(ctx, config);
         }
         crate::platform::llm_gate::set_signed_out(false);
         #[cfg(feature = "channels")]
@@ -534,7 +534,7 @@ where
                         .and_then(|raw| serde_json::from_str(raw).ok()),
                 );
             }
-            spawn_integrations_cache_warm(config);
+            spawn_integrations_cache_warm(ctx, config);
         }
     }
 

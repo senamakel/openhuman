@@ -2,7 +2,7 @@ use super::{disabled_component, resolver};
 use crate::config::Config;
 use crate::modules::registry;
 use crate::modules::source;
-use crate::modules::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
+use crate::modules::types::{ModuleRecord, ModuleState, ModuleStatus};
 use tinybus::module::Availability;
 
 /// Status of every module this build knows about.

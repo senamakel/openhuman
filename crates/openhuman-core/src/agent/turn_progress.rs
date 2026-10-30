@@ -12,7 +12,6 @@ use tinychannels_bus::module_progressive::{
 };
 use tinychannels_bus::web::{cap_web_args, cap_web_output};
 
-use crate::agent::subagent_host::SubagentUsageExt;
 use tinyagents_harness::progress::AgentProgress;
 
 type Failure = tinytools::status::ClassifiedFailure;

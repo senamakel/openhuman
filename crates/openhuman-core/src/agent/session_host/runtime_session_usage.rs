@@ -1,7 +1,5 @@
 //! Committed-turn goal accounting and billing projection.
 
-use crate::agent::subagent_host::SubagentUsageExt;
-
 fn rollup_usage(
     sidecar: &crate::agent::tinyagents::host::run_context::SessionTurnSidecar,
 ) -> tinyagents_harness::cost::UsageContribution {

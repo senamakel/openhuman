@@ -1,5 +1,5 @@
 use super::*;
-use crate::agent::subagent_host::types::{SubagentCheckpointData, SubagentUsageExt};
+use crate::agent::subagent_host::types::SubagentCheckpointData;
 
 pub(in crate::agent::subagent_host) struct OpenHumanPersistence {
     checkpoint_dir: std::path::PathBuf,

@@ -2,7 +2,8 @@ use super::*;
 use crate::config::schema::cloud_providers::{AuthStyle, CloudProviderCreds};
 
 async fn test_config() -> Config {
-    let config = Config::default();
+    let mut config = Config::default();
+    config.secrets.encrypt = false;
     crate::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
         .await
         .expect("store triage test credential");

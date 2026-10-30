@@ -153,7 +153,10 @@ pub async fn has_api_key(config: &Config) -> bool {
 /// Remove the API-key profile. Returns whether one existed.
 pub async fn clear_api_key(config: &Config) -> Result<bool> {
     log::debug!("[credentials][api-key] clearing api-key profile");
-    AuthService::from_config(config)
+    AuthService::new(
+        &super::core::state_dir_from_config(config),
+        config.secrets.encrypt,
+    )
         .remove_profile(API_KEY_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
         .await
 }

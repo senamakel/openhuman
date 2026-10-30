@@ -38,6 +38,13 @@ fn free_loopback_port() -> u16 {
 #[test]
 fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
     let workspace = tempfile::tempdir().expect("workspace tempdir");
+    let config_dir = workspace.path().join(".openhuman");
+    std::fs::create_dir_all(&config_dir).expect("config directory");
+    std::fs::write(
+        config_dir.join("config.toml"),
+        "[secrets]\nencrypt = false\n",
+    )
+    .expect("unencrypted test config");
     std::env::set_var("HOME", workspace.path());
     std::env::set_var("USERPROFILE", workspace.path());
     std::env::set_var("TOKIO_WORKER_THREADS", "2");

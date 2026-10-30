@@ -225,6 +225,7 @@ impl ChatModel<()> for CronChildModel {
             return Ok(ModelResponse::assistant("headless-cron-root-result"));
         }
 
+        eprintln!("cron root request messages: {:?}", request.messages);
         if self
             .spawn_calls
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)

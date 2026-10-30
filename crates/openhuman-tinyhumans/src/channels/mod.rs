@@ -40,7 +40,7 @@ pub(crate) async fn serve(
     use ChannelBackendResult as Result;
     match request {
         Request::ProgressiveTransport(request) => Ok(Result::ProgressiveTransport(
-            delivery::execute(&ctx, request).await,
+            delivery::execute(&ctx, *request).await,
         )),
         Request::SendReaction { channel, reaction } => {
             messaging::send_reaction(&ctx.config, &channel, reaction)

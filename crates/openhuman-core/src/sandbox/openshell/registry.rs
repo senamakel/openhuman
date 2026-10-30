@@ -243,41 +243,44 @@ impl<D: BoxDriver> BoxRegistry<D> {
 
     /// Hold `tenant`'s entry, making one when it has none and there is room.
     async fn check_out(&self, tenant: &Tenant) -> Result<Lease<'_, D>, BoxError> {
-        let now = Instant::now();
-        let (slot, reaped) = {
-            let mut entries = self.entries();
-            let mut reaped = Vec::new();
-            if !entries.contains_key(tenant) && entries.len() >= self.limits.max_live {
-                reaped = self.take_idle(&mut entries, now);
-                if entries.len() >= self.limits.max_live {
-                    drop(entries);
-                    tracing::warn!(
-                        max_live = self.limits.max_live,
-                        "[sandbox:openshell] refusing a new box: at capacity"
-                    );
-                    for resource in reaped {
-                        self.close_quietly(&resource).await;
-                    }
-                    return Err(BoxError::AtCapacity);
-                }
-            }
-            let entry = entries.entry(tenant.clone()).or_insert_with(|| Entry {
-                slot: Arc::new(Slot::default()),
-                in_flight: 0,
-                last_used: now,
-            });
-            entry.in_flight += 1;
-            entry.last_used = now;
-            (Arc::clone(&entry.slot), reaped)
-        };
+        let (held, reaped) = self.hold(tenant, Instant::now());
         for resource in reaped {
             self.close_quietly(&resource).await;
         }
+        let Some(slot) = held else {
+            tracing::warn!(
+                max_live = self.limits.max_live,
+                "[sandbox:openshell] refusing a new box: at capacity"
+            );
+            return Err(BoxError::AtCapacity);
+        };
         Ok(Lease {
             registry: self,
             tenant: tenant.clone(),
             slot,
         })
+    }
+
+    /// Count a command against `tenant`'s entry, making the entry when there
+    /// is room (after reaping idle boxes if there is not). Returns the slot,
+    /// or `None` at capacity, and the reaped boxes to close.
+    fn hold(&self, tenant: &Tenant, now: Instant) -> (Option<Arc<Slot>>, Vec<String>) {
+        let mut entries = self.entries();
+        let mut reaped = Vec::new();
+        if !entries.contains_key(tenant) && entries.len() >= self.limits.max_live {
+            reaped = self.take_idle(&mut entries, now);
+            if entries.len() >= self.limits.max_live {
+                return (None, reaped);
+            }
+        }
+        let entry = entries.entry(tenant.clone()).or_insert_with(|| Entry {
+            slot: Arc::new(Slot::default()),
+            in_flight: 0,
+            last_used: now,
+        });
+        entry.in_flight += 1;
+        entry.last_used = now;
+        (Some(Arc::clone(&entry.slot)), reaped)
     }
 
     /// End a command's hold; an entry left with no box and no command goes.

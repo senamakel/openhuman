@@ -365,6 +365,10 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
             {
                 let timed_out = tinytools::status::classify(heuristic, false).class
                     == tinytools::status::ToolFailureClass::Timeout;
+                #[cfg(test)]
+                if call.name == "shell" {
+                    eprintln!("timeout debug: text={failure_text:?} heuristic={heuristic:?} class={class:?} timed_out={timed_out} effect={effect:?}");
+                }
                 let nudge = if timed_out && matches!(call.name.as_str(), "shell" | "shell_process")
                 {
                     Some(super::failure_policy::uncertain_timeout_nudge(&call.name))

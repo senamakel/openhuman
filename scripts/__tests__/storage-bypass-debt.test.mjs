@@ -47,10 +47,12 @@ test("only credential sites with pinned historical source proof relocate", () =>
       commit: "5f01951c9c585c393ea4e8c3ba2907c25809663d",
       path: historical.path,
       text: historical.text,
+      rule: historical.rule,
+      occurrence: historical.occurrence,
     },
     issue: "https://github.com/tinyhumansai/openhuman/issues/7421",
   };
-  const proof = { findings: [historical] };
+  const proof = { findings: [historical], trackedBefore: new Set() };
   assert.deepEqual(validateRelocations([current], [relocation], proof), []);
 
   const arbitrary = {

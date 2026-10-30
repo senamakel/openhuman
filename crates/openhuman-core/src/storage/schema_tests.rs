@@ -39,6 +39,24 @@ fn every_linked_crate_exposes_its_valid_collection_declarations() {
     }
 }
 
+#[cfg(feature = "inbound-queues")]
+#[test]
+fn event_queue_bus_declarations_keep_their_indexes_in_host_storage_specs() {
+    let declarations = tinyeventqueues_bus::storage::collection_specs();
+    let specs = event_queue_collection_specs();
+
+    assert_eq!(specs.len(), declarations.len());
+    for (declaration, spec) in declarations.iter().zip(specs) {
+        assert_eq!(spec.name, declaration.name);
+        assert_eq!(spec.indexes.len(), declaration.indexes.len());
+        for (index, declaration) in spec.indexes.iter().zip(&declaration.indexes) {
+            assert_eq!(index.name, declaration.name);
+            assert_eq!(index.fields, declaration.fields);
+            assert_eq!(index.unique, declaration.unique);
+        }
+    }
+}
+
 #[test]
 fn module_collections_are_limited_to_the_named_owner() {
     let mcp = module_collections("mcp");

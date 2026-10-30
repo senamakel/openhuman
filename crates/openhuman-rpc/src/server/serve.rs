@@ -235,19 +235,30 @@ pub async fn serve(
                     Err(error)
                 }
                 Ok(Ok(())) => {
+                    let startup_runtime = Arc::clone(&runtime);
+                    let mut service_start =
+                        tokio::spawn(async move { startup_runtime.start_services().await });
                     tokio::select! {
-                        result = &mut server => result
-                            .map_err(anyhow::Error::from)
-                            .and_then(|result| result.map_err(anyhow::Error::from)),
-                        _ = runtime.start_services() => {
-                            // Start ordinary jobs only after credentials and
-                            // config have been refreshed, then expose the full
-                            // router. A concurrent shutdown must still stop
-                            // the listener while these services are starting.
-                            gate.open();
-                            server.await
+                        result = &mut server => {
+                            service_start.abort();
+                            result
                                 .map_err(anyhow::Error::from)
                                 .and_then(|result| result.map_err(anyhow::Error::from))
+                        },
+                        result = &mut service_start => {
+                            match result {
+                                Err(error) => Err(anyhow::Error::from(error)),
+                                Ok(()) => {
+                                    // Start ordinary jobs only after credentials and
+                                    // config have been refreshed, then expose the full
+                                    // router. A concurrent shutdown must still stop
+                                    // the listener while these services are starting.
+                                    gate.open();
+                                    server.await
+                                        .map_err(anyhow::Error::from)
+                                        .and_then(|result| result.map_err(anyhow::Error::from))
+                                }
+                            }
                         }
                     }
                 }

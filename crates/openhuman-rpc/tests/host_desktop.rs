@@ -84,11 +84,14 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                         shutdown.clone(),
                         ready_tx,
                     ));
-                    let EmbeddedReadySignal { port, .. } =
-                        tokio::time::timeout(Duration::from_secs(120), ready_rx)
-                            .await
-                            .expect("ready signal within the timeout")
-                            .expect("ready signal sent");
+                    let ready = tokio::select! {
+                        result = tokio::time::timeout(Duration::from_secs(120), ready_rx) => {
+                            result.expect("ready signal within the timeout")
+                                .expect("ready signal sent")
+                        }
+                        result = &mut server => panic!("desktop server ended before ready: {result:?}"),
+                    };
+                    let EmbeddedReadySignal { port, .. } = ready;
                     // The listener may fall back to another port if the one we
                     // probed was taken in between; use what it reports.
 

@@ -295,6 +295,22 @@ async fn an_unknown_box_is_replaced_once_and_the_command_retried() {
 }
 
 #[tokio::test(start_paused = true)]
+async fn a_box_reported_gone_is_still_closed_before_it_is_replaced() {
+    // "Gone" is inferred from a probe after a failed exec, so the box may
+    // still exist; dropping it without a close would leak it on the gateway.
+    let driver = ScriptedDriver::new();
+    driver.then(ExecStep::Fail(BoxError::UnknownResource));
+    let boxes = registry(&driver, 10);
+
+    boxes
+        .exec(&user("u1"), &settings(), &request("true"))
+        .await
+        .unwrap();
+
+    assert_eq!(driver.closed(), vec!["box-0"]);
+}
+
+#[tokio::test(start_paused = true)]
 async fn a_second_unknown_box_fails_the_command() {
     let driver = ScriptedDriver::new();
     driver.then(ExecStep::Fail(BoxError::UnknownResource));

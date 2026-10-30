@@ -224,10 +224,13 @@ pub async fn serve(
                     Err(error)
                 },
                 Ok(()) => {
+                    eprintln!("serve: preflight complete; starting services");
                     // Start ordinary jobs only after credentials and config
                     // have been refreshed, then expose the full router.
                     runtime.start_services().await;
+                    eprintln!("serve: services started; opening gate");
                     gate.open();
+                    eprintln!("serve: awaiting HTTP task");
                     server.await
                         .map_err(anyhow::Error::from)
                         .and_then(|result| result.map_err(anyhow::Error::from))
@@ -255,10 +258,13 @@ pub async fn serve(
         );
     }
 
+    eprintln!("serve: HTTP future ended; cleanup starting");
     runtime.exit_cleanup().await;
+    eprintln!("serve: runtime cleanup complete; completion store release starting");
     // Close the per-workspace background-completion logs (they replay from disk
     // on the next boot) so a data reset can delete the workspace directory.
     crate::core_host::agent::orchestration::release_background_completion_stores().await;
+    eprintln!("serve: completion store release complete");
 
     served?;
     Ok(())

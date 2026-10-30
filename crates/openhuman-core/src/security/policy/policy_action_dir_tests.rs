@@ -7,6 +7,15 @@
 use super::*;
 use std::fs;
 
+#[cfg(feature = "security-module")]
+async fn load_security_fixture() {
+    let mut config = crate::config::Config::default();
+    config.modules.enabled = true;
+    crate::modules::security::ensure_loaded(&config)
+        .await
+        .expect("the TinySecurity module should load for enabled policy tests");
+}
+
 /// The configured `action_dir` must be a read-write trusted root.
 ///
 /// It is the base `validate_path` joins every relative tool path onto, but it
@@ -44,6 +53,8 @@ fn from_config_grants_the_configured_action_dir_as_readwrite_root() {
 /// containment this proves is exactly what `enabled = false` turns off.
 #[tokio::test]
 async fn an_enabled_policy_can_write_into_its_action_dir_outside_the_workspace() {
+    #[cfg(feature = "security-module")]
+    load_security_fixture().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     let action = tmp.path().join("elsewhere/action");
@@ -88,6 +99,8 @@ fn from_config_does_not_grant_an_action_dir_covering_the_workspace() {
 /// directory — read-only — and nothing else under the workspace.
 #[tokio::test]
 async fn tool_result_artifacts_are_readable_by_absolute_path_under_workspace_only() {
+    #[cfg(feature = "security-module")]
+    load_security_fixture().await;
     let tmp = tempfile::tempdir().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     let action = tmp.path().join("project");

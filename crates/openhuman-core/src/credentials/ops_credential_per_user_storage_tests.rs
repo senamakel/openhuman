@@ -1,5 +1,6 @@
 use super::*;
 use crate::core::runtime::DispatchCtx;
+use crate::credentials::session_state::CredentialKind;
 use crate::security::credentials::{api_key, session_support};
 
 // Credentials on the desktop's DEFAULT storage: the backend belongs to the
@@ -155,7 +156,7 @@ async fn a_session_sign_out_keeps_the_api_key_on_per_user_storage() {
     let cleared = clear_credential(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(session_support::CredentialKind::Session),
+        Some(CredentialKind::Session),
     )
     .await
     .unwrap()
@@ -214,7 +215,7 @@ async fn another_user_signing_in_does_not_get_the_first_users_api_key() {
     clear_credential(
         &DispatchCtx::process_default(),
         &first,
-        Some(session_support::CredentialKind::Session),
+        Some(CredentialKind::Session),
     )
     .await
     .unwrap();
@@ -259,7 +260,7 @@ async fn a_failed_carry_on_per_user_storage_says_the_key_must_be_entered_again()
     let error = clear_credential_with(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(session_support::CredentialKind::Session),
+        Some(CredentialKind::Session),
         |_, _| async { Err(anyhow::anyhow!("injected carry failure")) },
     )
     .await

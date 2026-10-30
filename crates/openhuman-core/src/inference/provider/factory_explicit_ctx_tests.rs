@@ -89,7 +89,7 @@ async fn managed_factory_and_probe_use_the_explicit_provider_entry() {
     let context_b = context_b.derive_with(crate::core::runtime::ContextOverlay::new(
         config.clone(),
         DomainSet::full(),
-        crate::core::runtime::ToolGroups::none(),
+        crate::tools::toolpacks::ToolGroups::none(),
     ));
     CoreContext::scope(context_b, async {
         let (_, model) = create_chat_model_with_model_id_in(&dispatch, "chat", &config, 0.0)

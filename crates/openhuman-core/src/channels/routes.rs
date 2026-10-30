@@ -201,7 +201,6 @@ where
     let history_len =
         durable_channel_history_len(ctx, &current, &msg.channel, durable_session_key.as_deref())
             .await;
-    let configured_channel = configured_control_channel(ctx, reset_scope.as_ref());
     let client = super::context::module_client(ctx).await;
     let operation = async {
         let lease = crate::modules::channel_runtime::ChannelRuntimeLease::open(

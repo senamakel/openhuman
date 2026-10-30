@@ -128,7 +128,7 @@ impl ProgressiveChannelTransport for ModuleChannel {
                     thread_id: receipt.thread_id.clone(),
                     turn_id,
                     durability: tinychannels_bus::channel::DeliveryDurability::Required,
-                    payload: tinychannels_bus::channel::OutboundPayload::Text { text },
+                    payload: tinychannels_bus::channel::OutboundPayload::Text { text: text.clone() },
                 };
                 let intent = tinychannels_bus::channel::ChannelOutboundMessage {
                     channel_id: intent.channel_id,

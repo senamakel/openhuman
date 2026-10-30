@@ -373,10 +373,9 @@ async fn mode_toggle_between_calls_is_observed() {
         // ── Backend half ────────────────────────────────────────────
         let tmp_backend = tempfile::tempdir().expect("tempdir backend");
         let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp_backend.path());
-        let mut backend_config =
-            crate::integrations::composio::module_client::test_support::config_in(
-                tmp_backend.path(),
-            );
+        let backend_config = crate::integrations::composio::module_client::test_support::config_in(
+            tmp_backend.path(),
+        );
         backend_config
             .save()
             .await
@@ -404,9 +403,10 @@ async fn mode_toggle_between_calls_is_observed() {
         // ── Direct half ─────────────────────────────────────────────
         let tmp_direct = tempfile::tempdir().expect("tempdir direct");
         std::env::set_var("OPENHUMAN_WORKSPACE", tmp_direct.path());
-        let mut direct_config = Config::default();
-        direct_config.config_path = tmp_direct.path().join("config.toml");
-        direct_config.workspace_dir = tmp_direct.path().join("workspace");
+        let mut direct_config =
+            crate::integrations::composio::module_client::test_support::config_in(
+                tmp_direct.path(),
+            );
         direct_config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
         direct_config.composio.api_key = Some("test-direct-key".to_string());
         direct_config

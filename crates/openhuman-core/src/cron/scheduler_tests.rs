@@ -47,15 +47,19 @@ async fn run_job_command_in_test_context(
         crate::core::runtime::DomainSet::full(),
         config.clone(),
     );
-    crate::core::runtime::CoreContext::scope(
-        core,
+    crate::core::runtime::CoreContext::scope(core, async {
+        crate::core::runtime::DispatchCtx::ambient()
+            .load_config()
+            .await
+            .expect("scoped scheduler fixture config");
         run_job_command(
             &crate::core::runtime::DispatchCtx::host_default(),
             config,
             security,
             job,
-        ),
-    )
+        )
+        .await
+    })
     .await
 }
 

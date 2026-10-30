@@ -117,7 +117,12 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
     let input = format!("hello using this synthetic credential: {secret}");
     let redacted = tinyinference_core::sanitize::scrub_credentials(&input);
     let turn = tokio::spawn(async move { host.run_single_with_origin(&input, Some(origin)).await });
-    model.repair_started.notified().await;
+    tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        model.repair_started.notified(),
+    )
+    .await
+    .expect("host supplemental repair starts");
     let repair_call_id = model
         .repair_call_id
         .lock()
@@ -125,7 +130,11 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
         .clone()
         .expect("only a post-harness supplemental call releases this barrier");
     cancellation.cancel();
-    assert!(turn.await.expect("turn task").is_err());
+    let turn_result = tokio::time::timeout(std::time::Duration::from_secs(10), turn)
+        .await
+        .expect("cancellation interrupts the pending repair")
+        .expect("turn task");
+    assert!(turn_result.is_err());
     assert!(model
         .user_messages
         .lock()

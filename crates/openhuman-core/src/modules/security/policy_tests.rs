@@ -1,6 +1,35 @@
 use super::*;
 
 #[test]
+fn enabled_policy_expands_home_relative_forbidden_paths() {
+    let root = tempfile::tempdir().unwrap();
+    let mut config = Config::default();
+    config.action_dir = root.path().join("action");
+    config.workspace_dir = root.path().join("workspace");
+    config.autonomy.enabled = true;
+    config.autonomy.allowed_commands = vec!["pwd".into()];
+    config.autonomy.forbidden_paths = vec!["~/.ssh".into(), "~/.aws".into()];
+
+    assert_eq!(validate(&config), Ok(()));
+    let translated = policy_config(&config);
+    assert_eq!(
+        translated.forbidden_paths,
+        [crate::config::expand_tilde("~/.ssh"), crate::config::expand_tilde("~/.aws")]
+    );
+    assert!(translated.forbidden_paths.iter().all(|path| std::path::Path::new(path).is_absolute()));
+}
+
+#[test]
+fn enabled_policy_still_refuses_relative_forbidden_paths() {
+    let mut config = Config::default();
+    config.autonomy.enabled = true;
+    config.autonomy.allowed_commands = vec!["pwd".into()];
+    config.autonomy.forbidden_paths = vec!["relative/private".into()];
+
+    assert_eq!(validate(&config), Err("enabled policy forbidden paths must be absolute"));
+}
+
+#[test]
 fn policy_translation_copies_effective_host_settings() {
     let mut config = Config::default();
     config.autonomy.enabled = true;

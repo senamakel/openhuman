@@ -19,6 +19,24 @@ const CREDENTIAL_RELOCATION_IDENTITIES = new Set([
   key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/profiles/lock.rs", text: "OpenOptions::new()", occurrence: 1 }),
   key({ rule: "file-mutation", path: "crates/openhuman-core/src/security/credentials/profiles/persistence.rs", text: "fs::rename(&tmp_path, &self.path).context(\"rename auth profile tmp -> store\")", occurrence: 1 }),
 ]);
+const TRACKED_RELOCATION_DEBT = new Map([
+  [
+    key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/http_creds.rs", text: "fs::write(&tmp_path, &json)", occurrence: 1 }),
+    key({ rule: "json-write", path: "crates/openhuman-core/src/flows/http_credentials.rs", text: "fs::write(&tmp_path, &json)", occurrence: 1 }),
+  ],
+  [
+    key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/profiles.rs", text: "let mut file = OpenOptions::new()", occurrence: 1 }),
+    key({ rule: "json-write", path: "crates/openhuman-core/src/credentials/profiles/persistence.rs", text: "let mut file = OpenOptions::new()", occurrence: 1 }),
+  ],
+  [
+    key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/profiles.rs", text: "fs::write(path, bytes)", occurrence: 1 }),
+    key({ rule: "json-write", path: "crates/openhuman-core/src/credentials/profiles/persistence.rs", text: "fs::write(path, bytes)", occurrence: 1 }),
+  ],
+  [
+    key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/profiles/lock.rs", text: "OpenOptions::new()", occurrence: 1 }),
+    key({ rule: "json-write", path: "crates/openhuman-core/src/credentials/profiles/lock.rs", text: "OpenOptions::new()", occurrence: 1 }),
+  ],
+]);
 
 /** Exact source identity for the one-time credential fallback relocation ledger. */
 export function validateRelocations(findings, relocations, proof) {
@@ -50,11 +68,13 @@ export function validateRelocations(findings, relocations, proof) {
       !historical.has(key(record.source))
     )
       errors.push(`Storage relocation has no matching historical source proof: ${record.path}`);
+    const trackedBefore = TRACKED_RELOCATION_DEBT.get(id);
     if (
-      record.trackedBefore &&
-      !proof?.trackedBefore?.has(key(record.trackedBefore))
+      (trackedBefore && key(record.trackedBefore ?? {}) !== trackedBefore) ||
+      (!trackedBefore && record.trackedBefore) ||
+      (trackedBefore && !proof?.trackedBefore?.has(trackedBefore))
     )
-      errors.push(`Storage relocation has no pre-refresh debt proof: ${record.path}`);
+      errors.push(`Storage relocation has no exact pre-refresh debt proof: ${record.path}`);
   }
   for (const id of CREDENTIAL_RELOCATION_IDENTITIES)
     if (!seen.has(id)) errors.push("Credential relocation ledger is incomplete");

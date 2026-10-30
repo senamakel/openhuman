@@ -58,6 +58,14 @@ test("only credential sites with pinned historical source proof relocate", () =>
   };
   assert.deepEqual(validateRelocations(current, relocations, proof), []);
 
+  const droppedDebtProof = relocations.map((record, index) =>
+    index === 0 ? (({ trackedBefore, ...rest }) => rest)(record) : record,
+  );
+  assert.match(
+    validateRelocations(current, droppedDebtProof, proof).join("\n"),
+    /exact pre-refresh debt proof/,
+  );
+
   const arbitrary = {
     ...relocations[0],
     path: "crates/openhuman-core/src/new_store.rs",

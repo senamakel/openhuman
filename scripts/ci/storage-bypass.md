@@ -43,6 +43,18 @@ Artifact files do not imply that native BlobStore support is absent. Initial
 exclusions must exist in canonical source; later exclusions cannot grow. An
 allowance never covers a second occurrence or another call in the same file.
 
+`storage-bypass-relocations.json` records exactly **7** credential fallback
+sites whose tracked source was lost during the `8efcf6b` baseline refresh and
+later appeared under `security/credentials/`. The checker pins this identity
+set, verifies each site's source at `5f01951c`, and verifies the four earlier
+`json-write` debt records against the baseline immediately before the refresh.
+The three `file-mutation` identities have historical source proof, including
+the auth-profile temporary-file rename, but do not inflate the old writer
+baseline. Every record links to #7421, which tracks the required key-source and
+legacy desktop import work. Missing, stale, copied, or arbitrary records fail;
+ordinary writers still pass only through the no-growth baseline or extension
+ratchets.
+
 Classifications are review evidence. They do not establish tenant authority,
 cloud isolation, migration completion, or an export's admission policy.
 
@@ -60,12 +72,12 @@ allowances fail closed. `--root` enforces history for real checkouts, including
 symlink spellings; isolated fixtures exercise source and debt policy separately.
 A fixture pass is not proof of host storage isolation.
 
-The focused scanner/debt/lane suite has 78 passing controls. It covers initial
-branch writers, copied/moved identities, later growth, missing history and
-baselines, absent/empty curated roots, symlink spellings, comments/fixtures,
-current owner paths, and cancellation supervision in both CI profiles. Policy
-JSON/Markdown, scanner, debt-helper, and shared comment-masker changes arm the
-scripts regression lane.
+The focused scanner/debt/lane suite covers initial branch writers,
+copied/moved identities, later growth, missing history and baselines,
+absent/empty curated roots, symlink spellings, comments/fixtures, current owner
+paths, cancellation supervision in both CI profiles, and exact credential
+relocation source proofs. Policy JSON/Markdown, scanner, debt-helper, and shared
+comment-masker changes arm the scripts regression lane.
 
 ```sh
 node --test scripts/__tests__/storage-bypass*.test.mjs scripts/__tests__/self-hosted-lanes.test.mjs

@@ -1,7 +1,8 @@
 # sandbox
 
 Decides where an agent's command runs: directly on the host, inside an OS jail
-confined to the action dir, or in a throwaway Docker container. The tools that
+confined to the action dir, in a throwaway Docker container, or in the
+tenant's own long-lived OpenShell box. The tools that
 spawn processes (`shell`) and the
 flows code-runner capability call into it when the agent runs in sandboxed
 mode. The core process itself always runs on the host; only the spawned
@@ -162,12 +163,50 @@ probe and label-scoped orphan cleanup. `validate_docker_policy` asks TinyBox's
 reports host networking and a mount or workspace root of `/`, `/etc`, `/proc`,
 `/sys` or the Docker socket; with no module there is no verdict, never a clean one.
 
+### The OpenShell backend
+
+Selected only by `[security.sandbox] backend = "openshell"`:
+`apply_requested_backend` sets `SandboxBackendKind::OpenShell` and drops the
+Docker overrides and host mounts, since nothing on the host is mounted.
+[`openshell/`](./openshell/mod.rs) keeps one box per tenant on an NVIDIA
+OpenShell gateway, through the TinyBox module's `openshell` backend
+(`Reserve` + `Create`, `Exec`, `Close`); the box outlives the command, so a
+tenant's files persist between commands until the box is closed.
+
+- **One box per whole `Tenant`.** `BoxRegistry` keys on profile *and* agent:
+  an embedded host runs one agent per end user with no profile, so the profile
+  alone would put every user in one box. `ctx.tenant()` returning `NoTenant`
+  refuses the command; there is no shared fallback box.
+- **Single-flight creation.** Concurrent first commands for a tenant create
+  one box. Each box comes from `[runtime.openshell]` (`image`, `cpu_millis`,
+  `memory_mb` sent as whole MiB bytes), with network `Denied`, no ports and no
+  host environment.
+- **Commands.** `timeout -k 5 <secs> sh -c <command>` in `/sandbox`, with only
+  the request's own environment. Exit 124 is reported as timed out. The
+  shell tool's come-back time bounds the deadline (no yielding, like Docker).
+  If the box does not answer within the deadline plus 10 s, the host closes it
+  and reports the command timed out.
+- **Lost boxes.** The bus client does not pass TinyBox's error names through,
+  so after a failed `Exec` the driver asks `Inspect`: a box the module refuses
+  to describe, or one no longer `ready`/`running`, is replaced once and the
+  command retried.
+- **Lifetime.** A background reaper (every `min(30 s, idle_ttl / 2)`) closes
+  boxes idle for `idle_ttl_secs` (default 900) with nothing in flight.
+  `max_live` (default 50) caps live boxes: a new tenant first reaps idle
+  boxes, then fails with "the sandbox service is at capacity; try again
+  shortly". `openshell::release(tenant)` and `openshell::shutdown()` close
+  boxes; a failed close is logged, never raised.
+- **One registry per process**, built from the first command's config, so
+  `idle_ttl_secs` and `max_live` changes apply after a restart.
+
 ### Backend status
 
 `create_sandbox_backend` returns a `SandboxBackendHandle`. None is always
 `Ready`. Docker is `Ready` when the TinyBox status operation reports the daemon
 available and `Error` otherwise. A module or transport failure is surfaced by
 the status RPC rather than probed with a host-local Docker CLI.
+OpenShell is `Ready` with no `backend_id`: boxes are created per tenant on
+first use, so the gateway's availability shows on that call.
 Local reports `Ready` when `jail_isolation` accepts the module's native jail,
 and its handle's `isolation` says which posture (`isolated` or
 `folder_confined`); the field is omitted for every other handle. Missing modules and transport errors are
@@ -184,13 +223,14 @@ execution refuses to run without the required provider.
 | [`native_jail.rs`](./native_jail.rs) | TinyBox native-jail and cron passthrough request mapping, process/output lifecycle, and fail-closed status checks. |
 | [`local_grants.rs`](./local_grants.rs) | Host adapter for `ResolveLocalGrants`: sends the credential floor as input and re-applies it to the module's reply. |
 | [`docker.rs`](./docker.rs) | Policy-to-`RunDocker` mapping, module status/cleanup calls, Docker policy validation. |
+| [`openshell/`](./openshell/mod.rs) | Per-tenant OpenShell boxes: `BoxRegistry` (lifecycle, reaper, capacity, backstop), the `BoxDriver` seam and its TinyBox bus implementation. |
 | [`schemas.rs`](./schemas.rs) | The `sandbox.*` controllers. |
 
 ## Key types and entry points
 
 - `SandboxPolicy` ([`types.rs`](./types.rs)): the resolved per-call policy. It is
   serializable so `sandbox.resolve_policy` can return it.
-- `SandboxBackendKind` (`types.rs`): `None`, `Local`, `Docker`.
+- `SandboxBackendKind` (`types.rs`): `None`, `Local`, `Docker`, `OpenShell`.
 - `resolve_sandbox_policy(mode, action_dir, state_dir, runtime_config,
   is_remote_session)` (`ops.rs`).
 - `execute_in_sandbox(policy, command, working_dir, extra_env, timeout)`
@@ -259,6 +299,7 @@ The settings surface (`get_sandbox_settings`, `[security.sandbox]` and
 ## Tests
 
 Sibling suites: [`types_tests.rs`](./types_tests.rs), [`ops_tests.rs`](./ops_tests.rs), [`local_grants_tests.rs`](./local_grants_tests.rs),
+`openshell/{registry,bus_driver,mod}_tests.rs` (over a scripted `BoxDriver`, under a paused clock),
 [`schemas_tests.rs`](./schemas_tests.rs), [`docker_tests.rs`](./docker_tests.rs) and [`docker_exec_tests.rs`](./docker_exec_tests.rs).
 `native_jail_tests.rs` pins the status floor, grant/environment mapping,
 module-unavailable refusal, and an ignored pinned-artifact Linux execution

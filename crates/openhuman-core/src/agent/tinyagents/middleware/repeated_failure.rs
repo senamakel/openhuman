@@ -365,7 +365,6 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
             {
                 let nudge = if class == "uncertain_side_effect"
                     && matches!(call.name.as_str(), "shell" | "shell_process")
-                    && heuristic.contains("timeout")
                 {
                     Some(super::failure_policy::uncertain_timeout_nudge(&call.name))
                 } else if class == "missing_app" && call.name == "shell" {

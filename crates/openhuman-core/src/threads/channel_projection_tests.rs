@@ -172,6 +172,7 @@ fn channel_activity_emits_atomic_keyed_merge_patches() {
     let reaction = ChannelReaction {
         value: "🔥".into(),
         custom_emoji_id: None,
+        custom: false,
     };
     let added = event(ChannelEventKind::ReactionAdded {
         message_id: "provider-target".into(),
@@ -192,6 +193,7 @@ fn channel_activity_emits_atomic_keyed_merge_patches() {
         &ChannelReaction {
             value: "c".into(),
             custom_emoji_id: None,
+            custom: false,
         },
     )
     .unwrap();
@@ -200,6 +202,7 @@ fn channel_activity_emits_atomic_keyed_merge_patches() {
         &ChannelReaction {
             value: "b|c".into(),
             custom_emoji_id: None,
+            custom: false,
         },
     )
     .unwrap();
@@ -209,6 +212,7 @@ fn channel_activity_emits_atomic_keyed_merge_patches() {
         &ChannelReaction {
             value: "🔥".into(),
             custom_emoji_id: Some("provider-custom-1".into()),
+            custom: true,
         },
     )
     .unwrap();
@@ -249,7 +253,7 @@ async fn persisted_activity_merges_concurrent_events_for_the_exact_scoped_row() 
     use crate::threads::store::{self, ConversationMessage, CreateConversationThread};
     use tinychannels_bus::{
         ChannelEvent, ChannelEventKind, ChannelReaction, ChannelRef, ConversationKind,
-        ConversationRef, SenderRef,
+        ConversationRef,
     };
 
     let temp = tempfile::tempdir().unwrap();

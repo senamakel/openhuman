@@ -124,16 +124,49 @@ async fn encrypted_api_key_retains_the_admitted_host_configuration() {
     crate::modules::security::ensure_loaded(&config)
         .await
         .expect("admit native security for encrypted credentials");
-    store_api_key(&config, "fixture-encrypted-api-key")
-        .await
-        .expect("store with the admitted host configuration");
-    assert_eq!(
-        get_api_key(&config)
-            .await
-            .expect("read encrypted key")
-            .as_deref(),
-        Some("fixture-encrypted-api-key")
+    let gate = crate::security::approval::ApprovalGate::init_global(
+        config.clone(),
+        "encrypted-api-key-regression",
     );
-    assert!(clear_api_key(&config).await.expect("remove encrypted key"));
-    assert_eq!(get_api_key(&config).await.expect("read removed key"), None);
+    let worker_config = config.clone();
+    let mut operation = tokio::spawn(async move {
+        store_api_key(&worker_config, "fixture-encrypted-api-key")
+            .await
+            .expect("store with the admitted host configuration");
+        assert_eq!(
+            get_api_key(&worker_config)
+                .await
+                .expect("read encrypted key")
+                .as_deref(),
+            Some("fixture-encrypted-api-key")
+        );
+        assert!(clear_api_key(&worker_config)
+            .await
+            .expect("remove encrypted key"));
+        assert_eq!(
+            get_api_key(&worker_config).await.expect("read removed key"),
+            None
+        );
+    });
+    tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        loop {
+            tokio::select! {
+                result = &mut operation => {
+                    result.expect("encrypted credential operation");
+                    break;
+                }
+                _ = tokio::time::sleep(std::time::Duration::from_millis(10)) => {
+                    for pending in gate.list_pending().expect("pending native approvals") {
+                        assert_eq!(pending.tool_name, "native_secret_grant");
+                        gate.decide(
+                            &pending.request_id,
+                            crate::security::approval::ApprovalDecision::ApproveOnce,
+                        ).expect("approve this cipher master resolution");
+                    }
+                }
+            }
+        }
+    })
+    .await
+    .expect("encrypted credential round trip completes after consent");
 }

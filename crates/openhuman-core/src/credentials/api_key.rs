@@ -41,7 +41,7 @@ pub const API_KEY_KIND: &str = "tinyhumans-api-key";
 /// Persist `key` as the active API-key profile beside `config`'s other
 /// credentials. Blank keys are rejected rather than stored.
 pub async fn store_api_key(config: &Config, key: &str) -> Result<AuthProfile> {
-    store_api_key_with_service(&AuthService::from_config(config), key).await
+    store_api_key_with_service(&AuthService::config_document(config), key).await
 }
 
 /// [`store_api_key`] against an explicit credential state directory. Used by
@@ -72,7 +72,7 @@ async fn store_api_key_with_service(service: &AuthService, key: &str) -> Result<
 
 /// The stored API key, if any.
 pub async fn get_api_key(config: &Config) -> Result<Option<String>> {
-    get_api_key_with_service(&AuthService::from_config(config)).await
+    get_api_key_with_service(&AuthService::config_document(config)).await
 }
 
 /// Reads the selected profile's API key for doctor checks without using the
@@ -144,7 +144,7 @@ pub async fn has_api_key(config: &Config) -> bool {
 /// Remove the API-key profile. Returns whether one existed.
 pub async fn clear_api_key(config: &Config) -> Result<bool> {
     log::debug!("[credentials][api-key] clearing api-key profile");
-    AuthService::from_config(config)
+    AuthService::config_document(config)
         .remove_profile(API_KEY_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
         .await
 }

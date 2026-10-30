@@ -14,6 +14,14 @@ impl AuthProfilesStore {
         Self::construct(state_dir, encrypt_secrets, None)
     }
 
+    /// Bind document encryption to its admitted host without migrating API keys
+    /// into the interactive keyring profile store.
+    pub(crate) fn document_with_config(state_dir: &Path, config: &crate::config::Config) -> Self {
+        let mut store = Self::construct(state_dir, config.secrets.encrypt, Some(config.clone()));
+        store.use_keychain = false;
+        store
+    }
+
     pub fn new_with_config(
         state_dir: &Path,
         encrypt_secrets: bool,

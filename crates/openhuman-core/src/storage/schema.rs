@@ -90,10 +90,7 @@ fn declared_collections() -> Vec<CollectionOwner> {
     ));
 
     #[cfg(feature = "inbound-queues")]
-    owners.push(owner(
-        "tinyeventqueues-bus",
-        event_queue_collection_specs(),
-    ));
+    owners.push(owner("tinyeventqueues-bus", event_queue_collection_specs()));
 
     owners
 }

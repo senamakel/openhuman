@@ -290,6 +290,7 @@ pub(in crate::modules) async fn ensure_loaded(
                     pairing_backend_id.clone(),
                     registration_id.clone(),
                 )
+                .await
                 .map_err(|_| "device pairing persistence unavailable".to_owned())?;
                 let state = std::sync::Arc::new(SecurityCallbackState {
                     binding: std::sync::Arc::clone(&binding),

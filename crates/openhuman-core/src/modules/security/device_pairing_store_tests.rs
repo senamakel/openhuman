@@ -61,9 +61,13 @@ fn pairing_snapshots_cannot_be_loaded_under_a_different_fixed_binding() {
 #[test]
 fn pairing_store_can_initialize_on_the_storage_bridge() {
     let temp = tempfile::tempdir().unwrap();
-    let config = Config { workspace_dir: temp.path().join("workspace"), ..Default::default() };
+    let config = Config {
+        workspace_dir: temp.path().join("workspace"),
+        ..Default::default()
+    };
     crate::storage::block_on_anyhow(async move {
-        DevicePairingStore::current(&config, "backend".into(), "registration".into())?;
+        DevicePairingStore::current(&config, "backend".into(), "registration".into()).await?;
         Ok(())
-    }).expect("pairing storage initialization must not re-enter the bridge");
+    })
+    .expect("pairing storage initialization must not re-enter the bridge");
 }

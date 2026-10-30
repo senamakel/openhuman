@@ -154,7 +154,10 @@ impl ProgressiveChannelTransport for ModuleChannel {
                         tinychannels_bus::methods::CHANNEL_INTERACTION,
                         tinychannels_bus::ChannelInteractionRequest {
                             channel: self.name.clone(),
-                            interaction: ChannelInteraction::EditMessage { receipt: Box::new(receipt), intent },
+                            interaction: ChannelInteraction::EditMessage {
+                                receipt: Box::new(receipt),
+                                intent,
+                            },
                         },
                     )
                     .await

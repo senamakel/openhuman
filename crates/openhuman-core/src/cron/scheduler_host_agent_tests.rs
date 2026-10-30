@@ -73,6 +73,10 @@ async fn config(tmp: &TempDir) -> Config {
         ..Config::default()
     };
     config.secrets.encrypt = false;
+    #[cfg(feature = "security-module")]
+    crate::modules::security::ensure_loaded(&config)
+        .await
+        .expect("the staged TinySecurity module should load for scheduler host tests");
     crate::credentials::api_key::store_api_key(&config, "cron-host-test-key")
         .await
         .expect("store the managed inference fixture credential");

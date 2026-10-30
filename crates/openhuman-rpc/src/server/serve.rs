@@ -273,10 +273,13 @@ pub async fn serve(
         );
     }
 
+    eprintln!("serve: transport returned");
     runtime.exit_cleanup().await;
+    eprintln!("serve: runtime exit cleanup returned");
     // Close the per-workspace background-completion logs (they replay from disk
     // on the next boot) so a data reset can delete the workspace directory.
     crate::core_host::agent::orchestration::release_background_completion_stores().await;
+    eprintln!("serve: background completion stores released");
 
     served?;
     Ok(())

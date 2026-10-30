@@ -182,7 +182,11 @@ fn outbound_delivery(
             let parts = if parts.is_empty() {
                 vec![text_part(text)]
             } else {
-                parts.clone()
+                parts
+                    .iter()
+                    .cloned()
+                    .map(|part| OutboundContentPart::Content { part })
+                    .collect()
             };
             Some((parts, text.clone()))
         }

@@ -445,7 +445,7 @@ impl ModuleChannel {
             turn_id: message.turn_id.clone(),
             durability: tinychannels_bus::channel::DeliveryDurability::Required,
             payload: tinychannels_bus::channel::OutboundPayload::Parts {
-                text: Some(message.text.clone()),
+                text: None,
                 parts: message.parts.clone(),
             },
         };

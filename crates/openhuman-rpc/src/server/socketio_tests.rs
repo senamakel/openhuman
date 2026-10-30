@@ -596,10 +596,10 @@ async fn startup_preflight_socket_gate() {
         "post-preflight ready: {connected}"
     );
 
-    // A live authenticated socket must still check the same gate before
-    // dispatching RPC events. Re-closing is test-only; production opens once.
+    // Re-closing is test-only; production opens once. The outer HTTP preflight
+    // layer must reject Socket.IO traffic before it can dispatch an event.
     gate.close_for_test();
-    client
+    let denied_rpc = client
         .post(&url)
         .body(
             "42[\"rpc:request\",{\"id\":\"probe\",\"method\":\"openhuman.config_get\",\"params\":{}}]",
@@ -607,14 +607,15 @@ async fn startup_preflight_socket_gate() {
         .send()
         .await
         .expect("send authenticated RPC event");
-    let denied_rpc = client.get(&url).send().await.unwrap().text().await.unwrap();
     assert!(
-        denied_rpc.contains("rpc:error"),
-        "preflight rpc response: {denied_rpc}"
+        denied_rpc.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE,
+        "preflight must reject Socket.IO before the event is dispatched: {}",
+        denied_rpc.status()
     );
+    let denied_rpc = denied_rpc.text().await.unwrap();
     assert!(
-        denied_rpc.contains("unavailable during startup approval preflight"),
-        "preflight must not dispatch the protected method: {denied_rpc}"
+        denied_rpc.contains("startup_preflight"),
+        "preflight rejection body: {denied_rpc}"
     );
 }
 

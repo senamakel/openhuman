@@ -225,7 +225,8 @@ pub(crate) fn compression_middleware(
                 max_output_tokens = ?settings.max_output_tokens,
                 "[context_compression] strategy=summary"
             );
-            let mut model_summarizer = ModelSummarizer::new(summarizer.model, summarizer.model_id);
+            let mut model_summarizer = ModelSummarizer::new(summarizer.model, summarizer.model_id)
+                .with_tool_rendering(settings.tool_rendering);
             if let Some(cap) = settings.max_output_tokens {
                 model_summarizer = model_summarizer.with_max_output_tokens(cap);
             }

@@ -51,7 +51,8 @@ async fn execute_tool_resolves_to_backend_kind_when_mode_is_backend() {
     // Err("no backend session"); store one to get past that gate.
     crate::integrations::composio::test_backend_route::register();
     let tmp = tempfile::tempdir().unwrap();
-    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let mut config =
+        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             crate::credentials::APP_SESSION_PROVIDER,
@@ -92,7 +93,8 @@ async fn list_tools_in_direct_mode_returns_empty_without_hitting_backend() {
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     let _home_guard = EnvVarGuard::set("HOME", tmp.path());
 
-    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let mut config =
+        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());
@@ -152,7 +154,8 @@ async fn execute_tool_per_call_factory_means_no_baked_client() {
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     let _home_guard = EnvVarGuard::set("HOME", tmp.path());
 
-    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let mut config =
+        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     // No api_key here — direct-mode factory must reject.
@@ -198,7 +201,8 @@ async fn list_toolkits_in_direct_mode_returns_empty_without_hitting_backend() {
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     let _home_guard = EnvVarGuard::set("HOME", tmp.path());
 
-    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let mut config =
+        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());
@@ -271,7 +275,8 @@ async fn authorize_in_direct_mode_refuses_with_app_composio_dev_hint() {
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     let _home_guard = EnvVarGuard::set("HOME", tmp.path());
 
-    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let mut config =
+        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());
@@ -401,7 +406,8 @@ async fn list_tools_with_a_run_context_carrier_matches_the_bare_call() {
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
     let _home_guard = EnvVarGuard::set("HOME", tmp.path());
 
-    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let mut config =
+        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     std::fs::create_dir_all(&config.workspace_dir).expect("create workspace dir");
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());

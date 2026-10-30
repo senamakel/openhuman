@@ -106,7 +106,8 @@ pub(crate) fn install_model_fixture() {
 pub(crate) async fn install_managed_model_fixture(config: &crate::config::Config) {
     install_model_fixture();
     #[cfg(feature = "security-module")]
-    if config.modules.enabled {
+    // Plain fixture credentials do not need the process-wide native secret scope.
+    if config.modules.enabled && config.secrets.encrypt {
         crate::modules::security::ensure_loaded(config)
             .await
             .expect("the staged TinySecurity module should load for managed-model tests");

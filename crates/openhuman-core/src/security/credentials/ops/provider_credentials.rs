@@ -7,7 +7,7 @@ use crate::core::Outcome;
 use crate::security::credentials::session_support::{
     parse_fields_value, profile_name_or_default, summarize_auth_profile,
 };
-use crate::security::credentials::{normalize_provider, AuthService, APP_SESSION_PROVIDER};
+use crate::security::credentials::{APP_SESSION_PROVIDER, AuthService, normalize_provider};
 
 pub async fn store_provider_credentials(
     config: &Config,
@@ -45,6 +45,7 @@ pub async fn store_provider_credentials(
             metadata,
             set_active.unwrap_or(true),
         )
+        .await
         .map_err(|e| e.to_string())?;
     // A freshly-stored key supersedes any prior auth rejection for this
     // provider — clear the recorded BYO auth error so the AI-settings notice
@@ -75,6 +76,7 @@ pub async fn remove_provider_credentials(
     let auth = AuthService::from_config(config);
     let removed = auth
         .remove_profile(provider, profile_name)
+        .await
         .map_err(|e| e.to_string())?;
     // Removing the key clears any recorded BYO auth error for this provider —
     // there is no longer a key to be "rejected", so the stale notice must go.
@@ -98,7 +100,7 @@ pub async fn list_provider_credentials(
         .map(|provider| normalize_provider(&provider))
         .transpose()
         .map_err(|e| e.to_string())?;
-    let profiles = auth.load_profiles().map_err(|e| e.to_string())?;
+    let profiles = auth.load_profiles().await.map_err(|e| e.to_string())?;
     let mut items = profiles
         .profiles
         .values()
@@ -132,7 +134,7 @@ pub async fn list_provider_credentials_by_prefix(
     prefix: &str,
 ) -> Result<Vec<super::super::responses::AuthProfileSummary>, String> {
     let auth = AuthService::from_config(config);
-    let profiles = auth.load_profiles().map_err(|e| e.to_string())?;
+    let profiles = auth.load_profiles().await.map_err(|e| e.to_string())?;
     let mut items = profiles
         .profiles
         .values()

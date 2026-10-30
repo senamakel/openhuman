@@ -6,10 +6,9 @@ use crate::config::Config;
 use crate::security::secret_storage::{EncryptedFileBackend, SecretStore};
 
 use super::{
-    normalize_profile_id_provider, parse_datetime_with_fallback, parse_optional_datetime,
-    parse_profile_kind, profile_id, AuthProfile, AuthProfileKind, KeychainSecrets,
-    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, CURRENT_SCHEMA_VERSION,
-    PROFILES_FILENAME,
+    AuthProfile, AuthProfileKind, CURRENT_SCHEMA_VERSION, KeychainSecrets, PROFILES_FILENAME,
+    PersistedAuthProfile, PersistedAuthProfiles, TokenSet, normalize_profile_id_provider,
+    parse_datetime_with_fallback, parse_optional_datetime, parse_profile_kind, profile_id,
 };
 use crate::security::credentials::default_profile_id;
 
@@ -25,7 +24,7 @@ pub enum ReadOnlyAuthProfileError {
 /// Reads one selected profile from its config directory and profile-scoped
 /// encrypted-file backend, without locks, migrations, writes, or global
 /// storage/backend lookups.
-pub(super) fn load_profile(
+pub(super) async fn load_profile(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
@@ -77,23 +76,7 @@ pub(super) fn load_profile(
     } else {
         None
     };
-    let store = SecretStore::new(state_dir, config.secrets.encrypt);
-    let decrypt = |value: Option<&str>| -> Result<Option<String>, ReadOnlyAuthProfileError> {
-        value
-            .map(|value| {
-                if let Some(key) = key.as_deref() {
-                    SecretStore::decrypt_with_existing_key(value, key)
-                        .map_err(|_| ReadOnlyAuthProfileError::Unavailable)
-                } else if value.starts_with("enc:") || value.starts_with("enc2:") {
-                    Err(ReadOnlyAuthProfileError::Unavailable)
-                } else {
-                    store
-                        .decrypt(value)
-                        .map_err(|_| ReadOnlyAuthProfileError::Unavailable)
-                }
-            })
-            .transpose()
-    };
+    let store = SecretStore::new_with_config(state_dir, config.secrets.encrypt, config);
 
     let kind =
         parse_profile_kind(&profile.kind).map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
@@ -106,10 +89,30 @@ pub(super) fn load_profile(
         )
     } else {
         (
-            decrypt(profile.access_token.as_deref())?,
-            decrypt(profile.refresh_token.as_deref())?,
-            decrypt(profile.id_token.as_deref())?,
-            decrypt(profile.token.as_deref())?,
+            decrypt_profile_field(
+                &store,
+                profile.access_token.as_deref(),
+                key.as_deref().map(|key| key.as_str()),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                profile.refresh_token.as_deref(),
+                key.as_deref().map(|key| key.as_str()),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                profile.id_token.as_deref(),
+                key.as_deref().map(|key| key.as_str()),
+            )
+            .await?,
+            decrypt_profile_field(
+                &store,
+                profile.token.as_deref(),
+                key.as_deref().map(|key| key.as_str()),
+            )
+            .await?,
         )
     };
 
@@ -139,6 +142,29 @@ pub(super) fn load_profile(
         created_at: parse_datetime_with_fallback(&profile.created_at),
         updated_at: parse_datetime_with_fallback(&profile.updated_at),
     }))
+}
+
+async fn decrypt_profile_field(
+    store: &SecretStore,
+    value: Option<&str>,
+    key: Option<&str>,
+) -> Result<Option<String>, ReadOnlyAuthProfileError> {
+    let Some(value) = value else {
+        return Ok(None);
+    };
+    let plaintext = match key {
+        Some(key) => {
+            store
+                .decrypt_with_existing_key_via_security(value, key)
+                .await
+        }
+        None if value.starts_with("enc:") || value.starts_with("enc2:") => {
+            return Err(ReadOnlyAuthProfileError::Unavailable);
+        }
+        None => store.decrypt_via_security(value).await,
+    }
+    .map_err(|_| ReadOnlyAuthProfileError::Unavailable)?;
+    Ok(Some(plaintext))
 }
 
 fn selected_profile_id(

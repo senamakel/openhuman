@@ -195,8 +195,8 @@ fn select_profile_prefers_override_then_active_then_default() {
     );
 }
 
-#[test]
-fn store_provider_token_and_remove_profile_roundtrip_with_mixed_case() {
+#[tokio::test]
+async fn store_provider_token_and_remove_profile_roundtrip_with_mixed_case() {
     let tmp = tempfile::tempdir().unwrap();
     let service = AuthService::new(tmp.path(), false);
 
@@ -208,24 +208,28 @@ fn store_provider_token_and_remove_profile_roundtrip_with_mixed_case() {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .unwrap();
 
     assert_eq!(stored.provider, "deepseek");
     assert_eq!(stored.id, "deepseek:default");
 
-    let profile = service.get_profile("deepseek", None).unwrap();
+    let profile = service.get_profile("deepseek", None).await.unwrap();
     assert!(profile.is_some());
     assert_eq!(profile.unwrap().id, "deepseek:default");
 
-    let removed = service.remove_profile("deepseek", "default").unwrap();
+    let removed = service
+        .remove_profile("deepseek", "default")
+        .await
+        .unwrap();
     assert!(removed);
 
-    let profile_after = service.get_profile("deepseek", None).unwrap();
+    let profile_after = service.get_profile("deepseek", None).await.unwrap();
     assert!(profile_after.is_none());
 }
 
-#[test]
-fn remove_profile_namespace_fallback_removes_namespaced_profile() {
+#[tokio::test]
+async fn remove_profile_namespace_fallback_removes_namespaced_profile() {
     let tmp = tempfile::tempdir().unwrap();
     let service = AuthService::new(tmp.path(), false);
 
@@ -237,11 +241,15 @@ fn remove_profile_namespace_fallback_removes_namespaced_profile() {
             std::collections::HashMap::new(),
             true,
         )
+        .await
         .unwrap();
 
-    let removed = service.remove_profile("deepseek", "default").unwrap();
+    let removed = service
+        .remove_profile("deepseek", "default")
+        .await
+        .unwrap();
     assert!(removed);
 
-    let profile = service.get_profile("deepseek", None).unwrap();
+    let profile = service.get_profile("deepseek", None).await.unwrap();
     assert!(profile.is_none());
 }

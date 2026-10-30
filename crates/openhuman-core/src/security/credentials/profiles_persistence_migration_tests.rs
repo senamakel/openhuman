@@ -358,7 +358,7 @@ fn is_lock_create_unwritable_fs_polarity() {
 /// instead of silently re-leaking the flood.
 #[test]
 fn disk_full_lock_failure_string_classifies_as_disk_full() {
-    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
+    use crate::core::observability::{ExpectedErrorKind, expected_error_kind};
 
     let err = annotate_lock_create_failure(
         anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::StorageFull))

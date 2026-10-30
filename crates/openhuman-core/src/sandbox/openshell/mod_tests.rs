@@ -155,3 +155,9 @@ async fn without_module_support_execution_is_refused() {
     .unwrap_err();
     assert!(error.to_string().contains("module support is disabled"));
 }
+
+#[tokio::test]
+async fn release_and_shutdown_before_any_box_exists_are_no_ops() {
+    release(&embedded("u1")).await;
+    shutdown().await;
+}

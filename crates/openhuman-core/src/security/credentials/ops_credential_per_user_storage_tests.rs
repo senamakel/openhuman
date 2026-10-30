@@ -260,7 +260,7 @@ async fn a_failed_carry_on_per_user_storage_says_the_key_must_be_entered_again()
         &DispatchCtx::process_default(),
         &user_scoped,
         Some(session_support::CredentialKind::Session),
-        |_, _| Err(anyhow::anyhow!("injected carry failure")),
+        |_, _| async { Err(anyhow::anyhow!("injected carry failure")) },
     )
     .await
     .unwrap_err();

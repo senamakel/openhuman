@@ -69,12 +69,12 @@ fn locked_keychain_store() -> Fixture {
         },
     );
     let oauth_id = oauth.id.clone();
-    store.upsert_profile(oauth, true).unwrap();
+    store.upsert_profile(oauth, true).await.unwrap();
     store
         .upsert_profile(
             AuthProfile::new_token("anthropic", "default", "kc-token".into()),
             true,
-        )
+        ).await
         .unwrap();
     let json = std::fs::read_to_string(store.path()).unwrap();
     assert!(
@@ -90,8 +90,8 @@ fn locked_keychain_store() -> Fixture {
     }
 }
 
-#[test]
-fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
+#[tokio::test]
+async fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
     let f = locked_keychain_store();
     let json_before = std::fs::read_to_string(f.store.path()).unwrap();
 
@@ -112,8 +112,8 @@ fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
     );
 }
 
-#[test]
-fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
+#[tokio::test]
+async fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
     let f = locked_keychain_store();
     let json_before = std::fs::read_to_string(f.store.path()).unwrap();
     let keychain_before = f.keychain.map.lock().unwrap().clone();
@@ -121,7 +121,7 @@ fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
     let upsert = f.store.upsert_profile(
         AuthProfile::new_token("openrouter", "default", "new-token".into()),
         false,
-    );
+    ).await;
 
     assert!(
         upsert.is_err(),
@@ -138,8 +138,8 @@ fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
     );
 }
 
-#[test]
-fn keychain_read_error_with_undecryptable_json_keeps_the_profile() {
+#[tokio::test]
+async fn keychain_read_error_with_undecryptable_json_keeps_the_profile() {
     // The JSON still names an access token for the OAuth profile, but it
     // cannot be decrypted: falling back to it would drop a profile whose
     // secret the keychain may still hold. Only that profile is kept, so the
@@ -170,8 +170,8 @@ fn persisted_entry(store: &AuthProfilesStore, id: &str) -> serde_json::Value {
     json["profiles"][id].clone()
 }
 
-#[test]
-fn an_unavailable_keychain_carries_keychain_only_profiles_untouched() {
+#[tokio::test]
+async fn an_unavailable_keychain_carries_keychain_only_profiles_untouched() {
     // A keychain that is locked when the store is built turns the keychain off
     // for that store (`AuthProfilesStore::new`'s availability probe), so its
     // reads never reach the keychain and a keychain-only OAuth profile resolves
@@ -189,7 +189,7 @@ fn an_unavailable_keychain_carries_keychain_only_profiles_untouched() {
         .upsert_profile(
             AuthProfile::new_token("openrouter", "default", "new-token".into()),
             false,
-        )
+        ).await
         .expect("a write without the keychain");
     assert_eq!(
         persisted_entry(&f.store, &f.oauth_id),

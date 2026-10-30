@@ -1,7 +1,7 @@
 use super::*;
 
-#[test]
-fn process_wide_credentials_are_single_user_only() {
+#[tokio::test]
+async fn process_wide_credentials_are_single_user_only() {
     assert!(process_credential_refusal(false, "set_credential").is_ok());
     let err = process_credential_refusal(true, "set_credential").unwrap_err();
     assert!(err.contains("profiles.set_credential"), "{err}");
@@ -27,18 +27,18 @@ async fn restore_api_key_puts_the_key_back_and_tolerates_a_failed_store() {
     };
 
     restore_api_key(&config, None, "test");
-    assert!(!api_key::has_api_key(&config), "nothing to put back");
+    assert!(!api_key::has_api_key(&config).await, "nothing to put back");
 
     restore_api_key(&config, Some("sk-restored"), "test");
     assert_eq!(
-        api_key::get_api_key(&config).unwrap().as_deref(),
+        api_key::get_api_key(&config).await.unwrap().as_deref(),
         Some("sk-restored")
     );
 
     // A blank key cannot be stored: the failure is logged and the stored key stays.
     restore_api_key(&config, Some("   "), "test");
     assert_eq!(
-        api_key::get_api_key(&config).unwrap().as_deref(),
+        api_key::get_api_key(&config).await.unwrap().as_deref(),
         Some("sk-restored")
     );
 }
@@ -69,7 +69,7 @@ async fn signed_in_with_key() -> Config {
     .await
     .unwrap();
     assert_eq!(
-        api_key::get_api_key(&user_scoped).unwrap().as_deref(),
+        api_key::get_api_key(&user_scoped).await.unwrap().as_deref(),
         Some("sk-keep"),
         "control"
     );
@@ -104,7 +104,7 @@ async fn a_failed_carry_during_sign_out_puts_the_api_key_back() {
     assert!(error.contains("injected carry failure"), "{error}");
     assert!(!error.contains("must be entered again"), "{error}");
     assert_eq!(
-        api_key::get_api_key(&user_scoped).unwrap().as_deref(),
+        api_key::get_api_key(&user_scoped).await.unwrap().as_deref(),
         Some("sk-keep"),
         "a failed carry must put the API key back where it was"
     );

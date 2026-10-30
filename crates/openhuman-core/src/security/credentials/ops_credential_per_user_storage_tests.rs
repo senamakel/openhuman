@@ -118,7 +118,7 @@ async fn a_session_is_stored_in_the_users_own_database() {
     );
 
     assert_eq!(
-        session_support::get_session_token(&user_scoped)
+        session_support::get_session_token(&user_scoped).await
             .unwrap()
             .as_deref(),
         Some(token.as_str()),
@@ -165,7 +165,7 @@ async fn a_session_sign_out_keeps_the_api_key_on_per_user_storage() {
     let signed_out = crate::config::load_config_with_timeout().await.unwrap();
     assert_eq!(signed_out.config_path, pre_login.config_path);
     assert_eq!(
-        api_key::get_api_key(&signed_out).unwrap().as_deref(),
+        api_key::get_api_key(&signed_out).await.unwrap().as_deref(),
         Some("sk-live"),
         "the API key must survive a session sign-out on per-user storage"
     );
@@ -188,7 +188,7 @@ async fn a_session_sign_out_keeps_the_api_key_on_per_user_storage() {
     // Moved, not copied: signing back in finds no stale key in the user's
     // database (only the session authenticates there).
     let again = sign_in(&signed_out, "user-42").await;
-    assert_eq!(api_key::get_api_key(&again).unwrap(), None);
+    assert_eq!(api_key::get_api_key(&again).await.unwrap(), None);
     let state = auth_get_state(&again).await.unwrap().value;
     assert_eq!(state.credential.as_deref(), Some("session"));
 }
@@ -219,14 +219,14 @@ async fn another_user_signing_in_does_not_get_the_first_users_api_key() {
     .unwrap();
     let signed_out = crate::config::load_config_with_timeout().await.unwrap();
     assert_eq!(
-        api_key::get_api_key(&signed_out).unwrap().as_deref(),
+        api_key::get_api_key(&signed_out).await.unwrap().as_deref(),
         Some("sk-first-user"),
         "control: the key is in effect while signed out"
     );
 
     let second = sign_in(&signed_out, "user-77").await;
     assert_eq!(
-        api_key::get_api_key(&second).unwrap(),
+        api_key::get_api_key(&second).await.unwrap(),
         None,
         "another account must not get the first user's API key"
     );
@@ -270,7 +270,7 @@ async fn a_failed_carry_on_per_user_storage_says_the_key_must_be_entered_again()
     assert_eq!(signed_out.config_path, pre_login.config_path);
     assert!(
         crate::security::credentials::AuthService::from_config(&signed_out)
-            .get_profile(api_key::API_KEY_PROVIDER, None)
+            .get_profile(api_key::API_KEY_PROVIDER, None).await
             .unwrap()
             .is_none(),
         "no api-key record may be written into the signed-out store under the old user's namespace"

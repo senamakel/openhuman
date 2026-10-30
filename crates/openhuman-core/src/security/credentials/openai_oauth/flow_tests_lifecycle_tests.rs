@@ -1,7 +1,7 @@
 use super::*;
 
-#[test]
-fn start_openai_oauth_returns_authorize_url() {
+#[tokio::test]
+async fn start_openai_oauth_returns_authorize_url() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
 
@@ -13,8 +13,8 @@ fn start_openai_oauth_returns_authorize_url() {
     assert!(!openai_oauth_status(&config).unwrap().connected);
 }
 
-#[test]
-fn build_authorize_url_includes_codex_pkce_and_extra_params() {
+#[tokio::test]
+async fn build_authorize_url_includes_codex_pkce_and_extra_params() {
     let config = tiny_oauth_config(
         &test_oauth_config("https://token.example.test/oauth/token"),
         "http://127.0.0.1:1455/auth/callback",
@@ -47,15 +47,15 @@ fn build_authorize_url_includes_codex_pkce_and_extra_params() {
     assert_eq!(pairs.get("prompt").map(String::as_str), Some("consent"));
 }
 
-#[test]
-fn parse_callback_input_accepts_raw_query_string() {
+#[tokio::test]
+async fn parse_callback_input_accepts_raw_query_string() {
     let (code, state) = parse_callback_input("code=abc%20123&state=xyz").unwrap();
     assert_eq!(code, "abc 123");
     assert_eq!(state, "xyz");
 }
 
-#[test]
-fn parse_callback_input_rejects_blank_and_missing_state() {
+#[tokio::test]
+async fn parse_callback_input_rejects_blank_and_missing_state() {
     let blank = parse_callback_input("   ").unwrap_err();
     assert!(blank.contains("required"));
 
@@ -64,8 +64,8 @@ fn parse_callback_input_rejects_blank_and_missing_state() {
     assert!(missing_state.contains("state"));
 }
 
-#[test]
-fn complete_openai_oauth_rejects_missing_pending_session() {
+#[tokio::test]
+async fn complete_openai_oauth_rejects_missing_pending_session() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let err = runtime()
@@ -77,8 +77,8 @@ fn complete_openai_oauth_rejects_missing_pending_session() {
     assert!(err.contains("no pending OAuth session"));
 }
 
-#[test]
-fn complete_openai_oauth_rejects_expired_pending_session() {
+#[tokio::test]
+async fn complete_openai_oauth_rejects_expired_pending_session() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let pending = pending::store(&config).unwrap();
@@ -108,8 +108,8 @@ fn complete_openai_oauth_rejects_expired_pending_session() {
     });
 }
 
-#[test]
-fn start_openai_oauth_keeps_the_pending_session_in_the_secret_store_not_a_file() {
+#[tokio::test]
+async fn start_openai_oauth_keeps_the_pending_session_in_the_secret_store_not_a_file() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let start = runtime().block_on(start_openai_oauth(&config)).unwrap();
@@ -124,8 +124,8 @@ fn start_openai_oauth_keeps_the_pending_session_in_the_secret_store_not_a_file()
     assert_eq!(doc["state"], start.state);
 }
 
-#[test]
-fn a_legacy_pending_file_started_before_the_upgrade_still_completes_its_flow() {
+#[tokio::test]
+async fn a_legacy_pending_file_started_before_the_upgrade_still_completes_its_flow() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let legacy = tmp.path().join("openai-oauth-pending.json");
@@ -154,8 +154,8 @@ fn a_legacy_pending_file_started_before_the_upgrade_still_completes_its_flow() {
     assert_eq!(std::fs::read_to_string(&legacy).unwrap(), bytes);
 }
 
-#[test]
-fn complete_openai_oauth_rejects_state_mismatch() {
+#[tokio::test]
+async fn complete_openai_oauth_rejects_state_mismatch() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let start = runtime().block_on(start_openai_oauth(&config)).unwrap();
@@ -231,8 +231,8 @@ async fn exchange_authorization_code_reports_http_errors() {
     assert!(err.contains("bad auth code"));
 }
 
-#[test]
-fn persist_openai_oauth_token_stores_oauth_profile_with_metadata() {
+#[tokio::test]
+async fn persist_openai_oauth_token_stores_oauth_profile_with_metadata() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let access_token = unsigned_jwt(serde_json::json!({ "sub": "acct_123" }));
@@ -275,8 +275,8 @@ fn persist_openai_oauth_token_stores_oauth_profile_with_metadata() {
     assert_eq!(stored.id, profile.id);
 }
 
-#[test]
-fn persist_openai_oauth_token_rejects_blank_access_token() {
+#[tokio::test]
+async fn persist_openai_oauth_token_rejects_blank_access_token() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let token = OAuthTokenSet {
@@ -300,8 +300,8 @@ fn persist_openai_oauth_token_rejects_blank_access_token() {
     );
 }
 
-#[test]
-fn import_codex_cli_auth_file_stores_oauth_profile_with_account_metadata() {
+#[tokio::test]
+async fn import_codex_cli_auth_file_stores_oauth_profile_with_account_metadata() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let access_token = unsigned_jwt(serde_json::json!({
@@ -348,8 +348,8 @@ fn import_codex_cli_auth_file_stores_oauth_profile_with_account_metadata() {
     );
 }
 
-#[test]
-fn import_codex_cli_auth_extracts_nested_chatgpt_account_id() {
+#[tokio::test]
+async fn import_codex_cli_auth_extracts_nested_chatgpt_account_id() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let access_token = unsigned_jwt(serde_json::json!({
@@ -385,8 +385,8 @@ fn import_codex_cli_auth_extracts_nested_chatgpt_account_id() {
     assert_eq!(credentials.account_id.as_deref(), Some("acct_nested"));
 }
 
-#[test]
-fn import_codex_cli_auth_decodes_padded_base64url_access_token() {
+#[tokio::test]
+async fn import_codex_cli_auth_decodes_padded_base64url_access_token() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let payload = "eyJodHRwczovL2FwaS5vcGVuYWkuY29tL2F1dGgiOnsiY2hhdGdwdF9hY2NvdW50X2lkIjoiYWNjdF9wYWRkZWQifSwibm9uY2UiOiI-In0=";
@@ -417,8 +417,8 @@ fn import_codex_cli_auth_decodes_padded_base64url_access_token() {
     );
 }
 
-#[test]
-fn import_codex_cli_auth_file_reports_missing_file_with_login_hint() {
+#[tokio::test]
+async fn import_codex_cli_auth_file_reports_missing_file_with_login_hint() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let err = import_codex_cli_auth_from_path(&config, &tmp.path().join("missing-auth.json"))
@@ -433,8 +433,8 @@ fn import_codex_cli_auth_file_reports_missing_file_with_login_hint() {
 /// demotion at `ops.rs` (TAURI-RUST-83A) keeps working even if the wording
 /// changes. If a future edit to `store.rs` drops the `codex cli auth` /
 /// `.codex/auth.json` anchor from a message, this test fails in CI.
-#[test]
-fn codex_import_user_state_errors_classify_as_expected() {
+#[tokio::test]
+async fn codex_import_user_state_errors_classify_as_expected() {
     use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
 
     let tmp = tempdir().unwrap();
@@ -487,8 +487,8 @@ async fn inference_import_codex_cli_surfaces_error_when_auth_missing() {
     assert!(err.contains("codex login"));
 }
 
-#[test]
-fn openai_oauth_status_reports_token_profile_as_disconnected() {
+#[tokio::test]
+async fn openai_oauth_status_reports_token_profile_as_disconnected() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let store = AuthProfilesStore::new(tmp.path(), false);
@@ -500,7 +500,7 @@ fn openai_oauth_status_reports_token_profile_as_disconnected() {
                 "sk-token-profile".to_string(),
             ),
             true,
-        )
+        ).await
         .unwrap();
 
     let status = openai_oauth_status(&config).unwrap();
@@ -509,8 +509,8 @@ fn openai_oauth_status_reports_token_profile_as_disconnected() {
     assert!(status.profile_id.is_some());
 }
 
-#[test]
-fn lookup_key_for_slug_prefers_api_key_over_oauth_for_openai() {
+#[tokio::test]
+async fn lookup_key_for_slug_prefers_api_key_over_oauth_for_openai() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let store = AuthProfilesStore::new(tmp.path(), false);
@@ -527,11 +527,11 @@ fn lookup_key_for_slug_prefers_api_key_over_oauth_for_openai() {
             scope: None,
         },
     );
-    store.upsert_profile(oauth_profile, true).unwrap();
+    store.upsert_profile(oauth_profile, true).await.unwrap();
 
     let api_profile =
         AuthProfile::new_token("provider:openai", "default", "sk-api-key".to_string());
-    store.upsert_profile(api_profile, true).unwrap();
+    store.upsert_profile(api_profile, true).await.unwrap();
 
     // The standard `lookup_key_for_slug` path resolves the API key first; the
     // OAuth fallback only fires when no API key is present.
@@ -539,8 +539,8 @@ fn lookup_key_for_slug_prefers_api_key_over_oauth_for_openai() {
     assert_eq!(token, "sk-api-key");
 }
 
-#[test]
-fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation() {
+#[tokio::test]
+async fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation() {
     // #5353: routing keys on *which credential is stored*, not on comparing two
     // independently-resolved OAuth tokens. Near expiry each read refreshes the
     // token and OpenAI mints a new one, so the old `access_token == bearer_key`
@@ -569,7 +569,7 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
                 },
             ),
             true,
-        )
+        ).await
         .unwrap();
     assert!(
         openai_bearer_is_oauth(&config),
@@ -598,7 +598,7 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
         .upsert_profile(
             AuthProfile::new_token("provider:openai", "default", "sk-api-key".into()),
             true,
-        )
+        ).await
         .unwrap();
     assert!(!openai_bearer_is_oauth(&config));
     let routing = resolve_codex_routing(
@@ -616,8 +616,8 @@ fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_rotation
     assert_eq!(routing.endpoint, "https://api.openai.com/v1/");
 }
 
-#[test]
-fn lookup_openai_bearer_token_uses_oauth_when_api_key_missing() {
+#[tokio::test]
+async fn lookup_openai_bearer_token_uses_oauth_when_api_key_missing() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let store = AuthProfilesStore::new(tmp.path(), false);
@@ -633,14 +633,14 @@ fn lookup_openai_bearer_token_uses_oauth_when_api_key_missing() {
             scope: None,
         },
     );
-    store.upsert_profile(oauth_profile, true).unwrap();
+    store.upsert_profile(oauth_profile, true).await.unwrap();
 
     let token = lookup_openai_bearer_token(&config).unwrap();
     assert_eq!(token.as_deref(), Some("oauth-access"));
 }
 
-#[test]
-fn credits_gate_bypassed_with_oauth_only_credentials() {
+#[tokio::test]
+async fn credits_gate_bypassed_with_oauth_only_credentials() {
     // #3767 regression: the per-tier credits-gate bypass chains through
     // route_has_usable_credentials → lookup_key_for_slug, which falls back to
     // the OpenAI OAuth token for the `openai` slug. Pin that OAuth-only
@@ -668,7 +668,7 @@ fn credits_gate_bypassed_with_oauth_only_credentials() {
             scope: None,
         },
     );
-    store.upsert_profile(oauth_profile, true).unwrap();
+    store.upsert_profile(oauth_profile, true).await.unwrap();
 
     // OAuth-only credential now backs the route → gate bypassed.
     assert!(role_bypasses_managed_credits("chat", &config));

@@ -74,7 +74,7 @@ fn store_live_session(user_id: &str) -> Config {
             &token,
             metadata,
             true,
-        )
+        ).await
         .unwrap();
     config
 }

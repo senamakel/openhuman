@@ -74,11 +74,13 @@ async fn encrypt_then_decrypt_round_trips_locally() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
     #[cfg(feature = "security-module")]
-    crate::credentials::test_support::with_native_cipher_approval(&config, async {
+    let worker_config = config.clone();
+    #[cfg(feature = "security-module")]
+    crate::credentials::test_support::with_native_cipher_approval(&config, async move {
         let plaintext = "top-secret-value";
-        let enc = encrypt_secret(&config, plaintext).await.unwrap();
+        let enc = encrypt_secret(&worker_config, plaintext).await.unwrap();
         assert_ne!(enc.value, plaintext);
-        let dec = decrypt_secret(&config, &enc.value).await.unwrap();
+        let dec = decrypt_secret(&worker_config, &enc.value).await.unwrap();
         assert_eq!(dec.value, plaintext);
     })
     .await;

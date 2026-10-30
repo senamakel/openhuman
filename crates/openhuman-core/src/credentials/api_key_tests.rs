@@ -117,19 +117,25 @@ async fn encrypted_api_key_retains_the_admitted_host_configuration() {
     let dir = tempfile::tempdir().expect("isolated credentials");
     let mut config = config_in(dir.path());
     config.secrets.encrypt = true;
-    crate::credentials::test_support::with_native_cipher_approval(&config, async {
-        store_api_key(&config, "fixture-encrypted-api-key")
+    let worker_config = config.clone();
+    crate::credentials::test_support::with_native_cipher_approval(&config, async move {
+        store_api_key(&worker_config, "fixture-encrypted-api-key")
             .await
             .expect("store with admitted host configuration");
         assert_eq!(
-            get_api_key(&config)
+            get_api_key(&worker_config)
                 .await
                 .expect("read encrypted key")
                 .as_deref(),
             Some("fixture-encrypted-api-key")
         );
-        assert!(clear_api_key(&config).await.expect("remove encrypted key"));
-        assert_eq!(get_api_key(&config).await.expect("read removed key"), None);
+        assert!(clear_api_key(&worker_config)
+            .await
+            .expect("remove encrypted key"));
+        assert_eq!(
+            get_api_key(&worker_config).await.expect("read removed key"),
+            None
+        );
     })
     .await;
 }

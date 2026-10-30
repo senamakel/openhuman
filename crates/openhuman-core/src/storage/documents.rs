@@ -92,7 +92,7 @@ pub(crate) fn prepare_once(
     block_on(async move { prepare_once_async(&backend, &scope).await })
 }
 
-fn scope_prepared(backend: &Arc<dyn StorageBackend>, scope: &Scope) -> bool {
+fn scope_prepared(backend: &Arc<dyn StorageBackend>, scope: &tinystoragedrivers::Scope) -> bool {
     let key = (backend_addr(backend), scope.as_str().to_owned());
     PREPARED_SCOPES
         .lock()
@@ -104,7 +104,7 @@ fn scope_prepared(backend: &Arc<dyn StorageBackend>, scope: &Scope) -> bool {
 
 async fn prepare_once_async(
     backend: &Arc<dyn StorageBackend>,
-    scope: &Scope,
+    scope: &tinystoragedrivers::Scope,
 ) -> Result<(), StorageError> {
     if scope_prepared(backend, scope) {
         return Ok(());

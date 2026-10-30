@@ -22,7 +22,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
     let workspace = tempfile::tempdir().expect("workspace tempdir");
     std::env::set_var("HOME", workspace.path());
     std::env::set_var("USERPROFILE", workspace.path());
-    std::env::set_var("TOKIO_WORKER_THREADS", "2");
+    std::env::set_var("TOKIO_WORKER_THREADS", "8");
     std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "memory");
     std::env::set_var(
         "OPENHUMAN_KEYRING_MASTER_KEY",
@@ -39,7 +39,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
         .stack_size(64 * 1024 * 1024)
         .spawn(move || {
             tokio::runtime::Builder::new_multi_thread()
-                .worker_threads(2)
+                .worker_threads(8)
                 .enable_all()
                 .thread_stack_size(16 * 1024 * 1024)
                 .build()

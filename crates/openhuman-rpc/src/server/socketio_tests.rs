@@ -494,6 +494,11 @@ fn ensure_rpc_token() -> String {
 /// CONNECT with `auth`, then poll until the server either emits `ready` or
 /// disconnects the namespace. Returns everything the server sent.
 async fn polling_handshake(base: &str, auth: serde_json::Value) -> String {
+    let (_, received) = polling_handshake_with_sid(base, auth).await;
+    received
+}
+
+async fn polling_handshake_with_sid(base: &str, auth: serde_json::Value) -> (String, String) {
     let http = reqwest::Client::new();
     let open = http
         .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
@@ -527,7 +532,7 @@ async fn polling_handshake(base: &str, auth: serde_json::Value) -> String {
             break;
         }
     }
-    received
+    (url, received)
 }
 
 /// H5: the handshake bearer gate, end to end over a real socket. Only the
@@ -581,46 +586,8 @@ async fn startup_preflight_socket_gate() {
     );
 
     gate.open();
-    let open = tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        client
-            .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
-            .send(),
-    )
-    .await
-    .expect("Engine.IO request responds after gate opens")
-    .expect("engine.io open after gate")
-    .text()
-    .await
-    .unwrap();
-    let open: serde_json::Value =
-        serde_json::from_str(open.trim_start_matches('0')).expect("engine.io open packet");
-    let sid = open["sid"].as_str().expect("engine.io sid").to_owned();
-    let url = format!("{base}/socket.io/?EIO=4&transport=polling&sid={sid}");
-    tokio::time::timeout(
-        std::time::Duration::from_secs(5),
-        client
-            .post(&url)
-            .body(format!(
-                "40{}",
-                serde_json::json!({ "token": ensure_rpc_token() })
-            ))
-            .send(),
-    )
-    .await
-    .expect("Socket.IO connect request responds")
-    .expect("authenticated socket connect after gate");
-    let connected = tokio::time::timeout(std::time::Duration::from_secs(5), async {
-        loop {
-            let connected = client.get(&url).send().await.unwrap().text().await.unwrap();
-            if connected.contains("\"ready\"") {
-                break connected;
-            }
-            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
-        }
-    })
-    .await
-    .expect("ready event arrives after the authenticated namespace connect");
+    let (url, connected) =
+        polling_handshake_with_sid(&base, serde_json::json!({ "token": ensure_rpc_token() })).await;
     assert!(
         connected.contains("\"ready\""),
         "post-preflight ready: {connected}"

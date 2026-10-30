@@ -2,9 +2,9 @@ use super::*;
 use crate::hosted::test_support;
 use serde_json::json;
 use tinychannels_bus::module_progressive::{
-    ChannelOutputEvent, ChannelRef, ConversationRef, ProgressiveTransportRequest,
-    ProgressiveTransportResult,
+    ChannelOutputEvent, ProgressiveTransportRequest, ProgressiveTransportResult,
 };
+use tinychannels_bus::{ChannelRef, ConversationKind, ConversationRef};
 use tokio_util::sync::CancellationToken;
 use wiremock::matchers::{body_json, method, path};
 use wiremock::{Mock, MockServer, ResponseTemplate};
@@ -200,7 +200,7 @@ async fn progressive_send_forwards_turn_and_delivery_context() {
                 account_id: Some("account-2".into()),
             }),
             conversation: Some(ConversationRef {
-                kind: tinychannels_bus::module_progressive::ConversationKind::Dm,
+                kind: ConversationKind::Dm,
                 id: "chat-3".into(),
                 ..ConversationRef::default()
             }),

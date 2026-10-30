@@ -225,7 +225,6 @@ impl ChatModel<()> for CronChildModel {
             return Ok(ModelResponse::assistant("headless-cron-root-result"));
         }
 
-        eprintln!("cron root request messages: {:?}", request.messages);
         if self
             .spawn_calls
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst)
@@ -250,7 +249,9 @@ impl ChatModel<()> for CronChildModel {
     }
 }
 
-#[tokio::test]
+// Tool-result credential scrubbing uses TinySecurity's synchronous bridge,
+// which needs another runtime worker to serve the module call.
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "storage-sqlite")]
 async fn scheduled_agent_history_includes_its_spawned_child_result() {
     let _inference = crate::inference::inference_test_guard_async().await;
@@ -346,7 +347,7 @@ async fn scheduled_agent_history_includes_its_spawned_child_result() {
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "storage-sqlite")]
 async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settles() {
     let _inference = crate::inference::inference_test_guard_async().await;
@@ -470,7 +471,7 @@ async fn scheduled_agent_timeout_cancels_its_blocked_child_before_history_settle
     );
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread")]
 #[cfg(feature = "storage-sqlite")]
 async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
     let _inference = crate::inference::inference_test_guard_async().await;

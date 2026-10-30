@@ -8,8 +8,7 @@ use crate::core::runtime::DispatchCtx;
 /// the helper in `tools_tests.rs`.
 fn fake_config() -> Arc<Config> {
     let tmp = tempfile::tempdir().expect("tempdir for fake_config");
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
+    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     // Leak the tempdir so the path remains valid for the test's
     // lifetime — `Config::config_path` is just used as a lookup key
     // here, not actually written to.
@@ -190,9 +189,7 @@ async fn sandbox_unset_leaves_per_action_execute_to_downstream() {
         let tmp = tempfile::tempdir().expect("tempdir");
         let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
-        let mut config = Config::default();
-        config.config_path = tmp.path().join("config.toml");
-        config.workspace_dir = tmp.path().join("workspace");
+        let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
         config.save().await.expect("save fake config to disk");
 
         let t = ComposioActionTool::new(
@@ -245,9 +242,7 @@ async fn contract_gate_surfaces_full_contract_then_proceeds_on_retry() {
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
-        let mut config = Config::default();
-        config.config_path = tmp.path().join("config.toml");
-        config.workspace_dir = tmp.path().join("workspace");
+        let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
         config.save().await.expect("save fake config to disk");
 
         let t = ComposioActionTool::new(
@@ -302,9 +297,7 @@ async fn contract_gate_surfaces_full_contract_then_proceeds_on_retry() {
 #[tokio::test]
 async fn factory_routes_through_backend_when_mode_is_backend() {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let mut config = Config::default(); // composio.mode defaults to "backend"
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
+    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
 
     // `ComposioRoute` isn't `Debug`, so match rather than
     // `expect_err` (which would need to format the unexpected `Ok`).
@@ -325,9 +318,7 @@ async fn factory_routes_through_backend_when_mode_is_backend() {
 #[tokio::test]
 async fn factory_routes_through_direct_when_mode_is_direct() {
     let tmp = tempfile::tempdir().expect("tempdir");
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
+    let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());
 
@@ -479,9 +470,7 @@ async fn deferred_instance_returns_live_config_for_redaction() {
 
         let tmp = tempfile::tempdir().expect("tempdir");
         let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
-        let mut config = Config::default();
-        config.config_path = tmp.path().join("config.toml");
-        config.workspace_dir = tmp.path().join("workspace");
+        let mut config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
         config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
         config.composio.api_key = Some("test-direct-key-for-deferred-redaction".to_string());
         config.save().await.expect("save config to disk");

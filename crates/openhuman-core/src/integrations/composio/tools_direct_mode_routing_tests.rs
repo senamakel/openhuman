@@ -51,7 +51,7 @@ async fn execute_tool_resolves_to_backend_kind_when_mode_is_backend() {
     // Err("no backend session"); store one to get past that gate.
     crate::integrations::composio::test_backend_route::register();
     let tmp = tempfile::tempdir().unwrap();
-    let mut config =
+    let config =
         crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(

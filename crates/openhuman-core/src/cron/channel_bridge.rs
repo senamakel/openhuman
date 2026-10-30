@@ -137,10 +137,7 @@ async fn finish_reply(
     reply: crate::channels::bus::NativeProgressiveReply,
     text: &str,
 ) -> Result<(), String> {
-    let result = reply.finish(text).await;
-    #[cfg(test)]
-    eprintln!("channel delivery result: {result:?}");
-    match result {
+    match reply.finish(text).await {
         Ok(result) if crate::channels::runtime::dispatch::delivery_succeeded(&result) => Ok(()),
         Ok(
             ProgressiveResult::DeliveryBatch { .. }

@@ -220,7 +220,6 @@ pub async fn serve(
                 .and_then(|result| result.map_err(anyhow::Error::from)),
             result = runtime.complete_secret_preflight() => match result {
                 Err(error) => {
-                    eprintln!("secret preflight failed before HTTP serve: {error:#}");
                     server.abort();
                     Err(error)
                 },

@@ -4,7 +4,7 @@ use crate::security::egress::EgressLedger;
 
 use crate::inference::provider::factory::cloud_slug::try_create_cloud_slug_chat_model_from_string_with_native_tools;
 
-fn isolated_config() -> (tempfile::TempDir, Config) {
+pub(super) fn isolated_config() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::tempdir().expect("isolated workspace");
     let mut config = Config {
         config_path: tmp.path().join("config.toml"),

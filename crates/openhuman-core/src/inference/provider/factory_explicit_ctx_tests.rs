@@ -75,11 +75,7 @@ async fn managed_factory_and_probe_use_the_explicit_provider_entry() {
     );
     let dispatch = DispatchCtx::new(context_a);
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let config = Config {
-        config_path: tmp.path().join("config.toml"),
-        workspace_dir: tmp.path().join("workspace"),
-        ..Default::default()
-    };
+    let (_fixture_dir, config) = super::crate_native_tests::isolated_config();
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             crate::credentials::APP_SESSION_PROVIDER,
@@ -252,6 +248,7 @@ async fn hosted_cloud_slug_uses_explicit_auth_policy_and_model_entry() {
             workspace_dir: tmp.path().join("workspace"),
             ..Default::default()
         };
+        config.secrets.encrypt = false;
         crate::credentials::AuthService::from_config(&config)
             .store_provider_token(
                 crate::credentials::APP_SESSION_PROVIDER,

@@ -18,25 +18,32 @@ async fn await_http_server(
     server: &mut tokio::task::JoinHandle<std::io::Result<()>>,
     shutdown_token: Option<&CancellationToken>,
 ) -> anyhow::Result<()> {
+    eprintln!("serve-debug: await_http_server entered token={}", shutdown_token.is_some());
     let join_result = if let Some(shutdown_token) = shutdown_token {
         tokio::select! {
-            result = &mut *server => result,
+            result = &mut *server => { eprintln!("serve-debug: HTTP task ended first"); result },
             _ = shutdown_token.cancelled() => {
+                eprintln!("serve-debug: shutdown token observed");
                 match tokio::time::timeout(std::time::Duration::from_secs(10), &mut *server).await {
-                    Ok(result) => result,
+                    Ok(result) => { eprintln!("serve-debug: HTTP graceful shutdown completed"); result },
                     Err(_) => {
+                        eprintln!("serve-debug: HTTP drain timed out; aborting task");
                         // The server has had ten seconds to drain active
                         // requests after the host's shutdown signal.
                         server.abort();
                         let _ = server.await;
+                        eprintln!("serve-debug: HTTP task abort joined");
                         return Ok(());
                     }
                 }
             }
         }
     } else {
+        eprintln!("serve-debug: waiting for process shutdown");
         server.await
     };
+
+    eprintln!("serve-debug: await_http_server returning");
 
     join_result
         .map_err(anyhow::Error::from)?
@@ -224,6 +231,7 @@ pub async fn serve(
     // on exactly the exits where a wedged store is likeliest, and the
     // callers only forward the error — nobody else runs the cleanup.
     let served = if let Some(gate) = preflight_gate {
+        eprintln!("serve-debug: secret preflight branch entered");
         let server_shutdown = shutdown_token.clone();
         let shutdown = async move {
             if let Some(shutdown_token) = shutdown_token {
@@ -249,6 +257,7 @@ pub async fn serve(
         tokio::task::yield_now().await;
         tokio::select! {
             result = await_http_server(&mut server, server_shutdown.as_ref()) => {
+                eprintln!("serve-debug: HTTP ended during preflight");
                 preflight.abort();
                 result
             },
@@ -262,11 +271,13 @@ pub async fn serve(
                     Err(error)
                 }
                 Ok(Ok(())) => {
+                    eprintln!("serve-debug: preflight complete; starting services");
                     let startup_runtime = Arc::clone(&runtime);
                     let mut service_start =
                         tokio::spawn(async move { startup_runtime.start_services().await });
                     tokio::select! {
                         result = await_http_server(&mut server, server_shutdown.as_ref()) => {
+                            eprintln!("serve-debug: HTTP ended during service start");
                             service_start.abort();
                             result
                         },
@@ -274,6 +285,7 @@ pub async fn serve(
                             match result {
                                 Err(error) => Err(anyhow::Error::from(error)),
                                 Ok(()) => {
+                                    eprintln!("serve-debug: services started; opening full router");
                                     // Start ordinary jobs only after credentials and
                                     // config have been refreshed, then expose the full
                                     // router. A concurrent shutdown must still stop
@@ -310,6 +322,8 @@ pub async fn serve(
                  reporting it: {error}"
         );
     }
+
+    eprintln!("serve-debug: server branch returned; starting cleanup");
 
     if tokio::time::timeout(std::time::Duration::from_secs(10), runtime.exit_cleanup())
         .await

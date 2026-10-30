@@ -128,7 +128,10 @@ async fn encrypted_api_key_retains_the_admitted_host_configuration() {
         .await
         .expect("store with the admitted host configuration");
     assert_eq!(
-        get_api_key(&config).await.expect("read encrypted key").as_deref(),
+        get_api_key(&config)
+            .await
+            .expect("read encrypted key")
+            .as_deref(),
         Some("fixture-encrypted-api-key")
     );
     assert!(clear_api_key(&config).await.expect("remove encrypted key"));

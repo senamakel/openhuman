@@ -13,12 +13,13 @@ pub(crate) fn config_in(directory: &std::path::Path) -> Config {
     // checkout. The ordinary loader still verifies its operator trust manifest.
     #[cfg(feature = "modules")]
     if let Some(artifact) = crate::modules::source::local_artifact("tinyconnectors") {
-        config.modules.overrides.push(
-            crate::config::schema::ModuleOverride::with_path(
+        config
+            .modules
+            .overrides
+            .push(crate::config::schema::ModuleOverride::with_path(
                 "tinyconnectors",
                 artifact.to_string_lossy(),
-            ),
-        );
+            ));
     }
     config
 }

@@ -133,22 +133,13 @@ impl RuntimeCredentialSnapshot {
 }
 
 async fn backend_session_active_snapshot(config: &Config) -> bool {
-    let state_dir = config
-        .config_path
-        .parent()
-        .map(std::path::PathBuf::from)
-        .unwrap_or_else(|| {
-            directories::UserDirs::new()
-                .map(|dirs| dirs.home_dir().join(".openhuman"))
-                .unwrap_or_else(|| std::path::PathBuf::from(".openhuman"))
-        });
-    if crate::credentials::api_key::has_api_key_in(&state_dir, config.secrets.encrypt).await {
+    if crate::credentials::api_key::has_api_key(config).await {
         return true;
     }
     if crate::platform::llm_gate::is_signed_out() {
         return false;
     }
-    AuthService::new(&state_dir, config.secrets.encrypt)
+    AuthService::from_config(config)
         .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None)
         .await
         .ok()

@@ -68,7 +68,8 @@ async fn every_member_this_host_names_is_one_the_module_serves() {
 /// A config with no backend session and no stored key.
 fn bare_config() -> Config {
     let directory = tempfile::tempdir().expect("isolated connector configuration");
-    let config = crate::integrations::composio::module_client::test_support::config_in(directory.path());
+    let config =
+        crate::integrations::composio::module_client::test_support::config_in(directory.path());
     let _ = directory.keep();
     config
 }

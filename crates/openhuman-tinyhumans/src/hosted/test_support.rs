@@ -7,13 +7,18 @@ use tempfile::TempDir;
 /// A config rooted in `tmp` whose backend is `api_url`.
 pub fn config(tmp: &TempDir, api_url: &str) -> Config {
     crate::install(crate::InstallOptions::default()).expect("install mock backend transport");
-    Config {
+    let mut config = Config {
         workspace_dir: tmp.path().join("workspace"),
         action_dir: tmp.path().join("workspace"),
         config_path: tmp.path().join("config.toml"),
         api_url: Some(api_url.to_string()),
         ..Config::default()
-    }
+    };
+    // These fixtures store credentials in disposable test workspaces. The
+    // encrypted config store delegates cipher operations to the loaded
+    // TinySecurity module, which these focused hosted-client tests do not boot.
+    config.secrets.encrypt = false;
+    config
 }
 
 /// Store `token` as the app-session credential for `config`.

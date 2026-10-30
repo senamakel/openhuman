@@ -12,7 +12,7 @@ pub(crate) fn config_in(directory: &std::path::Path) -> Config {
     // A locally staged source build exercises the contract compiled by this
     // checkout. The ordinary loader still verifies its operator trust manifest.
     #[cfg(feature = "modules")]
-    if let Some(artifact) = crate::modules::source::local_artifact("tinyconnectors") {
+    if let Some(artifact) = crate::modules::local_artifact("tinyconnectors") {
         config
             .modules
             .overrides

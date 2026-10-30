@@ -38,6 +38,27 @@ async fn test_config(tmp: &TempDir) -> Config {
     config
 }
 
+async fn run_job_command_in_test_context(
+    config: &Config,
+    security: &SecurityPolicy,
+    job: &CronJob,
+) -> (bool, String) {
+    let core = crate::core::runtime::CoreContext::for_test_with_config(
+        crate::core::runtime::DomainSet::full(),
+        config.clone(),
+    );
+    crate::core::runtime::CoreContext::scope(
+        core,
+        run_job_command(
+            &crate::core::runtime::DispatchCtx::host_default(),
+            config,
+            security,
+            job,
+        ),
+    )
+    .await
+}
+
 fn test_job(command: &str) -> CronJob {
     CronJob {
         claim_generation: 0,
@@ -335,13 +356,7 @@ async fn a_shell_job_runs_on_this_platform() {
 
     let job = test_job("echo tinyhumans");
 
-    let (success, output) = run_job_command(
-        &crate::core::runtime::DispatchCtx::host_default(),
-        &config,
-        &security,
-        &job,
-    )
-    .await;
+    let (success, output) = run_job_command_in_test_context(&config, &security, &job).await;
 
     assert!(success, "the shell job did not succeed: {output}");
     assert!(
@@ -391,13 +406,7 @@ async fn a_pipeline_reports_its_last_stage_rather_than_pipefail() {
 
     let job = test_job("false | true");
 
-    let (success, output) = run_job_command(
-        &crate::core::runtime::DispatchCtx::host_default(),
-        &config,
-        &security,
-        &job,
-    )
-    .await;
+    let (success, output) = run_job_command_in_test_context(&config, &security, &job).await;
 
     assert!(
         success,

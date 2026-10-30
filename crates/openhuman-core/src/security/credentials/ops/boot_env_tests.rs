@@ -16,7 +16,7 @@ fn config_in(tmp: &TempDir) -> Config {
 
 #[tokio::test]
 async fn api_key_env_seeds_only_an_empty_store() {
-    let _lock = crate::config::TEST_ENV_LOCK.blocking_lock();
+    let _lock = crate::config::TEST_ENV_LOCK.lock().await;
     let tmp = TempDir::new().unwrap();
     let config = config_in(&tmp);
     let _guard = EnvVarGuard::unset(BACKEND_API_KEY_ENV);

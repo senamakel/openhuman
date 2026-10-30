@@ -145,7 +145,6 @@ pub(crate) async fn run_yielding(
     config: &Config,
     mut run: NativeShellRun,
 ) -> anyhow::Result<ShellRunOutcome> {
-    let mut abandoned = abandoned;
     #[cfg(test)]
     if !run.is_jailed() && USE_FIXTURE.load(std::sync::atomic::Ordering::SeqCst) {
         let _ = (ctx, config);
@@ -186,7 +185,7 @@ pub(crate) async fn run_yielding(
 async fn run_owned(
     config: &Config,
     run: NativeShellRun,
-    abandoned: tokio::sync::oneshot::Receiver<std::convert::Infallible>,
+    mut abandoned: tokio::sync::oneshot::Receiver<std::convert::Infallible>,
     meter: Option<super::shell_progress::ShellOutputMeter>,
 ) -> anyhow::Result<ShellRunOutcome> {
     let caller_wants_yield = run.yield_after.is_some();

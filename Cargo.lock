@@ -9377,6 +9377,7 @@ dependencies = [
  "tinybox-jail",
  "tinybox-linux",
  "tinybox-microvm",
+ "tinybox-openshell",
  "tinybox-ssh",
  "tinybus",
  "tinybus-module",
@@ -9385,6 +9386,15 @@ dependencies = [
  "tinystoragedrivers-types",
  "tokio",
  "uuid",
+]
+
+[[package]]
+name = "tinybox-openshell"
+version = "0.2.3"
+dependencies = [
+ "async-trait",
+ "serde_json",
+ "tinybox-core",
 ]
 
 [[package]]

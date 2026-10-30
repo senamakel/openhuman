@@ -39,8 +39,9 @@ fn free_loopback_port() -> u16 {
 #[test]
 fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
     let workspace = tempfile::tempdir().expect("workspace tempdir");
+    std::env::set_var("HOME", workspace.path());
+    std::env::set_var("USERPROFILE", workspace.path());
     std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
-    std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "memory");
     // Isolate from the operator's environment: a storage URL would route the
     // session store to a real backend, and a backend URL to a real host.
     std::env::remove_var("OPENHUMAN_STORAGE_URL");

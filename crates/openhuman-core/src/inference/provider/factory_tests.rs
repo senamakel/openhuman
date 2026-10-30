@@ -608,7 +608,9 @@ fn deepseek_entry(id: &str) -> CloudProviderCreds {
 /// `model_override` and before building the agent.
 fn routed_config(endpoint: &str, api_key: &str, model: &str) -> Config {
     use crate::config::schema::ephemeral_route::{apply, EphemeralRoute};
-    let directory = tempfile::tempdir().expect("isolated route credentials").keep();
+    let directory = tempfile::tempdir()
+        .expect("isolated route credentials")
+        .keep();
     let mut config = Config {
         config_path: directory.join("config.toml"),
         workspace_dir: directory.join("workspace"),

@@ -26,16 +26,24 @@ fn viewport_journal_is_bounded_and_identifies_non_tail_changes_and_resets() {
 const CLIENT: &str = "tui-abc123";
 
 fn ev(event: &str, fields: serde_json::Value) -> WebChannelEvent {
-    let mut value = serde_json::json!({
-        "event": event,
-        "client_id": CLIENT,
-        "thread_id": "thread-1",
-        "request_id": "request-1"
+    let mut context = serde_json::json!({
+        "clientId": CLIENT,
+        "threadId": "thread-1",
+        "requestId": "request-1"
     });
-    value
-        .as_object_mut()
-        .unwrap()
-        .extend(fields.as_object().unwrap().clone());
+    let mut payload = fields.as_object().unwrap().clone();
+    for (key, context_key) in [
+        ("client_id", "clientId"),
+        ("thread_id", "threadId"),
+        ("request_id", "requestId"),
+        ("seq", "seq"),
+    ] {
+        if let Some(value) = payload.remove(key) {
+            context[context_key] = value;
+        }
+    }
+    let mut value = serde_json::json!({"event": event, "context": context});
+    value.as_object_mut().unwrap().extend(payload);
     serde_json::from_value(value).expect("test event matches the owner contract")
 }
 

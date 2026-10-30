@@ -3,10 +3,20 @@ use serde_json::json;
 
 fn view(mut event: Value) -> WebEventView {
     let obj = event.as_object_mut().unwrap();
-    obj.entry("client_id").or_insert(json!("c1"));
-    obj.entry("thread_id").or_insert(json!("t1"));
-    obj.entry("request_id").or_insert(json!("r1"));
-    obj.entry("seq").or_insert(json!(7));
+    let mut context = obj
+        .remove("context")
+        .unwrap_or_else(|| json!({"clientId":"c1", "threadId":"t1", "requestId":"r1", "seq":7}));
+    for (key, context_key) in [
+        ("client_id", "clientId"),
+        ("thread_id", "threadId"),
+        ("request_id", "requestId"),
+        ("seq", "seq"),
+    ] {
+        if let Some(value) = obj.remove(key) {
+            context[context_key] = value;
+        }
+    }
+    obj.insert("context".into(), context);
     let parsed: WebChannelEvent = serde_json::from_value(event).expect("valid event");
     WebEventView::from_event(&parsed)
 }

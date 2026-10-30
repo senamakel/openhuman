@@ -79,6 +79,10 @@ async fn turn_factory_checks_privacy_then_explicit_host_session_before_building_
             )
             .await
             .expect("store isolated test session");
+        let factory = OpenHumanModelFactory {
+            credentials: super::credentials::RuntimeCredentialSnapshot::resolve(&config).await,
+            ..factory
+        };
         let built =
             tinyagents_harness::host::TurnModelSet::<()>::builder(&factory, &factory, "chat")
                 .primary_model_pin("factory-gate-order-sentinel-model")

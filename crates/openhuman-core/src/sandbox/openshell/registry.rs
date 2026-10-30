@@ -223,6 +223,8 @@ impl<D: BoxDriver> BoxRegistry<D> {
         self.reaper.call_once(|| {
             let registry: Weak<Self> = Arc::downgrade(self);
             let every = reap_interval(self.limits.idle_ttl);
+            // A process-wide sweeper: it closes boxes by id and acts under no
+            // tenant's context, so it carries none.
             tokio::spawn(async move {
                 let mut ticks = tokio::time::interval(every);
                 ticks.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);

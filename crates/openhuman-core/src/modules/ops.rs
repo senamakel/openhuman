@@ -39,6 +39,9 @@ use tinybus::module::{
 };
 use tinybus::Proxy;
 
+mod list;
+pub use list::list;
+
 /// Environment variable naming a directory of bundled release archives, for
 /// headless hosts (the Docker image, the CLI tarball, bench bundles).
 pub const BUNDLED_MODULES_ENV: &str = "OPENHUMAN_BUNDLED_MODULES";
@@ -692,57 +695,6 @@ pub fn install_dir(config: &Config) -> Option<PathBuf> {
     }
     log::warn!("[modules] no cache directory; installing modules under the workspace instead");
     Some(config.workspace_dir.join("modules"))
-}
-
-/// Status of every module this build knows about.
-#[must_use]
-pub fn list(config: &Config) -> Vec<ModuleStatus> {
-    registry::ALL
-        .iter()
-        .map(|record| status_of(config, record))
-        .collect()
-}
-
-/// Status of one module.
-fn status_of(config: &Config, record: &ModuleRecord) -> ModuleStatus {
-    // Configuration is authoritative for the current core instance. A module
-    // may remain loaded in this process after a prior request, but callers
-    // whose configuration disables modules must still be told it is unusable.
-    let (state, detail) = match disabled_component(config, record.id) {
-        Some(component) => (
-            ModuleState::Disabled,
-            Some(format!(
-                "COMPONENT_DISABLED:{component} (set [components] {component} = true to enable)"
-            )),
-        ),
-        None => {
-            let (availability, detail) = resolver(config).status_of(&record.release());
-            (
-                match availability {
-                    Availability::Available => ModuleState::Available,
-                    Availability::Loading => ModuleState::Loading,
-                    Availability::Ready => ModuleState::Ready,
-                    Availability::Failed => ModuleState::Failed,
-                    Availability::Unsupported => ModuleState::Unsupported,
-                    Availability::Disabled => ModuleState::Disabled,
-                },
-                detail,
-            )
-        }
-    };
-    let plan = source::plan(config, record.id);
-    let source =
-        (!matches!(state, ModuleState::Unsupported | ModuleState::Disabled)).then_some(plan.served);
-    let detail = detail.or_else(|| plan.fallback.map(str::to_string));
-    ModuleStatus {
-        id: record.id.to_string(),
-        description: record.description.to_string(),
-        version: record.version.to_string(),
-        bus_name: record.bus_name.to_string(),
-        state,
-        source,
-        detail,
-    }
 }
 
 #[cfg(test)]

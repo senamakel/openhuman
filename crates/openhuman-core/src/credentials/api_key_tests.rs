@@ -129,25 +129,33 @@ async fn encrypted_api_key_retains_the_admitted_host_configuration() {
         format!("session-{}", uuid::Uuid::new_v4()),
     );
     let worker_config = config.clone();
-    let mut operation = tokio::spawn(async move {
-        store_api_key(&worker_config, "fixture-encrypted-api-key")
-            .await
-            .expect("store with the admitted host configuration");
-        assert_eq!(
-            get_api_key(&worker_config)
+    crate::core::bus::init().await.expect("approval events");
+    let mut operation = tokio::spawn(crate::core::runtime::turn_origin::with_origin(
+        crate::core::runtime::turn_origin::AgentTurnOrigin::WebChat {
+            thread_id: "encrypted-api-key-fixture".into(),
+            client_id: "test-operator".into(),
+            request_id: None,
+        },
+        async move {
+            store_api_key(&worker_config, "fixture-encrypted-api-key")
                 .await
-                .expect("read encrypted key")
-                .as_deref(),
-            Some("fixture-encrypted-api-key")
-        );
-        assert!(clear_api_key(&worker_config)
-            .await
-            .expect("remove encrypted key"));
-        assert_eq!(
-            get_api_key(&worker_config).await.expect("read removed key"),
-            None
-        );
-    });
+                .expect("store with the admitted host configuration");
+            assert_eq!(
+                get_api_key(&worker_config)
+                    .await
+                    .expect("read encrypted key")
+                    .as_deref(),
+                Some("fixture-encrypted-api-key")
+            );
+            assert!(clear_api_key(&worker_config)
+                .await
+                .expect("remove encrypted key"));
+            assert_eq!(
+                get_api_key(&worker_config).await.expect("read removed key"),
+                None
+            );
+        },
+    ));
     tokio::time::timeout(std::time::Duration::from_secs(15), async {
         loop {
             tokio::select! {

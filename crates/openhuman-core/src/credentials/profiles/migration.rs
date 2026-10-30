@@ -246,7 +246,7 @@ impl AuthProfilesStore {
                         && provider_or_id_changed
                         && (ap.token.is_some() || ap.token_set.is_some())
                     {
-                        match self.keychain_store_secrets(&ap) {
+                        match self.keychain_store_secrets(&ap).await {
                             Ok(()) => {
                                 pending_keychain_deletes.push(id.clone());
                                 true

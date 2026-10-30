@@ -296,7 +296,7 @@ impl IngressPolicy<QueuedPayload> for WebIngress {
         };
         Ok(match stage {
             IngressStage::StageAttachments => self.stage_attachments(&ctx, request).await,
-            IngressStage::Guardrail => self.guardrail(request),
+            IngressStage::Guardrail => self.guardrail(request).await,
             IngressStage::ApprovalInterception => self.approval_reply(request),
             IngressStage::BeforeSubmit => self.before_submit(&ctx, request).await,
         })

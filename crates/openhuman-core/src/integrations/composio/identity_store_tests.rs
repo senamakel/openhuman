@@ -1,7 +1,8 @@
 use super::*;
 
 fn config_in(dir: &tempfile::TempDir) -> Config {
-    let mut config = crate::integrations::composio::module_client::test_support::config_in(dir.path());
+    let mut config =
+        crate::integrations::composio::module_client::test_support::config_in(dir.path());
     config.workspace_dir = dir.path().to_path_buf();
     config
 }

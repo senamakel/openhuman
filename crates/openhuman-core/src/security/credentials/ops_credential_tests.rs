@@ -69,15 +69,21 @@ async fn secret_store_for_config_scopes_to_config_parent() {
 
 // ── encrypt_secret / decrypt_secret ───────────────────────────
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn encrypt_then_decrypt_round_trips_locally() {
     let tmp = TempDir::new().unwrap();
     let config = test_config(&tmp);
-    let plaintext = "top-secret-value";
-    let enc = encrypt_secret(&config, plaintext).await.unwrap();
-    assert_ne!(enc.value, plaintext);
-    let dec = decrypt_secret(&config, &enc.value).await.unwrap();
-    assert_eq!(dec.value, plaintext);
+    #[cfg(feature = "security-module")]
+    crate::credentials::test_support::with_native_cipher_approval(&config, async {
+        let plaintext = "top-secret-value";
+        let enc = encrypt_secret(&config, plaintext).await.unwrap();
+        assert_ne!(enc.value, plaintext);
+        let dec = decrypt_secret(&config, &enc.value).await.unwrap();
+        assert_eq!(dec.value, plaintext);
+    })
+    .await;
+    #[cfg(not(feature = "security-module"))]
+    assert!(encrypt_secret(&config, "top-secret-value").await.is_err());
 }
 
 #[tokio::test]

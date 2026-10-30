@@ -302,8 +302,7 @@ async fn execute_tool_execute_rejects_missing_tool() {
 #[tokio::test]
 async fn agent_tools_skip_registration_when_no_credentials_at_all() {
     let tmp = tempfile::tempdir().unwrap();
-    let config =
-        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     let tools = all_composio_agent_tools(&config).await;
     assert!(
         tools.is_empty(),
@@ -342,8 +341,7 @@ async fn agent_tools_are_all_removed_when_composio_is_disabled_even_if_signed_in
 async fn agent_tools_register_when_backend_signed_in() {
     crate::integrations::composio::test_backend_route::register();
     let tmp = tempfile::tempdir().unwrap();
-    let config =
-        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             crate::credentials::APP_SESSION_PROVIDER,
@@ -441,8 +439,7 @@ async fn sandbox_read_only_passes_through_read_scope_actions_to_downstream_gates
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
-    let config =
-        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     config.save().await.expect("save fake config to disk");
 
     let t = ComposioExecuteTool::new(Arc::new(config));
@@ -476,8 +473,7 @@ async fn sandbox_unset_leaves_all_scopes_to_downstream_gates() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
-    let config =
-        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     config.save().await.expect("save fake config to disk");
 
     let t = ComposioExecuteTool::new(Arc::new(config));
@@ -510,8 +506,7 @@ async fn sandbox_sandboxed_mode_does_not_trigger_readonly_gate() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let _workspace_guard = EnvVarGuard::workspace_unlocked(tmp.path());
 
-    let config =
-        crate::integrations::composio::module_client::test_support::config_in(tmp.path());
+    let config = crate::integrations::composio::module_client::test_support::config_in(tmp.path());
     config.save().await.expect("save fake config to disk");
 
     let t = ComposioExecuteTool::new(Arc::new(config));

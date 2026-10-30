@@ -58,7 +58,7 @@ fn declared_collections() -> Vec<CollectionOwner> {
         ));
         owners.push(owner(
             "tinychannels-bus",
-            tinychannels_bus::storage::collections(),
+            channel_collection_specs(),
         ));
         owners.push(owner(
             "tinyconnectors-bus",
@@ -127,7 +127,7 @@ pub fn module_collections(owner: &str) -> Vec<CollectionSpec> {
     match owner {
         "mcp" => return module_owned_collections(tinymcp_bus::storage::collection_specs()),
         "channels" => {
-            return module_owned_collections(tinychannels_bus::storage::collections());
+            return module_owned_collections(channel_collection_specs());
         }
         "connectors" => {
             return module_owned_collections(
@@ -163,6 +163,29 @@ pub fn module_collections(owner: &str) -> Vec<CollectionSpec> {
     }
     let _ = owner;
     Vec::new()
+}
+
+/// Convert TinyChannels' portable collection declarations into host storage
+/// driver types without changing indexes, expiry, or search metadata.
+fn channel_collection_specs() -> Vec<CollectionSpec> {
+    tinychannels_bus::storage::collections()
+        .into_iter()
+        .map(|declaration| {
+            let mut collection = CollectionSpec::new(declaration.name);
+            for index in declaration.indexes {
+                let unique = index.unique;
+                let index = IndexSpec::new(index.name, index.fields);
+                collection = collection.index(if unique { index.unique() } else { index });
+            }
+            if let Some(ttl_field) = declaration.ttl_field {
+                collection = collection.ttl(ttl_field);
+            }
+            if let Some(search) = declaration.search {
+                collection = collection.searchable(search.fields);
+            }
+            collection
+        })
+        .collect()
 }
 
 /// Convert the event queue bus's portable declarations into host storage types.

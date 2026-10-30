@@ -219,6 +219,8 @@ pub(in crate::modules) async fn ensure_loaded(
         agent: "config-secrets".into(),
     };
     let scope = crate::security::approval::native::prepare_secret_scope(config, subject).await?;
+    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC prepared-scope");
+
     let target_backend = crate::security::secret_storage::store::effective_backend_kind();
     let target_backend_id = opaque_id("secret-backend", &key_path, &format!("{target_backend:?}"));
     let legacy_backend_id = opaque_id("secret-legacy", &key_path, "file");
@@ -245,6 +247,8 @@ pub(in crate::modules) async fn ensure_loaded(
     let factory_target_backend_id = target_backend_id.clone();
     let factory_legacy_backend_id = legacy_backend_id.clone();
     let factory_pairing_backend_id = pairing_backend_id.clone();
+
+    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC admit-start");
     let binding = resolver
         .ensure_loaded_with_host_callback_factory(id, move |_attempt| {
             let host = host;
@@ -306,6 +310,7 @@ pub(in crate::modules) async fn ensure_loaded(
                     state.scope.scope_id().to_owned(),
                     state.pairing_store.clone(),
                 );
+                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC candidate-ready");
                 let module_config = state.module_config(&config)?;
                 candidates
                     .lock()
@@ -315,6 +320,8 @@ pub(in crate::modules) async fn ensure_loaded(
             }
         })
         .await?;
+
+    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC admit-finished");
     let selected_key = binding.unique_name().to_string();
     let mut candidates = candidates.lock().await;
     let state = candidates
@@ -322,6 +329,8 @@ pub(in crate::modules) async fn ensure_loaded(
         .ok_or_else(|| "admitted security callback state unavailable".to_owned())?;
     candidates.clear();
     loads.insert(id.to_owned(), std::sync::Arc::clone(&state));
+
+    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC register-start");
     register_scope(config, &state).await?;
     Ok(())
 }

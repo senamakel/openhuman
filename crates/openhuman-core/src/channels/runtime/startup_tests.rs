@@ -7,7 +7,7 @@
 //! (cloud) path is preserved for users who haven't picked a local /
 //! BYOK model, and the override path activates for those who have.
 
-use super::{resolve_chat_workload, ChatWorkloadResolution};
+use super::{ChatWorkloadResolution, resolve_chat_workload};
 use crate::config::Config;
 
 fn config_with_chat_provider(s: Option<&str>) -> Config {

@@ -4,15 +4,15 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::channel::RelayChannel;
 use super::params::RelayInboundParams;
 use super::store::{self, Recorded};
 use crate::channels::context::MAX_CHANNEL_HISTORY;
 use crate::channels::runtime::{
-    build_channel_turn_parts, prepare_runtime_limits, process_channel_runtime_message,
-    runtime_context, PromptToolDescs,
+    PromptToolDescs, build_channel_turn_parts, prepare_runtime_limits,
+    process_channel_runtime_message, runtime_context,
 };
 use crate::config::Config;
 use crate::core::Outcome;
@@ -200,7 +200,9 @@ pub(crate) async fn run_relay_turn(
         &config,
         &security,
         PromptToolDescs::Registered,
-    ).await {
+    )
+    .await
+    {
         Ok(parts) => parts,
         Err(error) => {
             tracing::error!(

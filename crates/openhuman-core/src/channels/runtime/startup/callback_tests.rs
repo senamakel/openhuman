@@ -162,14 +162,16 @@ fn callback_for_channels(
     let context_slot: Arc<OnceLock<Weak<ChannelRuntimeContext>>> = Arc::new(OnceLock::new());
     assert!(context_slot.set(Arc::downgrade(&context)).is_ok());
     let progressive_slot = Arc::new(OnceLock::new());
-    assert!(progressive_slot
-        .set(Arc::new(
-            progressive_channels
-                .into_iter()
-                .map(|(name, adapter)| (name, Arc::downgrade(&adapter)))
-                .collect()
-        ))
-        .is_ok());
+    assert!(
+        progressive_slot
+            .set(Arc::new(
+                progressive_channels
+                    .into_iter()
+                    .map(|(name, adapter)| (name, Arc::downgrade(&adapter)))
+                    .collect()
+            ))
+            .is_ok()
+    );
     let (dispatch, _receiver) = tokio::sync::mpsc::channel::<RuntimeChannelMessage>(1);
     let mut callback = ChannelHostCallbacks::new(
         &crate::core::runtime::DispatchCtx::host_default(),
@@ -220,9 +222,11 @@ async fn voice_media_store_validates_the_configured_account_scope_and_declines()
         .store_voice_media(request())
         .await
         .expect_err("the host holds no durable voice media store");
-    assert!(declined
-        .to_string()
-        .contains("stored by the channels module"));
+    assert!(
+        declined
+            .to_string()
+            .contains("stored by the channels module")
+    );
 
     let mut forged = request();
     forged.scope.configured_instance = "telegram:bot-b".into();
@@ -583,14 +587,16 @@ async fn native_progressive_callbacks_stop_after_channel_session_cancellation() 
     );
 
     callback.cancellation.cancel();
-    assert!(callback
-        .dispatch_controller_backend(output_event_request(
-            Some("telegram:bot-b"),
-            Some("chat-42"),
-            Some("turn-15"),
-        ))
-        .await
-        .is_err());
+    assert!(
+        callback
+            .dispatch_controller_backend(output_event_request(
+                Some("telegram:bot-b"),
+                Some("chat-42"),
+                Some("turn-15"),
+            ))
+            .await
+            .is_err()
+    );
     assert!(observer.seen.lock().await.is_empty());
 }
 
@@ -622,14 +628,16 @@ async fn native_progressive_callbacks_fail_closed_after_transport_owner_drops() 
     drop(context);
     drop(adapter);
 
-    assert!(callback
-        .dispatch_controller_backend(output_event_request(
-            Some("telegram:bot-b"),
-            Some("chat-42"),
-            Some("turn-16"),
-        ))
-        .await
-        .is_err());
+    assert!(
+        callback
+            .dispatch_controller_backend(output_event_request(
+                Some("telegram:bot-b"),
+                Some("chat-42"),
+                Some("turn-16"),
+            ))
+            .await
+            .is_err()
+    );
 }
 
 #[path = "callback_inbound_tests.rs"]

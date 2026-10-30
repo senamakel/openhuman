@@ -3,7 +3,7 @@ use super::*;
 use crate::agent::host_agents::{self, HostAgent, HostAgentResolver};
 use crate::core::runtime::turn_origin::AgentTurnOrigin;
 use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
 use tinytools::{PermissionLevel, Tool, ToolResult};
@@ -396,15 +396,21 @@ async fn a_relayed_turn_runs_as_an_external_channel_and_keeps_its_thread() {
         .iter()
         .filter_map(|message| Some((message["role"].as_str()?, message["content"].as_str()?)))
         .collect();
-    assert!(second_content
-        .iter()
-        .any(|(role, text)| *role == "user" && text.contains("first question")));
-    assert!(second_content
-        .iter()
-        .any(|(role, text)| *role == "assistant" && *text == "answer 1"));
-    assert!(second_content
-        .iter()
-        .any(|(role, text)| *role == "user" && text.contains("second question")));
+    assert!(
+        second_content
+            .iter()
+            .any(|(role, text)| *role == "user" && text.contains("first question"))
+    );
+    assert!(
+        second_content
+            .iter()
+            .any(|(role, text)| *role == "assistant" && *text == "answer 1")
+    );
+    assert!(
+        second_content
+            .iter()
+            .any(|(role, text)| *role == "user" && text.contains("second question"))
+    );
 
     let thread = params("m1", "x").thread_id();
     let messages =
@@ -442,12 +448,16 @@ async fn a_relayed_turn_runs_as_an_external_channel_and_keeps_its_thread() {
         .filter(|event| event.event_name() == CHANNEL_OUTBOUND_EVENT)
         .collect();
     assert_eq!(outbound.len(), 2, "one channel_outbound per reply");
-    assert!(outbound
-        .iter()
-        .all(|event| event.event_name() == CHANNEL_OUTBOUND_EVENT));
-    assert!(outbound
-        .iter()
-        .all(|event| event.context().thread_id == thread));
+    assert!(
+        outbound
+            .iter()
+            .all(|event| event.event_name() == CHANNEL_OUTBOUND_EVENT)
+    );
+    assert!(
+        outbound
+            .iter()
+            .all(|event| event.context().thread_id == thread)
+    );
     assert_eq!(outbound[0].context().request_id, "req-m1");
     assert!(matches!(
         outbound[0].wire_event(),

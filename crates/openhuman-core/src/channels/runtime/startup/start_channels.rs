@@ -3,7 +3,7 @@
 
 use super::super::dispatch::run_message_dispatch_loop;
 use super::module_providers::ModuleChannelRuntime;
-use super::turn_parts::{build_channel_turn_parts, runtime_context, PromptToolDescs};
+use super::turn_parts::{PromptToolDescs, build_channel_turn_parts, runtime_context};
 use crate::config::Config;
 use crate::core::bus::BUS;
 use crate::core::events::DomainEvent;

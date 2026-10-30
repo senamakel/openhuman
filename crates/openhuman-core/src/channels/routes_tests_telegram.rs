@@ -96,9 +96,11 @@ async fn handle_runtime_command_telegram_new_status_and_sessions_round_trip() {
         sent.iter().map(|m| m.content.clone()).collect::<Vec<_>>()
     );
     assert!(sent[0].content.contains("Started new session"));
-    assert!(sent[0]
-        .content
-        .contains("Durable conversation history reset for this chat."));
+    assert!(
+        sent[0]
+            .content
+            .contains("Durable conversation history reset for this chat.")
+    );
 
     assert!(sent[1].content.contains("**Status**"));
     assert!(sent[1].content.contains("Thread: `Telegram"));
@@ -113,9 +115,10 @@ async fn handle_runtime_command_telegram_new_status_and_sessions_round_trip() {
 
     assert!(sent[2].content.contains("**Recent sessions**"));
     assert!(sent[2].content.contains("→ `Telegram"));
-    assert!(sent
-        .iter()
-        .all(|message| message.topic_id.as_deref() == Some("42")));
+    assert!(
+        sent.iter()
+            .all(|message| message.topic_id.as_deref() == Some("42"))
+    );
 }
 
 #[tokio::test]
@@ -168,14 +171,18 @@ async fn handle_runtime_command_telegram_new_uses_module_storage() {
     assert_eq!(sent[0]["chat_id"], "-200");
     assert_eq!(sent[0]["message_thread_id"], "42");
     assert_eq!(sent[0]["reply_to_message_id"], 100);
-    assert!(sent[0]["text"]
-        .as_str()
-        .unwrap()
-        .contains("Started new session"));
-    assert!(sent[0]["text"]
-        .as_str()
-        .unwrap()
-        .contains("Durable conversation history reset"));
+    assert!(
+        sent[0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Started new session")
+    );
+    assert!(
+        sent[0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("Durable conversation history reset")
+    );
     assert_eq!(sent[1]["chat_id"], "-200");
     assert_eq!(sent[1]["message_thread_id"], "42");
     assert!(sent[1].get("reply_to_message_id").is_none());

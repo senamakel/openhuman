@@ -2,8 +2,8 @@
 
 use tinybus::module::{ModuleCallError, ModuleObjectClient};
 use tinychannels_bus::{
-    module_media::{MediaReadBegin, MediaReadChunk, MediaReadFinish},
     ChannelInboundEnvelope, ContentPart, HostVoiceScope, MediaKind, MediaReference,
+    module_media::{MediaReadBegin, MediaReadChunk, MediaReadFinish},
 };
 use tinyinference_llm::message::Message;
 
@@ -133,11 +133,7 @@ pub(super) async fn resolve_typed_message(
     let mut media_payloads = Vec::new();
     for (index, part) in parts.iter_mut().enumerate() {
         let (media, image, name) = match part {
-            ContentPart::Image { media, .. } => (
-                media.clone(),
-                true,
-                "image".to_owned(),
-            ),
+            ContentPart::Image { media, .. } => (media.clone(), true, "image".to_owned()),
             ContentPart::File {
                 media, file_name, ..
             } => (

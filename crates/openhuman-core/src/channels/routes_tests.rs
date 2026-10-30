@@ -1,6 +1,6 @@
 use super::*;
 use crate::channels::context::{
-    conversation_history_key, ChannelRuntimeContext, RouteSelectionMap, TurnModelSourceCacheMap,
+    ChannelRuntimeContext, RouteSelectionMap, TurnModelSourceCacheMap, conversation_history_key,
 };
 use crate::channels::host::ChannelTurnStateSubscriber;
 use crate::core::events::DomainEvent;
@@ -445,9 +445,11 @@ async fn handle_runtime_command_unknown_provider_sends_helpful_error() {
 
     let sent = channel_state.sent.lock().unwrap();
     assert_eq!(sent.len(), 1);
-    assert!(sent[0]
-        .content
-        .contains("Unknown provider `definitely-not-a-provider`"));
+    assert!(
+        sent[0]
+            .content
+            .contains("Unknown provider `definitely-not-a-provider`")
+    );
     assert_eq!(sent[0].thread_ts.as_deref(), Some("thread-1"));
 }
 
@@ -629,9 +631,11 @@ async fn handle_runtime_command_telegram_help_replies_with_remote_command_list()
     assert!(sent[0].content.contains("`/status`"));
     assert!(sent[0].content.contains("`/sessions`"));
     assert!(sent[0].content.contains("`/new`"));
-    assert!(sent[0]
-        .content
-        .contains("Model routing: `/model`, `/models`"));
+    assert!(
+        sent[0]
+            .content
+            .contains("Model routing: `/model`, `/models`")
+    );
 }
 
 #[tokio::test]
@@ -660,9 +664,11 @@ async fn handle_runtime_command_telegram_sessions_reports_empty_store() {
 
     let sent = channel_state.sent.lock().unwrap();
     assert_eq!(sent.len(), 1);
-    assert!(sent[0]
-        .content
-        .contains("No conversation threads yet. Send `/new` to create one."));
+    assert!(
+        sent[0]
+            .content
+            .contains("No conversation threads yet. Send `/new` to create one.")
+    );
     assert_eq!(sent[0].topic_id.as_deref(), Some("42"));
 }
 

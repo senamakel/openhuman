@@ -5,8 +5,8 @@
 use crate::core::runtime::DispatchCtx;
 use serde_json::{Map, Value};
 
-use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::Outcome;
+use crate::core::all::{ControllerFuture, RegisteredController};
 use crate::core::{ControllerSchema, FieldSchema, TypeSchema};
 
 use super::ops::{
@@ -272,8 +272,8 @@ fn handle_chat(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture
                 p.model_override,
                 p.temperature,
                 p.locale,
-                p.queue_mode,
-                p.run_mode,
+                p.queue_mode.clone(),
+                p.run_mode.clone(),
                 ChatRequestMetadata {
                     speak_reply: p.speak_reply,
                     source: p.source,

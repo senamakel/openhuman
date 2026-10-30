@@ -6,7 +6,7 @@
 //! the caller's own config and policy, so a relayed turn never runs with the
 //! operator's tools or workspace.
 
-use super::chat_workload::{resolve_chat_workload, ChatWorkloadResolution};
+use super::chat_workload::{ChatWorkloadResolution, resolve_chat_workload};
 use super::prompt::format_access_context;
 use crate::channels::context::ChannelRuntimeContext;
 use crate::channels::system_prompt::{ChannelPromptInputs, ChannelSystemPrompt};

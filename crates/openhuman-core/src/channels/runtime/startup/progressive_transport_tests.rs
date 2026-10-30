@@ -39,7 +39,7 @@ fn module_callback_error_does_not_expose_provider_details() {
 
 #[test]
 fn receipt_scope_requires_exact_channel_and_full_conversation_identity() {
-    use tinychannels_bus::channel::{types::ConversationKind, MessageReceipt};
+    use tinychannels_bus::channel::{MessageReceipt, types::ConversationKind};
     use tinychannels_bus::{ChannelRef, ConversationRef};
 
     let channel = ChannelRef {

@@ -1,8 +1,8 @@
 //! Per-sender routing and runtime command handling.
 
+use super::SendMessage;
 use super::context::{ChannelRouteSelection, ChannelRuntimeContext};
 use super::runtime::ChannelHandle;
-use super::SendMessage;
 use std::sync::Arc;
 use tinychannels_bus as traits;
 use tinychannels_bus::module_control::{

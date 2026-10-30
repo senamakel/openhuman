@@ -7,8 +7,8 @@ use std::sync::Arc;
 
 use tinybus::Error;
 use tinychannels_bus::{
-    module_progressive::{ProgressiveTransportRequest, ProgressiveTransportResult},
     ChannelBackendRequest, ChannelBackendResult,
+    module_progressive::{ProgressiveTransportRequest, ProgressiveTransportResult},
 };
 
 use super::channel::RelayChannel;

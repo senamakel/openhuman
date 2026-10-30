@@ -84,7 +84,8 @@ pub(crate) async fn dispatch_callback(
                     "remote reset scope does not match captured ingress",
                 ));
             }
-            let account = reset.scope
+            let account = reset
+                .scope
                 .channel
                 .account_id
                 .as_deref()

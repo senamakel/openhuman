@@ -128,7 +128,9 @@ impl ProgressiveChannelTransport for ModuleChannel {
                     thread_id: receipt.thread_id.clone(),
                     turn_id,
                     durability: tinychannels_bus::channel::DeliveryDurability::Required,
-                    payload: tinychannels_bus::channel::OutboundPayload::Text { text: text.clone() },
+                    payload: tinychannels_bus::channel::OutboundPayload::Text {
+                        text: text.clone(),
+                    },
                 };
                 let intent = tinychannels_bus::channel::ChannelOutboundMessage {
                     channel_id: intent.channel_id,
@@ -223,9 +225,7 @@ fn map_edit_outcome(
 
     match outcome.error.as_ref().map(|error| error.kind) {
         Some(SendErrorKind::NotFound) => Result::MessageGone,
-        Some(SendErrorKind::Forbidden) | Some(SendErrorKind::BadFormat) => {
-            Result::EditUnsupported
-        }
+        Some(SendErrorKind::Forbidden) | Some(SendErrorKind::BadFormat) => Result::EditUnsupported,
         _ => Result::Outcome(Box::new(outcome)),
     }
 }

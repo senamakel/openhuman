@@ -290,7 +290,7 @@ pub(crate) async fn prepare_runtime_limits(
 
 pub use start_channels::start_channels;
 pub(crate) use start_channels::start_channels_with_session;
-pub(crate) use turn_parts::{build_channel_turn_parts, runtime_context, PromptToolDescs};
+pub(crate) use turn_parts::{PromptToolDescs, build_channel_turn_parts, runtime_context};
 
 /// Owns a real module-backed channel runtime for channel policy tests.
 ///
@@ -364,7 +364,7 @@ pub(crate) async fn prepare_module_runtime_for_test_in_context(
 #[cfg(test)]
 use crate::config::Config;
 #[cfg(test)]
-use chat_workload::{resolve_chat_workload, ChatWorkloadResolution};
+use chat_workload::{ChatWorkloadResolution, resolve_chat_workload};
 #[cfg(any(test, debug_assertions))]
 use credentials::resolve_yuanbao_app_secret;
 #[cfg(any(test, debug_assertions))]

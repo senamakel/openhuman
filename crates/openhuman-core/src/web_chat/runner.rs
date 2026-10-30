@@ -17,7 +17,7 @@ use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::Duration;
 
 use tinyagents_harness::turn_runner::{ScopeKey, TurnRunner, TurnRunnerConfig};
-use tokio::sync::{oneshot, Mutex as AsyncMutex};
+use tokio::sync::{Mutex as AsyncMutex, oneshot};
 
 use super::ingress::WebIngress;
 use super::ops::StartChatError;

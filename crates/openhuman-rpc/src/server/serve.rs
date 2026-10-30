@@ -14,6 +14,35 @@ pub struct EmbeddedReadySignal {
     pub fallback_from: Option<u16>,
 }
 
+async fn await_http_server(
+    server: &mut tokio::task::JoinHandle<std::io::Result<()>>,
+    shutdown_token: Option<&CancellationToken>,
+) -> anyhow::Result<()> {
+    let join_result = if let Some(shutdown_token) = shutdown_token {
+        tokio::select! {
+            result = &mut *server => result,
+            _ = shutdown_token.cancelled() => {
+                match tokio::time::timeout(std::time::Duration::from_secs(10), &mut *server).await {
+                    Ok(result) => result,
+                    Err(_) => {
+                        // The server has had ten seconds to drain active
+                        // requests after the host's shutdown signal.
+                        server.abort();
+                        let _ = server.await;
+                        return Ok(());
+                    }
+                }
+            }
+        }
+    } else {
+        server.await
+    };
+
+    join_result
+        .map_err(anyhow::Error::from)?
+        .map_err(anyhow::Error::from)
+}
+
 /// Spawn `runtime`'s selected background services and, when
 /// `ServiceSet::rpc_http` is set, bind the HTTP listener and serve until
 /// shutdown.
@@ -195,13 +224,13 @@ pub async fn serve(
     // on exactly the exits where a wedged store is likeliest, and the
     // callers only forward the error — nobody else runs the cleanup.
     let served = if let Some(gate) = preflight_gate {
+        let server_shutdown = shutdown_token.clone();
         let shutdown = async move {
             if let Some(shutdown_token) = shutdown_token {
                 shutdown_token.cancelled().await;
             } else {
                 crate::core_host::core::shutdown::signal().await;
             }
-            eprintln!("serve: graceful shutdown future resolved");
         };
         // Keep the listener independent from startup work. In particular,
         // `start_services()` can take time after preflight; awaiting it in the
@@ -219,11 +248,9 @@ pub async fn serve(
         // secret providers perform synchronous work before their first await.
         tokio::task::yield_now().await;
         tokio::select! {
-            result = &mut server => {
+            result = await_http_server(&mut server, server_shutdown.as_ref()) => {
                 preflight.abort();
                 result
-                    .map_err(anyhow::Error::from)
-                    .and_then(|result| result.map_err(anyhow::Error::from))
             },
             result = &mut preflight => match result {
                 Err(error) => {
@@ -239,11 +266,9 @@ pub async fn serve(
                     let mut service_start =
                         tokio::spawn(async move { startup_runtime.start_services().await });
                     tokio::select! {
-                        result = &mut server => {
+                        result = await_http_server(&mut server, server_shutdown.as_ref()) => {
                             service_start.abort();
                             result
-                                .map_err(anyhow::Error::from)
-                                .and_then(|result| result.map_err(anyhow::Error::from))
                         },
                         result = &mut service_start => {
                             match result {
@@ -254,9 +279,7 @@ pub async fn serve(
                                     // router. A concurrent shutdown must still stop
                                     // the listener while these services are starting.
                                     gate.open();
-                                    server.await
-                                        .map_err(anyhow::Error::from)
-                                        .and_then(|result| result.map_err(anyhow::Error::from))
+                            await_http_server(&mut server, server_shutdown.as_ref()).await
                                 }
                             }
                         }
@@ -269,7 +292,6 @@ pub async fn serve(
         axum::serve(listener, app)
             .with_graceful_shutdown(async move {
                 shutdown_token.cancelled().await;
-                eprintln!("serve: graceful shutdown future resolved");
             })
             .await
             .map_err(anyhow::Error::from)

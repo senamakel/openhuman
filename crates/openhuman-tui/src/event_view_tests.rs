@@ -45,15 +45,8 @@ fn final_response_events_expose_full_response() {
         "proactive_message",
         "voice_speak",
     ] {
-        let event = serde_json::from_value::<WebChannelEvent>(json!({
-            "event": name, "client_id": "c", "thread_id": "t", "request_id": "r",
-            "full_response": "answer"
-        }))
-        .unwrap_or_else(|error| panic!("{name}: {error}"));
-        assert_eq!(
-            WebEventView::from_event(&event).full_response.as_deref(),
-            Some("answer")
-        );
+        let v = view(json!({"event": name, "full_response": "answer"}));
+        assert_eq!(v.full_response.as_deref(), Some("answer"), "{name}");
     }
     let v = view(json!({"event": "channel_outbound", "full_response": "sent"}));
     assert_eq!(v.full_response.as_deref(), Some("sent"));

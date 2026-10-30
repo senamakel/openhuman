@@ -232,7 +232,7 @@ fn events_for_other_client_id_are_ignored() {
         let mut event =
             serde_json::to_value(ev("text_delta", serde_json::json!({"delta":"not mine"})))
                 .unwrap();
-        event["client_id"] = "tui-someone-else".into();
+        event["context"]["clientId"] = "tui-someone-else".into();
         serde_json::from_value(event).unwrap()
     };
     s.apply_event(&foreign);
@@ -249,7 +249,7 @@ fn events_for_an_inactive_thread_are_ignored() {
     state.set_thread("thread-1");
     let event = {
         let mut event = serde_json::to_value(text_delta("not this conversation")).unwrap();
-        event["thread_id"] = "thread-2".into();
+        event["context"]["threadId"] = "thread-2".into();
         serde_json::from_value(event).unwrap()
     };
     state.apply_event(&event);

@@ -120,7 +120,10 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
     .collect();
     let input = format!("hello using this synthetic credential: {secret}");
     let redacted = tinyinference_core::sanitize::scrub_credentials(&input);
-    let turn = tokio::spawn(async move { host.run_single_with_origin(&input, Some(origin)).await });
+    let turn = tokio::spawn(crate::core::runtime::CoreContext::scope(
+        Arc::clone(&core),
+        async move { host.run_single_with_origin(&input, Some(origin)).await },
+    ));
     tokio::time::timeout(
         std::time::Duration::from_secs(5),
         model.repair_started.notified(),

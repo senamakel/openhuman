@@ -105,6 +105,7 @@ pub struct Turn {
     >,
     tools: Option<openhuman_core::agent::HostTools>,
     tool_env: Option<Arc<std::collections::BTreeMap<String, String>>>,
+    close_copy: Option<crate::CloseCopy>,
 }
 
 impl Turn {
@@ -140,6 +141,7 @@ impl Turn {
             hooks: Default::default(),
             tools: None,
             tool_env: None,
+            close_copy: None,
         }
     }
 
@@ -498,6 +500,16 @@ impl Turn {
     /// Nucleus sampling for this turn; must be finite and between zero and one.
     pub fn top_p(mut self, probability: f64) -> Self {
         self.top_p = Some(probability);
+        self
+    }
+
+    /// The wording this turn is closed with if it stops at its call cap or ends
+    /// without a reply, in place of the runtime's
+    /// ([`RuntimeBuilder::close_copy`](crate::RuntimeBuilder::close_copy)) or the
+    /// English default. Start from [`ENGLISH_CLOSE_COPY`](crate::ENGLISH_CLOSE_COPY)
+    /// and override what differs.
+    pub fn close_copy(mut self, copy: crate::CloseCopy) -> Self {
+        self.close_copy = Some(copy);
         self
     }
 

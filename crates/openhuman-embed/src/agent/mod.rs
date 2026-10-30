@@ -139,6 +139,8 @@ pub(crate) struct AgentInner {
     pub(crate) definition: AgentDefinition,
     pub(crate) provider: Provider,
     pub(crate) model_defaults: crate::ModelDefaults,
+    /// The runtime's wording for closing a capped turn; a turn may override it.
+    pub(crate) close_copy: Option<crate::CloseCopy>,
     pub(crate) access: Access,
     pub(crate) layout: AgentLayout,
     /// The agent's own in-process tools, rebuilt per turn. See
@@ -265,6 +267,9 @@ impl Agent {
         }
         if let Some(value) = self.inner.model_defaults.top_p {
             turn = turn.top_p(value);
+        }
+        if let Some(copy) = self.inner.close_copy {
+            turn = turn.close_copy(copy);
         }
         turn
     }

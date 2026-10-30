@@ -589,3 +589,69 @@ fn the_final_write_instruction_still_asks_for_a_requested_file() {
         "nothing to write still means answer instead: {FINAL_WRITE_INSTRUCTION}"
     );
 }
+
+const REWRITTEN_COPY: tinyagents_harness::close::CloseCopy = tinyagents_harness::close::CloseCopy {
+    max_iteration_instruction:
+        "Tell the user plainly, in their own language, what got done before you ran out of steps.",
+    final_summary_template: "Ran out of steps before writing a reply.{results}",
+    ..OPENHUMAN_CLOSE_COPY
+};
+
+/// A copy that rewords an instruction keeps the reword out of the user's
+/// hands: the model repeating it back is still caught, though the copy's
+/// inherited needle list only knows the English text.
+#[test]
+fn a_reworded_close_instruction_echoed_by_the_model_is_recognised() {
+    let echoed = "Sure: Tell the user plainly, in their own language, what got done \
+                  before you ran out of steps. Now, here is what I found.";
+    let needles = super::close_needles(&REWRITTEN_COPY, None);
+    let phrases = needles.iter().map(String::as_str).collect::<Vec<_>>();
+    assert!(tinyagents_harness::close::quotes_harness_instruction(
+        echoed, &phrases
+    ));
+}
+
+#[test]
+fn the_default_copy_keeps_every_english_needle() {
+    let from_harness = tinyagents_harness::close::instruction_needles(&OPENHUMAN_CLOSE_COPY, None);
+    let needles = super::close_needles(&OPENHUMAN_CLOSE_COPY, None);
+    for needle in from_harness {
+        assert!(needles.contains(&needle), "lost needle: {needle}");
+    }
+}
+
+#[test]
+fn the_stop_reason_is_a_needle_too() {
+    let reason = "Stopping after three identical failing calls to the same tool";
+    let needles = super::close_needles(&REWRITTEN_COPY, Some(reason));
+    let phrases = needles.iter().map(String::as_str).collect::<Vec<_>>();
+    assert!(tinyagents_harness::close::quotes_harness_instruction(
+        reason, &phrases
+    ));
+}
+
+/// The no-result summary is recognised by the wording of the copy in force,
+/// not by the English sentence.
+#[test]
+fn the_final_summary_is_recognised_by_the_copys_own_opening() {
+    let own = tinyagents_harness::close::final_summary_with_copy(&REWRITTEN_COPY, "- a call", true);
+    assert!(super::is_final_summary(&REWRITTEN_COPY, &own));
+    assert!(!super::is_final_summary(
+        &REWRITTEN_COPY,
+        "I finished this turn without writing up a result."
+    ));
+    let english =
+        tinyagents_harness::close::final_summary_with_copy(&OPENHUMAN_CLOSE_COPY, "- a call", true);
+    assert!(english.starts_with("I finished this turn without writing up a result."));
+    assert!(super::is_final_summary(&OPENHUMAN_CLOSE_COPY, &english));
+    assert!(!super::is_final_summary(&OPENHUMAN_CLOSE_COPY, &own));
+}
+
+#[test]
+fn a_copy_without_an_opening_never_matches_a_reply() {
+    let copy = tinyagents_harness::close::CloseCopy {
+        final_summary_template: "{results}",
+        ..OPENHUMAN_CLOSE_COPY
+    };
+    assert!(!super::is_final_summary(&copy, "anything at all"));
+}

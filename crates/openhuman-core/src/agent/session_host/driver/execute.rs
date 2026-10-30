@@ -227,6 +227,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
                 accepted_history.clone(),
             )
         };
+        let close_copy = request.run_context.data.close_copy();
         let close = tokio::select! {
             biased;
             _ = cancellation.cancelled() => return Err(stopped()),
@@ -239,6 +240,7 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
                 &request.history,
                 &user_message,
                 &outcome,
+                &close_copy,
                 close_by.map(|at| at.saturating_duration_since(Instant::now())),
                 supplemental_trace.as_ref(),
             ) => close,
@@ -252,12 +254,12 @@ impl SessionDriver<OpenHumanRunContext> for OpenHumanSessionDriver {
         // fallback is not a completed answer; preserve resumability by making
         // the durable reply an explicit checkpoint.
         if outcome.text.trim().is_empty()
-            && output.starts_with("I finished this turn without writing up a result.")
+            && super::super::product_copy::is_final_summary(&close_copy, &output)
         {
             let results = super::super::product_copy::close_results(&outcome.tool_outcomes);
             let rendered = super::super::product_copy::render_close_results(&results, 4_000);
             output = tinyagents_harness::close::checkpoint_with_copy(
-                &super::super::product_copy::OPENHUMAN_CLOSE_COPY,
+                &close_copy,
                 self.max_iterations,
                 &rendered,
                 !results.is_empty(),

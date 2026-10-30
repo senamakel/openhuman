@@ -169,6 +169,17 @@ impl RuntimeBuilder {
         self.agent_defaults.model = model;
         self
     }
+    /// The wording every agent's turns are closed with when they stop at the
+    /// call cap or end without a reply: the instruction the model is given,
+    /// the deterministic fallbacks and the repair prompts. Left unset, the
+    /// English default ([`ENGLISH_CLOSE_COPY`](crate::ENGLISH_CLOSE_COPY)) is
+    /// used. Start from that constant and override what differs, so a turn
+    /// whose users read another language is not told to write an operator's
+    /// report; [`Turn::close_copy`](crate::Turn::close_copy) overrides it for one turn.
+    pub fn close_copy(mut self, copy: crate::CloseCopy) -> Self {
+        self.agent_defaults.close_copy = Some(copy);
+        self
+    }
     /// Default confinement for new agents.
     pub fn sandbox(mut self, mode: crate::SandboxModeSpec) -> Self {
         self.agent_defaults.sandbox = mode;

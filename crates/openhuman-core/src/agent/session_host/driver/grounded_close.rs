@@ -238,6 +238,7 @@ pub(super) struct GroundedClose {
 /// Keeping this separate from the model-driven repair path guarantees zero
 /// additional provider calls once its recovery budget is exhausted.
 fn deterministic_final_summary_with_cause(
+    copy: &tinyagents_harness::close::CloseCopy,
     results: &[tinyagents_harness::close::CloseToolResult],
     stop_reason: Option<&str>,
     failure_cause: Option<&tinyagents_harness::no_progress::ClassifiedStopCause>,
@@ -250,14 +251,13 @@ fn deterministic_final_summary_with_cause(
         );
     }
     let rendered = product_copy::render_close_results(results, 4_000);
-    tinyagents_harness::close::final_summary_with_copy(
-        &product_copy::OPENHUMAN_CLOSE_COPY,
-        &rendered,
-        !results.is_empty(),
-    )
+    tinyagents_harness::close::final_summary_with_copy(copy, &rendered, !results.is_empty())
 }
 
-fn classified_halt_close(outcome: &TinyagentsTurnOutcome) -> Option<GroundedClose> {
+fn classified_halt_close(
+    outcome: &TinyagentsTurnOutcome,
+    copy: &tinyagents_harness::close::CloseCopy,
+) -> Option<GroundedClose> {
     let reason = outcome.breaker_halt.as_deref().unwrap_or_default();
     if outcome.failure_cause.is_none() && !reason.starts_with("Stopping after ") {
         return None;
@@ -265,6 +265,7 @@ fn classified_halt_close(outcome: &TinyagentsTurnOutcome) -> Option<GroundedClos
     let records = product_copy::close_results(&outcome.tool_outcomes);
     Some(GroundedClose {
         output: deterministic_final_summary_with_cause(
+            copy,
             &records,
             Some(reason),
             outcome.failure_cause.as_ref(),
@@ -365,13 +366,14 @@ pub(super) async fn repair_required_output(
 /// output tokens while reasoning) rather than claiming the model finished.
 fn close_instruction(
     outcome: &TinyagentsTurnOutcome,
+    copy: &tinyagents_harness::close::CloseCopy,
     needs_cap_close: bool,
     rendered: &str,
 ) -> String {
     if needs_cap_close {
         return format!(
             "{}\n\n<tool_records>\n{}\n</tool_records>",
-            wrap_harness_instruction(product_copy::OPENHUMAN_CLOSE_COPY.max_iteration_instruction),
+            wrap_harness_instruction(copy.max_iteration_instruction),
             if rendered.is_empty() {
                 "(no tool calls completed)"
             } else {
@@ -387,7 +389,7 @@ fn close_instruction(
         );
     }
     tinyagents_harness::close::final_answer_instruction(
-        &product_copy::OPENHUMAN_CLOSE_COPY,
+        copy,
         outcome.breaker_halt.as_deref(),
         outcome.truncated,
         rendered,
@@ -405,6 +407,7 @@ pub(super) async fn close_if_needed(
     base_history: &[tinyinference_llm::message::Message],
     user_message: &str,
     outcome: &TinyagentsTurnOutcome,
+    copy: &tinyagents_harness::close::CloseCopy,
     budget: Option<std::time::Duration>,
     trace: Option<&Arc<SupplementalTrace>>,
 ) -> Option<GroundedClose> {
@@ -416,34 +419,32 @@ pub(super) async fn close_if_needed(
         return None;
     }
 
-    if let Some(close) = classified_halt_close(outcome) {
+    if let Some(close) = classified_halt_close(outcome, copy) {
         return Some(close);
     }
     let records = product_copy::close_results(&outcome.tool_outcomes);
     let rendered = product_copy::render_close_results(&records, 16_000);
-    let instruction = close_instruction(outcome, needs_cap_close, &rendered);
+    let instruction = close_instruction(outcome, copy, needs_cap_close, &rendered);
     let history: Vec<tinyinference_llm::message::Message> = base_history
         .iter()
         .filter_map(message_to_native_chat_message)
         .map(|message| crate::agent::tinyagents::chat_message_to_message(&message))
         .collect();
     let stop_reason = outcome.breaker_halt.as_deref();
-    let harness_needles = tinyagents_harness::close::instruction_needles(
-        &product_copy::OPENHUMAN_CLOSE_COPY,
-        stop_reason,
-    );
+    let harness_needles = product_copy::close_needles(copy, stop_reason);
     let harness_phrases: Vec<&str> = harness_needles.iter().map(String::as_str).collect();
     let fallback = || {
         if needs_cap_close {
             let checkpoint_results = product_copy::render_close_results(&records, 4_000);
             tinyagents_harness::close::checkpoint_with_copy(
-                &product_copy::OPENHUMAN_CLOSE_COPY,
+                copy,
                 outcome.model_calls,
                 &checkpoint_results,
                 !records.is_empty(),
             )
         } else {
             deterministic_final_summary_with_cause(
+                copy,
                 &records,
                 stop_reason,
                 outcome.failure_cause.as_ref(),
@@ -471,7 +472,7 @@ pub(super) async fn close_if_needed(
     };
     let verification_prompt = |candidate: &str| -> String {
         tinyagents_harness::close::verification_prompt(
-            &product_copy::OPENHUMAN_CLOSE_COPY,
+            copy,
             user_message,
             &rendered,
             candidate,
@@ -479,11 +480,7 @@ pub(super) async fn close_if_needed(
         )
     };
     let repair_instruction = |violation: tinyagents_harness::close::CloseViolation| -> String {
-        tinyagents_harness::close::repair_with_copy(
-            &product_copy::OPENHUMAN_CLOSE_COPY,
-            &instruction,
-            violation,
-        )
+        tinyagents_harness::close::repair_with_copy(copy, &instruction, violation)
     };
     let output = tinyagents_harness::close::grounded_close_with_options(
         &model_client,

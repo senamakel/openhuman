@@ -372,6 +372,7 @@ impl Turn {
         host_env.cancellation = self.native_cancellation.clone();
         host_env.hooks = std::mem::take(&mut self.hooks);
         host_env.fresh_tool_snapshot = self.tools.is_some();
+        host_env.close_copy = self.close_copy.take();
         host_env.approval = openhuman_core::security::approval::ApprovalTurnContext {
             flow_run: self.flow_run.take().map(|(flow_id, run_id)| {
                 openhuman_core::security::approval::FlowRunContext { flow_id, run_id }

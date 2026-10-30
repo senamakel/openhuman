@@ -183,6 +183,7 @@ pub(super) fn install_turn_middleware(
     let super::host::HarnessHostPolicy {
         stop_hooks,
         tool_hooks: scoped_tool_hooks,
+        close_copy,
         ..
     } = host_policy;
     let model = model.as_str();
@@ -481,6 +482,7 @@ pub(super) fn install_turn_middleware(
         microcompact_keep_recent,
         summarizer,
         pause_at_cap && subagent_scope.is_none(),
+        &close_copy.unwrap_or(crate::agent::session_host::product_copy::OPENHUMAN_CLOSE_COPY),
         &tool_outcome_sink,
         memory_turn,
         compaction_notice,

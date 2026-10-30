@@ -18,6 +18,44 @@ pub(crate) const OPENHUMAN_STOP_COPY: tinyagents_harness::turn_stop::StopCopy =
 pub(crate) const OPENHUMAN_CLOSE_COPY: tinyagents_harness::close::CloseCopy =
     tinyagents_harness::close::ENGLISH_CLOSE_COPY;
 
+/// The phrases that mark `copy`'s directions as echoed back to the user.
+///
+/// The harness derives them from `copy.instruction_needles`, a static list an
+/// embedder's copy usually inherits from the English default. The instructions
+/// the turn is actually given are added here, so a copy that rewrites one is
+/// still recognised when the model repeats it.
+pub(crate) fn close_needles(
+    copy: &tinyagents_harness::close::CloseCopy,
+    stop_reason: Option<&str>,
+) -> Vec<String> {
+    let mut sources: Vec<&str> = copy.instruction_needles.to_vec();
+    for instruction in [
+        copy.max_iteration_instruction,
+        copy.final_write_instruction,
+        copy.final_answer_instruction,
+        copy.truncated_answer_instruction,
+    ] {
+        if !sources.contains(&instruction) {
+            sources.push(instruction);
+        }
+    }
+    if let Some(reason) = stop_reason {
+        sources.push(reason);
+    }
+    tinyagents_harness::close::harness_instruction_needles(&sources, copy.minimum_quoted_words)
+}
+
+/// Whether `output` is `copy`'s deterministic "finished without a result"
+/// summary, judged by the wording its template opens with.
+pub(crate) fn is_final_summary(copy: &tinyagents_harness::close::CloseCopy, output: &str) -> bool {
+    let opening = copy
+        .final_summary_template
+        .split('{')
+        .next()
+        .unwrap_or_default();
+    !opening.trim().is_empty() && output.starts_with(opening)
+}
+
 /// Capture bounded result text for the OpenHuman checkpoint and close paths.
 pub(crate) fn close_results(
     outcomes: &[tinyagents_harness::turn_outcome::ToolCallOutcome],

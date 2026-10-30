@@ -193,6 +193,9 @@ pub struct OpenHumanRunContext {
     /// Host cap on real tool invocations for this turn tree; `None` leaves the
     /// product default. Inherited by children.
     pub tool_call_limit: Option<usize>,
+    /// The host's wording for closing this turn tree at its call cap or
+    /// without a reply; `None` is the English default. Inherited by children.
+    pub close_copy: Option<tinyagents_harness::close::CloseCopy>,
     /// This turn's input is untrusted data (a host-only reviewer reading a PR
     /// diff), so the security gate built for it does not screen the input.
     pub untrusted_input_turn: bool,
@@ -333,6 +336,8 @@ pub(crate) struct HarnessHostPolicy {
     pub(crate) tool_hooks: Vec<Arc<dyn tinyagents_hooks::tool::ToolHook<OpenHumanRunContext>>>,
     /// The host's cap on real tool invocations.
     pub(crate) tool_call_cap: Option<usize>,
+    /// The host's wording for closing the turn at its call cap.
+    pub(crate) close_copy: Option<tinyagents_harness::close::CloseCopy>,
 }
 
 pub use super::operation_context::{approval_for_tool, OpenHumanRunExt};

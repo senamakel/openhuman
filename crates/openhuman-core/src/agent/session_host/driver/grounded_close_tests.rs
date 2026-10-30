@@ -63,7 +63,8 @@ fn classified_halt_returns_partial_work_without_provider_usage() {
         ],
         compaction: None,
     };
-    let close = classified_halt_close(&outcome).expect("classified halt");
+    let close = classified_halt_close(&outcome, &product_copy::OPENHUMAN_CLOSE_COPY)
+        .expect("classified halt");
     assert_eq!(close.usage.model_calls, 0);
     assert!(close.output.contains("permission"), "{}", close.output);
     assert!(
@@ -147,6 +148,7 @@ async fn grounded_close_uses_the_selected_model_and_keeps_verifier_out_of_contex
         &history,
         "Summarize the workspace.",
         &outcome,
+        &product_copy::OPENHUMAN_CLOSE_COPY,
         None,
         None,
     )
@@ -193,6 +195,7 @@ async fn terminal_failed_close_requests_are_counted_without_usage() {
         &[],
         "Summarize the workspace.",
         &blank_outcome(false),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
         None,
         None,
     )
@@ -239,6 +242,7 @@ async fn close_state_machine_calls_emit_correlated_native_model_events() {
             &[],
             "Summarize the workspace.",
             &blank_outcome(false),
+            &product_copy::OPENHUMAN_CLOSE_COPY,
             None,
             Some(&trace),
         )
@@ -382,6 +386,7 @@ async fn close_stream_eof_and_timeout_emit_terminal_traces_without_timeout_usage
             &[],
             "Summarize the workspace.",
             &blank_outcome(false),
+            &product_copy::OPENHUMAN_CLOSE_COPY,
             pending.then_some(std::time::Duration::from_secs(1)),
             Some(&trace),
         )
@@ -507,7 +512,12 @@ fn blank_outcome(truncated: bool) -> TinyagentsTurnOutcome {
 /// using tools" — which told the model its unfinished work was done.
 #[test]
 fn a_truncated_turn_is_closed_with_the_output_budget_named() {
-    let truncated = close_instruction(&blank_outcome(true), false, RECORDS);
+    let truncated = close_instruction(
+        &blank_outcome(true),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
+        false,
+        RECORDS,
+    );
     assert!(
         truncated.contains("ran out of output tokens"),
         "{truncated}"
@@ -518,7 +528,12 @@ fn a_truncated_turn_is_closed_with_the_output_budget_named() {
     );
     assert!(truncated.contains("<tool_records>"), "{truncated}");
 
-    let finished = close_instruction(&blank_outcome(false), false, RECORDS);
+    let finished = close_instruction(
+        &blank_outcome(false),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
+        false,
+        RECORDS,
+    );
     assert!(
         finished.contains("You have finished using tools"),
         "{finished}"
@@ -528,7 +543,12 @@ fn a_truncated_turn_is_closed_with_the_output_budget_named() {
 /// The cap checkpoint still wins when the run also hit its call cap.
 #[test]
 fn a_capped_truncated_turn_gets_the_cap_checkpoint() {
-    let out = close_instruction(&blank_outcome(true), true, RECORDS);
+    let out = close_instruction(
+        &blank_outcome(true),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
+        true,
+        RECORDS,
+    );
     assert!(!out.contains("ran out of output tokens"), "{out}");
     assert!(out.contains("<tool_records>"), "{out}");
 }

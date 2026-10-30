@@ -114,3 +114,23 @@ async fn api_key_wins_over_an_expired_session() {
         BackendCredential::ApiKey("th_key".to_string())
     );
 }
+
+#[cfg(feature = "security-module")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn encrypted_api_key_retains_the_admitted_host_configuration() {
+    let dir = tempfile::tempdir().expect("isolated credentials");
+    let mut config = config_in(dir.path());
+    config.secrets.encrypt = true;
+    crate::modules::security::ensure_loaded(&config)
+        .await
+        .expect("admit native security for encrypted credentials");
+    store_api_key(&config, "fixture-encrypted-api-key")
+        .await
+        .expect("store with the admitted host configuration");
+    assert_eq!(
+        get_api_key(&config).await.expect("read encrypted key").as_deref(),
+        Some("fixture-encrypted-api-key")
+    );
+    assert!(clear_api_key(&config).await.expect("remove encrypted key"));
+    assert_eq!(get_api_key(&config).await.expect("read removed key"), None);
+}

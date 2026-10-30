@@ -332,7 +332,8 @@ async fn set_active_profile_errors_for_missing_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let err = store
-        .set_active_profile("openai", "missing:id").await
+        .set_active_profile("openai", "missing:id")
+        .await
         .unwrap_err();
     assert!(err.to_string().contains("not found"));
 }
@@ -351,7 +352,7 @@ async fn set_active_profile_succeeds_for_existing_profile() {
 }
 
 #[tokio::test]
-async fn clear_active_profile().await {
+async fn clear_active_profile() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
     let profile = AuthProfile::new_token("openai", "prod", "tok".into());
@@ -388,7 +389,8 @@ async fn update_profile_modifies_in_place() {
         .update_profile(&id, |p| {
             p.metadata.insert("env".into(), "staging".into());
             Ok(())
-        }).await
+        })
+        .await
         .unwrap();
     assert_eq!(
         updated.metadata.get("env").map(|s| s.as_str()),
@@ -400,7 +402,10 @@ async fn update_profile_modifies_in_place() {
 async fn update_profile_errors_for_missing_id() {
     let tmp = TempDir::new().unwrap();
     let store = AuthProfilesStore::new(tmp.path(), false);
-    let err = store.update_profile("missing:id", |_| Ok(())).await.unwrap_err();
+    let err = store
+        .update_profile("missing:id", |_| Ok(()))
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("not found"));
 }
 
@@ -565,7 +570,13 @@ async fn acquire_lock_serializes_same_process_acquirers() {
         .unwrap_or_else(|poisoned| poisoned.into_inner());
 
     let other = store.clone();
-    let waiter = std::thread::spawn(move || tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(other.load()));
+    let waiter = std::thread::spawn(move || {
+        tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(other.load())
+    });
 
     // Let the waiter enter the WouldBlock loop, then release; it should proceed.
     std::thread::sleep(std::time::Duration::from_millis(150));

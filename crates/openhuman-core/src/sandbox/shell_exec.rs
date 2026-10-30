@@ -190,7 +190,7 @@ async fn run_owned(
 ) -> anyhow::Result<ShellRunOutcome> {
     let yield_after = run.yield_after;
     let workspace = path_string(&run.workspace, "command workspace")?;
-    let request = contract::NativeShellRunRequest {
+    let request = tinybox_host::NativeShellRunRequest {
         create: contract::CreateRequest {
             resource: contract::ResourceId(String::new()),
             backend: "passthrough".to_owned(),
@@ -213,7 +213,7 @@ async fn run_owned(
         yield_after,
     };
     let client = TinyBoxNativeShellClient { config };
-    let outcome = contract::run_native_shell(
+    let outcome = tinybox_host::run_native_shell(
         &client,
         request,
         async move {
@@ -228,7 +228,7 @@ async fn run_owned(
     .await;
     let outcome = match outcome {
         Ok(outcome) => outcome,
-        Err(contract::NativeShellError::Execution(code)) => {
+        Err(tinybox_host::NativeShellError::Execution(code)) => {
             // v0.2.4 returns timeout output as `Finished`; this is a defensive
             // fallback for an incompatible module that reports it as a failure.
             if failure_timed_out(code)? {
@@ -242,7 +242,7 @@ async fn run_owned(
         }
     };
     match outcome {
-        contract::NativeShellRunOutcome::Finished(output) => {
+        tinybox_host::NativeShellRunOutcome::Finished(output) => {
             Ok(ShellRunOutcome::Finished(SandboxExecResult {
                 exit_code: output.exit_code,
                 stdout: String::from_utf8_lossy(&output.stdout).into_owned(),
@@ -250,7 +250,7 @@ async fn run_owned(
                 timed_out: output.timed_out,
             }))
         }
-        contract::NativeShellRunOutcome::Running(running) => {
+        tinybox_host::NativeShellRunOutcome::Running(running) => {
             tracing::debug!("[sandbox:shell] command still running at its yield point");
             Ok(ShellRunOutcome::Running(LiveShell {
                 stdout: String::from_utf8_lossy(&running.stdout).into_owned(),
@@ -274,7 +274,7 @@ struct TinyBoxNativeShellClient<'a> {
 }
 
 #[cfg(feature = "modules")]
-impl contract::NativeShellClient for TinyBoxNativeShellClient<'_> {
+impl tinybox_host::NativeShellClient for TinyBoxNativeShellClient<'_> {
     type Error = String;
 
     async fn reserve(

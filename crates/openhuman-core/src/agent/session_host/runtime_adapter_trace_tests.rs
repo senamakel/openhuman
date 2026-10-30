@@ -6,6 +6,7 @@ use tinyinference_llm::model::{ChatModel, ModelProfile, ModelRequest, ModelRespo
 
 struct GatedRepairModel {
     calls: std::sync::atomic::AtomicUsize,
+    total_calls: std::sync::atomic::AtomicUsize,
     repair_started: tokio::sync::Notify,
     repair_call_id: std::sync::Mutex<Option<String>>,
     user_messages: std::sync::Mutex<Vec<String>>,
@@ -28,6 +29,8 @@ impl ChatModel<()> for GatedRepairModel {
         _state: &(),
         request: ModelRequest,
     ) -> tinyinference_llm::Result<ModelResponse> {
+        self.total_calls
+            .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         self.user_messages.lock().unwrap().extend(
             request
                 .messages
@@ -76,6 +79,7 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
     );
     let model = Arc::new(GatedRepairModel {
         calls: std::sync::atomic::AtomicUsize::new(0),
+        total_calls: std::sync::atomic::AtomicUsize::new(0),
         repair_started: tokio::sync::Notify::new(),
         repair_call_id: std::sync::Mutex::new(None),
         user_messages: std::sync::Mutex::new(Vec::new()),
@@ -124,7 +128,8 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
     .await
     .unwrap_or_else(|_| {
         panic!(
-            "host supplemental repair starts (non-supplemental model calls: {})",
+            "host supplemental repair starts (model calls: {}, non-supplemental: {})",
+            model.total_calls.load(std::sync::atomic::Ordering::SeqCst),
             model.calls.load(std::sync::atomic::Ordering::SeqCst)
         )
     });

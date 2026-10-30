@@ -7,6 +7,7 @@ fn tui_host_builds_a_runtime_that_answers_a_read_rpc() {
     let workspace = tempfile::tempdir().expect("workspace tempdir");
     std::env::set_var("HOME", workspace.path());
     std::env::set_var("USERPROFILE", workspace.path());
+    std::env::set_var("TOKIO_WORKER_THREADS", "2");
     std::env::set_var("OPENHUMAN_WORKSPACE", workspace.path());
     // Isolate from the operator's environment: a storage URL would route the
     // session store to a real backend, and a backend URL to a real host.

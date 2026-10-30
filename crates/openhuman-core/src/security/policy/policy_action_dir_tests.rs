@@ -8,12 +8,17 @@ use super::*;
 use std::fs;
 
 #[cfg(feature = "security-module")]
-async fn load_security_fixture() {
+async fn with_security_fixture(future: impl std::future::Future<Output = ()>) {
     let mut config = crate::config::Config::default();
     config.modules.enabled = true;
     crate::modules::security::ensure_loaded(&config)
         .await
         .expect("the TinySecurity module should load for enabled policy tests");
+    let core = crate::core::runtime::CoreContext::for_test_with_config(
+        crate::core::runtime::DomainSet::full(),
+        config,
+    );
+    crate::core::runtime::CoreContext::scope(core, future).await;
 }
 
 /// The configured `action_dir` must be a read-write trusted root.
@@ -54,7 +59,12 @@ fn from_config_grants_the_configured_action_dir_as_readwrite_root() {
 #[tokio::test]
 async fn an_enabled_policy_can_write_into_its_action_dir_outside_the_workspace() {
     #[cfg(feature = "security-module")]
-    load_security_fixture().await;
+    return with_security_fixture(async { enabled_action_dir_write_is_allowed().await }).await;
+    #[cfg(not(feature = "security-module"))]
+    enabled_action_dir_write_is_allowed().await;
+}
+
+async fn enabled_action_dir_write_is_allowed() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     let action = tmp.path().join("elsewhere/action");
@@ -100,7 +110,12 @@ fn from_config_does_not_grant_an_action_dir_covering_the_workspace() {
 #[tokio::test]
 async fn tool_result_artifacts_are_readable_by_absolute_path_under_workspace_only() {
     #[cfg(feature = "security-module")]
-    load_security_fixture().await;
+    return with_security_fixture(async { tool_result_artifact_policy_is_enforced().await }).await;
+    #[cfg(not(feature = "security-module"))]
+    tool_result_artifact_policy_is_enforced().await;
+}
+
+async fn tool_result_artifact_policy_is_enforced() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let workspace = tmp.path().join("workspace");
     let action = tmp.path().join("project");

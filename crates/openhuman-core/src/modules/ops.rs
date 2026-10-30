@@ -29,13 +29,13 @@ use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
 use std::time::Duration;
 
-use super::types::{ModuleRecord, ModuleSource, ModuleState, ModuleStatus};
+use super::types::{ModuleRecord, ModuleSource, ModuleState};
 use super::{linked, registry, report, runtime, source};
 use crate::config::Config;
 use tinybus::module::{
-    AccessFuture, Availability, FailureReporter, LinkedRegistry, LoadError, ModuleAccess,
-    ModuleClient, ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver,
-    ResolverInputs, SearchPathConfig,
+    AccessFuture, FailureReporter, LinkedRegistry, LoadError, ModuleAccess, ModuleClient,
+    ModuleSource as ResolverSource, ProxyFailure, ReleaseRecord, Resolver, ResolverInputs,
+    SearchPathConfig,
 };
 use tinybus::Proxy;
 

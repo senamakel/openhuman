@@ -130,6 +130,22 @@ impl ProgressiveChannelTransport for ModuleChannel {
                     durability: tinychannels_bus::channel::DeliveryDurability::Required,
                     payload: tinychannels_bus::channel::OutboundPayload::Text { text },
                 };
+                let intent = tinychannels_bus::channel::ChannelOutboundMessage {
+                    channel_id: intent.channel_id,
+                    conversation_id: intent.conversation_id,
+                    channel_ref: intent.channel_ref,
+                    thread_id: intent.thread_id,
+                    conversation_ref: intent.conversation_ref,
+                    reply_to_id: intent.reply_to_id,
+                    turn_id: intent.turn_id,
+                    idempotency_key: intent.idempotency_key,
+                    parts: vec![tinychannels_bus::OutboundContentPart::Content {
+                        part: tinychannels_bus::ContentPart::Text {
+                            text,
+                            markdown_dialect: None,
+                        },
+                    }],
+                };
                 match self
                     .object
                     .call_confidential::<ChannelInteractionResult>(
@@ -207,11 +223,7 @@ fn map_edit_outcome(
 
     match outcome.error.as_ref().map(|error| error.kind) {
         Some(SendErrorKind::NotFound) => Result::MessageGone,
-        _ if outcome
-            .error
-            .as_ref()
-            .is_some_and(|error| error.unsupported) =>
-        {
+        Some(SendErrorKind::Forbidden) | Some(SendErrorKind::BadFormat) => {
             Result::EditUnsupported
         }
         _ => Result::Outcome(Box::new(outcome)),

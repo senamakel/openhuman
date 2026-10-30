@@ -146,7 +146,7 @@ impl ProgressProjection {
     /// The first-token / first-tool / total timings, once `TurnCompleted` has
     /// been seen.
     pub(crate) fn timing_snapshot(&self) -> Option<TurnTimingSnapshot> {
-        self.timing_snapshot
+        self.timing_snapshot.clone()
     }
 
     fn elapsed_ms(&self) -> u64 {

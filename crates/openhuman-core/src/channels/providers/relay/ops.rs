@@ -200,7 +200,7 @@ pub(crate) async fn run_relay_turn(
         &config,
         &security,
         PromptToolDescs::Registered,
-    ) {
+    ).await {
         Ok(parts) => parts,
         Err(error) => {
             tracing::error!(

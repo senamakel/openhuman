@@ -215,7 +215,9 @@ pub(super) async fn lookup_key_for_slug_read_only(
     let auth_profile_key = auth_key_for_slug(slug);
     for provider in [auth_profile_key.as_str(), slug] {
         if let Some((key, is_oauth, expires_at, account_id)) =
-            read_only_profile_credential(config, provider, None).await?
+            read_only_profile_credential(config, provider, None).await.map_err(|_| {
+                anyhow::anyhow!("No usable credentials for '{slug}'. Add a key in Connections → LLM.")
+            })?
         {
             if slug == "openai"
                 && is_oauth

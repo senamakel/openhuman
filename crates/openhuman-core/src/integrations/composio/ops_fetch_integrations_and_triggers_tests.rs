@@ -4,9 +4,7 @@ use super::*;
 async fn offline_local_session_never_fetches_hosted_integrations() {
     let _guard = cache_guard_async().await;
     let tmp = tempfile::tempdir().unwrap();
-    let mut config = Config::default();
-    config.workspace_dir = tmp.path().join("workspace");
-    config.config_path = tmp.path().join("config.toml");
+    let mut config = test_config(&tmp);
     config.api_url = Some("http://127.0.0.1:1".to_owned());
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(

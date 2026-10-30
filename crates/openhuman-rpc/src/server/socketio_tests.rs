@@ -560,11 +560,15 @@ async fn startup_preflight_socket_gate() {
     tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });
 
     let client = reqwest::Client::new();
-    let denied = client
-        .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
-        .send()
-        .await
-        .expect("preflight Engine.IO open");
+    let denied = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        client
+            .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
+            .send(),
+    )
+    .await
+    .expect("preflight Engine.IO request responds")
+    .expect("preflight Engine.IO open");
     assert!(
         denied.status() == reqwest::StatusCode::SERVICE_UNAVAILABLE,
         "initial Engine.IO request must be denied before allocating a session: {}",
@@ -577,28 +581,36 @@ async fn startup_preflight_socket_gate() {
     );
 
     gate.open();
-    let open = client
-        .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
-        .send()
-        .await
-        .expect("engine.io open after gate")
-        .text()
-        .await
-        .unwrap();
+    let open = tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        client
+            .get(format!("{base}/socket.io/?EIO=4&transport=polling"))
+            .send(),
+    )
+    .await
+    .expect("Engine.IO request responds after gate opens")
+    .expect("engine.io open after gate")
+    .text()
+    .await
+    .unwrap();
     let open: serde_json::Value =
         serde_json::from_str(open.trim_start_matches('0')).expect("engine.io open packet");
     let sid = open["sid"].as_str().expect("engine.io sid").to_owned();
     let url = format!("{base}/socket.io/?EIO=4&transport=polling&sid={sid}");
-    client
-        .post(&url)
-        .body(format!(
-            "40{}",
-            serde_json::json!({ "token": ensure_rpc_token() })
-        ))
-        .send()
-        .await
-        .expect("authenticated socket connect after gate");
-    let connected = tokio::time::timeout(std::time::Duration::from_secs(30), async {
+    tokio::time::timeout(
+        std::time::Duration::from_secs(5),
+        client
+            .post(&url)
+            .body(format!(
+                "40{}",
+                serde_json::json!({ "token": ensure_rpc_token() })
+            ))
+            .send(),
+    )
+    .await
+    .expect("Socket.IO connect request responds")
+    .expect("authenticated socket connect after gate");
+    let connected = tokio::time::timeout(std::time::Duration::from_secs(5), async {
         loop {
             let connected = client.get(&url).send().await.unwrap().text().await.unwrap();
             if connected.contains("\"ready\"") {

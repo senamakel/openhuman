@@ -351,6 +351,21 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
 
         let hard_reject = content.contains(tinytools::status::POLICY_BLOCKED_MARKER)
             || content.contains(tinytools::status::POLICY_DENIED_MARKER);
+        // Shell timeouts are retryable once even when the shell's repeat-call
+        // exemptions apply. A stopped command may have partially completed,
+        // so the first retry needs a reconcile-first correction.
+        if !hard_reject
+            && matches!(call.name.as_str(), "shell" | "shell_process")
+            && tinytools::status::classify(heuristic, false).class
+                == tinytools::status::ToolFailureClass::Timeout
+        {
+            return FailureAssessment::ClassifiedFailure {
+                class: "uncertain_side_effect".to_owned(),
+                budget: 1,
+                error: failure_text,
+                nudge: Some(super::failure_policy::uncertain_timeout_nudge(&call.name)),
+            };
+        }
         if !is_repeat_call_exempt(&call.name) {
             let effect = call_effect(
                 self.tool_facts
@@ -363,16 +378,7 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
             if let Some((class, budget)) =
                 recovery_policy_with_effect(&call.name, &failure_text, body_failure, effect)
             {
-                let timed_out = tinytools::status::classify(heuristic, false).class
-                    == tinytools::status::ToolFailureClass::Timeout;
-                #[cfg(test)]
-                if call.name == "shell" {
-                    eprintln!("timeout debug: text={failure_text:?} heuristic={heuristic:?} class={class:?} timed_out={timed_out} effect={effect:?}");
-                }
-                let nudge = if timed_out && matches!(call.name.as_str(), "shell" | "shell_process")
-                {
-                    Some(super::failure_policy::uncertain_timeout_nudge(&call.name))
-                } else if class == "missing_app" && call.name == "shell" {
+                let nudge = if class == "missing_app" && call.name == "shell" {
                     Some(missing_program_nudge(
                         &call.name,
                         &first_error_line(&failure_text),

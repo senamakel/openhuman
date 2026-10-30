@@ -1,8 +1,8 @@
 use super::super::channel::CHANNEL_OUTBOUND_EVENT;
 use super::*;
 use crate::agent::host_agents::{self, HostAgent, HostAgentResolver};
+use crate::core::runtime::turn_origin::AgentTurnOrigin;
 use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
-use crate::security::turn_origin::AgentTurnOrigin;
 use serde_json::{json, Value};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -33,7 +33,7 @@ async fn relayed_thread_and_external_authority_survive_scoped_spawn() {
                 .unwrap()
                 .derive_channel_turn(Some(thread.clone()), None),
             async {
-                crate::security::turn_origin::with_origin(origin, async {
+                crate::core::runtime::turn_origin::with_origin(origin, async {
                     let (child_thread, child_agent, child_origin) =
                         crate::core::runtime::DispatchCtx::ambient()
                             .spawn(async {
@@ -41,7 +41,7 @@ async fn relayed_thread_and_external_authority_survive_scoped_spawn() {
                                     CoreContext::current_channel_thread(),
                                     CoreContext::scoped()
                                         .and_then(|ctx| ctx.session_agent().map(str::to_owned)),
-                                    crate::security::turn_origin::current(),
+                                    crate::core::runtime::turn_origin::current(),
                                 )
                             })
                             .await

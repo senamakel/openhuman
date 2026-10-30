@@ -96,7 +96,7 @@ impl HostAgent {
         channel: &str,
         message: &str,
         message_input: Option<tinyinference_llm::message::Message>,
-        origin: crate::security::turn_origin::AgentTurnOrigin,
+        origin: crate::core::runtime::turn_origin::AgentTurnOrigin,
         approval: crate::security::approval::ApprovalTurnContext,
         progress: Option<tokio::sync::mpsc::Sender<crate::progress::AgentProgress>>,
         run_queue: Option<

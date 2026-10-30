@@ -1,7 +1,7 @@
 //! Translation from product subagent outcomes to neutral orchestration records.
 
 use super::*;
-use crate::agent::subagent_host::types::SubagentUsageExt;
+use crate::agent::subagent_host::SubagentUsageExt;
 
 pub(super) const CLASSIFIED_STOP_CAUSE_EXTENSION: &str = "openhuman.classified_stop_cause";
 

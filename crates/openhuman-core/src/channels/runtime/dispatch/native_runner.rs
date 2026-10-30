@@ -126,7 +126,7 @@ impl TurnHost<QueuedPayload> for NativeHost {
             return serde_json::Value::Null;
         };
         match &trusted.origin {
-            crate::security::turn_origin::AgentTurnOrigin::ExternalChannel {
+            crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel {
                 channel,
                 sender,
                 reply_target,

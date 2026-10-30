@@ -98,7 +98,7 @@ struct Probe {
     name: &'static str,
     level: PermissionLevel,
     runs: Arc<AtomicUsize>,
-    origins: Arc<Mutex<Vec<Option<crate::security::turn_origin::AgentTurnOrigin>>>>,
+    origins: Arc<Mutex<Vec<Option<crate::core::runtime::turn_origin::AgentTurnOrigin>>>>,
 }
 
 #[async_trait::async_trait]
@@ -129,7 +129,7 @@ struct OneHostAgent {
     config: Config,
     reads: Arc<AtomicUsize>,
     writes: Arc<AtomicUsize>,
-    origins: Arc<Mutex<Vec<Option<crate::security::turn_origin::AgentTurnOrigin>>>>,
+    origins: Arc<Mutex<Vec<Option<crate::core::runtime::turn_origin::AgentTurnOrigin>>>>,
 }
 
 impl HostAgentResolver for OneHostAgent {
@@ -382,7 +382,7 @@ async fn bound_channel_runs_its_host_agent() {
     assert!(
         matches!(
             origins.as_slice(),
-            [Some(crate::security::turn_origin::AgentTurnOrigin::ExternalChannel { channel, .. })]
+            [Some(crate::core::runtime::turn_origin::AgentTurnOrigin::ExternalChannel { channel, .. })]
                 if channel == "telegram"
         ),
         "the read-only tool ran under the channel's origin: {origins:?}"

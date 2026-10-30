@@ -72,6 +72,45 @@ fn memory_too_large_for_bytes_is_refused() {
 }
 
 #[test]
+fn unusable_box_settings_are_refused_with_a_config_error() {
+    let defaults = OpenShellRuntimeConfig::default();
+    for config in [
+        OpenShellRuntimeConfig {
+            image: "  ".into(),
+            ..defaults.clone()
+        },
+        OpenShellRuntimeConfig {
+            cpu_millis: 0,
+            ..defaults.clone()
+        },
+        OpenShellRuntimeConfig {
+            memory_mb: 0,
+            ..defaults.clone()
+        },
+    ] {
+        let refused = BoxSettings::from_config(&config).unwrap_err();
+        assert!(matches!(refused, BoxError::InvalidConfig(_)), "{refused:?}");
+        assert!(refused.to_string().contains("[runtime.openshell]"));
+    }
+}
+
+#[test]
+fn zero_registry_limits_are_raised_to_one() {
+    let config = OpenShellRuntimeConfig {
+        idle_ttl_secs: 0,
+        max_live: 0,
+        ..OpenShellRuntimeConfig::default()
+    };
+    assert_eq!(
+        RegistryLimits::from_config(&config),
+        RegistryLimits {
+            idle_ttl: Duration::from_secs(1),
+            max_live: 1,
+        }
+    );
+}
+
+#[test]
 fn the_command_env_is_only_what_the_request_carries() {
     let mut extra = HashMap::new();
     extra.insert(OsString::from("GIT_TERMINAL_PROMPT"), OsString::from("0"));

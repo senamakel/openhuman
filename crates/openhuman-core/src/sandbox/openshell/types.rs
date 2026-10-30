@@ -25,8 +25,18 @@ impl BoxSettings {
     ///
     /// # Errors
     ///
-    /// [`BoxError::InvalidMemory`] when `memory_mb` does not fit in bytes.
+    /// [`BoxError::InvalidConfig`] when `image` is blank or `cpu_millis` or
+    /// `memory_mb` is zero; [`BoxError::InvalidMemory`] when `memory_mb` does
+    /// not fit in bytes.
     pub fn from_config(config: &OpenShellRuntimeConfig) -> Result<Self, BoxError> {
+        if config.image.trim().is_empty() {
+            return Err(BoxError::InvalidConfig("image must not be blank"));
+        }
+        if config.cpu_millis == 0 || config.memory_mb == 0 {
+            return Err(BoxError::InvalidConfig(
+                "cpu_millis and memory_mb must be positive",
+            ));
+        }
         let memory_bytes = config.memory_bytes().ok_or(BoxError::InvalidMemory {
             memory_mb: config.memory_mb,
         })?;
@@ -48,11 +58,13 @@ pub struct RegistryLimits {
 }
 
 impl RegistryLimits {
-    /// The bounds `[runtime.openshell]` sets.
+    /// The bounds `[runtime.openshell]` sets. A zero `max_live` would refuse
+    /// every command and a zero `idle_ttl_secs` would reap every box at once,
+    /// so each is raised to 1.
     pub fn from_config(config: &OpenShellRuntimeConfig) -> Self {
         Self {
-            idle_ttl: Duration::from_secs(config.idle_ttl_secs),
-            max_live: config.max_live,
+            idle_ttl: Duration::from_secs(config.idle_ttl_secs.max(1)),
+            max_live: config.max_live.max(1),
         }
     }
 }
@@ -116,6 +128,9 @@ pub enum BoxError {
         /// The configured value.
         memory_mb: u64,
     },
+    /// A `[runtime.openshell]` value is out of range.
+    #[error("invalid [runtime.openshell] setting: {0}")]
+    InvalidConfig(&'static str),
     /// A variable for the command is not UTF-8.
     #[error("sandbox environment is not UTF-8")]
     NonUtf8Env,

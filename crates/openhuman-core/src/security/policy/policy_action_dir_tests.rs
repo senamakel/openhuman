@@ -11,6 +11,7 @@ use std::fs;
 async fn with_security_fixture(future: impl std::future::Future<Output = ()>) {
     let mut config = crate::config::Config::default();
     config.modules.enabled = true;
+    config.modules.source = crate::config::schema::ModuleSourceMode::Source;
     crate::modules::security::ensure_loaded(&config)
         .await
         .expect("the TinySecurity module should load for enabled policy tests");

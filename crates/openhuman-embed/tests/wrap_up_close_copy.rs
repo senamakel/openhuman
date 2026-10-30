@@ -37,7 +37,10 @@ async fn scenario() {
     assert_eq!(turn.requests.len(), 4, "{:?}", turn.requests);
     assert!(turn.request_has(2, "RUNTIME WRITE: save what you found now."));
     assert!(turn.request_has(3, "RUNTIME CLOSE: answer in the user's language."));
-    assert!(!turn.model_saw(ENGLISH_CLOSE), "the English close reached the model");
+    assert!(
+        !turn.model_saw(ENGLISH_CLOSE),
+        "the English close reached the model"
+    );
     assert!(
         !turn.model_saw(ENGLISH_CLOSE_COPY.final_write_instruction),
         "the English write instruction reached the model"
@@ -47,7 +50,9 @@ async fn scenario() {
     // A copy set on one turn wins over the runtime's for that turn.
     let (agent, provider) = capped_turn::wrapped_up_agent(&runtime, "turn-copy").await;
     let turn = capped_turn::run(
-        agent.turn("Gather what you can and report").close_copy(TURN_COPY),
+        agent
+            .turn("Gather what you can and report")
+            .close_copy(TURN_COPY),
         &provider,
     )
     .await;

@@ -1,6 +1,6 @@
 //! Bind the core's HTTP listener and serve until shutdown.
 
-use std::{future::IntoFuture, sync::Arc};
+use std::sync::Arc;
 
 use tokio_util::sync::CancellationToken;
 

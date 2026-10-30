@@ -84,12 +84,15 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                         shutdown.clone(),
                         ready_tx,
                     ));
-                    let ready = tokio::select! {
-                        result = tokio::time::timeout(Duration::from_secs(120), ready_rx) => {
-                            result.expect("ready signal within the timeout")
-                                .expect("ready signal sent")
+                    let ready = match tokio::time::timeout(Duration::from_secs(120), ready_rx).await
+                    {
+                        Ok(Ok(ready)) => ready,
+                        Ok(Err(error)) => {
+                            let result = tokio::time::timeout(Duration::from_secs(5), &mut server)
+                                .await;
+                            panic!("desktop server closed ready channel ({error}); join: {result:?}");
                         }
-                        result = &mut server => panic!("desktop server ended before ready: {result:?}"),
+                        Err(_) => panic!("ready signal within the timeout"),
                     };
                     let EmbeddedReadySignal { port, .. } = ready;
                     // The listener may fall back to another port if the one we

@@ -219,7 +219,6 @@ pub(in crate::modules) async fn ensure_loaded(
         agent: "config-secrets".into(),
     };
     let scope = crate::security::approval::native::prepare_secret_scope(config, subject).await?;
-    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC prepared-scope");
 
     let target_backend = crate::security::secret_storage::store::effective_backend_kind();
     let target_backend_id = opaque_id("secret-backend", &key_path, &format!("{target_backend:?}"));
@@ -248,7 +247,6 @@ pub(in crate::modules) async fn ensure_loaded(
     let factory_legacy_backend_id = legacy_backend_id.clone();
     let factory_pairing_backend_id = pairing_backend_id.clone();
 
-    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC admit-start");
     let binding = resolver
         .ensure_loaded_with_host_callback_factory(id, move |_attempt| {
             let host = host;
@@ -263,13 +261,11 @@ pub(in crate::modules) async fn ensure_loaded(
             let legacy_backend_id = factory_legacy_backend_id.clone();
             let pairing_backend_id = factory_pairing_backend_id.clone();
             async move {
-                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC factory-entered");
                 let binding = std::sync::Arc::new(
                     host.prepare_host_callbacks(callback_endpoints()?)
                         .await
                         .map_err(|_| "security callback binding unavailable".to_owned())?,
                 );
-                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC callbacks-prepared");
                 let consumer = std::sync::Arc::new(super::cipher_consumer::Consumer::new(
                     registration_id.clone(),
                     consumer_id.clone(),
@@ -289,7 +285,6 @@ pub(in crate::modules) async fn ensure_loaded(
                 )
                 .await
                 .map_err(|_| "security callback registration failed".to_owned())?;
-                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC callbacks-served");
                 let pairing_store = super::device_pairing_store::DevicePairingStore::current(
                     &config,
                     pairing_backend_id.clone(),
@@ -313,7 +308,6 @@ pub(in crate::modules) async fn ensure_loaded(
                     state.scope.scope_id().to_owned(),
                     state.pairing_store.clone(),
                 );
-                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC candidate-ready");
                 let module_config = state.module_config(&config)?;
                 candidates
                     .lock()
@@ -324,7 +318,6 @@ pub(in crate::modules) async fn ensure_loaded(
         })
         .await?;
 
-    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC admit-finished");
     let selected_key = binding.unique_name().to_string();
     let mut candidates = candidates.lock().await;
     let state = candidates
@@ -333,7 +326,6 @@ pub(in crate::modules) async fn ensure_loaded(
     candidates.clear();
     loads.insert(id.to_owned(), std::sync::Arc::clone(&state));
 
-    #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC register-start");
     register_scope(config, &state).await?;
     Ok(())
 }

@@ -223,7 +223,7 @@ fn channel_activity_merge_patch(event: &tinychannels_bus::ChannelEvent) -> Resul
                 .ok_or_else(|| anyhow!("read receipt has no actor identity"))?;
             let receipt_key = keyed_digest(&[actor_id])?;
             Ok(json!({"channelActivity":{"readReceipts":{
-                (receipt_key): {"actorId":actor_id,"timestamp":read_at_unix_ms.or(event.timestamp_unix_ms.as_ref())}
+                (receipt_key): {"actorId":actor_id,"timestamp":(*read_at_unix_ms).or(event.timestamp_unix_ms)}
             }}}))
         }
         Kind::ReactionAdded {

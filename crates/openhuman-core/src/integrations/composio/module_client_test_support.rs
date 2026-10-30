@@ -3,12 +3,7 @@
 use crate::config::Config;
 
 pub(crate) fn config_in(directory: &std::path::Path) -> Config {
-    let mut config = Config {
-        config_path: directory.join("config.toml"),
-        workspace_dir: directory.join("workspace"),
-        ..Default::default()
-    };
-    config.secrets.encrypt = false;
+    let mut config = crate::credentials::test_support::plaintext_fixture_config(directory);
     // A locally staged source build exercises the contract compiled by this
     // checkout. The ordinary loader still verifies its operator trust manifest.
     #[cfg(feature = "modules")]

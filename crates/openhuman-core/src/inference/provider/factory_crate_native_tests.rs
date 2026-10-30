@@ -6,13 +6,7 @@ use crate::inference::provider::factory::cloud_slug::try_create_cloud_slug_chat_
 
 pub(super) fn isolated_config() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let mut config = Config {
-        config_path: tmp.path().join("config.toml"),
-        workspace_dir: tmp.path().join("workspace"),
-        ..Default::default()
-    };
-    // Model construction uses synthetic credentials, without native encryption.
-    config.secrets.encrypt = false;
+    let config = crate::credentials::test_support::plaintext_fixture_config(tmp.path());
     (tmp, config)
 }
 

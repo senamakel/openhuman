@@ -2,11 +2,7 @@ use super::*;
 use crate::credentials::backend_credential::{resolve_backend_credential, BackendCredential};
 
 fn config_in(dir: &std::path::Path) -> Config {
-    let mut config = Config::default();
-    config.config_path = dir.join("config.toml");
-    config.workspace_dir = dir.join("workspace");
-    config.secrets.encrypt = false;
-    config
+    crate::credentials::test_support::plaintext_fixture_config(dir)
 }
 
 #[tokio::test]

@@ -15,13 +15,7 @@ use tempfile::TempDir;
 use tokio::net::TcpListener;
 
 fn test_config(tmp: &TempDir) -> Config {
-    let config = Config {
-        workspace_dir: tmp.path().join("workspace"),
-        action_dir: tmp.path().join("workspace"),
-        config_path: tmp.path().join("config.toml"),
-        ..Config::default()
-    };
-    config
+    crate::credentials::test_support::plaintext_fixture_config(tmp.path())
 }
 
 fn jwt_with_payload(payload: serde_json::Value) -> String {

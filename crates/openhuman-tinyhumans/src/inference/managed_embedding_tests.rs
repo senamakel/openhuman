@@ -7,10 +7,12 @@ use tinyinference_embeddings::{
 };
 
 fn test_config(tmp: &tempfile::TempDir) -> Config {
-    Config {
+    let mut config = Config {
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
-    }
+    };
+    config.secrets.encrypt = false;
+    config
 }
 
 fn state_dir_of(config: &Config) -> std::path::PathBuf {

@@ -38,6 +38,17 @@ fn every_transport_operation_carries_the_channel_scoped_by_the_host() {
         ProgressiveTransportRequest::Typing {
             channel: "discord:fixture".into(),
         },
+        ProgressiveTransportRequest::OutputEvent {
+            channel: "discord:fixture".into(),
+            channel_ref: None,
+            conversation: None,
+            turn_id: "turn".into(),
+            sequence: 1,
+            event: Box::new(ChannelOutputEvent::TextDelta {
+                text: "hello".into(),
+                iteration: None,
+            }),
+        },
     ] {
         assert_eq!(request_channel(&request), "discord:fixture");
     }

@@ -9679,15 +9679,11 @@ dependencies = [
 name = "tinychannels-bus"
 version = "0.1.39"
 dependencies = [
- "anyhow",
- "async-trait",
  "base64 0.23.1",
  "schemars",
  "serde",
  "serde_json",
  "thiserror 2.0.21",
- "tinystoragedrivers-types",
- "tokio",
 ]
 
 [[package]]
@@ -10981,7 +10977,6 @@ dependencies = [
  "serde",
  "serde_json",
  "thiserror 2.0.21",
- "tinystoragedrivers-types",
 ]
 
 [[package]]

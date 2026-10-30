@@ -15,7 +15,11 @@ fn the_default_close_copy_is_unchanged() {
 async fn scenario() {
     let runtime = capped_turn::runtime_with(|builder| builder).await;
     let (agent, provider) = capped_turn::capped_agent(&runtime, "capped").await;
-    let turn = capped_turn::run(agent.turn("go"), &provider).await;
+    let turn = capped_turn::run(
+        agent.turn("Run the probe operation and tell me the result"),
+        &provider,
+    )
+    .await;
 
     assert!(turn.model_saw(
         "You have reached the maximum number of tool calls allowed for this single turn"

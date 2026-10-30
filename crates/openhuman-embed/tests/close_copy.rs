@@ -30,7 +30,11 @@ async fn scenario() {
 
     // The runtime's copy is what an agent's capped turn is closed with.
     let (agent, provider) = capped_turn::capped_agent(&runtime, "runtime-copy").await;
-    let turn = capped_turn::run(agent.turn("go"), &provider).await;
+    let turn = capped_turn::run(
+        agent.turn("Run the probe operation and tell me the result"),
+        &provider,
+    )
+    .await;
     assert!(turn.model_saw("RUNTIME CLOSE: answer the user in their own language."));
     assert!(
         !turn.model_saw("maximum number of tool calls"),
@@ -44,7 +48,13 @@ async fn scenario() {
 
     // A copy set on one turn wins over the runtime's for that turn.
     let (agent, provider) = capped_turn::capped_agent(&runtime, "turn-copy").await;
-    let turn = capped_turn::run(agent.turn("go").close_copy(TURN_COPY), &provider).await;
+    let turn = capped_turn::run(
+        agent
+            .turn("Run the probe operation and tell me the result")
+            .close_copy(TURN_COPY),
+        &provider,
+    )
+    .await;
     assert!(turn.model_saw("TURN CLOSE: answer the user in their own language."));
     assert!(!turn.model_saw("RUNTIME CLOSE"));
     assert!(

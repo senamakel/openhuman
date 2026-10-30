@@ -91,6 +91,9 @@ pub struct AgentDefaults {
     pub mcp_baseline: Vec<crate::McpServer>,
     /// Reusable named definition templates.
     pub templates: BTreeMap<String, AgentDefinitionSpec>,
+    /// Wording for closing a turn that stops at its call cap or ends without
+    /// a reply. `None` keeps the English default, [`crate::ENGLISH_CLOSE_COPY`].
+    pub close_copy: Option<crate::CloseCopy>,
 }
 impl Default for AgentDefaults {
     fn default() -> Self {
@@ -106,6 +109,7 @@ impl Default for AgentDefaults {
             #[cfg(feature = "mcp")]
             mcp_baseline: Vec::new(),
             templates: BTreeMap::new(),
+            close_copy: None,
         }
     }
 }

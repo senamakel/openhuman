@@ -81,6 +81,14 @@ pub struct HostTurnEnv {
     /// which tools, middleware and the provider factory read it; `None` leaves
     /// the session to bind the calling task's context when the turn starts.
     pub core: Option<std::sync::Weak<crate::core::runtime::CoreContext>>,
+    /// The wording this turn tree is closed with when it stops at its call
+    /// cap or ends without a reply: the instruction the model is given, the
+    /// deterministic fallbacks and the repair prompts. `None` keeps the
+    /// English default ([`ENGLISH_CLOSE_COPY`](tinyagents_harness::close::ENGLISH_CLOSE_COPY)).
+    /// An embedder whose users read the reply in their own language sets it so
+    /// that the model is not told to write an operator's report. Children
+    /// inherit it through the run context.
+    pub close_copy: Option<tinyagents_harness::close::CloseCopy>,
 }
 
 impl std::fmt::Debug for HostTurnEnv {
@@ -100,6 +108,7 @@ impl std::fmt::Debug for HostTurnEnv {
             .field("approval", &self.approval)
             .field("memory_identity", &self.memory_identity)
             .field("core", &self.core.is_some())
+            .field("close_copy", &self.close_copy.is_some())
             .finish()
     }
 }

@@ -94,6 +94,9 @@ pub use openhuman_core::{
     CoreBootMode, CoreBuilder, CoreRuntime, DaemonConfig, DomainSet, HostKind, ServiceSet,
     TokenSource,
 };
+/// The wording a turn is closed with when it stops at its call cap or ends
+/// without a reply, and the English default an embedder starts from.
+pub use tinyagents_harness::close::{CloseCopy, ENGLISH_CLOSE_COPY};
 /// Declarative execution requirements for host-owned tools, from the core's vendored contract.
 pub use tinytools::ToolPolicy;
 pub use tinytools::{PermissionLevel, Tool, ToolExposure, ToolResult};

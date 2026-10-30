@@ -115,6 +115,7 @@ pub(super) fn install_context_ladder(
     microcompact_keep_recent: usize,
     summarizer: CompactionSummarizer,
     wrap_up_at_cap: bool,
+    close_copy: &tinyagents_harness::close::CloseCopy,
     tool_outcome_sink: &ToolOutcomeSink,
     memory_turn: Option<Arc<crate::memory::lifecycle::hooks::MemoryTurn>>,
     compaction_notice: Option<CompactionNotice>,
@@ -145,10 +146,8 @@ pub(super) fn install_context_ladder(
     let wrap_up = wrap_up_at_cap.then(|| {
         Arc::new(
             FinalCallWrapUpMiddleware::new(
-                crate::agent::session_host::product_copy::OPENHUMAN_CLOSE_COPY
-                    .max_iteration_instruction,
-                crate::agent::session_host::product_copy::OPENHUMAN_CLOSE_COPY
-                    .final_write_instruction,
+                close_copy.max_iteration_instruction,
+                close_copy.final_write_instruction,
                 Arc::new(OutcomeSinkSource(tool_outcome_sink.clone())),
                 restore_allowance,
             )

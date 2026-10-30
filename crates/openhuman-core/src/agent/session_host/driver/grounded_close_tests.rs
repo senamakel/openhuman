@@ -63,7 +63,8 @@ fn classified_halt_returns_partial_work_without_provider_usage() {
         ],
         compaction: None,
     };
-    let close = classified_halt_close(&outcome).expect("classified halt");
+    let close = classified_halt_close(&outcome, &product_copy::OPENHUMAN_CLOSE_COPY)
+        .expect("classified halt");
     assert_eq!(close.usage.model_calls, 0);
     assert!(close.output.contains("permission"), "{}", close.output);
     assert!(
@@ -147,6 +148,7 @@ async fn grounded_close_uses_the_selected_model_and_keeps_verifier_out_of_contex
         &history,
         "Summarize the workspace.",
         &outcome,
+        &product_copy::OPENHUMAN_CLOSE_COPY,
         None,
         None,
     )
@@ -193,6 +195,7 @@ async fn terminal_failed_close_requests_are_counted_without_usage() {
         &[],
         "Summarize the workspace.",
         &blank_outcome(false),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
         None,
         None,
     )
@@ -239,6 +242,7 @@ async fn close_state_machine_calls_emit_correlated_native_model_events() {
             &[],
             "Summarize the workspace.",
             &blank_outcome(false),
+            &product_copy::OPENHUMAN_CLOSE_COPY,
             None,
             Some(&trace),
         )
@@ -382,6 +386,7 @@ async fn close_stream_eof_and_timeout_emit_terminal_traces_without_timeout_usage
             &[],
             "Summarize the workspace.",
             &blank_outcome(false),
+            &product_copy::OPENHUMAN_CLOSE_COPY,
             pending.then_some(std::time::Duration::from_secs(1)),
             Some(&trace),
         )
@@ -507,7 +512,12 @@ fn blank_outcome(truncated: bool) -> TinyagentsTurnOutcome {
 /// using tools" — which told the model its unfinished work was done.
 #[test]
 fn a_truncated_turn_is_closed_with_the_output_budget_named() {
-    let truncated = close_instruction(&blank_outcome(true), false, RECORDS);
+    let truncated = close_instruction(
+        &blank_outcome(true),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
+        false,
+        RECORDS,
+    );
     assert!(
         truncated.contains("ran out of output tokens"),
         "{truncated}"
@@ -518,7 +528,12 @@ fn a_truncated_turn_is_closed_with_the_output_budget_named() {
     );
     assert!(truncated.contains("<tool_records>"), "{truncated}");
 
-    let finished = close_instruction(&blank_outcome(false), false, RECORDS);
+    let finished = close_instruction(
+        &blank_outcome(false),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
+        false,
+        RECORDS,
+    );
     assert!(
         finished.contains("You have finished using tools"),
         "{finished}"
@@ -528,7 +543,12 @@ fn a_truncated_turn_is_closed_with_the_output_budget_named() {
 /// The cap checkpoint still wins when the run also hit its call cap.
 #[test]
 fn a_capped_truncated_turn_gets_the_cap_checkpoint() {
-    let out = close_instruction(&blank_outcome(true), true, RECORDS);
+    let out = close_instruction(
+        &blank_outcome(true),
+        &product_copy::OPENHUMAN_CLOSE_COPY,
+        true,
+        RECORDS,
+    );
     assert!(!out.contains("ran out of output tokens"), "{out}");
     assert!(out.contains("<tool_records>"), "{out}");
 }
@@ -680,3 +700,58 @@ fn supplemental_free_route_uses_zero_catalog_rates() {
 
 #[path = "grounded_close_typed_stop_tests.rs"]
 mod typed_stop;
+
+const REWORDED_CAP_INSTRUCTION: &str = "Tell the user plainly, in their own language, what got \
+                                        done before you ran out of steps.";
+
+/// A copy that rewords the cap instruction still gets the echo guard: a close
+/// that repeats the reworded text back is repaired once, with the copy's own
+/// repair wording, and the user receives the repaired message.
+#[tokio::test]
+async fn a_close_echoing_a_reworded_instruction_is_repaired_with_the_copys_wording() {
+    use tinyagents_harness::testkit::ScriptedModel;
+    use tinyinference_llm::model::ModelResponse;
+
+    let copy = tinyagents_harness::close::CloseCopy {
+        max_iteration_instruction: REWORDED_CAP_INSTRUCTION,
+        repair_template: "{repair_reason}|{instruction}",
+        repair_quoted_instruction: "REPAIR QUOTED",
+        ..product_copy::OPENHUMAN_CLOSE_COPY
+    };
+    let echo = format!("Of course. {REWORDED_CAP_INSTRUCTION} Here is what I did.");
+    let scripted = Arc::new(ScriptedModel::new(vec![
+        ModelResponse::assistant(echo),
+        ModelResponse::assistant(CLEAN_REPLY),
+        ModelResponse::assistant("ACCEPT"),
+    ]));
+    let source = TurnModelSource::from_model(scripted.clone());
+    let mut outcome = blank_outcome(false);
+    outcome.hit_cap = true;
+
+    let closed = close_if_needed(
+        &source,
+        "host-selected-model",
+        0.0,
+        None,
+        &tinytools_agent::dialect::NativeDialect,
+        &[],
+        "Summarize the workspace.",
+        &outcome,
+        &copy,
+        None,
+        None,
+    )
+    .await
+    .expect("a capped turn needs a close");
+
+    assert_eq!(closed.output, CLEAN_REPLY);
+    let requests = scripted.requests();
+    assert!(
+        format!("{:?}", requests[0].messages).contains(REWORDED_CAP_INSTRUCTION),
+        "the first close asks with the copy's own instruction"
+    );
+    assert!(
+        format!("{:?}", requests[1].messages).contains("REPAIR QUOTED"),
+        "the repair uses the copy's wording"
+    );
+}

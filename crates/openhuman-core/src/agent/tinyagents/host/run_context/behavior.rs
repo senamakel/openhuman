@@ -22,6 +22,7 @@ impl OpenHumanRunContext {
             goal_suppressed: false,
             tool_hooks: Vec::new(),
             tool_call_limit: None,
+            close_copy: None,
             untrusted_input_turn: false,
             turn_deadline: None,
             parent: None,
@@ -177,7 +178,14 @@ impl OpenHumanRunContext {
             stop_hooks: self.stop_hooks.clone(),
             tool_hooks: self.tool_hooks.clone(),
             tool_call_cap: self.tool_call_limit,
+            close_copy: self.close_copy(),
         }
+    }
+
+    /// The wording this turn closes with: the host's, or OpenHuman's default.
+    pub(crate) fn close_copy(&self) -> tinyagents_harness::close::CloseCopy {
+        self.close_copy
+            .unwrap_or(crate::agent::session_host::product_copy::OPENHUMAN_CLOSE_COPY)
     }
 
     /// The real tool invocation budget for a turn of `max_iterations`: the
@@ -198,6 +206,7 @@ impl OpenHumanRunContext {
         }
         self.turn_deadline = env.turn_deadline.or(self.turn_deadline);
         self.tool_call_limit = env.tool_call_limit.or(self.tool_call_limit);
+        self.close_copy = env.close_copy.or(self.close_copy);
         self.command_environment = env.command_environment.clone().or(self.command_environment);
         self.memory_identity = env.memory_identity.clone().or(self.memory_identity);
         self.core = env.core.clone().or(self.core);

@@ -37,7 +37,8 @@ fn classified_halt_summary_uses_typed_cause_when_halt_copy_conflicts() {
         compaction: None,
     };
 
-    let close = classified_halt_close(&outcome).expect("classified halt");
+    let close = classified_halt_close(&outcome, &product_copy::OPENHUMAN_CLOSE_COPY)
+        .expect("classified halt");
     assert!(
         close.output.contains("inference credits"),
         "typed out_of_credits cause must win over contradictory prose: {}",
@@ -62,7 +63,7 @@ fn classified_halt_summary_uses_typed_class_for_translated_notes() {
 
     for (class, expected_copy) in cases {
         let outcome = classified_halt(note, class);
-        let close = classified_halt_close(&outcome)
+        let close = classified_halt_close(&outcome, &product_copy::OPENHUMAN_CLOSE_COPY)
             .unwrap_or_else(|| panic!("typed `{class}` cause must close the turn"));
         assert!(
             close.output.contains(expected_copy),
@@ -84,7 +85,8 @@ fn unrecognized_typed_class_does_not_fall_back_to_english_halt_phrases() {
         "Stopping: the action is blocked by the security policy.",
         "future_failure_class",
     );
-    let close = classified_halt_close(&outcome).expect("typed halt");
+    let close =
+        classified_halt_close(&outcome, &product_copy::OPENHUMAN_CLOSE_COPY).expect("typed halt");
 
     assert!(
         close
@@ -140,7 +142,7 @@ fn classified_halt_maps_all_typed_stop_categories_and_aliases() {
             "Interrompo: bloqueado por segurança; o texto foi traduzido.",
             class,
         );
-        let close = classified_halt_close(&outcome)
+        let close = classified_halt_close(&outcome, &product_copy::OPENHUMAN_CLOSE_COPY)
             .unwrap_or_else(|| panic!("typed `{class}` cause must close the turn"));
         assert!(
             close.output.contains(expected_copy),
@@ -184,6 +186,7 @@ async fn typed_cause_without_halt_note_still_closes_and_keeps_operation() {
         &[],
         "search",
         &outcome,
+        &product_copy::OPENHUMAN_CLOSE_COPY,
         None,
         None,
     )

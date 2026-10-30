@@ -383,6 +383,7 @@ pub(crate) fn instantiate(runtime: &Runtime, spec: AgentSpec) -> Result<AgentInn
         definition,
         provider,
         model_defaults,
+        close_copy: defaults.close_copy,
         access,
         layout,
         host_tools: parts.host_tools,

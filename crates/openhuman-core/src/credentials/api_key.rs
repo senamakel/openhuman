@@ -41,12 +41,25 @@ pub const API_KEY_KIND: &str = "tinyhumans-api-key";
 /// Persist `key` as the active API-key profile beside `config`'s other
 /// credentials. Blank keys are rejected rather than stored.
 pub async fn store_api_key(config: &Config, key: &str) -> Result<AuthProfile> {
-    store_api_key_in(
-        &super::core::state_dir_from_config(config),
-        config.secrets.encrypt,
-        key,
-    )
-    .await
+    let key = key.trim();
+    if key.is_empty() {
+        anyhow::bail!("API key is blank");
+    }
+    let mut metadata = HashMap::new();
+    metadata.insert(API_KEY_KIND_META.to_string(), API_KEY_KIND.to_string());
+    log::debug!(
+        "[credentials][api-key] storing api-key profile state_dir={}",
+        super::core::state_dir_from_config(config).display()
+    );
+    AuthService::from_config(config)
+        .store_provider_token(
+            API_KEY_PROVIDER,
+            DEFAULT_AUTH_PROFILE_NAME,
+            key,
+            metadata,
+            true,
+        )
+        .await
 }
 
 /// [`store_api_key`] against an explicit credential state directory. Used by
@@ -76,11 +89,13 @@ pub async fn store_api_key_in(state_dir: &Path, encrypt: bool, key: &str) -> Res
 
 /// The stored API key, if any.
 pub async fn get_api_key(config: &Config) -> Result<Option<String>> {
-    get_api_key_in(
-        &super::core::state_dir_from_config(config),
-        config.secrets.encrypt,
-    )
-    .await
+    let Some(profile) = AuthService::from_config(config)
+        .get_profile(API_KEY_PROVIDER, None)
+        .await?
+    else {
+        return Ok(None);
+    };
+    Ok(api_key_from_profile(profile))
 }
 
 /// Reads the selected profile's API key for doctor checks without using the
@@ -143,11 +158,13 @@ pub async fn has_api_key_in(state_dir: &Path, encrypt: bool) -> bool {
 
 /// Whether an API key is stored for `config`.
 pub async fn has_api_key(config: &Config) -> bool {
-    has_api_key_in(
-        &super::core::state_dir_from_config(config),
-        config.secrets.encrypt,
-    )
-    .await
+    match get_api_key(config).await {
+        Ok(key) => key.is_some(),
+        Err(error) => {
+            log::debug!("[credentials][api-key] store read failed, treating as absent: {error:#}");
+            false
+        }
+    }
 }
 
 /// Remove the API-key profile. Returns whether one existed.

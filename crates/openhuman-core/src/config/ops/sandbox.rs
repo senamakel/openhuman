@@ -31,14 +31,7 @@ pub async fn get_sandbox_settings(ctx: &DispatchCtx) -> Result<Outcome<serde_jso
     .await
     .map_err(|_| "Docker status probe timed out".to_owned())??;
 
-    let backend_str = match sandbox.backend {
-        crate::config::SandboxBackend::Auto => "auto",
-        crate::config::SandboxBackend::Landlock => "landlock",
-        crate::config::SandboxBackend::Firejail => "firejail",
-        crate::config::SandboxBackend::Bubblewrap => "bubblewrap",
-        crate::config::SandboxBackend::Docker => "docker",
-        crate::config::SandboxBackend::None => "none",
-    };
+    let backend_str = backend_name(&sandbox.backend);
 
     let detected_backend = detect_os_sandbox_backend();
 
@@ -59,25 +52,46 @@ pub async fn get_sandbox_settings(ctx: &DispatchCtx) -> Result<Outcome<serde_jso
     Ok(Outcome::single_log(value, "sandbox settings read"))
 }
 
+/// The settings name of a backend, as `[security.sandbox] backend` spells it.
+fn backend_name(backend: &crate::config::SandboxBackend) -> &'static str {
+    use crate::config::SandboxBackend;
+    match backend {
+        SandboxBackend::Auto => "auto",
+        SandboxBackend::Landlock => "landlock",
+        SandboxBackend::Firejail => "firejail",
+        SandboxBackend::Bubblewrap => "bubblewrap",
+        SandboxBackend::Docker => "docker",
+        SandboxBackend::OpenShell => "openshell",
+        SandboxBackend::None => "none",
+    }
+}
+
+/// The backend a settings name selects.
+fn parse_backend(name: &str) -> Result<crate::config::SandboxBackend, String> {
+    use crate::config::SandboxBackend;
+    Ok(match name {
+        "auto" => SandboxBackend::Auto,
+        "landlock" => SandboxBackend::Landlock,
+        "firejail" => SandboxBackend::Firejail,
+        "bubblewrap" => SandboxBackend::Bubblewrap,
+        "docker" => SandboxBackend::Docker,
+        "openshell" => SandboxBackend::OpenShell,
+        "none" => SandboxBackend::None,
+        other => {
+            log::warn!("[config][sandbox] rejected unknown backend: {other}");
+            return Err(format!(
+                "unknown sandbox backend '{other}'; valid: auto, landlock, firejail, bubblewrap, docker, openshell, none"
+            ));
+        }
+    })
+}
+
 pub async fn apply_sandbox_settings(
     config: &mut Config,
     update: SandboxSettingsPatch,
 ) -> Result<Outcome<serde_json::Value>, String> {
     if let Some(ref backend) = update.backend {
-        config.sandbox.backend = match backend.as_str() {
-            "auto" => crate::config::SandboxBackend::Auto,
-            "landlock" => crate::config::SandboxBackend::Landlock,
-            "firejail" => crate::config::SandboxBackend::Firejail,
-            "bubblewrap" => crate::config::SandboxBackend::Bubblewrap,
-            "docker" => crate::config::SandboxBackend::Docker,
-            "none" => crate::config::SandboxBackend::None,
-            other => {
-                log::warn!("[config][sandbox] rejected unknown backend: {other}");
-                return Err(format!(
-                    "unknown sandbox backend '{other}'; valid: auto, landlock, firejail, bubblewrap, docker, none"
-                ));
-            }
-        };
+        config.sandbox.backend = parse_backend(backend)?;
     }
     if let Some(enabled) = update.enabled {
         config.sandbox.enabled = Some(enabled);

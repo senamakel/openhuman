@@ -66,13 +66,20 @@ pub async fn command_requires_sandbox(
     if config_disables_sandbox(&config) {
         return Ok(false);
     }
-    Ok(matches!(
-        config.sandbox.backend,
+    Ok(backend_requires_sandbox(&config.sandbox.backend))
+}
+
+/// Whether the operator's backend selection is an explicit isolation
+/// requirement, rather than leaving the choice to the agent's mode.
+pub(crate) fn backend_requires_sandbox(backend: &SandboxBackend) -> bool {
+    matches!(
+        backend,
         SandboxBackend::Landlock
             | SandboxBackend::Firejail
             | SandboxBackend::Bubblewrap
             | SandboxBackend::Docker
-    ))
+            | SandboxBackend::OpenShell
+    )
 }
 
 /// Resolve the policy for a command tool before building its command line.
@@ -283,6 +290,14 @@ pub async fn create_sandbox_backend_with_config(
             })
         }
         SandboxBackendKind::Docker => docker::docker_backend_handle(config).await,
+        // A box is created on a tenant's first command, so there is nothing
+        // to probe or name yet; the gateway's availability shows on that call.
+        SandboxBackendKind::OpenShell => Ok(SandboxBackendHandle {
+            kind: SandboxBackendKind::OpenShell,
+            status: SandboxStatus::Ready,
+            backend_id: None,
+            isolation: None,
+        }),
     }
 }
 
@@ -460,6 +475,23 @@ pub(crate) async fn execute_in_sandbox_yielding(
                 .await
                 .map(ShellRunOutcome::Finished)
         }
+        // The box has its own workspace (`/sandbox`); no host path or host
+        // variable is sent, only the request's own environment. A box cannot
+        // hand back a running command, so the come-back time is a deadline.
+        SandboxBackendKind::OpenShell => {
+            let timeout = come_back
+                .deadline_instead
+                .map_or(timeout, |deadline| timeout.min(deadline));
+            let config = match module_config {
+                Some(config) => config,
+                None => ctx.load_config().await.map_err(|error| {
+                    anyhow::anyhow!("Cannot read module configuration: {error}")
+                })?,
+            };
+            super::openshell::execute(ctx, &config, command, &extra_env, timeout)
+                .await
+                .map(ShellRunOutcome::Finished)
+        }
     }
 }
 
@@ -489,6 +521,13 @@ pub(crate) async fn apply_requested_backend(
                 read_only_rootfs: Some(dc.read_only_rootfs),
                 extra_caps_drop: vec![],
             });
+            Ok(true)
+        }
+        SandboxBackend::OpenShell => {
+            policy.backend = SandboxBackendKind::OpenShell;
+            policy.docker_overrides = None;
+            policy.read_only_mounts.clear();
+            policy.read_write_mounts.clear();
             Ok(true)
         }
         SandboxBackend::Landlock => {

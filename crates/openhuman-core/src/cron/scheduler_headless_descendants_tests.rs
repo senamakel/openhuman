@@ -570,11 +570,6 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
     .try_list_owned(owner)
     .expect("inspect the exact Cron session owner");
     assert_eq!(jobs.len(), 1, "one native child belongs to this Cron job");
-    assert_eq!(
-        jobs[0].status,
-        tinyagents_orchestration::subagent::SubAgentJobStatus::Incomplete,
-        "the child records the policy-blocked action as an incomplete run"
-    );
     let child_run_id = jobs[0]
         .subagent_run_id
         .as_deref()
@@ -594,8 +589,14 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
             _ => None,
         })
         .expect("the native child journal records the denied delete_artifact call");
+    eprintln!("scheduled child status: {:?}, tool failure: {denial}", jobs[0].status);
     assert!(denial.contains("Scheduled agent turns may use read-only tools only"));
     assert!(!denial.contains("not found"));
+    assert_eq!(
+        jobs[0].status,
+        tinyagents_orchestration::subagent::SubAgentJobStatus::Incomplete,
+        "the child records the policy-blocked action as an incomplete run"
+    );
     let runs = list_runs_off_runtime(&config, &job.id)
         .await
         .expect("read persisted run history");

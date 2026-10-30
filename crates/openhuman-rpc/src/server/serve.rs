@@ -212,9 +212,8 @@ pub async fn serve(
                 .await
         });
         let preflight_runtime = Arc::clone(&runtime);
-        let mut preflight = tokio::spawn(async move {
-            preflight_runtime.complete_secret_preflight().await
-        });
+        let mut preflight =
+            tokio::spawn(async move { preflight_runtime.complete_secret_preflight().await });
         // Start polling Axum before the preflight future is first polled. Some
         // secret providers perform synchronous work before their first await.
         tokio::task::yield_now().await;
@@ -235,13 +234,21 @@ pub async fn serve(
                     Err(error)
                 }
                 Ok(Ok(())) => {
-                    // Start ordinary jobs only after credentials and config
-                    // have been refreshed, then expose the full router.
-                    runtime.start_services().await;
-                    gate.open();
-                    server.await
-                        .map_err(anyhow::Error::from)
-                        .and_then(|result| result.map_err(anyhow::Error::from))
+                    tokio::select! {
+                        result = &mut server => result
+                            .map_err(anyhow::Error::from)
+                            .and_then(|result| result.map_err(anyhow::Error::from)),
+                        _ = runtime.start_services() => {
+                            // Start ordinary jobs only after credentials and
+                            // config have been refreshed, then expose the full
+                            // router. A concurrent shutdown must still stop
+                            // the listener while these services are starting.
+                            gate.open();
+                            server.await
+                                .map_err(anyhow::Error::from)
+                                .and_then(|result| result.map_err(anyhow::Error::from))
+                        }
+                    }
                 }
             }
         }

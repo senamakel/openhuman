@@ -183,12 +183,8 @@ pub(crate) async fn build_and_serve(
         log::warn!("[rpc:server] runtime build failed: {error}");
         anyhow::Error::new(error)
     })?;
-    let served = super::serve::serve(
-        Arc::clone(runtime.core_runtime()),
-        ready_tx,
-        shutdown_token,
-    )
-    .await;
+    let served =
+        super::serve::serve(Arc::clone(runtime.core_runtime()), ready_tx, shutdown_token).await;
     // Dropping the runtime releases the process's embed runtime slot, so the
     // desktop can restart its server in place.
     drop(runtime);

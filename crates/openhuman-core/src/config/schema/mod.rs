@@ -104,6 +104,7 @@ mod proxy;
 mod routes;
 mod runtime;
 mod runtime_local_jail;
+mod runtime_openshell;
 mod scheduler_gate;
 mod security;
 mod task_sources;

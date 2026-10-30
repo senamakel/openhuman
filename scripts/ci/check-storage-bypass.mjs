@@ -317,7 +317,7 @@ async function main() {
       ),
     );
   } catch (error) {
-    if (error.code !== "ENOENT" || enforceHistory) throw error;
+    if (error.code !== "ENOENT") throw error;
   }
   const raw = await collectFindings(repoRoot, { includeAllowed: true });
   let debtErrors = validateCoverageDebt(findings, baseline, extension);

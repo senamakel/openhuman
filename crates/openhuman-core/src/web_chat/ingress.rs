@@ -102,7 +102,7 @@ impl WebIngress {
         }
     }
 
-    fn guardrail(&self, request: &TurnRequest<QueuedPayload>) -> IngressDecision {
+    async fn guardrail(&self, request: &TurnRequest<QueuedPayload>) -> IngressDecision {
         let decision = enforce_prompt_input(
             &request.text,
             PromptEnforcementContext {
@@ -111,7 +111,7 @@ impl WebIngress {
                 user_id: Some(&request.payload.client_id),
                 session_id: Some(&request.thread_id),
             },
-        );
+        ).await;
         let verdict = match decision.action {
             PromptEnforcementAction::Allow => return IngressDecision::Continue,
             PromptEnforcementAction::Blocked => "block",

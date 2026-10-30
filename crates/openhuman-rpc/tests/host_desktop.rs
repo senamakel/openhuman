@@ -23,6 +23,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
     std::env::set_var("HOME", workspace.path());
     std::env::set_var("USERPROFILE", workspace.path());
     std::env::set_var("TOKIO_WORKER_THREADS", "2");
+    std::env::set_var("OPENHUMAN_KEYRING_BACKEND", "memory");
     std::env::set_var(
         "OPENHUMAN_KEYRING_MASTER_KEY",
         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",

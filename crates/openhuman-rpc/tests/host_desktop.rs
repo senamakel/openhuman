@@ -96,6 +96,9 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                         result = &mut server => panic!("desktop server ended before health: {result:?}"),
                     };
                     assert_eq!(health.status(), 200);
+                    // Consume the body so the pooled HTTP connection is
+                    // complete before graceful shutdown waits for it.
+                    let _body = health.bytes().await.expect("health response body");
 
                     shutdown.cancel();
                     let finished = tokio::time::timeout(Duration::from_secs(60), server)

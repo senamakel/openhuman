@@ -39,7 +39,7 @@ impl AuthProfilesStore {
                 ))
             };
             let (access_token, refresh_token, id_token, token) = if self.use_keychain {
-                match self.keychain_load_secrets(id) {
+                match self.keychain_load_secrets(id).await {
                     Ok(Some(secrets)) => (
                         secrets.access_token,
                         secrets.refresh_token,

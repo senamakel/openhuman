@@ -158,7 +158,7 @@ impl AuthProfilesStore {
             }
 
             if self.use_keychain {
-                if let Err(delete_error) = self.keychain_delete_secrets(profile_id) {
+                if let Err(delete_error) = self.keychain_delete_secrets(profile_id).await {
                     return self.rollback_profile_removal(
                         profile_id,
                         &persisted_before,

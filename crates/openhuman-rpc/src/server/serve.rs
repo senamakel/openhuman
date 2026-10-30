@@ -24,7 +24,7 @@ pub struct EmbeddedReadySignal {
 /// With `shutdown_token` the server stops when it is cancelled (the embedded
 /// desktop core); without one it stops on the process shutdown signal.
 pub async fn serve(
-    runtime: &CoreRuntime,
+    runtime: Arc<CoreRuntime>,
     ready_tx: Option<tokio::sync::oneshot::Sender<EmbeddedReadySignal>>,
     shutdown_token: Option<CancellationToken>,
 ) -> anyhow::Result<()> {
@@ -211,26 +211,34 @@ pub async fn serve(
                 .with_graceful_shutdown(shutdown)
                 .await
         });
+        let preflight_runtime = Arc::clone(&runtime);
+        let mut preflight = tokio::spawn(async move {
+            preflight_runtime.complete_secret_preflight().await
+        });
         // Start polling Axum before the preflight future is first polled. Some
         // secret providers perform synchronous work before their first await.
         tokio::task::yield_now().await;
         tokio::select! {
-            result = &mut server => result
-                .map_err(anyhow::Error::from)
-                .and_then(|result| result.map_err(anyhow::Error::from)),
-            result = runtime.complete_secret_preflight() => match result {
+            result = &mut server => {
+                preflight.abort();
+                result
+                    .map_err(anyhow::Error::from)
+                    .and_then(|result| result.map_err(anyhow::Error::from))
+            },
+            result = &mut preflight => match result {
                 Err(error) => {
                     server.abort();
+                    Err(anyhow::Error::from(error))
+                }
+                Ok(Err(error)) => {
+                    server.abort();
                     Err(error)
-                },
-                Ok(()) => {
-                    eprintln!("serve: preflight complete; starting services");
+                }
+                Ok(Ok(())) => {
                     // Start ordinary jobs only after credentials and config
                     // have been refreshed, then expose the full router.
                     runtime.start_services().await;
-                    eprintln!("serve: services started; opening gate");
                     gate.open();
-                    eprintln!("serve: awaiting HTTP task");
                     server.await
                         .map_err(anyhow::Error::from)
                         .and_then(|result| result.map_err(anyhow::Error::from))
@@ -258,13 +266,10 @@ pub async fn serve(
         );
     }
 
-    eprintln!("serve: HTTP future ended; cleanup starting");
     runtime.exit_cleanup().await;
-    eprintln!("serve: runtime cleanup complete; completion store release starting");
     // Close the per-workspace background-completion logs (they replay from disk
     // on the next boot) so a data reset can delete the workspace directory.
     crate::core_host::agent::orchestration::release_background_completion_stores().await;
-    eprintln!("serve: completion store release complete");
 
     served?;
     Ok(())

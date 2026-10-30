@@ -26,6 +26,9 @@ async fn start_mock_backend(app: Router) -> String {
 async fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
     let mut config = Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             crate::credentials::APP_SESSION_PROVIDER,
@@ -61,6 +64,8 @@ fn module_test_config(tmp: &tempfile::TempDir) -> Config {
     let mut config = Config::default();
     config.config_path = tmp.path().join("config.toml");
     config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
     config
 }
 
@@ -163,6 +168,9 @@ async fn resolve_composio_route_backend_errors_without_session() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
     let err = resolve_composio_route(&config)
         .await
         .err()
@@ -178,6 +186,9 @@ async fn resolve_composio_route_direct_variant_with_stored_key() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
     config.composio.mode = "direct".into();
     // Persist the key the way the RPC layer would.
     crate::credentials::AuthService::from_config(&config)
@@ -202,6 +213,9 @@ async fn resolve_composio_route_direct_falls_back_to_config_api_key() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
     config.composio.mode = "direct".into();
     // No keychain entry — fall back to the inline config field.
     config.composio.api_key = Some("ck_inline_redacted".into());
@@ -216,6 +230,9 @@ async fn resolve_composio_route_direct_errors_without_key() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
     config.composio.mode = "direct".into();
     let err = resolve_composio_route(&config)
         .await
@@ -233,6 +250,9 @@ async fn resolve_composio_route_unknown_mode_errors() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
     config.composio.mode = "voyage".into();
     let err = resolve_composio_route(&config)
         .await
@@ -255,6 +275,9 @@ async fn store_get_clear_composio_api_key_roundtrip() {
     let tmp = tempfile::tempdir().expect("tempdir");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Route tests use synthetic credentials; encryption is tested separately.
+    config.secrets.encrypt = false;
 
     // Initially: nothing stored.
     assert_eq!(

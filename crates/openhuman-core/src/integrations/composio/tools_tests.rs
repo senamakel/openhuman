@@ -19,6 +19,9 @@ fn fake_config_arc() -> Arc<crate::config::Config> {
     let tmp = tempfile::tempdir().expect("tempdir for fake_config_arc");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Tool/routing fixtures contain fake tokens, with no encrypted store.
+    config.secrets.encrypt = false;
     // Leak the tempdir so the path remains valid for the test's lifetime
     // — `Config::config_path` is just used as a lookup key here, not
     // actually written to.
@@ -77,6 +80,9 @@ fn direct_mode_config() -> crate::config::Config {
     let tmp = tempfile::tempdir().expect("tempdir for direct_mode_config");
     let mut config = crate::config::Config::default();
     config.config_path = tmp.path().join("config.toml");
+    config.workspace_dir = tmp.path().join("workspace");
+    // Tool/routing fixtures contain fake tokens, with no encrypted store.
+    config.secrets.encrypt = false;
     config.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.to_string();
     config.composio.api_key = Some("test-direct-key".to_string());
     std::mem::forget(tmp);

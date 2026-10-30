@@ -390,14 +390,20 @@ impl Rig {
         // The rig is ready only when its read-only contract can answer.
         tokio::time::timeout(Duration::from_secs(10), async {
             loop {
-                match proxy.call::<tinyeventqueues_bus::StatsResponse>(
-                    names::methods::STATS, (tinyeventqueues_bus::StatsRequest::new(),),
-                ).await {
+                match proxy
+                    .call::<tinyeventqueues_bus::StatsResponse>(
+                        names::methods::STATS,
+                        (tinyeventqueues_bus::StatsRequest::new(),),
+                    )
+                    .await
+                {
                     Ok(_) => break,
                     Err(_) => tokio::time::sleep(Duration::from_millis(5)).await,
                 }
             }
-        }).await.expect("the linked event queues module serves its contract");
+        })
+        .await
+        .expect("the linked event queues module serves its contract");
         Self {
             client: crate::modules::ops::fixture_client(proxy),
             triage,

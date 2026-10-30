@@ -161,15 +161,18 @@ async fn execute_tool_per_call_factory_means_no_baked_client() {
     config.save().await.expect("save fake config to disk");
 
     let context = crate::core::runtime::CoreContext::for_test_with_config(
-        crate::core::runtime::DomainSet::full(), config.clone(),
+        crate::core::runtime::DomainSet::full(),
+        config.clone(),
     );
     let tool = ComposioExecuteTool::new(Arc::new(config));
     // Use a read-scoped slug so the scope/sandbox gates don't short-
     // circuit before the dispatch site.
-    let result = crate::core::runtime::CoreContext::scope(context, tool
-        .execute(serde_json::json!({ "tool": "GMAIL_FETCH_EMAILS" }))
-        .await
-        .unwrap();
+    let result = crate::core::runtime::CoreContext::scope(
+        context,
+        tool.execute(serde_json::json!({ "tool": "GMAIL_FETCH_EMAILS" })),
+    )
+    .await
+    .unwrap();
     assert!(result.is_error, "direct mode without key must error");
     let msg = error_text(&result);
     // Error must mention direct-mode key configuration, NOT a backend

@@ -16,7 +16,11 @@ fn context_and_text_fields_are_projected() {
     let v = view(json!({"event": "text_delta", "delta": "hi"}));
     assert_eq!(v.event, "text_delta");
     assert_eq!(
-        (v.client_id.as_str(), v.thread_id.as_str(), v.request_id.as_str()),
+        (
+            v.client_id.as_str(),
+            v.thread_id.as_str(),
+            v.request_id.as_str()
+        ),
         ("c1", "t1", "r1")
     );
     assert_eq!(v.seq, Some(7));
@@ -25,13 +29,21 @@ fn context_and_text_fields_are_projected() {
 
 #[test]
 fn final_response_events_expose_full_response() {
-    for name in ["chat_done", "chat_interim", "proactive_message", "voice_speak"] {
+    for name in [
+        "chat_done",
+        "chat_interim",
+        "proactive_message",
+        "voice_speak",
+    ] {
         let event = serde_json::from_value::<WebChannelEvent>(json!({
             "event": name, "client_id": "c", "thread_id": "t", "request_id": "r",
             "full_response": "answer"
         }))
         .unwrap_or_else(|error| panic!("{name}: {error}"));
-        assert_eq!(WebEventView::from_event(&event).full_response.as_deref(), Some("answer"));
+        assert_eq!(
+            WebEventView::from_event(&event).full_response.as_deref(),
+            Some("answer")
+        );
     }
     let v = view(json!({"event": "channel_outbound", "full_response": "sent"}));
     assert_eq!(v.full_response.as_deref(), Some("sent"));

@@ -255,6 +255,7 @@ pub async fn serve(
         // Start polling Axum before the preflight future is first polled. Some
         // secret providers perform synchronous work before their first await.
         tokio::task::yield_now().await;
+        eprintln!("serve-debug: polling preflight select");
         tokio::select! {
             result = await_http_server(&mut server, server_shutdown.as_ref()) => {
                 eprintln!("serve-debug: HTTP ended during preflight");
@@ -309,6 +310,7 @@ pub async fn serve(
                 })
                 .await
         });
+        eprintln!("serve-debug: non-preflight server started");
         await_http_server(&mut server, Some(&server_shutdown)).await
     } else {
         axum::serve(listener, app)

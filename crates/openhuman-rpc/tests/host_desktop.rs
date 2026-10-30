@@ -121,6 +121,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
 
                     eprintln!("host_desktop: health completed; cancelling server");
                     shutdown.cancel();
+                    eprintln!("host_desktop: shutdown cancelled");
                     let finished = tokio::time::timeout(Duration::from_secs(60), server)
                         .await
                         .expect("server stops after shutdown")

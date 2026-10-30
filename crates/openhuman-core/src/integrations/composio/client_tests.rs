@@ -278,8 +278,9 @@ async fn store_get_clear_composio_api_key_roundtrip() {
         None
     );
 
-    // Store under the direct-mode provider slot.
-    crate::credentials::AuthService::from_config(&config)
+    // This adapter fixture uses document secrets; native keyring consent has
+    // its own module-boundary coverage. Store under the direct-mode provider slot.
+    crate::credentials::AuthService::new(tmp.path(), false)
         .store_provider_token(
             COMPOSIO_DIRECT_PROVIDER,
             crate::credentials::DEFAULT_AUTH_PROFILE_NAME,
@@ -296,7 +297,7 @@ async fn store_get_clear_composio_api_key_roundtrip() {
     );
 
     // Clearing the profile must remove it again.
-    crate::credentials::AuthService::from_config(&config)
+    crate::credentials::AuthService::new(tmp.path(), false)
         .remove_profile(
             COMPOSIO_DIRECT_PROVIDER,
             crate::credentials::DEFAULT_AUTH_PROFILE_NAME,

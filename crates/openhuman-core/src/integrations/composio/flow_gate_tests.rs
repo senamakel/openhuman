@@ -7,16 +7,11 @@ use crate::integrations::composio::{ComposioExecuteResponse, ConnectedIntegratio
 use crate::security::policy::CommandClass;
 use serde_json::json;
 
-async fn flow_fixture() -> (
-    crate::integrations::composio::module_client::ModuleGuard,
-    tempfile::TempDir,
-    Config,
-) {
-    let module = crate::integrations::composio::module_client::module_guard().await;
+fn flow_fixture() -> (tempfile::TempDir, Config) {
     let directory = tempfile::tempdir().expect("isolated flow adapter fixture");
     let config =
         crate::integrations::composio::module_client::test_support::config_in(directory.path());
-    (module, directory, config)
+    (directory, config)
 }
 
 fn integration(
@@ -136,7 +131,7 @@ async fn unknown_toolkit_still_rejects() {
     // lock (before TEST_ENV_LOCK, the established order) for the whole test.
     let _module = crate::integrations::composio::module_client::module_guard().await;
     use crate::integrations::composio::contract::catalog_for_toolkit;
-    let (_module, _directory, config) = flow_fixture().await;
+    let (_directory, config) = flow_fixture();
     // Precondition: `flowstestkit` is genuinely uncatalogued, so the decision
     // flows through the connected-set path (not the static curated path).
     assert!(catalog_for_toolkit("flowstestkit").is_none());
@@ -186,7 +181,7 @@ async fn connected_uncatalogued_toolkit_now_passes() {
     use crate::integrations::composio::contract::catalog_for_toolkit;
     assert!(catalog_for_toolkit("flowstestkit").is_none());
 
-    let (_module, _directory, config) = flow_fixture().await;
+    let (_directory, config) = flow_fixture();
     seed_live_catalog_cache(
         "flowstestkit",
         vec![ToolContract {
@@ -240,7 +235,7 @@ async fn expired_live_catalog_entry_is_treated_as_a_cache_miss() {
     use crate::integrations::composio::contract::catalog_for_toolkit;
     assert!(catalog_for_toolkit("flowsexpiredkit").is_none());
 
-    let (_module, _directory, config) = flow_fixture().await;
+    let (_directory, config) = flow_fixture();
     seed_live_catalog_cache_expired(
         "flowsexpiredkit",
         vec![ToolContract {
@@ -281,7 +276,7 @@ async fn connected_uncatalogued_toolkit_rejects_a_hallucinated_slug() {
     use crate::integrations::composio::contract::catalog_for_toolkit;
     assert!(catalog_for_toolkit("flowstestkit").is_none());
 
-    let (_module, _directory, config) = flow_fixture().await;
+    let (_directory, config) = flow_fixture();
     seed_live_catalog_cache(
         "flowstestkit",
         vec![ToolContract {
@@ -355,7 +350,8 @@ fn seeded_required_args_contract(slug: &str, toolkit: &str, required: &[&str]) -
 
 #[tokio::test]
 async fn preflight_fails_before_dispatch_naming_the_missing_field() {
-    let (_module, _directory, config) = flow_fixture().await;
+    let _module = crate::integrations::composio::module_client::module_guard().await;
+    let (_directory, config) = flow_fixture();
     seed_live_catalog_cache(
         "preflightfailtest",
         vec![seeded_required_args_contract(
@@ -396,7 +392,8 @@ async fn preflight_fails_before_dispatch_naming_the_missing_field() {
 
 #[tokio::test]
 async fn preflight_skips_when_no_schema_is_available() {
-    let (_module, _directory, config) = flow_fixture().await;
+    let _module = crate::integrations::composio::module_client::module_guard().await;
+    let (_directory, config) = flow_fixture();
     preflight_composio_args(&config, "NOT_A_REAL_TOOLKIT_ACTION", &serde_json::json!({}))
         .await
         .expect("preflight must be best-effort when no schema is available");
@@ -404,7 +401,8 @@ async fn preflight_skips_when_no_schema_is_available() {
 
 #[tokio::test]
 async fn preflight_applies_static_arg_rules_without_a_catalog() {
-    let (_module, _directory, config) = flow_fixture().await;
+    let _module = crate::integrations::composio::module_client::module_guard().await;
+    let (_directory, config) = flow_fixture();
     let message = preflight_composio_args(
         &config,
         "GMAIL_ADD_LABEL_TO_EMAIL",

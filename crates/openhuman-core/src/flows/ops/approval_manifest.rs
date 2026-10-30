@@ -48,14 +48,8 @@ async fn compute_approval_manifest_json(
 ) -> Result<Vec<Value>, String> {
     let registration =
         crate::flows::authoring_host::register(std::sync::Arc::new(config.clone()), ctx.clone())
-            .await.map_err(|error| {
-                #[cfg(test)] eprintln!("MANIFEST_DIAGNOSTIC registration: {error}");
-                error
-            })?;
-    let proxy = crate::modules::tinyflows::catalog_proxy(config).await.map_err(|error| {
-        #[cfg(test)] eprintln!("MANIFEST_DIAGNOSTIC proxy: {error}");
-        error
-    })?;
+            .await?;
+    let proxy = crate::modules::tinyflows::catalog_proxy(config).await?;
     let entries: Vec<Value> = proxy
         .call(
             tinyflows_bus::catalog::members::APPROVAL_MANIFEST,
@@ -66,10 +60,7 @@ async fn compute_approval_manifest_json(
             },),
         )
         .await
-        .map_err(|error| {
-            #[cfg(test)] eprintln!("MANIFEST_DIAGNOSTIC invocation: {}", error.wire_message());
-            error.wire_message()
-        })?;
+        .map_err(|error| error.wire_message())?;
     tracing::debug!(target: "flows", entries = entries.len(), "[flows] approval manifest computed");
     Ok(entries)
 }

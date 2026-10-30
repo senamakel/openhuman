@@ -101,6 +101,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                             Duration::from_secs(10),
                             client
                                 .get(format!("http://127.0.0.1:{port}/health"))
+                                .header(reqwest::header::CONNECTION, "close")
                                 .send(),
                         ) => result.expect("GET /health completes during startup preflight")
                             .expect("GET /health"),

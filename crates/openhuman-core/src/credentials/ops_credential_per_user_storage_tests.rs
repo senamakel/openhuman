@@ -156,7 +156,7 @@ async fn a_session_sign_out_keeps_the_api_key_on_per_user_storage() {
     let cleared = clear_credential(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(session_support::CredentialKind::Session),
+        Some(CredentialKind::Session),
     )
     .await
     .unwrap()
@@ -260,7 +260,7 @@ async fn a_failed_carry_on_per_user_storage_says_the_key_must_be_entered_again()
     let error = clear_credential_with(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(CredentialKind::Session),
+        Some(session_support::CredentialKind::Session),
         |_, _| async { Err(anyhow::anyhow!("injected carry failure")) },
     )
     .await

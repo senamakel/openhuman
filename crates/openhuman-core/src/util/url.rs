@@ -23,8 +23,30 @@ pub fn provider_host_is_local(host: &str) -> bool {
     }
     #[cfg(not(feature = "security-module"))]
     {
-        let _ = host;
-        false
+        let host = host
+            .trim()
+            .trim_start_matches('[')
+            .trim_end_matches(']')
+            .trim_end_matches('.')
+            .to_ascii_lowercase();
+        if host == "localhost" || host.ends_with(".localhost") {
+            return true;
+        }
+        match host.parse::<std::net::IpAddr>() {
+            Ok(std::net::IpAddr::V4(address)) => {
+                address.is_loopback()
+                    || address.is_private()
+                    || address.is_link_local()
+                    || address.is_unspecified()
+            }
+            Ok(std::net::IpAddr::V6(address)) => {
+                address.is_loopback()
+                    || address.is_unique_local()
+                    || address.is_unicast_link_local()
+                    || address.is_unspecified()
+            }
+            Err(_) => false,
+        }
     }
 }
 

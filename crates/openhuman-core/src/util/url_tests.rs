@@ -1,5 +1,15 @@
 use super::*;
 
+#[cfg(not(feature = "security-module"))]
+#[test]
+fn local_provider_hosts_are_classified_without_security_module() {
+    assert!(provider_host_is_local("localhost"));
+    assert!(provider_host_is_local("127.0.0.1"));
+    assert!(provider_host_is_local("192.168.1.12"));
+    assert!(provider_host_is_local("[::1]"));
+    assert!(!provider_host_is_local("api.example.com"));
+}
+
 #[test]
 fn join_url_replaces_any_base_path_with_the_absolute_route() {
     assert_eq!(

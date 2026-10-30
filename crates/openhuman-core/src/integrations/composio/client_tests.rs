@@ -24,11 +24,7 @@ async fn start_mock_backend(app: Router) -> String {
 //   4. unknown mode string — explicit error
 
 async fn config_with_session_token(tmp: &tempfile::TempDir) -> Config {
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
-    // Route tests use synthetic credentials; encryption is tested separately.
-    config.secrets.encrypt = false;
+    let config = module_test_config(tmp);
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(
             crate::credentials::APP_SESSION_PROVIDER,
@@ -61,12 +57,7 @@ fn direct_tool_for_mock_with_key(
 
 /// A config that can load the connector module and names no route.
 fn module_test_config(tmp: &tempfile::TempDir) -> Config {
-    let mut config = Config::default();
-    config.config_path = tmp.path().join("config.toml");
-    config.workspace_dir = tmp.path().join("workspace");
-    // Route tests use synthetic credentials; encryption is tested separately.
-    config.secrets.encrypt = false;
-    config
+    crate::integrations::composio::module_client::test_support::config_in(tmp.path())
 }
 
 struct DirectAuthFailureGuard {

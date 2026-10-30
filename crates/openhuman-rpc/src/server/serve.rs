@@ -202,22 +202,32 @@ pub async fn serve(
                 crate::core_host::core::shutdown::signal().await;
             }
         };
-        let server = axum::serve(listener, app)
-            .with_graceful_shutdown(shutdown)
-            .into_future();
-        tokio::pin!(server);
-        let preflight = runtime.complete_secret_preflight();
-        tokio::pin!(preflight);
+        // Keep the listener independent from startup work. In particular,
+        // `start_services()` can take time after preflight; awaiting it in the
+        // select branch used to stop polling Axum and leave even `/health`
+        // hanging while the socket was already bound.
+        let mut server = tokio::spawn(async move {
+            axum::serve(listener, app)
+                .with_graceful_shutdown(shutdown)
+                .await
+        });
         tokio::select! {
-            result = &mut server => result.map_err(anyhow::Error::from),
-            result = &mut preflight => match result {
-                Err(error) => Err(error),
+            result = &mut server => result
+                .map_err(anyhow::Error::from)
+                .and_then(|result| result.map_err(anyhow::Error::from)),
+            result = runtime.complete_secret_preflight() => match result {
+                Err(error) => {
+                    server.abort();
+                    Err(error)
+                },
                 Ok(()) => {
                     // Start ordinary jobs only after credentials and config
                     // have been refreshed, then expose the full router.
                     runtime.start_services().await;
                     gate.open();
-                    server.await.map_err(anyhow::Error::from)
+                    server.await
+                        .map_err(anyhow::Error::from)
+                        .and_then(|result| result.map_err(anyhow::Error::from))
                 }
             }
         }

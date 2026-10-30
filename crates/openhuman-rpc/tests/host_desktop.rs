@@ -81,15 +81,21 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     // The listener may fall back to another port if the one we
                     // probed was taken in between; use what it reports.
 
-                    let health = tokio::time::timeout(
+                    let health = match tokio::time::timeout(
                         Duration::from_secs(10),
                         reqwest::Client::new()
                             .get(format!("http://127.0.0.1:{port}/health"))
                             .send(),
                     )
                     .await
-                    .expect("GET /health completes during startup preflight")
-                    .expect("GET /health");
+                    {
+                        Ok(result) => result.expect("GET /health"),
+                        Err(_) => {
+                            shutdown.cancel();
+                            let _ = tokio::time::timeout(Duration::from_secs(10), server).await;
+                            panic!("GET /health completes during startup preflight");
+                        }
+                    };
                     assert_eq!(health.status(), 200);
 
                     shutdown.cancel();

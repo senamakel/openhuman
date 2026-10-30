@@ -201,6 +201,7 @@ pub async fn serve(
             } else {
                 crate::core_host::core::shutdown::signal().await;
             }
+            eprintln!("serve: graceful shutdown future resolved");
         };
         // Keep the listener independent from startup work. In particular,
         // `start_services()` can take time after preflight; awaiting it in the
@@ -257,6 +258,7 @@ pub async fn serve(
         axum::serve(listener, app)
             .with_graceful_shutdown(async move {
                 shutdown_token.cancelled().await;
+                eprintln!("serve: graceful shutdown future resolved");
             })
             .await
             .map_err(anyhow::Error::from)

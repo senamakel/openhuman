@@ -96,6 +96,8 @@ mod corrective_turn {
         config.agent.session_dual_write = false;
         config.agent.session_shadow_reads = false;
         config.default_model = Some("fixture".into());
+        config.secrets.encrypt = false;
+        config.modules.source = crate::config::schema::ModuleSourceMode::Source;
         config
     }
 
@@ -150,6 +152,10 @@ mod corrective_turn {
         crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins()
             .unwrap();
         let config = config(&tmp);
+        #[cfg(feature = "security-module")]
+        crate::modules::security::ensure_loaded(&config)
+            .await
+            .expect("the local TinySecurity module should load for scheduler agent tests");
         let requests = Arc::new(std::sync::Mutex::new(Vec::new()));
         crate::agent::session_host::test_support::install_scripted_model(Arc::new(ScriptedModel {
             replies: std::sync::Mutex::new([first, then].into()),
@@ -159,9 +165,6 @@ mod corrective_turn {
         host_agents::install(Arc::clone(&resolver));
         let (success, output, error) = run_agent_job(&config, &job).await;
         host_agents::clear_if(&resolver);
-        if error.is_some() {
-            eprintln!("scheduler agent fixture failed: error={error:?}, output={output:?}");
-        }
         assert!(error.is_none(), "{error:?}");
         let requests = requests.lock().unwrap().clone();
         ((success, output), requests)

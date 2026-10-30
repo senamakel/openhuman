@@ -168,7 +168,10 @@ impl<D: BoxDriver> BoxRegistry<D> {
                     return Ok(backstop_timed_out(request.timeout));
                 }
                 Err(BoxError::UnknownResource) => {
+                    // "Gone" is inferred after a failed exec, so the box may
+                    // still exist on the gateway: close it rather than leak it.
                     lease.slot.forget(&resource);
+                    self.close_quietly(&resource).await;
                     if replaced {
                         return Err(BoxError::UnknownResource);
                     }

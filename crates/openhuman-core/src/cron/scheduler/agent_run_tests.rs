@@ -159,6 +159,9 @@ mod corrective_turn {
         host_agents::install(Arc::clone(&resolver));
         let (success, output, error) = run_agent_job(&config, &job).await;
         host_agents::clear_if(&resolver);
+        if error.is_some() {
+            eprintln!("scheduler agent fixture failed: error={error:?}, output={output:?}");
+        }
         assert!(error.is_none(), "{error:?}");
         let requests = requests.lock().unwrap().clone();
         ((success, output), requests)

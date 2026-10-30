@@ -56,10 +56,7 @@ fn declared_collections() -> Vec<CollectionOwner> {
             "tinymcp-bus",
             tinymcp_bus::storage::collection_specs(),
         ));
-        owners.push(owner(
-            "tinychannels-bus",
-            channel_collection_specs(),
-        ));
+        owners.push(owner("tinychannels-bus", channel_collection_specs()));
         owners.push(owner(
             "tinyconnectors-bus",
             tinyconnectors_bus::storage::collections()

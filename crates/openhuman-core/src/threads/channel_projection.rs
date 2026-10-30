@@ -7,17 +7,17 @@
 //! guesses from a sender, recent message, or equality between provider and row
 //! identifiers.
 
-use anyhow::{anyhow, Context, Result};
+use anyhow::{Context, Result, anyhow};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
 use tinychannels_bus::{ChannelRef, ConversationRef};
 use tinystoragedrivers::{CollectionSpec, ErrorKind, Precondition};
 
-use crate::core::runtime::{tenant::tenant_key, DispatchCtx, Tenant};
+use crate::core::runtime::{DispatchCtx, Tenant, tenant::tenant_key};
 use crate::storage::{
     self,
-    documents::{compare_and_swap, Repo},
+    documents::{Repo, compare_and_swap},
 };
 
 const DOMAIN: &str = "threads::channel_projection";

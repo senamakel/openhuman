@@ -6,7 +6,7 @@
 //! when a turn is about to execute.
 
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tinychannels_bus::{ContentPart, MediaReference};
 use tinystoragedrivers::Precondition;
 
@@ -19,9 +19,9 @@ const STORAGE_KEY: &str = "__openhumanStoredAttachments";
 mod staged;
 use staged::*;
 pub(crate) use staged::{
-    bind_staged_refs, commit_native_channel_parts, consume_staged_parts, discard_staged_parts,
-    native_parts_in_committed_message, read_authorized_native_attachment,
-    stage_native_channel_part, stage_queued_parts, validate_opaque_parts, NativeStagedLease,
+    NativeStagedLease, bind_staged_refs, commit_native_channel_parts, consume_staged_parts,
+    discard_staged_parts, native_parts_in_committed_message, read_authorized_native_attachment,
+    stage_native_channel_part, stage_queued_parts, validate_opaque_parts,
 };
 
 pub(crate) fn has_opaque_ref(part: &ContentPart) -> bool {

@@ -92,10 +92,14 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     // The listener may fall back to another port if the one we
                     // probed was taken in between; use what it reports.
 
+                    let client = reqwest::Client::builder()
+                        .pool_max_idle_per_host(0)
+                        .build()
+                        .expect("HTTP client");
                     let health = tokio::select! {
                         result = tokio::time::timeout(
                             Duration::from_secs(10),
-                            reqwest::Client::new()
+                            client
                                 .get(format!("http://127.0.0.1:{port}/health"))
                                 .send(),
                         ) => result.expect("GET /health completes during startup preflight")
@@ -106,6 +110,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     // Consume the body so the pooled HTTP connection is
                     // complete before graceful shutdown waits for it.
                     let _body = health.bytes().await.expect("health response body");
+                    drop(client);
 
                     shutdown.cancel();
                     let finished = tokio::time::timeout(Duration::from_secs(60), server)

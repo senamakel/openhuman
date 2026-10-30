@@ -74,6 +74,7 @@ fn server_shim_refuses_public_bind_without_operator_token() {
                             workspace.path().as_os_str().to_os_string(),
                         ),
                         ("OPENHUMAN_CORE_TOKEN", OsString::from("")),
+                        ("OPENHUMAN_KEYRING_BACKEND", OsString::from("memory")),
                     ]);
                     let services = ServiceSet::headless_api();
 

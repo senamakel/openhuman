@@ -122,7 +122,12 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
         model.repair_started.notified(),
     )
     .await
-    .expect("host supplemental repair starts");
+    .unwrap_or_else(|_| {
+        panic!(
+            "host supplemental repair starts (non-supplemental model calls: {})",
+            model.calls.load(std::sync::atomic::Ordering::SeqCst)
+        )
+    });
     let repair_call_id = model
         .repair_call_id
         .lock()

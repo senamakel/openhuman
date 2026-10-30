@@ -26,6 +26,17 @@ fn every_transport_operation_carries_the_channel_scoped_by_the_host() {
             channel: "discord:fixture".into(),
             message: json!({"text":"hello"}),
         },
+        ProgressiveTransportRequest::SendTyped {
+            channel: "discord:fixture".into(),
+            turn_id: None,
+            channel_ref: None,
+            conversation: None,
+            sequence: None,
+            segment_index: None,
+            idempotency_key: None,
+            parts: Vec::new(),
+            text: "hello".into(),
+        },
         ProgressiveTransportRequest::Edit {
             channel: "discord:fixture".into(),
             message_id: "message".into(),

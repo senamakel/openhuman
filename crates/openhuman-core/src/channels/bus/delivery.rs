@@ -11,6 +11,7 @@ use tinychannels_bus::{methods, ChannelBackendRequest, ChannelBackendResult};
 fn request_channel(request: &ProgressiveTransportRequest) -> &str {
     match request {
         ProgressiveTransportRequest::Send { channel, .. }
+        | ProgressiveTransportRequest::SendTyped { channel, .. }
         | ProgressiveTransportRequest::Edit { channel, .. }
         | ProgressiveTransportRequest::Delete { channel, .. }
         | ProgressiveTransportRequest::Typing { channel, .. }

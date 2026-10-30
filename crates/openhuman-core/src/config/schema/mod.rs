@@ -41,8 +41,8 @@ pub use resolved_endpoints::ResolvedEndpoints;
 mod agent;
 mod autonomy;
 mod capability_providers;
-mod channels;
 mod cli_overrides;
+mod security;
 #[doc(hidden)]
 pub use cli_overrides::AppliedInferenceOverride;
 mod computer;
@@ -106,7 +106,6 @@ mod runtime;
 mod runtime_local_jail;
 mod runtime_openshell;
 mod scheduler_gate;
-mod security;
 mod task_sources;
 mod tokenjuice;
 mod tools;
@@ -119,11 +118,6 @@ pub use agent::{
 pub use autonomy::AutonomyConfig;
 pub use capability_providers::{CapabilityProviderConfig, CapabilityProviderTrustState};
 pub use channel_voice::{ChannelVoiceConfig, ChannelVoiceOverride, VoiceReplyMode};
-pub use channels::{
-    ChannelsConfig, DingTalkConfig, DiscordConfig, EmailConfig, IMessageConfig, IrcConfig,
-    LarkConfig, LarkReceiveMode, LinqConfig, MattermostConfig, QQConfig, SignalConfig, SlackConfig,
-    StreamMode, TelegramConfig, WhatsAppConfig, YuanbaoConfig,
-};
 pub(crate) use cli_overrides::set_cli_inference_overrides;
 pub use context::{
     CompactionSettings, CompactionStrategy, ContextConfig, ContextSettings, SummarizerSettings,
@@ -162,6 +156,12 @@ pub use security::{
     AuditConfig, ResourceLimitsConfig, SandboxBackend, SandboxConfig, SecurityConfig,
 };
 pub use task_sources::TaskSourcesConfig;
+pub use tinychannels_bus::config::{
+    ChannelsConfig, DingTalkConfig, DiscordConfig, EmailConfig, IMessageConfig, IrcConfig,
+    LarkConfig, LarkReceiveMode, LinqConfig, MatrixConfig, MattermostConfig, QQConfig,
+    SignalConfig, SlackConfig, StreamMode, TelegramConfig, WebhookConfig, WhatsAppConfig,
+    YuanbaoConfig,
+};
 pub use tokenjuice::TokenjuiceConfig;
 pub use tools::{
     BrowserComputerUseConfig, BrowserConfig, ComposioConfig, ComposioDirectBaseUrls,

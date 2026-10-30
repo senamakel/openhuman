@@ -6,7 +6,7 @@ use crate::core::Outcome;
 
 use super::loader::snapshot_config_json;
 
-/// Partial update for the `[security.sandbox]` + `[runtime.docker]` blocks.
+/// Partial update for the `[sandbox]` + `[runtime.docker]` blocks.
 #[derive(Debug, Clone, Default)]
 pub struct SandboxSettingsPatch {
     pub backend: Option<String>,
@@ -33,7 +33,10 @@ pub async fn get_sandbox_settings(ctx: &DispatchCtx) -> Result<Outcome<serde_jso
 
     let backend_str = backend_name(&sandbox.backend);
 
-    let detected_backend = detect_os_sandbox_backend();
+    let detected_backend = crate::sandbox::native_jail::status(&config)
+        .await
+        .map(|(backend, _, _)| backend)
+        .unwrap_or_else(|_| "unavailable".to_owned());
 
     let value = serde_json::json!({
         "enabled": sandbox.enabled.unwrap_or(true)
@@ -66,21 +69,26 @@ fn backend_name(backend: &crate::config::SandboxBackend) -> &'static str {
     }
 }
 
-/// The backend a settings name selects.
+/// The backend a settings name selects. `firejail` and `bubblewrap` stay
+/// readable in saved settings but cannot be chosen: TinyBox does the native
+/// sandboxing in this build.
 fn parse_backend(name: &str) -> Result<crate::config::SandboxBackend, String> {
     use crate::config::SandboxBackend;
     Ok(match name {
         "auto" => SandboxBackend::Auto,
         "landlock" => SandboxBackend::Landlock,
-        "firejail" => SandboxBackend::Firejail,
-        "bubblewrap" => SandboxBackend::Bubblewrap,
+        "firejail" | "bubblewrap" => {
+            return Err(format!(
+                "unsupported sandbox backend '{name}': this build uses TinyBox for native sandboxing; valid: auto, landlock, docker, openshell, none"
+            ));
+        }
         "docker" => SandboxBackend::Docker,
         "openshell" => SandboxBackend::OpenShell,
         "none" => SandboxBackend::None,
         other => {
             log::warn!("[config][sandbox] rejected unknown backend: {other}");
             return Err(format!(
-                "unknown sandbox backend '{other}'; valid: auto, landlock, firejail, bubblewrap, docker, openshell, none"
+                "unknown sandbox backend '{other}'; valid: auto, landlock, docker, openshell, none"
             ));
         }
     })
@@ -90,6 +98,12 @@ pub async fn apply_sandbox_settings(
     config: &mut Config,
     update: SandboxSettingsPatch,
 ) -> Result<Outcome<serde_json::Value>, String> {
+    if update.env_passthrough.is_some() {
+        return Err(
+            "env_passthrough is not configurable; sandbox environment variables use the built-in safe allowlist"
+                .into(),
+        );
+    }
     if let Some(ref backend) = update.backend {
         config.sandbox.backend = parse_backend(backend)?;
     }
@@ -112,20 +126,13 @@ pub async fn apply_sandbox_settings(
         }
         config.runtime.docker.cpu_limit = Some(cpu);
     }
-    if let Some(ref passthrough) = update.env_passthrough {
-        log::debug!(
-            "[config][sandbox] env_passthrough update: {} vars",
-            passthrough.len()
-        );
-    }
-
     config.save().await.map_err(super::config_save_error)?;
 
     log::debug!(
         "[config][sandbox] sandbox settings saved to {}",
         config.config_path.display()
     );
-    let snapshot = snapshot_config_json(config)?;
+    let snapshot = snapshot_config_json(config).await?;
     Ok(Outcome::new(
         snapshot,
         vec![format!(
@@ -141,46 +148,6 @@ pub async fn load_and_apply_sandbox_settings(
 ) -> Result<Outcome<serde_json::Value>, String> {
     let mut config = ctx.load_config().await?;
     apply_sandbox_settings(&mut config, update).await
-}
-
-fn detect_os_sandbox_backend() -> &'static str {
-    #[cfg(target_os = "linux")]
-    {
-        if std::path::Path::new("/sys/kernel/security/landlock").exists() {
-            return "landlock";
-        }
-        if std::process::Command::new("firejail")
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return "firejail";
-        }
-        if std::process::Command::new("bwrap")
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .is_ok()
-        {
-            return "bubblewrap";
-        }
-        "none"
-    }
-    #[cfg(target_os = "macos")]
-    {
-        "seatbelt"
-    }
-    #[cfg(target_os = "windows")]
-    {
-        "appcontainer"
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "macos", target_os = "windows")))]
-    {
-        "none"
-    }
 }
 
 #[cfg(test)]

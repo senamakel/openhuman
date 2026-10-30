@@ -116,6 +116,15 @@ impl ServiceSet {
         }
     }
 
+    /// HTTP-only surface used while the desktop resolves encrypted startup
+    /// config under the operator's approval gate.
+    pub(crate) fn secret_preflight() -> Self {
+        Self {
+            rpc_http: true,
+            ..Self::none()
+        }
+    }
+
     /// A long-lived embedded host: no transport, but the background work such
     /// a session expects.
     ///
@@ -170,6 +179,10 @@ pub enum CoreBootMode {
     /// Initialize workspace stores and runtime infrastructure as usual.
     #[default]
     Normal,
+    /// Load config without opening encrypted values, register approval
+    /// infrastructure, and defer background services until the host has
+    /// exposed the restricted approval RPC surface.
+    SecretPreflight,
     /// Build a dispatchable context without startup persistence or services.
     Inspection,
 }
@@ -332,7 +345,7 @@ impl CoreBuilder {
     ///
     /// Sugar over [`config`](Self::config), like [`workspace`](Self::workspace).
     /// Distinct from the workspace on purpose: the workspace holds internal
-    /// state the agent must never write to, and `is_workspace_internal_path`
+    /// state the agent must never write to, reserved by TinySecurity's path policy,
     /// enforces that separation fail-closed.
     pub fn action_dir(mut self, dir: impl Into<std::path::PathBuf>) -> Self {
         let mut config = self.config.take().unwrap_or_default();
@@ -420,12 +433,18 @@ impl CoreBuilder {
 
         Ok(CoreRuntime {
             ctx,
-            config,
+            config: std::sync::RwLock::new(config),
             services: if self.boot_mode == CoreBootMode::Inspection {
                 ServiceSet::none()
+            } else if self.boot_mode == CoreBootMode::SecretPreflight {
+                ServiceSet::secret_preflight()
             } else {
                 components.narrow_services(self.services)
             },
+            deferred_services: (self.boot_mode == CoreBootMode::SecretPreflight)
+                .then(|| components.narrow_services(self.services)),
+            boot_mode: self.boot_mode,
+            secret_preflight_complete: std::sync::atomic::AtomicBool::new(false),
             has_operator_token,
             host: self.host,
             port: self.port,
@@ -439,8 +458,11 @@ impl CoreBuilder {
 /// to `openhuman_rpc::server::serve` to run the selected transport as well.
 pub struct CoreRuntime {
     ctx: Arc<CoreContext>,
-    config: Option<Config>,
+    config: std::sync::RwLock<Option<Config>>,
     services: ServiceSet,
+    deferred_services: Option<ServiceSet>,
+    boot_mode: CoreBootMode,
+    secret_preflight_complete: std::sync::atomic::AtomicBool,
     has_operator_token: bool,
     host: Option<String>,
     port: Option<u16>,
@@ -453,7 +475,65 @@ pub struct CoreRuntime {
 impl CoreRuntime {
     /// The services/transports this runtime is configured to run.
     pub fn services(&self) -> ServiceSet {
-        self.services
+        if self
+            .secret_preflight_complete
+            .load(std::sync::atomic::Ordering::Acquire)
+        {
+            self.deferred_services.unwrap_or(self.services)
+        } else {
+            self.services
+        }
+    }
+
+    /// The selected post-bootstrap services. A transport host may need this
+    /// when it must construct its router before deferred startup completes.
+    pub fn normal_services(&self) -> ServiceSet {
+        self.deferred_services.unwrap_or(self.services)
+    }
+
+    /// Whether this runtime still needs the restricted config-secret startup
+    /// phase completed by its transport host.
+    pub fn requires_secret_preflight(&self) -> bool {
+        self.boot_mode == CoreBootMode::SecretPreflight
+            && !self
+                .secret_preflight_complete
+                .load(std::sync::atomic::Ordering::Acquire)
+    }
+
+    /// Decrypt the sealed startup config and refresh the dispatch snapshot.
+    /// The host must keep the restricted approval router serving until this
+    /// returns successfully.
+    pub async fn complete_secret_preflight(&self) -> anyhow::Result<()> {
+        anyhow::ensure!(
+            self.requires_secret_preflight(),
+            "core runtime has no pending secret preflight"
+        );
+        let mut config = self
+            .config
+            .read()
+            .expect("core config lock poisoned")
+            .clone()
+            .ok_or_else(|| anyhow::anyhow!("secret preflight has no loaded config"))?;
+        let migrated = config.decrypt_secrets_after_preflight().await?;
+        if migrated {
+            if let Err(error) = config.save().await {
+                log::warn!(
+                    "[security][config] failed to persist enc: -> enc2: secret migration: {error}"
+                );
+            }
+        }
+        self.ctx.replace_latest_embedder_config(config.clone());
+        crate::core::runtime::subscribers::finish_secret_preflight_credentials(
+            &crate::core::runtime::DispatchCtx::new(Arc::clone(&self.ctx)),
+            &config,
+        )
+        .await;
+        crate::core::runtime::services::run_legacy_migrations(&config).await;
+        crate::agent::tinyagents::reaper::reap_orphaned_runs(&config.workspace_dir).await;
+        *self.config.write().expect("core config lock poisoned") = Some(config);
+        self.secret_preflight_complete
+            .store(true, std::sync::atomic::Ordering::Release);
+        Ok(())
     }
 
     /// The initialized core context (host identity + resolved workspace).
@@ -556,10 +636,15 @@ impl CoreRuntime {
     /// Idempotent while they run; the long-lived loops stop with
     /// [`stop_services`](Self::stop_services) or when this runtime drops.
     pub async fn start_services(&self) {
+        let config = self
+            .config
+            .read()
+            .expect("core config lock poisoned")
+            .clone();
         crate::core::runtime::services::start_selected_services(
             &self.service_tasks,
-            self.services,
-            self.config.as_ref(),
+            self.services(),
+            config.as_ref(),
             &self.ctx,
         )
         .await;

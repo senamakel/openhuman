@@ -369,15 +369,6 @@ pub async fn analyze_shell(
     call(config, ANALYZE_SHELL, (command,), false).await
 }
 
-/// Ask TinyBox for generic command facts; the caller still decides policy.
-pub(crate) async fn analyze_command(
-    config: &Config,
-    command: String,
-) -> Result<crate::security::policy::CommandAnalysis, String> {
-    let facts = analyze_shell(config, command).await?;
-    Ok(crate::security::policy::CommandAnalysis::from_shell_analysis(facts))
-}
-
 /// Open a bounded workspace file reader.
 pub async fn begin_file_read(
     config: &Config,

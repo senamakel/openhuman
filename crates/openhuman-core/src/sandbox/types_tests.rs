@@ -41,6 +41,7 @@ fn sandbox_policy_serializes_roundtrip() {
         read_only_mounts: vec![PathBuf::from("/usr/lib")],
         read_write_mounts: vec![],
         allow_network: false,
+        mount_workspace: true,
         env_passthrough: vec!["PATH".into()],
         docker_overrides: Some(DockerOverrides {
             image: Some("node:20-slim".into()),
@@ -52,13 +53,6 @@ fn sandbox_policy_serializes_roundtrip() {
     let back: SandboxPolicy = serde_json::from_str(&json).unwrap();
     assert_eq!(back.backend, SandboxBackendKind::Docker);
     assert!(!back.allow_network);
-}
-
-#[test]
-fn elevated_tools_contains_expected_entries() {
-    assert!(ELEVATED_TOOLS.contains(&"git_operations"));
-    assert!(ELEVATED_TOOLS.contains(&"install_tool"));
-    assert!(!ELEVATED_TOOLS.contains(&"shell"));
 }
 
 #[test]

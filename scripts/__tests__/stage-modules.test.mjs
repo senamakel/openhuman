@@ -51,7 +51,7 @@ for (const hostKey of HOST_KEYS) {
     assert.equal(new Set(assets.map((asset) => asset.id)).size, assets.length);
     for (const asset of assets) {
       assert.equal(asset.hostKey, hostKey);
-      assert.match(asset.url, /^https:\/\/github\.com\/tinyhumansai\//);
+      assert.match(asset.url, /^https:\/\/github\.com\/(?:tinyhumansai|senamakel)\//);
       assert.ok(asset.archive.includes(`-${hostKey}.`));
       assert.match(asset.sha256, /^[a-f0-9]{64}$/);
     }

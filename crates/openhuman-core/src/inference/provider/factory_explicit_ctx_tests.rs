@@ -74,7 +74,6 @@ async fn managed_factory_and_probe_use_the_explicit_provider_entry() {
         b_extensions,
     );
     let dispatch = DispatchCtx::new(context_a);
-    let tmp = tempfile::tempdir().expect("isolated workspace");
     let (_fixture_dir, config) = super::crate_native_tests::isolated_config();
     crate::credentials::AuthService::from_config(&config)
         .store_provider_token(

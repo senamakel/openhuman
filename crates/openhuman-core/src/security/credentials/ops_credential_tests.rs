@@ -18,7 +18,8 @@ async fn same_token_refresh_preserves_issuing_backend_and_refuses_rebinding() {
             "synthetic-session",
             metadata,
             true,
-        ).await
+        )
+        .await
         .unwrap();
     let state = set_credential(
         &DispatchCtx::process_default(),
@@ -139,12 +140,14 @@ async fn set_credential_rejects_an_expired_jwt_without_storing() {
         .await
         .unwrap_err();
     assert!(err.starts_with("CREDENTIAL_EXPIRED:"), "{err}");
-    assert!(auth_get_state(&config)
-        .await
-        .unwrap()
-        .value
-        .user_id
-        .is_none());
+    assert!(
+        auth_get_state(&config)
+            .await
+            .unwrap()
+            .value
+            .user_id
+            .is_none()
+    );
 }
 
 #[tokio::test]
@@ -333,12 +336,14 @@ async fn set_credential_for_a_different_user_signs_the_previous_one_out_first() 
         Some("bob")
     );
     // Alice's profile is gone from her scope.
-    assert!(auth_get_state(&alice_config)
-        .await
-        .unwrap()
-        .value
-        .user_id
-        .is_none());
+    assert!(
+        auth_get_state(&alice_config)
+            .await
+            .unwrap()
+            .value
+            .user_id
+            .is_none()
+    );
 }
 
 // ── set_credential (api key) ──────────────────────────────────

@@ -207,7 +207,8 @@ async fn store_provider_token_and_remove_profile_roundtrip_with_mixed_case() {
             "sk-test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .await
         .unwrap();
 
@@ -219,7 +220,8 @@ async fn store_provider_token_and_remove_profile_roundtrip_with_mixed_case() {
     assert_eq!(profile.unwrap().id, "deepseek:default");
 
     let removed = service
-        .remove_profile("deepseek", "default").await
+        .remove_profile("deepseek", "default")
+        .await
         .await
         .unwrap();
     assert!(removed);
@@ -240,12 +242,14 @@ async fn remove_profile_namespace_fallback_removes_namespaced_profile() {
             "sk-test-token",
             std::collections::HashMap::new(),
             true,
-        ).await
+        )
+        .await
         .await
         .unwrap();
 
     let removed = service
-        .remove_profile("deepseek", "default").await
+        .remove_profile("deepseek", "default")
+        .await
         .await
         .unwrap();
     assert!(removed);

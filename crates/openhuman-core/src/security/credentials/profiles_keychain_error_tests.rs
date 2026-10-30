@@ -74,7 +74,8 @@ fn locked_keychain_store() -> Fixture {
         .upsert_profile(
             AuthProfile::new_token("anthropic", "default", "kc-token".into()),
             true,
-        ).await
+        )
+        .await
         .unwrap();
     let json = std::fs::read_to_string(store.path()).unwrap();
     assert!(
@@ -118,10 +119,13 @@ async fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
     let json_before = std::fs::read_to_string(f.store.path()).unwrap();
     let keychain_before = f.keychain.map.lock().unwrap().clone();
 
-    let upsert = f.store.upsert_profile(
-        AuthProfile::new_token("openrouter", "default", "new-token".into()),
-        false,
-    ).await;
+    let upsert = f
+        .store
+        .upsert_profile(
+            AuthProfile::new_token("openrouter", "default", "new-token".into()),
+            false,
+        )
+        .await;
 
     assert!(
         upsert.is_err(),
@@ -189,7 +193,8 @@ async fn an_unavailable_keychain_carries_keychain_only_profiles_untouched() {
         .upsert_profile(
             AuthProfile::new_token("openrouter", "default", "new-token".into()),
             false,
-        ).await
+        )
+        .await
         .expect("a write without the keychain");
     assert_eq!(
         persisted_entry(&f.store, &f.oauth_id),

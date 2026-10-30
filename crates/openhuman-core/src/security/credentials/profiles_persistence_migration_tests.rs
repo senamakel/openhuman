@@ -197,7 +197,8 @@ async fn write_stage_retries_one_shot_transient() {
 
     let profile = AuthProfile::new_token("anthropic", "default", "tok-w1".into());
     store
-        .upsert_profile(profile.clone(), true).await
+        .upsert_profile(profile.clone(), true)
+        .await
         .expect("retry should absorb the single write-stage transient");
 
     assert_eq!(store.remaining_forced_write_failures(), 0);
@@ -220,7 +221,8 @@ async fn write_stage_absorbs_burst_of_transients() {
 
     let profile = AuthProfile::new_token("anthropic", "default", "tok-w-burst".into());
     store
-        .upsert_profile(profile.clone(), true).await
+        .upsert_profile(profile.clone(), true)
+        .await
         .expect("retry must absorb a burst of write-stage transients within budget");
 
     assert_eq!(store.remaining_forced_write_failures(), 0);
@@ -247,7 +249,8 @@ async fn write_stage_exhausts_retries_on_persistent_transient() {
 
     let profile = AuthProfile::new_token("anthropic", "default", "tok-w2".into());
     let err = store
-        .upsert_profile(profile, true).await
+        .upsert_profile(profile, true)
+        .await
         .expect_err("persistent write-stage transient must exhaust retries and surface as Err");
 
     let chain = format!("{err:?}");
@@ -392,7 +395,8 @@ async fn rename_stage_retries_one_shot_transient() {
 
     let profile = AuthProfile::new_token("anthropic", "default", "tok-r1".into());
     store
-        .upsert_profile(profile.clone(), true).await
+        .upsert_profile(profile.clone(), true)
+        .await
         .expect("retry should absorb the single rename-stage transient");
 
     assert_eq!(store.remaining_forced_write_failures(), 0);
@@ -435,7 +439,8 @@ async fn rename_stage_exhausts_retries_and_cleans_up_tmp() {
 
     let profile = AuthProfile::new_token("anthropic", "default", "tok-r2".into());
     let err = store
-        .upsert_profile(profile, true).await
+        .upsert_profile(profile, true)
+        .await
         .expect_err("persistent rename-stage transient must exhaust retries and surface as Err");
 
     let chain = format!("{err:?}");
@@ -521,7 +526,12 @@ async fn load_migrates_un_lowercased_active_profiles_keys_and_providers() {
     assert!(!disk_raw.contains("\"provider:DeepSeek:default\":"));
 
     // 4. Assert profile can be successfully deleted after migration
-    assert!(store.remove_profile("provider:deepseek:default").await.unwrap());
+    assert!(
+        store
+            .remove_profile("provider:deepseek:default")
+            .await
+            .unwrap()
+    );
     let reloaded = store.load().unwrap();
     assert!(reloaded.profiles.is_empty());
     assert!(reloaded.active_profiles.is_empty());

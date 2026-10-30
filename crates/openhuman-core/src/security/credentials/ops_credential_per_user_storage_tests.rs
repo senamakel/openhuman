@@ -118,7 +118,8 @@ async fn a_session_is_stored_in_the_users_own_database() {
     );
 
     assert_eq!(
-        session_support::get_session_token(&user_scoped).await
+        session_support::get_session_token(&user_scoped)
+            .await
             .unwrap()
             .as_deref(),
         Some(token.as_str()),
@@ -270,7 +271,8 @@ async fn a_failed_carry_on_per_user_storage_says_the_key_must_be_entered_again()
     assert_eq!(signed_out.config_path, pre_login.config_path);
     assert!(
         crate::security::credentials::AuthService::from_config(&signed_out)
-            .get_profile(api_key::API_KEY_PROVIDER, None).await
+            .get_profile(api_key::API_KEY_PROVIDER, None)
+            .await
             .unwrap()
             .is_none(),
         "no api-key record may be written into the signed-out store under the old user's namespace"

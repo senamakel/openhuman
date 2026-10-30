@@ -264,11 +264,13 @@ async fn persist_openai_oauth_token_stores_oauth_profile_with_metadata() {
             .and_then(|set| set.refresh_token.as_deref()),
         Some("refresh-token")
     );
-    assert!(profile
-        .token_set
-        .as_ref()
-        .and_then(|set| set.expires_at)
-        .is_some());
+    assert!(
+        profile
+            .token_set
+            .as_ref()
+            .and_then(|set| set.expires_at)
+            .is_some()
+    );
 
     let data = AuthProfilesStore::new(tmp.path(), false).load().unwrap();
     let stored = data.profiles.get(&profile.id).unwrap();
@@ -435,7 +437,7 @@ async fn import_codex_cli_auth_file_reports_missing_file_with_login_hint() {
 /// `.codex/auth.json` anchor from a message, this test fails in CI.
 #[tokio::test]
 async fn codex_import_user_state_errors_classify_as_expected() {
-    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
+    use crate::core::observability::{ExpectedErrorKind, expected_error_kind};
 
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
@@ -500,7 +502,8 @@ async fn openai_oauth_status_reports_token_profile_as_disconnected() {
                 "sk-token-profile".to_string(),
             ),
             true,
-        ).await
+        )
+        .await
         .unwrap();
 
     let status = openai_oauth_status(&config).unwrap();
@@ -569,7 +572,8 @@ async fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_ro
                 },
             ),
             true,
-        ).await
+        )
+        .await
         .unwrap();
     assert!(
         openai_bearer_is_oauth(&config),
@@ -598,7 +602,8 @@ async fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_ro
         .upsert_profile(
             AuthProfile::new_token("provider:openai", "default", "sk-api-key".into()),
             true,
-        ).await
+        )
+        .await
         .unwrap();
     assert!(!openai_bearer_is_oauth(&config));
     let routing = resolve_codex_routing(

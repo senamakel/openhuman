@@ -559,7 +559,10 @@ async fn startup_preflight_denies_authenticated_socketio_until_open_and_guards_r
 
 async fn startup_preflight_socket_gate() {
     let gate = crate::server::auth::PreflightGate::new_active();
-    let router = crate::server::http::build_core_http_router_with_preflight(true, gate.clone());
+    let router = crate::server::http::build_core_http_router_with_preflight(true, gate.clone())
+        .layer(axum::Extension(
+            crate::core_host::core::runtime::DispatchCtx::host_default(),
+        ));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let base = format!("http://{}", listener.local_addr().unwrap());
     tokio::spawn(async move { axum::serve(listener, router).await.unwrap() });

@@ -576,16 +576,18 @@ async fn middleware_with_one_pending_nudge() -> (
     let handle = SteeringHandle::allow_all();
     let slot = std::sync::Arc::new(std::sync::Mutex::new(None));
     let mw = RepeatedToolFailureMiddleware::new(handle, 3, slot);
-    let mut call = TaToolCall::new(
-        "sh-1",
-        "shell",
-        serde_json::json!({ "command": "whois a.io" }),
-    );
-    mw.before_tool(&mut run_ctx, &(), &mut call).await.unwrap();
-    let mut result = failing_result("shell", "Command timed out after 60s and was killed");
-    mw.after_tool(&mut run_ctx, &(), &invocation("sh-1", "shell"), &mut result)
-        .await
-        .unwrap();
+    for id in ["sh-1", "sh-2"] {
+        let mut call = TaToolCall::new(
+            id,
+            "shell",
+            serde_json::json!({ "command": "whois a.io" }),
+        );
+        mw.before_tool(&mut run_ctx, &(), &mut call).await.unwrap();
+        let mut result = failing_result("shell", "Command timed out after 60s and was killed");
+        mw.after_tool(&mut run_ctx, &(), &invocation(id, "shell"), &mut result)
+            .await
+            .unwrap();
+    }
     (mw, run_ctx)
 }
 

@@ -193,9 +193,15 @@ where
         .as_ref()
         .map(|scope| scope.conversation.id.clone())
         .unwrap_or_else(|| msg.reply_target.clone());
+    let reply_scope_topic = reset_scope
+        .as_ref()
+        .and_then(|scope| scope.conversation.topic_id.clone())
+        .or_else(|| msg.topic_id.clone());
     let reply_message = |content: &str| {
         let mut message = SendMessage::new(content, reply_recipient.clone());
         message.thread_ts = reply_thread.clone();
+        message.topic_id = reply_scope_topic.clone();
+        message.reply_to_id = msg.reply_to_id.clone();
         message
     };
     let history_len =

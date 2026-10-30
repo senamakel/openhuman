@@ -170,22 +170,26 @@ pub fn module_collections(owner: &str) -> Vec<CollectionSpec> {
 fn channel_collection_specs() -> Vec<CollectionSpec> {
     tinychannels_bus::storage::collections()
         .into_iter()
-        .map(|declaration| {
-            let mut collection = CollectionSpec::new(declaration.name);
-            for index in declaration.indexes {
-                let unique = index.unique;
-                let index = IndexSpec::new(index.name, index.fields);
-                collection = collection.index(if unique { index.unique() } else { index });
-            }
-            if let Some(ttl_field) = declaration.ttl_field {
-                collection = collection.ttl(ttl_field);
-            }
-            if let Some(search) = declaration.search {
-                collection = collection.searchable(search.fields);
-            }
-            collection
-        })
+        .map(channel_collection_spec)
         .collect()
+}
+
+fn channel_collection_spec(
+    declaration: tinychannels_bus::storage::CollectionSpec,
+) -> CollectionSpec {
+    let mut collection = CollectionSpec::new(declaration.name);
+    for index in declaration.indexes {
+        let unique = index.unique;
+        let index = IndexSpec::new(index.name, index.fields);
+        collection = collection.index(if unique { index.unique() } else { index });
+    }
+    if let Some(ttl_field) = declaration.ttl_field {
+        collection = collection.ttl(ttl_field);
+    }
+    if let Some(search) = declaration.search {
+        collection = collection.searchable(search.fields);
+    }
+    collection
 }
 
 /// Convert the event queue bus's portable declarations into host storage types.

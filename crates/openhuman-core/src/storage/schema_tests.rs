@@ -65,6 +65,31 @@ fn module_collections_are_limited_to_the_named_owner() {
 }
 
 #[test]
+fn tinychannels_bus_declarations_map_indexes_ttl_and_search_to_host_specs() {
+    let declaration = tinychannels_bus::storage::CollectionSpec {
+        name: "channels.test".into(),
+        indexes: vec![tinychannels_bus::storage::IndexSpec {
+            name: "by_sender".into(),
+            fields: vec!["sender.id".into()],
+            unique: true,
+        }],
+        ttl_field: Some("expiresAt".into()),
+        search: Some(tinychannels_bus::storage::SearchSpec {
+            fields: vec!["title".into(), "body".into()],
+        }),
+    };
+    let spec = channel_collection_spec(declaration);
+
+    assert_eq!(spec.name, "channels.test");
+    assert_eq!(spec.indexes.len(), 1);
+    assert_eq!(spec.indexes[0].name, "by_sender");
+    assert_eq!(spec.indexes[0].fields, ["sender.id"]);
+    assert!(spec.indexes[0].unique);
+    assert_eq!(spec.ttl_field.as_deref(), Some("expiresAt"));
+    assert_eq!(spec.search.as_ref().unwrap().fields, ["title", "body"]);
+}
+
+#[test]
 fn tinyjuice_ccr_blobs_stay_inside_the_juice_owner_namespace() {
     assert_eq!(
         module_collections("juice")

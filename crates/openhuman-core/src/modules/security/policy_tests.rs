@@ -14,9 +14,15 @@ fn enabled_policy_expands_home_relative_forbidden_paths() {
     let translated = policy_config(&config);
     assert_eq!(
         translated.forbidden_paths,
-        [crate::config::expand_tilde("~/.ssh"), crate::config::expand_tilde("~/.aws")]
+        [
+            crate::config::expand_tilde("~/.ssh"),
+            crate::config::expand_tilde("~/.aws")
+        ]
     );
-    assert!(translated.forbidden_paths.iter().all(|path| std::path::Path::new(path).is_absolute()));
+    assert!(translated
+        .forbidden_paths
+        .iter()
+        .all(|path| std::path::Path::new(path).is_absolute()));
 }
 
 #[test]
@@ -26,7 +32,10 @@ fn enabled_policy_still_refuses_relative_forbidden_paths() {
     config.autonomy.allowed_commands = vec!["pwd".into()];
     config.autonomy.forbidden_paths = vec!["relative/private".into()];
 
-    assert_eq!(validate(&config), Err("enabled policy forbidden paths must be absolute"));
+    assert_eq!(
+        validate(&config),
+        Err("enabled policy forbidden paths must be absolute")
+    );
 }
 
 #[test]

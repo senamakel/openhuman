@@ -48,7 +48,14 @@ fn cold_secret_scope_initializes_storage_on_the_storage_bridge() {
         let scope = prepare_secret_scope(&config, subject)
             .await
             .map_err(anyhow::Error::msg)?;
-        assert_eq!(scope.correlation(1).await.map_err(anyhow::Error::msg)?.expected_tail, 0);
+        assert_eq!(
+            scope
+                .correlation(1)
+                .await
+                .map_err(anyhow::Error::msg)?
+                .expected_tail,
+            0
+        );
         Ok(())
     })
     .expect("cold scope initialization can run on the storage bridge");

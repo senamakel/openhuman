@@ -105,9 +105,6 @@ pub(crate) fn install_model_fixture() {
 /// Configure a managed-provider session fixture with its required test credential.
 pub(crate) async fn install_managed_model_fixture(config: &crate::config::Config) {
     install_model_fixture();
-    // The managed credential and TinySecurity approval scopes share the same
-    // workspace-backed storage that production bootstrap installs first.
-    crate::storage::local::use_persistent_default_for_test(&config.workspace_dir);
     #[cfg(feature = "security-module")]
     if config.modules.enabled {
         crate::modules::security::ensure_loaded(config)

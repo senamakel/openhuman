@@ -63,13 +63,14 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
     std::thread::Builder::new()
         .stack_size(64 * 1024 * 1024)
         .spawn(move || {
-            tokio::runtime::Builder::new_multi_thread()
+            let runtime = tokio::runtime::Builder::new_multi_thread()
                 .worker_threads(2)
                 .enable_all()
                 .thread_stack_size(16 * 1024 * 1024)
                 .build()
-                .expect("tokio runtime")
-                .block_on(async {
+                .expect("tokio runtime");
+            let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                runtime.block_on(async {
                     let options = DesktopOptions {
                         host: Some("127.0.0.1".into()),
                         port: Some(free_loopback_port()),
@@ -119,16 +120,18 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     let _body = health.bytes().await.expect("health response body");
                     drop(client);
 
-                    eprintln!("host_desktop: health completed; cancelling server");
                     shutdown.cancel();
-                    eprintln!("host_desktop: shutdown cancelled");
                     let finished = tokio::time::timeout(Duration::from_secs(60), server)
                         .await
                         .expect("server stops after shutdown")
                         .expect("server task joins");
                     finished.expect("server exits cleanly");
-                    eprintln!("host_desktop: server joined cleanly");
                 });
+            }));
+            runtime.shutdown_timeout(Duration::from_secs(1));
+            if let Err(payload) = result {
+                std::panic::resume_unwind(payload);
+            }
         })
         .expect("test thread")
         .join()

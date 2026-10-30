@@ -168,3 +168,7 @@ fn detect_os_sandbox_backend() -> &'static str {
         "none"
     }
 }
+
+#[cfg(test)]
+#[path = "sandbox_tests.rs"]
+mod tests;

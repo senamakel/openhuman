@@ -20,7 +20,7 @@ impl std::io::Write for CapturedScopeLogs {
 
 #[tokio::test]
 async fn dormant_scope_epochs_do_not_accumulate_with_profile_churn() {
-    let _guard = composio_cache_test_lock();
+    let _guard = composio_cache_test_lock_async().await;
     for index in 0..128 {
         drop(cache_generation(&format!(
             "review-dormant-{index}/snapshot"
@@ -40,7 +40,7 @@ async fn dormant_scope_epochs_do_not_accumulate_with_profile_churn() {
 
 #[tokio::test]
 async fn epoch_reclamation_preserves_the_lease_fencing_an_in_flight_fetch() {
-    let _guard = composio_cache_test_lock();
+    let _guard = composio_cache_test_lock_async().await;
     let original = cache_generation("review-live/snapshot");
     original.fetch_add(1, Ordering::SeqCst);
     for index in 0..128 {
@@ -101,7 +101,7 @@ async fn seed(config: &Config, ctx: Arc<CoreContext>, toolkit: &str) -> String {
 /// Matching credentials must not let one profile read another's snapshot.
 #[tokio::test]
 async fn profiles_with_identical_credentials_cannot_read_each_others_integrations() {
-    let _guard = composio_cache_test_lock();
+    let _guard = composio_cache_test_lock_async().await;
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
     let alice = profile(&config, "isolation-alice");
@@ -134,7 +134,7 @@ async fn profiles_with_identical_credentials_cannot_read_each_others_integration
 /// Reconcile only the caller's entries against its connection response.
 #[tokio::test]
 async fn reconciliation_for_one_profile_preserves_another_profiles_connections() {
-    let _guard = composio_cache_test_lock();
+    let _guard = composio_cache_test_lock_async().await;
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
     let alice = profile(&config, "reconciliation-alice");
@@ -162,7 +162,7 @@ async fn reconciliation_for_one_profile_preserves_another_profiles_connections()
 /// Invalidation must leave another profile's cached snapshot readable.
 #[tokio::test]
 async fn profile_invalidation_preserves_another_profiles_snapshot() {
-    let _guard = composio_cache_test_lock();
+    let _guard = composio_cache_test_lock_async().await;
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
     let alice = profile(&config, "invalidation-alice");
@@ -188,7 +188,7 @@ async fn profile_invalidation_preserves_another_profiles_snapshot() {
 /// Fence the caller's pending warm while admitting another profile's result.
 #[tokio::test]
 async fn profile_invalidation_does_not_cancel_another_profiles_in_flight_warm() {
-    let _guard = composio_cache_test_lock();
+    let _guard = composio_cache_test_lock_async().await;
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
     let alice = profile(&config, "warm-alice");
@@ -318,7 +318,7 @@ async fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
 /// Desktop agents share their operator catalog and its invalidation epoch.
 #[tokio::test]
 async fn desktop_agents_share_catalog_and_default_context_invalidates_their_warms() {
-    let _guard = composio_cache_test_lock();
+    let _guard = composio_cache_test_lock_async().await;
     let dir = tempfile::tempdir().unwrap();
     let config = config(dir.path());
     let root = CoreContext::for_test_with_config(DomainSet::kernel(), config.clone());

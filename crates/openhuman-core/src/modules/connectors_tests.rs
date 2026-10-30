@@ -128,7 +128,7 @@ async fn direct_mode_hands_the_module_the_hosts_proxy_policy() {
 
     // The destination follows the direct-base env overrides; keep any other
     // test's loopback override out of this one.
-    let _env = crate::config::TEST_ENV_LOCK.blocking_lock();
+    let _env = crate::config::TEST_ENV_LOCK.lock().await;
     let _scrub = DirectBaseScrub::new();
 
     let mut config = bare_config();

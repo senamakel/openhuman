@@ -185,7 +185,7 @@ async fn fetch_connected_integrations_via_mock_returns_empty_with_no_active() {
 
 #[tokio::test]
 async fn sync_cache_invalidates_when_connection_becomes_active() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     // Cache reflects the pre-connect world: gmail is listed but
     // not connected. This is exactly the state the chat runtime
     // gets stuck in on Windows when the user completes OAuth
@@ -219,7 +219,7 @@ async fn sync_cache_invalidates_when_connection_becomes_active() {
 
 #[tokio::test]
 async fn sync_cache_invalidates_when_connection_is_removed() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     // Cache remembers gmail as connected. The user just
     // disconnected it from Settings; the next UI poll returns an
     // empty list. Chat must forget gmail within one poll.
@@ -241,7 +241,7 @@ async fn sync_cache_invalidates_when_connection_is_removed() {
 
 #[tokio::test]
 async fn sync_cache_noop_when_backend_matches_cached_state() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     // Steady state: UI polls confirm cache is accurate. No
     // invalidation — we must not thrash the chat runtime's tool
     // registry on every 5 s UI poll.
@@ -268,7 +268,7 @@ async fn sync_cache_noop_when_backend_matches_cached_state() {
 
 #[tokio::test]
 async fn sync_cache_ignores_non_active_connection_rows() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     // Backend reports a PENDING row (user started OAuth but
     // hasn't completed). The cache should NOT be invalidated —
     // that would trigger a fresh `list_tools` call on every poll
@@ -297,7 +297,7 @@ async fn sync_cache_ignores_non_active_connection_rows() {
 
 #[tokio::test]
 async fn sync_cache_treats_connected_status_equivalent_to_active() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     // Backend may emit either "ACTIVE" or "CONNECTED" — we treat
     // them identically in every status check (see
     // `fetch_connected_integrations_uncached` filter). Make sure
@@ -347,7 +347,7 @@ async fn cache_entries_survive_idle_time_until_connection_change() {
 
 #[tokio::test]
 async fn cached_integrations_remain_available_after_a_long_idle_period() {
-    let _guard = cache_guard();
+    let _guard = cache_guard_async().await;
     let tmp = tempfile::TempDir::new().unwrap();
     let config = test_config(&tmp);
     let key = crate::integrations::composio::connected_integrations::cache_key(&config).await;

@@ -61,7 +61,7 @@ async fn with_fixture_library_context<F: std::future::Future>(f: impl FnOnce() -
 
 #[tokio::test]
 async fn custom_ca_bundle_builds_a_provider_scoped_chat_client() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(openai_entry("p_team", "team"));
     store_fixture_cloud_key(&config, "team").await;
@@ -92,7 +92,7 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // local provider passes. Factory tests use `inference_test_guard`; take the
     // same lock before mutating the process-global live policy so parallel
     // cloud-model construction cannot observe this temporary LocalOnly mode.
-    let _inference = crate::inference::inference_test_guard();
+    let _inference = crate::inference::inference_test_guard_async().await;
     let _env = crate::config::TEST_ENV_LOCK.blocking_lock();
     use crate::config::PrivacyMode;
     use crate::security::SecurityPolicy;
@@ -323,7 +323,7 @@ async fn resolves_to_managed_backend_for_default_config_but_not_for_local() {
 
 #[tokio::test]
 async fn create_chat_model_routes_managed_backend_to_crate_native() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     install_test_managed_provider();
     let (tmp, mut config) = isolated_config();
     config.workspace_dir = tmp.path().join("workspace");
@@ -341,7 +341,7 @@ async fn create_chat_model_routes_managed_backend_to_crate_native() {
 
 #[tokio::test]
 async fn create_chat_model_routes_local_runtime_to_crate_native() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let mut config = Config::default();
     config.chat_provider = Some("ollama:qwen2.5".to_string());
     let (model, model_id) = create_chat_model_with_model_id_in(
@@ -368,7 +368,7 @@ async fn create_chat_model_routes_local_runtime_to_crate_native() {
 
 #[tokio::test]
 async fn explicit_local_provider_string_routes_to_crate_native_model() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let config = Config::default();
     let (model, model_id) =
         create_chat_model_from_string_with_model_id("chat", "ollama:qwen2.5", &config, 0.7)
@@ -385,7 +385,7 @@ async fn explicit_local_provider_string_routes_to_crate_native_model() {
 
 #[tokio::test]
 async fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     // Default config resolves to the managed backend, not a local runtime.
     assert!(super::local_runtime::try_create_local_runtime_chat_model(
         "chat",
@@ -408,7 +408,7 @@ async fn try_create_local_runtime_returns_none_for_managed_and_cloud() {
 
 #[tokio::test]
 async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     // DeepSeek is a built-in chat-completions-only Bearer provider: no
     // `/v1/responses` fallback and no codex-oauth, so it is wire-equivalent and
     // flips crate-native.
@@ -432,7 +432,7 @@ async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
 
 #[tokio::test]
 async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
     store_fixture_cloud_key(&config, "deepseek").await;
@@ -463,7 +463,7 @@ async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
 
 #[tokio::test]
 async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     // Anthropic-auth cloud slugs are always wire-equivalent (their endpoints have
     // no `/v1/responses`, so the host's dormant fallback is behavior-neutral).
     let (_tmp, mut config) = isolated_config();
@@ -501,7 +501,7 @@ async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
 /// compat client rather than a native adapter that would ignore the request.
 #[tokio::test]
 async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let (_tmp, mut config) = isolated_config();
     config
         .cloud_providers
@@ -528,7 +528,7 @@ async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
 
 #[tokio::test]
 async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     install_test_managed_provider();
     let (_tmp, mut config) = isolated_config();
     config
@@ -619,7 +619,7 @@ async fn openhuman_jwt_slug_discloses_pinned_model() {
 
 #[tokio::test]
 async fn openhuman_jwt_slug_preserves_forced_text_mode() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let native_modes = install_test_managed_provider();
     let (_tmp, mut config) = isolated_config();
     config
@@ -645,7 +645,7 @@ async fn openhuman_jwt_slug_preserves_forced_text_mode() {
 
 #[tokio::test]
 async fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     install_test_managed_provider();
     let (_tmp, mut config) = isolated_config();
     config

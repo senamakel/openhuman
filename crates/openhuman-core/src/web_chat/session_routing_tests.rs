@@ -425,7 +425,7 @@ async fn assert_huggingface_model_builds(config: &Config, expected_model: &str) 
 
 #[tokio::test]
 async fn mixed_case_cloud_picker_uses_configured_slug_and_preserves_colon_suffix() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let config = configured_huggingface_route().await;
     let original = serde_json::to_value(&config).expect("config serializes");
     let selected = "HuggingFace:org/model:version:variant";
@@ -446,7 +446,7 @@ async fn mixed_case_cloud_picker_uses_configured_slug_and_preserves_colon_suffix
 
 #[tokio::test]
 async fn persisted_mixed_case_cloud_default_uses_configured_slug_after_restart() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let mut config = configured_huggingface_route().await;
     let selected = "HUGGINGFACE:org/model:version:variant";
     config.default_model = Some(selected.to_string());

@@ -51,7 +51,7 @@ async fn local_only_refuses_ollama_cloud_proxied_models() {
 
 #[tokio::test]
 async fn local_only_refuses_a_local_runtime_pointed_at_another_host() {
-    let _guard = crate::inference::inference_test_guard();
+    let _guard = crate::inference::inference_test_guard_async().await;
     let _env = EnvVarGuard::locked_unset_many(ENDPOINT_ENV);
     let _mode = crate::security::live_policy::test_privacy_scope(PrivacyMode::LocalOnly);
     for (provider, base_url) in [

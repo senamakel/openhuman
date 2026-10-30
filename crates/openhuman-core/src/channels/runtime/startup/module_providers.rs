@@ -84,7 +84,7 @@ impl ModuleChannelRuntime {
             .await
             .map_err(anyhow::Error::new)
             .context("channel module runtime unavailable")?;
-        let hydrated = hydrate_channel_credentials(&config);
+        let hydrated = hydrate_channel_credentials(&config).await;
         let proxy = channel_proxy(&config);
         let infos = match lease
             .object()
@@ -416,7 +416,7 @@ impl ModuleChannel {
 
     pub(super) fn capabilities(&self) -> tinychannels_bus::ChannelCapabilities {
         let legacy = self.interaction.capabilities;
-        let mut capabilities = tinychannels_bus::ChannelCapabilities::unknown();
+        let mut capabilities = tinychannels_bus::ChannelCapabilities::NONE;
         capabilities.remote_control = legacy.remote_control;
         capabilities.chat_approvals = legacy.chat_approvals;
         capabilities.progressive_edits = legacy.progressive_edits;
@@ -445,6 +445,7 @@ impl ModuleChannel {
             turn_id: message.turn_id.clone(),
             durability: tinychannels_bus::channel::DeliveryDurability::Required,
             payload: tinychannels_bus::channel::OutboundPayload::Parts {
+                text: Some(message.text.clone()),
                 parts: message.parts.clone(),
             },
         };
@@ -485,7 +486,7 @@ impl ModuleChannel {
         }
         Ok(tinychannels_bus::channel::ChannelSendOutcome {
             receipt,
-            error: result.error,
+            error: None,
         })
     }
 

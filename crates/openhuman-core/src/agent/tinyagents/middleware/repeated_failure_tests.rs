@@ -11,7 +11,7 @@ fn policy_denial_keeps_its_class_when_error_details_are_withheld() {
         OpenHumanRunContext::new(),
     );
     let call = TaToolCall::new("denied-call", "delete_artifact", serde_json::json!({}));
-    let invocation = ToolInvocationIdentity::new("denied-call".into(), "delete_artifact".into());
+    let invocation = ToolInvocationIdentity::new("denied-call", "delete_artifact");
     let scope = policy.scope(&context, &call);
     let result = TaToolResult::error("[policy-denied] secret=fixture-private-value");
     let assessment = policy.assess(&context, &invocation, &call, &scope, &result);

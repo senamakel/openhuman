@@ -81,9 +81,12 @@ fn server_shim_refuses_public_bind_without_operator_token() {
                         .await
                         .expect_err("public bind must require an operator-supplied token");
 
-                    assert!(error
-                        .to_string()
-                        .contains("refusing to bind on non-loopback"));
+                    assert!(
+                        error
+                            .to_string()
+                            .contains("refusing to bind on non-loopback"),
+                        "{error:#}"
+                    );
                 });
         })
         .expect("test thread")

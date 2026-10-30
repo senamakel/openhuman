@@ -217,7 +217,7 @@ async fn web_events_reach_client_and_thread_rooms_once_with_compat_aliases() {
         .all(|(_, payload)| payload["full_response"] == "finished"));
     assert!(reconnected_packets
         .iter()
-        .all(|(_, payload)| payload["thread_id"] == "thread-1"));
+        .all(|(_, payload)| payload["context"]["threadId"] == "thread-1"));
     assert_empty_queue(&mut initiator_rx);
     assert_empty_queue(&mut reconnected_rx);
     assert_empty_queue(&mut unrelated_rx);
@@ -599,7 +599,17 @@ async fn startup_preflight_socket_gate() {
         .send()
         .await
         .expect("authenticated socket connect after gate");
-    let connected = client.get(&url).send().await.unwrap().text().await.unwrap();
+    let connected = tokio::time::timeout(std::time::Duration::from_secs(30), async {
+        loop {
+            let connected = client.get(&url).send().await.unwrap().text().await.unwrap();
+            if connected.contains("\"ready\"") {
+                break connected;
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("ready event arrives after the authenticated namespace connect");
     assert!(
         connected.contains("\"ready\""),
         "post-preflight ready: {connected}"

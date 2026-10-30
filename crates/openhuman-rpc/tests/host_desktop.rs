@@ -50,6 +50,7 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
         .stack_size(64 * 1024 * 1024)
         .spawn(move || {
             tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
                 .enable_all()
                 .thread_stack_size(16 * 1024 * 1024)
                 .build()

@@ -15,6 +15,7 @@ fn tui_host_builds_a_runtime_that_answers_a_read_rpc() {
         .stack_size(64 * 1024 * 1024)
         .spawn(move || {
             tokio::runtime::Builder::new_multi_thread()
+                .worker_threads(2)
                 .enable_all()
                 .thread_stack_size(16 * 1024 * 1024)
                 .build()
@@ -22,7 +23,7 @@ fn tui_host_builds_a_runtime_that_answers_a_read_rpc() {
                 .block_on(async {
                     let runtime = openhuman_rpc::host::tui()
                         .await
-                        .expect("tui host builds a runtime");
+                        .unwrap_or_else(|error| panic!("tui host builds a runtime: {error:#}"));
                     let listed = runtime
                         .core_runtime()
                         .invoke("openhuman.threads_list", serde_json::json!({}))

@@ -278,6 +278,10 @@ fn handle_chat(ctx: DispatchCtx, params: Map<String, Value>) -> ControllerFuture
                     speak_reply: p.speak_reply,
                     source: p.source,
                     session_id: p.session_id,
+                    queue_mode: p.queue_mode.clone(),
+                    run_mode: p.run_mode.clone(),
+                    reasoning_effort: p.reasoning_effort.clone(),
+                    task_id: None,
                     // Attribution is stamped later by run_chat_task once the
                     // target agent is resolved.
                     agent_id: None,

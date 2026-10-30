@@ -157,7 +157,10 @@ fn raw_keyring_consent_wire_fields_are_exact() {
     assert_eq!(
         crate::core::all::verify_wire_fields(
             &entries[3].schema.inputs,
-            &[("request_id", TypeSchema::String, true), ("approved", TypeSchema::Bool, true)],
+            &[
+                ("request_id", TypeSchema::String, true),
+                ("approved", TypeSchema::Bool, true)
+            ],
         ),
         Ok(()),
     );

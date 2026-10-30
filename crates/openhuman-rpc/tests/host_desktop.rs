@@ -113,12 +113,14 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                     let _body = health.bytes().await.expect("health response body");
                     drop(client);
 
+                    eprintln!("host_desktop: health completed; cancelling server");
                     shutdown.cancel();
                     let finished = tokio::time::timeout(Duration::from_secs(60), server)
                         .await
                         .expect("server stops after shutdown")
                         .expect("server task joins");
                     finished.expect("server exits cleanly");
+                    eprintln!("host_desktop: server joined cleanly");
                 });
         })
         .expect("test thread")

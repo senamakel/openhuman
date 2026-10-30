@@ -67,6 +67,7 @@ fn scheduled_agent_fixture(
     config.action_dir = config.workspace_dir.clone();
     let storage = crate::storage::test_support::sqlite_backend().expect("SQLite test backend");
     config.storage.url = Some(storage.url.clone());
+    config.modules.source = crate::config::schema::ModuleSourceMode::Source;
     let storage_guard =
         crate::storage::test_support::install_for_test(&storage.url, Arc::clone(&storage.backend));
     config.default_model = Some("test-model".into());

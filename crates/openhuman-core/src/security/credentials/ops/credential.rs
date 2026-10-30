@@ -565,7 +565,7 @@ where
 /// Puts back an API key `clear_credential` took out of its source for a move
 /// that then failed, where the process can read it now. Logged rather than
 /// returned: the caller reports the error that stopped the move.
-async fn restore_api_key(config: &Config, key: Option<&str>, reason: &str) {
+pub(crate) async fn restore_api_key(config: &Config, key: Option<&str>, reason: &str) {
     let Some(key) = key else {
         return;
     };

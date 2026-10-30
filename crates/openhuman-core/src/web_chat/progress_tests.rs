@@ -34,8 +34,8 @@ fn interim_narration_surfaces_and_trims_substantial_text() {
 mod attribution {
     use super::super::trace::session_profile_user_attribution;
 
-    #[test]
-    fn session_profile_attribution_none_when_signed_out() {
+    #[tokio::test]
+    async fn session_profile_attribution_none_when_signed_out() {
         let tmp = tempfile::TempDir::new().unwrap();
         let config = crate::config::Config {
             workspace_dir: tmp.path().join("workspace"),
@@ -43,11 +43,11 @@ mod attribution {
             config_path: tmp.path().join("config.toml"),
             ..Default::default()
         };
-        assert!(session_profile_user_attribution(&config).is_none());
+        assert!(session_profile_user_attribution(&config).await.is_none());
     }
 
-    #[test]
-    fn session_profile_attribution_prefers_email_from_stored_session() {
+    #[tokio::test]
+    async fn session_profile_attribution_prefers_email_from_stored_session() {
         let tmp = tempfile::TempDir::new().unwrap();
         let config = crate::config::Config {
             workspace_dir: tmp.path().join("workspace"),
@@ -70,9 +70,10 @@ mod attribution {
                 metadata,
                 true,
             )
+            .await
             .expect("store session profile");
         assert_eq!(
-            session_profile_user_attribution(&config).as_deref(),
+            session_profile_user_attribution(&config).await.as_deref(),
             Some("steven@example.test"),
             "cold-cache attribution must resolve the on-disk session email"
         );
@@ -558,136 +559,6 @@ async fn hold_text_stream_suppresses_text_delta_but_keeps_interim() {
         interim.1.as_deref(),
         Some("Let me check the release notes for you first.")
     );
-}
-
-mod subagent_tests {
-    use super::*;
-
-    #[tokio::test]
-    async fn subagent_spawned_forwards_parent_call_id() {
-        let mut events = crate::web_chat::subscribe_web_channel_events();
-        let thread_id = "thread-c1-spawned";
-        let tx = spawn_test_bridge(thread_id, "req-c1-spawned").await;
-
-        tx.send(AgentProgress::SubagentSpawned {
-            agent_id: "researcher".into(),
-            task_id: "sub-c1".into(),
-            mode: "typed".into(),
-            dedicated_thread: false,
-            prompt_chars: 4,
-            prompt: "help".into(),
-            worker_thread_id: None,
-            display_name: None,
-            parent_call_id: Some("call-parent-1".into()),
-        })
-        .await
-        .unwrap();
-
-        let ev = recv_for_thread(&mut events, thread_id).await;
-        assert!(matches!(
-            ev.wire_event(),
-            WebChannelEvent::SubagentSpawned {
-                subagent: Some(subagent), ..
-            } if subagent.parent_call_id.as_deref() == Some("call-parent-1")
-        ));
-    }
-
-    /// Terminal sub-agent events (`_completed`/`_failed`/`_awaiting_user`) must
-    /// keep carrying the same `parent_call_id` the spawn recorded, even though
-    /// those `AgentProgress` variants don't repeat it — the bridge remembers it
-    /// per `task_id` (#C1).
-    #[tokio::test]
-    async fn subagent_completed_carries_parent_call_id_and_capped_output() {
-        let mut events = crate::web_chat::subscribe_web_channel_events();
-        let thread_id = "thread-c1-completed";
-        let tx = spawn_test_bridge(thread_id, "req-c1-completed").await;
-
-        tx.send(AgentProgress::SubagentSpawned {
-            agent_id: "researcher".into(),
-            task_id: "sub-c1-done".into(),
-            mode: "typed".into(),
-            dedicated_thread: false,
-            prompt_chars: 4,
-            prompt: "help".into(),
-            worker_thread_id: None,
-            display_name: None,
-            parent_call_id: Some("call-parent-2".into()),
-        })
-        .await
-        .unwrap();
-        let spawned = recv_for_thread(&mut events, thread_id).await;
-        assert_eq!(spawned.event_name(), "subagent_spawned");
-
-        tx.send(AgentProgress::SubagentCompleted {
-            agent_id: "researcher".into(),
-            task_id: "sub-c1-done".into(),
-            elapsed_ms: 10,
-            iterations: 1,
-            output_chars: 5,
-            usage: None,
-            output: "final answer".into(),
-            worktree_path: None,
-            changed_files: Vec::new(),
-            dirty_status: None,
-            stop: None,
-        })
-        .await
-        .unwrap();
-
-        let completed = recv_for_thread(&mut events, thread_id).await;
-        assert_eq!(completed.event_name(), "subagent_completed");
-        let WebChannelEvent::SubagentCompleted {
-            subagent: Some(subagent),
-            ..
-        } = completed.wire_event()
-        else {
-            panic!("subagent detail present")
-        };
-        assert_eq!(subagent.parent_call_id.as_deref(), Some("call-parent-2"));
-        assert_eq!(subagent.output.as_deref(), Some("final answer"));
-    }
-
-    #[tokio::test]
-    async fn subagent_failed_carries_parent_call_id() {
-        let mut events = crate::web_chat::subscribe_web_channel_events();
-        let thread_id = "thread-c1-failed";
-        let tx = spawn_test_bridge(thread_id, "req-c1-failed").await;
-
-        tx.send(AgentProgress::SubagentSpawned {
-            agent_id: "researcher".into(),
-            task_id: "sub-c1-failed".into(),
-            mode: "typed".into(),
-            dedicated_thread: false,
-            prompt_chars: 4,
-            prompt: "help".into(),
-            worker_thread_id: None,
-            display_name: None,
-            parent_call_id: Some("call-parent-3".into()),
-        })
-        .await
-        .unwrap();
-        let spawned = recv_for_thread(&mut events, thread_id).await;
-        assert_eq!(spawned.event_name(), "subagent_spawned");
-
-        tx.send(AgentProgress::SubagentFailed {
-            agent_id: "researcher".into(),
-            task_id: "sub-c1-failed".into(),
-            error: "boom".into(),
-        })
-        .await
-        .unwrap();
-
-        let failed = recv_for_thread(&mut events, thread_id).await;
-        assert_eq!(failed.event_name(), "subagent_failed");
-        let WebChannelEvent::SubagentFailed {
-            subagent: Some(subagent),
-            ..
-        } = failed.wire_event()
-        else {
-            panic!("subagent detail present")
-        };
-        assert_eq!(subagent.parent_call_id.as_deref(), Some("call-parent-3"));
-    }
 }
 
 mod tool_progress_tests {

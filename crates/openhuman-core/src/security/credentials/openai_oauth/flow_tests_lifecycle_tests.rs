@@ -5,12 +5,12 @@ async fn start_openai_oauth_returns_authorize_url() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
 
-    let start = runtime().block_on(start_openai_oauth(&config)).unwrap();
+    let start = start_openai_oauth(&config).await.unwrap();
     assert!(start.auth_url.contains("auth.openai.com"));
     assert!(start.auth_url.contains("code_challenge="));
     assert_eq!(start.redirect_uri, "http://127.0.0.1:1455/auth/callback");
     assert!(!start.state.is_empty());
-    assert!(!openai_oauth_status(&config).unwrap().connected);
+    assert!(!openai_oauth_status(&config).await.unwrap().connected);
 }
 
 #[tokio::test]
@@ -244,7 +244,7 @@ async fn persist_openai_oauth_token_stores_oauth_profile_with_metadata() {
         issued_at: 123,
     };
 
-    let profile = persist_openai_oauth_token(&config, &token).unwrap();
+    let profile = persist_openai_oauth_token(&config, &token).await.unwrap();
     assert_eq!(profile.kind, AuthProfileKind::OAuth);
     assert_eq!(
         profile.metadata.get("account_id").map(String::as_str),
@@ -270,7 +270,10 @@ async fn persist_openai_oauth_token_stores_oauth_profile_with_metadata() {
         .and_then(|set| set.expires_at)
         .is_some());
 
-    let data = AuthProfilesStore::new(tmp.path(), false).load().unwrap();
+    let data = AuthProfilesStore::new(tmp.path(), false)
+        .load()
+        .await
+        .unwrap();
     let stored = data.profiles.get(&profile.id).unwrap();
     assert_eq!(stored.id, profile.id);
 }
@@ -287,13 +290,18 @@ async fn persist_openai_oauth_token_rejects_blank_access_token() {
         issued_at: 123,
     };
 
-    let err = persist_openai_oauth_token(&config, &token).unwrap_err();
+    let err = persist_openai_oauth_token(&config, &token)
+        .await
+        .unwrap_err();
     assert!(
         err.contains("access_token"),
         "expected missing access_token error, got: {err}"
     );
 
-    let data = AuthProfilesStore::new(tmp.path(), false).load().unwrap();
+    let data = AuthProfilesStore::new(tmp.path(), false)
+        .load()
+        .await
+        .unwrap();
     assert!(
         data.profiles.is_empty(),
         "blank-access OAuth token should not be persisted"
@@ -324,7 +332,9 @@ async fn import_codex_cli_auth_file_stores_oauth_profile_with_account_metadata()
     )
     .unwrap();
 
-    let profile = import_codex_cli_auth_from_path(&config, &auth_path).unwrap();
+    let profile = import_codex_cli_auth_from_path(&config, &auth_path)
+        .await
+        .unwrap();
 
     assert_eq!(profile.kind, AuthProfileKind::OAuth);
     assert_eq!(
@@ -338,12 +348,13 @@ async fn import_codex_cli_auth_file_stores_oauth_profile_with_account_metadata()
     assert!(token_set.expires_at.is_some());
 
     let credentials = lookup_openai_oauth_credentials(&config)
+        .await
         .unwrap()
         .expect("imported oauth credentials");
     assert_eq!(credentials.access_token, access_token);
     assert_eq!(credentials.account_id.as_deref(), Some("acct_from_file"));
     assert_eq!(
-        lookup_key_for_slug("openai", &config).unwrap(),
+        lookup_key_for_slug("openai", &config).await.unwrap(),
         access_token
     );
 }
@@ -373,13 +384,16 @@ async fn import_codex_cli_auth_extracts_nested_chatgpt_account_id() {
     )
     .unwrap();
 
-    let profile = import_codex_cli_auth_from_path(&config, &auth_path).unwrap();
+    let profile = import_codex_cli_auth_from_path(&config, &auth_path)
+        .await
+        .unwrap();
 
     assert_eq!(
         profile.metadata.get("account_id").map(String::as_str),
         Some("acct_nested")
     );
     let credentials = lookup_openai_oauth_credentials(&config)
+        .await
         .unwrap()
         .expect("imported oauth credentials");
     assert_eq!(credentials.account_id.as_deref(), Some("acct_nested"));
@@ -409,7 +423,9 @@ async fn import_codex_cli_auth_decodes_padded_base64url_access_token() {
     )
     .unwrap();
 
-    let profile = import_codex_cli_auth_from_path(&config, &auth_path).unwrap();
+    let profile = import_codex_cli_auth_from_path(&config, &auth_path)
+        .await
+        .unwrap();
 
     assert_eq!(
         profile.metadata.get("account_id").map(String::as_str),
@@ -422,6 +438,7 @@ async fn import_codex_cli_auth_file_reports_missing_file_with_login_hint() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
     let err = import_codex_cli_auth_from_path(&config, &tmp.path().join("missing-auth.json"))
+        .await
         .unwrap_err();
 
     assert!(err.contains("Could not read Codex CLI auth"));
@@ -442,22 +459,29 @@ async fn codex_import_user_state_errors_classify_as_expected() {
 
     // Missing file (no `codex login`).
     let missing = import_codex_cli_auth_from_path(&config, &tmp.path().join("missing-auth.json"))
+        .await
         .unwrap_err();
 
     // Unparseable file.
     let garbage_path = tmp.path().join("garbage-auth.json");
     std::fs::write(&garbage_path, b"not json").unwrap();
-    let garbage = import_codex_cli_auth_from_path(&config, &garbage_path).unwrap_err();
+    let garbage = import_codex_cli_auth_from_path(&config, &garbage_path)
+        .await
+        .unwrap_err();
 
     // Parses but carries no tokens.
     let no_tokens_path = tmp.path().join("no-tokens-auth.json");
     std::fs::write(&no_tokens_path, b"{}").unwrap();
-    let no_tokens = import_codex_cli_auth_from_path(&config, &no_tokens_path).unwrap_err();
+    let no_tokens = import_codex_cli_auth_from_path(&config, &no_tokens_path)
+        .await
+        .unwrap_err();
 
     // Parses with a tokens object but no access token.
     let no_access_path = tmp.path().join("no-access-auth.json");
     std::fs::write(&no_access_path, br#"{"tokens":{"refresh_token":"r"}}"#).unwrap();
-    let no_access = import_codex_cli_auth_from_path(&config, &no_access_path).unwrap_err();
+    let no_access = import_codex_cli_auth_from_path(&config, &no_access_path)
+        .await
+        .unwrap_err();
 
     for err in [&missing, &garbage, &no_tokens, &no_access] {
         assert_eq!(
@@ -479,9 +503,10 @@ async fn inference_import_codex_cli_surfaces_error_when_auth_missing() {
     let config = test_config(&tmp);
     let _env_guard = EnvVarGuard::set("CODEX_HOME", tmp.path());
 
-    let err = crate::inference::ops::inference_openai_oauth_import_codex_cli(&config)
-        .await
-        .unwrap_err();
+    let err =
+        crate::security::credentials::openai_oauth::import_openai_oauth_from_codex_cli(&config)
+            .await
+            .unwrap_err();
 
     assert!(err.contains("Could not read Codex CLI auth"));
     assert!(err.contains("codex login"));
@@ -504,7 +529,7 @@ async fn openai_oauth_status_reports_token_profile_as_disconnected() {
         .await
         .unwrap();
 
-    let status = openai_oauth_status(&config).unwrap();
+    let status = openai_oauth_status(&config).await.unwrap();
     assert!(!status.connected);
     assert_eq!(status.auth_method.as_deref(), Some("token"));
     assert!(status.profile_id.is_some());
@@ -536,7 +561,7 @@ async fn lookup_key_for_slug_prefers_api_key_over_oauth_for_openai() {
 
     // The standard `lookup_key_for_slug` path resolves the API key first; the
     // OAuth fallback only fires when no API key is present.
-    let token = lookup_key_for_slug("openai", &config).unwrap();
+    let token = lookup_key_for_slug("openai", &config).await.unwrap();
     assert_eq!(token, "sk-api-key");
 }
 
@@ -574,7 +599,7 @@ async fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_ro
         .await
         .unwrap();
     assert!(
-        openai_bearer_is_oauth(&config),
+        openai_bearer_is_oauth(&config).await,
         "OAuth is the only openai credential, so the bearer is OAuth"
     );
 
@@ -585,8 +610,9 @@ async fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_ro
         // A stale bearer that does NOT equal the stored access token: the pre-fix
         // equality check mis-routed on exactly this.
         "oauth-access-stale",
-        openai_bearer_is_oauth(&config),
+        openai_bearer_is_oauth(&config).await,
     )
+    .await
     .unwrap();
     assert!(routing.using_oauth, "OAuth-only openai must route to Codex");
     assert_ne!(
@@ -603,14 +629,15 @@ async fn codex_routing_reaches_backend_for_oauth_only_openai_even_after_token_ro
         )
         .await
         .unwrap();
-    assert!(!openai_bearer_is_oauth(&config));
+    assert!(!openai_bearer_is_oauth(&config).await);
     let routing = resolve_codex_routing(
         &config,
         "openai",
         "https://api.openai.com/v1/",
         "sk-api-key",
-        openai_bearer_is_oauth(&config),
+        openai_bearer_is_oauth(&config).await,
     )
+    .await
     .unwrap();
     assert!(
         !routing.using_oauth,
@@ -638,7 +665,7 @@ async fn lookup_openai_bearer_token_uses_oauth_when_api_key_missing() {
     );
     store.upsert_profile(oauth_profile, true).await.unwrap();
 
-    let token = lookup_openai_bearer_token(&config).unwrap();
+    let token = lookup_openai_bearer_token(&config).await.unwrap();
     assert_eq!(token.as_deref(), Some("oauth-access"));
 }
 
@@ -656,7 +683,7 @@ async fn credits_gate_bypassed_with_oauth_only_credentials() {
     config.chat_provider = Some("openai:gpt-4o".into());
 
     // No credential yet → gate stays on.
-    assert!(!role_bypasses_managed_credits("chat", &config));
+    assert!(!role_bypasses_managed_credits("chat", &config).await);
 
     let store = AuthProfilesStore::new(tmp.path(), false);
     let oauth_profile = AuthProfile::new_oauth(
@@ -674,5 +701,5 @@ async fn credits_gate_bypassed_with_oauth_only_credentials() {
     store.upsert_profile(oauth_profile, true).await.unwrap();
 
     // OAuth-only credential now backs the route → gate bypassed.
-    assert!(role_bypasses_managed_credits("chat", &config));
+    assert!(role_bypasses_managed_credits("chat", &config).await);
 }

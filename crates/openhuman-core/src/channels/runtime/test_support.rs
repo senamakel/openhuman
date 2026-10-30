@@ -292,14 +292,15 @@ pub(crate) async fn linked_telegram_runtime() -> LinkedTelegramRuntime {
 
 /// Bind a test runtime context to a real core context so module callbacks that
 /// clear durable channel history exercise the host reset path.
-pub(crate) fn bind_test_core_context(
+pub(crate) async fn bind_test_core_context(
     context: &mut crate::channels::context::ChannelRuntimeContext,
     base_config: &crate::config::Config,
 ) -> Arc<crate::core::runtime::CoreContext> {
     bind_test_core_context_with_provider_endpoint(context, base_config, "http://127.0.0.1:9/v1")
+        .await
 }
 
-pub(crate) fn bind_test_core_context_with_provider_endpoint(
+pub(crate) async fn bind_test_core_context_with_provider_endpoint(
     context: &mut crate::channels::context::ChannelRuntimeContext,
     base_config: &crate::config::Config,
     provider_endpoint: &str,
@@ -334,12 +335,14 @@ pub(crate) fn bind_test_core_context_with_provider_endpoint(
     // it inside the context so a storage-backed secret store (installed by the
     // module fixture) records it under the scope the turn later reads.
     let stored_config = config_for_credential;
-    CoreContext::sync_scope(Arc::clone(&core), || {
+    CoreContext::scope(Arc::clone(&core), async {
         crate::security::credentials::api_key::store_api_key(
             &stored_config,
             "test-session-fixture-key",
         )
+        .await
     })
+    .await
     .expect("store channel test credential");
     core
 }

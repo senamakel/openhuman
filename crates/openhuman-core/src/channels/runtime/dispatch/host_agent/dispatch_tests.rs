@@ -67,7 +67,7 @@ fn message(text: &str) -> traits::ChannelMessage {
 }
 
 /// An offline config in `tmp`, with `telegram` bound to `agent_id` when given.
-fn config(tmp: &tempfile::TempDir, agent_id: Option<&str>) -> Config {
+async fn config(tmp: &tempfile::TempDir, agent_id: Option<&str>) -> Config {
     let workspace = tmp.path().join("workspace");
     std::fs::create_dir_all(&workspace).unwrap();
     let mut config = Config {
@@ -83,6 +83,7 @@ fn config(tmp: &tempfile::TempDir, agent_id: Option<&str>) -> Config {
     config.agent.session_dual_write = false;
     config.agent.session_shadow_reads = false;
     crate::security::credentials::api_key::store_api_key(&config, "test-session-fixture-key")
+        .await
         .expect("store channel test credential");
     if let Some(agent_id) = agent_id {
         config
@@ -156,20 +157,25 @@ impl HostAgentResolver for OneHostAgent {
             definition,
             config: self.config.clone(),
             host_tools: Some(Arc::new(move |_turn| {
-                crate::agent::HostTurnTools::advertised(vec![
-                    Box::new(Probe {
-                        name: "teeny_read",
-                        level: PermissionLevel::ReadOnly,
-                        runs: Arc::clone(&reads),
-                        origins: Arc::clone(&origins),
-                    }),
-                    Box::new(Probe {
-                        name: "teeny_write",
-                        level: PermissionLevel::Write,
-                        runs: Arc::clone(&writes),
-                        origins: Arc::clone(&origins),
-                    }),
-                ])
+                let reads = Arc::clone(&reads);
+                let writes = Arc::clone(&writes);
+                let origins = Arc::clone(&origins);
+                Box::pin(async move {
+                    crate::agent::HostTurnTools::advertised(vec![
+                        Box::new(Probe {
+                            name: "teeny_read",
+                            level: PermissionLevel::ReadOnly,
+                            runs: reads,
+                            origins: Arc::clone(&origins),
+                        }),
+                        Box::new(Probe {
+                            name: "teeny_write",
+                            level: PermissionLevel::Write,
+                            runs: writes,
+                            origins,
+                        }),
+                    ])
+                })
             })),
             hooks: Default::default(),
             context: CoreContext::for_test_with_config(DomainSet::full(), self.config.clone()),
@@ -304,7 +310,7 @@ async fn bound_channel_runs_its_host_agent() {
     // is built from it.
     crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins()
         .unwrap();
-    let mut agent_config = config(&tmp, None);
+    let mut agent_config = config(&tmp, None).await;
     agent_config.default_model = Some("fixture".into());
     let route = crate::config::schema::EphemeralRoute::from_params(
         Some(format!("{}/v1", server.uri())),
@@ -321,7 +327,7 @@ async fn bound_channel_runs_its_host_agent() {
         origins: Arc::clone(&origins),
     });
     let channel = Arc::new(crate::channels::runtime::TestChannel::new("telegram"));
-    let ctx = context(Arc::clone(&channel), config(&tmp, Some("teeny-chat")));
+    let ctx = context(Arc::clone(&channel), config(&tmp, Some("teeny-chat")).await);
 
     let outcome = {
         host_agents::install(Arc::clone(&resolver));
@@ -496,7 +502,7 @@ async fn native_host_agent_turn_enforces_the_configured_channel_deadline_inner()
     let tmp = tempfile::tempdir().unwrap();
     crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins()
         .unwrap();
-    let mut agent_config = config(&tmp, None);
+    let mut agent_config = config(&tmp, None).await;
     agent_config.default_model = Some("fixture".into());
     let route = crate::config::schema::EphemeralRoute::from_params(
         Some(format!("{}/v1", server.uri())),
@@ -510,7 +516,7 @@ async fn native_host_agent_turn_enforces_the_configured_channel_deadline_inner()
         writes: Arc::new(AtomicUsize::new(0)),
         origins: Arc::new(Mutex::new(Vec::new())),
     });
-    let mut channel_config = config(&tmp, Some("teeny-chat"));
+    let mut channel_config = config(&tmp, Some("teeny-chat")).await;
     channel_config.modules.source = crate::config::schema::ModuleSourceMode::Linked;
     channel_config.modules.allow_download = false;
     channel_config.channels_config.telegram = Some(tinychannels_bus::config::TelegramConfig {

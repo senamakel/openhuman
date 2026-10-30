@@ -51,6 +51,7 @@ async fn same_token_refresh_preserves_issuing_backend_and_refuses_rebinding() {
     .unwrap_err();
     assert!(error.starts_with("SESSION_BACKEND_MISMATCH"));
     let stored = crate::security::credentials::session_support::load_app_session_profile(&config)
+        .await
         .unwrap()
         .unwrap();
     assert_eq!(stored.metadata.get(key).unwrap(), "https://issuer.example");

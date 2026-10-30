@@ -26,17 +26,17 @@ async fn restore_api_key_puts_the_key_back_and_tolerates_a_failed_store() {
         ..Config::default()
     };
 
-    restore_api_key(&config, None, "test");
+    restore_api_key(&config, None, "test").await;
     assert!(!api_key::has_api_key(&config).await, "nothing to put back");
 
-    restore_api_key(&config, Some("sk-restored"), "test");
+    restore_api_key(&config, Some("sk-restored"), "test").await;
     assert_eq!(
         api_key::get_api_key(&config).await.unwrap().as_deref(),
         Some("sk-restored")
     );
 
     // A blank key cannot be stored: the failure is logged and the stored key stays.
-    restore_api_key(&config, Some("   "), "test");
+    restore_api_key(&config, Some("   "), "test").await;
     assert_eq!(
         api_key::get_api_key(&config).await.unwrap().as_deref(),
         Some("sk-restored")
@@ -97,7 +97,7 @@ async fn a_failed_carry_during_sign_out_puts_the_api_key_back() {
         &DispatchCtx::process_default(),
         &user_scoped,
         Some(CredentialKind::Session),
-        |_, _| Err(anyhow::anyhow!("injected carry failure")),
+        |_, _| async { Err(anyhow::anyhow!("injected carry failure")) },
     )
     .await
     .unwrap_err();

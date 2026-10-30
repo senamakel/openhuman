@@ -287,6 +287,7 @@ async fn load_falls_back_to_lock_free_read_when_disk_full() {
     // load() must still return the persisted profile via the read-only fallback.
     let data = store
         .load()
+        .await
         .expect("load must degrade to lock-free read on disk-full");
     assert!(
         data.profiles.contains_key(&profile.id),
@@ -296,6 +297,7 @@ async fn load_falls_back_to_lock_free_read_when_disk_full() {
     // The flag is one-shot: the next load takes the lock normally.
     let again = store
         .load()
+        .await
         .expect("subsequent load takes the lock normally");
     assert!(again.profiles.contains_key(&profile.id));
 }
@@ -312,7 +314,7 @@ async fn load_unlocked_readonly_matches_locked_load() {
     store.upsert_profile(profile.clone(), true).await.unwrap();
 
     let locked = store.load().await.unwrap();
-    let unlocked = store.load_unlocked_readonly().unwrap();
+    let unlocked = store.load_unlocked_readonly().await.unwrap();
 
     assert_eq!(
         locked.profiles.keys().collect::<Vec<_>>(),

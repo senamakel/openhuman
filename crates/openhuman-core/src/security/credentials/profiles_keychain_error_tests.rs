@@ -51,7 +51,7 @@ impl Drop for Fixture {
 
 /// A store holding one keychain-only OAuth profile and one Token profile,
 /// with keychain reads failing from here on.
-fn locked_keychain_store() -> Fixture {
+async fn locked_keychain_store() -> Fixture {
     let keychain = Arc::new(FlakyKeychain::default());
     crate::security::secret_storage::install_secret_backend(keychain.clone());
     let tmp = TempDir::new().unwrap();
@@ -93,7 +93,7 @@ fn locked_keychain_store() -> Fixture {
 
 #[tokio::test]
 async fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
-    let f = locked_keychain_store();
+    let f = locked_keychain_store().await;
     let json_before = std::fs::read_to_string(f.store.path()).unwrap();
 
     assert!(
@@ -119,7 +119,7 @@ async fn keychain_read_error_fails_the_load_and_keeps_the_profile() {
 
 #[tokio::test]
 async fn keychain_read_error_refuses_writes_and_keeps_every_secret() {
-    let f = locked_keychain_store();
+    let f = locked_keychain_store().await;
     let json_before = std::fs::read_to_string(f.store.path()).unwrap();
     let keychain_before = f.keychain.map.lock().unwrap().clone();
 
@@ -152,7 +152,7 @@ async fn keychain_read_error_with_undecryptable_json_keeps_the_profile() {
     // cannot be decrypted: falling back to it would drop a profile whose
     // secret the keychain may still hold. Only that profile is kept, so the
     // keychain-only Token profile cannot fail the load on its own.
-    let f = locked_keychain_store();
+    let f = locked_keychain_store().await;
     let mut json: serde_json::Value =
         serde_json::from_str(&std::fs::read_to_string(f.store.path()).unwrap()).unwrap();
     let profiles = json["profiles"].as_object_mut().unwrap();
@@ -184,7 +184,7 @@ async fn an_unavailable_keychain_carries_keychain_only_profiles_untouched() {
     // for that store (`AuthProfilesStore::new`'s availability probe), so its
     // reads never reach the keychain and a keychain-only OAuth profile resolves
     // to no access token. It is carried, not purged, through loads and writes.
-    let mut f = locked_keychain_store();
+    let mut f = locked_keychain_store().await;
     f.store.use_keychain = false;
     let entry_before = persisted_entry(&f.store, &f.oauth_id);
 

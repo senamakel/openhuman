@@ -47,7 +47,7 @@ async fn spawn_auth_me_status(status: StatusCode) -> String {
 /// caller's mock backend only has to answer the route under test — `store_session`
 /// would additionally need `/auth/me` to succeed first, and re-scopes the profile
 /// to the resolved user directory as a side effect.
-fn store_live_session(user_id: &str) -> Config {
+async fn store_live_session(user_id: &str) -> Config {
     let root_dir = default_root_openhuman_dir().unwrap();
     write_active_user_id(&root_dir, user_id).unwrap();
     let user_dir = user_openhuman_dir(&root_dir, user_id);

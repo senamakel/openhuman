@@ -273,6 +273,7 @@ async fn load_drops_profiles_with_unrecognized_kind_instead_of_failing_load() {
     // bailing the entire load on the first unrecognized kind.
     let loaded = store
         .load()
+        .await
         .expect("load must succeed by dropping profiles with unrecognized kinds");
 
     assert!(
@@ -565,9 +566,8 @@ async fn acquire_lock_serializes_same_process_acquirers() {
     // acquirer to spin the `try_lock` WouldBlock retry loop until we release —
     // it must NOT race the on-disk file or bail early. Use the same registry
     // entry `acquire_lock` resolves (canonicalized parent + filename).
-    let held = in_process_lock_for(&lock_path)
-        .lock()
-        .unwrap_or_else(|poisoned| poisoned.into_inner());
+    let in_process_lock = in_process_lock_for(&lock_path);
+    let held = in_process_lock.held.lock().unwrap();
 
     let other = store.clone();
     let waiter = std::thread::spawn(move || {

@@ -28,7 +28,7 @@ async fn lookup_key_for_slug_uses_legacy_openai_api_key_when_new_style_is_empty(
 
     // Legacy bare-slug key resolves through the standard path's legacy
     // fallback, ahead of the OAuth fallback.
-    let token = lookup_key_for_slug("openai", &config).unwrap();
+    let token = lookup_key_for_slug("openai", &config).await.unwrap();
     assert_eq!(token, "sk-legacy-key");
 }
 
@@ -57,7 +57,7 @@ async fn lookup_openai_bearer_token_returns_session_expired_error_when_refresh_f
     );
     store.upsert_profile(oauth_profile, true).await.unwrap();
 
-    let result = lookup_openai_bearer_token(&config);
+    let result = lookup_openai_bearer_token(&config).await;
     let err = result.expect_err("expected Err for expired token with failed refresh");
     assert!(
         err.to_lowercase()
@@ -92,6 +92,7 @@ async fn lookup_openai_bearer_token_returns_ok_when_nearly_expiring_and_refresh_
     store.upsert_profile(oauth_profile, true).await.unwrap();
 
     let token = lookup_openai_bearer_token(&config)
+        .await
         .expect("nearly-expiring token should be returned even when refresh fails");
     assert_eq!(
         token.as_deref(),
@@ -140,14 +141,17 @@ async fn lookup_openai_bearer_token_does_not_persist_blank_refreshed_access_toke
         format!("{}/token", server.uri()),
     );
 
-    let token = lookup_openai_bearer_token(&config).unwrap();
+    let token = lookup_openai_bearer_token(&config).await.unwrap();
     assert_eq!(
         token.as_deref(),
         Some("oauth-access"),
         "a failed refresh on a not-yet-expired token should return the cached token, not error"
     );
 
-    let reloaded = AuthProfilesStore::new(tmp.path(), false).load().unwrap();
+    let reloaded = AuthProfilesStore::new(tmp.path(), false)
+        .load()
+        .await
+        .unwrap();
     let stored = reloaded
         .profiles
         .get(&format!(
@@ -165,7 +169,7 @@ async fn lookup_openai_bearer_token_does_not_persist_blank_refreshed_access_toke
 async fn lookup_openai_bearer_token_returns_none_without_profiles_or_access_token() {
     let tmp = tempdir().unwrap();
     let config = test_config(&tmp);
-    assert_eq!(lookup_openai_bearer_token(&config).unwrap(), None);
+    assert_eq!(lookup_openai_bearer_token(&config).await.unwrap(), None);
 
     let store = AuthProfilesStore::new(tmp.path(), false);
     let empty_oauth_profile = AuthProfile::new_oauth(
@@ -185,7 +189,7 @@ async fn lookup_openai_bearer_token_returns_none_without_profiles_or_access_toke
         .await
         .unwrap();
 
-    assert_eq!(lookup_openai_bearer_token(&config).unwrap(), None);
+    assert_eq!(lookup_openai_bearer_token(&config).await.unwrap(), None);
 }
 
 #[tokio::test]
@@ -206,10 +210,10 @@ async fn disconnect_openai_oauth_clears_profile() {
         },
     );
     store.upsert_profile(profile, true).await.unwrap();
-    assert!(openai_oauth_status(&config).unwrap().connected);
+    assert!(openai_oauth_status(&config).await.unwrap().connected);
 
     runtime()
         .block_on(disconnect_openai_oauth(&config))
         .unwrap();
-    assert!(!openai_oauth_status(&config).unwrap().connected);
+    assert!(!openai_oauth_status(&config).await.unwrap().connected);
 }

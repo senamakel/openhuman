@@ -69,6 +69,7 @@ async fn wire_models(summarizer_model: Option<&str>) -> WireModels {
             Default::default(),
             true,
         )
+        .await
         .expect("store isolated provider credential");
 
     let dispatch = crate::core::runtime::DispatchCtx::new(
@@ -172,7 +173,7 @@ async fn a_configured_summarizer_model_is_pinned_on_the_managed_route() {
         extensions,
     );
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let mut config = super::managed_fixture_config(&tmp);
+    let mut config = super::managed_fixture_config(&tmp).await;
     config.context.summarizer_model = Some(SUMMARIZER_MODEL.into());
 
     let models =

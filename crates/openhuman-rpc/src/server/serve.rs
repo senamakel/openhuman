@@ -211,20 +211,14 @@ pub async fn serve(
                 .with_graceful_shutdown(shutdown)
                 .await
         });
-        let preflight = async {
-            // Config decryption may enter synchronous keyring/filesystem
-            // providers. Keep that work from occupying a Tokio worker so the
-            // restricted listener can continue answering health and approval
-            // requests while preflight is pending.
-            tokio::task::block_in_place(|| {
-                tokio::runtime::Handle::current().block_on(runtime.complete_secret_preflight())
-            })
-        };
+        // Start polling Axum before the preflight future is first polled. Some
+        // secret providers perform synchronous work before their first await.
+        tokio::task::yield_now().await;
         tokio::select! {
             result = &mut server => result
                 .map_err(anyhow::Error::from)
                 .and_then(|result| result.map_err(anyhow::Error::from)),
-            result = preflight => match result {
+            result = runtime.complete_secret_preflight() => match result {
                 Err(error) => {
                     server.abort();
                     Err(error)

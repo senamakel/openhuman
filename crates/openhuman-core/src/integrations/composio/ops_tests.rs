@@ -9,6 +9,9 @@ fn test_config(tmp: &tempfile::TempDir) -> Config {
     let mut c = Config::default();
     c.workspace_dir = tmp.path().join("workspace");
     c.config_path = tmp.path().join("config.toml");
+    // These fixtures exercise routing and provider responses with fake tokens.
+    // Secret encryption is verified by the dedicated security module suites.
+    c.secrets.encrypt = false;
     c
 }
 

@@ -339,8 +339,7 @@ fn is_literal_local_host(parsed: &url::Url) -> bool {
     let Some(host) = parsed.host_str() else {
         return false;
     };
-    if host.eq_ignore_ascii_case("localhost") || host.to_ascii_lowercase().ends_with(".localhost")
-    {
+    if host.eq_ignore_ascii_case("localhost") || host.to_ascii_lowercase().ends_with(".localhost") {
         return true;
     }
     let host = host.trim_start_matches('[').trim_end_matches(']');

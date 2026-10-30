@@ -39,9 +39,7 @@ async fn run() -> anyhow::Result<()> {
             .tools(move |_| {
                 let recorded_calls = recorded_calls.clone();
                 Box::pin(async move {
-                    openhuman_embed::HostTurnTools::advertised(vec![Box::new(Ping(
-                        recorded_calls,
-                    ))])
+                    openhuman_embed::HostTurnTools::advertised(vec![Box::new(Ping(recorded_calls))])
                 })
             }),
     )?;

@@ -10,6 +10,8 @@ const RELOCATION_SOURCE_COMMIT =
   "5f01951c9c585c393ea4e8c3ba2907c25809663d";
 const RELOCATION_LOSS_COMMIT =
   "8efcf6b66016d93af35259b24a7af2fdf37612c2";
+const RELOCATION_RATIONALE =
+  "Preserve legacy desktop credential import while the storage master-key source becomes portable.";
 const CREDENTIAL_RELOCATION_IDENTITIES = new Set([
   key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/http_creds.rs", text: "fs::write(&tmp_path, &json)", occurrence: 1 }),
   key({ rule: "file-mutation", path: "crates/openhuman-core/src/security/credentials/http_creds.rs", text: "if let Err(e) = fs::rename(&tmp_path, &self.path) {", occurrence: 1 }),
@@ -55,7 +57,8 @@ export function validateRelocations(findings, relocations, proof) {
       errors.push(`Stale storage relocation: ${record.path}: ${record.text}`);
     if (
       !record.path.startsWith(`${CORE}security/credentials/`) ||
-      record.issue !== "https://github.com/tinyhumansai/openhuman/issues/7421"
+      record.issue !== "https://github.com/tinyhumansai/openhuman/issues/7421" ||
+      record.rationale !== RELOCATION_RATIONALE
     )
       errors.push(`Invalid credential relocation scope: ${record.path}`);
     if (

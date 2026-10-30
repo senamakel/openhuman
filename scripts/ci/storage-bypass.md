@@ -15,12 +15,12 @@ scanning only the core directory.
 
 ## Exact inventories
 
-`storage-bypass-baseline.json` contains **53** remaining original core rule
+`storage-bypass-baseline.json` contains **39** remaining original core rule
 identities after deleting stale and retired entries. Regeneration requires an
 existing baseline, refuses new findings, and can only remove fixed sites.
 Canonical merge-base validation also rejects baseline growth.
 
-`storage-bypass-extension.json` contains **57** reviewed identities for the
+`storage-bypass-extension.json` contains **51** reviewed identities for the
 broader coverage. Each records its rule, path, source line, occurrence,
 classification, reason, and owning issue. These are identities, not independent
 stores or completed migrations. The initial extension must already exist at the
@@ -35,7 +35,7 @@ import copies, legacy tinymemes document retirement, and downloaded file bytes.
 The thread facade and turn-state mirror replace their removed classic store
 paths in the curated source list, preserving coverage of the current owners.
 
-`storage-bypass-allow-reasons.json` audits **17** current canonical exclusions.
+`storage-bypass-allow-reasons.json` audits **15** current canonical exclusions.
 Retired file-store fallbacks are not restored. Exclusions cover read-only legacy
 imports over scratch copies, machine/bootstrap state, user-visible artifact
 files and derived views, and an exact test-only classic transcript fixture.
@@ -50,10 +50,10 @@ set, verifies each site's source at `5f01951c`, and verifies the four earlier
 `json-write` debt records against the baseline immediately before the refresh.
 The three `file-mutation` identities have historical source proof, including
 the auth-profile temporary-file rename, but do not inflate the old writer
-baseline. Every record links to #7421, which tracks the required key-source and
-legacy desktop import work. Missing, stale, copied, or arbitrary records fail;
-ordinary writers still pass only through the no-growth baseline or extension
-ratchets.
+baseline. Every record links to [OpenHuman #7421](https://github.com/tinyhumansai/openhuman/issues/7421),
+which tracks the required key-source and legacy desktop import work. Missing,
+stale, copied, or arbitrary records fail; ordinary writers still pass only
+through the no-growth baseline or extension ratchets.
 
 Classifications are review evidence. They do not establish tenant authority,
 cloud isolation, migration completion, or an export's admission policy.

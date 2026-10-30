@@ -356,7 +356,9 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
         // so the first retry needs a reconcile-first correction.
         if !hard_reject
             && matches!(call.name.as_str(), "shell" | "shell_process")
-            && tinytools::status::classify(heuristic, false).class
+            // Classify the raw result into a closed enum before sanitization
+            // can withhold it. The raw text is never stored or returned here.
+            && tinytools::status::classify(&content, false).class
                 == tinytools::status::ToolFailureClass::Timeout
         {
             return FailureAssessment::ClassifiedFailure {

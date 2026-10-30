@@ -16,6 +16,7 @@ fn test_config(tmp: &TempDir) -> Config {
     // manifest tests pass vacuously — a disabled policy answers `Allow` for
     // every class, so nothing is ever `blocked`.
     config.autonomy.enabled = true;
+    config.secrets.encrypt = false;
     std::fs::create_dir_all(&config.workspace_dir).unwrap();
     let fixture_config = config.clone();
     crate::storage::block_on_anyhow(async move {

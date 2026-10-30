@@ -15,12 +15,15 @@ use {
 
 async fn test_config(tmp: &TempDir) -> Config {
     let ws = tmp.path().join("workspace");
-    let config = Config {
+    let mut config = Config {
         workspace_dir: ws.clone(),
         action_dir: ws.clone(),
         config_path: tmp.path().join("config.toml"),
         ..Config::default()
     };
+    // Scheduler fixtures use a synthetic API key; secret-store encryption is
+    // exercised separately with an armed TinySecurity module.
+    config.secrets.encrypt = false;
     tokio::fs::create_dir_all(&config.workspace_dir)
         .await
         .unwrap();

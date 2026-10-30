@@ -13,12 +13,17 @@ fn policy_denial_keeps_its_class_when_error_details_are_withheld() {
     let call = TaToolCall::new("denied-call", "delete_artifact", serde_json::json!({}));
     let invocation = ToolInvocationIdentity::new("denied-call", "delete_artifact");
     let scope = policy.scope(&context, &call);
-    let result = TaToolResult::error("[policy-denied] secret=fixture-private-value");
+    // An oversized result is deterministically withheld even if another test
+    // has initialized a redactor in this process.
+    let result = TaToolResult::error(format!(
+        "[policy-denied] secret=fixture-private-value{}",
+        " ".repeat(65 * 1024)
+    ));
     let assessment = policy.assess(&context, &invocation, &call, &scope, &result);
     let tinyagents_harness::middleware::FailureAssessment::ClassifiedFailure {
         class, budget, error, ..
     } = assessment else {
-        panic!("a policy denial must retain its terminal class even without a redactor");
+        panic!("a policy denial must retain its terminal class when details are withheld");
     };
     assert_eq!(class, "policy");
     assert_eq!(budget, 0);

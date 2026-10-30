@@ -106,9 +106,7 @@ async fn start_mock_backend(app: Router) -> String {
 }
 
 async fn config_with_backend(tmp: &tempfile::TempDir, base: String) -> Config {
-    let mut c = Config::default();
-    c.workspace_dir = tmp.path().join("workspace");
-    c.config_path = tmp.path().join("config.toml");
+    let mut c = test_config(tmp);
     c.api_url = Some(base);
     crate::credentials::AuthService::from_config(&c)
         .store_provider_token(

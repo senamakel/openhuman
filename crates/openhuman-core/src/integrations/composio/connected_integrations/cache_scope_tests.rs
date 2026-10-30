@@ -278,22 +278,14 @@ async fn no_saas_profile_cannot_invalidate_or_reconcile_any_snapshot() {
     assert!(cached_active_integrations(&config).await.is_none());
     let mut disabled = config.clone();
     disabled.composio.mode = crate::config::schema::COMPOSIO_MODE_DISABLED.into();
-    let runtime = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap();
     // Use the exact enabled configuration Alice's seeded snapshot uses. Even
     // a broken scope check must not send this fixture to a third-party service.
     assert!(matches!(
-        runtime.block_on(super::super::fetch::fetch_connected_integrations_status(
-            &config
-        )),
+        super::super::fetch::fetch_connected_integrations_status(&config).await,
         super::super::fetch::FetchConnectedIntegrationsStatus::Unavailable
     ));
     assert!(matches!(
-        runtime.block_on(super::super::fetch::fetch_connected_integrations_status(
-            &disabled
-        )),
+        super::super::fetch::fetch_connected_integrations_status(&disabled).await,
         super::super::fetch::FetchConnectedIntegrationsStatus::Unavailable
     ));
     let unprofiled = CoreContext::for_test_with_config(DomainSet::kernel(), config.clone());

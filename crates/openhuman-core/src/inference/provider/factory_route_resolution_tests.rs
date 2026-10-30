@@ -597,7 +597,7 @@ async fn standard_mode_permits_external() {
 #[tokio::test]
 async fn claude_agent_sdk_inspection_reads_the_model_as_the_runtime_does() {
     let _guard = crate::inference::inference_test_guard_async().await;
-    let _env = crate::config::test_env::EnvVarGuard::locked()
+    let _env = crate::config::test_env::EnvVarGuard::locked_async().await
         .with("ANTHROPIC_API_KEY", "dummy-inspection-key")
         .without("ANTHROPIC_AUTH_TOKEN")
         .without("ANTHROPIC_BASE_URL");

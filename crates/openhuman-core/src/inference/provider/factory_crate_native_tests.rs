@@ -6,11 +6,13 @@ use crate::inference::provider::factory::cloud_slug::try_create_cloud_slug_chat_
 
 fn isolated_config() -> (tempfile::TempDir, Config) {
     let tmp = tempfile::tempdir().expect("isolated workspace");
-    let config = Config {
+    let mut config = Config {
         config_path: tmp.path().join("config.toml"),
         workspace_dir: tmp.path().join("workspace"),
         ..Default::default()
     };
+    // Model construction uses synthetic credentials, without native encryption.
+    config.secrets.encrypt = false;
     (tmp, config)
 }
 
@@ -93,7 +95,7 @@ async fn enforce_local_only_inference_errors_on_external_when_local_only() {
     // same lock before mutating the process-global live policy so parallel
     // cloud-model construction cannot observe this temporary LocalOnly mode.
     let _inference = crate::inference::inference_test_guard_async().await;
-    let _env = crate::config::TEST_ENV_LOCK.blocking_lock();
+    let _env = crate::config::TEST_ENV_LOCK.lock().await;
     use crate::config::PrivacyMode;
     use crate::security::SecurityPolicy;
     let ws = std::env::temp_dir().join("openhuman_factory_privacy_test");

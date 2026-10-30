@@ -158,18 +158,23 @@ fn drain_test_config(tmp: &tempfile::TempDir) -> Config {
 
 /// Await the next web-channel event published for `thread_id`, skipping
 /// events for other threads (the bus is a process-global broadcast) and
-/// tolerating broadcast lag. Panics if the channel closes first.
+/// tolerating broadcast lag. Panics if the channel closes or no event arrives
+/// within the module fixture's deadline.
 async fn recv_for_thread(
     rx: &mut tokio::sync::broadcast::Receiver<ScopedWebEvent>,
     thread_id: &str,
 ) -> ScopedWebEvent {
-    loop {
-        match rx.recv().await {
-            Ok(ev) if ev.context().thread_id == thread_id => return ev,
-            Ok(_) => continue,
-            Err(err) => panic!("web-channel bus closed before event: {err}"),
+    tokio::time::timeout(MODULE_OUTPUT_TEST_TIMEOUT, async {
+        loop {
+            match rx.recv().await {
+                Ok(ev) if ev.context().thread_id == thread_id => return ev,
+                Ok(_) => continue,
+                Err(err) => panic!("web-channel bus closed before event: {err}"),
+            }
         }
-    }
+    })
+    .await
+    .unwrap_or_else(|_| panic!("no web-channel event arrived for {thread_id}"))
 }
 
 async fn spawn_test_bridge(

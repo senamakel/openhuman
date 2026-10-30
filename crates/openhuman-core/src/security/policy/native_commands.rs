@@ -254,6 +254,10 @@ impl std::fmt::Display for Refusal {
 
 impl std::error::Error for Refusal {}
 
+#[cfg(test)]
+#[path = "native_commands_tests.rs"]
+mod tests;
+
 impl SecurityPolicy {
     /// The settings the module enforces for this policy. Derived entirely from
     /// host state; the request supplies none of it.

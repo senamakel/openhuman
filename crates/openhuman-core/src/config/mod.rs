@@ -53,6 +53,7 @@ pub use schema::{
     DockerRuntimeConfig, EmailConfig, EmbeddingRouteConfig, GitbooksConfig, HttpHeader,
     HttpRequestConfig, IMessageConfig, IntegrationToggle, IntegrationsConfig, LarkConfig,
     LegacySearchInputs, LinqConfig, LocalAiConfig, LocalJailConfig, McpAuthConfig, McpClientConfig,
+    OpenShellRuntimeConfig,
     McpClientIdentityConfig, McpServerConfig, McpToolExposure, MemoryConfig, MemoryLayoutMode,
     ModelRouteConfig, MultimodalConfig, MultimodalFileConfig, ObservabilityConfig,
     OrchestratorModelConfig, PresentationMode, PrivacyConfig, PrivacyMode, ProviderRoute,

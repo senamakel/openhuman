@@ -157,8 +157,8 @@ pub async fn clear_api_key(config: &Config) -> Result<bool> {
         &super::core::state_dir_from_config(config),
         config.secrets.encrypt,
     )
-        .remove_profile(API_KEY_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
-        .await
+    .remove_profile(API_KEY_PROVIDER, DEFAULT_AUTH_PROFILE_NAME)
+    .await
 }
 
 #[cfg(test)]

@@ -363,8 +363,19 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
             if let Some((class, budget)) =
                 recovery_policy_with_effect(&call.name, &failure_text, body_failure, effect)
             {
-                let nudge = (class == "missing_app" && call.name == "shell")
-                    .then(|| missing_program_nudge(&call.name, &first_error_line(&failure_text)));
+                let nudge = if class == "uncertain_side_effect"
+                    && matches!(call.name.as_str(), "shell" | "shell_process")
+                    && heuristic.contains("timeout")
+                {
+                    Some(super::failure_policy::uncertain_timeout_nudge(&call.name))
+                } else if class == "missing_app" && call.name == "shell" {
+                    Some(missing_program_nudge(
+                        &call.name,
+                        &first_error_line(&failure_text),
+                    ))
+                } else {
+                    None
+                };
                 return FailureAssessment::ClassifiedFailure {
                     class: class.to_owned(),
                     budget,

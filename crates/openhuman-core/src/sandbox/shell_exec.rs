@@ -145,6 +145,7 @@ pub(crate) async fn run_yielding(
     config: &Config,
     mut run: NativeShellRun,
 ) -> anyhow::Result<ShellRunOutcome> {
+    let mut abandoned = abandoned;
     #[cfg(test)]
     if !run.is_jailed() && USE_FIXTURE.load(std::sync::atomic::Ordering::SeqCst) {
         let _ = (ctx, config);
@@ -218,7 +219,7 @@ async fn run_owned(
     };
     let outcome = tokio::select! {
         biased;
-        _ = abandoned => anyhow::bail!("TinyBox native shell invocation was abandoned"),
+        _ = &mut abandoned => anyhow::bail!("TinyBox native shell invocation was abandoned"),
         result = tinybox::run_native_shell(config, request) => result
             .map_err(|error| {
                 tracing::warn!(%error, "[sandbox:shell] TinyBox native shell lifecycle failed");
@@ -272,7 +273,7 @@ async fn run_owned(
             loop {
                 let read = tokio::select! {
                     biased;
-                    _ = abandoned => {
+                    _ = &mut abandoned => {
                         let _ = live.kill().await;
                         anyhow::bail!("TinyBox native shell invocation was abandoned")
                     }

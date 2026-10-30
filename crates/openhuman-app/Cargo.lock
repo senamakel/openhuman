@@ -1047,18 +1047,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "command-group"
-version = "5.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a68fa787550392a9d58f44c21a3022cfb3ea3e2458b7f85d3b399d0ceeccf409"
-dependencies = [
- "async-trait",
- "nix 0.27.1",
- "tokio",
- "winapi",
-]
-
-[[package]]
 name = "concurrent-queue"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3482,17 +3470,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "landlock"
-version = "0.4.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4cca98e95f35b29d469dade6724c6f96cec9236640f745a0e99b0334ec320ab1"
-dependencies = [
- "enumflags2",
- "libc",
- "thiserror 2.0.21",
-]
-
-[[package]]
 name = "lapin"
 version = "4.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3997,17 +3974,6 @@ name = "new_debug_unreachable"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "650eef8c711430f1a879fdd01d4745a7deea475becfb90269c06775983bbf086"
-
-[[package]]
-name = "nix"
-version = "0.27.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2eb04e9c688eff1c89d72b407f168cf79bb9e867a9d3323ed6c01519eb9cc053"
-dependencies = [
- "bitflags 2.13.2",
- "cfg-if",
- "libc",
-]
 
 [[package]]
 name = "nix"
@@ -4605,7 +4571,6 @@ dependencies = [
  "tinyagents-storage-kit",
  "tinyagents-tasks",
  "tinybox-bus",
- "tinybox-host",
  "tinybus",
  "tinybus-module",
  "tinychannels-bus",
@@ -6088,6 +6053,7 @@ version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ab508826f74a77ca9d5aba6ff19b522583ee3eaf28a19384ff3d0e5835fadf6e"
 dependencies = [
+ "chrono",
  "dyn-clone",
  "ref-cast",
  "schemars_derive 1.2.3",
@@ -7623,6 +7589,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.28",
  "rustix 1.1.5",
+ "schemars 1.2.3",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -7666,6 +7633,7 @@ dependencies = [
  "regex",
  "reqwest 0.12.28",
  "rustix 1.1.5",
+ "schemars 1.2.3",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -7776,6 +7744,7 @@ dependencies = [
  "chrono",
  "hex",
  "parking_lot",
+ "schemars 1.2.3",
  "serde",
  "serde_json",
  "sha2 0.11.1",
@@ -7826,54 +7795,6 @@ dependencies = [
  "schemars 1.2.3",
  "serde",
  "serde_json",
-]
-
-[[package]]
-name = "tinybox-core"
-version = "0.2.4"
-dependencies = [
- "async-trait",
- "serde",
- "thiserror 2.0.21",
- "tinybox-bus",
-]
-
-[[package]]
-name = "tinybox-host"
-version = "0.2.4"
-dependencies = [
- "async-trait",
- "cap-std",
- "command-group",
- "futures-timer",
- "futures-util",
- "nix 0.31.3",
- "tinybox-bus",
- "tinybox-core",
- "tinybox-jail",
- "tokio",
-]
-
-[[package]]
-name = "tinybox-jail"
-version = "0.2.4"
-dependencies = [
- "landlock",
- "log",
- "serde",
- "serde_json",
- "tinybox-bus",
- "tinybox-core",
- "tinybox-linux",
- "windows-sys 0.61.2",
-]
-
-[[package]]
-name = "tinybox-linux"
-version = "0.2.4"
-dependencies = [
- "async-trait",
- "tinybox-core",
 ]
 
 [[package]]

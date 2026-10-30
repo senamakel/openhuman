@@ -169,6 +169,12 @@ fn unreachable_embedder_with_chat(
     model: &str,
     chat: Option<ApprovalChatContext>,
 ) -> CloudEmbeddingModel {
+    // These tests pin the host's disclosure event, not TinySecurity's native
+    // privacy decision (which has separate module-backed coverage). Replace
+    // only this fixture's guard so the event path is testable without loading
+    // a native TinySecurity artifact.
+    let descriptor = openhuman_embed::__host::egress::EgressDescriptor::embedding("cloud", model);
+    let chat_for_disclosure = chat.clone();
     build_cloud_model(
         Some("http://127.0.0.1:0".into()),
         std::env::temp_dir().join("openhuman_embeddings_routing_state"),
@@ -178,6 +184,13 @@ fn unreachable_embedder_with_chat(
         chat,
         None,
     )
+    .with_egress_guard(std::sync::Arc::new(move |_, _| {
+        openhuman_embed::__host::egress::emit_external_transfer(
+            chat_for_disclosure.as_ref(),
+            descriptor.clone(),
+        );
+        Ok(())
+    }))
 }
 
 /// A cloud-embedding call made during a web-chat turn discloses its egress to

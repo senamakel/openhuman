@@ -156,7 +156,7 @@ async fn a_session_sign_out_keeps_the_api_key_on_per_user_storage() {
     let cleared = clear_credential(
         &DispatchCtx::process_default(),
         &user_scoped,
-        Some(CredentialKind::Session),
+        Some(session_support::CredentialKind::Session),
     )
     .await
     .unwrap()

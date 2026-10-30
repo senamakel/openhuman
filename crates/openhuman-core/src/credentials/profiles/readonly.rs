@@ -32,7 +32,7 @@ pub(super) async fn load_profile(
     profile_override: Option<&str>,
 ) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
     load_profile_with_keyring(config, provider, profile_override, |store, id| {
-        store.keychain_load_secrets(id)
+        Box::pin(store.keychain_load_secrets(id))
     })
     .await
 }
@@ -41,7 +41,13 @@ async fn load_profile_with_keyring(
     config: &Config,
     provider: &str,
     profile_override: Option<&str>,
-    read_keyring: impl Fn(&AuthProfilesStore, &str) -> anyhow::Result<Option<KeychainSecrets>>,
+    read_keyring: impl for<'a> Fn(
+        &'a AuthProfilesStore,
+        &'a str,
+    ) -> futures::future::BoxFuture<
+        'a,
+        anyhow::Result<Option<KeychainSecrets>>,
+    >,
 ) -> Result<Option<AuthProfile>, ReadOnlyAuthProfileError> {
     let state_dir = config
         .config_path
@@ -89,7 +95,7 @@ async fn load_profile_with_keyring(
         AuthProfilesStore::new_with_config(state_dir, config.secrets.encrypt, config);
     let mut keyring_unavailable = false;
     let keychain_secrets = if profile_store.use_keychain {
-        match read_keyring(&profile_store, &id) {
+        match read_keyring(&profile_store, &id).await {
             Ok(Some(secrets)) => Some(secrets),
             Ok(None) => None,
             Err(error) if super::keychain::is_consent_error(&error) => {

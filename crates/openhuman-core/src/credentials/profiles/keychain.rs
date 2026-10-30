@@ -105,7 +105,9 @@ impl AuthProfilesStore {
     pub(super) async fn keychain_delete_secrets(&self, profile_id: &str) -> anyhow::Result<()> {
         let key = self.keychain_key_for_profile(profile_id);
         let name = self.keyring_name(&key);
-        if let Err(e) = self.keyring_operation(tinysecurity_bus::KeyringOperation2::Delete { name }).await
+        if let Err(e) = self
+            .keyring_operation(tinysecurity_bus::KeyringOperation2::Delete { name })
+            .await
         {
             log::warn!(
                 "[auth] keychain_delete_secrets failed profile_id={profile_id} user_id={}: {e}",
@@ -149,12 +151,12 @@ impl AuthProfilesStore {
         #[cfg(feature = "security-module")]
         {
             let outcome = async move {
-                    let client = crate::modules::security::client(&config)
-                        .await
-                        .map_err(|error| error.to_string())?;
-                    let call_id = request.caller.call_id.clone();
-                    client.keyring_access2(request).await.map_err(|error| {
-                        match crate::security::keyring_consent::operation_approval::
+                let client = crate::modules::security::client(&config)
+                    .await
+                    .map_err(|error| error.to_string())?;
+                let call_id = request.caller.call_id.clone();
+                client.keyring_access2(request).await.map_err(|error| {
+                    match crate::security::keyring_consent::operation_approval::
                                 take_operation_outcome(&call_id)
                             {
                                 Some(
@@ -167,8 +169,9 @@ impl AuthProfilesStore {
                                 ) => "openhuman:consent-pending".to_owned(),
                                 None => error.to_string(),
                             }
-                    })
-                }.await;
+                })
+            }
+            .await;
             outcome.map_err(|error| match error.as_str() {
                 "openhuman:consent-denied" => anyhow::Error::new(KeyringConsentError::Denied),
                 "openhuman:consent-pending" => anyhow::Error::new(KeyringConsentError::Pending),

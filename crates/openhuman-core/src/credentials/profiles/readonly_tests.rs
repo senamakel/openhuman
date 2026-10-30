@@ -24,10 +24,12 @@ async fn read_only_profile_loads_secrets_stored_in_tinysecurity_keyring() {
     write_profile_document(state_dir, &persisted);
 
     let loaded = load_profile_with_keyring(&config, "openai-codex", None, |_, _| {
-        Ok(Some(KeychainSecrets {
-            access_token: Some("keyring-access-token".into()),
-            ..KeychainSecrets::default()
-        }))
+        Box::pin(async {
+            Ok(Some(KeychainSecrets {
+                access_token: Some("keyring-access-token".into()),
+                ..KeychainSecrets::default()
+            }))
+        })
     })
     .await
     .expect("keyring-backed profile should be readable")
@@ -63,9 +65,11 @@ async fn read_only_profile_does_not_bypass_denied_keyring_consent() {
     write_profile_document(state_dir, &persisted);
 
     let result = load_profile_with_keyring(&config, "openai-codex", None, |_, _| {
-        Err(anyhow::Error::new(
-            super::super::keychain::KeyringConsentError::Denied,
-        ))
+        Box::pin(async {
+            Err(anyhow::Error::new(
+                super::super::keychain::KeyringConsentError::Denied,
+            ))
+        })
     })
     .await;
 

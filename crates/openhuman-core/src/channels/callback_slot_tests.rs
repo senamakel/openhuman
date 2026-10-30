@@ -5,11 +5,11 @@ use tinychannels_bus::module_progressive::{
 };
 
 fn typing(channel: &str) -> ChannelBackendRequest {
-    ChannelBackendRequest::ProgressiveTransport(ProgressiveTransportRequest::Typing {
+    ChannelBackendRequest::ProgressiveTransport(Box::new(ProgressiveTransportRequest::Typing {
         channel: channel.to_string(),
         channel_ref: None,
         conversation: None,
-    })
+    }))
 }
 
 fn answering(

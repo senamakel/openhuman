@@ -263,11 +263,13 @@ pub(in crate::modules) async fn ensure_loaded(
             let legacy_backend_id = factory_legacy_backend_id.clone();
             let pairing_backend_id = factory_pairing_backend_id.clone();
             async move {
+                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC factory-entered");
                 let binding = std::sync::Arc::new(
                     host.prepare_host_callbacks(callback_endpoints()?)
                         .await
                         .map_err(|_| "security callback binding unavailable".to_owned())?,
                 );
+                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC callbacks-prepared");
                 let consumer = std::sync::Arc::new(super::cipher_consumer::Consumer::new(
                     registration_id.clone(),
                     consumer_id.clone(),
@@ -287,6 +289,7 @@ pub(in crate::modules) async fn ensure_loaded(
                 )
                 .await
                 .map_err(|_| "security callback registration failed".to_owned())?;
+                #[cfg(test)] eprintln!("SECURITY_BOOT_DIAGNOSTIC callbacks-served");
                 let pairing_store = super::device_pairing_store::DevicePairingStore::current(
                     &config,
                     pairing_backend_id.clone(),

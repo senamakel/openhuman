@@ -453,7 +453,7 @@ impl ModuleChannel {
             .object
             .call_confidential(
                 tinychannels_bus::methods::PREPARE_OUTBOUND_INTENT,
-                (self.name.clone(), ChannelMessagePreparation::Intent(intent)),
+                (self.name.clone(), ChannelMessagePreparation::Intent(Box::new(intent))),
             )
             .await
             .map_err(anyhow::Error::new)?;

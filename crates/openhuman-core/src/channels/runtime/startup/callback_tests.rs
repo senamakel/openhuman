@@ -279,7 +279,7 @@ async fn native_progressive_transport_dispatches_typed_content_through_configure
 
     let result = callback
         .dispatch_controller_backend(ChannelBackendRequest::ProgressiveTransport(
-            ProgressiveTransportRequest::SendTyped {
+            Box::new(ProgressiveTransportRequest::SendTyped {
                 channel: "telegram:chat-42".into(),
                 turn_id: Some("turn-11".into()),
                 channel_ref: Some(tinychannels_bus::ChannelRef {
@@ -296,7 +296,7 @@ async fn native_progressive_transport_dispatches_typed_content_through_configure
                 idempotency_key: Some("turn-11:3:1".into()),
                 parts: parts.clone(),
                 text: "diagram attached".into(),
-            },
+            }),
         ))
         .await
         .expect("native progressive callback should dispatch through the channel adapter");
@@ -385,7 +385,7 @@ async fn native_progressive_transport_rejects_unconfigured_account_without_provi
 
     let result = callback
         .dispatch_controller_backend(ChannelBackendRequest::ProgressiveTransport(
-            ProgressiveTransportRequest::SendTyped {
+            Box::new(ProgressiveTransportRequest::SendTyped {
                 channel: "telegram:chat-42".into(),
                 turn_id: Some("turn-12".into()),
                 channel_ref: Some(tinychannels_bus::ChannelRef {
@@ -406,7 +406,7 @@ async fn native_progressive_transport_rejects_unconfigured_account_without_provi
                     },
                 }],
                 text: "must not cross accounts".into(),
-            },
+            }),
         ))
         .await;
 
@@ -435,7 +435,7 @@ async fn native_progressive_output_event_is_acknowledged_by_optional_host_observ
     );
     let result = callback
         .dispatch_controller_backend(ChannelBackendRequest::ProgressiveTransport(
-            ProgressiveTransportRequest::OutputEvent {
+            Box::new(ProgressiveTransportRequest::OutputEvent {
                 channel: "telegram:bot-b".into(),
                 turn_id: "turn-13".into(),
                 channel_ref: Some(tinychannels_bus::ChannelRef {
@@ -452,7 +452,7 @@ async fn native_progressive_output_event_is_acknowledged_by_optional_host_observ
                     text: "working".into(),
                     iteration: Some(1),
                 }),
-            },
+            }),
         ))
         .await
         .expect("an unobserved native progress event is accepted by the host");
@@ -477,7 +477,7 @@ fn output_event_request(
     conversation_id: Option<&str>,
     turn_id: Option<&str>,
 ) -> ChannelBackendRequest {
-    ChannelBackendRequest::ProgressiveTransport(ProgressiveTransportRequest::OutputEvent {
+    ChannelBackendRequest::ProgressiveTransport(Box::new(ProgressiveTransportRequest::OutputEvent {
         channel: "telegram:chat-42".into(),
         turn_id: turn_id.unwrap_or_default().to_owned(),
         channel_ref: account.map(|account_id| tinychannels_bus::ChannelRef {
@@ -493,7 +493,7 @@ fn output_event_request(
             text: "progress".into(),
             iteration: None,
         }),
-    })
+    }))
 }
 
 #[tokio::test]

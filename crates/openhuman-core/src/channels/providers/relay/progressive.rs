@@ -158,7 +158,7 @@ impl RelayProgressiveTransport {
             ));
         };
         Ok(ChannelBackendResult::ProgressiveTransport(
-            self.dispatch(request).await?,
+            self.dispatch(*request).await?,
         ))
     }
 }

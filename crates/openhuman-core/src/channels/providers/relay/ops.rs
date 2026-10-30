@@ -254,7 +254,7 @@ pub(crate) async fn run_relay_turn(
         &crate::modules::client(config.clone()),
         tinychannels_bus::module_inbound::PrepareChannelInboundRequest {
             source: tinychannels_bus::module_inbound::ChannelInboundSource::Legacy {
-                message: message.clone(),
+                message: Box::new(message.clone()),
                 envelope: None,
             },
             namespace: "main".into(),

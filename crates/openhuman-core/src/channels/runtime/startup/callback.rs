@@ -403,7 +403,7 @@ impl ChannelHostCallbacks {
                 }
             }
             ChannelBackendRequest::ProgressiveTransport(request) => self
-                .dispatch_progressive_transport(request)
+                .dispatch_progressive_transport(*request)
                 .await
                 .map(ChannelBackendResult::ProgressiveTransport),
             request => {

@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   mkdtempSync,
+  readFileSync,
   rmSync,
   mkdirSync,
   writeFileSync,
@@ -34,38 +35,40 @@ const row = {
 };
 const history = { baseline: [], extension: null, findings: [row] };
 test("only credential sites with pinned historical source proof relocate", () => {
-  const historical = {
-    rule: "file-mutation",
-    path: "crates/openhuman-core/src/security/credentials/profiles/persistence.rs",
-    text: "fs::rename(&tmp_path, &self.path).context(\"rename auth profile tmp -> store\")",
-    occurrence: 1,
+  const relocations = JSON.parse(
+    readFileSync(new URL("../ci/storage-bypass-relocations.json", import.meta.url)),
+  );
+  const current = relocations.map(({ source, trackedBefore, issue, ...site }) => site);
+  const trackedBefore = new Set(
+    relocations
+      .filter((record) => record.trackedBefore)
+      .map((record) =>
+        JSON.stringify([
+          record.trackedBefore.rule,
+          record.trackedBefore.path,
+          record.trackedBefore.text,
+          record.trackedBefore.occurrence,
+        ]),
+      ),
+  );
+  const proof = {
+    sourceCommit: relocations[0].source.commit,
+    findings: relocations.map((record) => record.source),
+    trackedBefore,
   };
-  const current = { ...historical };
-  const relocation = {
-    ...current,
-    source: {
-      commit: "5f01951c9c585c393ea4e8c3ba2907c25809663d",
-      path: historical.path,
-      text: historical.text,
-      rule: historical.rule,
-      occurrence: historical.occurrence,
-    },
-    issue: "https://github.com/tinyhumansai/openhuman/issues/7421",
-  };
-  const proof = { findings: [historical], trackedBefore: new Set() };
-  assert.deepEqual(validateRelocations([current], [relocation], proof), []);
+  assert.deepEqual(validateRelocations(current, relocations, proof), []);
 
   const arbitrary = {
-    ...relocation,
+    ...relocations[0],
     path: "crates/openhuman-core/src/new_store.rs",
     text: "fs::write(path, bytes)",
   };
   assert.match(
-    validateRelocations([arbitrary], [arbitrary], proof).join("\n"),
+    validateRelocations([...current, arbitrary], [...relocations, arbitrary], proof).join("\n"),
     /no matching historical source proof/,
   );
   assert.match(
-    validateRelocations([current], [relocation], { findings: [] }).join("\n"),
+    validateRelocations(current, relocations, { findings: [] }).join("\n"),
     /no matching historical source proof/,
   );
 });

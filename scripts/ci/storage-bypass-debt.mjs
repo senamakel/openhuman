@@ -6,6 +6,19 @@ const EXTENSION = "scripts/ci/storage-bypass-extension.json";
 const key = (x) => JSON.stringify([x.rule, x.path, x.text, x.occurrence]);
 const original = (x) =>
   x.path.startsWith(CORE) && ["sqlite-open", "json-write"].includes(x.rule);
+const RELOCATION_SOURCE_COMMIT =
+  "5f01951c9c585c393ea4e8c3ba2907c25809663d";
+const RELOCATION_LOSS_COMMIT =
+  "8efcf6b66016d93af35259b24a7af2fdf37612c2";
+const CREDENTIAL_RELOCATION_IDENTITIES = new Set([
+  key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/http_creds.rs", text: "fs::write(&tmp_path, &json)", occurrence: 1 }),
+  key({ rule: "file-mutation", path: "crates/openhuman-core/src/security/credentials/http_creds.rs", text: "if let Err(e) = fs::rename(&tmp_path, &self.path) {", occurrence: 1 }),
+  key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/profiles.rs", text: "let mut file = OpenOptions::new()", occurrence: 1 }),
+  key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/profiles.rs", text: "fs::write(path, bytes)", occurrence: 1 }),
+  key({ rule: "file-mutation", path: "crates/openhuman-core/src/security/credentials/profiles.rs", text: "fs::rename(path, &candidate).with_context(|| {", occurrence: 1 }),
+  key({ rule: "json-write", path: "crates/openhuman-core/src/security/credentials/profiles/lock.rs", text: "OpenOptions::new()", occurrence: 1 }),
+  key({ rule: "file-mutation", path: "crates/openhuman-core/src/security/credentials/profiles/persistence.rs", text: "fs::rename(&tmp_path, &self.path).context(\"rename auth profile tmp -> store\")", occurrence: 1 }),
+]);
 
 /** Exact source identity for the one-time credential fallback relocation ledger. */
 export function validateRelocations(findings, relocations, proof) {
@@ -16,6 +29,8 @@ export function validateRelocations(findings, relocations, proof) {
   const seen = new Set();
   for (const record of relocations) {
     const id = key(record);
+    if (!CREDENTIAL_RELOCATION_IDENTITIES.has(id))
+      errors.push(`Unrecognized credential relocation: ${record.path}: ${record.text}`);
     if (seen.has(id)) errors.push(`Duplicate storage relocation: ${record.path}`);
     seen.add(id);
     if (!actual.has(id))
@@ -25,7 +40,15 @@ export function validateRelocations(findings, relocations, proof) {
       record.issue !== "https://github.com/tinyhumansai/openhuman/issues/7421"
     )
       errors.push(`Invalid credential relocation scope: ${record.path}`);
-    if (!record.source || !historical.has(key(record.source)))
+    if (
+      !record.source ||
+      record.source.path !== record.path ||
+      record.source.rule !== record.rule ||
+      record.source.text !== record.text ||
+      record.source.occurrence !== record.occurrence ||
+      record.source.commit !== proof?.sourceCommit ||
+      !historical.has(key(record.source))
+    )
       errors.push(`Storage relocation has no matching historical source proof: ${record.path}`);
     if (
       record.trackedBefore &&
@@ -33,7 +56,41 @@ export function validateRelocations(findings, relocations, proof) {
     )
       errors.push(`Storage relocation has no pre-refresh debt proof: ${record.path}`);
   }
+  for (const id of CREDENTIAL_RELOCATION_IDENTITIES)
+    if (!seen.has(id)) errors.push("Credential relocation ledger is incomplete");
   return errors;
+}
+
+/** Read the fixed pre-refresh source and baseline witnesses for the relocation ledger. */
+export function historicalRelocationProof(root, scanner, relocations) {
+  const git = (args) =>
+    execFileSync("git", args, {
+      cwd: root,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "pipe"],
+    }).trimEnd();
+  const sourceCommit = RELOCATION_SOURCE_COMMIT;
+  const lossCommit = RELOCATION_LOSS_COMMIT;
+  git(["merge-base", "--is-ancestor", sourceCommit, lossCommit]);
+  const sourcePaths = new Map();
+  const findings = [];
+  for (const record of relocations) {
+    if (record.source?.commit !== sourceCommit)
+      throw new Error(`Unexpected historical relocation source: ${record.path}`);
+    if (!sourcePaths.has(record.source.path)) {
+      const source = git(["show", `${sourceCommit}:${record.source.path}`]);
+      sourcePaths.set(record.source.path, scanner.scan(record.source.path, source));
+    }
+    findings.push(...sourcePaths.get(record.source.path));
+  }
+  const baseline = JSON.parse(
+    git(["show", `${lossCommit}^:${BASELINE}`]),
+  );
+  return {
+    sourceCommit,
+    findings,
+    trackedBefore: new Set(baseline.map(key)),
+  };
 }
 
 /** Exact existing-debt records never authorize another site or later growth. */

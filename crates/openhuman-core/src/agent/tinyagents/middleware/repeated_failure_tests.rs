@@ -1,5 +1,30 @@
 use super::*;
 
+#[test]
+fn policy_denial_keeps_its_class_when_error_details_are_withheld() {
+    let policy = HostFailurePolicy::new(
+        SteeringHandle::allow_all(),
+        Arc::new(std::sync::Mutex::new(None)),
+    );
+    let context = RunContext::new(
+        tinyagents_harness::context::RunConfig::new("withheld-policy-error"),
+        OpenHumanRunContext::new(),
+    );
+    let call = TaToolCall::new("denied-call", "delete_artifact", serde_json::json!({}));
+    let invocation = ToolInvocationIdentity::new("denied-call".into(), "delete_artifact".into());
+    let scope = policy.scope(&context, &call);
+    let result = TaToolResult::error("[policy-denied] secret=fixture-private-value");
+    let assessment = policy.assess(&context, &invocation, &call, &scope, &result);
+    let tinyagents_harness::middleware::FailureAssessment::ClassifiedFailure {
+        class, budget, error, ..
+    } = assessment else {
+        panic!("a policy denial must retain its terminal class even without a redactor");
+    };
+    assert_eq!(class, "policy");
+    assert_eq!(budget, 0);
+    assert!(!error.contains("fixture-private-value"));
+}
+
 #[tokio::test]
 async fn classified_stop_cause_survives_the_latch_cleanup_on_agent_finish() {
     use tinyagents_harness::{context::RunConfig, middleware::AgentRun, steering::SteeringPolicy};

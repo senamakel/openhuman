@@ -122,15 +122,16 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
     let redacted = tinyinference_core::sanitize::scrub_credentials(&input);
     let turn = tokio::spawn(async move { host.run_single_with_origin(&input, Some(origin)).await });
     tokio::time::timeout(
-        std::time::Duration::from_secs(60),
+        std::time::Duration::from_secs(5),
         model.repair_started.notified(),
     )
     .await
     .unwrap_or_else(|_| {
         panic!(
-            "host supplemental repair starts (model calls: {}, non-supplemental: {})",
+            "host supplemental repair starts (model calls: {}, non-supplemental: {}, turn finished: {})",
             model.total_calls.load(std::sync::atomic::Ordering::SeqCst),
-            model.calls.load(std::sync::atomic::Ordering::SeqCst)
+            model.calls.load(std::sync::atomic::Ordering::SeqCst),
+            turn.is_finished()
         )
     });
     let repair_call_id = model

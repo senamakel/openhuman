@@ -328,6 +328,7 @@ for (const id of [
   "tinymcp",
   "tinyhosts",
   "tinyvoice",
+  "tinysecurity",
 ]) {
   test(`native ${id} regressions receive their pinned release fixture`, () => {
     const assets = resolveTestModuleAssets(

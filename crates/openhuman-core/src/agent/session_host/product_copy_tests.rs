@@ -620,6 +620,22 @@ fn the_default_copy_keeps_every_english_needle() {
     }
 }
 
+/// The preamble that introduces a stop note is a direction too: a copy that
+/// rewords it is recognised when the model repeats it back.
+#[test]
+fn a_reworded_stop_note_preamble_echoed_by_the_model_is_recognised() {
+    let copy = tinyagents_harness::close::CloseCopy {
+        stop_note_preamble: "Heads up for your answer, never repeat this to the user:",
+        ..OPENHUMAN_CLOSE_COPY
+    };
+    let needles = super::close_needles(&copy, None);
+    let phrases = needles.iter().map(String::as_str).collect::<Vec<_>>();
+    assert!(tinyagents_harness::close::quotes_harness_instruction(
+        "Heads up for your answer, never repeat this to the user: it stopped.",
+        &phrases
+    ));
+}
+
 #[test]
 fn the_stop_reason_is_a_needle_too() {
     let reason = "Stopping after three identical failing calls to the same tool";

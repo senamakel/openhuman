@@ -700,3 +700,58 @@ fn supplemental_free_route_uses_zero_catalog_rates() {
 
 #[path = "grounded_close_typed_stop_tests.rs"]
 mod typed_stop;
+
+const REWORDED_CAP_INSTRUCTION: &str = "Tell the user plainly, in their own language, what got \
+                                        done before you ran out of steps.";
+
+/// A copy that rewords the cap instruction still gets the echo guard: a close
+/// that repeats the reworded text back is repaired once, with the copy's own
+/// repair wording, and the user receives the repaired message.
+#[tokio::test]
+async fn a_close_echoing_a_reworded_instruction_is_repaired_with_the_copys_wording() {
+    use tinyagents_harness::testkit::ScriptedModel;
+    use tinyinference_llm::model::ModelResponse;
+
+    let copy = tinyagents_harness::close::CloseCopy {
+        max_iteration_instruction: REWORDED_CAP_INSTRUCTION,
+        repair_template: "{repair_reason}|{instruction}",
+        repair_quoted_instruction: "REPAIR QUOTED",
+        ..product_copy::OPENHUMAN_CLOSE_COPY
+    };
+    let echo = format!("Of course. {REWORDED_CAP_INSTRUCTION} Here is what I did.");
+    let scripted = Arc::new(ScriptedModel::new(vec![
+        ModelResponse::assistant(echo),
+        ModelResponse::assistant(CLEAN_REPLY),
+        ModelResponse::assistant("ACCEPT"),
+    ]));
+    let source = TurnModelSource::from_model(scripted.clone());
+    let mut outcome = blank_outcome(false);
+    outcome.hit_cap = true;
+
+    let closed = close_if_needed(
+        &source,
+        "host-selected-model",
+        0.0,
+        None,
+        &tinytools_agent::dialect::NativeDialect,
+        &[],
+        "Summarize the workspace.",
+        &outcome,
+        &copy,
+        None,
+        None,
+    )
+    .await
+    .expect("a capped turn needs a close");
+
+    assert_eq!(closed.output, CLEAN_REPLY);
+    let requests = scripted.requests();
+    assert!(
+        format!("{:?}", requests[0].messages).contains(REWORDED_CAP_INSTRUCTION),
+        "the first close asks with the copy's own instruction"
+    );
+    assert!(
+        format!("{:?}", requests[1].messages).contains("REPAIR QUOTED"),
+        "the repair uses the copy's wording"
+    );
+}

@@ -34,6 +34,7 @@ pub(crate) fn close_needles(
         copy.final_write_instruction,
         copy.final_answer_instruction,
         copy.truncated_answer_instruction,
+        copy.stop_note_preamble,
     ] {
         if !sources.contains(&instruction) {
             sources.push(instruction);

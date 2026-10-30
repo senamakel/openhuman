@@ -184,12 +184,10 @@ async fn typed_channel_projection_uses_scoped_persisted_row_bindings_after_resta
         timestamp_unix_ms: None,
     };
 
-    assert!(
-        super::adapters::project_channel_event(&bob, event.clone())
-            .await
-            .unwrap()
-            .is_none()
-    );
+    assert!(super::adapters::project_channel_event(&bob, event.clone())
+        .await
+        .unwrap()
+        .is_none());
     let bob_messages = crate::threads::store::blocking::get_messages(
         bob.clone(),
         workspace.clone(),
@@ -201,12 +199,10 @@ async fn typed_channel_projection_uses_scoped_persisted_row_bindings_after_resta
         bob_messages[0].extra_metadata["voiceNote"]["opaqueId"],
         "bob-voice"
     );
-    assert!(
-        bob_messages[0]
-            .extra_metadata
-            .get("channelActivity")
-            .is_none()
-    );
+    assert!(bob_messages[0]
+        .extra_metadata
+        .get("channelActivity")
+        .is_none());
 
     let projected = super::adapters::project_channel_event(&alice, event.clone())
         .await
@@ -236,12 +232,10 @@ async fn typed_channel_projection_uses_scoped_persisted_row_bindings_after_resta
         timestamp_unix_ms: Some(1_792_444_800),
         ..event
     };
-    assert!(
-        super::adapters::project_channel_event(&restarted, read)
-            .await
-            .unwrap()
-            .is_some()
-    );
+    assert!(super::adapters::project_channel_event(&restarted, read)
+        .await
+        .unwrap()
+        .is_some());
     let messages = crate::threads::store::blocking::get_messages(restarted, workspace, thread_id)
         .await
         .unwrap();
@@ -287,8 +281,8 @@ async fn event_sink_rejects_non_object_payload() {
 #[tokio::test]
 async fn event_sink_ignores_legacy_reaction_callbacks() {
     let sink = OpenHumanEventSink;
-    assert!(
-        sink.publish_host(
+    assert!(sink
+        .publish_host(
             "channel",
             "reaction_received",
             serde_json::json!({
@@ -297,10 +291,9 @@ async fn event_sink_ignores_legacy_reaction_callbacks() {
             }),
         )
         .await
-        .is_ok()
-    );
-    assert!(
-        sink.publish_host(
+        .is_ok());
+    assert!(sink
+        .publish_host(
             "channel",
             "reaction_sent",
             serde_json::json!({
@@ -309,17 +302,14 @@ async fn event_sink_ignores_legacy_reaction_callbacks() {
             }),
         )
         .await
-        .is_ok()
-    );
+        .is_ok());
     // Unknown domain/kind is a benign no-op.
-    assert!(
-        sink.publish_host("mystery", "x", serde_json::json!({}))
-            .await
-            .is_ok()
-    );
-    assert!(
-        sink.publish_host("channel", "unknown", serde_json::json!({}))
-            .await
-            .is_ok()
-    );
+    assert!(sink
+        .publish_host("mystery", "x", serde_json::json!({}))
+        .await
+        .is_ok());
+    assert!(sink
+        .publish_host("channel", "unknown", serde_json::json!({}))
+        .await
+        .is_ok());
 }

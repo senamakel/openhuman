@@ -17,7 +17,7 @@ use tinychannels_bus::web::{
     ChatRequestMetadata, TurnCostThrottle, TurnTimingSnapshot, TurnTimingState,
 };
 
-use super::progress_ledger::{Ledger, for_turn};
+use super::progress_ledger::{for_turn, Ledger};
 use super::progress_map as map;
 use super::surface::{Surface, TurnIds};
 use crate::config::Config;

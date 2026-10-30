@@ -33,8 +33,8 @@ async fn lookup_key_for_slug_uses_legacy_openai_api_key_when_new_style_is_empty(
 }
 
 #[tokio::test]
-async fn lookup_openai_bearer_token_returns_session_expired_error_when_refresh_fails_on_expired_token()
- {
+async fn lookup_openai_bearer_token_returns_session_expired_error_when_refresh_fails_on_expired_token(
+) {
     // A token that is 5 minutes past expiry with a refresh token present but no
     // tokio runtime available (so try_refresh_oauth_token returns Err).
     // After the fix in store.rs: is_expiring_within(ZERO) returns true AND

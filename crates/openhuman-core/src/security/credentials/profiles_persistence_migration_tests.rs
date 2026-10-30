@@ -361,7 +361,7 @@ async fn is_lock_create_unwritable_fs_polarity() {
 /// instead of silently re-leaking the flood.
 #[tokio::test]
 async fn disk_full_lock_failure_string_classifies_as_disk_full() {
-    use crate::core::observability::{ExpectedErrorKind, expected_error_kind};
+    use crate::core::observability::{expected_error_kind, ExpectedErrorKind};
 
     let err = annotate_lock_create_failure(
         anyhow::Error::new(std::io::Error::from(std::io::ErrorKind::StorageFull))
@@ -526,12 +526,10 @@ async fn load_migrates_un_lowercased_active_profiles_keys_and_providers() {
     assert!(!disk_raw.contains("\"provider:DeepSeek:default\":"));
 
     // 4. Assert profile can be successfully deleted after migration
-    assert!(
-        store
-            .remove_profile("provider:deepseek:default")
-            .await
-            .unwrap()
-    );
+    assert!(store
+        .remove_profile("provider:deepseek:default")
+        .await
+        .unwrap());
     let reloaded = store.load().await.unwrap();
     assert!(reloaded.profiles.is_empty());
     assert!(reloaded.active_profiles.is_empty());

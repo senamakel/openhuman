@@ -2,8 +2,8 @@
 
 use tinybus::module::{ModuleCallError, ModuleObjectClient};
 use tinychannels_bus::{
-    ChannelInboundEnvelope, ContentPart, HostVoiceScope, MediaKind, MediaReference,
     module_media::{MediaReadBegin, MediaReadChunk, MediaReadFinish},
+    ChannelInboundEnvelope, ContentPart, HostVoiceScope, MediaKind, MediaReference,
 };
 use tinyinference_llm::message::Message;
 

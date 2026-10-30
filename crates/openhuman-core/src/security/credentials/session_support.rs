@@ -3,9 +3,9 @@
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 
-use super::AuthService;
 use super::profiles::{AuthProfile, AuthProfileKind, TokenSet};
 use super::responses::{AuthProfileSummary, AuthStateResponse};
+use super::AuthService;
 
 use super::{APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME};
 
@@ -557,7 +557,8 @@ pub async fn publish_local_session_expiry(operation: &'static str, token: Option
     crate::core::bus::BUS.publish(crate::core::events::DomainEvent::SessionExpired {
         source: "credentials.local_expiry_precheck".to_string(),
         reason: "backend session token expired locally — re-authentication required".to_string(),
-        credential_fingerprint: token.map(crate::credentials::backend_credential::credential_fingerprint),
+        credential_fingerprint: token
+            .map(crate::credentials::backend_credential::credential_fingerprint),
     });
 }
 

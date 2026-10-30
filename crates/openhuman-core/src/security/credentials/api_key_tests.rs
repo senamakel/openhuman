@@ -1,6 +1,6 @@
 use super::*;
 use crate::security::credentials::session_support::{
-    BackendCredential, resolve_backend_credential,
+    resolve_backend_credential, BackendCredential,
 };
 
 fn config_in(dir: &std::path::Path) -> Config {
@@ -15,7 +15,9 @@ fn config_in(dir: &std::path::Path) -> Config {
 async fn store_then_get_round_trips_and_marks_kind() {
     let dir = tempfile::tempdir().expect("tempdir");
     let config = config_in(dir.path());
-    let profile = store_api_key(&config, "  th_live_abc  ").await.expect("store");
+    let profile = store_api_key(&config, "  th_live_abc  ")
+        .await
+        .expect("store");
     assert_eq!(profile.provider, API_KEY_PROVIDER);
     assert_eq!(
         profile.metadata.get(API_KEY_KIND_META).map(String::as_str),
@@ -83,7 +85,7 @@ async fn a_provider_profile_named_api_key_without_the_marker_is_not_accepted() {
 async fn api_key_wins_over_an_expired_session() {
     use crate::security::credentials::session_support::SESSION_EXPIRES_AT_META;
     use crate::security::credentials::{
-        APP_SESSION_PROVIDER, AuthService, DEFAULT_AUTH_PROFILE_NAME,
+        AuthService, APP_SESSION_PROVIDER, DEFAULT_AUTH_PROFILE_NAME,
     };
 
     let dir = tempfile::tempdir().expect("tempdir");
@@ -110,7 +112,9 @@ async fn api_key_wins_over_an_expired_session() {
 
     store_api_key(&config, "th_key").await.expect("store key");
     assert_eq!(
-        resolve_backend_credential(&config).await.expect("credential"),
+        resolve_backend_credential(&config)
+            .await
+            .expect("credential"),
         BackendCredential::ApiKey("th_key".to_string())
     );
 }

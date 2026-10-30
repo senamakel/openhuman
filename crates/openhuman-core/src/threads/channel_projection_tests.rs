@@ -424,10 +424,8 @@ async fn persisted_activity_merges_concurrent_events_for_the_exact_scoped_row() 
         untouched_bob[0].extra_metadata["voiceNote"]["opaqueId"],
         "voice-asset-preserved"
     );
-    assert!(
-        untouched_bob[0]
-            .extra_metadata
-            .get("channelActivity")
-            .is_none()
-    );
+    assert!(untouched_bob[0]
+        .extra_metadata
+        .get("channelActivity")
+        .is_none());
 }

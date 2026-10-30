@@ -14,9 +14,9 @@
 use crate::config::Config;
 use crate::core::runtime::DispatchCtx;
 use crate::security::credentials::api_key;
-use crate::security::credentials::session_support::{CredentialKind, get_session_token};
+use crate::security::credentials::session_support::{get_session_token, CredentialKind};
 
-use super::credential::{SetCredentialRequest, set_credential};
+use super::credential::{set_credential, SetCredentialRequest};
 
 pub const BACKEND_API_KEY_ENV: &str = "OPENHUMAN_BACKEND_API_KEY";
 pub const BACKEND_SESSION_TOKEN_ENV: &str = "OPENHUMAN_BACKEND_SESSION_TOKEN";

@@ -50,16 +50,14 @@ async fn bound_session_token_release_requires_issuing_backend() {
     );
     config.api_url = Some("https://different.example".into());
     config.resolved_endpoints.control_plane_url = Some("https://different.example".into());
-    assert!(
-        get_session_token(&config).await
-            .unwrap_err()
-            .starts_with("SESSION_BACKEND_MISMATCH")
-    );
-    assert!(
-        resolve_backend_credential(&config).await
-            .unwrap_err()
-            .starts_with("SESSION_BACKEND_MISMATCH")
-    );
+    assert!(get_session_token(&config)
+        .await
+        .unwrap_err()
+        .starts_with("SESSION_BACKEND_MISMATCH"));
+    assert!(resolve_backend_credential(&config)
+        .await
+        .unwrap_err()
+        .starts_with("SESSION_BACKEND_MISMATCH"));
     assert!(direct_backend_credential(&config, "test").await.is_none());
     crate::security::credentials::api_key::store_api_key(&config, "synthetic-key")
         .await

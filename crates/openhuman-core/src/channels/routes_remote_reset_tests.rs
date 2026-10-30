@@ -228,20 +228,18 @@ async fn remote_clear_resets_only_the_captured_tenant_session() {
 
     let mut forged = scope.clone();
     forged.conversation.id = "other-room".into();
-    assert!(
-        crate::channels::host::remote_control::dispatch_callback(
-            &alice_dispatch,
-            &alice_runtime,
-            &alice_tenant,
-            &cancellation,
-            Some(&reset),
-            RemoteHostRequest::ClearHistory {
-                session_scope: forged,
-            },
-        )
-        .await
-        .is_err()
-    );
+    assert!(crate::channels::host::remote_control::dispatch_callback(
+        &alice_dispatch,
+        &alice_runtime,
+        &alice_tenant,
+        &cancellation,
+        Some(&reset),
+        RemoteHostRequest::ClearHistory {
+            session_scope: forged,
+        },
+    )
+    .await
+    .is_err());
     assert_eq!(
         session_messages(&alice_core, workspace, &alice_store_agent, &alice_session).len(),
         2

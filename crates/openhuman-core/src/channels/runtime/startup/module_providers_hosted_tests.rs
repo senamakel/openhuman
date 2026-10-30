@@ -301,16 +301,14 @@ async fn hosted_target_projects_typed_media_and_voice_to_web_and_gateway_once() 
     assert_eq!(image_gateway.context().thread_id, thread_id);
     assert!(image_gateway.belongs_to("relay-typed-output-agent"));
     assert!(image_gateway.belongs_to_profile("relay-typed-output-profile"));
-    assert!(
-        image_gateway_wire["structured"]["parts"]
-            .as_array()
-            .expect("typed provider parts")
-            .iter()
-            .any(|part| {
-                part["part"]["kind"] == "image"
-                    && part["part"]["media"]["opaqueId"] == "media:tenant7/thread42/image1"
-            })
-    );
+    assert!(image_gateway_wire["structured"]["parts"]
+        .as_array()
+        .expect("typed provider parts")
+        .iter()
+        .any(|part| {
+            part["part"]["kind"] == "image"
+                && part["part"]["media"]["opaqueId"] == "media:tenant7/thread42/image1"
+        }));
     let voice_gateway = gateway_terminals
         .iter()
         .find(|event| {
@@ -323,17 +321,15 @@ async fn hosted_target_projects_typed_media_and_voice_to_web_and_gateway_once() 
     assert_eq!(voice_gateway.context().thread_id, thread_id);
     assert!(voice_gateway.belongs_to("relay-typed-output-agent"));
     assert!(voice_gateway.belongs_to_profile("relay-typed-output-profile"));
-    assert!(
-        voice_gateway_wire["structured"]["parts"]
-            .as_array()
-            .expect("typed voice provider parts")
-            .iter()
-            .any(|part| {
-                part["kind"] == "voice"
-                    && part["voice"]["kind"] == "media"
-                    && part["voice"]["media"]["opaqueId"] == "media:tenant7/thread42/voice1"
-            })
-    );
+    assert!(voice_gateway_wire["structured"]["parts"]
+        .as_array()
+        .expect("typed voice provider parts")
+        .iter()
+        .any(|part| {
+            part["kind"] == "voice"
+                && part["voice"]["kind"] == "media"
+                && part["voice"]["media"]["opaqueId"] == "media:tenant7/thread42/voice1"
+        }));
     let expected_channel_ref = serde_json::to_value(&channel).expect("expected channel ref");
     let expected_conversation_ref =
         serde_json::to_value(&conversation).expect("expected conversation ref");

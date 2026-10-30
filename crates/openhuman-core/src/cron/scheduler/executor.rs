@@ -14,10 +14,10 @@ use super::failure_classification::{
     is_api_key_unset_failure, is_budget_exhausted_failure, is_insufficient_credits_failure,
     is_local_provider_unreachable_failure, is_session_expired_failure, permanent_halt_message,
 };
-use crate::cron::bus_host::{Binding, kind_refusal};
-use crate::cron::handlers::{JobRunContext, kind_handler};
-use tinyflows_bus::schedule::Attempt;
+use crate::cron::bus_host::{kind_refusal, Binding};
+use crate::cron::handlers::{kind_handler, JobRunContext};
 use tinyflows_bus::schedule::types::{CronJob, JobType, SessionTarget};
+use tinyflows_bus::schedule::Attempt;
 
 pub(crate) struct HostExecutor {
     binding: Binding,

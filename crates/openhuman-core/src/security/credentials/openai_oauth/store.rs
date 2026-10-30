@@ -4,13 +4,13 @@ use std::path::{Path, PathBuf};
 
 use chrono::{Duration, TimeZone, Utc};
 use tinyinference_providers::oauth::{
-    OAuthTokenSet, openai_account_id_from_access_token, openai_codex_config,
-    parse_openai_codex_auth_json, refresh_access_token,
+    openai_account_id_from_access_token, openai_codex_config, parse_openai_codex_auth_json,
+    refresh_access_token, OAuthTokenSet,
 };
 
 use crate::config::Config;
 use crate::security::credentials::profiles::{AuthProfile, AuthProfilesStore, TokenSet};
-use crate::security::credentials::{AuthService, state_dir_from_config};
+use crate::security::credentials::{state_dir_from_config, AuthService};
 
 const LOG_PREFIX: &str = "[inference][openai-oauth][store]";
 

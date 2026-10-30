@@ -1,5 +1,5 @@
 use super::profiles::{
-    AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore, profile_id,
+    profile_id, AuthProfile, AuthProfileKind, AuthProfilesData, AuthProfilesStore,
 };
 use crate::config::Config;
 use anyhow::Result;

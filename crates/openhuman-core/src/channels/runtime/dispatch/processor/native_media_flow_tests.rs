@@ -3,7 +3,7 @@
 //! chunked media port, staged on the host and converted to a model message.
 
 use super::*;
-use crate::channels::runtime::test_support::{LinkedTelegramRuntime, linked_telegram_runtime};
+use crate::channels::runtime::test_support::{linked_telegram_runtime, LinkedTelegramRuntime};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tinychannels_bus::{ChannelRef, ConversationKind, ConversationRef};
@@ -206,16 +206,14 @@ async fn typed_media_is_read_from_the_module_staged_and_converted_to_a_model_mes
     };
     use tinyinference_llm::message::{ContentBlock, MediaRef};
     assert!(matches!(&user.content[0], ContentBlock::Text(t) if t == "[Channel context]"));
-    assert!(
-        user.content
-            .iter()
-            .any(|b| matches!(b, ContentBlock::Text(t) if t == "spoken words"))
-    );
-    assert!(
-        user.content.iter().any(
-            |b| matches!(b, ContentBlock::Image(i) if i.url.starts_with("openhuman-staged://"))
-        )
-    );
+    assert!(user
+        .content
+        .iter()
+        .any(|b| matches!(b, ContentBlock::Text(t) if t == "spoken words")));
+    assert!(user
+        .content
+        .iter()
+        .any(|b| matches!(b, ContentBlock::Image(i) if i.url.starts_with("openhuman-staged://"))));
     assert!(user.content.iter().any(|b| matches!(
         b,
         ContentBlock::Document(MediaRef::Path { path, .. }) if path.starts_with("openhuman-staged://")
@@ -298,38 +296,30 @@ async fn typed_media_is_rejected_before_any_module_read_when_policy_fails() {
         title: None,
         transcript: None,
     }]);
-    assert!(
-        reject(&ctx, &config, &audio)
-            .await
-            .contains("not supported")
-    );
+    assert!(reject(&ctx, &config, &audio)
+        .await
+        .contains("not supported"));
 
     let mut no_account = envelope(vec![image_part(png_ref())]);
     no_account.channel.account_id = None;
-    assert!(
-        reject(&ctx, &config, &no_account)
-            .await
-            .contains("account scope")
-    );
+    assert!(reject(&ctx, &config, &no_account)
+        .await
+        .contains("account scope"));
 
     let mut bad_ref = png_ref();
     bad_ref.path = Some("/etc/passwd".into());
-    assert!(
-        reject(&ctx, &config, &envelope(vec![image_part(bad_ref)]))
-            .await
-            .contains("opaque")
-    );
+    assert!(reject(&ctx, &config, &envelope(vec![image_part(bad_ref)]))
+        .await
+        .contains("opaque"));
 
     let mut file_ref = png_ref();
     file_ref.kind = MediaKind::Document;
     file_ref.content_type = Some("text/plain".into());
     let mut bad_file = file_ref.clone();
     bad_file.url = Some("https://attacker.invalid/x".into());
-    assert!(
-        reject(&ctx, &config, &envelope(vec![file_part(bad_file)]))
-            .await
-            .contains("opaque")
-    );
+    assert!(reject(&ctx, &config, &envelope(vec![file_part(bad_file)]))
+        .await
+        .contains("opaque"));
 
     let mut no_images = config.clone();
     no_images.multimodal.max_images = 0;

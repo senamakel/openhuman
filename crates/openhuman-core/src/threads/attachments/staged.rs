@@ -25,14 +25,14 @@ pub(super) struct StagedAttachmentClaim {
 }
 
 pub(crate) use native::{
-    NativeStagedLease, commit_native_channel_parts, native_parts_in_committed_message,
-    read_authorized_native_attachment, stage_native_channel_part,
+    commit_native_channel_parts, native_parts_in_committed_message,
+    read_authorized_native_attachment, stage_native_channel_part, NativeStagedLease,
 };
 #[path = "staged/native.rs"]
 mod native;
-use native::STAGED_TTL_SECS;
 #[cfg(test)]
 pub(super) use native::read_staged_file_bounded;
+use native::STAGED_TTL_SECS;
 pub(super) use native::{STAGED_COLLECTION, STAGED_DOMAIN};
 
 pub(super) fn staged_doc_id(opaque_id: &str) -> Result<String, String> {

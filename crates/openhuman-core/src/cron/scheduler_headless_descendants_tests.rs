@@ -589,7 +589,6 @@ async fn scheduled_cron_child_cannot_run_its_declared_destructive_tool() {
             _ => None,
         })
         .expect("the native child journal records the denied delete_artifact call");
-    eprintln!("scheduled child status: {:?}, tool failure: {denial}", jobs[0].status);
     assert!(denial.contains("Scheduled agent turns may use read-only tools only"));
     assert!(!denial.contains("not found"));
     assert_eq!(

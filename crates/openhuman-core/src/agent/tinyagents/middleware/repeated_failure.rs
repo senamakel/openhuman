@@ -321,8 +321,11 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
         }
 
         let failure_text = sanitized_failure(&content);
-        let heuristic = heuristic_text(&call.name, &failure_text);
-        if result.is_error && !is_command_exit_report(&failure_text) {
+        // Classify the tool's original outcome into closed labels before a
+        // fail-closed redactor can withhold its error markers. Persist and
+        // display only `failure_text`, never the original tool output.
+        let heuristic = heuristic_text(&call.name, &content);
+        if result.is_error && !is_command_exit_report(&content) {
             if let Some(kind) = stop::terminal_inference_failure_kind(heuristic) {
                 let halt = match kind {
                     TerminalInferenceFailureKind::BudgetExhausted => stop::halt_summary::budget(
@@ -378,7 +381,7 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
                 &call.arguments,
             );
             if let Some((class, budget)) =
-                recovery_policy_with_effect(&call.name, &failure_text, body_failure, effect)
+                recovery_policy_with_effect(&call.name, &content, body_failure, effect)
             {
                 let nudge = if class == "missing_app" && call.name == "shell" {
                     Some(missing_program_nudge(
@@ -399,7 +402,7 @@ impl FailureScopePolicy<OpenHumanRunContext> for HostFailurePolicy {
 
         let recoverable = result.is_error
             && !hard_reject
-            && !is_command_exit_report(&failure_text)
+            && !is_command_exit_report(&content)
             && (is_recoverable_tool_failure(heuristic)
                 || matches!(
                     tinytools::status::classify(heuristic, false).class,

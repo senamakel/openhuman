@@ -73,6 +73,7 @@ async fn config(tmp: &TempDir) -> Config {
         ..Config::default()
     };
     config.secrets.encrypt = false;
+    config.modules.source = crate::config::schema::ModuleSourceMode::Source;
     #[cfg(feature = "security-module")]
     crate::modules::security::ensure_loaded(&config)
         .await

@@ -24,6 +24,7 @@ async fn test_config(tmp: &TempDir) -> Config {
     // Scheduler fixtures use a synthetic API key; secret-store encryption is
     // exercised separately with an armed TinySecurity module.
     config.secrets.encrypt = false;
+    config.modules.source = crate::config::schema::ModuleSourceMode::Source;
     tokio::fs::create_dir_all(&config.workspace_dir)
         .await
         .unwrap();

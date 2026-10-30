@@ -62,8 +62,9 @@ async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
     // DeepSeek is a built-in chat-completions-only Bearer provider: no
     // `/v1/responses` fallback and no codex-oauth, so it is wire-equivalent and
     // flips crate-native.
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
+    store_fixture_cloud_key(&config, "deepseek").await;
     config.chat_provider = Some("deepseek:deepseek-reasoner".to_string());
     let (model, model_id) = create_chat_model_with_model_id_in(
         &super::fixture_library_dispatch(),
@@ -86,8 +87,9 @@ async fn create_chat_model_routes_plain_bearer_cloud_slug_to_crate_native() {
 #[tokio::test]
 async fn turn_model_route_metadata_uses_post_remap_cloud_model() {
     let _guard = crate::inference::inference_test_guard_async().await;
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
+    store_fixture_cloud_key(&config, "deepseek").await;
     config.chat_provider = Some("deepseek:hint:chat".to_string());
 
     let (_model, route) =
@@ -102,8 +104,9 @@ async fn turn_model_route_metadata_uses_post_remap_cloud_model() {
 #[tokio::test]
 async fn explicit_cloud_provider_string_routes_to_crate_native_model() {
     let _guard = crate::inference::inference_test_guard_async().await;
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(deepseek_entry("p_ds"));
+    store_fixture_cloud_key(&config, "deepseek").await;
     let (model, model_id) = super::with_fixture_library_context(|| async {
         create_chat_model_from_string_with_model_id(
             "chat",
@@ -129,10 +132,11 @@ async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
     let _guard = crate::inference::inference_test_guard_async().await;
     // Anthropic-auth cloud slugs are always wire-equivalent (their endpoints have
     // no `/v1/responses`, so the host's dormant fallback is behavior-neutral).
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config
         .cloud_providers
         .push(anthropic_entry("p_anth", "anthropic"));
+    store_fixture_cloud_key(&config, "anthropic").await;
     config.chat_provider = Some("anthropic:claude-sonnet-4-6".to_string());
     let (model, model_id) = create_chat_model_with_model_id_in(
         &super::fixture_library_dispatch(),
@@ -168,10 +172,11 @@ async fn create_chat_model_routes_anthropic_auth_cloud_slug_to_crate_native() {
 #[tokio::test]
 async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
     let _guard = crate::inference::inference_test_guard_async().await;
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config
         .cloud_providers
         .push(anthropic_entry("p_anth", "anthropic"));
+    store_fixture_cloud_key(&config, "anthropic").await;
     let (model, model_id) = try_create_cloud_slug_chat_model_from_string_with_native_tools(
         "chat",
         "anthropic:claude-sonnet-4-6",
@@ -195,7 +200,7 @@ async fn anthropic_auth_cloud_slug_in_text_mode_keeps_the_compat_client() {
 async fn configured_openhuman_jwt_slug_routes_to_managed_chat_model() {
     let _guard = crate::inference::inference_test_guard_async().await;
     install_test_managed_provider();
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(oh_entry("p_oh"));
     // A retired tier slug after the managed slug is a role alias: it runs on
     // the managed default, never reaches the backend verbatim.
@@ -237,7 +242,7 @@ async fn openhuman_jwt_slug_discloses_pinned_model() {
     let mut rx = crate::core::bus::BUS.get().unwrap().receiver();
 
     let marker = "egress-jwt-pinned-marker-v1";
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(oh_entry("p_oh"));
     let provider = format!("openhuman:{marker}");
     let _ = try_create_cloud_slug_chat_model_from_string(
@@ -367,7 +372,7 @@ async fn native_claude_turn_routes_disclose_pinned_models() {
 async fn openhuman_jwt_slug_preserves_forced_text_mode() {
     let _guard = crate::inference::inference_test_guard_async().await;
     install_test_managed_provider();
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(oh_entry("p_oh"));
 
     let (model, _) = try_create_cloud_slug_chat_model_from_string_with_native_tools(
@@ -393,7 +398,7 @@ async fn openhuman_jwt_slug_preserves_forced_text_mode() {
 async fn openhuman_jwt_slug_without_model_preserves_managed_role_tier() {
     let _guard = crate::inference::inference_test_guard_async().await;
     install_test_managed_provider();
-    let mut config = Config::default();
+    let (_tmp, mut config) = isolated_config();
     config.cloud_providers.push(oh_entry("p_oh"));
 
     let (_model, model_id) = try_create_cloud_slug_chat_model_from_string(

@@ -6,7 +6,9 @@ use crate::inference::provider::factory::access_gates::local_only_violation;
 #[tokio::test]
 async fn nvidia_nim_with_explicit_model_builds_correctly() {
     let _guard = crate::inference::inference_test_guard_async().await;
-    let config = config_with_providers(vec![nvidia_nim_entry("p_nim", None)]);
+    let (_tmp, mut config) = super::crate_native_tests::isolated_config();
+    config.cloud_providers = vec![nvidia_nim_entry("p_nim", None)];
+    super::crate_native_tests::store_fixture_cloud_key(&config, "nvidia-nim").await;
     let (_, model) = create_test_chat_model_from_string(
         "reasoning",
         "nvidia-nim:meta/llama-3.1-8b-instruct",
@@ -50,10 +52,12 @@ async fn nvidia_nim_empty_model_in_provider_string_errors_clearly() {
 #[tokio::test]
 async fn nvidia_nim_falls_back_to_default_model_when_no_model_in_string() {
     let _guard = crate::inference::inference_test_guard_async().await;
-    let config = config_with_providers(vec![nvidia_nim_entry(
+    let (_tmp, mut config) = super::crate_native_tests::isolated_config();
+    config.cloud_providers = vec![nvidia_nim_entry(
         "p_nim",
         Some("meta/llama-3.1-70b-instruct"),
-    )]);
+    )];
+    super::crate_native_tests::store_fixture_cloud_key(&config, "nvidia-nim").await;
     let (_, model) = create_test_chat_model_from_string("reasoning", "nvidia-nim:", &config)
         .await
         .expect("nvidia-nim: with default_model configured must build");
@@ -597,7 +601,8 @@ async fn standard_mode_permits_external() {
 #[tokio::test]
 async fn claude_agent_sdk_inspection_reads_the_model_as_the_runtime_does() {
     let _guard = crate::inference::inference_test_guard_async().await;
-    let _env = crate::config::test_env::EnvVarGuard::locked_async().await
+    let _env = crate::config::test_env::EnvVarGuard::locked_async()
+        .await
         .with("ANTHROPIC_API_KEY", "dummy-inspection-key")
         .without("ANTHROPIC_AUTH_TOKEN")
         .without("ANTHROPIC_BASE_URL");

@@ -210,9 +210,7 @@ fn conn(id: &str, toolkit: &str, status: &str) -> super::super::types::ComposioC
 /// Set up a config with `composio.mode = "direct"` and a stored
 /// direct-mode API key (so `resolve_composio_route` succeeds).
 async fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
-    let mut c = Config::default();
-    c.workspace_dir = tmp.path().join("workspace");
-    c.config_path = tmp.path().join("config.toml");
+    let mut c = test_config(tmp);
     c.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
     crate::credentials::AuthService::from_config(&c)
         .store_provider_token(
@@ -239,9 +237,7 @@ async fn direct_mode_config(tmp: &tempfile::TempDir) -> Config {
 /// `config.toml`. The mode-aware factory would bail here with
 /// "composio direct mode selected but no api key is configured".
 fn direct_mode_no_key_config(tmp: &tempfile::TempDir) -> Config {
-    let mut c = Config::default();
-    c.workspace_dir = tmp.path().join("workspace");
-    c.config_path = tmp.path().join("config.toml");
+    let mut c = test_config(tmp);
     c.composio.mode = crate::config::schema::COMPOSIO_MODE_DIRECT.into();
     c
 }

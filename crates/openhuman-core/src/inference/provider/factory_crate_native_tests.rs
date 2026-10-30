@@ -29,7 +29,7 @@ async fn store_fixture_session(config: &Config) {
         .expect("store isolated fixture session");
 }
 
-async fn store_fixture_cloud_key(config: &Config, slug: &str) {
+pub(super) async fn store_fixture_cloud_key(config: &Config, slug: &str) {
     crate::credentials::AuthService::from_config(config)
         .store_provider_token(
             &format!("provider:{slug}"),

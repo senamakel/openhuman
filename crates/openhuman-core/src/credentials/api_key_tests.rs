@@ -126,7 +126,7 @@ async fn encrypted_api_key_retains_the_admitted_host_configuration() {
         .expect("admit native security for encrypted credentials");
     let gate = crate::security::approval::ApprovalGate::init_global(
         config.clone(),
-        "encrypted-api-key-regression",
+        format!("session-{}", uuid::Uuid::new_v4()),
     );
     let worker_config = config.clone();
     let mut operation = tokio::spawn(async move {

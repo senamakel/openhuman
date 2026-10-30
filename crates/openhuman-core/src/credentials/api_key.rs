@@ -48,7 +48,7 @@ pub async fn store_api_key(config: &Config, key: &str) -> Result<AuthProfile> {
 /// a library runtime that must install the key *before* the core boots (the
 /// scheduler gate reads the credential store once, at boot).
 pub async fn store_api_key_in(state_dir: &Path, encrypt: bool, key: &str) -> Result<AuthProfile> {
-    store_api_key_with_service(&AuthService::new(state_dir, encrypt), key).await
+    store_api_key_with_service(&service_in(state_dir, encrypt), key).await
 }
 
 async fn store_api_key_with_service(service: &AuthService, key: &str) -> Result<AuthProfile> {
@@ -97,7 +97,7 @@ pub async fn get_api_key_read_only(
 /// would be accepted here as a TinyHumans runtime key and its bearer sent to
 /// the managed backend as one.
 pub async fn get_api_key_in(state_dir: &Path, encrypt: bool) -> Result<Option<String>> {
-    get_api_key_with_service(&AuthService::new(state_dir, encrypt)).await
+    get_api_key_with_service(&service_in(state_dir, encrypt)).await
 }
 
 async fn get_api_key_with_service(service: &AuthService) -> Result<Option<String>> {
@@ -105,6 +105,17 @@ async fn get_api_key_with_service(service: &AuthService) -> Result<Option<String
         return Ok(None);
     };
     Ok(api_key_from_profile(profile))
+}
+
+// Directory-only callers may reuse the exact runtime configuration that owns
+// that credential directory. A different ambient tenant never supplies cipher authority.
+fn service_in(state_dir: &Path, encrypt: bool) -> AuthService {
+    match crate::core::runtime::CoreContext::current_embedder_config().filter(|config| {
+        super::core::state_dir_from_config(config) == state_dir && config.secrets.encrypt == encrypt
+    }) {
+        Some(config) => AuthService::config_document(&config),
+        None => AuthService::new(state_dir, encrypt),
+    }
 }
 
 fn api_key_from_profile(profile: AuthProfile) -> Option<String> {

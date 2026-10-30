@@ -430,7 +430,7 @@ pub(crate) async fn verify_backend_session_active(config: &Config) -> anyhow::Re
         );
     }
     // Verify the app-session JWT actually exists in auth-profiles.
-    let auth = AuthService::new(&state_dir, config.secrets.encrypt);
+    let auth = AuthService::from_config(config);
     let has_session = auth
         .get_provider_bearer_token(crate::credentials::APP_SESSION_PROVIDER, None)
         .await?

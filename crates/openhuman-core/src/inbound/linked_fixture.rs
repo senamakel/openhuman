@@ -366,7 +366,6 @@ impl Rig {
             .attach_linked_with_config(
                 tinyeventqueues::linked_module().unwrap(),
                 json!({
-                    "storage_callback": tinystoragedrivers_bus::STORAGE_INTERFACE,
                     "pipeline": pipeline,
                     "timer": { "min_interval_ms": 5, "max_interval_ms": 25 },
                 }),

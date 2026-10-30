@@ -255,18 +255,15 @@ async fn run_owned(
                 meter.record(&stdout);
                 meter.record(&stderr);
             }
-            let mut live = super::shell_live::TinyBoxLive::new(
-                config.clone(),
-                resource,
-                process,
-                cursor,
+            let mut live = super::shell_live::LiveHandle::TinyBox(
+                super::shell_live::TinyBoxLive::new(config.clone(), resource, process, cursor),
             );
             if caller_wants_yield {
                 tracing::debug!("[sandbox:shell] command still running at its yield point");
                 return Ok(ShellRunOutcome::Running(LiveShell {
                     stdout: String::from_utf8_lossy(&stdout).into_owned(),
                     stderr: String::from_utf8_lossy(&stderr).into_owned(),
-                    handle: super::shell_live::LiveHandle::TinyBox(live),
+                    handle: live,
                 }));
             }
 
@@ -279,7 +276,7 @@ async fn run_owned(
                         let _ = live.kill().await;
                         anyhow::bail!("TinyBox native shell invocation was abandoned")
                     }
-                    result = super::shell_live::LiveHandle::TinyBox(live).read(Duration::from_millis(50)) => result?,
+                    result = live.read(Duration::from_millis(50)) => result?,
                 };
                 if let Some(meter) = &meter {
                     meter.record(read.stdout.as_bytes());

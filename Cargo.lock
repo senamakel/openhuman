@@ -5783,7 +5783,6 @@ dependencies = [
  "tinyagents-storage-kit",
  "tinyagents-tasks",
  "tinybox-bus 0.2.4",
- "tinybox-host",
  "tinybus 0.3.12",
  "tinybus-module 0.3.12",
  "tinychannels",

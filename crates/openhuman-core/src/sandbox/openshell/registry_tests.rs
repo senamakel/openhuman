@@ -69,7 +69,10 @@ async fn the_box_enforces_the_deadline_from_its_own_workspace() {
     let mut request = request("ls | wc -l");
     request.env.insert("LANG".into(), "C.UTF-8".into());
 
-    boxes.exec(&user("u1"), &settings(), &request).await.unwrap();
+    boxes
+        .exec(&user("u1"), &settings(), &request)
+        .await
+        .unwrap();
 
     let exec = driver.last_exec().unwrap();
     assert_eq!(

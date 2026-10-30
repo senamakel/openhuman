@@ -36,9 +36,7 @@ use std::time::Duration;
 #[cfg(feature = "modules")]
 pub use bus_driver::BusBoxDriver;
 pub use registry::BoxRegistry;
-pub use types::{
-    BoxDriver, BoxError, BoxExec, BoxOutput, BoxRequest, BoxSettings, RegistryLimits,
-};
+pub use types::{BoxDriver, BoxError, BoxExec, BoxOutput, BoxRequest, BoxSettings, RegistryLimits};
 
 use super::types::SandboxExecResult;
 use crate::config::{Config, OpenShellRuntimeConfig};
@@ -61,7 +59,9 @@ pub fn tenant_for_box(tenant: Result<Tenant, NoTenant>) -> Result<Tenant, BoxErr
 /// # Errors
 ///
 /// [`BoxError::NonUtf8Env`] when a name or value is not UTF-8.
-pub fn box_env(extra_env: &HashMap<OsString, OsString>) -> Result<BTreeMap<String, String>, BoxError> {
+pub fn box_env(
+    extra_env: &HashMap<OsString, OsString>,
+) -> Result<BTreeMap<String, String>, BoxError> {
     extra_env
         .iter()
         .map(|(name, value)| match (name.to_str(), value.to_str()) {

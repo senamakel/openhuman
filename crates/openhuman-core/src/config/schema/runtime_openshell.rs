@@ -15,7 +15,8 @@ use serde::{Deserialize, Serialize};
 /// The image a box starts from when none is configured: the OpenShell
 /// community base sandbox, which carries the `/sandbox` workspace, `sh` and
 /// `timeout` the backend relies on.
-pub const DEFAULT_OPENSHELL_IMAGE: &str = "ghcr.io/nvidia/openshell-community/sandboxes/base:latest";
+pub const DEFAULT_OPENSHELL_IMAGE: &str =
+    "ghcr.io/nvidia/openshell-community/sandboxes/base:latest";
 
 const MEBIBYTE: u64 = 1024 * 1024;
 

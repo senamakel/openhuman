@@ -61,7 +61,12 @@ fn memory_too_large_for_bytes_is_refused() {
         ..OpenShellRuntimeConfig::default()
     };
     let refused = BoxSettings::from_config(&config).unwrap_err();
-    assert_eq!(refused, BoxError::InvalidMemory { memory_mb: u64::MAX });
+    assert_eq!(
+        refused,
+        BoxError::InvalidMemory {
+            memory_mb: u64::MAX
+        }
+    );
     assert!(refused.to_string().contains("too large"));
 }
 

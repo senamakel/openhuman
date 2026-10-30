@@ -18,19 +18,13 @@ async fn await_http_server(
     server: &mut tokio::task::JoinHandle<std::io::Result<()>>,
     shutdown_token: Option<&CancellationToken>,
 ) -> anyhow::Result<()> {
-    eprintln!("serve: awaiting http server");
     let join_result = if let Some(shutdown_token) = shutdown_token {
         tokio::select! {
             result = &mut *server => result,
             _ = shutdown_token.cancelled() => {
-                eprintln!("serve: shutdown token observed");
                 match tokio::time::timeout(std::time::Duration::from_secs(10), &mut *server).await {
-                    Ok(result) => {
-                        eprintln!("serve: http server drained");
-                        result
-                    }
+                    Ok(result) => result,
                     Err(_) => {
-                        eprintln!("serve: aborting undrained http server");
                         // The server has had ten seconds to drain active
                         // requests after the host's shutdown signal.
                         server.abort();
@@ -43,7 +37,6 @@ async fn await_http_server(
     } else {
         server.await
     };
-    eprintln!("serve: http server await returned");
 
     join_result
         .map_err(anyhow::Error::from)?
@@ -318,13 +311,23 @@ pub async fn serve(
         );
     }
 
-    eprintln!("serve: transport returned");
-    runtime.exit_cleanup().await;
-    eprintln!("serve: runtime exit cleanup returned");
+    if tokio::time::timeout(std::time::Duration::from_secs(10), runtime.exit_cleanup())
+        .await
+        .is_err()
+    {
+        log::warn!("[core] runtime exit cleanup exceeded its 10-second shutdown budget");
+    }
     // Close the per-workspace background-completion logs (they replay from disk
     // on the next boot) so a data reset can delete the workspace directory.
-    crate::core_host::agent::orchestration::release_background_completion_stores().await;
-    eprintln!("serve: background completion stores released");
+    if tokio::time::timeout(
+        std::time::Duration::from_secs(10),
+        crate::core_host::agent::orchestration::release_background_completion_stores(),
+    )
+    .await
+    .is_err()
+    {
+        log::warn!("[core] background completion stores did not close within 10 seconds");
+    }
 
     served?;
     Ok(())

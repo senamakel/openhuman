@@ -89,7 +89,6 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                             .await
                             .expect("ready signal within the timeout")
                             .expect("ready signal sent");
-                    eprintln!("host_desktop: ready on {port}");
                     // The listener may fall back to another port if the one we
                     // probed was taken in between; use what it reports.
 
@@ -109,13 +108,11 @@ fn serve_desktop_signals_ready_serves_health_and_stops_on_shutdown() {
                         result = &mut server => panic!("desktop server ended before health: {result:?}"),
                     };
                     assert_eq!(health.status(), 200);
-                    eprintln!("host_desktop: health responded");
                     // Consume the body so the pooled HTTP connection is
                     // complete before graceful shutdown waits for it.
                     let _body = health.bytes().await.expect("health response body");
                     drop(client);
 
-                    eprintln!("host_desktop: cancelling server");
                     shutdown.cancel();
                     let finished = tokio::time::timeout(Duration::from_secs(60), server)
                         .await

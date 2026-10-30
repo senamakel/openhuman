@@ -289,12 +289,15 @@ pub async fn serve(
         }
     } else if let Some(shutdown_token) = shutdown_token {
         log::info!("[core] embedded server waiting on cancellation token for graceful shutdown");
-        axum::serve(listener, app)
-            .with_graceful_shutdown(async move {
-                shutdown_token.cancelled().await;
-            })
-            .await
-            .map_err(anyhow::Error::from)
+        let server_shutdown = shutdown_token.clone();
+        let mut server = tokio::spawn(async move {
+            axum::serve(listener, app)
+                .with_graceful_shutdown(async move {
+                    shutdown_token.cancelled().await;
+                })
+                .await
+        });
+        await_http_server(&mut server, Some(&server_shutdown)).await
     } else {
         axum::serve(listener, app)
             .with_graceful_shutdown(crate::core_host::core::shutdown::signal())
@@ -308,13 +311,10 @@ pub async fn serve(
         );
     }
 
-    eprintln!("serve: transport returned");
     runtime.exit_cleanup().await;
-    eprintln!("serve: runtime exit cleanup returned");
     // Close the per-workspace background-completion logs (they replay from disk
     // on the next boot) so a data reset can delete the workspace directory.
     crate::core_host::agent::orchestration::release_background_completion_stores().await;
-    eprintln!("serve: background completion stores released");
 
     served?;
     Ok(())

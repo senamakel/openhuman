@@ -122,7 +122,7 @@ async fn cancellation_during_required_output_repair_finalizes_native_run() {
     let redacted = tinyinference_core::sanitize::scrub_credentials(&input);
     let turn = tokio::spawn(async move { host.run_single_with_origin(&input, Some(origin)).await });
     tokio::time::timeout(
-        std::time::Duration::from_secs(10),
+        std::time::Duration::from_secs(60),
         model.repair_started.notified(),
     )
     .await

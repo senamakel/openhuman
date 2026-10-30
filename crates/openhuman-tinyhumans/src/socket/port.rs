@@ -302,7 +302,9 @@ async fn run_socket_actor(
                 let Some(event) = event else {
                     shared.transport_connected.store(false, Ordering::Release);
                     shared.loop_active.store(false, Ordering::Release);
-                    shared.stopped_on_failure.store(connection.stopped_on_failure(), Ordering::Release);
+                    shared
+                        .stopped_on_failure
+                        .store(connection.stopped_on_failure(), Ordering::Release);
                     if connection.stopped_on_failure() {
                         shared.state.write().status = ConnectionStatus::Error;
                     }
@@ -387,8 +389,8 @@ async fn run_socket_actor(
             }
         }
     }
-    loop_active.store(false, Ordering::Release);
-    transport_connected.store(false, Ordering::Release);
+    shared.loop_active.store(false, Ordering::Release);
+    shared.transport_connected.store(false, Ordering::Release);
     let _ = done.send(());
 }
 

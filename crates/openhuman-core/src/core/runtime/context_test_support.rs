@@ -3,7 +3,47 @@
 
 use super::*;
 
+#[cfg(feature = "security-module")]
+static NATIVE_FIXTURE_RUNTIME: std::sync::LazyLock<tokio::runtime::Runtime> =
+    std::sync::LazyLock::new(|| {
+        tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(2)
+            .thread_name("native-fixture")
+            .thread_stack_size(crate::core::runtime::AGENT_WORKER_STACK_BYTES)
+            .enable_all()
+            .build()
+            .expect("native fixture runtime")
+    });
+
 impl CoreContext {
+    /// Admit the real module on a retained runtime so synchronous host adapters
+    /// can finish while a current-thread test waits. Negative availability
+    /// fixtures use `scope_test_config` and perform their own admission attempt.
+    pub(crate) async fn scope_test_native_config<F: std::future::Future>(
+        config: &crate::config::Config,
+        operation: F,
+    ) -> F::Output {
+        let context =
+            Self::for_test_with_config(crate::core::runtime::DomainSet::full(), config.clone());
+        #[cfg(feature = "security-module")]
+        if config.modules.enabled {
+            let boot_context = Arc::clone(&context);
+            let boot_config = config.clone();
+            NATIVE_FIXTURE_RUNTIME
+                .spawn(async move {
+                    Self::scope(
+                        boot_context,
+                        crate::modules::security::ensure_loaded(&boot_config),
+                    )
+                    .await
+                })
+                .await
+                .expect("native fixture bootstrap task")
+                .expect("admit the real native security fixture");
+        }
+        Self::scope(context, operation).await
+    }
+
     /// Run a fixture under its explicit host configuration, preserving the real
     /// module loader and policy checks instead of borrowing process state.
     pub(crate) async fn scope_test_config<F: std::future::Future>(

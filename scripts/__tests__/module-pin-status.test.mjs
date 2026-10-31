@@ -149,3 +149,33 @@ test("the CLI reports each fixture module and exports the ahead ids", () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
+
+
+test("module status ignores the parent hook repository environment", () => {
+  const root = fixture();
+  try {
+    git(root, "init", "-q");
+    writeFileSync(join(root, "host-marker"), "host");
+    git(root, "add", "host-marker");
+    git(root, "commit", "-qm", "host");
+    git(root, "tag", "v9.9.9");
+    const output = execFileSync(process.execPath, [
+      new URL("../modules/pin-status.mjs", import.meta.url).pathname,
+      "--root", root,
+    ], {
+      encoding: "utf8",
+      env: {
+        ...process.env,
+        GIT_DIR: join(root, ".git"),
+        GIT_COMMON_DIR: join(root, ".git"),
+        GIT_WORK_TREE: root,
+        GIT_INDEX_FILE: join(root, ".git/index"),
+      },
+    });
+    assert.match(output, /synced\s+in-sync/);
+    assert.match(output, /ahead\s+ahead\s+gitlink ahead of released pin/);
+    assert.doesNotMatch(output, /v9\.9\.9/);
+  } finally {
+    rmSync(root, { recursive: true, force: true });
+  }
+});

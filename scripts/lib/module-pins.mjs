@@ -7,6 +7,7 @@
 import { posix } from "node:path";
 import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
+import { repositoryGitEnv } from "./git-env.mjs";
 
 /**
  * Read a Rust module and the source fragments it brings in with `include!`.
@@ -206,6 +207,7 @@ export function validateTestOnlySourceParity({
   runGit = (args) =>
     execFileSync("git", args, {
       cwd: repoPath,
+      env: repositoryGitEnv(),
       encoding: "utf8",
       stdio: ["ignore", "pipe", "pipe"],
     }).trim(),

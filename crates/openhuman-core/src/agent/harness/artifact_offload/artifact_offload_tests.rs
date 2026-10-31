@@ -144,6 +144,8 @@ async fn an_action_dir_inside_workspace_dir_is_never_materialized() {
 #[tokio::test]
 async fn explicit_workspace_policy_blocks_unguarded_offload_before_writing() {
     let dir = tempfile::tempdir().expect("tempdir");
+    let config = crate::credentials::test_support::plaintext_fixture_config(dir.path());
+    crate::core::runtime::CoreContext::scope_test_config(&config, async {
     let workspace_dir = dir.path().to_path_buf();
     let action_dir = workspace_dir.join("action");
     std::fs::create_dir_all(&action_dir).expect("action dir");
@@ -151,6 +153,11 @@ async fn explicit_workspace_policy_blocks_unguarded_offload_before_writing() {
     // A caller may pass a writer whose own ArtifactPathPolicy is absent or
     // different from the explicit policy argument.
     let unguarded = ArtifactOffload::new(memory_blobs(), "worker", "task");
+    let key = unguarded.resolve(ArtifactKind::Output, &unguarded.default_result_name())
+        .expect("artifact key");
+    #[cfg(feature = "security-module")]
+    assert!(policy.path_allowed(crate::security::policy::PathKind::ResolvedWrite, &action_dir.join(&key)).await,
+        "the general path policy is available; the artifact-only private-workspace reservation must refuse it");
     let big = "x".repeat(10_000);
 
     let (text, artifact) = offload_oversized_result(
@@ -168,6 +175,9 @@ async fn explicit_workspace_policy_blocks_unguarded_offload_before_writing() {
         !action_dir.join("outputs").exists(),
         "authorization must happen before an artifact is stored or materialized"
     );
+    assert!(unguarded.read(&key).await.expect("probe stored artifact").is_none(),
+        "refusal precedes blob persistence as well as filesystem materialization");
+    }).await;
 }
 
 #[tokio::test]

@@ -9,17 +9,20 @@ fn config(root: &Path) -> Config {
     Config {
         action_dir: root.join("acting"),
         workspace_dir: root.join("internal"),
-        ..Config::default()
+        ..crate::credentials::test_support::plaintext_fixture_config(root)
     }
 }
 
 async fn staged(attachments: &[HostAttachment], config: &Config) -> anyhow::Result<String> {
-    stage_host(
-        attachments,
-        "thread-1",
-        config,
-        &AttachmentAccessScope::default(),
-    )
+    crate::core::runtime::CoreContext::scope_test_config(config, async {
+        stage_host(
+            attachments,
+            "thread-1",
+            config,
+            &AttachmentAccessScope::default(),
+        )
+        .await
+    })
     .await
 }
 

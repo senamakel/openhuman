@@ -4,6 +4,19 @@
 use super::*;
 
 impl CoreContext {
+    /// Run a fixture under its explicit host configuration, preserving the real
+    /// module loader and policy checks instead of borrowing process state.
+    pub(crate) async fn scope_test_config<F: std::future::Future>(
+        config: &crate::config::Config,
+        operation: F,
+    ) -> F::Output {
+        Self::scope(
+            Self::for_test_with_config(DomainSet::full(), config.clone()),
+            operation,
+        )
+        .await
+    }
+
     /// Test-only constructor: build a context with an explicit
     /// [`DomainSet`](crate::core::runtime::DomainSet) and optional workspace, so
     /// cross-module tests (e.g. `core::all`'s registry filter) can exercise the

@@ -141,12 +141,14 @@ pub(crate) async fn enforce_prompt_input_in(
     input: &str,
     context: PromptEnforcementContext<'_>,
 ) -> PromptEnforcementDecision {
-    let config = if dispatch.resolved().is_some() {
-        dispatch.load_config().await.ok()
-    } else {
-        None
-    };
-    enforce_prompt_input_with_config(input, context, config.as_ref()).await
+    dispatch.enter(async {
+        let config = if dispatch.resolved().is_some() {
+            dispatch.load_config().await.ok()
+        } else {
+            None
+        };
+        enforce_prompt_input_with_config(input, context, config.as_ref()).await
+    }).await
 }
 
 /// Screen against the configuration supplied by the owning dispatch. Missing

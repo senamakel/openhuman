@@ -436,21 +436,38 @@ async fn removing_document_profile_does_not_require_keyring_or_rewrite_other_pro
     let document = AuthProfilesStore::new(workspace.path(), false);
     let removed = AuthProfile::new_token("api-key", "removed", "synthetic-key-one".into());
     let retained = AuthProfile::new_token("api-key", "retained", "synthetic-key-two".into());
-    document.upsert_profile(removed.clone(), true).await.unwrap();
-    document.upsert_profile(retained.clone(), true).await.unwrap();
-    let before = serde_json::to_value(
-        &document.read_persisted_locked().unwrap().profiles[&retained.id],
-    ).unwrap();
+    document
+        .upsert_profile(removed.clone(), true)
+        .await
+        .unwrap();
+    document
+        .upsert_profile(retained.clone(), true)
+        .await
+        .unwrap();
+    let before =
+        serde_json::to_value(&document.read_persisted_locked().unwrap().profiles[&retained.id])
+            .unwrap();
 
     // A document-backed credential remains removable when a newly configured
     // host cannot reach the optional keyring. No secret needs to be resolved.
     let mut config = crate::credentials::test_support::plaintext_fixture_config(workspace.path());
     config.modules.enabled = false;
     let configured = AuthProfilesStore::new_with_config(workspace.path(), false, &config);
-    assert!(configured.keychain_delete_secrets(&removed.id).await.is_err());
+    assert!(configured
+        .keychain_delete_secrets(&removed.id)
+        .await
+        .is_err());
     assert!(configured.remove_profile(&removed.id).await.unwrap());
     let after = configured.read_persisted_locked().unwrap();
     assert!(!after.profiles.contains_key(&removed.id));
-    assert_eq!(serde_json::to_value(&after.profiles[&retained.id]).unwrap(), before);
-    assert_eq!(document.load().await.unwrap().profiles[&retained.id].token.as_deref(), Some("synthetic-key-two"));
+    assert_eq!(
+        serde_json::to_value(&after.profiles[&retained.id]).unwrap(),
+        before
+    );
+    assert_eq!(
+        document.load().await.unwrap().profiles[&retained.id]
+            .token
+            .as_deref(),
+        Some("synthetic-key-two")
+    );
 }

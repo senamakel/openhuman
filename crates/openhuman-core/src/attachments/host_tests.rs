@@ -177,3 +177,43 @@ fn debug_never_prints_the_payload() {
     assert!(!printed.contains("secret"), "{printed}");
     assert!(printed.contains("size_bytes: 12"), "{printed}");
 }
+
+#[cfg(feature = "security-module")]
+#[tokio::test]
+async fn an_explicit_host_can_register_and_validate_its_attachment_parent() {
+    let temp = tempfile::tempdir().unwrap();
+    let config = config(temp.path());
+    crate::core::runtime::CoreContext::scope_test_config(&config, async {
+        let client = crate::modules::security::client(&config)
+            .await
+            .expect("the host admits its security module");
+        let policy = crate::security::SecurityPolicy::from_config(
+            &config.autonomy,
+            &config.workspace_dir,
+            &config.action_dir,
+        );
+        let policy_id = client
+            .register_path_policy(policy.native_path_policy())
+            .await
+            .expect("the host registers its attachment scope");
+        let result = client
+            .validate_parent(tinysecurity_bus::PathValidationRequest {
+                policy_id,
+                path: config
+                    .action_dir
+                    .join("uploads/validation")
+                    .to_string_lossy()
+                    .into_owned(),
+            })
+            .await
+            .expect("the native module validates the prospective parent");
+        assert!(
+            matches!(
+                result,
+                tinysecurity_bus::PathValidationResult::Allowed { .. }
+            ),
+            "{result:?}"
+        );
+    })
+    .await;
+}

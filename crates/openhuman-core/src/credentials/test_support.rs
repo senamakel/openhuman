@@ -68,8 +68,11 @@ pub(crate) fn seed_plain_profile_configs(home: &std::path::Path, users: &[&str])
             .map(|user| crate::config::user_openhuman_dir(&root, user)),
     );
     for directory in directories {
-        std::fs::create_dir_all(&directory).expect("synthetic profile config directory");
-        let config = plaintext_fixture_config(&directory);
+        let layout = crate::config::schema::ProfileLayout::resolve_at(directory.clone());
+        let mut config = plaintext_fixture_config(&directory);
+        config.config_path = layout.config_path;
+        config.workspace_dir = layout.workspace_dir;
+        config.action_dir = layout.files_dir;
         let text = toml::to_string_pretty(&config).expect("synthetic profile bootstrap config");
         std::fs::write(&config.config_path, text).expect("seed only the profile bootstrap file");
     }

@@ -62,8 +62,26 @@ async fn threshold_persists_to_blobs_and_file_read_serves_the_key() {
             ..crate::config::AutonomyConfig::default()
         };
         let policy = Arc::new(SecurityPolicy::from_config(&cfg, &workspace, &project));
-        let reader = FileReadTool::new(policy);
-        let read = reader.execute(args).await.unwrap();
+        // The real host authorizes the read first, refreshing the shared native
+        // budget snapshot consumed by TinyTools' synchronous compatibility gate.
+        use tinyagents_harness::host::security_gate::{SecurityGate, ToolCallRequest};
+        let readers: Arc<Vec<Box<dyn Tool>>> =
+            Arc::new(vec![Box::new(FileReadTool::new(Arc::clone(&policy)))]);
+        let gate = crate::agent::tinyagents::host::OpenHumanSecurityGate::new(
+            policy,
+            vec![Arc::clone(&readers)],
+        )
+        .with_dispatch(crate::core::runtime::DispatchCtx::ambient());
+        let authorization = gate
+            .authorize_tool(&ToolCallRequest::new(
+                "file_read",
+                args.clone(),
+                "artifact-reader",
+            ))
+            .await
+            .unwrap();
+        assert!(authorization.is_allowed(), "{authorization:?}");
+        let read = readers[0].execute(args).await.unwrap();
         assert!(!read.is_error, "{}", read.output());
         assert!(read.output().contains("xxxx"));
         assert!(!read.output().contains(secret));

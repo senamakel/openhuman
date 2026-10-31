@@ -431,7 +431,8 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
     crate::core::runtime::CoreContext::scope_test_native_config(
         &config,
         run_dispatch_harness_in(options),
-    ).await
+    )
+    .await
 }
 
 async fn run_dispatch_harness_in(options: DispatchHarnessOptions) -> DispatchHarnessObservation {

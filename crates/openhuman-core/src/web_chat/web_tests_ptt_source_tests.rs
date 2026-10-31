@@ -3,6 +3,7 @@ use super::*;
 #[cfg(feature = "voice")]
 #[tokio::test]
 async fn ptt_source_turn_completes_without_publishing_a_voice_event() {
+    with_web_test_context(async {
     use std::sync::Arc;
     use tinybus::EventHandler;
     use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
@@ -237,4 +238,5 @@ async fn ptt_source_turn_completes_without_publishing_a_voice_event() {
         );
     })
     .await;
+    }).await;
 }

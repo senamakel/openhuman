@@ -2,9 +2,8 @@
 
 use crate::config::Config;
 
-/// Wire contract served by the checksum-pinned v0.18.0 module. The fork bus
-/// contains newer host APIs, but this adapter invokes only this exact subset.
-pub const MODULE_CONTRACT_VERSION: (u32, u32) = (1, 33);
+/// The host requires the audited native permission vocabulary from its contract.
+pub const MODULE_CONTRACT_VERSION: (u32, u32) = tinysecurity_bus::CONTRACT_VERSION;
 
 /// Check the exact published artifact contract this adapter was built for.
 #[must_use]

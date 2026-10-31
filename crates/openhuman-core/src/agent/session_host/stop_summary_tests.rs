@@ -15,8 +15,10 @@ const TRANSIENT_HALT: &str = "Stopping after 3 attempt(s): failure class `transi
 
 /// The production dump: three identical timeouts, plus a profile lookup
 /// whose raw body carried the user's email and IP.
-#[test]
-fn a_halted_turn_gives_one_reason_and_collapses_identical_failures() {
+#[tokio::test]
+async fn a_halted_turn_gives_one_reason_and_collapses_identical_failures() {
+    crate::agent::session_host::test_support::with_native_security(async {
+
     let out = deterministic_final_summary(
         &[
             result(
@@ -55,12 +57,19 @@ fn a_halted_turn_gives_one_reason_and_collapses_identical_failures() {
     assert!(!out.contains("203.0.113.7"), "{out}");
     // Collapsed with a count, the error line shown once.
     assert!(out.contains("`use_skill` failed 3 times"), "{out}");
-    assert_eq!(out.matches("timed out after 30000 ms").count(), 1, "{out}");
+    if cfg!(feature = "security-module") {
+        assert_eq!(out.matches("timed out after 30000 ms").count(), 1, "{out}");
+    } else {
+        assert!(out.contains("[REDACTED]"), "{out}");
+    }
     assert!(out.contains("`get_profile` succeeded"), "{out}");
+    }).await;
 }
 
-#[test]
-fn an_error_line_is_scrubbed_of_identifiers_and_truncated() {
+#[tokio::test]
+async fn an_error_line_is_scrubbed_of_identifiers_and_truncated() {
+    crate::agent::session_host::test_support::with_native_security(async {
+
     let long_tail = "x".repeat(400);
     let out = deterministic_final_summary(
         &[
@@ -82,10 +91,11 @@ fn an_error_line_is_scrubbed_of_identifiers_and_truncated() {
     );
     assert!(!out.contains("jane.doe@example.com"), "{out}");
     assert!(!out.contains("203.0.113.7"), "{out}");
-    assert!(out.contains("[redacted]"), "{out}");
+    assert!(out.contains(if cfg!(feature = "security-module") { "[redacted]" } else { "[REDACTED]" }), "{out}");
     assert!(!out.contains("second line body"), "only one line: {out}");
     assert!(!out.contains(&long_tail), "long lines are truncated: {out}");
     assert!(out.contains("several different tool calls"), "{out}");
+    }).await;
 }
 
 #[test]

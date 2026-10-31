@@ -150,3 +150,11 @@ pub(crate) fn install_model_fixture_in(extensions: &crate::core::slots::Extensio
         model_fixture_entry(),
     );
 }
+
+/// Bind pure session fixtures to a real, isolated host for security screens
+/// and result scrubbing. The native module remains the authority.
+pub(crate) async fn with_native_security<F: std::future::Future>(operation: F) -> F::Output {
+    let directory = tempfile::tempdir().expect("session security fixture");
+    let config = crate::credentials::test_support::plaintext_fixture_config(directory.path());
+    crate::core::runtime::CoreContext::scope_test_native_config(&config, operation).await
+}

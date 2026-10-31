@@ -2,6 +2,8 @@ use super::*;
 
 #[tokio::test]
 async fn debug_prompt_matches_the_system_prompt_sent_on_a_cold_turn() {
+    crate::agent::session_host::test_support::with_native_security(async {
+
     let _ = crate::agent_registry::host_definition::AgentDefinitionRegistry::init_global_builtins();
     let action_dir = tempfile::tempdir().expect("tempdir");
     let model = Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
@@ -24,7 +26,13 @@ async fn debug_prompt_matches_the_system_prompt_sent_on_a_cold_turn() {
     let dumped = host
         .render_current_turn_prompt()
         .expect("debug prompt surface");
-    host.run_single("hello").await.expect("scripted turn");
+    let turn = host.run_single("hello").await;
+    if !cfg!(feature = "security-module") {
+        assert!(turn.is_err(), "a missing security screen must hold the turn");
+        assert!(model.requests().is_empty());
+        return;
+    }
+    turn.expect("scripted turn");
     let request = model.requests().into_iter().next().expect("model request");
     let sent = request
         .messages
@@ -58,4 +66,5 @@ async fn debug_prompt_matches_the_system_prompt_sent_on_a_cold_turn() {
         dumped, sent,
         "debug dump must equal the real cold-turn system prompt"
     );
+    }).await;
 }

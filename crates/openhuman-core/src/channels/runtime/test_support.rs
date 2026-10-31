@@ -426,6 +426,15 @@ impl Tool for HarnessTool {
 }
 
 pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHarnessObservation {
+    let workspace = tempfile::tempdir().expect("isolated channel host configuration");
+    let config = crate::credentials::test_support::plaintext_fixture_config(workspace.path());
+    crate::core::runtime::CoreContext::scope_test_native_config(
+        &config,
+        run_dispatch_harness_in(options),
+    ).await
+}
+
+async fn run_dispatch_harness_in(options: DispatchHarnessOptions) -> DispatchHarnessObservation {
     // The real agent handler and global registries are process-wide. Serialize
     // the whole harness run so concurrent tests cannot replace them mid-turn.
     let _agent_handler_guard = crate::agent::bus::use_real_agent_handler().await;

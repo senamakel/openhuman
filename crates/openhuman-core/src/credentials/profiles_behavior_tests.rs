@@ -24,10 +24,17 @@ async fn token_expiry_math() {
     assert!(!token_set.is_expiring_within(Duration::from_secs(1)));
 }
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn store_roundtrip_with_encryption() {
     let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), true);
+    let mut config = crate::credentials::test_support::plaintext_fixture_config(tmp.path());
+    config.secrets.encrypt = true;
+    #[cfg(feature = "security-module")]
+    let worker_config = config.clone();
+    #[cfg(feature = "security-module")]
+    crate::credentials::test_support::with_native_cipher_approval(&config, async move {
+
+    let store = AuthProfilesStore::document_with_config(tmp.path(), &worker_config);
 
     let mut profile = AuthProfile::new_oauth(
         "openai-codex",
@@ -59,13 +66,19 @@ async fn store_roundtrip_with_encryption() {
         Some("refresh-123")
     );
 
-    // Under the keychain-backed model (FileBackend in debug builds, real OS
-    // keychain in release), secret fields are stored in the keychain and
-    // omitted from the JSON file entirely. The on-disk JSON must not leak
-    // the plaintext secrets in any form.
-    let raw = tokio::fs::read_to_string(store.path()).await.unwrap();
+    // Both the field-level cipher and the outer profile document protect
+    // the secret; no UTF-8/plaintext document is written.
+    let raw = tokio::fs::read(store.path()).await.unwrap();
+    let raw = String::from_utf8_lossy(&raw);
     assert!(!raw.contains("refresh-123"));
     assert!(!raw.contains("access-123"));
+    }).await;
+    #[cfg(not(feature = "security-module"))]
+    {
+        let store = AuthProfilesStore::document_with_config(tmp.path(), &config);
+        let profile = AuthProfile::new_token("openai", "default", "requires-native-cipher".into());
+        assert!(store.upsert_profile(profile, true).await.is_err());
+    }
 }
 
 #[tokio::test]
@@ -168,13 +181,20 @@ async fn corrupt_store_is_quarantined_and_reset() {
 /// never log in cleanly because every read pre-empts before reaching
 /// the "no profile" code path.
 
-#[tokio::test]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
+    let tmp = TempDir::new().unwrap();
+    let mut config = crate::credentials::test_support::plaintext_fixture_config(tmp.path());
+    config.secrets.encrypt = true;
+    #[cfg(feature = "security-module")]
+    let worker_config = config.clone();
+    #[cfg(feature = "security-module")]
+    crate::credentials::test_support::with_native_cipher_approval(&config, async move {
+
     // The SecretStore caches keys by canonicalised path in a process-wide
     // OnceCell. Use a fresh temp dir per test so we don't pick up a
     // sibling test's cached key.
-    let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), true);
+    let store = AuthProfilesStore::document_with_config(tmp.path(), &worker_config);
 
     // Seed one profile, then replace its token with malformed enc2 data and
     // add a valid plaintext legacy profile to verify selective cleanup.
@@ -220,6 +240,13 @@ async fn load_drops_profiles_whose_decryption_fails_under_rotated_key() {
     // there's nothing to drop on the second pass — same clean state.
     let loaded2 = store.load().await.unwrap();
     assert!(!loaded2.profiles.contains_key(&profile_id));
+    }).await;
+    #[cfg(not(feature = "security-module"))]
+    {
+        let store = AuthProfilesStore::document_with_config(tmp.path(), &config);
+        let profile = AuthProfile::new_token("openai", "default", "requires-native-cipher".into());
+        assert!(store.upsert_profile(profile, true).await.is_err());
+    }
 }
 
 /// A persisted profile whose `kind` string is something the current code

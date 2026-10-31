@@ -243,7 +243,7 @@ pub async fn scan_tool_definition(field: &str, text: &str) -> Option<ToolDefinit
     let definition = serde_json::json!({field: text});
     #[cfg(feature = "security-module")]
     let scanned = tokio::time::timeout(std::time::Duration::from_secs(2), async {
-        let client = crate::modules::security::client(config)
+        let client = crate::modules::security::client(&config)
             .await
             .map_err(|error| error.to_string())?;
         client

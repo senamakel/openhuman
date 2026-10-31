@@ -305,6 +305,10 @@ pub(crate) async fn bind_test_core_context_with_provider_endpoint(
     base_config: &crate::config::Config,
     provider_endpoint: &str,
 ) -> Arc<crate::core::runtime::CoreContext> {
+    let _ = tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_env_filter("openhuman_core=debug")
+        .try_init();
     use crate::core::runtime::{ContextOverlay, CoreContext, DomainSet};
 
     let workspace = context.workspace_dir.as_ref().clone();
@@ -430,6 +434,11 @@ pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHa
         .with_test_writer()
         .with_env_filter("openhuman_core=debug")
         .try_init();
+    // Several messages can share one admitted runtime. Keep the caller's host
+    // identity while each invocation still creates its own acting workspace.
+    if crate::core::runtime::CoreContext::current_embedder_config().is_some() {
+        return run_dispatch_harness_in(options).await;
+    }
     let workspace = tempfile::tempdir().expect("isolated channel host configuration");
     let config = crate::credentials::test_support::plaintext_fixture_config(workspace.path());
     crate::core::runtime::CoreContext::scope_test_native_config(

@@ -66,7 +66,7 @@ async fn threshold_persists_to_blobs_and_file_read_serves_the_key() {
         // budget snapshot consumed by TinyTools' synchronous compatibility gate.
         use tinyagents_harness::host::security_gate::{SecurityGate, ToolCallRequest};
         let readers: Arc<Vec<Box<dyn Tool>>> =
-            Arc::new(vec![Box::new(FileReadTool::new(Arc::clone(&policy)))]);
+            Arc::new(vec![Box::new(FileReadTool::new(policy.clone()))]);
         let gate = crate::agent::tinyagents::host::OpenHumanSecurityGate::new(
             policy,
             vec![Arc::clone(&readers)],

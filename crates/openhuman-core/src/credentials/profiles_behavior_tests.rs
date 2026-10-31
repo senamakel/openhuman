@@ -33,46 +33,46 @@ async fn store_roundtrip_with_encryption() {
     let worker_config = config.clone();
     #[cfg(feature = "security-module")]
     crate::credentials::test_support::with_native_cipher_approval(&config, async move {
+        let store = AuthProfilesStore::document_with_config(tmp.path(), &worker_config);
 
-    let store = AuthProfilesStore::document_with_config(tmp.path(), &worker_config);
+        let mut profile = AuthProfile::new_oauth(
+            "openai-codex",
+            "default",
+            TokenSet {
+                access_token: "access-123".into(),
+                refresh_token: Some("refresh-123".into()),
+                id_token: None,
+                expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
+                token_type: Some("Bearer".into()),
+                scope: Some("openid offline_access".into()),
+            },
+        );
+        profile.account_id = Some("acct_123".into());
 
-    let mut profile = AuthProfile::new_oauth(
-        "openai-codex",
-        "default",
-        TokenSet {
-            access_token: "access-123".into(),
-            refresh_token: Some("refresh-123".into()),
-            id_token: None,
-            expires_at: Some(Utc::now() + chrono::Duration::hours(1)),
-            token_type: Some("Bearer".into()),
-            scope: Some("openid offline_access".into()),
-        },
-    );
-    profile.account_id = Some("acct_123".into());
+        store.upsert_profile(profile.clone(), true).await.unwrap();
 
-    store.upsert_profile(profile.clone(), true).await.unwrap();
+        let data = store.load().await.unwrap();
+        let loaded = data.profiles.get(&profile.id).unwrap();
 
-    let data = store.load().await.unwrap();
-    let loaded = data.profiles.get(&profile.id).unwrap();
+        assert_eq!(loaded.provider, "openai-codex");
+        assert_eq!(loaded.profile_name, "default");
+        assert_eq!(loaded.account_id.as_deref(), Some("acct_123"));
+        assert_eq!(
+            loaded
+                .token_set
+                .as_ref()
+                .and_then(|t| t.refresh_token.as_deref()),
+            Some("refresh-123")
+        );
 
-    assert_eq!(loaded.provider, "openai-codex");
-    assert_eq!(loaded.profile_name, "default");
-    assert_eq!(loaded.account_id.as_deref(), Some("acct_123"));
-    assert_eq!(
-        loaded
-            .token_set
-            .as_ref()
-            .and_then(|t| t.refresh_token.as_deref()),
-        Some("refresh-123")
-    );
-
-    // Both the field-level cipher and the outer profile document protect
-    // the secret; no UTF-8/plaintext document is written.
-    let raw = tokio::fs::read(store.path()).await.unwrap();
-    let raw = String::from_utf8_lossy(&raw);
-    assert!(!raw.contains("refresh-123"));
-    assert!(!raw.contains("access-123"));
-    }).await;
+        // Both the field-level cipher and the outer profile document protect
+        // the secret; no UTF-8/plaintext document is written.
+        let raw = tokio::fs::read(store.path()).await.unwrap();
+        let raw = String::from_utf8_lossy(&raw);
+        assert!(!raw.contains("refresh-123"));
+        assert!(!raw.contains("access-123"));
+    })
+    .await;
     #[cfg(not(feature = "security-module"))]
     {
         let store = AuthProfilesStore::document_with_config(tmp.path(), &config);
@@ -508,10 +508,22 @@ async fn profile_cleanup_does_not_overwrite_a_newer_document() {
     let mut cleanup = original.clone();
     cleanup.updated_at = "2026-01-01T00:00:00Z".into();
     let concurrent = AuthProfile::new_token("openai", "new", "new-secret".into());
-    store.upsert_profile(concurrent.clone(), true).await.unwrap();
+    store
+        .upsert_profile(concurrent.clone(), true)
+        .await
+        .unwrap();
     let before_cleanup = store.read_persisted_locked().unwrap();
-    store.publish_cleanup_if_current(&expected, &cleanup).unwrap();
-    assert_eq!(serde_json::to_value(store.read_persisted_locked().unwrap()).unwrap(),
-               serde_json::to_value(before_cleanup).unwrap());
-    assert!(store.load().await.unwrap().profiles.contains_key(&concurrent.id));
+    store
+        .publish_cleanup_if_current(&expected, &cleanup)
+        .unwrap();
+    assert_eq!(
+        serde_json::to_value(store.read_persisted_locked().unwrap()).unwrap(),
+        serde_json::to_value(before_cleanup).unwrap()
+    );
+    assert!(store
+        .load()
+        .await
+        .unwrap()
+        .profiles
+        .contains_key(&concurrent.id));
 }

@@ -115,3 +115,27 @@ async fn denied_keyring_delete_restores_profile_document() {
         .profiles
         .contains_key("openai:default"));
 }
+
+#[tokio::test]
+async fn a_document_only_store_cannot_remove_a_keyring_owned_record() {
+    let workspace = TempDir::new().unwrap();
+    let store = AuthProfilesStore::new(workspace.path(), false);
+    let mut persisted = PersistedAuthProfiles::default();
+    persisted.profiles.insert(
+        "openai:default".into(),
+        PersistedAuthProfile {
+            provider: "openai".into(),
+            profile_name: "default".into(),
+            kind: "token".into(),
+            secret_location: Some(super::super::persistence::SecretLocation::Keyring),
+            ..Default::default()
+        },
+    );
+    store.write_persisted_locked(&persisted).unwrap();
+    assert!(store.remove_profile("openai:default").await.is_err());
+    assert!(store
+        .read_persisted_locked()
+        .unwrap()
+        .profiles
+        .contains_key("openai:default"));
+}

@@ -96,3 +96,19 @@ fn write_profile_document(state_dir: &std::path::Path, persisted: &PersistedAuth
     })
     .unwrap();
 }
+
+#[tokio::test]
+async fn explicit_document_credentials_do_not_consult_a_stale_keyring_copy() {
+    let workspace = TempDir::new().unwrap();
+    let config = crate::credentials::test_support::plaintext_fixture_config(workspace.path());
+    let document = AuthProfilesStore::new(workspace.path(), false);
+    let profile = AuthProfile::new_token("openai", "default", "document-owned-token".into());
+    document.upsert_profile(profile, true).await.unwrap();
+    let loaded = load_profile_with_keyring(&config, "openai", None, |_, _| {
+        Box::pin(async { panic!("an explicit document credential has no keyring read authority") })
+    })
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(loaded.token.as_deref(), Some("document-owned-token"));
+}

@@ -3,109 +3,109 @@ use super::*;
 #[cfg(feature = "voice")]
 #[tokio::test]
 async fn ptt_source_turn_completes_without_publishing_a_voice_event() {
-use std::sync::Arc;
-use tinybus::EventHandler;
-use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
+    use std::sync::Arc;
+    use tinybus::EventHandler;
+    use tinyinference_llm::model::{ChatModel, ModelRequest, ModelResponse};
 
-struct RecordingModel {
-    inner: Arc<tinyagents_harness::testkit::ScriptedModel>,
-    errors: Arc<std::sync::Mutex<Vec<String>>>,
-}
+    struct RecordingModel {
+        inner: Arc<tinyagents_harness::testkit::ScriptedModel>,
+        errors: Arc<std::sync::Mutex<Vec<String>>>,
+    }
 
-#[async_trait::async_trait]
-impl ChatModel<()> for RecordingModel {
-    async fn invoke(
-        &self,
-        state: &(),
-        request: ModelRequest,
-    ) -> tinyinference_llm::Result<ModelResponse> {
-        match self.inner.invoke(state, request).await {
-            Ok(response) => Ok(response),
-            Err(error) => {
-                self.errors
-                    .lock()
-                    .expect("recording model error lock")
-                    .push(error.to_string());
-                Err(error)
+    #[async_trait::async_trait]
+    impl ChatModel<()> for RecordingModel {
+        async fn invoke(
+            &self,
+            state: &(),
+            request: ModelRequest,
+        ) -> tinyinference_llm::Result<ModelResponse> {
+            match self.inner.invoke(state, request).await {
+                Ok(response) => Ok(response),
+                Err(error) => {
+                    self.errors
+                        .lock()
+                        .expect("recording model error lock")
+                        .push(error.to_string());
+                    Err(error)
+                }
             }
         }
     }
-}
 
-let _ = env_logger::builder().is_test(true).try_init();
-let _turn_lock = FORCED_ERROR_TEST_LOCK.lock().await;
-let _inference = crate::inference::inference_test_guard_async().await;
-let model = Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
-    "hello from mock",
-]));
-let model_errors = Arc::new(std::sync::Mutex::new(Vec::new()));
-let recording_model = Arc::new(RecordingModel {
-    inner: Arc::clone(&model),
-    errors: Arc::clone(&model_errors),
-});
-let _model = crate::inference::provider::factory::test_provider_override::install_model(
-    Arc::clone(&recording_model) as Arc<dyn ChatModel<()>>,
-);
-let temp = tempfile::tempdir().expect("temporary test workspace");
-let workspace_dir = temp.path().join("workspace");
-let action_dir = temp.path().join("projects");
-let config_path = temp.path().join("config/config.toml");
-let files_dir = temp.path().join("files");
-std::fs::create_dir_all(&workspace_dir).expect("create isolated workspace");
-std::fs::create_dir_all(&action_dir).expect("create isolated action directory");
-std::fs::create_dir_all(&files_dir).expect("create isolated files directory");
-std::fs::create_dir_all(config_path.parent().unwrap()).expect("create isolated config dir");
-let mut config = crate::config::Config::default();
-config.workspace_dir = workspace_dir;
-config.action_dir = action_dir.clone();
-config.action_dir_override = Some(action_dir.clone());
-config.config_path = config_path;
-config.files_dir_override = Some(files_dir);
-config.local_ai.runtime_enabled = false;
-config.memory.conversations.enabled = false;
-config.agent.session_dual_write = false;
-config.agent.session_shadow_reads = false;
-config.components.mcp = false;
-config.components.memory = false;
-config.components.skills = false;
-config.components.flows = false;
-config.agent.chat_agent_id = Some("ptt_event_regression".to_string());
-let mut definition = crate::agent::harness::test_support::test_main_def();
-definition.id = "ptt_event_regression".to_string();
-definition.tools = tinyagents_definition::ToolScope::Named(Vec::new());
-definition.extra_tools.clear();
-definition.deferred_tools.clear();
-definition.subagents.clear();
-definition.max_iterations = 3;
-definition.sandbox_mode = tinyagents_definition::SandboxMode::None;
-definition.extensions.omit_memory_context = true;
-definition.extensions.searches_connected_mcp = false;
-let definitions = Arc::new(
-    crate::agent_registry::host_definition::AgentDefinitionRegistry::builtins_only()
-        .with_definitions([definition]),
-);
-let mut components = crate::core::runtime::ComponentSet::all();
-components.mcp = false;
-components.memory = false;
-components.skills = false;
-components.flows = false;
-components.voice = true;
-let mut host_overrides = crate::agent::host_overrides::HostOverrides::default();
-host_overrides.model = Some(recording_model);
-let core_context = crate::core::runtime::CoreContext::for_test_with_components(components)
-    .derive_with(
-        crate::core::runtime::ContextOverlay::new(
-            config,
-            crate::core::runtime::DomainSet::full(),
-            crate::tools::toolpacks::ToolGroups::none(),
-        )
-        .without_user_skill_roots()
-        .definitions(definitions)
-        .host_overrides(Arc::new(host_overrides)),
+    let _ = env_logger::builder().is_test(true).try_init();
+    let _turn_lock = FORCED_ERROR_TEST_LOCK.lock().await;
+    let _inference = crate::inference::inference_test_guard_async().await;
+    let model = Arc::new(tinyagents_harness::testkit::ScriptedModel::replies(vec![
+        "hello from mock",
+    ]));
+    let model_errors = Arc::new(std::sync::Mutex::new(Vec::new()));
+    let recording_model = Arc::new(RecordingModel {
+        inner: Arc::clone(&model),
+        errors: Arc::clone(&model_errors),
+    });
+    let _model = crate::inference::provider::factory::test_provider_override::install_model(
+        Arc::clone(&recording_model) as Arc<dyn ChatModel<()>>,
     );
-let ctx = crate::core::runtime::DispatchCtx::new(Arc::clone(&core_context));
+    let temp = tempfile::tempdir().expect("temporary test workspace");
+    let workspace_dir = temp.path().join("workspace");
+    let action_dir = temp.path().join("projects");
+    let config_path = temp.path().join("config/config.toml");
+    let files_dir = temp.path().join("files");
+    std::fs::create_dir_all(&workspace_dir).expect("create isolated workspace");
+    std::fs::create_dir_all(&action_dir).expect("create isolated action directory");
+    std::fs::create_dir_all(&files_dir).expect("create isolated files directory");
+    std::fs::create_dir_all(config_path.parent().unwrap()).expect("create isolated config dir");
+    let mut config = crate::config::Config::default();
+    config.workspace_dir = workspace_dir;
+    config.action_dir = action_dir.clone();
+    config.action_dir_override = Some(action_dir.clone());
+    config.config_path = config_path;
+    config.files_dir_override = Some(files_dir);
+    config.local_ai.runtime_enabled = false;
+    config.memory.conversations.enabled = false;
+    config.agent.session_dual_write = false;
+    config.agent.session_shadow_reads = false;
+    config.components.mcp = false;
+    config.components.memory = false;
+    config.components.skills = false;
+    config.components.flows = false;
+    config.agent.chat_agent_id = Some("ptt_event_regression".to_string());
+    let mut definition = crate::agent::harness::test_support::test_main_def();
+    definition.id = "ptt_event_regression".to_string();
+    definition.tools = tinyagents_definition::ToolScope::Named(Vec::new());
+    definition.extra_tools.clear();
+    definition.deferred_tools.clear();
+    definition.subagents.clear();
+    definition.max_iterations = 3;
+    definition.sandbox_mode = tinyagents_definition::SandboxMode::None;
+    definition.extensions.omit_memory_context = true;
+    definition.extensions.searches_connected_mcp = false;
+    let definitions = Arc::new(
+        crate::agent_registry::host_definition::AgentDefinitionRegistry::builtins_only()
+            .with_definitions([definition]),
+    );
+    let mut components = crate::core::runtime::ComponentSet::all();
+    components.mcp = false;
+    components.memory = false;
+    components.skills = false;
+    components.flows = false;
+    components.voice = true;
+    let mut host_overrides = crate::agent::host_overrides::HostOverrides::default();
+    host_overrides.model = Some(recording_model);
+    let core_context = crate::core::runtime::CoreContext::for_test_with_components(components)
+        .derive_with(
+            crate::core::runtime::ContextOverlay::new(
+                config,
+                crate::core::runtime::DomainSet::full(),
+                crate::tools::toolpacks::ToolGroups::none(),
+            )
+            .without_user_skill_roots()
+            .definitions(definitions)
+            .host_overrides(Arc::new(host_overrides)),
+        );
+    let ctx = crate::core::runtime::DispatchCtx::new(Arc::clone(&core_context));
 
-crate::core::runtime::CoreContext::scope(core_context, async {
+    crate::core::runtime::CoreContext::scope(core_context, async {
     struct Events(tokio::sync::mpsc::UnboundedSender<crate::core::events::DomainEvent>);
 
     #[async_trait::async_trait]

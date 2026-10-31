@@ -699,19 +699,54 @@ async fn start_chat_uses_its_bound_dispatch_before_entering_the_runner() {
     let dispatch = DispatchCtx::new(Arc::clone(&enabled));
     let block = make_block();
     set_test_run_chat_task_block(Some(block.clone())).await;
-    let result = CoreContext::scope(Arc::clone(&disabled), super::super::start_chat(
-        &dispatch, "request-owner-client", "request-owner-thread", "Write a short greeting.",
-        None, None, None, None, ChatRequestMetadata::default(),
-    )).await;
-    assert!(result.is_ok(), "the request owner can screen its own message: {result:?}");
+    let result = CoreContext::scope(
+        Arc::clone(&disabled),
+        super::super::start_chat(
+            &dispatch,
+            "request-owner-client",
+            "request-owner-thread",
+            "Write a short greeting.",
+            None,
+            None,
+            None,
+            None,
+            ChatRequestMetadata::default(),
+        ),
+    )
+    .await;
+    assert!(
+        result.is_ok(),
+        "the request owner can screen its own message: {result:?}"
+    );
     wait_for_flag(&block.started, "request owner's turn started").await;
-    cancel_chat_scoped(&dispatch, "request-owner-client", "request-owner-thread", None).await.unwrap();
+    cancel_chat_scoped(
+        &dispatch,
+        "request-owner-client",
+        "request-owner-thread",
+        None,
+    )
+    .await
+    .unwrap();
     wait_for_flag(&block.dropped, "request owner's turn cancelled").await;
     set_test_run_chat_task_block(None).await;
     let disabled_dispatch = DispatchCtx::new(disabled);
-    let rejected = CoreContext::scope(enabled, super::super::start_chat(
-        &disabled_dispatch, "request-owner-client", "request-owner-thread", "Write a short greeting.",
-        None, None, None, None, ChatRequestMetadata::default(),
-    )).await;
-    assert!(matches!(rejected, Err(StartChatError::Guardrail { .. })), "a different ambient context cannot supply scanner authority");
+    let rejected = CoreContext::scope(
+        enabled,
+        super::super::start_chat(
+            &disabled_dispatch,
+            "request-owner-client",
+            "request-owner-thread",
+            "Write a short greeting.",
+            None,
+            None,
+            None,
+            None,
+            ChatRequestMetadata::default(),
+        ),
+    )
+    .await;
+    assert!(
+        matches!(rejected, Err(StartChatError::Guardrail { .. })),
+        "a different ambient context cannot supply scanner authority"
+    );
 }

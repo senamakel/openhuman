@@ -222,12 +222,34 @@ fn start_chat<'a>(
     metadata: ChatRequestMetadata,
 ) -> futures::future::BoxFuture<'a, Result<String, StartChatError>> {
     Box::pin(async move {
-        static WORKSPACE: std::sync::LazyLock<tempfile::TempDir> = std::sync::LazyLock::new(|| tempfile::tempdir().unwrap());
-        static CONTEXT: std::sync::LazyLock<Arc<crate::core::runtime::CoreContext>> = std::sync::LazyLock::new(|| {
-            let config = crate::credentials::test_support::plaintext_fixture_config(WORKSPACE.path());
-            crate::core::runtime::CoreContext::for_test_with_config(crate::core::runtime::DomainSet::full(), config)
-        });
-        let dispatch = if ctx.resolved().is_some() { ctx.clone() } else { crate::core::runtime::DispatchCtx::new(Arc::clone(&CONTEXT)) };
-        dispatch.enter(super::start_chat(&dispatch, client_id, thread_id, message, model_override, temperature, locale, queue_mode, metadata)).await
+        static WORKSPACE: std::sync::LazyLock<tempfile::TempDir> =
+            std::sync::LazyLock::new(|| tempfile::tempdir().unwrap());
+        static CONTEXT: std::sync::LazyLock<Arc<crate::core::runtime::CoreContext>> =
+            std::sync::LazyLock::new(|| {
+                let config =
+                    crate::credentials::test_support::plaintext_fixture_config(WORKSPACE.path());
+                crate::core::runtime::CoreContext::for_test_with_config(
+                    crate::core::runtime::DomainSet::full(),
+                    config,
+                )
+            });
+        let dispatch = if ctx.resolved().is_some() {
+            ctx.clone()
+        } else {
+            crate::core::runtime::DispatchCtx::new(Arc::clone(&CONTEXT))
+        };
+        dispatch
+            .enter(super::start_chat(
+                &dispatch,
+                client_id,
+                thread_id,
+                message,
+                model_override,
+                temperature,
+                locale,
+                queue_mode,
+                metadata,
+            ))
+            .await
     })
 }

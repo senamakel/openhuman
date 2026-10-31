@@ -87,6 +87,24 @@ pub(super) struct PersistedAuthProfile {
     pub(super) metadata: BTreeMap<String, String>,
 }
 
+impl PersistedAuthProfile {
+    pub(super) fn validate_secret_location(&self) -> Result<()> {
+        if self.secret_location == Some(SecretLocation::Keyring)
+            && [
+                self.access_token.as_ref(),
+                self.refresh_token.as_ref(),
+                self.id_token.as_ref(),
+                self.token.as_ref(),
+            ]
+            .into_iter()
+            .any(Option::is_some)
+        {
+            anyhow::bail!("keyring-owned profile contains document secret fields");
+        }
+        Ok(())
+    }
+}
+
 fn default_schema_version() -> u32 {
     CURRENT_SCHEMA_VERSION
 }
@@ -173,15 +191,14 @@ impl AuthProfilesStore {
             );
         }
 
-        if !self.use_keychain {
-            // Entries whose secrets are only in the unavailable keychain never
-            // reach `data`; keep them so they resolve once it reads again.
-            for (id, held) in previous.profiles.clone() {
-                if !persisted.profiles.contains_key(&id)
-                    && super::migration::keychain_held_oauth(&held)
-                {
-                    persisted.profiles.insert(id, held);
-                }
+        // An unavailable keyring record was intentionally withheld from the
+        // resolved view. An unrelated update must retain its opaque metadata.
+        for (id, held) in &previous.profiles {
+            if !persisted.profiles.contains_key(id)
+                && (held.secret_location == Some(SecretLocation::Keyring)
+                    || (!self.use_keychain && super::migration::keychain_held_oauth(held)))
+            {
+                persisted.profiles.insert(id.clone(), held.clone());
             }
         }
 

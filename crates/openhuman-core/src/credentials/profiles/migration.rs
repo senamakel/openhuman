@@ -27,6 +27,12 @@ impl AuthProfilesStore {
         let mut unavailable_keyring_ids = Vec::new();
         let mut profiles = BTreeMap::new();
         for (id, p) in &persisted.profiles {
+            p.validate_secret_location()?;
+            let keyring_owned =
+                p.secret_location == Some(super::persistence::SecretLocation::Keyring);
+            if keyring_owned && !self.use_keychain {
+                continue;
+            }
             // Current secrets may live in the keyring or in the encrypted
             // profile document. Legacy document values are read in place; they
             // are never promoted into the keyring during a profile read.
@@ -48,6 +54,7 @@ impl AuthProfilesStore {
                         secrets.id_token,
                         secrets.token,
                     ),
+                    Ok(None) if keyring_owned => continue,
                     Ok(None) => match decrypt_document_secrets().await {
                         Ok(secrets) => secrets,
                         Err(decrypt_error) => {
@@ -64,6 +71,9 @@ impl AuthProfilesStore {
                             // An explicit refusal or timeout is authoritative:
                             // do not read a second copy from the profile document.
                             return Err(keyring_error);
+                        }
+                        if keyring_owned {
+                            continue;
                         }
                         if preserve_keyring_only_oauth_after_access_failure(p, true) {
                             unavailable_keyring_ids.push(id.clone());

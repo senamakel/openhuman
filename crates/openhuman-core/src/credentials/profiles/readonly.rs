@@ -90,9 +90,17 @@ async fn load_profile_with_keyring(
         .get(&id)
         .ok_or(ReadOnlyAuthProfileError::InvalidStore)?;
 
+    profile
+        .validate_secret_location()
+        .map_err(|_| ReadOnlyAuthProfileError::InvalidStore)?;
     let user_id = super::user_id_from_state_dir(state_dir);
     let profile_store =
         AuthProfilesStore::new_with_config(state_dir, config.secrets.encrypt, config);
+    let keyring_owned =
+        profile.secret_location == Some(super::persistence::SecretLocation::Keyring);
+    if keyring_owned && !profile_store.use_keychain {
+        return Err(ReadOnlyAuthProfileError::Unavailable);
+    }
     let mut keyring_unavailable = false;
     let document_owned =
         profile.secret_location == Some(super::persistence::SecretLocation::EncryptedDocument);
@@ -114,6 +122,9 @@ async fn load_profile_with_keyring(
         None
     };
 
+    if keyring_owned && keychain_secrets.is_none() {
+        return Err(ReadOnlyAuthProfileError::Unavailable);
+    }
     let secrets = match keychain_secrets {
         Some(secrets) => Some(secrets),
         None if document_owned => None,

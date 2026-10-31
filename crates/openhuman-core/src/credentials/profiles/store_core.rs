@@ -146,29 +146,35 @@ impl AuthProfilesStore {
             let Some(profile) = persisted_before.profiles.get(profile_id) else {
                 return Ok(false);
             };
-            if profile.secret_location
-                == Some(super::persistence::SecretLocation::EncryptedDocument)
-            {
-                // Removing a document value neither reads a secret nor migrates
-                // other profiles into the keyring. Publish only this metadata edit.
+            profile.validate_secret_location()?;
+            if let Some(location) = profile.secret_location {
+                let keyring_owned = location == super::persistence::SecretLocation::Keyring;
+                if keyring_owned && !self.use_keychain {
+                    anyhow::bail!("keyring-backed profile removal requires its configured keyring");
+                }
+                // Publish only this metadata edit. No unrelated profile is
+                // resolved, re-encrypted or migrated into another backend.
                 let mut candidate = persisted_before.clone();
+                candidate.schema_version = super::CURRENT_SCHEMA_VERSION;
                 candidate.profiles.remove(profile_id);
                 candidate
                     .active_profiles
                     .retain(|_, active| active != profile_id);
                 candidate.updated_at = Utc::now().to_rfc3339();
-                let _lock = self.acquire_lock()?;
-                let current = serde_json::to_vec(&self.read_persisted_locked()?)?;
-                if current != version {
-                    continue;
+                {
+                    let _lock = self.acquire_lock()?;
+                    let current = serde_json::to_vec(&self.read_persisted_locked()?)?;
+                    if current != version {
+                        continue;
+                    }
+                    self.write_persisted_locked(&candidate)?;
                 }
-                self.write_persisted_locked(&candidate)?;
+                if keyring_owned {
+                    if let Err(error) = self.keychain_delete_secrets(profile_id).await {
+                        return self.rollback_profile_removal(profile_id, &persisted_before, error);
+                    }
+                }
                 return Ok(true);
-            }
-            if profile.secret_location == Some(super::persistence::SecretLocation::Keyring)
-                && !self.use_keychain
-            {
-                anyhow::bail!("keyring-backed profile removal requires its configured keyring");
             }
             let mut data = self.load_resolved(persisted_before.clone()).await?;
             if data.profiles.remove(profile_id).is_none() {
@@ -205,9 +211,23 @@ impl AuthProfilesStore {
         delete_error: anyhow::Error,
     ) -> Result<bool> {
         let _lock = self.acquire_lock()?;
-        let current = self.read_persisted_locked()?;
+        let mut current = self.read_persisted_locked()?;
         if !current.profiles.contains_key(profile_id) {
-            self.write_persisted_locked(persisted_before)?;
+            if let Some(profile) = persisted_before.profiles.get(profile_id) {
+                current
+                    .profiles
+                    .insert(profile_id.to_owned(), profile.clone());
+                for (provider, active) in &persisted_before.active_profiles {
+                    if active == profile_id {
+                        current
+                            .active_profiles
+                            .entry(provider.clone())
+                            .or_insert_with(|| active.clone());
+                    }
+                }
+                current.updated_at = Utc::now().to_rfc3339();
+                self.write_persisted_locked(&current)?;
+            }
         }
         Err(delete_error.context("profile removal was not completed"))
     }

@@ -527,3 +527,45 @@ async fn profile_cleanup_does_not_overwrite_a_newer_document() {
         .profiles
         .contains_key(&concurrent.id));
 }
+
+#[tokio::test]
+async fn document_profile_case_normalization_does_not_require_a_keyring() {
+    let directory = TempDir::new().unwrap();
+    let document = AuthProfilesStore::new(directory.path(), false);
+    let profile = AuthProfile::new_token("openai", "default", "synthetic-document-token".into());
+    document
+        .upsert_profile(profile.clone(), true)
+        .await
+        .unwrap();
+    let mut raw = document.read_persisted_locked().unwrap();
+    let mut entry = raw.profiles.remove(&profile.id).unwrap();
+    entry.provider = "OpenAI".into();
+    raw.profiles.insert("OpenAI:default".into(), entry);
+    raw.active_profiles = [("OpenAI".into(), "OpenAI:default".into())].into();
+    document.write_persisted_locked(&raw).unwrap();
+
+    let mut config = crate::credentials::test_support::plaintext_fixture_config(directory.path());
+    config.modules.enabled = false;
+    let configured = AuthProfilesStore::new_with_config(directory.path(), false, &config);
+    assert!(
+        configured.keychain_store_secrets(&profile).await.is_err(),
+        "positive control: this host cannot migrate a secret to the keyring"
+    );
+    let loaded = configured.load().await.unwrap();
+    let normalized = loaded
+        .profiles
+        .get(&profile.id)
+        .expect("document-owned profiles normalize without contacting the keyring");
+    assert_eq!(
+        normalized.token.as_deref(),
+        Some("synthetic-document-token")
+    );
+    assert_eq!(loaded.active_profiles.get("openai"), Some(&profile.id));
+    let cleaned = configured.read_persisted_locked().unwrap();
+    assert!(cleaned.profiles.contains_key(&profile.id));
+    assert!(!cleaned.profiles.contains_key("OpenAI:default"));
+    assert_eq!(
+        cleaned.profiles[&profile.id].secret_location,
+        Some(crate::credentials::profiles::persistence::SecretLocation::EncryptedDocument)
+    );
+}

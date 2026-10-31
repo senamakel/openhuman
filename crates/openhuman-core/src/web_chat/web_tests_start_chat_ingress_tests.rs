@@ -684,3 +684,34 @@ fn hosted_timeout_bound_reaches_the_sentry_tag_and_keeps_the_user_class() {
         );
     }
 }
+
+#[cfg(feature = "security-module")]
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn start_chat_uses_its_bound_dispatch_before_entering_the_runner() {
+    use crate::core::runtime::{CoreContext, DispatchCtx, DomainSet};
+    let _serial = FORCED_ERROR_TEST_LOCK.lock().await;
+    let temp = tempfile::tempdir().unwrap();
+    let config = crate::credentials::test_support::plaintext_fixture_config(temp.path());
+    let enabled = CoreContext::for_test_with_config(DomainSet::full(), config.clone());
+    let mut disabled_config = config;
+    disabled_config.modules.enabled = false;
+    let disabled = CoreContext::for_test_with_config(DomainSet::full(), disabled_config);
+    let dispatch = DispatchCtx::new(Arc::clone(&enabled));
+    let block = make_block();
+    set_test_run_chat_task_block(Some(block.clone())).await;
+    let result = CoreContext::scope(Arc::clone(&disabled), super::super::start_chat(
+        &dispatch, "request-owner-client", "request-owner-thread", "Write a short greeting.",
+        None, None, None, None, ChatRequestMetadata::default(),
+    )).await;
+    assert!(result.is_ok(), "the request owner can screen its own message: {result:?}");
+    wait_for_flag(&block.started, "request owner's turn started").await;
+    cancel_chat_scoped(&dispatch, "request-owner-client", "request-owner-thread", None).await.unwrap();
+    wait_for_flag(&block.dropped, "request owner's turn cancelled").await;
+    set_test_run_chat_task_block(None).await;
+    let disabled_dispatch = DispatchCtx::new(disabled);
+    let rejected = CoreContext::scope(enabled, super::super::start_chat(
+        &disabled_dispatch, "request-owner-client", "request-owner-thread", "Write a short greeting.",
+        None, None, None, None, ChatRequestMetadata::default(),
+    )).await;
+    assert!(matches!(rejected, Err(StartChatError::Guardrail { .. })), "a different ambient context cannot supply scanner authority");
+}

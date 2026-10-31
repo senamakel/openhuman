@@ -66,17 +66,40 @@ impl AuthProfilesStore {
     /// it before resolving secrets through the async security bus. Documents
     /// are published atomically, so this snapshot stays internally consistent.
     pub async fn load(&self) -> Result<AuthProfilesData> {
-        let persisted = match self.acquire_read_lock()? {
-            Some(_lock) => self.read_persisted_locked()?,
+        let (persisted, can_publish) = match self.acquire_read_lock()? {
+            Some(_lock) => (self.read_persisted_locked()?, true),
             None => {
                 log::warn!(
                     "[auth] profile lease unavailable on a full or read-only filesystem; \
                      serving a lock-free read-only snapshot"
                 );
-                self.read_persisted_locked()?
+                (self.read_persisted_locked()?, false)
             }
         };
-        self.load_resolved(persisted).await
+        let before = serde_json::to_vec(&persisted).context("serialize auth profile snapshot")?;
+        let (data, cleaned) = self.resolve_snapshot(persisted).await?;
+        if can_publish {
+            self.publish_cleanup_if_current(&before, &cleaned)?;
+        }
+        Ok(data)
+    }
+
+    // Keep raw records intact: cleanup must not re-encrypt unrelated secrets
+    // or resurrect a row changed while async secret resolution was in flight.
+    pub(super) fn publish_cleanup_if_current(
+        &self,
+        expected: &[u8],
+        cleaned: &PersistedAuthProfiles,
+    ) -> Result<()> {
+        let candidate = serde_json::to_vec(cleaned).context("serialize cleaned auth profiles")?;
+        if candidate != expected {
+            let _lock = self.acquire_lock()?;
+            let current = self.read_persisted_locked()?;
+            if serde_json::to_vec(&current)? == expected {
+                self.write_persisted_locked(cleaned)?;
+            }
+        }
+        Ok(())
     }
 
     async fn snapshot(&self) -> Result<(PersistedAuthProfiles, Vec<u8>)> {

@@ -375,7 +375,7 @@ async fn auth_profile_lock_errors_do_not_include_local_paths() {
     let store = AuthProfilesStore::new(&invalid_state_dir, false);
     let err = store.load().await.unwrap_err().to_string();
 
-    assert!(err.contains("Failed to acquire auth profile lease"));
+    assert!(err.contains("Failed to acquire auth profile read lease"));
     assert!(!err.contains(&tmp.path().display().to_string()));
     assert!(!err.contains(&invalid_state_dir.display().to_string()));
 }
@@ -470,4 +470,21 @@ async fn removing_document_profile_does_not_require_keyring_or_rewrite_other_pro
             .as_deref(),
         Some("synthetic-key-two")
     );
+}
+
+#[tokio::test]
+async fn profile_cleanup_does_not_overwrite_a_newer_document() {
+    let tmp = TempDir::new().unwrap();
+    let store = AuthProfilesStore::new(tmp.path(), false);
+    let original = store.read_persisted_locked().unwrap();
+    let expected = serde_json::to_vec(&original).unwrap();
+    let mut cleanup = original.clone();
+    cleanup.updated_at = "2026-01-01T00:00:00Z".into();
+    let concurrent = AuthProfile::new_token("openai", "new", "new-secret".into());
+    store.upsert_profile(concurrent.clone(), true).await.unwrap();
+    let before_cleanup = store.read_persisted_locked().unwrap();
+    store.publish_cleanup_if_current(&expected, &cleanup).unwrap();
+    assert_eq!(serde_json::to_value(store.read_persisted_locked().unwrap()).unwrap(),
+               serde_json::to_value(before_cleanup).unwrap());
+    assert!(store.load().await.unwrap().profiles.contains_key(&concurrent.id));
 }

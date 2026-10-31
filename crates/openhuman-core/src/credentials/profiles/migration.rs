@@ -12,16 +12,20 @@ use super::{
 };
 
 impl AuthProfilesStore {
-    /// Shared read + in-memory resolution worker. Reads the persisted store,
-    /// resolves/migrates secrets and drops unrecoverable profiles in memory,
-    /// and — only when `persist` is true — writes back any resulting cleanup.
-    /// The returned `AuthProfilesData` reflects the in-memory cleanup either
-    /// way, so the lock-free read path (`persist = false`) still returns a
-    /// correct, fully-resolved view without touching disk.
+    /// Resolve a stable document snapshot without publishing changes.
     pub(super) async fn load_resolved(
         &self,
-        mut persisted: super::PersistedAuthProfiles,
+        persisted: super::PersistedAuthProfiles,
     ) -> Result<AuthProfilesData> {
+        Ok(self.resolve_snapshot(persisted).await?.0)
+    }
+
+    /// Return the resolved view and raw cleanup candidate so callers can
+    /// publish it only if the source snapshot is still current.
+    pub(super) async fn resolve_snapshot(
+        &self,
+        mut persisted: super::PersistedAuthProfiles,
+    ) -> Result<(AuthProfilesData, super::PersistedAuthProfiles)> {
         let mut dropped_ids: Vec<String> = Vec::new();
         let mut pending_keychain_deletes = Vec::new();
         let mut unavailable_keyring_ids = Vec::new();
@@ -323,12 +327,13 @@ impl AuthProfilesStore {
                 pending_keychain_deletes.len()
             );
         }
-        Ok(AuthProfilesData {
+        let data = AuthProfilesData {
             schema_version: persisted.schema_version,
             updated_at: parse_datetime_with_fallback(&persisted.updated_at),
-            active_profiles: persisted.active_profiles,
+            active_profiles: persisted.active_profiles.clone(),
             profiles,
-        })
+        };
+        Ok((data, persisted))
     }
 }
 

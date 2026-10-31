@@ -316,6 +316,7 @@ pub(crate) async fn bind_test_core_context_with_provider_endpoint(
     config.workspace_dir = workspace.clone();
     config.action_dir = workspace.clone();
     config.config_path = workspace.join("config.toml");
+    config.secrets.encrypt = false;
     config.cloud_providers = ["openai", "test-provider"]
         .into_iter()
         .map(|slug| crate::config::schema::CloudProviderCreds {
@@ -336,15 +337,19 @@ pub(crate) async fn bind_test_core_context_with_provider_endpoint(
     context.core = Some(Arc::downgrade(&core));
     // A standing API-key credential satisfies the backend session gate that
     // building the host agent's model checks, without a signed-in user. Store
-    // it inside the context so a storage-backed secret store (installed by the
-    // module fixture) records it under the scope the turn later reads.
+    // it in the canonical encrypted profile document the model factory reads;
+    // the historical security::credentials adapter writes another store.
     let stored_config = config_for_credential;
     CoreContext::scope(Arc::clone(&core), async {
-        crate::security::credentials::api_key::store_api_key(
-            &stored_config,
-            "test-session-fixture-key",
-        )
-        .await
+        crate::credentials::api_key::store_api_key(&stored_config, "test-session-fixture-key")
+            .await?;
+        assert_eq!(
+            crate::credentials::api_key::get_api_key(&stored_config)
+                .await?
+                .as_deref(),
+            Some("test-session-fixture-key")
+        );
+        anyhow::Ok(())
     })
     .await
     .expect("store channel test credential");

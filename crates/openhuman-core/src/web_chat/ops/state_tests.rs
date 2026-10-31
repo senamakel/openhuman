@@ -79,6 +79,9 @@ async fn two_profiles_on_the_same_thread_id_hold_two_keys() {
 
 #[tokio::test]
 async fn a_user_cancel_under_the_fence_placeholder_id_keeps_the_callers_client() {
+    let workspace = tempfile::tempdir().unwrap();
+    let config = crate::credentials::test_support::plaintext_fixture_config(workspace.path());
+    CoreContext::scope_test_native_config(&config, async {
     let token = tokio_util::sync::CancellationToken::new();
     track_parallel_turn_for_test(
         &crate::core::runtime::DispatchCtx::ambient(),
@@ -117,4 +120,5 @@ async fn a_user_cancel_under_the_fence_placeholder_id_keeps_the_callers_client()
     tokio::time::timeout(std::time::Duration::from_secs(5), token.cancelled())
         .await
         .expect("tearing the turn down reaches its watcher");
+    }).await;
 }

@@ -11,7 +11,7 @@ impl CoreContext {
         operation: F,
     ) -> F::Output {
         Self::scope(
-            Self::for_test_with_config(DomainSet::full(), config.clone()),
+            Self::for_test_with_config(crate::core::runtime::DomainSet::full(), config.clone()),
             operation,
         )
         .await

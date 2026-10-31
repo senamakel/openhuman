@@ -96,10 +96,13 @@ async fn a_session_is_stored_in_the_users_own_database() {
     let _slot = crate::storage::test_support::lock_storage_slot();
     let tmp = TempDir::new().unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
+    crate::credentials::test_support::seed_plain_profile_configs(tmp.path(), &["user-42"]);
     let _env = EnvVarGuard::unset_many(&["OPENHUMAN_STORAGE_URL", "OPENHUMAN_WORKSPACE"]);
     let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     let _storage = DefaultStorageForTest::install(&pre_login).await;
 
+    assert!(!profile_databases(tmp.path()).contains(&"user-42".to_string()),
+        "the configuration fixture must not create the user database before login");
     let token = session_token("user-42");
     store_session(
         &DispatchCtx::process_default(),
@@ -144,6 +147,7 @@ async fn a_session_sign_out_keeps_the_api_key_on_per_user_storage() {
     let _slot = crate::storage::test_support::lock_storage_slot();
     let tmp = TempDir::new().unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
+    crate::credentials::test_support::seed_plain_profile_configs(tmp.path(), &["user-42"]);
     let _env = EnvVarGuard::unset_many(&["OPENHUMAN_STORAGE_URL", "OPENHUMAN_WORKSPACE"]);
     let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     let _storage = DefaultStorageForTest::install(&pre_login).await;
@@ -206,6 +210,7 @@ async fn another_user_signing_in_does_not_get_the_first_users_api_key() {
     let _slot = crate::storage::test_support::lock_storage_slot();
     let tmp = TempDir::new().unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
+    crate::credentials::test_support::seed_plain_profile_configs(tmp.path(), &["user-42", "user-77"]);
     let _env = EnvVarGuard::unset_many(&["OPENHUMAN_STORAGE_URL", "OPENHUMAN_WORKSPACE"]);
     let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     let _storage = DefaultStorageForTest::install(&pre_login).await;
@@ -251,6 +256,7 @@ async fn a_failed_carry_on_per_user_storage_says_the_key_must_be_entered_again()
     let _slot = crate::storage::test_support::lock_storage_slot();
     let tmp = TempDir::new().unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
+    crate::credentials::test_support::seed_plain_profile_configs(tmp.path(), &["user-42"]);
     let _env = EnvVarGuard::unset_many(&["OPENHUMAN_STORAGE_URL", "OPENHUMAN_WORKSPACE"]);
     let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     let _storage = DefaultStorageForTest::install(&pre_login).await;

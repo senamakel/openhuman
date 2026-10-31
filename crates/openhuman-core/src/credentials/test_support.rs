@@ -56,3 +56,18 @@ where
     .await
     .expect("cipher operation completes after explicit consent")
 }
+
+/// Seed local bootstrap configs for synthetic credentials across an actual
+/// user activation. Creating config files does not pre-create profile databases.
+/// Native cipher/consent tests use their own enabled configuration.
+pub(crate) fn seed_plain_profile_configs(home: &std::path::Path, users: &[&str]) {
+    let root = home.join(".openhuman");
+    let directories = std::iter::once(crate::config::pre_login_user_dir(&root))
+        .chain(users.iter().map(|user| crate::config::user_openhuman_dir(&root, user)));
+    for directory in directories {
+        std::fs::create_dir_all(&directory).expect("synthetic profile config directory");
+        let config = plaintext_fixture_config(&directory);
+        let text = toml::to_string_pretty(&config).expect("synthetic profile bootstrap config");
+        std::fs::write(&config.config_path, text).expect("seed only the profile bootstrap file");
+    }
+}

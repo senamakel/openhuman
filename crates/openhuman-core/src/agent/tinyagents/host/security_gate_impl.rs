@@ -69,8 +69,11 @@ impl SecurityGate for OpenHumanSecurityGate {
             ContentOrigin::Agent => "agent.subagent",
             ContentOrigin::Stored => "agent.stored",
         };
-        let dispatch = crate::core::runtime::DispatchCtx::from_weak(self.dispatch.as_ref());
-        let config = dispatch.embedder_config();
+        let config = self.screening_config.clone().or_else(|| {
+            crate::core::runtime::DispatchCtx::from_weak(self.dispatch.as_ref())
+                .embedder_config()
+                .map(std::sync::Arc::new)
+        });
         let decision = enforce_prompt_input_with_config(
             text,
             PromptEnforcementContext {
@@ -79,7 +82,7 @@ impl SecurityGate for OpenHumanSecurityGate {
                 user_id: None,
                 session_id: None,
             },
-            config.as_ref(),
+            config.as_deref(),
         )
         .await;
 

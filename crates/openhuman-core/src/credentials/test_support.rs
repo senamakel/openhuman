@@ -31,14 +31,14 @@ where
     crate::core::bus::init().await.expect("approval events");
     let gate =
         ApprovalGate::init_global(config.clone(), format!("session-{}", uuid::Uuid::new_v4()));
-    let mut operation = tokio::spawn(crate::core::runtime::turn_origin::with_origin(
+    let dispatch = crate::core::runtime::DispatchCtx::ambient().with_turn_origin(
         crate::core::runtime::turn_origin::AgentTurnOrigin::WebChat {
             thread_id: "cipher-fixture".into(),
             client_id: "test-operator".into(),
             request_id: None,
         },
-        operation,
-    ));
+    );
+    let mut operation = dispatch.spawn(operation);
     tokio::time::timeout(std::time::Duration::from_secs(15), async {
         loop {
             tokio::select! {

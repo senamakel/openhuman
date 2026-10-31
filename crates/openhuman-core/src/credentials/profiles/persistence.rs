@@ -97,7 +97,7 @@ impl PersistedAuthProfile {
                 self.token.as_ref(),
             ]
             .into_iter()
-            .any(Option::is_some)
+            .any(|field| field.is_some())
         {
             anyhow::bail!("keyring-owned profile contains document secret fields");
         }

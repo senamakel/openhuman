@@ -112,3 +112,29 @@ async fn explicit_document_credentials_do_not_consult_a_stale_keyring_copy() {
     .unwrap();
     assert_eq!(loaded.token.as_deref(), Some("document-owned-token"));
 }
+
+#[tokio::test]
+async fn a_keyring_owned_record_cannot_supply_a_document_secret_as_fallback() {
+    let workspace = TempDir::new().unwrap();
+    let config = crate::credentials::test_support::plaintext_fixture_config(workspace.path());
+    let mut persisted = PersistedAuthProfiles::default();
+    persisted.profiles.insert(
+        "openai:default".into(),
+        PersistedAuthProfile {
+            provider: "openai".into(),
+            profile_name: "default".into(),
+            kind: "token".into(),
+            secret_location: Some(super::super::persistence::SecretLocation::Keyring),
+            token: Some("stale-document-copy".into()),
+            ..Default::default()
+        },
+    );
+    write_profile_document(workspace.path(), &persisted);
+    let result = load_profile_with_keyring(&config, "openai", None, |_, _| {
+        Box::pin(async {
+            panic!("mixed credential ownership must fail before consulting a backend")
+        })
+    })
+    .await;
+    assert_eq!(result.unwrap_err(), ReadOnlyAuthProfileError::InvalidStore);
+}

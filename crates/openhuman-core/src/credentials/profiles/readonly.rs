@@ -94,7 +94,9 @@ async fn load_profile_with_keyring(
     let profile_store =
         AuthProfilesStore::new_with_config(state_dir, config.secrets.encrypt, config);
     let mut keyring_unavailable = false;
-    let keychain_secrets = if profile_store.use_keychain {
+    let document_owned =
+        profile.secret_location == Some(super::persistence::SecretLocation::EncryptedDocument);
+    let keychain_secrets = if profile_store.use_keychain && !document_owned {
         match read_keyring(&profile_store, &id).await {
             Ok(Some(secrets)) => Some(secrets),
             Ok(None) => None,
@@ -114,6 +116,7 @@ async fn load_profile_with_keyring(
 
     let secrets = match keychain_secrets {
         Some(secrets) => Some(secrets),
+        None if document_owned => None,
         None => match read_profile_secret(config, &user_id, &super::auth_profile_secret_key(&id)) {
             Ok(Some(payload)) => Some(
                 serde_json::from_str::<KeychainSecrets>(&payload)

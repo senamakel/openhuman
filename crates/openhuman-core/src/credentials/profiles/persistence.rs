@@ -45,11 +45,22 @@ impl Default for PersistedAuthProfiles {
     }
 }
 
+/// The authoritative secret location chosen when a profile is written.
+/// Absent on legacy records, whose consent and fallback rules remain unchanged.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum SecretLocation {
+    EncryptedDocument,
+    Keyring,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub(super) struct PersistedAuthProfile {
     pub(super) provider: String,
     pub(super) profile_name: String,
     pub(super) kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub(super) secret_location: Option<SecretLocation>,
     #[serde(default)]
     pub(super) account_id: Option<String>,
     #[serde(default)]
@@ -104,6 +115,7 @@ impl AuthProfilesStore {
             // The profile document itself is encrypted by TSD. Keep tokens in
             // the keyring when one is available; otherwise the outer encrypted
             // document protects the fields directly.
+            let mut secret_location = SecretLocation::EncryptedDocument;
             let (access_token, refresh_token, id_token, token, expires_at, token_type, scope) =
                 if self.use_keychain {
                     // Store secrets in the OS keychain — JSON gets no secret fields.
@@ -120,6 +132,7 @@ impl AuthProfilesStore {
                         );
                         self.encrypt_for_json(profile).await?
                     } else {
+                        secret_location = SecretLocation::Keyring;
                         log::debug!("[auth] save: secrets stored in keychain profile_id={id}");
                         let (expires_at, token_type, scope) = match &profile.token_set {
                             Some(ts) => (
@@ -143,6 +156,7 @@ impl AuthProfilesStore {
                     provider: profile.provider.clone(),
                     profile_name: profile.profile_name.clone(),
                     kind: profile_kind_to_string(profile.kind).to_string(),
+                    secret_location: Some(secret_location),
                     account_id: profile.account_id.clone(),
                     workspace_id: profile.workspace_id.clone(),
                     access_token,

@@ -38,7 +38,9 @@ impl AuthProfilesStore {
                     self.decrypt_optional(p.token.as_deref()).await?.0,
                 ))
             };
-            let (access_token, refresh_token, id_token, token) = if self.use_keychain {
+            let use_keychain = self.use_keychain
+                && p.secret_location != Some(super::persistence::SecretLocation::EncryptedDocument);
+            let (access_token, refresh_token, id_token, token) = if use_keychain {
                 match self.keychain_load_secrets(id).await {
                     Ok(Some(secrets)) => (
                         secrets.access_token,

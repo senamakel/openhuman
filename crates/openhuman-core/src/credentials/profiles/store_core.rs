@@ -143,6 +143,33 @@ impl AuthProfilesStore {
     pub async fn remove_profile(&self, profile_id: &str) -> Result<bool> {
         for _ in 0..8 {
             let (persisted_before, version) = self.snapshot().await?;
+            let Some(profile) = persisted_before.profiles.get(profile_id) else {
+                return Ok(false);
+            };
+            if profile.secret_location
+                == Some(super::persistence::SecretLocation::EncryptedDocument)
+            {
+                // Removing a document value neither reads a secret nor migrates
+                // other profiles into the keyring. Publish only this metadata edit.
+                let mut candidate = persisted_before.clone();
+                candidate.profiles.remove(profile_id);
+                candidate
+                    .active_profiles
+                    .retain(|_, active| active != profile_id);
+                candidate.updated_at = Utc::now().to_rfc3339();
+                let _lock = self.acquire_lock()?;
+                let current = serde_json::to_vec(&self.read_persisted_locked()?)?;
+                if current != version {
+                    continue;
+                }
+                self.write_persisted_locked(&candidate)?;
+                return Ok(true);
+            }
+            if profile.secret_location == Some(super::persistence::SecretLocation::Keyring)
+                && !self.use_keychain
+            {
+                anyhow::bail!("keyring-backed profile removal requires its configured keyring");
+            }
             let mut data = self.load_resolved(persisted_before.clone()).await?;
             if data.profiles.remove(profile_id).is_none() {
                 return Ok(false);

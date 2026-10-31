@@ -426,6 +426,10 @@ impl Tool for HarnessTool {
 }
 
 pub async fn run_dispatch_harness(options: DispatchHarnessOptions) -> DispatchHarnessObservation {
+    let _ = tracing_subscriber::fmt()
+        .with_test_writer()
+        .with_env_filter("openhuman_core=debug")
+        .try_init();
     let workspace = tempfile::tempdir().expect("isolated channel host configuration");
     let config = crate::credentials::test_support::plaintext_fixture_config(workspace.path());
     crate::core::runtime::CoreContext::scope_test_native_config(

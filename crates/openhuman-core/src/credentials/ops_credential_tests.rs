@@ -239,7 +239,10 @@ async fn set_credential_derives_the_user_id_from_the_jwt_subject() {
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
-    crate::credentials::test_support::seed_plain_profile_configs(tmp.path(), &["from-claims", "explicit"]);
+    crate::credentials::test_support::seed_plain_profile_configs(
+        tmp.path(),
+        &["from-claims", "explicit"],
+    );
     let config = test_config(&tmp);
     let token = jwt_with_payload(json!({
         "sub": "from-claims",

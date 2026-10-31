@@ -259,6 +259,8 @@ impl AuthProfilesStore {
                     p.provider = lower_provider;
 
                     let migration_succeeded = if self.use_keychain
+                        && p.secret_location
+                            != Some(super::persistence::SecretLocation::EncryptedDocument)
                         && provider_or_id_changed
                         && (ap.token.is_some() || ap.token_set.is_some())
                     {

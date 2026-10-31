@@ -62,8 +62,11 @@ where
 /// Native cipher/consent tests use their own enabled configuration.
 pub(crate) fn seed_plain_profile_configs(home: &std::path::Path, users: &[&str]) {
     let root = home.join(".openhuman");
-    let directories = std::iter::once(crate::config::pre_login_user_dir(&root))
-        .chain(users.iter().map(|user| crate::config::user_openhuman_dir(&root, user)));
+    let directories = std::iter::once(crate::config::pre_login_user_dir(&root)).chain(
+        users
+            .iter()
+            .map(|user| crate::config::user_openhuman_dir(&root, user)),
+    );
     for directory in directories {
         std::fs::create_dir_all(&directory).expect("synthetic profile config directory");
         let config = plaintext_fixture_config(&directory);

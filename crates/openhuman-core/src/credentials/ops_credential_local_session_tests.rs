@@ -41,7 +41,10 @@ async fn store_session_local_token_succeeds_without_network_and_forces_local_use
     let tmp = TempDir::new().unwrap();
     std::fs::create_dir_all(tmp.path().join("workspace")).unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
-    crate::credentials::test_support::seed_plain_profile_configs(tmp.path(), &[&local_session_user_id()]);
+    crate::credentials::test_support::seed_plain_profile_configs(
+        tmp.path(),
+        &[&local_session_user_id()],
+    );
     let config = test_config(&tmp);
     let local_token = "header.payload.local";
     let user = serde_json::json!({

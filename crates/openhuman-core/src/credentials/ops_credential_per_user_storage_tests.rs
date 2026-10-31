@@ -101,8 +101,10 @@ async fn a_session_is_stored_in_the_users_own_database() {
     let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     let _storage = DefaultStorageForTest::install(&pre_login).await;
 
-    assert!(!profile_databases(tmp.path()).contains(&"user-42".to_string()),
-        "the configuration fixture must not create the user database before login");
+    assert!(
+        !profile_databases(tmp.path()).contains(&"user-42".to_string()),
+        "the configuration fixture must not create the user database before login"
+    );
     let token = session_token("user-42");
     store_session(
         &DispatchCtx::process_default(),
@@ -210,7 +212,10 @@ async fn another_user_signing_in_does_not_get_the_first_users_api_key() {
     let _slot = crate::storage::test_support::lock_storage_slot();
     let tmp = TempDir::new().unwrap();
     let _home = EnvVarGuard::set("HOME", tmp.path());
-    crate::credentials::test_support::seed_plain_profile_configs(tmp.path(), &["user-42", "user-77"]);
+    crate::credentials::test_support::seed_plain_profile_configs(
+        tmp.path(),
+        &["user-42", "user-77"],
+    );
     let _env = EnvVarGuard::unset_many(&["OPENHUMAN_STORAGE_URL", "OPENHUMAN_WORKSPACE"]);
     let pre_login = crate::config::load_config_with_timeout().await.unwrap();
     let _storage = DefaultStorageForTest::install(&pre_login).await;
@@ -259,23 +264,45 @@ async fn a_failed_carry_after_storage_rebind_keeps_the_source_profile_key() {
     let _storage = DefaultStorageForTest::install(&pre_login).await;
     let user_scoped = sign_in(&pre_login, "user-42").await;
     set_api_key(&user_scoped, "sk-live").await;
-    assert_eq!(api_key::get_api_key(&user_scoped).await.unwrap().as_deref(), Some("sk-live"));
+    assert_eq!(
+        api_key::get_api_key(&user_scoped).await.unwrap().as_deref(),
+        Some("sk-live")
+    );
 
     let destination = crate::credentials::profiles::profiles_file(
-        &crate::credentials::state_dir_from_config(&pre_login));
-    assert!(!destination.exists(), "no pre-login credential document was created by the fixture");
+        &crate::credentials::state_dir_from_config(&pre_login),
+    );
+    assert!(
+        !destination.exists(),
+        "no pre-login credential document was created by the fixture"
+    );
     std::fs::create_dir_all(&destination).unwrap();
-    assert!(api_key::store_api_key(&pre_login, "cannot-write").await.is_err(),
-        "positive control: the destination credential document cannot be written");
+    assert!(
+        api_key::store_api_key(&pre_login, "cannot-write")
+            .await
+            .is_err(),
+        "positive control: the destination credential document cannot be written"
+    );
     let error = clear_credential(
-        &DispatchCtx::process_default(), &user_scoped,
+        &DispatchCtx::process_default(),
+        &user_scoped,
         Some(session_support::CredentialKind::Session),
-    ).await.unwrap_err();
+    )
+    .await
+    .unwrap_err();
     assert!(!error.is_empty());
     let signed_out = crate::config::load_config_with_timeout().await.unwrap();
     assert_eq!(signed_out.config_path, pre_login.config_path);
-    assert_eq!(session_support::get_session_token(&user_scoped).await.unwrap(), None,
-        "the session was removed before the destination failed");
-    assert_eq!(api_key::get_api_key(&user_scoped).await.unwrap().as_deref(), Some("sk-live"),
-        "the source document stays readable after the database rebind and failed carry");
+    assert_eq!(
+        session_support::get_session_token(&user_scoped)
+            .await
+            .unwrap(),
+        None,
+        "the session was removed before the destination failed"
+    );
+    assert_eq!(
+        api_key::get_api_key(&user_scoped).await.unwrap().as_deref(),
+        Some("sk-live"),
+        "the source document stays readable after the database rebind and failed carry"
+    );
 }

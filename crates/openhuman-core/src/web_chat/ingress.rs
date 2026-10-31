@@ -19,7 +19,7 @@ use crate::agent::queued_turn::QueuedPayload;
 use crate::core::events::DomainEvent;
 use crate::core::runtime::DispatchCtx;
 use crate::security::prompt_injection::{
-    enforce_prompt_input_with_config, PromptEnforcementAction, PromptEnforcementContext,
+    enforce_prompt_input_in, PromptEnforcementAction, PromptEnforcementContext,
 };
 
 const LOG: &str = "[web-channel]";
@@ -107,12 +107,8 @@ impl WebIngress {
         ctx: &DispatchCtx,
         request: &TurnRequest<QueuedPayload>,
     ) -> IngressDecision {
-        let config = if ctx.resolved().is_some() {
-            ctx.load_config().await.ok()
-        } else {
-            None
-        };
-        let decision = enforce_prompt_input_with_config(
+        let decision = enforce_prompt_input_in(
+            ctx,
             &request.text,
             PromptEnforcementContext {
                 source: "web_chat.start_chat",
@@ -120,7 +116,6 @@ impl WebIngress {
                 user_id: Some(&request.payload.client_id),
                 session_id: Some(&request.thread_id),
             },
-            config.as_ref(),
         )
         .await;
         let verdict = match decision.action {

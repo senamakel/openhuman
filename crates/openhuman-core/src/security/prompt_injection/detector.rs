@@ -134,6 +134,21 @@ pub async fn enforce_prompt_input(
     enforce_prompt_input_with_config(input, context, config.as_ref()).await
 }
 
+/// Screen using the request owner's configuration, including a normal host's
+/// persisted config. An unbound dispatch cannot borrow another tenant's scanner.
+pub(crate) async fn enforce_prompt_input_in(
+    dispatch: &crate::core::runtime::DispatchCtx,
+    input: &str,
+    context: PromptEnforcementContext<'_>,
+) -> PromptEnforcementDecision {
+    let config = if dispatch.resolved().is_some() {
+        dispatch.load_config().await.ok()
+    } else {
+        None
+    };
+    enforce_prompt_input_with_config(input, context, config.as_ref()).await
+}
+
 /// Screen against the configuration supplied by the owning dispatch. Missing
 /// authority remains a held decision, even if another task has a configuration.
 pub(crate) async fn enforce_prompt_input_with_config(

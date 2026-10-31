@@ -6,7 +6,7 @@ use super::{
     inference_budget_exceeded_user_message, is_inference_budget_exceeded_error, key_for,
     locale_reply_directive, normalize_model_override, parallel_in_flight_entries_for_test,
     provider_role_for_model_override, schemas, sentry_suppression_reason,
-    set_test_forced_run_chat_task_error, set_test_run_chat_task_block, start_chat,
+    set_test_forced_run_chat_task_error, set_test_run_chat_task_block,
     subscribe_web_channel_events, ChatRequestMetadata, ClassifiedError, StartChatError,
     TestRunChatTaskBlock, WebChatParams,
 };
@@ -207,3 +207,27 @@ mod turn_lifecycle_tests;
 #[cfg(feature = "voice")]
 #[path = "web_tests_ptt_source_tests.rs"]
 mod ptt_source_tests;
+
+/// Drive the actual web entry point with a retained, isolated host context.
+/// Existing explicitly bound requests retain their own authority.
+fn start_chat<'a>(
+    ctx: &'a crate::core::runtime::DispatchCtx,
+    client_id: &'a str,
+    thread_id: &'a str,
+    message: &'a str,
+    model_override: Option<String>,
+    temperature: Option<f64>,
+    locale: Option<String>,
+    queue_mode: Option<String>,
+    metadata: ChatRequestMetadata,
+) -> futures::future::BoxFuture<'a, Result<String, StartChatError>> {
+    Box::pin(async move {
+        static WORKSPACE: std::sync::LazyLock<tempfile::TempDir> = std::sync::LazyLock::new(|| tempfile::tempdir().unwrap());
+        static CONTEXT: std::sync::LazyLock<Arc<crate::core::runtime::CoreContext>> = std::sync::LazyLock::new(|| {
+            let config = crate::credentials::test_support::plaintext_fixture_config(WORKSPACE.path());
+            crate::core::runtime::CoreContext::for_test_with_config(crate::core::runtime::DomainSet::full(), config)
+        });
+        let dispatch = if ctx.resolved().is_some() { ctx.clone() } else { crate::core::runtime::DispatchCtx::new(Arc::clone(&CONTEXT)) };
+        dispatch.enter(super::start_chat(&dispatch, client_id, thread_id, message, model_override, temperature, locale, queue_mode, metadata)).await
+    })
+}

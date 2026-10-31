@@ -113,7 +113,10 @@ impl Client {
         let audit_scope = super::super::ops::security_secret_scope()
             .await
             .ok_or_else(|| "security audit scope unavailable".to_owned())?;
-        Ok(Self { object, audit_scope: Some(audit_scope) })
+        Ok(Self {
+            object,
+            audit_scope: Some(audit_scope),
+        })
     }
 
     #[cfg(test)]
@@ -128,20 +131,32 @@ impl Client {
         &self,
         request: tinysecurity_bus::PermissionRequest2,
     ) -> Result<tinysecurity_bus::PermissionResult2, SecurityError> {
-        let scope = self.audit_scope.as_ref().ok_or_else(|| {
-            SecurityError::Unavailable("security audit scope unavailable".into())
-        })?;
+        let scope = self
+            .audit_scope
+            .as_ref()
+            .ok_or_else(|| SecurityError::Unavailable("security audit scope unavailable".into()))?;
         let _ordered = scope.lock().await;
         let generation = self.policy_info().await?.generation;
-        let audit = scope.correlation(generation).await.map_err(SecurityError::Unavailable)?;
-        let response: tinysecurity_bus::PermissionAuditResponse2 = self.object.call_confidential(
-            tinysecurity_bus::names::methods::CHECK_PERMISSION_AUDITED2,
-            (tinysecurity_bus::AuditedRequest2 { request, audit },),
-        ).await.map_err(SecurityError::Unavailable)?;
+        let audit = scope
+            .correlation(generation)
+            .await
+            .map_err(SecurityError::Unavailable)?;
+        let response: tinysecurity_bus::PermissionAuditResponse2 = self
+            .object
+            .call_confidential(
+                tinysecurity_bus::names::methods::CHECK_PERMISSION_AUDITED2,
+                (tinysecurity_bus::AuditedRequest2 { request, audit },),
+            )
+            .await
+            .map_err(SecurityError::Unavailable)?;
         if !response.audit.permitted || !response.audit.committed {
-            return Err(SecurityError::Unavailable("native permission audit was not committed".into()));
+            return Err(SecurityError::Unavailable(
+                "native permission audit was not committed".into(),
+            ));
         }
-        response.decision.ok_or_else(|| SecurityError::Unavailable("native permission result unavailable".into()))
+        response.decision.ok_or_else(|| {
+            SecurityError::Unavailable("native permission result unavailable".into())
+        })
     }
 
     /// Run a paired-device lifecycle operation inside TinySecurity.
@@ -323,9 +338,14 @@ impl Client {
         request: PathBatchRequest2,
     ) -> Result<PathBatchResponse2, SecurityError> {
         if self.audit_scope.is_some() {
-            return match self.audited_permission(tinysecurity_bus::PermissionRequest2::CheckPaths(request)).await? {
+            return match self
+                .audited_permission(tinysecurity_bus::PermissionRequest2::CheckPaths(request))
+                .await?
+            {
                 tinysecurity_bus::PermissionResult2::Paths(result) => Ok(result),
-                _ => Err(SecurityError::Unavailable("native permission reply does not match request".into())),
+                _ => Err(SecurityError::Unavailable(
+                    "native permission reply does not match request".into(),
+                )),
             };
         }
 
@@ -341,9 +361,14 @@ impl Client {
         request: PathValidationRequest,
     ) -> Result<PathValidationResult, SecurityError> {
         if self.audit_scope.is_some() {
-            return match self.audited_permission(tinysecurity_bus::PermissionRequest2::ValidatePath(request)).await? {
+            return match self
+                .audited_permission(tinysecurity_bus::PermissionRequest2::ValidatePath(request))
+                .await?
+            {
                 tinysecurity_bus::PermissionResult2::Path(result) => Ok(result),
-                _ => Err(SecurityError::Unavailable("native permission reply does not match request".into())),
+                _ => Err(SecurityError::Unavailable(
+                    "native permission reply does not match request".into(),
+                )),
             };
         }
 
@@ -359,9 +384,16 @@ impl Client {
         request: PathValidationRequest,
     ) -> Result<PathValidationResult, SecurityError> {
         if self.audit_scope.is_some() {
-            return match self.audited_permission(tinysecurity_bus::PermissionRequest2::ValidateParent(request)).await? {
+            return match self
+                .audited_permission(tinysecurity_bus::PermissionRequest2::ValidateParent(
+                    request,
+                ))
+                .await?
+            {
                 tinysecurity_bus::PermissionResult2::Path(result) => Ok(result),
-                _ => Err(SecurityError::Unavailable("native permission reply does not match request".into())),
+                _ => Err(SecurityError::Unavailable(
+                    "native permission reply does not match request".into(),
+                )),
             };
         }
 
@@ -430,9 +462,14 @@ impl Client {
         request: PrivacyCheckRequest2,
     ) -> Result<Decision, SecurityError> {
         if self.audit_scope.is_some() {
-            return match self.audited_permission(tinysecurity_bus::PermissionRequest2::PrivacyCheck(request)).await? {
+            return match self
+                .audited_permission(tinysecurity_bus::PermissionRequest2::PrivacyCheck(request))
+                .await?
+            {
                 tinysecurity_bus::PermissionResult2::Privacy(result) => Ok(result.decision),
-                _ => Err(SecurityError::Unavailable("native permission reply does not match request".into())),
+                _ => Err(SecurityError::Unavailable(
+                    "native permission reply does not match request".into(),
+                )),
             };
         }
 
@@ -653,9 +690,14 @@ impl Client {
         request: BudgetRequest2,
     ) -> Result<BudgetDecision2, SecurityError> {
         if self.audit_scope.is_some() {
-            return match self.audited_permission(tinysecurity_bus::PermissionRequest2::PeekBudget(request)).await? {
+            return match self
+                .audited_permission(tinysecurity_bus::PermissionRequest2::PeekBudget(request))
+                .await?
+            {
                 tinysecurity_bus::PermissionResult2::Budget(result) => Ok(result),
-                _ => Err(SecurityError::Unavailable("native permission reply does not match request".into())),
+                _ => Err(SecurityError::Unavailable(
+                    "native permission reply does not match request".into(),
+                )),
             };
         }
 

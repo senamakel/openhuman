@@ -55,7 +55,9 @@ async fn locked_keychain_store() -> Fixture {
     let keychain = Arc::new(FlakyKeychain::default());
     crate::security::secret_storage::install_secret_backend(keychain.clone());
     let tmp = TempDir::new().unwrap();
-    let store = AuthProfilesStore::new(tmp.path(), true);
+    // This fixture tests keychain availability, with synthetic fallback values.
+    // Native cipher/consent behavior has separate integration coverage.
+    let store = AuthProfilesStore::new(tmp.path(), false);
     let oauth = AuthProfile::new_oauth(
         "openai-codex",
         "default",

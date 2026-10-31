@@ -11,7 +11,13 @@ async fn debug_prompt_matches_the_system_prompt_sent_on_a_cold_turn() {
         ]));
         let model_for_host: Arc<dyn tinyinference_llm::model::ChatModel<()>> = model.clone();
         let mut host = crate::agent::SessionHostBuilder::new()
-            .chat_model(model_for_host)
+            .chat_model_with_config(
+                model_for_host,
+                Arc::new(
+                    crate::core::runtime::CoreContext::current_embedder_config()
+                        .expect("the fixture owns its native host configuration"),
+                ),
+            )
             .model_name("test/session-fixture".to_string())
             .tools(crate::agent::goals::goal_tools(action_dir.path()))
             .action_dir(action_dir.path().to_path_buf())

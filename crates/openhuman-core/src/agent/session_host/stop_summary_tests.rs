@@ -90,14 +90,13 @@ async fn an_error_line_is_scrubbed_of_identifiers_and_truncated() {
         );
         assert!(!out.contains("jane.doe@example.com"), "{out}");
         assert!(!out.contains("203.0.113.7"), "{out}");
-        assert!(
-            out.contains(if cfg!(feature = "security-module") {
-                "[redacted]"
-            } else {
-                "[REDACTED]"
-            }),
-            "{out}"
-        );
+        assert!(out.contains("[REDACTED]"), "{out}");
+        if cfg!(feature = "security-module") {
+            assert!(
+                out.contains("delivery to [REDACTED] from [REDACTED] rejected"),
+                "the native scrubber preserves the non-sensitive error context: {out}"
+            );
+        }
         assert!(!out.contains("second line body"), "only one line: {out}");
         assert!(!out.contains(&long_tail), "long lines are truncated: {out}");
         assert!(out.contains("several different tool calls"), "{out}");

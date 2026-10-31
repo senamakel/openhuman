@@ -29,7 +29,7 @@ impl ProgressiveChannelTransport for ModuleChannel {
                 segment_index: _,
                 idempotency_key,
                 parts,
-                ..
+                text,
             } => {
                 let channel_id = channel_ref
                     .as_ref()
@@ -53,7 +53,7 @@ impl ProgressiveChannelTransport for ModuleChannel {
                     parts,
                 };
                 let outcome = self
-                    .send_progressive_typed(&outbound)
+                    .send_progressive_typed(&outbound, Some(text))
                     .await
                     .map_err(|_| tinybus::Error::failed("progressive channel send failed"))?;
                 Ok(Result::Outcome(Box::new(outcome)))
@@ -84,7 +84,7 @@ impl ProgressiveChannelTransport for ModuleChannel {
                     outbound.idempotency_key = key;
                 }
                 let outcome = self
-                    .send_progressive_typed(&outbound)
+                    .send_progressive_typed(&outbound, Some(legacy.content))
                     .await
                     .map_err(|_| tinybus::Error::failed("progressive channel send failed"))?;
                 Ok(Result::Outcome(Box::new(outcome)))

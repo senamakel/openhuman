@@ -351,7 +351,7 @@ impl ModuleChannel {
         &self,
         message: &tinychannels_bus::channel::ChannelOutboundMessage,
     ) -> anyhow::Result<tinychannels_bus::channel::ChannelSendOutcome> {
-        self.send_progressive_typed(message).await
+        self.send_progressive_typed(message, None).await
     }
 
     pub(super) async fn health_check(&self) -> bool {
@@ -433,6 +433,7 @@ impl ModuleChannel {
     pub(super) async fn send_progressive_typed(
         &self,
         message: &tinychannels_bus::channel::ChannelOutboundMessage,
+        text: Option<String>,
     ) -> anyhow::Result<tinychannels_bus::channel::ChannelSendOutcome> {
         let intent = tinychannels_bus::channel::ChannelOutboundIntent {
             idempotency_key: message.idempotency_key.clone(),
@@ -445,7 +446,7 @@ impl ModuleChannel {
             turn_id: message.turn_id.clone(),
             durability: tinychannels_bus::channel::DeliveryDurability::Required,
             payload: tinychannels_bus::channel::OutboundPayload::Parts {
-                text: None,
+                text,
                 parts: message.parts.clone(),
             },
         };

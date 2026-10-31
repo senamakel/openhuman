@@ -277,7 +277,6 @@ async fn process_channel_message_sends_typing_before_the_provider_reply() {
         .provider_request_bodies("/bottoken/sendMessage")
         .await;
     assert_eq!(sent.len(), 1);
-    println!("typing fixture provider body: {}", sent[0]);
     assert_eq!(sent[0]["text"], "typing fixture reply");
 }
 

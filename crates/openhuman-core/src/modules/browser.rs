@@ -363,16 +363,16 @@ impl BrowserClient {
             output: held.id.clone(),
         };
         let read = self.read_output(&held).await;
-        if let Some(client) = release.client.take() {
-            let _released: Result<serde_json::Value, _> = client
-                .call(
-                    names::methods::RELEASE_OUTPUT,
-                    OutputRequest {
-                        output: held.id.clone(),
-                    },
-                )
-                .await;
-        }
+        // The guard stays armed until the release has gone through.
+        let _released: Result<serde_json::Value, _> = self
+            .call(
+                names::methods::RELEASE_OUTPUT,
+                OutputRequest {
+                    output: held.id.clone(),
+                },
+            )
+            .await;
+        release.client = None;
         read
     }
 

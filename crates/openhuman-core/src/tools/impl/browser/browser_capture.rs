@@ -44,14 +44,18 @@ pub(super) fn follows(kind: &str) -> bool {
 /// What a picture of the page could show as text: its rendered text, the
 /// values of its fields (a password field's own value is masked on screen
 /// and left out; one switched to show its password is a text field), and
-/// the same inside open shadow roots and same-origin frames. It goes to the
-/// host's check only, never to a model or a log.
+/// the same inside open shadow roots and same-origin frames. A frame it
+/// cannot read (another origin, a sandbox) makes the answer `null`: a page
+/// that cannot be checked whole is not pictured. It goes to the host's check
+/// only, never to a model or a log.
 pub(super) const PAGE_TEXT_JS: &str = r#"(() => {
   const out = [];
+  let unreadable = false;
   const visit = (root) => {
-    if (!root) return;
+    if (!root) { unreadable = true; return; }
     if (root.body && root.body.innerText) out.push(root.body.innerText);
-    if (root instanceof ShadowRoot && root.textContent) out.push(root.textContent);
+    // A shadow root of any frame's realm: a fragment with a host.
+    if (root.nodeType === 11 && root.host && root.textContent) out.push(root.textContent);
     for (const el of root.querySelectorAll('input, textarea, select, [contenteditable]')) {
       if (el.type === 'password') continue;
       if (typeof el.value === 'string' && el.value) out.push(el.value);
@@ -59,11 +63,13 @@ pub(super) const PAGE_TEXT_JS: &str = r#"(() => {
     }
     for (const el of root.querySelectorAll('*')) if (el.shadowRoot) visit(el.shadowRoot);
     for (const frame of root.querySelectorAll('iframe, frame')) {
-      try { visit(frame.contentDocument); } catch (e) {}
+      let inner = null;
+      try { inner = frame.contentDocument; } catch (e) { inner = null; }
+      visit(inner);
     }
   };
   visit(document);
-  return out;
+  return unreadable ? null : out;
 })()"#;
 
 /// The texts [`PAGE_TEXT_JS`] answered; `None` when the answer is not a
@@ -108,30 +114,47 @@ pub(super) async fn capture(client: &BrowserClient, session: &SessionId, after: 
     }
 }
 
+/// Whether the page shows no password the keychain typed: true at once
+/// while the keychain remembers none, false when the page shows one or
+/// cannot be checked whole.
+async fn shows_no_password(
+    client: &BrowserClient,
+    session: &SessionId,
+    after: &str,
+) -> anyhow::Result<bool> {
+    if !super::keychain::any_filled() {
+        return Ok(true);
+    }
+    // Read in the page, never through a snapshot: a new snapshot would
+    // renumber the refs the model is holding.
+    let shown = client.evaluate(session, PAGE_TEXT_JS).await?;
+    let Some(texts) = page_texts(&shown) else {
+        tracing::info!(
+            after,
+            "[browser-capture] skipped: the page could not be checked for passwords"
+        );
+        return Ok(false);
+    };
+    let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
+    if shows_filled_password(&texts) {
+        tracing::info!(
+            after,
+            "[browser-capture] skipped: the page shows a password the keychain typed"
+        );
+        return Ok(false);
+    }
+    Ok(true)
+}
+
 async fn take(
     client: &BrowserClient,
     session: &SessionId,
     after: &str,
 ) -> anyhow::Result<Option<BrowserPicture>> {
-    if super::keychain::any_filled() {
-        // Read in the page, never through a snapshot: a new snapshot would
-        // renumber the refs the model is holding.
-        let shown = client.evaluate(session, PAGE_TEXT_JS).await?;
-        let Some(texts) = page_texts(&shown) else {
-            tracing::info!(
-                after,
-                "[browser-capture] skipped: the page could not be checked for passwords"
-            );
-            return Ok(None);
-        };
-        let texts: Vec<&str> = texts.iter().map(String::as_str).collect();
-        if shows_filled_password(&texts) {
-            tracing::info!(
-                after,
-                "[browser-capture] skipped: the page shows a password the keychain typed"
-            );
-            return Ok(None);
-        }
+    // Checked before the picture and again after it, so a password the
+    // page revealed while it was being taken is caught too.
+    if !shows_no_password(client, session, after).await? {
+        return Ok(None);
     }
     let mut format = ImageFormat::Png;
     let mut bytes = client
@@ -156,6 +179,9 @@ async fn take(
             bytes = bytes.len(),
             "[browser-capture] skipped: the picture is over 5 MB even as a JPEG"
         );
+        return Ok(None);
+    }
+    if !shows_no_password(client, session, after).await? {
         return Ok(None);
     }
     let taken_at_ms = std::time::SystemTime::now()

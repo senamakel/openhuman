@@ -56,4 +56,8 @@ fn the_page_check_reads_only_a_list_of_strings() {
     assert_eq!(page_texts(&serde_json::Value::Null), None);
     // The script leaves a masked password field's own value out.
     assert!(PAGE_TEXT_JS.contains("el.type === 'password'"));
+    // An unreadable frame makes the whole answer null (not checked), and a
+    // shadow root is recognised in any frame's realm.
+    assert!(PAGE_TEXT_JS.contains("return unreadable ? null : out;"));
+    assert!(!PAGE_TEXT_JS.contains("instanceof ShadowRoot"));
 }

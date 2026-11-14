@@ -22,8 +22,6 @@ use crate::config::Config;
 #[path = "browser_output.rs"]
 mod output;
 use output::{append_output_chunk, check_output_size, finish_output, ReleaseOnDrop};
-#[cfg(test)]
-pub(crate) use output::{assemble_output, MAX_SCREENSHOT_BYTES};
 
 pub const MODULE_ID: &str = super::desktop::MODULE_ID;
 

@@ -242,7 +242,10 @@ impl BrowserTool {
             .password_typed
             .load(std::sync::atomic::Ordering::SeqCst)
         {
-            tracing::debug!(after, "[browser-capture] skipped: this session typed a keychain password");
+            tracing::debug!(
+                after,
+                "[browser-capture] skipped: this session typed a keychain password"
+            );
             return;
         }
         capture::capture(&self.client, id, after).await;

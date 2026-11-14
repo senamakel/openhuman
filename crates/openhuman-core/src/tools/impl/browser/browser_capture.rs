@@ -12,7 +12,7 @@
 //! and the picture is skipped.
 //!
 //! Passwords: a password the keychain typed (`browser_keychain`) is masked
-//! in every reply, but a picture cannot be masked. Before a capture, while
+//! in every reply, but a picture cannot be masked. Before and after a capture, while
 //! any keychain password is remembered, the page's text and field values
 //! are read in the page ([`PAGE_TEXT_JS`], which leaves the refs the model
 //! holds alone) and the capture is skipped when any shows one of those

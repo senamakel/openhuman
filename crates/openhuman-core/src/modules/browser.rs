@@ -342,27 +342,51 @@ impl BrowserClient {
     }
 
     /// A picture of the session's page, as the bytes of `request.format`.
-    ///
-    /// The module holds the image and answers a handle ([`OutputRef`]); the
-    /// bytes are pulled in chunks, checked against the handle's size and
-    /// SHA-256, and the held output is released whether or not that worked.
     pub async fn screenshot(
         &self,
         session: &SessionId,
         request: ScreenshotRequest,
     ) -> Result<Vec<u8>, BrowserCallError> {
+        Ok(self
+            .screenshot_checked(session, request, || async { Ok(true) })
+            .await?
+            .unwrap_or_default())
+    }
+
+    /// A picture of the session's page, kept only when `keep` (run right
+    /// after the module took it, before a byte of it is read) says yes;
+    /// `None` when it says no.
+    ///
+    /// The module holds the image and answers a handle ([`OutputRef`]); the
+    /// bytes are pulled in chunks, checked against the handle's size and
+    /// SHA-256, and the held output is released whether or not that worked,
+    /// a cancelled call included.
+    pub(crate) async fn screenshot_checked<F, Fut>(
+        &self,
+        session: &SessionId,
+        request: ScreenshotRequest,
+        keep: F,
+    ) -> Result<Option<Vec<u8>>, BrowserCallError>
+    where
+        F: FnOnce() -> Fut,
+        Fut: std::future::Future<Output = Result<bool, BrowserCallError>>,
+    {
         let held: OutputRef = self
             .call(
                 names::methods::SCREENSHOT,
                 SessionRequest::new(session.clone(), request),
             )
             .await?;
-        // Released however the read ends, a cancelled call included.
         let mut release = ReleaseOnDrop {
             client: Some(self.clone()),
             output: held.id.clone(),
+            ctx: crate::core::runtime::DispatchCtx::ambient(),
         };
-        let read = self.read_output(&held).await;
+        let read = match keep().await {
+            Ok(true) => self.read_output(&held).await.map(Some),
+            Ok(false) => Ok(None),
+            Err(error) => Err(error),
+        };
         // The guard stays armed until the release has gone through.
         let _released: Result<serde_json::Value, _> = self
             .call(

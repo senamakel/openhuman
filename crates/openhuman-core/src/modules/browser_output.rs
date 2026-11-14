@@ -22,6 +22,9 @@ pub(super) fn output_error(message: impl Into<String>) -> BrowserCallError {
 pub(super) struct ReleaseOnDrop {
     pub(super) client: Option<BrowserClient>,
     pub(super) output: OutputId,
+    /// The caller's dispatch context, taken when the guard is made: the
+    /// cleanup task needs the same tenant to reach the module.
+    pub(super) ctx: crate::core::runtime::DispatchCtx,
 }
 
 impl Drop for ReleaseOnDrop {
@@ -30,8 +33,8 @@ impl Drop for ReleaseOnDrop {
             return;
         };
         let output = self.output.clone();
-        if let Ok(runtime) = tokio::runtime::Handle::try_current() {
-            runtime.spawn(async move {
+        if tokio::runtime::Handle::try_current().is_ok() {
+            self.ctx.spawn(async move {
                 let _released: Result<serde_json::Value, _> = client
                     .call(names::methods::RELEASE_OUTPUT, OutputRequest { output })
                     .await;

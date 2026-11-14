@@ -12,7 +12,8 @@
 //! and the picture is skipped.
 //!
 //! Passwords: a password the keychain typed (`browser_keychain`) is masked
-//! in every reply, but a picture cannot be masked. Before and after a capture, while
+//! in every reply, but a picture cannot be masked. Before a capture, and
+//! again right after the module took it and before any of it is read, while
 //! any keychain password is remembered, the page's text and field values
 //! are read in the page ([`PAGE_TEXT_JS`], which leaves the refs the model
 //! holds alone) and the capture is skipped when any shows one of those
@@ -151,27 +152,40 @@ async fn take(
     session: &SessionId,
     after: &str,
 ) -> anyhow::Result<Option<BrowserPicture>> {
-    // Checked before the picture and again after it, so a password the
-    // page revealed while it was being taken is caught too.
+    // Checked before the picture, and again right after the module took it
+    // and before a byte of it is read: a picture of a page that showed a
+    // password at either moment is released unread.
     if !shows_no_password(client, session, after).await? {
         return Ok(None);
     }
+    let checked = |request: ScreenshotRequest| async move {
+        client
+            .screenshot_checked(session, request, || async {
+                shows_no_password(client, session, after)
+                    .await
+                    .map_err(|error| crate::modules::browser::BrowserCallError::Bus {
+                        name: "CheckFailed".into(),
+                        message: error.to_string(),
+                    })
+            })
+            .await
+    };
     let mut format = ImageFormat::Png;
-    let mut bytes = client
-        .screenshot(session, ScreenshotRequest::default())
-        .await?;
+    let Some(mut bytes) = checked(ScreenshotRequest::default()).await? else {
+        return Ok(None);
+    };
     if bytes.len() > MAX_PICTURE_BYTES {
         format = ImageFormat::Jpeg;
-        bytes = client
-            .screenshot(
-                session,
-                ScreenshotRequest {
-                    format,
-                    quality: Some(JPEG_QUALITY),
-                    ..ScreenshotRequest::default()
-                },
-            )
-            .await?;
+        let Some(jpeg) = checked(ScreenshotRequest {
+            format,
+            quality: Some(JPEG_QUALITY),
+            ..ScreenshotRequest::default()
+        })
+        .await?
+        else {
+            return Ok(None);
+        };
+        bytes = jpeg;
     }
     if bytes.len() > MAX_PICTURE_BYTES {
         tracing::info!(
@@ -179,9 +193,6 @@ async fn take(
             bytes = bytes.len(),
             "[browser-capture] skipped: the picture is over 5 MB even as a JPEG"
         );
-        return Ok(None);
-    }
-    if !shows_no_password(client, session, after).await? {
         return Ok(None);
     }
     let taken_at_ms = std::time::SystemTime::now()

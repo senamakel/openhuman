@@ -19,7 +19,11 @@
 //! holds alone) and the capture is skipped when any shows one of those
 //! passwords (a field switched to show it, an echo of it), or when the page
 //! cannot be checked. A masked password field shows dots, not the password,
-//! and is captured. A fill or type is never followed by a capture.
+//! and is captured. A fill or type is never followed by a capture, and a
+//! session that typed a keychain password is not pictured again at all
+//! (`BrowserTool::capture`): a scan cannot see everything a page draws (a
+//! closed shadow root, say), so the scan only guards the sessions that never
+//! held one.
 
 use tinycomputer_bus::browser::{ImageFormat, ScreenshotRequest, SessionId};
 
@@ -63,9 +67,9 @@ pub(super) const PAGE_TEXT_JS: &str = r#"(() => {
       else if (el.isContentEditable && el.textContent) out.push(el.textContent);
     }
     for (const el of root.querySelectorAll('*')) if (el.shadowRoot) visit(el.shadowRoot);
-    for (const frame of root.querySelectorAll('iframe, frame')) {
+    for (const frame of root.querySelectorAll('iframe, frame, object, embed')) {
       let inner = null;
-      try { inner = frame.contentDocument; } catch (e) { inner = null; }
+      try { inner = frame.contentDocument || (frame.getSVGDocument && frame.getSVGDocument()); } catch (e) { inner = null; }
       visit(inner);
     }
   };

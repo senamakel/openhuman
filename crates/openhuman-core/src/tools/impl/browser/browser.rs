@@ -123,6 +123,9 @@ pub struct BrowserTool {
     pending: Mutex<Option<Pending>>,
     thread_key: StdMutex<Option<String>>,
     max_steps: usize,
+    /// Set once this tool typed a keychain password: from then on it takes
+    /// no picture at all (`capture`), whatever the page seems to show.
+    password_typed: std::sync::atomic::AtomicBool,
 }
 
 impl BrowserTool {
@@ -139,6 +142,7 @@ impl BrowserTool {
             pending: Mutex::new(None),
             thread_key: StdMutex::new(None),
             max_steps: max_steps.clamp(1, 100),
+            password_typed: std::sync::atomic::AtomicBool::new(false),
         }
     }
 
@@ -230,6 +234,20 @@ impl BrowserTool {
         })
     }
 
+    /// A picture of the page for the host's sinks, unless this tool typed a
+    /// keychain password: such a session is never pictured again, since no
+    /// scan of a page can prove a password is not drawn somewhere in it.
+    async fn capture(&self, id: &SessionId, after: &str) {
+        if self
+            .password_typed
+            .load(std::sync::atomic::Ordering::SeqCst)
+        {
+            tracing::debug!(after, "[browser-capture] skipped: this session typed a keychain password");
+            return;
+        }
+        capture::capture(&self.client, id, after).await;
+    }
+
     async fn close(&self) -> anyhow::Result<Value> {
         let thread_key = self.thread_key.lock().ok().and_then(|key| key.clone());
         // The last picture, taken while the session is still owned here, so a
@@ -246,7 +264,7 @@ impl BrowserTool {
             },
         };
         if let Some(id) = showing {
-            capture::capture(&self.client, &id, "close").await;
+            self.capture(&id, "close").await;
         }
         let mut held = self.session.lock().await;
         *self.bound_origin.lock().await = None;
@@ -439,7 +457,7 @@ impl BrowserTool {
                     .client
                     .navigate(&id, NavigateRequest::new(required(args, "url")?))
                     .await?;
-                capture::capture(&self.client, &id, "open").await;
+                self.capture(&id, "open").await;
                 Ok(serde_json::to_value(page)?)
             }
             "snapshot" => Ok(serde_json::to_value(
@@ -520,8 +538,11 @@ impl BrowserTool {
                     .to_owned();
                 let secret = keychain::substitute(&self.client, &id, &mut action).await?;
                 let done = self.client.perform(&id, action).await;
-                if done.is_ok() && secret.is_none() && capture::follows(&kind) {
-                    capture::capture(&self.client, &id, &kind).await;
+                if secret.is_some() {
+                    self.password_typed
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                } else if done.is_ok() && capture::follows(&kind) {
+                    self.capture(&id, &kind).await;
                 }
                 match secret {
                     None => Ok(serde_json::to_value(done?)?),

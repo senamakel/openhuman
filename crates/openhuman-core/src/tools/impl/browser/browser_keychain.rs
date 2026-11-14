@@ -42,11 +42,10 @@ const MAX_REMEMBERED: usize = 64;
 /// stays on the page: a later snapshot, page read or task step of any
 /// session would show what was typed into a text field, so every browser
 /// reply is masked against these, not only the fill's own.
-#[allow(clippy::type_complexity)]
-fn filled() -> &'static std::sync::Mutex<Vec<(std::time::Instant, Zeroizing<String>)>> {
-    static FILLED: std::sync::OnceLock<
-        std::sync::Mutex<Vec<(std::time::Instant, Zeroizing<String>)>>,
-    > = std::sync::OnceLock::new();
+type FilledPasswords = std::sync::Mutex<Vec<(std::time::Instant, Zeroizing<String>)>>;
+
+fn filled() -> &'static FilledPasswords {
+    static FILLED: std::sync::OnceLock<FilledPasswords> = std::sync::OnceLock::new();
     FILLED.get_or_init(|| std::sync::Mutex::new(Vec::new()))
 }
 

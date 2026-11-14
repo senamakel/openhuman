@@ -38,14 +38,15 @@ const REMEMBER_FILLED: Duration = Duration::from_secs(6 * 3600);
 /// The most filled passwords remembered at once.
 const MAX_REMEMBERED: usize = 64;
 
+/// When each remembered password was typed, and the password.
+type FilledList = Vec<(std::time::Instant, Zeroizing<String>)>;
+
 /// Passwords typed from the keychain lately, process-wide. A filled field
 /// stays on the page: a later snapshot, page read or task step of any
 /// session would show what was typed into a text field, so every browser
 /// reply is masked against these, not only the fill's own.
-fn filled() -> &'static std::sync::Mutex<Vec<(std::time::Instant, Zeroizing<String>)>> {
-    static FILLED: std::sync::OnceLock<
-        std::sync::Mutex<Vec<(std::time::Instant, Zeroizing<String>)>>,
-    > = std::sync::OnceLock::new();
+fn filled() -> &'static std::sync::Mutex<FilledList> {
+    static FILLED: std::sync::OnceLock<std::sync::Mutex<FilledList>> = std::sync::OnceLock::new();
     FILLED.get_or_init(|| std::sync::Mutex::new(Vec::new()))
 }
 

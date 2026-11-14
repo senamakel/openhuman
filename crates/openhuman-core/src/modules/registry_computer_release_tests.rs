@@ -6,7 +6,7 @@ fn tinycomputer_registry_matches_bus_contract_and_published_release() {
     assert_eq!(desktop.bus_name, tinycomputer_bus::names::INTERFACE);
     assert_eq!(desktop.object_path, tinycomputer_bus::names::OBJECT_PATH);
     assert_eq!(desktop.version, "0.16.1");
-    assert_eq!(tinycomputer_bus::CONTRACT_VERSION, (2, 29));
+    assert_eq!(tinycomputer_bus::CONTRACT_VERSION, (3, 1));
 
     let mut actual = desktop
         .assets

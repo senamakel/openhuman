@@ -9,6 +9,7 @@ fn session_entry(client: Arc<BrowserClient>, id: SessionId, last_used: Instant) 
         last_used,
         config_fingerprint,
         bound_origin: None,
+        password_typed: false,
     }
 }
 

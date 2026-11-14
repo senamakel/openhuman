@@ -180,6 +180,10 @@ impl BrowserTool {
             }
             if let Some(value) = sessions.get_mut(&key) {
                 value.last_used = now;
+                if value.password_typed {
+                    self.password_typed
+                        .store(true, std::sync::atomic::Ordering::SeqCst);
+                }
                 *held = Some(value.id.clone());
                 *bound = value.bound_origin.clone();
                 return Ok(value.id.clone());
@@ -201,6 +205,7 @@ impl BrowserTool {
                     last_used: now,
                     config_fingerprint,
                     bound_origin: requested_origin.clone(),
+                    password_typed: false,
                 },
             );
             *held = Some(id.clone());
@@ -232,6 +237,19 @@ impl BrowserTool {
                     .id
             }
         })
+    }
+
+    /// Marks this tool, and the pooled session it holds for its
+    /// conversation, as having typed a keychain password.
+    async fn mark_password_typed(&self) {
+        self.password_typed
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+        let thread_key = self.thread_key.lock().ok().and_then(|key| key.clone());
+        if let Some(key) = thread_key {
+            if let Some(entry) = thread_sessions().lock().await.get_mut(&key) {
+                entry.password_typed = true;
+            }
+        }
     }
 
     /// A picture of the page for the host's sinks, unless this tool typed a
@@ -540,11 +558,13 @@ impl BrowserTool {
                     .unwrap_or_default()
                     .to_owned();
                 let secret = keychain::substitute(&self.client, &id, &mut action).await?;
-                let done = self.client.perform(&id, action).await;
                 if secret.is_some() {
-                    self.password_typed
-                        .store(true, std::sync::atomic::Ordering::SeqCst);
-                } else if done.is_ok() && capture::follows(&kind) {
+                    // Before the password goes out: a call cancelled while
+                    // it is being typed still leaves the session unpictured.
+                    self.mark_password_typed().await;
+                }
+                let done = self.client.perform(&id, action).await;
+                if secret.is_none() && done.is_ok() && capture::follows(&kind) {
                     self.capture(&id, &kind).await;
                 }
                 match secret {
